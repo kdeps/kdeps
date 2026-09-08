@@ -31,7 +31,7 @@ import (
 func TestRequestPlan_NoLocalServer(t *testing.T) {
 	for _, backend := range []string{"", "file", "gguf"} {
 		l := &Loop{config: Config{Backend: backend}}
-		if got := requestPlan(l, "do something", false); got != nil {
+		if got := requestPlan(l, "do something", ""); got != nil {
 			t.Fatalf("backend %q: %v", backend, got)
 		}
 	}

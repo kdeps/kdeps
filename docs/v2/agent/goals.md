@@ -12,14 +12,29 @@ prompt -> decompose into tasks -> confirm -> [task 1] -> [task 2] -> ... -> answ
                                      ^ only the active task is in scope
 ```
 
+**Decomposing the prompt.** The planner is asked to break the request into its
+natural steps - one task per distinct action it names or implies, typically two
+to six. If the first attempt just returns the whole request restated as a single
+task, the loop retries once with an explicit "break this into at least two
+steps" instruction before accepting a one-task plan. A weak local model (for
+example the default `llama3.2:1b`) may still fail to produce a real breakdown;
+switch to a larger model or the router for better plans.
+
+**Skipping decomposition.** A short remark (32 characters or fewer) or any
+question under ~120 characters is treated as chat and drives a single-task goal
+without a planning call, so ordinary conversation costs nothing extra. A longer
+imperative one-liner - "clean up the logging package and wire it into startup" -
+is planned even without an explicit "then"/"and then" marker.
+
 **Confirming the plan.** Reaching the original prompt's goal can take several
 intermediate tasks, and a single decomposition call can misorder, omit, or
 invent a step. Once decomposition produces more than one task, an independent
 second LLM call reviews the candidate list against the original request and
 either approves it unchanged or returns a corrected list - the plan the loop
 actually runs is always the confirmed one. A single-task plan skips this
-(nothing to reorder), and a failed or unparsable confirmation falls back to
-the original candidate rather than blocking the turn.
+(nothing to reorder); a confirmation that tries to collapse a multi-step plan
+back to one task is ignored; and a failed or unparsable confirmation falls back
+to the original candidate rather than blocking the turn.
 
 **How a task is settled.** The model cannot finish a task by saying so in prose.
 It calls one of two tools and the code validates the id against the active task:

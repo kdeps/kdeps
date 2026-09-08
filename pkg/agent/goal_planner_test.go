@@ -17,6 +17,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -69,6 +70,8 @@ func TestLooksTrivial(t *testing.T) {
 		"fix the bug and then run the tests?",      // multi-step marker
 		"summarize this\nand also update the docs", // multi-line
 		"is this question long enough to be treated as a real request that spans well beyond the trivial length limit used for a single quick question?",
+		"clean up the logging package and wire it into the server startup", // long imperative one-liner, no marker
+		"refactor the auth middleware to use the new token store",          // ditto
 	}
 	for _, s := range notTrivial {
 		if looksTrivial(s) {
@@ -105,7 +108,11 @@ func TestConfirmPlan_ApprovesAsIs(t *testing.T) {
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return `{"tasks":["a","b"]}`, nil
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
 	got := confirmPlan(l, "do something", []string{"a", "b"})
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
@@ -120,7 +127,11 @@ func TestConfirmPlan_ReturnsCorrectedList(t *testing.T) {
 		gotActionID = wf.Metadata.TargetActionID
 		return `{"tasks":["a","missing step","b"]}`, nil
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
 	got := confirmPlan(l, "do something", []string{"a", "b"})
 	if len(got) != 3 || got[1] != "missing step" {
@@ -136,7 +147,11 @@ func TestConfirmPlan_FallsBackOnEngineError(t *testing.T) {
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return nil, errors.New("boom")
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
 	candidate := []string{"a", "b"}
 	got := confirmPlan(l, "do something", candidate)
@@ -150,7 +165,11 @@ func TestConfirmPlan_FallsBackOnUnparsableReply(t *testing.T) {
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return "not json at all", nil
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
 	candidate := []string{"a", "b"}
 	got := confirmPlan(l, "do something", candidate)
@@ -168,9 +187,17 @@ func TestPlanGoal_SkipsConfirmationForSingleTask(t *testing.T) {
 		calls++
 		return `{"tasks":["only step"]}`, nil
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
-	g := planGoal(context.Background(), l, "first do step one; then do step two; then verify everything works")
+	g := planGoal(
+		context.Background(),
+		l,
+		"first do step one; then do step two; then verify everything works",
+	)
 	if len(g.Tasks) != 1 {
 		t.Fatalf("expected a single task, got %+v", g.Tasks)
 	}
@@ -191,13 +218,22 @@ func TestPlanGoal_ConfirmsMultiTaskPlan(t *testing.T) {
 		}
 		return `{"tasks":["step one","step two"]}`, nil
 	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
 
-	g := planGoal(context.Background(), l, "first do step one; then do step two; then verify everything works")
+	g := planGoal(
+		context.Background(),
+		l,
+		"first do step one; then do step two; then verify everything works",
+	)
 	if len(g.Tasks) != 3 {
 		t.Fatalf("expected the confirmed 3-task plan, got %+v", g.Tasks)
 	}
-	if len(actionIDs) != 2 || actionIDs[0] != goalPlanActionID || actionIDs[1] != goalConfirmActionID {
+	if len(actionIDs) != 2 || actionIDs[0] != goalPlanActionID ||
+		actionIDs[1] != goalConfirmActionID {
 		t.Fatalf("expected [plan, confirm] action id order, got %v", actionIDs)
 	}
 }
@@ -229,5 +265,108 @@ func TestFormatLoopResult_MessageMap(t *testing.T) {
 	want := `{"tasks":["a","b"]}`
 	if got != want {
 		t.Fatalf("message map: got %q, want %q", got, want)
+	}
+}
+
+func TestIsEchoPlan(t *testing.T) {
+	t.Parallel()
+	req := "refactor the auth middleware and add tests for the new token path"
+	cases := []struct {
+		name  string
+		tasks []string
+		want  bool
+	}{
+		{"exact restatement", []string{req}, true},
+		{
+			"restatement reworded lightly",
+			[]string{"Refactor the auth middleware and add tests for the token path"},
+			true,
+		},
+		{
+			"genuine decomposition, one step shown",
+			[]string{"Extract the token check into its own function"},
+			false,
+		},
+		{"multi-task never an echo", []string{req, "and more"}, false},
+		{"empty", nil, false},
+		{"tiny task", []string{"do it"}, false},
+	}
+	for _, c := range cases {
+		if got := isEchoPlan(c.tasks, req); got != c.want {
+			t.Errorf("%s: isEchoPlan = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// planGoal retries with a force-split hint when the first decomposition just
+// echoes the request, and adopts the split if it has more than one task.
+func TestPlanGoal_RetriesOnEchoPlan(t *testing.T) {
+	req := "clean up the logging package and wire it into the server startup"
+	var systems []string
+	calls := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		calls++
+		systems = append(systems, wf.Resources[0].Chat.Scenario[0].Prompt)
+		if calls == 1 {
+			// First pass: echoes the request as one task.
+			return `{"tasks":["Clean up the logging package and wire it into the server startup"]}`, nil
+		}
+		// Force-split retry: a real breakdown.
+		return `{"tasks":["Simplify the logging package API","Wire the logger into server startup"]}`, nil
+	})
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
+
+	g := planGoal(context.Background(), l, req)
+	if len(g.Tasks) != 2 {
+		t.Fatalf("expected the 2-task split to be adopted, got %+v", g.Tasks)
+	}
+	if calls < 2 {
+		t.Fatalf("expected a force-split retry, got %d calls", calls)
+	}
+	if !strings.Contains(systems[1], "single task that restated") {
+		t.Fatalf("retry system prompt missing the force-split hint: %q", systems[1])
+	}
+}
+
+// planGoal keeps the echo task when the retry still fails to split.
+func TestPlanGoal_KeepsEchoWhenRetryDoesNotSplit(t *testing.T) {
+	req := "update the readme and the changelog for the release"
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return `{"tasks":["Update the readme and the changelog for the release"]}`, nil
+	})
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
+
+	g := planGoal(context.Background(), l, req)
+	if len(g.Tasks) != 1 {
+		t.Fatalf("expected the single task to stand, got %+v", g.Tasks)
+	}
+}
+
+// confirmPlan must not let a review pass collapse a multi-task plan to one task.
+func TestConfirmPlan_RejectsCollapseToSingleTask(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return `{"tasks":["Do the whole thing"]}`, nil
+	})
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Backend: "openai"},
+	}
+
+	candidate := []string{"step one", "step two", "step three"}
+	got := confirmPlan(l, "do a multi-step thing", candidate)
+	if len(got) != 3 {
+		t.Fatalf("expected the 3-task candidate kept, got %v", got)
 	}
 }
