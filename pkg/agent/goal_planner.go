@@ -42,17 +42,22 @@ const goalPlanActionID = "agent_loop_plan"
 // and just multiply per-task budgets.
 const maxPlanTasks = 12
 
-const goalPlanSystemPrompt = `You decompose a user request into an ordered task list.
+const goalPlanSystemPrompt = `You break a user request into an ordered list of concrete steps.
 
 Reply with ONLY a JSON object, no prose and no code fence:
-{"tasks":["first concrete step","second concrete step"]}
+{"tasks":["first concrete step","second concrete step","third concrete step"]}
 
 Rules:
-- Each task is one concrete, verifiable step stated as an imperative.
-- Order them so each can start once the previous is done.
-- Emit the FEWEST tasks that actually complete the request. A simple question is ONE task.
-- Never include meta-steps like "understand the request" or "plan the work".
-- Maximum 12 tasks.`
+- Each task is one concrete, verifiable action stated as an imperative ("Read X", "Add Y", "Run the tests").
+- Break the request into its natural steps: one task per distinct action it names or implies. A typical request is 2 to 6 tasks.
+- Do NOT return the whole request as a single task, and do NOT restate it - decompose it.
+- Order the tasks so each can start once the previous is done.
+- Never pad with meta-steps like "understand the request", "plan the work", or "review the result".
+- Maximum 12 tasks.
+
+Example
+Request: Add a --dry-run flag to the sync command and cover it with a test
+{"tasks":["Add a --dry-run boolean flag to the sync command definition","Guard the write path so --dry-run logs the planned actions instead of applying them","Add a unit test that runs sync with --dry-run and asserts nothing was written","Run the test suite"]}`
 
 // planGoal decomposes input into a Goal. It never returns nil and never returns
 // an error: a failed or unparsable decomposition degrades to a single task
@@ -69,10 +74,18 @@ func planGoal(ctx context.Context, l *Loop, input string) *Goal {
 		return NewGoal(input, nil)
 	}
 
-	tasks := requestPlan(l, input, false)
+	tasks := requestPlan(l, input, "")
 	if len(tasks) == 0 {
 		// One repair attempt with a stricter instruction before giving up.
-		tasks = requestPlan(l, input, true)
+		tasks = requestPlan(l, input, planRepairJSONHint)
+	}
+	// A lone task that just restates the request is a non-decomposition: the
+	// planner produced nothing to advance through. Try once more with an
+	// explicit "at least two steps" instruction before accepting it.
+	if isEchoPlan(tasks, input) {
+		if split := requestPlan(l, input, planForceSplitHint); len(split) > 1 {
+			tasks = split
+		}
 	}
 	// Reaching the original request from start to finish can take several
 	// intermediate tasks, and a single decomposition call can misorder,
@@ -98,9 +111,23 @@ func localModelNotServed(l *Loop) bool {
 	return backend == "" || backend == "file" || backend == "gguf"
 }
 
+// planRepairJSONHint is appended after an unparsable reply; planForceSplitHint
+// after a reply that returned the whole request as one task.
+const (
+	planRepairJSONHint = "Your previous reply was not valid JSON. Reply with the JSON object ONLY."
+	planForceSplitHint = "Your previous plan was a single task that restated the request. " +
+		"Break it into at least two concrete, ordered steps."
+)
+
+// echoWordOverlap is the fraction of a lone task's words that must also appear
+// in the request for the task to count as a restatement rather than a step.
+const echoWordOverlap = 0.8
+
 // requestPlan performs a single decomposition call and parses the task list.
-// Returns nil when the call fails or the reply cannot be parsed.
-func requestPlan(l *Loop, input string, repair bool) []string {
+// extraHint, when non-empty, is appended to the system prompt (used for the
+// repair and force-split retries). Returns nil when the call fails or the reply
+// cannot be parsed.
+func requestPlan(l *Loop, input, extraHint string) []string {
 	// Local models must be served before the planner can call them. If the
 	// first-use download was skipped/declined, degrade to a single-task goal
 	// instead of a failed agent_loop_plan with {error: ...}.
@@ -108,8 +135,8 @@ func requestPlan(l *Loop, input string, repair bool) []string {
 		return nil
 	}
 	system := goalPlanSystemPrompt
-	if repair {
-		system += "\n\nYour previous reply was not valid JSON. Reply with the JSON object ONLY."
+	if extraHint != "" {
+		system += "\n\n" + extraHint
 	}
 	chatCfg := &domain.ChatConfig{
 		Model:   l.config.Model,
@@ -193,7 +220,49 @@ func confirmPlan(l *Loop, input string, candidate []string) []string {
 	if len(confirmed) == 0 {
 		return candidate
 	}
+	// A review pass that collapses a multi-step plan down to a single task has
+	// almost certainly misread its instructions (it was asked to correct the
+	// list, not summarize the request). Keep the candidate.
+	if len(confirmed) == 1 && len(candidate) > 1 {
+		return candidate
+	}
 	return confirmed
+}
+
+// isEchoPlan reports whether tasks is a single "step" that merely restates the
+// request rather than decomposing it -- the signal that planning produced
+// nothing to advance through.
+func isEchoPlan(tasks []string, input string) bool {
+	if len(tasks) != 1 {
+		return false
+	}
+	task := wordSet(tasks[0])
+	req := wordSet(input)
+	if len(task) < 3 || len(req) == 0 {
+		return false
+	}
+	shared := 0
+	for w := range task {
+		if req[w] {
+			shared++
+		}
+	}
+	// The lone task carries almost nothing the request did not already say.
+	return float64(shared)/float64(len(task)) >= echoWordOverlap
+}
+
+// wordSet lowercases s and returns the set of its alphanumeric word tokens.
+func wordSet(s string) map[string]bool {
+	isWordChar := func(r rune) bool {
+		return ('a' <= r && r <= 'z') || ('0' <= r && r <= '9')
+	}
+	out := map[string]bool{}
+	for _, f := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !isWordChar(r)
+	}) {
+		out[f] = true
+	}
+	return out
 }
 
 // parsePlanTasks extracts the task list from a model reply, tolerating a code
@@ -234,9 +303,15 @@ func extractJSONObject(s string) string {
 	return s[start : end+1]
 }
 
-// trivialPromptMaxLen is the length under which a question is treated as chat
-// rather than a goal worth decomposing.
+// trivialPromptMaxLen caps how long a *question* can be and still be treated as
+// chat rather than a goal worth decomposing.
 const trivialPromptMaxLen = 120
+
+// trivialShortLen caps how long a non-question one-liner can be and still skip
+// decomposition. A longer imperative ("clean up X and wire it into Y") gets a
+// planning attempt even without an explicit multi-step marker -- length alone is
+// not proof a request is a single step.
+const trivialShortLen = 32
 
 // multiStepMarkers signal a request that spans several steps even when short.
 //
@@ -255,7 +330,15 @@ var multiStepMarkers = []string{
 // GoalTask that task_complete/task_fail apply to exactly as they would a
 // decomposed one.
 func looksTrivial(input string) bool {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return true
+	}
 	if len(input) > trivialPromptMaxLen {
+		return false
+	}
+	// Multi-line input is a spec, not a one-liner.
+	if strings.Contains(input, "\n") {
 		return false
 	}
 	lower := strings.ToLower(input)
@@ -264,6 +347,7 @@ func looksTrivial(input string) bool {
 			return false
 		}
 	}
-	// Multi-line input is a spec, not a one-liner.
-	return strings.Count(strings.TrimSpace(input), "\n") == 0
+	// A very short remark, or any question under the length cap, has nothing to
+	// decompose. A longer imperative one-liner still gets a planning attempt.
+	return len(input) <= trivialShortLen || strings.HasSuffix(input, "?")
 }

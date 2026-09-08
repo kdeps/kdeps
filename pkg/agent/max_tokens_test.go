@@ -254,7 +254,7 @@ func TestRequestPlan_MaxTokens_LocalBackend(t *testing.T) {
 		Model: "test-gguf", Backend: executorLLM.BackendGGUF, BaseURL: "http://127.0.0.1:9",
 	}}
 
-	requestPlan(l, "do something", false)
+	requestPlan(l, "do something", "")
 	require.NotNil(t, captured, "plan-request workflow was not captured")
 	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
 	assert.Equal(t, 16384, *captured.Resources[0].Chat.MaxTokens)
@@ -271,7 +271,7 @@ func TestRequestPlan_MaxTokens_CloudBackend(t *testing.T) {
 		Model: "gpt-5.5", Backend: "openai",
 	}}
 
-	requestPlan(l, "do something", false)
+	requestPlan(l, "do something", "")
 	require.NotNil(t, captured, "plan-request workflow was not captured")
 	assert.Nil(t, captured.Resources[0].Chat.MaxTokens)
 }
