@@ -113,6 +113,18 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 
 Set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMAFILE_CTX_SIZE` (file) environment variables. In resource YAML, `contextSize:` on a `chat:` block overrides per call; for Ollama only, `ollamaNumCtx:` is also accepted and takes precedence.
 
+### In-turn tool history
+
+A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). The transcript of those calls and their results is re-sent to the model on every round, so a long tool loop can otherwise grow the request without bound - `/compact` and the auto-compaction that runs between turns do not fire mid-turn.
+
+kdeps caps the in-flight transcript at roughly 24K tokens. Past that, the oldest complete tool round-trips are dropped (the leading conversation and this turn's question are always kept), and long tool-call arguments on the older kept steps are replaced with a `[N chars omitted]` placeholder. When this happens you see:
+
+```
+[context] trimmed 3 old tool step(s) to fit the window
+```
+
+The model keeps the most recent steps in full and a note that earlier ones were dropped. Tool *results* are separately capped at 16 KB each before they ever enter the transcript.
+
 ## Sessions
 
 Every conversation is saved as a JSONL file under `~/.kdeps/sessions/`. The session ID is shown at the start of each run. Resume one with:
