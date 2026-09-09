@@ -149,6 +149,10 @@ func TestPrintConvergenceAndCmdGoal(t *testing.T) {
 	_ = r.cmdGoal([]string{"new"})
 	_ = r.cmdGoal([]string{"bogus"})
 	_ = r.cmdGoal([]string{"new", "do", "work"})
+	r.cmdRefine(nil)
+	r.cmdRefine([]string{"on"})
+	r.cmdRefine([]string{"off"})
+	r.cmdRefine([]string{"bogus"})
 	_ = wr.Close()
 	os.Stdout = old
 	_, _ = io.ReadAll(rd)

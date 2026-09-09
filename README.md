@@ -118,7 +118,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 ### Agent loop mode
 
-An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
+An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D). Each prompt is rewritten for clarity before the turn (`/refine off` to disable).
 
 ```bash
 kdeps                            # bare agent loop REPL

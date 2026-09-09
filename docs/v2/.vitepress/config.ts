@@ -122,6 +122,7 @@ export default defineConfig({
         {
           text: 'Control',
           items: [
+            { text: 'Prompt refinement', link: '/agent/refine' },
             { text: 'Goal-directed execution', link: '/agent/goals' },
             { text: 'Judge panel', link: '/agent/judges' },
             { text: 'Approval tokens', link: '/agent/approvals' },

@@ -523,3 +523,27 @@ func TestToolTuning_GoalAndJudgesOffByDefault(t *testing.T) {
 		t.Fatal("a persisted /goal off must restore")
 	}
 }
+
+// Prompt refinement is ON by default; a pre-feature snapshot leaves it alone,
+// an explicit "/refine off" is restored.
+func TestToolTuning_RefineOnByDefault(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{PromptRefine: true}}}
+
+	// A snapshot from before RefineConfigured existed must not disable refine.
+	r.applyToolTuning(ToolTuning{ToolsConfigured: true})
+	if !r.loop.PromptRefineEnabled() {
+		t.Fatal("a pre-RefineConfigured snapshot must not disable refinement")
+	}
+
+	// A persisted "/refine off" is restored.
+	r.applyToolTuning(ToolTuning{RefineConfigured: true, RefineOff: true})
+	if r.loop.PromptRefineEnabled() {
+		t.Fatal("a persisted /refine off must restore")
+	}
+
+	// ...and "/refine on".
+	r.applyToolTuning(ToolTuning{RefineConfigured: true, RefineOff: false})
+	if !r.loop.PromptRefineEnabled() {
+		t.Fatal("a persisted /refine on must restore")
+	}
+}

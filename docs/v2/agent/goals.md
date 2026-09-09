@@ -12,6 +12,9 @@ always run the plain round loop.
 The loop walks a cursor through the list that only ever moves forward, so a model
 cannot circle back over finished work or stall on a task until a budget expires.
 
+When [prompt refinement](/agent/refine) is on (the default), it runs first and
+the task list is built from the refined prompt, not the raw one.
+
 ```text
 prompt -> decompose into tasks -> confirm -> [task 1] -> [task 2] -> ... -> answer
                                      ^ only the active task is in scope

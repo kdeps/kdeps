@@ -84,6 +84,13 @@ type ToolTuning struct {
 	// ContextSize persists the /context <size> choice. 0 means never
 	// configured.
 	ContextSize int
+	// RefineOff persists the /refine off|on choice; RefineConfigured is its
+	// "was this ever set" sentinel -- without it an old snapshot (RefineOff
+	// unmarshals to false) restores as SetPromptRefine(!false) == on, which
+	// is the default anyway, but the sentinel keeps the pattern uniform and
+	// lets a future default flip.
+	RefineOff        bool
+	RefineConfigured bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -126,6 +133,8 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		PermissionMode:       string(c.PermissionMode),
 		ThinkingMode:         thinkingMode,
 		ContextSize:          r.contextSize,
+		RefineOff:            !c.PromptRefine,
+		RefineConfigured:     true,
 	}
 }
 
@@ -206,6 +215,9 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	}
 	if t.GoalConfigured {
 		r.loop.SetGoalEnforcement(!t.GoalEnforcementOff)
+	}
+	if t.RefineConfigured {
+		r.loop.SetPromptRefine(!t.RefineOff)
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
