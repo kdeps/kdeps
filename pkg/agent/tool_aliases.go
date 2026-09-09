@@ -238,6 +238,7 @@ var toolParamAliases = map[string]map[string]string{
 		toolParamPath: toolParamFilePath, "file": toolParamFilePath, "filepath": toolParamFilePath,
 		"old": "old_string", "old_str": "old_string", "search": "old_string", "find": "old_string",
 		"new": "new_string", "new_str": "new_string", "replace": "new_string", "replacement": "new_string",
+		"all": "replace_all", "global": "replace_all", "replaceall": "replace_all",
 	},
 	"list_files": {
 		"dir": toolParamPath, "directory": toolParamPath, "folder": toolParamPath, toolParamFilePath: toolParamPath,

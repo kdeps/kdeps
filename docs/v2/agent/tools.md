@@ -66,7 +66,7 @@ Always available. No environment variables required.
 |------|-------------|
 | `read_file` | Read file contents (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | Apply a unified diff to a file |
+| `edit_file` | Replace a passage in a file (`old_string` -> `new_string`) |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
@@ -74,6 +74,16 @@ Always available. No environment variables required.
 `read_file`, `tail_file`, and `md5_file` treat `file_path` as optional: omit it and the tool operates on the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file` and `edit_file` always require an explicit path.
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
+
+### edit_file whitespace tolerance
+
+`edit_file` finds `old_string` by exact match first. If that fails it retries with progressively looser matching, so the model does not have to reproduce the file's whitespace byte-for-byte:
+
+1. **exact** - literal substring match.
+2. **trailing-whitespace** - ignores trailing spaces/tabs and CRLF vs LF per line; also covers a missing or extra final newline.
+3. **indentation** - ignores leading whitespace per line (wrong indent width, tabs vs spaces, a block pasted flush-left). `new_string` is re-indented to the file's actual level before it is written.
+
+The match must still land on exactly one passage; pass `replace_all: true` to change every occurrence. If nothing matches, the error names the closest region in the file with line numbers so the model can copy the real text and retry. The line ending style of the file is preserved on write.
 
 ## Web and search
 
