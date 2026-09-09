@@ -281,3 +281,155 @@ func TestEditFile_MultilineReplacementReindented(t *testing.T) {
 	assert.Equal(t,
 		"func g() {\n    first()\n    second()\n    done()\n}\n", string(got))
 }
+
+// --- line-anchored mode (resolveLineEdit) ---
+
+func TestResolveLineEdit_SingleLine(t *testing.T) {
+	res, err := resolveLineEdit("a\nb\nc\n", 2, 2, "B", "")
+	require.NoError(t, err)
+	assert.Equal(t, "a\nB\nc\n", res.newContent)
+	assert.Equal(t, "b", res.matchedText)
+	assert.Contains(t, res.note, "lines 2-2")
+}
+
+func TestResolveLineEdit_Range(t *testing.T) {
+	res, err := resolveLineEdit("one\ntwo\nthree\nfour\n", 2, 3, "TWO\nTHREE\nEXTRA", "")
+	require.NoError(t, err)
+	assert.Equal(t, "one\nTWO\nTHREE\nEXTRA\nfour\n", res.newContent)
+}
+
+func TestResolveLineEdit_TrailingNewlineIrrelevant(t *testing.T) {
+	with, err1 := resolveLineEdit("a\nb\nc\n", 2, 2, "X\n", "")
+	without, err2 := resolveLineEdit("a\nb\nc\n", 2, 2, "X", "")
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	assert.Equal(t, without.newContent, with.newContent)
+	assert.Equal(t, "a\nX\nc\n", with.newContent)
+}
+
+func TestResolveLineEdit_CRLFPreserved(t *testing.T) {
+	res, err := resolveLineEdit("one\r\ntwo\r\nthree\r\n", 2, 2, "TWO", "")
+	require.NoError(t, err)
+	assert.Equal(t, "one\r\nTWO\r\nthree\r\n", res.newContent)
+}
+
+func TestResolveLineEdit_LastLineNoTrailingNewline(t *testing.T) {
+	res, err := resolveLineEdit("a\nb\nc", 3, 3, "C", "")
+	require.NoError(t, err)
+	assert.Equal(t, "a\nb\nC", res.newContent)
+}
+
+func TestResolveLineEdit_OutOfRange(t *testing.T) {
+	_, err := resolveLineEdit("a\nb\n", 5, 5, "x", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "file has 2 line(s)")
+
+	_, err = resolveLineEdit("a\nb\n", 2, 1, "x", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "before start_line")
+}
+
+func TestResolveLineEdit_EndClampedToFile(t *testing.T) {
+	res, err := resolveLineEdit("a\nb\nc\n", 2, 99, "X", "")
+	require.NoError(t, err)
+	assert.Equal(t, "a\nX\n", res.newContent)
+}
+
+func TestResolveLineEdit_Guard(t *testing.T) {
+	// Guard matches despite different indentation/spacing.
+	res, err := resolveLineEdit("if x {\n        return 1\n}\n", 2, 2, "return 42", "return 1")
+	require.NoError(t, err)
+	assert.Contains(t, res.newContent, "return 42")
+
+	// Guard mismatch -> error naming the current numbered content.
+	_, err = resolveLineEdit("if x {\n        return 1\n}\n", 2, 2, "return 42", "return 2")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "lines 2-2")
+	assert.Contains(t, err.Error(), "2\t        return 1")
+}
+
+func TestResolveLineEdit_ReindentFlushLeft(t *testing.T) {
+	// Target indented, new_string flush-left -> reindented to match.
+	res, err := resolveLineEdit("func f() {\n    a()\n    b()\n}\n", 2, 3, "x()\ny()", "")
+	require.NoError(t, err)
+	assert.Equal(t, "func f() {\n    x()\n    y()\n}\n", res.newContent)
+}
+
+func TestResolveLineEdit_NoReindentWhenAlreadyIndented(t *testing.T) {
+	res, err := resolveLineEdit("func f() {\n    a()\n}\n", 2, 2, "        deep()", "")
+	require.NoError(t, err)
+	assert.Equal(t, "func f() {\n        deep()\n}\n", res.newContent)
+}
+
+// --- edit_file line mode end-to-end ---
+
+func TestEditFile_LineMode(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "m.txt")
+	require.NoError(t, os.WriteFile(f, []byte("alpha\nbeta\ngamma\n"), 0o600))
+	tool := editFileTool(t)
+	res, err := tool.Execute(map[string]any{
+		"file_path":  f,
+		"start_line": float64(2),
+		"end_line":   float64(2),
+		"new_string": "BETA",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, res, "lines 2-2")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "alpha\nBETA\ngamma\n", string(got))
+}
+
+func TestEditFile_LineMode_StartOnly(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "s.txt")
+	require.NoError(t, os.WriteFile(f, []byte("a\nb\nc\n"), 0o600))
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"file_path": f, "start_line": float64(1), "new_string": "A",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "A\nb\nc\n", string(got))
+}
+
+func TestEditFile_LineMode_GuardMismatch(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "g.txt")
+	require.NoError(t, os.WriteFile(f, []byte("a\nb\nc\n"), 0o600))
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"file_path": f, "start_line": float64(2), "end_line": float64(2),
+		"old_string": "not here", "new_string": "B",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not in lines 2-2")
+}
+
+func TestEditFile_LineMode_StringArgsCoerced(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "c.txt")
+	require.NoError(t, os.WriteFile(f, []byte("x\ny\nz\n"), 0o600))
+	tool := editFileTool(t)
+	// A fenced/prompt protocol may quote the numbers.
+	args := map[string]any{"file_path": f, "start_line": "2", "new_string": "Y"}
+	coerceToolArgTypes(tool.Parameters, args)
+	_, err := tool.Execute(args)
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "x\nY\nz\n", string(got))
+}
+
+func TestEditFile_MissingNewString(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "n.txt")
+	require.NoError(t, os.WriteFile(f, []byte("a\n"), 0o600))
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{"file_path": f, "start_line": float64(1)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "new_string is required")
+}
+
+func TestEditFile_StringModeStillNeedsOldString(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "o.txt")
+	require.NoError(t, os.WriteFile(f, []byte("a\n"), 0o600))
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{"file_path": f, "new_string": "b"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "old_string is required")
+}

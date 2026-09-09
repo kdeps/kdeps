@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -226,6 +227,82 @@ func matchEOLStyle(s, fileContent string) string {
 		return s
 	}
 	return strings.ReplaceAll(s, "\n", "\r\n")
+}
+
+// resolveLineEdit replaces the 1-based inclusive line range [startLine, endLine]
+// of content with newStr. When guard is non-empty it must still be present in
+// that range (whitespace-lenient) or the edit is refused with the range's
+// current content. This is the reliable path: the model reads read_file's
+// numbered output and points at line numbers instead of reproducing text.
+func resolveLineEdit(content string, startLine, endLine int, newStr, guard string) (editResult, error) {
+	lines, offsets := splitLinesOffsets(content)
+	total := len(lines)
+	trailingNewline := total > 0 && lines[total-1] == ""
+	if trailingNewline {
+		total-- // the split's trailing "" is not a real line
+	}
+	if startLine < 1 || startLine > total {
+		return editResult{}, fmt.Errorf(
+			"start_line %d out of range: file has %d line(s)", startLine, total)
+	}
+	if endLine < startLine {
+		return editResult{}, fmt.Errorf(
+			"end_line %d is before start_line %d", endLine, startLine)
+	}
+	if endLine > total {
+		endLine = total
+	}
+
+	start := offsets[startLine-1]
+	var end int
+	if endLine == total && !trailingNewline {
+		end = len(content) // last line, no terminator to keep
+	} else {
+		end = offsets[endLine] - 1 // the '\n' after the last replaced line
+		if end-1 >= start && content[end-1] == '\r' {
+			end-- // and its preceding '\r' on a CRLF file
+		}
+	}
+	matchedText := content[start:end]
+
+	if guard != "" && !looseContains(matchedText, guard) {
+		return editResult{}, fmt.Errorf(
+			"old_string is not in lines %d-%d; they currently hold:\n%s",
+			startLine, endLine, numberLines(matchedText, startLine))
+	}
+
+	repl := strings.TrimSuffix(strings.TrimSuffix(newStr, "\n"), "\r")
+	if firstLineIndent(repl) == "" && firstLineIndent(matchedText) != "" {
+		repl = reindentReplacement(repl, "x", matchedText)
+	}
+	repl = matchEOLStyle(repl, content)
+
+	newContent := content[:start] + repl + content[end:]
+	if newContent == content {
+		return editResult{}, errors.New("replacement leaves the file unchanged")
+	}
+	return editResult{
+		newContent:  newContent,
+		matchedText: matchedText,
+		replacement: repl,
+		note:        fmt.Sprintf("; lines %d-%d", startLine, endLine),
+	}, nil
+}
+
+// looseContains reports whether needle appears in haystack once both are
+// whitespace-collapsed (indent width, tabs vs spaces, trailing spaces ignored).
+func looseContains(haystack, needle string) bool {
+	collapse := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	return strings.Contains(collapse(haystack), collapse(needle))
+}
+
+// numberLines renders text as read_file does: "<n>\t<line>", starting at from.
+func numberLines(text string, from int) string {
+	var b strings.Builder
+	for i, ln := range strings.Split(text, "\n") {
+		fmt.Fprintf(&b, "%d\t%s\n", from+i, ln)
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // spliceMatches replaces every span (which must be sorted by start and

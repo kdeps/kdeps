@@ -66,7 +66,7 @@ Always available. No environment variables required.
 |------|-------------|
 | `read_file` | Read file contents (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | Replace a passage in a file (`old_string` -> `new_string`) |
+| `edit_file` | Replace part of a file - by line range (`start_line`/`end_line`) or by `old_string` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
@@ -75,15 +75,34 @@ Always available. No environment variables required.
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
-### edit_file whitespace tolerance
+### edit_file - two ways to point at the edit
 
-`edit_file` finds `old_string` by exact match first. If that fails it retries with progressively looser matching, so the model does not have to reproduce the file's whitespace byte-for-byte:
+**Line mode (preferred).** `read_file` prints every line with its number
+(`42⇥code`). Pass `start_line` and `end_line` (1-based, inclusive) plus
+`new_string` and exactly those lines are replaced - no need to reproduce the
+old text at all. Optionally pass `old_string` as a guard: if those lines no
+longer contain it (whitespace-insensitive), the edit is refused and the error
+shows the range's current numbered content so the model can re-read and retry.
+`new_string` with or without a trailing newline works; if it is flush-left and
+the target lines are indented, it is re-indented to match.
+
+```text
+start_line: 2, end_line: 3, new_string: "..."   -> lines 2-3 replaced
+start_line: 5                                    -> line 5 replaced (end_line defaults to start_line)
+```
+
+**String mode.** Omit the line numbers and pass `old_string` + `new_string`;
+the tool locates `old_string`, trying progressively looser matching so the
+model does not have to reproduce whitespace byte-for-byte:
 
 1. **exact** - literal substring match.
 2. **trailing-whitespace** - ignores trailing spaces/tabs and CRLF vs LF per line; also covers a missing or extra final newline.
-3. **indentation** - ignores leading whitespace per line (wrong indent width, tabs vs spaces, a block pasted flush-left). `new_string` is re-indented to the file's actual level before it is written.
+3. **indentation** - ignores leading whitespace per line (wrong indent width, tabs vs spaces, a block pasted flush-left). `new_string` is re-indented to the file's actual level.
 
-The match must still land on exactly one passage; pass `replace_all: true` to change every occurrence. If nothing matches, the error names the closest region in the file with line numbers so the model can copy the real text and retry. The line ending style of the file is preserved on write.
+The match must land on exactly one passage; pass `replace_all: true` to change
+every occurrence. If nothing matches, the error names the closest region in the
+file with line numbers. Either way, the file's line-ending style is preserved on
+write.
 
 ## Web and search
 

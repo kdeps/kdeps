@@ -604,10 +604,10 @@ func registerWriteFile(reg *kdepstools.Registry) {
 func registerEditFile(reg *kdepstools.Registry) {
 	tool := &kdepstools.Tool{
 		Name:         toolNameEditFile,
-		Description:  "Replace a passage in a file. Reads the file, finds old_string, and replaces it with new_string. Prefer copying old_string verbatim from read_file, but exact whitespace is not required: if a byte-for-byte match fails, the tool retries ignoring trailing whitespace / line endings, then ignoring indentation, and reindents new_string to match the file. Use for targeted edits without resending the whole file. Requires an absolute path. old_string must identify a single passage unless replace_all is set.",
+		Description:  "Replace part of a file. Most reliable: pass start_line and end_line (1-based, from read_file's numbered output) plus new_string, and exactly those lines are replaced; optionally pass old_string as a check that the range still holds the text you expect. Without line numbers, pass old_string + new_string and the tool finds it (whitespace and indentation matched loosely). Absolute path required.",
 		Category:     "code",
 		OutputFormat: "color diff of the change",
-		Constraints:  "old_string should be copied from the file but need not match whitespace exactly; must identify exactly one passage unless replace_all=true; read the file before editing",
+		Constraints:  "prefer start_line/end_line from read_file; old_string need not match whitespace exactly and must be unique unless replace_all=true; read the file before editing",
 		SeeAlso:      "write_file, read_file",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
@@ -615,10 +615,20 @@ func registerEditFile(reg *kdepstools.Registry) {
 				Description: "Absolute path to the file to edit",
 				Required:    true,
 			},
+			"start_line": {
+				Type:        toolParamNumber,
+				Description: "1-based first line to replace (from read_file's numbered output). When set, line mode is used and old_string is only a guard.",
+				Required:    false,
+			},
+			"end_line": {
+				Type:        toolParamNumber,
+				Description: "1-based last line to replace, inclusive. Defaults to start_line.",
+				Required:    false,
+			},
 			"old_string": {
 				Type:        toolParamString,
-				Description: "The text to replace. Copy it from the file; whitespace and line endings are matched loosely if an exact match is not found.",
-				Required:    true,
+				Description: "Text to replace (string mode) or expect in the line range (guard, line mode). Whitespace/line endings matched loosely.",
+				Required:    false,
 			},
 			"new_string": {
 				Type:        toolParamString,
@@ -627,7 +637,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 			},
 			"replace_all": {
 				Type:        toolParamBoolean,
-				Description: "Replace every occurrence instead of requiring old_string to be unique (default false)",
+				Description: "String mode only: replace every occurrence instead of requiring old_string to be unique (default false)",
 				Required:    false,
 			},
 		},
@@ -640,22 +650,12 @@ func registerEditFile(reg *kdepstools.Registry) {
 		if err = validateWorkspaceBoundary(filePath); err != nil {
 			return "", fmt.Errorf("edit_file: %w", err)
 		}
-		oldStr, _ := args["old_string"].(string)
-		newStr, _ := args["new_string"].(string)
-		replaceAll, _ := args["replace_all"].(bool)
-		if oldStr == "" {
-			return "", errors.New("edit_file: old_string is required")
-		}
-		if oldStr == newStr {
-			return "", errors.New("edit_file: old_string and new_string are identical")
-		}
-
 		data, err := afero.ReadFile(AppFS, filePath)
 		if err != nil {
 			return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
 		}
 
-		res, err := resolveEdit(string(data), oldStr, newStr, replaceAll)
+		res, err := planEdit(string(data), args)
 		if err != nil {
 			return "", fmt.Errorf("edit_file: %w (%s)%s", err, filePath, res.hint)
 		}
@@ -669,6 +669,33 @@ func registerEditFile(reg *kdepstools.Registry) {
 		return fmt.Sprintf("Edited %s (%d bytes%s)", filePath, len(res.newContent), res.note), nil
 	}
 	reg.Register(tool)
+}
+
+// planEdit dispatches an edit_file call to line mode (start_line/end_line) or
+// string mode (old_string), validating the args each mode needs. No I/O.
+func planEdit(content string, args map[string]any) (editResult, error) {
+	oldStr, _ := args["old_string"].(string)
+	newStr, hasNew := args["new_string"].(string)
+	if !hasNew {
+		return editResult{}, errors.New("new_string is required")
+	}
+
+	if startLine, ok := args["start_line"].(float64); ok && startLine > 0 {
+		endLine := int(startLine)
+		if e, eok := args["end_line"].(float64); eok && e > 0 {
+			endLine = int(e)
+		}
+		return resolveLineEdit(content, int(startLine), endLine, newStr, oldStr)
+	}
+
+	if oldStr == "" {
+		return editResult{}, errors.New("old_string is required (or pass start_line/end_line)")
+	}
+	if oldStr == newStr {
+		return editResult{}, errors.New("old_string and new_string are identical")
+	}
+	replaceAll, _ := args["replace_all"].(bool)
+	return resolveEdit(content, oldStr, newStr, replaceAll)
 }
 
 // editResult is the outcome of resolveEdit: the rewritten file plus the exact
