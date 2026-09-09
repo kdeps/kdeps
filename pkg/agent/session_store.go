@@ -57,16 +57,18 @@ func newSessionID() string {
 
 // SessionMetadata holds summary information about a saved session.
 type SessionMetadata struct {
-	ID        string `json:"id"`
-	Name      string `json:"name,omitempty"`
-	Model     string `json:"model,omitempty"`
-	Turns     int    `json:"turns"`
-	CreatedAt int64  `json:"createdAt"`
+	ID          string `json:"id"`
+	Name        string `json:"name,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Turns       int    `json:"turns"`
+	CreatedAt   int64  `json:"createdAt"`
+	UpdatedAt   int64  `json:"updatedAt"`
+	FirstPrompt string `json:"firstPrompt,omitempty"`
 }
 
 // SessionStore persists conversation sessions in a bbolt database.
 // When cwd is set, sessions are stored under basePath/<encoded-cwd>/ for
-// per-project isolation.
+// isolation between distinct project directories that share one basePath.
 type SessionStore struct {
 	mu       sync.Mutex
 	basePath string
@@ -75,16 +77,46 @@ type SessionStore struct {
 	dbPath   string
 }
 
-// sessionEntry is one entry in a serialized session.
+// sessionEntry is one entry in a serialized session. The first entry is the
+// session_meta header; the rest are message entries.
 type sessionEntry struct {
-	Type      string `json:"type"`
-	Timestamp int64  `json:"ts"`
-	Role      string `json:"role,omitempty"`
-	Content   string `json:"content,omitempty"`
-	SessionID string `json:"sessionId,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Model     string `json:"model,omitempty"`
-	Turns     int    `json:"turns,omitempty"`
+	Type        string `json:"type"`
+	Timestamp   int64  `json:"ts"`
+	Role        string `json:"role,omitempty"`
+	Content     string `json:"content,omitempty"`
+	SessionID   string `json:"sessionId,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Turns       int    `json:"turns,omitempty"`
+	CreatedAt   int64  `json:"createdAt,omitempty"`
+	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+	FirstPrompt string `json:"firstPrompt,omitempty"`
+}
+
+// sessionFirstPromptMax caps the stored preview of a session's opening prompt.
+const sessionFirstPromptMax = 120
+
+// firstUserPrompt returns the session's opening user message, collapsed to one
+// line and truncated, for the resume picker and /session list.
+func firstUserPrompt(session SessionReader) string {
+	for _, m := range session.Messages() {
+		if m.Role != RoleUser {
+			continue
+		}
+		return truncateOneLine(m.Content, sessionFirstPromptMax)
+	}
+	return ""
+}
+
+// truncateOneLine collapses whitespace runs to single spaces and truncates to
+// n runes with an ellipsis.
+func truncateOneLine(s string, n int) string {
+	s = strings.TrimSpace(strings.Join(strings.Fields(s), " "))
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n-3]) + "..."
 }
 
 // NewSessionStore creates a session store rooted at basePath.
@@ -99,7 +131,10 @@ func NewSessionStore(basePath string) *SessionStore {
 	return &SessionStore{basePath: basePath}
 }
 
-// SetCwd configures per-project session isolation. Call with os.Getwd() at startup.
+// SetCwd scopes the store to a project directory: sessions are stored under
+// basePath/<encoded-cwd>/. In the agent loop basePath is already the project's
+// .kdeps/sessions dir, so serve.go does not call this; it stays for callers
+// that keep several projects under one shared base (tests, workflow mode).
 func (s *SessionStore) SetCwd(cwd string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -119,7 +154,9 @@ func (s *SessionStore) getDB() (*bolt.DB, error) {
 	if err := AppFS.MkdirAll(dir, 0750); err != nil {
 		return nil, fmt.Errorf("session store: mkdir: %w", err)
 	}
-	db, err := bolt.Open(dbPath, 0600, nil) //nolint:mnd // DB file permissions
+	// Timeout turns a concurrent exclusive lock (another process/test holding
+	// the same file) into a fast error instead of an unbounded hang.
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: dbOpenTimeout}) //nolint:mnd // DB file permissions
 	if err != nil {
 		return nil, fmt.Errorf("session store: open db: %w", err)
 	}
@@ -145,8 +182,16 @@ func (s *SessionStore) sessionBasePath() string {
 	return filepath.Join(s.basePath, encodeCwd(s.cwd))
 }
 
-// SaveAs persists the session to bbolt.
+// SaveAs persists the session under a fresh id (an explicit named snapshot).
 func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string, error) {
+	return s.Upsert("", session, name, model)
+}
+
+// Upsert writes the session under id, minting one when id is empty. An existing
+// row keeps its original CreatedAt; UpdatedAt and the message body are always
+// refreshed. This is how a resumed-and-continued conversation stays one row
+// instead of forking a new session on every save.
+func (s *SessionStore) Upsert(id string, session SessionReader, name, model string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -155,12 +200,19 @@ func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string
 		return "", err
 	}
 
-	id := newSessionID()
 	now := time.Now().UnixMilli()
+	if id == "" {
+		id = newSessionID()
+	}
+	createdAt := now
+	if existing, metaErr := s.loadMetaLocked(id); metaErr == nil && existing.CreatedAt > 0 {
+		createdAt = existing.CreatedAt
+	}
 
 	entries := []sessionEntry{{
 		Type: "session_meta", Timestamp: now, SessionID: id,
 		Name: name, Model: model, Turns: session.TurnCount(),
+		CreatedAt: createdAt, UpdatedAt: now, FirstPrompt: firstUserPrompt(session),
 	}}
 	for _, m := range session.Messages() {
 		entries = append(entries, sessionEntry{
@@ -238,21 +290,48 @@ func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
 		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
 			return nil //nolint:nilerr // corrupt entry in bbolt, skip
 		}
-		e := entries[0]
-		if e.Type != "session_meta" {
-			return nil
-		}
-		sid := e.SessionID
-		if sid == "" {
-			sid = id
-		}
-		meta = &SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp}
+		meta = metaFromEntries(entries, id)
 		return nil
 	})
 	if meta == nil {
 		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
 	return meta, nil
+}
+
+// metaFromEntries builds a SessionMetadata from a serialized session, filling
+// in fields that pre-dated them: FirstPrompt from the first user message,
+// CreatedAt/UpdatedAt from the header timestamp.
+func metaFromEntries(entries []sessionEntry, key string) *SessionMetadata {
+	e := entries[0]
+	if e.Type != "session_meta" {
+		return nil
+	}
+	sid := e.SessionID
+	if sid == "" {
+		sid = key
+	}
+	createdAt := e.CreatedAt
+	if createdAt == 0 {
+		createdAt = e.Timestamp
+	}
+	updatedAt := e.UpdatedAt
+	if updatedAt == 0 {
+		updatedAt = e.Timestamp
+	}
+	firstPrompt := e.FirstPrompt
+	if firstPrompt == "" {
+		for _, m := range entries[1:] {
+			if m.Type == "message" && m.Role == RoleUser {
+				firstPrompt = truncateOneLine(m.Content, sessionFirstPromptMax)
+				break
+			}
+		}
+	}
+	return &SessionMetadata{
+		ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns,
+		CreatedAt: createdAt, UpdatedAt: updatedAt, FirstPrompt: firstPrompt,
+	}
 }
 
 // ListMeta returns metadata for all sessions, newest first.
@@ -273,26 +352,17 @@ func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 			if json.Unmarshal(v, &entries) != nil || len(entries) == 0 {
 				continue
 			}
-			e := entries[0]
-			if e.Type != "session_meta" {
-				continue
+			if m := metaFromEntries(entries, string(k)); m != nil {
+				metas = append(metas, *m)
 			}
-			sid := e.SessionID
-			if sid == "" {
-				sid = string(k)
-			}
-			metas = append(metas, SessionMetadata{
-				ID: sid, Name: e.Name, Model: e.Model,
-				Turns: e.Turns, CreatedAt: e.Timestamp,
-			})
 		}
 		return nil
 	})
 
-	// Sort newest first by CreatedAt
+	// Most-recently-active first.
 	for i := 0; i < len(metas); i++ {
 		for j := i + 1; j < len(metas); j++ {
-			if metas[j].CreatedAt > metas[i].CreatedAt {
+			if metas[j].UpdatedAt > metas[i].UpdatedAt {
 				metas[i], metas[j] = metas[j], metas[i]
 			}
 		}

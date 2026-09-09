@@ -4198,13 +4198,14 @@ func (r *REPL) autoSaveOnExit() {
 	if r.loop.Session().TurnCount() == 0 {
 		return
 	}
-	id, err := store.SaveAs(r.loop.Session(), "", r.CurrentModel())
+	id, err := store.Upsert(r.loop.SessionID(), r.loop.Session(), "", r.CurrentModel())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "session auto-save failed: %v\n", err)
 		return
 	}
+	r.loop.SetSessionID(id)
 	fmt.Fprintf(os.Stdout, "\n%s\n",
-		styleReplDim.Render("Session saved. Resume with: --resume "+id))
+		styleReplDim.Render("Session saved. It will be offered when you next run kdeps here (--resume "+id+")."))
 }
 
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
@@ -4340,23 +4341,25 @@ func (r *REPL) cmdSessionList(store *SessionStore) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No saved sessions."))
 		return nil
 	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Saved sessions:"))
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Saved sessions for this folder:"))
 	for _, m := range metas {
-		ts := time.UnixMilli(m.CreatedAt).Format("2006-01-02 15:04")
-		name := m.Name
-		if name == "" {
-			name = "(unnamed)"
+		label := m.Name
+		if label == "" {
+			label = m.FirstPrompt
+		}
+		if label == "" {
+			label = "(no preview)"
 		}
 		model := m.Model
 		if model == "" {
 			model = "-"
 		}
-		fmt.Fprintf(os.Stdout, "  %s  %s  turns=%-3d model=%s  %s\n",
+		fmt.Fprintf(os.Stdout, "  %s  %s  turns=%-3d model=%s\n    %s\n",
 			styleReplHeading.Render(m.ID),
-			styleReplMeta.Render(ts),
+			styleReplMeta.Render(humanizeSince(m.UpdatedAt)),
 			m.Turns,
 			model,
-			name,
+			styleReplMeta.Render(label),
 		)
 	}
 	return nil
@@ -4382,6 +4385,8 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	}
 	// Replace the loop's session in-place via the interface (preserves IDs).
 	r.loop.session.ReplaceMessages(session.RawMessages())
+	// Continue this stored session on exit instead of forking a new row.
+	r.loop.SetSessionID(id)
 	// Restore model from saved session metadata if available.
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
 		r.loop.config.Model = meta.Model

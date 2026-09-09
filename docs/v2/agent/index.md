@@ -87,7 +87,8 @@ kdeps [path] [flags]
 | `--system` | (none) | System prompt injected at conversation start |
 | `--skill` | (none) | Path to a skill file or directory (repeatable) |
 | `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
-| `--resume` | (none) | Session ID to resume a previous conversation |
+| `--resume` | (none) | Session ID to resume directly (skips the picker) |
+| `--new` | false | Start clean, skipping this folder's resume picker |
 | `--stealth` | false | Muted UI - dark gray, model name barely visible (for use in public) |
 | `--debug` | false | Enable debug logging |
 
@@ -127,7 +128,8 @@ kdeps --resume abc123def456                      # resume a session
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
-| Pasting, rendering, stealth, sessions, notifications, updates | [Agent loop REPL features](/agent/repl) |
+| Per-folder session history and the startup resume picker | [Sessions](/agent/repl#sessions) |
+| Pasting, rendering, stealth, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## Differences from workflow mode
 

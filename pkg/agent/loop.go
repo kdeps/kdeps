@@ -86,6 +86,9 @@ type Config struct {
 	// ResumeSession is a previously-saved session to load on startup.
 	// Accepts any SessionReadWriter implementation (concrete *Session or mock).
 	ResumeSession SessionReadWriter
+	// ResumeSessionID is the store id ResumeSession was loaded from, so
+	// continuing the conversation updates that row instead of forking a new one.
+	ResumeSessionID string
 	// CompactTokenBudget is the approximate number of recent tokens to retain
 	// when compacting with CompactWithLLM. 0 uses the default (20000).
 	CompactTokenBudget int
@@ -262,6 +265,7 @@ type Loop struct {
 	prompts       []PromptTemplate    // loaded prompt templates
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
+	sessionID     string        // store id for the current session (continuity across turns/exit)
 	memoryStore   *MemoryStore  // optional memory persistence
 	streamer      Streamer      // optional streaming LLM caller
 	// enforcer drives the active goal's task state machine. Set per turn when
@@ -369,6 +373,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		relatedSkills: computeRelatedSkills(skillSlice, skillDirs),
 		prompts:       loadPromptTemplateSlice(cfg.PromptPaths),
 		store:         cfg.Store,
+		sessionID:     cfg.ResumeSessionID,
 		memoryStore:   cfg.MemoryStore,
 		streamer:      cfg.Streamer,
 	}
@@ -491,6 +496,26 @@ func (l *Loop) Store() *SessionStore {
 // MemoryStore returns the memory store, or nil if none was configured.
 func (l *Loop) MemoryStore() *MemoryStore {
 	return l.memoryStore
+}
+
+// SessionID returns the store id of the current session ("" until the first
+// persist mints one).
+func (l *Loop) SessionID() string { return l.sessionID }
+
+// SetSessionID binds the loop to an existing stored session so continuing it
+// updates that row.
+func (l *Loop) SetSessionID(id string) { l.sessionID = id }
+
+// persistSession upserts the current session into the store under
+// l.sessionID (minting an id on first use). A no-op without a store or turns.
+func (l *Loop) persistSession() {
+	if l.store == nil || l.session == nil || l.session.TurnCount() == 0 {
+		return
+	}
+	id, err := l.store.Upsert(l.sessionID, l.session, "", l.config.Model)
+	if err == nil {
+		l.sessionID = id
+	}
 }
 
 // sessionConfigJSON is the serialized LLM config persisted to memory.
@@ -892,6 +917,10 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 		_ = l.memoryStore.Set("turn:last", summary)
 	}
 
+	// Persist the session after every turn so the resume picker survives a
+	// crash or kill, not just a clean /quit.
+	l.persistSession()
+
 	return response, nil
 }
 
@@ -987,6 +1016,10 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		summary := fmt.Sprintf("turn at %s | input: %.200s | response: %.200s", now, input, response)
 		_ = l.memoryStore.Set("turn:last", summary)
 	}
+
+	// Persist the session after every turn so the resume picker survives a
+	// crash or kill, not just a clean /quit.
+	l.persistSession()
 
 	return response, nil
 }

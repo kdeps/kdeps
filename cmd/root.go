@@ -143,6 +143,10 @@ func createRootCommand() *cobra.Command {
 		"Session ID to resume a previous conversation",
 	)
 	rootCmd.Flags().BoolVar(
+		&flags.NewSession, "new", false,
+		"Start a clean session, skipping the resume picker for this folder",
+	)
+	rootCmd.Flags().BoolVar(
 		&flags.Stealth, "stealth", false,
 		"Muted UI - render everything in dark gray with the model name barely visible (for use in public)",
 	)

@@ -28,7 +28,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/prompt` | Show the exact LLM request for the last turn (system prompt, messages, tool schemas) |
 | `/prompt raw` | Same, unformatted - the raw JSON payload sent to the model |
 | `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](/agent/tools#permission-modes)) |
-| `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
+| `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage this folder's saved sessions and navigate branching history (see [Sessions](/agent/repl#sessions)) |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
@@ -99,6 +99,19 @@ The same scan finds existing, readable **text files** by name (`look at "main.go
 **Pipes and command substitution** are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting - its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
+
+## Startup flags
+
+| Flag | Effect |
+|------|--------|
+| `--resume <id>` | Resume a specific session directly, skipping the picker |
+| `--new` | Start a clean session, skipping the resume picker for this folder |
+| `--model` / `--backend` / `--base-url` | Override the model for this run |
+| `--system <text>` | Prepend a system prompt |
+| `--stealth` | Muted UI (see [Stealth mode](/agent/repl#stealth-mode)) |
+
+Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
+`kdeps` runs in. See [Sessions](/agent/repl#sessions).
 
 ## See also
 
