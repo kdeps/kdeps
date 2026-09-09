@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/exit", "/quit",
+	"/login", "/stealth", "/refine", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so stealth mode (theme.go)
@@ -1628,6 +1628,10 @@ func (r *REPL) Run() error {
 	// below, so a persisted "on" is restored here.
 	r.loop.config.GoalEnforcement = false
 	r.loop.config.AutoJudges = false
+	// Pre-turn prompt refinement is ON by default: one cheap synthetic call
+	// rewrites a terse prompt so the turn lands better. Disable with
+	// /refine off; the choice persists via applyToolTuning below.
+	r.loop.config.PromptRefine = true
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}
@@ -2465,14 +2469,6 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdContext(args)
 	case "/kartographer":
 		return r.cmdKartographer()
-	case "/turo":
-		return r.cmdTuro(args)
-	case "/goal":
-		return r.cmdGoal(args)
-	case "/judges":
-		return r.cmdJudges(args)
-	case "/memory":
-		return r.cmdMemory(args)
 	case "/permission", "/permissions":
 		return r.cmdPermission(args)
 	case "/autocontext":
@@ -2489,8 +2485,32 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
 	default:
+		if handled, err := r.dispatchControlCommand(command, args); handled {
+			return err
+		}
 		return r.dispatchUnknownCommand(command, args)
 	}
+}
+
+// dispatchControlCommand handles the per-turn control commands (turo, goal,
+// refine, judges, memory), split out of dispatchCommand to keep its cyclomatic
+// complexity under the lint limit. handled is false when command is none of them.
+func (r *REPL) dispatchControlCommand(command string, args []string) (bool, error) {
+	switch command {
+	case "/turo":
+		return true, r.cmdTuro(args)
+	case "/goal":
+		return true, r.cmdGoal(args)
+	case "/refine":
+		r.cmdRefine(args)
+		return true, nil
+	case "/judges":
+		r.cmdJudges(args)
+		return true, nil
+	case "/memory":
+		return true, r.cmdMemory(args)
+	}
+	return false, nil
 }
 
 // dispatchUnknownCommand handles a slash command that is not a REPL built-in: it
@@ -2550,6 +2570,7 @@ func (r *REPL) cmdHelp() error {
 		"  /goal new <text>                   Replace the active goal with a new plan",
 		"  /goal skip                         Abandon the active task and move to the next",
 		"  /goal clear                        Drop the active goal (stops task enforcement)",
+		"  /refine [on|off]                   Show or toggle pre-turn prompt refinement (on by default)",
 		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
 		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
 		"  /judges remove <name>              Remove a judge from the explicit roster",
@@ -4818,6 +4839,35 @@ func (r *REPL) setGoalEnforcementCmd(enabled bool) {
 		"goal-directed execution disabled — turns run as a plain tool loop"))
 }
 
+// cmdRefine inspects and toggles pre-turn prompt refinement.
+func (r *REPL) cmdRefine(args []string) {
+	if len(args) == 0 {
+		if r.loop.PromptRefineEnabled() {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"prompt refinement is on — each prompt is rewritten for clarity before the turn"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"prompt refinement is off — /refine on to enable"))
+		}
+		return
+	}
+	switch args[0] {
+	case toggleOn, toggleOff:
+		enabled := args[0] == toggleOn
+		r.loop.SetPromptRefine(enabled)
+		r.persistTuning()
+		if enabled {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"prompt refinement enabled — the next prompt is rewritten for clarity before the turn"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"prompt refinement disabled — prompts are sent to the model verbatim"))
+		}
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /refine [on|off]"))
+	}
+}
+
 // judgesAddMinArgs is "add <name> <criteria...>"; judgesRemoveMinArgs is
 // "remove <name>" — both counted including the subcommand word itself.
 const (
@@ -4834,10 +4884,10 @@ const (
 
 // cmdJudges configures the review panel run against each turn's final output:
 // an explicit roster (add/remove), auto-generated per turn, or disabled.
-func (r *REPL) cmdJudges(args []string) error {
+func (r *REPL) cmdJudges(args []string) {
 	if len(args) == 0 {
 		r.printJudgesStatus()
-		return nil
+		return
 	}
 
 	switch args[0] {
@@ -4846,7 +4896,7 @@ func (r *REPL) cmdJudges(args []string) error {
 	case "add":
 		if len(args) < judgesAddMinArgs {
 			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges add <name> <criteria...>"))
-			return nil
+			return
 		}
 		name := args[1]
 		criteria := strings.TrimSpace(strings.Join(args[2:], " "))
@@ -4855,7 +4905,7 @@ func (r *REPL) cmdJudges(args []string) error {
 	case "remove":
 		if len(args) < judgesRemoveMinArgs {
 			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges remove <name>"))
-			return nil
+			return
 		}
 		r.removeJudge(args[1])
 	case "auto":
@@ -4869,7 +4919,6 @@ func (r *REPL) cmdJudges(args []string) error {
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
 			"Usage: /judges [list|add <name> <criteria>|remove <name>|auto [on|off]|clear]"))
 	}
-	return nil
 }
 
 // removeJudge drops the named judge from the explicit roster.

@@ -45,6 +45,38 @@ func TestDispatchCommand_PermissionPersists(t *testing.T) {
 	}
 }
 
+func TestDispatchCommand_RefinePersists(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved *ToolTuning
+	repl.SetSaveTuningFn(func(t ToolTuning) error {
+		saved = &t
+		return nil
+	})
+
+	if err := repl.dispatchCommand("/refine off"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved == nil || !saved.RefineConfigured || !saved.RefineOff {
+		t.Fatalf("expected /refine off to persist RefineOff=true, got %+v", saved)
+	}
+	if repl.loop.PromptRefineEnabled() {
+		t.Fatal("/refine off should disable refinement")
+	}
+
+	if err := repl.dispatchCommand("/refine on"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved == nil || !saved.RefineConfigured || saved.RefineOff {
+		t.Fatalf("expected /refine on to persist RefineOff=false, got %+v", saved)
+	}
+	if !repl.loop.PromptRefineEnabled() {
+		t.Fatal("/refine on should enable refinement")
+	}
+}
+
 func TestDispatchCommand_PermissionUnknownDoesNotPersist(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

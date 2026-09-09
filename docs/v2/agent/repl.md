@@ -61,6 +61,15 @@ review @notes.txt and summarize the key points
 - Text file refs are expanded inline in the prompt.
 - Unresolvable refs (file not found, access denied) are left unchanged in the text.
 
+## Prompt refinement
+
+Before each turn, kdeps runs one cheap LLM call that rewrites a terse or
+under-specified prompt into a clearer, self-contained version and runs the turn
+on the rewrite. It is **on by default**; when the prompt is changed the REPL
+prints `[refine] -> <rewritten prompt>` before any work starts, and the rewrite
+is what gets saved to the session. Toggle with `/refine on|off` (persists to
+`~/.kdeps/agent-loop-settings.yaml`). Full details: [Prompt refinement](/agent/refine).
+
 ## Response rendering
 
 The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It **auto-detects the terminal's color depth** (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.

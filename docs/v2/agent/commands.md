@@ -44,6 +44,8 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal (the next prompt starts a new one) |
+| `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
+| `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
 | `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |

@@ -82,6 +82,8 @@ type AgentLoopTuning struct {
 	PermissionMode       string `yaml:"permission_mode,omitempty"`
 	ThinkingMode         string `yaml:"thinking_mode,omitempty"`
 	ContextSize          int    `yaml:"context_size,omitempty"`
+	RefineOff            bool   `yaml:"refine_off,omitempty"`
+	RefineConfigured     bool   `yaml:"refine_configured,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

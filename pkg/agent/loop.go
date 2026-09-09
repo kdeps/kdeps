@@ -190,6 +190,11 @@ type Config struct {
 	// forward when it stops producing progress. Disable to get the plain
 	// round loop back.
 	GoalEnforcement bool
+	// PromptRefine runs a cheap pre-turn LLM call that rewrites the user's
+	// prompt into a clearer, self-contained version before the real turn.
+	// On by default in the REPL; /refine off disables it. Persisted via
+	// ToolTuning.
+	PromptRefine bool
 	// TaskRoundBudget caps tool rounds spent on a single task before it is
 	// force-closed (0=default 25).
 	TaskRoundBudget int
@@ -915,6 +920,12 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 			}
 		}
 	}
+
+	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
+	// into a clearer, self-contained version and run the turn on that. The
+	// refined string replaces input everywhere below (preamble, chat config,
+	// goal plan, judge roster, session history).
+	input = l.applyPromptRefine(ctx, input, w)
 
 	systemPreamble := l.cachedSystemPreamble(input)
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
