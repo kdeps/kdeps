@@ -31,8 +31,9 @@ const (
 
 const (
 	// Tool parameter type names (JSON Schema types).
-	toolParamString = "string"
-	toolParamNumber = "number"
+	toolParamString  = "string"
+	toolParamNumber  = "number"
+	toolParamBoolean = "boolean"
 
 	// Tool parameter field names.
 	toolParamData       = "data"
