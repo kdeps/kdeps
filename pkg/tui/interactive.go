@@ -33,3 +33,10 @@ import (
 func isInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
+
+// IsInteractive reports whether stdin is a real terminal, so callers can skip
+// building picker data (and opening databases for it) when there is no one to
+// answer the prompt - e.g. CI, piped input.
+func IsInteractive() bool {
+	return isInteractive()
+}

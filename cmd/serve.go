@@ -238,6 +238,7 @@ type agentLoopFlags struct {
 	Debug        bool
 	SkillPaths   []string
 	Resume       string
+	NewSession   bool
 	Stealth      bool
 }
 
@@ -291,13 +292,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	eng := setupEngine(nil, flags.Debug)
 	llmAdapter := llm.NewAdapter(flags.BaseURL)
 
+	// Sessions and memory are stored under ~/.kdeps, partitioned by the
+	// working directory so each folder keeps its own conversations and memory.
 	store := agent.NewSessionStore("")
-	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
-		store.SetCwd(cwd)
-	}
-
 	memStore := agent.NewMemoryStore("")
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+		store.SetCwd(cwd)
 		memStore.SetCwd(cwd)
 		_ = memStore.Load()
 	}
@@ -334,12 +334,22 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		agent.RestoreSessionConfig(memStore, &cfg)
 	}
 
-	if flags.Resume != "" {
-		saved, loadErr := store.Load(flags.Resume)
+	resumeID := flags.Resume
+	if resumeID == "" && !flags.NewSession {
+		// No explicit --resume / --new: offer this folder's saved sessions.
+		resumeID = agent.PickStartupSession(store)
+	}
+	if resumeID != "" {
+		saved, loadErr := store.Load(resumeID)
 		if loadErr != nil {
-			return fmt.Errorf("agent loop: failed to load session %q: %w", flags.Resume, loadErr)
+			return fmt.Errorf("agent loop: failed to load session %q: %w", resumeID, loadErr)
 		}
 		cfg.ResumeSession = saved
+		cfg.ResumeSessionID = resumeID
+		if meta, metaErr := store.LoadMeta(resumeID); metaErr == nil && meta.Model != "" &&
+			flags.Model == "" && flags.Backend == "" && flags.BaseURL == "" {
+			cfg.Model = meta.Model
+		}
 	}
 
 	// Prefetch the model so it is ready before the first prompt. Ctrl+C during

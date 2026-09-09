@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -948,5 +949,100 @@ func TestImport_MkdirError(t *testing.T) {
 	_, iErr := store.Import(srcPath)
 	if iErr == nil {
 		t.Fatal("expected MkdirAll error when base parent is a file")
+	}
+}
+
+// --- Upsert continuity + rich metadata ---
+
+func TestUpsert_SameIDStaysOneRow(t *testing.T) {
+	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
+
+	s := NewSession(0)
+	s.Append("first prompt here", "a1")
+	id, err := store.Upsert("", s, "", "m1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	metas, _ := store.ListMeta()
+	if len(metas) != 1 || metas[0].Turns != 1 {
+		t.Fatalf("after first upsert: %+v", metas)
+	}
+	created := metas[0].CreatedAt
+
+	time.Sleep(2 * time.Millisecond)
+	s.Append("second prompt", "a2")
+	id2, err := store.Upsert(id, s, "", "m1")
+	if err != nil || id2 != id {
+		t.Fatalf("id changed: %q -> %q (%v)", id, id2, err)
+	}
+
+	metas, _ = store.ListMeta()
+	if len(metas) != 1 {
+		t.Fatalf("expected still one row, got %d", len(metas))
+	}
+	if metas[0].Turns != 2 {
+		t.Fatalf("turns not updated: %d", metas[0].Turns)
+	}
+	if metas[0].CreatedAt != created {
+		t.Fatalf("CreatedAt changed: %d -> %d", created, metas[0].CreatedAt)
+	}
+	if metas[0].UpdatedAt <= created {
+		t.Fatalf("UpdatedAt not bumped: created=%d updated=%d", created, metas[0].UpdatedAt)
+	}
+	if metas[0].FirstPrompt != "first prompt here" {
+		t.Fatalf("FirstPrompt = %q", metas[0].FirstPrompt)
+	}
+}
+
+func TestListMeta_SortsByUpdatedAt(t *testing.T) {
+	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
+
+	a := NewSession(0)
+	a.Append("older session", "x")
+	idA, _ := store.Upsert("", a, "", "")
+
+	time.Sleep(2 * time.Millisecond)
+	b := NewSession(0)
+	b.Append("newer session", "y")
+	store.Upsert("", b, "", "")
+
+	time.Sleep(2 * time.Millisecond)
+	a.Append("touch older", "z")
+	store.Upsert(idA, a, "", "") // A is now the most recently active
+
+	metas, _ := store.ListMeta()
+	if len(metas) != 2 || metas[0].ID != idA {
+		t.Fatalf("expected touched session first, got %+v", metas)
+	}
+}
+
+func TestMetaFromEntries_DerivesFromOldData(t *testing.T) {
+	// A pre-v2.25 row: header has only Timestamp/Turns, no FirstPrompt/UpdatedAt.
+	entries := []sessionEntry{
+		{Type: "session_meta", Timestamp: 1000, Turns: 1, SessionID: "s1"},
+		{Type: "message", Role: RoleUser, Content: "  the   original    prompt "},
+		{Type: "message", Role: "assistant", Content: "reply"},
+	}
+	m := metaFromEntries(entries, "s1")
+	if m == nil {
+		t.Fatal("nil meta")
+	}
+	if m.CreatedAt != 1000 || m.UpdatedAt != 1000 {
+		t.Fatalf("timestamps: %+v", m)
+	}
+	if m.FirstPrompt != "the original prompt" {
+		t.Fatalf("FirstPrompt = %q", m.FirstPrompt)
+	}
+}
+
+func TestTruncateOneLine(t *testing.T) {
+	if got := truncateOneLine("  a\tb\n c  ", 100); got != "a b c" {
+		t.Fatalf("collapse: %q", got)
+	}
+	if got := truncateOneLine("abcdefghij", 5); got != "ab..." {
+		t.Fatalf("truncate: %q", got)
 	}
 }

@@ -140,7 +140,7 @@ func NewMemoryStore(basePath string) *MemoryStore {
 	}
 }
 
-// SetCwd configures per-project memory isolation. When set, memory is stored
+// SetCwd configures per-directory memory isolation. When set, memory is stored
 // under basePath/<encoded-cwd>/memory.bolt. Call with os.Getwd() at startup.
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()

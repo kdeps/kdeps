@@ -2114,7 +2114,7 @@ func TestCmdSession_GotoNotFound(t *testing.T) {
 }
 
 func TestCmdSessionList_UnnamedAndNoModel(t *testing.T) {
-	// Tests the name=="" and model=="" fallback paths in cmdSessionList
+	// Tests the no-name / no-preview / no-model fallback paths in cmdSessionList
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	t.Cleanup(func() { _ = store.Close() })

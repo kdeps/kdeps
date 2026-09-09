@@ -150,15 +150,46 @@ turn's tool output; that is bounded by the in-flight window above.
 
 ## Sessions
 
-Every conversation is saved as a JSONL file under `~/.kdeps/sessions/`. The session ID is shown at the start of each run. Resume one with:
+Conversations and the agent's memory are stored in `~/.kdeps/`, **partitioned by
+the directory you launch `kdeps` from** - `~/.kdeps/sessions/` and
+`~/.kdeps/memory/` each hold a subfolder per working directory. `cd` into a
+project and `kdeps` sees that folder's history; a different folder starts clean.
+Nothing is written into the project directory itself.
 
-```bash
-kdeps --resume <session-id>
+When you start `kdeps` in a folder that has saved sessions - and you did not pass
+`--resume` or `--new` - a picker lists them:
+
+```d2
+direction: down
+start: "kdeps  (no --resume, no --new)" {shape: oval}
+has: "this folder has saved sessions?" {shape: diamond}
+picker: "picker: each session's first prompt,\nturn count, last-active time\n+ 'Start a new session'"
+resume: "chosen session's history restored" {shape: oval}
+fresh: "clean session" {shape: oval}
+start -> has
+has -> picker: "yes (interactive)"
+has -> fresh: "no / piped input"
+picker -> resume: "pick a session"
+picker -> fresh: "'Start a new session' / esc"
 ```
 
+```text
+kdeps                     # in a folder with history -> resume picker
+kdeps --new               # skip the picker, start a clean session
+kdeps --resume <id>       # resume a specific session directly (no picker)
 ```
-/session list                  # list all saved sessions
-/session save [name]           # save current session
+
+- The picker only appears in an interactive terminal with at least one saved
+  session for this folder and no `--resume` / `--new`. Piped input starts clean.
+- Resuming, continuing, then exiting **updates the same session** - it does not
+  fork a new one. The session is also saved after every turn, so a crash or
+  kill still leaves it in the picker.
+- Settings (`/refine`, `/stealth`, the default model, tool tuning), the model
+  cache, and everything else under `~/.kdeps/` are unchanged.
+
+```
+/session list                  # this folder's saved sessions
+/session save [name]           # save a named snapshot of the current session
 /session load <id>             # restore a saved session
 /session delete <id>           # delete a saved session
 /session checkpoint            # print the current entry ID (for /session goto)
