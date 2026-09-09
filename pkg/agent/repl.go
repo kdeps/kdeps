@@ -3768,12 +3768,15 @@ func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
 func (r *REPL) cmdCompact() error {
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Compacting conversation history..."))
 
-	summary, err := r.loop.CompactWithLLM(r.ctx)
+	summary, err := r.loop.ForceCompact(r.ctx)
 	if err != nil {
 		return fmt.Errorf("compact: %w", err)
 	}
 	if summary == "" {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No compaction needed."))
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf(
+			"Nothing to compact — the session has %d turn(s); need more than %d to fold any in. "+
+				"Note: /compact only shrinks the saved conversation, not a turn's own tool output.",
+			r.loop.Session().TurnCount(), forceKeepTurns)))
 		return nil
 	}
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
