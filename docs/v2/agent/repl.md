@@ -128,6 +128,17 @@ kdeps caps the in-flight transcript at roughly 24K tokens. Past that, the oldest
 
 The model keeps the most recent steps in full and a note that earlier ones were dropped. Tool *results* are separately capped at 16 KB each before they ever enter the transcript.
 
+### Compacting the saved conversation
+
+Only the user prompt and the final answer of each turn are saved to the session
+- a turn's own tool transcript is never persisted. `/compact` summarizes the
+older saved turns and keeps the last few verbatim; it runs whenever the session
+has more than a handful of turns, regardless of size. Auto-compaction between
+turns fires only once the saved conversation exceeds the token budget (`/model
+tool set compact-threshold <n>`), which for a long run of short-but-tool-heavy
+turns may never happen - use `/compact` directly. Neither affects a running
+turn's tool output; that is bounded by the in-flight window above.
+
 ## Sessions
 
 Every conversation is saved as a JSONL file under `~/.kdeps/sessions/`. The session ID is shown at the start of each run. Resume one with:

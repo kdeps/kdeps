@@ -627,3 +627,48 @@ func TestLoop_Config(t *testing.T) {
 		t.Fatalf("expected MaxTurns=10, got %d", loop.Config().MaxTurns)
 	}
 }
+
+// ForceCompact (the /compact command) summarizes older turns even when the
+// session is well under the token budget -- CompactWithLLM would return "" and
+// the REPL would (wrongly) report "no compaction needed".
+func TestLoop_ForceCompact_CompactsUnderBudget(t *testing.T) {
+	const fakeSummary = "## Progress\n- did things"
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return fakeSummary, nil
+	})
+	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 1_000_000, // effectively unlimited: auto-compact never fires
+	})
+	for range 8 {
+		if _, err := loop.Run(context.Background(), "hi"); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	}
+
+	// Auto path: nothing, because the session is tiny relative to the budget.
+	if s, err := loop.CompactWithLLM(context.Background()); err != nil || s != "" {
+		t.Fatalf("CompactWithLLM under budget: got (%q, %v), want (\"\", nil)", s, err)
+	}
+	// Forced path: summarizes and keeps only the recent turns.
+	s, err := loop.ForceCompact(context.Background())
+	if err != nil {
+		t.Fatalf("ForceCompact: %v", err)
+	}
+	if s != fakeSummary {
+		t.Fatalf("ForceCompact summary = %q, want %q", s, fakeSummary)
+	}
+}
+
+// ForceCompact still does nothing for a session too short to fold anything in.
+func TestLoop_ForceCompact_TooShort(t *testing.T) {
+	eng := newTestEngine("summary", nil)
+	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{})
+	loop.Run(context.Background(), "q1") //nolint:errcheck
+	loop.Run(context.Background(), "q2") //nolint:errcheck
+	s, err := loop.ForceCompact(context.Background())
+	if err != nil || s != "" {
+		t.Fatalf("ForceCompact too-short: got (%q, %v), want (\"\", nil)", s, err)
+	}
+}

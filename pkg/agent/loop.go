@@ -2986,14 +2986,29 @@ func (l *Loop) Config() Config { return l.config }
 // them with a structured summary, keeping recent turns intact. It returns the
 // summary text. Falls back to truncation-only Compact() if the LLM call fails.
 func (l *Loop) CompactWithLLM(ctx context.Context) (string, error) {
+	return l.compactWithLLM(ctx, false)
+}
+
+// ForceCompact summarizes the older turns on demand (the /compact command). It
+// keeps only the most recent few turns regardless of the token budget, so a
+// manual compact always does something when there is history to compact --
+// unlike auto-compaction, which only fires once the session exceeds the budget.
+func (l *Loop) ForceCompact(ctx context.Context) (string, error) {
+	return l.compactWithLLM(ctx, true)
+}
+
+func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	msgs := l.session.RawMessages()
 	if len(msgs) == 0 {
 		return "", nil
 	}
 
 	cutIdx := findCutIndex(msgs, l.config.CompactTokenBudget, l.config.Model)
+	if force {
+		cutIdx = forcedCutIndex(msgs)
+	}
 	if cutIdx == 0 {
-		// Not enough turns to compact.
+		// Nothing worth compacting (or, when forced, too few turns).
 		return "", nil
 	}
 

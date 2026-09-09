@@ -212,6 +212,26 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 	return cutIdx
 }
 
+// forceKeepTurns is how many recent turns a manual /compact leaves untouched.
+const forceKeepTurns = 3
+
+// forcedCutIndex is findCutIndex for a user-invoked /compact: it summarizes
+// everything except the last forceKeepTurns turns, ignoring the token budget, so
+// the command always does something once there is at least one turn to fold in.
+// Returns 0 only when the session is not longer than forceKeepTurns+1 turns.
+func forcedCutIndex(messages []SessionMessage) int {
+	n := len(messages)
+	keep := sessionMsgsPer * forceKeepTurns
+	if n <= keep+sessionMsgsPer {
+		return 0
+	}
+	cut := n - keep
+	if cut%sessionMsgsPer != 0 { // land on a user-message boundary
+		cut--
+	}
+	return cut
+}
+
 // estimateSessionTokens returns the total estimated token count for all messages.
 func estimateSessionTokens(messages []SessionMessage, modelHint string) int {
 	var total int

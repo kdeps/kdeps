@@ -529,3 +529,34 @@ func TestPreviousCompactionSummary_StripsPrefixSuffix(t *testing.T) {
 		t.Fatalf("expected unwrapped 'summary text', got %q", got)
 	}
 }
+
+func TestForcedCutIndex(t *testing.T) {
+	t.Parallel()
+	mk := func(turns int) []SessionMessage {
+		m := make([]SessionMessage, 0, turns*sessionMsgsPer)
+		for range turns {
+			m = append(m,
+				SessionMessage{Role: "user", Content: "q"},
+				SessionMessage{Role: "assistant", Content: "a"})
+		}
+		return m
+	}
+	// Too short: forceKeepTurns + 1 or fewer turns -> nothing to fold in.
+	for _, turns := range []int{0, 1, forceKeepTurns, forceKeepTurns + 1} {
+		if got := forcedCutIndex(mk(turns)); got != 0 {
+			t.Errorf("%d turns: forcedCutIndex = %d, want 0", turns, got)
+		}
+	}
+	// Longer: keep exactly the last forceKeepTurns turns, summarize the rest,
+	// and land on a user boundary (even index).
+	for _, turns := range []int{forceKeepTurns + 2, 10, 100} {
+		got := forcedCutIndex(mk(turns))
+		wantKept := sessionMsgsPer * forceKeepTurns
+		if got != turns*sessionMsgsPer-wantKept {
+			t.Errorf("%d turns: forcedCutIndex = %d, want %d", turns, got, turns*sessionMsgsPer-wantKept)
+		}
+		if got%sessionMsgsPer != 0 {
+			t.Errorf("%d turns: cut %d not on a turn boundary", turns, got)
+		}
+	}
+}
