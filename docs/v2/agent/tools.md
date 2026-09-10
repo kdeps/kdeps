@@ -104,6 +104,20 @@ every occurrence. If nothing matches, the error names the closest region in the
 file with line numbers. Either way, the file's line-ending style is preserved on
 write.
 
+### Failed tool calls are fed back to the model
+
+Every tool failure is returned to the model as `{"error": ...}` **plus a
+`[TOOL FAILED]` banner** ("nothing changed - fix the cause and retry, or say it
+failed"), so a skimmed error is hard to miss. The turn will not end on a "done"
+claim made right after a work tool failed: the loop pushes back once for a real
+success or an honest "it failed". With a goal active, `task_complete` on such a
+task is refused, and a prose "done" records the task **failed**, not done.
+
+Loop-generated notices - goal transitions, budget changes, forced task failures,
+context-window trims - are injected into the model's context as `[kdeps] ...`
+messages, since the human at the REPL cannot act on them but the model can
+adjust.
+
 ## Web and search
 
 | Tool | Required env var | Description |

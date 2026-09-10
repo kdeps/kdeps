@@ -255,10 +255,23 @@ func newTestWorkflowForSession() *domain.Workflow {
 	}
 }
 
+// newStreamingRegistry has a working "noop" tool so a "Name: noop" tool call
+// in a mock response exercises the tool-succeeded path (an empty registry would
+// make every noop call return {"error":"tool not found"}).
+func newStreamingRegistry() *tools.Registry {
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "noop",
+		Description: "no-op test tool",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "noop ok", nil },
+	})
+	return reg
+}
+
 func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
 	eng := executor.NewEngine(nil)
-	reg := tools.NewRegistry()
-	return New(eng, newTestWorkflowForSession(), reg, Config{
+	return New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:         "test",
 		Streamer:      streamer,
 		MaxToolRounds: maxRounds,
@@ -267,8 +280,7 @@ func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
 
 func newStreamingLoopFinalOnly(streamer Streamer, maxRounds int) *Loop {
 	eng := executor.NewEngine(nil)
-	reg := tools.NewRegistry()
-	return New(eng, newTestWorkflowForSession(), reg, Config{
+	return New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:           "test",
 		Streamer:        streamer,
 		MaxToolRounds:   maxRounds,
@@ -698,7 +710,7 @@ func TestRunStreaming_SessionStoresResponse(t *testing.T) {
 // when StreamFinalOnly=true, intermediate tool-call rounds are not written
 // to the caller's writer.
 func TestRunStreaming_StreamFinalOnly_SuppressesIntermediateRounds(t *testing.T) {
-	toolCall := domain.StreamedToolCall{ID: "t1", Name: "echo", Arguments: `{}`}
+	toolCall := domain.StreamedToolCall{ID: "t1", Name: "noop", Arguments: `{}`}
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{
 			{content: "intermediate", toolCalls: []domain.StreamedToolCall{toolCall}},
@@ -725,7 +737,7 @@ func TestRunStreaming_StreamFinalOnly_SuppressesIntermediateRounds(t *testing.T)
 // TestRunStreaming_StreamFinalOnly_FalseStreamsAll verifies that
 // when StreamFinalOnly=false (default), all rounds are streamed.
 func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
-	toolCall := domain.StreamedToolCall{ID: "t1", Name: "echo", Arguments: `{}`}
+	toolCall := domain.StreamedToolCall{ID: "t1", Name: "noop", Arguments: `{}`}
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{
 			{content: "round1", toolCalls: []domain.StreamedToolCall{toolCall}},
@@ -738,7 +750,7 @@ func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(buf.String(), "[echo") {
+	if !strings.Contains(buf.String(), "[noop") {
 		t.Errorf(
 			"tool call summary should be written when StreamFinalOnly=false, got %q",
 			buf.String(),
@@ -1604,7 +1616,7 @@ func (m *midTurnDropStreamer) StreamChat(
 // the failed attempt must not leak into the response.
 func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 	ms := &midTurnDropStreamer{}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:              "test",
 		Streamer:           ms,
 		MaxToolRounds:      5,
@@ -2301,4 +2313,66 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	assert.Equal(t, "host-1", got["target"])
 	assert.NotContains(t, result, "parameter")
 	assert.NotContains(t, result, "invoke")
+}
+
+// A failed work tool must be flagged to the model with a [TOOL FAILED] banner,
+// and the loop must not end the turn on a "done" claim right after it -- it
+// nudges once for a real success or an honest failure.
+func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			calls++
+			return "", errors.New("old_string not found in /a.go")
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "edit_file", Arguments: "{}"}}},
+		{content: "Done. The file has been updated.", toolCalls: nil},
+		{content: "Actually the edit failed: old_string not found.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "fix it", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]",
+		"the model must see the failed tool flagged")
+	require.Len(t, ms.cfgs, 3, "a 'done' claim after a failed tool must draw one nudge")
+	assert.Contains(t, ms.cfgs[2].Prompt, "edit_file call failed")
+	assert.Contains(t, result, "edit failed")
+}
+
+// A queued model note (goal transition, budget change, forced failure) must be
+// injected into the next request as a [kdeps] system message.
+func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	var loop *Loop
+	reg.Register(&tools.Tool{
+		Name: "noop", Description: "noop", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			loop.queueModelNote("goal: task 1 failed — continuing with task 2")
+			return "noop ok", nil
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "the answer", toolCalls: nil},
+	}}}
+	loop = New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.Contains(t, ms.cfgs[1].Messages, `"role":"system"`)
+	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] goal: task 1 failed")
 }
