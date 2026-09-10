@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/refine", "/instruct", "/exit", "/quit",
+	"/login", "/stealth", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so stealth mode (theme.go)
@@ -2510,8 +2510,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 	case "/memory":
 		return true, r.cmdMemory(args)
 	case "/instruct":
-		r.cmdInstruct(args)
-		return true, nil
+		return true, r.cmdInstruct(false, args)
+	case "/instruct!":
+		return true, r.cmdInstruct(true, args)
 	}
 	return false, nil
 }
@@ -2574,8 +2575,9 @@ func (r *REPL) cmdHelp() error {
 		"  /goal skip                         Abandon the active task and move to the next",
 		"  /goal clear                        Drop the active goal (stops task enforcement)",
 		"  /refine [on|off]                   Show or toggle pre-turn prompt refinement (on by default)",
-		"  /instruct                          Brief the model on kdeps: tools, how to call them, memory, modes",
-		"  /instruct <topic>                  Brief on one topic only (/instruct list to see topics)",
+		"  /instruct [topic]                  Brief the model on kdeps (tools, calling, memory, modes); primes the next prompt",
+		"  /instruct! [topic]                 Same briefing, sent as a turn now - the model reads and acknowledges it on the spot",
+		"  /instruct list                     Show the briefing topics",
 		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
 		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
 		"  /judges remove <name>              Remove a judge from the explicit roster",
@@ -4878,10 +4880,13 @@ func (r *REPL) cmdRefine(args []string) {
 	}
 }
 
-// cmdInstruct prints a kdeps briefing and adds it to the model's context so the
-// next turn is primed with it. No argument briefs on every topic; "/instruct
-// <topic>" on one; "/instruct list" just names the topics without briefing.
-func (r *REPL) cmdInstruct(args []string) {
+// cmdInstruct delivers a kdeps briefing to the model. Without live it appends
+// the briefing to history as a settled turn (cheap, primes the next prompt);
+// with live ("/instruct!") it runs a real turn now so the model reads the
+// briefing and acknowledges it on the spot -- for models that skim injected
+// context. No argument briefs on every topic; "<topic>" on one; "list" just
+// names the topics.
+func (r *REPL) cmdInstruct(live bool, args []string) error {
 	topic := ""
 	if len(args) > 0 {
 		topic = strings.ToLower(args[0])
@@ -4892,30 +4897,60 @@ func (r *REPL) cmdInstruct(args []string) {
 			fmt.Fprintf(os.Stdout, "  %-11s %s\n", t.name, t.title)
 		}
 		fmt.Fprintln(os.Stdout, styleReplDim.Render(
-			"/instruct briefs the model on every topic; /instruct <topic> on one."))
-		return
+			"/instruct primes the next prompt; /instruct! sends it as a turn now; add a <topic> for one."))
+		return nil
 	}
 
 	briefing, ok := buildInstruct(r.loop, topic)
 	if !ok {
 		fmt.Fprintf(os.Stdout, "Unknown topic %q. Try /instruct list.\n", topic)
-		return
+		return nil
 	}
 	// Printed raw, not through the markdown renderer: the briefing contains
 	// literal <invoke>/<parameter>/<task-id> tags the renderer would strip.
 	fmt.Fprintln(os.Stdout, briefing)
 
+	scope := "all topics"
+	if topic != "" {
+		scope = topic
+	}
+
+	if live {
+		return r.instructLive(briefing, scope)
+	}
 	r.loop.Session().Append(
 		"Reference briefing on kdeps for you to follow for the rest of this "+
 			"session:\n\n"+briefing,
 		instructAck,
 	)
-	scope := "all topics"
-	if topic != "" {
-		scope = topic
-	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
 		"Briefing added to the model's context ("+scope+")."))
+	return nil
+}
+
+// instructLive runs a real turn with the briefing as the prompt, so a model
+// that skims injected context has to read and acknowledge it right now.
+func (r *REPL) instructLive(briefing, scope string) error {
+	if r.loop.config.Model == "" {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"No model selected - /instruct! needs one. Use /instruct to prime the context instead."))
+		return nil
+	}
+	prompt := briefing + "\n\n" +
+		"The block above is a mandatory kdeps briefing. Read it now and reply with one " +
+		"short line confirming you have read it and will follow it for the rest of this " +
+		"session. Do not call any tool."
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Sending the briefing to the model now ("+scope+")..."))
+	resp, err := r.runWithThinking(r.ctx, prompt)
+	if err != nil {
+		return err
+	}
+	r.syncTokenCounter()
+	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
+	}
+	r.maybeHintCompact()
+	return nil
 }
 
 // judgesAddMinArgs is "add <name> <criteria...>"; judgesRemoveMinArgs is

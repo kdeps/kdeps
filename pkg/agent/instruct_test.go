@@ -128,6 +128,42 @@ func TestCmdInstruct_UnknownTopic(t *testing.T) {
 
 func TestInstructCommand_InBuiltinList(t *testing.T) {
 	assert.Contains(t, builtinCmds, "/instruct")
+	assert.Contains(t, builtinCmds, "/instruct!")
+}
+
+// /instruct! sends the briefing as a real turn instead of appending it silently.
+func TestCmdInstructBang_RunsTurn(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var sent string
+	repl.runFn = func(_ context.Context, prompt string) (string, error) {
+		sent = prompt
+		return "Understood.", nil
+	}
+
+	out := testCaptureStdout(t, func() {
+		require.NoError(t, repl.dispatchCommand("/instruct! tools"))
+	})
+	assert.Contains(t, sent, "How to call a tool", "the briefing is the turn's prompt")
+	assert.Contains(t, sent, "mandatory kdeps briefing")
+	assert.Contains(t, out, "Sending the briefing to the model now (tools)")
+}
+
+// /instruct! list only names topics; it does not run a turn.
+func TestCmdInstructBang_ListDoesNotRun(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	called := false
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		called = true
+		return "", nil
+	}
+	require.NoError(t, repl.dispatchCommand("/instruct! list"))
+	assert.False(t, called)
 }
 
 func TestInstructTopicNamesUnique(t *testing.T) {

@@ -46,8 +46,9 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/goal clear` | Drop the active goal (the next prompt starts a new one) |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
-| `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and add it to the model's context so the next turn is primed with it |
-| `/instruct <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `aliases`, `memory`, `goals`, `feedback`, `files` |
+| `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
+| `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
+| `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `aliases`, `memory`, `goals`, `feedback`, `files` |
 | `/instruct list` | Name the topics without briefing the model |
 | `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
