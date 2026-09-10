@@ -444,7 +444,10 @@ func (l *Loop) registerSkillLoader() {
 			}
 			content := sk.Content
 			if related := l.relatedSkills[sk.Name]; len(related) > 0 {
-				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(related, ", ")
+				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(
+					related,
+					", ",
+				)
 			}
 			return content, nil
 		},
@@ -913,7 +916,12 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 		// Mechanical memory_save: persist a structured turn record so the
 		// next model (after a switch) knows what happened this turn.
 		now := time.Now().Format(time.RFC3339)
-		summary := fmt.Sprintf("turn at %s | input: %.200s | response: %.200s", now, input, response)
+		summary := fmt.Sprintf(
+			"turn at %s | input: %.200s | response: %.200s",
+			now,
+			input,
+			response,
+		)
 		_ = l.memoryStore.Set("turn:last", summary)
 	}
 
@@ -1013,7 +1021,12 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		// Mechanical memory_save: persist a structured turn record so the
 		// next model (after a switch) knows what happened this turn.
 		now := time.Now().Format(time.RFC3339)
-		summary := fmt.Sprintf("turn at %s | input: %.200s | response: %.200s", now, input, response)
+		summary := fmt.Sprintf(
+			"turn at %s | input: %.200s | response: %.200s",
+			now,
+			input,
+			response,
+		)
 		_ = l.memoryStore.Set("turn:last", summary)
 	}
 
@@ -1172,6 +1185,7 @@ func (l *Loop) runToolRounds(
 	capped := false
 	directiveDropped := false
 	nudged := false
+	hallucinationNudged := false
 	// Repeat-block loop guard: a model that re-issues the exact same tool call
 	// every round (common once a tool is blocked by convergence or keeps
 	// failing) makes no progress. Track consecutive identical calls and break
@@ -1220,12 +1234,17 @@ func (l *Loop) runToolRounds(
 		finalContent = content
 
 		if len(toolCalls) == 0 {
-			next, nextNudged, keepGoing := l.handleTextOnlyRound(chatCfg, content, roundBuf.String(), nudged, w)
-			chatCfg, nudged = next, nextNudged
-			if keepGoing {
+			salvaged, res := l.handleEmptyToolRound(
+				chatCfg, content, roundBuf.String(), &nudged, &hallucinationNudged, w)
+			if len(salvaged) > 0 {
+				toolCalls, content, finalContent = salvaged, res.cleaned, res.cleaned
+			} else {
+				chatCfg = res.chatCfg
+				if res.stop {
+					break
+				}
 				continue
 			}
-			break
 		}
 
 		// Detect a model stuck re-issuing the same tool call. The loop
@@ -1287,6 +1306,20 @@ func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 		"Your previous response contained no tool call and no answer. "+
 			"If you intended to call a tool, call it now. Otherwise, answer directly "+
 			"in plain text. Do not reply with reasoning alone.")
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// nudgeNoFakeToolResponseConfig is used when the model wrote a <tool_response>
+// (or <tool_output>/<observation>) block itself. That is always a hallucination
+// -- nothing ran -- so tell it to make the real call and wait for the result.
+func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := turoReduce(context.Background(),
+		"You wrote a <tool_response> block. You never write tool results -- the "+
+			"runtime does, and nothing ran. Make the actual tool call now through "+
+			"the tool interface and wait for its real result before answering. Do "+
+			"not write <tool_call> or <tool_response> as text.")
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1639,7 +1672,12 @@ func trackRepeat(tc domain.StreamedToolCall, lastSig string, repeats int) (int, 
 // forces a text answer (the next round has no tools, so the loop ends). Returns
 // the possibly tool-stripped config, the updated consecutive-block count, and
 // whether the final answer has now been forced.
-func convergenceStop(cfg *domain.ChatConfig, blocked bool, blocks int, forced bool) (*domain.ChatConfig, int, bool) {
+func convergenceStop(
+	cfg *domain.ChatConfig,
+	blocked bool,
+	blocks int,
+	forced bool,
+) (*domain.ChatConfig, int, bool) {
 	if blocked {
 		blocks++
 	} else {
@@ -1723,6 +1761,39 @@ func (l *Loop) preflightRequestSize(chatCfg *domain.ChatConfig) error {
 		append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
 	)
 	return CheckRequestBodySizePreflight(backendName, tokenCount, 1)
+}
+
+// emptyRoundResult is the non-salvage outcome of handleEmptyToolRound: the
+// config for the next round and whether the turn should stop.
+type emptyRoundResult struct {
+	cleaned string
+	chatCfg *domain.ChatConfig
+	stop    bool
+}
+
+// handleEmptyToolRound processes a round the streamer returned with no native
+// tool calls. It first tries to recover a tool call the model wrote as text
+// (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
+// the first result for the caller to dispatch. Failing that: a self-written
+// <tool_response> is a hallucinated result and draws a one-shot nudge; anything
+// else falls through to handleTextOnlyRound.
+func (l *Loop) handleEmptyToolRound(
+	chatCfg *domain.ChatConfig,
+	content, buffered string,
+	nudged, hallucinationNudged *bool,
+	w io.Writer,
+) ([]domain.StreamedToolCall, emptyRoundResult) {
+	salvaged, cleaned, fake := salvageContentToolCalls(content)
+	if len(salvaged) > 0 {
+		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
+	}
+	if fake && !*hallucinationNudged {
+		*hallucinationNudged = true
+		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg)}
+	}
+	next, nextNudged, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, *nudged, w)
+	*nudged = nextNudged
+	return nil, emptyRoundResult{chatCfg: next, stop: !keepGoing}
 }
 
 // handleTextOnlyRound processes a round the model ended without calling a tool.
@@ -1848,7 +1919,11 @@ func (l *Loop) appendToolRoundTrip(
 	history, droppedRTs := windowToolHistory(history, l.config.Model)
 	if droppedRTs > 0 {
 		if pw := l.progressWriter(w); pw != nil {
-			fmt.Fprintf(pw, "\n[context] trimmed %d old tool step(s) to fit the window\n", droppedRTs)
+			fmt.Fprintf(
+				pw,
+				"\n[context] trimmed %d old tool step(s) to fit the window\n",
+				droppedRTs,
+			)
 		}
 	}
 	if b, err := json.Marshal(history); err == nil {
@@ -2060,7 +2135,9 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	var args map[string]any
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		if errMsg := summarizeToolArgs(tc.Arguments); errMsg != "" {
-			return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %s — %w", errMsg, err))
+			return toolErrorJSON(
+				fmt.Errorf("invalid tool call arguments JSON: %s — %w", errMsg, err),
+			)
 		}
 		return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %w", err))
 	}
@@ -2131,7 +2208,9 @@ func capToolResult(result string) string {
 // toolErrorJSON formats a tool failure as a JSON error result, truncated so a
 // provider error embedding a whole HTML page cannot flood the LLM context.
 func toolErrorJSON(err error) string {
-	b, mErr := json.Marshal(map[string]string{"error": truncateEllipsis(err.Error(), toolErrorMaxLen)})
+	b, mErr := json.Marshal(
+		map[string]string{"error": truncateEllipsis(err.Error(), toolErrorMaxLen)},
+	)
 	if mErr != nil {
 		return `{"error":"tool failed"}`
 	}
@@ -2188,7 +2267,8 @@ func (l *Loop) dispatchToTerminal(
 	// command (no output past ToolStallTimeout). Cancellable tools (e.g.
 	// bash_exec) read "_ctx" and kill their subprocess on cancellation.
 	onStall := func() {}
-	if base, ok := args["_ctx"].(context.Context); ok && base != nil && l.config.ToolStallTimeout > 0 {
+	if base, ok := args["_ctx"].(context.Context); ok && base != nil &&
+		l.config.ToolStallTimeout > 0 {
 		stallCtx, stallCancel := context.WithCancel(base)
 		defer stallCancel()
 		args["_ctx"] = stallCtx
@@ -2263,9 +2343,17 @@ func (l *Loop) dispatchToTerminal(
 	case execErr != nil:
 		// Truncate: provider failures can embed entire HTML pages (e.g. a
 		// CAPTCHA challenge) that would flood the terminal and the LLM context.
-		printToolCompletion(termW, rawW, name,
-			fmt.Sprintf("failed (%s): %s", elapsed, truncateEllipsis(execErr.Error(), toolErrorMaxLen)),
-			sameLine)
+		printToolCompletion(
+			termW,
+			rawW,
+			name,
+			fmt.Sprintf(
+				"failed (%s): %s",
+				elapsed,
+				truncateEllipsis(execErr.Error(), toolErrorMaxLen),
+			),
+			sameLine,
+		)
 		return toolErrorJSON(execErr)
 	case strings.HasPrefix(result, `{"status":"backgrounded"`):
 		printToolCompletion(termW, rawW, name,
@@ -2294,6 +2382,10 @@ Memory entries are permanent --- write for a future session, not this turn.
 
 <tools>
 Send independent tool calls in a single message to run them concurrently.
+
+A tool has not run until its real result comes back from the runtime. Never
+describe, quote, or invent a result you have not received, and never write a
+<tool_call> or <tool_response> block as text.
 
 Temporary files go under /tmp/kdeps/<task-id>/, never the project root.
 Clean up temp files when the task is done.
@@ -2436,14 +2528,16 @@ turn. This is not optional — it is the core reliability mechanism.
 // "run code" habit (M365 Copilot most aggressively, but others too) will act
 // through that instead of the fenced tool list unless told not to.
 const kdepsToolsFirstGuidance = `<use-kdeps-tools>
-Every capability you have here is a fenced kdeps tool from the list above ---
-including bash_exec for shell commands and the file tools for reading and
-writing. Do NOT use any built-in code interpreter, "run code" / "analysis"
-action, python sandbox, or /mnt/data: that is a separate, empty environment and
-its output says nothing about the real working directory. To act, emit a fenced
-kdeps tool call and read its <tool_response>. If a result looks empty or you
+Every capability you have here is a kdeps tool from the list above --- including
+bash_exec for shell commands and the file tools for reading and writing. Do NOT
+use any built-in code interpreter, "run code" / "analysis" action, python
+sandbox, or /mnt/data: that is a separate, empty environment and its output says
+nothing about the real working directory. To act, call the tool and wait for the
+runtime's result. Emit tool calls only through the tool interface --- never
+write a <tool_call>, <tool_response>, or <function...> block as text; the runtime
+returns results, you never write one yourself. If a result looks empty or you
 feel you "cannot access" something, you are calling an internal tool by mistake
---- switch to a fenced kdeps tool and try again.
+--- switch to a kdeps tool and try again.
 </use-kdeps-tools>`
 
 // kdepsToolsReminder is a one-line restatement attached to every turn after the
@@ -2460,16 +2554,18 @@ const kdepsToolsReminder = "Reminder: act only through the fenced kdeps tools " 
 // reported every result as "NO CONTENT AVAILABLE", and concluded it "could not
 // access the filesystem", never once emitting a real fenced tool call.
 const m365NoSandboxGuidance = `<use-kdeps-tools>
-Act ONLY through the fenced kdeps tools listed above -- including bash_exec for
-shell commands. Do NOT use your own built-in code interpreter, "Coding and
-executing" / "Analyzing" action, python tool, or any /mnt/data sandbox: that
-is a different, empty machine. Its output ("no content available", empty
-directory listings, "file not found") says nothing about the real working
-directory, which is a live filesystem with the files named in the task
-present right now. To run a shell command, emit a fenced bash_exec call and
-read the real result from its <tool_response>. If your last few tool results
-looked empty or you feel you "cannot access" anything, you are running your
-internal tools by mistake -- switch to a fenced kdeps tool call and try again.
+Act ONLY through the kdeps tools listed above -- including bash_exec for shell
+commands. Do NOT use your own built-in code interpreter, "Coding and executing"
+/ "Analyzing" action, python tool, or any /mnt/data sandbox: that is a
+different, empty machine. Its output ("no content available", empty directory
+listings, "file not found") says nothing about the real working directory,
+which is a live filesystem with the files named in the task present right now.
+To run a shell command, call bash_exec and wait for the runtime's result. Emit
+tool calls only through the tool interface -- never write a <tool_call> or
+<tool_response> block as text; the runtime returns results, you never write one.
+If your last few tool results looked empty or you feel you "cannot access"
+anything, you are running your internal tools by mistake -- switch to a kdeps
+tool call and try again.
 </use-kdeps-tools>`
 
 // InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
@@ -2697,8 +2793,8 @@ func (l *Loop) memoryRulesPreamble() []string {
 			"A memory entry recording that a tool call failed, was unavailable, or " +
 			"could not be completed in a PAST turn or session is NOT evidence that the " +
 			"same tool is unavailable NOW. Never refuse or skip a tool call because " +
-			"memory says a similar attempt didn't work before — attempt the real tool " +
-			"call this turn and let its actual <tool_response> tell you whether it " +
+			"memory says a similar attempt didn't work before — make the real tool " +
+			"call this turn and let its actual result tell you whether it " +
 			"works, every time. " +
 			"WHY THIS EXISTS: confirmed live — a model read a memory entry describing " +
 			"an earlier turn where it (wrongly) believed it had no tool access, treated " +
@@ -2770,7 +2866,10 @@ func modelIdentity(backend, model string) string {
 	}
 }
 
-func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string) *domain.ChatConfig {
+func (l *Loop) buildChatConfig(
+	ctx context.Context,
+	input, systemPreamble string,
+) *domain.ChatConfig {
 	var tools []domain.Tool
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()
@@ -2969,45 +3068,23 @@ func asStringMap(v any) (map[string]any, bool) {
 	return m, ok
 }
 
-// dsmlBlockRe matches one DeepSeek DSML tool-call span leaked into text
-// content (fullwidth-bar delimited tags). The body capture is non-greedy
-// ((?s).*?, matching to the NEAREST closing tag) rather than greedy: greedy
-// matching through to the LAST closing tag spans and deletes everything
-// between two separate leaked blocks in the same reply -- including real
-// prose the user was meant to see -- which is the same "assumed only one
-// occurrence" mistake the m365 fenced/invoke tool-call parsing hit twice.
-// ReplaceAllString below already finds every non-overlapping match in turn,
-// so non-greedy still strips both blocks; it just stops swallowing the text
-// between them.
-var dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
-
-// dsmlTagRe matches a stray DSML tag left behind when a leaked block is
-// truncated or malformed.
-var dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
-
-// stripContentToolCalls removes model-generated tool call noise from content.
-// Handles JSON array tool calls (small models putting tool_calls in content
-// field) and DeepSeek DSML markup (leaked when the model emits a tool call as
-// text, e.g. after the tool budget removed its tools). Prose surrounding a
-// leaked DSML block is preserved.
+// stripContentToolCalls removes model-generated tool-call noise from content:
+// <tool_call>/<function...>/DSML markup and any self-written <tool_response>
+// (all via salvageContentToolCalls), plus a whole-content JSON *array* of tool
+// calls (small models sometimes put the tool_calls array in the content field).
+// Prose around a leaked block is preserved.
 func stripContentToolCalls(content string) string {
-	if strings.Contains(content, "DSML") && strings.Contains(content, "｜") {
-		content = dsmlBlockRe.ReplaceAllString(content, "")
-		content = dsmlTagRe.ReplaceAllString(content, "")
-		content = strings.TrimSpace(content)
+	_, cleaned, _ := salvageContentToolCalls(content)
+	trimmed := strings.TrimSpace(cleaned)
+	if strings.HasPrefix(trimmed, "[") {
+		var arr []map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &arr); err == nil && len(arr) > 0 {
+			if _, hasName := arr[0]["name"]; hasName {
+				return "" // content is a tool call array, not a text response
+			}
+		}
 	}
-	trimmed := strings.TrimSpace(content)
-	if !strings.HasPrefix(trimmed, "[") {
-		return content
-	}
-	var arr []map[string]any
-	if err := json.Unmarshal([]byte(trimmed), &arr); err != nil || len(arr) == 0 {
-		return content
-	}
-	if _, hasName := arr[0]["name"]; hasName {
-		return "" // content is a tool call array, not a text response
-	}
-	return content
+	return cleaned
 }
 
 // SetOnAutoCompact registers a callback invoked when auto-compaction fires

@@ -125,6 +125,19 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 
 Set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMAFILE_CTX_SIZE` (file) environment variables. In resource YAML, `contextSize:` on a `chat:` block overrides per call; for Ollama only, `ollamaNumCtx:` is also accepted and takes precedence.
 
+### Text-embedded tool calls
+
+Most models call tools through the backend's tool-use channel. Some instead
+write the call as text --- `<tool_call>{"name":...,"arguments":{...}}</tool_call>`,
+`<function=name>{...}</function>`, or a bare JSON object --- and sometimes follow
+it with a **self-written `<tool_response>`** block and a false "done".
+
+kdeps recovers a text-written tool call and runs it for real. A model-authored
+`<tool_response>` is always a hallucination (only the runtime produces tool
+results): kdeps strips it, does not accept the turn as finished, and nudges the
+model once to make the actual call and wait for the real result. These markers
+never reach the visible answer.
+
 ### In-turn tool history
 
 A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). The transcript of those calls and their results is re-sent to the model on every round, so a long tool loop can otherwise grow the request without bound - `/compact` and the auto-compaction that runs between turns do not fire mid-turn.

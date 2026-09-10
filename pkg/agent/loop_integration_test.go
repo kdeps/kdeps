@@ -2209,3 +2209,67 @@ func TestRunStreaming_EmitsToolRoundNarration(t *testing.T) {
 		t.Fatalf("expected the tool-round narration in the output, got %q", buf.String())
 	}
 }
+
+// A model that writes its tool call as text (<tool_call>{...}) instead of
+// through the tool-use channel: the loop must recover it and actually run the
+// tool, not end the turn on the raw XML.
+func TestRunStreaming_SalvagesTextToolCall(t *testing.T) {
+	var gotArgs map[string]any
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "probe",
+		Description: "probe",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(a map[string]any) (string, error) {
+			gotArgs = a
+			return "probe ran", nil
+		},
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content:   `Running the probe.\n<tool_call>{"name":"probe","arguments":{"target":"x"}}</tool_call>`,
+			toolCalls: nil,
+		},
+		{content: "The probe returned: probe ran.", toolCalls: nil},
+	}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 5,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "probe x", &buf)
+	require.NoError(t, err)
+	require.NotNil(t, gotArgs, "salvaged tool call must actually execute")
+	assert.Equal(t, "x", gotArgs["target"])
+	assert.Equal(t, "The probe returned: probe ran.", result)
+	assert.NotContains(t, result, "tool_call")
+}
+
+// A model that writes a <tool_response> block itself is hallucinating a result.
+// The loop must nudge for a real call rather than accept the false completion.
+func TestRunStreaming_NudgesFabricatedToolResponse(t *testing.T) {
+	ran := false
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) { ran = true; return "real result", nil },
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content:   "I ran it.\n<tool_response>done, all good</tool_response>\nTask complete!",
+			toolCalls: nil,
+		},
+		{content: "", toolCalls: []domain.StreamedToolCall{{Name: "probe", Arguments: "{}"}}},
+		{content: "Now actually done: real result.", toolCalls: nil},
+	}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 5,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "probe", &buf)
+	require.NoError(t, err)
+	assert.True(t, ran, "the nudge must lead to a real tool call")
+	assert.GreaterOrEqual(t, ms.callCount, 2, "hallucination must not end the turn")
+	assert.NotContains(t, result, "tool_response")
+}
