@@ -271,6 +271,16 @@ type Loop struct {
 	// enforcer drives the active goal's task state machine. Set per turn when
 	// GoalEnforcement is on; nil means the plain round loop.
 	enforcer *goalEnforcer
+	// modelNotes are loop-generated notices (goal transitions, budget changes,
+	// forced task failures) queued to be injected into the model's next request
+	// as a [kdeps] system message. The human sees them on the terminal; the
+	// model must see them too so it can adjust. Reset per turn in runToolRounds.
+	modelNotes []string
+	// lastWorkFailure records the most recent work tool (not task_complete /
+	// task_fail) whose result was an error and has not since succeeded. Nil once
+	// a later work tool succeeds. Drives the end-of-turn "did that actually
+	// work?" nudge.
+	lastWorkFailure *toolFailure
 	// goalToolsRegistered guards the lazy registration of task_complete /
 	// task_fail, which happens on the first enforced turn.
 	goalToolsRegistered bool
@@ -1180,12 +1190,15 @@ func (l *Loop) runToolRounds(
 		return "", err
 	}
 	l.captureCallOutputs(chatCfg)
+	l.modelNotes = nil
+	l.lastWorkFailure = nil
 
 	var finalContent string
 	capped := false
 	directiveDropped := false
 	nudged := false
 	hallucinationNudged := false
+	workFailureNudged := false
 	// Repeat-block loop guard: a model that re-issues the exact same tool call
 	// every round (common once a tool is blocked by convergence or keeps
 	// failing) makes no progress. Track consecutive identical calls and break
@@ -1199,24 +1212,9 @@ func (l *Loop) runToolRounds(
 	// final answer.
 	unlimited := l.config.MaxToolRounds <= 0
 	for i := 0; unlimited || i < l.config.MaxToolRounds; i++ {
-		// Auto-checkpoint: save session state before each LLM call.
-		l.saveCheckpoint()
-
-		// Warn at half the tool budget so the user has time to react before
-		// the turn is capped. Present interactive options to increase the
-		// budget, set a new number, or do nothing.
-		if !unlimited && i == l.config.MaxToolRounds/2 {
-			remaining := l.config.MaxToolRounds - i
-			l.promptBudgetOptions(w, remaining)
-		}
-
-		// Last allowed round: remove the tools so the model must produce a
-		// text answer. Breaking out on a tool-call round instead would end
-		// the turn with no visible output (tool-call rounds usually have
-		// empty content with reasoning models).
-		if !unlimited && i == l.config.MaxToolRounds-1 {
-			capped = i > 0
-			chatCfg = forceAnswerConfig(chatCfg)
+		var roundCapped bool
+		if chatCfg, roundCapped = l.prepareRound(chatCfg, i, unlimited, w); roundCapped {
+			capped = true
 		}
 
 		var roundBuf strings.Builder
@@ -1234,13 +1232,13 @@ func (l *Loop) runToolRounds(
 		finalContent = content
 
 		if len(toolCalls) == 0 {
-			salvaged, res := l.handleEmptyToolRound(
-				chatCfg, content, roundBuf.String(), &nudged, &hallucinationNudged, w)
-			if len(salvaged) > 0 {
-				toolCalls, content, finalContent = salvaged, res.cleaned, res.cleaned
-			} else {
-				chatCfg = res.chatCfg
-				if res.stop {
+			var stop bool
+			toolCalls, content, chatCfg, stop = l.resolveEmptyToolRound(
+				chatCfg, content, roundBuf.String(),
+				&nudged, &hallucinationNudged, &workFailureNudged, w)
+			finalContent = content
+			if len(toolCalls) == 0 {
+				if stop {
 					break
 				}
 				continue
@@ -1266,29 +1264,58 @@ func (l *Loop) runToolRounds(
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
 		}
-		// Goal enforcement runs before the convergence guard: it can advance the
-		// cursor past a wedged task, which is a better outcome than force-
-		// answering the whole turn.
-		l.enforceGoalProgress(&chatCfg, outcome, w)
-		chatCfg, convergenceBlocks, forcedFinal = convergenceStop(
-			chatCfg,
-			outcome.blocked,
-			convergenceBlocks,
-			forcedFinal,
-		)
+		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
+			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
 	}
-	// A turn must never end in silence. Reasoning models sometimes put an
-	// entire round into thinking tokens and return empty content: on a capped
-	// round that loses the forced final answer, and otherwise it means the
-	// model stalled even after the nudge above.
-	if strings.TrimSpace(stripContentToolCalls(finalContent)) == "" {
-		if capped {
-			finalContent = l.budgetExhaustedNotice(w)
-		} else {
-			finalContent = l.silentTurnNotice(w)
-		}
+	return l.ensureNonSilentFinal(finalContent, capped, w), nil
+}
+
+// ensureNonSilentFinal guarantees a turn never ends in silence. Reasoning models
+// sometimes put an entire round into thinking tokens and return empty content:
+// on a capped round that loses the forced final answer, and otherwise it means
+// the model stalled even after the end-of-turn nudge.
+func (l *Loop) ensureNonSilentFinal(finalContent string, capped bool, w io.Writer) string {
+	if strings.TrimSpace(stripContentToolCalls(finalContent)) != "" {
+		return finalContent
 	}
-	return finalContent, nil
+	if capped {
+		return l.budgetExhaustedNotice(w)
+	}
+	return l.silentTurnNotice(w)
+}
+
+// prepareRound runs the per-round housekeeping before the LLM call: an
+// auto-checkpoint, a half-budget warning with interactive options, and -- on the
+// last allowed round -- stripping the tools so the model must produce a text
+// answer. It returns the config to use and whether this round was capped.
+func (l *Loop) prepareRound(
+	chatCfg *domain.ChatConfig, i int, unlimited bool, w io.Writer,
+) (*domain.ChatConfig, bool) {
+	l.saveCheckpoint()
+	if unlimited {
+		return chatCfg, false
+	}
+	if i == l.config.MaxToolRounds/2 {
+		l.promptBudgetOptions(w, l.config.MaxToolRounds-i)
+	}
+	if i == l.config.MaxToolRounds-1 {
+		return forceAnswerConfig(chatCfg), i > 0
+	}
+	return chatCfg, false
+}
+
+// applyRoundOutcome runs goal enforcement (which can advance the cursor past a
+// wedged task -- a better outcome than force-answering the whole turn) and then
+// the convergence guard.
+func (l *Loop) applyRoundOutcome(
+	chatCfg *domain.ChatConfig,
+	outcome roundOutcome,
+	convergenceBlocks int,
+	forcedFinal bool,
+	w io.Writer,
+) (*domain.ChatConfig, int, bool) {
+	l.enforceGoalProgress(&chatCfg, outcome, w)
+	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
@@ -1320,6 +1347,18 @@ func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 			"runtime does, and nothing ran. Make the actual tool call now through "+
 			"the tool interface and wait for its real result before answering. Do "+
 			"not write <tool_call> or <tool_response> as text.")
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// nudgeUnresolvedToolFailureConfig fires when the turn is about to end while the
+// last work tool is still failing. The model must retry it to a real success or
+// state plainly that the step failed -- not silently report it done.
+func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := "Your last " + f.tool + " call failed: " + f.msg +
+		". It has not succeeded. Retry it and get a real success, or state plainly " +
+		"in your answer that this step failed. Do not claim it is done."
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1796,6 +1835,33 @@ func (l *Loop) handleEmptyToolRound(
 	return nil, emptyRoundResult{chatCfg: next, stop: !keepGoing}
 }
 
+// resolveEmptyToolRound wraps handleEmptyToolRound for the round loop: it
+// returns any salvaged tool calls (with the cleaned content), the config to use
+// next, and whether the turn should stop. When the turn is about to end on an
+// unresolved work-tool failure, it injects a single push-back nudge instead of
+// stopping.
+func (l *Loop) resolveEmptyToolRound(
+	chatCfg *domain.ChatConfig,
+	content, buffered string,
+	nudged, hallucinationNudged, workFailureNudged *bool,
+	w io.Writer,
+) ([]domain.StreamedToolCall, string, *domain.ChatConfig, bool) {
+	salvaged, res := l.handleEmptyToolRound(
+		chatCfg, content, buffered, nudged, hallucinationNudged, w)
+	if len(salvaged) > 0 {
+		return salvaged, res.cleaned, chatCfg, false
+	}
+	if !res.stop {
+		return nil, content, res.chatCfg, false
+	}
+	if l.lastWorkFailure != nil && !*workFailureNudged {
+		*workFailureNudged = true
+		return nil, content,
+			nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure), false
+	}
+	return nil, content, res.chatCfg, true
+}
+
 // handleTextOnlyRound processes a round the model ended without calling a tool.
 // It returns the config for the next round, the updated nudge flag, and whether
 // the loop should keep going.
@@ -1837,7 +1903,6 @@ func (l *Loop) appendToolRoundTrip(
 	toolCalls []domain.StreamedToolCall,
 	w io.Writer,
 ) (*domain.ChatConfig, roundOutcome) {
-	var outcome roundOutcome
 	var history []map[string]any
 	if cfg.Messages != "" {
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
@@ -1884,32 +1949,9 @@ func (l *Loop) appendToolRoundTrip(
 	}
 	history = append(history, assistant)
 
-	// Execute each tool and add tool result messages. After a Ctrl+C the
-	// remaining tools are skipped with an interrupted marker instead of run.
-	// Each tool's call line is displayed right before it runs so its
-	// completion can attach to the same line.
-	for _, tc := range toolCalls {
-		result := `{"error":"interrupted by user"}`
-		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
-			result = l.dispatchOrRefuse(tc, w)
-		}
-		if isConvergenceBlocked(result) {
-			outcome.blocked = true
-		}
-		if l.enforcer.observeResult(tc.Name, result) {
-			outcome.productive = true
-		}
-		if isTaskStateTool(tc.Name) && !strings.HasPrefix(strings.TrimSpace(result), `{"error"`) {
-			outcome.advanced = true
-		}
-		history = append(history, map[string]any{
-			"role":           "tool",
-			"tool_call_id":   tc.ID,
-			"name":           tc.Name,
-			toolParamContent: turoReduce(ctx, capToolResult(result)),
-		})
-		l.recordToolCall(tc.Name, tc.Arguments, result)
-	}
+	// Execute each tool and add tool result messages.
+	toolMsgs, outcome := l.executeToolCalls(ctx, toolCalls, w)
+	history = append(history, toolMsgs...)
 
 	updated := *cfg
 	// Bound the in-flight transcript: auto-compaction only runs at turn
@@ -1926,11 +1968,84 @@ func (l *Loop) appendToolRoundTrip(
 			)
 		}
 	}
+
+	// Inject loop-generated notices (goal transitions, budget changes, forced
+	// task failures) into the model's context as one [kdeps] system message.
+	if len(l.modelNotes) > 0 {
+		history = append(history, map[string]any{
+			"role":           RoleSystem,
+			toolParamContent: "[kdeps] " + strings.Join(l.modelNotes, "\n[kdeps] "),
+		})
+		l.modelNotes = nil
+	}
+
 	if b, err := json.Marshal(history); err == nil {
 		updated.Messages = string(b)
 		updated.Prompt = "" // already in history
 	}
 	return &updated, outcome
+}
+
+// executeToolCalls runs each tool call and returns the resulting "tool" role
+// messages plus the aggregate round outcome. After a Ctrl+C the remaining tools
+// are skipped with an interrupted marker instead of run. Each tool's call line
+// is displayed right before it runs so its completion can attach to it.
+func (l *Loop) executeToolCalls(
+	ctx context.Context,
+	toolCalls []domain.StreamedToolCall,
+	w io.Writer,
+) ([]map[string]any, roundOutcome) {
+	var outcome roundOutcome
+	msgs := make([]map[string]any, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		result := `{"error":"interrupted by user"}`
+		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
+			result = l.dispatchOrRefuse(tc, w)
+		}
+		if isConvergenceBlocked(result) {
+			outcome.blocked = true
+		}
+		if l.enforcer.observeResult(tc.Name, result) {
+			outcome.productive = true
+		}
+		if isTaskStateTool(tc.Name) && !isToolErrorResult(result) {
+			outcome.advanced = true
+		}
+		msgs = append(msgs, map[string]any{
+			"role":           "tool",
+			"tool_call_id":   tc.ID,
+			"name":           tc.Name,
+			toolParamContent: l.toolResultMessage(ctx, tc, result),
+		})
+		l.recordToolCall(tc.Name, tc.Arguments, result)
+	}
+	return msgs, outcome
+}
+
+// toolResultMessage builds the "tool" message content for one call. A failed
+// work tool is flagged unmistakably (turo left untouched so the exact error
+// survives) and remembered for the end-of-turn "did that actually work?" nudge;
+// a later success on any work tool clears that memory.
+func (l *Loop) toolResultMessage(
+	ctx context.Context,
+	tc domain.StreamedToolCall,
+	result string,
+) string {
+	if isTaskStateTool(tc.Name) {
+		return turoReduce(ctx, capToolResult(result))
+	}
+	switch {
+	case isToolErrorResult(result) && !isConvergenceBlocked(result):
+		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
+		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
+			" did not run. Nothing changed. Fix the cause and call it again, " +
+			"or say in your answer that this step failed -- do NOT report it as done."
+	case !isToolErrorResult(result):
+		l.lastWorkFailure = nil // a work tool succeeded; failure resolved
+		return turoReduce(ctx, capToolResult(result))
+	default:
+		return turoReduce(ctx, capToolResult(result))
+	}
 }
 
 // dispatchOrRefuse runs a tool call unless it breaks a goal rule: repeating work
@@ -2205,6 +2320,42 @@ func capToolResult(result string) string {
 		cutoff, len(result), len(cutoff))
 }
 
+// toolFailure names a tool whose call returned an error.
+type toolFailure struct {
+	tool string
+	msg  string
+}
+
+// queueModelNote records a loop-generated notice to inject into the model's
+// next request (as a [kdeps] system message from appendToolRoundTrip). Notices
+// go here in ADDITION to any terminal print -- the human cannot act on them,
+// the model can.
+func (l *Loop) queueModelNote(text string) {
+	text = strings.TrimSpace(text)
+	if l == nil || text == "" {
+		return
+	}
+	l.modelNotes = append(l.modelNotes, text)
+}
+
+// isToolErrorResult reports whether a tool result is the {"error": ...} shape
+// dispatchStreamToolCall / the enforcer produce for a failed call.
+func isToolErrorResult(result string) bool {
+	return strings.HasPrefix(strings.TrimSpace(result), `{"error"`)
+}
+
+// shortToolError pulls a readable message out of a {"error": "..."} result for
+// use in a nudge, falling back to the raw (capped) string.
+func shortToolError(result string) string {
+	var m struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal([]byte(strings.TrimSpace(result)), &m) == nil && m.Error != "" {
+		return truncateEllipsis(m.Error, toolErrorMaxLen)
+	}
+	return truncateEllipsis(strings.TrimSpace(result), toolErrorMaxLen)
+}
+
 // toolErrorJSON formats a tool failure as a JSON error result, truncated so a
 // provider error embedding a whole HTML page cannot flood the LLM context.
 func toolErrorJSON(err error) string {
@@ -2386,6 +2537,10 @@ Send independent tool calls in a single message to run them concurrently.
 A tool has not run until its real result comes back from the runtime. Never
 describe, quote, or invent a result you have not received, and never write a
 <tool_call> or <tool_response> block as text.
+
+Every "[kdeps] ..." note and every {"error": ...} result is feedback for you ---
+read it and change what you do next. A step is not done until its tool returned
+a real success; if a tool failed, retry it or say plainly that it failed.
 
 Temporary files go under /tmp/kdeps/<task-id>/, never the project root.
 Clean up temp files when the task is done.

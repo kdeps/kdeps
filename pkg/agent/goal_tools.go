@@ -128,6 +128,15 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 			id, active.ID, active.Desc, strikes, penaltyNotice(strikes))
 	}
 
+	if status == GoalTaskDone && e.lastWorkError != nil {
+		strikes := e.recordViolation("")
+		return "", fmt.Errorf(
+			"REFUSED: task %d — your last %s call failed: %q. Retry it and get a "+
+				"real success, or call task_fail. Do not mark this task done on a "+
+				"failed tool result. Strike %d — %s",
+			active.ID, e.lastWorkError.tool, e.lastWorkError.msg, strikes, penaltyNotice(strikes))
+	}
+
 	if status == GoalTaskDone && e.requireEvidence && len(e.taskSigs) > 0 && !e.hasEvidence {
 		return "", fmt.Errorf(
 			"REFUSED: task %d has tool calls but none of them verify the claimed "+

@@ -62,6 +62,13 @@ It calls one of two tools and the code validates the id against the active task:
 If a turn ends with a text answer instead of either call, the loop settles the
 active task from that text and continues with the next one.
 
+**Failed-tool gate (always on).** A task cannot close as *done* while its most
+recent work tool (anything other than `task_complete` / `task_fail`) is still
+failing: `task_complete` is refused ("your last `edit_file` call failed ... retry
+it or call `task_fail`"), and a prose "done" records the task **failed**. A later
+successful call to that tool clears the gate. This is independent of
+`RequireTaskEvidence` below.
+
 **Evidence-gated completion (`RequireTaskEvidence`).** By default, `task_complete`
 only checks *which* task is being closed - the claimed outcome itself is
 unverified. With `RequireTaskEvidence: true`, a task that made tool calls must

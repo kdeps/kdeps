@@ -71,6 +71,11 @@ type goalEnforcer struct {
 	// blockedTools are tool names whose results were errors or convergence
 	// blocks this task; the narrow step removes them.
 	blockedTools map[string]bool
+	// lastWorkError is the most recent work tool (not task_complete/task_fail)
+	// whose result was an error and has not since succeeded. Non-nil blocks
+	// task_complete: a task is not done on a failed tool. Cleared by a later
+	// successful work-tool result and by resetTask.
+	lastWorkError *toolFailure
 	// budget re-sizes the per-category tool caps from measured yield.
 	budget *budgetTuner
 	// budgetNote holds a pending "category budget → N" message to surface at
@@ -240,7 +245,16 @@ func (e *goalEnforcer) resultIsNew(toolName, result string) bool {
 	if trimmed == "" {
 		return false
 	}
-	if isConvergenceBlocked(trimmed) || strings.HasPrefix(trimmed, `{"error"`) {
+	errored := strings.HasPrefix(trimmed, `{"error"`)
+	if !isTaskStateTool(toolName) {
+		switch {
+		case errored && !isConvergenceBlocked(trimmed):
+			e.lastWorkError = &toolFailure{tool: toolName, msg: shortToolError(trimmed)}
+		case !errored:
+			e.lastWorkError = nil // a work tool succeeded; failure resolved
+		}
+	}
+	if isConvergenceBlocked(trimmed) || errored {
 		e.blockedTools[toolName] = true
 		return false
 	}
@@ -311,6 +325,7 @@ func (e *goalEnforcer) resetTask() {
 	e.unproductive = 0
 	e.strikes = 0 // a new task starts with a clean record
 	e.hasEvidence = false
+	e.lastWorkError = nil
 	e.seenResults = make(map[string]bool)
 	e.blockedTools = make(map[string]bool)
 }
@@ -616,6 +631,7 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 	}
 
 	status := GoalTaskDone
+	note := firstLine(content)
 	lower := strings.ToLower(content)
 	for _, m := range refusalMarkers {
 		if strings.Contains(lower, m) {
@@ -623,8 +639,16 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 			break
 		}
 	}
+	// A prose "done" right after a work tool failed is the exact bug this
+	// guards: record the task failed, not done, and tell the model why.
+	if status == GoalTaskDone && e.lastWorkError != nil {
+		status = GoalTaskFailed
+		note = fmt.Sprintf("last %s call failed: %s", e.lastWorkError.tool, e.lastWorkError.msg)
+		l.queueModelNote(fmt.Sprintf(
+			"task %d recorded FAILED, not done — %s. It was not completed.", active.ID, note))
+	}
 
-	e.goal.Advance(status, firstLine(content))
+	e.goal.Advance(status, note)
 	e.resetTask()
 	saveGoal(e.store, e.goal)
 
@@ -683,9 +707,11 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 	*cfg = withGoalDirective(*cfg, e.directive()+e.escalationNote(level))
 }
 
-// reportGoalEvent surfaces a state-machine transition to the user. Silent when
-// there is nowhere to write it (library callers with no writer at all).
+// reportGoalEvent surfaces a state-machine transition to the user AND queues it
+// for the model's next request -- the human cannot act on a forced task
+// failure or a cursor move, but the model must know it happened.
 func (l *Loop) reportGoalEvent(w io.Writer, msg string) {
+	l.queueModelNote("goal: " + msg)
 	pw := l.progressWriter(w)
 	if pw == nil {
 		return
