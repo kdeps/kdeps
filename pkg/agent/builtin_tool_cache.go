@@ -192,6 +192,30 @@ var lastFileState struct {
 	path string
 }
 
+// markFileSeen records that path's current content is known this turn (it was
+// read, written, or just edited), so edit_file can require a look before it
+// mutates a file. Backed by the per-turn file convergence cache, reset each
+// turn by ResetConvergence.
+func markFileSeen(path string) {
+	globalFileCache.mu.Lock()
+	if globalFileCache.seen == nil {
+		globalFileCache.seen = make(map[string]struct{})
+	}
+	globalFileCache.seen[path] = struct{}{}
+	globalFileCache.mu.Unlock()
+}
+
+// fileSeenThisTurn reports whether path was read, written, or edited this turn.
+func fileSeenThisTurn(path string) bool {
+	globalFileCache.mu.Lock()
+	defer globalFileCache.mu.Unlock()
+	if _, ok := globalFileCache.m[path]; ok {
+		return true
+	}
+	_, ok := globalFileCache.seen[path]
+	return ok
+}
+
 // rememberFile records path as the most recently accessed file.
 func rememberFile(path string) {
 	if path == "" {

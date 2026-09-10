@@ -67,9 +67,10 @@ matched <invoke> block -- open tag and close tag, nothing around it:
   </invoke>
 
   <invoke name="edit_file">
+  <parameter name="command">str_replace</parameter>
   <parameter name="file_path">pkg/agent/loop.go</parameter>
-  <parameter name="old_string">old text</parameter>
-  <parameter name="new_string">new text</parameter>
+  <parameter name="old_str">exact current text</parameter>
+  <parameter name="new_str">replacement text</parameter>
   </invoke>
 
 The runtime executes the block and hands you the real output. Every capability

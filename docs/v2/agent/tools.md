@@ -73,45 +73,51 @@ Always available. No environment variables required.
 
 | Tool | Description |
 |------|-------------|
-| `read_file` | Read file contents (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
+| `read_file` | Read file contents with a 1-based line number on every line (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | Replace part of a file - by line range (`start_line`/`end_line`) or by `old_string` |
+| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `undo_edit` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
+
+Every line `read_file` returns is prefixed with its 1-based line number (`  42⇥code`) - those numbers are what `edit_file`'s `insert` and `view` commands point at.
 
 `read_file`, `tail_file`, and `md5_file` treat `file_path` as optional: omit it and the tool operates on the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file` and `edit_file` always require an explicit path.
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
-### edit_file - two ways to point at the edit
+### edit_file - four commands
 
-**Line mode (preferred).** `read_file` prints every line with its number
-(`42⇥code`). Pass `start_line` and `end_line` (1-based, inclusive) plus
-`new_string` and exactly those lines are replaced - no need to reproduce the
-old text at all. Optionally pass `old_string` as a guard: if those lines no
-longer contain it (whitespace-insensitive), the edit is refused and the error
-shows the range's current numbered content so the model can re-read and retry.
-`new_string` with or without a trailing newline works; if it is flush-left and
-the target lines are indented, it is re-indented to match.
+`edit_file` takes a `command`. There is no line-range mode and no fuzzy
+matching: the reliable primitives are an exact string swap and a line insert,
+each verified.
 
-```text
-start_line: 2, end_line: 3, new_string: "..."   -> lines 2-3 replaced
-start_line: 5                                    -> line 5 replaced (end_line defaults to start_line)
-```
+**`view`** - `edit_file` with `command: view` and a `file_path` prints the file
+with a 1-based line number on every line (same as `read_file`). Pass
+`view_range: [start, end]` (1-based inclusive, `end` `-1` = to end of file) for
+a slice. A `view` also satisfies the read-before-edit requirement below.
 
-**String mode.** Omit the line numbers and pass `old_string` + `new_string`;
-the tool locates `old_string`, trying progressively looser matching so the
-model does not have to reproduce whitespace byte-for-byte:
+**`str_replace`** - pass `old_str` (the exact current text) and `new_str`.
+`old_str` must match the file **byte-for-byte** - indentation and all - and
+appear **exactly once**. No looser matching:
 
-1. **exact** - literal substring match.
-2. **trailing-whitespace** - ignores trailing spaces/tabs and CRLF vs LF per line; also covers a missing or extra final newline.
-3. **indentation** - ignores leading whitespace per line (wrong indent width, tabs vs spaces, a block pasted flush-left). `new_string` is re-indented to the file's actual level.
+- 0 matches -> `old_str did not appear verbatim` (copy it from a `view`).
+- 2+ matches -> the error lists every line the text starts on; add surrounding
+  lines to make it unique.
+- 1 match -> the swap is written and the result is a **numbered snippet of the
+  changed region** so you can check the edit landed where you meant.
 
-The match must land on exactly one passage; pass `replace_all: true` to change
-every occurrence. If nothing matches, the error names the closest region in the
-file with line numbers. Either way, the file's line-ending style is preserved on
-write.
+**`insert`** - pass `insert_line` (0 = before the first line, N = after line N)
+and `new_str`. Returns the same numbered snippet.
+
+**`undo_edit`** - reverts the last `str_replace`/`insert` on that file (a
+per-file history kept for the session).
+
+**Read before you edit.** `str_replace` and `insert` refuse to touch a file
+that was not read this turn (`read_file`, or `edit_file command: view`) -
+editing a file you have not looked at is how a change lands in the wrong place.
+A file you just wrote with `write_file`, or just edited, counts as read.
+The file's line-ending style is preserved on write.
 
 ### Failed tool calls are fed back to the model
 

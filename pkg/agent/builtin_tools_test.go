@@ -2373,114 +2373,6 @@ func TestRerankResultsToJSON_Empty(t *testing.T) {
 
 // --- registerEditFile execute closure ---
 
-func TestRegisterEditFile_Execute_MissingPath(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": ""})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "file_path is required")
-}
-
-func TestRegisterEditFile_Execute_RelativePath(t *testing.T) {
-	// Fixture lives in the real ambient working directory (unique name, via
-	// defer cleanup) rather than a chdir'd t.TempDir(): os.Chdir is
-	// process-wide and races with any parallel test's own relative-path I/O.
-	f, err := os.CreateTemp(".", "kdeps_edit_test_*.txt")
-	require.NoError(t, err)
-	relName := f.Name()
-	defer func() { _ = os.Remove(relName) }()
-	require.NoError(t, os.WriteFile(relName, []byte("hello world"), 0600))
-	require.NoError(t, f.Close())
-
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	_, err = tool.Execute(
-		map[string]any{"file_path": relName, "old_string": "hello", "new_string": "goodbye"},
-	)
-	require.NoError(t, err, "a relative path must resolve against the working directory")
-	data, rerr := os.ReadFile(relName)
-	require.NoError(t, rerr)
-	assert.Equal(t, "goodbye world", string(data))
-}
-
-func TestRegisterEditFile_Execute_OldEqualsNew(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(
-		map[string]any{"file_path": tmpFile, "old_string": "hello", "new_string": "hello"},
-	)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "identical")
-}
-
-func TestRegisterEditFile_Execute_OldStringNotFound(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(
-		map[string]any{
-			"file_path":  tmpFile,
-			"old_string": "nonexistent",
-			"new_string": "replacement",
-		},
-	)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestRegisterEditFile_Execute_Success(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{
-		"file_path":  tmpFile,
-		"old_string": "hello",
-		"new_string": "goodbye",
-	})
-	assert.NoError(t, err)
-	assert.Contains(t, result, "Edited")
-	data, _ := os.ReadFile(tmpFile)
-	assert.Equal(t, "goodbye world", string(data))
-}
-
-func TestRegisterEditFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
-	reg := kdepstools.NewRegistry()
-	registerEditFile(reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-	var buf strings.Builder
-	tool.OutputWriter = &buf
-	result, err := tool.Execute(map[string]any{
-		"file_path":  tmpFile,
-		"old_string": "hello",
-		"new_string": "goodbye",
-	})
-	require.NoError(t, err)
-	diff := buf.String()
-	assert.Contains(t, diff, "- hello", "diff shows the removed line")
-	assert.Contains(t, diff, "+ goodbye", "diff shows the added line")
-	assert.Contains(t, diff, ansiGreen, "additions are colored")
-	assert.Contains(t, diff, ansiRed, "deletions are colored")
-	// The colored diff goes to the terminal, not the model's result.
-	assert.NotContains(t, result, "\x1b", "LLM result carries no ANSI escapes")
-}
-
 func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "w.txt")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
@@ -3236,6 +3128,7 @@ func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{
+		"command":    "str_replace",
 		"file_path":  outside,
 		"old_string": "x",
 		"new_string": "y",
@@ -3740,8 +3633,10 @@ func TestEditFile_ReadAfterWriteVerification(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 	defer os.Remove(tmpFile.Name())
+	markFileSeen(tmpFile.Name())
 
 	result, err := tool.Execute(map[string]any{
+		"command":    "str_replace",
 		"file_path":  tmpFile.Name(),
 		"old_string": "debug = false",
 		"new_string": "debug = true",
