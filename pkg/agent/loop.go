@@ -3460,6 +3460,15 @@ func (l *Loop) Skills() string {
 	return l.skills
 }
 
+// ToolCatalog returns the registered tools as the same grouped, human-readable
+// block that goes into the system preamble (empty if no tools are registered).
+func (l *Loop) ToolCatalog() string {
+	if l == nil || l.registry == nil {
+		return ""
+	}
+	return l.registry.ToolPrompt()
+}
+
 // ReloadSkills reloads skills from the given paths and updates the system prompt.
 // This is called when /settings saves new skill selections.
 func (l *Loop) ReloadSkills(skillPaths []string) {
