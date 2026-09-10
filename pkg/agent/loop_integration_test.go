@@ -2273,3 +2273,32 @@ func TestRunStreaming_NudgesFabricatedToolResponse(t *testing.T) {
 	assert.GreaterOrEqual(t, ms.callCount, 2, "hallucination must not end the turn")
 	assert.NotContains(t, result, "tool_response")
 }
+
+// Anthropic <invoke name="..."><parameter> tool call written as text must be
+// recovered and executed like a native one.
+func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
+	var got map[string]any
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
+		Execute: func(a map[string]any) (string, error) { got = a; return "ok", nil },
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content:   "Probing.\n<function_calls>\n<invoke name=\"probe\">\n<parameter name=\"target\">host-1</parameter>\n</invoke>\n</function_calls>",
+			toolCalls: nil,
+		},
+		{content: "probe returned ok", toolCalls: nil},
+	}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 5,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "probe host-1", &buf)
+	require.NoError(t, err)
+	require.NotNil(t, got, "the invoke-form call must execute")
+	assert.Equal(t, "host-1", got["target"])
+	assert.NotContains(t, result, "parameter")
+	assert.NotContains(t, result, "invoke")
+}

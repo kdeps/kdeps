@@ -129,8 +129,9 @@ Set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMA
 
 Most models call tools through the backend's tool-use channel. Some instead
 write the call as text --- `<tool_call>{"name":...,"arguments":{...}}</tool_call>`,
-`<function=name>{...}</function>`, or a bare JSON object --- and sometimes follow
-it with a **self-written `<tool_response>`** block and a false "done".
+`<function=name>{...}</function>`, `<invoke name="..."><parameter name="...">...</parameter></invoke>`,
+or a bare JSON object --- and sometimes follow it with a **self-written
+`<tool_response>`** block and a false "done".
 
 kdeps recovers a text-written tool call and runs it for real. A model-authored
 `<tool_response>` is always a hallucination (only the runtime produces tool
