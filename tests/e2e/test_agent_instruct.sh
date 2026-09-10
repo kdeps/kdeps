@@ -53,3 +53,9 @@ if output_grep_fixed "Briefing added to the model's context (all topics)" "$OUTP
 else
     test_failed "instruct - no-arg did not brief all topics" "Output: $OUTPUT"
 fi
+
+if output_grep_fixed "/instruct!" "$OUTPUT"; then
+    test_passed "instruct - /help lists /instruct!"
+else
+    test_failed "instruct - /help missing /instruct!" "Output: $OUTPUT"
+fi
