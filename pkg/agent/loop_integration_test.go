@@ -2376,3 +2376,40 @@ func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
 	assert.Contains(t, ms.cfgs[1].Messages, `"role":"system"`)
 	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] goal: task 1 failed")
 }
+
+// A round that makes no tool call but describes a failed sandbox / code-
+// interpreter session ("NO CONTENT AVAILABLE", "cannot access the filesystem")
+// must draw one nudge to make a real call, not settle the turn on the fake
+// transcript.
+func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{
+			content: "I ran `ls /mnt/data` but it returned NO CONTENT AVAILABLE, " +
+				"so I cannot access the filesystem.",
+			toolCalls: nil,
+		},
+		{content: "The config timeout is 30s.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "what is the timeout?", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "the fake sandbox transcript must draw exactly one nudge")
+	assert.Contains(t, ms.cfgs[1].Prompt, "code-interpreter sandbox")
+	assert.Equal(t, "The config timeout is 30s.", got)
+}
+
+// The sandbox nudge fires at most once: a model that keeps describing a sandbox
+// session must not loop forever.
+func TestRunStreaming_SandboxHallucinationNudgedOnce(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "The sandbox session has expired, no content available.", toolCalls: nil},
+		{content: "Still cannot access the repository files.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
+	require.NoError(t, err)
+	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
+	assert.NotEmpty(t, strings.TrimSpace(got))
+}
