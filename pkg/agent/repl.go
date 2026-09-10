@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/refine", "/exit", "/quit",
+	"/login", "/stealth", "/refine", "/instruct", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so stealth mode (theme.go)
@@ -2509,6 +2509,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, nil
 	case "/memory":
 		return true, r.cmdMemory(args)
+	case "/instruct":
+		r.cmdInstruct(args)
+		return true, nil
 	}
 	return false, nil
 }
@@ -2571,6 +2574,8 @@ func (r *REPL) cmdHelp() error {
 		"  /goal skip                         Abandon the active task and move to the next",
 		"  /goal clear                        Drop the active goal (stops task enforcement)",
 		"  /refine [on|off]                   Show or toggle pre-turn prompt refinement (on by default)",
+		"  /instruct                          Brief the model on kdeps: tools, how to call them, memory, modes",
+		"  /instruct <topic>                  Brief on one topic only (/instruct list to see topics)",
 		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
 		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
 		"  /judges remove <name>              Remove a judge from the explicit roster",
@@ -4871,6 +4876,46 @@ func (r *REPL) cmdRefine(args []string) {
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /refine [on|off]"))
 	}
+}
+
+// cmdInstruct prints a kdeps briefing and adds it to the model's context so the
+// next turn is primed with it. No argument briefs on every topic; "/instruct
+// <topic>" on one; "/instruct list" just names the topics without briefing.
+func (r *REPL) cmdInstruct(args []string) {
+	topic := ""
+	if len(args) > 0 {
+		topic = strings.ToLower(args[0])
+	}
+	if topic == "list" || topic == "topics" {
+		fmt.Fprintln(os.Stdout, styleReplHeading.Render("Briefing topics:"))
+		for _, t := range instructTopicList() {
+			fmt.Fprintf(os.Stdout, "  %-11s %s\n", t.name, t.title)
+		}
+		fmt.Fprintln(os.Stdout, styleReplDim.Render(
+			"/instruct briefs the model on every topic; /instruct <topic> on one."))
+		return
+	}
+
+	briefing, ok := buildInstruct(r.loop, topic)
+	if !ok {
+		fmt.Fprintf(os.Stdout, "Unknown topic %q. Try /instruct list.\n", topic)
+		return
+	}
+	// Printed raw, not through the markdown renderer: the briefing contains
+	// literal <invoke>/<parameter>/<task-id> tags the renderer would strip.
+	fmt.Fprintln(os.Stdout, briefing)
+
+	r.loop.Session().Append(
+		"Reference briefing on kdeps for you to follow for the rest of this "+
+			"session:\n\n"+briefing,
+		instructAck,
+	)
+	scope := "all topics"
+	if topic != "" {
+		scope = topic
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+		"Briefing added to the model's context ("+scope+")."))
 }
 
 // judgesAddMinArgs is "add <name> <criteria...>"; judgesRemoveMinArgs is
