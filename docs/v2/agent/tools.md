@@ -8,7 +8,16 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 
 Two instructions go into the system preamble for **every** model whenever tools are registered:
 
-- **Use the fenced kdeps tools, not a built-in sandbox.** Every capability the model has here is a kdeps tool - including `bash_exec` and the file tools. A model trained with a code-interpreter / "run code" / "analysis" habit will otherwise act against its own empty `/mnt/data`-style environment and conclude it "cannot access" anything. The rule is restated in one line on every turn after the first. M365 Copilot gets an extra, stronger version of this on top (its habit is the most persistent).
+- **Use the fenced kdeps tools, not a built-in sandbox.** Every capability the model has here is a kdeps tool - including `bash_exec` and the file tools. A model trained with a code-interpreter / "run code" / "analysis" habit will otherwise act against its own empty `/mnt/data`-style environment and conclude it "cannot access" anything. The rule is restated in one line on every turn after the first. M365 Copilot gets an extra, stronger version of this on top (its habit is the most persistent). The guidance also spells out how simple a call is, with worked examples: on a backend with no native tool channel, one matched `<invoke>` block does it -
+
+  ```
+  <invoke name="read_file">
+  <parameter name="file_path">cmd/serve.go</parameter>
+  </invoke>
+  ```
+
+  and the runtime hands back the real output. Backends with a native tool channel (Anthropic, OpenAI) just use that; kdeps also recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway.
+- **Simulated sandbox sessions are caught.** When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem" - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). It injects one nudge telling the model that environment is not this one and to make a real tool call, rather than settling the turn on the fake transcript. The nudge fires at most once per turn; if the model was genuinely just talking about sandboxes it can ignore it.
 - **Narrate before each tool call.** The model is asked to say in one present-tense sentence what it is about to do ("Reading config.yaml to check the timeout.") before every call. That line is printed to the terminal - without it the loop is silent between actions, because the streamer writes tool-round output to an internal buffer. Suppressed when `StreamFinalOnly` is set.
 
 ## Tool name aliases

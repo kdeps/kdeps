@@ -1196,9 +1196,7 @@ func (l *Loop) runToolRounds(
 	var finalContent string
 	capped := false
 	directiveDropped := false
-	nudged := false
-	hallucinationNudged := false
-	workFailureNudged := false
+	var nudges turnNudges
 	// Repeat-block loop guard: a model that re-issues the exact same tool call
 	// every round (common once a tool is blocked by convergence or keeps
 	// failing) makes no progress. Track consecutive identical calls and break
@@ -1234,8 +1232,7 @@ func (l *Loop) runToolRounds(
 		if len(toolCalls) == 0 {
 			var stop bool
 			toolCalls, content, chatCfg, stop = l.resolveEmptyToolRound(
-				chatCfg, content, roundBuf.String(),
-				&nudged, &hallucinationNudged, &workFailureNudged, w)
+				chatCfg, content, roundBuf.String(), &nudges, w)
 			finalContent = content
 			if len(toolCalls) == 0 {
 				if stop {
@@ -1344,9 +1341,52 @@ func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := turoReduce(context.Background(),
 		"You wrote a <tool_response> block. You never write tool results -- the "+
-			"runtime does, and nothing ran. Make the actual tool call now through "+
-			"the tool interface and wait for its real result before answering. Do "+
-			"not write <tool_call> or <tool_response> as text.")
+			"runtime does, and nothing ran. Make the actual tool call now (your "+
+			"native tool channel, or one matched <invoke name=\"...\">...</invoke> "+
+			"block) and wait for its real result before answering. Never author a "+
+			"<tool_response> yourself.")
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// sandboxArtifactRe matches phrases a model produces when it simulates a
+// code-interpreter / sandbox session in prose instead of calling a real tool:
+// the fabricated result text ("NO CONTENT AVAILABLE"), the sandbox path
+// (/mnt/data), an "expired"/"reset" session or upload, or a flat "cannot access
+// the filesystem". None of these strings are ever produced by the kdeps
+// runtime, so their presence in a round that made no tool call is a strong
+// tell that nothing actually ran.
+var sandboxArtifactRe = regexp.MustCompile(`(?i)` +
+	`no content available` +
+	`|/mnt/data` +
+	`|code[ -]?interpreter` +
+	`|\b(sandbox|upload|download|file|link|session|environment)\s+(has\s+)?(expired|been reset|reset)\b` +
+	`|\bexpired\s+(sandbox|link|session|upload|token)\b` +
+	`|\b(can(no|')t|cannot|unable to)\s+(access|read|reach|open)\s+(the\s+)?` +
+	`(file[ -]?system|filesystem|working directory|directory|repository|repo|files)\b`)
+
+// looksLikeSandboxHallucination reports whether a text-only round reads as a
+// simulated sandbox session rather than a real answer.
+func looksLikeSandboxHallucination(content string) bool {
+	return sandboxArtifactRe.MatchString(content)
+}
+
+// nudgeSandboxHallucinationConfig fires when a round made no tool call but the
+// text describes a failed sandbox/code-interpreter session ("NO CONTENT
+// AVAILABLE", "expired", "/mnt/data", "cannot access the filesystem"). kdeps has
+// no such sandbox and never emits those strings, so nothing ran -- tell the
+// model to make a real call.
+func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := turoReduce(context.Background(),
+		"You made no tool call, and phrases like \"NO CONTENT AVAILABLE\", "+
+			"\"expired\", \"/mnt/data\", or \"cannot access the filesystem\" come from a "+
+			"code-interpreter sandbox that is not this environment. kdeps has no sandbox "+
+			"and never returns those messages -- nothing ran. The real working directory "+
+			"is a live filesystem with the files from the task present now. Make an actual "+
+			"kdeps tool call (bash_exec, read_file, ...) through the tool interface and wait "+
+			"for the runtime's result. If you were not attempting tool use, ignore this and "+
+			"answer normally.")
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1810,28 +1850,41 @@ type emptyRoundResult struct {
 	stop    bool
 }
 
+// turnNudges tracks the one-shot corrective nudges already spent this turn, so
+// none of them fires more than once and wedges the loop.
+type turnNudges struct {
+	action        bool // silent round: no tool call and no answer
+	hallucination bool // model wrote a <tool_response> block itself
+	sandbox       bool // prose describing a failed sandbox/code-interpreter session
+	workFailure   bool // turn ending while the last work tool is still failing
+}
+
 // handleEmptyToolRound processes a round the streamer returned with no native
 // tool calls. It first tries to recover a tool call the model wrote as text
 // (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
 // the first result for the caller to dispatch. Failing that: a self-written
-// <tool_response> is a hallucinated result and draws a one-shot nudge; anything
-// else falls through to handleTextOnlyRound.
+// <tool_response> block or prose describing a failed sandbox session is a
+// hallucination and draws a one-shot nudge; anything else falls through to
+// handleTextOnlyRound.
 func (l *Loop) handleEmptyToolRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
-	nudged, hallucinationNudged *bool,
+	nudges *turnNudges,
 	w io.Writer,
 ) ([]domain.StreamedToolCall, emptyRoundResult) {
 	salvaged, cleaned, fake := salvageContentToolCalls(content)
 	if len(salvaged) > 0 {
 		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
 	}
-	if fake && !*hallucinationNudged {
-		*hallucinationNudged = true
+	if fake && !nudges.hallucination {
+		nudges.hallucination = true
 		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg)}
 	}
-	next, nextNudged, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, *nudged, w)
-	*nudged = nextNudged
+	if !nudges.sandbox && looksLikeSandboxHallucination(content) {
+		nudges.sandbox = true
+		return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg)}
+	}
+	next, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, nudges, w)
 	return nil, emptyRoundResult{chatCfg: next, stop: !keepGoing}
 }
 
@@ -1843,19 +1896,18 @@ func (l *Loop) handleEmptyToolRound(
 func (l *Loop) resolveEmptyToolRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
-	nudged, hallucinationNudged, workFailureNudged *bool,
+	nudges *turnNudges,
 	w io.Writer,
 ) ([]domain.StreamedToolCall, string, *domain.ChatConfig, bool) {
-	salvaged, res := l.handleEmptyToolRound(
-		chatCfg, content, buffered, nudged, hallucinationNudged, w)
+	salvaged, res := l.handleEmptyToolRound(chatCfg, content, buffered, nudges, w)
 	if len(salvaged) > 0 {
 		return salvaged, res.cleaned, chatCfg, false
 	}
 	if !res.stop {
 		return nil, content, res.chatCfg, false
 	}
-	if l.lastWorkFailure != nil && !*workFailureNudged {
-		*workFailureNudged = true
+	if l.lastWorkFailure != nil && !nudges.workFailure {
+		nudges.workFailure = true
 		return nil, content,
 			nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure), false
 	}
@@ -1863,8 +1915,8 @@ func (l *Loop) resolveEmptyToolRound(
 }
 
 // handleTextOnlyRound processes a round the model ended without calling a tool.
-// It returns the config for the next round, the updated nudge flag, and whether
-// the loop should keep going.
+// It returns the config for the next round and whether the loop should keep
+// going.
 //
 // A silent round (no text either) is nudged once for a concrete action. A round
 // with text settles the active task; when later tasks remain the turn continues
@@ -1872,17 +1924,18 @@ func (l *Loop) resolveEmptyToolRound(
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
-	nudged bool,
+	nudges *turnNudges,
 	w io.Writer,
-) (*domain.ChatConfig, bool, bool) {
-	if !nudged && strings.TrimSpace(stripContentToolCalls(content)) == "" {
-		return nudgeForActionConfig(chatCfg), true, true
+) (*domain.ChatConfig, bool) {
+	if !nudges.action && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+		nudges.action = true
+		return nudgeForActionConfig(chatCfg), true
 	}
 	_, _ = io.WriteString(w, buffered)
 	if l.settleActiveFromText(content, w) {
-		return withGoalDirective(chatCfg, l.enforcer.directive()), false, true
+		return withGoalDirective(chatCfg, l.enforcer.directive()), true
 	}
-	return chatCfg, nudged, false
+	return chatCfg, false
 }
 
 // roundOutcome reports what a tool round actually accomplished, so goal
@@ -2536,7 +2589,9 @@ Send independent tool calls in a single message to run them concurrently.
 
 A tool has not run until its real result comes back from the runtime. Never
 describe, quote, or invent a result you have not received, and never write a
-<tool_call> or <tool_response> block as text.
+<tool_response> block --- you author calls, never results. (A tool call written
+as text is fine when your backend has no native channel: a single matched
+<invoke name="...">...</invoke> block, nothing around it.)
 
 Every "[kdeps] ..." note and every {"error": ...} result is feedback for you ---
 read it and change what you do next. A step is not done until its tool returned
@@ -2687,12 +2742,40 @@ Every capability you have here is a kdeps tool from the list above --- including
 bash_exec for shell commands and the file tools for reading and writing. Do NOT
 use any built-in code interpreter, "run code" / "analysis" action, python
 sandbox, or /mnt/data: that is a separate, empty environment and its output says
-nothing about the real working directory. To act, call the tool and wait for the
-runtime's result. Emit tool calls only through the tool interface --- never
-write a <tool_call>, <tool_response>, or <function...> block as text; the runtime
-returns results, you never write one yourself. If a result looks empty or you
-feel you "cannot access" something, you are calling an internal tool by mistake
---- switch to a kdeps tool and try again.
+nothing about the real working directory. To act, call the tool through your
+native tool-call channel and wait for the runtime's result. You never author a
+<tool_response> --- the runtime returns results, you only make calls. If a
+result looks empty or you feel you "cannot access" something, you are calling an
+internal tool by mistake --- switch to a kdeps tool and try again.
+
+Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
+result --- one step, exactly like any function call you already know. If your
+backend has no native tool channel, write the call as a single matched
+<invoke>...</invoke> block (open tag and close tag, nothing else around it):
+
+  <invoke name="read_file">
+  <parameter name="file_path">cmd/serve.go</parameter>
+  </invoke>
+
+  <invoke name="bash_exec">
+  <parameter name="command">go test ./pkg/agent/</parameter>
+  </invoke>
+
+  <invoke name="search_local">
+  <parameter name="query">func RunStreaming</parameter>
+  </invoke>
+
+  <invoke name="edit_file">
+  <parameter name="file_path">pkg/agent/loop.go</parameter>
+  <parameter name="old_string">old text</parameter>
+  <parameter name="new_string">new text</parameter>
+  </invoke>
+
+The runtime executes the block and hands you the real output (file contents,
+stdout+exit code, matching lines, an edit confirmation). Every <invoke> must
+have its matching </invoke>; the "name" attribute must be one of the tools
+above. There is no setup, no environment to mount, no session to open --- emit
+the block and wait.
 </use-kdeps-tools>`
 
 // kdepsToolsReminder is a one-line restatement attached to every turn after the
