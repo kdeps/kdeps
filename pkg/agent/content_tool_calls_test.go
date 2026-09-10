@@ -126,3 +126,41 @@ func TestStripContentToolCalls_JSONArrayStillEmptied(t *testing.T) {
 func TestStripContentToolCalls_PlainTextUnchanged(t *testing.T) {
 	assert.Equal(t, "just an answer", stripContentToolCalls("just an answer"))
 }
+
+func TestSalvageContentToolCalls_AnthropicInvoke(t *testing.T) {
+	in := "Listing the directory.\n<function_calls>\n<invoke name=\"bash_exec\">\n<parameter name=\"command\">ls -la</parameter>\n</invoke>\n</function_calls>"
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"ls -la"}`, calls[0].Arguments)
+	assert.Equal(t, "Listing the directory.", cleaned)
+	assert.False(t, fake)
+}
+
+func TestSalvageContentToolCalls_InvokeMultipleParams(t *testing.T) {
+	in := `<invoke name="edit_file"><parameter name="file_path">/a.go</parameter><parameter name="start_line">3</parameter><parameter name="new_string">x</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "edit_file", calls[0].Name)
+	assert.JSONEq(t, `{"file_path":"/a.go","start_line":3,"new_string":"x"}`, calls[0].Arguments)
+}
+
+func TestSalvageContentToolCalls_InvokeNamespaced(t *testing.T) {
+	// A leaked call may carry a namespace prefix on the tags.
+	prefix := "an" + "tml:"
+	in := "<" + prefix + `invoke name="web_search"><` + prefix +
+		`parameter name="query">kdeps</` + prefix + "parameter></" + prefix + "invoke>"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "web_search", calls[0].Name)
+	assert.JSONEq(t, `{"query":"kdeps"}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+}
+
+func TestSalvageContentToolCalls_LoneParameterStripped(t *testing.T) {
+	_, cleaned, _ := salvageContentToolCalls(
+		`Here is the plan.<parameter name="x">y</parameter> Done.`)
+	assert.NotContains(t, cleaned, "parameter")
+	assert.Contains(t, cleaned, "Here is the plan.")
+	assert.Contains(t, cleaned, "Done.")
+}
