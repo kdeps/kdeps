@@ -173,7 +173,7 @@ func parseToolCallJSON(body string) *domain.StreamedToolCall {
 // parametersToJSON turns the body of an <invoke> element -- a run of
 // <parameter name="K">V</parameter> -- into a JSON object string. A value that
 // is a bare JSON scalar (number, true/false, null) is kept as that scalar so
-// e.g. start_line 3 arrives as a number; everything else (including {...} /
+// e.g. insert_line 3 arrives as a number; everything else (including {...} /
 // [...], which are ambiguous with an intended string) is a JSON string.
 func parametersToJSON(body string) string {
 	obj := map[string]json.RawMessage{}

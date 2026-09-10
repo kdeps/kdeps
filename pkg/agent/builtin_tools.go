@@ -205,10 +205,10 @@ func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the file contents as text. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking.",
+		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode`) - use those numbers for edit_file insert/view. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking.",
 		Category:     "file",
-		OutputFormat: "plain text with line numbers",
-		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
+		OutputFormat: "text with a 1-based line number on each line",
+		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
 		SeeAlso:      "list_files, search_local, edit_file, load_document",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
@@ -592,173 +592,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			return "", fmt.Errorf("write_file: %w", err)
 		}
 		rememberFile(filePath)
+		markFileSeen(filePath) // the model wrote it, so it may edit_file it without a re-read
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
 		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
 	}
 	reg.Register(tool)
-}
-
-// registerEditFile registers a targeted file editing tool using exact string replacement.
-// Reads the file, finds old_string, replaces it with new_string, and writes the result.
-// No API key required.
-func registerEditFile(reg *kdepstools.Registry) {
-	tool := &kdepstools.Tool{
-		Name:         toolNameEditFile,
-		Description:  "Replace part of a file. Most reliable: pass start_line and end_line (1-based, from read_file's numbered output) plus new_string, and exactly those lines are replaced; optionally pass old_string as a check that the range still holds the text you expect. Without line numbers, pass old_string + new_string and the tool finds it (whitespace and indentation matched loosely). Absolute path required.",
-		Category:     "code",
-		OutputFormat: "color diff of the change",
-		Constraints:  "prefer start_line/end_line from read_file; old_string need not match whitespace exactly and must be unique unless replace_all=true; read the file before editing",
-		SeeAlso:      "write_file, read_file",
-		Parameters: map[string]domain.ToolParam{
-			toolParamFilePath: {
-				Type:        toolParamString,
-				Description: "Absolute path to the file to edit",
-				Required:    true,
-			},
-			"start_line": {
-				Type:        toolParamNumber,
-				Description: "1-based first line to replace (from read_file's numbered output). When set, line mode is used and old_string is only a guard.",
-				Required:    false,
-			},
-			"end_line": {
-				Type:        toolParamNumber,
-				Description: "1-based last line to replace, inclusive. Defaults to start_line.",
-				Required:    false,
-			},
-			"old_string": {
-				Type:        toolParamString,
-				Description: "Text to replace (string mode) or expect in the line range (guard, line mode). Whitespace/line endings matched loosely.",
-				Required:    false,
-			},
-			"new_string": {
-				Type:        toolParamString,
-				Description: "The replacement text",
-				Required:    true,
-			},
-			"replace_all": {
-				Type:        toolParamBoolean,
-				Description: "String mode only: replace every occurrence instead of requiring old_string to be unique (default false)",
-				Required:    false,
-			},
-		},
-	}
-	tool.Execute = func(args map[string]any) (string, error) {
-		filePath, err := requireAbsFilePath("edit_file", args)
-		if err != nil {
-			return "", err
-		}
-		if err = validateWorkspaceBoundary(filePath); err != nil {
-			return "", fmt.Errorf("edit_file: %w", err)
-		}
-		data, err := afero.ReadFile(AppFS, filePath)
-		if err != nil {
-			return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
-		}
-
-		res, err := planEdit(string(data), args)
-		if err != nil {
-			return "", fmt.Errorf("edit_file: %w (%s)%s", err, filePath, res.hint)
-		}
-		if werr := writeFileVerified(filePath, []byte(res.newContent)); werr != nil {
-			return "", fmt.Errorf("edit_file: %w", werr)
-		}
-		rememberFile(filePath)
-		// Show the colored diff of the changed region in the terminal; keep the
-		// model's result concise (ANSI escapes must not pollute the LLM context).
-		writeToolDiff(tool.OutputWriter, res.matchedText, res.replacement, filePath)
-		return fmt.Sprintf("Edited %s (%d bytes%s)", filePath, len(res.newContent), res.note), nil
-	}
-	reg.Register(tool)
-}
-
-// planEdit dispatches an edit_file call to line mode (start_line/end_line) or
-// string mode (old_string), validating the args each mode needs. No I/O.
-func planEdit(content string, args map[string]any) (editResult, error) {
-	oldStr, _ := args["old_string"].(string)
-	newStr, hasNew := args["new_string"].(string)
-	if !hasNew {
-		return editResult{}, errors.New("new_string is required")
-	}
-
-	if startLine, ok := args["start_line"].(float64); ok && startLine > 0 {
-		endLine := int(startLine)
-		if e, eok := args["end_line"].(float64); eok && e > 0 {
-			endLine = int(e)
-		}
-		return resolveLineEdit(content, int(startLine), endLine, newStr, oldStr)
-	}
-
-	if oldStr == "" {
-		return editResult{}, errors.New("old_string is required (or pass start_line/end_line)")
-	}
-	if oldStr == newStr {
-		return editResult{}, errors.New("old_string and new_string are identical")
-	}
-	replaceAll, _ := args["replace_all"].(bool)
-	return resolveEdit(content, oldStr, newStr, replaceAll)
-}
-
-// editResult is the outcome of resolveEdit: the rewritten file plus the exact
-// text that was replaced and what it was replaced with (for the diff display).
-type editResult struct {
-	newContent  string
-	matchedText string
-	replacement string
-	note        string
-	hint        string // appended to a not-found error, empty otherwise
-}
-
-// resolveEdit locates old_string in content (exact, then loose), reconstructs
-// the replacement (line-ending + indentation reconciled), and returns the
-// rewritten file. It performs no I/O.
-func resolveEdit(content, oldStr, newStr string, replaceAll bool) (editResult, error) {
-	matches, strategy := findEditTargets(content, oldStr)
-	if len(matches) == 0 {
-		return editResult{hint: nearMissHint(content, oldStr)}, errors.New("old_string not found")
-	}
-	if len(matches) > 1 && !replaceAll {
-		return editResult{}, fmt.Errorf(
-			"old_string matches %d passages (matched by %s) — "+
-				"add surrounding lines to make it unique, or pass replace_all=true",
-			len(matches), strategy)
-	}
-
-	matchedText := content[matches[0].start:matches[0].end]
-	repl := newStr
-	if strategy != matchExact {
-		// Loose matches cover whole lines with the terminator left in the file;
-		// if old_string carried one, drop new_string's so it is not doubled.
-		if strings.HasSuffix(oldStr, "\n") {
-			repl = strings.TrimSuffix(strings.TrimSuffix(repl, "\n"), "\r")
-		}
-		if strategy == matchIndentation {
-			repl = reindentReplacement(repl, oldStr, matchedText)
-		}
-	}
-	repl = matchEOLStyle(repl, content)
-
-	newContent := spliceMatches(content, matches, repl)
-	if newContent == content {
-		return editResult{}, errors.New("replacement leaves the file unchanged")
-	}
-	return editResult{
-		newContent:  newContent,
-		matchedText: matchedText,
-		replacement: repl,
-		note:        editNote(strategy, len(matches)),
-	}, nil
-}
-
-// editNote summarises how the match was made for the tool's result string.
-func editNote(strategy editMatchStrategy, n int) string {
-	switch {
-	case strategy != matchExact:
-		return fmt.Sprintf("; matched %s loosely (%s)", pluralPassages(n), strategy)
-	case n > 1:
-		return fmt.Sprintf("; replaced %d occurrences", n)
-	default:
-		return ""
-	}
 }
 
 // diffMaxLines caps how many diff lines reach the terminal, so overwriting a large

@@ -91,9 +91,11 @@ func TestEditFile_RecordsLastFile(t *testing.T) {
 	dir := t.TempDir()
 	fpath := filepath.Join(dir, "code.go")
 	require.NoError(t, os.WriteFile(fpath, []byte("package main\n\nvar x = 1\n"), 0o600))
+	markFileSeen(fpath)
 
 	edit := toolByName(t, "edit_file")
 	_, err := edit.Execute(map[string]any{
+		"command":   "str_replace",
 		"file_path": fpath, "old_string": "var x = 1", "new_string": "var x = 2",
 	})
 	require.NoError(t, err)

@@ -100,13 +100,13 @@ func TestNormalizeToolArgs(t *testing.T) {
 	normalizeToolArgs("bash_exec", b)
 	assert.Equal(t, "ls -la", b["command"])
 
-	// edit_file line-range synonyms.
-	e := map[string]any{"start": float64(3), "end": float64(5), "old": "x", "new": "y"}
+	// edit_file synonyms: kdeps names and shorthands map to the tool's params.
+	e := map[string]any{"old": "x", "new": "y", "line": float64(3), "cmd": "insert"}
 	normalizeToolArgs("edit_file", e)
-	assert.Equal(t, float64(3), e["start_line"])
-	assert.Equal(t, float64(5), e["end_line"])
-	assert.Equal(t, "x", e["old_string"])
-	assert.Equal(t, "y", e["new_string"])
+	assert.Equal(t, "x", e["old_str"])
+	assert.Equal(t, "y", e["new_str"])
+	assert.Equal(t, float64(3), e["insert_line"])
+	assert.Equal(t, "insert", e["command"])
 }
 
 func TestNormalizeToolArgs_RealKeyWins(t *testing.T) {

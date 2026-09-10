@@ -2766,13 +2766,14 @@ backend has no native tool channel, write the call as a single matched
   </invoke>
 
   <invoke name="edit_file">
+  <parameter name="command">str_replace</parameter>
   <parameter name="file_path">pkg/agent/loop.go</parameter>
-  <parameter name="old_string">old text</parameter>
-  <parameter name="new_string">new text</parameter>
+  <parameter name="old_str">exact current text</parameter>
+  <parameter name="new_str">replacement text</parameter>
   </invoke>
 
 The runtime executes the block and hands you the real output (file contents,
-stdout+exit code, matching lines, an edit confirmation). Every <invoke> must
+stdout+exit code, matching lines, an edit snippet). Every <invoke> must
 have its matching </invoke>; the "name" attribute must be one of the tools
 above. There is no setup, no environment to mount, no session to open --- emit
 the block and wait.
