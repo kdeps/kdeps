@@ -3168,6 +3168,9 @@ func (l *Loop) buildChatConfig(
 // through turo when active. Falls back to the plain history for session
 // implementations that do not support reduced serialization.
 func (l *Loop) historyMessages(ctx context.Context) string {
+	if l.session == nil {
+		return ""
+	}
 	if !turoActive(ctx) {
 		return l.session.BuildMessagesJSON()
 	}
