@@ -115,6 +115,28 @@ func TestLoadDirSkipsNonYAML(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hi"), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("not: valid: recipe: [[["), 0o600)
-	// invalid yaml should surface error or skip depending on implementation
-	_, _ = Load(Options{UserDir: dir})
+	if _, err := Load(Options{UserDir: dir}); err == nil {
+		t.Fatal("expected a parse error from bad.yaml (readme.txt should be skipped, not the cause)")
+	}
+}
+
+func TestLoadDir_InvalidRecipe_FailsValidation(t *testing.T) {
+	dir := t.TempDir()
+	// Valid YAML, but missing required recipe fields.
+	if err := os.WriteFile(filepath.Join(dir, "incomplete.yaml"), []byte("id: incomplete\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(Options{UserDir: dir}); err == nil {
+		t.Fatal("expected a validation error from an incomplete recipe")
+	}
+}
+
+func TestLoadDir_MissingDir_NoError(t *testing.T) {
+	entries, err := Load(Options{UserDir: filepath.Join(t.TempDir(), "does-not-exist")})
+	if err != nil {
+		t.Fatalf("a missing user/project dir must be a silent no-op, got: %v", err)
+	}
+	if len(entries) < 5 {
+		t.Fatalf("stock recipes should still load: %d", len(entries))
+	}
 }

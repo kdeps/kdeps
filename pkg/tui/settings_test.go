@@ -149,6 +149,22 @@ func TestSaveDefaultModel(t *testing.T) {
 	assert.Equal(t, "llama3.2:1b", got.DefaultModel)
 }
 
+func TestSaveStealth(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
+
+	require.NoError(t, SaveStealth(true))
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.True(t, got.Stealth)
+
+	require.NoError(t, SaveStealth(false))
+	got, err = LoadSettings()
+	require.NoError(t, err)
+	assert.False(t, got.Stealth)
+}
+
 func TestAddCustomOpenAIModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

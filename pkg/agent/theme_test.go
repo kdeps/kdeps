@@ -163,3 +163,19 @@ func TestApplyReplStyles_StealthUsesModelNameColor(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderStealthSample(t *testing.T) {
+	got := RenderStealthSample()
+	if got == "" {
+		t.Fatal("RenderStealthSample must not be empty")
+	}
+	if !strings.Contains(got, "kdeps agent") {
+		t.Fatalf("RenderStealthSample() missing banner text: %q", got)
+	}
+	if !strings.Contains(got, "llama3.2:1b") {
+		t.Fatalf("RenderStealthSample() missing sample model name: %q", got)
+	}
+	if !strings.Contains(got, "\n") {
+		t.Fatal("RenderStealthSample() must join multiple styled lines")
+	}
+}

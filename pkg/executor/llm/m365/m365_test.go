@@ -961,6 +961,25 @@ func TestSecretsPath(t *testing.T) {
 	}
 }
 
+func TestCachePath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cache.json")
+	t.Setenv("M365_CACHE_FILE", path)
+	if got := CachePath(); got != path {
+		t.Errorf("CachePath() = %q, want %q", got, path)
+	}
+}
+
+func TestConfigDir(t *testing.T) {
+	got := ConfigDir()
+	if got == "" {
+		t.Fatal("ConfigDir() must not be empty")
+	}
+	if !strings.HasSuffix(got, filepath.Join(".config", "kdeps", "m365")) {
+		t.Errorf("ConfigDir() = %q, want a path ending in .config/kdeps/m365", got)
+	}
+}
+
 func TestSaveCredentials(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "secrets.json")
@@ -1536,6 +1555,34 @@ func TestCurrentFramingVariantEnvOverride(t *testing.T) {
 func TestShellNameNoShellTool(t *testing.T) {
 	if got := shellName(nil); got != "bash" {
 		t.Errorf("default shell name = %q", got)
+	}
+}
+
+func TestSketchForcePrompt_WithShellTool(t *testing.T) {
+	tool := ToolDef{Function: ToolFunction{
+		Name: "bash",
+		Parameters: &ToolParameters{
+			Properties: map[string]json.RawMessage{"command": json.RawMessage(`{"type":"string"}`)},
+		},
+	}}
+	got := sketchForcePrompt([]ToolDef{tool})
+	if !strings.Contains(got, "loose lines") {
+		t.Errorf("missing base retry instruction: %q", got)
+	}
+	if !strings.Contains(got, `<invoke name="bash">`) {
+		t.Errorf("expected the shell-specific hint, got: %q", got)
+	}
+}
+
+func TestSketchForcePrompt_NoShellTool(t *testing.T) {
+	got := sketchForcePrompt(nil)
+	if !strings.Contains(got, "loose lines") {
+		t.Errorf("missing base retry instruction: %q", got)
+	}
+	if got != "That was not a tool call - you wrote the arguments as loose lines. "+
+		"Emit ONE proper <invoke> block this turn with every argument inside it, "+
+		"or answer in plain prose if no tool is needed. "+noShellRetryHint {
+		t.Errorf("expected the no-shell fallback hint, got: %q", got)
 	}
 }
 

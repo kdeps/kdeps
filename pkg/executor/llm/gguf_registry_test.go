@@ -43,6 +43,21 @@ func TestResolveGGUFAlias_Miss(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestGGUFSizeBytes_KnownAlias(t *testing.T) {
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+	entries := ListGGUFMappings()
+	require.NotEmpty(t, entries, "registry must have at least one entry to test against")
+	want := entries[0]
+	assert.Equal(t, want.SizeBytes, GGUFSizeBytes(want.Alias))
+}
+
+func TestGGUFSizeBytes_UnknownAlias(t *testing.T) {
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+	assert.Equal(t, int64(0), GGUFSizeBytes("does-not-exist-xyz"))
+}
+
 func TestGGUFAliasNames_Sorted(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)

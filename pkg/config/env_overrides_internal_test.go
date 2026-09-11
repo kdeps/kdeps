@@ -24,6 +24,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestPortStr(t *testing.T) {
+	assert.Equal(t, "", portStr(0))
+	assert.Equal(t, "587", portStr(587))
+}
+
+func TestBoolStr(t *testing.T) {
+	assert.Equal(t, "true", boolStr(true))
+	assert.Equal(t, "", boolStr(false))
+}
+
+func TestSplitNameField(t *testing.T) {
+	name, field, ok := splitNameField("MAIN_HOST", []string{"HOST", "PORT"})
+	assert.True(t, ok)
+	assert.Equal(t, "main", name)
+	assert.Equal(t, "HOST", field)
+
+	_, _, ok = splitNameField("MAIN_UNKNOWN", []string{"HOST", "PORT"})
+	assert.False(t, ok)
+}
+
 func TestApplyConnectionEnvOverrides_Mail(t *testing.T) {
 	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_HOST", "smtp.example.com")
 	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_PORT", "587")
