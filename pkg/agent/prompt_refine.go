@@ -38,14 +38,18 @@ const refineActionID = "agent_loop_refine"
 
 const refineSystemPrompt = `You rewrite a user's request so it is clearer for an AI agent to act on.
 
+The conversation history above (if any) is context ONLY, for resolving what the
+request refers to. Do not answer it, continue it, or rewrite any earlier turn.
+
 Reply with ONLY the rewritten request as plain text. No preamble, no quotes, no explanation.
 
 Rules:
 - Preserve the user's intent and every concrete detail (names, paths, numbers, constraints).
-- Make it specific and self-contained: spell out what "it"/"that" refers to, state the expected outcome.
+- Make it specific and self-contained: spell out what "it"/"that"/"the file we discussed" etc.
+  refers to using the conversation history, and state the expected outcome.
 - Do NOT answer or start the task. Do NOT add requirements the user did not imply. Do NOT invent facts.
 - Keep it tight: a 1 to 3 sentence request, not an expansion into a spec.
-- If the request is already clear, return it essentially unchanged.`
+- If the request is already clear and self-contained, return it essentially unchanged.`
 
 // refineExpansionSlack bounds how much longer a rewrite may be than the
 // original before it is treated as a runaway expansion and discarded.
@@ -106,6 +110,14 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		Backend: l.config.Backend,
 		BaseURL: l.config.BaseURL,
 		Role:    l.config.Role,
+		// The conversation so far, same construction the real turn uses
+		// (historyMessages), so "fix that" / "the file we discussed" can be
+		// resolved against what was actually said -- without it the refiner
+		// has nothing to resolve a reference against and either passes the
+		// prompt through unchanged or rewrites it into something ungrounded.
+		// This is prior turns only: the current input has not been appended
+		// to the session yet, so there is no risk of doubling it up.
+		Messages: l.historyMessages(ctx),
 		// Deliberately NOT routed through turo: the input is the exact request
 		// being clarified and the system prompt is an instruction spec;
 		// reducing either to content words defeats the purpose.
