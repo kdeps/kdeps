@@ -208,6 +208,43 @@ func TestFirstTextPart(t *testing.T) {
 	assert.Empty(t, text2)
 }
 
+// --- ensureMessageResult ---
+
+func TestEnsureMessageResult_HasMessage_PassesThrough(t *testing.T) {
+	result := map[string]interface{}{jsonFieldMessage: map[string]interface{}{"content": "hi"}}
+	got, err := ensureMessageResult(result, map[string]interface{}{"error": "ignored"}, "test")
+	require.NoError(t, err)
+	assert.Equal(t, result, got, "a result that already has a message must pass through, ignoring any error field")
+}
+
+func TestEnsureMessageResult_MapErrorWithMessage(t *testing.T) {
+	raw := map[string]interface{}{"error": map[string]interface{}{"message": "bad request"}}
+	_, err := ensureMessageResult(map[string]interface{}{}, raw, "TestAPI")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TestAPI returned an error: bad request")
+}
+
+func TestEnsureMessageResult_MapErrorWithoutMessage(t *testing.T) {
+	raw := map[string]interface{}{"error": map[string]interface{}{"code": 500}}
+	_, err := ensureMessageResult(map[string]interface{}{}, raw, "TestAPI")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TestAPI returned an error:")
+}
+
+func TestEnsureMessageResult_StringError(t *testing.T) {
+	raw := map[string]interface{}{"error": "quota exceeded"}
+	_, err := ensureMessageResult(map[string]interface{}{}, raw, "TestAPI")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TestAPI returned an error: quota exceeded")
+}
+
+func TestEnsureMessageResult_NoErrorField_LeftAsIs(t *testing.T) {
+	result := map[string]interface{}{"other": "field"}
+	got, err := ensureMessageResult(result, map[string]interface{}{}, "TestAPI")
+	require.NoError(t, err)
+	assert.Equal(t, result, got)
+}
+
 // --- captureSentMessages ---
 
 // TestCaptureSentMessages_WritesToMessagesOut pins the plumbing behind the
