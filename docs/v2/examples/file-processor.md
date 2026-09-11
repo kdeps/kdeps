@@ -166,6 +166,11 @@ cat notes.txt | kdeps run .
 KDEPS_FILE_PATH=./notes.txt kdeps run .
 ```
 
+Any of these read the whole file into memory as `fileContent`, capped at 256
+MiB by default (`KDEPS_FILE_INPUT_MAX_BYTES` to change it) - see
+[File source](/workflow/input-sources#file-source) for why that matters once
+`notes.txt` is actually a large bulk-data file rather than a note.
+
 Output:
 
 ```json

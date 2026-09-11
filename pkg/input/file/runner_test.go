@@ -189,3 +189,85 @@ func TestReadFileInput_ArgPath_NotFound_Error(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read file")
 }
+
+// --- input size guard ---
+
+func writeTempFileOfSize(t *testing.T, n int) string {
+	t.Helper()
+	tmp, err := os.CreateTemp("", "kdeps-file-size-*.bin")
+	require.NoError(t, err)
+	defer tmp.Close()
+	require.NoError(t, tmp.Truncate(int64(n)))
+	t.Cleanup(func() { os.Remove(tmp.Name()) })
+	return tmp.Name()
+}
+
+func TestReadFileInput_PathOverLimit_Rejected(t *testing.T) {
+	t.Setenv("KDEPS_FILE_PATH", "")
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "1024")
+	path := writeTempFileOfSize(t, 2048)
+
+	_, err := readFileInput(strings.NewReader(""), nil, path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "over the")
+	assert.Contains(t, err.Error(), "KDEPS_FILE_INPUT_MAX_BYTES")
+}
+
+func TestReadFileInput_PathAtLimit_Allowed(t *testing.T) {
+	t.Setenv("KDEPS_FILE_PATH", "")
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "1024")
+	path := writeTempFileOfSize(t, 1024)
+
+	inp, err := readFileInput(strings.NewReader(""), nil, path)
+	require.NoError(t, err)
+	assert.Len(t, inp.Content, 1024)
+}
+
+func TestReadFileInput_PathOverLimit_DisabledByZero(t *testing.T) {
+	t.Setenv("KDEPS_FILE_PATH", "")
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "0")
+	path := writeTempFileOfSize(t, 2048)
+
+	inp, err := readFileInput(strings.NewReader(""), nil, path)
+	require.NoError(t, err)
+	assert.Len(t, inp.Content, 2048)
+}
+
+func TestReadFileInput_PathOverLimit_InvalidEnvFallsBackToDefault(t *testing.T) {
+	t.Setenv("KDEPS_FILE_PATH", "")
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "not-a-number")
+	// Small enough to stay well under the 256 MiB default.
+	path := writeTempFileOfSize(t, 1024)
+
+	inp, err := readFileInput(strings.NewReader(""), nil, path)
+	require.NoError(t, err)
+	assert.Len(t, inp.Content, 1024)
+}
+
+func TestReadStdinAsFileInput_OverLimit_Rejected(t *testing.T) {
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "8")
+
+	_, err := readFileInput(strings.NewReader("this is more than eight bytes"), nil, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stdin input exceeds")
+}
+
+func TestReadStdinAsFileInput_AtLimit_Allowed(t *testing.T) {
+	t.Setenv("KDEPS_FILE_INPUT_MAX_BYTES", "8")
+
+	inp, err := readFileInput(strings.NewReader("12345678"), nil, "")
+	require.NoError(t, err)
+	assert.Equal(t, "12345678", inp.Content)
+}
+
+func TestFormatByteSize(t *testing.T) {
+	cases := map[int64]string{
+		500:             "500 B",
+		2048:            "2.0 KiB",
+		5 * 1024 * 1024: "5.0 MiB",
+		2 << 30:         "2.0 GiB",
+	}
+	for n, want := range cases {
+		assert.Equal(t, want, formatByteSize(n), "formatByteSize(%d)", n)
+	}
+}

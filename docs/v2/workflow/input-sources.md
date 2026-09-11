@@ -82,6 +82,26 @@ Override the path at runtime:
 kdeps run workflow.yaml --file /path/to/document.txt
 ```
 
+**Size limit.** The whole file is read into memory as `fileContent` - fine for
+documents, but a workflow that ingests bulk data (a large CSV, say) can spike
+memory well past the raw file size once a resource copies that content again
+(e.g. interpolating it into a `python:`/`exec:` argument, or a script that
+builds an in-memory row list). Past a certain size that risks an OOM kill from
+the OS - which, being a `SIGKILL`, leaves no error and no core dump, just a
+vanished process. `--file`/stdin input is capped at **256 MiB** by default;
+`kdeps run` fails fast with a clear error instead of reading a file over that.
+Raise or lower it with `KDEPS_FILE_INPUT_MAX_BYTES` (bytes; `0` disables the
+check):
+
+```bash
+KDEPS_FILE_INPUT_MAX_BYTES=1073741824 kdeps run workflow.yaml --file big-export.csv  # 1 GiB
+```
+
+If you hit this limit often, prefer having the workflow process the file in
+batches (e.g. a `python:`/`exec:` step that streams rows) over one step that
+holds the whole dataset in memory - the limit is a safety net, not a size to
+build up to.
+
 ## Interactive REPL
 
 Start an interactive LLM REPL alongside the normal workflow execution with the `--interactive` flag. This is independent of the configured input source:
