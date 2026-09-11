@@ -141,6 +141,73 @@ func TestFoldSystemMessages_OnlySystemMessages(t *testing.T) {
 	assert.Empty(t, got)
 }
 
+// --- prependToMessageContent / firstTextPart ---
+
+func TestPrependToMessageContent_StringContent(t *testing.T) {
+	msg := map[string]interface{}{jsonFieldContent: "hello"}
+	prependToMessageContent(msg, "SYSTEM")
+	assert.Equal(t, "SYSTEM\n\nhello", msg[jsonFieldContent])
+}
+
+func TestPrependToMessageContent_MultimodalWithExistingTextPart(t *testing.T) {
+	msg := map[string]interface{}{
+		jsonFieldContent: []interface{}{
+			map[string]interface{}{jsonFieldType: "text", jsonFieldText: "hello"},
+			map[string]interface{}{jsonFieldType: "image_url", "image_url": "http://x/y.png"},
+		},
+	}
+	prependToMessageContent(msg, "SYSTEM")
+	parts, ok := msg[jsonFieldContent].([]interface{})
+	require.True(t, ok)
+	require.Len(t, parts, 2, "must update the existing text part, not add a new one")
+	textPart, ok := parts[0].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "SYSTEM\n\nhello", textPart[jsonFieldText])
+}
+
+func TestPrependToMessageContent_MultimodalWithoutTextPart(t *testing.T) {
+	msg := map[string]interface{}{
+		jsonFieldContent: []interface{}{
+			map[string]interface{}{jsonFieldType: "image_url", "image_url": "http://x/y.png"},
+		},
+	}
+	prependToMessageContent(msg, "SYSTEM")
+	parts, ok := msg[jsonFieldContent].([]interface{})
+	require.True(t, ok)
+	require.Len(t, parts, 2, "a new text part must be prepended")
+	textPart, ok := parts[0].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "text", textPart[jsonFieldType])
+	assert.Equal(t, "SYSTEM", textPart[jsonFieldText])
+}
+
+func TestPrependToMessageContent_UnknownContentShape(t *testing.T) {
+	// Neither string nor []interface{} (e.g. nil, or a number): no-op, no panic.
+	msg := map[string]interface{}{jsonFieldContent: 42}
+	assert.NotPanics(t, func() { prependToMessageContent(msg, "SYSTEM") })
+	assert.Equal(t, 42, msg[jsonFieldContent])
+}
+
+func TestFirstTextPart(t *testing.T) {
+	// Not a map: skipped.
+	partNotMap := "not a map"
+	// Map but wrong type: skipped.
+	wrongType := map[string]interface{}{jsonFieldType: "image_url", jsonFieldText: "x"}
+	// Map, type text, but Text field not a string: skipped.
+	badText := map[string]interface{}{jsonFieldType: "text", jsonFieldText: 42}
+	// The real match.
+	good := map[string]interface{}{jsonFieldType: "text", jsonFieldText: "hi"}
+
+	got, text := firstTextPart([]interface{}{partNotMap, wrongType, badText, good})
+	require.NotNil(t, got)
+	assert.Equal(t, "hi", got[jsonFieldText])
+	assert.Equal(t, "hi", text)
+
+	got2, text2 := firstTextPart([]interface{}{partNotMap, wrongType, badText})
+	assert.Nil(t, got2)
+	assert.Empty(t, text2)
+}
+
 // --- captureSentMessages ---
 
 // TestCaptureSentMessages_WritesToMessagesOut pins the plumbing behind the
