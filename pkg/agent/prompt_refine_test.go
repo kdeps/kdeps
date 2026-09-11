@@ -91,6 +91,40 @@ func TestRefinePrompt_FallsBackOnErrorMapAndEmpty(t *testing.T) {
 	}
 }
 
+// TestRefinePrompt_IncludesConversationHistory is the regression guard for
+// "refine needs context": the refiner must see prior turns so it can resolve
+// "that" / "the file we discussed" against what was actually said, not just
+// the bare new input.
+func TestRefinePrompt_IncludesConversationHistory(t *testing.T) {
+	var gotMessages string
+	l := refineLoop(t, func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotMessages = wf.Resources[0].Chat.Messages
+		return "rewritten with context", nil
+	})
+	l.session = NewSession(0)
+	l.session.Append("what's in config.yaml?", "It sets the SMTP host and port.")
+
+	got := refinePrompt(context.Background(), l, "actually change that setting to use port 465 instead")
+	if got != "rewritten with context" {
+		t.Fatalf("got %q, want the rewrite", got)
+	}
+	if !strings.Contains(gotMessages, "config.yaml") || !strings.Contains(gotMessages, "SMTP") {
+		t.Fatalf("expected prior turns in the refine call's Messages, got %q", gotMessages)
+	}
+}
+
+// A bare *Loop with no session (as constructed by refineLoop's other callers)
+// must not panic when refining - historyMessages degrades to "".
+func TestRefinePrompt_NoSession_DoesNotPanic(t *testing.T) {
+	l := refineLoop(t, func(*domain.Workflow, interface{}) (interface{}, error) {
+		return "rewritten", nil
+	})
+	got := refinePrompt(context.Background(), l, "do the thing with the config and restart it")
+	if got != "rewritten" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestRefinePrompt_NoEngine(t *testing.T) {
 	in := "do the thing with the config and restart it"
 	if got := refinePrompt(context.Background(), &Loop{config: Config{PromptRefine: true}}, in); got != in {
