@@ -961,6 +961,25 @@ func TestSecretsPath(t *testing.T) {
 	}
 }
 
+func TestCachePath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cache.json")
+	t.Setenv("M365_CACHE_FILE", path)
+	if got := CachePath(); got != path {
+		t.Errorf("CachePath() = %q, want %q", got, path)
+	}
+}
+
+func TestConfigDir(t *testing.T) {
+	got := ConfigDir()
+	if got == "" {
+		t.Fatal("ConfigDir() must not be empty")
+	}
+	if !strings.HasSuffix(got, filepath.Join(".config", "kdeps", "m365")) {
+		t.Errorf("ConfigDir() = %q, want a path ending in .config/kdeps/m365", got)
+	}
+}
+
 func TestSaveCredentials(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "secrets.json")
