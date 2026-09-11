@@ -1558,6 +1558,34 @@ func TestShellNameNoShellTool(t *testing.T) {
 	}
 }
 
+func TestSketchForcePrompt_WithShellTool(t *testing.T) {
+	tool := ToolDef{Function: ToolFunction{
+		Name: "bash",
+		Parameters: &ToolParameters{
+			Properties: map[string]json.RawMessage{"command": json.RawMessage(`{"type":"string"}`)},
+		},
+	}}
+	got := sketchForcePrompt([]ToolDef{tool})
+	if !strings.Contains(got, "loose lines") {
+		t.Errorf("missing base retry instruction: %q", got)
+	}
+	if !strings.Contains(got, `<invoke name="bash">`) {
+		t.Errorf("expected the shell-specific hint, got: %q", got)
+	}
+}
+
+func TestSketchForcePrompt_NoShellTool(t *testing.T) {
+	got := sketchForcePrompt(nil)
+	if !strings.Contains(got, "loose lines") {
+		t.Errorf("missing base retry instruction: %q", got)
+	}
+	if got != "That was not a tool call - you wrote the arguments as loose lines. "+
+		"Emit ONE proper <invoke> block this turn with every argument inside it, "+
+		"or answer in plain prose if no tool is needed. "+noShellRetryHint {
+		t.Errorf("expected the no-shell fallback hint, got: %q", got)
+	}
+}
+
 func TestFindShellToolSingleParamFallback(t *testing.T) {
 	tool := ToolDef{Function: ToolFunction{
 		Name: "run_it",
