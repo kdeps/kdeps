@@ -1446,11 +1446,15 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domai
 // nudgeUnresolvedToolFailureConfig fires when the turn is about to end while the
 // last work tool is still failing. The model must retry it to a real success or
 // state plainly that the step failed -- not silently report it done.
-func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := "Your last " + f.tool + " call failed: " + f.msg +
 		". It has not succeeded. Retry it and get a real success, or state plainly " +
 		"in your answer that this step failed. Do not claim it is done."
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1917,10 +1921,10 @@ const maxNudgesPerKind = 2
 // turnNudges tracks how many times each corrective nudge has fired this turn,
 // so each kind fires at most maxNudgesPerKind times and never wedges the loop.
 type turnNudges struct {
-	action        int  // silent round: no tool call and no answer
-	hallucination int  // model wrote a <tool_response> block itself
-	sandbox       int  // prose describing a failed sandbox/code-interpreter session
-	workFailure   bool // turn ending while the last work tool is still failing (single end-of-turn check, not a per-round repeat)
+	action        int // silent round: no tool call and no answer
+	hallucination int // model wrote a <tool_response> block itself
+	sandbox       int // prose describing a failed sandbox/code-interpreter session
+	workFailure   int // turn ending while the last work tool is still failing
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -1930,6 +1934,47 @@ type turnNudges struct {
 // answer, the model's words are kept but clearly flagged as unverified.
 const sandboxUnverifiedBanner = "[kdeps: the response below describes a sandbox/tool session that does " +
 	"not exist in this environment -- no real tool call succeeded here. Treat it as unverified.]\n\n"
+
+// toolFailureUnresolvedNotice is surfaced (to both the writer and the turn's
+// returned content) when maxNudgesPerKind work-failure nudges are spent and
+// the model is still claiming success despite f never having succeeded.
+// Unlike sandboxUnverifiedBanner this is a trailing notice, not a prefix
+// rewrite: by the time resolveEmptyToolRound reaches this branch,
+// handleTextOnlyRound has already written the model's claim to the writer
+// unconditionally, so there is nothing to prepend ahead of -- the notice
+// follows it instead, same as reportGoalEvent/queueModelNote's existing
+// follow-up-notice pattern.
+func toolFailureUnresolvedNotice(f *toolFailure) string {
+	return "\n[kdeps: the response above claims success, but the last " + f.tool +
+		" call actually failed (" + f.msg + ") and was never retried successfully.]\n"
+}
+
+// failureAcknowledgmentWords are substrings whose presence in a round's text
+// signals the model is aware the last work tool failed, rather than silently
+// claiming success over it. Deliberately broad (word fragments, not exact
+// phrases) since a model has endless ways to phrase an admission -- this only
+// needs to distinguish "aware of the failure" from "no acknowledgment at
+// all," not classify the admission precisely.
+//
+//nolint:gochecknoglobals // static lookup table
+var failureAcknowledgmentWords = []string{
+	"fail", "error", "cannot", "can't", "unable", "did not", "didn't",
+	"not able", "no access", "blocked", "wasn't able", "was not able",
+}
+
+// acknowledgesFailure reports whether content shows any awareness that the
+// last work tool failed. A round that admits it (however it phrases that) is
+// accepted as the turn's honest answer rather than nudged/flagged as an
+// unresolved success claim -- only a bald, unqualified claim draws that.
+func acknowledgesFailure(content string) bool {
+	lower := strings.ToLower(content)
+	for _, w := range failureAcknowledgmentWords {
+		if strings.Contains(lower, w) {
+			return true
+		}
+	}
+	return false
+}
 
 // handleEmptyToolRound processes a round the streamer returned with no native
 // tool calls. It first tries to recover a tool call the model wrote as text
@@ -1991,10 +2036,28 @@ func (l *Loop) resolveEmptyToolRound(
 	// res.content (not the pre-call content param) carries any banner
 	// handleEmptyToolRound prepended (e.g. sandboxUnverifiedBanner) -- res.stop
 	// is only ever true once that assignment has happened.
-	if l.lastWorkFailure != nil && !nudges.workFailure {
-		nudges.workFailure = true
-		return nil, res.content,
-			nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure), false
+	//
+	// Only an unqualified claim (no acknowledgment of the failure at all) is
+	// nudged/flagged -- a round that admits the failure in its own words
+	// (however it phrases that) is accepted as the turn's honest answer, the
+	// same as before this was bounded to more than one nudge. Otherwise a
+	// model that answers honestly on its second attempt would draw a second
+	// nudge anyway, punishing the exact behavior being asked for.
+	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
+		if nudges.workFailure < maxNudgesPerKind {
+			repeat := nudges.workFailure > 0
+			nudges.workFailure++
+			return nil, res.content,
+				nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure, repeat), false
+		}
+		// Both nudges spent and the model is still claiming success -- unlike
+		// handleEmptyToolRound's sandbox banner, handleTextOnlyRound has already
+		// written this claim to w by the time we get here, so there is no
+		// prefix to rewrite. Flag it as a distinct trailing notice instead:
+		// both the writer and the returned content carry it.
+		notice := toolFailureUnresolvedNotice(l.lastWorkFailure)
+		_, _ = io.WriteString(w, notice)
+		return nil, notice + res.content, res.chatCfg, true
 	}
 	return nil, res.content, res.chatCfg, true
 }

@@ -2352,6 +2352,72 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	assert.Contains(t, result, "edit failed")
 }
 
+// A model that repeats the bald "done" claim a second time (never
+// acknowledging the failure) draws a second, sharper nudge instead of the
+// turn silently accepting the repeat -- bounded to maxNudgesPerKind, same as
+// the sandbox-hallucination nudge.
+func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			return "", errors.New("old_string not found in /a.go")
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "edit_file", Arguments: "{}"}}},
+		{content: "Done. The file has been updated.", toolCalls: nil},
+		{content: "All set, the change is in place.", toolCalls: nil},
+		{content: "I was not able to make that edit; old_string never matched.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "fix it", &buf)
+	require.NoError(t, err)
+
+	require.Len(t, ms.cfgs, 4, "two bald claims must draw two nudges before the honest admission")
+	assert.NotContains(t, ms.cfgs[2].Prompt, "second time this turn", "first nudge is not a repeat")
+	assert.Contains(t, ms.cfgs[3].Prompt, "second time this turn", "second nudge must read as a repeat")
+	assert.Contains(t, result, "was not able to make that edit")
+	assert.NotContains(t, result, "[kdeps: the response above claims success",
+		"an honest admission must not be flagged as an unresolved claim")
+}
+
+// Once both work-failure nudges are spent and the model is *still* claiming
+// success, the turn must not silently settle on it -- the returned content
+// (and the writer) carry toolFailureUnresolvedNotice instead.
+func TestRunStreaming_FailedToolExhaustedGetsNotice(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			return "", errors.New("old_string not found in /a.go")
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "edit_file", Arguments: "{}"}}},
+		{content: "Done. The file has been updated.", toolCalls: nil},
+		{content: "All set, the change is in place.", toolCalls: nil},
+		{content: "Confirmed, everything looks good now.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "fix it", &buf)
+	require.NoError(t, err)
+
+	require.Len(t, ms.cfgs, 4, "third bald claim exhausts retries and ends the turn")
+	assert.Contains(t, result, "[kdeps: the response above claims success")
+	assert.Contains(t, result, "everything looks good now", "the model's own words are kept, only flagged")
+	assert.Contains(t, buf.String(), "[kdeps: the response above claims success",
+		"the notice reaches the writer too")
+}
+
 // A queued model note (goal transition, budget change, forced failure) must be
 // injected into the next request as a [kdeps] system message.
 func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
