@@ -2396,6 +2396,11 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 2, "the fake sandbox transcript must draw exactly one nudge")
 	assert.Contains(t, ms.cfgs[1].Prompt, "code-interpreter sandbox")
+	// The nudge must show a concrete, copyable <invoke> example -- not just
+	// tell the model to "make a real call" with no syntax to follow.
+	assert.Contains(t, ms.cfgs[1].Prompt, `<invoke name="bash_exec">`)
+	assert.Contains(t, ms.cfgs[1].Prompt, `<parameter name="command">`)
+	assert.Contains(t, ms.cfgs[1].Prompt, "</invoke>")
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 

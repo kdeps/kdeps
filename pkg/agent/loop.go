@@ -1378,6 +1378,9 @@ func looksLikeSandboxHallucination(content string) bool {
 // model to make a real call.
 func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	nudgeCfg := *cfg
+	// The literal <invoke> block below is appended after turoReduce, not
+	// passed through it -- turo's filler/synonym rewriting is meant for prose
+	// and would mangle the exact whitespace and quoting a model needs to copy.
 	note := turoReduce(context.Background(),
 		"You made no tool call, and phrases like \"NO CONTENT AVAILABLE\", "+
 			"\"expired\", \"/mnt/data\", or \"cannot access the filesystem\" come from a "+
@@ -1385,8 +1388,19 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig 
 			"and never returns those messages -- nothing ran. The real working directory "+
 			"is a live filesystem with the files from the task present now. Make an actual "+
 			"kdeps tool call (bash_exec, read_file, ...) through the tool interface and wait "+
-			"for the runtime's result. If you were not attempting tool use, ignore this and "+
-			"answer normally.")
+			"for the runtime's result.") +
+		"\n\nIf your backend has no native tool-call channel, emit it as a single " +
+		"matched <invoke>...</invoke> block instead, exactly like this (open tag " +
+		"and close tag, nothing else around it):\n\n" +
+		"  <invoke name=\"bash_exec\">\n" +
+		"  <parameter name=\"command\">pwd && ls</parameter>\n" +
+		"  </invoke>\n\n" +
+		"or, to read a file:\n\n" +
+		"  <invoke name=\"read_file\">\n" +
+		"  <parameter name=\"file_path\">path/from/the/task</parameter>\n" +
+		"  </invoke>\n\n" +
+		"Emit one such block and wait for the runtime's real result before answering. " +
+		"If you were not attempting tool use, ignore this and answer normally."
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
