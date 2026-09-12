@@ -2396,6 +2396,11 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 2, "the fake sandbox transcript must draw exactly one nudge")
 	assert.Contains(t, ms.cfgs[1].Prompt, "code-interpreter sandbox")
+	// The nudge must show a concrete, copyable <invoke> example -- not just
+	// tell the model to "make a real call" with no syntax to follow.
+	assert.Contains(t, ms.cfgs[1].Prompt, `<invoke name="bash_exec">`)
+	assert.Contains(t, ms.cfgs[1].Prompt, `<parameter name="command">`)
+	assert.Contains(t, ms.cfgs[1].Prompt, "</invoke>")
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
@@ -2412,4 +2417,23 @@ func TestRunStreaming_SandboxHallucinationNudgedOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
 	assert.NotEmpty(t, strings.TrimSpace(got))
+}
+
+// Every nudge that tells the model to "make a real tool call" must show it
+// the concrete <invoke> syntax to copy -- not just say "call it now" -- so a
+// backend with no native tool-call channel has something to act on.
+func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
+	base := &domain.ChatConfig{Prompt: "question"}
+	for name, nudge := range map[string]func(*domain.ChatConfig) *domain.ChatConfig{
+		"nudgeForActionConfig":            nudgeForActionConfig,
+		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
+		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := nudge(base)
+			assert.Contains(t, got.Prompt, `<invoke name="bash_exec">`)
+			assert.Contains(t, got.Prompt, `<parameter name="command">`)
+			assert.Contains(t, got.Prompt, "</invoke>")
+		})
+	}
 }

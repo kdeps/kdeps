@@ -1315,6 +1315,24 @@ func (l *Loop) applyRoundOutcome(
 	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
+// invokeExampleBlock is the concrete, copyable <invoke> syntax appended to
+// every nudge that tells a model to "make a real tool call" -- text alone
+// leaves a backend with no native tool-call channel nothing to copy, and it
+// tends to repeat the same hallucination rather than switch tactics. Kept as
+// a literal (never routed through turoReduce) so its exact whitespace and
+// quoting survive intact.
+const invokeExampleBlock = "\n\nIf your backend has no native tool-call channel, emit it as a single " +
+	"matched <invoke>...</invoke> block instead, exactly like this (open tag " +
+	"and close tag, nothing else around it):\n\n" +
+	"  <invoke name=\"bash_exec\">\n" +
+	"  <parameter name=\"command\">pwd && ls</parameter>\n" +
+	"  </invoke>\n\n" +
+	"or, to read a file:\n\n" +
+	"  <invoke name=\"read_file\">\n" +
+	"  <parameter name=\"file_path\">path/from/the/task</parameter>\n" +
+	"  </invoke>\n\n" +
+	"Emit one such block and wait for the runtime's real result before answering."
+
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
 // action after a round that produced neither a tool call nor an answer. Tools
 // stay registered: the goal is to get the call the model already decided on in
@@ -1329,7 +1347,8 @@ func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	note := turoReduce(context.Background(),
 		"Your previous response contained no tool call and no answer. "+
 			"If you intended to call a tool, call it now. Otherwise, answer directly "+
-			"in plain text. Do not reply with reasoning alone.")
+			"in plain text. Do not reply with reasoning alone.") +
+		invokeExampleBlock
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1342,9 +1361,9 @@ func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	note := turoReduce(context.Background(),
 		"You wrote a <tool_response> block. You never write tool results -- the "+
 			"runtime does, and nothing ran. Make the actual tool call now (your "+
-			"native tool channel, or one matched <invoke name=\"...\">...</invoke> "+
-			"block) and wait for its real result before answering. Never author a "+
-			"<tool_response> yourself.")
+			"native tool channel, or the <invoke> block below) and wait for its "+
+			"real result before answering. Never author a <tool_response> yourself.") +
+		invokeExampleBlock
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1378,6 +1397,9 @@ func looksLikeSandboxHallucination(content string) bool {
 // model to make a real call.
 func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	nudgeCfg := *cfg
+	// invokeExampleBlock is appended after turoReduce, not passed through it --
+	// turo's filler/synonym rewriting is meant for prose and would mangle the
+	// exact whitespace and quoting a model needs to copy.
 	note := turoReduce(context.Background(),
 		"You made no tool call, and phrases like \"NO CONTENT AVAILABLE\", "+
 			"\"expired\", \"/mnt/data\", or \"cannot access the filesystem\" come from a "+
@@ -1385,8 +1407,9 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig 
 			"and never returns those messages -- nothing ran. The real working directory "+
 			"is a live filesystem with the files from the task present now. Make an actual "+
 			"kdeps tool call (bash_exec, read_file, ...) through the tool interface and wait "+
-			"for the runtime's result. If you were not attempting tool use, ignore this and "+
-			"answer normally.")
+			"for the runtime's result.") +
+		invokeExampleBlock +
+		" If you were not attempting tool use, ignore this and answer normally."
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
