@@ -281,6 +281,13 @@ type Loop struct {
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// sandboxStrikes counts every round this session where the model produced
+	// text reading as a fabricated code-interpreter/sandbox session (see
+	// looksLikeSandboxHallucination), regardless of the per-turn nudge cap.
+	// Never reset -- once a model has shown this failure mode, the full
+	// kdepsToolsFirstGuidance block (not just the one-line reminder) is resent
+	// every turn for the rest of the session.
+	sandboxStrikes int
 	// goalToolsRegistered guards the lazy registration of task_complete /
 	// task_fail, which happens on the first enforced turn.
 	goalToolsRegistered bool
@@ -1333,6 +1340,14 @@ const invokeExampleBlock = "\n\nIf your backend has no native tool-call channel,
 	"  </invoke>\n\n" +
 	"Emit one such block and wait for the runtime's real result before answering."
 
+// repeatOffenseNote is appended to a second-strike nudge within the same
+// turn, so the model understands this is not the first time it was told --
+// plain repetition of the first nudge's wording tends to get skimmed the
+// same way the original instruction was.
+const repeatOffenseNote = " This is the second time this turn -- you already " +
+	"got this exact instruction once and did not follow it. Do not repeat " +
+	"the same non-call a third time."
+
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
 // action after a round that produced neither a tool call nor an answer. Tools
 // stay registered: the goal is to get the call the model already decided on in
@@ -1342,13 +1357,19 @@ const invokeExampleBlock = "\n\nIf your backend has no native tool-call channel,
 // round the user's question still rides in Prompt — appendToolRoundTrip only
 // moves it into history once a tool call happens. Replacing it here would nudge
 // the model with the question thrown away.
-func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+//
+// repeat is true on the second strike within this turn (see turnNudges) --
+// the wording gets sharper instead of silently repeating verbatim.
+func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := turoReduce(context.Background(),
 		"Your previous response contained no tool call and no answer. "+
 			"If you intended to call a tool, call it now. Otherwise, answer directly "+
 			"in plain text. Do not reply with reasoning alone.") +
 		invokeExampleBlock
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1356,7 +1377,8 @@ func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 // nudgeNoFakeToolResponseConfig is used when the model wrote a <tool_response>
 // (or <tool_output>/<observation>) block itself. That is always a hallucination
 // -- nothing ran -- so tell it to make the real call and wait for the result.
-func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := turoReduce(context.Background(),
 		"You wrote a <tool_response> block. You never write tool results -- the "+
@@ -1364,6 +1386,9 @@ func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 			"native tool channel, or the <invoke> block below) and wait for its "+
 			"real result before answering. Never author a <tool_response> yourself.") +
 		invokeExampleBlock
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1395,7 +1420,8 @@ func looksLikeSandboxHallucination(content string) bool {
 // AVAILABLE", "expired", "/mnt/data", "cannot access the filesystem"). kdeps has
 // no such sandbox and never emits those strings, so nothing ran -- tell the
 // model to make a real call.
-func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	// invokeExampleBlock is appended after turoReduce, not passed through it --
 	// turo's filler/synonym rewriting is meant for prose and would mangle the
@@ -1410,6 +1436,9 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig 
 			"for the runtime's result.") +
 		invokeExampleBlock +
 		" If you were not attempting tool use, ignore this and answer normally."
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1869,26 +1898,46 @@ func (l *Loop) preflightRequestSize(chatCfg *domain.ChatConfig) error {
 // config for the next round and whether the turn should stop.
 type emptyRoundResult struct {
 	cleaned string
+	// content is the round's effective text once handleEmptyToolRound has run
+	// (e.g. with sandboxUnverifiedBanner prepended) -- the caller uses this in
+	// place of its own pre-call content so a banner added inside actually
+	// reaches the turn's returned/displayed result, not just the writer.
+	content string
 	chatCfg *domain.ChatConfig
 	stop    bool
 }
 
-// turnNudges tracks the one-shot corrective nudges already spent this turn, so
-// none of them fires more than once and wedges the loop.
+// maxNudgesPerKind bounds how many times each corrective nudge in turnNudges
+// may fire within a single turn: a first nudge, plus one retry for a model
+// that regresses into the same failure a second time. A third occurrence is
+// not nudged again -- see the exhausted-retries handling in
+// handleEmptyToolRound, which flags rather than silently accepts it.
+const maxNudgesPerKind = 2
+
+// turnNudges tracks how many times each corrective nudge has fired this turn,
+// so each kind fires at most maxNudgesPerKind times and never wedges the loop.
 type turnNudges struct {
-	action        bool // silent round: no tool call and no answer
-	hallucination bool // model wrote a <tool_response> block itself
-	sandbox       bool // prose describing a failed sandbox/code-interpreter session
-	workFailure   bool // turn ending while the last work tool is still failing
+	action        int  // silent round: no tool call and no answer
+	hallucination int  // model wrote a <tool_response> block itself
+	sandbox       int  // prose describing a failed sandbox/code-interpreter session
+	workFailure   bool // turn ending while the last work tool is still failing (single end-of-turn check, not a per-round repeat)
 }
+
+// sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
+// when the model has already been nudged maxNudgesPerKind times for a
+// sandbox/code-interpreter hallucination and still produces one on the final
+// round. Rather than silently presenting fabricated sandbox output as a real
+// answer, the model's words are kept but clearly flagged as unverified.
+const sandboxUnverifiedBanner = "[kdeps: the response below describes a sandbox/tool session that does " +
+	"not exist in this environment -- no real tool call succeeded here. Treat it as unverified.]\n\n"
 
 // handleEmptyToolRound processes a round the streamer returned with no native
 // tool calls. It first tries to recover a tool call the model wrote as text
 // (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
 // the first result for the caller to dispatch. Failing that: a self-written
 // <tool_response> block or prose describing a failed sandbox session is a
-// hallucination and draws a one-shot nudge; anything else falls through to
-// handleTextOnlyRound.
+// hallucination and draws a nudge (up to maxNudgesPerKind times); anything
+// else falls through to handleTextOnlyRound.
 func (l *Loop) handleEmptyToolRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
@@ -1899,16 +1948,26 @@ func (l *Loop) handleEmptyToolRound(
 	if len(salvaged) > 0 {
 		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
 	}
-	if fake && !nudges.hallucination {
-		nudges.hallucination = true
-		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg)}
+	if fake && nudges.hallucination < maxNudgesPerKind {
+		repeat := nudges.hallucination > 0
+		nudges.hallucination++
+		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
 	}
-	if !nudges.sandbox && looksLikeSandboxHallucination(content) {
-		nudges.sandbox = true
-		return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg)}
+	if looksLikeSandboxHallucination(content) {
+		l.sandboxStrikes++
+		if nudges.sandbox < maxNudgesPerKind {
+			repeat := nudges.sandbox > 0
+			nudges.sandbox++
+			return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg, repeat)}
+		}
+		// Retries exhausted and the model is still describing a fabricated
+		// sandbox session -- flag it rather than let handleTextOnlyRound settle
+		// it as an ordinary, trustworthy answer.
+		content = sandboxUnverifiedBanner + content
+		buffered = sandboxUnverifiedBanner + buffered
 	}
 	next, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, nudges, w)
-	return nil, emptyRoundResult{chatCfg: next, stop: !keepGoing}
+	return nil, emptyRoundResult{content: content, chatCfg: next, stop: !keepGoing}
 }
 
 // resolveEmptyToolRound wraps handleEmptyToolRound for the round loop: it
@@ -1929,30 +1988,35 @@ func (l *Loop) resolveEmptyToolRound(
 	if !res.stop {
 		return nil, content, res.chatCfg, false
 	}
+	// res.content (not the pre-call content param) carries any banner
+	// handleEmptyToolRound prepended (e.g. sandboxUnverifiedBanner) -- res.stop
+	// is only ever true once that assignment has happened.
 	if l.lastWorkFailure != nil && !nudges.workFailure {
 		nudges.workFailure = true
-		return nil, content,
+		return nil, res.content,
 			nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure), false
 	}
-	return nil, content, res.chatCfg, true
+	return nil, res.content, res.chatCfg, true
 }
 
 // handleTextOnlyRound processes a round the model ended without calling a tool.
 // It returns the config for the next round and whether the loop should keep
 // going.
 //
-// A silent round (no text either) is nudged once for a concrete action. A round
-// with text settles the active task; when later tasks remain the turn continues
-// on the next one rather than stopping with the plan unfinished.
+// A silent round (no text either) is nudged for a concrete action, up to
+// maxNudgesPerKind times. A round with text settles the active task; when
+// later tasks remain the turn continues on the next one rather than stopping
+// with the plan unfinished.
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
 ) (*domain.ChatConfig, bool) {
-	if !nudges.action && strings.TrimSpace(stripContentToolCalls(content)) == "" {
-		nudges.action = true
-		return nudgeForActionConfig(chatCfg), true
+	if nudges.action < maxNudgesPerKind && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+		repeat := nudges.action > 0
+		nudges.action++
+		return nudgeForActionConfig(chatCfg, repeat), true
 	}
 	_, _ = io.WriteString(w, buffered)
 	if l.settleActiveFromText(content, w) {
@@ -3178,10 +3242,16 @@ func (l *Loop) buildChatConfig(
 
 	// After the first turn, re-state the fenced-tools rule in one line. The full
 	// guidance is in the cached preamble; this keeps it salient deep into a long
-	// conversation without re-sending the whole block.
+	// conversation without re-sending the whole block. A model that has already
+	// hallucinated a sandbox session this session gets the full block resent
+	// instead -- the one-liner was evidently not enough reinforcement for it.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
+		reminder := kdepsToolsReminder
+		if l.sandboxStrikes > 0 {
+			reminder = kdepsToolsFirstGuidance
+		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
-			domain.ScenarioItem{Role: "system", Prompt: kdepsToolsReminder})
+			domain.ScenarioItem{Role: "system", Prompt: reminder})
 	}
 
 	return chatCfg

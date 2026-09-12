@@ -2168,7 +2168,10 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "hello", &buf)
 	require.NoError(t, err)
 
-	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
+	// Two silent rounds draw two nudges (maxNudgesPerKind); a third silent
+	// round (the streamer's canned responses exhausted, defaulting to "")
+	// finally settles the turn with the notice.
+	assert.Len(t, ms.cfgs, 3, "two silent-round nudges, then the notice")
 	assert.NotEmpty(t, strings.TrimSpace(got), "turn must never end in silence")
 	assert.Contains(t, got, "without answering or calling a tool")
 	assert.Contains(
@@ -2404,36 +2407,100 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
-// The sandbox nudge fires at most once: a model that keeps describing a sandbox
-// session must not loop forever.
-func TestRunStreaming_SandboxHallucinationNudgedOnce(t *testing.T) {
+// The sandbox nudge is bounded to maxNudgesPerKind (2): a model that regresses
+// into the same hallucination a second time within the turn draws a second,
+// sharper nudge instead of the turn silently ending on the first repeat.
+func TestRunStreaming_SandboxHallucinationNudgedTwiceThenAnswers(t *testing.T) {
 	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
 		{content: "The sandbox session has expired, no content available.", toolCalls: nil},
 		{content: "Still cannot access the repository files.", toolCalls: nil},
+		{content: "The config timeout is 30s.", toolCalls: nil},
 	}}}
 	loop := newStreamingLoop(ms, 10)
 	var buf bytes.Buffer
 	got, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
 	require.NoError(t, err)
-	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
-	assert.NotEmpty(t, strings.TrimSpace(got))
+	require.Len(t, ms.cfgs, 3, "two hallucinations must draw two nudges before the real answer")
+	assert.NotContains(t, ms.cfgs[1].Prompt, "second time this turn", "first nudge is not a repeat")
+	assert.Contains(t, ms.cfgs[2].Prompt, "second time this turn", "second nudge must read as a repeat")
+	assert.Equal(t, "The config timeout is 30s.", got)
+}
+
+// Once maxNudgesPerKind nudges are spent and the model is *still* describing a
+// fabricated sandbox session, the turn must not silently settle on it as a
+// trustworthy answer -- the returned content is flagged with
+// sandboxUnverifiedBanner instead.
+func TestRunStreaming_SandboxHallucinationExhaustedGetsBanner(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "The sandbox session has expired, no content available.", toolCalls: nil},
+		{content: "Still cannot access the repository files.", toolCalls: nil},
+		{content: "/mnt/data is empty, no content available.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 3, "third hallucination exhausts retries and ends the turn")
+	assert.Contains(t, got, sandboxUnverifiedBanner)
+	assert.Contains(t, got, "/mnt/data is empty", "the model's own words are kept, only flagged")
+	assert.Contains(t, buf.String(), sandboxUnverifiedBanner, "the banner reaches the writer too")
+}
+
+// A session that has already produced one sandbox hallucination gets the full
+// kdepsToolsFirstGuidance block resent on every later turn, not just the
+// one-line kdepsToolsReminder -- the one-liner evidently wasn't enough
+// reinforcement for a model that has already shown this failure mode.
+func TestRunStreaming_SandboxHallucinationEscalatesReminderAcrossTurns(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "The sandbox session has expired, no content available.", toolCalls: nil},
+		{content: "First turn's real answer.", toolCalls: nil},
+		{content: "Second turn's real answer.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+
+	got1, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "First turn's real answer.", got1)
+	require.Equal(t, 1, loop.Session().TurnCount())
+
+	buf.Reset()
+	got2, err := loop.RunStreaming(context.Background(), "what next?", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "Second turn's real answer.", got2)
+
+	last := ms.cfgs[len(ms.cfgs)-1] // the cfg sent for turn 2's single round
+	found := false
+	for _, item := range last.Scenario {
+		if strings.Contains(item.Prompt, "Calling a kdeps tool is easy") {
+			found = true
+		}
+	}
+	assert.True(t, found,
+		"turn 2 must carry the full kdepsToolsFirstGuidance block, not just the one-line reminder")
 }
 
 // Every nudge that tells the model to "make a real tool call" must show it
 // the concrete <invoke> syntax to copy -- not just say "call it now" -- so a
-// backend with no native tool-call channel has something to act on.
+// backend with no native tool-call channel has something to act on. Checked
+// on both the first-strike and repeat-strike wording.
 func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 	base := &domain.ChatConfig{Prompt: "question"}
-	for name, nudge := range map[string]func(*domain.ChatConfig) *domain.ChatConfig{
+	for name, nudge := range map[string]func(*domain.ChatConfig, bool) *domain.ChatConfig{
 		"nudgeForActionConfig":            nudgeForActionConfig,
 		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
 		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
 	} {
-		t.Run(name, func(t *testing.T) {
-			got := nudge(base)
-			assert.Contains(t, got.Prompt, `<invoke name="bash_exec">`)
-			assert.Contains(t, got.Prompt, `<parameter name="command">`)
-			assert.Contains(t, got.Prompt, "</invoke>")
-		})
+		for _, repeat := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/repeat=%v", name, repeat), func(t *testing.T) {
+				got := nudge(base, repeat)
+				assert.Contains(t, got.Prompt, `<invoke name="bash_exec">`)
+				assert.Contains(t, got.Prompt, `<parameter name="command">`)
+				assert.Contains(t, got.Prompt, "</invoke>")
+				if repeat {
+					assert.Contains(t, got.Prompt, "second time this turn")
+				}
+			})
+		}
 	}
 }

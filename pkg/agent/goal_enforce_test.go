@@ -300,6 +300,23 @@ func TestSettleActiveFromText_NoEnforcerIsNoop(t *testing.T) {
 	}
 }
 
+// Text that still reads as a fabricated sandbox/code-interpreter session (this
+// only reaches settleActiveFromText once handleEmptyToolRound's nudge retries
+// are exhausted) must record the task failed, never done -- no real tool call
+// ever succeeded, so there is nothing to accept as a genuine completion.
+func TestSettleActiveFromText_SandboxHallucinationForcesFailed(t *testing.T) {
+	l := &Loop{}
+	l.enforcer = newGoalEnforcer(NewGoal("goal", []string{"a"}), nil, 3, 25, false)
+
+	if l.settleActiveFromText("The sandbox session has expired, no content available.", nil) {
+		t.Fatal("the last task must not request another round")
+	}
+	if l.enforcer.goal.Tasks[0].Status != GoalTaskFailed {
+		t.Fatalf("a fabricated sandbox result must mark the task failed, got %s",
+			l.enforcer.goal.Tasks[0].Status)
+	}
+}
+
 // A goal outlives the turn that created it, so resuming one must say what it is
 // and how to get rid of it rather than silently steering the next prompt.
 func TestResumeNotice(t *testing.T) {
