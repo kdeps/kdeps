@@ -124,9 +124,15 @@ The file's line-ending style is preserved on write.
 Every tool failure is returned to the model as `{"error": ...}` **plus a
 `[TOOL FAILED]` banner** ("nothing changed - fix the cause and retry, or say it
 failed"), so a skimmed error is hard to miss. The turn will not end on a "done"
-claim made right after a work tool failed: the loop pushes back once for a real
-success or an honest "it failed". With a goal active, `task_complete` on such a
-task is refused, and a prose "done" records the task **failed**, not done.
+claim made right after a work tool failed: the loop pushes back for a real
+success or an honest "it failed" - up to twice, with the second push-back
+reading as a repeat, same bound as the other corrective nudges. If the model
+still hasn't acknowledged the failure after both, the turn does not settle on
+the bald claim unflagged: the response is followed by a notice naming the
+tool and its error, so the claim is kept but clearly marked unresolved. An
+honest admission at any point (in whatever words) is accepted immediately,
+no nudge needed. With a goal active, `task_complete` on such a task is
+refused, and a prose "done" records the task **failed**, not done.
 
 Loop-generated notices - goal transitions, budget changes, forced task failures,
 context-window trims - are injected into the model's context as `[kdeps] ...`
