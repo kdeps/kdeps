@@ -2418,3 +2418,22 @@ func TestRunStreaming_SandboxHallucinationNudgedOnce(t *testing.T) {
 	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
 	assert.NotEmpty(t, strings.TrimSpace(got))
 }
+
+// Every nudge that tells the model to "make a real tool call" must show it
+// the concrete <invoke> syntax to copy -- not just say "call it now" -- so a
+// backend with no native tool-call channel has something to act on.
+func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
+	base := &domain.ChatConfig{Prompt: "question"}
+	for name, nudge := range map[string]func(*domain.ChatConfig) *domain.ChatConfig{
+		"nudgeForActionConfig":            nudgeForActionConfig,
+		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
+		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := nudge(base)
+			assert.Contains(t, got.Prompt, `<invoke name="bash_exec">`)
+			assert.Contains(t, got.Prompt, `<parameter name="command">`)
+			assert.Contains(t, got.Prompt, "</invoke>")
+		})
+	}
+}
