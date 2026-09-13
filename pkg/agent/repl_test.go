@@ -2794,6 +2794,39 @@ func TestApplyConfigDefaults_ModelServiceNotCalledWhenBaseURLSet(t *testing.T) {
 	}
 }
 
+// A recognized model's default CompactTokenBudget/AutoCompactThreshold must
+// scale to its real context window (same 3/4 ratio the REPL's /model switch
+// already applies, repl.go handleModelSwitch) instead of the flat
+// compactKeepRecentTokens/defaultAutoCompactThreshold constants -- so a
+// session that never touches /model still gets sensibly-scaled defaults for
+// whichever model it starts on.
+func TestApplyConfigDefaults_CompactBudgetScalesToKnownModel(t *testing.T) {
+	cfg := applyConfigDefaults(Config{Model: "gpt-3.5-turbo-instruct"}) // 4096 ctx window
+	const want = 4096 * 3 / 4
+	if cfg.CompactTokenBudget != want {
+		t.Errorf("CompactTokenBudget = %d, want %d (scaled to context window)", cfg.CompactTokenBudget, want)
+	}
+	if cfg.AutoCompactThreshold != want {
+		t.Errorf("AutoCompactThreshold = %d, want %d (scaled to context window)", cfg.AutoCompactThreshold, want)
+	}
+}
+
+// An unrecognized model (ContextWindowForModel returns 0) keeps the flat
+// defaults unchanged -- no regression for local/unknown models.
+func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
+	cfg := applyConfigDefaults(Config{Model: "some-unregistered-local-gguf"})
+	if cfg.CompactTokenBudget != compactKeepRecentTokens {
+		t.Errorf("CompactTokenBudget = %d, want flat default %d", cfg.CompactTokenBudget, compactKeepRecentTokens)
+	}
+	if cfg.AutoCompactThreshold != defaultAutoCompactThreshold {
+		t.Errorf(
+			"AutoCompactThreshold = %d, want flat default %d",
+			cfg.AutoCompactThreshold,
+			defaultAutoCompactThreshold,
+		)
+	}
+}
+
 // --- buildSystemPreamble zero-limit fallback paths ---
 
 func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {

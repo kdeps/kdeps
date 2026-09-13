@@ -111,9 +111,12 @@ func (e *Executor) resolveModelForExecution(
 		modelStr = fallback
 	}
 
-	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to evaluate prompt: %w", err)
+	promptStr := resolvedConfig.Prompt
+	if !resolvedConfig.LiteralPrompt {
+		promptStr, err = e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
+		if err != nil {
+			return "", "", nil, fmt.Errorf("failed to evaluate prompt: %w", err)
+		}
 	}
 
 	// "auto-router" needs no llm.models config at all -- unlike "router"

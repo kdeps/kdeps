@@ -783,14 +783,27 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.Role == "" {
 		cfg.Role = RoleUser
 	}
+	// Scale the compact budget/threshold to the model's real context window
+	// when known -- same ratio and same lookup (ContextWindowForModel) the
+	// REPL's /model switch already applies (repl.go handleModelSwitch), just
+	// also covering the initial model a session starts on. Unknown/local
+	// models (ContextWindowForModel returns 0) keep the flat constants
+	// exactly as before -- no change for that case.
+	const compactBudgetCtxNumerator, compactBudgetCtxDenominator = 3, 4
 	if cfg.CompactTokenBudget <= 0 {
 		cfg.CompactTokenBudget = compactKeepRecentTokens
+		if ctxWindow := ContextWindowForModel(cfg.Model); ctxWindow > 0 {
+			cfg.CompactTokenBudget = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
+		}
 	}
 	if cfg.AutoCompactThreshold < 0 {
 		cfg.AutoCompactThreshold = 0
 	}
 	if cfg.AutoCompactThreshold == 0 {
 		cfg.AutoCompactThreshold = defaultAutoCompactThreshold
+		if ctxWindow := ContextWindowForModel(cfg.Model); ctxWindow > 0 {
+			cfg.AutoCompactThreshold = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
+		}
 	}
 	if cfg.MaxToolRounds <= 0 {
 		cfg.MaxToolRounds = defaultMaxToolRounds
@@ -3367,6 +3380,14 @@ func (l *Loop) buildSyntheticWorkflow(
 	actionID string,
 	chatCfg *domain.ChatConfig,
 ) *domain.Workflow {
+	// Every caller builds Prompt by concatenating Go-constructed instructions
+	// with conversation-derived text (compaction, goal planning, branch
+	// summaries, refine, judge roster) -- never a user-authored workflow. That
+	// embedded text can itself contain {{ }}-looking substrings (kdeps
+	// expression syntax the user discussed, Jinja/Django tags, anything
+	// matching the pattern) that must reach the model unchanged rather than
+	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
+	chatCfg.LiteralPrompt = true
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
