@@ -661,6 +661,41 @@ func TestLoop_ForceCompact_CompactsUnderBudget(t *testing.T) {
 	}
 }
 
+// ForceCompact's synthetic chat config must always carry LiteralPrompt: true
+// -- otherwise the executor's expression evaluator (pkg/executor/llm) would
+// try to re-parse the raw conversation text embedded in the compaction
+// prompt as a kdeps expression/template, which fails whenever that history
+// contains {{ }}-looking text (kdeps expression syntax the user discussed,
+// Jinja/Django tags, anything matching the pattern) that isn't actually
+// meant for interpolation. See buildSyntheticWorkflow and
+// domain.ChatConfig.LiteralPrompt.
+func TestLoop_ForceCompact_UsesLiteralPrompt(t *testing.T) {
+	const fakeSummary = "## Progress\n- did things"
+	var gotLiteralPrompt bool
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotLiteralPrompt = wf.Resources[0].Chat.LiteralPrompt
+		return fakeSummary, nil
+	})
+	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 1_000_000,
+	})
+	for range 8 {
+		// A message that looks like kdeps expression syntax the user might
+		// have pasted or discussed -- exactly the reported bug's trigger.
+		if _, err := loop.Run(context.Background(), "how do I use {{ get('x') }} in workflow.yaml?"); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	}
+	if _, err := loop.ForceCompact(context.Background()); err != nil {
+		t.Fatalf("ForceCompact: %v", err)
+	}
+	if !gotLiteralPrompt {
+		t.Fatal("compaction's synthetic ChatConfig must have LiteralPrompt: true")
+	}
+}
+
 // ForceCompact still does nothing for a session too short to fold anything in.
 func TestLoop_ForceCompact_TooShort(t *testing.T) {
 	eng := newTestEngine("summary", nil)

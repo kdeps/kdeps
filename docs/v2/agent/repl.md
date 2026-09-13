@@ -162,6 +162,20 @@ tool set compact-threshold <n>`), which for a long run of short-but-tool-heavy
 turns may never happen - use `/compact` directly. Neither affects a running
 turn's tool output; that is bounded by the in-flight window above.
 
+Both the compact budget (how much recent conversation stays verbatim) and the
+auto-compaction threshold default to 3/4 of the model's known context window,
+not a flat token count - a session on a small local model and one on a
+200K-token cloud model each get a sensible default without you having to set
+`/model tool set compact-budget <n>` yourself. Switching models with `/model`
+recomputes both immediately for the new model; an unrecognized model keeps a
+conservative flat default.
+
+The conversation text being summarized is never re-evaluated as a kdeps
+expression or template, even if it contains double-curly-brace syntax (kdeps
+expressions you were discussing, another template language's tags, or
+anything else that looks like one) - it reaches the summarizer exactly as
+written.
+
 ## Sessions
 
 Conversations and the agent's memory are stored in `~/.kdeps/`, **partitioned by
