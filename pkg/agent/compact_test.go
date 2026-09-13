@@ -466,6 +466,27 @@ func TestShouldFold_ZeroSinceNanosMeansNoCheckpointYet(t *testing.T) {
 	}
 }
 
+// TestTokensSinceCheckpoint_ZeroIDMessagesCountWhenNoCheckpoint is a
+// regression test for messages restored from a persisted session store
+// (session_store.go, session_store_sql.go, session_store_mongodb.go) and the
+// compaction-summary pair appended by CompactWithLLM -- both are built as
+// SessionMessage{Role, Content} with no ID set, defaulting to ID: 0. Before
+// the fix, "m.ID <= sinceNanos" matched every one of those zero-ID messages
+// even with sinceNanos=0 (no checkpoint yet), silently excluding them from
+// the delta instead of counting them as new -- exactly what happens on a
+// resumed session with no checkpoint yet.
+func TestTokensSinceCheckpoint_ZeroIDMessagesCountWhenNoCheckpoint(t *testing.T) {
+	msgs := makeTurns(compactMinTurns)
+	for i := range msgs {
+		msgs[i].ID = 0 // simulate messages restored from a session store
+	}
+	got := tokensSinceCheckpoint(msgs, 0, "gpt-4o")
+	want := estimateSessionTokens(msgs, "gpt-4o")
+	if got != want {
+		t.Fatalf("tokensSinceCheckpoint with zero-ID messages and sinceNanos=0 = %d, want the full total %d", got, want)
+	}
+}
+
 // --- Session.rawMessages ---
 
 func TestRawMessages_ReturnsCopy(t *testing.T) {

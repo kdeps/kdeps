@@ -291,10 +291,19 @@ func shouldFold(messages []SessionMessage, sinceNanos int64, thresholdTokens int
 // sinceNanos (a checkpoint's UpdatedAt converted to nanoseconds, or 0 for "no
 // checkpoint yet" -- every message qualifies). Shared by shouldFold and the
 // /fold status display so they always agree on the same number.
+//
+// Messages restored from a persisted session store (session_store.go,
+// session_store_sql.go, session_store_mongodb.go) and the compaction-summary
+// pair appended by CompactWithLLM never get a real ID -- they're built as
+// SessionMessage{Role, Content} and so default to ID: 0. When sinceNanos is
+// also 0 (no checkpoint yet), "m.ID <= sinceNanos" would then match every one
+// of those zero-ID messages, silently excluding them instead of counting them
+// as new. Only apply the ID filter once there's an actual checkpoint to
+// filter against.
 func tokensSinceCheckpoint(messages []SessionMessage, sinceNanos int64, modelHint string) int {
 	var delta int
 	for _, m := range messages {
-		if m.ID <= sinceNanos {
+		if sinceNanos > 0 && m.ID <= sinceNanos {
 			continue
 		}
 		delta += estimateTokens(m, modelHint)
