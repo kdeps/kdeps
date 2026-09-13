@@ -96,6 +96,21 @@ type Config struct {
 	// is automatically compacted before the next LLM call. 0 disables auto-compaction.
 	// Default: 40000.
 	AutoCompactThreshold int
+	// FoldThreshold is the token delta (since the last checkpoint) that
+	// triggers a "fold" -- a lighter, checkpoint-only summarize/archive pass,
+	// independent of AutoCompactThreshold's full-context-window safety net.
+	// 0 uses the default (2000). See /fold in the REPL.
+	FoldThreshold int
+	// FoldContextItems caps how many recent checkpoints (the active
+	// checkpoint:summary plus archived checkpoint:archive:* entries) compete
+	// for space in the memory prompt block. 0 uses the default (5).
+	FoldContextItems int
+	// FoldOff disables automatic folding once FoldThreshold is crossed.
+	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
+	// the zero value is the enabled default, not a silently-forced override.
+	// See ToolTuning.FoldAuto/FoldConfigured for the persisted, user-facing
+	// (non-inverted) /fold auto|off setting.
+	FoldOff bool
 	// PromptPaths are additional directories to search for prompt template .md files.
 	PromptPaths []string
 	// Store is an optional session store for /session save|load|list|delete commands.
@@ -805,6 +820,12 @@ func applyConfigDefaults(cfg Config) Config {
 			cfg.AutoCompactThreshold = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
 		}
 	}
+	if cfg.FoldThreshold <= 0 {
+		cfg.FoldThreshold = defaultFoldThreshold
+	}
+	if cfg.FoldContextItems <= 0 {
+		cfg.FoldContextItems = defaultFoldContextItems
+	}
 	if cfg.MaxToolRounds <= 0 {
 		cfg.MaxToolRounds = defaultMaxToolRounds
 	}
@@ -887,12 +908,15 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
 
-	// Auto-compact before the LLM call when history exceeds the token threshold.
+	// Auto-compact before the LLM call when history exceeds the token
+	// threshold, or when enough new conversation has accumulated since the
+	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
+	// condition runs the same compaction call, just at a different cadence.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,
 		l.config.AutoCompactThreshold,
 		l.config.Model,
-	) {
+	) || l.shouldFoldNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -975,12 +999,15 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
 
-	// Auto-compact before the LLM call when history exceeds the token threshold.
+	// Auto-compact before the LLM call when history exceeds the token
+	// threshold, or when enough new conversation has accumulated since the
+	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
+	// condition runs the same compaction call, just at a different cadence.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,
 		l.config.AutoCompactThreshold,
 		l.config.Model,
-	) {
+	) || l.shouldFoldNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -3025,7 +3052,8 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	var memoryParts []string
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
-		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit, focus); memPrompt != "" {
+		memPrompt := l.memoryStore.FormatForPromptCapped(memoryPromptLimit, focus, l.config.FoldContextItems)
+		if memPrompt != "" {
 			memoryParts = append(memoryParts, memPrompt)
 		}
 		// Mechanical memory_list: inject the current key list so the LLM
@@ -3521,6 +3549,22 @@ func (l *Loop) Session() SessionReadWriter {
 
 // Config returns a copy of the loop's configuration.
 func (l *Loop) Config() Config { return l.config }
+
+// shouldFoldNow reports whether a "fold" should run now: FoldOff disables it
+// outright; otherwise it delegates to shouldFold using the active
+// checkpoint's UpdatedAt (0 when none exists yet) as the "since" point.
+func (l *Loop) shouldFoldNow(msgs []SessionMessage) bool {
+	if l.config.FoldOff {
+		return false
+	}
+	var sinceNanos int64
+	if l.memoryStore != nil {
+		if cp, ok := l.memoryStore.Get(checkpointSummaryKey); ok {
+			sinceNanos = cp.UpdatedAt * int64(time.Millisecond)
+		}
+	}
+	return shouldFold(msgs, sinceNanos, l.config.FoldThreshold, l.config.Model)
+}
 
 // CompactWithLLM summarizes old conversation turns using the LLM and replaces
 // them with a structured summary, keeping recent turns intact. It returns the

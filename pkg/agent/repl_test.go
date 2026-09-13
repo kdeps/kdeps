@@ -2827,6 +2827,36 @@ func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
 	}
 }
 
+// applyConfigDefaults must fill in the fold defaults (threshold/items) the
+// same "<=0 means use the default" way CompactTokenBudget/AutoCompactThreshold
+// already do; FoldOff's zero value (false) is the enabled default, not
+// something applyConfigDefaults needs to touch.
+func TestApplyConfigDefaults_FoldDefaults(t *testing.T) {
+	cfg := applyConfigDefaults(Config{Model: "test"})
+	if cfg.FoldThreshold != defaultFoldThreshold {
+		t.Errorf("FoldThreshold = %d, want default %d", cfg.FoldThreshold, defaultFoldThreshold)
+	}
+	if cfg.FoldContextItems != defaultFoldContextItems {
+		t.Errorf("FoldContextItems = %d, want default %d", cfg.FoldContextItems, defaultFoldContextItems)
+	}
+	if cfg.FoldOff {
+		t.Error("FoldOff should be false (auto-fold on) by default")
+	}
+}
+
+func TestApplyConfigDefaults_FoldExplicitValuesPreserved(t *testing.T) {
+	cfg := applyConfigDefaults(Config{Model: "test", FoldThreshold: 500, FoldContextItems: 2, FoldOff: true})
+	if cfg.FoldThreshold != 500 {
+		t.Errorf("FoldThreshold = %d, want the explicitly-set 500", cfg.FoldThreshold)
+	}
+	if cfg.FoldContextItems != 2 {
+		t.Errorf("FoldContextItems = %d, want the explicitly-set 2", cfg.FoldContextItems)
+	}
+	if !cfg.FoldOff {
+		t.Error("FoldOff should stay true when explicitly set")
+	}
+}
+
 // --- buildSystemPreamble zero-limit fallback paths ---
 
 func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
@@ -3524,6 +3554,139 @@ func TestCmdModelTool_SetTokenSettingsWithSuffix(t *testing.T) {
 	assert.Equal(t, 5*time.Second, loop.config.AutoRetryBaseDelay)
 	assert.Equal(t, 5, loop.config.AutoRetryMax)
 	assert.Equal(t, 12, loop.config.MaxTurns)
+}
+
+// --- /fold ---
+
+func TestCmdFold_ThresholdAndItemsPersist(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() {
+		_ = repl.cmdFold([]string{"threshold", "4k"})
+		_ = repl.cmdFold([]string{"items", "8"})
+	})
+	assert.Equal(t, 4*1024, loop.config.FoldThreshold)
+	assert.Equal(t, 8, loop.config.FoldContextItems)
+
+	// Round-trips through the same snapshot/restore path CompactTokenBudget
+	// etc. already use -- a fresh loop restoring this snapshot must see the
+	// same values, not the built-in defaults.
+	snap := repl.toolTuningSnapshot()
+	loop2 := makeTestLoop(nil)
+	repl2 := NewREPL(context.Background(), loop2)
+	defer repl2.cancel()
+	repl2.applyToolTuning(snap)
+	assert.Equal(t, 4*1024, loop2.config.FoldThreshold)
+	assert.Equal(t, 8, loop2.config.FoldContextItems)
+}
+
+func TestCmdFold_AutoToggleAndPersist(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() { _ = repl.cmdFold([]string{"auto", "off"}) })
+	assert.True(t, loop.config.FoldOff)
+
+	snap := repl.toolTuningSnapshot()
+	assert.True(t, snap.FoldConfigured)
+	assert.False(t, snap.FoldAuto)
+
+	loop2 := makeTestLoop(nil)
+	repl2 := NewREPL(context.Background(), loop2)
+	defer repl2.cancel()
+	repl2.applyToolTuning(snap)
+	assert.True(t, loop2.config.FoldOff, "restored snapshot must keep auto-fold off")
+
+	captureStdout(t, func() { _ = repl.cmdFold([]string{"auto"}) })
+	assert.False(t, loop.config.FoldOff)
+}
+
+// A snapshot saved before FoldConfigured existed (zero value: false) must not
+// silently disable the on-by-default behavior -- mirrors
+// TestToolTuning_ZeroPersistedValuesPreserveDefaults's reasoning for the
+// other *Configured sentinels.
+func TestCmdFold_UnconfiguredSnapshotKeepsAutoOn(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	repl.applyToolTuning(ToolTuning{FoldConfigured: false})
+	assert.False(t, loop.config.FoldOff, "an unconfigured snapshot must leave auto-fold on")
+}
+
+func TestCmdFold_Preset(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "tight"}) })
+	assert.Equal(t, foldPresets["tight"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets["tight"].items, loop.config.FoldContextItems)
+
+	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "loose"}) })
+	assert.Equal(t, foldPresets["loose"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets["loose"].items, loop.config.FoldContextItems)
+}
+
+func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	loop.config.FoldThreshold = 999
+	loop.config.FoldContextItems = 9
+
+	// The rejection message goes to stderr; captureStdout only observes
+	// stdout, so the meaningful assertion here is the config staying
+	// unchanged, not the printed text.
+	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "nonexistent"}) })
+	assert.Equal(t, 999, loop.config.FoldThreshold, "an unknown preset must not partially apply")
+	assert.Equal(t, 9, loop.config.FoldContextItems)
+}
+
+// The compaction/fold call itself consumes real tokens (it's a real LLM
+// call); cmdCompact and cmdFoldNow must call syncTokenCounter afterward so
+// the cumulative in:/out: display counts it, not just leave it at whatever
+// the last real turn left behind.
+func TestCmdCompact_SyncsTokenCounter(t *testing.T) {
+	loop := makeTestLoopWithEngine("## Progress\n- did things")
+	// forcedCutIndex needs n > forceKeepTurns*sessionMsgsPer + sessionMsgsPer
+	// (see its own bounds check), so forceKeepTurns+1 turns (exactly at the
+	// boundary) returns 0 -- one more turn is required to actually cut.
+	for range forceKeepTurns + 2 {
+		loop.session.Append("user msg", "assistant reply")
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.tokenCounter.Reset()
+
+	GlobalPromptCacheStats.RecordCacheUsageFromTokens(123, 45)
+	captureStdout(t, func() { _ = repl.cmdCompact() })
+
+	assert.Equal(t, int64(123), repl.tokenCounter.InputTokens())
+	assert.Equal(t, int64(45), repl.tokenCounter.OutputTokens())
+}
+
+func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
+	// CompactTokenBudget left at its zero value: findCutIndex treats <=0 as
+	// "keep almost nothing," so with enough turns there is always something
+	// to compact -- unlike ForceCompact, CompactWithLLM has no separate
+	// "keep the last N turns regardless" override.
+	loop := makeTestLoopWithEngine("## Progress\n- did things")
+	for range compactMinTurns + 1 {
+		loop.session.Append("user msg", "assistant reply")
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.tokenCounter.Reset()
+
+	GlobalPromptCacheStats.RecordCacheUsageFromTokens(77, 33)
+	captureStdout(t, func() { _ = repl.cmdFoldNow() })
+
+	assert.Equal(t, int64(77), repl.tokenCounter.InputTokens())
+	assert.Equal(t, int64(33), repl.tokenCounter.OutputTokens())
 }
 
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {
@@ -5165,10 +5328,10 @@ func TestCRLFWriter_ReturnLenOfInput(t *testing.T) {
 	assert.Equal(t, 6, n) // returns len of original input, not converted
 }
 
-func makeTestLoopWithEngine(result any, engineErr error) *Loop {
+func makeTestLoopWithEngine(result any) *Loop {
 	eng := executor.NewEngine(nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
-		return result, engineErr
+		return result, nil
 	})
 	return &Loop{
 		config:  Config{Model: "test-model"},
@@ -5185,7 +5348,7 @@ func makeTestLoopWithEngine(result any, engineErr error) *Loop {
 func TestCmdClear_WithManyTurns(t *testing.T) {
 	// Must have >= compactMinTurns (4) turns to trigger the summarize-branch path.
 	// Engine returns empty string so SummarizeBranch returns "".
-	loop := makeTestLoopWithEngine("", nil)
+	loop := makeTestLoopWithEngine("")
 	for range compactMinTurns + 1 {
 		loop.session.Append("user msg", "assistant reply")
 	}
@@ -5199,7 +5362,7 @@ func TestCmdClear_WithManyTurns(t *testing.T) {
 
 func TestCmdClear_WithSummary(t *testing.T) {
 	// Engine returns non-empty summary, covering the summary-printing branch.
-	loop := makeTestLoopWithEngine("Branch summary text here.", nil)
+	loop := makeTestLoopWithEngine("Branch summary text here.")
 	for range compactMinTurns + 1 {
 		loop.session.Append("user msg", "assistant reply")
 	}
