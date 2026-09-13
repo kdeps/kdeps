@@ -8,6 +8,8 @@ Persistent memory is primarily an agent mode concept, but the memory tools also 
 
 Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
+Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it's stored at `~/.kdeps/memory/global/memory.bolt` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+
 The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
 ## Built-in memory tools

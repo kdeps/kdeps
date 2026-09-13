@@ -31,6 +31,17 @@ const (
 	compactMinTurns         = 4     // don't compact unless at least 4 turns exist
 	charsPerToken           = 4     // rough chars-per-token estimate for the fallback path
 	charsPerTokenRoundUp    = 3     // rounding offset for integer ceiling division
+
+	// defaultFoldThreshold is the token delta (since the last checkpoint) that
+	// triggers a "fold" -- a lighter, more frequent checkpoint-only
+	// summarize/archive pass, independent of the full-context-window
+	// auto-compact safety net. Configurable/persisted via
+	// Config.FoldThreshold / ToolTuning.FoldThreshold, see /fold.
+	defaultFoldThreshold = 2000
+	// defaultFoldContextItems caps how many recent checkpoints (active +
+	// archived) compete for space in the memory prompt block. Configurable/
+	// persisted via Config.FoldContextItems / ToolTuning.FoldContextItems.
+	defaultFoldContextItems = 5
 )
 
 // compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
@@ -258,6 +269,37 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 		return estimated > ctxWindow-compactReserveTokens
 	}
 	return estimated > threshold
+}
+
+// shouldFold reports whether enough new conversation has accumulated since
+// the last checkpoint to justify folding it in again -- a tighter, more
+// frequent cadence than shouldAutoCompact's full-context-window safety net.
+// sinceNanos is the active checkpoint's UpdatedAt (converted from
+// milliseconds), or 0 when no checkpoint exists yet -- compactMinTurns still
+// gates the very first fold the same way it gates the first compaction.
+func shouldFold(messages []SessionMessage, sinceNanos int64, thresholdTokens int, modelHint string) bool {
+	if thresholdTokens <= 0 {
+		return false
+	}
+	if len(messages) < sessionMsgsPer*compactMinTurns {
+		return false
+	}
+	return tokensSinceCheckpoint(messages, sinceNanos, modelHint) >= thresholdTokens
+}
+
+// tokensSinceCheckpoint estimates the token count of messages newer than
+// sinceNanos (a checkpoint's UpdatedAt converted to nanoseconds, or 0 for "no
+// checkpoint yet" -- every message qualifies). Shared by shouldFold and the
+// /fold status display so they always agree on the same number.
+func tokensSinceCheckpoint(messages []SessionMessage, sinceNanos int64, modelHint string) int {
+	var delta int
+	for _, m := range messages {
+		if m.ID <= sinceNanos {
+			continue
+		}
+		delta += estimateTokens(m, modelHint)
+	}
+	return delta
 }
 
 // serializeConversation formats session messages as plain text for the
