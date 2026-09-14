@@ -170,3 +170,38 @@ func TestParamAliasKeysMatchToolParams(t *testing.T) {
 	// A representative domain param to ensure the import is exercised.
 	_ = domain.ToolParam{Type: toolParamString}
 }
+
+func TestToolArgBool(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    any
+		want  bool
+		valid bool
+	}{
+		{"bool true", true, true, true},
+		{"bool false", false, false, true},
+		{"float64 nonzero", float64(2), true, true},
+		{"float64 zero", float64(0), false, true},
+		{"int nonzero", 1, true, true},
+		{"int zero", 0, false, true},
+		{"string true", "true", true, true},
+		{"string 1", "1", true, true},
+		{"string yes", "YES", true, true},
+		{"string on", " On ", true, true},
+		{"string false", "false", false, true},
+		{"string 0", "0", false, true},
+		{"string no", "no", false, true},
+		{"string off", "off", false, true},
+		{"string unrecognized", "maybe", false, false},
+		{"unsupported type", []int{1}, false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := toolArgBool(tc.in)
+			assert.Equal(t, tc.valid, ok)
+			if tc.valid {
+				assert.Equal(t, tc.want, got)
+			}
+		})
+	}
+}

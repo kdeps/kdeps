@@ -107,6 +107,32 @@ func TestCheckPathBoundary_OutsideCWD_NonInteractiveDenied(t *testing.T) {
 	assert.Contains(t, denyReason, "no terminal available")
 }
 
+func TestBlockOnPathBoundary_NotBlockedReturnsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	chdirTo(t, dir)
+
+	l := &Loop{}
+	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": dir})
+	assert.False(t, blocked)
+	assert.Empty(t, result)
+}
+
+func TestBlockOnPathBoundary_BlockedClosesOpenToolCallLine(t *testing.T) {
+	dir := t.TempDir()
+	chdirTo(t, dir)
+	outside := t.TempDir()
+
+	var buf bytes.Buffer
+	l := &Loop{config: Config{ToolOutputWriter: &buf}}
+	l.toolLineOpen.Store(true)
+
+	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": filepath.Join(outside, "x.txt")})
+	assert.True(t, blocked)
+	assert.Contains(t, result, "outside the working directory")
+	assert.Contains(t, buf.String(), "blocked:", "the open tool-call line must be closed with the deny reason")
+	assert.False(t, l.toolLineOpen.Load(), "closeToolCallLine must clear the open flag")
+}
+
 func TestCheckPathBoundary_ParentOfCWDIsOutside(t *testing.T) {
 	parent := t.TempDir()
 	cwd := filepath.Join(parent, "acme")

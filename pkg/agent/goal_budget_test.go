@@ -159,8 +159,36 @@ func TestCategoryName(t *testing.T) {
 	if categoryName(budgetWeb) != "web" || categoryName(budgetCode) != "code" {
 		t.Fatal("category names should be stable")
 	}
+	if categoryName(budgetBash) != "bash" {
+		t.Fatal("bash category name should be stable")
+	}
+	if categoryName(budgetFile) != "file" {
+		t.Fatal("file category name should be stable")
+	}
 	if categoryName(budgetNone) != "" {
 		t.Fatal("an uncategorized budget has no name")
+	}
+	if categoryName(toolBudgetCategory(99)) != "" {
+		t.Fatal("an unrecognized category has no name")
+	}
+}
+
+func TestCacheForCategory(t *testing.T) {
+	cases := []struct {
+		category toolBudgetCategory
+		want     *convergenceCache
+	}{
+		{budgetWeb, globalWebCache},
+		{budgetBash, globalBashCache},
+		{budgetFile, globalFileCache},
+		{budgetCode, globalCodeCache},
+		{budgetNone, nil},
+		{toolBudgetCategory(99), nil},
+	}
+	for _, tc := range cases {
+		if got := cacheForCategory(tc.category); got != tc.want {
+			t.Errorf("cacheForCategory(%v) = %v, want %v", tc.category, got, tc.want)
+		}
 	}
 }
 
