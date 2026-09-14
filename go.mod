@@ -7,7 +7,7 @@ tool golang.org/x/vuln/cmd/govulncheck
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/watsonx-go v1.0.2
-	github.com/PuerkitoBio/goquery v1.12.0
+	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/glamour v1.0.0
