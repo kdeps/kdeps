@@ -75,7 +75,9 @@ This preserves important information across compaction boundaries.
 
 ## Checkpoint summaries
 
-After every compaction, a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
+After every compaction (or [fold](/agent/repl#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
+
+The previous checkpoint is never silently discarded: it's archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply aren't in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 
 ## Session persistence
 

@@ -169,6 +169,45 @@ func TestResolveModelForExecution_EmptyModelFallsBack(t *testing.T) {
 	assert.Equal(t, "my-model", model)
 }
 
+// A prompt containing {{ }}-looking text that is not valid kdeps expression
+// syntax must fail evaluation the normal way (regression guard proving the
+// LiteralPrompt flag below is what actually fixes it, not an accidental
+// side effect elsewhere).
+func TestResolveModelForExecution_PromptWithBraceText_EvaluatedFails(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "my-model")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	_, _, _, err = e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx,
+		&domain.ChatConfig{Model: "", Prompt: "earlier the user asked about {{ not a real expr"})
+	require.Error(t, err)
+}
+
+// The same prompt with LiteralPrompt set (as buildSyntheticWorkflow always
+// does for loop-internal calls -- compaction, goal planning, branch
+// summaries, refine, judge roster) must resolve without error and reach the
+// backend byte-for-byte unchanged, since it's inert conversation history,
+// not a template.
+func TestResolveModelForExecution_LiteralPrompt_SkipsEvaluation(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "my-model")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	const raw = "earlier the user asked about {{ not a real expr, and a django {% if x %} tag too"
+	_, prompt, _, err := e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx,
+		&domain.ChatConfig{Model: "", Prompt: raw, LiteralPrompt: true})
+	require.NoError(t, err)
+	assert.Equal(t, raw, prompt, "a literal prompt must reach the backend unchanged")
+}
+
 func TestResolveModelForExecution_AutoRouterPicksLocal(t *testing.T) {
 	t.Setenv("KDEPS_LLM_ROUTER", `{"strategy":"fallback","models":[{"model":"should-not-be-used"}]}`)
 	orig := autoRouterPickFunc

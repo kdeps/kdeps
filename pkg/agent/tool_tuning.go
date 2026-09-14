@@ -91,6 +91,21 @@ type ToolTuning struct {
 	// lets a future default flip.
 	RefineOff        bool
 	RefineConfigured bool
+	// FoldThreshold persists the /fold threshold <n> choice (token delta
+	// since the last checkpoint that triggers an automatic fold). 0 means
+	// never configured -- applyConfigDefaults' default (2000) applies.
+	FoldThreshold int
+	// FoldContextItems persists the /fold items <n> choice (how many recent
+	// checkpoints stay in the active prompt-injection window). 0 means never
+	// configured -- applyConfigDefaults' default (5) applies.
+	FoldContextItems int
+	// FoldAuto persists the /fold auto|off choice (default: on).
+	// FoldConfigured is its "was this ever set" sentinel -- same role as
+	// GoalConfigured/RefineConfigured above, so a snapshot saved before this
+	// feature existed (FoldAuto unmarshals to false) still restores the
+	// on-by-default behavior instead of silently disabling it.
+	FoldAuto       bool
+	FoldConfigured bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -135,6 +150,10 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		ContextSize:          r.contextSize,
 		RefineOff:            !c.PromptRefine,
 		RefineConfigured:     true,
+		FoldThreshold:        c.FoldThreshold,
+		FoldContextItems:     c.FoldContextItems,
+		FoldAuto:             !c.FoldOff,
+		FoldConfigured:       true,
 	}
 }
 
@@ -218,6 +237,15 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	}
 	if t.RefineConfigured {
 		r.loop.SetPromptRefine(!t.RefineOff)
+	}
+	if t.FoldThreshold > 0 {
+		c.FoldThreshold = t.FoldThreshold
+	}
+	if t.FoldContextItems > 0 {
+		c.FoldContextItems = t.FoldContextItems
+	}
+	if t.FoldConfigured {
+		c.FoldOff = !t.FoldAuto
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or

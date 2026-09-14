@@ -110,7 +110,7 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
-	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
+	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
 	"/login", "/stealth", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
 }
@@ -304,6 +304,9 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		autoContextDetect: true,
 	}
 	loop.SetOnAutoCompact(func(summary string) {
+		// The auto-compact/fold call itself consumed real tokens; without
+		// this the cumulative in:/out: counter would silently never count it.
+		r.syncTokenCounter()
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
 			styleReplSuccess.Render(fmt.Sprintf(
 				"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
@@ -2447,6 +2450,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdPrompts()
 	case "/compact":
 		return r.cmdCompact()
+	case "/fold":
+		return r.cmdFold(args)
 	case "/history":
 		return r.cmdHistory()
 	case "/prompt":
@@ -2556,6 +2561,7 @@ func (r *REPL) cmdHelp() error {
 		"  /prompts                           List loaded prompt templates",
 		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
 		"  /compact                           Compact conversation history (keep recent turns)",
+		"  /fold [now|auto [off]|threshold <n>|items <n>|preset <name>]  Lighter, more frequent checkpoint-only summarize+archive (default: auto on, 2000 tokens, 5 items)",
 		"  /history                           Show recent conversation turns",
 		"  /prompt                            Show the exact messages+tools sent to the LLM on the last call, with token estimates",
 		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
@@ -2932,7 +2938,7 @@ func parseOnOff(v string) (bool, bool) {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "on", "true", "yes", "1", "enable", "enabled":
 		return true, true
-	case "off", "false", "no", "0", "disable", "disabled":
+	case toggleOff, "false", "no", "0", "disable", "disabled":
 		return false, true
 	default:
 		return false, false
@@ -3807,6 +3813,10 @@ func (r *REPL) cmdCompact() error {
 			r.loop.Session().TurnCount(), forceKeepTurns)))
 		return nil
 	}
+	// The compaction call itself consumed real tokens (it's a real LLM call);
+	// without this the cumulative in:/out: counter in the status line would
+	// silently never count it.
+	r.syncTokenCounter()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
 		styleReplHeading.Render("Compaction summary:"),
 		summary,
@@ -3814,6 +3824,185 @@ func (r *REPL) cmdCompact() error {
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
 		fmt.Sprintf("History compacted. Session now has %d turns.", r.loop.Session().TurnCount()),
 	))
+	return nil
+}
+
+// foldPreset is one named /fold preset threshold size (tokens) and items cap
+// (checkpoints) bundle -- a shortcut over setting both individually.
+type foldPreset struct {
+	threshold int
+	items     int
+}
+
+// Preset threshold sizes outside the default -- see foldPresets below.
+const (
+	foldPresetTightThreshold = 1000
+	foldPresetTightItems     = 3
+	foldPresetLooseThreshold = 8000
+	foldPresetLooseItems     = 10
+)
+
+//nolint:gochecknoglobals // static lookup table
+var foldPresets = map[string]foldPreset{
+	"tight":    {threshold: foldPresetTightThreshold, items: foldPresetTightItems},
+	"balanced": {threshold: defaultFoldThreshold, items: defaultFoldContextItems},
+	"loose":    {threshold: foldPresetLooseThreshold, items: foldPresetLooseItems},
+}
+
+// foldPresetNames lists valid /fold preset names in a fixed display order
+// (map iteration order is random, so the error message needs its own list).
+//
+//nolint:gochecknoglobals // static, paired with foldPresets above
+var foldPresetNames = []string{"tight", "balanced", "loose"}
+
+// cmdFold handles /fold and its subcommands: a lighter, more frequent
+// checkpoint-only summarize/archive pass than /compact, configurable and
+// persisted the same way /model tool set's compact-threshold/-budget are.
+func (r *REPL) cmdFold(args []string) error {
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(args[0])
+	}
+	switch sub {
+	case "":
+		return r.cmdFoldStatus()
+	case "now":
+		return r.cmdFoldNow()
+	case "auto":
+		return r.cmdFoldAuto(args)
+	case "threshold":
+		return r.cmdFoldThreshold(args)
+	case "items":
+		return r.cmdFoldItems(args)
+	case "preset":
+		return r.cmdFoldPreset(args)
+	default:
+		fmt.Fprintf(os.Stdout, "Unknown /fold subcommand: %s. Use now, auto, threshold, items, or preset.\n", sub)
+		return nil
+	}
+}
+
+func (r *REPL) cmdFoldAuto(args []string) error {
+	off := len(args) > 1 && strings.EqualFold(args[1], toggleOff)
+	r.loop.config.FoldOff = off
+	r.persistTuning()
+	state := "on"
+	if off {
+		state = toggleOff
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Auto-fold "+state+" (saved)"))
+	return nil
+}
+
+func (r *REPL) cmdFoldThreshold(args []string) error {
+	if len(args) < sessionSubcmdArgMin {
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /fold threshold <n>"))
+		return nil
+	}
+	n := parseTokenCount(args[1])
+	if n <= 0 {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"threshold must be a positive token count (e.g. 2000, 2k)"))
+		return nil
+	}
+	r.loop.config.FoldThreshold = n
+	r.persistTuning()
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
+		fmt.Sprintf("Fold threshold set to %d tokens (saved)", n)))
+	return nil
+}
+
+func (r *REPL) cmdFoldItems(args []string) error {
+	if len(args) < sessionSubcmdArgMin {
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /fold items <n>"))
+		return nil
+	}
+	n, err := strconv.Atoi(args[1])
+	if err != nil || n <= 0 {
+		fmt.Fprintln(os.Stderr, styleReplError.Render("items must be a positive integer"))
+		return nil //nolint:nilerr // REPL shows a friendly message; parse error is not propagated
+	}
+	r.loop.config.FoldContextItems = n
+	r.persistTuning()
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
+		fmt.Sprintf("Fold context-items cap set to %d (saved)", n)))
+	return nil
+}
+
+func (r *REPL) cmdFoldPreset(args []string) error {
+	if len(args) < sessionSubcmdArgMin {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Usage: /fold preset <"+strings.Join(foldPresetNames, "|")+">"))
+		return nil
+	}
+	name := strings.ToLower(args[1])
+	preset, ok := foldPresets[name]
+	if !ok {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Unknown preset: "+name+". Valid: "+strings.Join(foldPresetNames, ", ")))
+		return nil
+	}
+	r.loop.config.FoldThreshold = preset.threshold
+	r.loop.config.FoldContextItems = preset.items
+	r.persistTuning()
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf(
+		"Fold preset %q applied: threshold=%d, items=%d (saved)", name, preset.threshold, preset.items)))
+	return nil
+}
+
+// cmdFoldStatus reports the current /fold configuration and how far the
+// session is into accumulating toward the next automatic fold.
+func (r *REPL) cmdFoldStatus() error {
+	cfg := &r.loop.config
+	state := "on"
+	if cfg.FoldOff {
+		state = "off"
+	}
+	threshold := cfg.FoldThreshold
+	if threshold <= 0 {
+		threshold = defaultFoldThreshold
+	}
+	items := cfg.FoldContextItems
+	if items <= 0 {
+		items = defaultFoldContextItems
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Fold"))
+	fmt.Fprintf(os.Stdout, "  auto: %s\n", state)
+	fmt.Fprintf(os.Stdout, "  threshold: %d tokens\n", threshold)
+	fmt.Fprintf(os.Stdout, "  context items: %d\n", items)
+
+	var sinceNanos int64
+	lastFold := "never"
+	if r.loop.memoryStore != nil {
+		if cp, ok := r.loop.memoryStore.Get(checkpointSummaryKey); ok {
+			sinceNanos = cp.UpdatedAt * int64(time.Millisecond)
+			lastFold = formatRelativeAge(memoryNow().UnixMilli() - cp.UpdatedAt)
+		}
+	}
+	accumulated := tokensSinceCheckpoint(r.loop.Session().RawMessages(), sinceNanos, cfg.Model)
+	fmt.Fprintf(os.Stdout, "  last fold: %s\n", lastFold)
+	fmt.Fprintf(os.Stdout, "  accumulated since: %d / %d tokens\n", accumulated, threshold)
+	return nil
+}
+
+// cmdFoldNow triggers a fold immediately, regardless of the threshold --
+// reusing the same compaction call /compact uses (ForceCompact keeps only
+// the last few turns verbatim; a fold's own budget-based cut is normally
+// lighter, but manually forcing it still guarantees something happens even
+// on a session that hasn't crossed the threshold yet).
+func (r *REPL) cmdFoldNow() error {
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Folding..."))
+	summary, err := r.loop.CompactWithLLM(r.ctx)
+	if err != nil {
+		return fmt.Errorf("fold: %w", err)
+	}
+	if summary == "" {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"Nothing to fold — the session is still under budget."))
+		return nil
+	}
+	r.syncTokenCounter()
+	fmt.Fprintf(os.Stdout, "%s\n\n%s\n", styleReplHeading.Render("Fold summary:"), summary)
 	return nil
 }
 

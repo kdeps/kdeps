@@ -96,6 +96,21 @@ type Config struct {
 	// is automatically compacted before the next LLM call. 0 disables auto-compaction.
 	// Default: 40000.
 	AutoCompactThreshold int
+	// FoldThreshold is the token delta (since the last checkpoint) that
+	// triggers a "fold" -- a lighter, checkpoint-only summarize/archive pass,
+	// independent of AutoCompactThreshold's full-context-window safety net.
+	// 0 uses the default (2000). See /fold in the REPL.
+	FoldThreshold int
+	// FoldContextItems caps how many recent checkpoints (the active
+	// checkpoint:summary plus archived checkpoint:archive:* entries) compete
+	// for space in the memory prompt block. 0 uses the default (5).
+	FoldContextItems int
+	// FoldOff disables automatic folding once FoldThreshold is crossed.
+	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
+	// the zero value is the enabled default, not a silently-forced override.
+	// See ToolTuning.FoldAuto/FoldConfigured for the persisted, user-facing
+	// (non-inverted) /fold auto|off setting.
+	FoldOff bool
 	// PromptPaths are additional directories to search for prompt template .md files.
 	PromptPaths []string
 	// Store is an optional session store for /session save|load|list|delete commands.
@@ -281,6 +296,13 @@ type Loop struct {
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// sandboxStrikes counts every round this session where the model produced
+	// text reading as a fabricated code-interpreter/sandbox session (see
+	// looksLikeSandboxHallucination), regardless of the per-turn nudge cap.
+	// Never reset -- once a model has shown this failure mode, the full
+	// kdepsToolsFirstGuidance block (not just the one-line reminder) is resent
+	// every turn for the rest of the session.
+	sandboxStrikes int
 	// goalToolsRegistered guards the lazy registration of task_complete /
 	// task_fail, which happens on the first enforced turn.
 	goalToolsRegistered bool
@@ -776,14 +798,33 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.Role == "" {
 		cfg.Role = RoleUser
 	}
+	// Scale the compact budget/threshold to the model's real context window
+	// when known -- same ratio and same lookup (ContextWindowForModel) the
+	// REPL's /model switch already applies (repl.go handleModelSwitch), just
+	// also covering the initial model a session starts on. Unknown/local
+	// models (ContextWindowForModel returns 0) keep the flat constants
+	// exactly as before -- no change for that case.
+	const compactBudgetCtxNumerator, compactBudgetCtxDenominator = 3, 4
 	if cfg.CompactTokenBudget <= 0 {
 		cfg.CompactTokenBudget = compactKeepRecentTokens
+		if ctxWindow := ContextWindowForModel(cfg.Model); ctxWindow > 0 {
+			cfg.CompactTokenBudget = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
+		}
 	}
 	if cfg.AutoCompactThreshold < 0 {
 		cfg.AutoCompactThreshold = 0
 	}
 	if cfg.AutoCompactThreshold == 0 {
 		cfg.AutoCompactThreshold = defaultAutoCompactThreshold
+		if ctxWindow := ContextWindowForModel(cfg.Model); ctxWindow > 0 {
+			cfg.AutoCompactThreshold = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
+		}
+	}
+	if cfg.FoldThreshold <= 0 {
+		cfg.FoldThreshold = defaultFoldThreshold
+	}
+	if cfg.FoldContextItems <= 0 {
+		cfg.FoldContextItems = defaultFoldContextItems
 	}
 	if cfg.MaxToolRounds <= 0 {
 		cfg.MaxToolRounds = defaultMaxToolRounds
@@ -867,12 +908,15 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
 
-	// Auto-compact before the LLM call when history exceeds the token threshold.
+	// Auto-compact before the LLM call when history exceeds the token
+	// threshold, or when enough new conversation has accumulated since the
+	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
+	// condition runs the same compaction call, just at a different cadence.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,
 		l.config.AutoCompactThreshold,
 		l.config.Model,
-	) {
+	) || l.shouldFoldNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -955,12 +999,15 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
 
-	// Auto-compact before the LLM call when history exceeds the token threshold.
+	// Auto-compact before the LLM call when history exceeds the token
+	// threshold, or when enough new conversation has accumulated since the
+	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
+	// condition runs the same compaction call, just at a different cadence.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,
 		l.config.AutoCompactThreshold,
 		l.config.Model,
-	) {
+	) || l.shouldFoldNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -1315,6 +1362,32 @@ func (l *Loop) applyRoundOutcome(
 	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
+// invokeExampleBlock is the concrete, copyable <invoke> syntax appended to
+// every nudge that tells a model to "make a real tool call" -- text alone
+// leaves a backend with no native tool-call channel nothing to copy, and it
+// tends to repeat the same hallucination rather than switch tactics. Kept as
+// a literal (never routed through turoReduce) so its exact whitespace and
+// quoting survive intact.
+const invokeExampleBlock = "\n\nIf your backend has no native tool-call channel, emit it as a single " +
+	"matched <invoke>...</invoke> block instead, exactly like this (open tag " +
+	"and close tag, nothing else around it):\n\n" +
+	"  <invoke name=\"bash_exec\">\n" +
+	"  <parameter name=\"command\">pwd && ls</parameter>\n" +
+	"  </invoke>\n\n" +
+	"or, to read a file:\n\n" +
+	"  <invoke name=\"read_file\">\n" +
+	"  <parameter name=\"file_path\">path/from/the/task</parameter>\n" +
+	"  </invoke>\n\n" +
+	"Emit one such block and wait for the runtime's real result before answering."
+
+// repeatOffenseNote is appended to a second-strike nudge within the same
+// turn, so the model understands this is not the first time it was told --
+// plain repetition of the first nudge's wording tends to get skimmed the
+// same way the original instruction was.
+const repeatOffenseNote = " This is the second time this turn -- you already " +
+	"got this exact instruction once and did not follow it. Do not repeat " +
+	"the same non-call a third time."
+
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
 // action after a round that produced neither a tool call nor an answer. Tools
 // stay registered: the goal is to get the call the model already decided on in
@@ -1324,12 +1397,19 @@ func (l *Loop) applyRoundOutcome(
 // round the user's question still rides in Prompt — appendToolRoundTrip only
 // moves it into history once a tool call happens. Replacing it here would nudge
 // the model with the question thrown away.
-func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+//
+// repeat is true on the second strike within this turn (see turnNudges) --
+// the wording gets sharper instead of silently repeating verbatim.
+func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := turoReduce(context.Background(),
 		"Your previous response contained no tool call and no answer. "+
 			"If you intended to call a tool, call it now. Otherwise, answer directly "+
-			"in plain text. Do not reply with reasoning alone.")
+			"in plain text. Do not reply with reasoning alone.") +
+		invokeExampleBlock
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1337,14 +1417,18 @@ func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 // nudgeNoFakeToolResponseConfig is used when the model wrote a <tool_response>
 // (or <tool_output>/<observation>) block itself. That is always a hallucination
 // -- nothing ran -- so tell it to make the real call and wait for the result.
-func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := turoReduce(context.Background(),
 		"You wrote a <tool_response> block. You never write tool results -- the "+
 			"runtime does, and nothing ran. Make the actual tool call now (your "+
-			"native tool channel, or one matched <invoke name=\"...\">...</invoke> "+
-			"block) and wait for its real result before answering. Never author a "+
-			"<tool_response> yourself.")
+			"native tool channel, or the <invoke> block below) and wait for its "+
+			"real result before answering. Never author a <tool_response> yourself.") +
+		invokeExampleBlock
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1376,8 +1460,12 @@ func looksLikeSandboxHallucination(content string) bool {
 // AVAILABLE", "expired", "/mnt/data", "cannot access the filesystem"). kdeps has
 // no such sandbox and never emits those strings, so nothing ran -- tell the
 // model to make a real call.
-func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
+	// invokeExampleBlock is appended after turoReduce, not passed through it --
+	// turo's filler/synonym rewriting is meant for prose and would mangle the
+	// exact whitespace and quoting a model needs to copy.
 	note := turoReduce(context.Background(),
 		"You made no tool call, and phrases like \"NO CONTENT AVAILABLE\", "+
 			"\"expired\", \"/mnt/data\", or \"cannot access the filesystem\" come from a "+
@@ -1385,8 +1473,12 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig 
 			"and never returns those messages -- nothing ran. The real working directory "+
 			"is a live filesystem with the files from the task present now. Make an actual "+
 			"kdeps tool call (bash_exec, read_file, ...) through the tool interface and wait "+
-			"for the runtime's result. If you were not attempting tool use, ignore this and "+
-			"answer normally.")
+			"for the runtime's result.") +
+		invokeExampleBlock +
+		" If you were not attempting tool use, ignore this and answer normally."
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1394,11 +1486,15 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig) *domain.ChatConfig 
 // nudgeUnresolvedToolFailureConfig fires when the turn is about to end while the
 // last work tool is still failing. The model must retry it to a real success or
 // state plainly that the step failed -- not silently report it done.
-func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure) *domain.ChatConfig {
+// repeat is true on the second strike within this turn.
+func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := "Your last " + f.tool + " call failed: " + f.msg +
 		". It has not succeeded. Retry it and get a real success, or state plainly " +
 		"in your answer that this step failed. Do not claim it is done."
+	if repeat {
+		note += repeatOffenseNote
+	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1846,17 +1942,78 @@ func (l *Loop) preflightRequestSize(chatCfg *domain.ChatConfig) error {
 // config for the next round and whether the turn should stop.
 type emptyRoundResult struct {
 	cleaned string
+	// content is the round's effective text once handleEmptyToolRound has run
+	// (e.g. with sandboxUnverifiedBanner prepended) -- the caller uses this in
+	// place of its own pre-call content so a banner added inside actually
+	// reaches the turn's returned/displayed result, not just the writer.
+	content string
 	chatCfg *domain.ChatConfig
 	stop    bool
 }
 
-// turnNudges tracks the one-shot corrective nudges already spent this turn, so
-// none of them fires more than once and wedges the loop.
+// maxNudgesPerKind bounds how many times each corrective nudge in turnNudges
+// may fire within a single turn: a first nudge, plus one retry for a model
+// that regresses into the same failure a second time. A third occurrence is
+// not nudged again -- see the exhausted-retries handling in
+// handleEmptyToolRound, which flags rather than silently accepts it.
+const maxNudgesPerKind = 2
+
+// turnNudges tracks how many times each corrective nudge has fired this turn,
+// so each kind fires at most maxNudgesPerKind times and never wedges the loop.
 type turnNudges struct {
-	action        bool // silent round: no tool call and no answer
-	hallucination bool // model wrote a <tool_response> block itself
-	sandbox       bool // prose describing a failed sandbox/code-interpreter session
-	workFailure   bool // turn ending while the last work tool is still failing
+	action        int // silent round: no tool call and no answer
+	hallucination int // model wrote a <tool_response> block itself
+	sandbox       int // prose describing a failed sandbox/code-interpreter session
+	workFailure   int // turn ending while the last work tool is still failing
+}
+
+// sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
+// when the model has already been nudged maxNudgesPerKind times for a
+// sandbox/code-interpreter hallucination and still produces one on the final
+// round. Rather than silently presenting fabricated sandbox output as a real
+// answer, the model's words are kept but clearly flagged as unverified.
+const sandboxUnverifiedBanner = "[kdeps: the response below describes a sandbox/tool session that does " +
+	"not exist in this environment -- no real tool call succeeded here. Treat it as unverified.]\n\n"
+
+// toolFailureUnresolvedNotice is surfaced (to both the writer and the turn's
+// returned content) when maxNudgesPerKind work-failure nudges are spent and
+// the model is still claiming success despite f never having succeeded.
+// Unlike sandboxUnverifiedBanner this is a trailing notice, not a prefix
+// rewrite: by the time resolveEmptyToolRound reaches this branch,
+// handleTextOnlyRound has already written the model's claim to the writer
+// unconditionally, so there is nothing to prepend ahead of -- the notice
+// follows it instead, same as reportGoalEvent/queueModelNote's existing
+// follow-up-notice pattern.
+func toolFailureUnresolvedNotice(f *toolFailure) string {
+	return "\n[kdeps: the response above claims success, but the last " + f.tool +
+		" call actually failed (" + f.msg + ") and was never retried successfully.]\n"
+}
+
+// failureAcknowledgmentWords are substrings whose presence in a round's text
+// signals the model is aware the last work tool failed, rather than silently
+// claiming success over it. Deliberately broad (word fragments, not exact
+// phrases) since a model has endless ways to phrase an admission -- this only
+// needs to distinguish "aware of the failure" from "no acknowledgment at
+// all," not classify the admission precisely.
+//
+//nolint:gochecknoglobals // static lookup table
+var failureAcknowledgmentWords = []string{
+	"fail", "error", "cannot", "can't", "unable", "did not", "didn't",
+	"not able", "no access", "blocked", "wasn't able", "was not able",
+}
+
+// acknowledgesFailure reports whether content shows any awareness that the
+// last work tool failed. A round that admits it (however it phrases that) is
+// accepted as the turn's honest answer rather than nudged/flagged as an
+// unresolved success claim -- only a bald, unqualified claim draws that.
+func acknowledgesFailure(content string) bool {
+	lower := strings.ToLower(content)
+	for _, w := range failureAcknowledgmentWords {
+		if strings.Contains(lower, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // handleEmptyToolRound processes a round the streamer returned with no native
@@ -1864,8 +2021,8 @@ type turnNudges struct {
 // (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
 // the first result for the caller to dispatch. Failing that: a self-written
 // <tool_response> block or prose describing a failed sandbox session is a
-// hallucination and draws a one-shot nudge; anything else falls through to
-// handleTextOnlyRound.
+// hallucination and draws a nudge (up to maxNudgesPerKind times); anything
+// else falls through to handleTextOnlyRound.
 func (l *Loop) handleEmptyToolRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
@@ -1876,16 +2033,26 @@ func (l *Loop) handleEmptyToolRound(
 	if len(salvaged) > 0 {
 		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
 	}
-	if fake && !nudges.hallucination {
-		nudges.hallucination = true
-		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg)}
+	if fake && nudges.hallucination < maxNudgesPerKind {
+		repeat := nudges.hallucination > 0
+		nudges.hallucination++
+		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
 	}
-	if !nudges.sandbox && looksLikeSandboxHallucination(content) {
-		nudges.sandbox = true
-		return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg)}
+	if looksLikeSandboxHallucination(content) {
+		l.sandboxStrikes++
+		if nudges.sandbox < maxNudgesPerKind {
+			repeat := nudges.sandbox > 0
+			nudges.sandbox++
+			return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg, repeat)}
+		}
+		// Retries exhausted and the model is still describing a fabricated
+		// sandbox session -- flag it rather than let handleTextOnlyRound settle
+		// it as an ordinary, trustworthy answer.
+		content = sandboxUnverifiedBanner + content
+		buffered = sandboxUnverifiedBanner + buffered
 	}
 	next, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, nudges, w)
-	return nil, emptyRoundResult{chatCfg: next, stop: !keepGoing}
+	return nil, emptyRoundResult{content: content, chatCfg: next, stop: !keepGoing}
 }
 
 // resolveEmptyToolRound wraps handleEmptyToolRound for the round loop: it
@@ -1906,30 +2073,53 @@ func (l *Loop) resolveEmptyToolRound(
 	if !res.stop {
 		return nil, content, res.chatCfg, false
 	}
-	if l.lastWorkFailure != nil && !nudges.workFailure {
-		nudges.workFailure = true
-		return nil, content,
-			nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure), false
+	// res.content (not the pre-call content param) carries any banner
+	// handleEmptyToolRound prepended (e.g. sandboxUnverifiedBanner) -- res.stop
+	// is only ever true once that assignment has happened.
+	//
+	// Only an unqualified claim (no acknowledgment of the failure at all) is
+	// nudged/flagged -- a round that admits the failure in its own words
+	// (however it phrases that) is accepted as the turn's honest answer, the
+	// same as before this was bounded to more than one nudge. Otherwise a
+	// model that answers honestly on its second attempt would draw a second
+	// nudge anyway, punishing the exact behavior being asked for.
+	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
+		if nudges.workFailure < maxNudgesPerKind {
+			repeat := nudges.workFailure > 0
+			nudges.workFailure++
+			return nil, res.content,
+				nudgeUnresolvedToolFailureConfig(res.chatCfg, l.lastWorkFailure, repeat), false
+		}
+		// Both nudges spent and the model is still claiming success -- unlike
+		// handleEmptyToolRound's sandbox banner, handleTextOnlyRound has already
+		// written this claim to w by the time we get here, so there is no
+		// prefix to rewrite. Flag it as a distinct trailing notice instead:
+		// both the writer and the returned content carry it.
+		notice := toolFailureUnresolvedNotice(l.lastWorkFailure)
+		_, _ = io.WriteString(w, notice)
+		return nil, notice + res.content, res.chatCfg, true
 	}
-	return nil, content, res.chatCfg, true
+	return nil, res.content, res.chatCfg, true
 }
 
 // handleTextOnlyRound processes a round the model ended without calling a tool.
 // It returns the config for the next round and whether the loop should keep
 // going.
 //
-// A silent round (no text either) is nudged once for a concrete action. A round
-// with text settles the active task; when later tasks remain the turn continues
-// on the next one rather than stopping with the plan unfinished.
+// A silent round (no text either) is nudged for a concrete action, up to
+// maxNudgesPerKind times. A round with text settles the active task; when
+// later tasks remain the turn continues on the next one rather than stopping
+// with the plan unfinished.
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
 ) (*domain.ChatConfig, bool) {
-	if !nudges.action && strings.TrimSpace(stripContentToolCalls(content)) == "" {
-		nudges.action = true
-		return nudgeForActionConfig(chatCfg), true
+	if nudges.action < maxNudgesPerKind && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+		repeat := nudges.action > 0
+		nudges.action++
+		return nudgeForActionConfig(chatCfg, repeat), true
 	}
 	_, _ = io.WriteString(w, buffered)
 	if l.settleActiveFromText(content, w) {
@@ -2862,7 +3052,8 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	var memoryParts []string
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
-		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit, focus); memPrompt != "" {
+		memPrompt := l.memoryStore.FormatForPromptCapped(memoryPromptLimit, focus, l.config.FoldContextItems)
+		if memPrompt != "" {
 			memoryParts = append(memoryParts, memPrompt)
 		}
 		// Mechanical memory_list: inject the current key list so the LLM
@@ -3155,10 +3346,16 @@ func (l *Loop) buildChatConfig(
 
 	// After the first turn, re-state the fenced-tools rule in one line. The full
 	// guidance is in the cached preamble; this keeps it salient deep into a long
-	// conversation without re-sending the whole block.
+	// conversation without re-sending the whole block. A model that has already
+	// hallucinated a sandbox session this session gets the full block resent
+	// instead -- the one-liner was evidently not enough reinforcement for it.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
+		reminder := kdepsToolsReminder
+		if l.sandboxStrikes > 0 {
+			reminder = kdepsToolsFirstGuidance
+		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
-			domain.ScenarioItem{Role: "system", Prompt: kdepsToolsReminder})
+			domain.ScenarioItem{Role: "system", Prompt: reminder})
 	}
 
 	return chatCfg
@@ -3211,6 +3408,14 @@ func (l *Loop) buildSyntheticWorkflow(
 	actionID string,
 	chatCfg *domain.ChatConfig,
 ) *domain.Workflow {
+	// Every caller builds Prompt by concatenating Go-constructed instructions
+	// with conversation-derived text (compaction, goal planning, branch
+	// summaries, refine, judge roster) -- never a user-authored workflow. That
+	// embedded text can itself contain {{ }}-looking substrings (kdeps
+	// expression syntax the user discussed, Jinja/Django tags, anything
+	// matching the pattern) that must reach the model unchanged rather than
+	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
+	chatCfg.LiteralPrompt = true
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
@@ -3344,6 +3549,22 @@ func (l *Loop) Session() SessionReadWriter {
 
 // Config returns a copy of the loop's configuration.
 func (l *Loop) Config() Config { return l.config }
+
+// shouldFoldNow reports whether a "fold" should run now: FoldOff disables it
+// outright; otherwise it delegates to shouldFold using the active
+// checkpoint's UpdatedAt (0 when none exists yet) as the "since" point.
+func (l *Loop) shouldFoldNow(msgs []SessionMessage) bool {
+	if l.config.FoldOff {
+		return false
+	}
+	var sinceNanos int64
+	if l.memoryStore != nil {
+		if cp, ok := l.memoryStore.Get(checkpointSummaryKey); ok {
+			sinceNanos = cp.UpdatedAt * int64(time.Millisecond)
+		}
+	}
+	return shouldFold(msgs, sinceNanos, l.config.FoldThreshold, l.config.Model)
+}
 
 // CompactWithLLM summarizes old conversation turns using the LLM and replaces
 // them with a structured summary, keeping recent turns intact. It returns the

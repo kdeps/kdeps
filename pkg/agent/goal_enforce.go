@@ -647,6 +647,16 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 		l.queueModelNote(fmt.Sprintf(
 			"task %d recorded FAILED, not done — %s. It was not completed.", active.ID, note))
 	}
+	// Content still reading as a fabricated sandbox/code-interpreter session
+	// only reaches here once handleEmptyToolRound's nudge retries are already
+	// exhausted (see maxNudgesPerKind) -- the model never made a real tool
+	// call, so this cannot be a genuine completion.
+	if status == GoalTaskDone && looksLikeSandboxHallucination(content) {
+		status = GoalTaskFailed
+		note = "response described a sandbox/code-interpreter session that does not exist here; no real tool call succeeded"
+		l.queueModelNote(fmt.Sprintf(
+			"task %d recorded FAILED, not done — %s.", active.ID, note))
+	}
 
 	e.goal.Advance(status, note)
 	e.resetTask()

@@ -30,6 +30,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -41,6 +42,49 @@ import (
 
 //nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
 var AppFS afero.Fs = afero.NewOsFs()
+
+// defaultMaxFileInputBytes bounds --file/stdin/KDEPS_FILE_PATH input. This is a
+// bulk-data ingestion path (CSV imports, batch documents), not the agent's
+// read_file tool, so the default is generous rather than the 1 MB used there --
+// but it still has to be finite: the whole content is read into one Go string,
+// duplicated again when a resource interpolates {{ get('fileContent') }} into a
+// python:/exec: argument, and duplicated further still by whatever the workflow
+// does with it downstream (e.g. a python: resource building an in-memory row
+// list, then json.dumps-ing the lot). A truly huge input silently multiplies
+// past available memory and gets SIGKILLed by the OS's low-memory killer --
+// which can never leave a core dump, so the only trace is the process just
+// vanishing. Failing fast here with a clear error beats that every time.
+// KDEPS_FILE_INPUT_MAX_BYTES raises or lowers it for a workflow with real bulk
+// data (0 disables the check entirely).
+const defaultMaxFileInputBytes = 256 << 20 // 256 MiB
+
+// maxFileInputBytes returns the effective limit: the KDEPS_FILE_INPUT_MAX_BYTES
+// override when it parses as a valid, non-negative integer, else the default.
+func maxFileInputBytes() int64 {
+	raw := os.Getenv("KDEPS_FILE_INPUT_MAX_BYTES")
+	if raw == "" {
+		return defaultMaxFileInputBytes
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || n < 0 {
+		return defaultMaxFileInputBytes
+	}
+	return n
+}
+
+// formatByteSize renders n as a human-scaled size (KB/MB/GB) for error messages.
+func formatByteSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
 
 // fileInput is the JSON structure that may be read from stdin in file mode.
 // All fields are optional: missing fields fall back to environment variables
@@ -141,9 +185,22 @@ func resolveFilePath(argPath string, cfg *domain.InputConfig) string {
 
 func readStdinAsFileInput(r io.Reader) (fileInput, error) {
 	var inp fileInput
-	data, err := io.ReadAll(r)
+	limit := maxFileInputBytes()
+	reader := r
+	if limit > 0 {
+		// Read one byte past the limit so a stream that is exactly at the
+		// limit is not mistaken for one that exceeds it.
+		reader = io.LimitReader(r, limit+1)
+	}
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return inp, fmt.Errorf("read stdin: %w", err)
+	}
+	if limit > 0 && int64(len(data)) > limit {
+		return inp, fmt.Errorf(
+			"stdin input exceeds the %s limit (KDEPS_FILE_INPUT_MAX_BYTES to raise it, 0 to disable)",
+			formatByteSize(limit),
+		)
 	}
 	if len(data) == 0 {
 		return inp, nil
@@ -157,6 +214,18 @@ func readStdinAsFileInput(r io.Reader) (fileInput, error) {
 func loadContentFromPath(inp fileInput) (fileInput, error) {
 	if inp.Content != "" || inp.Path == "" {
 		return inp, nil
+	}
+	if limit := maxFileInputBytes(); limit > 0 {
+		info, statErr := AppFS.Stat(inp.Path)
+		if statErr != nil {
+			return inp, fmt.Errorf("read file %s: %w", inp.Path, statErr)
+		}
+		if info.Size() > limit {
+			return inp, fmt.Errorf(
+				"file %s is %s, over the %s input limit (KDEPS_FILE_INPUT_MAX_BYTES to raise it, 0 to disable)",
+				inp.Path, formatByteSize(info.Size()), formatByteSize(limit),
+			)
+		}
 	}
 	fileData, readErr := afero.ReadFile(AppFS, inp.Path)
 	if readErr != nil {

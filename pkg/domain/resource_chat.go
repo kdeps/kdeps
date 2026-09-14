@@ -95,6 +95,15 @@ type ChatConfig struct {
 	// /prompt command.
 	ToolsOut *[]Tool `yaml:"-"`
 
+	// LiteralPrompt, when true, is used verbatim -- never evaluated as a
+	// kdeps expression/template. Set for loop-internal synthetic calls
+	// (compaction, goal planning, branch summaries, refine, judge roster)
+	// whose Prompt embeds raw conversation history that may itself contain
+	// {{ }}-looking text the user wrote or pasted; that text must reach the
+	// model unchanged, not be re-parsed as a template. Never set from YAML --
+	// a real chat: resource's prompt: always supports interpolation.
+	LiteralPrompt bool `yaml:"-"`
+
 	ContextLength int    `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role          string `yaml:"role"`
 	Prompt        string `yaml:"prompt"`

@@ -162,6 +162,46 @@ tool set compact-threshold <n>`), which for a long run of short-but-tool-heavy
 turns may never happen - use `/compact` directly. Neither affects a running
 turn's tool output; that is bounded by the in-flight window above.
 
+Both the compact budget (how much recent conversation stays verbatim) and the
+auto-compaction threshold default to 3/4 of the model's known context window,
+not a flat token count - a session on a small local model and one on a
+200K-token cloud model each get a sensible default without you having to set
+`/model tool set compact-budget <n>` yourself. Switching models with `/model`
+recomputes both immediately for the new model; an unrecognized model keeps a
+conservative flat default.
+
+The conversation text being summarized is never re-evaluated as a kdeps
+expression or template, even if it contains double-curly-brace syntax (kdeps
+expressions you were discussing, another template language's tags, or
+anything else that looks like one) - it reaches the summarizer exactly as
+written.
+
+### Fold
+
+`/fold` is a lighter, more frequent cousin of `/compact` - instead of waiting
+for the full compact-threshold safety net, it checkpoints the conversation
+(same structured Goal/Progress/Decisions summary, saved to
+[memory](/agent/memory-internals#checkpoint-summaries)) every time a
+configurable amount of *new* conversation has accumulated since the last
+checkpoint. It's on by default (2000 tokens, keeping the last 5 checkpoints
+in the prompt's memory block) and needs no setup.
+
+| Command | Effect |
+|---|---|
+| `/fold` | Show status: auto on/off, threshold, items cap, tokens accumulated since the last checkpoint |
+| `/fold now` | Fold immediately, regardless of the threshold |
+| `/fold auto` / `/fold auto off` | Toggle automatic folding (default: on) |
+| `/fold threshold <n>` | Token delta since the last checkpoint that triggers a fold (e.g. `4k`) |
+| `/fold items <n>` | How many recent checkpoints stay in the active memory-prompt window |
+| `/fold preset tight\|balanced\|loose` | Named threshold+items bundles - `balanced` is the shipped default |
+
+All four settings persist across sessions, the same way `/model tool set
+compact-threshold`/`compact-budget` already do.
+
+Both `/compact` and `/fold` refresh the cumulative token counter (`in:`/`out:`
+in the status line) immediately after they run, since the summarization call
+itself uses real tokens that would otherwise never get counted.
+
 ## Sessions
 
 Conversations and the agent's memory are stored in `~/.kdeps/`, **partitioned by

@@ -23,6 +23,7 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
+import MegaNav from './MegaNav.vue'
 import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeGitNative from './HomeGitNative.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
@@ -35,6 +36,7 @@ export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
+      'nav-bar-content-before': () => h(MegaNav),
       'home-hero-info': () => h(HeroInfo),
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [

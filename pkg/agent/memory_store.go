@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,15 +62,27 @@ const (
 //nolint:gochecknoglobals // process-wide singleton; one per agent process
 var memoryStoreInstance *MemoryStore
 
+// ResolveGlobalMemoryEnv reports whether KDEPS_MEMORY_GLOBAL requests memory
+// shared across every project/session instead of the default per-directory
+// isolation (see MemoryStore.SetGlobal / SetCwd).
+func ResolveGlobalMemoryEnv() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_MEMORY_GLOBAL")))
+	return v == "1" || v == "true" || v == "yes"
+}
+
 // GetOrCreateMemoryStore returns the singleton MemoryStore, creating it lazily
-// with per-project isolation on first access. Used by memory tools so they
-// work in both agent mode (where Loop sets it) and workflow mode (lazy init).
+// with per-project isolation on first access (or shared/global isolation when
+// KDEPS_MEMORY_GLOBAL is set). Used by memory tools so they work in both
+// agent mode (where Loop sets it) and workflow mode (lazy init).
 func GetOrCreateMemoryStore() *MemoryStore {
 	if memoryStoreInstance != nil {
 		return memoryStoreInstance
 	}
 	ms := NewMemoryStore("")
-	if wd, err := os.Getwd(); err == nil && wd != "" {
+	if ResolveGlobalMemoryEnv() {
+		ms.SetGlobal()
+		_ = ms.Load()
+	} else if wd, err := os.Getwd(); err == nil && wd != "" {
 		ms.SetCwd(wd)
 		_ = ms.Load()
 	}
@@ -146,6 +159,16 @@ func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.path = filepath.Join(m.basePath, encodeCwd(cwd))
+	m.dbPath = filepath.Join(m.path, "memory.bolt")
+}
+
+// SetGlobal configures memory to be shared across every project/session
+// instead of isolated per working directory (see SetCwd) -- stored under
+// basePath/global/memory.bolt. Call instead of SetCwd, never both.
+func (m *MemoryStore) SetGlobal() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.path = filepath.Join(m.basePath, "global")
 	m.dbPath = filepath.Join(m.path, "memory.bolt")
 }
 
@@ -631,6 +654,27 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 const memoryGraphLegend = `Legend: workflow chain, parents before children. ` +
 	`"key [type]: value"; "<- P" = derived from P; "(same as K)" = repeats K's fact; "<== RESUME" = continue here.`
 
+// capCheckpointEntries keeps at most maxCheckpoints checkpoint-family entries
+// (checkpointSummaryKey and anything under checkpointArchiveKeyPrefix) --
+// newest updated first -- and every non-checkpoint entry unchanged. Entries
+// dropped here are only excluded from this one render; they remain in the
+// store untouched.
+func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEntry {
+	var checkpoints, other []MemoryEntry
+	for _, e := range entries {
+		if e.Key == checkpointSummaryKey || strings.HasPrefix(e.Key, checkpointArchiveKeyPrefix) {
+			checkpoints = append(checkpoints, e)
+		} else {
+			other = append(other, e)
+		}
+	}
+	if len(checkpoints) <= maxCheckpoints {
+		return entries
+	}
+	sort.Slice(checkpoints, func(i, j int) bool { return checkpoints[i].UpdatedAt > checkpoints[j].UpdatedAt })
+	return append(other, checkpoints[:maxCheckpoints]...)
+}
+
 // FormatForPrompt renders memory as a single graph-ordered block for the system
 // prompt. Entries are ordered topologically via the kartographer dependency
 // graph (a parent always precedes the children that reference it), each value is
@@ -640,7 +684,30 @@ const memoryGraphLegend = `Legend: workflow chain, parents before children. ` +
 // edges to dropped entries are omitted so no arrow dangles. Returns "" when there
 // are no entries or cwd is unset.
 func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
+	return m.FormatForPromptCapped(maxTokens, focus, 0)
+}
+
+// listCapped returns m.List(), optionally passed through capCheckpointEntries
+// -- split out of FormatForPromptCapped purely to keep that function's own
+// cognitive complexity under the lint threshold.
+func (m *MemoryStore) listCapped(maxCheckpoints int) []MemoryEntry {
 	entries := m.List()
+	if maxCheckpoints > 0 {
+		return capCheckpointEntries(entries, maxCheckpoints)
+	}
+	return entries
+}
+
+// FormatForPromptCapped is FormatForPrompt with an additional cap: at most
+// maxCheckpoints checkpoint-family entries (the active checkpoint:summary
+// plus archived checkpoint:archive:* entries, see AutoCapture) are considered
+// for injection, newest first -- keeping the graph focused on a bounded,
+// configurable window of recent checkpoints (Config.FoldContextItems /
+// ToolTuning.FoldContextItems) even though older ones remain in the store,
+// retrievable via /memory list / /memory show. maxCheckpoints <= 0 means no
+// cap (identical to FormatForPrompt).
+func (m *MemoryStore) FormatForPromptCapped(maxTokens int, focus string, maxCheckpoints int) string {
+	entries := m.listCapped(maxCheckpoints)
 	if len(entries) == 0 {
 		return ""
 	}
@@ -1937,8 +2004,14 @@ func inferType(key string) string {
 // AutoCapture parses a compaction summary and saves structured sections to the
 // MemoryStore. Extracts "## Key Decisions" and "## Critical Context" sections.
 // Returns the number of entries captured. No-op when cwd has not been set.
-// checkpointSummaryKey is the memory key for compaction checkpoint snapshots.
-const checkpointSummaryKey = "checkpoint:summary"
+// checkpointSummaryKey is the memory key for the active compaction checkpoint
+// snapshot. checkpointArchiveKeyPrefix, suffixed with the archived entry's
+// former UpdatedAt (millisecond, unique across real folds/compactions),
+// names where the outgoing checkpoint goes when a new one replaces it.
+const (
+	checkpointSummaryKey       = "checkpoint:summary"
+	checkpointArchiveKeyPrefix = "checkpoint:archive:"
+)
 
 // extractSectionText returns the text content of a markdown section by header name.
 func extractSectionText(summary, header string) string {
@@ -1979,18 +2052,25 @@ func (m *MemoryStore) AutoCapture(summary string) int {
 	m.mu.Lock()
 
 	// 1. Save a checkpoint summary snapshot — a condensed view of Goal + Progress.
+	// The previous checkpoint (if any) is archived under its own key first --
+	// unlike every other memory entry, this key used to be silently
+	// overwritten on every fold/compaction, losing the prior snapshot with no
+	// way to look back at it. Archiving means it stays retrievable via
+	// /memory list and /memory show <key> like any other entry.
 	if checkpointText := buildCheckpointText(summary); checkpointText != "" {
+		if existing, ok := m.entries[checkpointSummaryKey]; ok {
+			archiveKey := checkpointArchiveKeyPrefix + strconv.FormatInt(existing.UpdatedAt, 10)
+			archived := existing
+			archived.Key = archiveKey
+			m.entries[archiveKey] = archived
+		}
 		entry := MemoryEntry{
 			Key: checkpointSummaryKey, Value: checkpointText,
 			Type: memTypeStatus, CreatedAt: now, UpdatedAt: now,
 		}
-		if existing, ok := m.entries[checkpointSummaryKey]; ok {
-			entry.CreatedAt = existing.CreatedAt
-			// Auto-link to the parent type.
-			if parentKey := m.findParentKey(memTypeStatus); parentKey != "" {
-				entry.References = append([]string{}, existing.References...)
-				entry.References = append(entry.References, parentKey)
-			}
+		// Auto-link to the parent type.
+		if parentKey := m.findParentKey(memTypeStatus); parentKey != "" {
+			entry.References = append(entry.References, parentKey)
 		}
 		m.entries[checkpointSummaryKey] = entry
 		captured++

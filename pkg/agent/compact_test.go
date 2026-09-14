@@ -396,6 +396,97 @@ func TestShouldAutoCompact_KnownModelIgnoresFlatThreshold(t *testing.T) {
 	}
 }
 
+// --- shouldFold ---
+
+// makeTurnsSince builds n turns with strictly increasing IDs (nanoseconds),
+// the first msgsBefore of them dated at/before sinceNanos and the rest after
+// it -- so tests can control exactly how many messages count toward the
+// delta shouldFold/tokensSinceCheckpoint sum.
+func makeTurnsSince(n, msgsBefore int, sinceNanos int64) []SessionMessage {
+	msgs := makeTurns(n)
+	for i := range msgs {
+		if i < msgsBefore {
+			msgs[i].ID = sinceNanos - int64(msgsBefore-i) // strictly before
+		} else {
+			msgs[i].ID = sinceNanos + int64(i-msgsBefore+1) // strictly after
+		}
+	}
+	return msgs
+}
+
+func TestShouldFold_Disabled(t *testing.T) {
+	msgs := makeTurnsSince(compactMinTurns, 0, 1000)
+	if shouldFold(msgs, 0, 0, "gpt-4o") {
+		t.Fatal("expected false when thresholdTokens=0 (disabled)")
+	}
+}
+
+func TestShouldFold_TooFewTurns(t *testing.T) {
+	msgs := makeTurnsSince(compactMinTurns-1, 0, 0)
+	if shouldFold(msgs, 0, 1, "gpt-4o") {
+		t.Fatal("expected false for too-few turns")
+	}
+}
+
+func TestShouldFold_AllMessagesBeforeCheckpoint(t *testing.T) {
+	// Every message dated at/before sinceNanos contributes nothing to the delta.
+	msgs := makeTurnsSince(compactMinTurns, compactMinTurns*sessionMsgsPer, 1_000_000)
+	if shouldFold(msgs, 1_000_000, 1, "gpt-4o") {
+		t.Fatal("expected false: nothing accumulated since the checkpoint")
+	}
+}
+
+func TestShouldFold_BelowThreshold(t *testing.T) {
+	msgs := makeTurnsSince(compactMinTurns, 0, 0)
+	delta := tokensSinceCheckpoint(msgs, 0, "gpt-4o")
+	if shouldFold(msgs, 0, delta+1, "gpt-4o") {
+		t.Fatal("expected false when just under the threshold")
+	}
+}
+
+func TestShouldFold_AtOrAboveThreshold(t *testing.T) {
+	msgs := makeTurnsSince(compactMinTurns, 0, 0)
+	delta := tokensSinceCheckpoint(msgs, 0, "gpt-4o")
+	if !shouldFold(msgs, 0, delta, "gpt-4o") {
+		t.Fatal("expected true exactly at the threshold")
+	}
+	if !shouldFold(msgs, 0, delta-1, "gpt-4o") {
+		t.Fatal("expected true above the threshold")
+	}
+}
+
+func TestShouldFold_ZeroSinceNanosMeansNoCheckpointYet(t *testing.T) {
+	// sinceNanos=0 (no checkpoint saved yet) counts every message, same as
+	// the first-ever compaction being gated only by compactMinTurns.
+	msgs := makeTurnsSince(compactMinTurns, 0, 0)
+	all := tokensSinceCheckpoint(msgs, 0, "gpt-4o")
+	total := estimateSessionTokens(msgs, "gpt-4o")
+	if all != total {
+		t.Fatalf("tokensSinceCheckpoint(sinceNanos=0) = %d, want the full session total %d", all, total)
+	}
+}
+
+// TestTokensSinceCheckpoint_ZeroIDMessagesCountWhenNoCheckpoint is a
+// regression test for messages restored from a persisted session store
+// (session_store.go, session_store_sql.go, session_store_mongodb.go) and the
+// compaction-summary pair appended by CompactWithLLM -- both are built as
+// SessionMessage{Role, Content} with no ID set, defaulting to ID: 0. Before
+// the fix, "m.ID <= sinceNanos" matched every one of those zero-ID messages
+// even with sinceNanos=0 (no checkpoint yet), silently excluding them from
+// the delta instead of counting them as new -- exactly what happens on a
+// resumed session with no checkpoint yet.
+func TestTokensSinceCheckpoint_ZeroIDMessagesCountWhenNoCheckpoint(t *testing.T) {
+	msgs := makeTurns(compactMinTurns)
+	for i := range msgs {
+		msgs[i].ID = 0 // simulate messages restored from a session store
+	}
+	got := tokensSinceCheckpoint(msgs, 0, "gpt-4o")
+	want := estimateSessionTokens(msgs, "gpt-4o")
+	if got != want {
+		t.Fatalf("tokensSinceCheckpoint with zero-ID messages and sinceNanos=0 = %d, want the full total %d", got, want)
+	}
+}
+
 // --- Session.rawMessages ---
 
 func TestRawMessages_ReturnsCopy(t *testing.T) {

@@ -17,7 +17,7 @@ Two instructions go into the system preamble for **every** model whenever tools 
   ```
 
   and the runtime hands back the real output. Backends with a native tool channel (Anthropic, OpenAI) just use that; kdeps also recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway.
-- **Simulated sandbox sessions are caught.** When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem" - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). It injects one nudge telling the model that environment is not this one and to make a real tool call, rather than settling the turn on the fake transcript. The nudge fires at most once per turn; if the model was genuinely just talking about sandboxes it can ignore it.
+- **Simulated sandbox sessions are caught, and escalated.** When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem" - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). A model that repeats the same hallucination a second time within one turn gets a second, sharper nudge instead of the turn silently accepting the repeat as a real answer - each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn, not once. If the model still hasn't made a real call after both nudges, the turn does not settle on the fake transcript unflagged: in goal mode the active task is recorded failed, not done; otherwise the returned text is prefixed with a clear "this describes a sandbox that doesn't exist here, treat it as unverified" banner (the model's words are kept, just flagged). Separately, once a session has produced even one such hallucination, every later turn resends the full fenced-tools guidance (with the worked `<invoke>` examples) instead of the one-line reminder - a model that has shown this failure mode gets more reinforcement, not less.
 - **Narrate before each tool call.** The model is asked to say in one present-tense sentence what it is about to do ("Reading config.yaml to check the timeout.") before every call. That line is printed to the terminal - without it the loop is silent between actions, because the streamer writes tool-round output to an internal buffer. Suppressed when `StreamFinalOnly` is set.
 
 ## Tool name aliases
@@ -124,9 +124,15 @@ The file's line-ending style is preserved on write.
 Every tool failure is returned to the model as `{"error": ...}` **plus a
 `[TOOL FAILED]` banner** ("nothing changed - fix the cause and retry, or say it
 failed"), so a skimmed error is hard to miss. The turn will not end on a "done"
-claim made right after a work tool failed: the loop pushes back once for a real
-success or an honest "it failed". With a goal active, `task_complete` on such a
-task is refused, and a prose "done" records the task **failed**, not done.
+claim made right after a work tool failed: the loop pushes back for a real
+success or an honest "it failed" - up to twice, with the second push-back
+reading as a repeat, same bound as the other corrective nudges. If the model
+still hasn't acknowledged the failure after both, the turn does not settle on
+the bald claim unflagged: the response is followed by a notice naming the
+tool and its error, so the claim is kept but clearly marked unresolved. An
+honest admission at any point (in whatever words) is accepted immediately,
+no nudge needed. With a goal active, `task_complete` on such a task is
+refused, and a prose "done" records the task **failed**, not done.
 
 Loop-generated notices - goal transitions, budget changes, forced task failures,
 context-window trims - are injected into the model's context as `[kdeps] ...`

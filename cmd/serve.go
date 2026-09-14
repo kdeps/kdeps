@@ -293,13 +293,21 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	llmAdapter := llm.NewAdapter(flags.BaseURL)
 
 	// Sessions and memory are stored under ~/.kdeps, partitioned by the
-	// working directory so each folder keeps its own conversations and memory.
+	// working directory so each folder keeps its own conversations and memory
+	// -- unless KDEPS_MEMORY_GLOBAL requests memory shared across every
+	// project instead. Session storage is always per-directory regardless.
 	store := agent.NewSessionStore("")
 	memStore := agent.NewMemoryStore("")
+	if agent.ResolveGlobalMemoryEnv() {
+		memStore.SetGlobal()
+		_ = memStore.Load()
+	}
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		store.SetCwd(cwd)
-		memStore.SetCwd(cwd)
-		_ = memStore.Load()
+		if !agent.ResolveGlobalMemoryEnv() {
+			memStore.SetCwd(cwd)
+			_ = memStore.Load()
+		}
 	}
 
 	startModel, startBackend := resolveStartModelWithAutoPick(rootCtx, flags, settings)

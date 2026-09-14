@@ -53,6 +53,11 @@ export default defineConfig({
     logo: '/kdeps-logo.png',
     siteTitle: false,
 
+    // Read by MegaNav.vue (via useData().theme) for its version-dropdown
+    // label, so the desktop mega-menu and the mobile nav (which still uses
+    // the plain `nav` array below) show the same version string.
+    docsVersion: navVersion,
+
     nav: [
       { text: 'Start', link: '/start/' },
       { text: 'Agent', link: '/agent/' },

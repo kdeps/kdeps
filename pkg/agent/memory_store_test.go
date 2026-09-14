@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -63,6 +64,44 @@ func TestMemoryStore_SetCwd(t *testing.T) {
 	store.SetCwd("/Users/test/Projects/foo")
 	assert.Contains(t, store.path, encodeCwd("/Users/test/Projects/foo"))
 	assert.Contains(t, store.dbPath, "memory.bolt")
+}
+
+func TestMemoryStore_SetGlobal(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetGlobal()
+	assert.Contains(t, store.path, "global")
+	assert.Contains(t, store.dbPath, "memory.bolt")
+}
+
+// Two stores rooted at the same basePath and both set to global must resolve
+// to the identical dbPath -- unlike SetCwd, which isolates by directory.
+func TestMemoryStore_SetGlobal_SharedAcrossDirectories(t *testing.T) {
+	dir := t.TempDir()
+	a := NewMemoryStore(dir)
+	a.SetGlobal()
+	b := NewMemoryStore(dir)
+	b.SetGlobal()
+	assert.Equal(t, a.dbPath, b.dbPath, "global stores from any cwd must share one path")
+
+	// Regression guard: SetCwd from two different directories must still
+	// resolve to two different paths (the default, per-directory behavior).
+	c := NewMemoryStore(dir)
+	c.SetCwd("/Users/test/Projects/foo")
+	d := NewMemoryStore(dir)
+	d.SetCwd("/Users/test/Projects/bar")
+	assert.NotEqual(t, c.dbPath, d.dbPath, "SetCwd must still isolate by directory")
+}
+
+func TestResolveGlobalMemoryEnv(t *testing.T) {
+	for _, v := range []string{"1", "true", "yes", "TRUE", " 1 "} {
+		t.Setenv("KDEPS_MEMORY_GLOBAL", v)
+		assert.True(t, ResolveGlobalMemoryEnv(), "value %q should enable global memory", v)
+	}
+	for _, v := range []string{"", "0", "false", "no"} {
+		t.Setenv("KDEPS_MEMORY_GLOBAL", v)
+		assert.False(t, ResolveGlobalMemoryEnv(), "value %q should not enable global memory", v)
+	}
 }
 
 func TestMemoryStore_SetGet(t *testing.T) {
@@ -241,6 +280,76 @@ func TestMemoryStore_NoCwd_NoOps(t *testing.T) {
 	assert.Nil(t, store.Search("anything"))
 	assert.Equal(t, 0, store.Len())
 	assert.Equal(t, "", store.FormatForPrompt(100, ""))
+}
+
+// --- capCheckpointEntries ---
+
+func TestCapCheckpointEntries_KeepsNewestWithinCap(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: checkpointSummaryKey, Value: "active", UpdatedAt: 500},
+		{Key: checkpointArchiveKeyPrefix + "400", Value: "c1", UpdatedAt: 400},
+		{Key: checkpointArchiveKeyPrefix + "300", Value: "c2", UpdatedAt: 300},
+		{Key: checkpointArchiveKeyPrefix + "200", Value: "c3", UpdatedAt: 200},
+		{Key: "fact:unrelated", Value: "kept regardless", UpdatedAt: 100},
+	}
+	got := capCheckpointEntries(entries, 2)
+
+	var keys []string
+	for _, e := range got {
+		keys = append(keys, e.Key)
+	}
+	assert.Contains(t, keys, checkpointSummaryKey)
+	assert.Contains(t, keys, checkpointArchiveKeyPrefix+"400")
+	assert.Contains(t, keys, "fact:unrelated", "non-checkpoint entries are never capped")
+	assert.NotContains(t, keys, checkpointArchiveKeyPrefix+"300")
+	assert.NotContains(t, keys, checkpointArchiveKeyPrefix+"200")
+	assert.Len(t, got, 3) // 2 checkpoints (cap) + 1 unrelated fact
+}
+
+func TestCapCheckpointEntries_UnderCapReturnsAllUnchanged(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: checkpointSummaryKey, Value: "active", UpdatedAt: 200},
+		{Key: "fact:x", Value: "y", UpdatedAt: 100},
+	}
+	got := capCheckpointEntries(entries, 5)
+	assert.Equal(t, entries, got)
+}
+
+func TestFormatForPromptCapped_ExcludesOldCheckpointsButKeepsOthers(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("fact:always", "kept regardless of cap"))
+	store.entries[checkpointSummaryKey] = MemoryEntry{
+		Key:       checkpointSummaryKey,
+		Value:     "newest checkpoint",
+		UpdatedAt: 300,
+		Type:      memTypeStatus,
+	}
+	store.entries[checkpointArchiveKeyPrefix+"200"] = MemoryEntry{
+		Key:       checkpointArchiveKeyPrefix + "200",
+		Value:     "older checkpoint",
+		UpdatedAt: 200,
+		Type:      memTypeStatus,
+	}
+	store.entries[checkpointArchiveKeyPrefix+"100"] = MemoryEntry{
+		Key:       checkpointArchiveKeyPrefix + "100",
+		Value:     "oldest checkpoint dropped from prompt",
+		UpdatedAt: 100,
+		Type:      memTypeStatus,
+	}
+
+	capped := store.FormatForPromptCapped(10000, "", 2)
+	assert.Contains(t, capped, "newest checkpoint")
+	assert.Contains(t, capped, "older checkpoint")
+	assert.NotContains(t, capped, "oldest checkpoint dropped from prompt")
+	assert.Contains(t, capped, "kept regardless of cap")
+
+	// FormatForPrompt (no cap) must still see everything -- /memory list /
+	// /memory show already read the entries directly, unaffected by this.
+	uncapped := store.FormatForPrompt(10000, "")
+	assert.Contains(t, uncapped, "oldest checkpoint dropped from prompt")
 }
 
 func TestMemoryStore_FormatForPrompt(t *testing.T) {
@@ -1386,6 +1495,35 @@ func TestAutoCapture_CriticalContext(t *testing.T) {
 	assert.Equal(t, "https://api.example.com/v2", e.Value)
 }
 
+// A second AutoCapture must archive the first checkpoint under its own key
+// instead of silently overwriting it -- every other memory entry persists
+// under its own key forever; the checkpoint used to be the one exception.
+func TestAutoCapture_ArchivesPreviousCheckpoint(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	store.AutoCapture("## Goal\nFirst goal.\n\n## Progress\n### Done\n- [x] step one\n")
+	first, ok := store.Get(checkpointSummaryKey)
+	require.True(t, ok)
+	assert.Contains(t, first.Value, "First goal")
+
+	time.Sleep(2 * time.Millisecond) // guarantee a distinct archive key
+
+	store.AutoCapture("## Goal\nSecond goal.\n\n## Progress\n### Done\n- [x] step two\n")
+	second, ok := store.Get(checkpointSummaryKey)
+	require.True(t, ok)
+	assert.Contains(t, second.Value, "Second goal")
+	assert.NotContains(t, second.Value, "First goal", "the active key must hold only the latest checkpoint")
+
+	// The first checkpoint must still be retrievable under its archive key --
+	// exactly what /memory list / /memory show already surface for any entry.
+	archiveKey := checkpointArchiveKeyPrefix + strconv.FormatInt(first.UpdatedAt, 10)
+	archived, ok := store.Get(archiveKey)
+	require.True(t, ok, "the previous checkpoint must be archived, not lost")
+	assert.Contains(t, archived.Value, "First goal")
+}
+
 func TestAutoCapture_Empty(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
@@ -1509,7 +1647,10 @@ Build an omnipresent memory system for kdeps.
 	assert.Equal(t, 6, captured) // checkpoint + 3 decisions + 2 context
 
 	// Verify entries exist.
-	for _, key := range []string{"checkpoint:summary", "memory_backend", "graph_library", "auto_capture_source", "project_structure", "test_count"} {
+	for _, key := range []string{
+		"checkpoint:summary", "memory_backend", "graph_library",
+		"auto_capture_source", "project_structure", "test_count",
+	} {
 		_, ok := store.Get(key)
 		assert.True(t, ok, "expected key %q to exist", key)
 	}

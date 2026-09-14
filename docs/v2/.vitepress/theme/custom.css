@@ -89,6 +89,13 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
+/* Replaced by MegaNav.vue (rendered via the nav-bar-content-before slot,
+   theme/index.ts). The mobile hamburger menu (VPNavScreen) is untouched --
+   it reads themeConfig.nav independently of this desktop-only menu. */
+.VPNavBarMenu {
+  display: none !important;
+}
+
 /* Logo: size it to fit the navbar height naturally */
 .VPNavBarTitle .logo {
   height: 26px;
