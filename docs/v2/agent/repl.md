@@ -246,6 +246,13 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
   kill still leaves it in the picker.
 - Settings (`/refine`, `/stealth`, the default model, tool tuning), the model
   cache, and everything else under `~/.kdeps/` are unchanged.
+- `ctrl+d` on a highlighted session deletes it in place (the "Start a new
+  session" row can't be deleted) - same as `/session delete <id>`, just
+  reachable from the picker itself.
+- Multiple `kdeps` instances can point at the same folder at once, each with
+  its own picker and its own chosen (or new) session - the underlying session
+  file is opened only for the moment of each read/write, not held open for an
+  instance's whole run, so instances don't lock each other out.
 
 ```
 /session list                  # this folder's saved sessions

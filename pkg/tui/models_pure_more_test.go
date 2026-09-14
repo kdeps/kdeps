@@ -29,7 +29,7 @@ func TestListPickerInitView(t *testing.T) {
 	m := newListPickerModel("pick engine", []ListItem{
 		{ID: "a", Title: "Alpha", Description: "one"},
 		{ID: "b", Title: "Beta", Badge: "GPU"},
-	})
+	}, nil)
 	if m.Init() != nil {
 		t.Fatal("Init should be nil cmd")
 	}
