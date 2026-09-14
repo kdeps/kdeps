@@ -3689,6 +3689,47 @@ func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
 	assert.Equal(t, int64(33), repl.tokenCounter.OutputTokens())
 }
 
+// TestCmdFoldNow_ExplainsTooFewTurns covers explainNothingToFold's
+// too-few-turns branch: below compactMinTurns, findCutIndex returns 0 before
+// ever looking at the token budget.
+func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
+	loop := makeTestLoopWithEngine("## Progress\n- did things")
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	// Simulate a counter already carrying usage from earlier real turns --
+	// explainNothingToFold reads it as-is, it must not re-sync (no LLM call
+	// happens on this path, so there is nothing new to fold in).
+	repl.tokenCounter.AddInput(5)
+	repl.tokenCounter.AddOutput(2)
+
+	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldNow()) })
+
+	assert.Contains(t, out, "Nothing to fold")
+	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", compactMinTurns))
+	assert.Contains(t, out, "session tokens:")
+	assert.Contains(t, out, "token counter: in:5 out:2")
+}
+
+// TestCmdFoldNow_ExplainsUnderBudget covers the other findCutIndex==0 branch:
+// enough turns to compact, but a budget large enough that everything still
+// fits -- the "turns:" line must not appear since turns are not the blocker.
+func TestCmdFoldNow_ExplainsUnderBudget(t *testing.T) {
+	loop := makeTestLoopWithEngine("## Progress\n- did things")
+	loop.config.CompactTokenBudget = 10 * 1024 * 1024 // exact "10m" once formatted
+	for range compactMinTurns + 1 {
+		loop.session.Append("user msg", "assistant reply")
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldNow()) })
+
+	assert.Contains(t, out, "Nothing to fold")
+	assert.NotContains(t, out, "turns:", "turn count is not the blocker here")
+	assert.Contains(t, out, "session tokens:")
+	assert.Contains(t, out, "10m budget")
+}
+
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

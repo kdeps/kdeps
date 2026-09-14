@@ -3997,13 +3997,38 @@ func (r *REPL) cmdFoldNow() error {
 		return fmt.Errorf("fold: %w", err)
 	}
 	if summary == "" {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-			"Nothing to fold — the session is still under budget."))
+		r.explainNothingToFold()
 		return nil
 	}
 	r.syncTokenCounter()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n", styleReplHeading.Render("Fold summary:"), summary)
 	return nil
+}
+
+// explainNothingToFold reports why CompactWithLLM found nothing to fold --
+// findCutIndex returns 0 either because there aren't compactMinTurns turns
+// yet, or because the whole session already fits inside CompactTokenBudget --
+// plus the current token counter, so "still under budget" is a number the
+// user can check against, not just an assertion. This path never calls an
+// LLM (findCutIndex short-circuits before compactWithLLM's engine.Execute),
+// so the counter is read as-is rather than synced -- syncing here would
+// double-count whatever the last real turn already added.
+func (r *REPL) explainNothingToFold() {
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Nothing to fold — the session is still under budget."))
+
+	if turns := r.loop.Session().TurnCount(); turns < compactMinTurns {
+		fmt.Fprintf(os.Stdout, "  turns: %d (need at least %d before anything is worth folding)\n",
+			turns, compactMinTurns)
+	}
+
+	used := r.loop.Session().TotalTokens()
+	budget := r.loop.config.CompactTokenBudget
+	fmt.Fprintf(os.Stdout, "  session tokens: %s / %s budget\n", formatTokenCount(used), formatTokenCount(budget))
+
+	if tc := r.tokenCounter; tc != nil {
+		fmt.Fprintf(os.Stdout, "  token counter: in:%s out:%s\n",
+			formatCompactCount(tc.InputTokens()), formatCompactCount(tc.OutputTokens()))
+	}
 }
 
 func (r *REPL) cmdHistory() error {
