@@ -198,6 +198,12 @@ in the prompt's memory block) and needs no setup.
 All four settings persist across sessions, the same way `/model tool set
 compact-threshold`/`compact-budget` already do.
 
+`/fold now` reuses the same cut logic as auto-compaction (not the fold
+threshold), so it can report "still under budget" even past the fold
+threshold. When that happens it prints why: too few turns to compact at all,
+or the session's token count against the compaction budget, plus the current
+`in:`/`out:` token counter - numbers to check instead of just an assertion.
+
 Both `/compact` and `/fold` refresh the cumulative token counter (`in:`/`out:`
 in the status line) immediately after they run, since the summarization call
 itself uses real tokens that would otherwise never get counted.
