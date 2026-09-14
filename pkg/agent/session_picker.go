@@ -31,7 +31,9 @@ const newSessionSentinel = "__new__"
 // PickStartupSession shows the resume picker for the sessions stored in this
 // project's .kdeps directory. It returns the chosen session id, or "" to start
 // a new session (also when there are no sessions, the terminal is
-// non-interactive, or the user cancels).
+// non-interactive, or the user cancels). ctrl+d deletes the highlighted
+// session in place (not the "Start a new session" row) without leaving the
+// picker, backed by SessionStore.Delete.
 func PickStartupSession(store *SessionStore) string {
 	if store == nil || !tui.IsInteractive() {
 		return ""
@@ -69,11 +71,27 @@ func PickStartupSession(store *SessionStore) string {
 		})
 	}
 
-	choice, err := tui.RunListPicker("Resume a session in this folder?", items)
+	choice, err := tui.RunListPickerDeletable("Resume a session in this folder?", items, sessionPickerOnDelete(store))
 	if err != nil || choice == "" || choice == newSessionSentinel {
 		return ""
 	}
 	return choice
+}
+
+// sessionPickerOnDelete builds the picker's ctrl+d handler: refuses to
+// delete the "Start a new session" sentinel row, otherwise deletes the
+// session from store. Split out from PickStartupSession so the delete logic
+// is unit-testable without driving the interactive TUI.
+func sessionPickerOnDelete(store *SessionStore) func(id string) (bool, error) {
+	return func(id string) (bool, error) {
+		if id == newSessionSentinel {
+			return false, nil // not a real row -- never deletable
+		}
+		if err := store.Delete(id); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 }
 
 func plural(n int) string {

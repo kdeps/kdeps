@@ -50,6 +50,40 @@ func TestHumanizeSince(t *testing.T) {
 	assert.Equal(t, "unknown", humanizeSince(0))
 }
 
+func TestSessionPickerOnDelete_RefusesSentinel(t *testing.T) {
+	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
+
+	removed, err := sessionPickerOnDelete(store)(newSessionSentinel)
+	assert.False(t, removed, "the 'start new session' row must never be deletable")
+	assert.NoError(t, err)
+}
+
+func TestSessionPickerOnDelete_DeletesRealSession(t *testing.T) {
+	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
+	s := NewSession(0)
+	s.Append("hi", "hello")
+	id, err := store.Save(s)
+	assert.NoError(t, err)
+
+	removed, err := sessionPickerOnDelete(store)(id)
+	assert.True(t, removed)
+	assert.NoError(t, err)
+
+	_, loadErr := store.Load(id)
+	assert.Error(t, loadErr, "the session must actually be gone from the store")
+}
+
+func TestSessionPickerOnDelete_PropagatesStoreError(t *testing.T) {
+	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
+
+	removed, err := sessionPickerOnDelete(store)("does-not-exist")
+	assert.False(t, removed)
+	assert.Error(t, err)
+}
+
 func TestPlural(t *testing.T) {
 	assert.Equal(t, "", plural(1))
 	assert.Equal(t, "s", plural(0))

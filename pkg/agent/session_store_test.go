@@ -68,6 +68,50 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 }
 
+// TestSessionStore_TwoInstancesSamePath is a regression guard for multiple
+// kdeps processes pointed at the same project directory: a long-lived cached
+// bbolt handle (the old getDB behavior) would hold an exclusive file lock for
+// the life of the first store, timing out every operation from a second
+// store on the same path. withDB opens/closes per operation instead, so a
+// second store must be able to write and read right after the first without
+// either instance calling Close.
+func TestSessionStore_TwoInstancesSamePath(t *testing.T) {
+	dir := t.TempDir()
+	storeA := NewSessionStore(dir)
+	storeB := NewSessionStore(dir)
+	t.Cleanup(func() { _ = storeA.Close(); _ = storeB.Close() })
+
+	sessionA := NewSession(0)
+	sessionA.Append("from A", "reply A")
+	idA, err := storeA.Save(sessionA)
+	if err != nil {
+		t.Fatalf("store A save failed: %v", err)
+	}
+
+	sessionB := NewSession(0)
+	sessionB.Append("from B", "reply B")
+	idB, err := storeB.Save(sessionB)
+	if err != nil {
+		t.Fatalf("store B save failed (would time out under a held exclusive lock): %v", err)
+	}
+
+	// Each store must be able to see the other's write -- they share one file.
+	if _, loadErr := storeA.Load(idB); loadErr != nil {
+		t.Fatalf("store A could not load store B's session: %v", loadErr)
+	}
+	if _, loadErr := storeB.Load(idA); loadErr != nil {
+		t.Fatalf("store B could not load store A's session: %v", loadErr)
+	}
+
+	metas, err := storeA.ListMeta()
+	if err != nil {
+		t.Fatalf("ListMeta failed: %v", err)
+	}
+	if len(metas) != 2 {
+		t.Fatalf("expected 2 sessions visible from store A, got %d", len(metas))
+	}
+}
+
 func TestSave_FileCreated(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)

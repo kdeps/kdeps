@@ -69,12 +69,19 @@ type SessionMetadata struct {
 // SessionStore persists conversation sessions in a bbolt database.
 // When cwd is set, sessions are stored under basePath/<encoded-cwd>/ for
 // isolation between distinct project directories that share one basePath.
+//
+// The database handle is opened and closed around each operation (see
+// withDB) rather than held for the store's lifetime: bbolt takes an
+// exclusive file lock for as long as a handle stays open, so a long-lived
+// handle would lock a second kdeps instance pointed at the same project
+// directory out of its own session file for the entire run. Opening only
+// for the duration of one read/write lets multiple instances interleave --
+// each one holds the lock only briefly, not for the life of the process.
 type SessionStore struct {
 	mu       sync.Mutex
+	dbMu     sync.Mutex // guards db open/close, independent of mu (mirrors MemoryStore)
 	basePath string
 	cwd      string
-	db       *bolt.DB
-	dbPath   string
 }
 
 // sessionEntry is one entry in a serialized session. The first entry is the
@@ -138,35 +145,46 @@ func NewSessionStore(basePath string) *SessionStore {
 func (s *SessionStore) SetCwd(cwd string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.db != nil {
-		_ = s.db.Close()
-		s.db = nil
-	}
 	s.cwd = cwd
 }
 
-func (s *SessionStore) getDB() (*bolt.DB, error) {
-	if s.db != nil {
-		return s.db, nil
-	}
+// openDB opens a fresh bbolt handle for this store's session file, ensuring
+// the bucket exists. Timeout turns another process's concurrent exclusive
+// lock into a fast error instead of an unbounded hang. Callers must Close it.
+func (s *SessionStore) openDB() (*bolt.DB, error) {
 	dir := s.sessionBasePath()
 	dbPath := filepath.Join(dir, "sessions.bolt")
 	if err := AppFS.MkdirAll(dir, 0750); err != nil {
 		return nil, fmt.Errorf("session store: mkdir: %w", err)
 	}
-	// Timeout turns a concurrent exclusive lock (another process/test holding
-	// the same file) into a fast error instead of an unbounded hang.
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: dbOpenTimeout}) //nolint:mnd // DB file permissions
 	if err != nil {
 		return nil, fmt.Errorf("session store: open db: %w", err)
 	}
-	_ = db.Update(func(tx *bolt.Tx) error {
-		_, _ = tx.CreateBucketIfNotExists(agentSessionBucket)
-		return nil
-	})
-	s.db = db
-	s.dbPath = dbPath
+	if bucketErr := db.Update(func(tx *bolt.Tx) error {
+		_, e := tx.CreateBucketIfNotExists(agentSessionBucket)
+		return e
+	}); bucketErr != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("session store: init bucket: %w", bucketErr)
+	}
 	return db, nil
+}
+
+// withDB opens the database, runs fn, then closes it -- serialized by dbMu so
+// concurrent callers from this process never race two exclusive opens on the
+// same file. No handle is held between operations, so another kdeps instance
+// (or a reload from this one) pointed at the same project directory can
+// always open it in turn instead of blocking for the life of this process.
+func (s *SessionStore) withDB(fn func(*bolt.DB) error) error {
+	s.dbMu.Lock()
+	defer s.dbMu.Unlock()
+	db, err := s.openDB()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	return fn(db)
 }
 
 func encodeCwd(cwd string) string {
@@ -195,11 +213,6 @@ func (s *SessionStore) Upsert(id string, session SessionReader, name, model stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	db, err := s.getDB()
-	if err != nil {
-		return "", err
-	}
-
 	now := time.Now().UnixMilli()
 	if id == "" {
 		id = newSessionID()
@@ -224,9 +237,12 @@ func (s *SessionStore) Upsert(id string, session SessionReader, name, model stri
 	if jsonErr != nil {
 		return "", fmt.Errorf("session store: marshal: %w", jsonErr)
 	}
-	return id, db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+	err := s.withDB(func(db *bolt.DB) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+		})
 	})
+	return id, err
 }
 
 func (s *SessionStore) Save(session SessionReader) (string, error) {
@@ -238,30 +254,30 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	db, err := s.getDB()
+	session := NewSession(0)
+	found := false
+	err := s.withDB(func(db *bolt.DB) error {
+		return db.View(func(tx *bolt.Tx) error {
+			data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+			if data == nil {
+				return nil
+			}
+			found = true
+			var entries []sessionEntry
+			if json.Unmarshal(data, &entries) != nil {
+				return nil //nolint:nilerr // corrupt entry in bbolt, skip
+			}
+			for _, e := range entries {
+				if e.Type == "message" && e.Role != "" {
+					session.messages = append(session.messages, SessionMessage{Role: e.Role, Content: e.Content})
+				}
+			}
+			return nil
+		})
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	session := NewSession(0)
-	found := false
-	_ = db.View(func(tx *bolt.Tx) error {
-		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
-		if data == nil {
-			return nil
-		}
-		found = true
-		var entries []sessionEntry
-		if json.Unmarshal(data, &entries) != nil {
-			return nil //nolint:nilerr // corrupt entry in bbolt, skip
-		}
-		for _, e := range entries {
-			if e.Type == "message" && e.Role != "" {
-				session.messages = append(session.messages, SessionMessage{Role: e.Role, Content: e.Content})
-			}
-		}
-		return nil
-	})
 	if !found {
 		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
@@ -276,23 +292,24 @@ func (s *SessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 }
 
 func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
-	db, err := s.getDB()
+	var meta *SessionMetadata
+	err := s.withDB(func(db *bolt.DB) error {
+		return db.View(func(tx *bolt.Tx) error {
+			data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+			if data == nil {
+				return nil
+			}
+			var entries []sessionEntry
+			if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+				return nil //nolint:nilerr // corrupt entry in bbolt, skip
+			}
+			meta = metaFromEntries(entries, id)
+			return nil
+		})
+	})
 	if err != nil {
 		return nil, err
 	}
-	var meta *SessionMetadata
-	_ = db.View(func(tx *bolt.Tx) error {
-		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
-		if data == nil {
-			return nil
-		}
-		var entries []sessionEntry
-		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
-			return nil //nolint:nilerr // corrupt entry in bbolt, skip
-		}
-		meta = metaFromEntries(entries, id)
-		return nil
-	})
 	if meta == nil {
 		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
@@ -339,25 +356,24 @@ func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	db, err := s.getDB()
-	if err != nil {
+	var metas []SessionMetadata
+	if err := s.withDB(func(db *bolt.DB) error {
+		return db.View(func(tx *bolt.Tx) error {
+			c := tx.Bucket(agentSessionBucket).Cursor()
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				var entries []sessionEntry
+				if json.Unmarshal(v, &entries) != nil || len(entries) == 0 {
+					continue
+				}
+				if m := metaFromEntries(entries, string(k)); m != nil {
+					metas = append(metas, *m)
+				}
+			}
+			return nil
+		})
+	}); err != nil {
 		return nil, err
 	}
-
-	var metas []SessionMetadata
-	_ = db.View(func(tx *bolt.Tx) error {
-		c := tx.Bucket(agentSessionBucket).Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			var entries []sessionEntry
-			if json.Unmarshal(v, &entries) != nil || len(entries) == 0 {
-				continue
-			}
-			if m := metaFromEntries(entries, string(k)); m != nil {
-				metas = append(metas, *m)
-			}
-		}
-		return nil
-	})
 
 	// Most-recently-active first.
 	for i := 0; i < len(metas); i++ {
@@ -390,15 +406,13 @@ func (s *SessionStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	db, err := s.getDB()
-	if err != nil {
-		return err
-	}
-	return db.Update(func(tx *bolt.Tx) error {
-		if tx.Bucket(agentSessionBucket).Get([]byte(id)) == nil {
-			return fmt.Errorf("session store: session %q not found", id)
-		}
-		return tx.Bucket(agentSessionBucket).Delete([]byte(id))
+	return s.withDB(func(db *bolt.DB) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			if tx.Bucket(agentSessionBucket).Get([]byte(id)) == nil {
+				return fmt.Errorf("session store: session %q not found", id)
+			}
+			return tx.Bucket(agentSessionBucket).Delete([]byte(id))
+		})
 	})
 }
 
@@ -406,11 +420,6 @@ func (s *SessionStore) Delete(id string) error {
 func (s *SessionStore) Import(srcPath string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	db, err := s.getDB()
-	if err != nil {
-		return "", err
-	}
 
 	data, readErr := afero.ReadFile(AppFS, srcPath)
 	if readErr != nil {
@@ -430,9 +439,12 @@ func (s *SessionStore) Import(srcPath string) (string, error) {
 	if jsonErr != nil {
 		return "", fmt.Errorf("session store: import marshal: %w", jsonErr)
 	}
-	return id, db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(agentSessionBucket).Put([]byte(id), encoded)
+	err := s.withDB(func(db *bolt.DB) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket(agentSessionBucket).Put([]byte(id), encoded)
+		})
 	})
+	return id, err
 }
 
 // parseSessionEntries decodes a session file into entries, accepting either the
@@ -469,16 +481,14 @@ func parseSessionEntries(data []byte, id string) ([]sessionEntry, error) {
 // --- Legacy helpers for test compatibility ---
 
 func (s *SessionStore) findSessionFileLocked(id string) string {
-	db, err := s.getDB()
-	if err != nil {
-		return ""
-	}
 	found := false
-	_ = db.View(func(tx *bolt.Tx) error {
-		if tx.Bucket(agentSessionBucket).Get([]byte(id)) != nil {
-			found = true
-		}
-		return nil
+	_ = s.withDB(func(db *bolt.DB) error {
+		return db.View(func(tx *bolt.Tx) error {
+			if tx.Bucket(agentSessionBucket).Get([]byte(id)) != nil {
+				found = true
+			}
+			return nil
+		})
 	})
 	if found {
 		return id
@@ -505,14 +515,9 @@ func writeJSONLine(f afero.File, v interface{}) error {
 	return err
 }
 
-// Close closes the bbolt database.
+// Close is a no-op: the bbolt handle is opened and closed around each
+// operation (see withDB), so nothing is held open to release. Kept for API
+// compatibility with callers that defer Close() unconditionally.
 func (s *SessionStore) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.db != nil {
-		err := s.db.Close()
-		s.db = nil
-		return err
-	}
 	return nil
 }
