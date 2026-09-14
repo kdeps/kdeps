@@ -43,13 +43,20 @@ type listPickerModel struct {
 	quitted   bool
 	cancelled bool
 	termWidth int
+	// onDelete, when set, binds ctrl+d to delete the highlighted item without
+	// leaving the picker: it returns whether the item was removed (dropped
+	// from the visible list) and an error to surface as statusMsg. nil means
+	// deletion is disabled (RunListPicker's default, unchanged behavior).
+	onDelete  func(id string) (bool, error)
+	statusMsg string
 }
 
-func newListPickerModel(title string, items []ListItem) listPickerModel {
+func newListPickerModel(title string, items []ListItem, onDelete func(id string) (bool, error)) listPickerModel {
 	return listPickerModel{
 		title:     title,
 		items:     items,
 		termWidth: pickerMinWidth,
+		onDelete:  onDelete,
 	}
 }
 
@@ -108,6 +115,10 @@ func (m listPickerModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filter = m.filter[:len(m.filter)-1]
 			m.cursor = 0
 		}
+	case "ctrl+d":
+		if m.onDelete != nil && total > 0 {
+			m = m.deleteHighlighted(flat)
+		}
 	default:
 		if len(msg.String()) == 1 {
 			m.filter += msg.String()
@@ -118,6 +129,40 @@ func (m listPickerModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = len(m.filtered()) - 1
 	}
 	return m, nil
+}
+
+// deleteHighlighted calls onDelete for the item under the cursor and, on
+// success, drops it from the live list so it disappears immediately instead
+// of requiring a picker restart. flat is the already-filtered list handleKey
+// computed, so the cursor index lines up with the item being deleted.
+func (m listPickerModel) deleteHighlighted(flat []ListItem) listPickerModel {
+	target := flat[m.cursor]
+	removed, err := m.onDelete(target.ID)
+	if err != nil {
+		m.statusMsg = "delete failed: " + err.Error()
+		return m
+	}
+	if !removed {
+		return m
+	}
+	m.items = removeItemByID(m.items, target.ID)
+	m.statusMsg = "deleted"
+	if newLen := len(m.filtered()); m.cursor >= newLen && newLen > 0 {
+		m.cursor = newLen - 1
+	}
+	return m
+}
+
+// removeItemByID returns items with the first entry matching id dropped.
+func removeItemByID(items []ListItem, id string) []ListItem {
+	out := make([]ListItem, 0, len(items))
+	for _, it := range items {
+		if it.ID == id {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 func (m listPickerModel) View() string {
@@ -163,20 +208,41 @@ func (m listPickerModel) View() string {
 	if len(flat) > pickerMaxVisible {
 		b.WriteString(styleDim.Render(fmt.Sprintf("  (%d/%d)", m.cursor+1, len(flat))) + "\n")
 	}
-	b.WriteString("\n" + styleHelp.Render("↑/↓ navigate  type to filter  enter select  esc cancel"))
+	if m.statusMsg != "" {
+		b.WriteString(styleDim.Render(m.statusMsg) + "\n")
+	}
+	help := "↑/↓ navigate  type to filter  enter select  esc cancel"
+	if m.onDelete != nil {
+		help += "  ctrl+d delete"
+	}
+	b.WriteString("\n" + styleHelp.Render(help))
 	return lipgloss.NewStyle().Padding(1, 1).Render(b.String())
 }
 
 // RunListPicker shows a filterable single-select list. Returns the selected ID.
 // Cancel returns "", nil (caller treats empty as cancel) or an error from tea.
 func RunListPicker(title string, items []ListItem) (string, error) {
+	return runListPicker(title, items, nil)
+}
+
+// RunListPickerDeletable is RunListPicker with ctrl+d bound to delete the
+// highlighted item in place: onDelete performs the actual deletion and
+// reports whether the item should disappear from the list (false lets a
+// caller veto deleting a specific item, e.g. a "start fresh" sentinel row,
+// without treating it as an error). The picker keeps running afterward so
+// the user can still pick (or delete) something else.
+func RunListPickerDeletable(title string, items []ListItem, onDelete func(id string) (bool, error)) (string, error) {
+	return runListPicker(title, items, onDelete)
+}
+
+func runListPicker(title string, items []ListItem, onDelete func(id string) (bool, error)) (string, error) {
 	if len(items) == 0 {
 		return "", errors.New("no items to pick")
 	}
 	if !isInteractive() {
 		return "", nil
 	}
-	m := newListPickerModel(title, items)
+	m := newListPickerModel(title, items, onDelete)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
