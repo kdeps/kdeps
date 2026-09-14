@@ -1567,10 +1567,10 @@ func TestWebServer_HandleAppRequest_WithPort(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
-	// This will fail because there's no actual server running on port 16395
+	// This will fail because there's no actual server running on port 1.
 	// But it covers the code path
 	webServer.HandleAppRequest(w, req, route)
 	// Should attempt to proxy (will fail but path is covered)
@@ -1594,7 +1594,7 @@ func TestWebServer_HandleAppRequest_DefaultHostIP(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1619,7 +1619,7 @@ func TestWebServer_HandleAppRequest_InvalidURL(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1647,7 +1647,7 @@ func TestWebServer_HandleAppRequest_WebSocketUpgrade(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	// Should route to WebSocket handler
@@ -1673,7 +1673,7 @@ func TestWebServer_HandleAppRequest_PathForwarding(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1698,7 +1698,7 @@ func TestWebServer_HandleAppRequest_RootPath(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
