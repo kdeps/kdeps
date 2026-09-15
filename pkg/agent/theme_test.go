@@ -334,6 +334,34 @@ func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 	}
 }
 
+// TestSpinnerLabel_TheGivenAwayConcern is a regression guard: the literal
+// word "generating" spells out that an AI is producing a response, which
+// gives the disguise away under the fully legible linux/vim/emacs themes the
+// same way the unabbreviated model name does. Only the black theme (and
+// stealth off) keep the label - black already hides it by color alone.
+func TestSpinnerLabel_TheGivenAwayConcern(t *testing.T) {
+	t.Cleanup(func() {
+		SetStealth(false)
+		_ = SetTheme("black")
+	})
+
+	if got := SpinnerLabel(); got != " generating" {
+		t.Errorf("stealth off: SpinnerLabel() = %q, want \" generating\"", got)
+	}
+
+	SetStealth(true)
+	if got := SpinnerLabel(); got != " generating" {
+		t.Errorf("black theme: SpinnerLabel() = %q, want \" generating\" (color alone hides it)", got)
+	}
+
+	for _, name := range []string{"linux", "vim", "emacs"} {
+		_ = SetTheme(name)
+		if got := SpinnerLabel(); got != "" {
+			t.Errorf("theme %q: SpinnerLabel() = %q, want \"\" (the word gives the disguise away)", name, got)
+		}
+	}
+}
+
 func TestHexToSGRForeground(t *testing.T) {
 	cases := map[string]string{
 		"#000000": "\x1b[38;2;0;0;0m",

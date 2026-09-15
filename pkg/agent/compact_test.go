@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // makeTurns builds a slice of n user+assistant message pairs.
@@ -484,6 +485,38 @@ func TestTokensSinceCheckpoint_ZeroIDMessagesCountWhenNoCheckpoint(t *testing.T)
 	want := estimateSessionTokens(msgs, "gpt-4o")
 	if got != want {
 		t.Fatalf("tokensSinceCheckpoint with zero-ID messages and sinceNanos=0 = %d, want the full total %d", got, want)
+	}
+}
+
+// TestShouldFold_FiresAgainAfterACheckpointWithRealMessageIDs is an
+// end-to-end regression guard (using a real *Session, not synthetic IDs) for
+// the bug where fold would fire once (when sinceNanos==0) and then never
+// again: a checkpoint's UpdatedAt is a real wall-clock millisecond
+// timestamp, so comparing it against message IDs only works if those IDs
+// also track real time (see TestNextID_TracksRealTimeNotJustCallCount).
+func TestShouldFold_FiresAgainAfterACheckpointWithRealMessageIDs(t *testing.T) {
+	s := NewSession(0)
+	for range compactMinTurns + 1 {
+		s.Append("user msg", "assistant reply")
+	}
+
+	// Simulate a checkpoint created "now" (real wall-clock ms), same as
+	// AutoCapture would record.
+	sinceNanos := time.Now().UnixMilli() * int64(time.Millisecond)
+
+	// Give real time a chance to move forward past the checkpoint before the
+	// next turns are appended -- same as a real session where turns are
+	// seconds or minutes apart, not back-to-back in the same nanosecond.
+	time.Sleep(time.Millisecond)
+
+	for range compactMinTurns + 1 {
+		s.Append("another user msg", "another assistant reply")
+	}
+
+	got := tokensSinceCheckpoint(s.RawMessages(), sinceNanos, "gpt-4o")
+	if got <= 0 {
+		t.Fatalf("tokensSinceCheckpoint after a real checkpoint = %d, want > 0 -- "+
+			"messages appended after the checkpoint must still count as new", got)
 	}
 }
 

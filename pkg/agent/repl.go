@@ -1363,11 +1363,12 @@ func expandFileRefsMonitored(input string) (string, []string) {
 	return expanded, files
 }
 
-// drawSpinnerFrames renders "generating" frames to out until done is closed.
-// Frames are skipped while skip() reports the terminal line is owned by
-// someone else (streaming thinking text or a running tool's monitor line):
-// drawing over it would overwrite the line head and leave the tail as
-// garbage ("generating <thinking fragment>").
+// drawSpinnerFrames renders spinner frames (plus a "generating" label, see
+// SpinnerLabel) to out until done is closed. Frames are skipped while skip()
+// reports the terminal line is owned by someone else (streaming thinking
+// text or a running tool's monitor line): drawing over it would overwrite
+// the line head and leave the tail as garbage ("generating <thinking
+// fragment>").
 func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
@@ -1381,7 +1382,7 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 				continue
 			}
 			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			fmt.Fprintf(out, "\r%s  %s generating\033[K", tcStr, frame)
+			fmt.Fprintf(out, "\r%s  %s%s\033[K", tcStr, frame, SpinnerLabel())
 			i++
 		case <-done:
 			return
@@ -4030,9 +4031,14 @@ func (r *REPL) cmdFoldStatus() error {
 // the last few turns verbatim; a fold's own budget-based cut is normally
 // lighter, but manually forcing it still guarantees something happens even
 // on a session that hasn't crossed the threshold yet).
+// cmdFoldNow forces a fold regardless of the threshold or the compaction
+// budget, the same way /compact forces one: it reuses ForceCompact, which
+// always summarizes everything except the last forceKeepTurns turns as long
+// as there's enough history to do so. Unlike the old budget-gated behavior,
+// this only comes back empty when there simply aren't enough turns yet.
 func (r *REPL) cmdFoldNow() error {
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Folding..."))
-	summary, err := r.loop.CompactWithLLM(r.ctx)
+	summary, err := r.loop.ForceCompact(r.ctx)
 	if err != nil {
 		return fmt.Errorf("fold: %w", err)
 	}
@@ -4045,25 +4051,23 @@ func (r *REPL) cmdFoldNow() error {
 	return nil
 }
 
-// explainNothingToFold reports why CompactWithLLM found nothing to fold --
-// findCutIndex returns 0 either because there aren't compactMinTurns turns
-// yet, or because the whole session already fits inside CompactTokenBudget --
-// plus the current token counter, so "still under budget" is a number the
-// user can check against, not just an assertion. This path never calls an
-// LLM (findCutIndex short-circuits before compactWithLLM's engine.Execute),
-// so the counter is read as-is rather than synced -- syncing here would
-// double-count whatever the last real turn already added.
+// explainNothingToFold reports why the forced fold found nothing to do: with
+// ForceCompact the budget is irrelevant, so the only possible reason is too
+// few turns (forcedCutIndex needs more than forceKeepTurns+1 turns before
+// there's anything beyond what it always keeps verbatim) -- plus the current
+// token counter, so this is a number the user can check against, not just an
+// assertion. This path never calls an LLM when it bails early, so the
+// counter is read as-is rather than synced.
 func (r *REPL) explainNothingToFold() {
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Nothing to fold — the session is still under budget."))
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Nothing to fold yet."))
 
-	if turns := r.loop.Session().TurnCount(); turns < compactMinTurns {
-		fmt.Fprintf(os.Stdout, "  turns: %d (need at least %d before anything is worth folding)\n",
-			turns, compactMinTurns)
-	}
-
-	used := r.loop.Session().TotalTokens()
-	budget := r.loop.config.CompactTokenBudget
-	fmt.Fprintf(os.Stdout, "  session tokens: %s / %s budget\n", formatTokenCount(used), formatTokenCount(budget))
+	// forcedCutIndex (compact.go) needs strictly more than forceKeepTurns+1
+	// turns to have anything beyond what it always keeps verbatim.
+	const extraTurnsBeyondKept = 2
+	turns := r.loop.Session().TurnCount()
+	needed := forceKeepTurns + extraTurnsBeyondKept
+	fmt.Fprintf(os.Stdout, "  turns: %d (need at least %d - the last %d turns always stay verbatim)\n",
+		turns, needed, forceKeepTurns)
 
 	if tc := r.tokenCounter; tc != nil {
 		fmt.Fprintf(os.Stdout, "  token counter: in:%s out:%s\n",

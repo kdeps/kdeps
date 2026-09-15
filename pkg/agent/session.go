@@ -162,9 +162,24 @@ func (s *Session) RecordFileOps(read, modified []string) {
 	s.fileOps[turnIdx] = FileOpEntry{Read: read, Modified: modified}
 }
 
-// nextID returns a monotonically increasing entry ID (nanosecond precision).
+// nextID returns a monotonically increasing entry ID, tracking real
+// wall-clock nanoseconds whenever time has actually advanced past the last
+// one issued (falling back to a plain +1 on a same-tick collision, e.g. two
+// calls within the same nanosecond, or on platforms with coarser clock
+// resolution such as Windows). This must track real time, not just count
+// calls: tokensSinceCheckpoint/shouldFold (compact.go) compare message IDs
+// against a checkpoint's UpdatedAt converted to nanoseconds -- if IDs were a
+// pure call counter starting from time.Now().UnixNano() (as before), a
+// checkpoint's real timestamp would very quickly exceed every subsequent
+// message's ID (which only grows by small integers per call, not by elapsed
+// wall-clock time), permanently making tokensSinceCheckpoint return ~0 and
+// fold never fire again after the first checkpoint.
 func (s *Session) nextID() int64 {
-	s.lastEntryID++
+	now := time.Now().UnixNano()
+	if now <= s.lastEntryID {
+		now = s.lastEntryID + 1
+	}
+	s.lastEntryID = now
 	return s.lastEntryID
 }
 
