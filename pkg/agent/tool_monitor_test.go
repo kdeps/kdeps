@@ -330,7 +330,7 @@ func TestDrawSpinnerFrames_SkipSuppressesOutput(t *testing.T) {
 		close(done)
 	}()
 	drawSpinnerFrames(&buf, func() bool { return true }, done)
-	assert.NotContains(t, buf.String(), "generating")
+	assert.False(t, strings.ContainsAny(buf.String(), spinnerGlyphs), "skip() must suppress every spinner frame")
 }
 
 func TestToolTuning_SnapshotApplyRoundTrip(t *testing.T) {
