@@ -1363,14 +1363,22 @@ func expandFileRefsMonitored(input string) (string, []string) {
 	return expanded, files
 }
 
-// drawSpinnerFrames renders spinner frames (plus a "generating" label, see
-// SpinnerLabel) to out until done is closed. Frames are skipped while skip()
-// reports the terminal line is owned by someone else (streaming thinking
-// text or a running tool's monitor line): drawing over it would overwrite
-// the line head and leave the tail as garbage ("generating <thinking
-// fragment>").
+// spinnerGlyphs are the braille frames the REPL's spinner animations cycle
+// through. Exported as a string (not just the split slice) so tests can
+// check for spinner activity via strings.ContainsAny without asserting on
+// any accompanying label text -- drawSpinnerFrames has none, by design.
+const spinnerGlyphs = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+// drawSpinnerFrames renders spinner frames to out until done is closed. No
+// descriptive label runs alongside the glyph -- a word like "generating"
+// would spell out that an AI is producing a response, which defeats the
+// point of stealth mode and reads oddly even outside it; the spinner alone
+// says "something is happening" without saying what. Frames are skipped
+// while skip() reports the terminal line is owned by someone else (streaming
+// thinking text or a running tool's monitor line): drawing over it would
+// overwrite the line head and leave the tail as garbage.
 func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
-	spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	spinFrames := strings.Split(spinnerGlyphs, "")
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
 	defer tick.Stop()
 	i := 0
@@ -1382,7 +1390,7 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 				continue
 			}
 			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			fmt.Fprintf(out, "\r%s  %s%s\033[K", tcStr, frame, SpinnerLabel())
+			fmt.Fprintf(out, "\r%s  %s\033[K", tcStr, frame)
 			i++
 		case <-done:
 			return
@@ -1545,8 +1553,9 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 		r.syncTokenCounter()
 		return res.resp, res.err
 	case <-timer.C:
-		// Animated spinner while waiting for LLM response.
-		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		// Animated spinner while waiting for LLM response. No descriptive
+		// word alongside it, same as drawSpinnerFrames -- see its doc comment.
+		spinFrames := strings.Split(spinnerGlyphs, "")
 		done := make(chan struct{})
 		go func() {
 			tick := time.NewTicker(replTickerMs * time.Millisecond)
@@ -1558,7 +1567,7 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 				case <-tick.C:
 					fmt.Fprintf(
 						os.Stdout,
-						"\r%s  %s thinking",
+						"\r%s  %s",
 						tcStr, styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
 					)
 					i++

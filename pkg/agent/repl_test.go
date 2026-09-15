@@ -5811,8 +5811,10 @@ func setFastSpinnerThreshold(t *testing.T) {
 	t.Cleanup(func() { replThinkingDelay = orig })
 }
 
-// TestRunStreaming_ShowsSpinnerWhenSlow verifies that a "generating" indicator
-// appears when the streamer takes longer than replThinkingDelay.
+// TestRunStreaming_ShowsSpinnerWhenSlow verifies that the spinner appears
+// when the streamer takes longer than replThinkingDelay. drawSpinnerFrames
+// carries no descriptive word (see its doc comment), so presence is checked
+// via the braille spinner glyphs themselves.
 func TestRunStreaming_ShowsSpinnerWhenSlow(t *testing.T) {
 	setFastSpinnerThreshold(t)
 	spinBuf := setSpinnerCapture(t)
@@ -5831,7 +5833,7 @@ func TestRunStreaming_ShowsSpinnerWhenSlow(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "eventual response", resp)
-	assert.Contains(t, spinBuf.String(), "generating", "spinner text must appear for slow responses")
+	assert.True(t, strings.ContainsAny(spinBuf.String(), spinnerGlyphs), "spinner must appear for slow responses")
 }
 
 // TestRunStreaming_NoSpinnerForFastResponse verifies that no spinner is shown
@@ -5851,7 +5853,7 @@ func TestRunStreaming_NoSpinnerForFastResponse(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "quick response", resp)
-	assert.NotContains(t, spinBuf.String(), "generating", "spinner must not appear for fast responses")
+	assert.False(t, strings.ContainsAny(spinBuf.String(), spinnerGlyphs), "spinner must not appear for fast responses")
 }
 
 // thinkingMockStreamer writes a reasoning chunk to the configured
@@ -5879,8 +5881,7 @@ func (m *thinkingMockStreamer) StreamChat(
 
 // TestRunStreaming_NoSpinnerFramesWhileThinkingStreams verifies that spinner
 // frames are suppressed while thinking tokens own the terminal line; a frame
-// drawn mid-thinking overwrites the line head and leaves a garbled tail
-// ("generating <thinking fragment>").
+// drawn mid-thinking overwrites the line head and leaves a garbled tail.
 func TestRunStreaming_NoSpinnerFramesWhileThinkingStreams(t *testing.T) {
 	setFastSpinnerThreshold(t)
 	spinBuf := setSpinnerCapture(t)
@@ -5905,7 +5906,7 @@ func TestRunStreaming_NoSpinnerFramesWhileThinkingStreams(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "answer", resp)
-	assert.NotContains(t, spinBuf.String(), "generating",
+	assert.False(t, strings.ContainsAny(spinBuf.String(), spinnerGlyphs),
 		"spinner frames must not be drawn while thinking is streaming")
 }
 
@@ -5985,7 +5986,7 @@ func TestLiveThinkingWriter_FlushNoMemoryStoreIsSafe(t *testing.T) {
 }
 
 // TestRunStreaming_SpinnerClearedBeforeOutput verifies that the spinner escape
-// sequence (ansiClearLine) appears after "generating" frames, ensuring the
+// sequence (ansiClearLine) appears after the spinner frames, ensuring the
 // spinner line is erased after the last frame and before the response renders.
 func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 	setFastSpinnerThreshold(t)
@@ -6005,7 +6006,7 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 
 	assert.Equal(t, "answer", resp)
 	out := spinBuf.String()
-	spinnerIdx := strings.Index(out, "generating")
+	spinnerIdx := strings.IndexAny(out, spinnerGlyphs)
 	clearIdx := strings.Index(out, "\r\033[K")
 	require.GreaterOrEqual(t, spinnerIdx, 0, "spinner must appear")
 	require.GreaterOrEqual(t, clearIdx, 0, "clear-line escape must appear")
