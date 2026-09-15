@@ -844,6 +844,36 @@ func TestRootCmd_HasStealthFlag(t *testing.T) {
 	}
 }
 
+func TestResolveTheme_Precedence(t *testing.T) {
+	t.Setenv("KDEPS_THEME", "")
+
+	// Nothing set -> built-in default.
+	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{}); got != "black" {
+		t.Errorf("no flag/env/setting should default to black, got %q", got)
+	}
+	// Persisted setting alone.
+	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "vim" {
+		t.Errorf("persisted Theme=vim should win, got %q", got)
+	}
+	// Env wins over the persisted setting.
+	t.Setenv("KDEPS_THEME", "linux")
+	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "linux" {
+		t.Errorf("KDEPS_THEME=linux should win over persisted Theme=vim, got %q", got)
+	}
+	t.Setenv("KDEPS_THEME", "")
+	// Flag wins over everything.
+	if got := resolveTheme(&agentLoopFlags{Theme: "emacs"}, tui.Settings{Theme: "vim"}); got != "emacs" {
+		t.Errorf("--theme should win over persisted Theme, got %q", got)
+	}
+}
+
+func TestRootCmd_HasThemeFlag(t *testing.T) {
+	cmd := NewRootCmd()
+	if cmd.Flags().Lookup("theme") == nil {
+		t.Fatal("expected --theme flag on root command")
+	}
+}
+
 func TestResolveStartModel_GGUFSuffixAutoSetsBackend(t *testing.T) {
 	// Use HOME isolation so registry reads don't interfere.
 	t.Setenv("HOME", t.TempDir())

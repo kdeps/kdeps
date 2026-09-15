@@ -179,3 +179,173 @@ func TestRenderStealthSample(t *testing.T) {
 		t.Fatal("RenderStealthSample() must join multiple styled lines")
 	}
 }
+
+// --- Theme selection ---
+
+func TestSetTheme_UnknownNameLeavesCurrentThemeUnchanged(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	SetTheme("vim")
+	if ok := SetTheme("bogus"); ok {
+		t.Fatal("SetTheme(\"bogus\") should return false")
+	}
+	if CurrentThemeName() != "vim" {
+		t.Fatalf("CurrentThemeName() = %q, want unchanged \"vim\"", CurrentThemeName())
+	}
+}
+
+func TestSetTheme_IsIndependentOfStealthOnOff(t *testing.T) {
+	t.Cleanup(func() {
+		SetStealth(false)
+		_ = SetTheme("black")
+	})
+	SetStealth(false)
+	if ok := SetTheme("vim"); !ok {
+		t.Fatal("SetTheme(\"vim\") should succeed")
+	}
+	// Choosing a theme while stealth is off must not turn stealth on, and
+	// must not change the rendered palette yet.
+	if stealthEnabled() {
+		t.Fatal("SetTheme must not enable stealth")
+	}
+	if activePalette != &normalPalette {
+		t.Fatal("activePalette must stay normalPalette while stealth is off")
+	}
+	if CurrentThemeName() != "vim" {
+		t.Fatalf("CurrentThemeName() = %q, want \"vim\"", CurrentThemeName())
+	}
+
+	// Turning stealth on now must immediately pick up the already-chosen theme.
+	SetStealth(true)
+	if activePalette != &vimPalette {
+		t.Fatal("SetStealth(true) did not pick up the previously chosen vim theme")
+	}
+}
+
+func TestThemes_PromptTextAndPaletteAppliedWhenStealthOn(t *testing.T) {
+	t.Cleanup(func() {
+		SetStealth(false)
+		_ = SetTheme("black")
+	})
+	cases := []struct {
+		name   string
+		want   *palette
+		prompt string
+	}{
+		{"black", &stealthPalette, "> "},
+		{"linux", &linuxPalette, "$ "},
+		{"vim", &vimPalette, ": "},
+		{"emacs", &emacsPalette, "M-x "},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if ok := SetTheme(tc.name); !ok {
+				t.Fatalf("SetTheme(%q) failed", tc.name)
+			}
+			SetStealth(true)
+			if activePalette != tc.want {
+				t.Errorf("theme %q: activePalette not applied", tc.name)
+			}
+			if activePromptText != tc.prompt {
+				t.Errorf("theme %q: activePromptText = %q, want %q", tc.name, activePromptText, tc.prompt)
+			}
+			SetStealth(false)
+			if activePalette != &normalPalette || activePromptText != "> " {
+				t.Errorf("theme %q: turning stealth off did not restore normal palette/prompt", tc.name)
+			}
+		})
+	}
+}
+
+func TestThemeNames_MatchesRegisteredThemes(t *testing.T) {
+	names := ThemeNames()
+	if len(names) != len(themes) {
+		t.Fatalf("ThemeNames() has %d entries, themes map has %d", len(names), len(themes))
+	}
+	for _, n := range names {
+		if _, ok := themes[n]; !ok {
+			t.Errorf("ThemeNames() lists %q, not in themes map", n)
+		}
+	}
+}
+
+func TestResolveThemeEnv(t *testing.T) {
+	for _, v := range []string{"vim", "VIM", " emacs ", "linux", "black"} {
+		t.Setenv("KDEPS_THEME", v)
+		got := ResolveThemeEnv()
+		want := strings.ToLower(strings.TrimSpace(v))
+		if got != want {
+			t.Errorf("ResolveThemeEnv() for KDEPS_THEME=%q = %q, want %q", v, got, want)
+		}
+	}
+	for _, v := range []string{"", "not-a-theme"} {
+		t.Setenv("KDEPS_THEME", v)
+		if got := ResolveThemeEnv(); got != "" {
+			t.Errorf("ResolveThemeEnv() for KDEPS_THEME=%q = %q, want \"\"", v, got)
+		}
+	}
+}
+
+func TestAbbreviateModelName(t *testing.T) {
+	cases := map[string]string{
+		"llama3.2:1b":     "L21",
+		"claude-sonnet-5": "CS5",
+		"gpt-4o":          "G4",
+		"gemini-2.5-pro":  "G25P",
+		"":                "",
+	}
+	for in, want := range cases {
+		if got := abbreviateModelName(in); got != want {
+			t.Errorf("abbreviateModelName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestDisplayModelName_TheGivenAwayConcern is a regression guard: the
+// linux/vim/emacs themes render the model-name color at full legibility, so
+// showing the literal model name would spell out "llama"/"claude"/"gpt" and
+// give the disguise away even though the surrounding chrome looks like a
+// different program. Only the black theme (and stealth off) show it verbatim
+// - black already hides it by color alone.
+func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
+	t.Cleanup(func() {
+		SetStealth(false)
+		_ = SetTheme("black")
+	})
+	const raw = "claude-sonnet-5"
+
+	if got := DisplayModelName(raw); got != raw {
+		t.Errorf("stealth off: DisplayModelName(%q) = %q, want verbatim", raw, got)
+	}
+
+	SetStealth(true)
+	if got := DisplayModelName(raw); got != raw {
+		t.Errorf("black theme: DisplayModelName(%q) = %q, want verbatim (color alone hides it)", raw, got)
+	}
+
+	for _, name := range []string{"linux", "vim", "emacs"} {
+		_ = SetTheme(name)
+		got := DisplayModelName(raw)
+		if got == raw {
+			t.Errorf("theme %q: DisplayModelName(%q) returned the literal name, giving the disguise away", name, raw)
+		}
+		if strings.Contains(strings.ToLower(got), "claude") {
+			t.Errorf("theme %q: abbreviation %q still spells out the vendor name", name, got)
+		}
+	}
+}
+
+func TestHexToSGRForeground(t *testing.T) {
+	cases := map[string]string{
+		"#000000": "\x1b[38;2;0;0;0m",
+		"#FFFFFF": "\x1b[38;2;255;255;255m",
+		"#242424": "\x1b[38;2;36;36;36m",
+	}
+	for hex, want := range cases {
+		if got := hexToSGRForeground(hex); got != want {
+			t.Errorf("hexToSGRForeground(%q) = %q, want %q", hex, got, want)
+		}
+	}
+	if got := hexToSGRForeground("not-a-color"); got != "" {
+		t.Errorf("hexToSGRForeground on invalid input = %q, want \"\"", got)
+	}
+}
