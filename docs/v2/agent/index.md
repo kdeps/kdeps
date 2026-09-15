@@ -89,7 +89,7 @@ kdeps [path] [flags]
 | `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
-| `--stealth` | false | Muted UI - dark gray, model name barely visible (for use in public) |
+| `--theme` | `normal` | REPL theme: `normal`, `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` |
 | `--debug` | false | Enable debug logging |
 
 ```bash
@@ -97,7 +97,7 @@ kdeps [path] [flags]
 KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
 KDEPS_AGENT_BASE_URL=http://localhost:11434
-KDEPS_STEALTH=1                       # same as --stealth (1, true, or yes)
+KDEPS_THEME=black                     # same as --theme
 ```
 
 ## Examples
@@ -129,7 +129,7 @@ kdeps --resume abc123def456                      # resume a session
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl#sessions) |
-| Pasting, rendering, stealth, notifications, updates | [Agent loop REPL features](/agent/repl) |
+| Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## Differences from workflow mode
 

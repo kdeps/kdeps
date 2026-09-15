@@ -112,12 +112,12 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/theme", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
+	"/login", "/theme", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
-// REPL output styles. Package vars, not constants, so stealth mode (theme.go)
-// can swap them at runtime. All (re)built by applyReplStyles from the active
-// palette - once from theme.go's init, again on every /stealth toggle.
+// REPL output styles. Package vars, not constants, so the active theme
+// (theme.go) can swap them at runtime. All (re)built by applyReplStyles from
+// the active palette - once from theme.go's init, again on every /theme switch.
 //
 //nolint:gochecknoglobals // runtime-swappable REPL styles (stealth mode)
 var (
@@ -227,8 +227,7 @@ type REPL struct {
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
-	saveStealthFn      func(bool) error                    // persists stealth mode; nil if unavailable
-	saveThemeFn        func(string) error                  // persists stealth theme; nil if unavailable
+	saveThemeFn        func(string) error                  // persists the selected theme; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -407,16 +406,9 @@ func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
 	r.saveDefaultFn = fn
 }
 
-// SetSaveStealthFn injects the function that persists stealth mode on/off.
-// Called by /stealth. When nil, /stealth still toggles for the session but
+// SetSaveThemeFn injects the function that persists the selected theme.
+// Called by /theme. When nil, /theme still switches for the session but
 // does not persist.
-func (r *REPL) SetSaveStealthFn(fn func(bool) error) {
-	r.saveStealthFn = fn
-}
-
-// SetSaveThemeFn injects the function that persists the selected stealth
-// theme. Called by /theme. When nil, /theme still switches for the session
-// but does not persist.
 func (r *REPL) SetSaveThemeFn(fn func(string) error) {
 	r.saveThemeFn = fn
 }
@@ -2498,8 +2490,6 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdUpgrade(args)
 	case "/login":
 		return r.cmdLogin(args)
-	case "/stealth":
-		return r.cmdStealth(args)
 	case "/theme":
 		return r.cmdTheme(args)
 	case "/exit", "/quit":
@@ -2588,8 +2578,7 @@ func (r *REPL) cmdHelp() error {
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
-		"  /stealth [on|off]                  Muted UI - dark gray, model name barely visible (for use in public)",
-		"  /theme [black|linux|vim|emacs]     Show or set the stealth-mode theme (visible once /stealth is on)",
+		"  /theme [name]                      Show or set the REPL's look (normal, black, linux, vim, emacs, or custom)",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
@@ -3120,50 +3109,11 @@ func (r *REPL) setToolSetting(name, value string) {
 // cmdModelDefault handles /model default [name].
 // With no name: prints the current default from settings.
 // With a name: saves it as the new default and switches to it.
-// cmdStealth toggles stealth ("Muted") mode. Renders the whole REPL in
-// near-black grays with the model name barely visible - for use in public.
-//
-//	/stealth          toggle
-//	/stealth on|off   set explicitly
-func (r *REPL) cmdStealth(args []string) error {
-	on := !stealthEnabled()
-	if len(args) > 0 {
-		switch strings.ToLower(args[0]) {
-		case "on", "true", "1":
-			on = true
-		case "off", "false", "0":
-			on = false
-		case "toggle":
-			// keep computed toggle
-		default:
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /stealth [on|off]"))
-			return nil
-		}
-	}
-
-	SetStealth(on)
-	if r.saveStealthFn != nil {
-		if err := r.saveStealthFn(on); err != nil {
-			return fmt.Errorf("persist stealth setting: %w", err)
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, r.modeline())
-	switch {
-	case on && CurrentThemeName() == "black":
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on - the model name is now barely visible."))
-	case on:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on (theme: "+CurrentThemeName()+")."))
-	default:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode off."))
-	}
-	return nil
-}
-
 // cmdTheme handles /theme: bare shows the current theme and the list of
-// valid names; /theme <name> switches (black, linux, vim, emacs), persisted
-// via saveThemeFn. Theme selection is independent of /stealth on|off - it
-// only becomes visible once stealth is on.
+// valid names (built-in, then any loaded from ~/.kdeps/themes/); /theme
+// <name> switches immediately (no separate on/off layer -- picking any
+// theme other than "normal" is what used to be a separate /stealth toggle),
+// persisted via saveThemeFn.
 func (r *REPL) cmdTheme(args []string) error {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
@@ -3183,10 +3133,8 @@ func (r *REPL) cmdTheme(args []string) error {
 		}
 	}
 
+	fmt.Fprintln(os.Stdout, r.modeline())
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Theme set to "+name+" (saved)"))
-	if !stealthEnabled() {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("(stealth is off - turn it on with /stealth to see it)"))
-	}
 	return nil
 }
 

@@ -1,0 +1,43 @@
+# vim: leans on vim's classic "default" colorscheme conventions for the syn*
+# fields specifically (Statement yellow, Identifier cyan, Constant/String
+# red, Comment cyan-blue, Type green, Special magenta) - the one theme where
+# syntax highlighting itself is part of the disguise.
+name: vim
+prompt: ": "
+bold: true
+palette:
+  heading: "#FFFF00"
+  link: "#4B9CFF"
+  code: "#D0D0D0"
+  codeBlock: "#D0D0D0"
+  text: "#D0D0D0"
+  thinking: "#5FAFAF"
+  muted: "#5F5F5F"
+  bullet: "#D0D0D0"
+  quote: "#5FAFAF"
+  borderHr: "#444444"
+
+  synKeyword: "#FFFF00"
+  synFunc: "#00FFFF"
+  synStr: "#FF6060"
+  synComment: "#5FAFAF"
+  synNum: "#FF6060"
+  synType: "#00FF00"
+  synOp: "#FF00FF"
+
+  replError: "#FF6060"
+  replMeta: "#5F5F5F"
+  replHeading: "#FFFF00"
+  replSuccess: "#00FF00"
+  replPrompt: "#D0D0D0"
+  replInfo: "#00FFFF"
+  replDim: "#5F5F5F"
+
+  bannerText: "#D0D0D0"
+  bannerBorder: "#444444"
+
+  modelsReady: "#00FF00"
+  modelsNoKey: "#5F5F5F"
+  modelsCurrent: "#FFFF00"
+
+  modelName: "#D0D0D0"

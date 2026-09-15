@@ -76,43 +76,51 @@ The REPL renders the model's markdown responses - headings, bold, lists, tables,
 
 When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as **live markdown**, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header and behind a dim left gutter (`|`) so the whole block reads as a distinct aside from the final answer. Inline code renders styled (by color, not literal backticks) in both the reasoning and the response.
 
-## Stealth mode
+## Themes
 
-`--stealth` (or `KDEPS_STEALTH=1`, or `/stealth` at runtime) renders the whole REPL - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers - in near-black dark grays (forced 24-bit color so the shades don't round up on a 256-color terminal). The model name in the status line is the dimmest element on screen, deliberately close to invisible against a dark terminal. Nothing about the output stops working; it just does not read as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office.
+`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the REPL's entire look - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers. `normal` is the bright default; every other theme is a disguise that no longer reads as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office. There's no separate on/off flag - picking a theme takes effect immediately.
 
 ```bash
-kdeps --stealth                # start muted
+kdeps --theme black             # start disguised
 ```
 
 ```text
-/stealth        toggle muted mode
-/stealth on     turn it on
-/stealth off    turn it off
+/theme              show the current theme and the list of valid names
+/theme vim          switch themes - normal, black, linux, vim, emacs, or a custom name
 ```
-
-The runtime toggle is remembered - `/stealth on` writes `stealth: true` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts muted too. Precedence: the `--stealth` flag wins, then `KDEPS_STEALTH`, then the persisted setting. The flag and env var override the stored value for that one session without changing it. Stealth affects rendering only - prompts, responses, memory, tool calls, and logs are unchanged.
-
-### Themes
-
-Stealth mode has four looks, chosen independently of whether stealth is on or off - picking a theme just decides what stealth renders as once it's turned on:
 
 | Theme | Look |
 |---|---|
-| `black` (default) | Near-black grays, the model name barely visible - the original stealth look above |
+| `normal` (default) | The bright default palette - no disguise |
+| `black` | Near-black grays, forced 24-bit color so the shades don't round up on a 256-color terminal; the model name is the dimmest element on screen, deliberately close to invisible |
 | `linux` | Plain, monochrome-ish light-gray-on-black, like a default terminal with no syntax highlighting |
 | `vim` | vim's classic default colorscheme conventions (yellow keywords, cyan identifiers, red strings) and a `: ` command-line prompt |
 | `emacs` | A common terminal-Emacs highlight set (purple keywords, blue functions, salmon strings) and an `M-x ` prompt |
 
-```text
-/theme              show the current theme and the list of valid names
-/theme vim          switch themes - black, linux, vim, or emacs
+`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts with it too. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `normal`.
+
+`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line for those three themes - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color. The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
+
+### Custom themes
+
+Every theme - built-in or not - is a YAML file. Drop your own into `~/.kdeps/themes/<name>.yaml` and it shows up in `/theme`'s list immediately:
+
+```yaml
+# ~/.kdeps/themes/solarized.yaml
+name: solarized     # optional - defaults to the filename without its extension
+prompt: "$ "         # the literal prompt text this theme renders
+bold: true
+palette:
+  heading: "#b58900"
+  text: "#839496"
+  # any field you omit falls back to the "normal" theme's value, so a
+  # custom theme can override just a couple of accent colors and leave
+  # everything else alone
 ```
 
-`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, same persistence as `/stealth`. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `black`. Since theme selection is independent of `/stealth on|off`, `/theme vim` while stealth is off is remembered but has no visible effect until you also run `/stealth on`.
+A custom theme can reuse a built-in's name (e.g. your own `vim.yaml`) to override it. An invalid color value in one field is dropped with a warning; the rest of the file still loads.
 
-`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line for those three themes - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color.
-
-The spinner that appears while waiting for a response never carries a descriptive word either way - no "generating," no "thinking" - just the animated glyph and the token counter. A label would spell out that an AI is producing a response regardless of how dim its color is.
+Every `palette:` field is optional; the full set is `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).
 
 ## Turn-complete alert
 
@@ -267,7 +275,7 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 - Resuming, continuing, then exiting **updates the same session** - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
-- Settings (`/refine`, `/stealth`, the default model, tool tuning), the model
+- Settings (`/refine`, `/theme`, the default model, tool tuning), the model
   cache, and everything else under `~/.kdeps/` are unchanged.
 - `ctrl+d` on a highlighted session deletes it in place (the "Start a new
   session" row can't be deleted) - same as `/session delete <id>`, just

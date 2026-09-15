@@ -222,6 +222,7 @@ dist/
 coverage.html
 pkg/**/**/*.txt
 pkg/**/**/*.yaml
+!pkg/agent/themes/*.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov

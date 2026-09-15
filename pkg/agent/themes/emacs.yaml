@@ -1,0 +1,41 @@
+# emacs: a common terminal-Emacs highlighting set (keyword purple, function
+# blue, string salmon, comment green).
+name: emacs
+prompt: "M-x "
+bold: true
+palette:
+  heading: "#8080FF"
+  link: "#61AFEF"
+  code: "#DCDCDC"
+  codeBlock: "#DCDCDC"
+  text: "#DCDCDC"
+  thinking: "#6A9955"
+  muted: "#6C6C6C"
+  bullet: "#DCDCDC"
+  quote: "#6A9955"
+  borderHr: "#444444"
+
+  synKeyword: "#C586C0"
+  synFunc: "#61AFEF"
+  synStr: "#CE9178"
+  synComment: "#6A9955"
+  synNum: "#B5CEA8"
+  synType: "#4EC9B0"
+  synOp: "#D4D4D4"
+
+  replError: "#F44747"
+  replMeta: "#6C6C6C"
+  replHeading: "#8080FF"
+  replSuccess: "#6A9955"
+  replPrompt: "#DCDCDC"
+  replInfo: "#61AFEF"
+  replDim: "#6C6C6C"
+
+  bannerText: "#DCDCDC"
+  bannerBorder: "#444444"
+
+  modelsReady: "#6A9955"
+  modelsNoKey: "#6C6C6C"
+  modelsCurrent: "#8080FF"
+
+  modelName: "#DCDCDC"
