@@ -150,6 +150,10 @@ func createRootCommand() *cobra.Command {
 		&flags.Stealth, "stealth", false,
 		"Muted UI - render everything in dark gray with the model name barely visible (for use in public)",
 	)
+	rootCmd.Flags().StringVar(
+		&flags.Theme, "theme", "",
+		"Stealth-mode theme: black (default), linux, vim, or emacs",
+	)
 
 	addSubcommands(rootCmd)
 

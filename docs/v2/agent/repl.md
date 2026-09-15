@@ -92,6 +92,26 @@ kdeps --stealth                # start muted
 
 The runtime toggle is remembered - `/stealth on` writes `stealth: true` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts muted too. Precedence: the `--stealth` flag wins, then `KDEPS_STEALTH`, then the persisted setting. The flag and env var override the stored value for that one session without changing it. Stealth affects rendering only - prompts, responses, memory, tool calls, and logs are unchanged.
 
+### Themes
+
+Stealth mode has four looks, chosen independently of whether stealth is on or off - picking a theme just decides what stealth renders as once it's turned on:
+
+| Theme | Look |
+|---|---|
+| `black` (default) | Near-black grays, the model name barely visible - the original stealth look above |
+| `linux` | Plain, monochrome-ish light-gray-on-black, like a default terminal with no syntax highlighting |
+| `vim` | vim's classic default colorscheme conventions (yellow keywords, cyan identifiers, red strings) and a `: ` command-line prompt |
+| `emacs` | A common terminal-Emacs highlight set (purple keywords, blue functions, salmon strings) and an `M-x ` prompt |
+
+```text
+/theme              show the current theme and the list of valid names
+/theme vim          switch themes - black, linux, vim, or emacs
+```
+
+`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, same persistence as `/stealth`. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `black`. Since theme selection is independent of `/stealth on|off`, `/theme vim` while stealth is off is remembered but has no visible effect until you also run `/stealth on`.
+
+`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line instead - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - so it no longer spells out which model (or vendor) you're running.
+
 ## Turn-complete alert
 
 When a turn takes a while (a long research loop, a slow local model), the REPL rings the terminal and posts a desktop notification once the response is ready, so you can step away and come back when it beeps:

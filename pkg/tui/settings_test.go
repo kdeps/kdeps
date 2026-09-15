@@ -34,6 +34,33 @@ func TestSettings_SaveLoad(t *testing.T) {
 	assert.Equal(t, []string{"lint"}, got.EnabledSkills)
 }
 
+func TestSettings_ThemeRoundTrips(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	s := Settings{Theme: "vim"}
+	require.NoError(t, s.Save())
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "vim", got.Theme)
+}
+
+func TestSaveTheme_PersistsAndPreservesOtherFields(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	require.NoError(t, (&Settings{Stealth: true}).Save())
+	require.NoError(t, SaveTheme("emacs"))
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "emacs", got.Theme)
+	assert.True(t, got.Stealth, "SaveTheme must not clobber unrelated fields")
+}
+
 func TestLoadSettings_Missing(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

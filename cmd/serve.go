@@ -240,6 +240,7 @@ type agentLoopFlags struct {
 	Resume       string
 	NewSession   bool
 	Stealth      bool
+	Theme        string
 }
 
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
@@ -282,8 +283,11 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	applySettingsToRegistry(settings, registry, flags, flags.Debug)
 
 	// Stealth ("Muted") mode. Applied before anything is printed so the banner
-	// is muted too.
+	// is muted too. Theme selection is independent of the on/off flag itself
+	// (it's what stealth mode looks like once it's on), so it's always
+	// resolved and applied regardless of stealth's value.
 	stealth := resolveStealth(flags, settings)
+	agent.SetTheme(resolveTheme(flags, settings))
 	agent.SetStealth(stealth)
 	tui.SetStealth(stealth)
 
@@ -466,6 +470,11 @@ func wireREPL(
 		return tui.SaveStealth(on)
 	})
 
+	// Wire theme persistence for /theme. The TUI pickers keep their own
+	// independent dim/normal palette regardless of which stealth theme is
+	// selected, so no tui.SetTheme mirror is needed here.
+	repl.SetSaveThemeFn(tui.SaveTheme)
+
 	// Persist /model tool settings across sessions, and apply any saved ones at
 	// startup. tui.AgentLoopTuning and agent.ToolTuning have identical fields, so
 	// they convert directly.
@@ -558,6 +567,23 @@ func resolveAutoModel(ctx context.Context) (string, string) {
 // the --stealth flag, then KDEPS_STEALTH, then the persisted setting.
 func resolveStealth(flags *agentLoopFlags, settings tui.Settings) bool {
 	return flags.Stealth || agent.ResolveStealthEnv() || settings.Stealth
+}
+
+// resolveTheme decides which stealth-mode theme to use. Precedence: the
+// --theme flag, then KDEPS_THEME, then the persisted setting, falling back
+// to the built-in default ("black") when none is set. Independent of
+// whether stealth is currently on -- the theme is remembered either way.
+func resolveTheme(flags *agentLoopFlags, settings tui.Settings) string {
+	if flags.Theme != "" {
+		return flags.Theme
+	}
+	if envTheme := agent.ResolveThemeEnv(); envTheme != "" {
+		return envTheme
+	}
+	if settings.Theme != "" {
+		return settings.Theme
+	}
+	return "black"
 }
 
 // resolveStartModel returns the model and backend to use at startup.
