@@ -3670,12 +3670,11 @@ func TestCmdCompact_SyncsTokenCounter(t *testing.T) {
 }
 
 func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
-	// CompactTokenBudget left at its zero value: findCutIndex treats <=0 as
-	// "keep almost nothing," so with enough turns there is always something
-	// to compact -- unlike ForceCompact, CompactWithLLM has no separate
-	// "keep the last N turns regardless" override.
+	// /fold now forces a fold via ForceCompact, which ignores the compaction
+	// budget entirely: enough turns (more than forceKeepTurns+1) is all it
+	// takes to guarantee something to summarize.
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
-	for range compactMinTurns + 1 {
+	for range forceKeepTurns + 2 {
 		loop.session.Append("user msg", "assistant reply")
 	}
 	repl := NewREPL(context.Background(), loop)
@@ -3689,9 +3688,10 @@ func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
 	assert.Equal(t, int64(33), repl.tokenCounter.OutputTokens())
 }
 
-// TestCmdFoldNow_ExplainsTooFewTurns covers explainNothingToFold's
-// too-few-turns branch: below compactMinTurns, findCutIndex returns 0 before
-// ever looking at the token budget.
+// TestCmdFoldNow_ExplainsTooFewTurns covers explainNothingToFold's only
+// remaining branch now that /fold now forces via ForceCompact: the budget is
+// irrelevant to a forced fold, so the sole reason it can come back empty is
+// too few turns to have anything beyond what's always kept verbatim.
 func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
 	repl := NewREPL(context.Background(), loop)
@@ -3704,30 +3704,9 @@ func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
 
 	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldNow()) })
 
-	assert.Contains(t, out, "Nothing to fold")
-	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", compactMinTurns))
-	assert.Contains(t, out, "session tokens:")
+	assert.Contains(t, out, "Nothing to fold yet")
+	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", forceKeepTurns+2))
 	assert.Contains(t, out, "token counter: in:5 out:2")
-}
-
-// TestCmdFoldNow_ExplainsUnderBudget covers the other findCutIndex==0 branch:
-// enough turns to compact, but a budget large enough that everything still
-// fits -- the "turns:" line must not appear since turns are not the blocker.
-func TestCmdFoldNow_ExplainsUnderBudget(t *testing.T) {
-	loop := makeTestLoopWithEngine("## Progress\n- did things")
-	loop.config.CompactTokenBudget = 10 * 1024 * 1024 // exact "10m" once formatted
-	for range compactMinTurns + 1 {
-		loop.session.Append("user msg", "assistant reply")
-	}
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldNow()) })
-
-	assert.Contains(t, out, "Nothing to fold")
-	assert.NotContains(t, out, "turns:", "turn count is not the blocker here")
-	assert.Contains(t, out, "session tokens:")
-	assert.Contains(t, out, "10m budget")
 }
 
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {

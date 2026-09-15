@@ -21,6 +21,7 @@ package agent
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewSession_Defaults(t *testing.T) {
@@ -38,6 +39,50 @@ func TestAppend_AddsTurn(t *testing.T) {
 	s.Append("hello", "hi there")
 	if s.TurnCount() != 1 {
 		t.Fatalf("expected 1 turn, got %d", s.TurnCount())
+	}
+}
+
+// TestNextID_TracksRealTimeNotJustCallCount is a regression guard for the
+// fold-never-fires-again-after-the-first-checkpoint bug: message IDs must
+// track real wall-clock time, not just count Append() calls starting from an
+// arbitrary base value. tokensSinceCheckpoint (compact.go) compares a
+// message's ID against a checkpoint's UpdatedAt converted to nanoseconds --
+// if lastEntryID had merely incremented by a couple per call from its
+// initial time.Now().UnixNano() base, a checkpoint's real (much later)
+// timestamp would exceed every subsequent message's ID forever, and fold
+// would never fire again after the first one.
+func TestNextID_TracksRealTimeNotJustCallCount(t *testing.T) {
+	s := NewSession(0)
+	// Simulate a session that has been running a while: lastEntryID is far
+	// behind real "now", the way a pure call-counter would leave it after
+	// real time (but not many Append calls) has passed.
+	s.lastEntryID = 1
+	before := time.Now().UnixNano()
+	s.Append("hi", "hello")
+
+	// A generous upper bound rather than a tight [before, after] window:
+	// Append issues two IDs back-to-back (user + assistant), and on a fast
+	// machine both time.Now() reads can land in the same clock tick, so the
+	// second ID legitimately advances past a tightly-captured "after" via
+	// the same-tick fallback. The real assertion is "close to now", not
+	// "before the very next line of test code ran".
+	const slop = int64(time.Second)
+	id := s.messages[len(s.messages)-1].ID
+	if id < before || id > before+slop {
+		t.Fatalf("nextID() = %d, want within [%d, %d] (must track real wall-clock time)", id, before, before+slop)
+	}
+}
+
+// TestNextID_MonotonicOnSameTickCollision guards the fallback path: IDs must
+// stay strictly increasing even when real time has not advanced past the
+// last one issued (a same-nanosecond collision, or a coarser platform clock).
+func TestNextID_MonotonicOnSameTickCollision(t *testing.T) {
+	s := NewSession(0)
+	s.lastEntryID = time.Now().Add(time.Hour).UnixNano() // pretend "now" is already in the future
+	id1 := s.nextID()
+	id2 := s.nextID()
+	if id2 <= id1 {
+		t.Fatalf("IDs must stay strictly increasing even without real time advancing: id1=%d id2=%d", id1, id2)
 	}
 }
 

@@ -110,7 +110,7 @@ Stealth mode has four looks, chosen independently of whether stealth is on or of
 
 `/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, same persistence as `/stealth`. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `black`. Since theme selection is independent of `/stealth on|off`, `/theme vim` while stealth is off is remembered but has no visible effect until you also run `/stealth on`.
 
-`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line instead - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - so it no longer spells out which model (or vendor) you're running.
+`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so two things that would otherwise spell out an AI session are hidden by content, not color: the literal model name is shortened to initials in the status line - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - and the "generating" label next to the spinner while waiting for a response is dropped entirely.
 
 ## Turn-complete alert
 
@@ -209,7 +209,7 @@ in the prompt's memory block) and needs no setup.
 | Command | Effect |
 |---|---|
 | `/fold` | Show status: auto on/off, threshold, items cap, tokens accumulated since the last checkpoint |
-| `/fold now` | Fold immediately, regardless of the threshold |
+| `/fold now` | Force a fold immediately, regardless of the threshold or the compaction budget |
 | `/fold auto` / `/fold auto off` | Toggle automatic folding (default: on) |
 | `/fold threshold <n>` | Token delta since the last checkpoint that triggers a fold (e.g. `4k`) |
 | `/fold items <n>` | How many recent checkpoints stay in the active memory-prompt window |
@@ -218,11 +218,12 @@ in the prompt's memory block) and needs no setup.
 All four settings persist across sessions, the same way `/model tool set
 compact-threshold`/`compact-budget` already do.
 
-`/fold now` reuses the same cut logic as auto-compaction (not the fold
-threshold), so it can report "still under budget" even past the fold
-threshold. When that happens it prints why: too few turns to compact at all,
-or the session's token count against the compaction budget, plus the current
-`in:`/`out:` token counter - numbers to check instead of just an assertion.
+`/fold now` is a *forced* fold: it ignores the threshold and the compaction
+budget entirely and always summarizes everything except the last few turns,
+same as `/compact`. The only way it comes back with nothing is too few turns
+to have anything beyond what it always keeps verbatim - it then prints the
+turn count needed and the current `in:`/`out:` token counter, a number to
+check instead of just an assertion.
 
 Both `/compact` and `/fold` refresh the cumulative token counter (`in:`/`out:`
 in the status line) immediately after they run, since the summarization call
