@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -157,7 +158,10 @@ func loadBuiltinThemesFrom(fsys themeFS) map[string]*theme {
 // rest). Panics on any read/parse error -- these are shipped files, not user
 // input.
 func parseBuiltinFileFrom(fsys themeFS, out map[string]*theme, filename string, base palette) palette {
-	data, err := fsys.ReadFile(filepath.Join("themes", filename))
+	// fs.FS paths (embed.FS included) are always forward-slash, regardless of
+	// OS -- filepath.Join would emit a backslash on Windows and break the
+	// lookup.
+	data, err := fsys.ReadFile(path.Join("themes", filename))
 	if err != nil {
 		panic(fmt.Sprintf("theme: read embedded %s: %v", filename, err))
 	}
