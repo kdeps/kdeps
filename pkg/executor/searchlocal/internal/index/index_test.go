@@ -22,6 +22,36 @@ import (
 	"testing"
 )
 
+func TestNewInvertedIndex_OpenError(t *testing.T) {
+	// A path inside a directory that does not exist fails bolt.Open.
+	dbPath := filepath.Join(t.TempDir(), "does-not-exist", "idx.bolt")
+	if _, err := NewInvertedIndex(dbPath); err == nil {
+		t.Fatal("expected an error opening bbolt at a missing parent directory")
+	}
+}
+
+func TestLevenshteinDistance(t *testing.T) {
+	cases := []struct {
+		a, b    string
+		maxDist int
+		want    int
+	}{
+		{"same", "same", 3, 0},
+		{"", "abc", 3, 3},
+		{"abc", "", 3, 3},
+		{"kitten", "sitting", 3, 3},
+		{"cat", "hat", 3, 1},
+		// length difference alone (5) exceeds maxDist (2): early bailout at
+		// maxDist+1 without computing the real distance.
+		{"short", "a-much-longer-string", 2, 3},
+	}
+	for _, c := range cases {
+		if got := levenshteinDistance(c.a, c.b, c.maxDist); got != c.want {
+			t.Errorf("levenshteinDistance(%q, %q, %d) = %d, want %d", c.a, c.b, c.maxDist, got, c.want)
+		}
+	}
+}
+
 func TestInvertedIndexLifecycle(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "idx.bolt")
 	idx, err := NewInvertedIndex(dbPath)

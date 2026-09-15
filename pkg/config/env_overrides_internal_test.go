@@ -22,7 +22,28 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestPortStr(t *testing.T) {
+	assert.Equal(t, "", portStr(0))
+	assert.Equal(t, "587", portStr(587))
+}
+
+func TestBoolStr(t *testing.T) {
+	assert.Equal(t, "true", boolStr(true))
+	assert.Equal(t, "", boolStr(false))
+}
+
+func TestSplitNameField(t *testing.T) {
+	name, field, ok := splitNameField("MAIN_HOST", []string{"HOST", "PORT"})
+	assert.True(t, ok)
+	assert.Equal(t, "main", name)
+	assert.Equal(t, "HOST", field)
+
+	_, _, ok = splitNameField("MAIN_UNKNOWN", []string{"HOST", "PORT"})
+	assert.False(t, ok)
+}
 
 func TestApplyConnectionEnvOverrides_Mail(t *testing.T) {
 	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_HOST", "smtp.example.com")
@@ -231,4 +252,50 @@ func TestConnectionEnvFieldsUnknownKind(t *testing.T) {
 
 func TestConnectionEnvFieldsUnknownBot(t *testing.T) {
 	assert.Nil(t, ConnectionEnvFields(nil, ConnKindBot, "nostromo"))
+}
+
+func TestSetHTTPAuthField(t *testing.T) {
+	auth := &HTTPAuthConfig{}
+	setHTTPAuthField(auth, "AUTH_TYPE", "basic")
+	setHTTPAuthField(auth, "AUTH_USERNAME", "user")
+	setHTTPAuthField(auth, "AUTH_PASSWORD", "pass")
+	setHTTPAuthField(auth, "AUTH_TOKEN", "tok")
+	setHTTPAuthField(auth, "AUTH_KEY", "X-Api-Key")
+	setHTTPAuthField(auth, "AUTH_VALUE", "secret")
+	assert.Equal(t, &HTTPAuthConfig{
+		Type: "basic", Username: "user", Password: "pass",
+		Token: "tok", Key: "X-Api-Key", Value: "secret",
+	}, auth)
+
+	// An unrecognized field is a no-op, not an error.
+	before := *auth
+	setHTTPAuthField(auth, "AUTH_BOGUS", "x")
+	assert.Equal(t, before, *auth)
+}
+
+func TestOverlayBot(t *testing.T) {
+	cfg := &Config{}
+	overlayBot(cfg, "DISCORD_BOT_TOKEN", "d-tok")
+	overlayBot(cfg, "TELEGRAM_BOT_TOKEN", "t-tok")
+	overlayBot(cfg, "SLACK_BOT_TOKEN", "s-bot")
+	overlayBot(cfg, "SLACK_APP_TOKEN", "s-app")
+	overlayBot(cfg, "SLACK_SIGNING_SECRET", "s-sign")
+	overlayBot(cfg, "WHATSAPP_PHONE_NUMBER_ID", "w-pid")
+	overlayBot(cfg, "WHATSAPP_ACCESS_TOKEN", "w-at")
+	overlayBot(cfg, "WHATSAPP_WEBHOOK_SECRET", "w-ws")
+
+	require.NotNil(t, cfg.BotConnections)
+	assert.Equal(t, "d-tok", cfg.BotConnections.Discord.BotToken)
+	assert.Equal(t, "t-tok", cfg.BotConnections.Telegram.BotToken)
+	assert.Equal(t, "s-bot", cfg.BotConnections.Slack.BotToken)
+	assert.Equal(t, "s-app", cfg.BotConnections.Slack.AppToken)
+	assert.Equal(t, "s-sign", cfg.BotConnections.Slack.SigningSecret)
+	assert.Equal(t, "w-pid", cfg.BotConnections.WhatsApp.PhoneNumberID)
+	assert.Equal(t, "w-at", cfg.BotConnections.WhatsApp.AccessToken)
+	assert.Equal(t, "w-ws", cfg.BotConnections.WhatsApp.WebhookSecret)
+
+	// An unrecognized field is a no-op, not an error.
+	before := *cfg.BotConnections
+	overlayBot(cfg, "BOGUS_FIELD", "x")
+	assert.Equal(t, before, *cfg.BotConnections)
 }

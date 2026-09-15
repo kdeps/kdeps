@@ -573,6 +573,30 @@ func TestConfigureRouter(t *testing.T) {
 	assert.Equal(t, strategyRoundRobin, cfg.LLM.Strategy)
 }
 
+func TestAppendModelsAndStrategy(t *testing.T) {
+	// Neither strategy nor models: nothing appended.
+	var lines []string
+	appendModelsAndStrategy(&lines, LLMKeys{})
+	assert.Empty(t, lines)
+
+	// Strategy only.
+	lines = nil
+	appendModelsAndStrategy(&lines, LLMKeys{Strategy: strategyRoundRobin})
+	require.Len(t, lines, 1)
+	assert.Contains(t, lines[0], strategyRoundRobin)
+
+	// Strategy plus models: both serialized, models as a nested YAML list.
+	lines = nil
+	appendModelsAndStrategy(&lines, LLMKeys{
+		Strategy: strategyRoundRobin,
+		Models:   ModelList{{Model: "gpt-4o", Backend: "openai"}},
+	})
+	joined := strings.Join(lines, "\n")
+	assert.Contains(t, joined, strategyRoundRobin)
+	assert.Contains(t, joined, "models:")
+	assert.Contains(t, joined, "gpt-4o")
+}
+
 func TestBootstrapInteractive_CloudKeyReadError(t *testing.T) {
 	origReadSecret := readSecretFunc
 	t.Cleanup(func() { readSecretFunc = origReadSecret })

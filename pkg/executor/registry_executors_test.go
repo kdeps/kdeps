@@ -90,3 +90,15 @@ func TestGetCodeIntelligenceExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetCodeIntelligenceExecutor())
 }
+
+func TestGetOCRExecutor_Nil(t *testing.T) {
+	reg := NewRegistry()
+	assert.Nil(t, reg.GetOCRExecutor())
+}
+
+func TestSetOCRExecutor_ThenGet(t *testing.T) {
+	reg := NewRegistry()
+	exec := &mockResourceExec{}
+	reg.SetOCRExecutor(exec)
+	assert.Same(t, exec, reg.GetOCRExecutor())
+}

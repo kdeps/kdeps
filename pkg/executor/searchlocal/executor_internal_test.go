@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -708,5 +709,53 @@ func TestPDFIndexingExtractsText(t *testing.T) {
 	count, _ := rm["count"].(int)
 	if count != 1 {
 		t.Errorf("search found %d results for the PDF's text content, want 1: %+v", count, rm)
+	}
+}
+
+func TestMatchGlob(t *testing.T) {
+	if !matchGlob("", "anything.go") {
+		t.Error(`matchGlob("", ...) must match everything`)
+	}
+	if !matchGlob("*.go", "main.go") {
+		t.Error("*.go should match main.go")
+	}
+	if matchGlob("*.go", "main.py") {
+		t.Error("*.go should not match main.py")
+	}
+	if matchGlob("[", "x") {
+		t.Error("an invalid pattern must not match (and must not panic)")
+	}
+}
+
+func TestGenerateSnippet(t *testing.T) {
+	dir := t.TempDir()
+
+	if got := generateSnippet(filepath.Join(dir, "missing.txt"), "q"); got != "" {
+		t.Errorf("generateSnippet on a missing file = %q, want empty", got)
+	}
+
+	short := filepath.Join(dir, "short.txt")
+	require.NoError(t, os.WriteFile(short, []byte("hello world"), 0600))
+	if got := generateSnippet(short, "notfound"); got != "hello world" {
+		t.Errorf("generateSnippet short/not-found = %q, want the whole file", got)
+	}
+
+	long := filepath.Join(dir, "long.txt")
+	longContent := strings.Repeat("a", snippetMaxPreview+50)
+	require.NoError(t, os.WriteFile(long, []byte(longContent), 0600))
+	got := generateSnippet(long, "notfound")
+	if !strings.HasSuffix(got, "...") {
+		t.Errorf("generateSnippet on a long not-found file must be truncated with ...: %q", got)
+	}
+
+	found := filepath.Join(dir, "found.txt")
+	body := strings.Repeat("x", 200) + "NEEDLE" + strings.Repeat("y", 200)
+	require.NoError(t, os.WriteFile(found, []byte(body), 0600))
+	got = generateSnippet(found, "needle") // case-insensitive
+	if !strings.Contains(got, "NEEDLE") {
+		t.Errorf("generateSnippet must include the match: %q", got)
+	}
+	if !strings.HasPrefix(got, "...") || !strings.HasSuffix(got, "...") {
+		t.Errorf("a match with content on both sides must be bracketed by ...: %q", got)
 	}
 }

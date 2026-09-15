@@ -3631,6 +3631,35 @@ func TestCmdFold_Preset(t *testing.T) {
 	assert.Equal(t, foldPresets["loose"].items, loop.config.FoldContextItems)
 }
 
+func TestCmdFold_ThresholdRejectsMissingArgAndInvalidValue(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.FoldThreshold = 999
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"threshold"})) })
+	assert.Equal(t, 999, loop.config.FoldThreshold, "missing arg must not change config")
+
+	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"threshold", "0"})) })
+	assert.Equal(t, 999, loop.config.FoldThreshold, "non-positive threshold must be rejected")
+}
+
+func TestCmdFold_ItemsRejectsMissingArgAndInvalidValue(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.FoldContextItems = 9
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items"})) })
+	assert.Equal(t, 9, loop.config.FoldContextItems, "missing arg must not change config")
+
+	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items", "not-a-number"})) })
+	assert.Equal(t, 9, loop.config.FoldContextItems, "non-numeric items must be rejected")
+
+	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items", "-1"})) })
+	assert.Equal(t, 9, loop.config.FoldContextItems, "non-positive items must be rejected")
+}
+
 func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
@@ -3644,6 +3673,43 @@ func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {
 	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "nonexistent"}) })
 	assert.Equal(t, 999, loop.config.FoldThreshold, "an unknown preset must not partially apply")
 	assert.Equal(t, 9, loop.config.FoldContextItems)
+}
+
+// TestCmdFoldStatus_NoCheckpointYet covers the bare "/fold" status display
+// when nothing has ever been folded: no memory store at all, "last fold:
+// never", and the accumulated count comes from the live session.
+func TestCmdFoldStatus_NoCheckpointYet(t *testing.T) {
+	loop := makeTestLoop(nil) // memoryStore left nil
+	loop.session.Append("user msg", "assistant reply")
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, repl.cmdFold(nil)) })
+
+	assert.Contains(t, out, "auto: on")
+	assert.Contains(t, out, fmt.Sprintf("threshold: %d tokens", defaultFoldThreshold))
+	assert.Contains(t, out, fmt.Sprintf("context items: %d", defaultFoldContextItems))
+	assert.Contains(t, out, "last fold: never")
+}
+
+// TestCmdFoldStatus_WithCheckpoint covers the branch where a checkpoint
+// already exists: "last fold" reports its age instead of "never", and the
+// accumulated count is measured from its UpdatedAt rather than from zero.
+func TestCmdFoldStatus_WithCheckpoint(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.FoldOff = true
+	loop.memoryStore = NewMemoryStore(t.TempDir())
+	loop.memoryStore.SetCwd(t.TempDir())
+	require.NoError(t, loop.memoryStore.Set(checkpointSummaryKey, "## Progress\n- did things"))
+	loop.session.Append("user msg", "assistant reply")
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldStatus()) })
+
+	assert.Contains(t, out, "auto: off")
+	assert.NotContains(t, out, "last fold: never")
+	assert.Contains(t, out, "accumulated since:")
 }
 
 // The compaction/fold call itself consumes real tokens (it's a real LLM

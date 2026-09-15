@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,6 +118,37 @@ func TestMemoryRelation_ConvertsEntries(t *testing.T) {
 	require.Len(t, rows, 1)
 	assert.Equal(t, "k1", rows[0]["key"])
 	assert.Equal(t, "v1", rows[0]["value"])
+}
+
+// TestMemoryRelation_TruncatesToLimitKeepingMostRecent guards the
+// >relMemoryLimit branch: with more entries than the limit, only the most
+// recently updated ones survive, matching the recency bias used elsewhere in
+// the memory subsystem (selectKeptEntries, RecentKeys).
+func TestMemoryRelation_TruncatesToLimitKeepingMostRecent(t *testing.T) {
+	ms := NewMemoryStore(t.TempDir())
+	ms.SetCwd("/Users/test/Projects/truncation")
+
+	total := relMemoryLimit + 5
+	for i := range total {
+		key := fmt.Sprintf("key-%04d", i)
+		require.NoError(t, ms.Set(key, "v"))
+		// Force a distinct, increasing UpdatedAt per entry -- Set() alone can
+		// land multiple entries in the same millisecond under a fast loop.
+		e, ok := ms.Get(key)
+		require.True(t, ok)
+		e.UpdatedAt = int64(i)
+		ms.entries[key] = e
+	}
+
+	rows := memoryRelation(ms)
+	require.Len(t, rows, relMemoryLimit)
+	// The oldest 5 entries (key-0000..key-0004) must have been dropped.
+	seen := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		seen[r["key"].(string)] = true
+	}
+	assert.False(t, seen["key-0000"], "the oldest entry must be dropped")
+	assert.True(t, seen[fmt.Sprintf("key-%04d", total-1)], "the newest entry must survive")
 }
 
 func TestToolCallRelation_ConvertsRecords(t *testing.T) {

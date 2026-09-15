@@ -933,6 +933,41 @@ func TestWebServer_SetupWebRoutes(t *testing.T) {
 	assert.NotNil(t, webServer)
 }
 
+// TestWebServer_Start_Success starts a real plain-HTTP listener and shuts it
+// down, covering the ListenAndServe() branch of Start that the no-config test
+// above never reaches.
+func TestWebServer_Start_Success(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			WebServer: &domain.WebServerConfig{
+				HostIP:  "127.0.0.1",
+				PortNum: 18923, // high port unlikely to conflict
+				Routes:  []domain.WebRoute{},
+			},
+		},
+	}
+
+	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
+	require.NoError(t, err)
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- webServer.Start(t.Context())
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	require.NoError(t, webServer.Shutdown(context.Background()))
+
+	select {
+	case startErr := <-errChan:
+		// ListenAndServe returns ErrServerClosed once Shutdown completes.
+		assert.ErrorIs(t, startErr, http.ErrServerClosed)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Start did not return after Shutdown")
+	}
+}
+
 // TestWebServer_Start_NoConfig tests Start without webServer config.
 func TestWebServer_Start_NoConfig(t *testing.T) {
 	workflow := &domain.Workflow{
@@ -1532,10 +1567,10 @@ func TestWebServer_HandleAppRequest_WithPort(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
-	// This will fail because there's no actual server running on port 16395
+	// This will fail because there's no actual server running on port 1.
 	// But it covers the code path
 	webServer.HandleAppRequest(w, req, route)
 	// Should attempt to proxy (will fail but path is covered)
@@ -1559,7 +1594,7 @@ func TestWebServer_HandleAppRequest_DefaultHostIP(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1584,7 +1619,7 @@ func TestWebServer_HandleAppRequest_InvalidURL(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1612,7 +1647,7 @@ func TestWebServer_HandleAppRequest_WebSocketUpgrade(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	// Should route to WebSocket handler
@@ -1638,7 +1673,7 @@ func TestWebServer_HandleAppRequest_PathForwarding(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)
@@ -1663,7 +1698,7 @@ func TestWebServer_HandleAppRequest_RootPath(t *testing.T) {
 	route := &domain.WebRoute{
 		Path:       "/",
 		ServerType: "app",
-		AppPort:    16395,
+		AppPort:    1, // Port 1 is privileged and nothing is listening (avoids flaking against a real process on a high port)
 	}
 
 	webServer.HandleAppRequest(w, req, route)

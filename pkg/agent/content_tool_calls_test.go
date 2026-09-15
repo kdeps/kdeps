@@ -15,6 +15,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -163,4 +164,14 @@ func TestSalvageContentToolCalls_LoneParameterStripped(t *testing.T) {
 	assert.NotContains(t, cleaned, "parameter")
 	assert.Contains(t, cleaned, "Here is the plan.")
 	assert.Contains(t, cleaned, "Done.")
+}
+
+func TestArgsToJSON(t *testing.T) {
+	assert.Equal(t, `{"a":1}`, argsToJSON(json.RawMessage(`{"a":1}`)))
+	assert.Equal(t, `{"a":1}`, argsToJSON(json.RawMessage(` {"a":1} `)),
+		"surrounding whitespace on a raw object is trimmed")
+	assert.Equal(t, `{"a":1}`, argsToJSON(json.RawMessage(`"{\"a\":1}"`)),
+		"a JSON string containing an object is unwrapped")
+	assert.Equal(t, "{}", argsToJSON(json.RawMessage(`"not an object"`)))
+	assert.Equal(t, "{}", argsToJSON(json.RawMessage(`not valid json at all`)))
 }
