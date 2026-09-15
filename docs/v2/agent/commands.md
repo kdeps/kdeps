@@ -33,6 +33,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
 | `/stealth [on\|off]` | Muted UI - render everything in dark gray with the model name barely visible (for use in public); persists to `~/.kdeps/agent-loop-settings.yaml`. Also `--stealth` / `KDEPS_STEALTH=1` at startup |
+| `/theme [black\|linux\|vim\|emacs]` | Show or set the stealth-mode theme (see [Themes](/agent/repl#themes)); persists. Also `--theme` / `KDEPS_THEME` at startup |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
@@ -113,6 +114,7 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 | `--model` / `--backend` / `--base-url` | Override the model for this run |
 | `--system <text>` | Prepend a system prompt |
 | `--stealth` | Muted UI (see [Stealth mode](/agent/repl#stealth-mode)) |
+| `--theme <name>` | Stealth-mode theme: `black` (default), `linux`, `vim`, or `emacs` (see [Themes](/agent/repl#themes)) |
 
 Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 `kdeps` runs in. See [Sessions](/agent/repl#sessions).

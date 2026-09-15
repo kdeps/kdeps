@@ -85,3 +85,86 @@ func TestDispatchStealth(t *testing.T) {
 	require.NoError(t, repl.dispatchCommand("/stealth on"))
 	assert.True(t, stealthEnabled())
 }
+
+// --- /theme ---
+
+func TestCmdTheme_SetsAndPersists(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved []string
+	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })
+
+	require.NoError(t, repl.cmdTheme([]string{"vim"}))
+	assert.Equal(t, "vim", CurrentThemeName())
+	assert.Equal(t, []string{"vim"}, saved)
+}
+
+func TestCmdTheme_UnknownNameRejectedNoSave(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved []string
+	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })
+
+	require.NoError(t, repl.cmdTheme([]string{"bogus"}))
+	assert.Equal(t, "black", CurrentThemeName(), "an unknown theme must not change the current one")
+	assert.Empty(t, saved, "an unknown theme must not be persisted")
+}
+
+func TestCmdTheme_NoSaveFnStillSwitches(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.cmdTheme([]string{"emacs"}))
+	assert.Equal(t, "emacs", CurrentThemeName())
+}
+
+func TestCmdTheme_BareShowsCurrentTheme(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	_ = SetTheme("linux")
+	require.NoError(t, repl.cmdTheme(nil))
+}
+
+func TestThemeCommandRegistered(t *testing.T) {
+	assert.True(t, slices.Contains(builtinCmds, "/theme"), "/theme must be in the completer list")
+}
+
+func TestDispatchTheme(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("black") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.dispatchCommand("/theme vim"))
+	assert.Equal(t, "vim", CurrentThemeName())
+}
+
+// TestCmdStealth_ThemeAwareMessageBranches exercises cmdStealth's on-message
+// branches for both the "black" theme and a non-black theme (the exact
+// printed wording differs; both paths just need to return cleanly).
+func TestCmdStealth_ThemeAwareMessageBranches(t *testing.T) {
+	t.Cleanup(func() {
+		SetStealth(false)
+		_ = SetTheme("black")
+	})
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.cmdStealth([]string{"on"})) // black branch
+	require.NoError(t, repl.cmdStealth([]string{"off"}))
+
+	require.NoError(t, repl.cmdTheme([]string{"vim"}))
+	require.NoError(t, repl.cmdStealth([]string{"on"})) // non-black branch
+}

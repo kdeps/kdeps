@@ -33,6 +33,11 @@ type Settings struct {
 	// without changing the stored value.
 	Stealth bool `yaml:"stealth,omitempty"`
 
+	// Theme persists the selected stealth-mode theme (black, linux, vim,
+	// emacs). Set via /theme in the REPL. The --theme flag and KDEPS_THEME
+	// env var override it for one session without changing the stored value.
+	Theme string `yaml:"theme,omitempty"`
+
 	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
 	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
 	// their own version registries; only network endpoints live here.
@@ -147,6 +152,16 @@ func SaveStealth(on bool) error {
 		return err
 	}
 	s.Stealth = on
+	return s.Save()
+}
+
+// SaveTheme updates only the Theme field and persists the settings file.
+func SaveTheme(name string) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.Theme = name
 	return s.Save()
 }
 

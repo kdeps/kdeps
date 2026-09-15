@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
+	"/login", "/stealth", "/theme", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so stealth mode (theme.go)
@@ -228,6 +228,7 @@ type REPL struct {
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
 	saveStealthFn      func(bool) error                    // persists stealth mode; nil if unavailable
+	saveThemeFn        func(string) error                  // persists stealth theme; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -413,6 +414,13 @@ func (r *REPL) SetSaveStealthFn(fn func(bool) error) {
 	r.saveStealthFn = fn
 }
 
+// SetSaveThemeFn injects the function that persists the selected stealth
+// theme. Called by /theme. When nil, /theme still switches for the session
+// but does not persist.
+func (r *REPL) SetSaveThemeFn(fn func(string) error) {
+	r.saveThemeFn = fn
+}
+
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
 // no arguments launches the picker. When nil (default), /model prints the current model.
 func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
@@ -464,22 +472,18 @@ func (r *REPL) syncTokenCounter() {
 	}
 }
 
-// dynamicPrompt returns the input prompt. In stealth mode it ends with a bare
-// dark-gray foreground escape (no reset) so the text the user types inherits it
-// instead of the terminal's default foreground - runLoop emits a reset right
-// after Readline returns.
+// dynamicPrompt returns the input prompt. The prompt text itself follows the
+// active stealth theme (e.g. vim's ": ", a plain shell's "$ "); in stealth
+// mode it also ends with a bare foreground escape matching that theme (no
+// reset) so the text the user types inherits it instead of the terminal's
+// default foreground - runLoop emits a reset right after Readline returns.
 func (r *REPL) dynamicPrompt() string {
-	p := styleReplPrompt.Render("> ")
+	p := styleReplPrompt.Render(activePromptText)
 	if stealthEnabled() {
-		p += stealthInputColor
+		p += activeInputTint
 	}
 	return p
 }
-
-// stealthInputColor is the SGR that tints typed input in stealth mode. It is
-// intentionally not reset by lipgloss so it carries onto the readline edit line;
-// resetStealthInputTint clears it once the line is read.
-const stealthInputColor = "\x1b[38;2;36;36;36m" // #242424
 
 // resetStealthInputTint clears the trailing input tint left by dynamicPrompt so
 // tool output and errors are not rendered in it. No-op outside stealth mode.
@@ -499,7 +503,7 @@ func (r *REPL) modeline() string {
 	meta := styleReplMeta.Render
 
 	var parts []string
-	parts = append(parts, styleModelName.Render(r.loop.config.Model))
+	parts = append(parts, styleModelName.Render(DisplayModelName(r.loop.config.Model)))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		parts = append(parts, meta(ctxStr))
 	}
@@ -2486,6 +2490,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdLogin(args)
 	case "/stealth":
 		return r.cmdStealth(args)
+	case "/theme":
+		return r.cmdTheme(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2573,6 +2579,7 @@ func (r *REPL) cmdHelp() error {
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /stealth [on|off]                  Muted UI - dark gray, model name barely visible (for use in public)",
+		"  /theme [black|linux|vim|emacs]     Show or set the stealth-mode theme (visible once /stealth is on)",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
@@ -3132,10 +3139,43 @@ func (r *REPL) cmdStealth(args []string) error {
 	}
 
 	fmt.Fprintln(os.Stdout, r.modeline())
-	if on {
+	switch {
+	case on && CurrentThemeName() == "black":
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on - the model name is now barely visible."))
-	} else {
+	case on:
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on (theme: "+CurrentThemeName()+")."))
+	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode off."))
+	}
+	return nil
+}
+
+// cmdTheme handles /theme: bare shows the current theme and the list of
+// valid names; /theme <name> switches (black, linux, vim, emacs), persisted
+// via saveThemeFn. Theme selection is independent of /stealth on|off - it
+// only becomes visible once stealth is on.
+func (r *REPL) cmdTheme(args []string) error {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
+		fmt.Fprintf(os.Stdout, "Available: %s\n", strings.Join(ThemeNames(), ", "))
+		return nil
+	}
+
+	name := strings.ToLower(args[0])
+	if !SetTheme(name) {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Unknown theme: "+name+". Valid: "+strings.Join(ThemeNames(), ", ")))
+		return nil
+	}
+	if r.saveThemeFn != nil {
+		if err := r.saveThemeFn(name); err != nil {
+			return fmt.Errorf("persist theme setting: %w", err)
+		}
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Theme set to "+name+" (saved)"))
+	if !stealthEnabled() {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("(stealth is off - turn it on with /stealth to see it)"))
 	}
 	return nil
 }
