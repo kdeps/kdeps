@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -155,7 +156,7 @@ func TestLoadBuiltinThemesFrom_SkipsDirectoryEntries(t *testing.T) {
 			fakeDirEntry{name: "subdir", isDir: true},
 		},
 		files: map[string][]byte{
-			filepath.Join("themes", builtinNormalFile): []byte("name: normal\npalette:\n  heading: \"#FFFFFF\"\n"),
+			path.Join("themes", builtinNormalFile): []byte("name: normal\npalette:\n  heading: \"#FFFFFF\"\n"),
 		},
 	}
 	got := loadBuiltinThemesFrom(fsys)
@@ -169,7 +170,7 @@ func TestParseBuiltinFileFrom_ReadErrorPanics(t *testing.T) {
 }
 
 func TestParseBuiltinFileFrom_ParseErrorPanics(t *testing.T) {
-	fsys := fakeThemeFS{files: map[string][]byte{filepath.Join("themes", "bad.yaml"): []byte("not: [valid")}}
+	fsys := fakeThemeFS{files: map[string][]byte{path.Join("themes", "bad.yaml"): []byte("not: [valid")}}
 	assert.Panics(t, func() { parseBuiltinFileFrom(fsys, map[string]*theme{}, "bad.yaml", palette{}) })
 }
 
