@@ -1830,8 +1830,10 @@ func (s *slowStreamIntegration) StreamChat(
 //
 //	REPL.runWithThinking → runStreaming → Loop.RunStreaming → Streamer.StreamChat
 //
-// When the streamer takes longer than replThinkingDelay a "generating" indicator
-// must appear in spinnerOut. When it returns quickly, no indicator must appear.
+// When the streamer takes longer than replThinkingDelay a spinner must
+// appear in spinnerOut. When it returns quickly, no spinner must appear. The
+// spinner carries no descriptive word (see drawSpinnerFrames) -- presence is
+// checked via the braille spinner glyphs themselves, not any label text.
 func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 	// Reduce the threshold so the spinner fires reliably in test environments
 	// without making tests slow. Restore on cleanup.
@@ -1853,7 +1855,7 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 
 		require.NoError(t, runErr)
 		assert.Equal(t, "slow answer", resp)
-		assert.Contains(t, spinBuf.String(), "generating",
+		assert.True(t, strings.ContainsAny(spinBuf.String(), spinnerGlyphs),
 			"spinner must appear when the model is slow to produce the first token")
 	})
 
@@ -1871,7 +1873,7 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 
 		require.NoError(t, runErr)
 		assert.Equal(t, "fast answer", resp)
-		assert.NotContains(t, spinBuf.String(), "generating",
+		assert.False(t, strings.ContainsAny(spinBuf.String(), spinnerGlyphs),
 			"spinner must not appear when the model responds quickly")
 	})
 }

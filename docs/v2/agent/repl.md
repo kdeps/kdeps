@@ -110,7 +110,9 @@ Stealth mode has four looks, chosen independently of whether stealth is on or of
 
 `/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, same persistence as `/stealth`. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `black`. Since theme selection is independent of `/stealth on|off`, `/theme vim` while stealth is off is remembered but has no visible effect until you also run `/stealth on`.
 
-`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so two things that would otherwise spell out an AI session are hidden by content, not color: the literal model name is shortened to initials in the status line - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - and the "generating" label next to the spinner while waiting for a response is dropped entirely.
+`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line for those three themes - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color.
+
+The spinner that appears while waiting for a response never carries a descriptive word either way - no "generating," no "thinking" - just the animated glyph and the token counter. A label would spell out that an AI is producing a response regardless of how dim its color is.
 
 ## Turn-complete alert
 

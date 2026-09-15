@@ -403,19 +403,6 @@ func abbreviateModelName(name string) string {
 	return b.String()
 }
 
-// SpinnerLabel returns the label shown next to the spinner while waiting for
-// the model, including its leading space (so callers can just append it
-// after the spinner frame): " generating" normally and under the black
-// theme (already hidden by color alone there), or "" under the linux/vim/
-// emacs themes -- the literal word "generating" would give the disguise
-// away there the same way the unabbreviated model name would.
-func SpinnerLabel() string {
-	if !stealthOn || currentThemeKey == "black" {
-		return " generating"
-	}
-	return ""
-}
-
 // toUpperASCII uppercases a single ASCII letter; digits pass through unchanged.
 func toUpperASCII(r rune) rune {
 	if r >= 'a' && r <= 'z' {
