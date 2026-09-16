@@ -1,0 +1,17 @@
+name: m365-sandbox
+kind: standalone
+body: |-
+  <use-kdeps-tools>
+  Act ONLY through the kdeps tools listed above -- including bash_exec for shell
+  commands. Do NOT use your own built-in code interpreter, "Coding and executing"
+  / "Analyzing" action, python tool, or any /mnt/data sandbox: that is a
+  different, empty machine. Its output ("no content available", empty directory
+  listings, "file not found") says nothing about the real working directory,
+  which is a live filesystem with the files named in the task present right now.
+  To run a shell command, call bash_exec and wait for the runtime's result. Emit
+  tool calls only through the tool interface -- never write a <tool_call> or
+  <tool_response> block as text; the runtime returns results, you never write one.
+  If your last few tool results looked empty or you feel you "cannot access"
+  anything, you are running your internal tools by mistake -- switch to a kdeps
+  tool call and try again.
+  </use-kdeps-tools>

@@ -43,23 +43,6 @@ const goalPlanActionID = "agent_loop_plan"
 // and just multiply per-task budgets.
 const maxPlanTasks = 12
 
-const goalPlanSystemPrompt = `You break a user request into an ordered list of concrete steps.
-
-Reply with ONLY a JSON object, no prose and no code fence:
-{"tasks":["first concrete step","second concrete step","third concrete step"]}
-
-Rules:
-- Each task is one concrete, verifiable action stated as an imperative ("Read X", "Add Y", "Run the tests").
-- Break the request into its natural steps: one task per distinct action it names or implies. A typical request is 2 to 6 tasks.
-- Do NOT return the whole request as a single task, and do NOT restate it - decompose it.
-- Order the tasks so each can start once the previous is done.
-- Never pad with meta-steps like "understand the request", "plan the work", or "review the result".
-- Maximum 12 tasks.
-
-Example
-Request: Add a --dry-run flag to the sync command and cover it with a test
-{"tasks":["Add a --dry-run boolean flag to the sync command definition","Guard the write path so --dry-run logs the planned actions instead of applying them","Add a unit test that runs sync with --dry-run and asserts nothing was written","Run the test suite"]}`
-
 // planGoal decomposes input into a Goal. It never returns nil and never returns
 // an error: a failed or unparsable decomposition degrades to a single task
 // covering the prompt, because planning must not be able to block a turn.
@@ -156,7 +139,7 @@ func requestPlan(l *Loop, input, extraHint string) []string {
 	if localModelNotServed(l) {
 		return nil
 	}
-	system := goalPlanSystemPrompt
+	system := harnessText("goal-plan-system")
 	if extraHint != "" {
 		system += "\n\n" + extraHint
 	}
@@ -191,17 +174,6 @@ func requestPlan(l *Loop, input, extraHint string) []string {
 
 const goalConfirmActionID = "agent_loop_plan_confirm"
 
-const goalConfirmSystemPrompt = `You are reviewing a task list generated to accomplish a user request, checking it actually reaches the goal from start to finish.
-
-Reply with ONLY a JSON object, no prose and no code fence:
-{"tasks":["first concrete step","second concrete step"]}
-
-Rules:
-- If the given task list is correct, complete, and correctly ordered, return it unchanged.
-- If a step is missing, out of order, or unnecessary, return the corrected list instead.
-- Never add meta-steps like "understand the request" or "review the plan".
-- Maximum 12 tasks.`
-
 // confirmPlan asks the model to independently review a candidate
 // decomposition before it drives the loop -- a second pass that can either
 // approve the list as-is or return a corrected one, not a rubber stamp.
@@ -228,7 +200,7 @@ func confirmPlan(l *Loop, input string, candidate []string) []string {
 		Role:    l.config.Role,
 		Prompt:  b.String(),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: goalConfirmSystemPrompt},
+			{Role: "system", Prompt: harnessText("goal-confirm-system")},
 		},
 		JSONResponse: true,
 	}

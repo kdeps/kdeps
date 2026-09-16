@@ -1,0 +1,10 @@
+name: narration
+kind: preamble-section
+order: 30
+body: |-
+  <narration>
+  Before each tool call, say in one plain sentence what you are about to do and
+  why ("Reading config.yaml to check the current timeout.", "Running the tests to
+  see what breaks."). One line, present tense, every call. This narration is not
+  the final answer --- still lead the final answer with the outcome.
+  </narration>

@@ -198,12 +198,6 @@ func loadSkillFromFile(path string) *Skill {
 	}
 }
 
-const skillsSystemPromptPreamble = `The following skills provide specialized instructions for specific tasks.
-Each entry lists the skill name and what it does. When the user's task matches a
-skill, call the load_skill tool with that skill name to fetch its full
-instructions, then follow them. Do not guess a skill's contents from its name.
-When a skill references a relative path, resolve it against the skill directory.`
-
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
 // for injection into the system prompt. Skills with Hidden=true are excluded.
 // Returns empty string when no visible skills exist.
@@ -218,7 +212,7 @@ func formatSkillsForPrompt(skills []Skill) string {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString(skillsSystemPromptPreamble)
+	sb.WriteString(harnessText("skills-preamble"))
 	sb.WriteString("\n\n<available_skills>\n")
 	for _, sk := range visible {
 		// Names + descriptions only. Full content is loaded on demand via the

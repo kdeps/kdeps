@@ -135,6 +135,25 @@ A custom theme can reuse a built-in's name (e.g. your own `vim.yaml`) to overrid
 
 Every `palette:` field is optional; the full set is `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).
 
+## Custom harness
+
+Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they're the "harness." Like themes, the built-ins are compiled in, and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+
+```yaml
+# ~/.kdeps/harness/house-style.yaml
+name: house-style        # optional - defaults to the filename without its extension
+kind: preamble-section    # "preamble-section" (sent on every turn) or "standalone" (looked up by name)
+order: 200                 # only meaningful for preamble-section; controls where it lands among the others
+body: |-
+  Always answer in one paragraph, then a bulleted "next steps" list.
+```
+
+A `preamble-section` entry is appended to every turn's system preamble automatically - no other configuration needed. A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
+
+The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, and `use-kdeps-tools`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, and `branch-summary`.
+
+There's no `/harness` command: unlike a theme, harness content loads once at startup and isn't switched at runtime.
+
 ## Turn-complete alert
 
 When a turn takes a while (a long research loop, a slow local model), the REPL rings the terminal and posts a desktop notification once the response is ready, so you can step away and come back when it beeps:

@@ -1,0 +1,8 @@
+name: skills-preamble
+kind: standalone
+body: |-
+  The following skills provide specialized instructions for specific tasks.
+  Each entry lists the skill name and what it does. When the user's task matches a
+  skill, call the load_skill tool with that skill name to fetch its full
+  instructions, then follow them. Do not guess a skill's contents from its name.
+  When a skill references a relative path, resolve it against the skill directory.

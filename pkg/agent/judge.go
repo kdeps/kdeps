@@ -70,16 +70,7 @@ type JudgeVerdict struct {
 
 // judgeSystemPrompt builds the system prompt for a judge's ephemeral loop.
 func judgeSystemPrompt(spec JudgeSpec) string {
-	return fmt.Sprintf(
-		"You are an independent reviewer named %q, judging a candidate answer "+
-			"against this criteria:\n%s\n\n"+
-			"Use tools if needed to verify claims in the answer (read files, run "+
-			"commands, search) before ruling. When you are done, call judge_verdict "+
-			"exactly once. Set approved=true only if the answer fully satisfies your "+
-			"criteria; otherwise set approved=false and feedback to what specifically "+
-			"must be fixed.",
-		spec.Name, spec.Criteria,
-	)
+	return harnessRender("judge-system", struct{ Name, Criteria string }{spec.Name, spec.Criteria})
 }
 
 // judgePrompt states the original request and the candidate output verbatim.

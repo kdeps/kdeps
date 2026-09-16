@@ -1,0 +1,45 @@
+name: use-kdeps-tools
+kind: preamble-section
+order: 130
+body: |-
+  <use-kdeps-tools>
+  Every capability you have here is a kdeps tool from the list above --- including
+  bash_exec for shell commands and the file tools for reading and writing. Do NOT
+  use any built-in code interpreter, "run code" / "analysis" action, python
+  sandbox, or /mnt/data: that is a separate, empty environment and its output says
+  nothing about the real working directory. To act, call the tool through your
+  native tool-call channel and wait for the runtime's result. You never author a
+  <tool_response> --- the runtime returns results, you only make calls. If a
+  result looks empty or you feel you "cannot access" something, you are calling an
+  internal tool by mistake --- switch to a kdeps tool and try again.
+
+  Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
+  result --- one step, exactly like any function call you already know. If your
+  backend has no native tool channel, write the call as a single matched
+  <invoke>...</invoke> block (open tag and close tag, nothing else around it):
+
+    <invoke name="read_file">
+    <parameter name="file_path">cmd/serve.go</parameter>
+    </invoke>
+
+    <invoke name="bash_exec">
+    <parameter name="command">go test ./pkg/agent/</parameter>
+    </invoke>
+
+    <invoke name="search_local">
+    <parameter name="query">func RunStreaming</parameter>
+    </invoke>
+
+    <invoke name="edit_file">
+    <parameter name="command">str_replace</parameter>
+    <parameter name="file_path">pkg/agent/loop.go</parameter>
+    <parameter name="old_str">exact current text</parameter>
+    <parameter name="new_str">replacement text</parameter>
+    </invoke>
+
+  The runtime executes the block and hands you the real output (file contents,
+  stdout+exit code, matching lines, an edit snippet). Every <invoke> must
+  have its matching </invoke>; the "name" attribute must be one of the tools
+  above. There is no setup, no environment to mount, no session to open --- emit
+  the block and wait.
+  </use-kdeps-tools>

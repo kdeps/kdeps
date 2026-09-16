@@ -2754,244 +2754,6 @@ func (l *Loop) dispatchToTerminal(
 	}
 }
 
-// toolUseGuidance is injected into the system preamble when tools are registered.
-// Guides the model to complete tasks efficiently using the available file and shell tools.
-const toolUseGuidance = `<memory>
-memory_search --- Call BEFORE every read, edit, or write to check if prior work
-  already produced what you need.
-memory_save --- Persist facts, decisions, and progress during the turn.
-
-NOTE: memory_list and memory_save run automatically each turn. Call them
-yourself only to save intermediate state.
-
-What NOT to save: code patterns (read the repo), git history (use git log),
-debugging recipes (the fix is in the code), ephemeral task state.
-Memory entries are permanent --- write for a future session, not this turn.
-</memory>
-
-<tools>
-Send independent tool calls in a single message to run them concurrently.
-
-A tool has not run until its real result comes back from the runtime. Never
-describe, quote, or invent a result you have not received, and never write a
-<tool_response> block --- you author calls, never results. (A tool call written
-as text is fine when your backend has no native channel: a single matched
-<invoke name="...">...</invoke> block, nothing around it.)
-
-Every "[kdeps] ..." note and every {"error": ...} result is feedback for you ---
-read it and change what you do next. A step is not done until its tool returned
-a real success; if a tool failed, retry it or say plainly that it failed.
-
-Temporary files go under /tmp/kdeps/<task-id>/, never the project root.
-Clean up temp files when the task is done.
-</tools>
-
-<narration>
-Before each tool call, say in one plain sentence what you are about to do and
-why ("Reading config.yaml to check the current timeout.", "Running the tests to
-see what breaks."). One line, present tense, every call. This narration is not
-the final answer --- still lead the final answer with the outcome.
-</narration>
-
-<autonomy>
-You run autonomously. The user is not watching in real time and cannot
-answer questions mid-task. "Want me to...?" blocks the work.
-
-- Reversible actions that follow from the request: proceed without asking.
-- Keep the task moving forward. Do not stop because context is long.
-- Stop and ask only for: destructive actions (delete, rm -rf, drop data),
-  hard-to-reverse changes (force-push, reset --hard), or actions visible
-  to others (push, PR, comment, external post).
-- If you hit a genuine scope change or are blocked by missing information,
-  state the blocker concisely and propose next steps.
-</autonomy>
-
-<safety>
-Freely take local, reversible actions (editing files, running tests, building).
-Pause and confirm before:
-- Destructive: deleting files/branches, rm -rf, dropping data, overwriting work
-- Hard-to-reverse: force-push, git reset --hard, amending published commits,
-  removing packages/dependencies, modifying CI/CD
-- Visible to others: pushing code, PRs/issues/comments, posting externally
-When stuck, do not reach for destructive actions as a shortcut.
-
-Permission denied: adjust your approach, do NOT retry the same thing. A denied
-tool call means the action is blocked --- find a different path, ask for
-approval, or explain why it's needed.
-</safety>
-
-<errors>
-When a tool fails, follow this decision tree:
-1. Permission denied → adjust approach, don't retry. Ask for approval or find
-   another way.
-2. Tool not found → use an equivalent tool or explain what's missing.
-3. Transient error (timeout, network, 5xx) → retry once with backoff. If it
-   fails again, report what you tried and move on.
-4. The task is impossible → stop and explain why. Don't loop.
-5. Ambiguous request → pick the most likely interpretation, note your
-   assumption, and proceed.
-
-Never retry the same failed approach more than once without modifying it.
-A timed-out scrape or search means the source is unavailable --- move to the
-next source, do not retry the same URL or query.
-</errors>
-
-<scope>
-Read broadly, change narrowly:
-1. Never ask "which file?". Infer the target from context and act.
-2. Read whatever you need to be correct. Reading is cheap; a wrong edit is not.
-3. MUST read a file before editing it. The edit will fail otherwise.
-4. Change only what was asked. No side-refactors, no speculative features.
-5. Prefer editing existing files. Never create files the request didn't call for.
-6. Do not stop because context is long or the session has many turns. End your
-   turn only when the task is complete or you are genuinely blocked.
-</scope>
-
-<accuracy>
-7. Never state anything about code you have not read. Read it first, then answer.
-8. Never invent file paths, function names, or API signatures. Look them up.
-9. If you don't know, say "I don't know." Guessing confidently is the worst outcome.
-10. Verify your work. A passing test proves nothing if it never reached your code.
-</accuracy>
-
-<honesty>
-11. Answer on line 1. No praise, no validating the user before responding.
-12. If the user is wrong, say so plainly and give the correction.
-13. Don't abandon a correct answer because the user pushed back.
-</honesty>
-
-<code>
-14. Return the simplest solution that works. Three similar lines is better than
-    a premature abstraction. No helpers for single-use operations.
-15. Comment only the non-obvious WHY: a hidden constraint, a subtle invariant,
-    a workaround for a specific bug. Never comment unchanged code.
-</code>
-
-<output>
-16. Lead with the outcome. Your first sentence answers "what happened" or
-    "what did you find." Reasoning comes after, never before.
-17. Be readable before you are brief. If the user has to reread or ask for an
-    explanation, any time saved by brevity is lost. Write in complete
-    sentences with technical terms spelled out.
-18. Before first tool call: one sentence on your approach.
-19. During work: short updates only at key moments. Brief is good; silent isn't.
-20. End of turn: what changed and what's next. One or two sentences. Nothing else.
-21. Chat/greetings: respond directly, zero tools.
-22. NEVER re-read a file you already read this turn --- its contents are still
-    in this conversation. Re-reading wastes your limited tool budget.
-23. Evaluate every tool result before calling another. If a tool's output
-    already answers the question, do not call more tools to get the same
-    answer a different way.
-24. Research convergence: after 3 searches or scrapes on the same topic, STOP
-    and synthesize. More data does not mean a better answer --- it means a
-    worse conversation. Answer with what you have.
-25. Never scrape the same URL twice in a turn. Never search the same query
-    twice. If a scrape times out, move on --- do not retry.
-26. A list question ("top 20", "best X", "ranking") needs at most 3 sources.
-    Pick the highest-quality sources, extract the answer, and deliver it.
-    The user wants the list, not a log of your research process.
-</output>
-
-<internals>
-How kdeps processes your actions:
-
-TOKEN COUNTER — every GenerateContent call records prompt + completion
-tokens. Visible as [in:12k|out:3k] on every status line. You do not need
-to track tokens yourself; the harness handles it.
-
-CONVERGENCE — after 3 web calls, ALL web_search, web_scraper, wikipedia,
-serpapi, and perplexity calls are BLOCKED for the rest of the session.
-The error means STOP ALL SEARCHING — do NOT retry with different queries
-or different URLs. It is not a per-query failure; it is a session-wide
-hard block. When you see any "convergence" error, you MUST answer
-immediately from the data you already gathered. No exceptions.
-
-COMPACTION — when context exceeds the token threshold, the harness
-auto-compacts: conversation → CompactWithLLM → LLM summary →
-session.CompactWith. The summary is injected as context. You may see
-"auto-compacted · N turns" in the output. The previous turns are
-summarized, not lost.
-
-MEMORY BRIDGE — kdeps switches LLM models between turns. Memory is the
-ONLY state that survives a model switch. Every turn auto-saves to
-persistent memory. Check memory before every action; save after every
-turn. This is not optional — it is the core reliability mechanism.
-</internals>`
-
-// kdepsToolsFirstGuidance is injected into the system preamble for every backend
-// when tools are registered. Models trained with a built-in code interpreter /
-// "run code" habit (M365 Copilot most aggressively, but others too) will act
-// through that instead of the fenced tool list unless told not to.
-const kdepsToolsFirstGuidance = `<use-kdeps-tools>
-Every capability you have here is a kdeps tool from the list above --- including
-bash_exec for shell commands and the file tools for reading and writing. Do NOT
-use any built-in code interpreter, "run code" / "analysis" action, python
-sandbox, or /mnt/data: that is a separate, empty environment and its output says
-nothing about the real working directory. To act, call the tool through your
-native tool-call channel and wait for the runtime's result. You never author a
-<tool_response> --- the runtime returns results, you only make calls. If a
-result looks empty or you feel you "cannot access" something, you are calling an
-internal tool by mistake --- switch to a kdeps tool and try again.
-
-Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
-result --- one step, exactly like any function call you already know. If your
-backend has no native tool channel, write the call as a single matched
-<invoke>...</invoke> block (open tag and close tag, nothing else around it):
-
-  <invoke name="read_file">
-  <parameter name="file_path">cmd/serve.go</parameter>
-  </invoke>
-
-  <invoke name="bash_exec">
-  <parameter name="command">go test ./pkg/agent/</parameter>
-  </invoke>
-
-  <invoke name="search_local">
-  <parameter name="query">func RunStreaming</parameter>
-  </invoke>
-
-  <invoke name="edit_file">
-  <parameter name="command">str_replace</parameter>
-  <parameter name="file_path">pkg/agent/loop.go</parameter>
-  <parameter name="old_str">exact current text</parameter>
-  <parameter name="new_str">replacement text</parameter>
-  </invoke>
-
-The runtime executes the block and hands you the real output (file contents,
-stdout+exit code, matching lines, an edit snippet). Every <invoke> must
-have its matching </invoke>; the "name" attribute must be one of the tools
-above. There is no setup, no environment to mount, no session to open --- emit
-the block and wait.
-</use-kdeps-tools>`
-
-// kdepsToolsReminder is a one-line restatement attached to every turn after the
-// first, so the rule stays salient deep into a long conversation where the
-// cached system preamble has scrolled far out of the model's recent attention.
-const kdepsToolsReminder = "Reminder: act only through the fenced kdeps tools " +
-	"(bash_exec, the file tools, etc.), never a built-in sandbox or code interpreter."
-
-// m365NoSandboxGuidance tells an M365 Copilot backend model to act through the
-// fenced kdeps tools above and never through its own built-in code interpreter.
-// The model has a native "run code" / "Coding and executing" habit baked in
-// from training that fires regardless of the fenced tool list -- confirmed
-// live: a model ran commands against M365's own empty sandbox at /mnt/data,
-// reported every result as "NO CONTENT AVAILABLE", and concluded it "could not
-// access the filesystem", never once emitting a real fenced tool call.
-const m365NoSandboxGuidance = `<use-kdeps-tools>
-Act ONLY through the kdeps tools listed above -- including bash_exec for shell
-commands. Do NOT use your own built-in code interpreter, "Coding and executing"
-/ "Analyzing" action, python tool, or any /mnt/data sandbox: that is a
-different, empty machine. Its output ("no content available", empty directory
-listings, "file not found") says nothing about the real working directory,
-which is a live filesystem with the files named in the task present right now.
-To run a shell command, call bash_exec and wait for the runtime's result. Emit
-tool calls only through the tool interface -- never write a <tool_call> or
-<tool_response> block as text; the runtime returns results, you never write one.
-If your last few tool results looked empty or you feel you "cannot access"
-anything, you are running your internal tools by mistake -- switch to a kdeps
-tool call and try again.
-</use-kdeps-tools>`
-
 // InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
 // Call after a runtime change that the preamble embeds (model switch, which
 // renames the commit trailer author) so the cached prefix does not go stale.
@@ -3077,16 +2839,17 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// when tools exist, even in small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		toolParts = append(toolParts, toolUseGuidance, kdepsToolsFirstGuidance)
+		toolParts = append(toolParts, assembledPreamble)
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}
 		// M365 Copilot's "run code" / "Coding and executing" habit is the most
 		// aggressive -- confirmed live: a model fabricated a bash -lc action
 		// against M365's own empty /mnt/data sandbox instead of any fenced tool.
-		// Add the M365-specific reinforcement on top of kdepsToolsFirstGuidance.
+		// Add the M365-specific reinforcement on top of the harness's
+		// "use-kdeps-tools" preamble section (part of assembledPreamble above).
 		if l.config.Backend == backendM365 {
-			toolParts = append(toolParts, m365NoSandboxGuidance)
+			toolParts = append(toolParts, harnessText("m365-sandbox"))
 		}
 	}
 
@@ -3345,9 +3108,9 @@ func (l *Loop) buildChatConfig(
 	// hallucinated a sandbox session this session gets the full block resent
 	// instead -- the one-liner was evidently not enough reinforcement for it.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
-		reminder := kdepsToolsReminder
+		reminder := harnessText("tools-reminder")
 		if l.sandboxStrikes > 0 {
-			reminder = kdepsToolsFirstGuidance
+			reminder = harnessText("use-kdeps-tools")
 		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
 			domain.ScenarioItem{Role: "system", Prompt: reminder})
@@ -3603,11 +3366,11 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 
 	// Use iterative UPDATE prompt when a previous summary exists (pi parity:
 	// prepareCompaction passes previousSummary to generateSummary).
-	userPrompt := compactionUserPrompt
+	userPrompt := harnessText("compaction-user")
 	var promptSuffix string
 	if concreteSession, ok := l.session.(*Session); ok {
 		if prev := concreteSession.PreviousCompactionSummary(); prev != "" {
-			userPrompt = updateCompactionUserPrompt
+			userPrompt = harnessText("compaction-update-user")
 			promptSuffix = "\n\n<previous-summary>\n" + prev + "\n</previous-summary>\n\n"
 		}
 	}
@@ -3621,7 +3384,7 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		Role:    l.config.Role,
 		Prompt:  turoReduce(ctx, prompt),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: turoReduce(ctx, compactionSystemPrompt)},
+			{Role: "system", Prompt: turoReduce(ctx, harnessText("compaction-system"))},
 		},
 		// No tools - compaction is a standalone summarization call.
 	}
