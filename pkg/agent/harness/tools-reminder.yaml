@@ -1,0 +1,4 @@
+name: tools-reminder
+kind: standalone
+body: |-
+  Reminder: act only through the fenced kdeps tools (bash_exec, the file tools, etc.), never a built-in sandbox or code interpreter.

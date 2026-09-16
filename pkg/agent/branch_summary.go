@@ -32,35 +32,6 @@ const (
 	branchSummaryReserved   = 2000 // tokens reserved for preamble + LLM response
 )
 
-const branchSummaryPrompt = `Create a structured summary of this conversation branch for context when returning later.
-
-Use this EXACT format:
-
-## Goal
-[What was the user trying to accomplish in this branch?]
-
-## Constraints & Preferences
-- [Any constraints, preferences, or requirements mentioned]
-- [Or "(none)" if none were mentioned]
-
-## Progress
-### Done
-- [x] [Completed tasks/changes]
-
-### In Progress
-- [ ] [Work that was started but not finished]
-
-### Blocked
-- [Issues preventing progress, if any]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale]
-
-## Next Steps
-1. [What should happen next to continue this work]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`
-
 // truncateBranchMessages trims msgs (and matching fileOps) from the front to
 // fit within tokenBudget tokens, keeping the most-recent turns. When turns are
 // dropped a note is prepended to the first kept message's content so the
@@ -130,7 +101,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 
 	conversationText := serializeConversation(msgs, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" +
-		turoReduce(context.Background(), branchSummaryPrompt)
+		turoReduce(context.Background(), harnessText("branch-summary"))
 
 	const branchActionID = "agent_loop_branch_summary"
 	chatCfg := &domain.ChatConfig{
@@ -140,7 +111,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		Role:    l.config.Role,
 		Prompt:  prompt,
 		Scenario: []domain.ScenarioItem{
-			{Role: RoleSystem, Prompt: compactionSystemPrompt},
+			{Role: RoleSystem, Prompt: harnessText("compaction-system")},
 		},
 		// No tools - branch summarization is a standalone call.
 	}

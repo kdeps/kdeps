@@ -36,21 +36,6 @@ import (
 
 const refineActionID = "agent_loop_refine"
 
-const refineSystemPrompt = `You rewrite a user's request so it is clearer for an AI agent to act on.
-
-The conversation history above (if any) is context ONLY, for resolving what the
-request refers to. Do not answer it, continue it, or rewrite any earlier turn.
-
-Reply with ONLY the rewritten request as plain text. No preamble, no quotes, no explanation.
-
-Rules:
-- Preserve the user's intent and every concrete detail (names, paths, numbers, constraints).
-- Make it specific and self-contained: spell out what "it"/"that"/"the file we discussed" etc.
-  refers to using the conversation history, and state the expected outcome.
-- Do NOT answer or start the task. Do NOT add requirements the user did not imply. Do NOT invent facts.
-- Keep it tight: a 1 to 3 sentence request, not an expansion into a spec.
-- If the request is already clear and self-contained, return it essentially unchanged.`
-
 // refineExpansionSlack bounds how much longer a rewrite may be than the
 // original before it is treated as a runaway expansion and discarded.
 const (
@@ -123,7 +108,7 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		// reducing either to content words defeats the purpose.
 		Prompt: "Request:\n" + input,
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: refineSystemPrompt},
+			{Role: "system", Prompt: harnessText("refine-system")},
 		},
 		// No tools, no JSON mode: a plain-text rewrite.
 	}
