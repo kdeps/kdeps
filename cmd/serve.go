@@ -284,9 +284,10 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// The REPL's theme. Applied before anything is printed so the banner
 	// picks it up too. A non-"normal" theme is what used to be a separate
 	// stealth on/off flag -- there's no such flag anymore, /theme is the
-	// only control.
+	// only control. This also pushes the theme's colors into pkg/tui, so
+	// /model, /settings, and the resume picker match it (agent.SetTheme ->
+	// rebuildTheme -> syncPickerColors).
 	agent.SetTheme(resolveTheme(flags, settings))
-	tui.SetStealth(agent.StealthActive())
 	if settings.ModelNameDisplay != "" {
 		agent.SetModelNameDisplay(settings.ModelNameDisplay)
 	}
@@ -462,15 +463,11 @@ func wireREPL(
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
-	// Wire theme persistence for /theme. Also mirrors "is the active theme a
-	// disguise" into the TUI pickers so /model and /settings stay muted --
-	// the pickers keep their own independent dim/normal palette regardless
-	// of which non-normal theme is selected, so no tui.SetTheme mirror is
-	// needed, just the on/off signal.
-	repl.SetSaveThemeFn(func(name string) error {
-		tui.SetStealth(agent.StealthActive())
-		return tui.SaveTheme(name)
-	})
+	// Wire theme persistence for /theme. agent.SetTheme (already called by
+	// cmdTheme before this fires) pushes the new theme's colors into pkg/tui
+	// on its own, so /model, /settings, and the resume picker already match
+	// by the time this only needs to persist the name.
+	repl.SetSaveThemeFn(tui.SaveTheme)
 
 	// Wire /model name persistence (show|hide|abbreviate|auto).
 	repl.SetSaveModelNameFn(tui.SaveModelNameDisplay)

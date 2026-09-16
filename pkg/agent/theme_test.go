@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
 // parseChannels returns the R,G,B values of a "#rrggbb" hex string.
@@ -178,6 +180,34 @@ func TestSetTheme_TakesEffectImmediately(t *testing.T) {
 	}
 	if activePromptText != themes["vim"].promptText {
 		t.Fatalf("activePromptText = %q, want %q", activePromptText, themes["vim"].promptText)
+	}
+}
+
+// TestSetTheme_SyncsPickerColors is the unit-level guard for "model and
+// session selections are themable too": every SetTheme call must push the
+// new theme's chrome colors into pkg/tui so /model, /settings, and the
+// resume picker match it, via rebuildTheme -> syncPickerColors.
+func TestSetTheme_SyncsPickerColors(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+
+	for _, name := range []string{"normal", "black", "linux", "vim", "emacs"} {
+		t.Run(name, func(t *testing.T) {
+			if ok := SetTheme(name); !ok {
+				t.Fatalf("SetTheme(%q) failed", name)
+			}
+			p := themes[name].palette
+			got := tui.CurrentPickerColors()
+			want := tui.PickerColors{
+				Accent:  p.replHeading,
+				Success: p.replSuccess,
+				Warning: p.replError,
+				Dim:     p.replDim,
+				Bold:    p.bold,
+			}
+			if got != want {
+				t.Errorf("tui.CurrentPickerColors() after SetTheme(%q) = %+v, want %+v", name, got, want)
+			}
+		})
 	}
 }
 

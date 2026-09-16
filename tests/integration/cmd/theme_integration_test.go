@@ -56,14 +56,12 @@ func TestTheme_EndToEndPalette(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
 		agent.SetTheme("normal")
-		tui.SetStealth(false)
 		lipgloss.SetColorProfile(termenv.Ascii)
 	})
 
 	bright := []string{"0;229;255", "255;214;10", "0;255;135"} // cyan, yellow, green
 
 	require.True(t, agent.SetTheme("black"))
-	tui.SetStealth(agent.StealthActive())
 	assert.True(t, agent.StealthActive())
 
 	rendered := agent.RenderStealthSample()
@@ -97,4 +95,37 @@ func TestTheme_EndToEndPalette(t *testing.T) {
 	if strings.Contains(restored, "\x1b[") {
 		assert.Contains(t, restored, "0;229;255", "switching back to normal did not restore the bright palette")
 	}
+}
+
+// TestTheme_PickersFollowActiveTheme is the end-to-end guard for "model and
+// session selections are themable too": switching the REPL's theme through
+// the public agent.SetTheme setter must update pkg/tui's picker palette
+// (/model, /settings, the resume picker) to match, with no separate call
+// needed -- agent.SetTheme -> rebuildTheme -> syncPickerColors wires it.
+func TestTheme_PickersFollowActiveTheme(t *testing.T) {
+	t.Cleanup(func() { agent.SetTheme("normal") })
+
+	require.True(t, agent.SetTheme("vim"))
+	got := tui.CurrentPickerColors()
+	assert.Equal(t, "#FFFF00", got.Accent, "picker accent must match vim's replHeading")
+	assert.Equal(t, "#00FF00", got.Success, "picker success must match vim's replSuccess")
+	assert.Equal(t, "#FF6060", got.Warning, "picker warning must match vim's replError")
+	assert.Equal(t, "#5F5F5F", got.Dim, "picker dim must match vim's replDim")
+	assert.True(t, got.Bold)
+
+	require.True(t, agent.SetTheme("black"))
+	got = tui.CurrentPickerColors()
+	assert.Equal(t, "#767676", got.Accent)
+	assert.Equal(t, "#767676", got.Success)
+	assert.Equal(t, "#767676", got.Warning)
+	assert.Equal(t, "#767676", got.Dim)
+	assert.False(t, got.Bold)
+
+	require.True(t, agent.SetTheme("normal"))
+	got = tui.CurrentPickerColors()
+	assert.Equal(t, "#00E5FF", got.Accent)
+	assert.Equal(t, "#00FF87", got.Success)
+	assert.Equal(t, "#FF2D78", got.Warning)
+	assert.Equal(t, "#555555", got.Dim)
+	assert.True(t, got.Bold)
 }
