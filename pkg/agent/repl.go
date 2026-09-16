@@ -228,6 +228,7 @@ type REPL struct {
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
 	saveThemeFn        func(string) error                  // persists the selected theme; nil if unavailable
+	saveModelNameFn    func(string) error                  // persists the /model name display mode; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -413,6 +414,13 @@ func (r *REPL) SetSaveThemeFn(fn func(string) error) {
 	r.saveThemeFn = fn
 }
 
+// SetSaveModelNameFn injects the function that persists the /model name
+// display mode. Called by /model name. When nil, /model name still switches
+// for the session but does not persist.
+func (r *REPL) SetSaveModelNameFn(fn func(string) error) {
+	r.saveModelNameFn = fn
+}
+
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
 // no arguments launches the picker. When nil (default), /model prints the current model.
 func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
@@ -495,7 +503,12 @@ func (r *REPL) modeline() string {
 	meta := styleReplMeta.Render
 
 	var parts []string
-	parts = append(parts, styleModelName.Render(DisplayModelName(r.loop.config.Model)))
+	// DisplayModelName returns "" when /model name hide is set; omit the
+	// segment entirely rather than rendering an empty one (which would leave
+	// a stray " · " separator).
+	if shown := DisplayModelName(r.loop.config.Model); shown != "" {
+		parts = append(parts, styleModelName.Render(shown))
+	}
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		parts = append(parts, meta(ctxStr))
 	}
@@ -2561,6 +2574,7 @@ func (r *REPL) cmdHelp() error {
 		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
 		"  /model <url>                       Register a .gguf/.llamafile URL or OpenAI-compatible endpoint",
 		"  /model favorite <name>             Star a model (shown first in /model, persists); unfavorite to remove",
+		"  /model name [show|hide|abbreviate|auto]  Show or set how the modeline displays the model name",
 		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
 		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
 		"  /skills                            List loaded skills",
@@ -2578,7 +2592,7 @@ func (r *REPL) cmdHelp() error {
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
-		"  /theme [name]                      Show or set the REPL's look (normal, black, linux, vim, emacs, or custom)",
+		"  /theme [name|list]                 Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
@@ -2875,6 +2889,48 @@ func (r *REPL) cmdModelFavorite(name string, fav bool) error {
 	return nil
 }
 
+// modelNameDisplayChoices lists the valid /model name arguments, in the
+// order shown in error messages and /help.
+//
+//nolint:gochecknoglobals // immutable command metadata
+var modelNameDisplayChoices = []string{
+	modelNameDisplayShow, modelNameDisplayHide, modelNameDisplayAbbreviate, "auto",
+}
+
+// cmdModelName handles /model name [show|hide|abbreviate|auto]. Bare shows
+// the current mode; an argument sets it and persists via saveModelNameFn.
+// "auto" restores the theme-based default (see DisplayModelName).
+func (r *REPL) cmdModelName(args []string) error {
+	if len(args) == 0 {
+		mode := ModelNameDisplayMode()
+		if mode == modelNameDisplayAuto {
+			mode = "auto"
+		}
+		fmt.Fprintf(os.Stdout, "Model name display: %s\n", mode)
+		fmt.Fprintf(os.Stdout, "Valid: %s\n", strings.Join(modelNameDisplayChoices, ", "))
+		return nil
+	}
+
+	mode := strings.ToLower(args[0])
+	if mode == "auto" {
+		mode = modelNameDisplayAuto
+	}
+	if !SetModelNameDisplay(mode) {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Unknown /model name mode: "+args[0]+". Valid: "+strings.Join(modelNameDisplayChoices, ", ")))
+		return nil
+	}
+	if r.saveModelNameFn != nil {
+		if err := r.saveModelNameFn(mode); err != nil {
+			return fmt.Errorf("persist model name display setting: %w", err)
+		}
+	}
+
+	fmt.Fprintln(os.Stdout, r.modeline())
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Model name display set to "+args[0]+" (saved)"))
+	return nil
+}
+
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
@@ -2892,6 +2948,8 @@ func (r *REPL) cmdModel(args []string) error {
 			return r.cmdModelFavorite(strings.Join(args[1:], " "), true)
 		case "unfavorite", "unfav", "unstar":
 			return r.cmdModelFavorite(strings.Join(args[1:], " "), false)
+		case "name":
+			return r.cmdModelName(args[1:])
 		}
 	}
 	if len(args) > 0 {
@@ -3109,15 +3167,14 @@ func (r *REPL) setToolSetting(name, value string) {
 // cmdModelDefault handles /model default [name].
 // With no name: prints the current default from settings.
 // With a name: saves it as the new default and switches to it.
-// cmdTheme handles /theme: bare shows the current theme and the list of
-// valid names (built-in, then any loaded from ~/.kdeps/themes/); /theme
+// cmdTheme handles /theme: bare (or "/theme list") shows the current theme
+// and the built-in and custom (~/.kdeps/themes/) names separately; /theme
 // <name> switches immediately (no separate on/off layer -- picking any
 // theme other than "normal" is what used to be a separate /stealth toggle),
 // persisted via saveThemeFn.
 func (r *REPL) cmdTheme(args []string) error {
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
-		fmt.Fprintf(os.Stdout, "Available: %s\n", strings.Join(ThemeNames(), ", "))
+	if len(args) == 0 || strings.EqualFold(args[0], "list") {
+		r.printThemeList()
 		return nil
 	}
 
@@ -3136,6 +3193,20 @@ func (r *REPL) cmdTheme(args []string) error {
 	fmt.Fprintln(os.Stdout, r.modeline())
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Theme set to "+name+" (saved)"))
 	return nil
+}
+
+// printThemeList prints the current theme and the built-in and custom
+// theme names separately, so a custom ~/.kdeps/themes/*.yaml file is
+// distinguishable from a shipped one at a glance.
+func (r *REPL) printThemeList() {
+	fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
+	fmt.Fprintf(os.Stdout, "Built-in: %s\n", strings.Join(BuiltinThemeNames(), ", "))
+	custom := CustomThemeNames()
+	if len(custom) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Custom (~/.kdeps/themes): none"))
+		return
+	}
+	fmt.Fprintf(os.Stdout, "Custom (~/.kdeps/themes): %s\n", strings.Join(custom, ", "))
 }
 
 func (r *REPL) cmdModelDefault(args []string) error {

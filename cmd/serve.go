@@ -287,6 +287,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// only control.
 	agent.SetTheme(resolveTheme(flags, settings))
 	tui.SetStealth(agent.StealthActive())
+	if settings.ModelNameDisplay != "" {
+		agent.SetModelNameDisplay(settings.ModelNameDisplay)
+	}
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
 
@@ -468,6 +471,9 @@ func wireREPL(
 		tui.SetStealth(agent.StealthActive())
 		return tui.SaveTheme(name)
 	})
+
+	// Wire /model name persistence (show|hide|abbreviate|auto).
+	repl.SetSaveModelNameFn(tui.SaveModelNameDisplay)
 
 	// Persist /model tool settings across sessions, and apply any saved ones at
 	// startup. tui.AgentLoopTuning and agent.ToolTuning have identical fields, so

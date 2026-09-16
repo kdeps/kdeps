@@ -42,8 +42,6 @@ func parseChannels(t *testing.T, hex string) [3]int64 {
 	return out
 }
 
-func channelSum(c [3]int64) int64 { return c[0] + c[1] + c[2] }
-
 func TestSetTheme_TogglesActivePalette(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
 
@@ -70,10 +68,10 @@ func TestSetTheme_TogglesActivePalette(t *testing.T) {
 	}
 }
 
-func TestBlackTheme_IsAllDark(t *testing.T) {
-	// Every color in the black theme must be a near-black gray: all three
-	// channels below 0x48. This is what makes it unreadable from across a room.
-	const maxChannel = 0x48
+func TestBlackTheme_IsMonochromeLegibleGray(t *testing.T) {
+	// Every field in the black theme must share one legible dark-gray color
+	// (r == g == b, roughly mid-range) -- a single flat hue rather than a
+	// near-invisible near-black palette.
 	p := themes["black"].palette
 	fields := map[string]string{
 		"heading": p.heading, "link": p.link,
@@ -93,24 +91,26 @@ func TestBlackTheme_IsAllDark(t *testing.T) {
 		"modelsNoKey": p.modelsNoKey, "modelsCurrent": p.modelsCurrent,
 		"modelName": p.modelName,
 	}
+	want := p.heading
 	for name, hex := range fields {
-		c := parseChannels(t, hex)
-		if c[0] >= maxChannel || c[1] >= maxChannel || c[2] >= maxChannel {
-			t.Errorf("black.%s = %s is too bright for a disguise (max channel < %#x)", name, hex, maxChannel)
+		if hex != want {
+			t.Errorf("black.%s = %s, want the same color as heading (%s) -- black is monochrome", name, hex, want)
 		}
+	}
+	c := parseChannels(t, want)
+	if c[0] != c[1] || c[1] != c[2] {
+		t.Errorf("black theme color %s is not grayscale (r=%d g=%d b=%d)", want, c[0], c[1], c[2])
+	}
+	const (
+		minChannel = 0x40 // dark enough to still read as "muted"
+		maxChannel = 0xA0 // light enough to be legible on a dark background
+	)
+	if c[0] < minChannel || c[0] > maxChannel {
+		t.Errorf("black theme color %s channel %d is outside the legible-gray range [%#x, %#x]",
+			want, c[0], minChannel, maxChannel)
 	}
 	if p.bold {
-		t.Error("black.bold must be false - bold raises contrast")
-	}
-}
-
-func TestBlackTheme_ModelNameIsDarkest(t *testing.T) {
-	p := themes["black"].palette
-	modelSum := channelSum(parseChannels(t, p.modelName))
-	for _, hex := range []string{p.text, p.heading, p.replPrompt, p.replMeta, p.bannerText} {
-		if channelSum(parseChannels(t, hex)) < modelSum {
-			t.Fatalf("modelName %s is not the darkest - %s is darker", p.modelName, hex)
-		}
+		t.Error("black.bold must be false - keeps the flat gray from reading as a second, brighter color")
 	}
 }
 
@@ -226,6 +226,34 @@ func TestThemeNames_IncludesAllBuiltins(t *testing.T) {
 	}
 }
 
+func TestBuiltinThemeNames_ListsExactlyTheFiveShipped(t *testing.T) {
+	got := BuiltinThemeNames()
+	want := []string{"normal", "black", "linux", "vim", "emacs"}
+	if len(got) != len(want) {
+		t.Fatalf("BuiltinThemeNames() = %v, want %v", got, want)
+	}
+	for i, name := range want {
+		if got[i] != name {
+			t.Errorf("BuiltinThemeNames()[%d] = %q, want %q", i, got[i], name)
+		}
+	}
+}
+
+func TestCustomThemeNames_EmptyWithNoUserThemes(t *testing.T) {
+	// Force a clean HOME (no ~/.kdeps/themes) rather than relying on the
+	// ambient one, so this doesn't depend on test execution order relative
+	// to the user-theme tests in theme_yaml_test.go that mutate the same
+	// package-level registry.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	t.Cleanup(initThemes)
+	initThemes()
+
+	if got := CustomThemeNames(); len(got) != 0 {
+		t.Errorf("CustomThemeNames() = %v, want empty (no user theme files)", got)
+	}
+}
+
 func TestResolveThemeEnv(t *testing.T) {
 	for _, v := range []string{"vim", "VIM", " emacs ", "linux", "black", "normal"} {
 		t.Setenv("KDEPS_THEME", v)
@@ -258,13 +286,12 @@ func TestAbbreviateModelName(t *testing.T) {
 	}
 }
 
-// TestDisplayModelName_TheGivenAwayConcern is a regression guard: the
-// linux/vim/emacs themes render the model-name color at full legibility, so
-// showing the literal model name would spell out "llama"/"claude"/"gpt" and
-// give the disguise away even though the surrounding chrome looks like a
-// different program. Only normal and black show it verbatim - normal because
-// there's no disguise at all, black because it already hides it by color
-// alone.
+// TestDisplayModelName_TheGivenAwayConcern is a regression guard: every
+// disguise theme (anything but normal) renders at full legibility now that
+// black is a flat legible gray rather than a near-invisible one, so showing
+// the literal model name would spell out "llama"/"claude"/"gpt" and give the
+// disguise away even though the surrounding chrome looks like a different
+// program. Only normal shows it verbatim, because there's no disguise at all.
 func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
 	const raw = "claude-sonnet-5"
@@ -274,12 +301,7 @@ func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 		t.Errorf("normal theme: DisplayModelName(%q) = %q, want verbatim", raw, got)
 	}
 
-	_ = SetTheme("black")
-	if got := DisplayModelName(raw); got != raw {
-		t.Errorf("black theme: DisplayModelName(%q) = %q, want verbatim (color alone hides it)", raw, got)
-	}
-
-	for _, name := range []string{"linux", "vim", "emacs"} {
+	for _, name := range []string{"black", "linux", "vim", "emacs"} {
 		_ = SetTheme(name)
 		got := DisplayModelName(raw)
 		if got == raw {
@@ -288,6 +310,63 @@ func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 		if strings.Contains(strings.ToLower(got), "claude") {
 			t.Errorf("theme %q: abbreviation %q still spells out the vendor name", name, got)
 		}
+	}
+}
+
+func TestSetModelNameDisplay_ValidModesAccepted(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	for _, mode := range []string{"show", "hide", "abbreviate", ""} {
+		if !SetModelNameDisplay(mode) {
+			t.Errorf("SetModelNameDisplay(%q) = false, want true", mode)
+		}
+		if got := ModelNameDisplayMode(); got != mode {
+			t.Errorf("ModelNameDisplayMode() = %q, want %q", got, mode)
+		}
+	}
+}
+
+func TestSetModelNameDisplay_UnknownModeRejectedLeavesCurrentUnchanged(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	if !SetModelNameDisplay("abbreviate") {
+		t.Fatal("SetModelNameDisplay(\"abbreviate\") should succeed")
+	}
+	if SetModelNameDisplay("bogus") {
+		t.Fatal("SetModelNameDisplay(\"bogus\") should return false")
+	}
+	if got := ModelNameDisplayMode(); got != "abbreviate" {
+		t.Errorf("ModelNameDisplayMode() = %q, want unchanged \"abbreviate\"", got)
+	}
+}
+
+func TestDisplayModelName_OverrideWinsRegardlessOfTheme(t *testing.T) {
+	t.Cleanup(func() {
+		_ = SetModelNameDisplay("")
+		_ = SetTheme("normal")
+	})
+	const raw = "claude-sonnet-5"
+
+	_ = SetTheme("vim") // a disguise theme -- would abbreviate by default
+
+	if !SetModelNameDisplay("show") {
+		t.Fatal("SetModelNameDisplay(\"show\") should succeed")
+	}
+	if got := DisplayModelName(raw); got != raw {
+		t.Errorf("show override: DisplayModelName(%q) = %q, want verbatim", raw, got)
+	}
+
+	if !SetModelNameDisplay("hide") {
+		t.Fatal("SetModelNameDisplay(\"hide\") should succeed")
+	}
+	if got := DisplayModelName(raw); got != "" {
+		t.Errorf("hide override: DisplayModelName(%q) = %q, want \"\"", raw, got)
+	}
+
+	_ = SetTheme("normal") // would show verbatim by default
+	if !SetModelNameDisplay("abbreviate") {
+		t.Fatal("SetModelNameDisplay(\"abbreviate\") should succeed")
+	}
+	if got := DisplayModelName(raw); got == raw || got == "" {
+		t.Errorf("abbreviate override under normal: DisplayModelName(%q) = %q, want an abbreviation", raw, got)
 	}
 }
 

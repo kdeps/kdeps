@@ -50,8 +50,8 @@ func TestTheme_FlagAdvertisedInHelp(t *testing.T) {
 
 // TestTheme_EndToEndPalette forces a truecolor profile and checks that
 // switching themes through the public agent + tui setters makes every
-// rendered accent a near-black gray under the "black" theme, and that
-// switching back to "normal" restores the bright palette.
+// rendered accent a single flat legible gray under the "black" theme, and
+// that switching back to "normal" restores the bright palette.
 func TestTheme_EndToEndPalette(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
@@ -70,16 +70,25 @@ func TestTheme_EndToEndPalette(t *testing.T) {
 	for _, b := range bright {
 		assert.NotContains(t, rendered, b, "black theme output still contains a bright accent")
 	}
-	// Every 24-bit foreground color emitted must be a near-black gray: no
-	// channel above 0x40. This catches any element that leaks a lighter color.
+	// Every 24-bit foreground color emitted must be the same flat, legible
+	// gray (grayscale, roughly mid-range): black is monochrome, not a
+	// near-invisible near-black palette. This catches any element that
+	// leaks a different color.
 	fg := regexp.MustCompile(`38;2;(\d+);(\d+);(\d+)`)
 	matches := fg.FindAllStringSubmatch(rendered, -1)
 	require.NotEmpty(t, matches, "black theme sample emitted no colors")
+	const (
+		minChannel = 0x40
+		maxChannel = 0xA0
+	)
 	for _, m := range matches {
-		for _, ch := range m[1:] {
-			v, _ := strconv.Atoi(ch)
-			assert.LessOrEqual(t, v, 0x40, "black theme output has a channel %d too bright in %q", v, m[0])
-		}
+		r, _ := strconv.Atoi(m[1])
+		g, _ := strconv.Atoi(m[2])
+		b, _ := strconv.Atoi(m[3])
+		assert.Equal(t, r, g, "black theme output %q is not grayscale", m[0])
+		assert.Equal(t, g, b, "black theme output %q is not grayscale", m[0])
+		assert.GreaterOrEqual(t, r, minChannel, "black theme output channel %d too dark in %q", r, m[0])
+		assert.LessOrEqual(t, r, maxChannel, "black theme output channel %d too bright in %q", r, m[0])
 	}
 	assert.NotContains(t, rendered, "\x1b[1m", "black theme output should not be bold")
 
