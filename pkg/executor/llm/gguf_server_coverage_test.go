@@ -491,10 +491,12 @@ func TestResolvedGGUFURL_InMemoryHit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 
+	alias := testGGUFAlias(t)
+
 	modelsDir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
 
-	path, ok := GGUFCachedPath("qwen3.5:4b", modelsDir)
+	path, ok := GGUFCachedPath(alias, modelsDir)
 	require.True(t, ok)
 
 	servedGGUFsMu.Lock()
@@ -515,7 +517,7 @@ func TestResolvedGGUFURL_InMemoryHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL("qwen3.5:4b")
+	result := ResolvedGGUFURL(alias)
 	assert.Equal(t, "http://127.0.0.1:19999", result)
 }
 
@@ -523,10 +525,12 @@ func TestResolvedGGUFURL_CrossProcessHit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 
+	alias := testGGUFAlias(t)
+
 	modelsDir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
 
-	path, ok := GGUFCachedPath("qwen3.5:4b", modelsDir)
+	path, ok := GGUFCachedPath(alias, modelsDir)
 	require.True(t, ok)
 
 	portFile := path + ".port"
@@ -542,7 +546,7 @@ func TestResolvedGGUFURL_CrossProcessHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL("qwen3.5:4b")
+	result := ResolvedGGUFURL(alias)
 	assert.Equal(t, "http://127.0.0.1:19998", result)
 }
 
@@ -550,10 +554,12 @@ func TestResolvedGGUFURL_DefaultPortHit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 
+	alias := testGGUFAlias(t)
+
 	modelsDir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
 
-	path, ok := GGUFCachedPath("qwen3.5:4b", modelsDir)
+	path, ok := GGUFCachedPath(alias, modelsDir)
 	require.True(t, ok)
 
 	servedGGUFsMu.Lock()
@@ -569,7 +575,7 @@ func TestResolvedGGUFURL_DefaultPortHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL("qwen3.5:4b")
+	result := ResolvedGGUFURL(alias)
 	assert.Equal(t, BackendGGUFHostURL, result)
 }
 
@@ -648,7 +654,7 @@ func TestResolvedGGUFURL_ModelsDirError(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 
-	result := ResolvedGGUFURL("qwen3.5:4b")
+	result := ResolvedGGUFURL(testGGUFAlias(t))
 	assert.Equal(t, "", result)
 }
 
