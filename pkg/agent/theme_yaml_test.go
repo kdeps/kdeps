@@ -59,11 +59,12 @@ func TestLoadBuiltinThemes_PromptTextMatchesExpected(t *testing.T) {
 	}
 }
 
-func TestLoadBuiltinThemes_BlackIsDim_NormalIsBright(t *testing.T) {
+func TestLoadBuiltinThemes_BlackIsFlatGray_NormalIsBright(t *testing.T) {
 	built := loadBuiltinThemes()
 	require.Contains(t, built, "black")
 	require.Contains(t, built, "normal")
-	assert.Equal(t, "#161616", built["black"].palette.modelName)
+	assert.Equal(t, "#767676", built["black"].palette.modelName)
+	assert.Equal(t, "#767676", built["black"].palette.heading, "black is monochrome: every field shares one color")
 	assert.False(t, built["black"].palette.bold)
 	assert.Equal(t, "#00E5FF", built["normal"].palette.modelName)
 	assert.True(t, built["normal"].palette.bold)
@@ -538,4 +539,31 @@ palette:
 	assert.Equal(t, defaultThemeName, CurrentThemeName(), "initThemes must select the default theme")
 	assert.True(t, SetTheme("custominit"))
 	assert.Equal(t, "?? ", activePromptText)
+	assert.Equal(t, []string{"custominit"}, CustomThemeNames())
+	assert.Equal(t, []string{"normal", "black", "linux", "vim", "emacs"}, BuiltinThemeNames(),
+		"BuiltinThemeNames must stay fixed regardless of what user themes are loaded")
+}
+
+// TestInitThemes_CustomThemeOverridingBuiltinStillListedAsCustom covers the
+// override case CustomThemeNames' doc comment calls out: a user file named
+// after a built-in still appears in CustomThemeNames, even though its name
+// is not new to themeOrder.
+func TestInitThemes_CustomThemeOverridingBuiltinStillListedAsCustom(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".kdeps", "themes")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "vim.yaml"), []byte(`
+name: vim
+prompt: "custom-vim> "
+palette:
+  heading: "#123123"
+`), 0o644))
+	t.Cleanup(initThemes)
+
+	initThemes()
+
+	assert.Equal(t, []string{"vim"}, CustomThemeNames())
+	assert.Equal(t, "custom-vim> ", themes["vim"].promptText, "the user file must override the built-in vim theme")
 }

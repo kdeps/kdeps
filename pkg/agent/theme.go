@@ -21,6 +21,7 @@ package agent
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -43,13 +44,13 @@ type palette struct {
 	bannerText, bannerBorder                                                     string
 	modelsReady, modelsNoKey, modelsCurrent                                      string
 
-	// modelName is the model shown in the modeline. In a disguise theme with
-	// full-legibility colors it may instead be abbreviated (DisplayModelName);
-	// in black it is the darkest color in the palette.
+	// modelName is the model shown in the modeline. Under a disguise theme
+	// the literal name is usually replaced with an abbreviation
+	// (DisplayModelName) rather than relying on color to hide it.
 	modelName string
 
-	// bold is false in the black theme - bold text raises contrast and
-	// defeats the point of a near-invisible palette.
+	// bold is false in the black theme to keep its single flat gray from
+	// reading as a second, brighter color.
 	bold bool
 }
 
@@ -62,6 +63,13 @@ type theme struct {
 
 const defaultThemeName = "normal"
 
+// builtinThemeOrder lists the shipped themes in display order. It is the
+// fixed prefix of themeOrder; anything after it came from
+// ~/.kdeps/themes/*.yaml (see initThemes).
+//
+//nolint:gochecknoglobals // immutable listing of the shipped themes
+var builtinThemeOrder = []string{"normal", "black", "linux", "vim", "emacs"}
+
 //nolint:gochecknoglobals // the theme registry, listing order, and active state
 var (
 	// themes and themeOrder are populated at init() from loadBuiltinThemes()
@@ -69,11 +77,30 @@ var (
 	themes     map[string]*theme
 	themeOrder []string
 
+	// customThemeNames is the subset of themeOrder that came from
+	// ~/.kdeps/themes/*.yaml, in sorted order -- exposed via CustomThemeNames
+	// so /theme can list built-in and user themes separately.
+	customThemeNames []string
+
 	currentThemeKey  = defaultThemeName
 	activePalette    *palette
 	activePromptText = "> "
 	activeInputTint  string
 )
+
+// Model-name display modes, settable via /model name and persisted through
+// SetSaveModelNameDisplayFn. modelNameDisplayAuto ("", the zero value) keeps
+// the theme-based default: verbatim under normal, abbreviated under every
+// disguise theme.
+const (
+	modelNameDisplayAuto       = ""
+	modelNameDisplayShow       = "show"
+	modelNameDisplayHide       = "hide"
+	modelNameDisplayAbbreviate = "abbreviate"
+)
+
+//nolint:gochecknoglobals // explicit user override of the modeline's model-name rendering
+var modelNameDisplayMode = modelNameDisplayAuto
 
 // stealthEnabled reports whether the active theme is a disguise (anything
 // but normal).
@@ -101,6 +128,16 @@ func CurrentThemeName() string { return currentThemeKey }
 // built-in themes first, then any user themes, in a stable order.
 func ThemeNames() []string { return themeOrder }
 
+// BuiltinThemeNames lists the shipped themes only, in display order.
+func BuiltinThemeNames() []string { return builtinThemeOrder }
+
+// CustomThemeNames lists the themes loaded from ~/.kdeps/themes/*.yaml, in
+// sorted order. Empty when no user theme files exist. A user file that
+// overrides a built-in's name (e.g. a custom vim.yaml) still appears here,
+// even though it also appears at that position in BuiltinThemeNames -- the
+// override replaced the built-in's palette, but the name itself is not new.
+func CustomThemeNames() []string { return customThemeNames }
+
 // SetTheme selects the active theme. Unknown names leave the current theme
 // unchanged and return false.
 func SetTheme(name string) bool {
@@ -123,15 +160,41 @@ func applyActiveTheme() {
 	rebuildTheme()
 }
 
+// SetModelNameDisplay sets the explicit override for how the modeline shows
+// the model name: "show" (verbatim), "hide" (omit the segment entirely), or
+// "abbreviate" (see abbreviateModelName). An empty string restores the
+// automatic, theme-based default. Unrecognized values are rejected (false)
+// and leave the current mode unchanged.
+func SetModelNameDisplay(mode string) bool {
+	switch mode {
+	case modelNameDisplayAuto, modelNameDisplayShow, modelNameDisplayHide, modelNameDisplayAbbreviate:
+		modelNameDisplayMode = mode
+		return true
+	default:
+		return false
+	}
+}
+
+// ModelNameDisplayMode returns the current override ("" for automatic).
+func ModelNameDisplayMode() string { return modelNameDisplayMode }
+
 // DisplayModelName returns how the model name should render in the modeline.
-// normal and black show it verbatim - normal because there's no disguise at
-// all, black because it already hides the name by color alone
-// (near-invisible). The linux/vim/emacs (and any custom) themes render the
-// model-name color at full legibility, so the literal name (e.g. "llama3.2",
-// "claude-sonnet-5", "gpt-4o") would give the disguise away regardless of
-// color; those themes show an abbreviation instead.
+// An explicit override from SetModelNameDisplay wins outright. Otherwise the
+// theme decides: normal shows it verbatim (there's no disguise), every other
+// theme abbreviates it (see abbreviateModelName) so the literal name (e.g.
+// "llama3.2", "claude-sonnet-5", "gpt-4o") doesn't give the disguise away --
+// including black, whose palette is a legible gray rather than a
+// near-invisible one, so color alone no longer hides it there.
 func DisplayModelName(name string) string {
-	if currentThemeKey == defaultThemeName || currentThemeKey == "black" {
+	switch modelNameDisplayMode {
+	case modelNameDisplayShow:
+		return name
+	case modelNameDisplayHide:
+		return ""
+	case modelNameDisplayAbbreviate:
+		return abbreviateModelName(name)
+	}
+	if currentThemeKey == defaultThemeName {
 		return name
 	}
 	return abbreviateModelName(name)
@@ -201,13 +264,19 @@ func rebuildTheme() {
 // startup.
 func initThemes() {
 	themes = loadBuiltinThemes()
-	themeOrder = []string{"normal", "black", "linux", "vim", "emacs"}
+	themeOrder = append([]string{}, builtinThemeOrder...)
 	userThemes, loadErrs := loadUserThemes()
 	for _, e := range loadErrs {
 		fmt.Fprintf(os.Stderr, "theme: %v\n", e)
 	}
+	customThemeNames = make([]string, 0, len(userThemes))
+	for name := range userThemes {
+		customThemeNames = append(customThemeNames, name)
+	}
+	sort.Strings(customThemeNames)
 	mergeUserThemes(userThemes)
 	currentThemeKey = defaultThemeName
+	modelNameDisplayMode = modelNameDisplayAuto
 	applyActiveTheme()
 }
 

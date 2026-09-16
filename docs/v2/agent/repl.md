@@ -86,20 +86,31 @@ kdeps --theme black             # start disguised
 
 ```text
 /theme              show the current theme and the list of valid names
+/theme list         same as bare /theme - built-in and custom names shown separately
 /theme vim          switch themes - normal, black, linux, vim, emacs, or a custom name
 ```
 
 | Theme | Look |
 |---|---|
 | `normal` (default) | The bright default palette - no disguise |
-| `black` | Near-black grays, forced 24-bit color so the shades don't round up on a 256-color terminal; the model name is the dimmest element on screen, deliberately close to invisible |
+| `black` | A single flat, legible dark gray (`#767676`) for every element - muted and monochrome, but readable, not near-invisible |
 | `linux` | Plain, monochrome-ish light-gray-on-black, like a default terminal with no syntax highlighting |
 | `vim` | vim's classic default colorscheme conventions (yellow keywords, cyan identifiers, red strings) and a `: ` command-line prompt |
 | `emacs` | A common terminal-Emacs highlight set (purple keywords, blue functions, salmon strings) and an `M-x ` prompt |
 
 `/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts with it too. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `normal`.
 
-`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line for those three themes - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color. The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
+Every theme but `normal` renders the model-name color at full legibility, so the literal model name is shortened to initials in the status line by default - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color. Override this with `/model name`:
+
+```text
+/model name              show the current mode
+/model name show         always show the literal model name, regardless of theme
+/model name hide         omit the model name from the modeline entirely
+/model name abbreviate   always abbreviate, even under normal
+/model name auto         back to the theme-based default (the factory setting)
+```
+
+`/model name <mode>` persists to `~/.kdeps/agent-loop-settings.yaml` the same way `/theme` does. The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
 
 ### Custom themes
 

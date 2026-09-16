@@ -34,6 +34,11 @@ type Settings struct {
 	// session without changing the stored value.
 	Theme string `yaml:"theme,omitempty"`
 
+	// ModelNameDisplay persists how the modeline shows the model name: "show",
+	// "hide", or "abbreviate". Empty means automatic (theme-based). Set via
+	// /model name in the REPL.
+	ModelNameDisplay string `yaml:"model_name_display,omitempty"`
+
 	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
 	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
 	// their own version registries; only network endpoints live here.
@@ -148,6 +153,17 @@ func SaveTheme(name string) error {
 		return err
 	}
 	s.Theme = name
+	return s.Save()
+}
+
+// SaveModelNameDisplay updates only the ModelNameDisplay field and persists
+// the settings file.
+func SaveModelNameDisplay(mode string) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.ModelNameDisplay = mode
 	return s.Save()
 }
 

@@ -74,6 +74,46 @@ func TestSaveTheme_PropagatesLoadSettingsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestSettings_ModelNameDisplayRoundTrips(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	s := Settings{ModelNameDisplay: "hide"}
+	require.NoError(t, s.Save())
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "hide", got.ModelNameDisplay)
+}
+
+func TestSaveModelNameDisplay_PersistsAndPreservesOtherFields(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	require.NoError(t, (&Settings{DefaultModel: "llama3.2"}).Save())
+	require.NoError(t, SaveModelNameDisplay("abbreviate"))
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "abbreviate", got.ModelNameDisplay)
+	assert.Equal(t, "llama3.2", got.DefaultModel, "SaveModelNameDisplay must not clobber unrelated fields")
+}
+
+func TestSaveModelNameDisplay_PropagatesLoadSettingsError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
+	require.NoError(t, os.WriteFile(path, []byte(":\tinvalid: yaml: {["), 0o600))
+
+	err := SaveModelNameDisplay("show")
+	assert.Error(t, err)
+}
+
 func TestLoadSettings_Missing(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

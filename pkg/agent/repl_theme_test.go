@@ -21,7 +21,10 @@ package agent
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -122,4 +125,130 @@ func TestDispatchTheme(t *testing.T) {
 
 	require.NoError(t, repl.dispatchCommand("/theme vim"))
 	assert.Equal(t, "vim", CurrentThemeName())
+}
+
+func TestCmdTheme_ListShowsBuiltinAndCustomSeparately(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	// "/theme list" and bare "/theme" both print the listing without error.
+	require.NoError(t, repl.cmdTheme([]string{"list"}))
+	require.NoError(t, repl.cmdTheme(nil))
+}
+
+// TestCmdTheme_ListShowsCustomThemeNames covers the non-empty branch of
+// printThemeList's "Custom" line, which the no-user-themes case above never
+// exercises.
+func TestCmdTheme_ListShowsCustomThemeNames(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".kdeps", "themes")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "mytheme.yaml"), []byte("name: mytheme\n"), 0o644))
+	t.Cleanup(initThemes)
+	initThemes()
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.cmdTheme([]string{"list"}))
+	assert.Contains(t, CustomThemeNames(), "mytheme")
+}
+
+// TestCmdModelName_SetsAndPersists mirrors TestCmdTheme_SetsAndPersists for
+// the /model name subcommand.
+func TestCmdModelName_SetsAndPersists(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved []string
+	repl.SetSaveModelNameFn(func(mode string) error { saved = append(saved, mode); return nil })
+
+	require.NoError(t, repl.cmdModelName([]string{"hide"}))
+	assert.Equal(t, "hide", ModelNameDisplayMode())
+	assert.Equal(t, []string{"hide"}, saved)
+}
+
+func TestCmdModelName_AutoRestoresThemeBasedDefault(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.cmdModelName([]string{"show"}))
+	assert.Equal(t, "show", ModelNameDisplayMode())
+
+	require.NoError(t, repl.cmdModelName([]string{"auto"}))
+	assert.Equal(t, "", ModelNameDisplayMode())
+}
+
+func TestCmdModelName_SaveErrorPropagated(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	repl.SetSaveModelNameFn(func(string) error { return errors.New("disk full") })
+
+	err := repl.cmdModelName([]string{"hide"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "persist model name display setting")
+	assert.Equal(t, "hide", ModelNameDisplayMode(), "the mode still switches even though persisting failed")
+}
+
+func TestCmdModelName_UnknownModeRejectedNoSave(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved []string
+	repl.SetSaveModelNameFn(func(mode string) error { saved = append(saved, mode); return nil })
+
+	require.NoError(t, repl.cmdModelName([]string{"bogus"}))
+	assert.Equal(t, "", ModelNameDisplayMode(), "an unknown mode must not change the current one")
+	assert.Empty(t, saved, "an unknown mode must not be persisted")
+}
+
+func TestCmdModelName_BareShowsCurrentMode(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.cmdModelName(nil))
+	_ = SetModelNameDisplay("abbreviate")
+	require.NoError(t, repl.cmdModelName(nil))
+}
+
+func TestDispatchModelName(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.dispatchCommand("/model name hide"))
+	assert.Equal(t, "hide", ModelNameDisplayMode())
+}
+
+// TestModeline_HideOmitsModelNameSegmentEntirely is a regression guard: the
+// modeline must not render an empty styled segment (which would leave a
+// stray " · " separator) when /model name hide is set.
+func TestModeline_HideOmitsModelNameSegmentEntirely(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	_ = SetModelNameDisplay("hide")
+	line := repl.modeline()
+	assert.NotContains(t, line, "test-model")
+	assert.False(t, strings.HasPrefix(strings.TrimSpace(line), "·"),
+		"modeline must not start with a stray separator: %q", line)
 }
