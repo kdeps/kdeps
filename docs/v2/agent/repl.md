@@ -78,7 +78,9 @@ When extended reasoning is enabled (`/thinking`), the streamed reasoning is rend
 
 ## Themes
 
-`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the REPL's entire look - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers. `normal` is the bright default; every other theme is a disguise that no longer reads as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office. There's no separate on/off flag - picking a theme takes effect immediately.
+`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the REPL's entire look - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries. `normal` is the bright default; every other theme is a disguise that no longer reads as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office. There's no separate on/off flag - picking a theme takes effect immediately.
+
+The `/model` picker, the `/settings` picker, and the startup resume picker (`--resume`/session history) run outside the REPL's own text rendering, in their own full-screen views - but they pick up the exact same theme colors (accent, success, warning, dim, bold), not just a muted/bright toggle. Switching to `vim` recolors those pickers with vim's yellow/green/red accents; switching to `black` collapses them to the same flat gray as everything else.
 
 ```bash
 kdeps --theme black             # start disguised

@@ -27,10 +27,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testGGUFAlias returns a real alias from the currently loaded GGUF
+// registry, for tests that need *some* alias that resolves to a real .gguf
+// URL. A hardcoded literal (e.g. a specific "qwen3.5:4b" tag) breaks the
+// moment that exact tag disappears from the registry -- gguf_versions_data.go
+// is regenerated nightly from a live, changing HuggingFace catalog, so
+// specific quantization/size variants routinely come and go. This stays
+// valid regardless of which aliases the registry currently contains.
+func testGGUFAlias(t *testing.T) string {
+	t.Helper()
+	names := GGUFAliasNames()
+	require.NotEmpty(t, names, "GGUF registry has no aliases to test with")
+	return names[0]
+}
+
 func TestResolveGGUFAlias_Hit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	url, ok := ResolveGGUFAlias("qwen3.5:4b")
+	url, ok := ResolveGGUFAlias(testGGUFAlias(t))
 	require.True(t, ok)
 	assert.Contains(t, url, "huggingface.co")
 	assert.Contains(t, url, ".gguf")
@@ -97,7 +111,7 @@ func TestGGUFCachedPath_Hit(t *testing.T) {
 	t.Cleanup(ReloadGGUFRegistry)
 	// filepath.IsAbs requires a drive letter on Windows, so a POSIX-style
 	// "/tmp/models" literal isn't absolute there; use a real absolute dir.
-	path, ok := GGUFCachedPath("qwen3.5:4b", filepath.Join(t.TempDir(), "models"))
+	path, ok := GGUFCachedPath(testGGUFAlias(t), filepath.Join(t.TempDir(), "models"))
 	require.True(t, ok)
 	assert.True(t, filepath.IsAbs(path))
 	assert.Contains(t, path, ".gguf")

@@ -23,6 +23,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
 // Themes. The whole agent-loop REPL renders from the current theme's
@@ -254,6 +256,26 @@ func rebuildTheme() {
 	applyRenderPalette()       // repl_render.go: color vars + thinking styles
 	applyReplStyles()          // repl.go: styleReplX + styleModelName
 	invalidateRenderers()      // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
+	syncPickerColors()         // pkg/tui: /model, /settings, and the resume picker match this theme too
+}
+
+// syncPickerColors pushes the active theme's chrome colors into pkg/tui so
+// the startup/model/session pickers -- which run in their own bubbletea
+// program, outside the REPL's own rendering path -- share the exact same
+// look instead of an independent palette. Reuses the REPL's own "chrome"
+// fields (replHeading/replSuccess/replError/replDim) rather than introducing
+// a second picker-specific palette: every built-in theme already defines
+// them, and a partial custom theme falls back to normal's values for any it
+// omits (see paletteFromYAML), so this never needs a theme-name special case.
+func syncPickerColors() {
+	p := activePalette
+	tui.SetPickerColors(tui.PickerColors{
+		Accent:  p.replHeading,
+		Success: p.replSuccess,
+		Warning: p.replError,
+		Dim:     p.replDim,
+		Bold:    p.bold,
+	})
 }
 
 // initThemes loads the built-in themes, layers any user themes on top, and
