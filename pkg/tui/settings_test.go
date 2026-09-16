@@ -52,13 +52,26 @@ func TestSaveTheme_PersistsAndPreservesOtherFields(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 
-	require.NoError(t, (&Settings{Stealth: true}).Save())
+	require.NoError(t, (&Settings{DefaultModel: "llama3.2"}).Save())
 	require.NoError(t, SaveTheme("emacs"))
 
 	got, err := LoadSettings()
 	require.NoError(t, err)
 	assert.Equal(t, "emacs", got.Theme)
-	assert.True(t, got.Stealth, "SaveTheme must not clobber unrelated fields")
+	assert.Equal(t, "llama3.2", got.DefaultModel, "SaveTheme must not clobber unrelated fields")
+}
+
+func TestSaveTheme_PropagatesLoadSettingsError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
+	require.NoError(t, os.WriteFile(path, []byte(":\tinvalid: yaml: {["), 0o600))
+
+	err := SaveTheme("vim")
+	assert.Error(t, err)
 }
 
 func TestLoadSettings_Missing(t *testing.T) {

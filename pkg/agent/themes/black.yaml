@@ -1,0 +1,43 @@
+# black: near-black grays. Body text sits around #2c2c2c, dim text at
+# #1e1e1e, and the model name at #161616 - barely a shade above a black
+# terminal background. Deliberately dark: a lighter palette read as "gray
+# text" from a distance instead of blending into the background.
+name: black
+prompt: "> "
+bold: false
+palette:
+  heading: "#2c2c2c"
+  link: "#282828"
+  code: "#2c2c2c"
+  codeBlock: "#2c2c2c"
+  text: "#2c2c2c"
+  thinking: "#242424"
+  muted: "#1e1e1e"
+  bullet: "#282828"
+  quote: "#242424"
+  borderHr: "#161616"
+
+  synKeyword: "#2c2c2c"
+  synFunc: "#2c2c2c"
+  synStr: "#2c2c2c"
+  synComment: "#1e1e1e"
+  synNum: "#2c2c2c"
+  synType: "#2c2c2c"
+  synOp: "#2c2c2c"
+
+  replError: "#332222"
+  replMeta: "#1e1e1e"
+  replHeading: "#2c2c2c"
+  replSuccess: "#223322"
+  replPrompt: "#282828"
+  replInfo: "#1e1e1e"
+  replDim: "#1e1e1e"
+
+  bannerText: "#282828"
+  bannerBorder: "#161616"
+
+  modelsReady: "#282828"
+  modelsNoKey: "#1e1e1e"
+  modelsCurrent: "#282828"
+
+  modelName: "#161616"

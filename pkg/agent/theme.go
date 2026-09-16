@@ -21,15 +21,16 @@ package agent
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 )
 
-// Stealth ("Muted") mode. When on, the whole agent-loop REPL renders in
-// near-black dark grays and the model name is the dimmest element on screen -
-// barely legible against a dark terminal, invisible from across a room. Meant
-// for running kdeps in public. Toggled via the --stealth flag, the
-// KDEPS_STEALTH env var, or the /stealth REPL command.
+// Themes. The whole agent-loop REPL renders from the current theme's
+// palette: "normal" (the bright default) is a theme like any other, and
+// switching to any other theme (black, linux, vim, emacs, or a custom one
+// dropped into ~/.kdeps/themes/) is what used to be called "stealth mode".
+// There is no separate on/off flag -- /theme <name> is the only control.
+// See theme_yaml.go for how theme definitions are loaded (embedded YAML for
+// the built-ins, user YAML files layered on top).
 
 // palette holds every semantic color the REPL renders with, as hex strings.
 type palette struct {
@@ -42,278 +43,49 @@ type palette struct {
 	bannerText, bannerBorder                                                     string
 	modelsReady, modelsNoKey, modelsCurrent                                      string
 
-	// modelName is the model shown in the modeline. In stealth it is the
-	// darkest color in the palette.
+	// modelName is the model shown in the modeline. In a disguise theme with
+	// full-legibility colors it may instead be abbreviated (DisplayModelName);
+	// in black it is the darkest color in the palette.
 	modelName string
 
-	// bold is false in stealth mode - bold text raises contrast and defeats
-	// the point.
+	// bold is false in the black theme - bold text raises contrast and
+	// defeats the point of a near-invisible palette.
 	bold bool
 }
 
-//nolint:gochecknoglobals // the two fixed palettes and the active pointer form the theme
-var (
-	normalPalette = palette{
-		heading:   "#FFD60A",
-		link:      "#81A2BE",
-		code:      "#00E5FF",
-		codeBlock: "#A8FF78",
-		text:      "#CDD6F4",
-		thinking:  "#888888",
-		muted:     "#555555",
-		bullet:    "#00E5FF",
-		quote:     "#888888",
-		borderHr:  "#333333",
-
-		synKeyword: "#FF79C6",
-		synFunc:    "#61AFEF",
-		synStr:     "#A8FF78",
-		synComment: "#676767",
-		synNum:     "#FFD60A",
-		synType:    "#00E5FF",
-		synOp:      "#EF8080",
-
-		replError:   "#FF2D78",
-		replMeta:    "#888888",
-		replHeading: "#00E5FF",
-		replSuccess: "#00FF87",
-		replPrompt:  "#00E5FF",
-		replInfo:    "#7AA2F7",
-		replDim:     "#555555",
-
-		bannerText:   "#CDD6F4",
-		bannerBorder: "#333333",
-
-		modelsReady:   "#00E5FF",
-		modelsNoKey:   "#555555",
-		modelsCurrent: "#FFD60A",
-
-		modelName: "#00E5FF",
-
-		bold: true,
-	}
-
-	// stealthPalette: near-black grays. Body text sits around #2c2c2c, dim text
-	// at #1e1e1e, and the model name at #161616 - barely a shade above a black
-	// terminal background. Deliberately dark: the earlier, lighter palette read
-	// as "gray text" from a distance. This is the palette behind the "black"
-	// theme (the default) - see themes below.
-	stealthPalette = palette{
-		heading:   "#2c2c2c",
-		link:      "#282828",
-		code:      "#2c2c2c",
-		codeBlock: "#2c2c2c",
-		text:      "#2c2c2c",
-		thinking:  "#242424",
-		muted:     "#1e1e1e",
-		bullet:    "#282828",
-		quote:     "#242424",
-		borderHr:  "#161616",
-
-		synKeyword: "#2c2c2c",
-		synFunc:    "#2c2c2c",
-		synStr:     "#2c2c2c",
-		synComment: "#1e1e1e",
-		synNum:     "#2c2c2c",
-		synType:    "#2c2c2c",
-		synOp:      "#2c2c2c",
-
-		replError:   "#332222",
-		replMeta:    "#1e1e1e",
-		replHeading: "#2c2c2c",
-		replSuccess: "#223322",
-		replPrompt:  "#282828",
-		replInfo:    "#1e1e1e",
-		replDim:     "#1e1e1e",
-
-		bannerText:   "#282828",
-		bannerBorder: "#161616",
-
-		modelsReady:   "#282828",
-		modelsNoKey:   "#1e1e1e",
-		modelsCurrent: "#282828",
-
-		modelName: "#161616",
-
-		bold: false,
-	}
-
-	// linuxPalette: plain, monochrome-ish light-gray-on-black - the look of a
-	// default terminal emulator with no fancy syntax highlighting. Unlike
-	// stealthPalette this is fully legible; the disguise is "looks like an
-	// ordinary shell session", not "hard to read".
-	linuxPalette = palette{
-		heading:   "#FFFFFF",
-		link:      "#5FAFFF",
-		code:      "#D4D4D4",
-		codeBlock: "#D4D4D4",
-		text:      "#E5E5E5",
-		thinking:  "#AAAAAA",
-		muted:     "#808080",
-		bullet:    "#AAAAAA",
-		quote:     "#AAAAAA",
-		borderHr:  "#444444",
-
-		synKeyword: "#D4D4D4",
-		synFunc:    "#AAAAAA",
-		synStr:     "#D4D4D4",
-		synComment: "#808080",
-		synNum:     "#D4D4D4",
-		synType:    "#D4D4D4",
-		synOp:      "#D4D4D4",
-
-		replError:   "#FF5555",
-		replMeta:    "#808080",
-		replHeading: "#FFFFFF",
-		replSuccess: "#55FF55",
-		replPrompt:  "#E5E5E5",
-		replInfo:    "#AAAAAA",
-		replDim:     "#808080",
-
-		bannerText:   "#E5E5E5",
-		bannerBorder: "#444444",
-
-		modelsReady:   "#55FF55",
-		modelsNoKey:   "#808080",
-		modelsCurrent: "#FFFFFF",
-
-		modelName: "#E5E5E5",
-
-		bold: true,
-	}
-
-	// vimPalette leans on vim's classic "default" colorscheme conventions for
-	// the syn* fields specifically (Statement yellow, Identifier cyan,
-	// Constant/String red, Comment cyan-blue, Type green, Special magenta) -
-	// the one theme where syntax highlighting itself is part of the disguise.
-	vimPalette = palette{
-		heading:   "#FFFF00",
-		link:      "#4B9CFF",
-		code:      "#D0D0D0",
-		codeBlock: "#D0D0D0",
-		text:      "#D0D0D0",
-		thinking:  "#5FAFAF",
-		muted:     "#5F5F5F",
-		bullet:    "#D0D0D0",
-		quote:     "#5FAFAF",
-		borderHr:  "#444444",
-
-		synKeyword: "#FFFF00",
-		synFunc:    "#00FFFF",
-		synStr:     "#FF6060",
-		synComment: "#5FAFAF",
-		synNum:     "#FF6060",
-		synType:    "#00FF00",
-		synOp:      "#FF00FF",
-
-		replError:   "#FF6060",
-		replMeta:    "#5F5F5F",
-		replHeading: "#FFFF00",
-		replSuccess: "#00FF00",
-		replPrompt:  "#D0D0D0",
-		replInfo:    "#00FFFF",
-		replDim:     "#5F5F5F",
-
-		bannerText:   "#D0D0D0",
-		bannerBorder: "#444444",
-
-		modelsReady:   "#00FF00",
-		modelsNoKey:   "#5F5F5F",
-		modelsCurrent: "#FFFF00",
-
-		modelName: "#D0D0D0",
-
-		bold: true,
-	}
-
-	// emacsPalette uses a common terminal-Emacs highlighting set (keyword
-	// purple, function blue, string salmon, comment green).
-	emacsPalette = palette{
-		heading:   "#8080FF",
-		link:      "#61AFEF",
-		code:      "#DCDCDC",
-		codeBlock: "#DCDCDC",
-		text:      "#DCDCDC",
-		thinking:  "#6A9955",
-		muted:     "#6C6C6C",
-		bullet:    "#DCDCDC",
-		quote:     "#6A9955",
-		borderHr:  "#444444",
-
-		synKeyword: "#C586C0",
-		synFunc:    "#61AFEF",
-		synStr:     "#CE9178",
-		synComment: "#6A9955",
-		synNum:     "#B5CEA8",
-		synType:    "#4EC9B0",
-		synOp:      "#D4D4D4",
-
-		replError:   "#F44747",
-		replMeta:    "#6C6C6C",
-		replHeading: "#8080FF",
-		replSuccess: "#6A9955",
-		replPrompt:  "#DCDCDC",
-		replInfo:    "#61AFEF",
-		replDim:     "#6C6C6C",
-
-		bannerText:   "#DCDCDC",
-		bannerBorder: "#444444",
-
-		modelsReady:   "#6A9955",
-		modelsNoKey:   "#6C6C6C",
-		modelsCurrent: "#8080FF",
-
-		modelName: "#DCDCDC",
-
-		bold: true,
-	}
-
-	activePalette = &normalPalette
-)
-
-// theme pairs a stealth-mode palette with the literal prompt text it renders
-// (e.g. vim's ": " command-line prompt vs a plain shell "$ "). Selecting a
-// theme is independent of whether stealth is currently on/off (see
-// stealthOn/SetTheme below) - it only becomes visible once stealth is on.
+// theme pairs a palette with the literal prompt text it renders (e.g. vim's
+// ": " command-line prompt vs a plain shell "$ ").
 type theme struct {
 	palette    *palette
 	promptText string
 }
 
-//nolint:gochecknoglobals // fixed theme registry, same pattern as the palettes above
-var (
-	themes = map[string]*theme{
-		"black": {palette: &stealthPalette, promptText: "> "},
-		"linux": {palette: &linuxPalette, promptText: "$ "},
-		"vim":   {palette: &vimPalette, promptText: ": "},
-		"emacs": {palette: &emacsPalette, promptText: "M-x "},
-	}
-	// themeOrder gives /theme a stable listing order instead of map iteration order.
-	themeOrder = []string{"black", "linux", "vim", "emacs"}
+const defaultThemeName = "normal"
 
-	stealthOn        bool
-	currentThemeKey  = "black"
+//nolint:gochecknoglobals // the theme registry, listing order, and active state
+var (
+	// themes and themeOrder are populated at init() from loadBuiltinThemes()
+	// + loadUserThemes() -- see theme_yaml.go. Never nil after init.
+	themes     map[string]*theme
+	themeOrder []string
+
+	currentThemeKey  = defaultThemeName
+	activePalette    *palette
 	activePromptText = "> "
 	activeInputTint  string
 )
 
-// stealthEnabled reports whether stealth mode is currently active.
-func stealthEnabled() bool { return stealthOn }
+// stealthEnabled reports whether the active theme is a disguise (anything
+// but normal).
+func stealthEnabled() bool { return currentThemeKey != defaultThemeName }
 
-// StealthActive reports whether stealth mode is currently active. Exported for
-// cmd/ and tests.
+// StealthActive reports whether the active theme is a disguise (anything but
+// normal). Exported for cmd/ and tests.
 func StealthActive() bool { return stealthEnabled() }
 
-// ResolveStealthEnv reports whether KDEPS_STEALTH requests stealth mode.
-// True when the value is "1", "true", or "yes" (case-insensitive).
-func ResolveStealthEnv() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_STEALTH")))
-	return v == "1" || v == "true" || v == "yes"
-}
-
-// ResolveThemeEnv reports the stealth theme requested by KDEPS_THEME, or ""
-// if unset or not a recognized theme name (caller falls back to its own
-// default in that case).
+// ResolveThemeEnv reports the theme requested by KDEPS_THEME, or "" if unset
+// or not a recognized theme name (caller falls back to its own default in
+// that case).
 func ResolveThemeEnv() string {
 	v := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_THEME")))
 	if _, ok := themes[v]; !ok {
@@ -322,25 +94,15 @@ func ResolveThemeEnv() string {
 	return v
 }
 
-// CurrentThemeName returns the selected stealth theme's name, independent of
-// whether stealth is currently on.
+// CurrentThemeName returns the selected theme's name.
 func CurrentThemeName() string { return currentThemeKey }
 
-// ThemeNames lists the valid names for /theme and error messages, in a
-// stable order.
+// ThemeNames lists the valid names for /theme and error messages: the
+// built-in themes first, then any user themes, in a stable order.
 func ThemeNames() []string { return themeOrder }
 
-// SetStealth turns stealth mode on or off and rebuilds every cached style and
-// markdown renderer so the change takes effect immediately.
-func SetStealth(on bool) {
-	stealthOn = on
-	applyActiveTheme()
-}
-
-// SetTheme selects which theme stealth mode renders with. Unknown names leave
-// the current theme unchanged and return false. Persists the choice
-// regardless of whether stealth is currently on, so turning stealth on later
-// immediately uses the last-chosen theme.
+// SetTheme selects the active theme. Unknown names leave the current theme
+// unchanged and return false.
 func SetTheme(name string) bool {
 	key := strings.ToLower(strings.TrimSpace(name))
 	if _, ok := themes[key]; !ok {
@@ -352,28 +114,24 @@ func SetTheme(name string) bool {
 }
 
 // applyActiveTheme recomputes activePalette/activePromptText/activeInputTint
-// from stealthOn + currentThemeKey, then rebuilds every derived style.
+// from currentThemeKey, then rebuilds every derived style.
 func applyActiveTheme() {
-	if stealthOn {
-		t := themes[currentThemeKey]
-		activePalette = t.palette
-		activePromptText = t.promptText
-	} else {
-		activePalette = &normalPalette
-		activePromptText = "> "
-	}
+	t := themes[currentThemeKey]
+	activePalette = t.palette
+	activePromptText = t.promptText
 	activeInputTint = hexToSGRForeground(activePalette.thinking)
 	rebuildTheme()
 }
 
 // DisplayModelName returns how the model name should render in the modeline.
-// The "black" theme (and stealth off) show it verbatim - black already hides
-// it by color alone (near-invisible). The linux/vim/emacs themes render the
+// normal and black show it verbatim - normal because there's no disguise at
+// all, black because it already hides the name by color alone
+// (near-invisible). The linux/vim/emacs (and any custom) themes render the
 // model-name color at full legibility, so the literal name (e.g. "llama3.2",
 // "claude-sonnet-5", "gpt-4o") would give the disguise away regardless of
 // color; those themes show an abbreviation instead.
 func DisplayModelName(name string) string {
-	if !stealthOn || currentThemeKey == "black" {
+	if currentThemeKey == defaultThemeName || currentThemeKey == "black" {
 		return name
 	}
 	return abbreviateModelName(name)
@@ -416,16 +174,11 @@ const hexDigits = 6
 
 // hexToSGRForeground converts a "#RRGGBB" color into a truecolor SGR
 // foreground escape sequence, for tinting text the terminal's own line editor
-// renders (typed input) where lipgloss styling cannot reach.
+// renders (typed input) where lipgloss styling cannot reach. parseHexRGB
+// (theme_yaml.go) does the actual parsing, shared with isValidHexColor.
 func hexToSGRForeground(hex string) string {
-	hex = strings.TrimPrefix(hex, "#")
-	if len(hex) != hexDigits {
-		return ""
-	}
-	r, err1 := strconv.ParseUint(hex[0:2], 16, 8)
-	g, err2 := strconv.ParseUint(hex[2:4], 16, 8)
-	b, err3 := strconv.ParseUint(hex[4:6], 16, 8)
-	if err1 != nil || err2 != nil || err3 != nil {
+	r, g, b, ok := parseHexRGB(hex)
+	if !ok {
 		return ""
 	}
 	return fmt.Sprintf("\x1b[38;2;%d;%d;%dm", r, g, b)
@@ -440,8 +193,26 @@ func rebuildTheme() {
 	invalidateRenderers()      // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
 }
 
+// initThemes loads the built-in themes, layers any user themes on top, and
+// applies the default ("normal") theme. Exported as a function (called from
+// init(), and re-callable from tests that need a clean registry) rather than
+// living entirely inside init() -- loadUserThemes touches the filesystem, and
+// tests want to trigger that deterministically instead of only at process
+// startup.
+func initThemes() {
+	themes = loadBuiltinThemes()
+	themeOrder = []string{"normal", "black", "linux", "vim", "emacs"}
+	userThemes, loadErrs := loadUserThemes()
+	for _, e := range loadErrs {
+		fmt.Fprintf(os.Stderr, "theme: %v\n", e)
+	}
+	mergeUserThemes(userThemes)
+	currentThemeKey = defaultThemeName
+	applyActiveTheme()
+}
+
 //nolint:gochecknoinits // one-time wiring of the default (normal) theme
-func init() { rebuildTheme() }
+func init() { initThemes() }
 
 // RenderStealthSample renders a representative slice of REPL chrome - banner,
 // model name, prompt, meta, info, success, heading, thinking label - with the

@@ -35,7 +35,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
-func TestStealth_FlagAdvertisedInHelp(t *testing.T) {
+func TestTheme_FlagAdvertisedInHelp(t *testing.T) {
 	rootCmd := cmd.NewRootCmd()
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
@@ -44,49 +44,48 @@ func TestStealth_FlagAdvertisedInHelp(t *testing.T) {
 	require.NoError(t, rootCmd.Execute())
 
 	help := out.String()
-	assert.Contains(t, help, "--stealth")
-	assert.Contains(t, help, "Muted UI")
-	assert.Contains(t, help, "for use in public")
+	assert.Contains(t, help, "--theme")
+	assert.Contains(t, help, "normal")
 }
 
-// TestStealth_EndToEndPalette forces a truecolor profile and checks that
-// toggling stealth through the public agent + tui setters makes every rendered
-// accent a near-black gray - and that turning it back off restores the bright
-// palette.
-func TestStealth_EndToEndPalette(t *testing.T) {
+// TestTheme_EndToEndPalette forces a truecolor profile and checks that
+// switching themes through the public agent + tui setters makes every
+// rendered accent a near-black gray under the "black" theme, and that
+// switching back to "normal" restores the bright palette.
+func TestTheme_EndToEndPalette(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
-		agent.SetStealth(false)
+		agent.SetTheme("normal")
 		tui.SetStealth(false)
 		lipgloss.SetColorProfile(termenv.Ascii)
 	})
 
 	bright := []string{"0;229;255", "255;214;10", "0;255;135"} // cyan, yellow, green
 
-	agent.SetStealth(true)
-	tui.SetStealth(true)
+	require.True(t, agent.SetTheme("black"))
+	tui.SetStealth(agent.StealthActive())
 	assert.True(t, agent.StealthActive())
 
 	rendered := agent.RenderStealthSample()
 	for _, b := range bright {
-		assert.NotContains(t, rendered, b, "stealth output still contains a bright accent")
+		assert.NotContains(t, rendered, b, "black theme output still contains a bright accent")
 	}
 	// Every 24-bit foreground color emitted must be a near-black gray: no
 	// channel above 0x40. This catches any element that leaks a lighter color.
 	fg := regexp.MustCompile(`38;2;(\d+);(\d+);(\d+)`)
 	matches := fg.FindAllStringSubmatch(rendered, -1)
-	require.NotEmpty(t, matches, "stealth sample emitted no colors")
+	require.NotEmpty(t, matches, "black theme sample emitted no colors")
 	for _, m := range matches {
 		for _, ch := range m[1:] {
 			v, _ := strconv.Atoi(ch)
-			assert.LessOrEqual(t, v, 0x40, "stealth output has a channel %d too bright in %q", v, m[0])
+			assert.LessOrEqual(t, v, 0x40, "black theme output has a channel %d too bright in %q", v, m[0])
 		}
 	}
-	assert.NotContains(t, rendered, "\x1b[1m", "stealth output should not be bold")
+	assert.NotContains(t, rendered, "\x1b[1m", "black theme output should not be bold")
 
-	agent.SetStealth(false)
+	require.True(t, agent.SetTheme("normal"))
 	restored := agent.RenderStealthSample()
 	if strings.Contains(restored, "\x1b[") {
-		assert.Contains(t, restored, "0;229;255", "disabling stealth did not restore the bright palette")
+		assert.Contains(t, restored, "0;229;255", "switching back to normal did not restore the bright palette")
 	}
 }

@@ -124,7 +124,7 @@ An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM deci
 kdeps                            # bare agent loop REPL (resume picker if this folder has history)
 kdeps --new                      # start a clean session, skip the picker
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
-kdeps --stealth                  # "Muted" UI: dark gray, model name barely visible (for use in public)
+kdeps --theme black              # dark-gray disguise theme (model name barely visible); also linux, vim, emacs
 ```
 
 ### Agencies

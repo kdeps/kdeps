@@ -28,14 +28,10 @@ type Settings struct {
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
 
-	// Stealth persists muted ("Muted") UI mode. Set via /stealth in the REPL.
-	// The --stealth flag and KDEPS_STEALTH env var override it for one session
-	// without changing the stored value.
-	Stealth bool `yaml:"stealth,omitempty"`
-
-	// Theme persists the selected stealth-mode theme (black, linux, vim,
-	// emacs). Set via /theme in the REPL. The --theme flag and KDEPS_THEME
-	// env var override it for one session without changing the stored value.
+	// Theme persists the selected REPL theme (normal, black, linux, vim,
+	// emacs, or a custom name from ~/.kdeps/themes/). Set via /theme in the
+	// REPL. The --theme flag and KDEPS_THEME env var override it for one
+	// session without changing the stored value.
 	Theme string `yaml:"theme,omitempty"`
 
 	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
@@ -142,16 +138,6 @@ func SaveDefaultModel(model string) error {
 		return err
 	}
 	s.DefaultModel = model
-	return s.Save()
-}
-
-// SaveStealth updates only the Stealth field and persists the settings file.
-func SaveStealth(on bool) error {
-	s, err := LoadSettings()
-	if err != nil {
-		return err
-	}
-	s.Stealth = on
 	return s.Save()
 }
 

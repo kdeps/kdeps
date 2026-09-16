@@ -146,13 +146,9 @@ func createRootCommand() *cobra.Command {
 		&flags.NewSession, "new", false,
 		"Start a clean session, skipping the resume picker for this folder",
 	)
-	rootCmd.Flags().BoolVar(
-		&flags.Stealth, "stealth", false,
-		"Muted UI - render everything in dark gray with the model name barely visible (for use in public)",
-	)
 	rootCmd.Flags().StringVar(
 		&flags.Theme, "theme", "",
-		"Stealth-mode theme: black (default), linux, vim, or emacs",
+		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
 	)
 
 	addSubcommands(rootCmd)
