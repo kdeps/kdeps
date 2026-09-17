@@ -169,11 +169,18 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	// without sniffing prompt text. Production code never reads this.
 	ctx = context.WithValue(ctx, handshakeCtxKey{}, true)
 
+	// One challenge per verification cycle (this call), not one per retry:
+	// a model working through several attempts should keep answering the
+	// SAME code, and only see a new one the next time a handshake is
+	// required (the next model change/resume/compaction). Regenerating it
+	// on every retry within a single cycle would mean a slow-but-correct
+	// model is chasing a moving target.
+	challenge := newHandshakeChallenge()
+
 	for attempt := 1; ; attempt++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		challenge := newHandshakeChallenge()
 		l.handshake = &handshakeState{challenge: challenge}
 
 		// Sent as the user turn, not a system message: a system-role

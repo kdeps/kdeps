@@ -129,13 +129,84 @@ func TestPerformHandshake_SucceedsOnFirstAttempt(t *testing.T) {
 }
 
 func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {
-	// First attempt returns a wrong/stale code, second attempt (a fresh
-	// challenge each time) echoes correctly since wrongCode is unset.
+	// First attempt returns a wrong/stale code; the retry echoes correctly
+	// since wrongCode is unset -- against the SAME challenge the cycle
+	// started with (see TestPerformHandshake_ChallengeStaysStableAcrossRetries).
 	s := &wrongThenRightStreamer{}
 	loop := newStreamingLoop(s, 5)
 	require.NoError(t, loop.performHandshake(context.Background()))
 	assert.Nil(t, loop.handshake)
 	assert.GreaterOrEqual(t, s.calls, 2, "must have taken more than one round-trip to succeed")
+}
+
+// TestPerformHandshake_ChallengeStaysStableAcrossRetries covers a specific
+// user correction: the challenge must change only on the NEXT verification
+// cycle (the next RequireHandshake call), never mid-cycle on every retry --
+// otherwise a slow-but-correct model is chasing a moving target instead of
+// just needing another attempt at the same code.
+func TestPerformHandshake_ChallengeStaysStableAcrossRetries(t *testing.T) {
+	seen := &challengeCapturingStreamer{}
+	loop := newStreamingLoop(seen, 5)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- loop.performHandshake(ctx) }()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(6 * time.Second):
+		t.Fatalf("performHandshake did not finish; challenges seen so far: %v", seen.challenges)
+	}
+
+	require.GreaterOrEqual(t, len(seen.challenges), 2, "must have retried at least once")
+	first := seen.challenges[0]
+	for i, c := range seen.challenges {
+		assert.Equal(t, first, c, "attempt %d saw a different challenge than attempt 0", i)
+	}
+}
+
+// challengeCapturingStreamer records the challenge from each round's prompt
+// (without ever answering correctly, forcing every attempt through the
+// retry path) so a test can assert it never changes within one call to
+// performHandshake.
+type challengeCapturingStreamer struct {
+	challenges []string
+}
+
+func (c *challengeCapturingStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	// A real model has no tool to call once forceAnswerConfig strips Tools
+	// on the forced-final round (see prepareRound) -- mirror that here (same
+	// fix as handshakeStreamer), or a mock that always fabricates a call on
+	// every round never lets the attempt/retry loop actually advance.
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
+	challenge := ""
+	if m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); m != nil {
+		challenge = m[1]
+		c.challenges = append(c.challenges, challenge)
+	}
+	if len(c.challenges) >= 3 {
+		// Stop the test in finite time once enough samples are collected --
+		// answer correctly with whatever challenge this round actually saw.
+		return "", []domain.StreamedToolCall{{
+			ID: "1", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, challenge),
+		}}, nil
+	}
+	// A deterministic wrong answer that can never accidentally match the
+	// real (stable) challenge: flip between two fixed codes, neither of
+	// which is ever the challenge itself once it's known.
+	wrong := "0000"
+	if challenge == "0000" {
+		wrong = "1111"
+	}
+	return "", []domain.StreamedToolCall{{
+		ID: "1", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, wrong),
+	}}, nil
 }
 
 // wrongThenRightStreamer sends a garbage code on its first call, then
