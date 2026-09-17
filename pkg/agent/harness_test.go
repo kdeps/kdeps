@@ -38,6 +38,18 @@ func TestHarnessRender_InterpolatesJudgeSystem(t *testing.T) {
 	assert.NotContains(t, got, "{{")
 }
 
+// TestHarnessRender_HandshakeIncludesWorkedInvokeExample covers a specific
+// user request: the directive must not just describe the tool call in the
+// abstract, it must show the literal <invoke> syntax to copy, with the
+// actual challenge value already filled in -- for a backend with no native
+// tool-call channel to have something concrete to emit.
+func TestHarnessRender_HandshakeIncludesWorkedInvokeExample(t *testing.T) {
+	got := harnessRender("handshake", struct{ Challenge string }{"4242"})
+	assert.Contains(t, got, `<invoke name="session_handshake">`)
+	assert.Contains(t, got, `<parameter name="code">4242</parameter>`)
+	assert.NotContains(t, got, "{{")
+}
+
 func TestHarnessRender_UnknownNameReturnsEmpty(t *testing.T) {
 	assert.Equal(t, "", harnessRender("does-not-exist", nil))
 }

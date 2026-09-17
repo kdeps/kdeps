@@ -2384,6 +2384,73 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	assert.Contains(t, result, "edit failed")
 }
 
+// TestRunStreaming_RecoveredToolCallIsPraised covers the positive
+// counterpart to the [TOOL FAILED] banner: a tool call that fails, then
+// succeeds on retry, must carry a [GOOD] acknowledgment in the SAME tool
+// result message -- so the reinforcement rides along in conversation
+// history (not just printed to the terminal for that one round) and
+// survives into later tasks in the session, for a model that "forgets how
+// to call a tool" mid-session to actually carry the correction forward.
+func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			calls++
+			if calls == 1 {
+				return "", errors.New("old_string not found in /a.go")
+			}
+			return "edit applied", nil
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "edit_file", Arguments: "{}"}}},
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "2", Name: "edit_file", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "fix it", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 3)
+	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the first failure must still be flagged")
+	assert.Contains(t, ms.cfgs[2].Messages, "[GOOD]", "the recovered success must carry praise")
+	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
+}
+
+// TestRunStreaming_OrdinarySuccessIsNotPraised guards the scope decision:
+// praise only fires on a RECOVERY (success right after a recorded failure),
+// never on an ordinary successful call with no prior failure -- otherwise
+// every routine read_file/bash_exec would carry a [GOOD] banner, which is
+// constant noise rather than reinforcement.
+func TestRunStreaming_OrdinarySuccessIsNotPraised(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) { return "file contents", nil },
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "read_file", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read it", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.NotContains(t, ms.cfgs[1].Messages, "[GOOD]",
+		"an ordinary success with no prior failure must not be praised")
+}
+
 // A model that repeats the bald "done" claim a second time (never
 // acknowledging the failure) draws a second, sharper nudge instead of the
 // turn silently accepting the repeat -- bounded to maxNudgesPerKind, same as

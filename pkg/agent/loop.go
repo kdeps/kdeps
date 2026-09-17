@@ -2288,10 +2288,22 @@ func (l *Loop) executeToolCalls(
 	return msgs, outcome
 }
 
+// toolCallRecoveryPraise is appended to a successful tool result when it
+// immediately follows a recorded failure (see toolResultMessage) -- the
+// positive counterpart to the [TOOL FAILED] banner. It lands in the tool
+// message itself, so it's part of conversation history, not just terminal
+// output: the reinforcement has to survive into later tasks in the same
+// session, not just this one round, for a model that "forgets how to do a
+// tool call" mid-session to actually carry the correction forward.
+const toolCallRecoveryPraise = "\n\n[GOOD] That's a real tool call and it worked. Keep calling tools this way."
+
 // toolResultMessage builds the "tool" message content for one call. A failed
 // work tool is flagged unmistakably (turo left untouched so the exact error
 // survives) and remembered for the end-of-turn "did that actually work?" nudge;
-// a later success on any work tool clears that memory.
+// a later success on any work tool clears that memory and, since it means the
+// model just corrected itself, is praised in the same message so the positive
+// reinforcement rides along in history rather than only appearing on the
+// terminal for this one round.
 func (l *Loop) toolResultMessage(
 	ctx context.Context,
 	tc domain.StreamedToolCall,
@@ -2307,8 +2319,13 @@ func (l *Loop) toolResultMessage(
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed -- do NOT report it as done."
 	case !isToolErrorResult(result):
+		recovered := l.lastWorkFailure != nil
 		l.lastWorkFailure = nil // a work tool succeeded; failure resolved
-		return turoReduce(ctx, capToolResult(result))
+		content := turoReduce(ctx, capToolResult(result))
+		if recovered {
+			content += toolCallRecoveryPraise
+		}
+		return content
 	default:
 		return turoReduce(ctx, capToolResult(result))
 	}

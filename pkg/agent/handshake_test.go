@@ -68,6 +68,13 @@ func TestHandshakeAck_EchoesCode(t *testing.T) {
 	assert.Contains(t, handshakeAck("1234"), "1234")
 }
 
+// TestHandshakeAck_PraisesTheRealCall covers a specific user request:
+// reinforce the correct behavior (a real tool call) right when the model
+// does it right, not just flag the wrong one.
+func TestHandshakeAck_PraisesTheRealCall(t *testing.T) {
+	assert.Contains(t, handshakeAck("1234"), "real kdeps tool call")
+}
+
 // handshakeStreamer replies with a session_handshake tool call. If wrongCode
 // is set, it sends that instead of whatever challenge the system prompt
 // carried -- simulating a model that calls the tool but with a hallucinated
