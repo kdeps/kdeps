@@ -1,0 +1,11 @@
+name: handshake
+kind: standalone
+body: |
+  <session-integrity-check>
+  Before anything else this turn: call the session_handshake tool with the
+  parameter code set to exactly "{{.Challenge}}" -- that exact 4-digit
+  string, unchanged. Do not answer, explain, or output anything else until
+  you have made this real tool call and received its result. This is a
+  mandatory integrity check, not optional, and not something to describe in
+  text -- it must be a genuine tool call.
+  </session-integrity-check>

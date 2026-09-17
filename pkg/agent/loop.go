@@ -338,6 +338,11 @@ type Loop struct {
 	// /judges list. Explicit Config.Judges is separate and always wins at
 	// review time.
 	lastAutoRoster []JudgeSpec
+	// handshake is non-nil while a mandatory session-integrity handshake is
+	// pending (set by RequireHandshake on model change, session resume, and
+	// post-compaction/fold). Cleared once performHandshake confirms a real
+	// tool call echoing the issued challenge. See handshake.go.
+	handshake *handshakeState
 }
 
 // ToolCallRecord is one recorded tool invocation, exposed to the memory_query
@@ -411,6 +416,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 
 	l.registerSkillLoader()
 	l.registerIdentityTool()
+	l.registerSessionHandshakeTool()
 
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
@@ -990,6 +996,22 @@ func (l *Loop) IsStreaming() bool {
 	return l.streamer != nil
 }
 
+// autoCompactIfDue runs compaction before the LLM call when history exceeds
+// the token threshold, or when enough new conversation has accumulated since
+// the last checkpoint to justify a lighter "fold" (see shouldFold) -- either
+// condition runs the same compaction call, just at a different cadence.
+func (l *Loop) autoCompactIfDue(ctx context.Context) {
+	msgs := l.session.RawMessages()
+	if !shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) && !l.shouldFoldNow(msgs) {
+		return
+	}
+	if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
+		if l.onAutoCompact != nil {
+			l.onAutoCompact(summary)
+		}
+	}
+}
+
 // RunStreaming sends input to the LLM via the streaming backend, writing tokens to w
 // as they arrive. Returns the full accumulated response (also stored in session history).
 // The caller should write a trailing newline after this returns if needed.
@@ -998,19 +1020,14 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
 
-	// Auto-compact before the LLM call when history exceeds the token
-	// threshold, or when enough new conversation has accumulated since the
-	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
-	// condition runs the same compaction call, just at a different cadence.
-	if msgs := l.session.RawMessages(); shouldAutoCompact(
-		msgs,
-		l.config.AutoCompactThreshold,
-		l.config.Model,
-	) || l.shouldFoldNow(msgs) {
-		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
-			if l.onAutoCompact != nil {
-				l.onAutoCompact(summary)
-			}
+	l.autoCompactIfDue(ctx)
+
+	// Mandatory session-integrity handshake: model change, session resume, and
+	// the compaction/fold call just above all leave a pending challenge. Must
+	// clear before the user's actual prompt is built or sent.
+	if l.HandshakePending() {
+		if err := l.performHandshake(ctx); err != nil {
+			return "", err
 		}
 	}
 
@@ -3424,6 +3441,10 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	}
 
 	l.session.CompactWith(summary, toKeep, compactedTurns)
+	// Mandatory session-integrity handshake: the rewritten context (fold or
+	// full compaction, both funnel through here) leaves the model's
+	// tool-calling path against it unproven until it makes one real call.
+	l.RequireHandshake()
 
 	// Auto-capture structured sections into persistent memory so the LLM
 	// retains key decisions and critical context across compaction cycles.

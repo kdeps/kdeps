@@ -48,7 +48,7 @@ var (
 		"m365-sandbox", "tools-reminder", "skills-preamble",
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"goal-plan-system", "goal-confirm-system", "judge-roster-system",
-		"judge-system", "refine-system", "branch-summary",
+		"judge-system", "refine-system", "branch-summary", "handshake",
 	}
 )
 
