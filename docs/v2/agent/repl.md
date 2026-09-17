@@ -360,6 +360,17 @@ kdeps also cuts a nightly build from `main` most days. `/upgrade nightly` (or `k
 
 Nightly opt-in only works for a **standalone** install - Homebrew/.deb/.apk only ever track stable, so on those `/upgrade nightly` prints standalone-install instructions instead of a package-manager command. "Already up to date" for the nightly channel means you're running that exact nightly tag: a nightly reuses the current stable version number until the next stable release ships, so it is always offered until you are actually on it.
 
+### Installing a specific version (including a downgrade)
+
+`/upgrade <version>` (or `kdeps --upgrade --target-version <version>` outside the REPL) installs exactly that version, skipping the "is an update available" check entirely - the version was named explicitly, so kdeps installs it whether it's newer than the running build (upgrade), older (downgrade), or the same (reinstall):
+
+```
+/upgrade 2.35.0
+Downgrade to v2.35.0 now? [Y/n]
+```
+
+Same standalone-only restriction as nightly: Homebrew/.deb/.apk can't be told to install a specific (especially older) version, so those print a link to the release page instead.
+
 ## See also
 
 - [Agent mode](/agent/) - starting the loop, tool registration

@@ -136,6 +136,25 @@ func TestCheckNightlyAgainst_PropagatesError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestIsValidVersion(t *testing.T) {
+	assert.True(t, IsValidVersion("2.9.0"))
+	assert.True(t, IsValidVersion("v2.9.0"))
+	assert.False(t, IsValidVersion("not-a-version"))
+	assert.False(t, IsValidVersion(""))
+}
+
+func TestCompareVersions(t *testing.T) {
+	assert.Negative(t, CompareVersions("2.9.0", "2.5.0"), "older target")
+	assert.Positive(t, CompareVersions("2.5.0", "2.9.0"), "newer target")
+	assert.Zero(t, CompareVersions("2.9.0", "2.9.0"), "same version")
+	assert.Zero(t, CompareVersions("bogus", "2.9.0"), "invalid current falls back to 0")
+	assert.Zero(t, CompareVersions("2.9.0", "bogus"), "invalid target falls back to 0")
+}
+
+func TestCurrentVersion_DefaultsToPackageVersion(t *testing.T) {
+	assert.NotEmpty(t, CurrentVersion())
+}
+
 func TestCheckNightly_UsesPackageVersion(t *testing.T) {
 	var gotRepo string
 	stubLatestNightly(t, func(_ context.Context, repo string) (string, error) {

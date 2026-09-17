@@ -96,7 +96,8 @@ func createRootCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if up, _ := cmd.Flags().GetBool("upgrade"); up {
 				nightly, _ := cmd.Flags().GetBool("nightly")
-				return runUpgradeCmd(cmd.OutOrStdout(), nightly)
+				targetVersion, _ := cmd.Flags().GetString("target-version")
+				return runUpgradeCmd(cmd.OutOrStdout(), nightly, targetVersion)
 			}
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
@@ -116,6 +117,11 @@ func createRootCommand() *cobra.Command {
 	rootCmd.Flags().Bool(
 		"nightly", false,
 		"With --upgrade, check the nightly channel instead of the latest stable release",
+	)
+	rootCmd.Flags().String(
+		"target-version", "",
+		"With --upgrade, install this exact version instead of the latest "+
+			"(can be older than the running build, i.e. a downgrade); takes priority over --nightly",
 	)
 
 	rootCmd.Flags().StringVar(

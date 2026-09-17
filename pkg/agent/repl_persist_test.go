@@ -77,6 +77,42 @@ func TestDispatchCommand_RefinePersists(t *testing.T) {
 	}
 }
 
+func TestDispatchCommand_HandshakePersists(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved *ToolTuning
+	repl.SetSaveTuningFn(func(t ToolTuning) error {
+		saved = &t
+		return nil
+	})
+
+	if repl.loop.HandshakeEnabled() {
+		t.Fatal("handshake must be off by default")
+	}
+
+	if err := repl.dispatchCommand("/handshake on"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved == nil || !saved.HandshakeOn {
+		t.Fatalf("expected /handshake on to persist HandshakeOn=true, got %+v", saved)
+	}
+	if !repl.loop.HandshakeEnabled() {
+		t.Fatal("/handshake on should enable the handshake")
+	}
+
+	if err := repl.dispatchCommand("/handshake off"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved == nil || saved.HandshakeOn {
+		t.Fatalf("expected /handshake off to persist HandshakeOn=false, got %+v", saved)
+	}
+	if repl.loop.HandshakeEnabled() {
+		t.Fatal("/handshake off should disable the handshake")
+	}
+}
+
 func TestDispatchCommand_PermissionUnknownDoesNotPersist(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

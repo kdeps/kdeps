@@ -91,6 +91,11 @@ type ToolTuning struct {
 	// lets a future default flip.
 	RefineOff        bool
 	RefineConfigured bool
+	// HandshakeOn persists the /handshake on|off choice (default: off). No
+	// "configured" sentinel needed -- off is also the zero value, so a
+	// snapshot from before this field existed (unmarshals to false) already
+	// restores the correct default.
+	HandshakeOn bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -150,6 +155,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		ContextSize:          r.contextSize,
 		RefineOff:            !c.PromptRefine,
 		RefineConfigured:     true,
+		HandshakeOn:          c.HandshakeEnabled,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
@@ -238,6 +244,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if t.RefineConfigured {
 		r.loop.SetPromptRefine(!t.RefineOff)
 	}
+	r.loop.SetHandshakeEnabled(t.HandshakeOn)
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}

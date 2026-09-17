@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,12 +35,12 @@ import (
 var fourDigitRe = regexp.MustCompile(`^\d{4}$`)
 
 // autoHandshakeStreamer wraps another Streamer and transparently satisfies
-// the mandatory session-integrity handshake round (identified by its
-// distinctive literal prompt) by echoing back the challenge found in the
-// system prompt, without consuming the inner streamer's own response queue.
-// Every other round is delegated to inner unchanged. Existing tests that
-// drive RunStreaming/CompactWithLLM through a plain mockStreamer and don't
-// care about the handshake mechanism itself wrap it with this so
+// the mandatory session-integrity handshake round (identified via ctx, not
+// prompt content -- see isHandshakeRound) by echoing back the challenge
+// found in the prompt, without consuming the inner streamer's own response
+// queue. Every other round is delegated to inner unchanged. Existing tests
+// that drive RunStreaming/CompactWithLLM through a plain mockStreamer and
+// don't care about the handshake mechanism itself wrap it with this so
 // post-compaction handshakes (see RequireHandshake in compactWithLLM) don't
 // break their assertions about the real turn.
 type autoHandshakeStreamer struct {
@@ -50,7 +50,7 @@ type autoHandshakeStreamer struct {
 func (a *autoHandshakeStreamer) StreamChat(
 	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
-	if isHandshakeRound(cfg) {
+	if isHandshakeRound(ctx) {
 		hs := &handshakeStreamer{}
 		return hs.StreamChat(ctx, cfg, w)
 	}
@@ -80,38 +80,32 @@ type handshakeStreamer struct {
 
 var challengeInPromptRe = regexp.MustCompile(`code set to exactly "(\d{4})"`)
 
-// isHandshakeRound reports whether cfg is (any round of) the mandatory
-// handshake exchange, by checking the system scenario for its distinctive
-// marker -- "code set to exactly" from the harness body, not the more
-// generic "session-integrity-check" tag, which also appears verbatim in the
-// session_handshake tool's own description and so is present in every
-// turn's tool catalog, not just a handshake round. Unlike cfg.Prompt --
-// which appendToolRoundTrip clears to "" after round 1, since the initial
-// prompt has already moved into history -- the system scenario item
-// persists across every round of the same exchange.
-func isHandshakeRound(cfg *domain.ChatConfig) bool {
-	for _, item := range cfg.Scenario {
-		if strings.Contains(item.Prompt, "code set to exactly") {
-			return true
-		}
-	}
-	return false
+// isHandshakeRound reports whether ctx belongs to the mandatory handshake
+// exchange, via the handshakeCtxKey performHandshake sets -- not by sniffing
+// prompt content, which changes round to round (the directive moved to
+// cfg.Prompt as a user-turn message specifically so it isn't deprioritized
+// as a system message; appendToolRoundTrip also clears cfg.Prompt after
+// round 0, since the initial prompt has already moved into history).
+func isHandshakeRound(ctx context.Context) bool {
+	v, _ := ctx.Value(handshakeCtxKey{}).(bool)
+	return v
 }
 
 func (h *handshakeStreamer) StreamChat(
 	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
 	h.calls++
-	if h.noCall {
+	// A real model has no tool to call once forceAnswerConfig strips Tools
+	// on the forced-final round (see prepareRound) -- mirror that here, or a
+	// mock that always fabricates a call would overwrite round 0's already-
+	// correct observedCode with garbage on round 1 and never converge.
+	if h.noCall || len(cfg.Tools) == 0 {
 		return "done", nil, nil
 	}
 	code := h.wrongCode
 	if code == "" {
-		for _, item := range cfg.Scenario {
-			if m := challengeInPromptRe.FindStringSubmatch(item.Prompt); m != nil {
-				code = m[1]
-				break
-			}
+		if m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); m != nil {
+			code = m[1]
 		}
 	}
 	return "", []domain.StreamedToolCall{{
@@ -154,11 +148,28 @@ func (w *wrongThenRightStreamer) StreamChat(
 	return hs.StreamChat(ctx, cfg, ww)
 }
 
-func TestPerformHandshake_FailsAfterMaxAttempts(t *testing.T) {
+// TestPerformHandshake_RetriesIndefinitelyUntilCanceled covers the no-cap
+// policy: a model that never calls the tool correctly is retried forever,
+// not failed after N attempts -- the only way out is canceling ctx.
+func TestPerformHandshake_RetriesIndefinitelyUntilCanceled(t *testing.T) {
 	loop := newStreamingLoop(&handshakeStreamer{noCall: true}, 5)
-	err := loop.performHandshake(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "session integrity check failed")
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() { done <- loop.performHandshake(ctx) }()
+
+	// Give it a few misses before canceling, to confirm it doesn't give up
+	// on its own.
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.Canceled)
+	case <-time.After(2 * time.Second):
+		t.Fatal("performHandshake did not stop after ctx was canceled")
+	}
 }
 
 func TestSessionHandshakeTool_SetsObservedCode(t *testing.T) {
@@ -172,11 +183,28 @@ func TestSessionHandshakeTool_SetsObservedCode(t *testing.T) {
 	assert.Equal(t, "4242", loop.handshake.observedCode)
 }
 
-func TestRequireHandshake_SetsPending(t *testing.T) {
+func TestRequireHandshake_NoOpWhenDisabled(t *testing.T) {
 	loop := newStreamingLoop(&mockStreamer{}, 5)
+	assert.False(t, loop.HandshakeEnabled(), "off by default")
+	loop.RequireHandshake()
+	assert.False(t, loop.HandshakePending(), "must stay a no-op while disabled")
+}
+
+func TestRequireHandshake_SetsPendingWhenEnabled(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	loop.SetHandshakeEnabled(true)
 	assert.False(t, loop.HandshakePending())
 	loop.RequireHandshake()
 	assert.True(t, loop.HandshakePending())
+}
+
+func TestSetHandshakeEnabled_DisablingDropsPending(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	loop.SetHandshakeEnabled(true)
+	loop.RequireHandshake()
+	require.True(t, loop.HandshakePending())
+	loop.SetHandshakeEnabled(false)
+	assert.False(t, loop.HandshakePending(), "disabling must drop a pending handshake")
 }
 
 // turnAwareStreamer answers the mandatory handshake round (identified by its
@@ -189,12 +217,12 @@ type turnAwareStreamer struct {
 }
 
 func (t *turnAwareStreamer) StreamChat(
-	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
 	t.prompts = append(t.prompts, cfg.Prompt)
-	if isHandshakeRound(cfg) {
+	if isHandshakeRound(ctx) {
 		hs := &handshakeStreamer{}
-		return hs.StreamChat(context.Background(), cfg, nil)
+		return hs.StreamChat(ctx, cfg, w)
 	}
 	return "answered: " + cfg.Prompt, nil, nil
 }
@@ -202,6 +230,7 @@ func (t *turnAwareStreamer) StreamChat(
 func TestRunStreaming_HandshakeRunsBeforeRealPromptAndLeavesNoTrace(t *testing.T) {
 	ts := &turnAwareStreamer{}
 	loop := newStreamingLoop(ts, 5)
+	loop.SetHandshakeEnabled(true)
 	loop.RequireHandshake()
 
 	out, err := loop.RunStreaming(context.Background(), "what time is it", io.Discard)
@@ -210,7 +239,7 @@ func TestRunStreaming_HandshakeRunsBeforeRealPromptAndLeavesNoTrace(t *testing.T
 	assert.False(t, loop.HandshakePending(), "handshake must be cleared before the real turn runs")
 
 	require.NotEmpty(t, ts.prompts)
-	assert.Equal(t, "Run the integrity check now.", ts.prompts[0], "handshake round must run first")
+	assert.Contains(t, ts.prompts[0], "code set to exactly", "handshake round must run first, as a user-turn prompt")
 	assert.Equal(t, "what time is it", ts.prompts[len(ts.prompts)-1], "real prompt must run last")
 
 	// The handshake exchange must never reach visible session history.

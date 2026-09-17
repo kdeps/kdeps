@@ -217,6 +217,13 @@ type Config struct {
 	// On by default in the REPL; /refine off disables it. Persisted via
 	// ToolTuning.
 	PromptRefine bool
+	// HandshakeEnabled turns on the mandatory session-integrity handshake
+	// (see handshake.go): a forced challenge/response tool call on model
+	// change, session resume, and post-compaction/fold, verifying the
+	// model's tool-calling path against the new context is real rather than
+	// fabricated in text. Off by default; /handshake on enables it.
+	// Persisted via ToolTuning.
+	HandshakeEnabled bool
 	// TaskRoundBudget caps tool rounds spent on a single task before it is
 	// force-closed (0=default 25).
 	TaskRoundBudget int

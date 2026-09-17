@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/theme", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
+	"/login", "/theme", "/refine", "/handshake", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so the active theme
@@ -2528,6 +2528,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 	case "/refine":
 		r.cmdRefine(args)
 		return true, nil
+	case "/handshake":
+		r.cmdHandshake(args)
+		return true, nil
 	case "/judges":
 		r.cmdJudges(args)
 		return true, nil
@@ -2615,6 +2618,8 @@ func (r *REPL) cmdHelp() error {
 		"  /memory show <key>                 Show one entry's full value, type, and related keys",
 		"  /upgrade                           Check for and install the latest stable kdeps release",
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
+		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
+		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -5169,6 +5174,45 @@ func (r *REPL) cmdRefine(args []string) {
 		}
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /refine [on|off]"))
+	}
+}
+
+// cmdHandshake inspects and toggles the mandatory session-integrity
+// handshake: a forced challenge/response tool call on model change, session
+// resume, and post-compaction/fold, that exists to enforce that the model
+// actually uses kdeps's real tool-call channel against the new context
+// instead of fabricating a plausible-looking result in text. Off by
+// default -- it adds a round-trip at each of those points -- so this is
+// opt-in for setups that want the stronger guarantee. No attempt cap once
+// enabled: a miss is retried for as long as it takes rather than silently
+// giving up and proceeding unverified.
+func (r *REPL) cmdHandshake(args []string) {
+	if len(args) == 0 {
+		if r.loop.HandshakeEnabled() {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"session-integrity handshake is on — model change, resume, and compaction/fold "+
+					"each force a verified tool call before the next prompt"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"session-integrity handshake is off — /handshake on to enable"))
+		}
+		return
+	}
+	switch args[0] {
+	case toggleOn, toggleOff:
+		enabled := args[0] == toggleOn
+		r.loop.SetHandshakeEnabled(enabled)
+		r.persistTuning()
+		if enabled {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"session-integrity handshake enabled — enforces that the model uses real kdeps "+
+					"tool calls (not fabricated text) on model change, resume, and compaction/fold"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"session-integrity handshake disabled"))
+		}
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /handshake [on|off]"))
 	}
 }
 
