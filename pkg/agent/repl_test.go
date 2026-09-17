@@ -3199,7 +3199,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	reg := tools.NewRegistry()
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
-		Streamer:             ms,
+		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
 		AutoCompactThreshold: 1,
 		MaxToolRounds:        3,

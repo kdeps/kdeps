@@ -3399,6 +3399,9 @@ func (r *REPL) applyModelSwitch(model string) {
 	// New model: rebuild the frozen system preamble so the commit trailer names
 	// the model now in use instead of the previous one.
 	r.loop.InvalidateSystemPreamble()
+	// Mandatory session-integrity handshake: confirm the new model's
+	// tool-calling path actually works before its next prompt goes out.
+	r.loop.RequireHandshake()
 	// Persist full LLM config so it's restored on next run.
 	r.loop.saveSessionConfig()
 	fmt.Fprintf(os.Stdout, "\n%s\n\n",
@@ -4678,6 +4681,9 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	}
 	// Replace the loop's session in-place via the interface (preserves IDs).
 	r.loop.session.ReplaceMessages(session.RawMessages())
+	// Mandatory session-integrity handshake: a resumed session's tool-calling
+	// path is unproven until the model has made one real call in it.
+	r.loop.RequireHandshake()
 	// Continue this stored session on exit instead of forking a new row.
 	r.loop.SetSessionID(id)
 	// Restore model from saved session metadata if available.
