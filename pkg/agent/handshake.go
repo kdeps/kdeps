@@ -59,9 +59,13 @@ func newHandshakeChallenge() string {
 // handshakeAck is the deterministic string the session_handshake tool
 // returns to the model. Its content is never itself checked -- kdeps's
 // verification is that a genuine tool call carried the right challenge back
-// through the real registry, not what the model does with the reply.
+// through the real registry, not what the model does with the reply. It
+// carries a short praise line, same purpose as toolCallRecoveryPraise in
+// loop.go: reinforce the correct behavior (a real tool call, not text that
+// describes one) right at the moment the model does it right.
 func handshakeAck(code string) string {
-	return "handshake ack: " + code
+	return "handshake ack: " + code +
+		" -- good, that's exactly how you make a real kdeps tool call. Keep calling tools this way."
 }
 
 // RequireHandshake marks a mandatory session-integrity handshake pending:
