@@ -302,6 +302,12 @@ type Loop struct {
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// successfulWorkToolCalls counts every successful (non-error, non-task-
+	// state) work tool result for the life of the session. Never reset --
+	// drives firstToolCallsPraiseLimit: the first few real tool calls a
+	// model makes are praised outright, not just a recovery from failure, to
+	// build the habit early.
+	successfulWorkToolCalls int
 	// sandboxStrikes counts every round this session where the model produced
 	// text reading as a fabricated code-interpreter/sandbox session (see
 	// looksLikeSandboxHallucination), regardless of the per-turn nudge cap.
@@ -309,6 +315,13 @@ type Loop struct {
 	// kdepsToolsFirstGuidance block (not just the one-line reminder) is resent
 	// every turn for the rest of the session.
 	sandboxStrikes int
+	// sandboxRecoveryPending is true from the moment a sandbox hallucination
+	// is detected (see handleEmptyToolRound) until the next successful real
+	// tool call, which clears it and draws toolCallSandboxRecoveryPraise --
+	// the positive counterpart, specifically for "moved off the fake
+	// sandbox onto the real filesystem," distinct from a plain work-tool
+	// failure recovery.
+	sandboxRecoveryPending bool
 	// goalToolsRegistered guards the lazy registration of task_complete /
 	// task_fail, which happens on the first enforced turn.
 	goalToolsRegistered bool
@@ -2063,6 +2076,7 @@ func (l *Loop) handleEmptyToolRound(
 	}
 	if looksLikeSandboxHallucination(content) {
 		l.sandboxStrikes++
+		l.sandboxRecoveryPending = true
 		if nudges.sandbox < maxNudgesPerKind {
 			repeat := nudges.sandbox > 0
 			nudges.sandbox++
@@ -2297,13 +2311,37 @@ func (l *Loop) executeToolCalls(
 // tool call" mid-session to actually carry the correction forward.
 const toolCallRecoveryPraise = "\n\n[GOOD] That's a real tool call and it worked. Keep calling tools this way."
 
+// toolCallSandboxRecoveryPraise is appended to the first successful tool
+// result after a detected sandbox hallucination (see sandboxRecoveryPending)
+// -- specifically calling out that this call reached the real filesystem
+// through a genuine kdeps tool, not the simulated /mnt/data-style sandbox
+// the model was just describing. Takes priority over the plain
+// toolCallRecoveryPraise when both would apply, since the correction being
+// reinforced is more specific.
+const toolCallSandboxRecoveryPraise = "\n\n[GOOD] That's the real filesystem, through a real kdeps tool call -- " +
+	"not the simulated sandbox. Keep operating this way."
+
+// toolCallEarlyPraise is appended to the first firstToolCallsPraiseLimit
+// successful tool results in a session, independent of whether any failure
+// preceded them -- reinforcing the habit of real tool calls early, not only
+// after a correction. Distinct wording from toolCallRecoveryPraise so the
+// two read differently in history (one is "welcome back", the other is
+// "good start").
+const toolCallEarlyPraise = "\n\n[GOOD] Real tool call, worked as expected. That's how you get things done here."
+
+// firstToolCallsPraiseLimit caps toolCallEarlyPraise to the first N
+// successful work tool calls in a session -- after that the model has
+// clearly got the habit, and praising every single call would just be noise.
+const firstToolCallsPraiseLimit = 3
+
 // toolResultMessage builds the "tool" message content for one call. A failed
 // work tool is flagged unmistakably (turo left untouched so the exact error
 // survives) and remembered for the end-of-turn "did that actually work?" nudge;
-// a later success on any work tool clears that memory and, since it means the
-// model just corrected itself, is praised in the same message so the positive
-// reinforcement rides along in history rather than only appearing on the
-// terminal for this one round.
+// a later success on any work tool clears that memory and is praised in the
+// same message so the positive reinforcement rides along in history rather
+// than only appearing on the terminal for this one round -- either because
+// the model just corrected itself (toolCallRecoveryPraise) or because it's
+// still early in the session and building the habit (toolCallEarlyPraise).
 func (l *Loop) toolResultMessage(
 	ctx context.Context,
 	tc domain.StreamedToolCall,
@@ -2319,11 +2357,19 @@ func (l *Loop) toolResultMessage(
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed -- do NOT report it as done."
 	case !isToolErrorResult(result):
+		recoveredSandbox := l.sandboxRecoveryPending
+		l.sandboxRecoveryPending = false
 		recovered := l.lastWorkFailure != nil
 		l.lastWorkFailure = nil // a work tool succeeded; failure resolved
+		l.successfulWorkToolCalls++
 		content := turoReduce(ctx, capToolResult(result))
-		if recovered {
+		switch {
+		case recoveredSandbox:
+			content += toolCallSandboxRecoveryPraise
+		case recovered:
 			content += toolCallRecoveryPraise
+		case l.successfulWorkToolCalls <= firstToolCallsPraiseLimit:
+			content += toolCallEarlyPraise
 		}
 		return content
 	default:

@@ -2423,12 +2423,12 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
 }
 
-// TestRunStreaming_OrdinarySuccessIsNotPraised guards the scope decision:
-// praise only fires on a RECOVERY (success right after a recorded failure),
-// never on an ordinary successful call with no prior failure -- otherwise
-// every routine read_file/bash_exec would carry a [GOOD] banner, which is
-// constant noise rather than reinforcement.
-func TestRunStreaming_OrdinarySuccessIsNotPraised(t *testing.T) {
+// TestRunStreaming_FirstToolCallsArePraised covers a direct user request: the
+// first few successful tool calls in a session are praised outright, not
+// only ones recovering from a failure -- building the habit of real tool
+// calls early. TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit
+// below covers the far side of firstToolCallsPraiseLimit.
+func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
@@ -2447,8 +2447,51 @@ func TestRunStreaming_OrdinarySuccessIsNotPraised(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 2)
-	assert.NotContains(t, ms.cfgs[1].Messages, "[GOOD]",
-		"an ordinary success with no prior failure must not be praised")
+	assert.Contains(t, ms.cfgs[1].Messages, "[GOOD]",
+		"the first successful tool call in a session must be praised")
+}
+
+// TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit guards the scope
+// decision: past firstToolCallsPraiseLimit, an ordinary success with no
+// prior failure gets no praise -- otherwise every routine read_file/
+// bash_exec for the rest of a long session would carry a [GOOD] banner,
+// constant noise rather than reinforcement.
+func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) { return "file contents", nil },
+	})
+	responses := make([]mockStreamResponse, 0, firstToolCallsPraiseLimit+2)
+	for i := range firstToolCallsPraiseLimit + 1 {
+		// Distinct Arguments per round: identical consecutive calls would
+		// trip the loop's own stuck-repeat guard (maxIdenticalToolCalls)
+		// before this test ever reaches the call past the praise limit.
+		tc := domain.StreamedToolCall{
+			ID: strconv.Itoa(i), Name: "read_file",
+			Arguments: fmt.Sprintf(`{"file_path":"f%d.txt"}`, i),
+		}
+		responses = append(responses, mockStreamResponse{content: "", toolCalls: []domain.StreamedToolCall{tc}})
+	}
+	responses = append(responses, mockStreamResponse{content: "Done.", toolCalls: nil})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: firstToolCallsPraiseLimit + 5,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read it repeatedly", &buf)
+	require.NoError(t, err)
+
+	// cfgs[i].Messages accumulates every round-trip so far, so the round
+	// right after the (firstToolCallsPraiseLimit+1)-th call -- index
+	// firstToolCallsPraiseLimit+1 -- carries firstToolCallsPraiseLimit+1
+	// tool results but only firstToolCallsPraiseLimit [GOOD] banners: the
+	// first N calls stay praised in history, the (N+1)-th must not add one.
+	require.Greater(t, len(ms.cfgs), firstToolCallsPraiseLimit+1)
+	got := strings.Count(ms.cfgs[firstToolCallsPraiseLimit+1].Messages, "[GOOD]")
+	assert.Equal(t, firstToolCallsPraiseLimit, got,
+		"only the first %d calls should ever be praised, got %d [GOOD] banners", firstToolCallsPraiseLimit, got)
 }
 
 // A model that repeats the bald "done" claim a second time (never
@@ -2609,6 +2652,26 @@ func TestRunStreaming_SandboxHallucinationExhaustedGetsBanner(t *testing.T) {
 	assert.Contains(t, got, sandboxUnverifiedBanner)
 	assert.Contains(t, got, "/mnt/data is empty", "the model's own words are kept, only flagged")
 	assert.Contains(t, buf.String(), sandboxUnverifiedBanner, "the banner reaches the writer too")
+}
+
+// TestRunStreaming_SandboxRecoveryIsPraised covers a direct user request:
+// once a model has faked a sandbox session and then makes a real tool call
+// instead, that call is praised specifically for using the real filesystem
+// through a genuine kdeps tool -- not just the generic recovery praise.
+func TestRunStreaming_SandboxRecoveryIsPraised(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "NO CONTENT AVAILABLE, cannot access the filesystem.", toolCalls: nil},
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 3)
+	assert.Contains(t, ms.cfgs[2].Messages, "not the simulated sandbox",
+		"the real tool call right after a sandbox hallucination must carry the sandbox-recovery praise")
 }
 
 // A session that has already produced one sandbox hallucination gets the full

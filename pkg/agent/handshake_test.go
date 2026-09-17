@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,6 +129,40 @@ func TestPerformHandshake_SucceedsOnFirstAttempt(t *testing.T) {
 	assert.Nil(t, loop.handshake, "handshake must clear on success")
 }
 
+// TestPerformHandshake_IncludesGroundingSystemMessage covers a specific bug
+// report: a bare user-turn prompt with no system content at all led some
+// models to reason that the listed session_handshake tool "wasn't really
+// available" and refuse to call it. A minimal system message stating the
+// tools are real must be present alongside the directive.
+func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.NotEmpty(t, cfgs.cfgs)
+	found := false
+	for _, item := range cfgs.cfgs[0].Scenario {
+		if item.Role == "system" && strings.Contains(item.Prompt, "real, registered tools") {
+			found = true
+		}
+	}
+	assert.True(t, found, "handshake request must carry the grounding system message")
+}
+
+// cfgCapturingStreamer wraps another Streamer and records every ChatConfig
+// it sees, delegating the actual response.
+type cfgCapturingStreamer struct {
+	inner Streamer
+	cfgs  []domain.ChatConfig
+}
+
+func (c *cfgCapturingStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	c.cfgs = append(c.cfgs, *cfg)
+	return c.inner.StreamChat(ctx, cfg, w)
+}
+
 func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {
 	// First attempt returns a wrong/stale code; the retry echoes correctly
 	// since wrongCode is unset -- against the SAME challenge the cycle
@@ -137,6 +172,76 @@ func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {
 	require.NoError(t, loop.performHandshake(context.Background()))
 	assert.Nil(t, loop.handshake)
 	assert.GreaterOrEqual(t, s.calls, 2, "must have taken more than one round-trip to succeed")
+}
+
+// TestPerformHandshake_RetryNudgeShowsWorkedInvokeExample covers a specific
+// user request: a retry after a miss shouldn't just terse-correct the model,
+// it should re-show the exact <invoke> syntax to copy, framed like a human
+// helping it get there rather than a bare rebuke.
+func TestPerformHandshake_RetryNudgeShowsWorkedInvokeExample(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &wrongThenRightStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.GreaterOrEqual(t, len(cfgs.cfgs), 2, "must have retried at least once")
+	var retryPrompt string
+	for _, c := range cfgs.cfgs {
+		if strings.Contains(c.Prompt, "let's try it again together") {
+			retryPrompt = c.Prompt
+			break
+		}
+	}
+	require.NotEmpty(t, retryPrompt, "no round carried the retry nudge")
+	assert.Contains(t, retryPrompt, `<invoke name="session_handshake">`)
+	assert.Contains(t, retryPrompt, `<parameter name="code">`)
+	assert.Contains(t, retryPrompt, "1 attempt missed so far", "must surface the miss count")
+}
+
+// TestPerformHandshake_RetryNudgeMissCountPluralizes covers the plural case:
+// after two misses the nudge must say "2 attempts", not "2 attempt".
+func TestPerformHandshake_RetryNudgeMissCountPluralizes(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &missNTimesThenRightStreamer{missesLeft: 2}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	var sawTwo bool
+	for _, c := range cfgs.cfgs {
+		if strings.Contains(c.Prompt, "2 attempts missed so far") {
+			sawTwo = true
+		}
+	}
+	assert.True(t, sawTwo, "must surface the plural miss count after 2 misses")
+}
+
+// missNTimesThenRightStreamer answers wrong for missesLeft attempts' round 0,
+// then correctly. Mirrors handshakeStreamer's cfg.Tools-empty handling for
+// the forced-final round.
+type missNTimesThenRightStreamer struct {
+	missesLeft int
+}
+
+func (m *missNTimesThenRightStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
+	if m.missesLeft > 0 {
+		m.missesLeft--
+		challenge := ""
+		if mm := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); mm != nil {
+			challenge = mm[1]
+		}
+		wrong := "0000"
+		if challenge == "0000" {
+			wrong = "1111"
+		}
+		return "", []domain.StreamedToolCall{{
+			ID: "1", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, wrong),
+		}}, nil
+	}
+	hs := &handshakeStreamer{}
+	return hs.StreamChat(context.Background(), cfg, nil)
 }
 
 // TestPerformHandshake_ChallengeStaysStableAcrossRetries covers a specific
