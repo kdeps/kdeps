@@ -20,6 +20,7 @@ package agent
 
 import (
 	"encoding/json"
+	"html"
 	"regexp"
 	"strings"
 
@@ -79,7 +80,13 @@ func toolCallArgKeys() []string { return []string{"arguments", "parameters", "ar
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
-	cleaned := content
+	// A model that treats this text-fallback markup as a JSON string it's
+	// embedding (rather than the literal tags kdeps expects) sometimes
+	// escapes every "/" as "\/" -- a legal, no-op JSON string escape, but it
+	// turns "</invoke>" into "<\/invoke>", which none of the tag regexes
+	// below match, silently dropping the whole call. "<\/" has no other
+	// meaning here, so repairing it unconditionally is safe.
+	cleaned := strings.ReplaceAll(content, `<\/`, "</")
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {
@@ -175,10 +182,24 @@ func parseToolCallJSON(body string) *domain.StreamedToolCall {
 // is a bare JSON scalar (number, true/false, null) is kept as that scalar so
 // e.g. insert_line 3 arrives as a number; everything else (including {...} /
 // [...], which are ambiguous with an intended string) is a JSON string.
+//
+// V is HTML/XML-unescaped first: some models (e.g. GPT-5.6) write this
+// text-fallback tool-call form as if it were real markup and entity-encode
+// it accordingly, so a shell command like "a && b" arrives as literally
+// "a &amp;&amp; b" -- which then fails when bash_exec runs it verbatim. A
+// single html.UnescapeString handles &amp; and every other named/numeric
+// entity (&lt;, &gt;, &quot;, &#39;, &nbsp;, ...) in one pass.
 func parametersToJSON(body string) string {
 	obj := map[string]json.RawMessage{}
 	for _, p := range parameterRe.FindAllStringSubmatch(body, -1) {
-		key, val := p[1], strings.TrimSpace(p[2])
+		key := p[1]
+		// The same stray JSON-string escaping salvageContentToolCalls repairs
+		// in closing tags shows up inside values too -- a file path parameter
+		// arrives as "a\/b\/c" instead of "a/b/c". "\/" is valid-but-redundant
+		// JSON escaping, so unescaping it is a no-op for any value that was
+		// actually meant this way.
+		val := strings.ReplaceAll(html.UnescapeString(p[2]), `\/`, "/")
+		val = strings.TrimSpace(val)
 		if isJSONScalar(val) {
 			obj[key] = json.RawMessage(val)
 			continue
