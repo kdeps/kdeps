@@ -190,6 +190,20 @@ func TestSalvageContentToolCalls_InvokeDecodesEscapedSlashesInValue(t *testing.T
 	assert.JSONEq(t, `{"file_path":"pkg/agent/loop.go"}`, calls[0].Arguments)
 }
 
+// TestSalvageContentToolCalls_RepairsDoubleSlashClosingTag covers a
+// different, no-backslash mangling of the same closing tag: some models
+// write "<//invoke>"/"<///parameter>" (a doubled/tripled literal slash)
+// instead of "</invoke>"/"</parameter>", which the tag regexes don't match
+// at all, silently dropping the call.
+func TestSalvageContentToolCalls_RepairsDoubleSlashClosingTag(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls -la<//parameter><///invoke>`
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"ls -la"}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+}
+
 func TestSalvageContentToolCalls_InvokeNamespaced(t *testing.T) {
 	// A leaked call may carry a namespace prefix on the tags.
 	prefix := "an" + "tml:"

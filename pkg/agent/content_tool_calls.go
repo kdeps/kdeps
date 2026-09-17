@@ -67,6 +67,15 @@ var (
 	dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
 	// dsmlTagRe matches a stray DSML tag left by a truncated/malformed block.
 	dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
+
+	// multiSlashClosingTagRe matches "<" followed by two or more literal "/"
+	// characters -- some models write a closing tag as "<//invoke>" or
+	// "<///parameter>" instead of "</invoke>"/"</parameter>" (no backslashes
+	// involved, just a doubled/tripled slash). None of the tag regexes below
+	// match the mangled form, silently dropping the whole call, exactly like
+	// the backslash-escaped case above, so collapsing the run down to a
+	// single "/" before any tag matching runs is required, not cosmetic.
+	multiSlashClosingTagRe = regexp.MustCompile(`<//+`)
 )
 
 // toolCallArgKeys are the field names models use for a tool call's arguments.
@@ -87,6 +96,10 @@ func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string,
 	// below match, silently dropping the whole call. "<\/" has no other
 	// meaning here, so repairing it unconditionally is safe.
 	cleaned := strings.ReplaceAll(content, `<\/`, "</")
+	// Separately, some models mangle a closing tag with an extra literal
+	// slash instead ("<//invoke>", "<///parameter>") -- same failure, no
+	// backslash involved.
+	cleaned = multiSlashClosingTagRe.ReplaceAllString(cleaned, "</")
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {
