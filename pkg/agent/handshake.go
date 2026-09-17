@@ -29,6 +29,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
+// handshakeGroundingSystemMessage is the minimal system-role content sent
+// alongside the handshake directive. Not the directive itself -- that stays
+// in the user-turn Prompt so it isn't deprioritized as background context --
+// just enough grounding that the model doesn't reason its way into
+// concluding the listed tool "isn't really available" and refusing to call
+// it. Seen across both native and text-only tool-calling backends: a bare
+// user message with a raw tool schema and no system framing at all reads as
+// unusually sparse next to a normal turn's full system preamble.
+const handshakeGroundingSystemMessage = "You are the kdeps agent loop assistant. The tools listed in " +
+	"this request are real, registered tools you can call directly -- they are available to you now."
+
 // handshakeCtxKey marks a context as belonging to a handshake round-trip
 // (see performHandshake). Test doubles can check for it via
 // ctx.Value(handshakeCtxKey{}) to distinguish a handshake call from a real
@@ -112,9 +123,10 @@ func (l *Loop) registerSessionHandshakeTool() {
 	}
 	l.registry.Register(&tools.Tool{
 		Name: "session_handshake",
-		Description: "Internal session-integrity check. Only call this when a " +
-			"<session-integrity-check> directive asks for it, " +
-			"with the exact code it gives you. Never call this on your own initiative.",
+		Description: "This tool is real, registered, and available to you right now -- call it " +
+			"when a <session-integrity-check> directive asks for it, with the exact code it " +
+			"gives you. It's an internal integrity check, so there's no reason to call it " +
+			"unprompted, but if a directive just asked for it, that call is expected and safe.",
 		Category: "agent",
 		Parameters: map[string]domain.ToolParam{
 			"code": {Type: "string", Description: "The exact 4-digit code from the directive.", Required: true},
@@ -208,6 +220,16 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 			LiteralPrompt: true,
 			Tools:         tools,
 			MaxTokens:     localBackendMaxTokens(l.config.Backend),
+			// Minimal grounding, not the directive itself (that stays in
+			// Prompt so it isn't deprioritized as background context). A
+			// request with zero system content and only a bare user message
+			// plus a raw tool schema left some models -- across native and
+			// text-only tool-calling backends alike -- reasoning that the
+			// listed tool "isn't really available" and refusing to call it.
+			// This just states plainly that it is.
+			Scenario: []domain.ScenarioItem{
+				{Role: "system", Prompt: handshakeGroundingSystemMessage},
+			},
 		}
 
 		if _, err := l.runToolRounds(ctx, chatCfg, io.Discard); err != nil {

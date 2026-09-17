@@ -33,6 +33,8 @@ The directive doesn't just describe the call - it shows the literal syntax to co
 </invoke>
 ```
 
+The exchange also carries a one-line system message stating plainly that the listed tools are real and available. Without it, a bare user prompt plus a raw tool schema and nothing else read as unusually sparse to some models - across both native and text-only tool-calling backends - leading them to reason the tool "wasn't really available" and refuse to call it.
+
 ## Tool name aliases
 
 Models trained on other agent frameworks or shell habits often call tools by familiar names. Those names are aliased to the real built-in tool, so a call to `grep` runs `search_local`, `cat` runs `read_file`, `bash` runs `bash_exec`, and so on. Aliases are resolved on dispatch and do **not** appear in the advertised tool list (no duplicates for the model to choose between). Common synonym parameter keys are normalized too - `grep`'s `pattern` maps to `search_local`'s `query`, `cat`'s `path` maps to `read_file`'s `file_path`.

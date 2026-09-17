@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,40 @@ func TestPerformHandshake_SucceedsOnFirstAttempt(t *testing.T) {
 	loop := newStreamingLoop(&handshakeStreamer{}, 5)
 	require.NoError(t, loop.performHandshake(context.Background()))
 	assert.Nil(t, loop.handshake, "handshake must clear on success")
+}
+
+// TestPerformHandshake_IncludesGroundingSystemMessage covers a specific bug
+// report: a bare user-turn prompt with no system content at all led some
+// models to reason that the listed session_handshake tool "wasn't really
+// available" and refuse to call it. A minimal system message stating the
+// tools are real must be present alongside the directive.
+func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.NotEmpty(t, cfgs.cfgs)
+	found := false
+	for _, item := range cfgs.cfgs[0].Scenario {
+		if item.Role == "system" && strings.Contains(item.Prompt, "real, registered tools") {
+			found = true
+		}
+	}
+	assert.True(t, found, "handshake request must carry the grounding system message")
+}
+
+// cfgCapturingStreamer wraps another Streamer and records every ChatConfig
+// it sees, delegating the actual response.
+type cfgCapturingStreamer struct {
+	inner Streamer
+	cfgs  []domain.ChatConfig
+}
+
+func (c *cfgCapturingStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	c.cfgs = append(c.cfgs, *cfg)
+	return c.inner.StreamChat(ctx, cfg, w)
 }
 
 func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {
