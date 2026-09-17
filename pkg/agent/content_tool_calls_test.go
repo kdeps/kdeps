@@ -145,6 +145,51 @@ func TestSalvageContentToolCalls_InvokeMultipleParams(t *testing.T) {
 	assert.JSONEq(t, `{"file_path":"/a.go","start_line":3,"new_string":"x"}`, calls[0].Arguments)
 }
 
+// TestSalvageContentToolCalls_InvokeDecodesHTMLEntities covers a model (seen
+// live on GPT-5.6) that writes the text-fallback <invoke> form as if it were
+// real markup and entity-encodes it accordingly: "a && b" arrives as
+// "a &amp;&amp; b", which then fails when bash_exec runs it verbatim.
+func TestSalvageContentToolCalls_InvokeDecodesHTMLEntities(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls foo &amp;&amp; ls bar</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{"command":"ls foo && ls bar"}`, calls[0].Arguments)
+}
+
+// TestSalvageContentToolCalls_InvokeDecodesOtherEntities covers the rest of
+// the commonly-seen entity set in one pass, not just &amp;.
+func TestSalvageContentToolCalls_InvokeDecodesOtherEntities(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">if [ 1 -lt 2 ]; then echo &quot;a&apos;b&quot; &gt; out.txt; fi</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t,
+		`{"command":"if [ 1 -lt 2 ]; then echo \"a'b\" > out.txt; fi"}`,
+		calls[0].Arguments)
+}
+
+// TestSalvageContentToolCalls_RepairsEscapedClosingTags covers a model that
+// treats the text-fallback <invoke> markup as a JSON string it's embedding
+// and escapes every "/" as "\/" -- turning "</invoke>" into "<\/invoke>",
+// which the tag regexes don't match at all, silently dropping the call.
+func TestSalvageContentToolCalls_RepairsEscapedClosingTags(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls -la<\/parameter><\/invoke>`
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"ls -la"}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+}
+
+// TestSalvageContentToolCalls_InvokeDecodesEscapedSlashesInValue covers the
+// same stray JSON escaping inside a parameter's value, not just around the
+// closing tags: a file path arrives as "a\/b\/c" instead of "a/b/c".
+func TestSalvageContentToolCalls_InvokeDecodesEscapedSlashesInValue(t *testing.T) {
+	in := `<invoke name="read_file"><parameter name="file_path">pkg\/agent\/loop.go</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{"file_path":"pkg/agent/loop.go"}`, calls[0].Arguments)
+}
+
 func TestSalvageContentToolCalls_InvokeNamespaced(t *testing.T) {
 	// A leaked call may carry a namespace prefix on the tags.
 	prefix := "an" + "tml:"
