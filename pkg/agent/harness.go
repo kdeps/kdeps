@@ -71,7 +71,9 @@ func harnessRender(name string, data any) string {
 
 // harnessAssembledPreamble joins every preamble-section entry, in ascending
 // order, with a blank line between each -- replacing the old toolUseGuidance
-// + kdepsToolsFirstGuidance concatenation.
+// + kdepsToolsFirstGuidance concatenation. The join is cached, unrendered
+// text: it may still contain template placeholders (e.g. "internals"'s
+// {{.WebCallLimit}}), rendered per call by renderAssembledPreamble.
 func harnessAssembledPreamble() string {
 	var sections []*harnessEntry
 	for _, e := range harnessRegistry {
@@ -85,6 +87,35 @@ func harnessAssembledPreamble() string {
 		parts[i] = e.body
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+// harnessPreambleData carries the values interpolated into the cached,
+// assembled preamble template -- currently just the web-tool convergence
+// limit, so the "internals" section's CONVERGENCE paragraph states the
+// number actually enforced (builtin_tool_cache.go's globalWebCache) instead
+// of a hardcoded literal that silently goes stale the next time that limit
+// changes.
+type harnessPreambleData struct {
+	WebCallLimit int
+}
+
+// renderAssembledPreamble executes the cached assembledPreamble join as a Go
+// text/template with data. Falls back to the raw, unrendered text on any
+// template parse or exec error -- the same fallback harnessRender uses, so a
+// broken custom override of a preamble-section entry cannot break the whole
+// turn, only produce a slightly wrong preamble.
+func renderAssembledPreamble(data harnessPreambleData) string {
+	tmpl, err := template.New("assembled-preamble").Parse(assembledPreamble)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "harness: assembled preamble: %v\n", err)
+		return assembledPreamble
+	}
+	var buf strings.Builder
+	if execErr := tmpl.Execute(&buf, data); execErr != nil {
+		fmt.Fprintf(os.Stderr, "harness: assembled preamble: %v\n", execErr)
+		return assembledPreamble
+	}
+	return buf.String()
 }
 
 // initHarness loads the built-in harness entries, layers any user entries on

@@ -636,6 +636,36 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 	assert.Contains(t, preamble, "**calc**: calculator")
 }
 
+// TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the
+// "internals" harness section's CONVERGENCE paragraph: it must state the web
+// call limit models actually hit (globalWebCache.max), not a hardcoded
+// number that goes stale the moment that limit changes.
+func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T) {
+	// globalWebCache.max is process-wide state (builtin_tool_cache.go); pin
+	// it explicitly so this test is immune to another test's
+	// SetConvergenceLimits call leaving a different value behind.
+	SetConvergenceLimits(7, 0, 0, 0)
+	t.Cleanup(func() { SetConvergenceLimits(maxWebToolCalls, 0, 0, 0) })
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "deepseek-reasoner",
+		Backend:  "deepseek",
+		Streamer: &mockStreamer{},
+	})
+
+	preamble := loop.buildSystemPreamble("")
+	assert.Contains(t, preamble, "after 7 distinct web calls")
+	assert.NotContains(t, preamble, "{{.WebCallLimit}}", "the placeholder must not leak through unrendered")
+}
+
 // TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext verifies tool
 // guidance is still sent, verbatim, even when the context budget is too small
 // for skills — previously the small-context path replaced the whole preamble

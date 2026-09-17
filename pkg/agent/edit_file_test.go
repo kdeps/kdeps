@@ -17,6 +17,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,6 +70,38 @@ func TestEditFile_StrReplace_MustMatchVerbatim(t *testing.T) {
 	assert.Contains(t, err.Error(), "did not appear verbatim")
 	got, _ := os.ReadFile(f)
 	assert.Equal(t, "func f() {\n\treturn 1\n}\n", string(got), "file untouched on a miss")
+}
+
+// TestEditFile_StrReplace_NearMissHintShowsClosestLines covers the "did not
+// appear verbatim" error's near-miss suffix: the closest actual line(s) in
+// the file, so the model sees exactly where its reproduction diverged
+// (here, a dropped tab on line 2) instead of a generic "go view the file"
+// message with nothing to act on.
+func TestEditFile_StrReplace_NearMissHintShowsClosestLines(t *testing.T) {
+	f := writeSeenFile(t, "v.go", "func f() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f,
+		"old_str": "func f() {\nreturn 1", "new_str": "func f() {\n\treturn 2",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Closest match")
+	assert.Contains(t, err.Error(), "line 1")
+	assert.Contains(t, err.Error(), "\treturn 1", "the actual (tab-indented) line must be shown verbatim")
+}
+
+// TestEditFile_StrReplace_NearMissHintAbsentWhenNoOverlap covers old_str that
+// shares nothing with the file: no near-miss suffix should be added, since
+// there's nothing useful to show.
+func TestEditFile_StrReplace_NearMissHintAbsentWhenNoOverlap(t *testing.T) {
+	f := writeSeenFile(t, "v.go", "func f() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f,
+		"old_str": "totally different content", "new_str": "x",
+	})
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "Closest match")
 }
 
 func TestEditFile_StrReplace_MustBeUnique(t *testing.T) {
@@ -247,6 +280,60 @@ func TestSplitKeepCount(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, splitKeepCount("a\nb\n"))
 	assert.Equal(t, []string{"a", "b"}, splitKeepCount("a\nb"))
 	assert.Equal(t, []string{}, splitKeepCount(""))
+}
+
+func TestClosestMatch_PicksHighestScoringWindow(t *testing.T) {
+	content := "one\ntwo\nthree\nfour\nfive\n"
+	snippet, atLine := closestMatch(content, "two\nthree")
+	assert.Equal(t, "two\nthree", snippet)
+	assert.Equal(t, 2, atLine)
+}
+
+func TestClosestMatch_IgnoresSurroundingWhitespaceDifferences(t *testing.T) {
+	content := "func f() {\n\treturn 1\n}\n"
+	// old_str's second line is missing the tab -- still the closest window.
+	snippet, atLine := closestMatch(content, "func f() {\nreturn 1")
+	assert.Equal(t, "func f() {\n\treturn 1", snippet)
+	assert.Equal(t, 1, atLine)
+}
+
+func TestClosestMatch_NoOverlapReturnsEmpty(t *testing.T) {
+	snippet, atLine := closestMatch("a\nb\nc\n", "x\ny")
+	assert.Equal(t, "", snippet)
+	assert.Equal(t, 0, atLine)
+}
+
+func TestClosestMatch_OldStrLongerThanFileReturnsEmpty(t *testing.T) {
+	snippet, atLine := closestMatch("a\n", "a\nb\nc")
+	assert.Equal(t, "", snippet)
+	assert.Equal(t, 0, atLine)
+}
+
+func TestClosestMatch_EmptyOldStrReturnsEmpty(t *testing.T) {
+	// strings.Split("", "\n") is []string{""} (len 1, not 0), so this exercises
+	// the "no window scores above zero" path rather than the len==0 guard --
+	// worth pinning down since an empty old_str is otherwise rejected earlier
+	// in editStrReplace, before nearMissHint is ever reached.
+	snippet, atLine := closestMatch("a\nb\n", "")
+	assert.Equal(t, "", snippet)
+	assert.Equal(t, 0, atLine)
+}
+
+func TestClosestMatch_OldStrOverHintCapReturnsEmpty(t *testing.T) {
+	huge := strings.Repeat("x\n", nearMissHintMaxLines+1)
+	snippet, atLine := closestMatch("a\nb\nc\n", huge)
+	assert.Equal(t, "", snippet)
+	assert.Equal(t, 0, atLine)
+}
+
+func TestNearMissHint_EmptyWhenNoMatch(t *testing.T) {
+	assert.Equal(t, "", nearMissHint("a\nb\nc\n", "x\ny"))
+}
+
+func TestNearMissHint_IncludesLineNumberAndSnippet(t *testing.T) {
+	got := nearMissHint("one\ntwo\nthree\n", "two\nthree")
+	assert.Contains(t, got, "line 2")
+	assert.Contains(t, got, "two\nthree")
 }
 
 func TestEditFile_NoChangeRejected(t *testing.T) {

@@ -105,3 +105,27 @@ func TestInitHarness_StandaloneEntriesAreNotInAssembledPreamble(t *testing.T) {
 	require.NotEmpty(t, sandbox)
 	assert.NotContains(t, assembledPreamble, sandbox)
 }
+
+func TestRenderAssembledPreamble_InterpolatesWebCallLimit(t *testing.T) {
+	got := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20})
+	assert.Contains(t, got, "after 20 distinct web calls")
+	assert.NotContains(t, got, "{{.WebCallLimit}}", "the placeholder must not leak through unrendered")
+}
+
+func TestRenderAssembledPreamble_DifferentLimitProducesDifferentText(t *testing.T) {
+	got := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 7})
+	assert.Contains(t, got, "after 7 distinct web calls")
+}
+
+// TestRenderAssembledPreamble_BrokenTemplateFallsBackToRawText covers a user
+// override of a preamble-section entry with invalid template syntax: it must
+// not break preamble assembly, only fall back to the unrendered join
+// (placeholder included) for that turn.
+func TestRenderAssembledPreamble_BrokenTemplateFallsBackToRawText(t *testing.T) {
+	saved := assembledPreamble
+	t.Cleanup(func() { assembledPreamble = saved })
+	assembledPreamble = "{{.Unclosed"
+
+	got := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20})
+	assert.Equal(t, "{{.Unclosed", got)
+}

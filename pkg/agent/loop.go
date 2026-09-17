@@ -195,13 +195,17 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
-	// WebLimit caps web_search/web_scraper calls per user request (0=default 5).
+	// WebLimit caps web_search/web_scraper calls per user request (0=default
+	// 20, maxWebToolCalls in builtin_tool_cache.go).
 	WebLimit int
-	// BashLimit caps bash_exec calls per user request (0=default 25).
+	// BashLimit caps bash_exec calls per user request (0=default 50,
+	// maxBashToolCalls in builtin_tool_cache.go).
 	BashLimit int
-	// FileLimit caps read_file/list_files calls per user request (0=default 40).
+	// FileLimit caps read_file/list_files calls per user request (0=default
+	// 80, maxFileToolCalls in builtin_tool_cache.go).
 	FileLimit int
-	// CodeLimit caps search_local/code_search calls per user request (0=default 15).
+	// CodeLimit caps search_local/code_search calls per user request
+	// (0=default 30, maxCodeToolCalls in builtin_tool_cache.go).
 	CodeLimit int
 	// GoalEnforcement decomposes each prompt into a task list and drives the
 	// loop through it, refusing to revisit settled tasks and failing a task
@@ -2839,7 +2843,12 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// when tools exist, even in small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		toolParts = append(toolParts, assembledPreamble)
+		// The "internals" harness section states the web-tool convergence
+		// limit models actually hit (globalWebCache, builtin_tool_cache.go),
+		// not a hardcoded number that would silently go stale the next time
+		// that limit changes.
+		_, webCallLimit := WebConvergenceCalls()
+		toolParts = append(toolParts, renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit}))
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}
