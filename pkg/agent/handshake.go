@@ -202,9 +202,19 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 		// act on right now.
 		directive := harnessRender("handshake", struct{ Challenge string }{challenge})
 		if attempt > 1 {
+			misses := attempt - 1
+			plural := "s"
+			if misses == 1 {
+				plural = ""
+			}
 			directive += fmt.Sprintf(
-				"\n\nYou did not call session_handshake correctly last round. "+
-					"Call it now with exactly this code: %s", challenge)
+				"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
+					"no problem, let's try it again together. Here's exactly what to send, "+
+					"copied verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
+					"  <invoke name=\"session_handshake\">\n"+
+					"  <parameter name=\"code\">%s</parameter>\n"+
+					"  </invoke>\n\n"+
+					"Send that now.", misses, plural, challenge)
 		}
 
 		var tools []domain.Tool
