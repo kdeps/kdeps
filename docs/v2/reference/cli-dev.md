@@ -210,9 +210,11 @@ kdeps --upgrade
 | Flag | Description | Default |
 |---|---|---|
 | `--nightly` | Check the nightly channel instead of the latest stable release | `false` |
+| `--target-version` | Install this exact version instead of the latest, skipping the update check - can be older than the running build (a downgrade); takes priority over `--nightly` | `""` |
 
 ```bash
 kdeps --upgrade --nightly
+kdeps --upgrade --target-version 2.35.0
 ```
 
 ---

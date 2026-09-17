@@ -20,7 +20,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
@@ -30,11 +29,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// maxHandshakeAttempts caps the mandatory session-integrity handshake: one
-// retry after the first miss, then a hard failure surfaced to the user
-// rather than an unbounded loop against a model that can't or won't call
-// tools.
-const maxHandshakeAttempts = 2
+// handshakeCtxKey marks a context as belonging to a handshake round-trip
+// (see performHandshake). Test doubles can check for it via
+// ctx.Value(handshakeCtxKey{}) to distinguish a handshake call from a real
+// turn without sniffing prompt text; production code never reads it.
+type handshakeCtxKey struct{}
 
 // handshakeState tracks one in-flight session-integrity handshake: the
 // 4-digit challenge kdeps issued, and the code argument (if any) the model
@@ -69,8 +68,12 @@ func handshakeAck(code string) string {
 // the next call to RunStreaming must confirm a real session_handshake tool
 // call echoing a fresh challenge before the user's prompt is sent to the
 // model. Called on model change, session resume, and post-compaction/fold
-// (see applyModelSwitch, cmdSessionLoad, compactWithLLM).
+// (see applyModelSwitch, cmdSessionLoad, compactWithLLM). A no-op when the
+// handshake is disabled (off by default; see /handshake).
 func (l *Loop) RequireHandshake() {
+	if !l.config.HandshakeEnabled {
+		return
+	}
 	l.handshake = &handshakeState{challenge: newHandshakeChallenge()}
 }
 
@@ -78,6 +81,22 @@ func (l *Loop) RequireHandshake() {
 // outstanding.
 func (l *Loop) HandshakePending() bool {
 	return l.handshake != nil
+}
+
+// HandshakeEnabled reports whether the mandatory session-integrity handshake
+// is active. Off by default -- see /handshake.
+func (l *Loop) HandshakeEnabled() bool {
+	return l.config.HandshakeEnabled
+}
+
+// SetHandshakeEnabled turns the mandatory session-integrity handshake on or
+// off. Turning it off drops any handshake currently pending, so a turn
+// in flight isn't blocked by a check the user just disabled.
+func (l *Loop) SetHandshakeEnabled(enabled bool) {
+	l.config.HandshakeEnabled = enabled
+	if !enabled {
+		l.handshake = nil
+	}
 }
 
 // registerSessionHandshakeTool registers the internal session_handshake
@@ -90,7 +109,7 @@ func (l *Loop) registerSessionHandshakeTool() {
 	l.registry.Register(&tools.Tool{
 		Name: "session_handshake",
 		Description: "Internal session-integrity check. Only call this when a " +
-			"<session-integrity-check> directive in the system prompt asks for it, " +
+			"<session-integrity-check> directive asks for it, " +
 			"with the exact code it gives you. Never call this on your own initiative.",
 		Category: "agent",
 		Parameters: map[string]domain.ToolParam{
@@ -111,8 +130,16 @@ func (l *Loop) registerSessionHandshakeTool() {
 // standalone tool-enabled LLM call instructing the model to call
 // session_handshake with the issued challenge, verified against a real,
 // correctly-valued tool call dispatched through the actual registry --
-// not merely text in the reply that looks like a call. Retries once on a
-// miss (no call, or the wrong code) with a corrective nudge, then fails.
+// not merely text in the reply that looks like a call.
+//
+// Retries with a corrective nudge on every miss (no call, or the wrong
+// code) for as long as it takes -- there is no attempt cap. This is a
+// deliberate choice: a slow model that eventually gets it right is fine; a
+// model that silently skips the check because kdeps gave up asking is the
+// exact failure this feature exists to prevent. The only way out of a
+// miss loop is the user disabling it (/handshake off) or canceling the
+// turn (Ctrl+C), which surfaces as ctx's cancellation and is propagated
+// as an error below rather than retried.
 //
 // Deliberately standalone rather than routed through buildChatConfig: no
 // conversation history, no goal directive, no judges. runToolRounds never
@@ -133,13 +160,26 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	l.config.MaxToolRounds = handshakeMaxRounds
 	defer func() { l.config.MaxToolRounds = origMaxRounds }()
 
-	for attempt := 1; attempt <= maxHandshakeAttempts; attempt++ {
+	// Marks this and every round-trip within it as part of the handshake
+	// exchange, purely so test doubles can tell it apart from a real turn
+	// without sniffing prompt text. Production code never reads this.
+	ctx = context.WithValue(ctx, handshakeCtxKey{}, true)
+
+	for attempt := 1; ; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		challenge := newHandshakeChallenge()
 		l.handshake = &handshakeState{challenge: challenge}
 
-		system := harnessRender("handshake", struct{ Challenge string }{challenge})
+		// Sent as the user turn, not a system message: a system-role
+		// instruction competes with the model's own system preamble and can
+		// be deprioritized as background context on some backends. This
+		// needs the same standing as anything else the model is asked to
+		// act on right now.
+		directive := harnessRender("handshake", struct{ Challenge string }{challenge})
 		if attempt > 1 {
-			system += fmt.Sprintf(
+			directive += fmt.Sprintf(
 				"\n\nYou did not call session_handshake correctly last round. "+
 					"Call it now with exactly this code: %s", challenge)
 		}
@@ -153,13 +193,10 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 			Backend:       l.config.Backend,
 			BaseURL:       l.config.BaseURL,
 			Role:          l.config.Role,
-			Prompt:        "Run the integrity check now.",
+			Prompt:        directive,
 			LiteralPrompt: true,
 			Tools:         tools,
 			MaxTokens:     localBackendMaxTokens(l.config.Backend),
-			Scenario: []domain.ScenarioItem{
-				{Role: "system", Prompt: system},
-			},
 		}
 
 		if _, err := l.runToolRounds(ctx, chatCfg, io.Discard); err != nil {
@@ -180,8 +217,4 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 				"handshake.miss: attempt=%d challenge=%s observed=%q", attempt, challenge, observed))
 		}
 	}
-	return errors.New(
-		"session integrity check failed: the model did not call session_handshake correctly. " +
-			"This usually means the model/backend doesn't support tool calling reliably. " +
-			"Your prompt was not sent -- try again or switch models")
 }

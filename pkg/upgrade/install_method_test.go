@@ -126,3 +126,19 @@ func TestInstructionsForNightly_NeverPointsAtPackageManagerCommands(t *testing.T
 	assert.Empty(t, InstructionsForNightly(MethodStandalone))
 	assert.Empty(t, InstructionsForNightly(Method("unknown")))
 }
+
+// TestInstructionsForVersion_NeverPointsAtPackageManagerCommands mirrors
+// TestInstructionsForNightly_NeverPointsAtPackageManagerCommands: none of
+// brew/apt/apk support installing an arbitrary (especially older) version,
+// so InstructionsForVersion must never suggest their upgrade commands.
+func TestInstructionsForVersion_NeverPointsAtPackageManagerCommands(t *testing.T) {
+	for _, m := range []Method{MethodHomebrew, MethodDebPkg, MethodApkPkg} {
+		got := InstructionsForVersion(m)
+		assert.NotEmpty(t, got, "method %v", m)
+		assert.NotContains(t, got, "brew upgrade kdeps")
+		assert.NotContains(t, got, "apt install")
+		assert.NotContains(t, got, "apk upgrade")
+	}
+	assert.Empty(t, InstructionsForVersion(MethodStandalone))
+	assert.Empty(t, InstructionsForVersion(Method("unknown")))
+}
