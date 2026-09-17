@@ -29,14 +29,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// handshakeGroundingSystemMessage is the minimal system-role content sent
-// alongside the handshake directive. Not the directive itself -- that stays
-// in the user-turn Prompt so it isn't deprioritized as background context --
-// just enough grounding that the model doesn't reason its way into
-// concluding the listed tool "isn't really available" and refusing to call
-// it. Seen across both native and text-only tool-calling backends: a bare
-// user message with a raw tool schema and no system framing at all reads as
-// unusually sparse next to a normal turn's full system preamble.
+// handshakeGroundingSystemMessage is a minimal fallback system-role message,
+// used only if the registry has no tool-use preamble to fall back to (see
+// performHandshake, which prefers reusing the exact harnessAssembledPreamble
+// tool-use guidance every normal turn already gets). A one-off, novel
+// one-liner here was not enough on at least one backend that otherwise makes
+// real tool calls fine on ordinary turns -- the model reasoned the bare,
+// minimal handshake request described "an external agent/runtime" rather
+// than itself. Reusing framing already proven to work is a stronger fix
+// than inventing new wording to re-prove.
 const handshakeGroundingSystemMessage = "You are the kdeps agent loop assistant. The tools listed in " +
 	"this request are real, registered tools you can call directly -- they are available to you now."
 
@@ -195,53 +196,7 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 		}
 		l.handshake = &handshakeState{challenge: challenge}
 
-		// Sent as the user turn, not a system message: a system-role
-		// instruction competes with the model's own system preamble and can
-		// be deprioritized as background context on some backends. This
-		// needs the same standing as anything else the model is asked to
-		// act on right now.
-		directive := harnessRender("handshake", struct{ Challenge string }{challenge})
-		if attempt > 1 {
-			misses := attempt - 1
-			plural := "s"
-			if misses == 1 {
-				plural = ""
-			}
-			directive += fmt.Sprintf(
-				"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
-					"no problem, let's try it again together. Here's exactly what to send, "+
-					"copied verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
-					"  <invoke name=\"session_handshake\">\n"+
-					"  <parameter name=\"code\">%s</parameter>\n"+
-					"  </invoke>\n\n"+
-					"Send that now.", misses, plural, challenge)
-		}
-
-		var tools []domain.Tool
-		if l.registry != nil {
-			tools = l.registry.ToLLMTools()
-		}
-		chatCfg := &domain.ChatConfig{
-			Model:         l.config.Model,
-			Backend:       l.config.Backend,
-			BaseURL:       l.config.BaseURL,
-			Role:          l.config.Role,
-			Prompt:        directive,
-			LiteralPrompt: true,
-			Tools:         tools,
-			MaxTokens:     localBackendMaxTokens(l.config.Backend),
-			// Minimal grounding, not the directive itself (that stays in
-			// Prompt so it isn't deprioritized as background context). A
-			// request with zero system content and only a bare user message
-			// plus a raw tool schema left some models -- across native and
-			// text-only tool-calling backends alike -- reasoning that the
-			// listed tool "isn't really available" and refusing to call it.
-			// This just states plainly that it is.
-			Scenario: []domain.ScenarioItem{
-				{Role: "system", Prompt: handshakeGroundingSystemMessage},
-			},
-		}
-
+		chatCfg := l.buildHandshakeChatCfg(challenge, attempt)
 		if _, err := l.runToolRounds(ctx, chatCfg, io.Discard); err != nil {
 			return fmt.Errorf("session handshake: %w", err)
 		}
@@ -260,4 +215,72 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 				"handshake.miss: attempt=%d challenge=%s observed=%q", attempt, challenge, observed))
 		}
 	}
+}
+
+// buildHandshakeChatCfg builds one attempt's standalone ChatConfig: the
+// directive (as the user-turn Prompt, with a retry nudge appended past
+// attempt 1) plus a grounding system message.
+func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int) *domain.ChatConfig {
+	// Sent as the user turn, not a system message: a system-role
+	// instruction competes with the model's own system preamble and can be
+	// deprioritized as background context on some backends. This needs the
+	// same standing as anything else the model is asked to act on right now.
+	directive := harnessRender("handshake", struct{ Challenge string }{challenge})
+	if attempt > 1 {
+		directive += handshakeRetryNudge(challenge, attempt-1)
+	}
+
+	var tools []domain.Tool
+	if l.registry != nil {
+		tools = l.registry.ToLLMTools()
+	}
+	return &domain.ChatConfig{
+		Model:         l.config.Model,
+		Backend:       l.config.Backend,
+		BaseURL:       l.config.BaseURL,
+		Role:          l.config.Role,
+		Prompt:        directive,
+		LiteralPrompt: true,
+		Tools:         tools,
+		MaxTokens:     localBackendMaxTokens(l.config.Backend),
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: handshakeGrounding()},
+		},
+	}
+}
+
+// handshakeRetryNudge is appended to the directive on attempt 2+: reshows
+// the exact <invoke> syntax (not just the first attempt) and states how
+// many attempts have missed so far, framed as help rather than a rebuke.
+func handshakeRetryNudge(challenge string, misses int) string {
+	plural := "s"
+	if misses == 1 {
+		plural = ""
+	}
+	return fmt.Sprintf(
+		"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
+			"no problem, let's try it again together. Here's exactly what to send, "+
+			"copied verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
+			"  <invoke name=\"session_handshake\">\n"+
+			"  <parameter name=\"code\">%s</parameter>\n"+
+			"  </invoke>\n\n"+
+			"Send that now.", misses, plural, challenge)
+}
+
+// handshakeGrounding returns the system-role content sent alongside the
+// directive. Grounding, not the directive itself (that stays in Prompt so
+// it isn't deprioritized as background context). A request with zero
+// system content and only a bare user message plus a raw tool schema left
+// some models -- even ones that make real tool calls fine on ordinary
+// turns -- reasoning that the listed tool "isn't really available" and
+// refusing to call it. Reuses the exact tool-use guidance every normal turn
+// already includes (proven to work) rather than a bespoke, unproven
+// one-liner; falls back to the one-liner only if that guidance is somehow
+// empty.
+func handshakeGrounding() string {
+	_, webCallLimit := WebConvergenceCalls()
+	if grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit}); grounding != "" {
+		return grounding
+	}
+	return handshakeGroundingSystemMessage
 }
