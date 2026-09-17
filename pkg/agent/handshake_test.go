@@ -129,11 +129,14 @@ func TestPerformHandshake_SucceedsOnFirstAttempt(t *testing.T) {
 	assert.Nil(t, loop.handshake, "handshake must clear on success")
 }
 
-// TestPerformHandshake_IncludesGroundingSystemMessage covers a specific bug
+// TestPerformHandshake_IncludesGroundingSystemMessage covers a live bug
 // report: a bare user-turn prompt with no system content at all led some
-// models to reason that the listed session_handshake tool "wasn't really
-// available" and refuse to call it. A minimal system message stating the
-// tools are real must be present alongside the directive.
+// models -- even ones that make real tool calls fine on ordinary turns --
+// to reason that the listed session_handshake tool "wasn't really
+// available" and refuse to call it. The fix reuses the exact tool-use
+// guidance every normal turn already includes (proven to work), rather than
+// a bespoke one-liner -- assert on "Calling a kdeps tool is easy", the
+// use-kdeps-tools harness section's own distinctive phrase.
 func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	loop := newStreamingLoop(cfgs, 5)
@@ -142,11 +145,11 @@ func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
 	require.NotEmpty(t, cfgs.cfgs)
 	found := false
 	for _, item := range cfgs.cfgs[0].Scenario {
-		if item.Role == "system" && strings.Contains(item.Prompt, "real, registered tools") {
+		if item.Role == "system" && strings.Contains(item.Prompt, "Calling a kdeps tool is easy") {
 			found = true
 		}
 	}
-	assert.True(t, found, "handshake request must carry the grounding system message")
+	assert.True(t, found, "handshake request must carry the real tool-use guidance preamble")
 }
 
 // cfgCapturingStreamer wraps another Streamer and records every ChatConfig

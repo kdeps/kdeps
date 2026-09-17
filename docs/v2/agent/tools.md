@@ -37,7 +37,7 @@ The directive doesn't just describe the call - it shows the literal syntax to co
 </invoke>
 ```
 
-The exchange also carries a one-line system message stating plainly that the listed tools are real and available. Without it, a bare user prompt plus a raw tool schema and nothing else read as unusually sparse to some models - across both native and text-only tool-calling backends - leading them to reason the tool "wasn't really available" and refuse to call it.
+The exchange also carries a system message grounding the request: the same tool-use guidance every normal turn already includes, not a one-off line invented just for this. A bare user prompt plus a raw tool schema and nothing else reads as unusually sparse next to a normal turn's full preamble - even to models that make real tool calls fine on ordinary turns - leading them to reason the tool "wasn't really available" and refuse to call it.
 
 ## Tool name aliases
 
