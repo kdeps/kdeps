@@ -3023,10 +3023,10 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 5)", cfg.WebLimit)},
-		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 25)", cfg.BashLimit)},
-		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 40)", cfg.FileLimit)},
-		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 15)", cfg.CodeLimit)},
+		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 20)", cfg.WebLimit)},
+		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 50)", cfg.BashLimit)},
+		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 80)", cfg.FileLimit)},
+		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 30)", cfg.CodeLimit)},
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
 	for _, row := range rows {

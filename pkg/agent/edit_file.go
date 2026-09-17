@@ -248,7 +248,8 @@ func editStrReplace(path string, args map[string]any, w io.Writer) (string, erro
 	if n == 0 {
 		return "", fmt.Errorf(
 			"edit_file str_replace: old_str did not appear verbatim in %s. It must match the file "+
-				"byte-for-byte (indentation included) - copy it from a view of the file", path)
+				"byte-for-byte (indentation included) - copy it from a view of the file%s",
+			path, nearMissHint(content, oldStr))
 	}
 	if n > 1 {
 		return "", fmt.Errorf(
@@ -354,6 +355,59 @@ func editedSnippet(path, newContent string, startLine, newLines int) string {
 		fmt.Fprintf(&b, "%d\t%s\n", i, lines[i-1])
 	}
 	return strings.TrimSuffix(b.String(), "\n") + editReviewSuffix
+}
+
+// nearMissHintMaxLines caps how many lines of old_str a near-miss search
+// covers, so a model that pasted an oversized old_str doesn't turn a failed
+// str_replace into an expensive O(fileLines * oldStrLines) scan.
+const nearMissHintMaxLines = 200
+
+// nearMissHint returns a "closest match" suffix for a failed str_replace's
+// error message, or "" when nothing useful was found. A model whose old_str
+// almost matches (wrong indentation, a paraphrased comment, a dropped blank
+// line) gets shown the actual text at the closest position instead of
+// re-guessing blind against a generic "didn't match" message.
+func nearMissHint(content, oldStr string) string {
+	snippet, atLine := closestMatch(content, oldStr)
+	if snippet == "" {
+		return ""
+	}
+	return fmt.Sprintf("\n\nClosest match in the file, starting at line %d:\n%s", atLine, snippet)
+}
+
+// closestMatch slides a window the height of oldStr's line count over
+// content's lines and returns the window with the most lines identical to
+// oldStr's corresponding line (compared with surrounding whitespace
+// trimmed, so an indentation-only mismatch still counts as a near miss).
+// Returns ("", 0) when oldStr is empty, has more lines than the file, or no
+// window shares even one line with it.
+func closestMatch(content, oldStr string) (string, int) {
+	wantLines := strings.Split(oldStr, "\n")
+	if len(wantLines) == 0 || len(wantLines) > nearMissHintMaxLines {
+		return "", 0
+	}
+	fileLines := splitKeepCount(content)
+	if len(fileLines) < len(wantLines) {
+		return "", 0
+	}
+
+	bestScore, bestStart := 0, -1
+	for start := 0; start+len(wantLines) <= len(fileLines); start++ {
+		score := 0
+		for i, want := range wantLines {
+			if strings.TrimSpace(fileLines[start+i]) == strings.TrimSpace(want) {
+				score++
+			}
+		}
+		if score > bestScore {
+			bestScore, bestStart = score, start
+		}
+	}
+	if bestStart < 0 {
+		return "", 0
+	}
+	end := bestStart + len(wantLines)
+	return strings.Join(fileLines[bestStart:end], "\n"), bestStart + 1
 }
 
 // occurrenceLines returns the 1-based line numbers where sub begins in content.
