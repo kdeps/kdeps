@@ -96,7 +96,7 @@ Always available. No environment variables required.
 |------|-------------|
 | `read_file` | Read file contents with a 1-based line number on every line (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `patch`, `undo_edit` |
+| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `patch`, `replace_symbol`, `undo_edit` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
@@ -107,7 +107,7 @@ Every line `read_file` returns is prefixed with its 1-based line number (`  42â‡
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
-### edit_file - five commands
+### edit_file - six commands
 
 `edit_file` takes a `command`. The reliable primitive is still an exact,
 byte-verified string swap - there is no fuzzy matching - but `str_replace` can
@@ -180,19 +180,52 @@ written:
 </invoke>
 ```
 
-**`undo_edit`** - reverts the last `str_replace`/`insert`/`patch` on that file
-(a per-file history kept for the session).
+**`replace_symbol`** - pass `symbol` (a function/type/class/etc. name) and
+`new_str` to replace its whole declaration. The symbol must be declared
+**exactly once** in the file - same "ambiguous, add specificity" rule as
+`str_replace`, with the error listing every declaration line. `symbol_kind`
+(e.g. `"function"` or `"type"`) narrows which declaration keywords count,
+useful only when a function and a type share a name:
 
-**Read before you edit.** `str_replace`, `insert`, and `patch` refuse to touch
-a file that was not read this turn (`read_file`, or `edit_file command: view`)
-- editing a file you have not looked at is how a change lands in the wrong
-place. A file you just wrote with `write_file`, or just edited, counts as
-read. The file's line-ending style is preserved on write.
+```xml
+<invoke name="edit_file">
+  <parameter name="command">replace_symbol</parameter>
+  <parameter name="file_path">/app/server.go</parameter>
+  <parameter name="symbol">handleLogin</parameter>
+  <parameter name="new_str">func handleLogin(w http.ResponseWriter, r *http.Request) {
+	// ...
+}</parameter>
+</invoke>
+```
+
+Where the symbol's block *ends* is found **lexically, not by a language
+parser**: a brace-depth scan for C-like bodies (Go, JS/TS, Java, C/C++/C#,
+Rust - braces inside string/comment text are correctly ignored), or an
+indentation scan when there's no opening brace nearby (Python `def`/`class`).
+This covers ordinary top-level declarations reliably without requiring
+gopls/pyright/tree-sitter or any other external parser to be installed, but
+it is not full-language-semantics: it does not parse JavaScript embedded
+inside an HTML `<script>` tag, and it cannot distinguish two symbols that are
+only disambiguated by real scoping (that surfaces as the same "ambiguous"
+error `str_replace` gives for a repeated string). `view` accepts the same
+`symbol`/`symbol_kind` (plus `context_before`/`context_after`) to show a
+declaration without knowing its line range first.
+
+**`undo_edit`** - reverts the last mutation on that file (a per-file history
+kept for the session).
+
+**Read before you edit.** `str_replace`, `insert`, `patch`, and
+`replace_symbol` refuse to touch a file that was not read this turn
+(`read_file`, or `edit_file command: view`) - editing a file you have not
+looked at is how a change lands in the wrong place. A file you just wrote
+with `write_file`, or just edited, counts as read. The file's line-ending
+style is preserved on write.
 
 **Revision checks.** Every `view` and every successful mutation reports a
 `[revision sha256:...]` token. Pass it back as `revision` on a later
-`str_replace`/`insert`/`patch` to reject the edit if the file changed since
-you read it, instead of silently overwriting someone else's change:
+`str_replace`/`insert`/`patch`/`replace_symbol` to reject the edit if the file
+changed since you read it, instead of silently overwriting someone else's
+change:
 
 ```json
 {"error": "edit_file: /app/server.go changed since revision sha256:1a2b3c4d5e6f was read (it is now sha256:9f8e7d6c5b4a) - view the file again and retry"}
@@ -201,10 +234,10 @@ you read it, instead of silently overwriting someone else's change:
 Omitting `revision` skips the check entirely - it's an extra safeguard on top
 of the read-this-turn gate above, not a replacement for it.
 
-**Preview first with `dry_run`.** `str_replace`, `insert`, and `patch` all
-accept `dry_run: true` - the same diff and would-be `[revision ...]` are
-returned, but nothing is written to disk and nothing is pushed to the undo
-history.
+**Preview first with `dry_run`.** `str_replace`, `insert`, `patch`, and
+`replace_symbol` all accept `dry_run: true` - the same diff and would-be
+`[revision ...]` are returned, but nothing is written to disk and nothing is
+pushed to the undo history.
 
 ### Failed tool calls are fed back to the model
 
