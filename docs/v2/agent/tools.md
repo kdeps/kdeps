@@ -86,6 +86,8 @@ Always available. `identity_get` returns the agent's configured name, email, and
 
 `bash_exec` runs any shell command and streams output to the terminal, with Ctrl+C to cancel, Ctrl+Z to background it, and companion `bash_job_list`/`bash_job_wait` tools. If [rtk](https://github.com/rtk-ai/rtk) is installed, output is compressed automatically before it reaches the LLM (up to 90% fewer tokens).
 
+A command is HTML-unescaped before it's validated and run - some models emit `&amp;&amp;` for `&&`, `&quot;` for `"`, or `&lt;`/`&gt;` for `<`/`>` (e.g. when the text passed through an HTML-rendering step upstream). `sql_query` gets the same treatment, since an escaped comparison operator (`WHERE x &lt; 5`) is the same kind of syntax corruption there.
+
 See [Shell Execution](/agent/shell) for the full keyboard-shortcut and rtk reference.
 
 ## File operations
@@ -106,6 +108,30 @@ Every line `read_file` returns is prefixed with its 1-based line number (`  42â‡
 `read_file`, `tail_file`, and `md5_file` treat `file_path` as optional: omit it and the tool operates on the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file` and `edit_file` always require an explicit path.
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
+
+### Jumping from search_local to read_file with match_id
+
+Every `search_local` result that finds its query in the file carries `match_id`, `line`, and `revision` alongside the usual `path`/`snippet` fields. Pass `match_id` to `read_file` instead of `file_path` to jump straight to that hit - `context_before`/`context_after` (default 20 each) control how much surrounding code comes back, the same defaults `edit_file`'s `anchor` view uses:
+
+```xml
+<invoke name="search_local">
+  <parameter name="path">/app</parameter>
+  <parameter name="query">func handleLogin</parameter>
+</invoke>
+```
+
+```json
+{"results": [{"path": "/app/server.go", "match_id": "match-4a9f21bc", "line": 112, "revision": "sha256:...", "snippet": "..."}]}
+```
+
+```xml
+<invoke name="read_file">
+  <parameter name="match_id">match-4a9f21bc</parameter>
+  <parameter name="context_after">40</parameter>
+</invoke>
+```
+
+A `match_id` is process-local and capped in count (oldest evicted first) - it's for chaining a search into a read within the same session, not a durable reference. An unresolvable one (evicted, or from a different process) is a clear error naming it; `file_path` given explicitly always takes priority over `match_id`.
 
 ### edit_file - six commands
 

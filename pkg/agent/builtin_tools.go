@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -185,16 +186,47 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 }
 
 // resolveReadFilePath is requireAbsFilePath for read-only file tools: when the
-// model omits file_path it falls back to the last file any file tool touched
+// model omits file_path, it resolves from match_id (a prior search_local
+// hit) if given, else falls back to the last file any file tool touched
 // this session ("re-read what I was just looking at"). Never used for
 // write_file/edit_file -- guessing a path there could clobber the wrong file.
 func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
 	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) == "" {
-		if lf := lastFile(); lf != "" {
+		if id, _ := args["match_id"].(string); id != "" {
+			if err := resolveMatchIDIntoArgs(toolName, id, args); err != nil {
+				return "", err
+			}
+		} else if lf := lastFile(); lf != "" {
 			args[toolParamFilePath] = lf
 		}
 	}
 	return requireAbsFilePath(toolName, args)
+}
+
+// resolveMatchIDIntoArgs resolves id to its file, filling file_path and --
+// unless the caller already gave its own offset/limit -- a range centered
+// on the match's line using context_before/context_after (default
+// defaultAnchorContext each, same as edit_file's anchor view).
+func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
+	ref, ok := resolveMatchID(id)
+	if !ok {
+		return fmt.Errorf(
+			"%s: match_id %q not found (it may have expired or come from a different search)", toolName, id)
+	}
+	args[toolParamFilePath] = ref.path
+	if _, hasOffset := args["offset"]; hasOffset {
+		return nil
+	}
+	before, after := viewAnchorContext(args)
+	start := ref.line - before
+	if start < 1 {
+		start = 1
+	}
+	args["offset"] = float64(start)
+	if _, hasLimit := args["limit"]; !hasLimit {
+		args["limit"] = float64(before + after + 1)
+	}
+	return nil
 }
 
 // registerReadFile registers a local file reading tool.
@@ -205,7 +237,7 @@ func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode`) - use those numbers for edit_file insert/view. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking.",
+		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode`) - use those numbers for edit_file insert/view. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.",
 		Category:     "file",
 		OutputFormat: "text with a 1-based line number on each line",
 		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
@@ -213,7 +245,7 @@ func registerReadFile(reg *kdepstools.Registry) {
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
-				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit).",
+				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit), or use match_id instead.",
 			},
 			"offset": {
 				Type:        "number",
@@ -222,6 +254,19 @@ func registerReadFile(reg *kdepstools.Registry) {
 			"limit": {
 				Type:        "number",
 				Description: "Maximum number of lines to read. Optional; reads entire file up to the size limit if omitted.",
+			},
+			"match_id": {
+				Type: toolParamString,
+				Description: "A match_id from a search_local result, instead of file_path. Reads the " +
+					"region around that hit (context_before/context_after lines, default 20 each).",
+			},
+			"context_before": {
+				Type:        "number",
+				Description: "Only with match_id: lines of context before the match (default 20)",
+			},
+			"context_after": {
+				Type:        "number",
+				Description: "Only with match_id: lines of context after the match (default 20)",
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
@@ -937,6 +982,10 @@ func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("sql_query: query is required")
 			}
+			// Same reasoning as bash_exec: an HTML-escaped comparison
+			// operator (WHERE x &lt; 5) is executable-syntax corruption,
+			// not literal content -- unescape before validating/running.
+			query = html.UnescapeString(query)
 			trimmed := strings.TrimSpace(strings.ToUpper(query))
 			if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
 				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
@@ -1387,6 +1436,13 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		if command == "" {
 			return "", errors.New("bash_exec: command is required")
 		}
+		// Some models emit HTML-escaped shell operators (&amp;&amp; for &&,
+		// &quot; for ", &lt;/&gt; for </>) -- e.g. when the command text
+		// passed through an HTML-rendering step upstream. Unescape before
+		// validating/running so the actual operators are seen, not their
+		// entity form (which would either fail outright or run as literal
+		// text). A no-op for a command with no entities.
+		command = html.UnescapeString(command)
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
