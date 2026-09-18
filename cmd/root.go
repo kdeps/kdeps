@@ -233,6 +233,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newChatCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())
 }
 
 func addPackageCommands(rootCmd *cobra.Command) {

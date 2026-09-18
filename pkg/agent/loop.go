@@ -105,6 +105,17 @@ type Config struct {
 	// checkpoint:summary plus archived checkpoint:archive:* entries) compete
 	// for space in the memory prompt block. 0 uses the default (5).
 	FoldContextItems int
+	// MaxLeafNodes caps how many kartographer memory-graph leaf entries --
+	// nodes no other entry references as a parent, see leafKeys in
+	// memory_store.go -- compete for space in the memory prompt block.
+	// Non-leaf (ancestor/parent-chain) entries are never subject to this
+	// cap. 0 means unlimited (no cap).
+	MaxLeafNodes int
+	// MaxLeafChars truncates each leaf entry's rendered value to this many
+	// characters before it counts against the memory prompt's token budget,
+	// so one oversized leaf can't crowd out everything else. 0 means
+	// unlimited (no truncation).
+	MaxLeafChars int
 	// FoldOff disables automatic folding once FoldThreshold is crossed.
 	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
 	// the zero value is the enabled default, not a silently-forced override.
@@ -2900,7 +2911,8 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	var memoryParts []string
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
-		memPrompt := l.memoryStore.FormatForPromptCapped(memoryPromptLimit, focus, l.config.FoldContextItems)
+		memPrompt := l.memoryStore.FormatForPromptCapped(
+			memoryPromptLimit, focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars)
 		if memPrompt != "" {
 			memoryParts = append(memoryParts, memPrompt)
 		}

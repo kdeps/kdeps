@@ -140,6 +140,42 @@ func BuiltinThemeNames() []string { return builtinThemeOrder }
 // override replaced the built-in's palette, but the name itself is not new.
 func CustomThemeNames() []string { return customThemeNames }
 
+// exportThemeEntries returns every theme (built-in and user, merged) as its
+// on-disk yamlTheme shape, fully resolved -- every palette field filled in
+// (never inherited-and-empty), so the result is self-contained: dropping one
+// entry verbatim into ~/.kdeps/themes/<name>.yaml on another machine
+// reproduces the exact same rendering, independent of that machine's own
+// "normal" theme or built-in set. Used by konfig export (see konfig.go).
+func exportThemeEntries() []yamlTheme {
+	out := make([]yamlTheme, 0, len(themeOrder))
+	for _, name := range themeOrder {
+		t, ok := themes[name]
+		if !ok || t.palette == nil {
+			continue
+		}
+		p := t.palette
+		out = append(out, yamlTheme{
+			Name:   name,
+			Prompt: t.promptText,
+			Bold:   p.bold,
+			Palette: yamlPalette{
+				Heading: p.heading, Link: p.link, Code: p.code, CodeBlock: p.codeBlock,
+				Text: p.text, Thinking: p.thinking, Muted: p.muted, Bullet: p.bullet,
+				Quote: p.quote, BorderHr: p.borderHr,
+				SynKeyword: p.synKeyword, SynFunc: p.synFunc, SynStr: p.synStr,
+				SynComment: p.synComment, SynNum: p.synNum, SynType: p.synType, SynOp: p.synOp,
+				ReplError: p.replError, ReplMeta: p.replMeta, ReplHeading: p.replHeading,
+				ReplSuccess: p.replSuccess, ReplPrompt: p.replPrompt, ReplInfo: p.replInfo,
+				ReplDim:    p.replDim,
+				BannerText: p.bannerText, BannerBorder: p.bannerBorder,
+				ModelsReady: p.modelsReady, ModelsNoKey: p.modelsNoKey, ModelsCurrent: p.modelsCurrent,
+				ModelName: p.modelName,
+			},
+		})
+	}
+	return out
+}
+
 // SetTheme selects the active theme. Unknown names leave the current theme
 // unchanged and return false.
 func SetTheme(name string) bool {

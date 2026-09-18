@@ -71,6 +71,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl#nightly-builds)) |
 | `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl#installing-a-specific-version-including-a-downgrade)) |
 | `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check on model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools#session-integrity-handshake)) |
+| `/konfig export [path]` | Export tuning, harness, themes, and skills to a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/llm-server/m365)) |
 
 ## Auto-detected commands and files

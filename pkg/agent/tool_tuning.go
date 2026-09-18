@@ -111,6 +111,12 @@ type ToolTuning struct {
 	// on-by-default behavior instead of silently disabling it.
 	FoldAuto       bool
 	FoldConfigured bool
+	// MaxLeafNodes persists the memory-graph leaf-count cap (0 = unlimited).
+	// See Config.MaxLeafNodes.
+	MaxLeafNodes int
+	// MaxLeafChars persists the per-leaf character truncation cap
+	// (0 = unlimited). See Config.MaxLeafChars.
+	MaxLeafChars int
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -160,6 +166,8 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
 		FoldConfigured:       true,
+		MaxLeafNodes:         c.MaxLeafNodes,
+		MaxLeafChars:         c.MaxLeafChars,
 	}
 }
 
@@ -253,6 +261,12 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	}
 	if t.FoldConfigured {
 		c.FoldOff = !t.FoldAuto
+	}
+	if t.MaxLeafNodes > 0 {
+		c.MaxLeafNodes = t.MaxLeafNodes
+	}
+	if t.MaxLeafChars > 0 {
+		c.MaxLeafChars = t.MaxLeafChars
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or

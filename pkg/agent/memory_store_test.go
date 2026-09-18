@@ -340,7 +340,7 @@ func TestFormatForPromptCapped_ExcludesOldCheckpointsButKeepsOthers(t *testing.T
 		Type:      memTypeStatus,
 	}
 
-	capped := store.FormatForPromptCapped(10000, "", 2)
+	capped := store.FormatForPromptCapped(10000, "", 2, 0, 0)
 	assert.Contains(t, capped, "newest checkpoint")
 	assert.Contains(t, capped, "older checkpoint")
 	assert.NotContains(t, capped, "oldest checkpoint dropped from prompt")
@@ -350,6 +350,148 @@ func TestFormatForPromptCapped_ExcludesOldCheckpointsButKeepsOthers(t *testing.T
 	// /memory show already read the entries directly, unaffected by this.
 	uncapped := store.FormatForPrompt(10000, "")
 	assert.Contains(t, uncapped, "oldest checkpoint dropped from prompt")
+}
+
+// --- kartographer memory-graph leaf limits ---
+
+func TestLeafKeys_IdentifiesTerminalNodesOnly(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: "root"},
+		{Key: "progress:child", Value: "child", References: []string{"purpose:root"}},
+		{Key: "fact:grandchild", Value: "gc", References: []string{"progress:child"}},
+		{Key: "fact:isolated", Value: "iso"},
+	}
+	leaves := leafKeys(entries)
+	assert.False(t, leaves["purpose:root"], "referenced by progress:child -- not a leaf")
+	assert.False(t, leaves["progress:child"], "referenced by fact:grandchild -- not a leaf")
+	assert.True(t, leaves["fact:grandchild"], "nothing references it -- a leaf")
+	assert.True(t, leaves["fact:isolated"], "nothing references it -- a leaf")
+}
+
+func TestCapLeafCount_KeepsNewestLeavesAndAllNonLeaves(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: "root", UpdatedAt: 0},
+		{Key: "fact:leaf1", Value: "l1", UpdatedAt: 100, References: []string{"purpose:root"}},
+		{Key: "fact:leaf2", Value: "l2", UpdatedAt: 200, References: []string{"purpose:root"}},
+		{Key: "fact:leaf3", Value: "l3", UpdatedAt: 300, References: []string{"purpose:root"}},
+	}
+	leaves := leafKeys(entries)
+	require.True(t, leaves["fact:leaf1"] && leaves["fact:leaf2"] && leaves["fact:leaf3"])
+
+	got := capLeafCount(entries, leaves, map[string]bool{}, 2)
+	keys := make(map[string]bool, len(got))
+	for _, e := range got {
+		keys[e.Key] = true
+	}
+	assert.True(t, keys["purpose:root"], "non-leaf entries are never capped")
+	assert.True(t, keys["fact:leaf2"], "2nd newest leaf kept")
+	assert.True(t, keys["fact:leaf3"], "newest leaf kept")
+	assert.False(t, keys["fact:leaf1"], "oldest leaf beyond the cap is dropped")
+	assert.Len(t, got, 3)
+}
+
+func TestCapLeafCount_ExemptsPriorityLeaves(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "fact:oldest-leaf", Value: "oldest", UpdatedAt: 50},
+		{Key: "fact:old-leaf", Value: "old", UpdatedAt: 100},
+		{Key: "progress:resume", Value: "resume", UpdatedAt: 200}, // a leaf itself, and priority
+	}
+	leaves := leafKeys(entries)
+	priority := map[string]bool{"progress:resume": true}
+
+	got := capLeafCount(entries, leaves, priority, 0)
+	assert.Equal(t, entries, got, "maxLeaves <= 0 means unlimited, no cap at all")
+
+	// Two non-priority leaves compete for one slot -- the priority leaf never
+	// counts against the cap at all, so it survives regardless.
+	got = capLeafCount(entries, leaves, priority, 1)
+	keys := make(map[string]bool, len(got))
+	for _, e := range got {
+		keys[e.Key] = true
+	}
+	assert.True(t, keys["progress:resume"], "priority leaf is never capped")
+	assert.True(t, keys["fact:old-leaf"], "the one droppable slot goes to the newer non-priority leaf")
+	assert.False(t, keys["fact:oldest-leaf"], "the older non-priority leaf loses the slot")
+}
+
+func TestCapLeafCount_UnderCapReturnsAllUnchanged(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "fact:leaf1", Value: "l1", UpdatedAt: 100},
+		{Key: "fact:leaf2", Value: "l2", UpdatedAt: 200},
+	}
+	leaves := leafKeys(entries)
+	got := capLeafCount(entries, leaves, map[string]bool{}, 5)
+	assert.Equal(t, entries, got)
+}
+
+func TestTruncateLeafValues_TruncatesOnlyNonPriorityLeaves(t *testing.T) {
+	longValue := strings.Repeat("x", 100)
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: longValue},
+		{Key: "fact:leaf", Value: longValue, References: []string{"purpose:root"}},
+		{Key: "fact:priority-leaf", Value: longValue},
+	}
+	leaves := leafKeys(entries)
+	priority := map[string]bool{"fact:priority-leaf": true}
+
+	got := truncateLeafValues(entries, leaves, priority, 10)
+	byKey := make(map[string]MemoryEntry, len(got))
+	for _, e := range got {
+		byKey[e.Key] = e
+	}
+	assert.Equal(t, longValue, byKey["purpose:root"].Value, "non-leaf entries are never truncated")
+	assert.Equal(t, longValue, byKey["fact:priority-leaf"].Value, "priority leaves are never truncated")
+	assert.Less(t, len(byKey["fact:leaf"].Value), len(longValue), "non-priority leaf is truncated")
+}
+
+func TestTruncateLeafValues_ZeroMeansUnlimited(t *testing.T) {
+	entries := []MemoryEntry{{Key: "fact:leaf", Value: strings.Repeat("x", 100)}}
+	got := truncateLeafValues(entries, leafKeys(entries), map[string]bool{}, 0)
+	assert.Equal(t, entries, got)
+}
+
+func TestFormatForPromptCapped_LeafNodeCapKeepsParentChainAndNewestLeaves(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	store.entries["purpose:root"] = MemoryEntry{
+		Key: "purpose:root", Value: "the goal", UpdatedAt: 0, Type: memTypePurpose,
+	}
+	store.entries["fact:old-leaf"] = MemoryEntry{
+		Key: "fact:old-leaf", Value: "old leaf dropped", UpdatedAt: 100,
+		Type: memTypeFact, References: []string{"purpose:root"},
+	}
+	store.entries["fact:new-leaf"] = MemoryEntry{
+		Key: "fact:new-leaf", Value: "new leaf kept", UpdatedAt: 200,
+		Type: memTypeFact, References: []string{"purpose:root"},
+	}
+
+	capped := store.FormatForPromptCapped(10000, "", 0, 1, 0)
+	assert.Contains(t, capped, "the goal", "non-leaf parent is never capped")
+	assert.Contains(t, capped, "new leaf kept")
+	assert.NotContains(t, capped, "old leaf dropped")
+
+	uncapped := store.FormatForPromptCapped(10000, "", 0, 0, 0)
+	assert.Contains(t, uncapped, "old leaf dropped", "0 means unlimited, unaffected")
+}
+
+func TestFormatForPromptCapped_LeafCharCapTruncatesLongLeafValue(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	longValue := "start-marker-" + strings.Repeat("y", 200)
+	store.entries["fact:big-leaf"] = MemoryEntry{
+		Key: "fact:big-leaf", Value: longValue, UpdatedAt: 0, Type: memTypeFact,
+	}
+
+	capped := store.FormatForPromptCapped(10000, "", 0, 0, 20)
+	assert.Contains(t, capped, "start-marker", "truncation keeps the front of the value")
+	assert.NotContains(t, capped, longValue, "the full untruncated value must not appear")
+
+	uncapped := store.FormatForPromptCapped(10000, "", 0, 0, 0)
+	assert.Contains(t, uncapped, longValue, "0 means unlimited, unaffected")
 }
 
 func TestMemoryStore_FormatForPrompt(t *testing.T) {

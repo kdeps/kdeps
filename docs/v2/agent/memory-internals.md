@@ -79,6 +79,12 @@ After every compaction (or [fold](/agent/repl#fold)), a `checkpoint:summary` ent
 
 The previous checkpoint is never silently discarded: it's archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply aren't in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 
+## Leaf-node limits
+
+The memory graph is a kartographer dependency tree: each entry's `references` field points at its parent keys, and a **leaf** is any entry nothing else references - a terminal node with no children pointing back at it. Most everyday facts (`fact:`, `tool_result:`) are leaves; `purpose:`/`progress:` entries with children pointing at them are not.
+
+Two knobs cap leaves specifically, independent of the checkpoint cap above - `/model tool set leaf-nodes <n>` (max leaf entries kept in the prompt, 0 = unlimited) and `/model tool set leaf-chars <n>` (max characters kept per leaf entry's value, 0 = unlimited, truncated with an ellipsis). Both exempt the active task chain (the resume node, its ancestry, and anything matching the current prompt's focus) the same way the byte-budget truncation pass already does - losing where the agent is and how it got there is worse than overshooting either cap. Neither ever touches the store itself: dropped or truncated leaves stay fully intact and retrievable with `/memory list` / `/memory show`, only this one render is affected.
+
 ## Session persistence
 
 The agent's full LLM config (model, backend, base URL) is saved to `session:config` on startup and after every `/model` switch. On the next run, the config is restored automatically. The working directory is also saved on start (`session:started`) and resume (`session:resumed`) so the agent always knows where it is.
