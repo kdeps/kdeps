@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -127,6 +128,47 @@ func TestPerformHandshake_SucceedsOnFirstAttempt(t *testing.T) {
 	loop := newStreamingLoop(&handshakeStreamer{}, 5)
 	require.NoError(t, loop.performHandshake(context.Background()))
 	assert.Nil(t, loop.handshake, "handshake must clear on success")
+}
+
+// TestPerformHandshake_AsksWarmupQuestionsFirst covers a specific user
+// request: don't cold-open with the invoke demand -- ask the model first,
+// conversationally, how it invokes a kdeps tool and how many it has, then
+// ask for the real invoke. Any warm-up answer is accepted; the point is
+// establishing an ongoing exchange, not checking content.
+func TestPerformHandshake_AsksWarmupQuestionsFirst(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.GreaterOrEqual(t, len(cfgs.cfgs), len(handshakeWarmupQuestions)+1)
+	for i, want := range handshakeWarmupQuestions {
+		assert.Equal(t, want, cfgs.cfgs[i].Prompt, "warm-up question %d out of order", i)
+	}
+	// The invoke directive (right after warm-up) must carry the warm-up
+	// exchange as history, not a blank slate.
+	invokeCfg := cfgs.cfgs[len(handshakeWarmupQuestions)]
+	require.NotEmpty(t, invokeCfg.Messages, "invoke request must carry the warm-up conversation as history")
+	assert.Contains(t, invokeCfg.Messages, handshakeWarmupQuestions[0])
+	assert.Contains(t, invokeCfg.Messages, handshakeWarmupQuestions[1])
+}
+
+// TestPerformHandshake_WarmupErrorPropagates covers the failure path: if the
+// warm-up itself can't reach the model, the whole handshake fails clearly
+// rather than silently skipping straight to the invoke request.
+func TestPerformHandshake_WarmupErrorPropagates(t *testing.T) {
+	loop := newStreamingLoop(&erroringStreamer{}, 5)
+	err := loop.performHandshake(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "warmup")
+}
+
+// erroringStreamer always fails, for testing error propagation.
+type erroringStreamer struct{}
+
+func (erroringStreamer) StreamChat(
+	context.Context, *domain.ChatConfig, io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	return "", nil, errors.New("boom")
 }
 
 // TestPerformHandshake_IncludesGroundingSystemMessage covers a live bug
@@ -326,6 +368,12 @@ type wrongThenRightStreamer struct {
 func (w *wrongThenRightStreamer) StreamChat(
 	ctx context.Context, cfg *domain.ChatConfig, ww io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
+	// Warm-up questions (and the forced-final round) carry no Tools -- a
+	// real model has nothing to call, so this must never fabricate one.
+	// Only count/act on rounds that actually offer the handshake tool.
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
 	w.calls++
 	if w.calls == 1 {
 		return "", []domain.StreamedToolCall{{ID: "1", Name: "session_handshake", Arguments: `{"code":"0000"}`}}, nil
@@ -425,7 +473,17 @@ func TestRunStreaming_HandshakeRunsBeforeRealPromptAndLeavesNoTrace(t *testing.T
 	assert.False(t, loop.HandshakePending(), "handshake must be cleared before the real turn runs")
 
 	require.NotEmpty(t, ts.prompts)
-	assert.Contains(t, ts.prompts[0], "code set to exactly", "handshake round must run first, as a user-turn prompt")
+	// The warm-up questions (see handshakeWarmupQuestions) run first, then the
+	// actual invoke directive, then the real prompt last.
+	assert.Equal(t, handshakeWarmupQuestions[0], ts.prompts[0], "warm-up must run before the invoke directive")
+	invokeIdx := -1
+	for i, p := range ts.prompts {
+		if strings.Contains(p, "code set to exactly") {
+			invokeIdx = i
+			break
+		}
+	}
+	require.GreaterOrEqual(t, invokeIdx, len(handshakeWarmupQuestions), "invoke directive must come after warm-up")
 	assert.Equal(t, "what time is it", ts.prompts[len(ts.prompts)-1], "real prompt must run last")
 
 	// The handshake exchange must never reach visible session history.

@@ -39,6 +39,8 @@ The directive doesn't just describe the call - it shows the literal syntax to co
 
 The exchange also carries a system message grounding the request: the same tool-use guidance every normal turn already includes, not a one-off line invented just for this. A bare user prompt plus a raw tool schema and nothing else reads as unusually sparse next to a normal turn's full preamble - even to models that make real tool calls fine on ordinary turns - leading them to reason the tool "wasn't really available" and refuse to call it.
 
+Before the invoke request itself, kdeps also asks two warm-up questions - "how do you invoke a kdeps tool?" and "how many tools do you have?" - answers not checked, but establishing an ongoing conversation about kdeps tools before asking the model to actually call one, rather than a cold open. Each attempt (warm-up included) stays in the same growing conversation, so a retry sees its own prior miss as context instead of a repeat cold start.
+
 ## Tool name aliases
 
 Models trained on other agent frameworks or shell habits often call tools by familiar names. Those names are aliased to the real built-in tool, so a call to `grep` runs `search_local`, `cat` runs `read_file`, `bash` runs `bash_exec`, and so on. Aliases are resolved on dispatch and do **not** appear in the advertised tool list (no duplicates for the model to choose between). Common synonym parameter keys are normalized too - `grep`'s `pattern` maps to `search_local`'s `query`, `cat`'s `path` maps to `read_file`'s `file_path`.
