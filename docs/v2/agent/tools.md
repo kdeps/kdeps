@@ -96,7 +96,7 @@ Always available. No environment variables required.
 |------|-------------|
 | `read_file` | Read file contents with a 1-based line number on every line (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `undo_edit` |
+| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `patch`, `undo_edit` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
@@ -107,38 +107,104 @@ Every line `read_file` returns is prefixed with its 1-based line number (`  42â‡
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
-### edit_file - four commands
+### edit_file - five commands
 
-`edit_file` takes a `command`. There is no line-range mode and no fuzzy
-matching: the reliable primitives are an exact string swap and a line insert,
-each verified.
+`edit_file` takes a `command`. The reliable primitive is still an exact,
+byte-verified string swap - there is no fuzzy matching - but `str_replace` can
+now resolve that exact text from an anchor pair instead of requiring you to
+retype the whole block, and `occurrence` picks a specific match when the text
+repeats.
 
 **`view`** - `edit_file` with `command: view` and a `file_path` prints the file
-with a 1-based line number on every line (same as `read_file`). Pass
-`view_range: [start, end]` (1-based inclusive, `end` `-1` = to end of file) for
-a slice. A `view` also satisfies the read-before-edit requirement below.
+with a 1-based line number on every line (same as `read_file`), followed by
+the file's `[revision sha256:...]`. Pass `view_range: [start, end]` (1-based
+inclusive, `end` `-1` = to end of file) for a slice, or `anchor` (a unique
+string) to show the region around it instead - `context_before`/
+`context_after` control how many lines of context (default 20 each):
+
+```xml
+<invoke name="edit_file">
+  <parameter name="command">view</parameter>
+  <parameter name="file_path">/app/server.go</parameter>
+  <parameter name="anchor">func handleLogin</parameter>
+  <parameter name="context_after">40</parameter>
+</invoke>
+```
+
+A `view` also satisfies the read-before-edit requirement below.
 
 **`str_replace`** - pass `old_str` (the exact current text) and `new_str`.
-`old_str` must match the file **byte-for-byte** - indentation and all - and
-appear **exactly once**. No looser matching:
+`old_str` must match the file **byte-for-byte** - indentation and all:
 
 - 0 matches -> `old_str did not appear verbatim` (copy it from a `view`).
-- 2+ matches -> the error lists every line the text starts on; add surrounding
-  lines to make it unique.
-- 1 match -> the swap is written and the result is a **numbered snippet of the
-  changed region** so you can check the edit landed where you meant.
+- 2+ matches -> the error lists every line the text starts on; either add
+  surrounding lines to make it unique, or pass `occurrence: N` (1-based) to
+  pick one of the listed matches directly.
+- 1 match (or a resolved `occurrence`) -> the swap is written and the result
+  is a **numbered snippet of the changed region** plus the file's new
+  `[revision ...]`.
+
+Instead of `old_str`, pass `start_anchor`/`end_anchor` to replace everything
+from one unique string through another (inclusive) - useful for a large block
+you don't want to retype:
+
+```xml
+<invoke name="edit_file">
+  <parameter name="command">str_replace</parameter>
+  <parameter name="file_path">/app/server.go</parameter>
+  <parameter name="start_anchor">func handleLogin</parameter>
+  <parameter name="end_anchor">\n}\n</parameter>
+  <parameter name="new_str">func handleLogin(w http.ResponseWriter, r *http.Request) {\n\t// ...\n}</parameter>
+</invoke>
+```
 
 **`insert`** - pass `insert_line` (0 = before the first line, N = after line N)
 and `new_str`. Returns the same numbered snippet.
 
-**`undo_edit`** - reverts the last `str_replace`/`insert` on that file (a
-per-file history kept for the session).
+**`patch`** - pass `patch`, a standard unified diff with one or more `@@` hunks.
+Each hunk's context and removed lines must match the file byte-for-byte and
+appear **exactly once**; hunks are resolved against the file's original
+content and applied atomically - if any hunk fails to resolve, nothing is
+written:
 
-**Read before you edit.** `str_replace` and `insert` refuse to touch a file
-that was not read this turn (`read_file`, or `edit_file command: view`) -
-editing a file you have not looked at is how a change lands in the wrong place.
-A file you just wrote with `write_file`, or just edited, counts as read.
-The file's line-ending style is preserved on write.
+```xml
+<invoke name="edit_file">
+  <parameter name="command">patch</parameter>
+  <parameter name="file_path">/app/server.go</parameter>
+  <parameter name="patch">@@ -10,3 +10,3 @@
+ func main() {
+-	log.Println("starting")
++	log.Println("starting v2")
+ }
+</parameter>
+</invoke>
+```
+
+**`undo_edit`** - reverts the last `str_replace`/`insert`/`patch` on that file
+(a per-file history kept for the session).
+
+**Read before you edit.** `str_replace`, `insert`, and `patch` refuse to touch
+a file that was not read this turn (`read_file`, or `edit_file command: view`)
+- editing a file you have not looked at is how a change lands in the wrong
+place. A file you just wrote with `write_file`, or just edited, counts as
+read. The file's line-ending style is preserved on write.
+
+**Revision checks.** Every `view` and every successful mutation reports a
+`[revision sha256:...]` token. Pass it back as `revision` on a later
+`str_replace`/`insert`/`patch` to reject the edit if the file changed since
+you read it, instead of silently overwriting someone else's change:
+
+```json
+{"error": "edit_file: /app/server.go changed since revision sha256:1a2b3c4d5e6f was read (it is now sha256:9f8e7d6c5b4a) - view the file again and retry"}
+```
+
+Omitting `revision` skips the check entirely - it's an extra safeguard on top
+of the read-this-turn gate above, not a replacement for it.
+
+**Preview first with `dry_run`.** `str_replace`, `insert`, and `patch` all
+accept `dry_run: true` - the same diff and would-be `[revision ...]` are
+returned, but nothing is written to disk and nothing is pushed to the undo
+history.
 
 ### Failed tool calls are fed back to the model
 

@@ -155,7 +155,8 @@ func TestEditFile_ViewRange(t *testing.T) {
 		"command": "view", "file_path": f, "view_range": []any{float64(2), float64(4)},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "2\tb\n3\tc\n4\td", res)
+	assert.True(t, strings.HasPrefix(res, "2\tb\n3\tc\n4\td"))
+	assert.Contains(t, res, "[revision sha256:")
 }
 
 func TestEditFile_ViewRange_ToEnd(t *testing.T) {
@@ -166,7 +167,8 @@ func TestEditFile_ViewRange_ToEnd(t *testing.T) {
 		"command": "view", "file_path": f, "view_range": []any{float64(2), float64(-1)},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "2\tb\n3\tc", res)
+	assert.True(t, strings.HasPrefix(res, "2\tb\n3\tc"))
+	assert.Contains(t, res, "[revision sha256:")
 }
 
 func TestEditFile_Insert(t *testing.T) {
@@ -341,6 +343,274 @@ func TestEditFile_NoChangeRejected(t *testing.T) {
 	tool := editFileTool(t)
 	_, err := tool.Execute(map[string]any{
 		"command": "str_replace", "file_path": f, "old_str": "keep", "new_str": "keep",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "identical")
+}
+
+// --- revision ---
+
+func TestEditFile_Revision_MatchingRevisionSucceeds(t *testing.T) {
+	f := writeSeenFile(t, "rev.txt", "a\nb\n")
+	tool := editFileTool(t)
+	view, err := tool.Execute(map[string]any{"command": "view", "file_path": f})
+	require.NoError(t, err)
+	rev := extractRevision(t, view)
+
+	_, err = tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "b", "new_str": "B", "revision": rev,
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nB\n", string(got))
+}
+
+func TestEditFile_Revision_StaleRevisionRejected(t *testing.T) {
+	f := writeSeenFile(t, "rev2.txt", "a\nb\n")
+	tool := editFileTool(t)
+	view, err := tool.Execute(map[string]any{"command": "view", "file_path": f})
+	require.NoError(t, err)
+	staleRev := extractRevision(t, view)
+
+	// File changes out-of-band after the view.
+	require.NoError(t, os.WriteFile(f, []byte("a\nb\nc\n"), 0o600))
+	markFileSeen(f)
+
+	_, err = tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "b", "new_str": "B", "revision": staleRev,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "changed since revision")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nb\nc\n", string(got), "file untouched on a stale revision")
+}
+
+func TestEditFile_Revision_OmittedSkipsCheck(t *testing.T) {
+	f := writeSeenFile(t, "rev3.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "b", "new_str": "B",
+	})
+	require.NoError(t, err)
+}
+
+// extractRevision pulls the "[revision sha256:...]" token out of an edit_file
+// result string.
+func extractRevision(t *testing.T, out string) string {
+	t.Helper()
+	i := strings.Index(out, "[revision ")
+	require.NotEqual(t, -1, i, "output missing revision marker: %q", out)
+	rest := out[i+len("[revision "):]
+	j := strings.Index(rest, "]")
+	require.NotEqual(t, -1, j)
+	return rest[:j]
+}
+
+// --- occurrence ---
+
+func TestEditFile_Occurrence_PicksTheRequestedMatch(t *testing.T) {
+	f := writeSeenFile(t, "occ.txt", "x = 1\ny = 2\nx = 1\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f,
+		"old_str": "x = 1", "new_str": "x = 9", "occurrence": float64(2),
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "x = 1\ny = 2\nx = 9\n", string(got))
+}
+
+func TestEditFile_Occurrence_OutOfRangeRejected(t *testing.T) {
+	f := writeSeenFile(t, "occ2.txt", "x = 1\ny = 2\nx = 1\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f,
+		"old_str": "x = 1", "new_str": "x = 9", "occurrence": float64(3),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "out of range")
+}
+
+func TestEditFile_Occurrence_MissingHintSuggestsOccurrence(t *testing.T) {
+	f := writeSeenFile(t, "occ3.txt", "x = 1\ny = 2\nx = 1\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "x = 1", "new_str": "x = 9",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "occurrence: 1-2")
+}
+
+// --- anchors ---
+
+func TestEditFile_View_Anchor_ShowsSurroundingContext(t *testing.T) {
+	body := strings.Join([]string{"l1", "l2", "l3", "TARGET", "l5", "l6", "l7"}, "\n") + "\n"
+	f := writeSeenFile(t, "anchor.txt", body)
+	tool := editFileTool(t)
+	res, err := tool.Execute(map[string]any{
+		"command": "view", "file_path": f, "anchor": "TARGET",
+		"context_before": float64(1), "context_after": float64(1),
+	})
+	require.NoError(t, err)
+	assert.Contains(t, res, "3\tl3")
+	assert.Contains(t, res, "4\tTARGET")
+	assert.Contains(t, res, "5\tl5")
+	assert.NotContains(t, res, "\tl2")
+	assert.NotContains(t, res, "\tl6")
+}
+
+func TestEditFile_View_Anchor_AmbiguousRejected(t *testing.T) {
+	f := writeSeenFile(t, "anchor2.txt", "dup\nmid\ndup\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{"command": "view", "file_path": f, "anchor": "dup"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "appears 2 times")
+}
+
+func TestEditFile_View_Anchor_NotFoundRejected(t *testing.T) {
+	f := writeSeenFile(t, "anchor3.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{"command": "view", "file_path": f, "anchor": "zzz"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "did not appear verbatim")
+}
+
+func TestEditFile_StrReplace_AnchorRangeReplacesBetween(t *testing.T) {
+	body := "func f() {\n\tSTART\n\tmid1\n\tmid2\n\tEND\n}\n"
+	f := writeSeenFile(t, "anchor4.txt", body)
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f,
+		"start_anchor": "START", "end_anchor": "END", "new_str": "REPLACED",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "func f() {\n\tREPLACED\n}\n", string(got))
+}
+
+func TestEditFile_StrReplace_EndAnchorRequiredWithStartAnchor(t *testing.T) {
+	f := writeSeenFile(t, "anchor5.txt", "START\nmid\nEND\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "start_anchor": "START", "new_str": "x",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "end_anchor is required")
+}
+
+// --- patch ---
+
+func TestEditFile_Patch_SingleHunkApplies(t *testing.T) {
+	f := writeSeenFile(t, "p1.txt", "one\ntwo\nthree\n")
+	tool := editFileTool(t)
+	patch := "@@ -1,3 +1,3 @@\n one\n-two\n+TWO\n three\n"
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": patch})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "one\nTWO\nthree\n", string(got))
+}
+
+func TestEditFile_Patch_MultiHunkAppliesAtomically(t *testing.T) {
+	f := writeSeenFile(t, "p2.txt", "a\nb\nc\nd\ne\n")
+	tool := editFileTool(t)
+	patch := "@@ -1,1 +1,1 @@\n-a\n+A\n@@ -5,1 +5,1 @@\n-e\n+E\n"
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": patch})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "A\nb\nc\nd\nE\n", string(got))
+}
+
+func TestEditFile_Patch_HunkNotFoundNamesHunk(t *testing.T) {
+	f := writeSeenFile(t, "p3.txt", "one\ntwo\nthree\n")
+	tool := editFileTool(t)
+	patch := "@@ -1,1 +1,1 @@\n-nope\n+NOPE\n"
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": patch})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hunk 1")
+	assert.Contains(t, err.Error(), "did not match")
+}
+
+func TestEditFile_Patch_AmbiguousHunkRejected(t *testing.T) {
+	f := writeSeenFile(t, "p4.txt", "dup\nmid\ndup\n")
+	tool := editFileTool(t)
+	patch := "@@ -1,1 +1,1 @@\n-dup\n+DUP\n"
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": patch})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "matches 2 times")
+}
+
+func TestEditFile_Patch_NoHunksRejected(t *testing.T) {
+	f := writeSeenFile(t, "p5.txt", "a\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": "not a diff"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no hunks found")
+}
+
+func TestEditFile_Patch_RequiresPriorRead(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "p6.txt")
+	require.NoError(t, os.WriteFile(f, []byte("a\nb\n"), 0o600))
+	tool := editFileTool(t)
+	patch := "@@ -1,1 +1,1 @@\n-a\n+A\n"
+	_, err := tool.Execute(map[string]any{"command": "patch", "file_path": f, "patch": patch})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read")
+}
+
+// --- dry_run ---
+
+func TestEditFile_DryRun_StrReplaceDoesNotWrite(t *testing.T) {
+	f := writeSeenFile(t, "dr1.txt", "a\nb\nc\n")
+	tool := editFileTool(t)
+	res, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "b", "new_str": "B", "dry_run": true,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, res, "[dry_run] no changes written.")
+	assert.Contains(t, res, "B")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nb\nc\n", string(got), "dry_run must not touch the file")
+}
+
+func TestEditFile_DryRun_DoesNotPushUndoHistory(t *testing.T) {
+	f := writeSeenFile(t, "dr2.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "b", "new_str": "B", "dry_run": true,
+	})
+	require.NoError(t, err)
+	_, err = tool.Execute(map[string]any{"command": "undo_edit", "file_path": f})
+	require.Error(t, err, "a dry_run must not leave anything to undo")
+}
+
+func TestEditFile_DryRun_InsertDoesNotWrite(t *testing.T) {
+	f := writeSeenFile(t, "dr3.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_line": float64(1), "new_str": "X", "dry_run": true,
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nb\n", string(got))
+}
+
+func TestEditFile_DryRun_PatchDoesNotWrite(t *testing.T) {
+	f := writeSeenFile(t, "dr4.txt", "one\ntwo\n")
+	tool := editFileTool(t)
+	patch := "@@ -1,1 +1,1 @@\n-one\n+ONE\n"
+	_, err := tool.Execute(map[string]any{
+		"command": "patch", "file_path": f, "patch": patch, "dry_run": true,
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "one\ntwo\n", string(got))
+}
+
+func TestEditFile_DryRun_NoOpStillRejected(t *testing.T) {
+	f := writeSeenFile(t, "dr5.txt", "keep\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "keep", "new_str": "keep", "dry_run": true,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "identical")
