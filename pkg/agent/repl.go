@@ -2976,6 +2976,7 @@ var toolSettingNames = []string{
 	"rounds", "retries", "retry-delay", "stall-timeout",
 	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
 	"web-limit", "bash-limit", "file-limit", "code-limit",
+	"leaf-nodes", "leaf-chars",
 }
 
 // cmdModelTool handles /model tool [list | set <setting> <value>].
@@ -3032,6 +3033,10 @@ func (r *REPL) printToolSettings() {
 		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 50)", cfg.BashLimit)},
 		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 80)", cfg.FileLimit)},
 		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 30)", cfg.CodeLimit)},
+		{"leaf-nodes", fmt.Sprintf(
+			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
+		{"leaf-chars", fmt.Sprintf(
+			"%d  (max characters kept per leaf entry, 0 = unlimited)", cfg.MaxLeafChars)},
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
 	for _, row := range rows {
@@ -3148,6 +3153,22 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		}
 		cfg.CodeLimit = n
 		return fmt.Sprintf("Code search limit set to %d per request", n), ""
+	},
+	"leaf-nodes": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "leaf-nodes must be a non-negative integer (0=unlimited)"
+		}
+		cfg.MaxLeafNodes = n
+		return fmt.Sprintf("Memory-graph leaf-node cap set to %d", n), ""
+	},
+	"leaf-chars": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "leaf-chars must be a non-negative integer (0=unlimited)"
+		}
+		cfg.MaxLeafChars = n
+		return fmt.Sprintf("Per-leaf character cap set to %d", n), ""
 	},
 }
 

@@ -95,6 +95,8 @@ type AgentLoopTuning struct {
 	FoldContextItems     int    `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool   `yaml:"fold_auto,omitempty"`
 	FoldConfigured       bool   `yaml:"fold_configured,omitempty"`
+	MaxLeafNodes         int    `yaml:"max_leaf_nodes,omitempty"`
+	MaxLeafChars         int    `yaml:"max_leaf_chars,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

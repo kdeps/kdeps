@@ -21,6 +21,9 @@ package agent
 import (
 	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDispatchCommand_PermissionPersists(t *testing.T) {
@@ -211,6 +214,43 @@ func TestDispatchCommand_ContextCloudBackendDoesNotPersist(t *testing.T) {
 	if saveCalled {
 		t.Fatal("expected a cloud-backend /context call not to persist")
 	}
+}
+
+func TestDispatchCommand_ModelToolSetLeafNodesPersists(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var saved *ToolTuning
+	repl.SetSaveTuningFn(func(t ToolTuning) error {
+		saved = &t
+		return nil
+	})
+
+	require.NoError(t, repl.dispatchCommand("/model tool set leaf-nodes 5"))
+	require.NotNil(t, saved)
+	assert.Equal(t, 5, saved.MaxLeafNodes)
+	assert.Equal(t, 5, repl.loop.config.MaxLeafNodes)
+
+	require.NoError(t, repl.dispatchCommand("/model tool set leaf-chars 200"))
+	require.NotNil(t, saved)
+	assert.Equal(t, 200, saved.MaxLeafChars)
+	assert.Equal(t, 200, repl.loop.config.MaxLeafChars)
+}
+
+func TestDispatchCommand_ModelToolSetLeafNodesRejectsNegative(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	saveCalled := false
+	repl.SetSaveTuningFn(func(ToolTuning) error {
+		saveCalled = true
+		return nil
+	})
+
+	require.NoError(t, repl.dispatchCommand("/model tool set leaf-nodes -1"))
+	assert.False(t, saveCalled, "a negative leaf-nodes value must not persist")
 }
 
 func TestDispatchCommand_ThinkingBadUsageDoesNotPersist(t *testing.T) {

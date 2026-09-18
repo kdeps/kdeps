@@ -675,6 +675,69 @@ func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEnt
 	return append(other, checkpoints[:maxCheckpoints]...)
 }
 
+// leafKeys returns the set of entries no other entry references as a parent
+// -- kartographer memory-graph terminals ("leaf nodes"). An entry's
+// References field holds its parent keys (see ancestryChain), so a leaf is
+// any key that never appears in another entry's References.
+func leafKeys(entries []MemoryEntry) map[string]bool {
+	referenced := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		for _, p := range e.References {
+			referenced[p] = true
+		}
+	}
+	leaves := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !referenced[e.Key] {
+			leaves[e.Key] = true
+		}
+	}
+	return leaves
+}
+
+// capLeafCount keeps at most maxLeaves leaf entries (see leafKeys) --
+// newest updated first -- plus every priority leaf (the active task chain,
+// exempt from this cap the same way it's exempt from the byte-budget pass)
+// and every non-leaf entry unchanged. Entries dropped here are only
+// excluded from this one render; they remain in the store untouched, same
+// contract as capCheckpointEntries. maxLeaves <= 0 means no cap.
+func capLeafCount(entries []MemoryEntry, leaves, priority map[string]bool, maxLeaves int) []MemoryEntry {
+	if maxLeaves <= 0 {
+		return entries
+	}
+	var droppable, kept []MemoryEntry
+	for _, e := range entries {
+		if leaves[e.Key] && !priority[e.Key] {
+			droppable = append(droppable, e)
+		} else {
+			kept = append(kept, e)
+		}
+	}
+	if len(droppable) <= maxLeaves {
+		return entries
+	}
+	sort.Slice(droppable, func(i, j int) bool { return droppable[i].UpdatedAt > droppable[j].UpdatedAt })
+	return append(kept, droppable[:maxLeaves]...)
+}
+
+// truncateLeafValues caps each non-priority leaf entry's rendered Value to
+// maxChars, so one oversized leaf can't crowd out the rest of the byte
+// budget. Non-leaf entries and priority leaves are returned unchanged.
+// maxChars <= 0 means no truncation.
+func truncateLeafValues(entries []MemoryEntry, leaves, priority map[string]bool, maxChars int) []MemoryEntry {
+	if maxChars <= 0 {
+		return entries
+	}
+	out := make([]MemoryEntry, len(entries))
+	for i, e := range entries {
+		if leaves[e.Key] && !priority[e.Key] && len(e.Value) > maxChars {
+			e.Value = truncateEllipsis(e.Value, maxChars)
+		}
+		out[i] = e
+	}
+	return out
+}
+
 // FormatForPrompt renders memory as a single graph-ordered block for the system
 // prompt. Entries are ordered topologically via the kartographer dependency
 // graph (a parent always precedes the children that reference it), each value is
@@ -684,7 +747,7 @@ func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEnt
 // edges to dropped entries are omitted so no arrow dangles. Returns "" when there
 // are no entries or cwd is unset.
 func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
-	return m.FormatForPromptCapped(maxTokens, focus, 0)
+	return m.FormatForPromptCapped(maxTokens, focus, 0, 0, 0)
 }
 
 // listCapped returns m.List(), optionally passed through capCheckpointEntries
@@ -698,7 +761,7 @@ func (m *MemoryStore) listCapped(maxCheckpoints int) []MemoryEntry {
 	return entries
 }
 
-// FormatForPromptCapped is FormatForPrompt with an additional cap: at most
+// FormatForPromptCapped is FormatForPrompt with additional caps: at most
 // maxCheckpoints checkpoint-family entries (the active checkpoint:summary
 // plus archived checkpoint:archive:* entries, see AutoCapture) are considered
 // for injection, newest first -- keeping the graph focused on a bounded,
@@ -706,19 +769,22 @@ func (m *MemoryStore) listCapped(maxCheckpoints int) []MemoryEntry {
 // ToolTuning.FoldContextItems) even though older ones remain in the store,
 // retrievable via /memory list / /memory show. maxCheckpoints <= 0 means no
 // cap (identical to FormatForPrompt).
-func (m *MemoryStore) FormatForPromptCapped(maxTokens int, focus string, maxCheckpoints int) string {
-	entries := m.listCapped(maxCheckpoints)
-	if len(entries) == 0 {
-		return ""
-	}
-	if maxTokens <= 0 {
-		maxTokens = memoryMaxTokens
-	}
-
-	byKey := make(map[string]MemoryEntry, len(entries))
-	for _, e := range entries {
-		byKey[e.Key] = e
-	}
+//
+// maxLeafNodes and maxLeafChars cap the kartographer graph's leaf entries --
+// nodes no other entry references as a parent (see leafKeys) -- by count and
+// per-entry character length respectively (Config.MaxLeafNodes/MaxLeafChars).
+// Neither ever caps a leaf on the active priority chain (the resume node and
+// its ancestry, focus matches, the newest unresolved error): losing where the
+// model is and how it got there is worse than overshooting either budget, the
+// same rule the byte-budget pass below already follows. <= 0 means no cap.
+// priorityKeys computes the set of entries FormatForPromptCapped never
+// drops or truncates: the resume node and its ancestry (E), any entry
+// matching the current prompt's focus and its ancestry (I), and the newest
+// unresolved error and its ancestry (M) -- split out of FormatForPromptCapped
+// purely to keep that function's own cognitive complexity under the lint
+// threshold. Returns the resume key, the last-error key, and the combined
+// priority set.
+func priorityKeys(entries []MemoryEntry, byKey map[string]MemoryEntry, focus string) (string, string, map[string]bool) {
 	// E: the current task chain (the resume node and its transitive parents) is
 	// always kept, so a large memory never truncates away where we are and how we
 	// got here; unrelated/older entries drop first.
@@ -736,6 +802,37 @@ func (m *MemoryStore) FormatForPromptCapped(maxTokens int, focus string, maxChec
 	lastErr := newestErrorKey(entries)
 	for k := range ancestryChain(lastErr, byKey) {
 		priority[k] = true
+	}
+	return resume, lastErr, priority
+}
+
+func (m *MemoryStore) FormatForPromptCapped(
+	maxTokens int, focus string, maxCheckpoints, maxLeafNodes, maxLeafChars int,
+) string {
+	entries := m.listCapped(maxCheckpoints)
+	if len(entries) == 0 {
+		return ""
+	}
+	if maxTokens <= 0 {
+		maxTokens = memoryMaxTokens
+	}
+
+	byKey := make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
+	}
+	resume, lastErr, priority := priorityKeys(entries, byKey, focus)
+
+	// Leaf caps run after priority is known (so a priority leaf -- e.g. the
+	// resume node itself is very often a leaf -- is never dropped or
+	// truncated) but before the byte-budget pass (so a capped/truncated leaf
+	// frees room the budget pass can actually use).
+	leaves := leafKeys(entries)
+	entries = capLeafCount(entries, leaves, priority, maxLeafNodes)
+	entries = truncateLeafValues(entries, leaves, priority, maxLeafChars)
+	byKey = make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
 	}
 
 	keep := selectKeptEntries(entries, maxTokens*charsPerToken, priority)
