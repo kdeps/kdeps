@@ -148,6 +148,16 @@ func editFileParams() map[string]domain.ToolParam {
 			Type:        toolParamNumber,
 			Description: "insert: line number to insert after (0 = top of file)",
 		},
+		"insert_before_anchor": {
+			Type: toolParamString,
+			Description: "insert: insert new_str directly before this unique string's line, instead of " +
+				"passing insert_line",
+		},
+		"insert_after_anchor": {
+			Type: toolParamString,
+			Description: "insert: insert new_str directly after this unique string's line, instead of " +
+				"passing insert_line",
+		},
 		"view_range": {
 			Type:        "array",
 			ItemsType:   toolParamNumber,
@@ -206,7 +216,8 @@ func registerEditFile(reg *kdepstools.Registry) {
 			"(indentation and all) and appear EXACTLY ONCE - copy it from a view or read_file, or pass " +
 			"occurrence to pick one of several matches. Instead of old_str you can pass start_anchor/" +
 			"end_anchor to replace everything between two unique anchor strings. No fuzzy matching.\n" +
-			"- insert: insert new_str after line insert_line (0 = before the first line).\n" +
+			"- insert: insert new_str after line insert_line (0 = before the first line), or pass " +
+			"insert_before_anchor/insert_after_anchor instead of a line number.\n" +
 			"- patch: apply a standard unified diff (one or more @@ hunks) atomically. Each hunk's " +
 			"context+removed lines must match the file byte-for-byte and appear exactly once.\n" +
 			"- replace_symbol: replace a whole function/type/class/etc. by symbol name with new_str. " +
@@ -281,6 +292,12 @@ func inferEditCommand(args map[string]any) string {
 		return "str_replace"
 	}
 	if _, ok := args["insert_line"]; ok {
+		return "insert"
+	}
+	if s, _ := args["insert_before_anchor"].(string); s != "" {
+		return "insert"
+	}
+	if s, _ := args["insert_after_anchor"].(string); s != "" {
 		return "insert"
 	}
 	if _, ok := args["view_range"]; ok {
@@ -541,11 +558,6 @@ func editInsert(path string, args map[string]any, w io.Writer) (string, error) {
 	if !hasNew {
 		return "", errors.New("edit_file insert: new_str is required")
 	}
-	lineArg, ok := args["insert_line"]
-	if !ok {
-		return "", errors.New("edit_file insert: insert_line is required (0 = top of file)")
-	}
-	insertLine := toInt(lineArg)
 	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return "", fmt.Errorf("edit_file insert: %w", err)
@@ -556,6 +568,10 @@ func editInsert(path string, args map[string]any, w io.Writer) (string, error) {
 			"edit_file insert: read %s this turn first (edit_file command:view or read_file)", path)
 	}
 	if err = checkRevision(path, content, args); err != nil {
+		return "", err
+	}
+	insertLine, err := resolveInsertLine(content, args)
+	if err != nil {
 		return "", err
 	}
 	lines := splitKeepCount(content)
@@ -580,6 +596,47 @@ func editInsert(path string, args map[string]any, w io.Writer) (string, error) {
 		return "", err
 	}
 	return previewPrefix(committed) + editedSnippet(path, newContent, insertLine+1, len(ins)), nil
+}
+
+// resolveInsertLine returns the 0-based insert_line to insert after:
+// insert_line directly, or resolved from insert_before_anchor/
+// insert_after_anchor -- each anchor must be unique in the file, the same
+// "no fuzzy matching, add specificity" contract str_replace's anchors have.
+func resolveInsertLine(content string, args map[string]any) (int, error) {
+	if lineArg, ok := args["insert_line"]; ok {
+		return toInt(lineArg), nil
+	}
+	if anchor, _ := args["insert_before_anchor"].(string); anchor != "" {
+		at, err := resolveInsertAnchor(content, anchor)
+		if err != nil {
+			return 0, err
+		}
+		return at - 1, nil // insert directly before the anchor's first line
+	}
+	if anchor, _ := args["insert_after_anchor"].(string); anchor != "" {
+		at, err := resolveInsertAnchor(content, anchor)
+		if err != nil {
+			return 0, err
+		}
+		return at + strings.Count(anchor, "\n"), nil // insert after the anchor's last line
+	}
+	return 0, errors.New(
+		"edit_file insert: insert_line (or insert_before_anchor/insert_after_anchor) is required (0 = top of file)")
+}
+
+// resolveInsertAnchor returns the 1-based line anchor's unique occurrence starts on.
+func resolveInsertAnchor(content, anchor string) (int, error) {
+	offs := occurrenceOffsets(content, anchor)
+	if len(offs) == 0 {
+		return 0, fmt.Errorf(
+			"edit_file insert: anchor did not appear verbatim in the file%s", nearMissHint(content, anchor))
+	}
+	if len(offs) > 1 {
+		return 0, fmt.Errorf(
+			"edit_file insert: anchor appears %d times (at line(s) %s). Make it more specific",
+			len(offs), strings.Join(occurrenceLines(content, anchor), ", "))
+	}
+	return 1 + strings.Count(content[:offs[0]], "\n"), nil
 }
 
 func editReplaceSymbol(path string, args map[string]any, w io.Writer) (string, error) {

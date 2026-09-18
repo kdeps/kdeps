@@ -204,6 +204,69 @@ func TestEditFile_Insert_OutOfRange(t *testing.T) {
 	assert.Contains(t, err.Error(), "out of range")
 }
 
+func TestEditFile_Insert_BeforeAnchor(t *testing.T) {
+	f := writeSeenFile(t, "ib.txt", "a\nTARGET\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_before_anchor": "TARGET", "new_str": "X",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nX\nTARGET\nb\n", string(got))
+}
+
+func TestEditFile_Insert_AfterAnchor(t *testing.T) {
+	f := writeSeenFile(t, "ia.txt", "a\nTARGET\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_after_anchor": "TARGET", "new_str": "X",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nTARGET\nX\nb\n", string(got))
+}
+
+func TestEditFile_Insert_AfterMultilineAnchor(t *testing.T) {
+	f := writeSeenFile(t, "iam.txt", "a\nT1\nT2\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_after_anchor": "T1\nT2", "new_str": "X",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "a\nT1\nT2\nX\nb\n", string(got))
+}
+
+func TestEditFile_Insert_AnchorAmbiguousRejected(t *testing.T) {
+	f := writeSeenFile(t, "iamb.txt", "dup\nmid\ndup\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_after_anchor": "dup", "new_str": "X",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "appears 2 times")
+}
+
+func TestEditFile_Insert_AnchorNotFoundRejected(t *testing.T) {
+	f := writeSeenFile(t, "iamnf.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_after_anchor": "zzz", "new_str": "X",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "did not appear verbatim")
+}
+
+func TestEditFile_Insert_NoPositionGivenRejected(t *testing.T) {
+	f := writeSeenFile(t, "ino.txt", "a\nb\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "new_str": "X",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "insert_line")
+}
+
 func TestEditFile_UndoEdit(t *testing.T) {
 	f := writeSeenFile(t, "u.txt", "a\nb\nc\n")
 	tool := editFileTool(t)

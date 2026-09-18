@@ -159,7 +159,9 @@ you don't want to retype:
 ```
 
 **`insert`** - pass `insert_line` (0 = before the first line, N = after line N)
-and `new_str`. Returns the same numbered snippet.
+and `new_str`. Returns the same numbered snippet. Instead of `insert_line`,
+pass `insert_before_anchor`/`insert_after_anchor` (a unique string) to
+position by content instead of a line number you'd otherwise have to look up.
 
 **`patch`** - pass `patch`, a standard unified diff with one or more `@@` hunks.
 Each hunk's context and removed lines must match the file byte-for-byte and
