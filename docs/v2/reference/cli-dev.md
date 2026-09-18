@@ -268,6 +268,19 @@ kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + G
 
 ---
 
+## `kdeps konfig export`
+
+Export the current effective agent-loop config - tuning, harness, themes, and skills - to one self-contained YAML file. See [konfig](/agent/konfig) for the full file format and the REPL's `/konfig export` equivalent.
+
+```bash
+kdeps konfig export              # writes ./konfig.yaml
+kdeps konfig export path/to/mine.yaml
+```
+
+Reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml`, or built-in defaults if nothing has ever been customized - so this works even against a completely fresh `~/.kdeps`.
+
+---
+
 ## See also
 
 - [CLI overview](/reference/cli) - global flags, exit codes, env vars, workflows

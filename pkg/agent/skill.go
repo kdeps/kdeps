@@ -68,6 +68,13 @@ func loadSkillSlice(extraPaths []string) []Skill {
 	return skills
 }
 
+// LoadSkillSlice is loadSkillSlice, exported for cmd/konfig.go's bare CLI
+// export path (kdeps konfig export), which has no running Loop/REPL to read
+// an already-loaded skillList from.
+func LoadSkillSlice(extraPaths []string) []Skill {
+	return loadSkillSlice(extraPaths)
+}
+
 // loadSkillSliceWithDirs is loadSkillSlice, additionally returning the skill
 // root directories that were walked (defaultSkillDirs plus any directory
 // extraPaths). Callers that need to re-walk the same roots -- e.g.

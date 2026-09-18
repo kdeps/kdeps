@@ -141,6 +141,7 @@ export default defineConfig({
             { text: 'Persistent memory', link: '/agent/memory' },
             { text: 'Memory internals', link: '/agent/memory-internals' },
             { text: 'Skills and prompt templates', link: '/agent/skills' },
+            { text: 'konfig (export/import)', link: '/agent/konfig' },
             { text: 'Agent registries', link: '/agent/registries' },
             { text: 'AI-assisted authoring', link: '/agent/ai-assisted-authoring' },
           ]

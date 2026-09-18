@@ -111,7 +111,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
 	"/login", "/theme", "/refine", "/handshake", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
@@ -2501,6 +2501,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdTools(args)
 	case "/upgrade":
 		return r.cmdUpgrade(args)
+	case "/konfig":
+		return r.cmdKonfig(args)
 	case "/login":
 		return r.cmdLogin(args)
 	case "/theme":
@@ -2620,6 +2622,7 @@ func (r *REPL) cmdHelp() error {
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
 		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
 		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
+		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
