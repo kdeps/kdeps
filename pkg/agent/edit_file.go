@@ -201,6 +201,12 @@ func editFileParams() map[string]domain.ToolParam {
 			Description: "str_replace/insert/patch/replace_symbol: preview the result (diff + would-be " +
 				"revision) without writing the file",
 		},
+		"validate_syntax": {
+			Type: toolParamBoolean,
+			Description: "str_replace/insert/patch/replace_symbol: reject the edit (nothing is written) if " +
+				"the resulting file fails a syntax check. Real parsing for .go/.json/.yaml/.yml; a " +
+				"balanced-delimiter check for other common source files; a no-op for unrecognized file types.",
+		},
 	}
 }
 
@@ -227,13 +233,15 @@ func registerEditFile(reg *kdepstools.Registry) {
 			"str_replace, insert, patch, and replace_symbol require that you have read the file this " +
 			"turn, and return a numbered snippet of the changed region plus the file's new revision. " +
 			"Pass revision (from a prior view/edit) to reject the edit if the file changed since you " +
-			"read it. Pass dry_run to preview the result without writing. Absolute path required.",
+			"read it. Pass dry_run to preview the result without writing. Pass validate_syntax to " +
+			"reject a result that fails a syntax check instead of writing it. Absolute path required.",
 		Category:     "code",
 		OutputFormat: "numbered snippet of the edited region plus its revision",
 		Constraints: "read the file this turn before str_replace/insert/patch/replace_symbol; old_str must be " +
 			"byte-exact and unique unless occurrence is given (add surrounding lines to disambiguate instead); " +
 			"replace_symbol's extent detection is lexical, not a parser - an ambiguous or unrecognized " +
-			"declaration errors rather than guessing",
+			"declaration errors rather than guessing; validate_syntax runs before any write, so a " +
+			"rejected edit is never written, never needing an undo",
 		SeeAlso:    "read_file, write_file",
 		Parameters: editFileParams(),
 	}
@@ -472,7 +480,7 @@ func editStrReplace(path string, args map[string]any, w io.Writer) (string, erro
 	}
 
 	newContent := content[:idx] + newStr + content[idx+len(oldStr):]
-	if err = checkChanged(content, newContent); err != nil {
+	if err = finishEdit(path, content, newContent, args); err != nil {
 		return "", err
 	}
 	committed, err := maybeCommitOrPreview(path, content, newContent, args, w)
@@ -588,7 +596,7 @@ func editInsert(path string, args map[string]any, w io.Writer) (string, error) {
 	if strings.HasSuffix(content, "\n") || content == "" {
 		newContent += "\n"
 	}
-	if err = checkChanged(content, newContent); err != nil {
+	if err = finishEdit(path, content, newContent, args); err != nil {
 		return "", err
 	}
 	committed, err := maybeCommitOrPreview(path, content, newContent, args, w)
@@ -675,7 +683,7 @@ func editReplaceSymbol(path string, args map[string]any, w io.Writer) (string, e
 	if strings.HasSuffix(content, "\n") {
 		newContent += "\n"
 	}
-	if err = checkChanged(content, newContent); err != nil {
+	if err = finishEdit(path, content, newContent, args); err != nil {
 		return "", err
 	}
 	committed, err := maybeCommitOrPreview(path, content, newContent, args, w)
@@ -708,6 +716,22 @@ func editUndo(path string, w io.Writer) (string, error) {
 func checkChanged(oldContent, newContent string) error {
 	if newContent == oldContent {
 		return errors.New("edit_file: the replacement leaves the file unchanged")
+	}
+	return nil
+}
+
+// finishEdit runs the pre-commit checks every mutator shares: reject a
+// no-op edit, then -- when args sets validate_syntax -- reject newContent
+// if it fails a syntax check. Both run before any write, so a rejected edit
+// is simply never written, never needing a rollback.
+func finishEdit(path, oldContent, newContent string, args map[string]any) error {
+	if err := checkChanged(oldContent, newContent); err != nil {
+		return err
+	}
+	if validate, _ := args["validate_syntax"].(bool); validate {
+		if err := validateSyntax(path, newContent); err != nil {
+			return fmt.Errorf("edit_file: %w", err)
+		}
 	}
 	return nil
 }
@@ -828,7 +852,7 @@ func editPatch(path string, args map[string]any, w io.Writer) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err = checkChanged(content, newContent); err != nil {
+	if err = finishEdit(path, content, newContent, args); err != nil {
 		return "", err
 	}
 	committed, err := maybeCommitOrPreview(path, content, newContent, args, w)
