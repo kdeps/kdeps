@@ -241,6 +241,22 @@ of the read-this-turn gate above, not a replacement for it.
 `[revision ...]` are returned, but nothing is written to disk and nothing is
 pushed to the undo history.
 
+**Reject a broken edit with `validate_syntax`.** `str_replace`, `insert`,
+`patch`, and `replace_symbol` accept `validate_syntax: true` - the resulting
+file is checked *before* anything is written, and the edit is refused
+outright on failure, so a malformed change is never written and never needs
+rolling back. Combine with `dry_run` to check without applying. What "check"
+means depends on the file extension:
+
+| Extension | Check |
+|-----------|-------|
+| `.go` | Real parse via Go's standard `go/parser` |
+| `.json` | Real parse via `encoding/json` |
+| `.yaml`/`.yml` | Real parse via `yaml.v3` |
+| `.js`/`.ts`/`.java`/`.c`/`.cpp`/`.cs`/`.rs`/`.php`/`.swift`/`.kt`/etc. | Balanced `()[]{}` scan (string/comment-aware) - lexical, not a real parse |
+| `.py`/`.rb`/`.sh`/etc. | Same balanced-delimiter scan, `#` treated as a comment |
+| anything else | No-op - `validate_syntax` never blocks a file type it can't check |
+
 ### Failed tool calls are fed back to the model
 
 Every tool failure is returned to the model as `{"error": ...}` **plus a

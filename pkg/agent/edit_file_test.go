@@ -411,6 +411,100 @@ func TestEditFile_NoChangeRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "identical")
 }
 
+// --- validate_syntax ---
+
+func TestEditFile_ValidateSyntax_StrReplaceBreaksGoSyntaxRejected(t *testing.T) {
+	f := writeSeenFile(t, "vs1.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "}", "new_str": "",
+		"validate_syntax": true,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "syntax validation failed")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "package x\n\nfunc Foo() {\n\treturn 1\n}\n", string(got), "file untouched on a failed validation")
+}
+
+func TestEditFile_ValidateSyntax_ValidEditSucceeds(t *testing.T) {
+	f := writeSeenFile(t, "vs2.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "return 1", "new_str": "return 2",
+		"validate_syntax": true,
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "package x\n\nfunc Foo() {\n\treturn 2\n}\n", string(got))
+}
+
+func TestEditFile_ValidateSyntax_DryRunReportsFailureWithoutWriting(t *testing.T) {
+	f := writeSeenFile(t, "vs3.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "}", "new_str": "",
+		"validate_syntax": true, "dry_run": true,
+	})
+	require.Error(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "package x\n\nfunc Foo() {\n\treturn 1\n}\n", string(got))
+}
+
+func TestEditFile_ValidateSyntax_UnrecognizedExtensionIsNoOp(t *testing.T) {
+	f := writeSeenFile(t, "vs4.md", "hello [world\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "hello", "new_str": "hi",
+		"validate_syntax": true,
+	})
+	require.NoError(t, err, "an unrecognized extension must not block the edit")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "hi [world\n", string(got))
+}
+
+func TestEditFile_ValidateSyntax_OmittedDoesNotValidate(t *testing.T) {
+	f := writeSeenFile(t, "vs5.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": f, "old_str": "}", "new_str": "",
+	})
+	require.NoError(t, err, "validate_syntax is opt-in - omitting it must not validate")
+}
+
+func TestEditFile_ValidateSyntax_InsertRejected(t *testing.T) {
+	f := writeSeenFile(t, "vs6.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "insert", "file_path": f, "insert_line": float64(0), "new_str": "{",
+		"validate_syntax": true,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "syntax validation failed")
+}
+
+func TestEditFile_ValidateSyntax_PatchRejected(t *testing.T) {
+	f := writeSeenFile(t, "vs7.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	patch := "@@ -3,1 +3,1 @@\n-func Foo() {\n+func Foo() {{\n"
+	_, err := tool.Execute(map[string]any{
+		"command": "patch", "file_path": f, "patch": patch, "validate_syntax": true,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "syntax validation failed")
+}
+
+func TestEditFile_ValidateSyntax_ReplaceSymbolRejected(t *testing.T) {
+	f := writeSeenFile(t, "vs8.go", "package x\n\nfunc Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo",
+		"new_str":         "func Foo() {\n\treturn 2", // missing closing brace
+		"validate_syntax": true,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "syntax validation failed")
+}
+
 // --- revision ---
 
 func TestEditFile_Revision_MatchingRevisionSucceeds(t *testing.T) {
