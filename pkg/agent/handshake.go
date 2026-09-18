@@ -20,9 +20,11 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -143,11 +145,28 @@ func (l *Loop) registerSessionHandshakeTool() {
 	})
 }
 
-// performHandshake runs the mandatory challenge/response round: a
-// standalone tool-enabled LLM call instructing the model to call
-// session_handshake with the issued challenge, verified against a real,
-// correctly-valued tool call dispatched through the actual registry --
-// not merely text in the reply that looks like a call.
+// handshakeWarmupQuestions are asked once per verification cycle, before the
+// real invoke request, and are never checked -- any answer is accepted. The
+// point is not the content of the answers: a model asked to invoke a tool
+// cold, with no prior exchange in the conversation, was reasoning its way
+// into refusing (see handshakeGrounding's history). Having it first engage
+// conversationally with its own tool-use instructions -- explain how a call
+// works, state how many tools it sees -- establishes that this is a real,
+// ongoing exchange about kdeps tools before it's asked to actually make one,
+// rather than a cold-open demand.
+//
+//nolint:gochecknoglobals // read-only, package-level fixed content (same pattern as other harness/prompt text)
+var handshakeWarmupQuestions = []string{
+	"Based on your instructions, how do you invoke a kdeps tool?",
+	"How many tools does kdeps have available to you in this session?",
+}
+
+// performHandshake runs the mandatory challenge/response round: two warm-up
+// questions (see handshakeWarmupQuestions), then a standalone tool-enabled
+// LLM call instructing the model to call session_handshake with the issued
+// challenge, verified against a real, correctly-valued tool call dispatched
+// through the actual registry -- not merely text in the reply that looks
+// like a call.
 //
 // Retries with a corrective nudge on every miss (no call, or the wrong
 // code) for as long as it takes -- there is no attempt cap. This is a
@@ -156,12 +175,13 @@ func (l *Loop) registerSessionHandshakeTool() {
 // exact failure this feature exists to prevent. The only way out of a
 // miss loop is the user disabling it (/handshake off) or canceling the
 // turn (Ctrl+C), which surfaces as ctx's cancellation and is propagated
-// as an error below rather than retried.
-//
-// Deliberately standalone rather than routed through buildChatConfig: no
-// conversation history, no goal directive, no judges. runToolRounds never
-// touches l.session (only RunStreaming's own l.session.Append at the very
-// end does), so this exchange leaves no trace in the visible conversation.
+// as an error below rather than retried. Each attempt (warm-up included)
+// stays in the same growing conversation, so a retry's corrective nudge is
+// answering a model that can see its own prior miss, not a repeated
+// cold-open -- but this conversation is entirely internal to the handshake:
+// it never touches l.session (only RunStreaming's own l.session.Append at
+// the very end does), so none of it leaves a trace in the visible
+// conversation.
 func (l *Loop) performHandshake(ctx context.Context) error {
 	// Two rounds: appendToolRoundTrip dispatches a returned tool call
 	// through the real registry synchronously, within the round that
@@ -190,21 +210,35 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	// model is chasing a moving target.
 	challenge := newHandshakeChallenge()
 
+	history, err := l.handshakeWarmup(ctx)
+	if err != nil {
+		return fmt.Errorf("session handshake warmup: %w", err)
+	}
+
 	for attempt := 1; ; attempt++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		l.handshake = &handshakeState{challenge: challenge}
 
-		chatCfg := l.buildHandshakeChatCfg(challenge, attempt)
-		if _, err := l.runToolRounds(ctx, chatCfg, io.Discard); err != nil {
-			return fmt.Errorf("session handshake: %w", err)
+		chatCfg := l.buildHandshakeChatCfg(challenge, attempt, history)
+		finalContent, roundErr := l.runToolRounds(ctx, chatCfg, io.Discard)
+		if roundErr != nil {
+			return fmt.Errorf("session handshake: %w", roundErr)
 		}
 
 		if l.handshake != nil && l.handshake.observedCode == challenge {
 			l.handshake = nil
 			return nil
 		}
+
+		// Carry this miss into history: the next attempt's retry nudge
+		// answers a model that can see its own prior response, not a fresh
+		// cold-open.
+		history = append(history,
+			map[string]any{"role": RoleUser, toolParamContent: chatCfg.Prompt},
+			map[string]any{"role": RoleAssistant, toolParamContent: stripContentToolCalls(finalContent)},
+		)
 
 		if debug.Enabled() {
 			observed := ""
@@ -217,10 +251,53 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	}
 }
 
-// buildHandshakeChatCfg builds one attempt's standalone ChatConfig: the
-// directive (as the user-turn Prompt, with a retry nudge appended past
-// attempt 1) plus a grounding system message.
-func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int) *domain.ChatConfig {
+// handshakeWarmup asks handshakeWarmupQuestions in order, threading each
+// answer into the next question's history, and returns the resulting
+// conversation (role/content pairs, ready to append to via performHandshake)
+// for the real invoke request to build on. A plain one-shot call
+// (streamChatWithRetry, not runToolRounds) since no tool call is expected or
+// handled here -- these are conversational only.
+func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
+	grounding := handshakeGrounding()
+	var history []map[string]any
+	for _, question := range handshakeWarmupQuestions {
+		cfg := &domain.ChatConfig{
+			Model:         l.config.Model,
+			Backend:       l.config.Backend,
+			BaseURL:       l.config.BaseURL,
+			Role:          l.config.Role,
+			Prompt:        question,
+			LiteralPrompt: true,
+			MaxTokens:     localBackendMaxTokens(l.config.Backend),
+			Scenario: []domain.ScenarioItem{
+				{Role: "system", Prompt: grounding},
+			},
+		}
+		if len(history) > 0 {
+			data, err := json.Marshal(history)
+			if err != nil {
+				return nil, err
+			}
+			cfg.Messages = string(data)
+		}
+		var buf strings.Builder
+		content, _, err := l.streamChatWithRetry(ctx, cfg, &buf)
+		if err != nil {
+			return nil, err
+		}
+		history = append(history,
+			map[string]any{"role": RoleUser, toolParamContent: question},
+			map[string]any{"role": RoleAssistant, toolParamContent: content},
+		)
+	}
+	return history, nil
+}
+
+// buildHandshakeChatCfg builds one attempt's ChatConfig: the directive (as
+// the user-turn Prompt, with a retry nudge appended past attempt 1), a
+// grounding system message, and the conversation so far (warm-up plus any
+// earlier missed attempts).
+func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int, history []map[string]any) *domain.ChatConfig {
 	// Sent as the user turn, not a system message: a system-role
 	// instruction competes with the model's own system preamble and can be
 	// deprioritized as background context on some backends. This needs the
@@ -234,7 +311,7 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int) *domain.Chat
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()
 	}
-	return &domain.ChatConfig{
+	cfg := &domain.ChatConfig{
 		Model:         l.config.Model,
 		Backend:       l.config.Backend,
 		BaseURL:       l.config.BaseURL,
@@ -247,6 +324,12 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int) *domain.Chat
 			{Role: "system", Prompt: handshakeGrounding()},
 		},
 	}
+	if len(history) > 0 {
+		if data, err := json.Marshal(history); err == nil {
+			cfg.Messages = string(data)
+		}
+	}
+	return cfg
 }
 
 // handshakeRetryNudge is appended to the directive on attempt 2+: reshows
