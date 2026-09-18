@@ -189,6 +189,24 @@ func TestRegisterSearchLocalTool_Execute_WithGlob(t *testing.T) {
 	assert.Contains(t, result, "count")
 }
 
+func TestRegisterSearchLocalTool_Execute_ResultCarriesMatchID(t *testing.T) {
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	reg := kdepstools.NewRegistry()
+	registerSearchLocalTool(context.Background(), reg)
+	tool := reg.Get("search_local")
+	require.NotNil(t, tool)
+
+	dir := t.TempDir()
+	f := dir + "/target.go"
+	require.NoError(t, os.WriteFile(f, []byte("package x\n\nfunc FindMeHere() {}\n"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"path": dir, "query": "FindMeHere"})
+	require.NoError(t, err)
+	assert.Contains(t, result, `"match_id"`)
+	assert.Contains(t, result, `"line": 3`)
+	assert.Contains(t, result, `"revision"`)
+}
+
 // --- registerTranscribeTool ---
 
 func TestRegisterTranscribeTool_Registered(t *testing.T) {

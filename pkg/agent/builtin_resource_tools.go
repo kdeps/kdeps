@@ -21,6 +21,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	execHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -101,7 +103,7 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 
 	reg.Register(&kdepstools.Tool{
 		Name:        toolNameSearchLocal,
-		Description: "Search for text patterns in local files using ripgrep. Returns matching files with line numbers and content. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).",
+		Description: "Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).",
 		Parameters: map[string]domain.ToolParam{
 			toolParamPath: {
 				Type:        toolParamString,
@@ -368,6 +370,7 @@ func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string,
 			if len(paths) > 0 {
 				go exec.IndexFiles(paths)
 			}
+			annotateSearchMatches(results, config.Query)
 		}
 	}
 
@@ -424,4 +427,50 @@ func makeEmbeddingExecute(
 		out, _ := json.MarshalIndent(result, "", "  ")
 		return string(out), nil
 	}
+}
+
+// annotateSearchMatches adds match_id/line/revision to each result so
+// read_file can reference a hit directly (path + line) instead of the
+// model retyping a path and guessing a line range from a truncated
+// snippet. Best-effort: a result whose file can't be bound-read, or that
+// has no findable query line, is left without these fields rather than
+// failing the whole search.
+func annotateSearchMatches(results []map[string]interface{}, query string) {
+	if query == "" {
+		return
+	}
+	for _, r := range results {
+		path, _ := r["path"].(string)
+		if path == "" {
+			continue
+		}
+		info, statErr := AppFS.Stat(path)
+		if statErr != nil || info.IsDir() || info.Size() > maxFileReadBytes {
+			continue
+		}
+		data, readErr := afero.ReadFile(AppFS, path)
+		if readErr != nil {
+			continue
+		}
+		line := firstMatchLine(string(data), query)
+		if line == 0 {
+			continue
+		}
+		revision := fileRevision(data)
+		id := mintMatchID(path, line, revision)
+		rememberMatch(id, matchRef{path: path, line: line, revision: revision})
+		r["match_id"] = id
+		r["line"] = line
+		r["revision"] = revision
+	}
+}
+
+// firstMatchLine returns the 1-based line query first (case-insensitively)
+// occurs on in content, or 0 if it doesn't appear.
+func firstMatchLine(content, query string) int {
+	idx := strings.Index(strings.ToLower(content), strings.ToLower(query))
+	if idx < 0 {
+		return 0
+	}
+	return 1 + strings.Count(content[:idx], "\n")
 }

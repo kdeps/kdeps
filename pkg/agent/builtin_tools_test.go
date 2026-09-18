@@ -362,6 +362,24 @@ func TestSQLQuery_Tool_WithDBPath(t *testing.T) {
 	assert.NotContains(t, result, "Bob")
 }
 
+func TestSQLQuery_UnescapesHTMLEntitiesInQuery(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_query")
+	require.NotNil(t, tool)
+	// &lt; is the HTML-escaped form of < -- without unescaping this would
+	// either fail to parse or silently match nothing.
+	result, err := tool.Execute(map[string]any{
+		"query":   "SELECT name FROM users WHERE id &lt; 2",
+		"db_path": dbPath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Alice")
+	assert.NotContains(t, result, "Bob")
+}
+
 func TestSQLOpenEngine_EmptyPath(t *testing.T) {
 	t.Setenv("KDEPS_SQL_DB_PATH", "")
 	_, err := sqlOpenEngine("")
@@ -528,6 +546,19 @@ func TestBashExec_RunsCommand(t *testing.T) {
 	out, err := tool.Execute(map[string]any{"command": "echo hello"})
 	require.NoError(t, err)
 	assert.Equal(t, "hello", out)
+}
+
+func TestBashExec_UnescapesHTMLEntitiesInCommand(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+	// &amp;&amp; is the HTML-escaped form of && -- a model that emitted this
+	// meant a real shell "and", not the literal 8 characters.
+	out, err := tool.Execute(map[string]any{"command": "echo a &amp;&amp; echo b"})
+	require.NoError(t, err)
+	assert.Equal(t, "a\nb", out)
 }
 
 func TestBashExec_FailingCommandReturnsError(t *testing.T) {
@@ -2027,6 +2058,67 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "2\tline 2\n3\tline 3\n[2/5 lines shown]", result)
+}
+
+func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-matchid-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	lines := make([]string, 0, 20)
+	for i := 1; i <= 20; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(content), 0o600))
+
+	id := mintMatchID(tmpFile.Name(), 10, "sha256:test")
+	rememberMatch(id, matchRef{path: tmpFile.Name(), line: 10, revision: "sha256:test"})
+
+	result, err := tool.Execute(map[string]any{
+		"match_id": id, "context_before": float64(2), "context_after": float64(2),
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "10\tline 10")
+	assert.Contains(t, result, "8\tline 8")
+	assert.Contains(t, result, "12\tline 12")
+	assert.NotContains(t, result, "\tline 7")
+	assert.NotContains(t, result, "\tline 13")
+}
+
+func TestReadFile_MatchID_UnknownIDErrors(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"match_id": "match-doesnotexist"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "match-doesnotexist")
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestReadFile_MatchID_IgnoredWhenFilePathGiven(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-matchid2-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("only line\n"), 0o600))
+
+	// An unresolvable match_id must not error when file_path is explicitly given.
+	result, err := tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(), "match_id": "match-doesnotexist",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "only line")
 }
 
 func TestReadFile_OffsetBeyondEOF(t *testing.T) {
