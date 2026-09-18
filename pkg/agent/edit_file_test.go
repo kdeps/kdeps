@@ -557,6 +557,202 @@ func TestEditFile_Patch_RequiresPriorRead(t *testing.T) {
 	assert.Contains(t, err.Error(), "read")
 }
 
+// --- symbol extent detection ---
+
+func TestFindSymbolExtent_GoFunction(t *testing.T) {
+	content := "package x\n\nfunc Foo() {\n\treturn\n}\n\nfunc Bar() {}\n"
+	start, end, err := findSymbolExtent(content, "Foo", "")
+	require.NoError(t, err)
+	assert.Equal(t, 3, start)
+	assert.Equal(t, 5, end)
+}
+
+func TestFindSymbolExtent_GoMethodWithReceiver(t *testing.T) {
+	content := "package x\n\nfunc (r *T) Method() {\n\tdoStuff()\n}\n"
+	start, end, err := findSymbolExtent(content, "Method", "")
+	require.NoError(t, err)
+	assert.Equal(t, 3, start)
+	assert.Equal(t, 5, end)
+}
+
+func TestFindSymbolExtent_NestedBraces(t *testing.T) {
+	content := "func Outer() {\n\tif true {\n\t\tdoStuff()\n\t}\n\tfor i := 0; i < 3; i++ {\n\t\tdoMore()\n\t}\n}\n"
+	start, end, err := findSymbolExtent(content, "Outer", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+	assert.Equal(t, 8, end)
+}
+
+func TestFindSymbolExtent_BraceInsideStringLiteralIgnored(t *testing.T) {
+	content := "func Weird() {\n\ts := \"{ not a brace }\"\n\t_ = s\n}\n"
+	start, end, err := findSymbolExtent(content, "Weird", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+	assert.Equal(t, 4, end)
+}
+
+func TestFindSymbolExtent_JSFunction(t *testing.T) {
+	content := "function loadData() {\n  fetch('/x');\n}\n"
+	start, end, err := findSymbolExtent(content, "loadData", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+	assert.Equal(t, 3, end)
+}
+
+func TestFindSymbolExtent_PythonDef(t *testing.T) {
+	content := "def foo():\n    x = 1\n    return x\n\ndef bar():\n    pass\n"
+	start, end, err := findSymbolExtent(content, "foo", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+	assert.Equal(t, 3, end)
+}
+
+func TestFindSymbolExtent_PythonClass(t *testing.T) {
+	content := "class Foo:\n    def __init__(self):\n        self.x = 1\n\nclass Bar:\n    pass\n"
+	start, end, err := findSymbolExtent(content, "Foo", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+	assert.Equal(t, 3, end)
+}
+
+func TestFindSymbolExtent_NotFoundRejected(t *testing.T) {
+	_, _, err := findSymbolExtent("func Foo() {}\n", "Bar", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestFindSymbolExtent_AmbiguousRejected(t *testing.T) {
+	content := "func (a *A) Handle() {}\nfunc (b *B) Handle() {}\n"
+	_, _, err := findSymbolExtent(content, "Handle", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+	assert.Contains(t, err.Error(), "line(s) 1, 2")
+}
+
+func TestFindSymbolExtent_SymbolKindNarrowsMatch(t *testing.T) {
+	// A type and a function share a name -- unqualified this is ambiguous,
+	// but symbol_kind picks the intended one.
+	content := "type Handler struct{}\n\nfunc Handler() {}\n"
+	start, _, err := findSymbolExtent(content, "Handler", "type")
+	require.NoError(t, err)
+	assert.Equal(t, 1, start)
+
+	start, _, err = findSymbolExtent(content, "Handler", "function")
+	require.NoError(t, err)
+	assert.Equal(t, 3, start)
+}
+
+// --- replace_symbol ---
+
+func TestEditFile_ReplaceSymbol_GoFunction(t *testing.T) {
+	body := "package x\n\nfunc Foo() {\n\treturn 1\n}\n\nfunc Bar() {}\n"
+	f := writeSeenFile(t, "sym1.go", body)
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo",
+		"new_str": "func Foo() {\n\treturn 2\n}",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "package x\n\nfunc Foo() {\n\treturn 2\n}\n\nfunc Bar() {}\n", string(got))
+}
+
+func TestEditFile_ReplaceSymbol_PythonDef(t *testing.T) {
+	body := "def foo():\n    return 1\n\ndef bar():\n    pass\n"
+	f := writeSeenFile(t, "sym2.py", body)
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "foo",
+		"new_str": "def foo():\n    return 2",
+	})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "def foo():\n    return 2\n\ndef bar():\n    pass\n", string(got))
+}
+
+func TestEditFile_ReplaceSymbol_NotFoundRejected(t *testing.T) {
+	f := writeSeenFile(t, "sym3.go", "func Foo() {}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Missing", "new_str": "x",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestEditFile_ReplaceSymbol_AmbiguousRejected(t *testing.T) {
+	f := writeSeenFile(t, "sym4.go", "func (a *A) Handle() {}\nfunc (b *B) Handle() {}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Handle", "new_str": "x",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+}
+
+func TestEditFile_ReplaceSymbol_RequiresPriorRead(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "sym5.go")
+	require.NoError(t, os.WriteFile(f, []byte("func Foo() {}\n"), 0o600))
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo", "new_str": "func Foo() { return }",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read")
+}
+
+func TestEditFile_ReplaceSymbol_RevisionMismatchRejected(t *testing.T) {
+	f := writeSeenFile(t, "sym6.go", "func Foo() {}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo", "new_str": "func Foo() { return }",
+		"revision": "sha256:0000000000",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "changed since revision")
+}
+
+func TestEditFile_ReplaceSymbol_DryRunDoesNotWrite(t *testing.T) {
+	f := writeSeenFile(t, "sym7.go", "func Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	res, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo",
+		"new_str": "func Foo() {\n\treturn 2\n}", "dry_run": true,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, res, "[dry_run] no changes written.")
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "func Foo() {\n\treturn 1\n}\n", string(got))
+}
+
+func TestEditFile_ReplaceSymbol_UndoRestoresPrevious(t *testing.T) {
+	f := writeSeenFile(t, "sym8.go", "func Foo() {\n\treturn 1\n}\n")
+	tool := editFileTool(t)
+	_, err := tool.Execute(map[string]any{
+		"command": "replace_symbol", "file_path": f, "symbol": "Foo",
+		"new_str": "func Foo() {\n\treturn 2\n}",
+	})
+	require.NoError(t, err)
+	_, err = tool.Execute(map[string]any{"command": "undo_edit", "file_path": f})
+	require.NoError(t, err)
+	got, _ := os.ReadFile(f)
+	assert.Equal(t, "func Foo() {\n\treturn 1\n}\n", string(got))
+}
+
+func TestEditFile_View_Symbol_ShowsDeclaration(t *testing.T) {
+	body := "package x\n\nfunc Foo() {\n\treturn 1\n}\n\nfunc Bar() {}\n"
+	f := writeSeenFile(t, "sym9.go", body)
+	tool := editFileTool(t)
+	res, err := tool.Execute(map[string]any{
+		"command": "view", "file_path": f, "symbol": "Foo",
+		"context_before": float64(0), "context_after": float64(0),
+	})
+	require.NoError(t, err)
+	assert.Contains(t, res, "3\tfunc Foo() {")
+	assert.Contains(t, res, "5\t}")
+	assert.NotContains(t, res, "Bar")
+}
+
 // --- dry_run ---
 
 func TestEditFile_DryRun_StrReplaceDoesNotWrite(t *testing.T) {

@@ -36,24 +36,28 @@ import (
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// edit_file is a command-dispatched file editor. One tool, five commands:
+// edit_file is a command-dispatched file editor. One tool, six commands:
 //
-//   - view        - show the file (or a line range, or the region around an
-//     anchor string) with line numbers
-//   - str_replace - replace old_str with new_str; old_str must match the file
-//     byte-for-byte AND be unique. No fuzzy matching. old_str can also be
-//     expressed as start_anchor/end_anchor instead of copying the whole block.
-//   - insert      - insert new_str after line insert_line (0 = top of file)
-//   - patch       - apply one or more unified-diff hunks atomically
-//   - undo_edit   - revert the last str_replace/insert/patch on that file
+//   - view           - show the file (or a line range, or the region around
+//     an anchor string or named symbol) with line numbers
+//   - str_replace    - replace old_str with new_str; old_str must match the
+//     file byte-for-byte AND be unique. No fuzzy matching. old_str can also
+//     be expressed as start_anchor/end_anchor instead of copying the whole
+//     block.
+//   - insert         - insert new_str after line insert_line (0 = top of file)
+//   - patch          - apply one or more unified-diff hunks atomically
+//   - replace_symbol - replace a whole function/type/class by name; its
+//     extent is found lexically (brace-depth or indentation), not via a
+//     parser -- see findSymbolExtent
+//   - undo_edit      - revert the last mutation on that file
 //
 // Every successful mutation returns a numbered snippet of the changed region so
-// the model verifies its own edit. str_replace/insert/patch refuse to touch a
-// file that was not read this turn -- a blind edit lands in the wrong place.
-// They also accept an optional revision (from a prior view/edit's output) to
-// reject an edit against content that changed since it was read. Any of the
-// three mutating commands accepts dry_run to preview the result without
-// writing.
+// the model verifies its own edit. str_replace/insert/patch/replace_symbol
+// refuse to touch a file that was not read this turn -- a blind edit lands in
+// the wrong place. They also accept an optional revision (from a prior
+// view/edit's output) to reject an edit against content that changed since it
+// was read. All four mutating commands accept dry_run to preview the result
+// without writing.
 
 // editSnippetLines is how many context lines to show on each side of an edit.
 const editSnippetLines = 4
@@ -109,9 +113,9 @@ func editFileParams() map[string]domain.ToolParam {
 	return map[string]domain.ToolParam{
 		"command": {
 			Type:        toolParamString,
-			Description: "view | str_replace | insert | patch | undo_edit",
+			Description: "view | str_replace | insert | patch | replace_symbol | undo_edit",
 			Required:    true,
-			Enum:        []string{"view", "str_replace", "insert", "patch", "undo_edit"},
+			Enum:        []string{"view", "str_replace", "insert", "patch", "replace_symbol", "undo_edit"},
 		},
 		toolParamFilePath: {
 			Type:        toolParamString,
@@ -153,6 +157,16 @@ func editFileParams() map[string]domain.ToolParam {
 			Type:        toolParamString,
 			Description: "view: show the region around this unique string instead of a line range",
 		},
+		"symbol": {
+			Type: toolParamString,
+			Description: "view/replace_symbol: a function/type/class/etc. name. Its extent is found " +
+				"lexically (brace depth or indentation) - must be declared exactly once in the file.",
+		},
+		"symbol_kind": {
+			Type: toolParamString,
+			Description: "view/replace_symbol: narrow which declaration keywords count as a match, e.g. " +
+				"\"function\" or \"type\" - only useful when a function and a type share a name",
+		},
 		"context_before": {
 			Type:        toolParamNumber,
 			Description: "view: lines of context before an anchor match (default 20)",
@@ -168,13 +182,14 @@ func editFileParams() map[string]domain.ToolParam {
 		},
 		"revision": {
 			Type: toolParamString,
-			Description: "str_replace/insert/patch: the file's revision from your last view/edit of " +
-				"it. If the file changed since then, the edit is rejected instead of silently " +
-				"overwriting the change.",
+			Description: "str_replace/insert/patch/replace_symbol: the file's revision from your last " +
+				"view/edit of it. If the file changed since then, the edit is rejected instead of " +
+				"silently overwriting the change.",
 		},
 		"dry_run": {
-			Type:        toolParamBoolean,
-			Description: "str_replace/insert/patch: preview the result (diff + would-be revision) without writing the file",
+			Type: toolParamBoolean,
+			Description: "str_replace/insert/patch/replace_symbol: preview the result (diff + would-be " +
+				"revision) without writing the file",
 		},
 	}
 }
@@ -185,7 +200,8 @@ func registerEditFile(reg *kdepstools.Registry) {
 		Name: toolNameEditFile,
 		Description: "Edit a file. Pass command:\n" +
 			"- view: show the file, or the view_range [start,end] (1-based, -1 = end), or the region " +
-			"around an anchor string (context_before/context_after lines, default 20), with line numbers.\n" +
+			"around an anchor string or a named symbol (context_before/context_after lines, default " +
+			"20), with line numbers.\n" +
 			"- str_replace: replace old_str with new_str. old_str MUST match the file byte-for-byte " +
 			"(indentation and all) and appear EXACTLY ONCE - copy it from a view or read_file, or pass " +
 			"occurrence to pick one of several matches. Instead of old_str you can pass start_anchor/" +
@@ -193,15 +209,20 @@ func registerEditFile(reg *kdepstools.Registry) {
 			"- insert: insert new_str after line insert_line (0 = before the first line).\n" +
 			"- patch: apply a standard unified diff (one or more @@ hunks) atomically. Each hunk's " +
 			"context+removed lines must match the file byte-for-byte and appear exactly once.\n" +
-			"- undo_edit: revert the last str_replace/insert/patch on this file.\n" +
-			"str_replace, insert, and patch require that you have read the file this turn, and return a " +
-			"numbered snippet of the changed region plus the file's new revision. Pass revision (from a " +
-			"prior view/edit) to reject the edit if the file changed since you read it. Pass dry_run to " +
-			"preview the result without writing. Absolute path required.",
+			"- replace_symbol: replace a whole function/type/class/etc. by symbol name with new_str. " +
+			"The symbol must be declared exactly once in the file; its extent (where the block ends) " +
+			"is found lexically (brace depth or indentation), not with a language parser.\n" +
+			"- undo_edit: revert the last mutation on this file.\n" +
+			"str_replace, insert, patch, and replace_symbol require that you have read the file this " +
+			"turn, and return a numbered snippet of the changed region plus the file's new revision. " +
+			"Pass revision (from a prior view/edit) to reject the edit if the file changed since you " +
+			"read it. Pass dry_run to preview the result without writing. Absolute path required.",
 		Category:     "code",
 		OutputFormat: "numbered snippet of the edited region plus its revision",
-		Constraints: "read the file this turn before str_replace/insert/patch; old_str must be byte-exact and " +
-			"unique unless occurrence is given (add surrounding lines to disambiguate instead)",
+		Constraints: "read the file this turn before str_replace/insert/patch/replace_symbol; old_str must be " +
+			"byte-exact and unique unless occurrence is given (add surrounding lines to disambiguate instead); " +
+			"replace_symbol's extent detection is lexical, not a parser - an ambiguous or unrecognized " +
+			"declaration errors rather than guessing",
 		SeeAlso:    "read_file, write_file",
 		Parameters: editFileParams(),
 	}
@@ -239,11 +260,13 @@ func dispatchEditCommand(cmd, path string, args map[string]any, w io.Writer) (st
 		return editInsert(path, args, w)
 	case "patch":
 		return editPatch(path, args, w)
+	case "replace_symbol":
+		return editReplaceSymbol(path, args, w)
 	case "undo_edit":
 		return editUndo(path, w)
 	default:
 		return "", fmt.Errorf(
-			"edit_file: unknown command %q (want view, str_replace, insert, patch, or undo_edit)", cmd)
+			"edit_file: unknown command %q (want view, str_replace, insert, patch, replace_symbol, or undo_edit)", cmd)
 	}
 }
 
@@ -264,6 +287,12 @@ func inferEditCommand(args map[string]any) string {
 		return "view"
 	}
 	if s, _ := args["anchor"].(string); s != "" {
+		return "view"
+	}
+	if s, _ := args["symbol"].(string); s != "" {
+		if _, hasNew := args["new_str"]; hasNew {
+			return "replace_symbol"
+		}
 		return "view"
 	}
 	return ""
@@ -291,7 +320,15 @@ func editView(path string, args map[string]any) (string, error) {
 		}
 		return appendRevision(path, out), nil
 	}
-	// No range/anchor: reuse read_file's path -- size guard, offset/limit,
+	if symbol, _ := args["symbol"].(string); symbol != "" {
+		before, after := viewAnchorContext(args)
+		out, err := editViewSymbol(path, symbol, args, before, after)
+		if err != nil {
+			return "", err
+		}
+		return appendRevision(path, out), nil
+	}
+	// No range/anchor/symbol: reuse read_file's path -- size guard, offset/limit,
 	// numbered output, document extraction, per-turn caching.
 	res, err := trackFileCall(path, func() (string, error) { return readLocalFile(path, args) })
 	if err != nil {
@@ -346,6 +383,27 @@ func editViewAnchor(path, anchor string, before, after int) (string, error) {
 	markFileSeen(path)
 	rememberFile(path)
 	return viewRange(content, from, to)
+}
+
+// editViewSymbol shows the region of path spanning symbol's declaration.
+func editViewSymbol(path, symbol string, args map[string]any, before, after int) (string, error) {
+	data, err := afero.ReadFile(AppFS, path)
+	if err != nil {
+		return "", fmt.Errorf("edit_file view: %w", err)
+	}
+	content := string(data)
+	kind, _ := args["symbol_kind"].(string)
+	startLine, endLine, err := findSymbolExtent(content, symbol, kind)
+	if err != nil {
+		return "", fmt.Errorf("edit_file view: %w", err)
+	}
+	from := startLine - before
+	if from < 1 {
+		from = 1
+	}
+	markFileSeen(path)
+	rememberFile(path)
+	return viewRange(content, from, endLine+after)
 }
 
 func viewRange(content string, start, end int) (string, error) {
@@ -522,6 +580,53 @@ func editInsert(path string, args map[string]any, w io.Writer) (string, error) {
 		return "", err
 	}
 	return previewPrefix(committed) + editedSnippet(path, newContent, insertLine+1, len(ins)), nil
+}
+
+func editReplaceSymbol(path string, args map[string]any, w io.Writer) (string, error) {
+	symbol, _ := args["symbol"].(string)
+	if symbol == "" {
+		return "", errors.New("edit_file replace_symbol: symbol is required")
+	}
+	newStr, hasNew := args["new_str"].(string)
+	if !hasNew {
+		return "", errors.New("edit_file replace_symbol: new_str is required")
+	}
+	data, err := afero.ReadFile(AppFS, path)
+	if err != nil {
+		return "", fmt.Errorf("edit_file replace_symbol: %w", err)
+	}
+	content := string(data)
+	if !fileSeenThisTurn(path) {
+		return "", fmt.Errorf(
+			"edit_file replace_symbol: read %s this turn first (edit_file command:view or read_file)", path)
+	}
+	if err = checkRevision(path, content, args); err != nil {
+		return "", err
+	}
+	kind, _ := args["symbol_kind"].(string)
+	startLine, endLine, err := findSymbolExtent(content, symbol, kind)
+	if err != nil {
+		return "", fmt.Errorf("edit_file replace_symbol: %w", err)
+	}
+
+	lines := splitKeepCount(content)
+	merged := make([]string, 0, len(lines))
+	merged = append(merged, lines[:startLine-1]...)
+	merged = append(merged, strings.Split(strings.TrimSuffix(newStr, "\n"), "\n")...)
+	merged = append(merged, lines[endLine:]...)
+	newContent := strings.Join(merged, "\n")
+	if strings.HasSuffix(content, "\n") {
+		newContent += "\n"
+	}
+	if err = checkChanged(content, newContent); err != nil {
+		return "", err
+	}
+	committed, err := maybeCommitOrPreview(path, content, newContent, args, w)
+	if err != nil {
+		return "", err
+	}
+	newLines := strings.Count(newStr, "\n") + 1
+	return previewPrefix(committed) + editedSnippet(path, newContent, startLine, newLines), nil
 }
 
 func editUndo(path string, w io.Writer) (string, error) {
@@ -728,6 +833,207 @@ func splicePatchSpans(content string, spans []patchSpan) (string, error) {
 	}
 	b.WriteString(content[last:])
 	return b.String(), nil
+}
+
+// symbolKeywordsFunc/Type/Var group the declaration keywords findSymbolExtent
+// recognizes, so symbol_kind can narrow which family counts as a match.
+//
+//nolint:gochecknoglobals // fixed keyword tables, read-only
+var (
+	symbolKeywordsFunc = []string{"func", "def", "function"}
+	symbolKeywordsType = []string{"type", "struct", "interface", "class", "enum", "trait", "impl"}
+	symbolKeywordsVar  = []string{"var", "const"}
+)
+
+// symbolKeywordsForKind returns the declaration keywords to match for kind,
+// or every recognized keyword when kind is empty/unrecognized.
+func symbolKeywordsForKind(kind string) []string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "function", "func", "method":
+		return symbolKeywordsFunc
+	case "type", "struct", "interface", "class", "enum":
+		return symbolKeywordsType
+	case "var", "const", "variable", "constant":
+		return symbolKeywordsVar
+	default:
+		all := make([]string, 0, len(symbolKeywordsFunc)+len(symbolKeywordsType)+len(symbolKeywordsVar))
+		all = append(all, symbolKeywordsFunc...)
+		all = append(all, symbolKeywordsType...)
+		all = append(all, symbolKeywordsVar...)
+		return all
+	}
+}
+
+// symbolHeaderPattern matches a declaration line naming sym under one of
+// keywords. "func" additionally allows a Go-style receiver between the
+// keyword and the name ("func (r *T) Sym("). \b anchors sym so "loadFoo"
+// doesn't match inside "loadFooBar".
+func symbolHeaderPattern(sym string, keywords []string) *regexp.Regexp {
+	alts := make([]string, 0, len(keywords))
+	for _, kw := range keywords {
+		if kw == "func" {
+			alts = append(alts, `func\s+(?:\([^)]*\)\s*)?`)
+			continue
+		}
+		alts = append(alts, regexp.QuoteMeta(kw)+`\s+`)
+	}
+	return regexp.MustCompile(`^\s*(?:` + strings.Join(alts, "|") + `)` + regexp.QuoteMeta(sym) + `\b`)
+}
+
+// findSymbolExtent locates symbol's declaration line and the line its block
+// ends on. 0 matches or 2+ matches is an error -- ambiguity is reported, not
+// guessed at, the same as str_replace's non-unique old_str.
+func findSymbolExtent(content, symbol, kind string) (int, int, error) {
+	pattern := symbolHeaderPattern(symbol, symbolKeywordsForKind(kind))
+	lines := splitKeepCount(content)
+	var matches []int
+	for i, line := range lines {
+		if pattern.MatchString(line) {
+			matches = append(matches, i+1)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return 0, 0, fmt.Errorf(
+			"symbol %q not found (no matching function/type/class/etc. declaration). "+
+				"Pass symbol_kind to widen or narrow which keywords count", symbol)
+	case 1:
+		start := matches[0]
+		return start, symbolBlockEnd(lines, start), nil
+	default:
+		strs := make([]string, len(matches))
+		for i, m := range matches {
+			strs[i] = strconv.Itoa(m)
+		}
+		return 0, 0, fmt.Errorf(
+			"symbol %q is ambiguous - declared at line(s) %s. Pass symbol_kind to narrow it down",
+			symbol, strings.Join(strs, ", "))
+	}
+}
+
+// symbolBlockEnd returns the 1-based line the block starting at start (a
+// declaration line) ends on: a brace-depth scan for C-like bodies, or an
+// indentation scan when no opening brace appears on the header line or the
+// next non-blank line (Python-style).
+func symbolBlockEnd(lines []string, start int) int {
+	if hasBraceNearby(lines, start) {
+		if end, ok := braceBlockEnd(lines, start); ok {
+			return end
+		}
+	}
+	return indentBlockEnd(lines, start)
+}
+
+// hasBraceNearby reports whether start's line, or the next non-blank line
+// after it, contains a "{" -- the signal this is a brace-delimited body.
+func hasBraceNearby(lines []string, start int) bool {
+	if strings.Contains(lines[start-1], "{") {
+		return true
+	}
+	for i := start; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			continue
+		}
+		return strings.Contains(lines[i], "{")
+	}
+	return false
+}
+
+// braceBlockEnd scans forward from start counting "{"/"}" outside of string/
+// comment text, returning the line the depth first returns to 0 on. Returns
+// (0, false) if the depth never returns to 0 by EOF (malformed/unsupported
+// source), so the caller can fall back to indentBlockEnd.
+func braceBlockEnd(lines []string, start int) (int, bool) {
+	depth, started, inBlockComment := 0, false, false
+	for i := start - 1; i < len(lines); i++ {
+		d, s, blk, closedAt := scanBraceLine(lines[i], depth, started, inBlockComment)
+		depth, started, inBlockComment = d, s, blk
+		if closedAt {
+			return i + 1, true
+		}
+	}
+	return 0, false
+}
+
+// scanBraceLine advances the brace-scan state machine across one line,
+// tracking string/rune/backtick literals and // and /* */ comments so
+// braces inside them don't count. Returns the updated state, and whether
+// depth closed back to 0 on this line.
+func scanBraceLine(line string, depth int, started, inBlockComment bool) (int, bool, bool, bool) {
+	var strCh rune
+	runes := []rune(line)
+	for j := 0; j < len(runes); j++ {
+		c := runes[j]
+		switch {
+		case inBlockComment:
+			if c == '*' && j+1 < len(runes) && runes[j+1] == '/' {
+				inBlockComment = false
+				j++
+			}
+		case strCh != 0:
+			switch c {
+			case '\\':
+				j++
+			case strCh:
+				strCh = 0
+			}
+		case c == '"', c == '\'', c == '`':
+			strCh = c
+		case c == '/' && j+1 < len(runes) && runes[j+1] == '/':
+			return depth, started, inBlockComment, false // rest of line is a comment
+		case c == '/' && j+1 < len(runes) && runes[j+1] == '*':
+			inBlockComment = true
+			j++
+		case c == '{':
+			depth++
+			started = true
+		case c == '}':
+			depth--
+			if started && depth <= 0 {
+				return depth, started, inBlockComment, true
+			}
+		}
+	}
+	return depth, started, inBlockComment, false
+}
+
+// indentBlockEnd returns the last line of start's indented body: every
+// following line indented further than start, stopping at (not including)
+// the first non-blank line at or below start's indentation.
+func indentBlockEnd(lines []string, start int) int {
+	baseline := leadingWhitespaceWidth(lines[start-1])
+	end := start
+	for i := start; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			continue
+		}
+		if leadingWhitespaceWidth(lines[i]) <= baseline {
+			break
+		}
+		end = i + 1
+	}
+	return end
+}
+
+// tabWidth is the column width leadingWhitespaceWidth expands a tab to.
+const tabWidth = 8
+
+// leadingWhitespaceWidth measures line's leading whitespace, expanding tabs
+// to the next multiple of tabWidth so mixed tab/space indentation still
+// compares consistently.
+func leadingWhitespaceWidth(line string) int {
+	n := 0
+	for _, c := range line {
+		switch c {
+		case ' ':
+			n++
+		case '\t':
+			n += tabWidth - (n % tabWidth)
+		default:
+			return n
+		}
+	}
+	return n
 }
 
 // commitEdit writes newContent, records the prior content for undo, refreshes
