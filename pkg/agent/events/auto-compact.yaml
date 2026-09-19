@@ -1,0 +1,10 @@
+name: auto-compact
+on:
+  # Flat token-count fallback for models with an unknown context window.
+  tokens: 30000
+  # Preferred trigger once the model's context window is known: fire at this
+  # fraction of it (see ContextWindowForModel), overriding the flat value.
+  ctxWindowFraction: 0.75
+  # Never fire before this many turns exist, regardless of token count.
+  minTurns: 4
+run: compact

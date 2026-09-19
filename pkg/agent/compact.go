@@ -28,21 +28,26 @@ import (
 const (
 	compactKeepRecentTokens = 20000
 	compactReserveTokens    = 16384 // tokens reserved for summary prompt + output
-	compactMinTurns         = 4     // don't compact unless at least 4 turns exist
-	charsPerToken           = 4     // rough chars-per-token estimate for the fallback path
-	charsPerTokenRoundUp    = 3     // rounding offset for integer ceiling division
-
-	// defaultFoldThreshold is the token delta (since the last checkpoint) that
-	// triggers a "fold" -- a lighter, more frequent checkpoint-only
-	// summarize/archive pass, independent of the full-context-window
-	// auto-compact safety net. Configurable/persisted via
-	// Config.FoldThreshold / ToolTuning.FoldThreshold, see /fold.
-	defaultFoldThreshold = 2000
-	// defaultFoldContextItems caps how many recent checkpoints (active +
-	// archived) compete for space in the memory prompt block. Configurable/
-	// persisted via Config.FoldContextItems / ToolTuning.FoldContextItems.
-	defaultFoldContextItems = 5
+	// compactMinTurns is the structural floor findCutIndex/forcedCutIndex
+	// need to safely pick a cut point -- distinct from the "auto-compact"/
+	// "fold" events' own minTurns trigger gate (events.go), which governs
+	// *when* to fire, not how many messages are needed to cut. Used as their
+	// fallback too when an event's minTurns is unset (see effectiveMinTurns).
+	compactMinTurns      = 4
+	charsPerToken        = 4 // rough chars-per-token estimate for the fallback path
+	charsPerTokenRoundUp = 3 // rounding offset for integer ceiling division
 )
+
+// effectiveMinTurns returns the registered event's minTurns trigger gate, or
+// compactMinTurns when the event is unregistered or its minTurns is unset --
+// so a user override that omits minTurns can never accidentally disable the
+// gate entirely (0 would otherwise mean "fire immediately").
+func effectiveMinTurns(eventName string) int {
+	if n := eventMinTurns(eventName); n > 0 {
+		return n
+	}
+	return compactMinTurns
+}
 
 // compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
 // compaction text when it is injected as a context message for the next turn.
@@ -179,7 +184,7 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 	if threshold <= 0 {
 		return false
 	}
-	if len(messages) < sessionMsgsPer*compactMinTurns {
+	if len(messages) < sessionMsgsPer*effectiveMinTurns(eventAutoCompact) {
 		return false
 	}
 	estimated := estimateSessionTokens(messages, modelHint)
@@ -196,13 +201,14 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 // the last checkpoint to justify folding it in again -- a tighter, more
 // frequent cadence than shouldAutoCompact's full-context-window safety net.
 // sinceNanos is the active checkpoint's UpdatedAt (converted from
-// milliseconds), or 0 when no checkpoint exists yet -- compactMinTurns still
-// gates the very first fold the same way it gates the first compaction.
+// milliseconds), or 0 when no checkpoint exists yet -- the "fold" event's
+// minTurns gate still applies to the very first fold the same way it
+// applies to the first compaction.
 func shouldFold(messages []SessionMessage, sinceNanos int64, thresholdTokens int, modelHint string) bool {
 	if thresholdTokens <= 0 {
 		return false
 	}
-	if len(messages) < sessionMsgsPer*compactMinTurns {
+	if len(messages) < sessionMsgsPer*effectiveMinTurns(eventFold) {
 		return false
 	}
 	return tokensSinceCheckpoint(messages, sinceNanos, modelHint) >= thresholdTokens

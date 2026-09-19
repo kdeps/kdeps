@@ -51,6 +51,7 @@ func TestExportKonfig_FreshHomeStillExportsBuiltinDefaults(t *testing.T) {
 	// proving "current system default config can also be exported."
 	assert.Len(t, k.Harness, len(harnessRegistry), "every effective harness entry must be present")
 	assert.Len(t, k.Themes, len(themeOrder), "every effective theme must be present")
+	assert.Len(t, k.Events, len(eventRegistry), "every effective event must be present")
 	assert.Equal(t, CurrentThemeName(), k.ActiveTheme)
 	assert.Empty(t, k.Skills, "no skills loaded in this test loop")
 }
@@ -127,6 +128,7 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
 	t.Cleanup(initThemes)
+	t.Cleanup(initEvents)
 
 	k := &Konfig{
 		Tuning:      tui.AgentLoopTuning{MaxToolRounds: 77},
@@ -136,6 +138,9 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 		},
 		Themes: []yamlTheme{
 			{Name: "my-theme", Prompt: "> ", Palette: yamlPalette{Heading: "#FF00FF", ReplError: "#FF0000"}},
+		},
+		Events: []Event{
+			{Name: eventAutoCompact, On: EventTrigger{Tokens: 12345, MinTurns: 4}, Run: "compact"},
 		},
 		Skills: []KonfigSkill{
 			{Name: "My Skill", Content: "---\nname: my-skill\n---\nDo the thing."},
@@ -160,6 +165,10 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 	assert.Contains(t, themes, "my-theme", "reloaded in-process after import")
 	assert.Equal(t, "linux", CurrentThemeName(), "active theme applied after import")
 
+	eventPath := filepath.Join(home, ".kdeps", "events", "auto-compact.yaml")
+	assert.FileExists(t, eventPath)
+	assert.Equal(t, 12345, autoCompactTokens(), "reloaded in-process after import")
+
 	skillPath := filepath.Join(home, ".kdeps", "skills", "my skill", "SKILL.md")
 	assert.FileExists(t, skillPath)
 	data, readErr := os.ReadFile(skillPath)
@@ -178,10 +187,12 @@ func TestApplyKonfig_SanitizesUntrustedNames(t *testing.T) {
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
 	t.Cleanup(initThemes)
+	t.Cleanup(initEvents)
 
 	k := &Konfig{
 		Harness: []yamlHarnessEntry{{Name: "../../evil", Body: "x"}},
 		Themes:  []yamlTheme{{Name: "../../evil"}},
+		Events:  []Event{{Name: "../../evil", On: EventTrigger{Tokens: 1}, Run: "compact"}},
 		Skills:  []KonfigSkill{{Name: "../../evil", Content: "x"}},
 	}
 	require.NoError(t, ApplyKonfig(k))
@@ -191,6 +202,7 @@ func TestApplyKonfig_SanitizesUntrustedNames(t *testing.T) {
 
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "harness", "evil.yaml"))
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "themes", "evil.yaml"))
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", "evil.yaml"))
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "skills", "evil", "SKILL.md"))
 }
 
@@ -205,12 +217,14 @@ func TestExportKonfig_ApplyKonfig_RoundTrip(t *testing.T) {
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
 	t.Cleanup(initThemes)
+	t.Cleanup(initEvents)
 	require.NoError(t, ApplyKonfig(k))
 
 	got, err := PersistedOrDefaultTuning()
 	require.NoError(t, err)
 	assert.Equal(t, 55, got.MaxToolRounds)
 	assert.Len(t, harnessRegistry, len(k.Harness))
+	assert.Len(t, eventRegistry, len(k.Events))
 	assert.Equal(t, k.ActiveTheme, CurrentThemeName())
 }
 

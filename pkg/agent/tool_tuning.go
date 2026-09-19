@@ -285,7 +285,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		const contextHistoryFraction, contextHistoryDivisor = 3, 4
 		budget := t.ContextSize * contextHistoryFraction / contextHistoryDivisor
 		c.CompactTokenBudget = budget
-		c.AutoCompactThreshold = budget
+		c.AutoCompactThreshold = autoCompactThresholdForCtxWindow(t.ContextSize)
 		if r.loop.Session() != nil {
 			r.loop.Session().SetTokenBudget(t.ContextSize, c.Model)
 		}

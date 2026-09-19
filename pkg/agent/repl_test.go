@@ -2797,7 +2797,7 @@ func TestApplyConfigDefaults_ModelServiceNotCalledWhenBaseURLSet(t *testing.T) {
 // A recognized model's default CompactTokenBudget/AutoCompactThreshold must
 // scale to its real context window (same 3/4 ratio the REPL's /model switch
 // already applies, repl.go handleModelSwitch) instead of the flat
-// compactKeepRecentTokens/defaultAutoCompactThreshold constants -- so a
+// compactKeepRecentTokens/"auto-compact" event's flat tokens fallback -- so a
 // session that never touches /model still gets sensibly-scaled defaults for
 // whichever model it starts on.
 func TestApplyConfigDefaults_CompactBudgetScalesToKnownModel(t *testing.T) {
@@ -2818,11 +2818,12 @@ func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
 	if cfg.CompactTokenBudget != compactKeepRecentTokens {
 		t.Errorf("CompactTokenBudget = %d, want flat default %d", cfg.CompactTokenBudget, compactKeepRecentTokens)
 	}
-	if cfg.AutoCompactThreshold != defaultAutoCompactThreshold {
+	want := autoCompactTokens()
+	if cfg.AutoCompactThreshold != want {
 		t.Errorf(
 			"AutoCompactThreshold = %d, want flat default %d",
 			cfg.AutoCompactThreshold,
-			defaultAutoCompactThreshold,
+			want,
 		)
 	}
 }
@@ -2833,11 +2834,13 @@ func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
 // something applyConfigDefaults needs to touch.
 func TestApplyConfigDefaults_FoldDefaults(t *testing.T) {
 	cfg := applyConfigDefaults(Config{Model: "test"})
-	if cfg.FoldThreshold != defaultFoldThreshold {
-		t.Errorf("FoldThreshold = %d, want default %d", cfg.FoldThreshold, defaultFoldThreshold)
+	wantThreshold := foldTokensSinceCheckpoint()
+	if cfg.FoldThreshold != wantThreshold {
+		t.Errorf("FoldThreshold = %d, want default %d", cfg.FoldThreshold, wantThreshold)
 	}
-	if cfg.FoldContextItems != defaultFoldContextItems {
-		t.Errorf("FoldContextItems = %d, want default %d", cfg.FoldContextItems, defaultFoldContextItems)
+	wantItems := foldItems()
+	if cfg.FoldContextItems != wantItems {
+		t.Errorf("FoldContextItems = %d, want default %d", cfg.FoldContextItems, wantItems)
 	}
 	if cfg.FoldOff {
 		t.Error("FoldOff should be false (auto-fold on) by default")
@@ -3623,12 +3626,12 @@ func TestCmdFold_Preset(t *testing.T) {
 	defer repl.cancel()
 
 	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "tight"}) })
-	assert.Equal(t, foldPresets["tight"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets["tight"].items, loop.config.FoldContextItems)
+	assert.Equal(t, foldPresets()["tight"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets()["tight"].items, loop.config.FoldContextItems)
 
 	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "loose"}) })
-	assert.Equal(t, foldPresets["loose"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets["loose"].items, loop.config.FoldContextItems)
+	assert.Equal(t, foldPresets()["loose"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets()["loose"].items, loop.config.FoldContextItems)
 }
 
 func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {

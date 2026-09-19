@@ -55,6 +55,12 @@ type Konfig struct {
 	// Themes is every REPL theme (built-in plus user overrides from
 	// ~/.kdeps/themes/*.yaml, already merged by name), fully resolved.
 	Themes []yamlTheme `yaml:"themes"`
+	// Events is every reactive LLM event (auto-compact, fold, ...) -- built-in
+	// plus user overrides from ~/.kdeps/events/*.yaml, already merged by name.
+	// Replaces the standalone Tuning fields that used to hardcode these
+	// thresholds (AutoCompactThreshold/FoldThreshold/FoldContextItems still
+	// exist as an explicit per-session override on top of an event's default).
+	Events []Event `yaml:"events"`
 	// ActiveTheme is the currently selected theme's name.
 	ActiveTheme string `yaml:"activeTheme"`
 	// Skills carries each loaded skill's full SKILL.md content inline, so
@@ -132,6 +138,7 @@ func ExportKonfigWithSkills(tuning ToolTuning, skillList []Skill) (*Konfig, erro
 		Tuning:      tui.AgentLoopTuning(tuning),
 		Harness:     harness,
 		Themes:      exportThemeEntries(),
+		Events:      exportEventEntries(),
 		ActiveTheme: CurrentThemeName(),
 		Skills:      skills,
 		Registry: KonfigRegistry{
@@ -217,6 +224,9 @@ func ApplyKonfig(k *Konfig) error {
 	if err := writeKonfigThemes(k.Themes); err != nil {
 		return err
 	}
+	if err := writeKonfigEvents(k.Events); err != nil {
+		return err
+	}
 	if err := writeKonfigSkills(k.Skills); err != nil {
 		return err
 	}
@@ -226,6 +236,7 @@ func ApplyKonfig(k *Konfig) error {
 
 	initHarness()
 	initThemes()
+	initEvents()
 	if k.ActiveTheme != "" {
 		SetTheme(k.ActiveTheme)
 	}
@@ -291,6 +302,33 @@ func writeKonfigThemes(entries []yamlTheme) error {
 			return fmt.Errorf("konfig: import: marshal theme %q: %w", t.Name, marshalErr)
 		}
 		p := filepath.Join(dir, sanitizeKonfigName(t.Name)+".yaml")
+		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
+			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
+		}
+	}
+	return nil
+}
+
+// writeKonfigEvents writes one ~/.kdeps/events/<name>.yaml per event,
+// overriding any built-in or existing user event of the same name (see
+// mergeUserEvents).
+func writeKonfigEvents(entries []Event) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	dir, err := userEventsDir()
+	if err != nil {
+		return fmt.Errorf("konfig: import: %w", err)
+	}
+	if mkErr := AppFS.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("konfig: import: create %s: %w", dir, mkErr)
+	}
+	for _, e := range entries {
+		data, marshalErr := yaml.Marshal(e)
+		if marshalErr != nil {
+			return fmt.Errorf("konfig: import: marshal event %q: %w", e.Name, marshalErr)
+		}
+		p := filepath.Join(dir, sanitizeKonfigName(e.Name)+".yaml")
 		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
 			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
 		}

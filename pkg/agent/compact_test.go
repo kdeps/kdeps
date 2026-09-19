@@ -383,7 +383,7 @@ func TestShouldAutoCompact_KnownModelBelowWindow(t *testing.T) {
 	// gpt-4o has 128k context; 4 turns of 100-char messages (~200 tokens total)
 	// is well below 128000-16384=111616, so should not compact.
 	msgs := makeTurns(compactMinTurns)
-	if shouldAutoCompact(msgs, defaultAutoCompactThreshold, "gpt-4o") {
+	if shouldAutoCompact(msgs, autoCompactTokens(), "gpt-4o") {
 		t.Fatal("expected false: tiny history is far below gpt-4o window")
 	}
 }

@@ -1,0 +1,11 @@
+name: fold
+on:
+  # Token delta since the last checkpoint that triggers a fold -- a lighter,
+  # more frequent pass than auto-compact's full-context-window safety net.
+  tokensSinceCheckpoint: 2000
+  # Never fire before this many turns exist, regardless of token count.
+  minTurns: 4
+# How many recent checkpoints (active + archived) stay in the active
+# memory-prompt injection window.
+items: 5
+run: fold

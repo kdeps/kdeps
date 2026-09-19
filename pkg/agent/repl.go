@@ -3379,7 +3379,7 @@ func (r *REPL) applyModelSwitch(model string) {
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
-	r.loop.config.AutoCompactThreshold = budget
+	r.loop.config.AutoCompactThreshold = autoCompactThresholdForCtxWindow(newLimit)
 	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = bareModel
@@ -3943,11 +3943,17 @@ const (
 	foldPresetLooseItems     = 10
 )
 
-//nolint:gochecknoglobals // static lookup table
-var foldPresets = map[string]foldPreset{
-	"tight":    {threshold: foldPresetTightThreshold, items: foldPresetTightItems},
-	"balanced": {threshold: defaultFoldThreshold, items: defaultFoldContextItems},
-	"loose":    {threshold: foldPresetLooseThreshold, items: foldPresetLooseItems},
+// foldPresets returns the named /fold presets. "balanced" reads the "fold"
+// event's own configured threshold/items rather than a separate hardcoded
+// duplicate -- a function (not a package var) because the event registry is
+// only populated at init() time, after which package-var initializers have
+// already run.
+func foldPresets() map[string]foldPreset {
+	return map[string]foldPreset{
+		"tight":    {threshold: foldPresetTightThreshold, items: foldPresetTightItems},
+		"balanced": {threshold: foldTokensSinceCheckpoint(), items: foldItems()},
+		"loose":    {threshold: foldPresetLooseThreshold, items: foldPresetLooseItems},
+	}
 }
 
 // foldPresetNames lists valid /fold preset names in a fixed display order
@@ -4037,7 +4043,7 @@ func (r *REPL) cmdFoldPreset(args []string) error {
 		return nil
 	}
 	name := strings.ToLower(args[1])
-	preset, ok := foldPresets[name]
+	preset, ok := foldPresets()[name]
 	if !ok {
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
 			"Unknown preset: "+name+". Valid: "+strings.Join(foldPresetNames, ", ")))
@@ -4061,11 +4067,11 @@ func (r *REPL) cmdFoldStatus() error {
 	}
 	threshold := cfg.FoldThreshold
 	if threshold <= 0 {
-		threshold = defaultFoldThreshold
+		threshold = foldTokensSinceCheckpoint()
 	}
 	items := cfg.FoldContextItems
 	if items <= 0 {
-		items = defaultFoldContextItems
+		items = foldItems()
 	}
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Fold"))
 	fmt.Fprintf(os.Stdout, "  auto: %s\n", state)
@@ -5724,7 +5730,7 @@ func (r *REPL) cmdContext(args []string) error {
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := n * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
-	r.loop.config.AutoCompactThreshold = budget
+	r.loop.config.AutoCompactThreshold = autoCompactThresholdForCtxWindow(n)
 	r.loop.Session().SetTokenBudget(n, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.contextSize = n

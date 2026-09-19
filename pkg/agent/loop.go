@@ -835,11 +835,11 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.Role = RoleUser
 	}
 	// Scale the compact budget/threshold to the model's real context window
-	// when known -- same ratio and same lookup (ContextWindowForModel) the
-	// REPL's /model switch already applies (repl.go handleModelSwitch), just
-	// also covering the initial model a session starts on. Unknown/local
-	// models (ContextWindowForModel returns 0) keep the flat constants
-	// exactly as before -- no change for that case.
+	// when known -- same lookup (ContextWindowForModel) the REPL's /model
+	// switch and /context command already apply, just also covering the
+	// initial model a session starts on. Unknown/local models
+	// (ContextWindowForModel returns 0) keep the flat constants exactly as
+	// before -- no change for that case.
 	const compactBudgetCtxNumerator, compactBudgetCtxDenominator = 3, 4
 	if cfg.CompactTokenBudget <= 0 {
 		cfg.CompactTokenBudget = compactKeepRecentTokens
@@ -851,16 +851,13 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.AutoCompactThreshold = 0
 	}
 	if cfg.AutoCompactThreshold == 0 {
-		cfg.AutoCompactThreshold = defaultAutoCompactThreshold
-		if ctxWindow := ContextWindowForModel(cfg.Model); ctxWindow > 0 {
-			cfg.AutoCompactThreshold = ctxWindow * compactBudgetCtxNumerator / compactBudgetCtxDenominator
-		}
+		cfg.AutoCompactThreshold = autoCompactThresholdForCtxWindow(ContextWindowForModel(cfg.Model))
 	}
 	if cfg.FoldThreshold <= 0 {
-		cfg.FoldThreshold = defaultFoldThreshold
+		cfg.FoldThreshold = foldTokensSinceCheckpoint()
 	}
 	if cfg.FoldContextItems <= 0 {
-		cfg.FoldContextItems = defaultFoldContextItems
+		cfg.FoldContextItems = foldItems()
 	}
 	if cfg.MaxToolRounds <= 0 {
 		cfg.MaxToolRounds = defaultMaxToolRounds
@@ -893,7 +890,6 @@ func applyConfigDefaults(cfg Config) Config {
 }
 
 const (
-	defaultAutoCompactThreshold = 30000
 	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
 	// tasks routinely need many rounds (explore, read, edit, test, repeat);
 	// hitting the cap mid-task forces a text answer and loses context.
