@@ -16,6 +16,19 @@ kdeps konfig export [path]     # default ./konfig.yaml, from a bare CLI invocati
 
 The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/goal on`, etc. that hasn't necessarily been touched via a command that persists it elsewhere.
 
+## Importing
+
+```bash
+kdeps konfig import [path]     # default ./konfig.yaml
+kdeps --konfig <path> [path]   # import, then start the agent loop
+```
+
+```
+/konfig import [path]          # inside the REPL, applies immediately
+```
+
+Importing writes every section to where it already lives on disk -- harness entries to `~/.kdeps/harness/<name>.yaml`, themes to `~/.kdeps/themes/<name>.yaml`, skills to `~/.kdeps/skills/<name>/SKILL.md`, and tuning/registry/active-theme into `~/.kdeps/agent-loop-settings.yaml` -- overriding any built-in or existing user entry of the same name. `kdeps konfig import` and `/konfig import` also reload the in-process harness and theme registries and apply the active theme immediately; `--konfig <path>` applies before the rest of startup reads settings, so the freshly imported values take effect for that run without a second step. Imported skills are picked up the next time the process starts (a running REPL's skill list is loaded once at startup).
+
 ## What's in the file
 
 | Section | Contents |
@@ -31,4 +44,4 @@ Harness and themes are exported as the **full effective set**, not a diff agains
 
 ## Status
 
-Export is implemented. `kdeps konfig import <path>` / `/konfig import <path>` (materializing a konfig file to `~/.kdeps/harness`, `~/.kdeps/themes`, `~/.kdeps/skills`, and `~/.kdeps/agent-loop-settings.yaml`, plus a `--konfig <path>` startup flag) is planned but not yet shipped.
+Export and import are both implemented, including the `--konfig <path>` startup flag.

@@ -29,11 +29,12 @@ const defaultKonfigPath = "./konfig.yaml"
 
 // cmdKonfig implements "/konfig export [path]" (dumps the live session's
 // effective config -- tuning, harness, themes, skills, registry -- to a
-// self-contained YAML file) and "/konfig import [path]" (not yet
-// implemented; see docs/v2/agent/konfig.md for status).
+// self-contained YAML file) and "/konfig import [path]" (materializes a
+// konfig file to ~/.kdeps/harness, ~/.kdeps/themes, ~/.kdeps/skills, and
+// ~/.kdeps/agent-loop-settings.yaml).
 func (r *REPL) cmdKonfig(args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /konfig export [path]"))
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /konfig export|import [path]"))
 		return nil
 	}
 	path := defaultKonfigPath
@@ -43,8 +44,11 @@ func (r *REPL) cmdKonfig(args []string) error {
 	switch args[0] {
 	case "export":
 		return r.cmdKonfigExport(path)
+	case "import":
+		return r.cmdKonfigImport(path)
 	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Unknown /konfig subcommand: "+args[0]+". Use export [path]."))
+		fmt.Fprintln(os.Stderr,
+			styleReplError.Render("Unknown /konfig subcommand: "+args[0]+". Use export|import [path]."))
 		return nil
 	}
 }
@@ -66,5 +70,30 @@ func (r *REPL) cmdKonfigExport(path string) error {
 	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
 		"Exported %d harness section(s), %d theme(s), %d skill(s) to %s",
 		len(k.Harness), len(k.Themes), len(k.Skills), path)))
+	return nil
+}
+
+// cmdKonfigImport reads a konfig file and applies it (see ApplyKonfig),
+// updating the live session's harness/theme registries and active theme
+// immediately. Imported skills only take effect on the next process start --
+// r.loop.skillList was already populated at startup and is not re-walked
+// here.
+func (r *REPL) cmdKonfigImport(path string) error {
+	k, err := ReadKonfig(path)
+	if err != nil {
+		fmt.Fprintln(os.Stdout, styleReplError.Render("Konfig import failed: "+err.Error()))
+		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	}
+	if applyErr := ApplyKonfig(k); applyErr != nil {
+		fmt.Fprintln(os.Stdout, styleReplError.Render("Konfig import failed: "+applyErr.Error()))
+		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	}
+	msg := fmt.Sprintf(
+		"Imported %d harness section(s), %d theme(s), %d skill(s) from %s",
+		len(k.Harness), len(k.Themes), len(k.Skills), path)
+	if len(k.Skills) > 0 {
+		msg += " (restart to pick up imported skills)"
+	}
+	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(msg))
 	return nil
 }

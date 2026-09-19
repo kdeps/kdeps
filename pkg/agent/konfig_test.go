@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -120,6 +121,97 @@ func TestReadKonfig_MissingFileReturnsError(t *testing.T) {
 	isolateKonfigHome(t)
 	_, err := ReadKonfig(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
 	require.Error(t, err)
+}
+
+func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
+	isolateKonfigHome(t)
+	t.Cleanup(initHarness)
+	t.Cleanup(initThemes)
+
+	k := &Konfig{
+		Tuning:      tui.AgentLoopTuning{MaxToolRounds: 77},
+		ActiveTheme: "linux",
+		Harness: []yamlHarnessEntry{
+			{Name: "my-override", Kind: harnessKindStandalone, Body: "Custom rule."},
+		},
+		Themes: []yamlTheme{
+			{Name: "my-theme", Prompt: "> ", Palette: yamlPalette{Heading: "#FF00FF", ReplError: "#FF0000"}},
+		},
+		Skills: []KonfigSkill{
+			{Name: "My Skill", Content: "---\nname: my-skill\n---\nDo the thing."},
+		},
+		Registry: KonfigRegistry{
+			DefaultModel: "llama3.2:1b",
+			SelectAll:    true,
+		},
+	}
+
+	require.NoError(t, ApplyKonfig(k))
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	harnessPath := filepath.Join(home, ".kdeps", "harness", "my-override.yaml")
+	assert.FileExists(t, harnessPath)
+	assert.Contains(t, harnessRegistry, "my-override", "reloaded in-process after import")
+
+	themePath := filepath.Join(home, ".kdeps", "themes", "my-theme.yaml")
+	assert.FileExists(t, themePath)
+	assert.Contains(t, themes, "my-theme", "reloaded in-process after import")
+	assert.Equal(t, "linux", CurrentThemeName(), "active theme applied after import")
+
+	skillPath := filepath.Join(home, ".kdeps", "skills", "my skill", "SKILL.md")
+	assert.FileExists(t, skillPath)
+	data, readErr := os.ReadFile(skillPath)
+	require.NoError(t, readErr)
+	assert.Equal(t, k.Skills[0].Content, string(data))
+
+	settings, loadErr := tui.LoadSettings()
+	require.NoError(t, loadErr)
+	assert.Equal(t, "llama3.2:1b", settings.DefaultModel)
+	assert.Equal(t, "linux", settings.Theme)
+	require.NotNil(t, settings.AgentLoop)
+	assert.Equal(t, 77, settings.AgentLoop.MaxToolRounds)
+}
+
+func TestApplyKonfig_SanitizesUntrustedNames(t *testing.T) {
+	isolateKonfigHome(t)
+	t.Cleanup(initHarness)
+	t.Cleanup(initThemes)
+
+	k := &Konfig{
+		Harness: []yamlHarnessEntry{{Name: "../../evil", Body: "x"}},
+		Themes:  []yamlTheme{{Name: "../../evil"}},
+		Skills:  []KonfigSkill{{Name: "../../evil", Content: "x"}},
+	}
+	require.NoError(t, ApplyKonfig(k))
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "harness", "evil.yaml"))
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "themes", "evil.yaml"))
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "skills", "evil", "SKILL.md"))
+}
+
+func TestExportKonfig_ApplyKonfig_RoundTrip(t *testing.T) {
+	isolateKonfigHome(t)
+	loop := makeTestLoop([]Skill{{Name: "lint", Content: "Run golangci-lint."}})
+	k, err := loop.ExportKonfig(ToolTuning{MaxToolRounds: 55})
+	require.NoError(t, err)
+
+	// Import into a second, independent ~/.kdeps -- proving the exported file
+	// alone reproduces the full effective config elsewhere.
+	isolateKonfigHome(t)
+	t.Cleanup(initHarness)
+	t.Cleanup(initThemes)
+	require.NoError(t, ApplyKonfig(k))
+
+	got, err := PersistedOrDefaultTuning()
+	require.NoError(t, err)
+	assert.Equal(t, 55, got.MaxToolRounds)
+	assert.Len(t, harnessRegistry, len(k.Harness))
+	assert.Equal(t, k.ActiveTheme, CurrentThemeName())
 }
 
 func TestExportThemeEntries_EveryThemeFullyResolved(t *testing.T) {

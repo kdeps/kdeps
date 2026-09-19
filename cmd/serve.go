@@ -240,6 +240,7 @@ type agentLoopFlags struct {
 	Resume       string
 	NewSession   bool
 	Theme        string
+	Konfig       string
 }
 
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
@@ -261,6 +262,10 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// kill the running local model server on every Ctrl+C. Graceful shutdown
 	// is instead handled by the deferred llm.ShutdownLocalServers() below.
 	llm.SetInteractiveSignalOwner(true)
+
+	if err := importKonfigFlag(flags.Konfig); err != nil {
+		return err
+	}
 
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)

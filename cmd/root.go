@@ -156,6 +156,11 @@ func createRootCommand() *cobra.Command {
 		&flags.Theme, "theme", "",
 		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
 	)
+	rootCmd.Flags().StringVar(
+		&flags.Konfig, "konfig", "",
+		"Import a konfig file (tuning, harness, themes, skills) before starting, "+
+			"materializing it to ~/.kdeps (see kdeps konfig)",
+	)
 
 	addSubcommands(rootCmd)
 

@@ -26,7 +26,9 @@ package agent
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -193,4 +195,154 @@ func ReadKonfig(path string) (*Konfig, error) {
 		return nil, fmt.Errorf("konfig: parse %s: %w", path, parseErr)
 	}
 	return &k, nil
+}
+
+// ApplyKonfig materializes k onto disk exactly where each section already
+// lives -- every harness entry to ~/.kdeps/harness/<name>.yaml, every theme
+// to ~/.kdeps/themes/<name>.yaml, every skill to
+// ~/.kdeps/skills/<name>/SKILL.md, and Tuning/Registry/ActiveTheme into
+// ~/.kdeps/agent-loop-settings.yaml -- then reloads the in-process harness
+// and theme registries and applies the active theme, so a running REPL
+// reflects the import immediately. Skills are only picked up by a fresh
+// process (loop.skillList is populated once at startup), so a live REPL's
+// "/konfig import" still asks the user to restart for those.
+//
+// Since k came from a konfig file -- another machine, a hand edit, anything
+// -- its Name fields are untrusted; every write path below runs its name
+// through sanitizeKonfigName first.
+func ApplyKonfig(k *Konfig) error {
+	if err := writeKonfigHarness(k.Harness); err != nil {
+		return err
+	}
+	if err := writeKonfigThemes(k.Themes); err != nil {
+		return err
+	}
+	if err := writeKonfigSkills(k.Skills); err != nil {
+		return err
+	}
+	if err := writeKonfigSettings(k); err != nil {
+		return err
+	}
+
+	initHarness()
+	initThemes()
+	if k.ActiveTheme != "" {
+		SetTheme(k.ActiveTheme)
+	}
+	return nil
+}
+
+// sanitizeKonfigName reduces name to a single safe path component --
+// stripping any directory traversal or separator an untrusted konfig file
+// might carry -- before it is used as a filename or directory name.
+func sanitizeKonfigName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	name = filepath.Base(name)
+	if name == "" || name == "." || name == ".." {
+		return "unnamed"
+	}
+	return name
+}
+
+// writeKonfigHarness writes one ~/.kdeps/harness/<name>.yaml per entry,
+// overriding any built-in or existing user entry of the same name (see
+// mergeUserHarness).
+func writeKonfigHarness(entries []yamlHarnessEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	dir, err := userHarnessDir()
+	if err != nil {
+		return fmt.Errorf("konfig: import: %w", err)
+	}
+	if mkErr := AppFS.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("konfig: import: create %s: %w", dir, mkErr)
+	}
+	for _, e := range entries {
+		data, marshalErr := yaml.Marshal(e)
+		if marshalErr != nil {
+			return fmt.Errorf("konfig: import: marshal harness %q: %w", e.Name, marshalErr)
+		}
+		p := filepath.Join(dir, sanitizeKonfigName(e.Name)+".yaml")
+		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
+			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
+		}
+	}
+	return nil
+}
+
+// writeKonfigThemes writes one ~/.kdeps/themes/<name>.yaml per entry,
+// overriding any built-in or existing user theme of the same name (see
+// mergeUserThemes).
+func writeKonfigThemes(entries []yamlTheme) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	dir, err := userThemesDir()
+	if err != nil {
+		return fmt.Errorf("konfig: import: %w", err)
+	}
+	if mkErr := AppFS.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("konfig: import: create %s: %w", dir, mkErr)
+	}
+	for _, t := range entries {
+		data, marshalErr := yaml.Marshal(t)
+		if marshalErr != nil {
+			return fmt.Errorf("konfig: import: marshal theme %q: %w", t.Name, marshalErr)
+		}
+		p := filepath.Join(dir, sanitizeKonfigName(t.Name)+".yaml")
+		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
+			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
+		}
+	}
+	return nil
+}
+
+// writeKonfigSkills writes one ~/.kdeps/skills/<name>/SKILL.md per skill,
+// with sk.Content (the full original SKILL.md, frontmatter included) written
+// verbatim so loadSkillFromFile parses it back identically.
+func writeKonfigSkills(skills []KonfigSkill) error {
+	if len(skills) == 0 {
+		return nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("konfig: import: home dir: %w", err)
+	}
+	root := filepath.Join(home, ".kdeps", "skills")
+	for _, sk := range skills {
+		dir := filepath.Join(root, sanitizeKonfigName(sk.Name))
+		if mkErr := AppFS.MkdirAll(dir, 0o750); mkErr != nil {
+			return fmt.Errorf("konfig: import: create %s: %w", dir, mkErr)
+		}
+		p := filepath.Join(dir, "SKILL.md")
+		if writeErr := afero.WriteFile(AppFS, p, []byte(sk.Content), 0o600); writeErr != nil {
+			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
+		}
+	}
+	return nil
+}
+
+// writeKonfigSettings persists Tuning/Registry/ActiveTheme to
+// ~/.kdeps/agent-loop-settings.yaml, overwriting the file outright -- a
+// konfig import is a full replacement of effective config, not a merge.
+func writeKonfigSettings(k *Konfig) error {
+	tuning := k.Tuning
+	s := tui.Settings{
+		EnabledWorkflows:   k.Registry.EnabledWorkflows,
+		EnabledAgencies:    k.Registry.EnabledAgencies,
+		EnabledComponents:  k.Registry.EnabledComponents,
+		EnabledSkills:      k.Registry.EnabledSkills,
+		SelectAll:          k.Registry.SelectAll,
+		DefaultModel:       k.Registry.DefaultModel,
+		Theme:              k.ActiveTheme,
+		ModelNameDisplay:   k.Registry.ModelNameDisplay,
+		CustomOpenAIModels: k.Registry.CustomOpenAIModels,
+		FavoriteModels:     k.Registry.FavoriteModels,
+		AgentLoop:          &tuning,
+	}
+	if err := s.Save(); err != nil {
+		return fmt.Errorf("konfig: import: %w", err)
+	}
+	return nil
 }

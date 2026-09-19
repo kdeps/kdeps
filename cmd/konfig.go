@@ -38,6 +38,7 @@ compiled-in defaults, with nothing customized yet) and importable to fully
 configure another agent.`,
 	}
 	cmd.AddCommand(newKonfigExportCmd())
+	cmd.AddCommand(newKonfigImportCmd())
 	return cmd
 }
 
@@ -73,5 +74,53 @@ func runKonfigExportCmd(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Exported %d harness section(s), %d theme(s), %d skill(s) to %s\n",
 		len(k.Harness), len(k.Themes), len(k.Skills), path)
+	return nil
+}
+
+func newKonfigImportCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "import [path]",
+		Short: "Import a konfig file, materializing it to ~/.kdeps",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runKonfigImportCmd,
+	}
+}
+
+func runKonfigImportCmd(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: runKonfigImportCmd")
+	path := defaultKonfigPath
+	if len(args) == 1 {
+		path = args[0]
+	}
+
+	k, err := agent.ReadKonfig(path)
+	if err != nil {
+		return fmt.Errorf("konfig import: %w", err)
+	}
+	if applyErr := agent.ApplyKonfig(k); applyErr != nil {
+		return fmt.Errorf("konfig import: %w", applyErr)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Imported %d harness section(s), %d theme(s), %d skill(s) from %s\n",
+		len(k.Harness), len(k.Themes), len(k.Skills), path)
+	return nil
+}
+
+// importKonfigFlag applies the "--konfig <path>" startup flag: read and
+// materialize the file to ~/.kdeps before the rest of runAgentLoopCmd loads
+// settings, registers tools, and picks a theme, so every downstream read of
+// persisted state already sees the imported values. A no-op when path is
+// empty (the common case: no --konfig flag given).
+func importKonfigFlag(path string) error {
+	if path == "" {
+		return nil
+	}
+	k, err := agent.ReadKonfig(path)
+	if err != nil {
+		return fmt.Errorf("--konfig: %w", err)
+	}
+	if applyErr := agent.ApplyKonfig(k); applyErr != nil {
+		return fmt.Errorf("--konfig: %w", applyErr)
+	}
 	return nil
 }
