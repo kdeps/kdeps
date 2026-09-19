@@ -1,0 +1,7 @@
+name: force-answer-digest
+on:
+  # How much gathered tool output is inlined into the forced-answer prompt,
+  # so a run of large scrapes cannot blow the context window on the final
+  # synthesis turn.
+  bytes: 12288
+run: truncate

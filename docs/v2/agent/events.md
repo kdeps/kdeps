@@ -74,6 +74,28 @@ run: force_answer
 
 Every one of these has a sensible floor of 1 built in: an override file that omits `rounds:`, or a corrupted one, never accidentally disables the guard by resolving to 0 (which would otherwise fire on the very first round).
 
+## Truncation events
+
+The same shape covers the loop's token-economy limits -- these fire on a *measured byte length*, so their `on:` clause uses `bytes:` instead:
+
+```yaml
+# ~/.kdeps/events/tool-result-truncate.yaml
+name: tool-result-truncate
+on:
+  bytes: 16384   # any single tool result past this size is truncated
+run: truncate
+```
+
+| Event | Fires when | Action |
+|---|---|---|
+| `tool-result-truncate` | a single tool result fed back to the LLM exceeds this size | truncates on a line boundary, appends a marker |
+| `tool-error-truncate` | a tool's failure text exceeds this size | truncates before display and before feeding it back to the LLM |
+| `force-answer-digest` | the gathered-output digest inlined into a forced answer exceeds this size | truncates the digest |
+| `history-window-trim` | the in-flight tool-loop message array exceeds this size | drops the oldest complete tool round-trips |
+| `file-read-limit` | a file a builtin tool is about to read (or `write_file`'s own content) exceeds this size | rejects the call with an error instead of reading/writing it |
+
+Like the round-count cluster, each has its own sensible fallback (matching its built-in default) if the event registry is ever unavailable -- an override that omits `bytes:` never resolves to "truncate to nothing" or "reject every file."
+
 ## Status
 
-Seven events ship today: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, and `handshake-timeout`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored). Later phases may cover more of the hardcoded truncation and call-budget limits the same way; see the design notes for the full list under consideration.
+Twelve events ship today: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, and `file-read-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored). Later phases may cover more of the call-budget limits (`web_search`/`bash_exec`/etc. convergence caps) and the judge cluster the same way.

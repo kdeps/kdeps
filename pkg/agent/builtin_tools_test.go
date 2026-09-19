@@ -3151,7 +3151,7 @@ func TestWriteFile_ContentTooLarge(t *testing.T) {
 	require.NotNil(t, tool)
 
 	tmpFile := filepath.Join(t.TempDir(), "large-output.txt")
-	bigContent := strings.Repeat("x", maxFileReadBytes+1)
+	bigContent := strings.Repeat("x", maxFileReadBytes()+1)
 	_, err := tool.Execute(map[string]any{
 		"file_path": tmpFile,
 		"content":   bigContent,

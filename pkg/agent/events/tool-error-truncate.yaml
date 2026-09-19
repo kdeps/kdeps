@@ -1,0 +1,7 @@
+name: tool-error-truncate
+on:
+  # Tool failure text past this size is truncated -- for display and for the
+  # error result fed back to the LLM. Provider errors can embed whole HTML
+  # pages.
+  bytes: 500
+run: truncate

@@ -79,6 +79,56 @@ func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
 	assert.Equal(t, 2, effectiveRounds(eventHandshakeTimeout))
 }
 
+func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {
+	built := loadBuiltinEvents()
+
+	cases := []struct {
+		name      string
+		wantBytes int
+		wantRun   string
+	}{
+		{eventToolResultTruncate, 16384, "truncate"},
+		{eventToolErrorTruncate, 500, "truncate"},
+		{eventForceAnswerDigest, 12288, "truncate"},
+		{eventHistoryWindowTrim, 24576, "drop_oldest_roundtrip"},
+		{eventFileReadLimit, 1048576, "reject"},
+	}
+	for _, c := range cases {
+		require.Contains(t, built, c.name)
+		e := built[c.name]
+		assert.Equal(t, c.wantBytes, e.On.Bytes, "event %q bytes", c.name)
+		assert.Equal(t, c.wantRun, e.Run, "event %q run", c.name)
+	}
+}
+
+func TestEffectiveBytes_FallsBackWhenEventUnset(t *testing.T) {
+	assert.Equal(t, 999, effectiveBytes("does-not-exist", 999))
+}
+
+func TestEffectiveBytes_UsesEventValueWhenSet(t *testing.T) {
+	assert.Equal(t, 16384, effectiveBytes(eventToolResultTruncate, 1))
+	assert.Equal(t, 500, effectiveBytes(eventToolErrorTruncate, 1))
+	assert.Equal(t, 12288, effectiveBytes(eventForceAnswerDigest, 1))
+	assert.Equal(t, 24576, effectiveBytes(eventHistoryWindowTrim, 1))
+	assert.Equal(t, 1048576, effectiveBytes(eventFileReadLimit, 1))
+}
+
+func TestMaxToolResultBytes_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 16384, maxToolResultBytes())
+}
+
+func TestToolErrorMaxLen_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 500, toolErrorMaxLen())
+}
+
+func TestToolLoopMessageBudget_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 24576, toolLoopMessageBudget())
+}
+
+func TestMaxFileReadBytes_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 1048576, maxFileReadBytes())
+}
+
 func TestEventByName_UnknownReturnsFalse(t *testing.T) {
 	_, ok := EventByName("does-not-exist")
 	assert.False(t, ok)

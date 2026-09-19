@@ -1558,11 +1558,6 @@ func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 	return notice
 }
 
-// maxForceAnswerDigestBytes bounds how much gathered tool output is inlined
-// into the forced-answer prompt, so a run of large scrapes cannot blow the
-// context window on the final synthesis turn.
-const maxForceAnswerDigestBytes = 12 * 1024
-
 // digestEntryOverhead approximates the per-result framing added by
 // gatheredToolDigest: the "[name]\n" brackets plus the trailing blank line.
 const digestEntryOverhead = 4
@@ -1575,7 +1570,7 @@ const digestEntryOverhead = 4
 // results with no matching tool schema; OpenAI-compatible providers can then
 // drop that tool-role history, so the model would answer blind. To guarantee
 // the gathered research reaches the model, the tool results are also inlined
-// into the prompt as plain text (bounded by maxForceAnswerDigestBytes).
+// into the prompt as plain text (bounded by the "force-answer-digest" event).
 func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	if len(cfg.Tools) == 0 {
 		return cfg
@@ -1587,7 +1582,10 @@ func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 			"using only the information already gathered. Do not attempt any more "+
 			"tool calls and do not emit tool-call markup. If work remains, describe "+
 			"in plain text exactly what remains to be done.")
-	if digest := gatheredToolDigest(cfg.Messages, maxForceAnswerDigestBytes); digest != "" {
+	const forceAnswerDigestFallback = 12 * 1024 // used only if the event registry is unavailable
+	if digest := gatheredToolDigest(
+		cfg.Messages, effectiveBytes(eventForceAnswerDigest, forceAnswerDigestFallback),
+	); digest != "" {
 		prompt += "\n\n=== Information gathered so far ===\n" + digest
 	}
 	capCfg.Prompt = prompt
@@ -1811,15 +1809,23 @@ var ansiStripRe = regexp.MustCompile("\x1b\\[[0-9;]*[a-zA-Z]")
 
 const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
 
-// toolErrorMaxLen caps tool failure text for display and for the error result
-// fed back to the LLM. Provider errors can embed whole HTML pages.
-const toolErrorMaxLen = 500
+// toolErrorMaxLen returns the "tool-error-truncate" event's byte cap for
+// tool failure text -- for display and for the error result fed back to the
+// LLM. Provider errors can embed whole HTML pages.
+func toolErrorMaxLen() int {
+	const fallback = 500 // used only if the event registry is unavailable
+	return effectiveBytes(eventToolErrorTruncate, fallback)
+}
 
-// maxToolResultBytes caps any single tool result fed back to the LLM. bash_exec
-// truncates its own output, but other tools (searches, scrapers, workflow/agency
-// calls) can return arbitrarily large payloads. Without a uniform cap they pile
-// into history and get re-sent every round, burning millions of input tokens.
-const maxToolResultBytes = 16 * 1024 // 16 KB (~4k tokens) per tool result
+// maxToolResultBytes returns the "tool-result-truncate" event's byte cap for
+// any single tool result fed back to the LLM. bash_exec truncates its own
+// output, but other tools (searches, scrapers, workflow/agency calls) can
+// return arbitrarily large payloads. Without a uniform cap they pile into
+// history and get re-sent every round, burning millions of input tokens.
+func maxToolResultBytes() int {
+	const fallback = 16 * 1024 // 16 KB (~4k tokens); used only if the event registry is unavailable
+	return effectiveBytes(eventToolResultTruncate, fallback)
+}
 
 // summarizeToolArgs extracts a short display label from tool call arguments JSON.
 // Returns the first non-empty string value, or the raw JSON if nothing else works.
@@ -2623,14 +2629,15 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	return result
 }
 
-// capToolResult truncates an oversized tool result to maxToolResultBytes on a
-// line boundary, appending a marker. Keeps a single tool call from flooding the
-// LLM context (and every subsequent round's re-sent history).
+// capToolResult truncates an oversized tool result to maxToolResultBytes() on
+// a line boundary, appending a marker. Keeps a single tool call from flooding
+// the LLM context (and every subsequent round's re-sent history).
 func capToolResult(result string) string {
-	if len(result) <= maxToolResultBytes {
+	limit := maxToolResultBytes()
+	if len(result) <= limit {
 		return result
 	}
-	cutoff := result[:maxToolResultBytes]
+	cutoff := result[:limit]
 	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
 		cutoff = cutoff[:idx]
 	}
@@ -2669,16 +2676,16 @@ func shortToolError(result string) string {
 		Error string `json:"error"`
 	}
 	if json.Unmarshal([]byte(strings.TrimSpace(result)), &m) == nil && m.Error != "" {
-		return truncateEllipsis(m.Error, toolErrorMaxLen)
+		return truncateEllipsis(m.Error, toolErrorMaxLen())
 	}
-	return truncateEllipsis(strings.TrimSpace(result), toolErrorMaxLen)
+	return truncateEllipsis(strings.TrimSpace(result), toolErrorMaxLen())
 }
 
 // toolErrorJSON formats a tool failure as a JSON error result, truncated so a
 // provider error embedding a whole HTML page cannot flood the LLM context.
 func toolErrorJSON(err error) string {
 	b, mErr := json.Marshal(
-		map[string]string{"error": truncateEllipsis(err.Error(), toolErrorMaxLen)},
+		map[string]string{"error": truncateEllipsis(err.Error(), toolErrorMaxLen())},
 	)
 	if mErr != nil {
 		return `{"error":"tool failed"}`
@@ -2819,7 +2826,7 @@ func (l *Loop) dispatchToTerminal(
 			fmt.Sprintf(
 				"failed (%s): %s",
 				elapsed,
-				truncateEllipsis(execErr.Error(), toolErrorMaxLen),
+				truncateEllipsis(execErr.Error(), toolErrorMaxLen()),
 			),
 			sameLine,
 		)

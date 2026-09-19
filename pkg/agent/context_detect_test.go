@@ -290,7 +290,7 @@ func TestDetectFiles_AlreadyAtRefSkipped(t *testing.T) {
 func TestDetectFiles_TooLargeSkipped(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "big.txt")
-	data := make([]byte, maxFileReadBytes+1)
+	data := make([]byte, maxFileReadBytes()+1)
 	for i := range data {
 		data[i] = 'a'
 	}

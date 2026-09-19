@@ -1,0 +1,8 @@
+name: file-read-limit
+on:
+  # Any single file a builtin tool (read_file, md5_file, tail_file,
+  # write_file's own content, and the CLAUDE.md/AGENTS.md instruction-file
+  # scanner) will read or accept past this size is rejected with an error
+  # instead.
+  bytes: 1048576
+run: reject

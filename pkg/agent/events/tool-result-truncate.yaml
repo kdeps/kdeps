@@ -1,0 +1,9 @@
+name: tool-result-truncate
+on:
+  # Any single tool result fed back to the LLM past this size is truncated
+  # on a line boundary. bash_exec truncates its own output, but other tools
+  # (searches, scrapers, workflow/agency calls) can return arbitrarily large
+  # payloads that would otherwise pile into history and get re-sent every
+  # round.
+  bytes: 16384
+run: truncate

@@ -21,14 +21,18 @@ import (
 	"fmt"
 )
 
-// toolLoopMessageBudget bounds the total estimated token size of the in-flight
-// message array during a single turn's tool loop. Past this, the oldest
-// complete tool round-trips are dropped so a long loop (many tool calls in one
-// turn) does not re-send an ever-growing transcript on every round -- the
-// dominant token cost in a long agent session. Auto-compaction only runs at
-// turn boundaries, so without this the transcript grows unbounded within a turn
-// up to MaxToolRounds (default 200) round trips.
-const toolLoopMessageBudget = 24 * 1024
+// toolLoopMessageBudget returns the "history-window-trim" event's byte cap on
+// the total estimated size of the in-flight message array during a single
+// turn's tool loop. Past this, the oldest complete tool round-trips are
+// dropped so a long loop (many tool calls in one turn) does not re-send an
+// ever-growing transcript on every round -- the dominant token cost in a long
+// agent session. Auto-compaction only runs at turn boundaries, so without
+// this the transcript grows unbounded within a turn up to MaxToolRounds
+// (default 200) round trips.
+func toolLoopMessageBudget() int {
+	const fallback = 24 * 1024 // used only if the event registry is unavailable
+	return effectiveBytes(eventHistoryWindowTrim, fallback)
+}
 
 // toolRoundTripArgTruncateAt is the argument-string length past which a retained
 // (older) assistant tool-call's long string arguments are replaced with a
@@ -111,13 +115,14 @@ func windowToolHistory(history []map[string]any, model string) ([]map[string]any
 	if len(history) == 0 {
 		return history, 0
 	}
+	budgetLimit := toolLoopMessageBudget()
 	// Cheap byte-length pre-check: at ~2 bytes/token minimum, a transcript under
 	// budget*2 bytes cannot exceed the token budget, so skip the (per-round)
 	// tokenizer pass entirely in the common case.
-	if historyBytes(history) <= toolLoopMessageBudget*2 {
+	if historyBytes(history) <= budgetLimit*2 {
 		return history, 0
 	}
-	if msgsTokens(history, model) <= toolLoopMessageBudget {
+	if msgsTokens(history, model) <= budgetLimit {
 		return history, 0
 	}
 
@@ -146,7 +151,7 @@ func windowToolHistory(history []map[string]any, model string) ([]map[string]any
 		return history, 0 // can't drop the only round-trip
 	}
 
-	budget := toolLoopMessageBudget - msgsTokens(headMsgs, model)
+	budget := budgetLimit - msgsTokens(headMsgs, model)
 	if budget < 0 {
 		budget = 0
 	}

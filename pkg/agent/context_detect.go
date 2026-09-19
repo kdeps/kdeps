@@ -263,7 +263,7 @@ func detectFiles(fs afero.Fs, input string) []string {
 			if imageExts[strings.ToLower(filepath.Ext(m))] {
 				continue
 			}
-			if info.Size() > maxFileReadBytes {
+			if info.Size() > int64(maxFileReadBytes()) {
 				continue
 			}
 			data, err := afero.ReadFile(fs, m)

@@ -1,0 +1,8 @@
+name: history-window-trim
+on:
+  # Total estimated size of the in-flight message array during a single
+  # turn's tool loop. Past this, the oldest complete tool round-trips are
+  # dropped so a long loop does not re-send an ever-growing transcript on
+  # every round.
+  bytes: 24576
+run: drop_oldest_roundtrip

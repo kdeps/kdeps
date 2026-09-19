@@ -1020,9 +1020,9 @@ func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
 	var parsed map[string]string
 	require.NoError(t, json.Unmarshal([]byte(result), &parsed),
 		"error result must be valid JSON even when the error contains quotes")
-	assert.LessOrEqual(t, len(parsed["error"]), toolErrorMaxLen+10,
+	assert.LessOrEqual(t, len(parsed["error"]), toolErrorMaxLen()+10,
 		"error text fed to the LLM must be truncated")
-	assert.LessOrEqual(t, len(buf.String()), toolErrorMaxLen+200,
+	assert.LessOrEqual(t, len(buf.String()), toolErrorMaxLen()+200,
 		"terminal output must be truncated")
 }
 

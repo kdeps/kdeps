@@ -51,16 +51,22 @@ import (
 var builtinEventsFS embed.FS
 
 // Built-in event names, referenced from loop.go/compact.go/repl.go/
-// goal_enforce.go/handshake.go instead of a literal string at every call
-// site.
+// goal_enforce.go/handshake.go/tool_history_window.go/builtin_tools.go/
+// context_detect.go/builtin_resource_tools.go instead of a literal string at
+// every call site.
 const (
-	eventAutoCompact       = "auto-compact"
-	eventFold              = "fold"
-	eventIdenticalCalls    = "identical-tool-calls"
-	eventConvergenceBlock  = "convergence-block"
-	eventTaskRoundBudget   = "task-round-budget"
-	eventUnproductiveRound = "unproductive-rounds"
-	eventHandshakeTimeout  = "handshake-timeout"
+	eventAutoCompact        = "auto-compact"
+	eventFold               = "fold"
+	eventIdenticalCalls     = "identical-tool-calls"
+	eventConvergenceBlock   = "convergence-block"
+	eventTaskRoundBudget    = "task-round-budget"
+	eventUnproductiveRound  = "unproductive-rounds"
+	eventHandshakeTimeout   = "handshake-timeout"
+	eventToolResultTruncate = "tool-result-truncate"
+	eventToolErrorTruncate  = "tool-error-truncate"
+	eventForceAnswerDigest  = "force-answer-digest"
+	eventHistoryWindowTrim  = "history-window-trim"
+	eventFileReadLimit      = "file-read-limit"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -87,6 +93,14 @@ type EventTrigger struct {
 	// ("unproductive-rounds"), or a handshake's own round budget
 	// ("handshake-timeout") -- each reads this same field for its own counter.
 	Rounds int `yaml:"rounds,omitempty"`
+	// Bytes fires once a measured byte length reaches this value. What it
+	// measures is defined by which event it's on: a single tool result
+	// ("tool-result-truncate"), a tool's failure text ("tool-error-truncate"),
+	// the gathered-output digest inlined into a forced answer
+	// ("force-answer-digest"), the in-flight tool-loop message array
+	// ("history-window-trim"), or a file a tool is about to read
+	// ("file-read-limit") -- each reads this same field for its own measurement.
+	Bytes int `yaml:"bytes,omitempty"`
 }
 
 // Event is one on-disk events/<name>.yaml document.
@@ -286,6 +300,28 @@ func effectiveRounds(name string) int {
 		return n
 	}
 	return 1
+}
+
+// eventBytes reads a registered event's bytes trigger, or 0 for an
+// unregistered name. Called with five distinct event names across the
+// truncation cluster, so it stays parameterized.
+func eventBytes(name string) int {
+	e, _ := EventByName(name)
+	return e.On.Bytes
+}
+
+// effectiveBytes returns the registered event's bytes trigger, floored at
+// fallback -- an unregistered name, a corrupt override, or an override that
+// omits "bytes" all resolve to eventBytes returning 0, and 0 would mean
+// "truncate to nothing" or "reject every file" for this cluster, never a
+// sane resolution of a missing/corrupt override. fallback lets each call
+// site keep a sensible size instead of sharing one arbitrary floor the way
+// effectiveRounds's "1" works for every round-count event.
+func effectiveBytes(name string, fallback int) int {
+	if n := eventBytes(name); n > 0 {
+		return n
+	}
+	return fallback
 }
 
 // autoCompactTokens, foldTokensSinceCheckpoint, and foldItems read one field

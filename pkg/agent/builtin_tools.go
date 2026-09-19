@@ -154,7 +154,13 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 	})
 }
 
-const maxFileReadBytes = 1 << 20 // 1 MB
+// maxFileReadBytes returns the "file-read-limit" event's byte cap on any
+// single file a builtin tool (read_file, md5_file, tail_file, ...) will read
+// or stat-check before reading.
+func maxFileReadBytes() int {
+	const fallback = 1 << 20 // 1 MB; used only if the event registry is unavailable
+	return effectiveBytes(eventFileReadLimit, fallback)
+}
 
 // requireAbsFilePath extracts the "file_path" arg, checks it is non-empty,
 // resolves it against the working directory if relative, and rejects
@@ -306,12 +312,12 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("read_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
 		return "", fmt.Errorf(
 			"read_file: %s is %d bytes (max %d)",
 			filePath,
 			info.Size(),
-			maxFileReadBytes,
+			limit,
 		)
 	}
 
@@ -453,8 +459,8 @@ func md5File(filePath string) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("md5_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
-		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
+		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
 	}
 	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
@@ -516,8 +522,8 @@ func tailLocalFile(filePath string, args map[string]any) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("tail_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
-		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
+		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
 	}
 	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
@@ -616,11 +622,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			return "", fmt.Errorf("write_file: %w", err)
 		}
 		content, _ := args["content"].(string)
-		if len(content) > maxFileReadBytes {
+		if limit := maxFileReadBytes(); len(content) > limit {
 			return "", fmt.Errorf(
 				"write_file: content is %d bytes (max %d)",
 				len(content),
-				maxFileReadBytes,
+				limit,
 			)
 		}
 		info, statErr := AppFS.Stat(filePath)

@@ -445,7 +445,7 @@ func annotateSearchMatches(results []map[string]interface{}, query string) {
 			continue
 		}
 		info, statErr := AppFS.Stat(path)
-		if statErr != nil || info.IsDir() || info.Size() > maxFileReadBytes {
+		if statErr != nil || info.IsDir() || info.Size() > int64(maxFileReadBytes()) {
 			continue
 		}
 		data, readErr := afero.ReadFile(AppFS, path)
