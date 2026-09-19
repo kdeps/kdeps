@@ -90,10 +90,10 @@ func newGoalEnforcer(
 	goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int, requireEvidence bool,
 ) *goalEnforcer {
 	if maxUnproductive <= 0 {
-		maxUnproductive = defaultMaxUnproductiveRounds
+		maxUnproductive = effectiveRounds(eventUnproductiveRound)
 	}
 	if taskBudget <= 0 {
-		taskBudget = defaultTaskRoundBudget
+		taskBudget = effectiveRounds(eventTaskRoundBudget)
 	}
 	return &goalEnforcer{
 		goal:            goal,

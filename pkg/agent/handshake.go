@@ -192,9 +192,8 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	// model ever saw it. This also bounds a model that keeps re-issuing the
 	// same call every round to one repeat instead of tripping the loop's
 	// identical-repeat guard.
-	const handshakeMaxRounds = 2
 	origMaxRounds := l.config.MaxToolRounds
-	l.config.MaxToolRounds = handshakeMaxRounds
+	l.config.MaxToolRounds = effectiveRounds(eventHandshakeTimeout)
 	defer func() { l.config.MaxToolRounds = origMaxRounds }()
 
 	// Marks this and every round-trip within it as part of the handshake

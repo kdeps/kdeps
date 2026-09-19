@@ -1,0 +1,6 @@
+name: convergence-block
+on:
+  # How many consecutive rounds may end in a convergence-blocked tool call
+  # before the loop strips every tool and forces a text answer.
+  rounds: 1
+run: force_answer

@@ -1,0 +1,6 @@
+name: unproductive-rounds
+on:
+  # Consecutive rounds that produce nothing new (no fresh tool result, no
+  # state change) before the active task is force-closed and failed forward.
+  rounds: 3
+run: fail_task

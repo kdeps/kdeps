@@ -320,7 +320,7 @@ func TestRunStreaming_UnlimitedRounds(t *testing.T) {
 	responses := make([]mockStreamResponse, 0, 61)
 	for i := range 60 { // more than the default cap of 50
 		// Distinct arguments per round: identical calls would trip the
-		// repeat-block guard (maxIdenticalToolCalls) before 60 rounds.
+		// repeat-block guard (the identical-tool-calls event) before 60 rounds.
 		toolCall := domain.StreamedToolCall{
 			ID:        strconv.Itoa(i),
 			Name:      "noop",
@@ -386,10 +386,11 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)
 	require.NoError(t, err)
-	if ms.callCount != maxIdenticalToolCalls {
+	want := effectiveRounds(eventIdenticalCalls)
+	if ms.callCount != want {
 		t.Fatalf(
 			"expected loop to break after %d identical calls, got %d",
-			maxIdenticalToolCalls,
+			want,
 			ms.callCount,
 		)
 	}
@@ -2466,7 +2467,7 @@ func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
 	responses := make([]mockStreamResponse, 0, firstToolCallsPraiseLimit+2)
 	for i := range firstToolCallsPraiseLimit + 1 {
 		// Distinct Arguments per round: identical consecutive calls would
-		// trip the loop's own stuck-repeat guard (maxIdenticalToolCalls)
+		// trip the loop's own stuck-repeat guard (the identical-tool-calls event)
 		// before this test ever reaches the call past the praise limit.
 		tc := domain.StreamedToolCall{
 			ID: strconv.Itoa(i), Name: "read_file",

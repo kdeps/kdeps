@@ -1,0 +1,6 @@
+name: identical-tool-calls
+on:
+  # How many times in a row the model may issue the exact same tool call
+  # before the turn is ended as a stuck loop.
+  rounds: 3
+run: force_answer

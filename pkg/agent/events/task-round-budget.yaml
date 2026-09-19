@@ -1,0 +1,5 @@
+name: task-round-budget
+on:
+  # Tool rounds spent on one goal-directed task before it is force-closed.
+  rounds: 25
+run: fail_task

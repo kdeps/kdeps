@@ -875,10 +875,10 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
 	if cfg.TaskRoundBudget <= 0 {
-		cfg.TaskRoundBudget = defaultTaskRoundBudget
+		cfg.TaskRoundBudget = effectiveRounds(eventTaskRoundBudget)
 	}
 	if cfg.MaxUnproductiveRounds <= 0 {
-		cfg.MaxUnproductiveRounds = defaultMaxUnproductiveRounds
+		cfg.MaxUnproductiveRounds = effectiveRounds(eventUnproductiveRound)
 	}
 	if cfg.JudgeMaxIterations <= 0 {
 		cfg.JudgeMaxIterations = defaultJudgeMaxIterations
@@ -902,24 +902,6 @@ const (
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
 	defaultModelName                   = executorLLM.DefaultBuiltinModel
-	// maxIdenticalToolCalls is how many times in a row the model may issue the
-	// exact same tool call before the turn is ended as a stuck loop.
-	maxIdenticalToolCalls = 3
-	// maxConvergenceBlocks is how many consecutive rounds may end in a
-	// convergence-blocked tool call before the loop force-answers. Once a
-	// budget is exhausted the model often keeps trying different queries; a
-	// single blocked round is enough to force synthesis (the round cap alone
-	// misses this in unlimited mode). Applies to every convergence-limited
-	// tool category (web, bash, file, code) — they share the block marker.
-	maxConvergenceBlocks = 1
-	// defaultTaskRoundBudget caps tool rounds spent on one task before it is
-	// force-closed. Generous enough for a real subtask, small enough that a
-	// wedged task cannot consume the whole turn.
-	defaultTaskRoundBudget = 25
-	// defaultMaxUnproductiveRounds is how many consecutive rounds may produce
-	// nothing new (no fresh tool result, no state change) before the task is
-	// force-closed and then failed forward.
-	defaultMaxUnproductiveRounds = 3
 )
 
 func envOrDefault(key, fallback string) string {
@@ -1335,7 +1317,7 @@ func (l *Loop) runToolRounds(
 		// Detect a model stuck re-issuing the same tool call. The loop
 		// dispatches toolCalls[0], so track that signature.
 		identicalRepeats, lastToolSig = trackRepeat(toolCalls[0], lastToolSig, identicalRepeats)
-		if identicalRepeats >= maxIdenticalToolCalls {
+		if identicalRepeats >= effectiveRounds(eventIdenticalCalls) {
 			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
 			break
 		}
@@ -1571,7 +1553,7 @@ func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 		"\nThe model repeated the same %q tool call %d times without making "+
 			"progress - ending the turn. The tool was likely blocked or kept "+
 			"failing. Try rephrasing, or switch models with /model.\n\n",
-		toolName, maxIdenticalToolCalls)
+		toolName, effectiveRounds(eventIdenticalCalls))
 	_, _ = io.WriteString(w, notice)
 	return notice
 }
@@ -1886,10 +1868,10 @@ func trackRepeat(tc domain.StreamedToolCall, lastSig string, repeats int) (int, 
 
 // convergenceStop implements the forceful stop: once a tool budget is exhausted
 // the model tends to keep flailing with new queries that are all blocked. After
-// maxConvergenceBlocks consecutive blocked rounds it strips every tool and
-// forces a text answer (the next round has no tools, so the loop ends). Returns
-// the possibly tool-stripped config, the updated consecutive-block count, and
-// whether the final answer has now been forced.
+// the "convergence-block" event's consecutive blocked-round threshold it strips
+// every tool and forces a text answer (the next round has no tools, so the
+// loop ends). Returns the possibly tool-stripped config, the updated
+// consecutive-block count, and whether the final answer has now been forced.
 func convergenceStop(
 	cfg *domain.ChatConfig,
 	blocked bool,
@@ -1901,7 +1883,7 @@ func convergenceStop(
 	} else {
 		blocks = 0
 	}
-	if blocks >= maxConvergenceBlocks && !forced {
+	if blocks >= effectiveRounds(eventConvergenceBlock) && !forced {
 		return forceAnswerConfig(cfg), blocks, true
 	}
 	return cfg, blocks, forced

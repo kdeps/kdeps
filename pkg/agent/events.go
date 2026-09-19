@@ -50,11 +50,17 @@ import (
 //go:embed events/*.yaml
 var builtinEventsFS embed.FS
 
-// Built-in event names, referenced from loop.go/compact.go/repl.go instead
-// of a literal string at every call site.
+// Built-in event names, referenced from loop.go/compact.go/repl.go/
+// goal_enforce.go/handshake.go instead of a literal string at every call
+// site.
 const (
-	eventAutoCompact = "auto-compact"
-	eventFold        = "fold"
+	eventAutoCompact       = "auto-compact"
+	eventFold              = "fold"
+	eventIdenticalCalls    = "identical-tool-calls"
+	eventConvergenceBlock  = "convergence-block"
+	eventTaskRoundBudget   = "task-round-budget"
+	eventUnproductiveRound = "unproductive-rounds"
+	eventHandshakeTimeout  = "handshake-timeout"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -70,9 +76,17 @@ type EventTrigger struct {
 	// TokensSinceCheckpoint fires when this many tokens have accumulated
 	// since the active fold checkpoint.
 	TokensSinceCheckpoint int `yaml:"tokensSinceCheckpoint,omitempty"`
-	// MinTurns gates every trigger kind above: it never fires before this
-	// many turns exist, regardless of token count.
+	// MinTurns gates every token-based trigger kind above: it never fires
+	// before this many turns exist, regardless of token count.
 	MinTurns int `yaml:"minTurns,omitempty"`
+	// Rounds fires once a round/repeat counter reaches this value. What it
+	// counts is defined by which event it's on: consecutive identical tool
+	// calls ("identical-tool-calls"), consecutive convergence-blocked rounds
+	// ("convergence-block"), tool rounds spent on one task
+	// ("task-round-budget"), consecutive rounds with no new progress
+	// ("unproductive-rounds"), or a handshake's own round budget
+	// ("handshake-timeout") -- each reads this same field for its own counter.
+	Rounds int `yaml:"rounds,omitempty"`
 }
 
 // Event is one on-disk events/<name>.yaml document.
@@ -245,9 +259,33 @@ func eventMinTurns(name string) int {
 	return e.On.MinTurns
 }
 
+// eventRounds reads a registered event's rounds trigger, or 0 for an
+// unregistered name. Called with five distinct event names across the
+// round/count cluster (identical-tool-calls, convergence-block,
+// task-round-budget, unproductive-rounds, handshake-timeout), so unlike
+// autoCompactTokens/foldTokensSinceCheckpoint/foldItems it stays
+// parameterized rather than hardcoding one name.
+func eventRounds(name string) int {
+	e, _ := EventByName(name)
+	return e.On.Rounds
+}
+
 func eventCtxWindowFraction(name string) float64 {
 	e, _ := EventByName(name)
 	return e.On.CtxWindowFraction
+}
+
+// effectiveRounds returns the registered event's rounds trigger, floored at
+// 1 -- an unregistered name, a corrupt override, or an override that omits
+// "rounds" all resolve to eventRounds returning 0, and every one of this
+// cluster's counters ("N consecutive occurrences") is nonsensical at 0: it
+// would fire on the very first round instead of not firing at all. Mirrors
+// effectiveMinTurns's role for the token-threshold cluster (compact.go).
+func effectiveRounds(name string) int {
+	if n := eventRounds(name); n > 0 {
+		return n
+	}
+	return 1
 }
 
 // autoCompactTokens, foldTokensSinceCheckpoint, and foldItems read one field

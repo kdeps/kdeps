@@ -1,0 +1,6 @@
+name: handshake-timeout
+on:
+  # Tool-call rounds a session-handshake grounding challenge gets before it
+  # gives up (see handshake.go).
+  rounds: 2
+run: fail_handshake

@@ -45,6 +45,40 @@ func TestLoadBuiltinEvents_HasAutoCompactAndFold(t *testing.T) {
 	assert.Equal(t, "fold", fold.Run)
 }
 
+func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
+	built := loadBuiltinEvents()
+
+	cases := []struct {
+		name       string
+		wantRounds int
+		wantRun    string
+	}{
+		{eventIdenticalCalls, 3, "force_answer"},
+		{eventConvergenceBlock, 1, "force_answer"},
+		{eventTaskRoundBudget, 25, "fail_task"},
+		{eventUnproductiveRound, 3, "fail_task"},
+		{eventHandshakeTimeout, 2, "fail_handshake"},
+	}
+	for _, c := range cases {
+		require.Contains(t, built, c.name)
+		e := built[c.name]
+		assert.Equal(t, c.wantRounds, e.On.Rounds, "event %q rounds", c.name)
+		assert.Equal(t, c.wantRun, e.Run, "event %q run", c.name)
+	}
+}
+
+func TestEffectiveRounds_FallsBackToOneWhenEventUnset(t *testing.T) {
+	assert.Equal(t, 1, effectiveRounds("does-not-exist"))
+}
+
+func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
+	assert.Equal(t, 3, effectiveRounds(eventIdenticalCalls))
+	assert.Equal(t, 1, effectiveRounds(eventConvergenceBlock))
+	assert.Equal(t, 25, effectiveRounds(eventTaskRoundBudget))
+	assert.Equal(t, 3, effectiveRounds(eventUnproductiveRound))
+	assert.Equal(t, 2, effectiveRounds(eventHandshakeTimeout))
+}
+
 func TestEventByName_UnknownReturnsFalse(t *testing.T) {
 	_, ok := EventByName("does-not-exist")
 	assert.False(t, ok)
