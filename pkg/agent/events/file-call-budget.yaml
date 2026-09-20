@@ -1,0 +1,6 @@
+name: file-call-budget
+on:
+  # DISTINCT read_file/list_files paths per turn. Re-reading an already-seen
+  # file never counts twice.
+  distinctCalls: 80
+run: block

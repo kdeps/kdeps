@@ -1,0 +1,7 @@
+name: web-call-budget
+on:
+  # DISTINCT web_search + web_scraper calls per turn. The two share this
+  # budget, so it must leave room for a search plus a few source fetches.
+  # A repeat of an already-attempted call never counts twice.
+  distinctCalls: 20
+run: block

@@ -646,7 +646,9 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 	// it explicitly so this test is immune to another test's
 	// SetConvergenceLimits call leaving a different value behind.
 	SetConvergenceLimits(7, 0, 0, 0)
-	t.Cleanup(func() { SetConvergenceLimits(maxWebToolCalls, 0, 0, 0) })
+	t.Cleanup(func() {
+		SetConvergenceLimits(effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget), 0, 0, 0)
+	})
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()

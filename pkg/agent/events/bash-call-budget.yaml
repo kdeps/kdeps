@@ -1,0 +1,6 @@
+name: bash-call-budget
+on:
+  # DISTINCT bash_exec commands per turn. A repeated command (e.g. `go
+  # build` re-run after a fix) never counts twice.
+  distinctCalls: 50
+run: block

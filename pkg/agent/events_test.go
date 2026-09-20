@@ -101,6 +101,57 @@ func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {
 	}
 }
 
+func TestLoadBuiltinEvents_HasCallBudgetCluster(t *testing.T) {
+	built := loadBuiltinEvents()
+
+	cases := []struct {
+		name             string
+		wantDistinctCall int
+	}{
+		{eventWebCallBudget, 20},
+		{eventBashCallBudget, 50},
+		{eventFileCallBudget, 80},
+		{eventCodeCallBudget, 30},
+	}
+	for _, c := range cases {
+		require.Contains(t, built, c.name)
+		e := built[c.name]
+		assert.Equal(t, c.wantDistinctCall, e.On.DistinctCalls, "event %q distinctCalls", c.name)
+		assert.Equal(t, "block", e.Run, "event %q run", c.name)
+	}
+}
+
+func TestEffectiveDistinctCalls_FallsBackWhenEventUnset(t *testing.T) {
+	assert.Equal(t, 999, effectiveDistinctCalls("does-not-exist", 999))
+}
+
+func TestEffectiveDistinctCalls_UsesEventValueWhenSet(t *testing.T) {
+	assert.Equal(t, 20, effectiveDistinctCalls(eventWebCallBudget, 1))
+	assert.Equal(t, 50, effectiveDistinctCalls(eventBashCallBudget, 1))
+	assert.Equal(t, 80, effectiveDistinctCalls(eventFileCallBudget, 1))
+	assert.Equal(t, 30, effectiveDistinctCalls(eventCodeCallBudget, 1))
+}
+
+func TestApplyConvergenceCacheDefaults_SetsGlobalCachesFromEvents(t *testing.T) {
+	isolateEventsHome(t)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	dir := filepath.Join(home, ".kdeps", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "web-call-budget.yaml"), []byte(`
+name: web-call-budget
+on:
+  distinctCalls: 7
+run: block
+`), 0o644))
+	t.Cleanup(func() { SetConvergenceLimits(builtinWebCallBudget, 0, 0, 0) })
+
+	initEvents()
+
+	_, gotMax := globalWebCache.count()
+	assert.Equal(t, 7, gotMax)
+}
+
 func TestEffectiveBytes_FallsBackWhenEventUnset(t *testing.T) {
 	assert.Equal(t, 999, effectiveBytes("does-not-exist", 999))
 }

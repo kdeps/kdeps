@@ -206,17 +206,17 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
-	// WebLimit caps web_search/web_scraper calls per user request (0=default
-	// 20, maxWebToolCalls in builtin_tool_cache.go).
+	// WebLimit caps web_search/web_scraper calls per user request (0=use the
+	// "web-call-budget" event's default, see events.go).
 	WebLimit int
-	// BashLimit caps bash_exec calls per user request (0=default 50,
-	// maxBashToolCalls in builtin_tool_cache.go).
+	// BashLimit caps bash_exec calls per user request (0=use the
+	// "bash-call-budget" event's default).
 	BashLimit int
-	// FileLimit caps read_file/list_files calls per user request (0=default
-	// 80, maxFileToolCalls in builtin_tool_cache.go).
+	// FileLimit caps read_file/list_files calls per user request (0=use the
+	// "file-call-budget" event's default).
 	FileLimit int
-	// CodeLimit caps search_local/code_search calls per user request
-	// (0=default 30, maxCodeToolCalls in builtin_tool_cache.go).
+	// CodeLimit caps search_local/code_search calls per user request (0=use
+	// the "code-call-budget" event's default).
 	CodeLimit int
 	// GoalEnforcement decomposes each prompt into a task list and drives the
 	// loop through it, refusing to revisit settled tasks and failing a task

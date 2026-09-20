@@ -5001,13 +5001,13 @@ func (r *REPL) cmdKartographer() error {
 		"system prompt <output> rule 24 (soft guidance)")
 	bc, bm := BashConvergenceCalls()
 	r.printConvergence("shell", "bash_exec %s trackBashCall()", bc, bm,
-		fmt.Sprintf("maxBashToolCalls=%d", bm))
+		fmt.Sprintf("bash-call-budget event=%d", bm))
 	fc, fm := FileConvergenceCalls()
 	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
-		fmt.Sprintf("maxFileToolCalls=%d", fm))
+		fmt.Sprintf("file-call-budget event=%d", fm))
 	cc, cm := CodeConvergenceCalls()
 	r.printConvergence("code", "search_local / code_search %s trackCodeCall()", cc, cm,
-		fmt.Sprintf("maxCodeToolCalls=%d", cm))
+		fmt.Sprintf("code-call-budget event=%d", cm))
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()

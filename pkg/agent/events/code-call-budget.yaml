@@ -1,0 +1,5 @@
+name: code-call-budget
+on:
+  # DISTINCT search_local/code_search queries per turn.
+  distinctCalls: 30
+run: block

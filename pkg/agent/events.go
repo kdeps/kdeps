@@ -67,6 +67,10 @@ const (
 	eventForceAnswerDigest  = "force-answer-digest"
 	eventHistoryWindowTrim  = "history-window-trim"
 	eventFileReadLimit      = "file-read-limit"
+	eventWebCallBudget      = "web-call-budget"
+	eventBashCallBudget     = "bash-call-budget"
+	eventFileCallBudget     = "file-call-budget"
+	eventCodeCallBudget     = "code-call-budget"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -101,6 +105,12 @@ type EventTrigger struct {
 	// ("history-window-trim"), or a file a tool is about to read
 	// ("file-read-limit") -- each reads this same field for its own measurement.
 	Bytes int `yaml:"bytes,omitempty"`
+	// DistinctCalls fires once a per-turn count of distinct tool calls in one
+	// category (web, bash, file, or code -- see convergenceCache in
+	// builtin_tool_cache.go) reaches this value. A repeat of an
+	// already-attempted call never counts twice, so this bounds how many
+	// *different* commands/queries a turn may introduce, not total calls.
+	DistinctCalls int `yaml:"distinctCalls,omitempty"`
 }
 
 // Event is one on-disk events/<name>.yaml document.
@@ -245,6 +255,7 @@ func initEvents() {
 		fmt.Fprintf(os.Stderr, "events: %v\n", e)
 	}
 	mergeUserEvents(userEvents)
+	applyConvergenceCacheDefaults()
 }
 
 //nolint:gochecknoinits // one-time load of the event registry
@@ -323,6 +334,54 @@ func effectiveBytes(name string, fallback int) int {
 	}
 	return fallback
 }
+
+// eventDistinctCalls reads a registered event's distinctCalls trigger, or 0
+// for an unregistered name.
+func eventDistinctCalls(name string) int {
+	e, _ := EventByName(name)
+	return e.On.DistinctCalls
+}
+
+// effectiveDistinctCalls returns the registered event's distinctCalls
+// trigger, floored at fallback -- same reasoning as effectiveBytes: 0 would
+// mean "block every call from the first one," never a sane resolution of a
+// missing/corrupt override, and the four call-budget events span 20-80 so
+// one shared floor wouldn't fit all of them.
+func effectiveDistinctCalls(name string, fallback int) int {
+	if n := eventDistinctCalls(name); n > 0 {
+		return n
+	}
+	return fallback
+}
+
+// applyConvergenceCacheDefaults sets each global convergence cache's max
+// from its event, once the registry is populated. Called at the end of
+// initEvents (not from a separate init() in builtin_tool_cache.go) so it
+// never depends on cross-file init() ordering within the package -- the
+// package-var block that constructs globalWebCache etc. runs before any
+// init() function regardless of file order, so overwriting .max here always
+// happens after that construction and after the event registry is ready.
+func applyConvergenceCacheDefaults() {
+	globalWebCache.setMax(effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget))
+	globalBashCache.setMax(effectiveDistinctCalls(eventBashCallBudget, builtinBashCallBudget))
+	globalFileCache.setMax(effectiveDistinctCalls(eventFileCallBudget, builtinFileCallBudget))
+	globalCodeCache.setMax(effectiveDistinctCalls(eventCodeCallBudget, builtinCodeCallBudget))
+}
+
+// builtinWebCallBudget/builtinBashCallBudget/builtinFileCallBudget/
+// builtinCodeCallBudget are the safety-net fallbacks effectiveDistinctCalls
+// falls back to if the event registry is ever unavailable (never hit in
+// practice -- embedded YAML is always present at init()), and the initial
+// values builtin_tool_cache.go's global caches construct with before
+// applyConvergenceCacheDefaults overwrites them. Named (not inlined) so
+// golangci-lint's magic-number check doesn't flag the same literal repeated
+// across both files.
+const (
+	builtinWebCallBudget  = 20
+	builtinBashCallBudget = 50
+	builtinFileCallBudget = 80
+	builtinCodeCallBudget = 30
+)
 
 // autoCompactTokens, foldTokensSinceCheckpoint, and foldItems read one field
 // of their one specific built-in event. Not parameterized over an event
