@@ -157,6 +157,20 @@ The action's actual behavior stays Go code (these perform real side effects -- s
 
 Not every action is freely swappable onto any event with the same trigger shape: `task-round-budget`/`unproductive-rounds` (both `fail_task`) actually drive a 4-step escalation ladder in the goal-enforcement subsystem (reanchor, narrow tools, force close, then fail forward), not a single function call, and `handshake-timeout`/`judge-max-rounds` (both `force_answer`) work by setting a sub-loop's round budget and relying on the loop's own generic round-exhaustion behavior rather than a distinct dispatchable step. Renaming these two pairs' `run:` to something else would be validated (the name exists) but wouldn't change what actually happens -- the call site only implements the one action it already names.
 
+## Enforcement: hard vs. soft
+
+None of this asks the model to cooperate. Every action is deterministic Go control flow that runs regardless of what the model wants -- the model doesn't decide to `compact` or `block`; the system does it around the model, usually by removing the option before the model ever gets a turn:
+
+- **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
+- **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. Once tools aren't in the request schema, the model is structurally unable to call one -- not persuaded not to, incapable of it.
+- **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`; Go decides whether and when this fires, with no model input.
+- **`fail_task`** (the goal-enforcement escalation ladder: reanchor -> narrow -> force close -> fail forward) -- the force-close step (`refuseOffTask`) intercepts every non-task-state tool call and substitutes a refusal string for the real result; the fail-forward step (`failForward` -> `Goal.Advance`) is called automatically at the end of every round from `enforceGoalProgress`, moving the task cursor whether or not the model ever calls `task_fail`. No step in the ladder is a suggestion.
+- **`truncate`/`drop_oldest`/`cap`** -- unconditional string/slice mutation in Go, applied every time regardless of model behavior.
+
+**Real OS-level enforcement, not just Go control flow:** `ToolStallTimeout` runs a background goroutine that watches wall-clock silence on a running tool's output; past the timeout, it cancels a real `context.Context`, and `bash_exec` selects on that cancellation to call `killProcessGroup(cmd)` -- an actual `SIGKILL`-equivalent to the whole process group, so a hung shell command (and anything it spawned) is killed outright. The same context-cancellation path ends a judge's ephemeral sub-loop the instant `judge_verdict` settles, and backs Ctrl+C.
+
+**The one genuinely soft layer** is the harness (`~/.kdeps/harness/*.yaml` -- tool-use rules, memory rules, honesty/scope/accuracy sections): prompt text asking the model to behave a certain way, with nothing in code checking whether it actually did. That's the dividing line for anything new: if it must be true regardless of what the model does, it's an event/action; if it's guidance the model is expected to follow, it's harness text.
+
 ## Status
 
 Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
