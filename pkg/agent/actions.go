@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -98,26 +97,7 @@ func loadBuiltinActions() map[string]*Action {
 // shipped file, not user input -- it panics, same severity as
 // harness/theme/event's own embedded loaders.
 func loadBuiltinActionsFrom(fsys harnessFS) map[string]*Action {
-	entries, err := fsys.ReadDir("actions")
-	if err != nil {
-		panic(fmt.Sprintf("actions: read embedded actions dir: %v", err))
-	}
-	out := make(map[string]*Action, len(entries))
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		data, readErr := fsys.ReadFile(path.Join("actions", e.Name()))
-		if readErr != nil {
-			panic(fmt.Sprintf("actions: read embedded %s: %v", e.Name(), readErr))
-		}
-		a, parseErr := parseYAMLAction(data, e.Name())
-		if parseErr != nil {
-			panic(fmt.Sprintf("actions: parse embedded %s: %v", e.Name(), parseErr))
-		}
-		out[a.Name] = &a
-	}
-	return out
+	return loadBuiltinYAMLDir(fsys, "actions", "actions", parseYAMLAction, func(a Action) string { return a.Name })
 }
 
 // parseYAMLAction unmarshals one action document, lowercasing/trimming its
@@ -181,11 +161,7 @@ func ActionByName(name string) (Action, bool) {
 // exportActionEntries returns every registered action (built-in + user,
 // merged), for konfig export.
 func exportActionEntries() []Action {
-	out := make([]Action, 0, len(actionRegistry))
-	for _, a := range actionRegistry {
-		out = append(out, *a)
-	}
-	return out
+	return mapValuesDeref(actionRegistry)
 }
 
 // validateEventActions warns (to stderr, once per mismatch, never fatal)

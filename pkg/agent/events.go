@@ -168,16 +168,31 @@ func loadBuiltinEvents() map[string]*Event {
 }
 
 // loadBuiltinEventsFrom is loadBuiltinEvents parameterized over the
-// filesystem (harnessFS: ReadDir + ReadFile, identical shape to
-// theme_yaml.go's themeFS), so tests can exercise it without touching the
-// real embed. A parse failure here is a bug in a shipped file, not user
-// input -- it panics, same severity as harness/theme's own embedded loaders.
+// filesystem, so tests can exercise it without touching the real embed.
 func loadBuiltinEventsFrom(fsys harnessFS) map[string]*Event {
-	entries, err := fsys.ReadDir("events")
+	return loadBuiltinYAMLDir(fsys, "events", "events", parseYAMLEvent, func(e Event) string { return e.Name })
+}
+
+// loadBuiltinYAMLDir parses every file in an embedded subdir with parse,
+// keying the result by nameOf(parsed value). Shared by
+// loadBuiltinEventsFrom/loadBuiltinActionsFrom (actions.go) -- otherwise
+// identical loops golangci-lint's dupl check would flag as a duplicate.
+// harness_yaml.go/theme_yaml.go predate this helper and have their own
+// per-type logic (kind inference, base-palette merging) beyond this shared
+// shape, so they keep their own copies rather than being forced through it.
+// A parse failure here is a bug in a shipped file, not user input -- it
+// panics, same severity every embedded loader in this package already uses.
+func loadBuiltinYAMLDir[T any](
+	fsys harnessFS,
+	dir, errPrefix string,
+	parse func(data []byte, source string) (T, error),
+	nameOf func(T) string,
+) map[string]*T {
+	entries, err := fsys.ReadDir(dir)
 	if err != nil {
-		panic(fmt.Sprintf("events: read embedded events dir: %v", err))
+		panic(fmt.Sprintf("%s: read embedded %s dir: %v", errPrefix, dir, err))
 	}
-	out := make(map[string]*Event, len(entries))
+	out := make(map[string]*T, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -185,15 +200,15 @@ func loadBuiltinEventsFrom(fsys harnessFS) map[string]*Event {
 		// fs.FS paths (embed.FS included) are always forward-slash, regardless
 		// of OS -- filepath.Join would emit a backslash on Windows and break
 		// the lookup.
-		data, readErr := fsys.ReadFile(path.Join("events", e.Name()))
+		data, readErr := fsys.ReadFile(path.Join(dir, e.Name()))
 		if readErr != nil {
-			panic(fmt.Sprintf("events: read embedded %s: %v", e.Name(), readErr))
+			panic(fmt.Sprintf("%s: read embedded %s: %v", errPrefix, e.Name(), readErr))
 		}
-		ev, parseErr := parseYAMLEvent(data, e.Name())
+		v, parseErr := parse(data, e.Name())
 		if parseErr != nil {
-			panic(fmt.Sprintf("events: parse embedded %s: %v", e.Name(), parseErr))
+			panic(fmt.Sprintf("%s: parse embedded %s: %v", errPrefix, e.Name(), parseErr))
 		}
-		out[ev.Name] = &ev
+		out[nameOf(v)] = &v
 	}
 	return out
 }
@@ -340,17 +355,29 @@ func eventCtxWindowFraction(name string) float64 {
 	return e.On.CtxWindowFraction
 }
 
-// effectiveRounds returns the registered event's rounds trigger, floored at
-// 1 -- an unregistered name, a corrupt override, or an override that omits
-// "rounds" all resolve to eventRounds returning 0, and every one of this
-// cluster's counters ("N consecutive occurrences") is nonsensical at 0: it
-// would fire on the very first round instead of not firing at all. Mirrors
-// effectiveMinTurns's role for the token-threshold cluster (compact.go).
-func effectiveRounds(name string) int {
-	if n := eventRounds(name); n > 0 {
+// positiveOrFallback returns n if it's positive, else fallback. Shared floor
+// logic behind effectiveRounds/effectiveBytes/effectiveDistinctCalls/
+// effectiveItems below: an unregistered event name, a corrupt override, or
+// an override that omits the field they read all resolve to 0 from their
+// eventX(name) getter, and 0 is never a sane resolution for any of these --
+// "fire on the very first round," "truncate to nothing," "block every call,"
+// "keep nothing" are all worse than falling back to a known-good value.
+func positiveOrFallback(n, fallback int) int {
+	if n > 0 {
 		return n
 	}
-	return 1
+	return fallback
+}
+
+// effectiveRounds returns the registered event's rounds trigger, floored at
+// 1 -- every one of this cluster's counters ("N consecutive occurrences") is
+// nonsensical at 0. Mirrors effectiveMinTurns's role for the token-threshold
+// cluster (compact.go). Rounds shares one fixed floor (unlike
+// effectiveBytes/effectiveDistinctCalls/effectiveItems below) because "1" is
+// the only sane minimum for every round-count event; there's no per-site
+// value that would ever need to differ.
+func effectiveRounds(name string) int {
+	return positiveOrFallback(eventRounds(name), 1)
 }
 
 // eventBytes reads a registered event's bytes trigger, or 0 for an
@@ -362,17 +389,11 @@ func eventBytes(name string) int {
 }
 
 // effectiveBytes returns the registered event's bytes trigger, floored at
-// fallback -- an unregistered name, a corrupt override, or an override that
-// omits "bytes" all resolve to eventBytes returning 0, and 0 would mean
-// "truncate to nothing" or "reject every file" for this cluster, never a
-// sane resolution of a missing/corrupt override. fallback lets each call
-// site keep a sensible size instead of sharing one arbitrary floor the way
-// effectiveRounds's "1" works for every round-count event.
+// fallback -- fallback lets each call site keep a sensible size instead of
+// sharing one arbitrary floor the way effectiveRounds's "1" works for every
+// round-count event.
 func effectiveBytes(name string, fallback int) int {
-	if n := eventBytes(name); n > 0 {
-		return n
-	}
-	return fallback
+	return positiveOrFallback(eventBytes(name), fallback)
 }
 
 // eventDistinctCalls reads a registered event's distinctCalls trigger, or 0
@@ -383,15 +404,11 @@ func eventDistinctCalls(name string) int {
 }
 
 // effectiveDistinctCalls returns the registered event's distinctCalls
-// trigger, floored at fallback -- same reasoning as effectiveBytes: 0 would
-// mean "block every call from the first one," never a sane resolution of a
-// missing/corrupt override, and the four call-budget events span 20-80 so
-// one shared floor wouldn't fit all of them.
+// trigger, floored at fallback -- the four call-budget events span 20-80 so
+// one shared floor wouldn't fit all of them the way effectiveRounds's "1"
+// does.
 func effectiveDistinctCalls(name string, fallback int) int {
-	if n := eventDistinctCalls(name); n > 0 {
-		return n
-	}
-	return fallback
+	return positiveOrFallback(eventDistinctCalls(name), fallback)
 }
 
 // applyConvergenceCacheDefaults sets each global convergence cache's max
@@ -488,10 +505,7 @@ func relMemoryLimit() int {
 // relations," never a sane resolution of a missing/corrupt override.
 func effectiveItems(name string, fallback int) int {
 	e, _ := EventByName(name)
-	if e.Items > 0 {
-		return e.Items
-	}
-	return fallback
+	return positiveOrFallback(e.Items, fallback)
 }
 
 // autoCompactThresholdForCtxWindow returns the "auto-compact" event's token
@@ -514,9 +528,16 @@ func autoCompactThresholdForCtxWindow(ctxWindow int) int {
 // merged), for konfig export -- the full effective set, not a diff, the
 // same fidelity exportThemeEntries/harnessRegistry already provide.
 func exportEventEntries() []Event {
-	out := make([]Event, 0, len(eventRegistry))
-	for _, e := range eventRegistry {
-		out = append(out, *e)
+	return mapValuesDeref(eventRegistry)
+}
+
+// mapValuesDeref returns a slice of dereferenced values from a
+// map[string]*T, in map iteration order. Shared by exportEventEntries/
+// exportActionEntries (actions.go).
+func mapValuesDeref[T any](m map[string]*T) []T {
+	out := make([]T, 0, len(m))
+	for _, v := range m {
+		out = append(out, *v)
 	}
 	return out
 }
