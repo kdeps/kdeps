@@ -1,4 +1,10 @@
 name: fail_handshake
+# kind names the trigger shape this action is meant for. Valid values:
+#   tokens         a token-count measurement (events' "tokens"/"ctxWindowFraction"/"tokensSinceCheckpoint")
+#   bytes          a byte-length measurement (events' "bytes")
+#   distinctCalls  a distinct-call-count measurement (events' "distinctCalls")
+#   items          a bare count with no trigger condition (events' "items")
+#   rounds         a round/repeat-count measurement (events' "rounds")
 kind: rounds
 description: >-
   End a session-integrity handshake challenge as failed once its round

@@ -1,5 +1,14 @@
 name: auto-compact
 on:
+  # --- All possible trigger fields (an event sets only the ones it uses) ---
+  # tokens: <int>                 flat token-count threshold (session-wide measurement)
+  # ctxWindowFraction: <float>    fraction of the model's context window, e.g. 0.75 = 75% full
+  # tokensSinceCheckpoint: <int>  tokens accumulated since the last fold checkpoint
+  # minTurns: <int>               gate: never fire before this many turns exist (token events only)
+  # rounds: <int>                 round/repeat-count threshold (stuck-loop/task/judge/handshake events)
+  # bytes: <int>                  byte-length threshold (truncation-cluster events)
+  # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
+
   # Flat token-count fallback for models with an unknown context window.
   tokens: 30000
   # Preferred trigger once the model's context window is known: fire at this
@@ -7,4 +16,16 @@ on:
   ctxWindowFraction: 0.75
   # Never fire before this many turns exist, regardless of token count.
   minTurns: 4
+# run: selects the action fired once the trigger above is met.
+# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+#   compact         summarize older history into a checkpoint
+#   truncate        shorten oversized content to a budget, marking what was cut
+#   reject          refuse an operation that exceeds a size limit
+#   block           refuse further distinct tool calls once a budget is spent
+#   drop_oldest     drop the oldest entries from a growing collection
+#   cap             bound a collection to a fixed count while building it
+#   force_answer    end the tool loop and force a final text answer
+#   fail_task       escalate and eventually close a stalled goal-directed task
+#   fail_handshake  end a session-integrity handshake challenge as failed
+#   accept_last     accept the last judge-panel response once the budget is spent
 run: compact
