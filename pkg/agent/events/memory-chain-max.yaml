@@ -1,0 +1,6 @@
+name: memory-chain-max
+# Bounds how many entries the active task chain force-keeps. Entries
+# auto-link into one long chain, so keeping the entire ancestry would defeat
+# truncation -- the nearest few ancestors are the useful context.
+items: 8
+run: cap

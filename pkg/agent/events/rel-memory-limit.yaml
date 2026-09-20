@@ -1,0 +1,6 @@
+name: rel-memory-limit
+# Bounds the base memory relation fed into a memory_query join so a
+# nested-loop join has a bounded worst case regardless of how much state has
+# accumulated.
+items: 500
+run: cap

@@ -978,9 +978,6 @@ func newDepService(deps map[string][]string) graphDependencyService {
 	return newGraphDependencyService(repo, pathSvc)
 }
 
-// memoryFocusMax bounds how many prompt-relevant entries are force-kept.
-const memoryFocusMax = 5
-
 // memoryStopwords are common words ignored when matching a prompt to memory. The
 // 3-char entries matter because significantTokens now accepts length-3 tokens (R)
 // to catch technical terms like "api"/"sql"/"css"/"git" — without these, common
@@ -1036,9 +1033,10 @@ func focusScore(e MemoryEntry, toks []string) int {
 	return score
 }
 
-// focusMatches returns up to memoryFocusMax keys most relevant to focus (the
-// current prompt), strongest match first (T), recency breaking ties. Matching is
-// word-boundary based (S). Empty when focus is empty or nothing matches.
+// focusMatches returns up to the "memory-focus-max" event's cap of keys most
+// relevant to focus (the current prompt), strongest match first (T), recency
+// breaking ties. Matching is word-boundary based (S). Empty when focus is
+// empty or nothing matches.
 func focusMatches(entries []MemoryEntry, focus string) []string {
 	toks := significantTokens(focus)
 	if len(toks) == 0 {
@@ -1066,7 +1064,7 @@ func focusMatches(entries []MemoryEntry, focus string) []string {
 
 	var out []string
 	for _, c := range cands {
-		if len(out) >= memoryFocusMax {
+		if len(out) >= memoryFocusMax() {
 			break
 		}
 		out = append(out, c.key)
@@ -1163,22 +1161,19 @@ func resumeKeyFrom(entries []MemoryEntry) string {
 	return best
 }
 
-// memoryActiveChainMax bounds how many entries the active task chain force-keeps.
-// Because entries auto-link into one long chain, keeping the *entire* ancestry
-// would defeat truncation; the nearest few ancestors are the useful context.
-const memoryActiveChainMax = 8
-
-// ancestryChain returns key plus its nearest transitive parents (References), up
-// to memoryActiveChainMax entries, breadth-first (closest ancestors first), so
-// the current task's immediate provenance is preserved through truncation without
-// dragging in the whole session history. Empty when key is "".
+// ancestryChain returns key plus its nearest transitive parents (References),
+// up to the "memory-chain-max" event's cap, breadth-first (closest ancestors
+// first) -- because entries auto-link into one long chain, keeping the
+// *entire* ancestry would defeat truncation, so the current task's immediate
+// provenance is preserved through truncation without dragging in the whole
+// session history. Empty when key is "".
 func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
 	set := make(map[string]bool)
 	if key == "" {
 		return set
 	}
 	queue := []string{key}
-	for len(queue) > 0 && len(set) < memoryActiveChainMax {
+	for len(queue) > 0 && len(set) < memoryChainMax() {
 		k := queue[0]
 		queue = queue[1:]
 		if set[k] {

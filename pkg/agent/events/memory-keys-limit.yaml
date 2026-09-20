@@ -1,0 +1,7 @@
+name: memory-keys-limit
+# Caps how many key names the <memory-keys> preamble block lists. Without a
+# cap, a store with thousands of entries would dump every key into the
+# system prompt on every session -- the model instead sees the most
+# recently updated entries and a count of how many more exist.
+items: 100
+run: list

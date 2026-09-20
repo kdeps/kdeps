@@ -1177,7 +1177,7 @@ func TestAncestryChain_BoundedAndNearestFirst(t *testing.T) {
 		byKey[e.Key] = e
 	}
 	set := ancestryChain("nu", byKey) // start near the end
-	assert.LessOrEqual(t, len(set), memoryActiveChainMax, "chain is bounded")
+	assert.LessOrEqual(t, len(set), memoryChainMax(), "chain is bounded")
 	assert.True(t, set["nu"], "includes the active node")
 	assert.True(t, set["nt"], "includes the nearest parent")
 }
@@ -1286,7 +1286,7 @@ func TestFocusMatches_RanksStrongMatchesFirst(t *testing.T) {
 	entries := []MemoryEntry{
 		{Key: "result:auth_tokens", Value: "issued", UpdatedAt: 1},
 	}
-	for i := range memoryFocusMax + 2 {
+	for i := range memoryFocusMax() + 2 {
 		entries = append(entries, MemoryEntry{
 			Key: "note:n" + string(rune('a'+i)), Value: "mentions auth once",
 			UpdatedAt: int64(100 + i),
@@ -1294,7 +1294,7 @@ func TestFocusMatches_RanksStrongMatchesFirst(t *testing.T) {
 	}
 	got := focusMatches(entries, "auth tokens")
 	assert.Contains(t, got, "result:auth_tokens", "older strong key+multi-token match survives the cap")
-	assert.LessOrEqual(t, len(got), memoryFocusMax, "capped at memoryFocusMax")
+	assert.LessOrEqual(t, len(got), memoryFocusMax(), "capped at memoryFocusMax")
 }
 
 func TestFocusScore(t *testing.T) {

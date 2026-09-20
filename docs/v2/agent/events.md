@@ -119,8 +119,27 @@ run: block
 
 These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event.
 
+## Memory events
+
+The [persistent memory](./memory.md) subsystem's injection/traversal caps are events too. `memory-prompt-limit` fires on a token measurement like `auto-compact`/`fold`; the rest are plain counts with no trigger condition at all -- they always apply, so they set `items:` directly instead of an `on:` clause:
+
+```yaml
+# ~/.kdeps/events/memory-focus-max.yaml
+name: memory-focus-max
+items: 5   # how many prompt-relevant entries are force-kept when memory is truncated
+run: cap
+```
+
+| Event | Caps | Default |
+|---|---|---|
+| `memory-prompt-limit` | tokens of memory content injected into the system preamble each turn | 500 |
+| `memory-keys-limit` | key names listed in the `<memory-keys>` preamble block | 100 |
+| `memory-focus-max` | prompt-relevant entries force-kept when memory is truncated | 5 |
+| `memory-chain-max` | entries the active task chain force-keeps (its nearest ancestors) | 8 |
+| `rel-memory-limit` | base memory rows fed into a `memory_query` join, bounding its worst case | 500 |
+
 ## Status
 
-Eighteen events ship today: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, and `code-call-budget`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
+Twenty-three events ship today: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
 
-Not every hardcoded limit became an event: pure caps with no "measure, then fire one action" shape -- the auto-generated judge panel's max size, per-turn nudge counts, log-line caps -- stay plain Go constants. Turning every number in the codebase into an event would just move the same duplication into YAML instead of removing it.
+Not every hardcoded limit became an event: pure caps with no "measure, then fire one action" shape and no reasonable way to express as a bare `items:` count either -- the auto-generated judge panel's max size, per-turn nudge counts, log-line caps, a goroutine semaphore's buffer size -- stay plain Go constants. Turning every number in the codebase into an event would just move the same duplication into YAML instead of removing it.

@@ -140,6 +140,55 @@ func TestLoadBuiltinEvents_HasJudgeCluster(t *testing.T) {
 	}
 }
 
+func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
+	built := loadBuiltinEvents()
+
+	require.Contains(t, built, eventMemoryPromptLimit)
+	assert.Equal(t, 500, built[eventMemoryPromptLimit].On.Tokens)
+	assert.Equal(t, "truncate", built[eventMemoryPromptLimit].Run)
+
+	itemCases := []struct {
+		name      string
+		wantItems int
+		wantRun   string
+	}{
+		{eventMemoryKeysLimit, 100, "list"},
+		{eventMemoryFocusMax, 5, "cap"},
+		{eventMemoryChainMax, 8, "cap"},
+		{eventRelMemoryLimit, 500, "cap"},
+	}
+	for _, c := range itemCases {
+		require.Contains(t, built, c.name)
+		e := built[c.name]
+		assert.Equal(t, c.wantItems, e.Items, "event %q items", c.name)
+		assert.Equal(t, c.wantRun, e.Run, "event %q run", c.name)
+	}
+}
+
+func TestMemoryPromptLimit_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 500, memoryPromptLimit())
+}
+
+func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 100, memoryKeysLimit())
+}
+
+func TestMemoryFocusMax_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 5, memoryFocusMax())
+}
+
+func TestMemoryChainMax_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 8, memoryChainMax())
+}
+
+func TestRelMemoryLimit_ReadsEvent(t *testing.T) {
+	assert.Equal(t, 500, relMemoryLimit())
+}
+
+func TestEffectiveItems_FallsBackWhenEventUnset(t *testing.T) {
+	assert.Equal(t, 999, effectiveItems("does-not-exist", 999))
+}
+
 func TestEffectiveDistinctCalls_FallsBackWhenEventUnset(t *testing.T) {
 	assert.Equal(t, 999, effectiveDistinctCalls("does-not-exist", 999))
 }

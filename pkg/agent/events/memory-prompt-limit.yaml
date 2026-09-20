@@ -1,0 +1,6 @@
+name: memory-prompt-limit
+on:
+  # Approximate token cap on how much memory content is injected into the
+  # system preamble each turn.
+  tokens: 500
+run: truncate

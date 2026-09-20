@@ -1,0 +1,5 @@
+name: memory-focus-max
+# Bounds how many prompt-relevant entries are force-kept when memory is
+# truncated to fit its token budget.
+items: 5
+run: cap

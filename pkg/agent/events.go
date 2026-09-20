@@ -73,13 +73,23 @@ const (
 	eventCodeCallBudget     = "code-call-budget"
 	eventJudgeMaxRounds     = "judge-max-rounds"
 	eventJudgeIterations    = "judge-iterations"
+	eventMemoryPromptLimit  = "memory-prompt-limit"
+	eventMemoryKeysLimit    = "memory-keys-limit"
+	eventMemoryFocusMax     = "memory-focus-max"
+	eventMemoryChainMax     = "memory-chain-max"
+	eventRelMemoryLimit     = "rel-memory-limit"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
 // kind; an event sets only the ones it uses -- zero means "not this kind".
 type EventTrigger struct {
-	// Tokens fires when the session's estimated token count exceeds this flat
-	// value. The fallback for models whose context window is unknown.
+	// Tokens is a token-count measurement, meaning defined by which event it's
+	// on: "auto-compact" fires when the session's estimated token count
+	// exceeds this flat value (the fallback for models whose context window
+	// is unknown); "memory-prompt-limit" caps how many tokens of memory
+	// content are injected into the system preamble (converted to an
+	// approximate byte budget internally, same charsPerToken ratio the
+	// truncation cluster's Bytes fields use directly).
 	Tokens int `yaml:"tokens,omitempty"`
 	// CtxWindowFraction fires when the session's estimated token count
 	// exceeds this fraction of the model's known context window --
@@ -125,8 +135,13 @@ type Event struct {
 	// ("compact", "fold") today; nothing currently dispatches an arbitrary
 	// slash-command string here, unlike the REPL's own command line.
 	Run string `yaml:"run"`
-	// Items is auxiliary, event-specific configuration that isn't part of
-	// the trigger itself -- e.g. "fold"'s checkpoint-injection-window cap.
+	// Items is a plain count cap with no trigger condition of its own -- it
+	// always applies, unlike On's fields, which fire only once crossed.
+	// Meaning defined by which event it's on: "fold"'s checkpoint-injection-
+	// window size, "memory-keys-limit"'s <memory-keys> preamble block size,
+	// "memory-focus-max"'s force-kept focus-relevant entry count,
+	// "memory-chain-max"'s active-task-chain traversal breadth, or
+	// "rel-memory-limit"'s base-relation count fed into a query join.
 	// Ignored by events that don't use it.
 	Items int `yaml:"items,omitempty"`
 }
@@ -393,8 +408,7 @@ const (
 // argument rather than a name every call site would pass the same literal
 // for.
 func autoCompactTokens() int {
-	e, _ := EventByName(eventAutoCompact)
-	return e.On.Tokens
+	return tokensField(eventAutoCompact)
 }
 
 func foldTokensSinceCheckpoint() int {
@@ -405,6 +419,58 @@ func foldTokensSinceCheckpoint() int {
 func foldItems() int {
 	e, _ := EventByName(eventFold)
 	return e.Items
+}
+
+// memoryPromptLimit returns the "memory-prompt-limit" event's token cap for
+// how much memory content is injected into the system preamble.
+func memoryPromptLimit() int {
+	const fallback = 500 // used only if the event registry is unavailable
+	if n := tokensField(eventMemoryPromptLimit); n > 0 {
+		return n
+	}
+	return fallback
+}
+
+// tokensField reads the "Tokens" field, kept parameterized now that two
+// events (auto-compact, memory-prompt-limit) both use it.
+func tokensField(name string) int {
+	e, _ := EventByName(name)
+	return e.On.Tokens
+}
+
+// memoryKeysLimit, memoryFocusMax, memoryChainMax, and relMemoryLimit each
+// read their one specific built-in event's Items count, floored at fallback
+// if the event is unregistered, corrupt, or omits "items".
+func memoryKeysLimit() int {
+	const fallback = 100
+	return effectiveItems(eventMemoryKeysLimit, fallback)
+}
+
+func memoryFocusMax() int {
+	const fallback = 5
+	return effectiveItems(eventMemoryFocusMax, fallback)
+}
+
+func memoryChainMax() int {
+	const fallback = 8
+	return effectiveItems(eventMemoryChainMax, fallback)
+}
+
+func relMemoryLimit() int {
+	const fallback = 500
+	return effectiveItems(eventRelMemoryLimit, fallback)
+}
+
+// effectiveItems returns the registered event's Items count, floored at
+// fallback -- same reasoning as effectiveBytes/effectiveDistinctCalls: 0
+// would mean "list nothing" / "keep nothing" / "bound the query to zero
+// relations," never a sane resolution of a missing/corrupt override.
+func effectiveItems(name string, fallback int) int {
+	e, _ := EventByName(name)
+	if e.Items > 0 {
+		return e.Items
+	}
+	return fallback
 }
 
 // autoCompactThresholdForCtxWindow returns the "auto-compact" event's token

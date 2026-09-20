@@ -2897,7 +2897,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
 		memPrompt := l.memoryStore.FormatForPromptCapped(
-			memoryPromptLimit, focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars)
+			memoryPromptLimit(), focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars)
 		if memPrompt != "" {
 			memoryParts = append(memoryParts, memPrompt)
 		}
@@ -2905,7 +2905,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		// knows what's stored without having to call memory_list itself. Capped
 		// and recency-ordered — with thousands of entries the full list alone
 		// could be tens of thousands of tokens; memory_search covers the rest.
-		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysListLimit); len(keyNames) > 0 {
+		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
 			block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
 			if total > len(keyNames) {
 				block += fmt.Sprintf(

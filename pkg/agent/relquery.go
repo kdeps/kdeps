@@ -28,11 +28,6 @@ import (
 // already operate on.
 type relRow = map[string]interface{}
 
-// relMemoryLimit and relToolCallLimit bound the base relations fed into a
-// query so a nested-loop join has a bounded worst case (relMemoryLimit x
-// relToolCallLimit) regardless of how much state has accumulated.
-const relMemoryLimit = 500
-
 // buildQueryEnv assembles the memory/tool_calls/tasks relations plus the
 // join/union helpers into an expr-lang environment for the memory_query
 // builtin tool. ms, toolLog, and goal may each be nil/empty; the
@@ -48,14 +43,17 @@ func buildQueryEnv(ms *MemoryStore, toolLog []ToolCallRecord, goal *Goal) map[st
 }
 
 // memoryRelation converts MemoryStore.List() into a relation. Capped to the
-// most recent relMemoryLimit entries (List() is sorted by key, so re-sort by
-// UpdatedAt first) to bound join cost; nil ms yields an empty relation.
+// most recent entries, bounded by the "rel-memory-limit" event (List() is
+// sorted by key, so re-sort by UpdatedAt first), so a nested-loop join
+// against the tool_calls relation (itself already capped by maxToolCallLog
+// at the source, Loop.recordToolCall) has a bounded worst case regardless of
+// how much state has accumulated; nil ms yields an empty relation.
 func memoryRelation(ms *MemoryStore) []relRow {
 	if ms == nil {
 		return []relRow{}
 	}
 	entries := ms.List()
-	if len(entries) > relMemoryLimit {
+	if limit := relMemoryLimit(); len(entries) > limit {
 		// Keep the most recently updated entries -- same recency bias as the
 		// rest of the memory subsystem (selectKeptEntries, RecentKeys).
 		sorted := make([]MemoryEntry, len(entries))
@@ -65,7 +63,7 @@ func memoryRelation(ms *MemoryStore) []relRow {
 				sorted[j-1], sorted[j] = sorted[j], sorted[j-1]
 			}
 		}
-		entries = sorted[:relMemoryLimit]
+		entries = sorted[:limit]
 	}
 	rows := make([]relRow, len(entries))
 	for i, e := range entries {

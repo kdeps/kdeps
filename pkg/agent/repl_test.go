@@ -2967,16 +2967,16 @@ func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
 }
 
 // TestBuildSystemPreamble_MemoryKeysCapped guards against dumping every stored
-// key into the system prompt: with more entries than memoryKeysListLimit, the
-// <memory-keys> block must stay capped and say how many more exist, not grow
-// unboundedly with the store.
+// key into the system prompt: with more entries than the "memory-keys-limit"
+// event's cap, the <memory-keys> block must stay capped and say how many more
+// exist, not grow unboundedly with the store.
 func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewMemoryStore(t.TempDir())
 	store.SetCwd("/tmp/memory-keys-cap-test")
 	loop.memoryStore = store
 
-	total := memoryKeysListLimit + 25
+	total := memoryKeysLimit() + 25
 	for i := range total {
 		require.NoError(t, store.Set(fmt.Sprintf("key-%04d", i), "value"))
 	}
@@ -2993,8 +2993,8 @@ func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 	block := preamble[start:end]
 
 	shown := strings.Count(block, "\nkey-")
-	assert.LessOrEqual(t, shown, memoryKeysListLimit, "memory-keys block must be capped")
-	assert.Contains(t, block, fmt.Sprintf("... and %d more", total-memoryKeysListLimit))
+	assert.LessOrEqual(t, shown, memoryKeysLimit(), "memory-keys block must be capped")
+	assert.Contains(t, block, fmt.Sprintf("... and %d more", total-memoryKeysLimit()))
 }
 
 // --- SetModelTypes / SetCloudModelBackends / SetModelPickerFn ---
