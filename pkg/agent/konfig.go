@@ -61,6 +61,13 @@ type Konfig struct {
 	// thresholds (AutoCompactThreshold/FoldThreshold/FoldContextItems still
 	// exist as an explicit per-session override on top of an event's default).
 	Events []Event `yaml:"events"`
+	// Actions is every registered action name -- the fixed vocabulary an
+	// event's "run:" field draws from -- built-in plus user overrides from
+	// ~/.kdeps/actions/*.yaml, already merged by name. Descriptive metadata
+	// only: the actual behavior stays Go code, this just carries the
+	// validated name/kind/description registry so a target machine's
+	// `/event` output and event-name validation match the source machine's.
+	Actions []Action `yaml:"actions"`
 	// ActiveTheme is the currently selected theme's name.
 	ActiveTheme string `yaml:"activeTheme"`
 	// Skills carries each loaded skill's full SKILL.md content inline, so
@@ -139,6 +146,7 @@ func ExportKonfigWithSkills(tuning ToolTuning, skillList []Skill) (*Konfig, erro
 		Harness:     harness,
 		Themes:      exportThemeEntries(),
 		Events:      exportEventEntries(),
+		Actions:     exportActionEntries(),
 		ActiveTheme: CurrentThemeName(),
 		Skills:      skills,
 		Registry: KonfigRegistry{
@@ -222,6 +230,9 @@ func ApplyKonfig(k *Konfig) error {
 		return err
 	}
 	if err := writeKonfigThemes(k.Themes); err != nil {
+		return err
+	}
+	if err := writeKonfigActions(k.Actions); err != nil {
 		return err
 	}
 	if err := writeKonfigEvents(k.Events); err != nil {
@@ -329,6 +340,33 @@ func writeKonfigEvents(entries []Event) error {
 			return fmt.Errorf("konfig: import: marshal event %q: %w", e.Name, marshalErr)
 		}
 		p := filepath.Join(dir, sanitizeKonfigName(e.Name)+".yaml")
+		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
+			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
+		}
+	}
+	return nil
+}
+
+// writeKonfigActions writes one ~/.kdeps/actions/<name>.yaml per action,
+// overriding any built-in or existing user action of the same name (see
+// mergeUserActions).
+func writeKonfigActions(entries []Action) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	dir, err := userActionsDir()
+	if err != nil {
+		return fmt.Errorf("konfig: import: %w", err)
+	}
+	if mkErr := AppFS.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("konfig: import: create %s: %w", dir, mkErr)
+	}
+	for _, a := range entries {
+		data, marshalErr := yaml.Marshal(a)
+		if marshalErr != nil {
+			return fmt.Errorf("konfig: import: marshal action %q: %w", a.Name, marshalErr)
+		}
+		p := filepath.Join(dir, sanitizeKonfigName(a.Name)+".yaml")
 		if writeErr := afero.WriteFile(AppFS, p, data, 0o600); writeErr != nil {
 			return fmt.Errorf("konfig: import: write %s: %w", p, writeErr)
 		}

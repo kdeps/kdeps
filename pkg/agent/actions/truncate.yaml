@@ -1,0 +1,5 @@
+name: truncate
+kind: bytes
+description: >-
+  Shorten oversized content to a size budget, appending a marker noting
+  what was cut, instead of refusing the operation outright.

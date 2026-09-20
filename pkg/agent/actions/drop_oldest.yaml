@@ -1,0 +1,5 @@
+name: drop_oldest
+kind: bytes
+description: >-
+  Drop the oldest complete entries from a growing in-flight collection to
+  stay under a size budget, announcing the drop so nothing goes unexplained.

@@ -2,7 +2,7 @@
 
 *Applies to agent mode.*
 
-konfig is one YAML file that is a total, self-contained, declarative description of a kdeps agent's behavior - tuning, harness, themes, events, and skills. Export it from the current effective state (even a completely default, never-customized setup) and hand the file to another machine to fully configure an agent there, no other setup needed.
+konfig is one YAML file that is a total, self-contained, declarative description of a kdeps agent's behavior - tuning, harness, themes, events, actions, and skills. Export it from the current effective state (even a completely default, never-customized setup) and hand the file to another machine to fully configure an agent there, no other setup needed.
 
 ## Exporting
 
@@ -27,7 +27,7 @@ kdeps --konfig <path> [path]   # import, then start the agent loop
 /konfig import [path]          # inside the REPL, applies immediately
 ```
 
-Importing writes every section to where it already lives on disk -- harness entries to `~/.kdeps/harness/<name>.yaml`, themes to `~/.kdeps/themes/<name>.yaml`, events to `~/.kdeps/events/<name>.yaml`, skills to `~/.kdeps/skills/<name>/SKILL.md`, and tuning/registry/active-theme into `~/.kdeps/agent-loop-settings.yaml` -- overriding any built-in or existing user entry of the same name. `kdeps konfig import` and `/konfig import` also reload the in-process harness, theme, and event registries and apply the active theme immediately; `--konfig <path>` applies before the rest of startup reads settings, so the freshly imported values take effect for that run without a second step. Imported skills are picked up the next time the process starts (a running REPL's skill list is loaded once at startup).
+Importing writes every section to where it already lives on disk -- harness entries to `~/.kdeps/harness/<name>.yaml`, themes to `~/.kdeps/themes/<name>.yaml`, events to `~/.kdeps/events/<name>.yaml`, actions to `~/.kdeps/actions/<name>.yaml`, skills to `~/.kdeps/skills/<name>/SKILL.md`, and tuning/registry/active-theme into `~/.kdeps/agent-loop-settings.yaml` -- overriding any built-in or existing user entry of the same name. `kdeps konfig import` and `/konfig import` also reload the in-process harness, theme, event, and action registries and apply the active theme immediately; `--konfig <path>` applies before the rest of startup reads settings, so the freshly imported values take effect for that run without a second step. Imported skills are picked up the next time the process starts (a running REPL's skill list is loaded once at startup).
 
 ## What's in the file
 
@@ -37,6 +37,7 @@ Importing writes every section to where it already lives on disk -- harness entr
 | `harness` | Every tool-use/behavior-prompt section - all built-in sections plus any `~/.kdeps/harness/*.yaml` overrides, already merged by name |
 | `themes` | Every REPL theme - built-in plus any `~/.kdeps/themes/*.yaml` overrides, merged by name, with every palette color fully resolved (never left blank to inherit from `normal` on import) |
 | `events` | Every reactive LLM event (`auto-compact`, `fold`, and the round-count guards) - built-in plus any `~/.kdeps/events/*.yaml` overrides, merged by name. See [events](./events.md) |
+| `actions` | Every registered action name (the fixed vocabulary events' `run:` fields draw from) - built-in plus any `~/.kdeps/actions/*.yaml` overrides, merged by name. See [events](./events.md) |
 | `activeTheme` | The currently selected theme's name |
 | `skills` | Every loaded skill, with its full `SKILL.md` content inlined - skills travel with the file, not by path |
 | `registry` | Enabled workflow/agency/component/skill lists, default model, model-name display mode, favorite models, custom OpenAI-compatible endpoints |

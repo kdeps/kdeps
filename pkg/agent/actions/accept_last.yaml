@@ -1,0 +1,6 @@
+name: accept_last
+kind: rounds
+description: >-
+  Accept the most recent judge-panel response as final once the
+  revise-and-rejudge iteration budget is spent, regardless of outcome -- a
+  judge panel must never block a turn indefinitely.

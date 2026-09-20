@@ -1,0 +1,6 @@
+name: block
+kind: distinctCalls
+description: >-
+  Refuse further distinct tool calls in one category once its per-turn
+  budget is exhausted. A repeat of an already-attempted call is never
+  blocked -- only new, distinct calls draw from the budget.

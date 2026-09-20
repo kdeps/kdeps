@@ -1,0 +1,5 @@
+name: cap
+kind: items
+description: >-
+  Bound a collection to a fixed count while building it, keeping
+  priority/recency order instead of growing unboundedly.

@@ -1,0 +1,7 @@
+name: compact
+kind: tokens
+description: >-
+  Summarize older conversation history into a checkpoint, keeping the most
+  recent turns verbatim. Used by both auto-compact (full-context-window
+  safety net) and fold (a tighter, more frequent trigger cadence for the
+  same action).

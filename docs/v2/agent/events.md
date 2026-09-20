@@ -28,10 +28,10 @@ on:
   tokensSinceCheckpoint: 2000  # tokens accumulated since the last checkpoint
   minTurns: 4
 items: 5                       # how many recent checkpoints stay in the memory-prompt window
-run: fold                       # a lighter, more frequent pass than auto-compact
+run: compact                    # same action as auto-compact, just a tighter trigger cadence
 ```
 
-`auto-compact` is the full-context-window safety net: once the session gets close to filling the model's window, kdeps summarizes everything except the last few turns so the conversation can keep going. `fold` is a tighter, more frequent pass -- it archives a checkpoint every time a couple thousand tokens of new conversation accumulate, well before `auto-compact` would ever need to fire.
+`auto-compact` is the full-context-window safety net: once the session gets close to filling the model's window, kdeps summarizes everything except the last few turns so the conversation can keep going. `fold` fires the same `compact` action on a tighter, more frequent cadence -- every time a couple thousand tokens of new conversation accumulate, well before `auto-compact` would ever need to fire. `fold` is not a separate, lighter mechanism today; the two events exist so the *trigger* is tunable independently even though the *action* is currently shared.
 
 ## Overriding a built-in
 
@@ -138,8 +138,27 @@ run: cap
 | `memory-chain-max` | entries the active task chain force-keeps (its nearest ancestors) | 8 |
 | `rel-memory-limit` | base memory rows fed into a `memory_query` join, bounding its worst case | 500 |
 
+## Actions
+
+`run:` isn't a free-form string -- every event's declared action is checked against a registry of known actions, the same built-in-embed + `~/.kdeps` user-override pattern as events themselves:
+
+```yaml
+# ~/.kdeps/actions/force_answer.yaml (built-in default -- shown for reference)
+name: force_answer
+kind: rounds     # the trigger shape this action is meant for: tokens, bytes, distinctCalls, items, or rounds
+description: >-
+  End the current tool-calling loop and force a final text answer from
+  whatever was gathered, instead of letting the model keep spinning.
+```
+
+Ten actions ship today, one per distinct behavior in the codebase: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_task`, `fail_handshake`, `accept_last`. If an event's `run:` names anything else -- a typo, or a name that was renamed or removed -- kdeps prints a warning to stderr at startup naming the event and the unrecognized action, so a broken override is loud, never a silent no-op.
+
+The action's actual behavior stays Go code (these perform real side effects -- summarizing a conversation, truncating a string, refusing a tool call -- not something a YAML file alone can express). The registry is what's configurable: the name, its `kind`, and its `description`, which is what makes `~/.kdeps/actions/*.yaml`, `~/.kdeps/events/*.yaml`, `~/.kdeps/harness/*.yaml`, and `~/.kdeps/themes/*.yaml` the complete, consistent source of truth for "what can happen and when" -- every one of them the same embed-plus-override shape, every one covered by [konfig](./konfig.md) export/import.
+
+Not every action is freely swappable onto any event with the same trigger shape: `task-round-budget`/`unproductive-rounds` (both `fail_task`) actually drive a 4-step escalation ladder in the goal-enforcement subsystem (reanchor, narrow tools, force close, then fail forward), not a single function call, and `handshake-timeout`/`judge-max-rounds` (both `force_answer`) work by setting a sub-loop's round budget and relying on the loop's own generic round-exhaustion behavior rather than a distinct dispatchable step. Renaming these two pairs' `run:` to something else would be validated (the name exists) but wouldn't change what actually happens -- the call site only implements the one action it already names.
+
 ## Status
 
-Twenty-three events ship today: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
+Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
 
 Not every hardcoded limit became an event: pure caps with no "measure, then fire one action" shape and no reasonable way to express as a bare `items:` count either -- the auto-generated judge panel's max size, per-turn nudge counts, log-line caps, a goroutine semaphore's buffer size -- stay plain Go constants. Turning every number in the codebase into an event would just move the same duplication into YAML instead of removing it.

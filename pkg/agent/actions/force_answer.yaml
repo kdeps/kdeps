@@ -1,0 +1,5 @@
+name: force_answer
+kind: rounds
+description: >-
+  End the current tool-calling loop and force a final text answer from
+  whatever was gathered, instead of letting the model keep spinning.

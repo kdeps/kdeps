@@ -1,0 +1,5 @@
+name: reject
+kind: bytes
+description: >-
+  Refuse an operation whose input exceeds a size limit, returning an error
+  instead of truncating and proceeding.

@@ -1,0 +1,6 @@
+name: fail_task
+kind: rounds
+description: >-
+  Escalate a stalled goal-directed task (reanchor, narrow tools, force
+  close, then fail forward) and eventually close it so the loop can never
+  get trapped on one task.

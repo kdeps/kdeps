@@ -42,7 +42,7 @@ func TestLoadBuiltinEvents_HasAutoCompactAndFold(t *testing.T) {
 	assert.Equal(t, 2000, fold.On.TokensSinceCheckpoint)
 	assert.Equal(t, 4, fold.On.MinTurns)
 	assert.Equal(t, 5, fold.Items)
-	assert.Equal(t, "fold", fold.Run)
+	assert.Equal(t, "compact", fold.Run)
 }
 
 func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
@@ -90,7 +90,7 @@ func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {
 		{eventToolResultTruncate, 16384, "truncate"},
 		{eventToolErrorTruncate, 500, "truncate"},
 		{eventForceAnswerDigest, 12288, "truncate"},
-		{eventHistoryWindowTrim, 24576, "drop_oldest_roundtrip"},
+		{eventHistoryWindowTrim, 24576, "drop_oldest"},
 		{eventFileReadLimit, 1048576, "reject"},
 	}
 	for _, c := range cases {
@@ -152,7 +152,7 @@ func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
 		wantItems int
 		wantRun   string
 	}{
-		{eventMemoryKeysLimit, 100, "list"},
+		{eventMemoryKeysLimit, 100, "cap"},
 		{eventMemoryFocusMax, 5, "cap"},
 		{eventMemoryChainMax, 8, "cap"},
 		{eventRelMemoryLimit, 500, "cap"},

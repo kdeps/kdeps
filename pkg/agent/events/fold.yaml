@@ -8,4 +8,6 @@ on:
 # How many recent checkpoints (active + archived) stay in the active
 # memory-prompt injection window.
 items: 5
-run: fold
+# Fires the same "compact" action as auto-compact -- fold is a tighter,
+# more frequent cadence for triggering it, not a separate lighter mechanism.
+run: compact

@@ -224,12 +224,28 @@ func loadUserEvents() (map[string]*Event, []error) {
 	if err != nil {
 		return nil, []error{err}
 	}
+	return loadUserYAMLDir(dir, "events", parseYAMLEvent, func(e Event) string { return e.Name })
+}
+
+// loadUserYAMLDir walks dir for *.yaml/*.yml files, parsing each with parse
+// and keying the result by nameOf(parsed value). Shared by
+// loadUserEvents/loadUserActions (actions.go) -- otherwise identical loops
+// golangci-lint's dupl check would flag as a duplicate. A missing or
+// unreadable directory returns no entries and no errors, the same lenient
+// pattern loadUserHarness/loadUserThemes use (those two predate this helper
+// and still have their own copy of the loop -- not worth the churn of
+// reconciling four call sites at once).
+func loadUserYAMLDir[T any](
+	dir, errPrefix string,
+	parse func(data []byte, source string) (T, error),
+	nameOf func(T) string,
+) (map[string]*T, []error) {
 	infos, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return nil, nil // missing/unreadable dir is not an error
 	}
 
-	out := make(map[string]*Event)
+	out := make(map[string]*T)
 	var errs []error
 	for _, info := range infos {
 		if info.IsDir() {
@@ -242,15 +258,15 @@ func loadUserEvents() (map[string]*Event, []error) {
 		p := filepath.Join(dir, info.Name())
 		data, readErr := afero.ReadFile(AppFS, p)
 		if readErr != nil {
-			errs = append(errs, fmt.Errorf("events: read %s: %w", p, readErr))
+			errs = append(errs, fmt.Errorf("%s: read %s: %w", errPrefix, p, readErr))
 			continue
 		}
-		ev, parseErr := parseYAMLEvent(data, p)
+		v, parseErr := parse(data, p)
 		if parseErr != nil {
 			errs = append(errs, parseErr)
 			continue
 		}
-		out[ev.Name] = &ev
+		out[nameOf(v)] = &v
 	}
 	return out, errs
 }
@@ -268,12 +284,17 @@ func mergeUserEvents(user map[string]*Event) {
 // rather than living entirely inside init() -- loadUserEvents touches the
 // filesystem, and callers want to trigger that deterministically.
 func initEvents() {
+	// Actions load first (not their own init()) so validateEventActions
+	// below always runs against a populated registry, regardless of which
+	// file's init() the Go toolchain would otherwise run first.
+	initActions()
 	eventRegistry = loadBuiltinEvents()
 	userEvents, loadErrs := loadUserEvents()
 	for _, e := range loadErrs {
 		fmt.Fprintf(os.Stderr, "events: %v\n", e)
 	}
 	mergeUserEvents(userEvents)
+	validateEventActions()
 	applyConvergenceCacheDefaults()
 }
 

@@ -225,6 +225,7 @@ pkg/**/**/*.yaml
 !pkg/agent/themes/*.yaml
 !pkg/agent/harness/*.yaml
 !pkg/agent/events/*.yaml
+!pkg/agent/actions/*.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov

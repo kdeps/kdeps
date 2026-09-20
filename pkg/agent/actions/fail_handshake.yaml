@@ -1,0 +1,5 @@
+name: fail_handshake
+kind: rounds
+description: >-
+  End a session-integrity handshake challenge as failed once its round
+  budget is spent without the model producing the expected grounding call.

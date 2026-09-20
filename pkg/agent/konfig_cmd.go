@@ -68,8 +68,8 @@ func (r *REPL) cmdKonfigExport(path string) error {
 		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
 	}
 	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
-		"Exported %d harness section(s), %d theme(s), %d event(s), %d skill(s) to %s",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Skills), path)))
+		"Exported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) to %s",
+		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)))
 	return nil
 }
 
@@ -89,8 +89,8 @@ func (r *REPL) cmdKonfigImport(path string) error {
 		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
 	}
 	msg := fmt.Sprintf(
-		"Imported %d harness section(s), %d theme(s), %d event(s), %d skill(s) from %s",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Skills), path)
+		"Imported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) from %s",
+		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)
 	if len(k.Skills) > 0 {
 		msg += " (restart to pick up imported skills)"
 	}

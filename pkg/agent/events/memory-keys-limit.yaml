@@ -4,4 +4,4 @@ name: memory-keys-limit
 # system prompt on every session -- the model instead sees the most
 # recently updated entries and a count of how many more exist.
 items: 100
-run: list
+run: cap

@@ -5,4 +5,4 @@ on:
   # dropped so a long loop does not re-send an ever-growing transcript on
   # every round.
   bytes: 24576
-run: drop_oldest_roundtrip
+run: drop_oldest

@@ -72,8 +72,9 @@ func runKonfigExportCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("konfig export: %w", writeErr)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Exported %d harness section(s), %d theme(s), %d event(s), %d skill(s) to %s\n",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Skills), path)
+	fmt.Fprintf(cmd.OutOrStdout(),
+		"Exported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) to %s\n",
+		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)
 	return nil
 }
 
@@ -101,8 +102,9 @@ func runKonfigImportCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("konfig import: %w", applyErr)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Imported %d harness section(s), %d theme(s), %d event(s), %d skill(s) from %s\n",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Skills), path)
+	fmt.Fprintf(cmd.OutOrStdout(),
+		"Imported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) from %s\n",
+		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)
 	return nil
 }
 
