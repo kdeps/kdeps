@@ -121,6 +121,25 @@ func TestLoadBuiltinEvents_HasCallBudgetCluster(t *testing.T) {
 	}
 }
 
+func TestLoadBuiltinEvents_HasJudgeCluster(t *testing.T) {
+	built := loadBuiltinEvents()
+
+	cases := []struct {
+		name       string
+		wantRounds int
+		wantRun    string
+	}{
+		{eventJudgeMaxRounds, 15, "force_answer"},
+		{eventJudgeIterations, 2, "accept_last"},
+	}
+	for _, c := range cases {
+		require.Contains(t, built, c.name)
+		e := built[c.name]
+		assert.Equal(t, c.wantRounds, e.On.Rounds, "event %q rounds", c.name)
+		assert.Equal(t, c.wantRun, e.Run, "event %q run", c.name)
+	}
+}
+
 func TestEffectiveDistinctCalls_FallsBackWhenEventUnset(t *testing.T) {
 	assert.Equal(t, 999, effectiveDistinctCalls("does-not-exist", 999))
 }

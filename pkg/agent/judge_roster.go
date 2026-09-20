@@ -39,9 +39,6 @@ const judgeRosterActionID = "agent_loop_judge_roster"
 // being independent perspectives and just multiply review cost.
 const maxAutoJudges = 3
 
-// defaultJudgeMaxIterations bounds the revise-and-rejudge loop.
-const defaultJudgeMaxIterations = 2
-
 // generateJudgeRoster asks the model for a panel of reviewer personas suited
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.

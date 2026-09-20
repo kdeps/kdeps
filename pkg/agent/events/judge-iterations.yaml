@@ -1,0 +1,7 @@
+name: judge-iterations
+on:
+  # How many times the revise-and-rejudge loop may retry after a judge
+  # rejection before accepting the last response regardless of outcome -- a
+  # judge panel must never block a turn indefinitely.
+  rounds: 2
+run: accept_last

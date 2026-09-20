@@ -881,7 +881,7 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.MaxUnproductiveRounds = effectiveRounds(eventUnproductiveRound)
 	}
 	if cfg.JudgeMaxIterations <= 0 {
-		cfg.JudgeMaxIterations = defaultJudgeMaxIterations
+		cfg.JudgeMaxIterations = effectiveRounds(eventJudgeIterations)
 	}
 	// NOTE: auto stall/tool allocation is enabled only by the interactive REPL
 	// (repl.Run), not here — library and test callers keep the deterministic

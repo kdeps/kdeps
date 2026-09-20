@@ -1,0 +1,6 @@
+name: judge-max-rounds
+on:
+  # Tool rounds for a single judge's review. Small on purpose -- a judge
+  # verifies claims, it does not redo the work.
+  rounds: 15
+run: force_answer

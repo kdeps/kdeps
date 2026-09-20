@@ -71,6 +71,8 @@ const (
 	eventBashCallBudget     = "bash-call-budget"
 	eventFileCallBudget     = "file-call-budget"
 	eventCodeCallBudget     = "code-call-budget"
+	eventJudgeMaxRounds     = "judge-max-rounds"
+	eventJudgeIterations    = "judge-iterations"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -94,8 +96,10 @@ type EventTrigger struct {
 	// calls ("identical-tool-calls"), consecutive convergence-blocked rounds
 	// ("convergence-block"), tool rounds spent on one task
 	// ("task-round-budget"), consecutive rounds with no new progress
-	// ("unproductive-rounds"), or a handshake's own round budget
-	// ("handshake-timeout") -- each reads this same field for its own counter.
+	// ("unproductive-rounds"), a handshake's own round budget
+	// ("handshake-timeout"), a single judge's tool-round budget
+	// ("judge-max-rounds"), or the revise-and-rejudge loop's iteration budget
+	// ("judge-iterations") -- each reads this same field for its own counter.
 	Rounds int `yaml:"rounds,omitempty"`
 	// Bytes fires once a measured byte length reaches this value. What it
 	// measures is defined by which event it's on: a single tool result
