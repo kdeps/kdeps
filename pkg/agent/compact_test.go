@@ -684,3 +684,43 @@ func TestForcedCutIndex(t *testing.T) {
 		}
 	}
 }
+
+func TestShouldAutoCompactNow_DisabledEventNeverFires(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	if err := SetEventEnabled(eventAutoCompact, false); err != nil {
+		t.Fatal(err)
+	}
+	loop := makeTestLoop(nil)
+	loop.config.AutoCompactThreshold = 1 // would otherwise fire immediately
+	msgs := makeTurns(compactMinTurns + 5)
+	if loop.shouldAutoCompactNow(msgs) {
+		t.Fatal("expected a disabled auto-compact event to never fire")
+	}
+}
+
+func TestShouldAutoCompactNow_EnabledEventFiresNormally(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	loop := makeTestLoop(nil)
+	loop.config.AutoCompactThreshold = 1
+	loop.config.Model = "some-unregistered-local-gguf" // unknown ctx window: uses flat threshold
+	msgs := makeTurns(compactMinTurns + 5)
+	if !loop.shouldAutoCompactNow(msgs) {
+		t.Fatal("expected an enabled auto-compact event to fire once its threshold is exceeded")
+	}
+}
+
+func TestShouldFoldNow_DisabledEventNeverFires(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	if err := SetEventEnabled(eventFold, false); err != nil {
+		t.Fatal(err)
+	}
+	loop := makeTestLoop(nil)
+	loop.config.FoldThreshold = 1
+	msgs := makeTurns(compactMinTurns + 5)
+	if loop.shouldFoldNow(msgs) {
+		t.Fatal("expected a disabled fold event to never fire")
+	}
+}

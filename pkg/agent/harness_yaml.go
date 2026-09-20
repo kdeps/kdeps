@@ -65,13 +65,20 @@ type yamlHarnessEntry struct {
 	Kind  string `yaml:"kind"`
 	Order int    `yaml:"order"`
 	Body  string `yaml:"body"`
+	// Disabled excludes this section from the assembled preamble (if
+	// preamble-section) or from harnessText/harnessRender lookups (if
+	// standalone) entirely. False (the zero value) means enabled, so an
+	// override file that omits this field never accidentally disables
+	// anything. Set/unset via "/harness enable|disable <name>".
+	Disabled bool `yaml:"disabled,omitempty"`
 }
 
 // harnessEntry is the parsed, in-memory form.
 type harnessEntry struct {
-	kind  string
-	order int
-	body  string
+	kind     string
+	order    int
+	body     string
+	disabled bool
 }
 
 // userHarnessDirName is the subdirectory of ~/.kdeps holding user harness
@@ -137,7 +144,7 @@ func parseBuiltinHarnessFileFrom(fsys harnessFS, out map[string]*harnessEntry, f
 		panic(fmt.Sprintf("harness: parse embedded %s: %v", filename, err))
 	}
 	name := harnessNameFromYAML(ye, filename)
-	out[name] = &harnessEntry{kind: ye.Kind, order: ye.Order, body: ye.Body}
+	out[name] = &harnessEntry{kind: ye.Kind, order: ye.Order, body: ye.Body, disabled: ye.Disabled}
 }
 
 // parseYAMLHarnessEntry unmarshals one harness document, returning a wrapped
@@ -202,7 +209,7 @@ func loadUserHarness() (map[string]*harnessEntry, []error) {
 		if kind == "" {
 			kind = harnessKindStandalone
 		}
-		out[name] = &harnessEntry{kind: kind, order: ye.Order, body: ye.Body}
+		out[name] = &harnessEntry{kind: kind, order: ye.Order, body: ye.Body, disabled: ye.Disabled}
 	}
 	return out, errs
 }

@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
-	"/login", "/theme", "/refine", "/handshake", "/instruct", "/instruct!", "/exit", "/quit",
+	"/login", "/theme", "/refine", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so the active theme
@@ -2507,6 +2507,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdLogin(args)
 	case "/theme":
 		return r.cmdTheme(args)
+	case "/harness":
+		return r.cmdHarness(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2598,6 +2600,10 @@ func (r *REPL) cmdHelp() error {
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /theme [name|list]                 Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom",
+		"  /harness [list]                    List harness sections (system-prompt text) with their enabled/disabled state",
+		"  /harness enable|disable <name>     Toggle a harness section, persisted to ~/.kdeps/harness/<name>.yaml",
+		"  /harness events [list]             List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state",
+		"  /harness events enable|disable <name>  Toggle an event, persisted to ~/.kdeps/events/<name>.yaml",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",

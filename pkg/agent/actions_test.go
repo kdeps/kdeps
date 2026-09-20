@@ -58,10 +58,12 @@ func TestActionByName_KnownReturnsTrue(t *testing.T) {
 // the built-in-only registry afterward, mirroring isolateEventsHome.
 func isolateActionsHome(t *testing.T) {
 	t.Helper()
+	// Registered before t.Setenv below so it runs LAST -- see
+	// isolateEventsHome (events_test.go) for why the order matters.
+	t.Cleanup(initActions)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Cleanup(initActions)
 }
 
 func TestInitActions_UserOverrideReplacesBuiltinByName(t *testing.T) {

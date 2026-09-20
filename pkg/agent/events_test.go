@@ -284,10 +284,15 @@ func TestEffectiveMinTurns_UsesEventValueWhenSet(t *testing.T) {
 // (konfig_test.go) for the event registry.
 func isolateEventsHome(t *testing.T) {
 	t.Helper()
+	// Registered before t.Setenv below so it runs LAST: t.Cleanup runs LIFO,
+	// so a cleanup registered after t.Setenv's own (internal) revert-cleanup
+	// would reload the registry from the temp dir *before* HOME reverts,
+	// leaking a test's overrides into every test that runs after it. This
+	// order reloads only once the real HOME is back in place.
+	t.Cleanup(initEvents)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Cleanup(initEvents)
 }
 
 func TestInitEvents_UserOverrideReplacesBuiltinByName(t *testing.T) {
@@ -336,4 +341,66 @@ func TestExportEventEntries_IncludesBuiltins(t *testing.T) {
 	}
 	assert.True(t, names[eventAutoCompact])
 	assert.True(t, names[eventFold])
+}
+
+func TestEventEnabled_UnknownNameFailsOpen(t *testing.T) {
+	assert.True(t, EventEnabled("does-not-exist"))
+}
+
+func TestEventEnabled_KnownNameDefaultsTrue(t *testing.T) {
+	assert.True(t, EventEnabled(eventAutoCompact))
+}
+
+func TestSetEventEnabled_UnknownNameErrors(t *testing.T) {
+	isolateEventsHome(t)
+	err := SetEventEnabled("does-not-exist", false)
+	require.Error(t, err)
+}
+
+func TestSetEventEnabled_DisableThenEnableRoundTrips(t *testing.T) {
+	isolateEventsHome(t)
+	require.True(t, EventEnabled(eventIdenticalCalls))
+
+	require.NoError(t, SetEventEnabled(eventIdenticalCalls, false))
+	assert.False(t, EventEnabled(eventIdenticalCalls))
+	assert.Equal(t, disabledSentinel, effectiveRounds(eventIdenticalCalls),
+		"a disabled event's trigger must never fire")
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", eventIdenticalCalls+".yaml"))
+
+	require.NoError(t, SetEventEnabled(eventIdenticalCalls, true))
+	assert.True(t, EventEnabled(eventIdenticalCalls))
+	assert.Equal(t, 3, effectiveRounds(eventIdenticalCalls))
+}
+
+func TestSetEventEnabled_PreservesOtherFieldsOnDisable(t *testing.T) {
+	isolateEventsHome(t)
+	require.NoError(t, SetEventEnabled(eventAutoCompact, false))
+
+	e, ok := EventByName(eventAutoCompact)
+	require.True(t, ok)
+	assert.True(t, e.Disabled)
+	assert.Equal(t, 30000, e.On.Tokens, "disabling must not clobber the event's own configured values")
+	assert.Equal(t, "compact", e.Run)
+}
+
+func TestDisabledSentinel_GatesEveryAccessorKind(t *testing.T) {
+	isolateEventsHome(t)
+	require.NoError(t, SetEventEnabled(eventToolResultTruncate, false))
+	require.NoError(t, SetEventEnabled(eventWebCallBudget, false))
+	require.NoError(t, SetEventEnabled(eventMemoryFocusMax, false))
+	require.NoError(t, SetEventEnabled(eventAutoCompact, false))
+	require.NoError(t, SetEventEnabled(eventFold, false))
+	require.NoError(t, SetEventEnabled(eventMemoryPromptLimit, false))
+
+	assert.Equal(t, disabledSentinel, effectiveBytes(eventToolResultTruncate, 1))
+	assert.Equal(t, disabledSentinel, effectiveDistinctCalls(eventWebCallBudget, 1))
+	assert.Equal(t, disabledSentinel, effectiveItems(eventMemoryFocusMax, 1))
+	assert.Equal(t, disabledSentinel, autoCompactTokens())
+	assert.Equal(t, disabledSentinel, autoCompactThresholdForCtxWindow(128000))
+	assert.Equal(t, disabledSentinel, foldTokensSinceCheckpoint())
+	assert.Equal(t, disabledSentinel, foldItems())
+	assert.Equal(t, disabledSentinel, memoryPromptLimit())
 }

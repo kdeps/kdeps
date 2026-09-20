@@ -171,8 +171,22 @@ None of this asks the model to cooperate. Every action is deterministic Go contr
 
 **The one genuinely soft layer** is the harness (`~/.kdeps/harness/*.yaml` -- tool-use rules, memory rules, honesty/scope/accuracy sections): prompt text asking the model to behave a certain way, with nothing in code checking whether it actually did. That's the dividing line for anything new: if it must be true regardless of what the model does, it's an event/action; if it's guidance the model is expected to follow, it's harness text.
 
+## Enabling and disabling
+
+Every event (and every harness section) can be turned off entirely, from the REPL, with the change persisted and picked up immediately -- no restart:
+
+```
+/harness events                          # list every event: trigger summary, action, enabled/disabled
+/harness events disable identical-tool-calls
+/harness events enable identical-tool-calls
+```
+
+This writes `disabled: true` (or removes it) in `~/.kdeps/events/<name>.yaml` -- the same override file `/konfig import` already writes to -- then reloads the registry in place. A disabled event's trigger can never fire: its threshold is treated as unreachably large (or, for `auto-compact`/`fold`, the loop skips the check outright, since their own context-window-aware branch would otherwise ignore an inflated threshold). Harness sections work the same way under the plain `/harness` command (`/harness list`, `/harness enable|disable <name>`) -- a disabled preamble section drops out of the system prompt on the very next turn, and a disabled standalone section (e.g. `m365-sandbox`) returns empty when looked up.
+
+An unregistered or corrupted event/harness name always fails **open** (enabled) -- a missing config entry must never silently disable a safety mechanism; only an explicit `disabled: true` does.
+
 ## Status
 
-Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. All are read-only from the REPL (there is no `/event set` command yet -- edit the YAML file directly, the same way a custom `/theme` or harness section is authored).
+Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. Every one can be listed and toggled via `/harness events` (see "Enabling and disabling" above); there is no `/event set <field> <value>` command yet for changing a trigger's numeric threshold from the REPL -- edit the YAML file directly for that, the same way a custom `/theme` or harness section is authored.
 
 Not every hardcoded limit became an event: pure caps with no "measure, then fire one action" shape and no reasonable way to express as a bare `items:` count either -- the auto-generated judge panel's max size, per-turn nudge counts, log-line caps, a goroutine semaphore's buffer size -- stay plain Go constants. Turning every number in the codebase into an event would just move the same duplication into YAML instead of removing it.

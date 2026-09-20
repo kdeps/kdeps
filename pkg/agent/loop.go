@@ -926,11 +926,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// threshold, or when enough new conversation has accumulated since the
 	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
 	// condition runs the same compaction call, just at a different cadence.
-	if msgs := l.session.RawMessages(); shouldAutoCompact(
-		msgs,
-		l.config.AutoCompactThreshold,
-		l.config.Model,
-	) || l.shouldFoldNow(msgs) {
+	if msgs := l.session.RawMessages(); l.shouldAutoCompactNow(msgs) || l.shouldFoldNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -1011,7 +1007,7 @@ func (l *Loop) IsStreaming() bool {
 // condition runs the same compaction call, just at a different cadence.
 func (l *Loop) autoCompactIfDue(ctx context.Context) {
 	msgs := l.session.RawMessages()
-	if !shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) && !l.shouldFoldNow(msgs) {
+	if !l.shouldAutoCompactNow(msgs) && !l.shouldFoldNow(msgs) {
 		return
 	}
 	if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
@@ -3401,11 +3397,12 @@ func (l *Loop) Session() SessionReadWriter {
 // Config returns a copy of the loop's configuration.
 func (l *Loop) Config() Config { return l.config }
 
-// shouldFoldNow reports whether a "fold" should run now: FoldOff disables it
-// outright; otherwise it delegates to shouldFold using the active
-// checkpoint's UpdatedAt (0 when none exists yet) as the "since" point.
+// shouldFoldNow reports whether a "fold" should run now: FoldOff or the
+// "fold" event being disabled (see EventEnabled) both disable it outright;
+// otherwise it delegates to shouldFold using the active checkpoint's
+// UpdatedAt (0 when none exists yet) as the "since" point.
 func (l *Loop) shouldFoldNow(msgs []SessionMessage) bool {
-	if l.config.FoldOff {
+	if l.config.FoldOff || !EventEnabled(eventFold) {
 		return false
 	}
 	var sinceNanos int64
@@ -3415,6 +3412,22 @@ func (l *Loop) shouldFoldNow(msgs []SessionMessage) bool {
 		}
 	}
 	return shouldFold(msgs, sinceNanos, l.config.FoldThreshold, l.config.Model)
+}
+
+// shouldAutoCompactNow reports whether auto-compact should run now, gating
+// the "auto-compact" event's enabled flag before delegating to
+// shouldAutoCompact -- needed because shouldAutoCompact's own ctxWindow-known
+// branch ignores the passed threshold entirely (it recomputes its own trigger
+// from the model's real context window), so disabling the event by inflating
+// the threshold alone (autoCompactThresholdForCtxWindow's sentinel) would not
+// reach that branch. Also collapses what used to be three duplicated
+// `shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model)`
+// call sites (Run, autoCompactIfDue, CompactIfNeeded) into one.
+func (l *Loop) shouldAutoCompactNow(msgs []SessionMessage) bool {
+	if !EventEnabled(eventAutoCompact) {
+		return false
+	}
+	return shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model)
 }
 
 // CompactWithLLM summarizes old conversation turns using the LLM and replaces
@@ -3526,7 +3539,7 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 // AutoCompactThreshold. No-op if compaction is disabled or not needed.
 func (l *Loop) CompactIfNeeded(ctx context.Context) {
 	msgs := l.session.RawMessages()
-	if shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if l.shouldAutoCompactNow(msgs) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)

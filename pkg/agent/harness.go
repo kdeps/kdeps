@@ -35,15 +35,50 @@ var (
 	assembledPreamble string
 )
 
-// harnessText returns a harness entry's raw body, or "" if name is unknown.
-// Used for every single-purpose instruction (m365-sandbox, tools-reminder,
-// skills-preamble, the compaction/goal/judge-roster/refine/branch-summary
-// system prompts) that used to be a Go string constant.
+// harnessText returns a harness entry's raw body, or "" if name is unknown
+// or the entry is disabled (see HarnessEnabled). Used for every
+// single-purpose instruction (m365-sandbox, tools-reminder, skills-preamble,
+// the compaction/goal/judge-roster/refine/branch-summary system prompts)
+// that used to be a Go string constant.
 func harnessText(name string) string {
-	if e, ok := harnessRegistry[name]; ok {
+	if e, ok := harnessRegistry[name]; ok && !e.disabled {
 		return e.body
 	}
 	return ""
+}
+
+// HarnessEnabled reports whether a registered harness section is active. An
+// unregistered name fails open (true) -- a missing/corrupt registry entry
+// should never silently disable behavior; only an explicit "disabled: true"
+// does.
+func HarnessEnabled(name string) bool {
+	e, ok := harnessRegistry[strings.ToLower(strings.TrimSpace(name))]
+	if !ok {
+		return true
+	}
+	return !e.disabled
+}
+
+// SetHarnessEnabled persists a harness section's enabled/disabled state to
+// ~/.kdeps/harness/<name>.yaml (the same override-file mechanism konfig
+// import already uses) and reloads the in-process registry (and the cached
+// assembled preamble) immediately. Errors if name isn't a registered
+// section. Callers with a live Loop should also call
+// Loop.InvalidateSystemPreamble afterward so an in-progress session picks up
+// the change on its next turn -- this function only refreshes the
+// package-level registry/cache, not any Loop's own cached preamble string.
+func SetHarnessEnabled(name string, enabled bool) error {
+	key := strings.ToLower(strings.TrimSpace(name))
+	e, ok := harnessRegistry[key]
+	if !ok {
+		return fmt.Errorf("harness: unknown section %q", name)
+	}
+	entry := yamlHarnessEntry{Name: key, Kind: e.kind, Order: e.order, Body: e.body, Disabled: !enabled}
+	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
+		return err
+	}
+	initHarness()
+	return nil
 }
 
 // harnessRender executes a harness entry's body as a Go text/template with
@@ -77,7 +112,7 @@ func harnessRender(name string, data any) string {
 func harnessAssembledPreamble() string {
 	var sections []*harnessEntry
 	for _, e := range harnessRegistry {
-		if e.kind == harnessKindPreambleSection {
+		if e.kind == harnessKindPreambleSection && !e.disabled {
 			sections = append(sections, e)
 		}
 	}

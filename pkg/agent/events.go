@@ -22,6 +22,7 @@ import (
 	"embed"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -144,6 +145,12 @@ type Event struct {
 	// "rel-memory-limit"'s base-relation count fed into a query join.
 	// Ignored by events that don't use it.
 	Items int `yaml:"items,omitempty"`
+	// Disabled turns the event's trigger off entirely -- false (the zero
+	// value) means enabled, so an override file that omits this field never
+	// accidentally disables anything. Set/unset via "/harness events
+	// enable|disable <name>" (persisted to ~/.kdeps/events/<name>.yaml) or by
+	// hand-editing the YAML directly. See EventEnabled.
+	Disabled bool `yaml:"disabled,omitempty"`
 }
 
 //nolint:gochecknoglobals // built-in + user-merged registry, mirrors harnessRegistry/themes
@@ -326,6 +333,50 @@ func EventByName(name string) (Event, bool) {
 	return *e, true
 }
 
+// EventEnabled reports whether a registered event's trigger is active. An
+// unregistered name fails open (true) -- a missing/corrupt registry entry
+// should never silently disable a safety mechanism; only an explicit
+// "disabled: true" does.
+func EventEnabled(name string) bool {
+	e, ok := EventByName(name)
+	if !ok {
+		return true
+	}
+	return !e.Disabled
+}
+
+// SetEventEnabled persists an event's enabled/disabled state to
+// ~/.kdeps/events/<name>.yaml (the same override-file mechanism konfig
+// import already uses) and reloads the in-process registry immediately, so
+// the change takes effect without a restart. Errors if name isn't a
+// registered event -- there's nothing to toggle otherwise.
+func SetEventEnabled(name string, enabled bool) error {
+	e, ok := EventByName(name)
+	if !ok {
+		return fmt.Errorf("events: unknown event %q", name)
+	}
+	e.Disabled = !enabled
+	if err := writeKonfigEvents([]Event{e}); err != nil {
+		return err
+	}
+	initEvents()
+	return nil
+}
+
+// disabledSentinel is what every eventX/effectiveX accessor below returns
+// for a disabled event, standing in for "this threshold can never
+// realistically be crossed." Every consumer of these accessors already
+// guards with "only act once the real count exceeds the limit" before using
+// the limit as a slice bound or cache max (capToolResult, maxFileReadBytes's
+// call sites, windowToolHistory, convergenceCache.trackCall, RecentKeys,
+// capCheckpointEntries, ancestryChain, focusMatches -- verified individually,
+// none pre-allocate sized by this value), so this sentinel never risks an
+// out-of-range slice or a size-based OOM. math.MaxInt32 (not MaxInt/MaxInt64)
+// leaves headroom for a caller multiplying it (toolLoopMessageBudget's *2
+// pre-check) without overflowing even a 32-bit int, while being far larger
+// than any realistic byte/token/round/item count in this domain.
+const disabledSentinel = math.MaxInt32
+
 // eventMinTurns and eventCtxWindowFraction read one field of a registered
 // event by name, returning the zero value for an unregistered name --
 // callers combine these with their own safety fallback rather than treating
@@ -377,6 +428,9 @@ func positiveOrFallback(n, fallback int) int {
 // the only sane minimum for every round-count event; there's no per-site
 // value that would ever need to differ.
 func effectiveRounds(name string) int {
+	if !EventEnabled(name) {
+		return disabledSentinel
+	}
 	return positiveOrFallback(eventRounds(name), 1)
 }
 
@@ -393,6 +447,9 @@ func eventBytes(name string) int {
 // sharing one arbitrary floor the way effectiveRounds's "1" works for every
 // round-count event.
 func effectiveBytes(name string, fallback int) int {
+	if !EventEnabled(name) {
+		return disabledSentinel
+	}
 	return positiveOrFallback(eventBytes(name), fallback)
 }
 
@@ -408,6 +465,9 @@ func eventDistinctCalls(name string) int {
 // one shared floor wouldn't fit all of them the way effectiveRounds's "1"
 // does.
 func effectiveDistinctCalls(name string, fallback int) int {
+	if !EventEnabled(name) {
+		return disabledSentinel
+	}
 	return positiveOrFallback(eventDistinctCalls(name), fallback)
 }
 
@@ -446,15 +506,24 @@ const (
 // argument rather than a name every call site would pass the same literal
 // for.
 func autoCompactTokens() int {
+	if !EventEnabled(eventAutoCompact) {
+		return disabledSentinel
+	}
 	return tokensField(eventAutoCompact)
 }
 
 func foldTokensSinceCheckpoint() int {
+	if !EventEnabled(eventFold) {
+		return disabledSentinel
+	}
 	e, _ := EventByName(eventFold)
 	return e.On.TokensSinceCheckpoint
 }
 
 func foldItems() int {
+	if !EventEnabled(eventFold) {
+		return disabledSentinel
+	}
 	e, _ := EventByName(eventFold)
 	return e.Items
 }
@@ -462,6 +531,9 @@ func foldItems() int {
 // memoryPromptLimit returns the "memory-prompt-limit" event's token cap for
 // how much memory content is injected into the system preamble.
 func memoryPromptLimit() int {
+	if !EventEnabled(eventMemoryPromptLimit) {
+		return disabledSentinel
+	}
 	const fallback = 500 // used only if the event registry is unavailable
 	if n := tokensField(eventMemoryPromptLimit); n > 0 {
 		return n
@@ -504,6 +576,9 @@ func relMemoryLimit() int {
 // would mean "list nothing" / "keep nothing" / "bound the query to zero
 // relations," never a sane resolution of a missing/corrupt override.
 func effectiveItems(name string, fallback int) int {
+	if !EventEnabled(name) {
+		return disabledSentinel
+	}
 	e, _ := EventByName(name)
 	return positiveOrFallback(e.Items, fallback)
 }
@@ -516,6 +591,9 @@ func effectiveItems(name string, fallback int) int {
 // (applyConfigDefaults, the REPL's /model switch and /context command, and
 // ToolTuning's persisted-context-size restore).
 func autoCompactThresholdForCtxWindow(ctxWindow int) int {
+	if !EventEnabled(eventAutoCompact) {
+		return disabledSentinel
+	}
 	if ctxWindow > 0 {
 		if frac := eventCtxWindowFraction(eventAutoCompact); frac > 0 {
 			return int(float64(ctxWindow) * frac)
