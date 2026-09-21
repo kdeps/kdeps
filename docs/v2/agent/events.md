@@ -185,6 +185,29 @@ This writes `disabled: true` (or removes it) in `~/.kdeps/events/<name>.yaml` --
 
 An unregistered or corrupted event/harness name always fails **open** (enabled) -- a missing config entry must never silently disable a safety mechanism; only an explicit `disabled: true` does.
 
+## Presets
+
+Hand-tuning fifteen different events one at a time to make a session cheaper (or more thorough) is tedious. A **preset** is a named, coherent bundle of event overrides -- applying one is like `/fold preset` but for the whole token-economy cluster at once, not just fold:
+
+```
+/harness preset                 # list built-in + user presets, with descriptions
+/harness preset frugal          # apply: minimize token usage
+/harness preset thorough        # apply: maximize context retention
+/harness preset balanced        # apply: reset every tuned event back to its shipped default
+```
+
+Three presets ship today, all tuning the same fifteen events (`auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`) at three intensities:
+
+| Preset | Use it for |
+|---|---|
+| `frugal` | cost-sensitive sessions or a small-context-window local model -- compacts and folds sooner, injects far less memory, truncates output harder, tighter call budgets |
+| `balanced` | the shipped, out-of-the-box defaults -- also the "reset" preset after trying `frugal`/`thorough` |
+| `thorough` | long research/investigation sessions where losing history hurts more than the extra tokens cost -- compacts/folds much less often, far more memory context, larger call budgets |
+
+Applying a preset writes each tuned event straight to its normal `~/.kdeps/events/<name>.yaml` override file (exactly what `/harness events disable <name>` or a hand-edit would produce) and reloads the event registry immediately -- no restart, and no separate "preset" state to fall out of sync with the events it wrote. A preset never touches tuning/registry/theme/skills/actions, so switching between presets can never clobber an unrelated persisted setting.
+
+Like harness sections and events, a preset is built-in-embed plus `~/.kdeps` user-override, merged by name: drop a `~/.kdeps/presets/frugal.yaml` to override the built-in `frugal`, or a differently-named file to add a preset of your own. A preset's shape is the same as its target override files -- an `events:` list of full event entries -- so authoring one is just collecting the event overrides you'd otherwise hand-write into one document with a `name:`/`description:`. Presets round-trip through [konfig](./konfig.md) export/import like every other registry.
+
 ## Status
 
 Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. Every one can be listed and toggled via `/harness events` (see "Enabling and disabling" above); there is no `/event set <field> <value>` command yet for changing a trigger's numeric threshold from the REPL -- edit the YAML file directly for that, the same way a custom `/theme` or harness section is authored.

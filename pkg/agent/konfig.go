@@ -68,6 +68,13 @@ type Konfig struct {
 	// validated name/kind/description registry so a target machine's
 	// `/event` output and event-name validation match the source machine's.
 	Actions []Action `yaml:"actions"`
+	// Presets is every registered harness/event bundle (e.g. "frugal",
+	// "balanced", "thorough") -- built-in plus user overrides from
+	// ~/.kdeps/presets/*.yaml, already merged by name. Presets are inert data
+	// until applied via ApplyPreset/"/harness preset <name>"; exporting them
+	// just carries the registry so a target machine's "/harness preset list"
+	// matches the source machine's.
+	Presets []Preset `yaml:"presets"`
 	// ActiveTheme is the currently selected theme's name.
 	ActiveTheme string `yaml:"activeTheme"`
 	// Skills carries each loaded skill's full SKILL.md content inline, so
@@ -149,6 +156,7 @@ func ExportKonfigWithSkills(tuning ToolTuning, skillList []Skill) (*Konfig, erro
 		Themes:      exportThemeEntries(),
 		Events:      exportEventEntries(),
 		Actions:     exportActionEntries(),
+		Presets:     exportPresetEntries(),
 		ActiveTheme: CurrentThemeName(),
 		Skills:      skills,
 		Registry: KonfigRegistry{
@@ -240,6 +248,9 @@ func ApplyKonfig(k *Konfig) error {
 	if err := writeKonfigEvents(k.Events); err != nil {
 		return err
 	}
+	if err := writeKonfigPresets(k.Presets); err != nil {
+		return err
+	}
 	if err := writeKonfigSkills(k.Skills); err != nil {
 		return err
 	}
@@ -250,6 +261,7 @@ func ApplyKonfig(k *Konfig) error {
 	initHarness()
 	initThemes()
 	initEvents()
+	initPresets()
 	if k.ActiveTheme != "" {
 		SetTheme(k.ActiveTheme)
 	}
@@ -296,11 +308,18 @@ func writeKonfigActions(entries []Action) error {
 	return writeKonfigYAMLDir(entries, userActionsDir, func(a Action) string { return a.Name }, "action")
 }
 
+// writeKonfigPresets writes one ~/.kdeps/presets/<name>.yaml per preset,
+// overriding any built-in or existing user preset of the same name (see
+// mergeUserPresets).
+func writeKonfigPresets(entries []Preset) error {
+	return writeKonfigYAMLDir(entries, userPresetsDir, func(p Preset) string { return p.Name }, "preset")
+}
+
 // writeKonfigYAMLDir writes one <dirFn()>/<name>.yaml per entry, overriding
 // any built-in or existing user entry of the same name. Shared by
-// writeKonfigHarness/writeKonfigThemes/writeKonfigEvents/writeKonfigActions
-// -- otherwise identical loops golangci-lint's dupl check would flag as a
-// duplicate across all four.
+// writeKonfigHarness/writeKonfigThemes/writeKonfigEvents/writeKonfigActions/
+// writeKonfigPresets -- otherwise identical loops golangci-lint's dupl check
+// would flag as a duplicate across all five.
 func writeKonfigYAMLDir[T any](entries []T, dirFn func() (string, error), nameOf func(T) string, kind string) error {
 	if len(entries) == 0 {
 		return nil

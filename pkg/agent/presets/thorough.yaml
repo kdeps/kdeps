@@ -1,0 +1,67 @@
+name: thorough
+description: >-
+  Maximizes context retention: compacts and folds much less often, injects
+  far more memory context, keeps more of every tool result, and allows
+  larger tool-call budgets. Best for long research/investigation sessions
+  where losing history hurts quality more than the extra tokens cost.
+events:
+  - name: auto-compact
+    on:
+      tokens: 80000
+      ctxWindowFraction: 0.9
+      minTurns: 8
+    run: compact
+  - name: fold
+    on:
+      tokensSinceCheckpoint: 4000
+      minTurns: 8
+    items: 12
+    run: compact
+  - name: memory-prompt-limit
+    on:
+      tokens: 1500
+    run: truncate
+  - name: memory-keys-limit
+    items: 300
+    run: cap
+  - name: memory-focus-max
+    items: 15
+    run: cap
+  - name: memory-chain-max
+    items: 20
+    run: cap
+  - name: rel-memory-limit
+    items: 1000
+    run: cap
+  - name: tool-result-truncate
+    on:
+      bytes: 32768
+    run: truncate
+  - name: tool-error-truncate
+    on:
+      bytes: 1000
+    run: truncate
+  - name: force-answer-digest
+    on:
+      bytes: 24576
+    run: truncate
+  - name: history-window-trim
+    on:
+      bytes: 49152
+    run: drop_oldest
+  - name: web-call-budget
+    on:
+      distinctCalls: 40
+    run: block
+  - name: bash-call-budget
+    on:
+      distinctCalls: 100
+    run: block
+  - name: file-call-budget
+    on:
+      distinctCalls: 160
+    run: block
+  - name: code-call-budget
+    on:
+      distinctCalls: 60
+    run: block

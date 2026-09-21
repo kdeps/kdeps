@@ -75,7 +75,9 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/harness enable\|disable <name>` | Turn a harness section on/off; persists to `~/.kdeps/harness/<name>.yaml` and takes effect on the next turn (no restart) |
 | `/harness events [list]` | List [reactive LLM events](/agent/events) with a trigger summary, action, and enabled/disabled state |
 | `/harness events enable\|disable <name>` | Turn an event on/off; persists to `~/.kdeps/events/<name>.yaml` and takes effect immediately - a disabled event's threshold can never fire |
-| `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
+| `/harness preset [list]` | List built-in + user [presets](/agent/events#presets) (e.g. `frugal`, `balanced`, `thorough`) with their descriptions |
+| `/harness preset <name>` | Apply a preset: writes its bundled event overrides to `~/.kdeps/events/*.yaml` and reloads immediately - no restart |
+| `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/llm-server/m365)) |
 
 ## Auto-detected commands and files

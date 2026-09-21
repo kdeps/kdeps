@@ -45,9 +45,15 @@ func (r *REPL) cmdHarness(args []string) error {
 		return r.cmdHarnessSetEnabled(args[1:], false)
 	case "events":
 		return r.cmdHarnessEvents(args[1:])
+	case "preset":
+		return r.cmdHarnessPreset(args[1:])
 	default:
-		fmt.Fprintln(os.Stderr,
-			styleReplError.Render("Usage: /harness [list|enable <name>|disable <name>|events ...]"))
+		fmt.Fprintln(
+			os.Stderr,
+			styleReplError.Render(
+				"Usage: /harness [list|enable <name>|disable <name>|events ...|preset [list|<name>]]",
+			),
+		)
 		return nil
 	}
 }
@@ -103,7 +109,10 @@ func (r *REPL) cmdHarnessSetEnabled(args []string, enabled bool) error {
 	if enabled {
 		state = "enabled"
 	}
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf("Harness section %q %s (saved)", name, state)))
+	fmt.Fprintln(
+		os.Stdout,
+		styleReplSuccess.Render(fmt.Sprintf("Harness section %q %s (saved)", name, state)),
+	)
 	return nil
 }
 
@@ -121,7 +130,10 @@ func (r *REPL) cmdHarnessEvents(args []string) error {
 	case "disable":
 		return r.cmdHarnessEventSetEnabled(args[1:], false)
 	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness events [list|enable <name>|disable <name>]"))
+		fmt.Fprintln(
+			os.Stderr,
+			styleReplError.Render("Usage: /harness events [list|enable <name>|disable <name>]"),
+		)
 		return nil
 	}
 }
@@ -146,7 +158,8 @@ func (r *REPL) cmdHarnessEventsList() error {
 			name, summarizeEventTrigger(*e), e.Run, state)
 	}
 	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness events enable|disable <name> to toggle. Persisted to ~/.kdeps/events/<name>.yaml."))
+		"Use /harness events enable|disable <name> to toggle. Persisted to ~/.kdeps/events/<name>.yaml.",
+	))
 	return nil
 }
 
@@ -175,7 +188,43 @@ func (r *REPL) cmdHarnessEventSetEnabled(args []string, enabled bool) error {
 	if enabled {
 		state = "enabled"
 	}
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf("Event %q %s (saved)", name, state)))
+	fmt.Fprintln(
+		os.Stdout,
+		styleReplSuccess.Render(fmt.Sprintf("Event %q %s (saved)", name, state)),
+	)
+	return nil
+}
+
+// cmdHarnessPreset implements "/harness preset [list|<name>]" -- applying a
+// named bundle of harness/event overrides in one step (see ApplyPreset),
+// e.g. "frugal" for minimal token usage or "thorough" for maximal context
+// retention.
+func (r *REPL) cmdHarnessPreset(args []string) error {
+	if len(args) == 0 || strings.ToLower(args[0]) == "list" {
+		return r.cmdHarnessPresetList()
+	}
+	name := args[0]
+	if err := ApplyPreset(name); err != nil {
+		fmt.Fprintln(os.Stdout, styleReplError.Render("Preset apply failed: "+err.Error()))
+		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	}
+	r.loop.InvalidateSystemPreamble()
+	p, _ := PresetByName(name)
+	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
+		"Applied preset %q: %d harness override(s), %d event override(s) (saved)",
+		name, len(p.Harness), len(p.Events))))
+	return nil
+}
+
+// cmdHarnessPresetList prints every registered preset with its description.
+func (r *REPL) cmdHarnessPresetList() error {
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Presets"))
+	for _, name := range PresetNames() {
+		p, _ := PresetByName(name)
+		fmt.Fprintf(os.Stdout, "  %-12s %s\n", name, p.Description)
+	}
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"Use /harness preset <name> to apply. Persisted like any other override."))
 	return nil
 }
 
