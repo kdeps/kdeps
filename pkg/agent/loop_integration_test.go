@@ -2203,7 +2203,7 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "hello", &buf)
 	require.NoError(t, err)
 
-	// Two silent rounds draw two nudges (maxNudgesPerKind); a third silent
+	// Two silent rounds draw two nudges (nudge-action's maxOccurrences); a third silent
 	// round (the streamer's canned responses exhausted, defaulting to "")
 	// finally settles the turn with the notice.
 	assert.Len(t, ms.cfgs, 3, "two silent-round nudges, then the notice")
@@ -2430,7 +2430,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 // first few successful tool calls in a session are praised outright, not
 // only ones recovering from a failure -- building the habit of real tool
 // calls early. TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit
-// below covers the far side of firstToolCallsPraiseLimit.
+// below covers the far side of tool-call-early-praise's maxOccurrences.
 func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
@@ -2455,19 +2455,20 @@ func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
 }
 
 // TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit guards the scope
-// decision: past firstToolCallsPraiseLimit, an ordinary success with no
-// prior failure gets no praise -- otherwise every routine read_file/
-// bash_exec for the rest of a long session would carry a [GOOD] banner,
-// constant noise rather than reinforcement.
+// decision: past harness "tool-call-early-praise"'s configured
+// maxOccurrences, an ordinary success with no prior failure gets no praise --
+// otherwise every routine read_file/bash_exec for the rest of a long session
+// would carry a [GOOD] banner, constant noise rather than reinforcement.
 func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
+	limit := harnessOccurrenceLimit("tool-call-early-praise")
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
 		Execute: func(_ map[string]any) (string, error) { return "file contents", nil },
 	})
-	responses := make([]mockStreamResponse, 0, firstToolCallsPraiseLimit+2)
-	for i := range firstToolCallsPraiseLimit + 1 {
+	responses := make([]mockStreamResponse, 0, limit+2)
+	for i := range limit + 1 {
 		// Distinct Arguments per round: identical consecutive calls would
 		// trip the loop's own stuck-repeat guard (the identical-tool-calls event)
 		// before this test ever reaches the call past the praise limit.
@@ -2480,26 +2481,25 @@ func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
 	responses = append(responses, mockStreamResponse{content: "Done.", toolCalls: nil})
 	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model: "test", Streamer: ms, MaxToolRounds: firstToolCallsPraiseLimit + 5,
+		Model: "test", Streamer: ms, MaxToolRounds: limit + 5,
 	})
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(context.Background(), "read it repeatedly", &buf)
 	require.NoError(t, err)
 
 	// cfgs[i].Messages accumulates every round-trip so far, so the round
-	// right after the (firstToolCallsPraiseLimit+1)-th call -- index
-	// firstToolCallsPraiseLimit+1 -- carries firstToolCallsPraiseLimit+1
-	// tool results but only firstToolCallsPraiseLimit [GOOD] banners: the
-	// first N calls stay praised in history, the (N+1)-th must not add one.
-	require.Greater(t, len(ms.cfgs), firstToolCallsPraiseLimit+1)
-	got := strings.Count(ms.cfgs[firstToolCallsPraiseLimit+1].Messages, "[GOOD]")
-	assert.Equal(t, firstToolCallsPraiseLimit, got,
-		"only the first %d calls should ever be praised, got %d [GOOD] banners", firstToolCallsPraiseLimit, got)
+	// right after the (limit+1)-th call -- index limit+1 -- carries limit+1
+	// tool results but only limit [GOOD] banners: the first N calls stay
+	// praised in history, the (N+1)-th must not add one.
+	require.Greater(t, len(ms.cfgs), limit+1)
+	got := strings.Count(ms.cfgs[limit+1].Messages, "[GOOD]")
+	assert.Equal(t, limit, got,
+		"only the first %d calls should ever be praised, got %d [GOOD] banners", limit, got)
 }
 
 // A model that repeats the bald "done" claim a second time (never
 // acknowledging the failure) draws a second, sharper nudge instead of the
-// turn silently accepting the repeat -- bounded to maxNudgesPerKind, same as
+// turn silently accepting the repeat -- bounded to nudge-unresolved-failure's maxOccurrences, same as
 // the sandbox-hallucination nudge.
 func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
 	eng := executor.NewEngine(nil)
@@ -2618,7 +2618,7 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
-// The sandbox nudge is bounded to maxNudgesPerKind (2): a model that regresses
+// The sandbox nudge is bounded to nudge-sandbox-hallucination's maxOccurrences (2): a model that regresses
 // into the same hallucination a second time within the turn draws a second,
 // sharper nudge instead of the turn silently ending on the first repeat.
 func TestRunStreaming_SandboxHallucinationNudgedTwiceThenAnswers(t *testing.T) {
@@ -2637,7 +2637,7 @@ func TestRunStreaming_SandboxHallucinationNudgedTwiceThenAnswers(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
-// Once maxNudgesPerKind nudges are spent and the model is *still* describing a
+// Once nudge-sandbox-hallucination's maxOccurrences nudges are spent and the model is *still* describing a
 // fabricated sandbox session, the turn must not silently settle on it as a
 // trustworthy answer -- the returned content is flagged with
 // sandboxUnverifiedBanner instead.
@@ -2744,7 +2744,7 @@ func TestRunStreaming_GiveUpWithNoProgressIsNotNudged(t *testing.T) {
 	assert.Equal(t, "I cannot complete this, no access to the repo.", got)
 }
 
-// The give-up nudge is bounded to maxNudgesPerKind (2): a model that keeps
+// The give-up nudge is bounded to nudge-give-up's maxOccurrences (2): a model that keeps
 // giving up after progress draws a second, sharper nudge, then the third
 // give-up reply is accepted as the turn's final answer.
 func TestRunStreaming_GiveUpNudgedTwiceThenAccepted(t *testing.T) {

@@ -49,10 +49,15 @@ var (
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"goal-plan-system", "goal-confirm-system", "judge-roster-system",
 		"judge-system", "refine-system", "branch-summary", "handshake",
+		"handshake-ack", "invoke-example", "repeat-offense-note",
+		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
+		"nudge-sandbox-hallucination-qualifier", "nudge-unresolved-failure",
+		"nudge-give-up", "tool-call-early-praise", "tool-call-recovery-praise",
+		"tool-call-sandbox-recovery-praise",
 	}
 )
 
-func TestLoadBuiltinHarness_HasExactlyTwentyFiveNames(t *testing.T) {
+func TestLoadBuiltinHarness_HasExactlyKnownNames(t *testing.T) {
 	built := loadBuiltinHarness()
 	assert.Len(t, built, len(wantPreambleSections)+len(wantStandaloneEntries))
 	for _, name := range wantPreambleSections {

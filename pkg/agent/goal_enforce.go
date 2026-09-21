@@ -660,7 +660,7 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 	}
 	// Content still reading as a fabricated sandbox/code-interpreter session
 	// only reaches here once handleEmptyToolRound's nudge retries are already
-	// exhausted (see maxNudgesPerKind) -- the model never made a real tool
+	// exhausted (see each nudge-*.yaml's maxOccurrences) -- the model never made a real tool
 	// call, so this cannot be a genuine completion.
 	if status == GoalTaskDone && looksLikeSandboxHallucination(content) {
 		status = GoalTaskFailed

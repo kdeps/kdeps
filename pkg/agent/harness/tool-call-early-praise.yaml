@@ -1,0 +1,6 @@
+name: tool-call-early-praise
+kind: standalone
+maxOccurrences: 3
+body: >-
+  [GOOD] Real tool call, worked as expected. That's how you get things done
+  here.

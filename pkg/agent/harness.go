@@ -73,12 +73,55 @@ func SetHarnessEnabled(name string, enabled bool) error {
 	if !ok {
 		return fmt.Errorf("harness: unknown section %q", name)
 	}
-	entry := yamlHarnessEntry{Name: key, Kind: e.kind, Order: e.order, Body: e.body, Disabled: !enabled}
+	entry := yamlHarnessEntry{
+		Name: key, Kind: e.kind, Order: e.order, Body: e.body,
+		Disabled: !enabled, MaxOccurrences: e.maxOccurrences,
+	}
 	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
 		return err
 	}
 	initHarness()
 	return nil
+}
+
+// harnessOccurrenceLimit returns a standalone entry's configured occurrence
+// cap (see yamlHarnessEntry.MaxOccurrences), or 0 if the entry is unknown,
+// disabled, or has no cap set -- 0 means "unlimited" to every caller.
+func harnessOccurrenceLimit(name string) int {
+	e, ok := harnessRegistry[name]
+	if !ok || e.disabled {
+		return 0
+	}
+	return e.maxOccurrences
+}
+
+// harnessOccurrenceAllowed reports whether a standalone entry may still fire,
+// given the caller's own occurrence count so far (how many times it has
+// ALREADY fired -- 0 on the first check). The count itself stays wherever it
+// already lives (a turn-scoped turnNudges field, a session-scoped Loop
+// field); this only supplies the configurable ceiling from harness YAML. A
+// cap of 0 (unset) means always allowed.
+func harnessOccurrenceAllowed(name string, occurred int) bool {
+	limit := harnessOccurrenceLimit(name)
+	if limit <= 0 {
+		return true
+	}
+	return occurred < limit
+}
+
+// harnessSuffix returns a standalone entry's body prefixed with a blank-line
+// separator, ready to append to other content -- or "" if the entry is
+// unknown/disabled/empty, so appending it is always safe. The separator is
+// supplied here rather than baked into the YAML body itself: a body whose
+// literal text starts with blank lines breaks yaml.v3's block-scalar
+// round-trip on re-marshal (an explicit indentation indicator gets attached
+// that doesn't survive re-parsing), so every harness body stays plain text
+// starting with real content.
+func harnessSuffix(name string) string {
+	if body := harnessText(name); body != "" {
+		return "\n\n" + body
+	}
+	return ""
 }
 
 // harnessRender executes a harness entry's body as a Go text/template with

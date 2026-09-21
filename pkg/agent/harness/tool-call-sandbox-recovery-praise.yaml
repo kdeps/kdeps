@@ -1,0 +1,5 @@
+name: tool-call-sandbox-recovery-praise
+kind: standalone
+body: >-
+  [GOOD] That's the real filesystem, through a real kdeps tool call -- not
+  the simulated sandbox. Keep operating this way.

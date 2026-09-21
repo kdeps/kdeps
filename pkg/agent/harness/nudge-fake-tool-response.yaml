@@ -1,0 +1,8 @@
+name: nudge-fake-tool-response
+kind: standalone
+maxOccurrences: 2
+body: >-
+  You wrote a <tool_response> block. You never write tool results -- the
+  runtime does, and nothing ran. Make the actual tool call now (your native
+  tool channel, or the <invoke> block below) and wait for its real result
+  before answering. Never author a <tool_response> yourself.

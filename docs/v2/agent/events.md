@@ -185,6 +185,23 @@ This writes `disabled: true` (or removes it) in `~/.kdeps/events/<name>.yaml` --
 
 An unregistered or corrupted event/harness name always fails **open** (enabled) -- a missing config entry must never silently disable a safety mechanism; only an explicit `disabled: true` does.
 
+## Occurrence caps on standalone harness text
+
+Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-give-up`), same as `tool-call-early-praise`'s positive-reinforcement text. These aren't sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
+
+```yaml
+# ~/.kdeps/harness/nudge-give-up.yaml (built-in default -- shown for reference)
+name: nudge-give-up
+kind: standalone
+maxOccurrences: 2   # push back on a premature "sorry, I can't" at most twice per turn
+body: >-
+  Your reply reads as giving up, but tool calls just succeeded this turn...
+```
+
+The count itself is tracked wherever it already lived before this existed -- a turn-scoped `turnNudges` field, or the session-scoped successful-tool-call counter behind `tool-call-early-praise` -- `maxOccurrences` only supplies the configurable ceiling that count is checked against. This is deliberately narrower than a generic "cadence" concept: a count-based cap fits naturally next to `disabled` on a standalone entry, but an *event-triggered* switch (like the sticky escalation from the short `tools-reminder` to the full `use-kdeps-tools` guidance once a sandbox hallucination has happened once this session) is a state transition, not a count, and stays as event/harness Go logic calling `harnessText`/`harnessRender` at the point the triggering event already fires -- the events system described above already owns "when does X happen," and duplicating that as a second cadence language on harness entries would just re-implement it worse.
+
+0 (the default, omitted) means unlimited. `/harness list` shows a standalone entry's cap as `standalone, max Nx` when one is set.
+
 ## Presets
 
 Hand-tuning fifteen different events one at a time to make a session cheaper (or more thorough) is tedious. A **preset** is a named, coherent bundle of event overrides -- applying one is like `/fold preset` but for the whole token-economy cluster at once, not just fold:

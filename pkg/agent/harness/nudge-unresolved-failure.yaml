@@ -1,0 +1,7 @@
+name: nudge-unresolved-failure
+kind: standalone
+maxOccurrences: 2
+body: >-
+  Your last {{.Tool}} call failed: {{.Msg}}. It has not succeeded. Retry it
+  and get a real success, or state plainly in your answer that this step
+  failed. Do not claim it is done.

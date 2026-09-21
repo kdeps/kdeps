@@ -71,14 +71,23 @@ type yamlHarnessEntry struct {
 	// override file that omits this field never accidentally disables
 	// anything. Set/unset via "/harness enable|disable <name>".
 	Disabled bool `yaml:"disabled,omitempty"`
+	// MaxOccurrences caps how many times a standalone entry's caller-tracked
+	// counter (see harnessOccurrenceAllowed) may let it fire -- e.g. a nudge
+	// shown at most twice per turn, or a praise line shown at most 3 times
+	// per session. 0 (the zero value) means unlimited; the counter itself is
+	// tracked by the call site (a turn-scoped or session-scoped Go field),
+	// this only supplies the configurable ceiling. Meaningless on a
+	// preamble-section entry, which has no occurrence count to cap.
+	MaxOccurrences int `yaml:"maxOccurrences,omitempty"`
 }
 
 // harnessEntry is the parsed, in-memory form.
 type harnessEntry struct {
-	kind     string
-	order    int
-	body     string
-	disabled bool
+	kind           string
+	order          int
+	body           string
+	disabled       bool
+	maxOccurrences int
 }
 
 // userHarnessDirName is the subdirectory of ~/.kdeps holding user harness
@@ -144,7 +153,10 @@ func parseBuiltinHarnessFileFrom(fsys harnessFS, out map[string]*harnessEntry, f
 		panic(fmt.Sprintf("harness: parse embedded %s: %v", filename, err))
 	}
 	name := harnessNameFromYAML(ye, filename)
-	out[name] = &harnessEntry{kind: ye.Kind, order: ye.Order, body: ye.Body, disabled: ye.Disabled}
+	out[name] = &harnessEntry{
+		kind: ye.Kind, order: ye.Order, body: ye.Body,
+		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+	}
 }
 
 // parseYAMLHarnessEntry unmarshals one harness document, returning a wrapped
@@ -209,7 +221,10 @@ func loadUserHarness() (map[string]*harnessEntry, []error) {
 		if kind == "" {
 			kind = harnessKindStandalone
 		}
-		out[name] = &harnessEntry{kind: kind, order: ye.Order, body: ye.Body, disabled: ye.Disabled}
+		out[name] = &harnessEntry{
+			kind: kind, order: ye.Order, body: ye.Body,
+			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+		}
 	}
 	return out, errs
 }

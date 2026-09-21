@@ -139,7 +139,8 @@ func ExportKonfigWithSkills(tuning ToolTuning, skillList []Skill) (*Konfig, erro
 	harness := make([]yamlHarnessEntry, 0, len(harnessRegistry))
 	for name, e := range harnessRegistry {
 		harness = append(harness, yamlHarnessEntry{
-			Name: name, Kind: e.kind, Order: e.order, Body: e.body, Disabled: e.disabled,
+			Name: name, Kind: e.kind, Order: e.order, Body: e.body,
+			Disabled: e.disabled, MaxOccurrences: e.maxOccurrences,
 		})
 	}
 

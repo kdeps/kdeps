@@ -1,0 +1,5 @@
+name: repeat-offense-note
+kind: standalone
+body: >-
+  This is the second time this turn -- you already got this exact instruction
+  once and did not follow it. Do not repeat the same non-call a third time.

@@ -1,0 +1,16 @@
+name: invoke-example
+kind: standalone
+body: |-
+  If your backend has no native tool-call channel, emit it as a single matched <invoke>...</invoke> block instead, exactly like this (open tag and close tag, nothing else around it):
+
+    <invoke name="bash_exec">
+    <parameter name="command">pwd && ls</parameter>
+    </invoke>
+
+  or, to read a file:
+
+    <invoke name="read_file">
+    <parameter name="file_path">path/from/the/task</parameter>
+    </invoke>
+
+  Emit one such block and wait for the runtime's real result before answering.

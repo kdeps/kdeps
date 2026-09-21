@@ -76,8 +76,11 @@ func (r *REPL) cmdHarnessList() error {
 			state = styleReplError.Render("disabled")
 		}
 		detail := e.kind
-		if e.kind == harnessKindPreambleSection {
+		switch {
+		case e.kind == harnessKindPreambleSection:
 			detail = fmt.Sprintf("%s, order %d", e.kind, e.order)
+		case e.maxOccurrences > 0:
+			detail = fmt.Sprintf("%s, max %dx", e.kind, e.maxOccurrences)
 		}
 		fmt.Fprintf(os.Stdout, "  %-28s %-16s %s\n", name, detail, state)
 	}

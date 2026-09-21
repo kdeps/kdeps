@@ -315,7 +315,7 @@ type Loop struct {
 	lastWorkFailure *toolFailure
 	// successfulWorkToolCalls counts every successful (non-error, non-task-
 	// state) work tool result for the life of the session. Never reset --
-	// drives firstToolCallsPraiseLimit: the first few real tool calls a
+	// drives harness "tool-call-early-praise"'s maxOccurrences: the first few real tool calls a
 	// model makes are praised outright, not just a recovery from failure, to
 	// build the habit early.
 	successfulWorkToolCalls int
@@ -333,7 +333,7 @@ type Loop struct {
 	sandboxStrikes int
 	// sandboxRecoveryPending is true from the moment a sandbox hallucination
 	// is detected (see handleEmptyToolRound) until the next successful real
-	// tool call, which clears it and draws toolCallSandboxRecoveryPraise --
+	// tool call, which clears it and draws harness "tool-call-sandbox-recovery-praise" --
 	// the positive counterpart, specifically for "moved off the fake
 	// sandbox onto the real filesystem," distinct from a plain work-tool
 	// failure recovery.
@@ -1389,32 +1389,6 @@ func (l *Loop) applyRoundOutcome(
 	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
-// invokeExampleBlock is the concrete, copyable <invoke> syntax appended to
-// every nudge that tells a model to "make a real tool call" -- text alone
-// leaves a backend with no native tool-call channel nothing to copy, and it
-// tends to repeat the same hallucination rather than switch tactics. Kept as
-// a literal (never routed through turoReduce) so its exact whitespace and
-// quoting survive intact.
-const invokeExampleBlock = "\n\nIf your backend has no native tool-call channel, emit it as a single " +
-	"matched <invoke>...</invoke> block instead, exactly like this (open tag " +
-	"and close tag, nothing else around it):\n\n" +
-	"  <invoke name=\"bash_exec\">\n" +
-	"  <parameter name=\"command\">pwd && ls</parameter>\n" +
-	"  </invoke>\n\n" +
-	"or, to read a file:\n\n" +
-	"  <invoke name=\"read_file\">\n" +
-	"  <parameter name=\"file_path\">path/from/the/task</parameter>\n" +
-	"  </invoke>\n\n" +
-	"Emit one such block and wait for the runtime's real result before answering."
-
-// repeatOffenseNote is appended to a second-strike nudge within the same
-// turn, so the model understands this is not the first time it was told --
-// plain repetition of the first nudge's wording tends to get skimmed the
-// same way the original instruction was.
-const repeatOffenseNote = " This is the second time this turn -- you already " +
-	"got this exact instruction once and did not follow it. Do not repeat " +
-	"the same non-call a third time."
-
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
 // action after a round that produced neither a tool call nor an answer. Tools
 // stay registered: the goal is to get the call the model already decided on in
@@ -1429,13 +1403,9 @@ const repeatOffenseNote = " This is the second time this turn -- you already " +
 // the wording gets sharper instead of silently repeating verbatim.
 func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	note := turoReduce(context.Background(),
-		"Your previous response contained no tool call and no answer. "+
-			"If you intended to call a tool, call it now. Otherwise, answer directly "+
-			"in plain text. Do not reply with reasoning alone.") +
-		invokeExampleBlock
+	note := turoReduce(context.Background(), harnessText("nudge-action")) + invokeExample()
 	if repeat {
-		note += repeatOffenseNote
+		note += " " + harnessText("repeat-offense-note")
 	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
@@ -1447,17 +1417,22 @@ func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfi
 // repeat is true on the second strike within this turn.
 func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	note := turoReduce(context.Background(),
-		"You wrote a <tool_response> block. You never write tool results -- the "+
-			"runtime does, and nothing ran. Make the actual tool call now (your "+
-			"native tool channel, or the <invoke> block below) and wait for its "+
-			"real result before answering. Never author a <tool_response> yourself.") +
-		invokeExampleBlock
+	note := turoReduce(context.Background(), harnessText("nudge-fake-tool-response")) + invokeExample()
 	if repeat {
-		note += repeatOffenseNote
+		note += " " + harnessText("repeat-offense-note")
 	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
+}
+
+// invokeExample returns the shared worked <invoke> example
+// (harness/invoke-example.yaml) with the blank-line separator every nudge
+// that appends it needs, or "" if the entry is disabled. Never routed
+// through turoReduce by any caller -- turo's filler/synonym rewriting is
+// meant for prose and would mangle the exact whitespace and quoting a model
+// needs to copy.
+func invokeExample() string {
+	return harnessSuffix("invoke-example")
 }
 
 // sandboxArtifactRe matches phrases a model produces when it simulates a
@@ -1490,21 +1465,12 @@ func looksLikeSandboxHallucination(content string) bool {
 // repeat is true on the second strike within this turn.
 func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	// invokeExampleBlock is appended after turoReduce, not passed through it --
-	// turo's filler/synonym rewriting is meant for prose and would mangle the
-	// exact whitespace and quoting a model needs to copy.
-	note := turoReduce(context.Background(),
-		"You made no tool call, and phrases like \"NO CONTENT AVAILABLE\", "+
-			"\"expired\", \"/mnt/data\", or \"cannot access the filesystem\" come from a "+
-			"code-interpreter sandbox that is not this environment. kdeps has no sandbox "+
-			"and never returns those messages -- nothing ran. The real working directory "+
-			"is a live filesystem with the files from the task present now. Make an actual "+
-			"kdeps tool call (bash_exec, read_file, ...) through the tool interface and wait "+
-			"for the runtime's result.") +
-		invokeExampleBlock +
-		" If you were not attempting tool use, ignore this and answer normally."
+	// invokeExample() is appended after turoReduce, not passed through it --
+	// see invokeExample's own comment.
+	note := turoReduce(context.Background(), harnessText("nudge-sandbox-hallucination")) +
+		invokeExample() + " " + harnessText("nudge-sandbox-hallucination-qualifier")
 	if repeat {
-		note += repeatOffenseNote
+		note += " " + harnessText("repeat-offense-note")
 	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
@@ -1516,11 +1482,9 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domai
 // repeat is true on the second strike within this turn.
 func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	note := "Your last " + f.tool + " call failed: " + f.msg +
-		". It has not succeeded. Retry it and get a real success, or state plainly " +
-		"in your answer that this step failed. Do not claim it is done."
+	note := harnessRender("nudge-unresolved-failure", struct{ Tool, Msg string }{f.tool, f.msg})
 	if repeat {
-		note += repeatOffenseNote
+		note += " " + harnessText("repeat-offense-note")
 	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
@@ -1536,13 +1500,9 @@ func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, re
 // repeat is true on the second strike within this turn.
 func nudgeGiveUpConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	note := "Your reply reads as giving up, but tool calls just succeeded this turn " +
-		"and no work tool is currently failing. If the goal is still reachable, keep " +
-		"going with a different approach. Only stop here if you state exactly what is " +
-		"blocking you -- a missing credential, a permission you don't have, or a " +
-		"precondition that genuinely cannot be met."
+	note := harnessText("nudge-give-up")
 	if repeat {
-		note += repeatOffenseNote
+		note += " " + harnessText("repeat-offense-note")
 	}
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
@@ -2006,15 +1966,12 @@ type emptyRoundResult struct {
 	stop    bool
 }
 
-// maxNudgesPerKind bounds how many times each corrective nudge in turnNudges
-// may fire within a single turn: a first nudge, plus one retry for a model
-// that regresses into the same failure a second time. A third occurrence is
-// not nudged again -- see the exhausted-retries handling in
+// turnNudges tracks how many times each corrective nudge has fired this
+// turn -- a first nudge, plus one retry for a model that regresses into the
+// same failure a second time. Each kind's own harness entry sets the cap
+// (maxOccurrences: 2, checked via harnessOccurrenceAllowed) so a third
+// occurrence is not nudged again -- see the exhausted-retries handling in
 // handleEmptyToolRound, which flags rather than silently accepts it.
-const maxNudgesPerKind = 2
-
-// turnNudges tracks how many times each corrective nudge has fired this turn,
-// so each kind fires at most maxNudgesPerKind times and never wedges the loop.
 type turnNudges struct {
 	action        int // silent round: no tool call and no answer
 	hallucination int // model wrote a <tool_response> block itself
@@ -2024,16 +1981,17 @@ type turnNudges struct {
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
-// when the model has already been nudged maxNudgesPerKind times for a
-// sandbox/code-interpreter hallucination and still produces one on the final
+// when the model has already exhausted nudge-sandbox-hallucination's
+// configured maxOccurrences and still produces one on the final
 // round. Rather than silently presenting fabricated sandbox output as a real
 // answer, the model's words are kept but clearly flagged as unverified.
 const sandboxUnverifiedBanner = "[kdeps: the response below describes a sandbox/tool session that does " +
 	"not exist in this environment -- no real tool call succeeded here. Treat it as unverified.]\n\n"
 
 // toolFailureUnresolvedNotice is surfaced (to both the writer and the turn's
-// returned content) when maxNudgesPerKind work-failure nudges are spent and
-// the model is still claiming success despite f never having succeeded.
+// returned content) when nudge-unresolved-failure's configured
+// maxOccurrences is spent and the model is still claiming success despite f
+// never having succeeded.
 // Unlike sandboxUnverifiedBanner this is a trailing notice, not a prefix
 // rewrite: by the time resolveEmptyToolRound reaches this branch,
 // handleTextOnlyRound has already written the model's claim to the writer
@@ -2077,8 +2035,8 @@ func acknowledgesFailure(content string) bool {
 // (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
 // the first result for the caller to dispatch. Failing that: a self-written
 // <tool_response> block or prose describing a failed sandbox session is a
-// hallucination and draws a nudge (up to maxNudgesPerKind times); anything
-// else falls through to handleTextOnlyRound.
+// hallucination and draws a nudge (up to that entry's configured
+// maxOccurrences); anything else falls through to handleTextOnlyRound.
 func (l *Loop) handleEmptyToolRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
@@ -2089,7 +2047,7 @@ func (l *Loop) handleEmptyToolRound(
 	if len(salvaged) > 0 {
 		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
 	}
-	if fake && nudges.hallucination < maxNudgesPerKind {
+	if fake && harnessOccurrenceAllowed("nudge-fake-tool-response", nudges.hallucination) {
 		repeat := nudges.hallucination > 0
 		nudges.hallucination++
 		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
@@ -2097,7 +2055,7 @@ func (l *Loop) handleEmptyToolRound(
 	if looksLikeSandboxHallucination(content) {
 		l.sandboxStrikes++
 		l.sandboxRecoveryPending = true
-		if nudges.sandbox < maxNudgesPerKind {
+		if harnessOccurrenceAllowed("nudge-sandbox-hallucination", nudges.sandbox) {
 			repeat := nudges.sandbox > 0
 			nudges.sandbox++
 			return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg, repeat)}
@@ -2141,7 +2099,7 @@ func (l *Loop) resolveEmptyToolRound(
 	// model that answers honestly on its second attempt would draw a second
 	// nudge anyway, punishing the exact behavior being asked for.
 	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
-		if nudges.workFailure < maxNudgesPerKind {
+		if harnessOccurrenceAllowed("nudge-unresolved-failure", nudges.workFailure) {
 			repeat := nudges.workFailure > 0
 			nudges.workFailure++
 			return nil, res.content,
@@ -2164,8 +2122,9 @@ func (l *Loop) resolveEmptyToolRound(
 // going.
 //
 // A silent round (no text either) is nudged for a concrete action, up to
-// maxNudgesPerKind times. A reply that reads as giving up despite real
-// progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn) draws the
+// that entry's configured maxOccurrences. A reply that reads as giving up
+// despite real progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn)
+// draws the
 // same bounded push-back, independent of goal mode -- checked before
 // settleActiveFromText so a premature "sorry, I can't" is never recorded as a
 // failed task while the nudge budget remains. A round with text otherwise
@@ -2177,12 +2136,14 @@ func (l *Loop) handleTextOnlyRound(
 	nudges *turnNudges,
 	w io.Writer,
 ) (*domain.ChatConfig, bool) {
-	if nudges.action < maxNudgesPerKind && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+	if harnessOccurrenceAllowed("nudge-action", nudges.action) &&
+		strings.TrimSpace(stripContentToolCalls(content)) == "" {
 		repeat := nudges.action > 0
 		nudges.action++
 		return nudgeForActionConfig(chatCfg, repeat), true
 	}
-	if nudges.giveUp < maxNudgesPerKind && looksLikeGiveUp(content) && l.hasMadeProgressThisTurn() {
+	if harnessOccurrenceAllowed("nudge-give-up", nudges.giveUp) &&
+		looksLikeGiveUp(content) && l.hasMadeProgressThisTurn() {
 		repeat := nudges.giveUp > 0
 		nudges.giveUp++
 		return nudgeGiveUpConfig(chatCfg, repeat), true
@@ -2331,46 +2292,16 @@ func (l *Loop) executeToolCalls(
 	return msgs, outcome
 }
 
-// toolCallRecoveryPraise is appended to a successful tool result when it
-// immediately follows a recorded failure (see toolResultMessage) -- the
-// positive counterpart to the [TOOL FAILED] banner. It lands in the tool
-// message itself, so it's part of conversation history, not just terminal
-// output: the reinforcement has to survive into later tasks in the same
-// session, not just this one round, for a model that "forgets how to do a
-// tool call" mid-session to actually carry the correction forward.
-const toolCallRecoveryPraise = "\n\n[GOOD] That's a real tool call and it worked. Keep calling tools this way."
-
-// toolCallSandboxRecoveryPraise is appended to the first successful tool
-// result after a detected sandbox hallucination (see sandboxRecoveryPending)
-// -- specifically calling out that this call reached the real filesystem
-// through a genuine kdeps tool, not the simulated /mnt/data-style sandbox
-// the model was just describing. Takes priority over the plain
-// toolCallRecoveryPraise when both would apply, since the correction being
-// reinforced is more specific.
-const toolCallSandboxRecoveryPraise = "\n\n[GOOD] That's the real filesystem, through a real kdeps tool call -- " +
-	"not the simulated sandbox. Keep operating this way."
-
-// toolCallEarlyPraise is appended to the first firstToolCallsPraiseLimit
-// successful tool results in a session, independent of whether any failure
-// preceded them -- reinforcing the habit of real tool calls early, not only
-// after a correction. Distinct wording from toolCallRecoveryPraise so the
-// two read differently in history (one is "welcome back", the other is
-// "good start").
-const toolCallEarlyPraise = "\n\n[GOOD] Real tool call, worked as expected. That's how you get things done here."
-
-// firstToolCallsPraiseLimit caps toolCallEarlyPraise to the first N
-// successful work tool calls in a session -- after that the model has
-// clearly got the habit, and praising every single call would just be noise.
-const firstToolCallsPraiseLimit = 3
-
 // toolResultMessage builds the "tool" message content for one call. A failed
 // work tool is flagged unmistakably (turo left untouched so the exact error
 // survives) and remembered for the end-of-turn "did that actually work?" nudge;
 // a later success on any work tool clears that memory and is praised in the
 // same message so the positive reinforcement rides along in history rather
-// than only appearing on the terminal for this one round -- either because
-// the model just corrected itself (toolCallRecoveryPraise) or because it's
-// still early in the session and building the habit (toolCallEarlyPraise).
+// than only appearing on the terminal for this one round -- either because the
+// model just corrected itself (harness "tool-call-recovery-praise"/
+// "tool-call-sandbox-recovery-praise") or because it's still early in the
+// session and building the habit (harness "tool-call-early-praise", capped by
+// that entry's own maxOccurrences).
 func (l *Loop) toolResultMessage(
 	ctx context.Context,
 	tc domain.StreamedToolCall,
@@ -2389,16 +2320,17 @@ func (l *Loop) toolResultMessage(
 		recoveredSandbox := l.sandboxRecoveryPending
 		l.sandboxRecoveryPending = false
 		recovered := l.lastWorkFailure != nil
-		l.lastWorkFailure = nil // a work tool succeeded; failure resolved
+		l.lastWorkFailure = nil                       // a work tool succeeded; failure resolved
+		praiseOccurrence := l.successfulWorkToolCalls // occurrences before this one
 		l.successfulWorkToolCalls++
 		content := turoReduce(ctx, capToolResult(result))
 		switch {
 		case recoveredSandbox:
-			content += toolCallSandboxRecoveryPraise
+			content += harnessSuffix("tool-call-sandbox-recovery-praise")
 		case recovered:
-			content += toolCallRecoveryPraise
-		case l.successfulWorkToolCalls <= firstToolCallsPraiseLimit:
-			content += toolCallEarlyPraise
+			content += harnessSuffix("tool-call-recovery-praise")
+		case harnessOccurrenceAllowed("tool-call-early-praise", praiseOccurrence):
+			content += harnessSuffix("tool-call-early-praise")
 		}
 		return content
 	default:
