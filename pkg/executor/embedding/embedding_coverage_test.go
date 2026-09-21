@@ -161,18 +161,6 @@ func TestCohereRerank_WithTopN(t *testing.T) {
 
 // --- Execute error propagation tests ---
 
-type errorBuildEmbedder struct{}
-
-func (e *errorBuildEmbedder) EmbedDocuments(_ context.Context, _ []string) ([][]float32, error) {
-	return nil, errors.New("should not reach here")
-}
-
-func (e *errorBuildEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
-	return nil, errors.New("should not reach here")
-}
-
-var _ lcemb.Embedder = (*errorBuildEmbedder)(nil)
-
 // TestExecute_Vectorize_ErrorPath covers the if err != nil return in
 // Execute for the vectorize case (executor.go:106-108) by making
 // buildEmbedderFunc return an error.

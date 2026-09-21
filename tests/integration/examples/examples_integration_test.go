@@ -21,7 +21,6 @@ package examples_test
 import (
 	"log/slog"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -29,7 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	"github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -40,45 +38,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
-
-// loadResourceFiles loads resources from resources directory into workflow.
-//
-//nolint:unused // helper retained for future tests
-func loadResourceFiles(
-	workflow *domain.Workflow,
-	resourcesDir string,
-	yamlParser *yaml.Parser,
-) error {
-	// Check if resources directory exists
-	if _, err := os.Stat(resourcesDir); os.IsNotExist(err) {
-		return nil // No resources directory is ok
-	}
-
-	// Find all .yaml files
-	entries, err := os.ReadDir(resourcesDir)
-
-	if err != nil {
-		return err
-	}
-
-	// Parse each resource file
-	for _, entry := range entries {
-		if entry.IsDir() ||
-			(filepath.Ext(entry.Name()) != ".yaml" && filepath.Ext(entry.Name()) != ".yml") {
-			continue
-		}
-
-		resourcePath := filepath.Join(resourcesDir, entry.Name())
-		resource, resourceErr := yamlParser.ParseResource(resourcePath)
-		if resourceErr != nil {
-			return resourceErr
-		}
-
-		workflow.Resources = append(workflow.Resources, resource)
-	}
-
-	return nil
-}
 
 // setupExecutor creates an executor with all necessary adapters.
 func setupExecutor() *executor.Engine {
