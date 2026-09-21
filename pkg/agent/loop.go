@@ -319,6 +319,11 @@ type Loop struct {
 	// model makes are praised outright, not just a recovery from failure, to
 	// build the habit early.
 	successfulWorkToolCalls int
+	// turnStartWorkToolCalls snapshots successfulWorkToolCalls at the start of
+	// the turn (runToolRounds). successfulWorkToolCalls itself is session-
+	// lifetime, so hasMadeProgressThisTurn diffs against this to tell "a call
+	// succeeded earlier THIS turn" from "one succeeded in some prior turn."
+	turnStartWorkToolCalls int
 	// sandboxStrikes counts every round this session where the model produced
 	// text reading as a fabricated code-interpreter/sandbox session (see
 	// looksLikeSandboxHallucination), regardless of the per-turn nudge cap.
@@ -1260,6 +1265,7 @@ func (l *Loop) runToolRounds(
 	l.captureCallOutputs(chatCfg)
 	l.modelNotes = nil
 	l.lastWorkFailure = nil
+	l.turnStartWorkToolCalls = l.successfulWorkToolCalls
 
 	var finalContent string
 	capped := false
@@ -1513,6 +1519,28 @@ func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, re
 	note := "Your last " + f.tool + " call failed: " + f.msg +
 		". It has not succeeded. Retry it and get a real success, or state plainly " +
 		"in your answer that this step failed. Do not claim it is done."
+	if repeat {
+		note += repeatOffenseNote
+	}
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// nudgeGiveUpConfig fires when a text-only reply reads as the model declining
+// to continue (looksLikeGiveUp) despite having made real progress this turn
+// with no open failure (hasMadeProgressThisTurn). Bounded like every other
+// nudge in this file -- a model that is genuinely stuck after two pushes is
+// allowed to stop; this exists to catch a premature "sorry, I can't" right
+// after a run of successful tool calls, not to argue with a model that has
+// actually hit a wall.
+// repeat is true on the second strike within this turn.
+func nudgeGiveUpConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := "Your reply reads as giving up, but tool calls just succeeded this turn " +
+		"and no work tool is currently failing. If the goal is still reachable, keep " +
+		"going with a different approach. Only stop here if you state exactly what is " +
+		"blocking you -- a missing credential, a permission you don't have, or a " +
+		"precondition that genuinely cannot be met."
 	if repeat {
 		note += repeatOffenseNote
 	}
@@ -1992,6 +2020,7 @@ type turnNudges struct {
 	hallucination int // model wrote a <tool_response> block itself
 	sandbox       int // prose describing a failed sandbox/code-interpreter session
 	workFailure   int // turn ending while the last work tool is still failing
+	giveUp        int // reply reads as declining to continue despite real progress this turn
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -2135,9 +2164,13 @@ func (l *Loop) resolveEmptyToolRound(
 // going.
 //
 // A silent round (no text either) is nudged for a concrete action, up to
-// maxNudgesPerKind times. A round with text settles the active task; when
-// later tasks remain the turn continues on the next one rather than stopping
-// with the plan unfinished.
+// maxNudgesPerKind times. A reply that reads as giving up despite real
+// progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn) draws the
+// same bounded push-back, independent of goal mode -- checked before
+// settleActiveFromText so a premature "sorry, I can't" is never recorded as a
+// failed task while the nudge budget remains. A round with text otherwise
+// settles the active task; when later tasks remain the turn continues on the
+// next one rather than stopping with the plan unfinished.
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
@@ -2148,6 +2181,11 @@ func (l *Loop) handleTextOnlyRound(
 		repeat := nudges.action > 0
 		nudges.action++
 		return nudgeForActionConfig(chatCfg, repeat), true
+	}
+	if nudges.giveUp < maxNudgesPerKind && looksLikeGiveUp(content) && l.hasMadeProgressThisTurn() {
+		repeat := nudges.giveUp > 0
+		nudges.giveUp++
+		return nudgeGiveUpConfig(chatCfg, repeat), true
 	}
 	_, _ = io.WriteString(w, buffered)
 	if l.settleActiveFromText(content, w) {
@@ -2366,6 +2404,15 @@ func (l *Loop) toolResultMessage(
 	default:
 		return turoReduce(ctx, capToolResult(result))
 	}
+}
+
+// hasMadeProgressThisTurn reports whether at least one work tool call has
+// succeeded since the turn began, with no unresolved failure since. Used by
+// the give-up nudge (handleTextOnlyRound) -- a "sorry, I can't" reply is only
+// pushed back on when there is real progress on the table, not accepted at
+// face value but not manufactured out of nothing either.
+func (l *Loop) hasMadeProgressThisTurn() bool {
+	return l.successfulWorkToolCalls > l.turnStartWorkToolCalls && l.lastWorkFailure == nil
 }
 
 // dispatchOrRefuse runs a tool call unless it breaks a goal rule: repeating work

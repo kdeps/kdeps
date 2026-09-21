@@ -614,6 +614,21 @@ var refusalMarkers = []string{
 	"not able to", "no access", "blocked",
 }
 
+// looksLikeGiveUp reports whether a text-only reply reads as the model
+// declining to continue rather than answering or reporting a result. Shared
+// by settleActiveFromText's task-outcome classification and
+// resolveEmptyToolRound's give-up nudge (loop.go) so both readings of "the
+// model gave up" use the same list and never drift apart.
+func looksLikeGiveUp(content string) bool {
+	lower := strings.ToLower(content)
+	for _, m := range refusalMarkers {
+		if strings.Contains(lower, m) {
+			return true
+		}
+	}
+	return false
+}
+
 // settleActiveFromText closes the active task using a text-only round as its
 // outcome and reports whether another task is now active.
 //
@@ -632,12 +647,8 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 
 	status := GoalTaskDone
 	note := firstLine(content)
-	lower := strings.ToLower(content)
-	for _, m := range refusalMarkers {
-		if strings.Contains(lower, m) {
-			status = GoalTaskFailed
-			break
-		}
+	if looksLikeGiveUp(content) {
+		status = GoalTaskFailed
 	}
 	// A prose "done" right after a work tool failed is the exact bug this
 	// guards: record the task failed, not done, and tell the model why.

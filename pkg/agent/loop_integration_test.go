@@ -2711,6 +2711,59 @@ func TestRunStreaming_SandboxHallucinationEscalatesReminderAcrossTurns(t *testin
 		"turn 2 must carry the full kdepsToolsFirstGuidance block, not just the one-line reminder")
 }
 
+// A text-only reply that reads as giving up ("I cannot complete this") right
+// after a tool call succeeded this turn must draw a push-back nudge instead
+// of ending the turn on the refusal -- there was real progress on the table.
+func TestRunStreaming_GiveUpAfterProgressIsNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+		{content: "Actually, here is the answer.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 3, "the give-up reply after a successful tool call must draw one nudge")
+	assert.Contains(t, ms.cfgs[2].Prompt, "reads as giving up")
+	assert.Equal(t, "Actually, here is the answer.", got)
+}
+
+// The same give-up language with NO tool call having succeeded this turn must
+// not be nudged -- there is nothing to push back with, and settleActiveFromText
+// (or, outside goal mode, a plain stop) must handle it as before.
+func TestRunStreaming_GiveUpWithNoProgressIsNotNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 1, "no progress this turn means no give-up nudge -- the turn ends here")
+	assert.Equal(t, "I cannot complete this, no access to the repo.", got)
+}
+
+// The give-up nudge is bounded to maxNudgesPerKind (2): a model that keeps
+// giving up after progress draws a second, sharper nudge, then the third
+// give-up reply is accepted as the turn's final answer.
+func TestRunStreaming_GiveUpNudgedTwiceThenAccepted(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "I cannot complete this.", toolCalls: nil},
+		{content: "I am unable to do this.", toolCalls: nil},
+		{content: "I cannot complete this, final answer.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 4, "two give-up nudges, then the third refusal is accepted")
+	assert.NotContains(t, ms.cfgs[2].Prompt, "second time this turn", "first nudge is not a repeat")
+	assert.Contains(t, ms.cfgs[3].Prompt, "second time this turn", "second nudge must read as a repeat")
+	assert.Equal(t, "I cannot complete this, final answer.", got)
+}
+
 // Every nudge that tells the model to "make a real tool call" must show it
 // the concrete <invoke> syntax to copy -- not just say "call it now" -- so a
 // backend with no native tool-call channel has something to act on. Checked
