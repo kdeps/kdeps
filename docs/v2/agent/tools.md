@@ -42,26 +42,9 @@ The exchange also carries a system message grounding the request: the same tool-
 
 Before the invoke request itself, kdeps also asks two warm-up questions - "how do you invoke a kdeps tool?" and "how many tools do you have?" - answers not checked, but establishing an ongoing conversation about kdeps tools before asking the model to actually call one, rather than a cold open. Each attempt (warm-up included) stays in the same growing conversation, so a retry sees its own prior miss as context instead of a repeat cold start.
 
-## Tool name aliases
+## Parameter-name synonyms
 
-Models trained on other agent frameworks or shell habits often call tools by familiar names. Those names are aliased to the real built-in tool, so a call to `grep` runs `search_local`, `cat` runs `read_file`, `bash` runs `bash_exec`, and so on. Aliases are resolved on dispatch and do **not** appear in the advertised tool list (no duplicates for the model to choose between). Common synonym parameter keys are normalized too - `grep`'s `pattern` maps to `search_local`'s `query`, `cat`'s `path` maps to `read_file`'s `file_path`.
-
-| Canonical tool | Example aliases |
-|----------------|-----------------|
-| `search_local` | `grep`, `rg`, `ripgrep`, `ag`, `search`, `search_file`, `find_in_files` |
-| `read_file` | `cat`, `read`, `open`, `view`, `head`, `tail` |
-| `write_file` | `write`, `create`, `create_file`, `save`, `touch` |
-| `edit_file` | `edit`, `str_replace`, `replace`, `apply_patch`, `sed` |
-| `list_files` | `ls`, `dir`, `list`, `tree`, `find`, `glob` |
-| `bash_exec` | `bash`, `sh`, `shell`, `exec`, `run`, `cmd`, `terminal` |
-| `web_search` | `google`, `web`, `search_web`, `duckduckgo` |
-| `web_scraper` | `scrape`, `fetch`, `curl`, `wget`, `browse`, `read_url` |
-| `http_request` | `http`, `request`, `api`, `rest` |
-| `calculator` | `calc`, `compute`, `eval`, `math` |
-| `code_definition` / `code_references` | `go_to_definition`, `find_references`, `usages` |
-| `sql_query` / `sql_list_tables` | `sql`, `select`, `list_tables`, `describe_table` |
-
-Aliases whose target tool is not registered (e.g. a credential-gated search) are simply not created.
+A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. This is scoped to parameter names only: kdeps does not maintain a separate table of alternate *tool* names (e.g. routing a call to `grep` as if it were `search_local`) - the tool list already tells the model the real name to call, and a second, silently-redirecting name for the same tool added maintenance cost without fixing the cases where a model loses track of what tools it has (see "Tool-list amnesia" below).
 
 ## Memory tools
 

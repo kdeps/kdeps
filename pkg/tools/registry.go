@@ -61,16 +61,14 @@ type Tool struct {
 
 // Registry holds all registered tools.
 type Registry struct {
-	tools   map[string]*Tool
-	aliases map[string]string // alias name -> canonical tool name
+	tools map[string]*Tool
 }
 
 // NewRegistry creates a new tool Registry.
 func NewRegistry() *Registry {
 	kdeps_debug.Log("enter: NewRegistry")
 	return &Registry{
-		tools:   make(map[string]*Tool),
-		aliases: make(map[string]string),
+		tools: make(map[string]*Tool),
 	}
 }
 
@@ -80,44 +78,10 @@ func (r *Registry) Register(t *Tool) {
 	r.tools[t.Name] = t
 }
 
-// RegisterAlias maps an alternate name to a canonical tool. A model that calls
-// the tool by a familiar name (e.g. "grep" for "search_local") is routed to
-// the real tool on dispatch. Aliases are not advertised in ToLLMTools, so the
-// tool list stays clean. Registering an alias that collides with a real tool
-// name, or whose target does not exist, is a no-op.
-func (r *Registry) RegisterAlias(alias, canonical string) {
-	if alias == "" || canonical == "" || alias == canonical {
-		return
-	}
-	if _, isReal := r.tools[alias]; isReal {
-		return // never shadow a real tool
-	}
-	r.aliases[alias] = canonical
-}
-
-// Get returns a tool by name, resolving a single level of alias if the name is
-// not a registered tool. Returns nil if neither a tool nor an alias matches.
+// Get returns a tool by its exact registered name, or nil if none matches.
 func (r *Registry) Get(name string) *Tool {
 	kdeps_debug.Log("enter: Get")
-	if t, ok := r.tools[name]; ok {
-		return t
-	}
-	if canonical, ok := r.aliases[name]; ok {
-		return r.tools[canonical]
-	}
-	return nil
-}
-
-// ResolveAlias returns the canonical tool name for an alias, or the name
-// unchanged when it is already a real tool or unknown.
-func (r *Registry) ResolveAlias(name string) string {
-	if _, ok := r.tools[name]; ok {
-		return name
-	}
-	if canonical, ok := r.aliases[name]; ok {
-		return canonical
-	}
-	return name
+	return r.tools[name]
 }
 
 // Unregister removes a tool by name. No-op if the tool doesn't exist.

@@ -313,7 +313,6 @@ func TestEditFile_KdepsParamAliases(t *testing.T) {
 	f := writeSeenFile(t, "al.txt", "a\nb\n")
 	reg := kdepstools.NewRegistry()
 	registerEditFile(reg)
-	registerToolAliases(reg)
 	tool := reg.Get("edit_file")
 	args := map[string]any{
 		"command": "str_replace", "path": f,

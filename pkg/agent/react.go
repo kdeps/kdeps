@@ -257,8 +257,7 @@ func (l *Loop) dispatchReactTool(toolName, toolInput string) string {
 		// Non-JSON input: treat as a single "input" argument.
 		args = map[string]interface{}{"input": toolInput}
 	}
-	canonical := l.registry.ResolveAlias(toolName)
-	normalizeToolArgs(canonical, args)
+	normalizeToolArgs(toolName, args)
 	coerceToolArgTypes(tool.Parameters, args)
 	if denyReason, blocked := l.checkPathBoundary(args); blocked {
 		return fmt.Sprintf(`{"error":"%s"}`, denyReason)

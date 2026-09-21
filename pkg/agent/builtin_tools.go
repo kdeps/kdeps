@@ -126,8 +126,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
 	registerMemoryQueryTool(reg)
-	// After all tools exist, map familiar names (grep, cat, ls, ...) to them.
-	registerToolAliases(reg)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.

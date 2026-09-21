@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"html"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -76,7 +77,44 @@ var (
 	// the backslash-escaped case above, so collapsing the run down to a
 	// single "/" before any tag matching runs is required, not cosmetic.
 	multiSlashClosingTagRe = regexp.MustCompile(`<//+`)
+
+	// fencedCodeBlockRe matches a triple-backtick or triple-tilde fenced code
+	// block (optional language tag on the opening fence, DOTALL body, closes
+	// on the nearest fence of either style). A block explaining the
+	// <invoke>/<parameter> tool-call syntax -- exactly what use-kdeps-tools.yaml
+	// teaches models to write -- would otherwise be indistinguishable from a
+	// real text-fallback tool call to every regex below, which run over the
+	// whole reply with no notion of "inside a fence." protectFencedCodeBlocks/
+	// restoreFencedCodeBlocks swap fenced spans out before salvage runs and
+	// back in afterward so example code can never be stripped or misparsed.
+	fencedCodeBlockRe = regexp.MustCompile("(?s)(```|~~~)[^\n]*\n.*?\n(```|~~~)")
 )
+
+// fencedCodeBlockPlaceholder brackets a block's index while it is swapped out
+// of the text salvageContentToolCalls's regexes see. NUL bytes never occur in
+// real model output, so this can never collide with genuine content.
+const fencedCodeBlockPlaceholder = "\x00KDEPSFENCE\x00"
+
+// protectFencedCodeBlocks replaces every fenced code block in content with a
+// placeholder and returns the placeholder'd text plus the blocks in order, for
+// restoreFencedCodeBlocks to put back once salvage/strip processing is done.
+func protectFencedCodeBlocks(content string) (string, []string) {
+	var blocks []string
+	protected := fencedCodeBlockRe.ReplaceAllStringFunc(content, func(m string) string {
+		blocks = append(blocks, m)
+		return fencedCodeBlockPlaceholder + strconv.Itoa(len(blocks)-1) + fencedCodeBlockPlaceholder
+	})
+	return protected, blocks
+}
+
+// restoreFencedCodeBlocks reverses protectFencedCodeBlocks.
+func restoreFencedCodeBlocks(content string, blocks []string) string {
+	for i, b := range blocks {
+		placeholder := fencedCodeBlockPlaceholder + strconv.Itoa(i) + fencedCodeBlockPlaceholder
+		content = strings.ReplaceAll(content, placeholder, b)
+	}
+	return content
+}
 
 // toolCallArgKeys are the field names models use for a tool call's arguments.
 func toolCallArgKeys() []string { return []string{"arguments", "parameters", "args", "input"} }
@@ -88,6 +126,15 @@ func toolCallArgKeys() []string { return []string{"arguments", "parameters", "ar
 // <observation> removed and trimmed; hallucinated is true when such a
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
+	protected, fences := protectFencedCodeBlocks(content)
+	calls, cleaned, hallucinated := salvageUnfencedContentToolCalls(protected)
+	return calls, restoreFencedCodeBlocks(cleaned, fences), hallucinated
+}
+
+// salvageUnfencedContentToolCalls is salvageContentToolCalls's original body,
+// run only on text with fenced code blocks already swapped out for
+// placeholders (see protectFencedCodeBlocks).
+func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
 	// A model that treats this text-fallback markup as a JSON string it's
 	// embedding (rather than the literal tags kdeps expects) sometimes

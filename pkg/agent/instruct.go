@@ -81,13 +81,6 @@ access" a file, you called an internal tool by mistake -- switch to a kdeps
 tool. You never write a <tool_response>; the runtime returns results, you only
 make calls.`
 
-const instructAliasesBody = `Familiar names are aliased to the real tool: grep / rg / ag -> search_local;
-cat / head / tail -> read_file; write / touch -> write_file; edit / str_replace
-/ sed -> edit_file; ls / dir / tree -> list_files; bash / sh / run -> bash_exec;
-curl / wget / fetch -> web_scraper. Common parameter-name synonyms are
-normalized too. Aliases resolve on dispatch and do not appear in the advertised
-tool list.`
-
 const instructMemoryBody = `kdeps can switch the LLM model between turns. Persistent memory is the ONLY
 state that survives a switch. Call memory_search BEFORE every read, edit, or
 write to check whether prior work already produced what you need; call
@@ -122,7 +115,6 @@ func instructTopicList() []instructTopic {
 		{name: "modes", title: "Two modes", body: instructModesBody},
 		{name: "tools", title: "How to call a tool", body: instructToolsBody},
 		{name: "available", title: "Tools available in this session", render: renderInstructTools},
-		{name: "aliases", title: "Tool name aliases", body: instructAliasesBody},
 		{name: "memory", title: "Memory bridge (critical)", body: instructMemoryBody},
 		{name: "goals", title: "Goal-directed execution", body: instructGoalsBody},
 		{name: "feedback", title: "Reading runtime feedback", body: instructFeedbackBody},

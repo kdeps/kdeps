@@ -223,3 +223,56 @@ func TestSalvageContentToolCalls_LoneParameterStripped(t *testing.T) {
 	assert.Contains(t, cleaned, "Here is the plan.")
 	assert.Contains(t, cleaned, "Done.")
 }
+
+// A code fence demonstrating the <invoke>/<parameter> tool-call syntax --
+// exactly what use-kdeps-tools.yaml teaches models to write -- must survive
+// intact: it is example text, not a real call and not a hallucinated result,
+// and every regex in this file runs over the whole reply with no notion of
+// "inside a fence" unless protectFencedCodeBlocks shields it first.
+func TestSalvageContentToolCalls_InvokeExampleInsideFenceSurvives(t *testing.T) {
+	in := "Here is how to call it:\n\n```\n" +
+		`<invoke name="read_file">` + "\n" +
+		`<parameter name="file_path">cmd/serve.go</parameter>` + "\n" +
+		"</invoke>\n```\n\nThen wait for the result."
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	assert.Empty(t, calls, "example markup inside a fence must never be parsed as a real call")
+	assert.False(t, fake)
+	assert.Contains(t, cleaned, `<invoke name="read_file">`)
+	assert.Contains(t, cleaned, `<parameter name="file_path">cmd/serve.go</parameter>`)
+	assert.Contains(t, cleaned, "```")
+	assert.Contains(t, cleaned, "Then wait for the result.")
+}
+
+// A <tool_response> shown inside a fence as a documentation example (e.g.
+// explaining what NOT to write) must not be flagged as a hallucinated result
+// -- only a real, unfenced self-authored <tool_response> is.
+func TestSalvageContentToolCalls_ToolResponseInsideFenceNotFlagged(t *testing.T) {
+	in := "Never write this yourself:\n\n```\n<tool_response>fake</tool_response>\n```\n\nCall the real tool instead."
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	assert.Empty(t, calls)
+	assert.False(t, fake, "a fenced example must not be flagged as a hallucinated result")
+	assert.Contains(t, cleaned, "<tool_response>fake</tool_response>")
+	assert.Contains(t, cleaned, "Call the real tool instead.")
+}
+
+// Tilde fences must be protected the same as backtick fences.
+func TestSalvageContentToolCalls_InvokeExampleInsideTildeFenceSurvives(t *testing.T) {
+	in := "Example:\n\n~~~\n" + `<invoke name="bash_exec"><parameter name="command">pwd</parameter></invoke>` + "\n~~~\n\nDone."
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	assert.Empty(t, calls)
+	assert.Contains(t, cleaned, `<invoke name="bash_exec">`)
+	assert.Contains(t, cleaned, "~~~")
+}
+
+// A real (unfenced) tool call written as text right next to a fenced example
+// must still be recovered -- fence protection must not swallow genuine calls
+// outside the fence.
+func TestSalvageContentToolCalls_RealCallOutsideFenceStillRecovered(t *testing.T) {
+	in := `<tool_call>{"name":"bash_exec","arguments":{"command":"pwd"}}</tool_call>` +
+		"\n\nFor reference, the syntax looks like:\n\n```\n<invoke name=\"bash_exec\"></invoke>\n```"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.Contains(t, cleaned, "```")
+	assert.Contains(t, cleaned, `<invoke name="bash_exec"></invoke>`)
+}

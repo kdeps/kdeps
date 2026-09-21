@@ -2600,14 +2600,10 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
 
-	// Resolve any alias (grep -> search_local) to the real tool name so the
-	// permission check, param normalization, and display all use it.
-	canonical := l.registry.ResolveAlias(tc.Name)
-
 	// Permission check: block tools that don't meet the current mode.
 	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
 	// enforcer, so env-only configuration works too.
-	if denyReason, blocked := l.checkToolPermission(canonical, tc.Arguments); blocked {
+	if denyReason, blocked := l.checkToolPermission(tc.Name, tc.Arguments); blocked {
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... blocked: permission denied")
 		}
@@ -2623,11 +2619,11 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		}
 		return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %w", err))
 	}
-	// Rewrite synonym param keys (grep's "pattern" -> search_local's "query"),
-	// then coerce values into the types the tool's declared params expect
+	// Rewrite synonym param keys (e.g. edit_file's "old" -> "old_str"), then
+	// coerce values into the types the tool's declared params expect
 	// (fenced-protocol backends have no JSON-schema enforcement to do this
 	// for us -- see coerceToolArgTypes).
-	normalizeToolArgs(canonical, args)
+	normalizeToolArgs(tc.Name, args)
 	coerceToolArgTypes(tool.Parameters, args)
 
 	if result, blocked := l.blockOnPathBoundary(args); blocked {
