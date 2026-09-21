@@ -64,6 +64,16 @@ loader:
 
 `documents` is directly usable as the `documents:` input to a `vectorStore:` `add_documents` operation - each `content`/`metadata` pair maps onto a [`VectorStoreDocument`](/workflow/resources/vector-store).
 
+## Size limit
+
+Every loader type reads its source fully into memory before returning - fine for a report or a handbook, but a workflow doing bulk ingestion (a large CSV, a directory of documents) risks an OS-level, no-core-dump `SIGKILL` once that content gets copied again downstream (`chunkSize` splitting, `json.Marshal` in the result, a `vectorStore:` step embedding it). Any single file over **256 MiB** is rejected with a clear error instead - `type: directory`/`notion` skip an oversized file and keep loading the rest (a batch load should not abort over one large file); every other type fails that one load outright, the same way an explicit `--file`/stdin over its own 256 MiB default already does (see [Input sources](/workflow/input-sources)).
+
+Raise or lower it with `KDEPS_LOADER_MAX_BYTES` (bytes; `0` disables the check):
+
+```bash
+KDEPS_LOADER_MAX_BYTES=1073741824 kdeps run workflow.yaml  # 1 GiB, for a workflow that loads bulk data
+```
+
 ## RAG pipeline example
 
 ```yaml
