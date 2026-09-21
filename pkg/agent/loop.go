@@ -3137,7 +3137,7 @@ func (l *Loop) buildChatConfig(
 	ctx context.Context,
 	input, systemPreamble string,
 ) *domain.ChatConfig {
-	resetContextSegments(l.config.Model)
+	resetContextSegments(l.config.Model, l.config.Backend)
 	var tools []domain.Tool
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()

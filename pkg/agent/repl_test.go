@@ -3407,11 +3407,16 @@ func TestContextLimitForModel_CloudModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	// Cloud models (those BackendForModel returns non-empty) get contextLimitCloud
-	// Use a known cloud model ID from the KnownCloudModels list
+	// contextLimitForModel checks ContextWindowForModel first, which now
+	// resolves any KnownCloudModels entry (ContextWindowForModel delegates to
+	// executorLLM.ModelContextWindow before its own older, narrower table) --
+	// every catalog entry carries a real ContextWindow, so a known cloud
+	// model gets its actual window, not the generic contextLimitCloud
+	// fallback (that fallback only fires for a cloud backend match with no
+	// catalog window at all, which no longer happens for any real entry).
 	for _, m := range llm.KnownCloudModels {
 		if BackendForModel(m.ID) != "" {
-			assert.Equal(t, contextLimitCloud, repl.contextLimitForModel(m.ID))
+			assert.Equal(t, m.ContextWindow, repl.contextLimitForModel(m.ID))
 			return
 		}
 	}

@@ -3,7 +3,11 @@
 
 package agent
 
-import "strings"
+import (
+	"strings"
+
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+)
 
 // modelContextWindows maps model names to their known context window sizes in tokens.
 // Sourced from provider docs, OpenRouter, and litellm/model_prices_and_context_window.
@@ -130,9 +134,17 @@ var modelContextWindows = map[string]int{
 	"sonar-pro":                  200000,
 }
 
-// ContextWindowForModel returns the known context window size in tokens for a model.
-// Returns 0 if the model is unknown (caller should fall back to defaults).
+// ContextWindowForModel returns the known context window size in tokens for a
+// model. Checks executorLLM.KnownCloudModels first -- the actively
+// maintained catalog (it's also where m365's aliases like "claude-sonnet"/
+// "quick"/"gpt-5.x" carry a conservative estimated window, since M365
+// doesn't publish exact limits) -- falling back to this file's own older,
+// narrower static table for any name the catalog doesn't have. Returns 0 if
+// the model is unknown to both (caller should fall back to defaults).
 func ContextWindowForModel(model string) int {
+	if ctx := executorLLM.ModelContextWindow(model); ctx > 0 {
+		return ctx
+	}
 	if ctx, ok := modelContextWindows[model]; ok {
 		return ctx
 	}

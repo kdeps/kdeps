@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 // contextSegment is one labeled, sized contributor to the current turn's
@@ -43,20 +45,41 @@ type contextSegment struct {
 //
 //nolint:gochecknoglobals // mirrors llm.TokenInputs/TokenOutputs's existing pattern
 var (
-	contextSegmentsMu sync.Mutex
-	contextSegments   []contextSegment
-	contextPathModel  string
+	contextSegmentsMu  sync.Mutex
+	contextSegments    []contextSegment
+	contextPathModel   string
+	contextPathBackend string
 )
 
 // resetContextSegments clears the context-path trail for a new turn and
-// records which model it's being built for (contextPathStatus needs this to
-// look up the context window). Called once at the top of buildChatConfig,
-// which every turn-starting path calls before any segment is recorded.
-func resetContextSegments(model string) {
+// records which model/backend it's being built for (contextPathStatus needs
+// this to look up the context window -- a local backend's real window comes
+// from executorLLM.LocalContextSize(), not the model-name lookup, which only
+// covers cloud providers). Called once at the top of buildChatConfig, which
+// every turn-starting path calls before any segment is recorded.
+func resetContextSegments(model, backend string) {
 	contextSegmentsMu.Lock()
 	defer contextSegmentsMu.Unlock()
 	contextSegments = nil
 	contextPathModel = model
+	contextPathBackend = backend
+}
+
+// contextWindowForBackend returns the effective context window for the
+// active turn: a local backend's actual configured --ctx-size
+// (executorLLM.LocalContextSize(), set from the servable model or
+// KDEPS_CTX_SIZE) takes priority, since the static ContextWindowForModel
+// table only knows cloud provider model names and would otherwise hide the
+// context-path line for every local/llamafile/GGUF/Ollama session -- exactly
+// the models this project cares most about supporting.
+func contextWindowForBackend(model, backend string) int {
+	switch backend {
+	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
+		if n := executorLLM.LocalContextSize(); n > 0 {
+			return n
+		}
+	}
+	return ContextWindowForModel(model)
 }
 
 // recordContextSegment appends a labeled, sized contributor to the current
@@ -101,13 +124,13 @@ func contextPathStatus() string {
 	contextSegmentsMu.Lock()
 	segs := make([]contextSegment, len(contextSegments))
 	copy(segs, contextSegments)
-	model := contextPathModel
+	model, backend := contextPathModel, contextPathBackend
 	contextSegmentsMu.Unlock()
 
 	if len(segs) == 0 {
 		return ""
 	}
-	maxWindow := ContextWindowForModel(model)
+	maxWindow := contextWindowForBackend(model, backend)
 	if maxWindow <= 0 {
 		return ""
 	}
