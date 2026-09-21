@@ -308,6 +308,14 @@ type Loop struct {
 	// as a [kdeps] system message. The human sees them on the terminal; the
 	// model must see them too so it can adjust. Reset per turn in runToolRounds.
 	modelNotes []string
+	// cachedSystemPromptSegmentTokens/cachedMemorySegmentTokens are the size
+	// of buildSystemPreamble's two halves (everything except memory, and
+	// memory alone), captured when the cached preamble is built so
+	// buildChatConfig can re-add them as context-path segments (see
+	// context_path.go) every turn without recomputing or re-splitting the
+	// already-cached preamble string.
+	cachedSystemPromptSegmentTokens int
+	cachedMemorySegmentTokens       int
 	// lastWorkFailure records the most recent work tool (not task_complete /
 	// task_fail) whose result was an error and has not since succeeded. Nil once
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
@@ -1054,6 +1062,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// and attach the active-task directive before the first round.
 	if directive := l.beginGoal(ctx, input, w); directive != "" {
 		chatCfg = withGoalDirective(chatCfg, directive)
+		recordContextSegment("goal", directive)
 	}
 
 	// Resolve the judge panel up front so an auto-generated roster prints
@@ -2310,6 +2319,7 @@ func (l *Loop) toolResultMessage(
 	if isTaskStateTool(tc.Name) {
 		return turoReduce(ctx, capToolResult(result))
 	}
+	recordContextSegment("tool: "+tc.Name, result)
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
@@ -2959,7 +2969,12 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 			preamble = toolSection
 		}
 	}
+	// Cached here (not recomputed per turn) for the context-path status line
+	// (contextPathStatus): everything except memory -- skills, instructions,
+	// harness rules, the tool catalog -- read as one "system prompt" segment.
+	l.cachedSystemPromptSegmentTokens = EstimateTokenCountFromStrings(preamble)
 	if memorySection := strings.Join(memoryParts, "\n\n"); memorySection != "" {
+		l.cachedMemorySegmentTokens = EstimateTokenCountFromStrings(memorySection)
 		if preamble != "" {
 			preamble = memorySection + "\n\n" + preamble
 		} else {
@@ -3122,6 +3137,7 @@ func (l *Loop) buildChatConfig(
 	ctx context.Context,
 	input, systemPreamble string,
 ) *domain.ChatConfig {
+	resetContextSegments(l.config.Model)
 	var tools []domain.Tool
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()
@@ -3147,6 +3163,7 @@ func (l *Loop) buildChatConfig(
 	// system preamble, input, and tool results.
 	if history := l.historyMessages(ctx); history != "" {
 		chatCfg.Messages = history
+		recordContextSegment("history", history)
 	}
 
 	// Inject system preamble as scenario (prepended before history). The preamble
@@ -3164,6 +3181,8 @@ func (l *Loop) buildChatConfig(
 			item.CacheControl = "ephemeral"
 		}
 		chatCfg.Scenario = []domain.ScenarioItem{item}
+		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
+		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
 
 	// After the first turn, re-state the fenced-tools rule in one line. The full

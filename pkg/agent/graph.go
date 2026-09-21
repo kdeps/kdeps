@@ -128,11 +128,20 @@ func (f *arrowPathFormatter) FormatPath(path *graphPath) string {
 }
 
 func (f *arrowPathFormatter) formatForwardPath(nodes []string) string {
-	return strings.Join(nodes, " -> ")
+	return joinGraphPath(nodes, " -> ")
 }
 
 func (f *arrowPathFormatter) formatReversePath(nodes []string) string {
-	return strings.Join(nodes, " <- ")
+	return joinGraphPath(nodes, " <- ")
+}
+
+// joinGraphPath joins pre-formatted node strings into one path with sep --
+// the shared primitive behind every graph path rendering in this file
+// (memory's dependency-graph traversal via arrowPathFormatter, and the
+// context-path status line via contextPathStatus), so both draw on the same
+// Kartographer-derived path notation instead of two separate joiners.
+func joinGraphPath(nodes []string, sep string) string {
+	return strings.Join(nodes, sep)
 }
 
 // graphPathServiceImpl implements graphPathService.

@@ -725,7 +725,9 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 	}
 
 	*cfg = e.applyEscalation(*cfg, level)
-	*cfg = withGoalDirective(*cfg, e.directive()+e.escalationNote(level))
+	directive := e.directive() + e.escalationNote(level)
+	*cfg = withGoalDirective(*cfg, directive)
+	recordContextSegment("goal", directive)
 }
 
 // reportGoalEvent surfaces a state-machine transition to the user AND queues it

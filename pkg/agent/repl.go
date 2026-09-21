@@ -1388,16 +1388,30 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	defer tick.Stop()
 	i := 0
 	tcStr := compactTokenStatus()
+	// prevRows tracks how many terminal rows the last drawn frame occupied
+	// (1, or 2 once the context-path line -- pathStr below -- has segments to
+	// show), the same up-and-erase redraw technique liveThinkingWriter.repaint
+	// already uses: move up prevRows-1 rows, erase downward, redraw. Fully
+	// self-cleaning on exit so the caller's own post-spinner clear (a plain
+	// single-line ansiClearLine, unaware this can be two rows) still leaves a
+	// clean terminal either way.
+	prevRows := 0
 	for {
 		select {
 		case <-tick.C:
 			if skip != nil && skip() {
 				continue
 			}
+			pathStr := contextPathStatus()
 			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			fmt.Fprintf(out, "\r%s  %s\033[K", tcStr, frame)
+			seq, rows := renderFrame(prevRows, pathStr, fmt.Sprintf("%s  %s", tcStr, frame))
+			fmt.Fprint(out, seq)
+			prevRows = rows
 			i++
 		case <-done:
+			if prevRows > 0 {
+				fmt.Fprint(out, eraseFrame(prevRows))
+			}
 			return
 		}
 	}

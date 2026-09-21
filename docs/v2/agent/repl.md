@@ -114,6 +114,17 @@ Every theme but `normal` renders the model-name color at full legibility, so the
 
 `/model name <mode>` persists to `~/.kdeps/agent-loop-settings.yaml` the same way `/theme` does. The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
 
+### Context-path status line
+
+Directly above the token counter, whenever the running model's context window is known, a second line shows what is actually making up the current turn's context and how full it is:
+
+```
+[2.2m/5m: system prompt (1k) > tool: bash_exec (2k) > memory (0.4k)]
+[in:1.2m|out:30]
+```
+
+The left side of the colon is `<current tokens>/<model's context window>`; the right side is a path (same arrow-path notation the [memory graph](/agent/memory-internals#memory-graph) already uses, just `>` instead of `->`) through what fed this turn, most recent last: the system prompt, memory, conversation history, and each tool call's result, each tagged with its own size. Past 5 contributors the oldest collapse into a leading `+N more >` marker instead of an unreadable wall of entries. The line is per-turn (it resets with each new prompt, not cumulative for the whole session) and hides itself entirely for a model whose context window kdeps doesn't know - it never guesses a max.
+
 ### Custom themes
 
 Every theme - built-in or not - is a YAML file. Drop your own into `~/.kdeps/themes/<name>.yaml` and it shows up in `/theme`'s list immediately:
