@@ -514,8 +514,8 @@ func (r *REPL) modeline() string {
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("in:"+formatCompactCount(llm.TokenInputs)))
-		parts = append(parts, meta("out:"+formatCompactCount(llm.TokenOutputs)))
+		parts = append(parts, meta("sent:"+formatCompactCount(llm.TokenInputs)))
+		parts = append(parts, meta("generated:"+formatCompactCount(llm.TokenOutputs)))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -1388,13 +1388,10 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	defer tick.Stop()
 	i := 0
 	tcStr := compactTokenStatus()
-	// prevRows tracks how many terminal rows the last drawn frame occupied
-	// (1, or 2 once the context-path line -- pathStr below -- has segments to
-	// show), the same up-and-erase redraw technique liveThinkingWriter.repaint
-	// already uses: move up prevRows-1 rows, erase downward, redraw. Fully
-	// self-cleaning on exit so the caller's own post-spinner clear (a plain
-	// single-line ansiClearLine, unaware this can be two rows) still leaves a
-	// clean terminal either way.
+	// prevRows is how many visual rows the last frame occupied, including
+	// wraps (renderFrame). Remembering a wrapped line as one row left the
+	// previous copy on screen on every tick. Fully self-cleaning on exit so
+	// the caller's own post-spinner clear still leaves a clean terminal.
 	prevRows := 0
 	for {
 		select {
@@ -4156,7 +4153,7 @@ func (r *REPL) explainNothingToFold() {
 		turns, needed, forceKeepTurns)
 
 	if tc := r.tokenCounter; tc != nil {
-		fmt.Fprintf(os.Stdout, "  token counter: in:%s out:%s\n",
+		fmt.Fprintf(os.Stdout, "  token counter: sent %s, generated %s\n",
 			formatCompactCount(tc.InputTokens()), formatCompactCount(tc.OutputTokens()))
 	}
 }
@@ -5013,7 +5010,7 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [in:%s|out:%s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
+	fmt.Fprintf(os.Stdout, "  %s [sent %s | generated %s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
 
 	// Convergence pipelines
 	wc, wm := WebConvergenceCalls()

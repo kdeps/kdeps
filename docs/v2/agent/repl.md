@@ -116,14 +116,16 @@ Every theme but `normal` renders the model-name color at full legibility, so the
 
 ### Context-path status line
 
-Directly above the token counter, whenever the running model's context window is known, a second line shows what is actually making up the current turn's context and how full it is:
+Directly above the session counter, whenever the running model's context window is known, a line shows what this turn's prompt is made of:
 
 ```
-[2.2m/5m: system prompt (1k) > tool: bash_exec (2k) > memory (0.4k)]
-[in:1.2m|out:30]
+[turn 12.4k/200k | sys 8.1k | mem 1.2k | hist 2.4k | bash_exec 700]
+[sent 1.2m | generated 30]
 ```
 
-The left side of the colon is `<current tokens>/<model's context window>`; the right side is a path (same arrow-path notation the [memory graph](/agent/memory-internals#memory-graph) already uses, just `>` instead of `->`) through what fed this turn, most recent last: the system prompt, memory, conversation history, and each tool call's result, each tagged with its own size. Past 5 contributors the oldest collapse into a leading `+N more >` marker instead of an unreadable wall of entries. The line is per-turn (it resets with each new prompt, not cumulative for the whole session) and hides itself entirely for a model whose context window kdeps doesn't know - it never guesses a max.
+`turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, `goal` the active task, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
+
+`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`.
 
 ### Custom themes
 

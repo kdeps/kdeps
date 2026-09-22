@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,10 +48,10 @@ func TestContextPathStatus_ShowsSegmentsAndTotal(t *testing.T) {
 
 	status := contextPathStatus()
 	require.NotEmpty(t, status)
-	assert.Contains(t, status, "system prompt (")
-	assert.Contains(t, status, "tool: bash_exec (")
-	assert.Contains(t, status, " > ")
-	assert.Contains(t, status, "/128.0k:")
+	assert.Contains(t, status, "sys ")
+	assert.Contains(t, status, "bash_exec ")
+	assert.Contains(t, status, "turn ")
+	assert.Contains(t, status, "/128.0k")
 }
 
 func TestContextPathStatus_EmptyTextNeverRecorded(t *testing.T) {
@@ -59,17 +60,28 @@ func TestContextPathStatus_EmptyTextNeverRecorded(t *testing.T) {
 	assert.Equal(t, "", contextPathStatus(), "empty text must never produce a segment")
 }
 
-func TestContextPathStatus_TruncatesToCapWithMoreMarker(t *testing.T) {
+func TestContextPathStatus_SumsRepeatedLabel(t *testing.T) {
 	resetContextSegments(modelGPT4o, "")
-	for range contextPathSegmentCap + 3 {
-		recordContextSegment("tool: x", strings.Repeat("word ", 20))
+	for range 20 {
+		recordContextSegmentTokens("tool: bash_exec", 100)
 	}
 	status := contextPathStatus()
 	require.NotEmpty(t, status)
-	assert.Contains(t, status, "+3 more > ")
-	// contextPathSegmentCap nodes shown -- the "+N more" prefix's own " > "
-	// plus one separator between each of the remaining pairs.
-	assert.Equal(t, contextPathSegmentCap, strings.Count(status, " > tool: x"))
+	assert.Equal(t, 1, strings.Count(status, "bash_exec"),
+		"twenty calls to one tool must be one group, not twenty copies")
+	assert.Contains(t, status, "bash_exec 2.0k")
+}
+
+func TestContextPathStatus_TruncatesToCapWithMoreMarker(t *testing.T) {
+	resetContextSegments(modelGPT4o, "")
+	for i := range contextPathSegmentCap + 3 {
+		recordContextSegmentTokens(fmt.Sprintf("tool: t%d", i), 100)
+	}
+	status := contextPathStatus()
+	require.NotEmpty(t, status)
+	assert.Contains(t, status, "+3")
+	assert.NotContains(t, status, "t0 ")
+	assert.Contains(t, status, "t7 ")
 }
 
 func TestContextPathStatus_NoMoreMarkerUnderCap(t *testing.T) {
@@ -91,7 +103,7 @@ func TestRecordContextSegmentTokens_RecordsPositive(t *testing.T) {
 	recordContextSegmentTokens("memory", 400)
 	status := contextPathStatus()
 	require.NotEmpty(t, status)
-	assert.Contains(t, status, "memory (400)")
+	assert.Contains(t, status, "mem 400")
 }
 
 // A local backend (file/gguf/ollama) has no entry in the static
@@ -109,7 +121,7 @@ func TestContextPathStatus_UsesLocalContextSizeForFileBackend(t *testing.T) {
 
 	status := contextPathStatus()
 	require.NotEmpty(t, status, "a local backend must use LocalContextSize, not the cloud model table")
-	assert.Contains(t, status, "/32.8k:")
+	assert.Contains(t, status, "/32.8k")
 }
 
 // m365's aliases ("claude-sonnet", "quick", ...) resolve through
@@ -135,7 +147,15 @@ func TestContextPathStatus_CloudBackendIgnoresLocalContextSize(t *testing.T) {
 
 	status := contextPathStatus()
 	require.NotEmpty(t, status)
-	assert.Contains(t, status, "/128.0k:", "a cloud backend must use the model's real window, not LocalContextSize")
+	assert.Contains(t, status, "/128.0k", "a cloud backend must use the model's real window, not LocalContextSize")
+}
+
+func TestVisualRows_CountsWrapsWithoutANSI(t *testing.T) {
+	plain := strings.Repeat("a", 25)
+	assert.Equal(t, 1, visualRows(plain, 80))
+	assert.Equal(t, 3, visualRows(plain, 10))
+	colored := "\x1b[32m" + plain + "\x1b[0m"
+	assert.Equal(t, 3, visualRows(colored, 10), "color codes are not columns")
 }
 
 func TestResetContextSegments_ClearsPreviousTurn(t *testing.T) {

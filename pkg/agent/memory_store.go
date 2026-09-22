@@ -558,30 +558,20 @@ func (w *stringWriter) WriteLine(content string) {
 }
 
 // FormatGraphForPrompt returns the memory relationship graph as text suitable for
-// LLM prompt injection. Uses inlined graph traversal (see graph.go).
-// Format: "A -> B -> D\nA -> C -> D". Returns empty string when no relationships exist.
+// LLM prompt injection. One line per root-to-leaf path ("A -> B -> D"), each
+// path once. Walking every node and printing every prefix restated the same
+// chain once per step and once per starting node -- a 4-node chain became
+// four copies, a 20-node chain twenty. Returns empty when nothing is linked.
 func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
 	deps := m.BuildDependencyMap()
 	if len(deps) == 0 {
 		return ""
 	}
-
-	repo := newInMemoryGraphRepository(deps)
-	formatter := newArrowPathFormatter()
-	writer := &stringWriter{buf: &strings.Builder{}}
-	pathSvc := newGraphPathService(formatter, writer)
-	depSvc := newGraphDependencyService(repo, pathSvc)
-
-	// Traverse each node to build complete graph output.
-	for key := range deps {
-		depSvc.TraverseGraph(key)
-	}
-
-	if writer.lines == 0 {
+	lines := uniqueGraphPaths(deps)
+	if len(lines) == 0 {
 		return ""
 	}
-
-	output := writer.buf.String()
+	output := strings.Join(lines, "\n") + "\n"
 	if maxTokens <= 0 {
 		maxTokens = memoryMaxTokens / memoryHalfDivisor // half for entries, half for graph
 	}
@@ -595,6 +585,79 @@ func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
 	}
 
 	return "<memory-graph>\n" + output + "</memory-graph>"
+}
+
+// uniqueGraphPaths returns each root-to-leaf path once. A root is a node that
+// references something and is not itself referenced, so a chain is walked
+// from its start only. A cycle (every node referenced) falls back to every
+// key; the seen set still drops an identical line. Paths are sorted so the
+// block does not change because map iteration order did.
+func uniqueGraphPaths(deps map[string][]string) []string {
+	referenced := make(map[string]bool)
+	for _, refs := range deps {
+		for _, ref := range refs {
+			referenced[ref] = true
+		}
+	}
+	roots := make([]string, 0, len(deps))
+	for key := range deps {
+		if !referenced[key] {
+			roots = append(roots, key)
+		}
+	}
+	if len(roots) == 0 {
+		for key := range deps {
+			roots = append(roots, key)
+		}
+	}
+	sort.Strings(roots)
+
+	seen := make(map[string]bool)
+	var lines []string
+	var walk func(path []string, node string, onPath map[string]bool)
+	walk = func(path []string, node string, onPath map[string]bool) {
+		if onPath[node] {
+			addGraphLine(&lines, seen, append(append([]string{}, path...), node))
+			return
+		}
+		nextPath := append(append([]string{}, path...), node)
+		refs := append([]string(nil), deps[node]...)
+		sort.Strings(refs)
+		if len(refs) == 0 {
+			addGraphLine(&lines, seen, nextPath)
+			return
+		}
+		nextOn := make(map[string]bool, len(onPath)+1)
+		for k, v := range onPath {
+			nextOn[k] = v
+		}
+		nextOn[node] = true
+		for _, ref := range refs {
+			walk(nextPath, ref, nextOn)
+		}
+	}
+	for _, root := range roots {
+		walk(nil, root, map[string]bool{})
+	}
+	sort.Strings(lines)
+	return lines
+}
+
+// minGraphPathNodes is the shortest path worth printing. A single node has
+// no edge, and printing it is how the same name used to stack once per step.
+const minGraphPathNodes = 2
+
+// addGraphLine records a path of at least two nodes, once.
+func addGraphLine(lines *[]string, seen map[string]bool, nodes []string) {
+	if len(nodes) < minGraphPathNodes {
+		return
+	}
+	line := joinGraphPath(nodes, " -> ")
+	if line == "" || seen[line] {
+		return
+	}
+	seen[line] = true
+	*lines = append(*lines, line)
 }
 
 // FormatGraphNode returns the dependency paths for a single key.

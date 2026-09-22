@@ -214,27 +214,32 @@ func isHeadless() bool {
 	return !term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-// compactTokenStatus returns a compact token counter string for the monitor
-// and spinner lines (e.g. "[in:12k|out:3k] "). Always returns a value,
-// starting at "[in:0|out:0] " so the counter is omnipresent.
+// compactTokenStatus is the session token counter under the turn breakdown.
+// "sent" is the sum of prompt tokens handed to the model across every call
+// this session (history is re-sent each round, so this grows faster than
+// one turn's window). "generated" is the sum of tokens the model wrote back.
+// Always returns a value, starting at "[sent 0 | generated 0] ".
 func compactTokenStatus() string {
 	in := llm.TokenInputs
 	out := llm.TokenOutputs
-	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
+	parts := []string{
+		"sent " + formatCompactCount(in),
+		"generated " + formatCompactCount(out),
+	}
 	if calls, limit := WebConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("web %d/%d", calls, limit))
 	}
 	if calls, limit := BashConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("sh %d/%d", calls, limit))
 	}
 	if calls, limit := FileConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("file %d/%d", calls, limit))
 	}
 	if calls, limit := CodeConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("src %d/%d", calls, limit))
 	}
 	return styleReplDim.Render("[") +
-		styleReplMeta.Render(strings.Join(parts, "|")) +
+		styleReplMeta.Render(strings.Join(parts, " | ")) +
 		styleReplDim.Render("] ")
 }
 

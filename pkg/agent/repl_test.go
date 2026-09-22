@@ -3714,7 +3714,7 @@ func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
 
 	assert.Contains(t, out, "Nothing to fold yet")
 	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", forceKeepTurns+2))
-	assert.Contains(t, out, "token counter: in:5 out:2")
+	assert.Contains(t, out, "token counter: sent 5, generated 2")
 }
 
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {
