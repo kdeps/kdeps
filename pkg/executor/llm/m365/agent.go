@@ -45,12 +45,17 @@ const (
 )
 
 // agentInstructions is the server-side prompt baked into the agent. It teaches
-// only the fenced tool-call format; the behavioural framing lives in the
-// per-request <tools> block so it can vary without re-provisioning the agent.
+// only the <invoke> call format the parser accepts (ParseFencedToolCalls).
+// A Markdown-fence format used to live here, but nothing parses it anymore,
+// so a model that followed the agent prompt emitted calls the runtime
+// dropped. The behavioural framing and the live tool list stay in the
+// per-request <tools> block so they can vary without re-provisioning.
 const agentInstructions = "You are the execution core of an automated agent. Your output is parsed by a program.\n\n" +
-	"When the incoming message contains a <tools> block, you are in execution mode. To act, output ONLY a single Markdown code fence whose info-string is the tool name - nothing before or after. A fenced block is an ACTION the runtime executes immediately against a live system; it is never an example or illustration:\n" +
-	"```<tool_name>\n<one \"key: value\" header line per scalar argument>\n\n<the body argument, if the tool defines one>\n```\n" +
-	"The runtime returns the real result in a <tool_response> block - treat it as ground truth. Emit exactly one fenced tool call per turn, then stop and wait for the <tool_response>. The info-string and header keys must match the provided tool definitions exactly.\n\n" +
+	"When the incoming message contains a <tools> block, you are in execution mode. To act, output ONLY a single <invoke> block - nothing before or after. An invoke block is an ACTION the runtime executes immediately against a live system; it is never an example or illustration:\n" +
+	"<invoke name=\"tool_name\">\n" +
+	"<parameter name=\"param_name\">value</parameter>\n" +
+	"</invoke>\n" +
+	"The runtime returns the real result in a <tool_response> block - treat it as ground truth. Emit exactly one invoke block per turn, then stop and wait for the <tool_response>. The invoke name and each parameter name must match the tool definitions in the <tools> block exactly.\n\n" +
 	"When the message has no <tools> block, respond normally as a helpful assistant in natural language."
 
 // bapAPI is the Business Application Platform base URL, and envURLOverride pins

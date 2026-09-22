@@ -880,6 +880,22 @@ func TestModelSessionRefreshAgent(t *testing.T) {
 
 // --- agent.go ---
 
+// The provisioned agent is the only standing instruction a GPT-tone turn
+// has before the per-request <tools> block. It must teach the <invoke>
+// shape ParseFencedToolCalls actually recovers. The old Markdown-fence
+// shape is not parsed, so a model that followed it produced no tool call.
+func TestAgentInstructions_TeachInvokeFormat(t *testing.T) {
+	if !strings.Contains(agentInstructions, `<invoke name="tool_name">`) {
+		t.Fatal("agent instructions must teach the invoke format the parser accepts")
+	}
+	if !strings.Contains(agentInstructions, `<parameter name="param_name">`) {
+		t.Fatal("agent instructions must teach parameter tags")
+	}
+	if strings.Contains(agentInstructions, "```<tool_name>") {
+		t.Fatal("markdown-fence tool calls are no longer parsed and must not be taught")
+	}
+}
+
 func TestAgentNamingAndCache(t *testing.T) {
 	if len(getInstructionsHash()) != 8 {
 		t.Errorf("hash length = %d", len(getInstructionsHash()))
