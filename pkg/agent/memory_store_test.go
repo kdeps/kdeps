@@ -1521,6 +1521,79 @@ func TestMemoryTools_Search_NoResults(t *testing.T) {
 	assert.Contains(t, result, "No memory entries found")
 }
 
+// TestMemoryTools_Search_CapsResultCount guards the fix for "memory_search
+// consumes millions of tokens": a broad query against a store with more than
+// memorySearchResultCap matches must not dump every one of them -- only the
+// cap, plus a count of how many more exist.
+func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	total := memorySearchResultCap + 5
+	for i := range total {
+		require.NoError(t, store.Set(fmt.Sprintf("match-%02d", i), "shared-query-term"))
+	}
+	// Force a known recency order. A tight Set loop can share one millisecond,
+	// and the cap must keep the newest facts, not the alphabetically first keys.
+	store.mu.Lock()
+	for i := range total {
+		key := fmt.Sprintf("match-%02d", i)
+		entry := store.entries[key]
+		entry.UpdatedAt = int64(i)
+		store.entries[key] = entry
+	}
+	store.mu.Unlock()
+
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "shared-query-term"})
+	require.NoError(t, err)
+	assert.Contains(t, result, fmt.Sprintf("Found %d memory entries", total))
+	assert.Contains(t, result, fmt.Sprintf("showing %d", memorySearchResultCap))
+	assert.Contains(t, result, "5 more")
+	assert.Contains(t, result, "match-24", "the newest match must be shown")
+	assert.NotContains(t, result, "match-00", "the oldest match must be past the cap")
+	assert.Equal(t, memorySearchResultCap, strings.Count(result, "shared-query-term"),
+		"only the capped number of matches should have their value printed")
+}
+
+// TestMemoryTools_Search_TruncatesLongValues guards the same bug from the
+// other direction: even a single match must not blow the budget if its
+// value is enormous.
+func TestMemoryTools_Search_TruncatesLongValues(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	huge := strings.Repeat("x", maxValueLength*10)
+	require.NoError(t, store.Set("giant", huge))
+
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "giant"})
+	require.NoError(t, err)
+	assert.Less(t, len(result), len(huge), "the giant value must be truncated, not echoed in full")
+	assert.Contains(t, result, truncationMarker)
+}
+
+// TestMemoryTools_List_CapsEntryCount guards "memory operations consume too
+// much token": memory_list must reuse the same capped, recency-ordered
+// RecentKeys the <memory-keys> preamble block already uses, not dump every
+// key in a long-lived store.
+func TestMemoryTools_List_CapsEntryCount(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	limit := memoryKeysLimit()
+	total := limit + 3
+	for i := range total {
+		require.NoError(t, store.Set(fmt.Sprintf("key-%03d", i), "v"))
+	}
+
+	result, err := reg.Get("memory_list").Execute(nil)
+	require.NoError(t, err)
+	assert.Contains(t, result, fmt.Sprintf("%d memory entries", total))
+	assert.Contains(t, result, "3 more")
+}
+
 func TestMemoryTools_RegisteredInBuiltinTools(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)

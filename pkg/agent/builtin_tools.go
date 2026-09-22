@@ -20,6 +20,7 @@ package agent
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/md5" //nolint:gosec // content-identity checksum, not a security use
 	"encoding/json"
@@ -32,6 +33,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -2659,10 +2661,24 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 	})
 }
 
+// memorySearchResultCap bounds how many matching entries memory_search shows.
+// A broad query against a long-lived store ("save memory after every turn,"
+// "every tool call creates an entry") can match hundreds of entries; showing
+// all of them, each at full value length, is exactly the kind of unbounded
+// per-call cost that made memory_search "consume millions of tokens" over a
+// session where it's mandated before every action. Matches beyond the cap
+// are still real -- just not dumped in full. The ones shown are the most
+// recently updated (key order breaks ties). The model is told how many more
+// exist and can narrow the query instead.
+const memorySearchResultCap = 20
+
 func registerMemorySearchTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "memory_search",
-		Description: "Search persistent memory for entries matching a query. Returns matching key-value pairs. Use to recall previously saved facts, preferences, or decisions.",
+		Name: "memory_search",
+		Description: fmt.Sprintf(
+			"Search persistent memory for entries matching a query. Returns up to %d matching key-value pairs (each value capped). Use to recall previously saved facts, preferences, or decisions.",
+			memorySearchResultCap,
+		),
 		Parameters: map[string]domain.ToolParam{
 			toolParamQuery: {
 				Type:        toolParamString,
@@ -2678,34 +2694,65 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("memory_search: query is required")
 			}
-			results := memoryStoreInstance.Search(query)
-			if len(results) > 0 {
-				var sb strings.Builder
-				fmt.Fprintf(&sb, "Found %d memory entries:\n", len(results))
-				for _, entry := range results {
-					fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
-				}
-				return sb.String(), nil
+			if results := memoryStoreInstance.Search(query); len(results) > 0 {
+				return formatMemorySearchResults(results), nil
 			}
-
-			// No memory results — fall back to local file search.
-			wd, err := os.Getwd()
-			if err != nil {
-				return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
-			}
-			exec := execSearch.NewExecutor()
-			searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
-				Path:  wd,
-				Query: query,
-				Index: true,
-			})
-			if searchErr != nil {
-				return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
-			}
-			out, _ := json.MarshalIndent(searchResult, "", "  ")
-			return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s", string(out)), nil
+			return memorySearchLocalFileFallback(query)
 		},
 	})
+}
+
+// formatMemorySearchResults renders capped, per-value-truncated memory
+// matches for memory_search -- see memorySearchResultCap.
+func formatMemorySearchResults(results []MemoryEntry) string {
+	total := len(results)
+	shown := append([]MemoryEntry(nil), results...)
+	slices.SortStableFunc(shown, func(a, b MemoryEntry) int {
+		if c := cmp.Compare(b.UpdatedAt, a.UpdatedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Key, b.Key)
+	})
+	if len(shown) > memorySearchResultCap {
+		shown = shown[:memorySearchResultCap]
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Found %d memory entries", total)
+	if total > len(shown) {
+		fmt.Fprintf(&sb, " (showing %d)", len(shown))
+	}
+	sb.WriteString(":\n")
+	for _, entry := range shown {
+		fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, truncateValue(entry.Value, maxValueLength))
+	}
+	if total > len(shown) {
+		fmt.Fprintf(&sb, "... and %d more (narrow the query to see them)\n", total-len(shown))
+	}
+	return sb.String()
+}
+
+// memorySearchLocalFileFallback runs when memory has no hits for query --
+// capped the same way search_local itself is: a handful of matches, not an
+// unbounded indexed-repo JSON dump (the previous behavior here was itself an
+// unbounded-token-cost surprise for a tool named "memory_search").
+func memorySearchLocalFileFallback(query string) (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
+	}
+	exec := execSearch.NewExecutor()
+	searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
+		Path:  wd,
+		Query: query,
+		Index: true,
+		Limit: memorySearchResultCap,
+	})
+	if searchErr != nil {
+		return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
+	}
+	out, _ := json.MarshalIndent(searchResult, "", "  ")
+	return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s",
+		truncateValue(string(out), maxToolResultBytes())), nil
 }
 
 func registerMemoryDeleteTool(reg *kdepstools.Registry) {
@@ -2738,23 +2785,40 @@ func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 func registerMemoryListTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "memory_list",
-		Description: "List all keys in persistent memory. Returns key names only — use memory_search to find entries by content.",
+		Description: "List keys in persistent memory (most recently updated first, capped). Returns key names only — use memory_search to find entries by content.",
 		Parameters:  map[string]domain.ToolParam{},
 		Execute: func(_ map[string]any) (string, error) {
 			if memoryStoreInstance == nil {
 				return "", errors.New("memory_list: memory store is not configured")
 			}
-			entries := memoryStoreInstance.List()
+			// Capped and recency-ordered via RecentKeys, the same call the
+			// <memory-keys> preamble block already uses -- a store can
+			// accumulate thousands of entries over a long session ("save
+			// memory after every turn," "every tool call creates an entry"),
+			// and dumping every key on every mandatory pre-action memory_list
+			// call is exactly the unbounded-per-call cost that compounds into
+			// runaway token usage across a session.
+			keys, total := memoryStoreInstance.RecentKeys(memoryKeysLimit())
 			var sb strings.Builder
-			if len(entries) == 0 {
+			if len(keys) == 0 {
 				fmt.Fprint(&sb, "No memory entries.")
 			} else {
-				fmt.Fprintf(&sb, "%d memory entries:\n", len(entries))
-				for _, entry := range entries {
-					fmt.Fprintf(&sb, "- %s\n", entry.Key)
+				fmt.Fprintf(&sb, "%d memory entries", total)
+				if total > len(keys) {
+					fmt.Fprintf(&sb, " (showing %d most recent)", len(keys))
+				}
+				sb.WriteString(":\n")
+				for _, key := range keys {
+					fmt.Fprintf(&sb, "- %s\n", key)
+				}
+				if total > len(keys) {
+					fmt.Fprintf(&sb, "... and %d more (use memory_search to find older entries)\n",
+						total-len(keys))
 				}
 			}
-			// Append the relationship graph so the agent can trace workflow chains.
+			// Append the relationship graph so the agent can trace workflow
+			// chains -- FormatGraphForPrompt already self-caps (see its own
+			// maxTokens<=0 fallback), so no additional bound needed here.
 			graph := memoryStoreInstance.FormatGraphForPrompt(0)
 			if graph != "" {
 				sb.WriteByte('\n')

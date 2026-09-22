@@ -19,9 +19,9 @@ The agent has four LLM-callable tools for interacting with persistent memory:
 | Tool | Description |
 |------|-------------|
 | `memory_save` | Save a fact with a key and value. Keys should be short and descriptive. |
-| `memory_search` | Search entries by key or value (case-insensitive substring match). |
+| `memory_search` | Search entries by key or value (case-insensitive substring). Returns at most 20 matches; each value is cut at 500 characters. |
 | `memory_delete` | Remove an entry by key. |
-| `memory_list` | List all stored keys (use `memory_search` to find content). |
+| `memory_list` | List stored keys, newest update first, capped (default 100). Use `memory_search` to find older keys or entry content. |
 
 A fifth tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.
 
@@ -52,13 +52,21 @@ Finds entries where the key or value contains the query string (case-insensitive
 }
 ```
 
-Returns matching entries as formatted text:
+Returns matching entries as formatted text. At most 20 matches are printed, newest update first (key order breaks a tie), and each value is cut at 500 characters (a cut value ends in `...`). When more matches exist, the header says how many were found and how many are shown, and the last line says how many were left out:
 
 ```
 Found 2 memory entries:
 - project_name: kdeps - Go module github.com/kdeps/kdeps/v2
 - project_structure: Monorepo layout: cmd/, pkg/ (25 packages), docs/, tests/
 ```
+
+```
+Found 25 memory entries (showing 20):
+- match-00: shared fact
+... and 5 more (narrow the query to see them)
+```
+
+No memory hits falls through to a local file search of the working directory, also capped at 20 matches. The file-search JSON is cut if it exceeds the tool-result byte cap.
 
 ### memory_delete
 
@@ -75,12 +83,20 @@ Removes a single entry by key.
 
 ### memory_list
 
-Returns all stored keys (no content). Use `memory_search` to find specific entries.
+Returns key names only (no values), newest update first.
 
 ```json
 {
   "name": "memory_list"
 }
+```
+
+The list is capped at the same limit as the `<memory-keys>` block in the system prompt (default 100). When the store is larger, the header says how many exist and how many are shown, and the last line tells you to use `memory_search` for the rest:
+
+```
+103 memory entries (showing 100 most recent):
+- latest-key
+... and 3 more (use memory_search to find older entries)
 ```
 
 ## Relational query (memory_query)
