@@ -30,14 +30,12 @@ import (
 // TestDefaultChatContextLength_LocalBackends verifies that local model
 // backends fall back to the actual configured --ctx-size (LocalContextSize)
 // instead of a hardcoded 4096. This is the wire-level twin of
-// pkg/agent's localBackendMaxTokens fix: confirmed live that
-// Executor.Execute (used by every workflow.yaml chat: resource, plus agent
-// loop's Run(), CompactWithLLM, SummarizeBranch, requestPlan, confirmPlan,
-// and generateJudgeRoster) never reads domain.ChatConfig.MaxTokens at all --
-// it sends max_tokens on the wire via buildOpenAICompatRequest using
-// ChatRequestConfig.ContextLength, which this function's old flat 4096
-// default silently capped every one of those call sites at, local backend
-// or not.
+// pkg/agent's syntheticCallMaxTokens fix: confirmed live that
+// Executor.Execute sends max_tokens on the wire via buildOpenAICompatRequest
+// using ChatRequestConfig.ContextLength. An explicit chat.maxTokens is copied
+// into that field when contextLength is unset (streaming already honored
+// maxTokens on its own). This function's old flat 4096 default silently
+// capped every call site that set neither, local backend or not.
 func TestDefaultChatContextLength_LocalBackends(t *testing.T) {
 	orig := LocalContextSize()
 	SetLocalContextSize(24576)
@@ -254,6 +252,72 @@ func TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens(t *t
 	e := &Executor{}
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
 	assert.Equal(t, outAnthropic64k, got.ContextLength)
+}
+
+// TestResolveChatRequestConfig_MaxTokensBeatsEnv verifies an explicit
+// maxTokens is not undone by KDEPS_CHAT_CONTEXT_LENGTH. The env is a fallback
+// for requests that set neither contextLength nor maxTokens; letting it win
+// over the agent loop's synthetic cap reintroduced the silent truncation this
+// cap exists to stop. contextLength still beats both.
+func TestResolveChatRequestConfig_MaxTokensBeatsEnv(t *testing.T) {
+	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "4096")
+	e := &Executor{}
+	n := 64000
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-sonnet", MaxTokens: &n,
+	}, nil, backendM365)
+	assert.Equal(t, 64000, got.ContextLength)
+
+	got = e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-sonnet", ContextLength: 2048, MaxTokens: &n,
+	}, nil, backendM365)
+	assert.Equal(t, 2048, got.ContextLength, "contextLength must still beat maxTokens and the env")
+
+	got = e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
+	assert.Equal(t, 4096, got.ContextLength, "env still applies when neither field is set")
+}
+
+// TestResolveChatRequestConfig_ExplicitMaxTokensBeatsCatalog verifies an
+// explicit maxTokens (workflow yaml, or the agent loop's synthetic cap)
+// reaches the non-streaming wire instead of being dropped in favor of the
+// catalog ceiling. contextLength, when set, still wins over both.
+func TestResolveChatRequestConfig_ExplicitMaxTokensBeatsCatalog(t *testing.T) {
+	e := &Executor{}
+	n := 1000
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-opus-4-8", MaxTokens: &n,
+	}, nil, backendAnthropic)
+	assert.Equal(t, 1000, got.ContextLength)
+
+	got = e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-opus-4-8", ContextLength: 4096, MaxTokens: &n,
+	}, nil, backendAnthropic)
+	assert.Equal(t, 4096, got.ContextLength, "contextLength must still beat maxTokens")
+}
+
+// A zero maxTokens means "no explicit cap" (yaml 0 = model default), so the
+// catalog ceiling is used rather than requesting "generate 0 tokens".
+func TestResolveChatRequestConfig_ZeroMaxTokensFallsThroughToCatalog(t *testing.T) {
+	e := &Executor{}
+	n := 0
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-opus-4-8", MaxTokens: &n,
+	}, nil, backendAnthropic)
+	assert.Equal(t, outAnthropic128k, got.ContextLength)
+}
+
+// The agent loop sets MaxTokens on synthetic calls and leaves ContextLength
+// unset. That value must be the max_tokens the m365 gateway actually receives.
+func TestBuildOpenAICompatRequest_ExplicitMaxTokens_SentOnWire(t *testing.T) {
+	e := &Executor{}
+	n := 1000
+	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{
+		Model: "claude-sonnet", MaxTokens: &n,
+	}, nil, backendM365)
+	req := buildOpenAICompatRequest("claude-sonnet", []map[string]interface{}{
+		{"role": "user", "content": "summarize the session"},
+	}, requestConfig)
+	assert.Equal(t, 1000, req["max_tokens"])
 }
 
 // TestBuildOpenAICompatRequest_MaxTokens_ReflectsLocalContextSize verifies

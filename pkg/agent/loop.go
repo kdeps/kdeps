@@ -3155,7 +3155,7 @@ func (l *Loop) buildChatConfig(
 		Thinking: l.config.Thinking,
 	}
 
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 
 	// Inject conversation history as the messages field. When turo is active,
 	// route each message's content through it (cached, so only new messages
@@ -3223,26 +3223,36 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 	})
 }
 
-// localBackendMaxTokens returns an explicit output-token cap for local model
-// backends so a request never falls back to the underlying server's own
-// implicit default -- confirmed live that leaving MaxTokens unset let a local
-// llama-server apply a smaller output cap than the model's real ceiling,
-// silently truncating a large write_file content argument mid-generation. A
-// local server can never generate more tokens than its own context window
-// allows anyway, so requesting the full configured --ctx-size (via
-// executorLLM.LocalContextSize) is the true ceiling, not an arbitrary smaller
-// default. Cloud backends return nil (existing behavior unchanged): sending a
-// value above what a given cloud model actually supports causes a hard
-// request error instead of a clamp, and their own no-max_tokens defaults
-// already track the model's real limit rather than an artificially small one.
-func localBackendMaxTokens(backend string) *int {
+// syntheticCallMaxTokens returns an explicit output-token cap for a
+// standalone, tool-free LLM call (compaction, goal planning, judging,
+// refine, branch summaries) so it never falls back to whatever implicit
+// default the backend/provider applies -- confirmed on two fronts: a local
+// llama-server applies a smaller output cap than the model's real ceiling
+// unless told otherwise, and M365 Copilot's proxy has an undocumented
+// default that was silently truncating a multi-section compaction summary
+// down to just its first heading (the service doesn't publish exact
+// limits -- see the comment on M365's KnownCloudModels entries).
+//
+// For a local backend, the true ceiling is the server's own configured
+// --ctx-size (executorLLM.LocalContextSize) -- it can never generate past
+// its own context window anyway. For any model in
+// executorLLM.KnownCloudModels (which includes every m365 alias, using a
+// conservative estimate for the same reason), that catalog's real
+// advertised output ceiling (executorLLM.ModelMaxOutputTokens) is used
+// instead of trusting an unknown provider/proxy default. Returns nil only
+// for a model neither source knows about (a custom endpoint, an unlisted
+// model) -- there, the provider's own default is the best guess available,
+// same as before this existed.
+func syntheticCallMaxTokens(backend, model string) *int {
 	switch backend {
 	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
 		n := executorLLM.LocalContextSize()
 		return &n
-	default:
-		return nil
 	}
+	if n := executorLLM.ModelMaxOutputTokens(model); n > 0 {
+		return &n
+	}
+	return nil
 }
 
 func (l *Loop) buildSyntheticWorkflow(
@@ -3488,10 +3498,11 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		},
 		// No tools - compaction is a standalone summarization call.
 	}
-	// See localBackendMaxTokens for why local backends need an explicit
-	// MaxTokens: a truncated compaction summary would silently lose
-	// conversation history.
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	// See syntheticCallMaxTokens: a truncated compaction summary would
+	// silently lose conversation history -- confirmed live on M365, whose
+	// proxy's undocumented default cut a multi-section summary down to just
+	// its first heading.
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(compactionActionID, chatCfg)
 
 	result, err := l.engine.Execute(synthetic, nil)

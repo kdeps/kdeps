@@ -267,7 +267,7 @@ func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
 			Role:          l.config.Role,
 			Prompt:        question,
 			LiteralPrompt: true,
-			MaxTokens:     localBackendMaxTokens(l.config.Backend),
+			MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 			Scenario: []domain.ScenarioItem{
 				{Role: "system", Prompt: grounding},
 			},
@@ -318,7 +318,7 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int, history []ma
 		Prompt:        directive,
 		LiteralPrompt: true,
 		Tools:         tools,
-		MaxTokens:     localBackendMaxTokens(l.config.Backend),
+		MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 		Scenario: []domain.ScenarioItem{
 			{Role: "system", Prompt: handshakeGrounding()},
 		},

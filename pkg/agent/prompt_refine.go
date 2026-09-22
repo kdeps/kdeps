@@ -112,7 +112,7 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		},
 		// No tools, no JSON mode: a plain-text rewrite.
 	}
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 
 	synthetic := l.buildSyntheticWorkflow(refineActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)

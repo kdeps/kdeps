@@ -57,7 +57,7 @@ func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
 		},
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {

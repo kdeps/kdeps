@@ -163,7 +163,7 @@ func requestPlan(l *Loop, input, extraHint string) []string {
 		// burn the one repair attempt on every turn.
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(goalPlanActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {
@@ -204,7 +204,7 @@ func confirmPlan(l *Loop, input string, candidate []string) []string {
 		},
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(goalConfirmActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {
