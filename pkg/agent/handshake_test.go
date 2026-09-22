@@ -238,6 +238,7 @@ func TestPerformHandshake_RetryNudgeShowsWorkedInvokeExample(t *testing.T) {
 	}
 	require.NotEmpty(t, retryPrompt, "no round carried the retry nudge")
 	assert.Contains(t, retryPrompt, "kdeps is a parser")
+	assert.Contains(t, retryPrompt, "interpreter")
 	assert.Contains(t, retryPrompt, `<invoke name="session_handshake">`)
 	assert.Contains(t, retryPrompt, `<parameter name="code">`)
 	assert.Contains(t, retryPrompt, "1 attempt missed so far", "must surface the miss count")

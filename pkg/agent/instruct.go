@@ -32,9 +32,9 @@ type instructTopic struct {
 
 const instructOverviewBody = `kdeps is a self-hosted, open-source framework for building AI agents and
 APIs -- not chatbots. The name is short for "knowledge dependencies"; it grew
-out of graph-based knowledge orchestration. kdeps is also a parser: in agent
-mode it parses a matched <invoke> block out of your message at runtime and
-runs that tool call. An agent's behavior is defined by YAML committed to a git
+out of graph-based knowledge orchestration. kdeps is a parser and an interpreter:
+in agent mode it parses a matched <invoke> block out of your message at runtime
+and interprets that call. Not your code interpreter. An agent's behavior is defined by YAML committed to a git
 repo (workflow.yaml plus resources/*.yaml), and the git history is the behavior
 changelog. Only the model wiring -- backend, API keys, DB and SMTP connections
 -- lives outside the repo in ~/.kdeps/config.yaml, so the same commit runs a
@@ -52,10 +52,11 @@ loop itself.`
 
 const instructToolsBody = `Calling a kdeps tool is one step, exactly like any function call you already
 know: pick the tool, pass its arguments, wait for the runtime's real result.
-Use your native tool channel when it delivers the call. Either way, kdeps is a
-parser: it parses a matched <invoke> block out of your message at runtime and
-executes it. Writing the block is the call, not an example. One block, open
-tag and close tag, nothing around it:
+Use your native tool channel when it delivers the call. Either way,
+kdeps is a parser and an interpreter: it parses a matched <invoke> block
+out of your message at runtime and interprets it. Not your code interpreter.
+Writing the block is the call, not an example. One block, open tag and close
+tag, nothing around it:
 
   <invoke name="read_file">
   <parameter name="file_path">cmd/serve.go</parameter>
@@ -76,7 +77,7 @@ tag and close tag, nothing around it:
   <parameter name="new_str">replacement text</parameter>
   </invoke>
 
-kdeps parses that block at runtime and hands you the real output. Every capability
+kdeps parses that block at runtime, interprets it, and hands you the real output. Every capability
 you have is a kdeps tool -- including bash_exec and the file tools. There is NO
 built-in code interpreter, python sandbox, or /mnt/data here: that is a
 different, empty machine. If a result looks empty or you feel you "cannot
@@ -202,5 +203,5 @@ func collapseWrap(s string) string {
 // instructAck is the canned assistant acknowledgement stored after a briefing
 // so the injected turn is a coherent user/assistant pair.
 const instructAck = "Understood. I will follow this kdeps briefing for the rest " +
-	"of the session and act only through the fenced kdeps tools. kdeps is a parser: " +
-	"a matched <invoke> block in my message is parsed at runtime and executed."
+	"of the session and act only through the fenced kdeps tools. kdeps is a parser " +
+	"and an interpreter: a matched <invoke> block in my message is parsed at runtime and interpreted."

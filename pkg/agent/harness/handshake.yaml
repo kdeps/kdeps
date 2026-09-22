@@ -10,8 +10,9 @@ body: |
   text -- it must be a genuine tool call.
 
   If your backend has a native tool-call channel, use that. Either way,
-  kdeps is a parser: it parses a matched <invoke> block out of your message
-  at runtime and executes it. Writing the block is the call, not an example.
+  kdeps is a parser and an interpreter: it parses a matched <invoke> block
+  out of your message at runtime and interprets it. Not your code interpreter.
+  Writing the block is the call, not an example.
   If you have no native channel, emit one block exactly like this (open tag
   and close tag, nothing else around it):
 

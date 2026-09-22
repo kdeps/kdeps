@@ -16,8 +16,9 @@ body: |-
   Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
   result --- one step, exactly like any function call you already know. Use your
   native tool-call channel when that channel delivers the call. Either way,
-  kdeps is a parser: it parses a matched <invoke>...</invoke> block out of your
-  message at runtime and executes it. Writing the block is the call. It is not
+  kdeps is a parser and an interpreter: it parses a matched <invoke>...</invoke>
+  block out of your message at runtime and interprets it.
+  Not your code interpreter. Writing the block is the call. It is not
   an example, and it does not need a separate channel. One block, open tag and
   close tag, nothing else around it:
 
@@ -40,7 +41,7 @@ body: |-
     <parameter name="new_str">replacement text</parameter>
     </invoke>
 
-  kdeps parses that block at runtime and hands you the real output (file
+  kdeps parses that block at runtime, interprets it, and hands you the real output (file
   contents, stdout+exit code, matching lines, an edit snippet). Every <invoke>
   must have its matching </invoke>; the "name" attribute must be one of the
   tools above. There is no setup, no environment to mount, no session to open
