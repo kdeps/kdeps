@@ -885,6 +885,12 @@ func TestModelSessionRefreshAgent(t *testing.T) {
 // shape ParseFencedToolCalls actually recovers. The old Markdown-fence
 // shape is not parsed, so a model that followed it produced no tool call.
 func TestAgentInstructions_TeachInvokeFormat(t *testing.T) {
+	if !strings.Contains(agentInstructions, "kdeps is a parser") {
+		t.Fatal("agent instructions must say kdeps parses the invoke block at runtime")
+	}
+	if !strings.Contains(agentInstructions, "at runtime") {
+		t.Fatal("agent instructions must say the invoke block is parsed at runtime")
+	}
 	if !strings.Contains(agentInstructions, `<invoke name="tool_name">`) {
 		t.Fatal("agent instructions must teach the invoke format the parser accepts")
 	}

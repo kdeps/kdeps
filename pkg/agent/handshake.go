@@ -341,8 +341,9 @@ func handshakeRetryNudge(challenge string, misses int) string {
 	}
 	return fmt.Sprintf(
 		"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
-			"no problem, let's try it again together. Here's exactly what to send, "+
-			"copied verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
+			"no problem, let's try it again together. kdeps is a parser: it parses "+
+			"a matched <invoke> block out of your message at runtime and executes it. "+
+			"Send this verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
 			"  <invoke name=\"session_handshake\">\n"+
 			"  <parameter name=\"code\">%s</parameter>\n"+
 			"  </invoke>\n\n"+

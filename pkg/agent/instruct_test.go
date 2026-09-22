@@ -24,6 +24,8 @@ func TestBuildInstruct_AllTopics(t *testing.T) {
 	}
 	// the how-to-call section keeps its indented <invoke> example verbatim
 	assert.Contains(t, out, `  <invoke name="read_file">`)
+	assert.Contains(t, out, "kdeps is a parser")
+	assert.Contains(t, out, "parses a matched <invoke> block")
 	// hard-wrapped prose is collapsed back to flowing lines
 	assert.Contains(t, out, "knowledge dependencies")
 	assert.NotContains(t, out, "APIs\n-- not chatbots")

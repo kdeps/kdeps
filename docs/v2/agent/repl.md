@@ -208,7 +208,7 @@ write the call as text --- `<tool_call>{"name":...,"arguments":{...}}</tool_call
 or a bare JSON object --- and sometimes follow it with a **self-written
 `<tool_response>`** block and a false "done".
 
-kdeps recovers a text-written tool call and runs it for real. A model-authored
+kdeps is a parser. It parses a text-written tool call out of the message at runtime, including a matched `<invoke>` block, and runs it for real. A model-authored
 `<tool_response>` is always a hallucination (only the runtime produces tool
 results): kdeps strips it, does not accept the turn as finished, and nudges the
 model once to make the actual call and wait for the real result. These markers

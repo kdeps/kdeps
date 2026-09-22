@@ -1,4 +1,4 @@
 name: tools-reminder
 kind: standalone
 body: |-
-  Reminder: act only through the fenced kdeps tools (bash_exec, the file tools, etc.), never a built-in sandbox or code interpreter.
+  Reminder: act only through the fenced kdeps tools (bash_exec, the file tools, etc.), never a built-in sandbox or code interpreter. kdeps is a parser: it parses a matched <invoke> block out of your message at runtime and executes it.

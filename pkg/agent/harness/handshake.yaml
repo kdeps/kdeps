@@ -9,9 +9,11 @@ body: |
   mandatory integrity check, not optional, and not something to describe in
   text -- it must be a genuine tool call.
 
-  If your backend has a native tool-call channel, use that. If it does not,
-  emit a single matched <invoke>...</invoke> block instead, exactly like
-  this (open tag and close tag, nothing else around it) -- i.e., write:
+  If your backend has a native tool-call channel, use that. Either way,
+  kdeps is a parser: it parses a matched <invoke> block out of your message
+  at runtime and executes it. Writing the block is the call, not an example.
+  If you have no native channel, emit one block exactly like this (open tag
+  and close tag, nothing else around it):
 
     <invoke name="session_handshake">
     <parameter name="code">{{.Challenge}}</parameter>

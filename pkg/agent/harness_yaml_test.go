@@ -88,6 +88,20 @@ func TestLoadBuiltinHarness_KnownSubstringsSurviveVerbatim(t *testing.T) {
 	}
 }
 
+// The model must be told that writing <invoke> is enough: kdeps parses that
+// block out of the message at runtime. A prompt that only says "the runtime
+// executes the block" leaves models treating the syntax as an example.
+func TestLoadBuiltinHarness_SaysKdepsParsesInvoke(t *testing.T) {
+	built := loadBuiltinHarness()
+	for _, name := range []string{
+		"use-kdeps-tools", "tools", "invoke-example", "handshake", "tools-reminder",
+	} {
+		require.Contains(t, built, name)
+		assert.Contains(t, built[name].body, "kdeps is a parser", "entry %q", name)
+		assert.Contains(t, built[name].body, "at runtime", "entry %q", name)
+	}
+}
+
 func TestLoadBuiltinHarness_PreambleSectionsHaveDistinctAscendingOrder(t *testing.T) {
 	built := loadBuiltinHarness()
 	seen := map[int]string{}

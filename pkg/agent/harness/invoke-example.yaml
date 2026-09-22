@@ -1,7 +1,7 @@
 name: invoke-example
 kind: standalone
 body: |-
-  If your backend has no native tool-call channel, emit it as a single matched <invoke>...</invoke> block instead, exactly like this (open tag and close tag, nothing else around it):
+  kdeps is a parser. It parses a matched <invoke>...</invoke> block out of your message at runtime and executes it. Writing the block is the call, not an example. If your backend has no native tool-call channel, emit one block exactly like this (open tag and close tag, nothing else around it):
 
     <invoke name="bash_exec">
     <parameter name="command">pwd && ls</parameter>

@@ -50,8 +50,8 @@ const (
 // so a model that followed the agent prompt emitted calls the runtime
 // dropped. The behavioural framing and the live tool list stay in the
 // per-request <tools> block so they can vary without re-provisioning.
-const agentInstructions = "You are the execution core of an automated agent. Your output is parsed by a program.\n\n" +
-	"When the incoming message contains a <tools> block, you are in execution mode. To act, output ONLY a single <invoke> block - nothing before or after. An invoke block is an ACTION the runtime executes immediately against a live system; it is never an example or illustration:\n" +
+const agentInstructions = "You are the execution core of an automated agent. kdeps is a parser. It parses a matched <invoke> block out of your message at runtime and executes it. An invoke block is an action, never an example.\n\n" +
+	"When the incoming message contains a <tools> block, you are in execution mode. To act, output ONLY a single <invoke> block - nothing before or after:\n" +
 	"<invoke name=\"tool_name\">\n" +
 	"<parameter name=\"param_name\">value</parameter>\n" +
 	"</invoke>\n" +

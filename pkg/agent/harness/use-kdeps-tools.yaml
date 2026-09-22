@@ -14,9 +14,12 @@ body: |-
   internal tool by mistake --- switch to a kdeps tool and try again.
 
   Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
-  result --- one step, exactly like any function call you already know. If your
-  backend has no native tool channel, write the call as a single matched
-  <invoke>...</invoke> block (open tag and close tag, nothing else around it):
+  result --- one step, exactly like any function call you already know. Use your
+  native tool-call channel when that channel delivers the call. Either way,
+  kdeps is a parser: it parses a matched <invoke>...</invoke> block out of your
+  message at runtime and executes it. Writing the block is the call. It is not
+  an example, and it does not need a separate channel. One block, open tag and
+  close tag, nothing else around it:
 
     <invoke name="read_file">
     <parameter name="file_path">cmd/serve.go</parameter>
@@ -37,9 +40,9 @@ body: |-
     <parameter name="new_str">replacement text</parameter>
     </invoke>
 
-  The runtime executes the block and hands you the real output (file contents,
-  stdout+exit code, matching lines, an edit snippet). Every <invoke> must
-  have its matching </invoke>; the "name" attribute must be one of the tools
-  above. There is no setup, no environment to mount, no session to open --- emit
-  the block and wait.
+  kdeps parses that block at runtime and hands you the real output (file
+  contents, stdout+exit code, matching lines, an edit snippet). Every <invoke>
+  must have its matching </invoke>; the "name" attribute must be one of the
+  tools above. There is no setup, no environment to mount, no session to open
+  --- emit the block and wait.
   </use-kdeps-tools>
