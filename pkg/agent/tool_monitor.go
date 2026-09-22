@@ -123,54 +123,23 @@ func (t *lastLineTracker) Silence() time.Duration {
 // so the two never collide on one line. Used by ! shell commands, whose
 // output streams directly instead of being buffered like tool output.
 type monitoredWriter struct {
-	mu        sync.Mutex
-	dst       io.Writer
-	frame     bool // a monitor frame currently owns the terminal line(s)
-	frameRows int  // rows the current frame occupies (1, or 2 with a context-path line)
-	track     *lastLineTracker
+	mu    sync.Mutex
+	dst   io.Writer
+	track *lastLineTracker
 }
 
 func newMonitoredWriter(dst io.Writer, track *lastLineTracker) *monitoredWriter {
 	return &monitoredWriter{dst: dst, track: track}
 }
 
-// eraseFrameLocked erases whatever rows the current frame occupies. Caller
-// must hold m.mu.
-func (m *monitoredWriter) eraseFrameLocked() {
-	_, _ = io.WriteString(m.dst, eraseFrame(m.frameRows))
-	m.frame = false
-	m.frameRows = 0
-}
-
 func (m *monitoredWriter) Write(p []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.frame {
-		m.eraseFrameLocked()
-	}
+	// Real output takes the line. Clear the shared status frame first so
+	// the text does not land in the middle of a redraw.
+	eraseLiveStatus(m.dst)
 	_, _ = m.track.Write(p)
 	return m.dst.Write(p)
-}
-
-// drawFrame writes a one- or two-row status frame (top is the context-path
-// line, shown only when non-empty; bottom is always shown) and marks the
-// line(s) as frame-owned, erasing whatever the previous frame drew first.
-func (m *monitoredWriter) drawFrame(top, bottom string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	seq, rows := renderFrame(m.frameRows, top, bottom)
-	_, _ = io.WriteString(m.dst, seq)
-	m.frame = true
-	m.frameRows = rows
-}
-
-// clearFrame erases a drawn frame, if any.
-func (m *monitoredWriter) clearFrame() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.frame {
-		m.eraseFrameLocked()
-	}
 }
 
 // runQuietMonitor draws "label running (elapsed)" frames only while the
@@ -185,8 +154,6 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	defer tick.Stop()
 	i := 0
 	for {
-		tcStr := compactTokenStatus()
-		pathStr := contextPathStatus()
 		select {
 		case <-tick.C:
 			silence := mw.track.Silence()
@@ -199,11 +166,11 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 				warn = fmt.Sprintf(" · no output for %s (Ctrl+C to kill)", silence.Round(time.Second))
 			}
 			elapsed := time.Since(start).Round(time.Second)
-			mw.drawFrame(pathStr, fmt.Sprintf("%s  %s %s running (%s)%s",
-				tcStr, styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
+			drawLiveStatus(mw.dst, fmt.Sprintf("%s %s running (%s)%s",
+				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
 			i++
 		case <-stop:
-			mw.clearFrame()
+			eraseLiveStatus(mw.dst)
 			return
 		}
 	}
@@ -220,8 +187,8 @@ func isHeadless() bool {
 // one turn's window). "generated" is the sum of tokens the model wrote back.
 // Always returns a value, starting at "[sent 0 | generated 0] ".
 func compactTokenStatus() string {
-	in := llm.TokenInputs
-	out := llm.TokenOutputs
+	in := llm.SessionInputTokens()
+	out := llm.SessionOutputTokens()
 	parts := []string{
 		"sent " + formatCompactCount(in),
 		"generated " + formatCompactCount(out),
@@ -286,15 +253,7 @@ func runToolMonitor(
 	defer tick.Stop()
 	i := 0
 	stalled := false
-	// prevRows tracks how many terminal rows the last drawn frame occupied --
-	// see drawSpinnerFrames's comment for the up-and-erase redraw technique.
-	// Self-cleaning on stop so the caller's own post-monitor cleanup (a plain
-	// single-line ansiClearLine in printToolCompletion, unaware this can be
-	// two rows) still leaves a clean terminal either way.
-	prevRows := 0
 	for {
-		tcStr := compactTokenStatus()
-		pathStr := contextPathStatus()
 		select {
 		case <-tick.C:
 			if i == 0 && beforeFirstDraw != nil {
@@ -306,16 +265,11 @@ func runToolMonitor(
 			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
 			}
-			bottom := fmt.Sprintf("%s  %s %s running (%s)%s",
-				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
-			seq, rows := renderFrame(prevRows, pathStr, bottom)
-			fmt.Fprint(w, seq)
-			prevRows = rows
+			drawLiveStatus(w, fmt.Sprintf("%s %s running (%s)%s",
+				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status))
 			i++
 		case <-stop:
-			if prevRows > 0 {
-				fmt.Fprint(w, eraseFrame(prevRows))
-			}
+			eraseLiveStatus(w)
 			return
 		}
 	}

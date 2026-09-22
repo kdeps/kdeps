@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"text/template"
 	"time"
 
@@ -1130,6 +1131,7 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	}
 	opts := []llms.CallOption{
 		llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
+			addLive(&liveOutputs, streamChunkTokens(chunk))
 			_, _ = chunkOut.Write(chunk)
 			return nil
 		}),
@@ -1259,6 +1261,7 @@ func buildStreamingReasoningOpts(cfg *domain.ChatConfig, w io.Writer) []llms.Cal
 			if len(reasoningChunk) == 0 {
 				return nil
 			}
+			addLive(&liveOutputs, streamChunkTokens(reasoningChunk))
 			if cfg.Thinking != nil && cfg.Thinking.ThinkingBuf != nil {
 				if _, writeErr := cfg.Thinking.ThinkingBuf.Write(reasoningChunk); writeErr != nil {
 					return writeErr
@@ -1373,18 +1376,17 @@ func (e *Executor) StreamChat(
 	opts := buildStreamOpts(cfg, backend, w)
 
 	ctx = attachReasoningEcho(ctx, backend, cfg)
-	resp, err := model.GenerateContent(ctx, messages, opts...)
+	resp, err := generateAccounted(cfg, messages, func() (*llms.ContentResponse, error) {
+		return model.GenerateContent(ctx, messages, opts...)
+	})
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
 	}
 
-	// Record token usage for the REPL token counter.
-	recIn, recOut := recordTokenUsage(resp)
-
 	// Flush buffered thinking content as rendered markdown.
 	FlushThinkingBuf(cfg, w)
 
-	if len(resp.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return "", nil, nil
 	}
 
@@ -1394,14 +1396,6 @@ func (e *Executor) StreamChat(
 	// convertOpenAICompatResponse; do the same here so it never reaches the
 	// terminal or the saved session history.
 	content := stripTrailingSpecialTokens(choice.Content)
-
-	// Streaming responses from local servers (llamafile/gguf) usually carry no
-	// usage in GenerationInfo, leaving the counter at 0/0. Estimate from the
-	// request messages and the response content so the counter still moves.
-	if recIn == 0 && recOut == 0 {
-		TokenInputs += estimateMessageTokens(cfg.Model, messages)
-		TokenOutputs += int64(CountTokens(cfg.Model, choice.Content))
-	}
 
 	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
 	// Skip when StreamThinking is active: reasoning was already written to w inline.
@@ -1482,12 +1476,14 @@ func (e *Executor) streamChatOnce(
 	opts := buildStreamOpts(cfg, backend, w)
 
 	ctx = attachReasoningEcho(ctx, backend, cfg)
-	resp, err := model.GenerateContent(ctx, messages, opts...)
+	resp, err := generateAccounted(cfg, messages, func() (*llms.ContentResponse, error) {
+		return model.GenerateContent(ctx, messages, opts...)
+	})
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: generate: %w", err)
 	}
 
-	if len(resp.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return "", nil, nil
 	}
 
@@ -1529,15 +1525,89 @@ func (e *Executor) streamChatOnce(
 // TokenRecorder is an optional hook called after every GenerateContent call
 // with the input and output token counts extracted from GenerationInfo.
 // Set by the agent layer to feed the REPL token counter.
-// TokenInputs and TokenOutputs are cumulative token counts updated by
-// recordTokenUsage after every GenerateContent call. Read by the agent
-// layer for the REPL token counter.
+// TokenInputs and TokenOutputs are cumulative token counts updated when a
+// call finishes. liveInputs and liveOutputs are the in-flight call, added
+// on top while tokens are still streaming so the status line is not stuck
+// at 0 for the whole think or tool round. Read by the agent REPL.
 //
 //nolint:gochecknoglobals // cumulative session token counters read by the agent REPL
 var (
 	TokenInputs  int64
 	TokenOutputs int64
+	liveInputs   int64
+	liveOutputs  int64
 )
+
+// SessionInputTokens is prompt tokens handed to the model this session,
+// including the call that is streaming right now.
+func SessionInputTokens() int64 {
+	return atomic.LoadInt64(&TokenInputs) + atomic.LoadInt64(&liveInputs)
+}
+
+// SessionOutputTokens is tokens the model has written back this session,
+// including reasoning and answer chunks still arriving.
+func SessionOutputTokens() int64 {
+	return atomic.LoadInt64(&TokenOutputs) + atomic.LoadInt64(&liveOutputs)
+}
+
+func addLive(counter *int64, n int64) {
+	if n == 0 {
+		return
+	}
+	atomic.AddInt64(counter, n)
+}
+
+// streamChunkTokens is a cheap count for one streaming chunk. tiktoken per
+// chunk is too slow for the status line; len/4 moves the number as text
+// arrives, and the provider usage replaces it when the call finishes.
+func streamChunkTokens(chunk []byte) int64 {
+	if len(chunk) == 0 {
+		return 0
+	}
+	n := int64(approximateTokenCount(string(chunk)))
+	if n == 0 {
+		return streamChunkFloor
+	}
+	return n
+}
+
+// streamChunkFloor is the smallest step the live counter takes for a
+// non-empty chunk shorter than one average token.
+const streamChunkFloor int64 = 1
+
+// generateAccounted runs one model call. The prompt size counts as sent
+// before the first token, and each streamed chunk counts as generated.
+// When the provider reports usage, that replaces this call's estimate.
+func generateAccounted(
+	cfg *domain.ChatConfig,
+	messages []llms.MessageContent,
+	call func() (*llms.ContentResponse, error),
+) (*llms.ContentResponse, error) {
+	liveIn := estimateMessageTokens(cfg.Model, messages)
+	addLive(&liveInputs, liveIn)
+	outBefore := atomic.LoadInt64(&liveOutputs)
+	resp, err := call()
+	streamedOut := atomic.LoadInt64(&liveOutputs) - outBefore
+	if err != nil {
+		addLive(&liveInputs, -liveIn)
+		addLive(&liveOutputs, -streamedOut)
+		return nil, err
+	}
+	recIn, recOut := recordTokenUsage(resp)
+	if recIn == 0 && recOut == 0 {
+		atomic.AddInt64(&TokenInputs, liveIn)
+		gen := streamedOut
+		if gen == 0 && resp != nil && len(resp.Choices) > 0 {
+			gen = int64(CountTokens(cfg.Model, resp.Choices[0].Content))
+		}
+		if gen > 0 {
+			atomic.AddInt64(&TokenOutputs, gen)
+		}
+	}
+	addLive(&liveInputs, -liveIn)
+	addLive(&liveOutputs, -streamedOut)
+	return resp, nil
+}
 
 // recordTokenUsage extracts token counts from a GenerateContent response and
 // accumulates them into the exported TokenInputs/TokenOutputs counters. It
@@ -1572,8 +1642,12 @@ func recordTokenUsage(resp *llms.ContentResponse) (int64, int64) {
 	if outputs == 0 {
 		outputs = extract("OutputTokens")
 	}
-	TokenInputs += inputs
-	TokenOutputs += outputs
+	if inputs != 0 {
+		atomic.AddInt64(&TokenInputs, inputs)
+	}
+	if outputs != 0 {
+		atomic.AddInt64(&TokenOutputs, outputs)
+	}
 	return inputs, outputs
 }
 

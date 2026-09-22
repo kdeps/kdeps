@@ -20,6 +20,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -248,6 +249,76 @@ func visualRows(s string, width int) int {
 		rows += (n + width - 1) / width
 	}
 	return rows
+}
+
+// liveStatus is the one on-screen copy of the turn breakdown and the
+// sent/generated counter. Spinner, thinking, and the tool monitor all draw
+// through it, so a second owner replaces the same rows instead of leaving
+// another copy underneath.
+//
+//nolint:gochecknoglobals // one status frame for the process
+var liveStatus = struct {
+	mu   sync.Mutex
+	w    io.Writer
+	rows int
+}{}
+
+// drawLiveStatus redraws the turn breakdown and the session counter in
+// place, then trailer (the spinner glyph, or "bash_exec running").
+func drawLiveStatus(w io.Writer, trailer string) {
+	liveStatus.mu.Lock()
+	defer liveStatus.mu.Unlock()
+	drawLiveStatusLocked(w, trailer)
+}
+
+func drawLiveStatusLocked(w io.Writer, trailer string) {
+	bottom := compactTokenStatus()
+	if trailer != "" {
+		bottom += "  " + trailer
+	}
+	seq, rows := renderFrame(liveStatus.rows, contextPathStatus(), bottom)
+	fmt.Fprint(w, seq)
+	liveStatus.rows = rows
+	liveStatus.w = w
+}
+
+// eraseLiveStatus clears the status frame, if one is on screen.
+func eraseLiveStatus(w io.Writer) {
+	liveStatus.mu.Lock()
+	defer liveStatus.mu.Unlock()
+	eraseLiveStatusLocked(w)
+}
+
+func eraseLiveStatusLocked(w io.Writer) {
+	if liveStatus.rows == 0 {
+		return
+	}
+	dest := liveStatus.w
+	if dest == nil {
+		dest = w
+	}
+	fmt.Fprint(dest, eraseFrame(liveStatus.rows))
+	liveStatus.rows = 0
+}
+
+// statusTail is the turn breakdown plus the session counter, as trailing
+// rows of a block that is itself redrawn in place (the thinking pane).
+func statusTail() (string, int) {
+	top := contextPathStatus()
+	bottom := compactTokenStatus()
+	var b strings.Builder
+	rows := 0
+	if top != "" {
+		b.WriteString(top)
+		b.WriteString("\r\n")
+		rows += visualRows(top, statusTermWidth())
+	}
+	b.WriteString(bottom)
+	rows += visualRows(bottom, statusTermWidth())
+	if rows < 1 {
+		rows = 1
+	}
+	return b.String(), rows
 }
 
 // eraseFrame builds the escape sequence to erase whatever the last frame

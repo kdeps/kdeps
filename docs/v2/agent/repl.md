@@ -125,7 +125,7 @@ Directly above the session counter, whenever the running model's context window 
 
 `turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, `goal` the active task, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
 
-`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`.
+`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame: each tick rewrites those rows in place.
 
 ### Custom themes
 

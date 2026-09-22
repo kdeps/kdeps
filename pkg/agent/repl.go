@@ -514,8 +514,8 @@ func (r *REPL) modeline() string {
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("sent:"+formatCompactCount(llm.TokenInputs)))
-		parts = append(parts, meta("generated:"+formatCompactCount(llm.TokenOutputs)))
+		parts = append(parts, meta("sent:"+formatCompactCount(llm.SessionInputTokens())))
+		parts = append(parts, meta("generated:"+formatCompactCount(llm.SessionOutputTokens())))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -1387,28 +1387,19 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
 	defer tick.Stop()
 	i := 0
-	tcStr := compactTokenStatus()
-	// prevRows is how many visual rows the last frame occupied, including
-	// wraps (renderFrame). Remembering a wrapped line as one row left the
-	// previous copy on screen on every tick. Fully self-cleaning on exit so
-	// the caller's own post-spinner clear still leaves a clean terminal.
-	prevRows := 0
 	for {
 		select {
 		case <-tick.C:
 			if skip != nil && skip() {
+				// Thinking or a tool owns the frame now. Drop ours so it
+				// is not a second copy left above theirs.
+				eraseLiveStatus(out)
 				continue
 			}
-			pathStr := contextPathStatus()
-			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			seq, rows := renderFrame(prevRows, pathStr, fmt.Sprintf("%s  %s", tcStr, frame))
-			fmt.Fprint(out, seq)
-			prevRows = rows
+			drawLiveStatus(out, styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
 			i++
 		case <-done:
-			if prevRows > 0 {
-				fmt.Fprint(out, eraseFrame(prevRows))
-			}
+			eraseLiveStatus(out)
 			return
 		}
 	}
@@ -1577,17 +1568,13 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 			tick := time.NewTicker(replTickerMs * time.Millisecond)
 			defer tick.Stop()
 			i := 0
-			tcStr := compactTokenStatus()
 			for {
 				select {
 				case <-tick.C:
-					fmt.Fprintf(
-						os.Stdout,
-						"\r%s  %s",
-						tcStr, styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
-					)
+					drawLiveStatus(os.Stdout, styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
 					i++
 				case <-done:
+					eraseLiveStatus(os.Stdout)
 					return
 				}
 			}

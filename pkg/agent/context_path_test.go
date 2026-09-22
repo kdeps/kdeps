@@ -150,6 +150,29 @@ func TestContextPathStatus_CloudBackendIgnoresLocalContextSize(t *testing.T) {
 	assert.Contains(t, status, "/128.0k", "a cloud backend must use the model's real window, not LocalContextSize")
 }
 
+func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
+	liveStatus.mu.Lock()
+	liveStatus.rows = 0
+	liveStatus.w = nil
+	liveStatus.mu.Unlock()
+	t.Cleanup(func() {
+		liveStatus.mu.Lock()
+		liveStatus.rows = 0
+		liveStatus.w = nil
+		liveStatus.mu.Unlock()
+	})
+
+	var buf strings.Builder
+	drawLiveStatus(&buf, "x")
+	buf.Reset()
+	// Second draw must erase the first frame, not append another copy.
+	drawLiveStatus(&buf, "y")
+	got := buf.String()
+	assert.Contains(t, got, "\033[0J")
+	assert.Equal(t, 1, strings.Count(got, "sent "))
+	assert.Equal(t, 1, strings.Count(got, "generated "))
+}
+
 func TestVisualRows_CountsWrapsWithoutANSI(t *testing.T) {
 	plain := strings.Repeat("a", 25)
 	assert.Equal(t, 1, visualRows(plain, 80))
