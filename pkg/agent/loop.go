@@ -3185,15 +3185,20 @@ func (l *Loop) buildChatConfig(
 		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
 
-	// After the first turn, re-state the fenced-tools rule in one line. The full
-	// guidance is in the cached preamble; this keeps it salient deep into a long
-	// conversation without re-sending the whole block. A model that has already
-	// hallucinated a sandbox session this session gets the full block resent
-	// instead -- the one-liner was evidently not enough reinforcement for it.
+	// After the first turn, re-state the fenced-tools rule in one line and
+	// send the live tool list again. The full guidance and the catalog are
+	// in the cached preamble; the list is repeated here because that is the
+	// message the model is reading when it writes an <invoke> block. A model
+	// that has already hallucinated a sandbox session this session gets the
+	// full block resent instead -- the one-liner was evidently not enough
+	// reinforcement for it.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
 		reminder := harnessText("tools-reminder")
 		if l.sandboxStrikes > 0 {
 			reminder = harnessText("use-kdeps-tools")
+		}
+		if catalog := l.registry.ToolPrompt(); catalog != "" {
+			reminder += "\n\n" + catalog
 		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
 			domain.ScenarioItem{Role: "system", Prompt: reminder})

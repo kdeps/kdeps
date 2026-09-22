@@ -52,6 +52,9 @@ func TestRegistryUnregisterAndToolPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "available_tools") || !strings.Contains(prompt, "read_file") {
 		t.Fatalf("prompt missing tools: %s", prompt)
 	}
+	if !strings.Contains(prompt, `<invoke name="read_file">`) || !strings.Contains(prompt, `<parameter name="path">`) {
+		t.Fatalf("prompt missing invoke skeleton: %s", prompt)
+	}
 	if !strings.Contains(prompt, "Other") {
 		t.Fatalf("uncategorized section missing: %s", prompt)
 	}

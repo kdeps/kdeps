@@ -635,6 +635,43 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 	)
 	// Exact rendering of the registered tool from ToolPrompt.
 	assert.Contains(t, preamble, "**calc**: calculator")
+	assert.Contains(t, preamble, `<invoke name="calc">`)
+}
+
+// Later turns repeat the live tool list next to the reminder. The cached
+// preamble already has it; the model writes <invoke> from the latest system
+// message, so that message has to carry the names too.
+func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "noop",
+		Description: "no-op test tool",
+		Parameters: map[string]domain.ToolParam{
+			"target": {Description: "what to skip", Required: true},
+		},
+		Execute: func(_ map[string]any) (string, error) { return "ok", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+	loop.session.Append("first", "done")
+
+	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble(""))
+	require.NotEmpty(t, cfg.Tools)
+	assert.Equal(t, "noop", cfg.Tools[0].Name)
+
+	var reminder string
+	for _, item := range cfg.Scenario {
+		if strings.HasPrefix(item.Prompt, "Reminder:") {
+			reminder = item.Prompt
+		}
+	}
+	require.NotEmpty(t, reminder, "turn 2 must restate the tool reminder")
+	assert.Contains(t, reminder, "<available_tools>")
+	assert.Contains(t, reminder, `<invoke name="noop">`)
+	assert.Contains(t, reminder, `<parameter name="target">`)
 }
 
 // TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the

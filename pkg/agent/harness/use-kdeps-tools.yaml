@@ -43,7 +43,8 @@ body: |-
 
   kdeps parses that block at runtime, interprets it, and hands you the real output (file
   contents, stdout+exit code, matching lines, an edit snippet). Every <invoke>
-  must have its matching </invoke>; the "name" attribute must be one of the
-  tools above. There is no setup, no environment to mount, no session to open
+  must have its matching </invoke>; the "name" attribute must be a tool in
+  the <available_tools> block that follows. That block is the list of tools
+  you can call. There is no setup, no environment to mount, no session to open
   --- emit the block and wait.
   </use-kdeps-tools>

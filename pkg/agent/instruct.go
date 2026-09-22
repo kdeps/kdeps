@@ -77,7 +77,9 @@ tag, nothing around it:
   <parameter name="new_str">replacement text</parameter>
   </invoke>
 
-kdeps parses that block at runtime, interprets it, and hands you the real output. Every capability
+kdeps parses that block at runtime, interprets it, and hands you the real output. The
+tools you can call, with the invoke block for each, are in the next section
+(Tools available in this session). Every capability
 you have is a kdeps tool -- including bash_exec and the file tools. There is NO
 built-in code interpreter, python sandbox, or /mnt/data here: that is a
 different, empty machine. If a result looks empty or you feel you "cannot

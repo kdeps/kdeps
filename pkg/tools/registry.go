@@ -24,6 +24,7 @@ package tools
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -190,6 +191,22 @@ func writeToolEntry(sb *strings.Builder, t *Tool) {
 	if t.SeeAlso != "" {
 		fmt.Fprintf(sb, "  See also: %s\n", t.SeeAlso)
 	}
+	writeInvokeSkeleton(sb, t)
+}
+
+// writeInvokeSkeleton is the call shape the runtime parses. The markdown
+// above names the tool; this is the block the model copies.
+func writeInvokeSkeleton(sb *strings.Builder, t *Tool) {
+	names := make([]string, 0, len(t.Parameters))
+	for name := range t.Parameters {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	fmt.Fprintf(sb, "  <invoke name=%q>\n", t.Name)
+	for _, name := range names {
+		fmt.Fprintf(sb, "    <parameter name=%q></parameter>\n", name)
+	}
+	sb.WriteString("  </invoke>\n")
 }
 
 func convertToDomainTool(t *Tool) domain.Tool {
