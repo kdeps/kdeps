@@ -712,60 +712,6 @@ func TestMemoryStore_BuildDependencyMap(t *testing.T) {
 	assert.Contains(t, deps, "c")
 }
 
-func TestMemoryStore_FormatGraphForPrompt(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	store.SetCwd("/Users/test/Projects/foo")
-
-	require.NoError(t, store.Set("a", "A"))
-	require.NoError(t, store.Set("b", "B"))
-	require.NoError(t, store.Set("c", "C"))
-	require.NoError(t, store.SetRelation("a", "b"))
-	require.NoError(t, store.SetRelation("a", "c"))
-
-	graph := store.FormatGraphForPrompt(100)
-	assert.Contains(t, graph, "<memory-graph>")
-	assert.Contains(t, graph, "</memory-graph>")
-	assert.Contains(t, graph, "a -> b")
-	assert.Contains(t, graph, "a -> c")
-	// Prefixes of those paths are not their own lines.
-	assert.NotContains(t, graph, "\na\n")
-}
-
-// A chain used to be printed once per step and once per starting node, so
-// the tail showed up once per ancestor (4 times on a short chain, 20 on a
-// long one). One full path, and a shared parent is not a line of its own.
-func TestUniqueGraphPaths_ChainOnce(t *testing.T) {
-	lines := uniqueGraphPaths(map[string][]string{
-		"a": {"b"},
-		"b": {"c"},
-		"c": {"d"},
-	})
-	assert.Equal(t, []string{"a -> b -> c -> d"}, lines)
-}
-
-func TestUniqueGraphPaths_FanOutDoesNotRepeatParent(t *testing.T) {
-	deps := make(map[string][]string, 20)
-	for i := range 20 {
-		deps[fmt.Sprintf("n%02d", i)] = []string{"root"}
-	}
-	lines := uniqueGraphPaths(deps)
-	assert.Len(t, lines, 20)
-	for _, line := range lines {
-		assert.NotEqual(t, "root", line)
-		assert.Equal(t, 1, strings.Count(line, "->"))
-	}
-}
-
-func TestMemoryStore_FormatGraphForPrompt_NoRelations(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	store.SetCwd("/Users/test/Projects/foo")
-
-	require.NoError(t, store.Set("a", "A"))
-	assert.Equal(t, "", store.FormatGraphForPrompt(100))
-}
-
 func TestMemoryStore_FormatGraphNode(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
@@ -1393,12 +1339,6 @@ func TestMemoryStore_BuildDependencyMap_NoCwd(t *testing.T) {
 	store := NewMemoryStore(dir)
 	// No SetCwd — should return nil.
 	assert.Nil(t, store.BuildDependencyMap())
-}
-
-func TestMemoryStore_FormatGraphForPrompt_NoCwd(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	assert.Equal(t, "", store.FormatGraphForPrompt(100))
 }
 
 func TestMemoryStore_FormatGraphNode_NoCwd(t *testing.T) {
