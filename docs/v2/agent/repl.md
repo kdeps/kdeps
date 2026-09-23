@@ -242,6 +242,10 @@ or shown. That includes a bare `Summary` title and a `## Goal` with nothing
 under it. The auto-compact line prints the first sentence of what remains,
 not the heading.
 
+The summary from that compact is not itself a reason to compact again. The
+next one waits until real conversation, not the summary, has fallen outside
+the kept window.
+
 Both the compact budget (how much recent conversation stays verbatim) and the
 auto-compaction threshold default to 3/4 of the model's known context window,
 not a flat token count - a session on a small local model and one on a

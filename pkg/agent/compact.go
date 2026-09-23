@@ -260,12 +260,14 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 
 	var kept int
 	cutIdx := n // default: keep everything (summarize nothing)
+	consumedAll := true
 
 	// Walk backwards one message at a time. Only snap the cut point when we land
 	// on a user message, ensuring context always starts with a user turn.
 	for i := n - 1; i >= 0; i-- {
 		msgTokens := estimateTokens(messages[i], modelHint)
 		if kept+msgTokens > keepRecentTokens {
+			consumedAll = false
 			break
 		}
 		kept += msgTokens
@@ -274,19 +276,41 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 		}
 	}
 
-	if cutIdx == 0 {
-		return 0 // all turns fit within budget - nothing to compact
+	// Everything fit. cutIdx is then the first user message, which is not 0
+	// once a compaction summary sits in front -- that must not count as work
+	// left to summarize.
+	if consumedAll {
+		return 0
 	}
 	// Ensure at least 1 complete turn is kept (even if it blows the budget).
 	if cutIdx > n-sessionMsgsPer {
 		cutIdx = n - sessionMsgsPer
 	}
-
+	if cutIdx <= 0 {
+		return 0
+	}
+	// A leading summary plus less than compactRetriggerMargin of real
+	// conversation is not worth another compaction. The next prompt would
+	// otherwise compact again immediately. The first compact has no summary
+	// yet, so this does not apply to it.
+	overflow := messages[:cutIdx]
+	if len(overflow) >= sessionMsgsPer && overflow[0].Role == RoleCompactionSummary {
+		overflow = overflow[sessionMsgsPer:]
+		if estimateSessionTokens(overflow, modelHint) < compactRetriggerMargin {
+			return 0
+		}
+	}
 	return cutIdx
 }
 
 // forceKeepTurns is how many recent turns a manual /compact leaves untouched.
 const forceKeepTurns = 3
+
+// compactRetriggerMargin is how many tokens of real conversation must sit
+// outside the kept window before another compaction runs. Without it, the
+// summary left by the first compact sits just outside that window, so the
+// next prompt looks overdue and compact runs again, forever.
+const compactRetriggerMargin = 2000
 
 // forcedCutIndex is findCutIndex for a user-invoked /compact: it summarizes
 // everything except the last forceKeepTurns turns, ignoring the token budget, so

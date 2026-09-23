@@ -19,10 +19,15 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // makeTurns builds a slice of n user+assistant message pairs.
@@ -180,6 +185,73 @@ func TestFindCutIndex_CutAlwaysAtUserRole(t *testing.T) {
 	}
 	if msgs[cut].Role != "user" {
 		t.Fatalf("cut index %d has role %q, want \"user\"", cut, msgs[cut].Role)
+	}
+}
+
+func TestFindCutIndex_SummaryPrefixDoesNotRetrigger(t *testing.T) {
+	// After one compact the session is [summary, ack, recent turns]. Those
+	// recent turns fit in the keep budget. The summary sitting in front must
+	// not make the next prompt compact again.
+	recent := makeTurns(compactMinTurns)
+	msgs := append([]SessionMessage{
+		{Role: RoleCompactionSummary, Content: "summary of the earlier turns"},
+		{Role: RoleAssistant, Content: "Understood. Continuing."},
+	}, recent...)
+	if got := findCutIndex(msgs, compactKeepRecentTokens, "gpt-4o"); got != 0 {
+		t.Fatalf("summary prefix retriggered a cut at %d", got)
+	}
+}
+
+func TestFindCutIndex_RealOverflowStillCuts(t *testing.T) {
+	msgs := []SessionMessage{
+		{Role: RoleCompactionSummary, Content: "old summary"},
+		{Role: RoleAssistant, Content: "ack"},
+	}
+	for range 12 {
+		msgs = append(msgs,
+			SessionMessage{Role: "user", Content: strings.Repeat("u", 4000)},
+			SessionMessage{Role: "assistant", Content: strings.Repeat("a", 4000)},
+		)
+	}
+	got := findCutIndex(msgs, 2000, "gpt-4o")
+	if got <= sessionMsgsPer {
+		t.Fatalf("expected a cut past the summary pair, got %d", got)
+	}
+	if msgs[got].Role != "user" {
+		t.Fatalf("cut role %q", msgs[got].Role)
+	}
+}
+
+func TestCompactWithLLM_DoesNotRepeatOnNextCall(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		calls++
+		return "## Goal\nShip it.\n\n## Progress\n### Done\n- [x] did the work", nil
+	})
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 400,
+	})
+	for range 8 {
+		loop.session.Append("question", strings.Repeat("answer ", 800))
+	}
+	first, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == "" {
+		t.Fatal("expected the first compaction to summarize")
+	}
+	if calls != 1 {
+		t.Fatalf("first compaction calls = %d, want 1", calls)
+	}
+	second, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != "" || calls != 1 {
+		t.Fatalf("second compaction = %q after %d calls, want no further summary", second, calls)
 	}
 }
 
