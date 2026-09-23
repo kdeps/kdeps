@@ -67,6 +67,142 @@ const (
 	branchSummarySuffix = `</summary>`
 )
 
+// normalizeCompactionSummary drops a leading "Summary" title and any section
+// whose body is empty or only an unfilled "[...]" template line. A compact
+// that starts "Summary" / "## Goal" with nothing under the heading was being
+// saved and shown as-is.
+func normalizeCompactionSummary(summary string) string {
+	summary = strings.ReplaceAll(summary, "\r\n", "\n")
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return ""
+	}
+	var lines []string
+	for _, line := range strings.Split(summary, "\n") {
+		if isSummaryChromeLine(strings.TrimSpace(line)) {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	// A reply that is only the word "summary" is kept. "Summary ## Goal"
+	// with nothing after it is not.
+	if strings.TrimSpace(strings.Join(lines, "\n")) == "" {
+		if strings.Contains(strings.ToLower(summary), "##") {
+			return ""
+		}
+		return strings.TrimSpace(summary)
+	}
+
+	type section struct {
+		heading string
+		body    []string
+	}
+	var sections []section
+	var cur section
+	var have bool
+	flush := func() {
+		if have {
+			sections = append(sections, cur)
+		}
+	}
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "## ") && !strings.HasPrefix(trim, "### ") {
+			flush()
+			cur = section{heading: trim}
+			have = true
+			continue
+		}
+		have = true
+		cur.body = append(cur.body, line)
+	}
+	flush()
+
+	var out []string
+	for _, sec := range sections {
+		body := filterSectionBody(sec.body)
+		if body == "" {
+			continue
+		}
+		if sec.heading != "" {
+			out = append(out, sec.heading+"\n"+body)
+			continue
+		}
+		out = append(out, body)
+	}
+	return strings.TrimSpace(strings.Join(out, "\n\n"))
+}
+
+// isSummaryChromeLine reports a title the model prints before the real
+// sections: "Summary", "Summary:", or "Summary ## Goal" with no body.
+func isSummaryChromeLine(trim string) bool {
+	s := strings.Trim(trim, "*_`")
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = strings.TrimRight(s, ":")
+	s = strings.Join(strings.Fields(s), " ")
+	if rest, ok := strings.CutPrefix(s, "summary"); ok {
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, ":"))
+		return rest == "" || rest == "## goal"
+	}
+	return false
+}
+
+// isTemplatePlaceholder reports an unfilled format line such as
+// "[What is the user trying to accomplish?]" or "- [Or "(none)" ...]".
+func isTemplatePlaceholder(trim string) bool {
+	s := strings.TrimSpace(trim)
+	if s == "" {
+		return false
+	}
+	for _, p := range []string{"- ", "* "} {
+		if rest, ok := strings.CutPrefix(s, p); ok {
+			s = strings.TrimSpace(rest)
+			break
+		}
+	}
+	if len(s) > 2 && s[0] >= '1' && s[0] <= '9' && s[1] == '.' {
+		s = strings.TrimSpace(s[2:])
+	}
+	for _, p := range []string{"[x] ", "[X] ", "[ ] "} {
+		if rest, ok := strings.CutPrefix(s, p); ok {
+			s = strings.TrimSpace(rest)
+			break
+		}
+	}
+	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {
+		return false
+	}
+	return !strings.ContainsAny(s[1:len(s)-1], "[]")
+}
+
+func filterSectionBody(lines []string) string {
+	var kept []string
+	for _, line := range lines {
+		if isTemplatePlaceholder(strings.TrimSpace(line)) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
+}
+
+// summaryPreview is the one line shown after auto-compact. Headings are
+// skipped so the line is the goal sentence, not "## Goal".
+func summaryPreview(summary string) string {
+	summary = normalizeCompactionSummary(summary)
+	var b strings.Builder
+	for _, line := range strings.Split(summary, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		b.WriteString(t)
+		b.WriteByte('\n')
+	}
+	return firstLine(b.String())
+}
+
 // formatFileOperations formats file read/modified lists as XML summary metadata.
 // Mirrors pi's formatFileOperations() from compaction/utils.ts.
 func formatFileOperations(readFiles, modifiedFiles []string) string {

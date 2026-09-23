@@ -3520,7 +3520,7 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		return "", fmt.Errorf("compaction LLM call failed: %w", err)
 	}
 
-	summary := formatLoopResult(result)
+	summary := normalizeCompactionSummary(formatLoopResult(result))
 	if summary == "" {
 		// LLM returned empty or unusable response — fall back to truncation.
 		fallback := l.session.Compact()

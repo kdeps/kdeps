@@ -83,7 +83,7 @@ func truncateBranchMessages(
 // Returns ("", nil) when the session is too short to warrant summarization.
 // The returned string already includes the preamble for injection into
 // the next session's context.
-func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
+func (l *Loop) SummarizeBranch(ctx context.Context) (string, error) {
 	msgs, fileOps := l.session.CurrentBranchMessages()
 	if len(msgs) < compactMinTurns*sessionMsgsPer {
 		return "", nil
@@ -101,7 +101,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 
 	conversationText := serializeConversation(msgs, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" +
-		turoReduce(context.Background(), harnessText("branch-summary"))
+		turoReduce(ctx, harnessText("branch-summary"))
 
 	const branchActionID = "agent_loop_branch_summary"
 	chatCfg := &domain.ChatConfig{
@@ -123,7 +123,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		return "", fmt.Errorf("branch summary LLM call failed: %w", err)
 	}
 
-	raw := formatLoopResult(result)
+	raw := normalizeCompactionSummary(formatLoopResult(result))
 	if raw == "" {
 		return "", errors.New("branch summary produced empty result")
 	}

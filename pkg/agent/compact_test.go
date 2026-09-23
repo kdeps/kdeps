@@ -711,6 +711,49 @@ func TestShouldAutoCompactNow_EnabledEventFiresNormally(t *testing.T) {
 	}
 }
 
+func TestNormalizeCompactionSummary_DropsEmptyGoal(t *testing.T) {
+	in := "Summary\n\n## Goal\n\n## Progress\n### Done\n- [x] fixed the parser\n"
+	got := normalizeCompactionSummary(in)
+	if strings.Contains(got, "## Goal") || strings.Contains(strings.ToLower(got), "summary") {
+		t.Fatalf("empty title and goal kept: %q", got)
+	}
+	want := "## Progress\n### Done\n- [x] fixed the parser"
+	if got != want {
+		t.Fatalf("got %q", got)
+	}
+	if preview := summaryPreview(in); preview != "- [x] fixed the parser" {
+		t.Fatalf("preview %q", preview)
+	}
+}
+
+func TestNormalizeCompactionSummary_DropsSummaryGoalTitle(t *testing.T) {
+	in := "Summary ## Goal\n\n## Constraints & Preferences\n- keep the tests\n"
+	got := normalizeCompactionSummary(in)
+	if strings.Contains(got, "Summary") || strings.Contains(got, "## Goal") {
+		t.Fatalf("chrome kept: %q", got)
+	}
+	if !strings.Contains(got, "keep the tests") {
+		t.Fatalf("body lost: %q", got)
+	}
+}
+
+func TestNormalizeCompactionSummary_KeepsRealGoal(t *testing.T) {
+	in := "## Goal\nShip the parser fix.\n\n## Constraints & Preferences\n- [Any constraints, preferences, or requirements mentioned by user]\n- keep tests green\n"
+	got := normalizeCompactionSummary(in)
+	if !strings.Contains(got, "## Goal\nShip the parser fix.") {
+		t.Fatalf("goal lost: %q", got)
+	}
+	if strings.Contains(got, "Any constraints") {
+		t.Fatalf("placeholder kept: %q", got)
+	}
+	if !strings.Contains(got, "- keep tests green") {
+		t.Fatalf("real bullet lost: %q", got)
+	}
+	if preview := summaryPreview(in); preview != "Ship the parser fix." {
+		t.Fatalf("preview %q", preview)
+	}
+}
+
 func TestShouldFoldNow_DisabledEventNeverFires(t *testing.T) {
 	isolateEventsHome(t)
 	initEvents()

@@ -3,7 +3,7 @@ kind: standalone
 body: |-
   The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
 
-  Use this EXACT format:
+  Use this EXACT format. Do not write a "Summary" title. Every heading needs text under it; write "(none)" instead of a blank section. ## Goal must say what the user is trying to accomplish.
 
   ## Goal
   [What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]

@@ -3,7 +3,7 @@ kind: standalone
 body: |-
   Create a structured summary of this conversation branch for context when returning later.
 
-  Use this EXACT format:
+  Use this EXACT format. Do not write a "Summary" title. Every heading needs text under it; write "(none)" instead of a blank section. ## Goal must say what the user was trying to accomplish.
 
   ## Goal
   [What was the user trying to accomplish in this branch?]

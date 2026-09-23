@@ -308,12 +308,13 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		// The auto-compact/fold call itself consumed real tokens; without
 		// this the cumulative in:/out: counter would silently never count it.
 		r.syncTokenCounter()
-		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
-			styleReplSuccess.Render(fmt.Sprintf(
-				"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
-			)),
-			styleReplDim.Render("Summary: "+firstLine(summary)),
-		)
+		line := styleReplSuccess.Render(fmt.Sprintf(
+			"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
+		))
+		if preview := summaryPreview(summary); preview != "" {
+			line += "\n" + styleReplDim.Render("Summary: "+preview)
+		}
+		fmt.Fprintf(os.Stdout, "\n%s\n\n", line)
 	})
 	// Enable thinking in auto mode by default so reasoning models work out of the box.
 	loop.SetThinking(&domain.ThinkingConfig{

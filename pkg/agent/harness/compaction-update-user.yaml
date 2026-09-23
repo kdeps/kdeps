@@ -11,7 +11,7 @@ body: |-
   - PRESERVE exact file paths, function names, and error messages
   - If something is no longer relevant, you may remove it
 
-  Use this EXACT format:
+  Use this EXACT format. Do not write a "Summary" title. Every heading needs text under it; write "(none)" instead of a blank section. ## Goal must say what the user is trying to accomplish.
 
   ## Goal
   [Preserve existing goals, add new ones if the task expanded]

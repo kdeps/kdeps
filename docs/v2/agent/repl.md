@@ -237,6 +237,11 @@ tool set compact-threshold <n>`), which for a long run of short-but-tool-heavy
 turns may never happen - use `/compact` directly. Neither affects a running
 turn's tool output; that is bounded by the in-flight window above.
 
+A heading the summarizer leaves blank is dropped before the summary is saved
+or shown. That includes a bare `Summary` title and a `## Goal` with nothing
+under it. The auto-compact line prints the first sentence of what remains,
+not the heading.
+
 Both the compact budget (how much recent conversation stays verbatim) and the
 auto-compaction threshold default to 3/4 of the model's known context window,
 not a flat token count - a session on a small local model and one on a
