@@ -208,7 +208,7 @@ write the call as text --- `<tool_call>{"name":...,"arguments":{...}}</tool_call
 or a bare JSON object --- and sometimes follow it with a **self-written
 `<tool_response>`** block and a false "done".
 
-kdeps is a parser and an interpreter. It parses a text-written tool call out of the message at runtime, including a matched `<invoke>` block, and interprets it for real. That is not the model's code interpreter. The system preamble lists every registered tool in `<available_tools>`, each with an `<invoke>` skeleton, and later turns repeat that list. A model-authored
+kdeps is a parser and an interpreter. It parses a text-written tool call out of the message at runtime, including a matched `<invoke>` block, and interprets it for real. That is not the model's code interpreter. Without the native tool channel, that block is a LITERAL invoke block: the tags written as text. The system preamble lists every registered tool in `<available_tools>`, each with an `<invoke>` skeleton, and later turns repeat that list. A model-authored
 `<tool_response>` is always a hallucination (only the runtime produces tool
 results): kdeps strips it, does not accept the turn as finished, and nudges the
 model once to make the actual call and wait for the real result. These markers

@@ -55,6 +55,8 @@ know: pick the tool, pass its arguments, wait for the runtime's real result.
 Use your native tool channel when it delivers the call. Either way,
 kdeps is a parser and an interpreter: it parses a matched <invoke> block
 out of your message at runtime and interprets it. Not your code interpreter.
+When you are not using the native tool channel, that block is a LITERAL
+invoke block: write the characters <invoke> and </invoke> as literal text.
 Writing the block is the call, not an example. One block, open tag and close
 tag, nothing around it:
 

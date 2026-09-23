@@ -13,8 +13,9 @@ body: |
   kdeps is a parser and an interpreter: it parses a matched <invoke> block
   out of your message at runtime and interprets it. Not your code interpreter.
   Writing the block is the call, not an example.
-  If you have no native channel, emit one block exactly like this (open tag
-  and close tag, nothing else around it):
+  If you have no native channel, the block is a LITERAL invoke block: write
+  the characters <invoke> and </invoke> as literal text. Emit one block
+  exactly like this (open tag and close tag, nothing else around it):
 
     <invoke name="session_handshake">
     <parameter name="code">{{.Challenge}}</parameter>

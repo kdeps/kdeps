@@ -19,8 +19,10 @@ body: |-
   kdeps is a parser and an interpreter: it parses a matched <invoke>...</invoke>
   block out of your message at runtime and interprets it.
   Not your code interpreter. Writing the block is the call. It is not
-  an example, and it does not need a separate channel. One block, open tag and
-  close tag, nothing else around it:
+  an example, and it does not need a separate channel. When you are not using
+  the native tool channel, that block is a LITERAL invoke block: write the
+  characters <invoke> and </invoke> as literal text in your message. One block,
+  open tag and close tag, nothing else around it:
 
     <invoke name="read_file">
     <parameter name="file_path">cmd/serve.go</parameter>

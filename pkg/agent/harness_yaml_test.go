@@ -99,6 +99,7 @@ func TestLoadBuiltinHarness_SaysKdepsParsesInvoke(t *testing.T) {
 		require.Contains(t, built, name)
 		assert.Contains(t, built[name].body, "kdeps is a parser", "entry %q", name)
 		assert.Contains(t, built[name].body, "interpreter", "entry %q", name)
+		assert.Contains(t, built[name].body, "LITERAL", "entry %q", name)
 		assert.Contains(t, built[name].body, "at runtime", "entry %q", name)
 	}
 }

@@ -891,6 +891,9 @@ func TestAgentInstructions_TeachInvokeFormat(t *testing.T) {
 	if !strings.Contains(agentInstructions, "interpreter") {
 		t.Fatal("agent instructions must say kdeps interprets the invoke block, not the model's code interpreter")
 	}
+	if !strings.Contains(agentInstructions, "LITERAL") {
+		t.Fatal("agent instructions must say the invoke block is a LITERAL invoke block")
+	}
 	if !strings.Contains(agentInstructions, "at runtime") {
 		t.Fatal("agent instructions must say the invoke block is parsed at runtime")
 	}

@@ -10,6 +10,8 @@ body: |-
   <tool_response> block --- you author calls, never results. kdeps is a parser and an interpreter:
   a single matched <invoke name="...">...</invoke> block in your message, nothing
   around it, is parsed at runtime and interpreted. Not your code interpreter.
+  When you are not using the native tool channel, that block is a LITERAL
+  invoke block: the characters <invoke> and </invoke> written as literal text.
   Writing it is the call, not an example.
 
   Every "[kdeps] ..." note and every {"error": ...} result is feedback for you ---

@@ -60,7 +60,7 @@ func confabForcePrompt(tools []ToolDef) string {
 		"return no output - you have not run any command yet. "
 	if findShellTool(tools) != nil {
 		return base + `Emit ONE <invoke name="bash"> block this turn: run ` + "`ls -la` and `cat` the relevant files. " +
-			"kdeps parses that block at runtime and interprets it. Not your code interpreter. Output only the invoke block, nothing else."
+			"kdeps parses that block at runtime and interprets it. Not your code interpreter. It is a LITERAL invoke block: write the characters <invoke> and </invoke> as literal text. Output only the invoke block, nothing else."
 	}
 	return base + noShellRetryHint
 }
@@ -74,7 +74,7 @@ func hallucinationForcePrompt(tools []ToolDef) string {
 		"confirms it. "
 	if findShellTool(tools) != nil {
 		return base + `Emit ONE <invoke name="bash"> block now that performs the change for real (write the ` +
-			"file with a `cat > path <<'EOF' ... EOF` heredoc). kdeps parses that block at runtime and interprets it. Not your code interpreter. Output nothing else."
+			"file with a `cat > path <<'EOF' ... EOF` heredoc). kdeps parses that block at runtime and interprets it. Not your code interpreter. It is a LITERAL invoke block: write the characters <invoke> and </invoke> as literal text. Output nothing else."
 	}
 	return base + noShellRetryHint
 }

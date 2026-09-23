@@ -343,7 +343,8 @@ func handshakeRetryNudge(challenge string, misses int) string {
 		"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
 			"no problem, let's try it again together. kdeps is a parser and an interpreter: "+
 			"it parses a matched <invoke> block out of your message at runtime and interprets it. "+
-			"Not your code interpreter. "+
+			"Not your code interpreter. This is a LITERAL invoke block: write the "+
+			"characters <invoke> and </invoke> as literal text. "+
 			"Send this verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
 			"  <invoke name=\"session_handshake\">\n"+
 			"  <parameter name=\"code\">%s</parameter>\n"+

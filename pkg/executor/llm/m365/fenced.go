@@ -407,7 +407,7 @@ func baselineFraming(tools []ToolDef) string {
 			" To perform a step, emit ONE <invoke> block for the single tool that step needs, acting end-to-end against the real files in the working directory: an invoke of the shell tool inspects with `cat`/`ls`/`grep` and runs code with the available interpreters." +
 			" The block is executed for real and you get its output back. Writing the commands IS doing the task; describing what you \"would\" run, or claiming you did it, accomplishes nothing.\n\nYou have NOT run any command yet and have NO results. NEVER claim a command \"returned no output\", that files are \"missing\", or that you \"cannot access\" / \"cannot list\" the environment before you have actually emitted an invoke block and seen its <tool_response>. The files named in the task are present on a real filesystem right now. Your FIRST output must be " + firstAction + " - never open with prose, a question, or a request for the user to paste files. Do not assume a file's contents or a command's result; run a tool and read the real output. One self-contained invoke block per turn."
 	}
-	return `You are the execution core of an automated agent, not a chat assistant. kdeps is a parser and an interpreter: it parses a matched <invoke> block out of your message at runtime and interprets it against a live system, then returns the actual result in a <tool_response> block. Not your code interpreter.` + shellFraming + `
+	return `You are the execution core of an automated agent, not a chat assistant. kdeps is a parser and an interpreter: it parses a matched <invoke> block out of your message at runtime and interprets it against a live system, then returns the actual result in a <tool_response> block. Not your code interpreter. You have no native tool channel. The invoke block is a LITERAL invoke block: write the characters <invoke> and </invoke> as literal text.` + shellFraming + `
 
 Performing the task with tools is your PRIMARY JOB. Answering the user in prose is, and always will be, SECONDARY - you write prose only when the task is fully done or no tool can make progress. Default to acting, not talking.
 
@@ -446,7 +446,7 @@ func minimalFraming(tools []ToolDef) string {
 		shellPurpose = "runs scripts/tests, git, or inspects process/system state"
 	}
 	return "You are an automated agent with a real shell (the `" + name + "` tool)." + fileHints +
-		` kdeps is a parser and an interpreter. It parses a matched <invoke> block out of your message at runtime and interprets it. Not your code interpreter. You do the task by emitting ONE <invoke> block per turn for whichever tool the step needs; an invoke of the shell tool ` + shellPurpose + `. Writing the commands IS doing the task. To call a tool other than the shell (e.g. memory_search), use ITS OWN invoke directly - never write another tool's name as a shell command, the shell will fail with "command not found".` +
+		` kdeps is a parser and an interpreter. It parses a matched <invoke> block out of your message at runtime and interprets it. Not your code interpreter. You have no native tool channel. The invoke block is a LITERAL invoke block: write the characters <invoke> and </invoke> as literal text. You do the task by emitting ONE <invoke> block per turn for whichever tool the step needs; an invoke of the shell tool ` + shellPurpose + `. Writing the commands IS doing the task. To call a tool other than the shell (e.g. memory_search), use ITS OWN invoke directly - never write another tool's name as a shell command, the shell will fail with "command not found".` +
 		"\n\nYou have run nothing yet. Your FIRST output must be an invoke block - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
 		tools,
 	)
@@ -464,7 +464,7 @@ func softenedFraming(tools []ToolDef) string {
 		shellLine = "You have a real shell available as the `" + name + "` tool." + fileHints +
 			" The usual way to make progress on a step the shell covers is to write a single invoke of the shell tool that carries it out against the real files in the working directory - " + shellPurpose + ". The runtime executes the block and returns its real output to you. Writing the commands is how the work actually happens; describing what you would do doesn't run anything.\n\n"
 	}
-	return `You are an automated coding agent working in a real working directory. kdeps is a parser and an interpreter: it parses a matched <invoke> block out of your reply at runtime and interprets it. Not your code interpreter. The result comes back to you.
+	return `You are an automated coding agent working in a real working directory. kdeps is a parser and an interpreter: it parses a matched <invoke> block out of your reply at runtime and interprets it. Not your code interpreter. You have no native tool channel. The invoke block is a LITERAL invoke block: write the characters <invoke> and </invoke> as literal text. The result comes back to you.
 
 ` + shellLine + `To use a tool, reply with a single ` + "`<invoke name=\"tool_name\">`" + ` block (an invoke is run as a real action, not shown as an illustration):
 

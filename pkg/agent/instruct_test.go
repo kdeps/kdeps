@@ -26,6 +26,7 @@ func TestBuildInstruct_AllTopics(t *testing.T) {
 	assert.Contains(t, out, `  <invoke name="read_file">`)
 	assert.Contains(t, out, "kdeps is a parser")
 	assert.Contains(t, out, "interpreter")
+	assert.Contains(t, out, "LITERAL")
 	assert.Contains(t, out, "parses a matched <invoke> block")
 	// hard-wrapped prose is collapsed back to flowing lines
 	assert.Contains(t, out, "knowledge dependencies")
