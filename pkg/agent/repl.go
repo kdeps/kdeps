@@ -5038,7 +5038,7 @@ func (r *REPL) cmdKartographer() error {
 
 	// Memory bridge
 	fmt.Fprintln(os.Stdout, meta("memory"))
-	fmt.Fprintf(os.Stdout, "  %s memory_search / memory_list before every action\n", tee)
+	fmt.Fprintf(os.Stdout, "  %s memory_search before every action\n", tee)
 	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)

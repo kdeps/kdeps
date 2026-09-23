@@ -62,7 +62,7 @@ The block is truncated to a token budget, but not oldest-first: the **active tas
 
 The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front - one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
 
-Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
+Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool. The graph above is the context.
 
 ## Compaction integration
 

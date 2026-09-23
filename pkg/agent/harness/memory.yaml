@@ -7,8 +7,9 @@ body: |-
     already produced what you need.
   memory_save --- Persist facts, decisions, and progress during the turn.
 
-  NOTE: memory_list and memory_save run automatically each turn. Call them
-  yourself only to save intermediate state.
+  The memory graph and recent keys are already in this prompt. There is no
+  memory_list tool. Call memory_search to look a fact up. Call memory_save
+  only to record intermediate state.
 
   What NOT to save: code patterns (read the repo), git history (use git log),
   debugging recipes (the fix is in the code), ephemeral task state.

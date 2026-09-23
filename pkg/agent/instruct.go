@@ -90,8 +90,8 @@ make calls.`
 const instructMemoryBody = `kdeps can switch the LLM model between turns. Persistent memory is the ONLY
 state that survives a switch. Call memory_search BEFORE every read, edit, or
 write to check whether prior work already produced what you need; call
-memory_save to record decisions and progress. memory_list and an end-of-turn
-save run automatically -- call them yourself only for intermediate state.
+memory_save to record decisions and progress. The memory graph and recent
+keys are already in the prompt. There is no memory_list tool.
 Memory entries are permanent: write them for a future session, not this turn.`
 
 const instructGoalsBody = `When a goal is active the turn is a task list a cursor walks forward through --

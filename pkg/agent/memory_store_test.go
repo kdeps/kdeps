@@ -1425,9 +1425,10 @@ func TestMemoryTools_Registered(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(reg)
 
-	for _, name := range []string{"memory_save", "memory_search", "memory_delete", "memory_list"} {
+	for _, name := range []string{"memory_save", "memory_search", "memory_delete"} {
 		assert.NotNil(t, reg.Get(name), "tool %q should be registered", name)
 	}
+	assert.Nil(t, reg.Get("memory_list"), "memory_list is not a tool; the graph is in the prompt")
 }
 
 func TestMemoryTools_SaveSearch(t *testing.T) {
@@ -1601,77 +1602,40 @@ func TestMemoryTools_Search_TruncatesLongValues(t *testing.T) {
 	assert.Contains(t, result, truncationMarker)
 }
 
-// TestMemoryTools_List_CapsEntryCount guards "memory operations consume too
-// much token": memory_list must reuse the same capped, recency-ordered
-// RecentKeys the <memory-keys> preamble block already uses, not dump every
-// key in a long-lived store.
-func TestMemoryTools_List_CapsEntryCount(t *testing.T) {
-	store := setupMemoryStoreForTools(t)
-	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
-
-	limit := memoryKeysLimit()
-	total := limit + 3
-	for i := range total {
-		require.NoError(t, store.Set(fmt.Sprintf("key-%03d", i), "v"))
-	}
-
-	result, err := reg.Get("memory_list").Execute(nil)
-	require.NoError(t, err)
-	assert.Contains(t, result, fmt.Sprintf("%d memory entries", total))
-	assert.Contains(t, result, "3 more")
-}
-
 func TestMemoryTools_RegisteredInBuiltinTools(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 
 	// Tools should be present (even though memoryStoreInstance may be nil).
-	for _, name := range []string{"memory_save", "memory_search", "memory_delete", "memory_list"} {
+	for _, name := range []string{"memory_save", "memory_search", "memory_delete"} {
 		assert.NotNil(t, reg.Get(name), "tool %q should be in RegisterBuiltinTools", name)
 	}
+	assert.Nil(t, reg.Get("memory_list"))
 }
 
-func TestMemoryTools_List(t *testing.T) {
+func TestMemoryTools_Search_KeyHitOutranksNewerValue(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(reg)
 
-	require.NoError(t, store.Set("a", "one"))
-	require.NoError(t, store.Set("b", "two"))
-	require.NoError(t, store.SetRelation("a", "b"))
+	require.NoError(t, store.Set("billing", "old fact"))
+	require.NoError(t, store.Set("note", "billing details"))
+	store.mu.Lock()
+	billing := store.entries["billing"]
+	billing.UpdatedAt = 1
+	store.entries["billing"] = billing
+	note := store.entries["note"]
+	note.UpdatedAt = 100
+	store.entries["note"] = note
+	store.mu.Unlock()
 
-	listTool := reg.Get("memory_list")
-	require.NotNil(t, listTool)
-
-	result, err := listTool.Execute(nil)
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "billing"})
 	require.NoError(t, err)
-	assert.Contains(t, result, "2 memory entries")
-	assert.Contains(t, result, "a")
-	assert.Contains(t, result, "b")
-	// Graph should be included.
-	assert.Contains(t, result, "<memory-graph>")
-	assert.Contains(t, result, "</memory-graph>")
-	assert.Contains(t, result, "->")
-}
-
-func TestMemoryTools_List_NoGraph(t *testing.T) {
-	store := setupMemoryStoreForTools(t)
-	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
-
-	// Use keys that won't auto-link: same type (note) with no parent type,
-	// and the fallback only links to the most recent entry. Setting a single
-	// entry with no prior entries means no link target exists.
-	require.NoError(t, store.Set("x", "one"))
-
-	listTool := reg.Get("memory_list")
-	require.NotNil(t, listTool)
-
-	result, err := listTool.Execute(nil)
-	require.NoError(t, err)
-	assert.Contains(t, result, "1 memory entr")
-	assert.NotContains(t, result, "<memory-graph>")
+	billIdx := strings.Index(result, "billing:")
+	noteIdx := strings.Index(result, "note:")
+	require.GreaterOrEqual(t, billIdx, 0)
+	require.GreaterOrEqual(t, noteIdx, 0)
+	assert.Less(t, billIdx, noteIdx, "a key hit must rank above a newer value-only hit")
 }
 
 func TestMemoryStore_InstanceVar(t *testing.T) {

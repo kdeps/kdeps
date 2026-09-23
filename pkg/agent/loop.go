@@ -2882,8 +2882,8 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		if memPrompt != "" {
 			memoryParts = append(memoryParts, memPrompt)
 		}
-		// Mechanical memory_list: inject the current key list so the LLM
-		// knows what's stored without having to call memory_list itself. Capped
+		// Recent keys, so the model can see what is stored without a list tool.
+		// Capped
 		// and recency-ordered — with thousands of entries the full list alone
 		// could be tens of thousands of tokens; memory_search covers the rest.
 		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
@@ -3026,7 +3026,7 @@ func (l *Loop) dateAndWDPreamble() string {
 func (l *Loop) memoryRulesPreamble() []string {
 	return []string{
 		"MANDATORY RULE #1 — Check memory before every action. " +
-			"Before taking ANY action, call memory_search and memory_list to see " +
+			"Before taking ANY action, call memory_search to see " +
 			"what is already known about the task. Memory contains persistent facts, " +
 			"previous tool call results, and past actions. Every tool call automatically " +
 			"creates a memory entry — use them to avoid redundant work. " +

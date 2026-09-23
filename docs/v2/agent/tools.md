@@ -53,9 +53,8 @@ Always available. No environment variables required.
 | Tool | Description |
 |------|-------------|
 | `memory_save` | Save a fact to persistent memory. Injected into every LLM call automatically. |
-| `memory_search` | Search memory entries by key or value (case-insensitive substring). At most 20 matches, newest first; each value cut at 500 characters. |
+| `memory_search` | Search memory entries by key or value. At most 20 matches, best first (key hit, then more query words, then newer); each value cut at 500 characters. |
 | `memory_delete` | Remove a memory entry by key. |
-| `memory_list` | List stored memory keys, newest first, capped (default 100). |
 | `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. |
 
 Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/agent/memory) for details.

@@ -20,7 +20,6 @@ package agent
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/md5" //nolint:gosec // content-identity checksum, not a security use
 	"encoding/json"
@@ -33,7 +32,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -2612,7 +2610,6 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 	registerMemorySaveTool(reg)
 	registerMemorySearchTool(reg)
 	registerMemoryDeleteTool(reg)
-	registerMemoryListTool(reg)
 }
 
 func registerMemorySaveTool(reg *kdepstools.Registry) {
@@ -2667,8 +2664,9 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 // all of them, each at full value length, is exactly the kind of unbounded
 // per-call cost that made memory_search "consume millions of tokens" over a
 // session where it's mandated before every action. Matches beyond the cap
-// are still real -- just not dumped in full. The ones shown are the most
-// recently updated (key order breaks ties). The model is told how many more
+// are still real -- just not dumped in full. The ones shown are the best
+// matches (key hit, then more query words, then newer UpdatedAt). The model
+// is told how many more
 // exist and can narrow the query instead.
 const memorySearchResultCap = 20
 
@@ -2676,7 +2674,7 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name: "memory_search",
 		Description: fmt.Sprintf(
-			"Search persistent memory for entries matching a query. Returns up to %d matching key-value pairs (each value capped). Use to recall previously saved facts, preferences, or decisions.",
+			"Search persistent memory for entries matching a query. Returns up to %d matching key-value pairs (each value capped), best match first: a key hit outranks a value-only hit, more query words outrank fewer, and a newer update breaks a tie. Use to recall previously saved facts, preferences, or decisions. There is no memory_list tool; the memory graph is already in the system prompt.",
 			memorySearchResultCap,
 		),
 		Parameters: map[string]domain.ToolParam{
@@ -2703,16 +2701,12 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 }
 
 // formatMemorySearchResults renders capped, per-value-truncated memory
-// matches for memory_search -- see memorySearchResultCap.
+// matches for memory_search. Order is the relevance order Search returned
+// (key hit, then more query words, then newer UpdatedAt). See
+// memorySearchResultCap.
 func formatMemorySearchResults(results []MemoryEntry) string {
 	total := len(results)
 	shown := append([]MemoryEntry(nil), results...)
-	slices.SortStableFunc(shown, func(a, b MemoryEntry) int {
-		if c := cmp.Compare(b.UpdatedAt, a.UpdatedAt); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.Key, b.Key)
-	})
 	if len(shown) > memorySearchResultCap {
 		shown = shown[:memorySearchResultCap]
 	}
@@ -2778,53 +2772,6 @@ func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 				return "", fmt.Errorf("memory_delete: %w", err)
 			}
 			return fmt.Sprintf("Deleted memory entry %q.", key), nil
-		},
-	})
-}
-
-func registerMemoryListTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "memory_list",
-		Description: "List keys in persistent memory (most recently updated first, capped). Returns key names only — use memory_search to find entries by content.",
-		Parameters:  map[string]domain.ToolParam{},
-		Execute: func(_ map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_list: memory store is not configured")
-			}
-			// Capped and recency-ordered via RecentKeys, the same call the
-			// <memory-keys> preamble block already uses -- a store can
-			// accumulate thousands of entries over a long session ("save
-			// memory after every turn," "every tool call creates an entry"),
-			// and dumping every key on every mandatory pre-action memory_list
-			// call is exactly the unbounded-per-call cost that compounds into
-			// runaway token usage across a session.
-			keys, total := memoryStoreInstance.RecentKeys(memoryKeysLimit())
-			var sb strings.Builder
-			if len(keys) == 0 {
-				fmt.Fprint(&sb, "No memory entries.")
-			} else {
-				fmt.Fprintf(&sb, "%d memory entries", total)
-				if total > len(keys) {
-					fmt.Fprintf(&sb, " (showing %d most recent)", len(keys))
-				}
-				sb.WriteString(":\n")
-				for _, key := range keys {
-					fmt.Fprintf(&sb, "- %s\n", key)
-				}
-				if total > len(keys) {
-					fmt.Fprintf(&sb, "... and %d more (use memory_search to find older entries)\n",
-						total-len(keys))
-				}
-			}
-			// Append the relationship graph so the agent can trace workflow
-			// chains -- FormatGraphForPrompt already self-caps (see its own
-			// maxTokens<=0 fallback), so no additional bound needed here.
-			graph := memoryStoreInstance.FormatGraphForPrompt(0)
-			if graph != "" {
-				sb.WriteByte('\n')
-				sb.WriteString(graph)
-			}
-			return sb.String(), nil
 		},
 	})
 }

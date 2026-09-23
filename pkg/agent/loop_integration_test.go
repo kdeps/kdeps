@@ -2040,40 +2040,6 @@ func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
 	assert.Equal(t, "another_value", entry.Value)
 }
 
-// TestRunStreaming_MemoryTools_List verifies memory_list works through
-// RunStreaming: save multiple facts, then list them.
-func TestRunStreaming_MemoryTools_List(t *testing.T) {
-	store := setupMemoryStoreForTools(t)
-
-	require.NoError(t, store.Set("key_a", "value_a"))
-	require.NoError(t, store.Set("key_b", "value_b"))
-
-	listTC := domain.StreamedToolCall{ID: "1", Name: "memory_list", Arguments: "{}"}
-
-	ms := &mockStreamer{
-		responses: []mockStreamResponse{
-			{content: "listing", toolCalls: []domain.StreamedToolCall{listTC}},
-			{content: "key_a, key_b", toolCalls: nil},
-		},
-	}
-
-	eng := executor.NewEngine(nil)
-	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
-
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model:         "test",
-		Streamer:      ms,
-		MaxToolRounds: 5,
-		MemoryStore:   store,
-	})
-
-	var buf bytes.Buffer
-	result, err := loop.RunStreaming(context.Background(), "list all memory entries", &buf)
-	require.NoError(t, err)
-	assert.Equal(t, "key_a, key_b", result)
-}
-
 // TestRunStreaming_MemoryTools_NoStore verifies memory tools gracefully
 // handle a nil MemoryStore (no crash, clear error message).
 func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {

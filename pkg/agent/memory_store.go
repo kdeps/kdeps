@@ -19,11 +19,13 @@
 package agent
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -391,26 +393,84 @@ func (m *MemoryStore) RecentKeys(limit int) ([]string, int) {
 	return keys, total
 }
 
-// Search returns entries where the query matches (case-insensitive) in the key or value.
-// Returns nil when cwd has not been set.
+// Search returns entries where any query word matches (case-insensitive) in
+// the key or value. Order is relevance, then latest: more key hits first, then
+// more words matched, then newer UpdatedAt, then key. Returns nil when cwd
+// has not been set or the query is empty.
 func (m *MemoryStore) Search(query string) []MemoryEntry {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.path == "" || query == "" {
+	terms := memoryQueryTerms(query)
+	if m.path == "" || len(terms) == 0 {
 		return nil
 	}
-	lower := strings.ToLower(query)
 	var results []MemoryEntry
 	for _, e := range m.entries {
-		if strings.Contains(strings.ToLower(e.Key), lower) ||
-			strings.Contains(strings.ToLower(e.Value), lower) {
+		if _, hits := memorySearchRank(e, terms); hits > 0 {
 			results = append(results, e)
 		}
 	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Key < results[j].Key
+	slices.SortStableFunc(results, func(a, b MemoryEntry) int {
+		ak, ah := memorySearchRank(a, terms)
+		bk, bh := memorySearchRank(b, terms)
+		if c := cmp.Compare(bk, ak); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(bh, ah); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(b.UpdatedAt, a.UpdatedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Key, b.Key)
 	})
 	return results
+}
+
+// memoryQueryTerms splits a search query into lowercase words. A single word
+// is kept as-is. Extra words shorter than 2 characters are dropped so "a"
+// does not match every entry; if that drops everything, the original words
+// are kept.
+func memoryQueryTerms(query string) []string {
+	fields := strings.Fields(strings.ToLower(strings.TrimSpace(query)))
+	if len(fields) <= 1 {
+		return fields
+	}
+	terms := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if utf8.RuneCountInString(field) >= minMemoryQueryWordRunes {
+			terms = append(terms, field)
+		}
+	}
+	if len(terms) == 0 {
+		return fields
+	}
+	return terms
+}
+
+// minMemoryQueryWordRunes is the shortest extra word kept when a query has
+// more than one word. A one-character word would match almost every entry.
+const minMemoryQueryWordRunes = 2
+
+// memorySearchRank scores one entry against query words. The first result is
+// how many words appear in the key. The second is how many appear in the key
+// or the value. A key hit outranks a value-only hit; more hits outrank fewer.
+func memorySearchRank(entry MemoryEntry, terms []string) (int, int) {
+	key := strings.ToLower(entry.Key)
+	value := strings.ToLower(entry.Value)
+	keyHits := 0
+	hits := 0
+	for _, term := range terms {
+		inKey := strings.Contains(key, term)
+		inVal := strings.Contains(value, term)
+		if inKey {
+			keyHits++
+		}
+		if inKey || inVal {
+			hits++
+		}
+	}
+	return keyHits, hits
 }
 
 // SetRelation adds a directed edge from key → relatedKey. Both keys must exist.
