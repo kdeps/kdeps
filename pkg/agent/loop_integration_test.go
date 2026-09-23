@@ -660,7 +660,13 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 
 	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble(""))
 	require.NotEmpty(t, cfg.Tools)
-	assert.Equal(t, "noop", cfg.Tools[0].Name)
+	// New() also registers identity_get. Tool order follows map iteration,
+	// so match by name instead of position.
+	var names []string
+	for _, tool := range cfg.Tools {
+		names = append(names, tool.Name)
+	}
+	assert.Contains(t, names, "noop")
 
 	var reminder string
 	for _, item := range cfg.Scenario {
