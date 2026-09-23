@@ -305,9 +305,10 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		autoContextDetect: true,
 	}
 	loop.SetOnAutoCompact(func(summary string) {
-		// The auto-compact/fold call itself consumed real tokens; without
-		// this the cumulative in:/out: counter would silently never count it.
-		r.syncTokenCounter()
+		// Compact already replaced the cumulative counters with the context
+		// that remains. Copy those into the REPL counter; do not add the
+		// compaction call on top of the old total.
+		r.copyContextCounters()
 		line := styleReplSuccess.Render(fmt.Sprintf(
 			"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
 		))
@@ -459,6 +460,17 @@ func (tc *TokenCounter) OutputTokens() int64 { return tc.outputTokens.Load() }
 func (tc *TokenCounter) Reset() {
 	tc.inputTokens.Store(0)
 	tc.outputTokens.Store(0)
+}
+
+// copyContextCounters copies the post-compact sent/generated totals into the
+// REPL counter. compactWithLLM already stored them on the session counters.
+func (r *REPL) copyContextCounters() {
+	if r.tokenCounter == nil {
+		return
+	}
+	r.tokenCounter.Reset()
+	r.tokenCounter.AddInput(llm.SessionInputTokens())
+	r.tokenCounter.AddOutput(llm.SessionOutputTokens())
 }
 
 // syncTokenCounter reads the latest cache record from GlobalPromptCacheStats
@@ -3919,10 +3931,8 @@ func (r *REPL) cmdCompact() error {
 			r.loop.Session().TurnCount(), forceKeepTurns)))
 		return nil
 	}
-	// The compaction call itself consumed real tokens (it's a real LLM call);
-	// without this the cumulative in:/out: counter in the status line would
-	// silently never count it.
-	r.syncTokenCounter()
+	// Counters were reset to the post-compact context inside ForceCompact.
+	r.copyContextCounters()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
 		styleReplHeading.Render("Compaction summary:"),
 		summary,
@@ -4117,7 +4127,7 @@ func (r *REPL) cmdFoldNow() error {
 		r.explainNothingToFold()
 		return nil
 	}
-	r.syncTokenCounter()
+	r.copyContextCounters()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n", styleReplHeading.Render("Fold summary:"), summary)
 	return nil
 }

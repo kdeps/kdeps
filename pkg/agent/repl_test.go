@@ -3654,46 +3654,48 @@ func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {
 	assert.Equal(t, 9, loop.config.FoldContextItems)
 }
 
-// The compaction/fold call itself consumes real tokens (it's a real LLM
-// call); cmdCompact and cmdFoldNow must call syncTokenCounter afterward so
-// the cumulative in:/out: display counts it, not just leave it at whatever
-// the last real turn left behind.
-func TestCmdCompact_SyncsTokenCounter(t *testing.T) {
+// After /compact and /fold now, sent/generated are the context that remains,
+// not the cumulative total and not the compaction call's own usage.
+func TestCmdCompact_ResetsCountersToContext(t *testing.T) {
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
-	// forcedCutIndex needs n > forceKeepTurns*sessionMsgsPer + sessionMsgsPer
-	// (see its own bounds check), so forceKeepTurns+1 turns (exactly at the
-	// boundary) returns 0 -- one more turn is required to actually cut.
 	for range forceKeepTurns + 2 {
 		loop.session.Append("user msg", "assistant reply")
 	}
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	repl.tokenCounter.Reset()
+	repl.tokenCounter.AddInput(99999)
+	repl.tokenCounter.AddOutput(88888)
+	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(123, 45)
 	captureStdout(t, func() { _ = repl.cmdCompact() })
 
-	assert.Equal(t, int64(123), repl.tokenCounter.InputTokens())
-	assert.Equal(t, int64(45), repl.tokenCounter.OutputTokens())
+	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
+	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
+	assert.Equal(t, llm.SessionOutputTokens(), repl.tokenCounter.OutputTokens())
+	assert.NotEqual(t, int64(123), repl.tokenCounter.InputTokens())
+	assert.Positive(t, repl.tokenCounter.InputTokens())
+	assert.Positive(t, repl.tokenCounter.OutputTokens())
 }
 
-func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
-	// /fold now forces a fold via ForceCompact, which ignores the compaction
-	// budget entirely: enough turns (more than forceKeepTurns+1) is all it
-	// takes to guarantee something to summarize.
+func TestCmdFoldNow_ResetsCountersToContext(t *testing.T) {
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
 	for range forceKeepTurns + 2 {
 		loop.session.Append("user msg", "assistant reply")
 	}
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	repl.tokenCounter.Reset()
+	repl.tokenCounter.AddInput(99999)
+	repl.tokenCounter.AddOutput(88888)
+	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(77, 33)
 	captureStdout(t, func() { _ = repl.cmdFoldNow() })
 
-	assert.Equal(t, int64(77), repl.tokenCounter.InputTokens())
-	assert.Equal(t, int64(33), repl.tokenCounter.OutputTokens())
+	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
+	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
+	assert.Equal(t, llm.SessionOutputTokens(), repl.tokenCounter.OutputTokens())
+	assert.NotEqual(t, int64(77), repl.tokenCounter.InputTokens())
 }
 
 // TestCmdFoldNow_ExplainsTooFewTurns covers explainNothingToFold's only

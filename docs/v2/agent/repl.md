@@ -125,7 +125,7 @@ Directly above the session counter, whenever the running model's context window 
 
 `turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, `goal` the active task, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
 
-`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame: each tick rewrites those rows in place.
+`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `/compact` and `/fold` replace both with the context that remains: `sent` is that context, `generated` is the model-written part still in it. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame: each tick rewrites those rows in place.
 
 ### Custom themes
 
@@ -286,12 +286,13 @@ compact-threshold`/`compact-budget` already do.
 budget entirely and always summarizes everything except the last few turns,
 same as `/compact`. The only way it comes back with nothing is too few turns
 to have anything beyond what it always keeps verbatim - it then prints the
-turn count needed and the current `in:`/`out:` token counter, a number to
+turn count needed and the current `sent`/`generated` token counter, a number to
 check instead of just an assertion.
 
-Both `/compact` and `/fold` refresh the cumulative token counter (`in:`/`out:`
-in the status line) immediately after they run, since the summarization call
-itself uses real tokens that would otherwise never get counted.
+Both `/compact` and `/fold` reset `sent` and `generated` to the context that
+remains. `sent` is that context (system prompt, memory, and the kept
+history). `generated` is the model-written part still in it, including the
+new summary. The old cumulative totals are dropped.
 
 ## Sessions
 

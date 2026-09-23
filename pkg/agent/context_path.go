@@ -101,6 +101,17 @@ func recordContextSegment(label, text string) {
 // already has a token count on hand (buildSystemPreamble caches the size of
 // its two halves rather than re-measuring the already-built preamble string
 // every turn) -- a no-op for a non-positive count.
+// contextSegmentTotal is the token sum of the context path recorded so far.
+func contextSegmentTotal() int {
+	contextSegmentsMu.Lock()
+	defer contextSegmentsMu.Unlock()
+	n := 0
+	for _, seg := range contextSegments {
+		n += seg.Tokens
+	}
+	return n
+}
+
 func recordContextSegmentTokens(label string, tokens int) {
 	if tokens <= 0 {
 		return

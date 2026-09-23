@@ -3542,7 +3542,43 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		l.memoryStore.AutoCapture(summary)
 	}
 
+	// The cumulative sent/generated totals still describe the conversation
+	// that was just folded away. Replace them with the context that remains.
+	l.resetCountersToCurrentContext()
+
 	return summary, nil
+}
+
+// resetCountersToCurrentContext rebuilds the context-path line from the
+// post-compact session and sets sent/generated to that context. sent is the
+// whole remaining context. generated is the model-written part still in it
+// (the summary and the kept assistant turns).
+func (l *Loop) resetCountersToCurrentContext() {
+	resetContextSegments(l.config.Model, l.config.Backend)
+	if l.systemPreambleBuilt {
+		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
+		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
+	}
+	var hist, wrote strings.Builder
+	if l.session != nil {
+		for _, m := range l.session.RawMessages() {
+			if m.Content == "" {
+				continue
+			}
+			hist.WriteString(m.Content)
+			hist.WriteByte('\n')
+			if m.Role == RoleAssistant || m.Role == RoleCompactionSummary {
+				wrote.WriteString(m.Content)
+				wrote.WriteByte('\n')
+			}
+		}
+	}
+	if s := strings.TrimSpace(hist.String()); s != "" {
+		recordContextSegment("history", s)
+	}
+	sent := int64(contextSegmentTotal())
+	generated := int64(EstimateTokenCountFromStrings(strings.TrimSpace(wrote.String())))
+	executorLLM.ResetSessionTokens(sent, generated)
 }
 
 // CompactIfNeeded compacts the session if it exceeds the configured

@@ -1550,6 +1550,22 @@ func SessionOutputTokens() int64 {
 	return atomic.LoadInt64(&TokenOutputs) + atomic.LoadInt64(&liveOutputs)
 }
 
+// ResetSessionTokens replaces the cumulative sent/generated counters with the
+// context that remains after a compact or fold. The in-flight estimates are
+// cleared so a finished call cannot keep the old total on screen.
+func ResetSessionTokens(inputs, outputs int64) {
+	if inputs < 0 {
+		inputs = 0
+	}
+	if outputs < 0 {
+		outputs = 0
+	}
+	atomic.StoreInt64(&TokenInputs, inputs)
+	atomic.StoreInt64(&TokenOutputs, outputs)
+	atomic.StoreInt64(&liveInputs, 0)
+	atomic.StoreInt64(&liveOutputs, 0)
+}
+
 func addLive(counter *int64, n int64) {
 	if n == 0 {
 		return
