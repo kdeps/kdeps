@@ -108,11 +108,17 @@ func (l *Loop) HandshakeEnabled() bool {
 }
 
 // SetHandshakeEnabled turns the mandatory session-integrity handshake on or
-// off. Turning it off drops any handshake currently pending, so a turn
-// in flight isn't blocked by a check the user just disabled.
+// off. Turning it on arms a check for the very next prompt on the CURRENT
+// model -- a user who just typed "/handshake on" wants to see it verify
+// right away, not wait for a model change, resume, or compaction/fold that
+// may never happen in this session. Turning it off drops any handshake
+// currently pending, so a turn in flight isn't blocked by a check the user
+// just disabled.
 func (l *Loop) SetHandshakeEnabled(enabled bool) {
 	l.config.HandshakeEnabled = enabled
-	if !enabled {
+	if enabled {
+		l.RequireHandshake()
+	} else {
 		l.handshake = nil
 	}
 }
@@ -215,6 +221,17 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	}
 	history = l.handshakeEvidence(ctx, history)
 
+	// noCallStreak counts consecutive misses where the model made NO tool
+	// call at all (observedCode stays ""), as opposed to a wrong-code miss,
+	// which at least shows engagement with the directive. A model that keeps
+	// trying and getting the code wrong is exactly the "slow but eventually
+	// correct" case this loop is designed to wait out forever. A model that
+	// never engages with the directive at all -- ignoring it and answering
+	// something else instead, the failure mode seen on weak local models --
+	// will never get there no matter how long kdeps waits, so that case gets
+	// a bound: warn that session integrity is unverified and let the turn
+	// proceed rather than bricking the session.
+	noCallStreak := 0
 	for attempt := 1; ; attempt++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -227,7 +244,22 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 			return fmt.Errorf("session handshake: %w", roundErr)
 		}
 
-		if l.handshake != nil && l.handshake.observedCode == challenge {
+		observed := ""
+		if l.handshake != nil {
+			observed = l.handshake.observedCode
+		}
+		if observed == challenge {
+			l.handshake = nil
+			return nil
+		}
+
+		if observed == "" {
+			noCallStreak++
+		} else {
+			noCallStreak = 0
+		}
+		if noCallStreak >= handshakeGiveUpAfterNoCallStreak {
+			l.warnHandshakeUnverified(noCallStreak)
 			l.handshake = nil
 			return nil
 		}
@@ -241,14 +273,33 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 		)
 
 		if debug.Enabled() {
-			observed := ""
-			if l.handshake != nil {
-				observed = l.handshake.observedCode
-			}
 			debug.Log(fmt.Sprintf(
-				"handshake.miss: attempt=%d challenge=%s observed=%q", attempt, challenge, observed))
+				"handshake.miss: attempt=%d challenge=%s observed=%q noCallStreak=%d",
+				attempt, challenge, observed, noCallStreak))
 		}
 	}
+}
+
+// handshakeGiveUpAfterNoCallStreak bounds how many consecutive completely-
+// silent misses (no tool call attempted at all) the mandatory challenge will
+// tolerate before giving up and letting the turn proceed unverified. See the
+// noCallStreak comment in performHandshake for why this only applies to
+// silence, not to a model that keeps trying and getting the code wrong.
+const handshakeGiveUpAfterNoCallStreak = 5
+
+// warnHandshakeUnverified prints a visible warning that the mandatory
+// session-integrity check could not be completed -- the model never
+// attempted a tool call across handshakeGiveUpAfterNoCallStreak consecutive
+// tries -- and the turn is proceeding without it verified. Uses
+// progressWriter so it reaches the REPL's terminal instead of a buffer
+// nothing reads (see progressWriter's own doc comment).
+func (l *Loop) warnHandshakeUnverified(misses int) {
+	pw := l.progressWriter(io.Discard)
+	fmt.Fprintf(pw,
+		"\n[handshake] gave up after %d attempts with no tool call at all -- "+
+			"this model may not support tool calling reliably. Session integrity is "+
+			"UNVERIFIED for this turn. /handshake off to stop asking, or switch models.\n",
+		misses)
 }
 
 // handshakeWarmup asks handshakeWarmupQuestions in order, threading each
@@ -321,6 +372,12 @@ func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) 
 	if directive == "" {
 		return history
 	}
+	// Only bash_exec is offered here, not the full registry: this round is
+	// deliberately narrow so there is nothing else for the model to reach
+	// for, including session_handshake itself -- offering that tool here too
+	// invites a model to call it early, with a guessed or absent code, which
+	// would only confuse the real challenge that follows.
+	evidenceTools := onlyNamedTools(l.registry.ToLLMTools(), "bash_exec")
 
 	for attempt := 1; attempt <= handshakeEvidenceMaxAttempts; attempt++ {
 		if ctx.Err() != nil {
@@ -339,7 +396,7 @@ func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) 
 			Role:          l.config.Role,
 			Prompt:        prompt,
 			LiteralPrompt: true,
-			Tools:         l.registry.ToLLMTools(),
+			Tools:         evidenceTools,
 			MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 			Scenario: []domain.ScenarioItem{
 				{Role: "system", Prompt: l.handshakeGrounding()},
@@ -362,6 +419,23 @@ func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) 
 		}
 	}
 	return history
+}
+
+// onlyNamedTools returns the subset of tools whose Name is in keep, in the
+// order keep lists them. Used to narrow a handshake sub-round's tool list to
+// exactly what that round is asking for, instead of the full registry.
+func onlyNamedTools(tools []domain.Tool, keep ...string) []domain.Tool {
+	byName := make(map[string]domain.Tool, len(tools))
+	for _, t := range tools {
+		byName[t.Name] = t
+	}
+	out := make([]domain.Tool, 0, len(keep))
+	for _, name := range keep {
+		if t, ok := byName[name]; ok {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // appendHandshakeEvidenceExchange records one evidence attempt's user/
@@ -474,6 +548,21 @@ func (l *Loop) handshakeGrounding() string {
 	grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit})
 	if grounding == "" {
 		grounding = handshakeGroundingSystemMessage
+	}
+	// The generic preamble sections above never include the actual
+	// <available_tools> catalog (that is normally injected separately, once,
+	// into the cached system preamble -- see buildSystemPreamble). A model
+	// asked to call session_handshake with nothing else confirming that name
+	// is a real, registered tool has reasoned its way into "this isn't in my
+	// available tools" and refused or produced a call-shaped description
+	// instead of a real one, which never dispatches and looks identical to a
+	// miss from the outside -- hence an apparently "correct" attempt that
+	// still loops forever. Include the real catalog here so the model has
+	// concrete, checkable proof the tool exists before being asked to call it.
+	if l.registry != nil {
+		if catalog := l.registry.ToolPrompt(); catalog != "" {
+			grounding += "\n\n" + catalog
+		}
 	}
 	if l.config.Backend == backendM365 {
 		grounding += "\n\n" + harnessText("m365-sandbox")

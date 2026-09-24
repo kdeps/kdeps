@@ -196,6 +196,29 @@ func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
 	assert.True(t, found, "handshake request must carry the real tool-use guidance preamble")
 }
 
+// TestPerformHandshake_GroundingIncludesToolCatalog covers a reported failure
+// mode: a model asked to call session_handshake, with nothing else
+// confirming that name is a real, registered tool, reasons its way into
+// "this isn't in my available tools" and either refuses or produces a
+// call-shaped description that never actually dispatches -- which looks like
+// a correct attempt from the outside but is a miss, so the challenge retries
+// forever. The real <available_tools> catalog (naming session_handshake)
+// must be part of the grounding message every handshake round sends.
+func TestPerformHandshake_GroundingIncludesToolCatalog(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.NotEmpty(t, cfgs.cfgs)
+	found := false
+	for _, item := range cfgs.cfgs[0].Scenario {
+		if item.Role == "system" && strings.Contains(item.Prompt, "session_handshake") {
+			found = true
+		}
+	}
+	assert.True(t, found, "handshake grounding must include session_handshake in a real tool catalog")
+}
+
 // TestPerformHandshake_M365GetsSandboxReinforcement covers the m365 backend's
 // most aggressive sandbox-hallucination failure mode: a model that reasons
 // it is running in its own "run code" / code-interpreter sandbox and
@@ -339,6 +362,52 @@ func TestHandshakeEvidence_SuccessAppendsPraiseToHistory(t *testing.T) {
 	last := history[len(history)-1]
 	assert.Equal(t, RoleAssistant, last["role"])
 	assert.Contains(t, last[toolParamContent], "real shell")
+}
+
+// TestHandshakeEvidence_OnlyOffersBashExec ensures the evidence round can't
+// reach for session_handshake (or anything else) with a guessed or absent
+// code -- it should only ever be able to call bash_exec.
+func TestHandshakeEvidence_OnlyOffersBashExec(t *testing.T) {
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:       "bash_exec",
+		Parameters: map[string]domain.ToolParam{},
+		Execute:    func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
+	})
+	var seenTools []domain.Tool
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test",
+		Streamer: &toolCapturingHandshakeStreamer{
+			capture: &seenTools,
+			inner:   &evidenceThenHandshakeStreamer{},
+		},
+		MaxToolRounds: 5,
+	})
+
+	loop.handshakeEvidence(context.Background(), nil)
+	require.NotEmpty(t, seenTools)
+	names := make([]string, len(seenTools))
+	for i, tl := range seenTools {
+		names[i] = tl.Name
+	}
+	assert.Equal(t, []string{"bash_exec"}, names)
+}
+
+// toolCapturingHandshakeStreamer records the Tools list of the first call it
+// sees, then delegates to inner.
+type toolCapturingHandshakeStreamer struct {
+	capture *[]domain.Tool
+	inner   Streamer
+}
+
+func (t *toolCapturingHandshakeStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if *t.capture == nil {
+		*t.capture = cfg.Tools
+	}
+	return t.inner.StreamChat(ctx, cfg, w)
 }
 
 // noEvidenceStreamer never makes a real tool call for the evidence
@@ -569,18 +638,23 @@ func (w *wrongThenRightStreamer) StreamChat(
 	return hs.StreamChat(ctx, cfg, ww)
 }
 
-// TestPerformHandshake_RetriesIndefinitelyUntilCanceled covers the no-cap
-// policy: a model that never calls the tool correctly is retried forever,
-// not failed after N attempts -- the only way out is canceling ctx.
-func TestPerformHandshake_RetriesIndefinitelyUntilCanceled(t *testing.T) {
-	loop := newStreamingLoop(&handshakeStreamer{noCall: true}, 5)
+// TestPerformHandshake_EngagedWrongCodeRetriesIndefinitelyUntilCanceled
+// covers the no-cap policy for a model that keeps ENGAGING with the
+// directive (it calls session_handshake every time, just with the wrong
+// code) -- that is retried forever, not failed after N attempts, since it
+// shows the model can make real tool calls and might eventually get the
+// right one. The only way out is canceling ctx. Contrast with
+// TestPerformHandshake_GivesUpAfterNoCallStreak, which bounds the case where
+// the model never attempts a tool call at all.
+func TestPerformHandshake_EngagedWrongCodeRetriesIndefinitelyUntilCanceled(t *testing.T) {
+	loop := newStreamingLoop(&handshakeStreamer{wrongCode: "9999"}, 5)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	done := make(chan error, 1)
 	go func() { done <- loop.performHandshake(ctx) }()
 
-	// Give it a few misses before canceling, to confirm it doesn't give up
-	// on its own.
+	// Give it well past the no-call give-up threshold before canceling, to
+	// confirm an engaged-but-wrong model is never subject to it.
 	time.Sleep(20 * time.Millisecond)
 	cancel()
 
@@ -590,6 +664,39 @@ func TestPerformHandshake_RetriesIndefinitelyUntilCanceled(t *testing.T) {
 		assert.ErrorIs(t, err, context.Canceled)
 	case <-time.After(2 * time.Second):
 		t.Fatal("performHandshake did not stop after ctx was canceled")
+	}
+}
+
+// TestPerformHandshake_GivesUpAfterNoCallStreak covers a weak local model
+// that ignores the directive entirely every attempt (never calls any tool)
+// instead of a near-miss: after handshakeGiveUpAfterNoCallStreak consecutive
+// silent misses, performHandshake must give up and let the turn proceed
+// unverified rather than retry forever -- the model showed no sign it can
+// ever pass.
+func TestPerformHandshake_GivesUpAfterNoCallStreak(t *testing.T) {
+	streamer := &handshakeStreamer{noCall: true}
+	loop := newStreamingLoop(streamer, 5)
+
+	err := performHandshakeWithTimeout(t, loop, 2*time.Second)
+	require.NoError(t, err, "must give up gracefully, not error, on persistent silence")
+	assert.Nil(t, loop.handshake)
+	assert.GreaterOrEqual(t, streamer.calls, handshakeGiveUpAfterNoCallStreak,
+		"must have actually tried the give-up threshold before bailing")
+}
+
+// performHandshakeWithTimeout runs performHandshake and fails the test if it
+// doesn't return within timeout -- used where a bug (an infinite loop) would
+// otherwise hang the test suite instead of failing it.
+func performHandshakeWithTimeout(t *testing.T, loop *Loop, timeout time.Duration) error {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() { done <- loop.performHandshake(context.Background()) }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		t.Fatal("performHandshake did not return within timeout")
+		return nil
 	}
 }
 
@@ -613,10 +720,21 @@ func TestRequireHandshake_NoOpWhenDisabled(t *testing.T) {
 
 func TestRequireHandshake_SetsPendingWhenEnabled(t *testing.T) {
 	loop := newStreamingLoop(&mockStreamer{}, 5)
-	loop.SetHandshakeEnabled(true)
+	loop.config.HandshakeEnabled = true // enabled without going through SetHandshakeEnabled
 	assert.False(t, loop.HandshakePending())
 	loop.RequireHandshake()
 	assert.True(t, loop.HandshakePending())
+}
+
+// TestSetHandshakeEnabled_TurningOnArmsImmediateCheck covers a user who types
+// "/handshake on" wanting to see it verify on the very next prompt against
+// the CURRENT model, not wait for a model change/resume/compaction that may
+// never happen this session.
+func TestSetHandshakeEnabled_TurningOnArmsImmediateCheck(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	assert.False(t, loop.HandshakePending())
+	loop.SetHandshakeEnabled(true)
+	assert.True(t, loop.HandshakePending(), "enabling must arm a check for the next prompt immediately")
 }
 
 func TestSetHandshakeEnabled_DisablingDropsPending(t *testing.T) {

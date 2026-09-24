@@ -70,7 +70,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl#nightly-builds)) |
 | `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl#installing-a-specific-version-including-a-downgrade)) |
-| `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check on model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools#session-integrity-handshake)) |
+| `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check. Turning it on verifies the current model immediately, before your next prompt, then again on every model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools#session-integrity-handshake)) |
 | `/harness [list]` | List harness sections (the system-prompt text sent every turn) with their enabled/disabled state |
 | `/harness enable\|disable <name>` | Turn a harness section on/off; persists to `~/.kdeps/harness/<name>.yaml` and takes effect on the next turn (no restart) |
 | `/harness events [list]` | List [reactive LLM events](/agent/events) with a trigger summary, action, and enabled/disabled state |

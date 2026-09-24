@@ -5263,8 +5263,8 @@ func (r *REPL) cmdHandshake(args []string) {
 		r.persistTuning()
 		if enabled {
 			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
-				"session-integrity handshake enabled — enforces that the model uses real kdeps "+
-					"tool calls (not fabricated text) on model change, resume, and compaction/fold"))
+				"session-integrity handshake enabled — verifying on the current model now, "+
+					"before your next prompt, and again on every model change, resume, and compaction/fold"))
 		} else {
 			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
 				"session-integrity handshake disabled"))
