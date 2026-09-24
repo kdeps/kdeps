@@ -323,17 +323,34 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 // history entirely.
 const handshakeHistoryMaxPairs = 3
 
-// capHandshakeHistory keeps only the most recent handshakeHistoryMaxPairs
-// user/assistant pairs (oldest first), so the mandatory challenge's synthetic
-// conversation cannot grow without bound across warmup, evidence, and
-// retries. See handshakeHistoryMaxPairs for why this matters.
+// capHandshakeHistory keeps the FIRST pair plus the most recent
+// handshakeHistoryMaxPairs-1 pairs, dropping only the middle, so the
+// mandatory challenge's synthetic conversation cannot grow without bound
+// across warmup, evidence, and retries. See handshakeHistoryMaxPairs for why
+// bounding it matters.
+//
+// The first pair is anchored rather than evicted for a second reason found
+// live: the m365 backend's session pool decides "same conversation" vs. "new
+// conversation" by fingerprinting the FIRST message in the array
+// (server.go's fingerprint/formatDeltaMessages). A naive sliding window that
+// drops the oldest pair once the cap is hit keeps changing what that first
+// message is, so m365 silently started a brand-new conversation -- with a
+// fresh, generic system prompt and no memory of the evidence step -- on
+// every retry past the cap. Every kdeps backend can build its own message
+// history from this array; m365 is simply the one that depends on the FIRST
+// entry staying stable across calls, so it must never move.
 func capHandshakeHistory(history []map[string]any) []map[string]any {
 	const perPair = 2
 	maxLen := handshakeHistoryMaxPairs * perPair
 	if len(history) <= maxLen {
 		return history
 	}
-	return history[len(history)-maxLen:]
+	head := history[:perPair]
+	tail := history[len(history)-(maxLen-perPair):]
+	out := make([]map[string]any, 0, len(head)+len(tail))
+	out = append(out, head...)
+	out = append(out, tail...)
+	return out
 }
 
 // handshakeGiveUpAfterNoCallStreak bounds how many consecutive completely-

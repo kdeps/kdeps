@@ -511,9 +511,37 @@ func TestCapHandshakeHistory_KeepsMostRecentPairs(t *testing.T) {
 	}
 	capped := capHandshakeHistory(history)
 	assert.Len(t, capped, handshakeHistoryMaxPairs*2)
-	// Must keep the MOST RECENT pairs, not the oldest.
+	// Must keep the FIRST pair anchored (see capHandshakeHistory -- m365's
+	// session-continuity fingerprint depends on it never moving) plus the
+	// most recent pairs, dropping only the middle.
+	assert.Equal(t, "q0", capped[0][toolParamContent])
+	assert.Equal(t, "a0", capped[1][toolParamContent])
 	last := capped[len(capped)-1]
 	assert.Equal(t, "a9", last[toolParamContent])
+}
+
+// TestCapHandshakeHistory_AnchorsFirstPairAcrossRepeatedCapping is the direct
+// regression test for the m365 handshake bug: capping must never change
+// which message is first, even after being applied many times in a row (as
+// performHandshake does on every retry) -- a sliding window that drops the
+// oldest pair once the cap is hit would flip m365's session-continuity
+// fingerprint on every subsequent call, making it silently start a brand-new
+// conversation each time.
+func TestCapHandshakeHistory_AnchorsFirstPairAcrossRepeatedCapping(t *testing.T) {
+	var history []map[string]any
+	history = append(history,
+		map[string]any{"role": RoleUser, toolParamContent: "q0"},
+		map[string]any{"role": RoleAssistant, toolParamContent: "a0"},
+	)
+	for i := 1; i <= 10; i++ {
+		history = append(history,
+			map[string]any{"role": RoleUser, toolParamContent: fmt.Sprintf("q%d", i)},
+			map[string]any{"role": RoleAssistant, toolParamContent: fmt.Sprintf("a%d", i)},
+		)
+		history = capHandshakeHistory(history)
+		require.GreaterOrEqual(t, len(history), 2)
+		assert.Equal(t, "q0", history[0][toolParamContent], "first message must never move (attempt %d)", i)
+	}
 }
 
 // TestCapHandshakeHistory_ShorterThanCapIsUnchanged ensures the cap is a
