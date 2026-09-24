@@ -220,6 +220,7 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 		return fmt.Errorf("session handshake warmup: %w", err)
 	}
 	history = l.handshakeEvidence(ctx, history)
+	history = capHandshakeHistory(history)
 
 	// noCallStreak counts consecutive misses where the model made NO tool
 	// call at all (observedCode stays ""), as opposed to a wrong-code miss,
@@ -271,6 +272,7 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 			map[string]any{"role": RoleUser, toolParamContent: chatCfg.Prompt},
 			map[string]any{"role": RoleAssistant, toolParamContent: stripContentToolCalls(finalContent)},
 		)
+		history = capHandshakeHistory(history)
 
 		if debug.Enabled() {
 			debug.Log(fmt.Sprintf(
@@ -278,6 +280,34 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 				attempt, challenge, observed, noCallStreak))
 		}
 	}
+}
+
+// handshakeHistoryMaxPairs bounds how many user/assistant exchanges the
+// handshake's internal synthetic conversation carries forward. Left
+// unbounded, warmup (2 pairs) + evidence (up to 3) + every challenge retry
+// (unlimited by design -- see handshakeGiveUpAfterNoCallStreak) compounds:
+// live testing against a small local model showed prompt size growing from
+// ~3k to over 50k tokens across just three retries. That is not just waste --
+// a weak model's ability to attend to the actual instruction gets WORSE as
+// the context balloons, so unbounded growth actively hurts the model's odds
+// of ever passing, not just kdeps's token bill. Each retry still needs to see
+// its own most recent miss (the whole point of carrying history at all -- a
+// retry answering a model that can see what it just did, not a repeated
+// cold-open), so this keeps a small recent window instead of dropping
+// history entirely.
+const handshakeHistoryMaxPairs = 3
+
+// capHandshakeHistory keeps only the most recent handshakeHistoryMaxPairs
+// user/assistant pairs (oldest first), so the mandatory challenge's synthetic
+// conversation cannot grow without bound across warmup, evidence, and
+// retries. See handshakeHistoryMaxPairs for why this matters.
+func capHandshakeHistory(history []map[string]any) []map[string]any {
+	const perPair = 2
+	maxLen := handshakeHistoryMaxPairs * perPair
+	if len(history) <= maxLen {
+		return history
+	}
+	return history[len(history)-maxLen:]
 }
 
 // handshakeGiveUpAfterNoCallStreak bounds how many consecutive completely-
@@ -399,7 +429,7 @@ func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) 
 			Tools:         evidenceTools,
 			MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 			Scenario: []domain.ScenarioItem{
-				{Role: "system", Prompt: l.handshakeGrounding()},
+				{Role: "system", Prompt: l.handshakeGrounding("bash_exec")},
 			},
 		}
 		if len(history) > 0 {
@@ -477,9 +507,15 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int, history []ma
 		directive += handshakeRetryNudge(challenge, attempt-1)
 	}
 
+	// Only session_handshake is offered: the full registry (dozens of tools,
+	// each with a full parameter schema) serialized into the prompt text on
+	// every attempt is exactly what made a local 1B model's handshake rounds
+	// balloon to tens of thousands of tokens for what should be a two-line
+	// request -- see handshakeGrounding's tool-note comment for the matching
+	// fix on the grounding side.
 	var tools []domain.Tool
 	if l.registry != nil {
-		tools = l.registry.ToLLMTools()
+		tools = onlyNamedTools(l.registry.ToLLMTools(), "session_handshake")
 	}
 	cfg := &domain.ChatConfig{
 		Model:         l.config.Model,
@@ -491,7 +527,7 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int, history []ma
 		Tools:         tools,
 		MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: l.handshakeGrounding()},
+			{Role: "system", Prompt: l.handshakeGrounding("session_handshake")},
 		},
 	}
 	if len(history) > 0 {
@@ -510,6 +546,9 @@ func handshakeRetryNudge(challenge string, misses int) string {
 	if misses == 1 {
 		plural = ""
 	}
+	if misses >= handshakeStrongNudgeAfterMisses {
+		return handshakeStrongRetryNudge(challenge, misses, plural)
+	}
 	return fmt.Sprintf(
 		"\n\nThat didn't go through as a real tool call -- %d attempt%s missed so far, "+
 			"no problem, let's try it again together. kdeps is a parser and an interpreter: "+
@@ -521,6 +560,37 @@ func handshakeRetryNudge(challenge string, misses int) string {
 			"  <parameter name=\"code\">%s</parameter>\n"+
 			"  </invoke>\n\n"+
 			"Send that now.", misses, plural, challenge)
+}
+
+// handshakeStrongNudgeAfterMisses is the miss count at which the retry nudge
+// switches from a friendly explanation to a minimal, no-narration variant.
+// Live testing against a small local model showed the friendly nudge's own
+// length and framing sentences becoming part of the problem: past this
+// point, the model consistently wrote sentences ABOUT calling the tool
+// ("I will call...", "Here is the block:") wrapped around an EMPTY code
+// fence, instead of the literal tag text itself -- narrating around the
+// block rather than writing it. Less surrounding text for the model to
+// generate before/after the block gives it less room to substitute
+// narration for the real thing.
+const handshakeStrongNudgeAfterMisses = 2
+
+// handshakeStrongRetryNudge is the minimal-narration retry variant used once
+// handshakeStrongNudgeAfterMisses is reached. It anchors on the model's own
+// prior success (the bash_exec evidence call, which came from this same
+// conversation) as concrete proof it already CAN write a literal block
+// correctly, and explicitly forbids the narration pattern observed live.
+func handshakeStrongRetryNudge(challenge string, misses int, plural string) string {
+	return fmt.Sprintf(
+		"\n\n%d attempt%s missed so far -- each one wrote WORDS about calling the tool instead of the "+
+			"tool call itself (a sentence plus an empty code fence is not a call; nothing dispatches "+
+			"from that). You already wrote a real one earlier in this conversation for bash_exec, so "+
+			"you can do the exact same thing again. This time: NO sentences before it, NO sentences "+
+			"after it, NO code fence, NO explanation. Output ONLY these three lines, exactly as "+
+			"written, and nothing else:\n\n"+
+			"<invoke name=\"session_handshake\">\n"+
+			"<parameter name=\"code\">%s</parameter>\n"+
+			"</invoke>",
+		misses, plural, challenge)
 }
 
 // handshakeGrounding returns the system-role content sent alongside the
@@ -543,7 +613,7 @@ func handshakeRetryNudge(challenge string, misses int) string {
 // the one round explicitly designed to force a real tool call before
 // anything else happens -- so it must get the identical addition, not a
 // weaker or bespoke echo of it.
-func (l *Loop) handshakeGrounding() string {
+func (l *Loop) handshakeGrounding(toolNames ...string) string {
 	_, webCallLimit := WebConvergenceCalls()
 	grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit})
 	if grounding == "" {
@@ -557,15 +627,42 @@ func (l *Loop) handshakeGrounding() string {
 	// available tools" and refused or produced a call-shaped description
 	// instead of a real one, which never dispatches and looks identical to a
 	// miss from the outside -- hence an apparently "correct" attempt that
-	// still loops forever. Include the real catalog here so the model has
-	// concrete, checkable proof the tool exists before being asked to call it.
-	if l.registry != nil {
-		if catalog := l.registry.ToolPrompt(); catalog != "" {
-			grounding += "\n\n" + catalog
-		}
+	// still loops forever.
+	//
+	// The full registry.ToolPrompt() catalog fixes that but is the wrong
+	// tool here: on a session with many registered tools, each with a full
+	// parameter schema, it ballooned a two-line warm-up question to tens of
+	// thousands of prompt tokens on a small local model -- overwhelming
+	// enough that the model stopped engaging with the actual question at
+	// all. handshakeToolNote gives the same concrete, checkable proof for
+	// only the tool(s) this specific round actually needs.
+	if note := l.handshakeToolNote(toolNames...); note != "" {
+		grounding += "\n\n" + note
 	}
 	if l.config.Backend == backendM365 {
 		grounding += "\n\n" + harnessText("m365-sandbox")
 	}
 	return grounding
+}
+
+// handshakeToolNote returns a compact, single-line-per-tool confirmation
+// that each named tool is real and registered -- deliberately not the full
+// <available_tools> catalog (registry.ToolPrompt()), which includes every
+// registered tool's full parameter schema and constraints and can run to
+// thousands of tokens on its own. See handshakeGrounding for why that
+// mattered enough to need its own helper.
+func (l *Loop) handshakeToolNote(names ...string) string {
+	if l.registry == nil {
+		return ""
+	}
+	var lines []string
+	for _, name := range names {
+		if t := l.registry.Get(name); t != nil {
+			lines = append(lines, fmt.Sprintf("- %s: %s", t.Name, t.Description))
+		}
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return "<available_tools>\n" + strings.Join(lines, "\n") + "\n</available_tools>"
 }

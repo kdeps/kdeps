@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -202,8 +203,13 @@ func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
 // "this isn't in my available tools" and either refuses or produces a
 // call-shaped description that never actually dispatches -- which looks like
 // a correct attempt from the outside but is a miss, so the challenge retries
-// forever. The real <available_tools> catalog (naming session_handshake)
-// must be part of the grounding message every handshake round sends.
+// forever. The mandatory challenge round's grounding must name
+// session_handshake -- but as a compact note, not the full <available_tools>
+// catalog (registry.ToolPrompt()), which on a session with many registered
+// tools ballooned a local model's handshake rounds to tens of thousands of
+// prompt tokens; see TestHandshakeGrounding_OmitsFullCatalog. The warm-up
+// questions (checked separately) don't need this at all since no tool call
+// is expected there.
 func TestPerformHandshake_GroundingIncludesToolCatalog(t *testing.T) {
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	loop := newStreamingLoop(cfgs, 5)
@@ -211,12 +217,40 @@ func TestPerformHandshake_GroundingIncludesToolCatalog(t *testing.T) {
 
 	require.NotEmpty(t, cfgs.cfgs)
 	found := false
-	for _, item := range cfgs.cfgs[0].Scenario {
-		if item.Role == "system" && strings.Contains(item.Prompt, "session_handshake") {
-			found = true
+	for _, cfg := range cfgs.cfgs {
+		for _, item := range cfg.Scenario {
+			if item.Role == "system" && strings.Contains(item.Prompt, "session_handshake") {
+				found = true
+			}
 		}
 	}
-	assert.True(t, found, "handshake grounding must include session_handshake in a real tool catalog")
+	assert.True(t, found, "the challenge round's grounding must name session_handshake")
+}
+
+// TestHandshakeGrounding_OmitsFullCatalog is the direct regression test for
+// the token-bloat bug: a session with many registered tools must NOT get the
+// full registry.ToolPrompt() catalog in handshake grounding, only a compact
+// note about the specific tool(s) that round needs.
+func TestHandshakeGrounding_OmitsFullCatalog(t *testing.T) {
+	reg := tools.NewRegistry()
+	for i := range 30 {
+		reg.Register(&tools.Tool{
+			Name:        fmt.Sprintf("filler_tool_%d", i),
+			Description: "a tool registered only to bulk up the catalog for this test",
+			Parameters: map[string]domain.ToolParam{
+				"arg": {Type: "string", Description: "an argument nobody needs for this test", Required: true},
+			},
+		})
+	}
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
+
+	baseline := loop.handshakeGrounding()
+	withNote := loop.handshakeGrounding("session_handshake")
+	assert.Contains(t, withNote, "session_handshake")
+	assert.NotContains(t, withNote, "filler_tool_0", "must not include the full registry catalog")
+	assert.Less(t, len(withNote)-len(baseline), 500,
+		"naming one tool must only add a short note, not the full registry catalog")
 }
 
 // TestPerformHandshake_M365GetsSandboxReinforcement covers the m365 backend's
@@ -461,6 +495,76 @@ func TestPerformHandshake_EvidenceStepSkippedWithoutBashExec(t *testing.T) {
 	assert.Nil(t, loop.handshake)
 }
 
+// TestCapHandshakeHistory_KeepsMostRecentPairs is the direct unit test for
+// the token-bloat-across-retries fix: live testing against a small local
+// model showed the handshake's internal history growing unbounded across
+// warmup, evidence, and every retry, ballooning prompt size from ~3k to over
+// 50k tokens in three retries and making the model's answers worse, not
+// better, as context grew.
+func TestCapHandshakeHistory_KeepsMostRecentPairs(t *testing.T) {
+	var history []map[string]any
+	for i := range 10 {
+		history = append(history,
+			map[string]any{"role": RoleUser, toolParamContent: fmt.Sprintf("q%d", i)},
+			map[string]any{"role": RoleAssistant, toolParamContent: fmt.Sprintf("a%d", i)},
+		)
+	}
+	capped := capHandshakeHistory(history)
+	assert.Len(t, capped, handshakeHistoryMaxPairs*2)
+	// Must keep the MOST RECENT pairs, not the oldest.
+	last := capped[len(capped)-1]
+	assert.Equal(t, "a9", last[toolParamContent])
+}
+
+// TestCapHandshakeHistory_ShorterThanCapIsUnchanged ensures the cap is a
+// no-op (and doesn't panic on a short/empty slice) when history is already
+// within bounds.
+func TestCapHandshakeHistory_ShorterThanCapIsUnchanged(t *testing.T) {
+	assert.Nil(t, capHandshakeHistory(nil))
+	short := []map[string]any{{"role": RoleUser, toolParamContent: "q0"}}
+	assert.Equal(t, short, capHandshakeHistory(short))
+}
+
+// TestPerformHandshake_HistoryStaysBoundedAcrossManyRetries is an
+// integration-level check that the cap is actually wired into the retry
+// loop: a model that keeps engaging (wrong code every time) will retry for a
+// while before this test cancels it, and at no point should the messages
+// sent to the model exceed the capped size.
+func TestPerformHandshake_HistoryStaysBoundedAcrossManyRetries(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{wrongCode: "9999"}}
+	loop := newStreamingLoop(cfgs, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() { done <- loop.performHandshake(ctx) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	<-done
+
+	require.NotEmpty(t, cfgs.cfgs)
+	// A round-trip's OWN intra-round tool-call/tool-result messages get
+	// appended to a config's Messages by runToolRounds independently of the
+	// capped history this test is checking, so a couple of extra entries on
+	// any single captured config are expected. What must NOT happen is
+	// unbounded growth across attempts (the actual bug: 50k+ tokens after
+	// just a few retries in production) -- so check the max across every
+	// captured config stays well below that, not the exact per-call count.
+	maxLen := 0
+	for _, cfg := range cfgs.cfgs {
+		if cfg.Messages == "" {
+			continue
+		}
+		var msgs []map[string]any
+		require.NoError(t, json.Unmarshal([]byte(cfg.Messages), &msgs))
+		if len(msgs) > maxLen {
+			maxLen = len(msgs)
+		}
+	}
+	const generousBound = 12 // capped history (6) + a couple of intra-round additions, nowhere near unbounded growth
+	assert.LessOrEqual(t, maxLen, generousBound,
+		"history sent to the model must stay bounded no matter how many retries have happened")
+}
+
 func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {
 	// First attempt returns a wrong/stale code; the retry echoes correctly
 	// since wrongCode is unset -- against the SAME challenge the cycle
@@ -512,6 +616,27 @@ func TestPerformHandshake_RetryNudgeMissCountPluralizes(t *testing.T) {
 		}
 	}
 	assert.True(t, sawTwo, "must surface the plural miss count after 2 misses")
+}
+
+// TestHandshakeRetryNudge_EscalatesAfterRepeatedMisses is the direct
+// regression test for a live failure mode: past handshakeStrongNudgeAfterMisses
+// misses, a small local model consistently wrote sentences ABOUT calling the
+// tool ("I will call...", "Here is the block:") wrapped around an empty code
+// fence instead of the literal tag text -- narrating around the block, not
+// writing it. The escalated nudge drops the friendly framing and forbids
+// narration explicitly.
+func TestHandshakeRetryNudge_EscalatesAfterRepeatedMisses(t *testing.T) {
+	gentle := handshakeRetryNudge("1234", handshakeStrongNudgeAfterMisses-1)
+	assert.Contains(t, gentle, "let's try it again together")
+	assert.NotContains(t, gentle, "NO sentences")
+
+	strong := handshakeRetryNudge("1234", handshakeStrongNudgeAfterMisses)
+	assert.NotContains(t, strong, "let's try it again together")
+	assert.Contains(t, strong, "NO sentences")
+	assert.Contains(t, strong, "NO code fence")
+	assert.Contains(t, strong, "bash_exec", "must anchor on the model's own prior success")
+	assert.Contains(t, strong, `<invoke name="session_handshake">`)
+	assert.Contains(t, strong, `<parameter name="code">1234</parameter>`)
 }
 
 // missNTimesThenRightStreamer answers wrong for missesLeft attempts' round 0,
