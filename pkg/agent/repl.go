@@ -3207,6 +3207,14 @@ func (r *REPL) setToolSetting(name, value string) {
 	}
 	// Persist the change so it survives across sessions.
 	r.persistTuning()
+	// Some settings (e.g. web-limit, leaf-nodes, leaf-chars) are rendered into
+	// the system preamble text (WebCallLimit, memory leaf caps), which is built
+	// once per session and cached (cachedSystemPreamble). Without this the new
+	// value takes effect for enforcement immediately but the model keeps seeing
+	// the old value described in its prompt until a model switch or /harness
+	// toggle happens to invalidate the cache -- invalidate here so every
+	// /model tool set change is reflected on the very next turn.
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (saved; applies from the next turn)"))
 }
 
@@ -4046,6 +4054,10 @@ func (r *REPL) cmdFoldItems(args []string) error {
 	}
 	r.loop.config.FoldContextItems = n
 	r.persistTuning()
+	// FoldContextItems is baked into the cached system preamble (memory prompt
+	// formatting) -- invalidate so the new cap applies from the next turn
+	// instead of only after a model switch.
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
 		fmt.Sprintf("Fold context-items cap set to %d (saved)", n)))
 	return nil
@@ -4067,6 +4079,7 @@ func (r *REPL) cmdFoldPreset(args []string) error {
 	r.loop.config.FoldThreshold = preset.threshold
 	r.loop.config.FoldContextItems = preset.items
 	r.persistTuning()
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf(
 		"Fold preset %q applied: threshold=%d, items=%d (saved)", name, preset.threshold, preset.items)))
 	return nil
