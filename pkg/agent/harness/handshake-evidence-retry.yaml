@@ -1,0 +1,14 @@
+name: handshake-evidence-retry
+kind: standalone
+body: >-
+  That didn't come back as a real tool result -- no problem. To be clear
+  about what's different here: a normal assistant session often has its own
+  built-in way to run code or fetch a result, triggered outside the text you
+  write. kdeps does not give you that channel. It is a plain parser reading
+  your message for a matched <invoke> block, so the block itself has to be
+  the literal text you send -- open tag, parameters, close tag, nothing else
+  around it. Send exactly this now:
+
+    <invoke name="bash_exec">
+    <parameter name="command">pwd</parameter>
+    </invoke>

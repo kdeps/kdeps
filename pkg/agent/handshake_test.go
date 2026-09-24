@@ -32,6 +32,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 var fourDigitRe = regexp.MustCompile(`^\d{4}$`)
@@ -194,6 +196,51 @@ func TestPerformHandshake_IncludesGroundingSystemMessage(t *testing.T) {
 	assert.True(t, found, "handshake request must carry the real tool-use guidance preamble")
 }
 
+// TestPerformHandshake_M365GetsSandboxReinforcement covers the m365 backend's
+// most aggressive sandbox-hallucination failure mode: a model that reasons
+// it is running in its own "run code" / code-interpreter sandbox and
+// concludes it "can't do anything" instead of making the real tool call the
+// handshake is asking for. buildSystemPreamble already layers the
+// "m365-sandbox" harness section on top of the base tool-use guidance for
+// backendM365 on ordinary turns; the handshake grounding must carry the
+// identical addition, since the handshake round is the one place this
+// failure is most costly (it blocks the entire turn from ever starting).
+func TestPerformHandshake_M365GetsSandboxReinforcement(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
+		Model:         "test",
+		Backend:       backendM365,
+		Streamer:      cfgs,
+		MaxToolRounds: 5,
+	})
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.NotEmpty(t, cfgs.cfgs)
+	found := false
+	for _, item := range cfgs.cfgs[0].Scenario {
+		if item.Role == "system" && strings.Contains(item.Prompt, "/mnt/data sandbox") {
+			found = true
+		}
+	}
+	assert.True(t, found, "m365 handshake grounding must include the sandbox reinforcement")
+}
+
+// TestPerformHandshake_NonM365SkipsSandboxReinforcement ensures the addition
+// is m365-specific, not accidentally sent to every backend.
+func TestPerformHandshake_NonM365SkipsSandboxReinforcement(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.NotEmpty(t, cfgs.cfgs)
+	for _, item := range cfgs.cfgs[0].Scenario {
+		if item.Role == "system" {
+			assert.NotContains(t, item.Prompt, "/mnt/data sandbox")
+		}
+	}
+}
+
 // cfgCapturingStreamer wraps another Streamer and records every ChatConfig
 // it sees, delegating the actual response.
 type cfgCapturingStreamer struct {
@@ -206,6 +253,143 @@ func (c *cfgCapturingStreamer) StreamChat(
 ) (string, []domain.StreamedToolCall, error) {
 	c.cfgs = append(c.cfgs, *cfg)
 	return c.inner.StreamChat(ctx, cfg, w)
+}
+
+// evidenceThenHandshakeStreamer answers the pre-challenge evidence directive
+// with a real bash_exec call, then the mandatory challenge with a real
+// session_handshake call -- telling the two apart by prompt content, since
+// isHandshakeRound's ctx marker is shared by both (they're both part of the
+// same handshake exchange).
+type evidenceThenHandshakeStreamer struct {
+	bashCalls int
+}
+
+func (e *evidenceThenHandshakeStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
+	if m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); m != nil {
+		return "", []domain.StreamedToolCall{{
+			ID: "2", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, m[1]),
+		}}, nil
+	}
+	e.bashCalls++
+	return "", []domain.StreamedToolCall{{
+		ID: "1", Name: "bash_exec", Arguments: `{"command":"pwd"}`,
+	}}, nil
+}
+
+// TestPerformHandshake_EvidenceStepRunsBashExecBeforeChallenge covers the
+// evidence-based training step: before the mandatory challenge, the model is
+// asked to make one real, harmless tool call (bash_exec "pwd") so it sees
+// genuine proof of a live filesystem instead of only being told about one in
+// text -- addressing a model that reasons its way into "this is a sandbox, I
+// can't do anything" and refuses to act.
+func TestPerformHandshake_EvidenceStepRunsBashExecBeforeChallenge(t *testing.T) {
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "bash_exec",
+		Description: "run a shell command",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
+	})
+	reg.Register(&tools.Tool{
+		Name: "session_handshake",
+		Parameters: map[string]domain.ToolParam{
+			"code": {Type: "string", Required: true},
+		},
+		Execute: func(_ map[string]any) (string, error) { return "ack", nil },
+	})
+	eng := executor.NewEngine(nil)
+	streamer := &evidenceThenHandshakeStreamer{}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      streamer,
+		MaxToolRounds: 5,
+	})
+	loop.registerSessionHandshakeTool() // overwrite with the real observedCode-tracking impl
+
+	require.NoError(t, loop.performHandshake(context.Background()))
+	assert.GreaterOrEqual(t, streamer.bashCalls, 1, "evidence step must make a real bash_exec call")
+	assert.Nil(t, loop.handshake)
+}
+
+// TestHandshakeEvidence_SuccessAppendsPraiseToHistory ensures a successful
+// evidence call's reinforcement text ends up in the returned history (and so
+// is visible to the mandatory challenge round that follows), not only on the
+// intermediate tool-role message that a runToolRounds caller never sees.
+func TestHandshakeEvidence_SuccessAppendsPraiseToHistory(t *testing.T) {
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:       "bash_exec",
+		Parameters: map[string]domain.ToolParam{},
+		Execute:    func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
+	})
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      &evidenceThenHandshakeStreamer{},
+		MaxToolRounds: 5,
+	})
+
+	history := loop.handshakeEvidence(context.Background(), nil)
+	require.NotEmpty(t, history)
+	last := history[len(history)-1]
+	assert.Equal(t, RoleAssistant, last["role"])
+	assert.Contains(t, last[toolParamContent], "real shell")
+}
+
+// noEvidenceStreamer never makes a real tool call for the evidence
+// directive/retry (always answers with plain text), but still answers the
+// mandatory challenge correctly -- covers handshakeEvidence giving up after
+// handshakeEvidenceMaxAttempts without blocking the real handshake.
+type noEvidenceStreamer struct {
+	textOnlyCalls int
+}
+
+func (n *noEvidenceStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); m != nil {
+		return "", []domain.StreamedToolCall{{
+			ID: "1", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, m[1]),
+		}}, nil
+	}
+	n.textOnlyCalls++
+	return "I cannot access any tools in this sandbox.", nil, nil
+}
+
+func TestPerformHandshake_EvidenceStepGivesUpGracefullyAndChallengeStillSucceeds(t *testing.T) {
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "bash_exec",
+		Description: "run a shell command",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
+	})
+	eng := executor.NewEngine(nil)
+	streamer := &noEvidenceStreamer{}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      streamer,
+		MaxToolRounds: 5,
+	})
+	loop.registerSessionHandshakeTool()
+
+	require.NoError(t, loop.performHandshake(context.Background()))
+	assert.Nil(t, loop.handshake)
+	assert.Positive(t, streamer.textOnlyCalls, "evidence step must have attempted at least once")
+}
+
+// TestPerformHandshake_EvidenceStepSkippedWithoutBashExec ensures a session
+// with no bash_exec tool just skips straight to the mandatory challenge
+// instead of erroring or hanging.
+func TestPerformHandshake_EvidenceStepSkippedWithoutBashExec(t *testing.T) {
+	loop := newStreamingLoop(&handshakeStreamer{}, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+	assert.Nil(t, loop.handshake)
 }
 
 func TestPerformHandshake_RetriesThenSucceeds(t *testing.T) {

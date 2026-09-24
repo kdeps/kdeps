@@ -1,0 +1,8 @@
+name: handshake-evidence-praise
+kind: standalone
+body: >-
+  [GOOD] That path came back from a real shell, on the real machine this
+  session is running on -- not a sandbox, not "/mnt/data", not a simulated
+  filesystem. Every kdeps tool call works exactly the same way: write the
+  call, kdeps runs it for real, you get the real result back. Keep operating
+  this way for the rest of the session.

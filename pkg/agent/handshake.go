@@ -213,6 +213,7 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("session handshake warmup: %w", err)
 	}
+	history = l.handshakeEvidence(ctx, history)
 
 	for attempt := 1; ; attempt++ {
 		if ctx.Err() != nil {
@@ -257,7 +258,7 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 // (streamChatWithRetry, not runToolRounds) since no tool call is expected or
 // handled here -- these are conversational only.
 func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
-	grounding := handshakeGrounding()
+	grounding := l.handshakeGrounding()
 	var history []map[string]any
 	for _, question := range handshakeWarmupQuestions {
 		cfg := &domain.ChatConfig{
@@ -292,6 +293,102 @@ func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
 	return history, nil
 }
 
+// handshakeEvidenceMaxAttempts bounds the evidence step's retries. Unlike the
+// mandatory challenge below (which retries indefinitely), this is a
+// best-effort teaching step: if the model still won't make a real tool call
+// after a couple of nudges, give up quietly and let the actual challenge
+// proceed with its text-only sandbox reinforcement rather than blocking the
+// turn on a step that only exists to help.
+const handshakeEvidenceMaxAttempts = 3
+
+// handshakeEvidence runs one real, harmless tool call (bash_exec "pwd")
+// before the mandatory challenge, so the model sees genuine live proof that
+// this environment is not a code-interpreter sandbox instead of only being
+// told so in text -- the model that reasons "this is a sandbox, I can't do
+// anything" needs to be shown otherwise, not just told otherwise. Reuses
+// runToolRounds, the exact same dispatch path a real turn uses, so a
+// successful call gets the same automatic praise (toolResultMessage's
+// tool-call-early-praise / tool-call-sandbox-recovery-praise) a real turn
+// would give it. Skipped entirely when bash_exec isn't registered in this
+// session. Appends the exchange to history so the mandatory challenge that
+// follows builds on a conversation where the model has already made one
+// real call and seen one real result, not a cold request for a second one.
+func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) []map[string]any {
+	if l.registry == nil || l.registry.Get("bash_exec") == nil {
+		return history
+	}
+	directive := harnessText("handshake-evidence")
+	if directive == "" {
+		return history
+	}
+
+	for attempt := 1; attempt <= handshakeEvidenceMaxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return history
+		}
+		prompt := directive
+		if attempt > 1 {
+			if retry := harnessText("handshake-evidence-retry"); retry != "" {
+				prompt = retry
+			}
+		}
+		cfg := &domain.ChatConfig{
+			Model:         l.config.Model,
+			Backend:       l.config.Backend,
+			BaseURL:       l.config.BaseURL,
+			Role:          l.config.Role,
+			Prompt:        prompt,
+			LiteralPrompt: true,
+			Tools:         l.registry.ToLLMTools(),
+			MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
+			Scenario: []domain.ScenarioItem{
+				{Role: "system", Prompt: l.handshakeGrounding()},
+			},
+		}
+		if len(history) > 0 {
+			if data, err := json.Marshal(history); err == nil {
+				cfg.Messages = string(data)
+			}
+		}
+
+		finalContent, err := l.runToolRounds(ctx, cfg, io.Discard)
+		if err != nil {
+			return history
+		}
+		succeeded := l.hasMadeProgressThisTurn()
+		history = appendHandshakeEvidenceExchange(history, prompt, finalContent, succeeded)
+		if succeeded {
+			return history
+		}
+	}
+	return history
+}
+
+// appendHandshakeEvidenceExchange records one evidence attempt's user/
+// assistant exchange into history, adding the reinforcement praise on
+// success. Split out of handshakeEvidence to keep that function's cognitive
+// complexity down (gocognit).
+func appendHandshakeEvidenceExchange(
+	history []map[string]any, prompt, finalContent string, succeeded bool,
+) []map[string]any {
+	reply := stripContentToolCalls(finalContent)
+	if succeeded {
+		// Made explicit here, not left to the generic tool-call praise
+		// (toolResultMessage's tool-call-early-praise/-sandbox-recovery-praise),
+		// because that praise lands on the intermediate tool-role message
+		// inside runToolRounds, not in finalContent -- it would never make it
+		// into history and so would be invisible to the challenge round that
+		// follows.
+		if praise := harnessText("handshake-evidence-praise"); praise != "" {
+			reply += "\n\n" + praise
+		}
+	}
+	return append(history,
+		map[string]any{"role": RoleUser, toolParamContent: prompt},
+		map[string]any{"role": RoleAssistant, toolParamContent: reply},
+	)
+}
+
 // buildHandshakeChatCfg builds one attempt's ChatConfig: the directive (as
 // the user-turn Prompt, with a retry nudge appended past attempt 1), a
 // grounding system message, and the conversation so far (warm-up plus any
@@ -320,7 +417,7 @@ func (l *Loop) buildHandshakeChatCfg(challenge string, attempt int, history []ma
 		Tools:         tools,
 		MaxTokens:     syntheticCallMaxTokens(l.config.Backend, l.config.Model),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: handshakeGrounding()},
+			{Role: "system", Prompt: l.handshakeGrounding()},
 		},
 	}
 	if len(history) > 0 {
@@ -362,10 +459,24 @@ func handshakeRetryNudge(challenge string, misses int) string {
 // already includes (proven to work) rather than a bespoke, unproven
 // one-liner; falls back to the one-liner only if that guidance is somehow
 // empty.
-func handshakeGrounding() string {
+//
+// buildSystemPreamble also layers the m365-sandbox reinforcement on top of
+// this same base for backendM365, because m365's "run code" / "Coding and
+// executing" habit is the most aggressive sandbox-hallucination failure mode
+// seen live: a model that reasons it is in a code-interpreter sandbox
+// concludes it "can't do anything" and gives up instead of calling the real
+// tool. The handshake is the worst place to skip that reinforcement -- it is
+// the one round explicitly designed to force a real tool call before
+// anything else happens -- so it must get the identical addition, not a
+// weaker or bespoke echo of it.
+func (l *Loop) handshakeGrounding() string {
 	_, webCallLimit := WebConvergenceCalls()
-	if grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit}); grounding != "" {
-		return grounding
+	grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit})
+	if grounding == "" {
+		grounding = handshakeGroundingSystemMessage
 	}
-	return handshakeGroundingSystemMessage
+	if l.config.Backend == backendM365 {
+		grounding += "\n\n" + harnessText("m365-sandbox")
+	}
+	return grounding
 }
