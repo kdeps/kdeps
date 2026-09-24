@@ -15,7 +15,8 @@ body: |
   Writing the block is the call, not an example.
   If you have no native channel, the block is a LITERAL invoke block: write
   the characters <invoke> and </invoke> as literal text. Emit one block
-  exactly like this (open tag and close tag, nothing else around it):
+  exactly like this (open tag and close tag, nothing else around it -- do
+  NOT put it inside a markdown code fence, ``` or otherwise):
 
     <invoke name="session_handshake">
     <parameter name="code">{{.Challenge}}</parameter>

@@ -7,7 +7,7 @@ body: >-
   write. kdeps does not give you that channel. It is a plain parser reading
   your message for a matched <invoke> block, so the block itself has to be
   the literal text you send -- open tag, parameters, close tag, nothing else
-  around it. Send exactly this now:
+  around it and no markdown code fence. Send exactly this now:
 
     <invoke name="bash_exec">
     <parameter name="command">pwd</parameter>

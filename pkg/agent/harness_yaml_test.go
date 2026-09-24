@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -102,6 +103,26 @@ func TestLoadBuiltinHarness_SaysKdepsParsesInvoke(t *testing.T) {
 		assert.Contains(t, built[name].body, "interpreter", "entry %q", name)
 		assert.Contains(t, built[name].body, "LITERAL", "entry %q", name)
 		assert.Contains(t, built[name].body, "at runtime", "entry %q", name)
+	}
+}
+
+// TestLoadBuiltinHarness_ForbidsMarkdownFenceOnInvoke covers a live failure
+// mode: a model that writes a genuine, correctly-coded <invoke> block but
+// wraps it in a markdown code fence out of habit gets it silently dropped by
+// the normal salvage path (which deliberately treats fenced markup as an
+// illustrative example, not a real call -- see
+// TestSalvageContentToolCalls_InvokeExampleInsideFenceSurvives). Every
+// harness entry that shows the <invoke> syntax must say so explicitly, not
+// just imply it via "nothing else around it".
+func TestLoadBuiltinHarness_ForbidsMarkdownFenceOnInvoke(t *testing.T) {
+	built := loadBuiltinHarness()
+	for _, name := range []string{
+		"use-kdeps-tools", "handshake", "handshake-evidence", "handshake-evidence-retry",
+	} {
+		require.Contains(t, built, name)
+		assert.Contains(
+			t, strings.ToLower(built[name].body), "fence", "entry %q must forbid a markdown code fence", name,
+		)
 	}
 }
 

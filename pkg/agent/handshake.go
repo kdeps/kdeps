@@ -598,7 +598,8 @@ func handshakeRetryNudge(challenge string, misses int) string {
 			"it parses a matched <invoke> block out of your message at runtime and interprets it. "+
 			"Not your code interpreter. This is a LITERAL invoke block: write the "+
 			"characters <invoke> and </invoke> as literal text. "+
-			"Send this verbatim (open tag, the code, close tag, nothing else around it):\n\n"+
+			"Send this verbatim (open tag, the code, close tag, nothing else around it, "+
+			"and no markdown code fence):\n\n"+
 			"  <invoke name=\"session_handshake\">\n"+
 			"  <parameter name=\"code\">%s</parameter>\n"+
 			"  </invoke>\n\n"+

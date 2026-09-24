@@ -657,6 +657,7 @@ func TestHandshakeRetryNudge_EscalatesAfterRepeatedMisses(t *testing.T) {
 	gentle := handshakeRetryNudge("1234", handshakeStrongNudgeAfterMisses-1)
 	assert.Contains(t, gentle, "let's try it again together")
 	assert.NotContains(t, gentle, "NO sentences")
+	assert.Contains(t, gentle, "no markdown code fence", "even the gentle nudge must forbid fencing the block")
 
 	strong := handshakeRetryNudge("1234", handshakeStrongNudgeAfterMisses)
 	assert.NotContains(t, strong, "let's try it again together")

@@ -22,7 +22,10 @@ body: |-
   an example, and it does not need a separate channel. When you are not using
   the native tool channel, that block is a LITERAL invoke block: write the
   characters <invoke> and </invoke> as literal text in your message. One block,
-  open tag and close tag, nothing else around it:
+  open tag and close tag, nothing else around it -- no markdown code fence
+  (no ``` before or after it), no sentence in front of it, no sentence
+  behind it. A fenced block reads as an illustrative example, not a real
+  call, and is never dispatched:
 
     <invoke name="read_file">
     <parameter name="file_path">cmd/serve.go</parameter>

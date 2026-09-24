@@ -12,12 +12,13 @@ body: |-
   call against the real environment. If your backend gives you a native
   tool-call channel wired into this session, use it. If it does not, the
   block is not an example to describe -- it is the call itself, written as
-  literal text:
+  literal text, not inside a markdown code fence:
 
     <invoke name="bash_exec">
     <parameter name="command">pwd</parameter>
     </invoke>
 
-  Emit that one block now and wait for the real result. Do not call
-  session_handshake here -- that is the separate check that comes next.
+  Emit that one block now, with nothing else around it and no ``` fence, and
+  wait for the real result. Do not call session_handshake here -- that is
+  the separate check that comes next.
   </pre-check-warmup>
