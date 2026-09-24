@@ -763,6 +763,42 @@ func (w *wrongThenRightStreamer) StreamChat(
 	return hs.StreamChat(ctx, cfg, ww)
 }
 
+// fencedTextInvokeStreamer answers the mandatory challenge with plain TEXT
+// containing a real, correctly-coded <invoke name="session_handshake"> block
+// wrapped in a markdown code fence -- no native tool call at all. Covers the
+// end-to-end fix: salvageHandshakeToolCall's fenced-invoke recovery plus
+// handshakeCodeArg's numeric-argument coercion together must turn this into
+// a recognized success, matching a small local model's observed behavior.
+type fencedTextInvokeStreamer struct{}
+
+func (f *fencedTextInvokeStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
+	m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt)
+	if m == nil {
+		return "done", nil, nil
+	}
+	text := "Here is the literal invoke block:\n\n```\n" +
+		`<invoke name="session_handshake">` + "\n" +
+		`<parameter name="code">` + m[1] + "</parameter>\n" +
+		"</invoke>\n```\n\nI've sent the block exactly as specified."
+	return text, nil, nil
+}
+
+// TestPerformHandshake_RecoversFencedTextInvokeEndToEnd is the end-to-end
+// regression test for the live failure: a model that never makes a native
+// tool call, and instead writes a real, correctly-coded <invoke> block
+// wrapped in a markdown fence, must still be recognized as a genuine
+// success -- not retried forever as if it said nothing at all.
+func TestPerformHandshake_RecoversFencedTextInvokeEndToEnd(t *testing.T) {
+	loop := newStreamingLoop(&fencedTextInvokeStreamer{}, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+	assert.Nil(t, loop.handshake)
+}
+
 // TestPerformHandshake_EngagedWrongCodeRetriesIndefinitelyUntilCanceled
 // covers the no-cap policy for a model that keeps ENGAGING with the
 // directive (it calls session_handshake every time, just with the wrong
@@ -834,6 +870,32 @@ func TestSessionHandshakeTool_SetsObservedCode(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "4242")
 	assert.Equal(t, "4242", loop.handshake.observedCode)
+}
+
+// TestSessionHandshakeTool_SetsObservedCode_NumericArg covers a call whose
+// code arrived as a JSON number rather than a string -- exactly what
+// salvageHandshakeToolCall's fenced-invoke recovery produces for a purely-
+// numeric code (see parametersToJSON/isJSONScalar). Before handshakeCodeArg,
+// a plain args["code"].(string) assertion failed silently here, leaving
+// observedCode == "" and making an otherwise-correct recovered call look
+// exactly like a miss.
+func TestSessionHandshakeTool_SetsObservedCode_NumericArg(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	loop.handshake = &handshakeState{challenge: "4242"}
+	tool := loop.registry.Get("session_handshake")
+	require.NotNil(t, tool)
+	out, err := tool.Execute(map[string]interface{}{"code": float64(4242)})
+	require.NoError(t, err)
+	assert.Contains(t, out, "4242")
+	assert.Equal(t, "4242", loop.handshake.observedCode)
+}
+
+// TestHandshakeCodeArg_CoercesJSONNumber is the direct unit test for the
+// coercion helper.
+func TestHandshakeCodeArg_CoercesJSONNumber(t *testing.T) {
+	assert.Equal(t, "4242", handshakeCodeArg("4242"))
+	assert.Equal(t, "4242", handshakeCodeArg(float64(4242)))
+	assert.Equal(t, "", handshakeCodeArg(nil))
 }
 
 func TestRequireHandshake_NoOpWhenDisabled(t *testing.T) {

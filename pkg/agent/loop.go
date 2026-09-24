@@ -2053,6 +2053,14 @@ func (l *Loop) handleEmptyToolRound(
 	w io.Writer,
 ) ([]domain.StreamedToolCall, emptyRoundResult) {
 	salvaged, cleaned, fake := salvageContentToolCalls(content)
+	if len(salvaged) == 0 && l.handshake != nil {
+		// The mandatory session-integrity challenge is in flight: fall back to
+		// fence-agnostic recovery for session_handshake specifically. See
+		// salvageHandshakeToolCall for why this is safe only here.
+		if hsCalls, hsCleaned, hsFake := salvageHandshakeToolCall(content); len(hsCalls) > 0 {
+			salvaged, cleaned, fake = hsCalls, hsCleaned, hsFake
+		}
+	}
 	if len(salvaged) > 0 {
 		return salvaged, emptyRoundResult{cleaned: cleaned, chatCfg: chatCfg}
 	}

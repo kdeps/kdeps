@@ -195,6 +195,31 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	return calls, cleaned, hallucinated
 }
 
+// salvageHandshakeToolCall recovers a tool call from raw model text WITHOUT
+// the fenced-code-block protection salvageContentToolCalls normally applies,
+// then keeps only calls named session_handshake. Used only for the
+// mandatory session-integrity handshake (see handleEmptyToolRound, gated on
+// l.handshake != nil): live testing against a small local model showed it
+// writing a genuine, correctly-coded <invoke> block but wrapping it in a
+// markdown code fence out of habit -- protectFencedCodeBlocks would
+// otherwise treat that as an illustrative example and silently drop it,
+// exactly like it should for an ordinary turn. That protection exists to
+// stop a documentation-style code sample for a DIFFERENT tool from being
+// misread as a real call; the risk it guards against is negligible here
+// specifically, since nothing dispatches unless the recovered call is named
+// session_handshake, and only the handshake round itself ever asks for that
+// tool.
+func salvageHandshakeToolCall(content string) ([]domain.StreamedToolCall, string, bool) {
+	calls, cleaned, fake := salvageUnfencedContentToolCalls(content)
+	var kept []domain.StreamedToolCall
+	for _, c := range calls {
+		if c.Name == "session_handshake" {
+			kept = append(kept, c)
+		}
+	}
+	return kept, cleaned, fake
+}
+
 // collectTagCalls appends every parseable tool call inside re's first
 // capture-group match and returns text with those spans removed.
 func collectTagCalls(

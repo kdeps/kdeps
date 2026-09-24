@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/debug"
@@ -142,13 +143,38 @@ func (l *Loop) registerSessionHandshakeTool() {
 		},
 		OutputFormat: "plain text",
 		Execute: func(args map[string]interface{}) (string, error) {
-			code, _ := args["code"].(string)
+			code := handshakeCodeArg(args["code"])
 			if l.handshake != nil {
 				l.handshake.observedCode = code
 			}
 			return handshakeAck(code), nil
 		},
 	})
+}
+
+// handshakeCodeArg coerces the session_handshake tool's "code" argument to a
+// canonical string regardless of how it arrived. A native tool-call channel
+// sends it as the declared string type, but text salvage (parametersToJSON,
+// content_tool_calls.go) encodes any value that parses as a bare JSON scalar
+// -- which a purely-numeric 4-digit code always does -- as a JSON number, not
+// a string. A plain args["code"].(string) type assertion silently fails on
+// that (leaving code == ""), which would keep the handshake miss loop from
+// ever recognizing an otherwise-correct call recovered via
+// salvageHandshakeToolCall (fenced-invoke recovery, for a model that wraps
+// its literal block in a markdown fence).
+func handshakeCodeArg(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case json.Number:
+		return t.String()
+	default:
+		return fmt.Sprint(v)
+	}
 }
 
 // handshakeWarmupQuestions are asked once per verification cycle, before the

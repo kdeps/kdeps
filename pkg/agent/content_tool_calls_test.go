@@ -276,3 +276,49 @@ func TestSalvageContentToolCalls_RealCallOutsideFenceStillRecovered(t *testing.T
 	assert.Contains(t, cleaned, "```")
 	assert.Contains(t, cleaned, `<invoke name="bash_exec"></invoke>`)
 }
+
+// TestSalvageHandshakeToolCall_RecoversFencedInvoke is the direct regression
+// test for a live failure mode: a small local model, asked to send a
+// literal <invoke> block for session_handshake, wrote a genuine,
+// correctly-coded one but wrapped it in a markdown code fence out of habit.
+// salvageContentToolCalls correctly treats that as a protected "example" (see
+// TestSalvageContentToolCalls_InvokeExampleInsideFenceSurvives) and drops
+// it -- exactly right for an ordinary turn, but it meant a real, intentional
+// handshake call was silently never dispatched, causing an endless retry
+// loop even though the model "did it correctly." salvageHandshakeToolCall is
+// the narrow, handshake-only fallback that recovers it.
+func TestSalvageHandshakeToolCall_RecoversFencedInvoke(t *testing.T) {
+	in := "Here is the literal invoke block:\n\n```\n" +
+		`<invoke name="session_handshake">` + "\n" +
+		`<parameter name="code">2705</parameter>` + "\n" +
+		"</invoke>\n```\n\nI've sent the block exactly as specified."
+	calls, _, _ := salvageHandshakeToolCall(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "session_handshake", calls[0].Name)
+	// A purely-numeric value is legitimately encoded as a JSON number here
+	// (parametersToJSON, isJSONScalar), not a string -- see
+	// TestHandshakeCodeArg_CoercesJSONNumber for why the session_handshake
+	// tool's own arg extraction must handle that.
+	assert.JSONEq(t, `{"code":2705}`, calls[0].Arguments)
+}
+
+// TestSalvageHandshakeToolCall_IgnoresOtherFencedTools ensures the fallback
+// stays narrowly scoped: a fenced example for a DIFFERENT tool (the exact
+// false-positive protectFencedCodeBlocks exists to prevent) must not be
+// recovered by this handshake-only path either.
+func TestSalvageHandshakeToolCall_IgnoresOtherFencedTools(t *testing.T) {
+	in := "Here is how to call it:\n\n```\n" +
+		`<invoke name="bash_exec"><parameter name="command">pwd</parameter></invoke>` +
+		"\n```"
+	calls, _, _ := salvageHandshakeToolCall(in)
+	assert.Empty(t, calls, "only a fenced session_handshake call may be recovered here")
+}
+
+// TestSalvageHandshakeToolCall_UnfencedStillWorks ensures the fallback is not
+// fence-only -- an ordinary, unfenced literal invoke still recovers.
+func TestSalvageHandshakeToolCall_UnfencedStillWorks(t *testing.T) {
+	in := `<invoke name="session_handshake"><parameter name="code">1234</parameter></invoke>`
+	calls, _, _ := salvageHandshakeToolCall(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "session_handshake", calls[0].Name)
+}
