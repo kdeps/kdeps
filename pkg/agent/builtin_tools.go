@@ -241,9 +241,9 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode`) - use those numbers for edit_file insert/view. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.",
+		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.",
 		Category:     "file",
-		OutputFormat: "text with a 1-based line number on each line",
+		OutputFormat: "text with a 1-based line number on each line, tabs as ^I, control chars as ^X, $ at end of line",
 		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
 		SeeAlso:      "list_files, search_local, edit_file, load_document",
 		Parameters: map[string]domain.ToolParam{
@@ -389,14 +389,17 @@ func formatFileLines(content string, args map[string]any) string {
 		endLine = min(startLine+int(v), totalLines)
 	}
 
-	// Build output with line numbers (cat -n style) so the LLM can reference
-	// exact positions.
+	// Build output with line numbers (cat -n style) plus visible whitespace
+	// and control characters (cat -A style: tabs as ^I, other control chars
+	// as ^X, a $ marking the true end of line so trailing whitespace before
+	// it is unambiguous) so the LLM can see indentation and stray characters
+	// a plain read would hide.
 	shown := lines[startLine:endLine]
 	var sb strings.Builder
 	digitWidth := len(strconv.Itoa(startLine + len(shown)))
 	for i, line := range shown {
 		ln := startLine + i + 1
-		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, ln, line)
+		fmt.Fprintf(&sb, "%*d\t%s$\n", digitWidth, ln, visibleWhitespace(line))
 	}
 	out := strings.TrimSuffix(sb.String(), "\n")
 
@@ -406,6 +409,38 @@ func formatFileLines(content string, args map[string]any) string {
 	}
 
 	return out
+}
+
+// visibleWhitespace renders a line the way `cat -A` (`cat -vET`) would: a
+// literal tab becomes "^I" and any other C0 control character or DEL becomes
+// its caret notation ("^X" for byte X, "^?" for DEL), so read_file's output
+// distinguishes tabs from spaces and surfaces stray control characters that
+// would otherwise be invisible. Operates on runes, not bytes, so valid
+// multi-byte UTF-8 text is left untouched -- only ASCII control characters
+// are ever rewritten. The caller appends "$" after this to mark the true end
+// of line, which is what makes trailing whitespace visible.
+const (
+	runeDEL          = 0x7f
+	c0ControlUpper   = 0x20 // first non-control ASCII rune; runes below this are C0 controls
+	caretNotationGap = 64   // caret notation: control char N prints as '^' + (N+64)
+)
+
+func visibleWhitespace(line string) string {
+	var sb strings.Builder
+	for _, r := range line {
+		switch {
+		case r == '\t':
+			sb.WriteString("^I")
+		case r == runeDEL:
+			sb.WriteString("^?")
+		case r < c0ControlUpper:
+			sb.WriteByte('^')
+			sb.WriteRune(r + caretNotationGap)
+		default:
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }
 
 // defaultTailLines is how many lines from the end of a file tail_file

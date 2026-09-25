@@ -39,6 +39,14 @@ around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after
 it and type there - for example stage a stack trace and type
 `why does this happen: ` in front of it, then submit.
 
+## Line editing and history search
+
+The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history.
+
+`Ctrl+R` starts an incremental **backward** search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches **forward** the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
+
+`Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that's a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
+
 ## Multimodal input
 
 Attach images and other binary files to your prompt using `@`:

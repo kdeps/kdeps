@@ -2010,7 +2010,7 @@ func TestReadFile_Success(t *testing.T) {
 
 	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, err)
-	assert.Equal(t, "1\tline 1\n2\tline 2\n3\tline 3\n4\tline 4\n5\tline 5", result)
+	assert.Equal(t, "1\tline 1$\n2\tline 2$\n3\tline 3$\n4\tline 4$\n5\tline 5$", result)
 }
 
 func TestReadFile_WithOffset(t *testing.T) {
@@ -2033,7 +2033,7 @@ func TestReadFile_WithOffset(t *testing.T) {
 		"offset":    float64(3),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "3\tline 3\n4\tline 4\n5\tline 5\n[3/5 lines shown]", result)
+	assert.Equal(t, "3\tline 3$\n4\tline 4$\n5\tline 5$\n[3/5 lines shown]", result)
 }
 
 func TestReadFile_WithOffsetAndLimit(t *testing.T) {
@@ -2057,7 +2057,7 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 		"limit":     float64(2),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "2\tline 2\n3\tline 3\n[2/5 lines shown]", result)
+	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
 }
 
 func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
@@ -2163,7 +2163,46 @@ func TestReadFile_LimitBeyondEOF(t *testing.T) {
 		"limit":     float64(100),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "1\tline 1\n2\tline 2", result)
+	assert.Equal(t, "1\tline 1$\n2\tline 2$", result)
+}
+
+// TestReadFile_ShowsTabsSpacesAndControlChars covers making whitespace and
+// control characters visible (cat -A style): a tab becomes ^I, a bell
+// character becomes ^G, and a $ marks the true end of each line so trailing
+// spaces are visible instead of silently absorbed by the terminal/model.
+func TestReadFile_ShowsTabsSpacesAndControlChars(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-whitespace-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("\tindented\nno tab here  \nbell\ahere\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "1\t^Iindented$\n2\tno tab here  $\n3\tbell^Ghere$", result)
+}
+
+// TestVisibleWhitespace_LeavesUnicodeIntact ensures the rune-based transform
+// never corrupts valid multi-byte UTF-8 text -- only ASCII control
+// characters are ever rewritten.
+func TestVisibleWhitespace_LeavesUnicodeIntact(t *testing.T) {
+	assert.Equal(t, "héllo→wörld", visibleWhitespace("héllo→wörld"))
+}
+
+// TestVisibleWhitespace_EscapesTabAndControlChars is the direct unit test
+// for the helper.
+func TestVisibleWhitespace_EscapesTabAndControlChars(t *testing.T) {
+	assert.Equal(t, "a^Ib", visibleWhitespace("a\tb"))
+	assert.Equal(t, "a^Gb", visibleWhitespace("a\ab"))
+	assert.Equal(t, "a^?b", visibleWhitespace("a\x7fb"))
+	assert.Equal(t, "plain text", visibleWhitespace("plain text"))
 }
 
 func TestReadFile_EmptyFile(t *testing.T) {

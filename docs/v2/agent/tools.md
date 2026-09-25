@@ -88,7 +88,7 @@ Always available. No environment variables required.
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
 
-Every line `read_file` returns is prefixed with its 1-based line number (`  42⇥code`) - those numbers are what `edit_file`'s `insert` and `view` commands point at.
+Every line `read_file` returns is prefixed with its 1-based line number, and the line itself is rendered `cat -A` style: tabs show as `^I`, other control characters as `^X`, and a `$` marks the true end of the line (`  42⇥code$`) - so indentation, trailing whitespace, and stray control characters are visible instead of silently hidden. Those line numbers are what `edit_file`'s `insert` and `view` commands point at.
 
 `read_file`, `tail_file`, and `md5_file` treat `file_path` as optional: omit it and the tool operates on the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file` and `edit_file` always require an explicit path.
 
@@ -127,8 +127,9 @@ retype the whole block, and `occurrence` picks a specific match when the text
 repeats.
 
 **`view`** - `edit_file` with `command: view` and a `file_path` prints the file
-with a 1-based line number on every line (same as `read_file`), followed by
-the file's `[revision sha256:...]`. Pass `view_range: [start, end]` (1-based
+with a 1-based line number on every line (plain text, not `read_file`'s
+visible-whitespace rendering), followed by the file's `[revision
+sha256:...]`. Pass `view_range: [start, end]` (1-based
 inclusive, `end` `-1` = to end of file) for a slice, or `anchor` (a unique
 string) to show the region around it instead - `context_before`/
 `context_after` control how many lines of context (default 20 each):
