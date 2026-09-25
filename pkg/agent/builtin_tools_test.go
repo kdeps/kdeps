@@ -1919,6 +1919,21 @@ func TestReadFile_Registered(t *testing.T) {
 	assert.NotNil(t, tool.Execute)
 }
 
+// TestReadFile_DescriptionWarnsMarkersAreNotLiteral covers a real failure
+// mode the visible-whitespace rendering could otherwise cause: a model
+// quoting the displayed "^I"/"$" back into edit_file's old_str as literal
+// text, which would never byte-match a real tab character. The tool
+// description must tell the model these are display-only.
+func TestReadFile_DescriptionWarnsMarkersAreNotLiteral(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	assert.Contains(t, tool.Description, "does NOT contain those literal characters")
+	assert.Contains(t, tool.Description, "old_str")
+	assert.Contains(t, tool.OutputFormat, "display only")
+}
+
 func TestReadFile_Parameters(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2203,6 +2218,28 @@ func TestVisibleWhitespace_EscapesTabAndControlChars(t *testing.T) {
 	assert.Equal(t, "a^Gb", visibleWhitespace("a\ab"))
 	assert.Equal(t, "a^?b", visibleWhitespace("a\x7fb"))
 	assert.Equal(t, "plain text", visibleWhitespace("plain text"))
+}
+
+// TestReadFile_CRLFLineEndingShowsAsCaretM covers a CRLF file: splitting on
+// "\n" leaves a trailing \r on each line, which must render as ^M -- making
+// Windows-style line endings visible instead of silently swallowed.
+func TestReadFile_CRLFLineEndingShowsAsCaretM(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-crlf-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("line one\r\nline two\r\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "1\tline one^M$\n2\tline two^M$", result)
 }
 
 func TestReadFile_EmptyFile(t *testing.T) {
