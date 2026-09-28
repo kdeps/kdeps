@@ -143,3 +143,31 @@ func TestSummarizeEventTrigger_ItemsOnlyNotesNoTrigger(t *testing.T) {
 	assert.Contains(t, got, "items=5")
 	assert.Contains(t, got, "no trigger")
 }
+
+func TestCmdHarnessPreset_NoArgsListsPresets(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness preset"))
+}
+
+func TestCmdHarnessPreset_List(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness preset list"))
+}
+
+func TestCmdHarnessPreset_Apply(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness preset frugal"))
+
+	e, ok := EventByName("auto-compact")
+	require.True(t, ok)
+	assert.Equal(t, 8000, e.On.Tokens, "applying the preset must actually take effect, not just print")
+}
+
+func TestCmdHarnessPreset_UnknownNameReportsErrorWithoutPanicking(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness preset does-not-exist"))
+}
