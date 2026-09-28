@@ -46,7 +46,7 @@ require (
 	github.com/tmc/langchaingo v0.1.14
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.etcd.io/bbolt v1.5.0
-	go.mongodb.org/mongo-driver v1.17.9
+	go.mongodb.org/mongo-driver v1.17.10
 	golang.org/x/crypto v0.55.0
 	golang.org/x/mod v0.40.0
 	golang.org/x/net v0.58.0
