@@ -111,13 +111,13 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
-	"/login", "/stealth", "/theme", "/refine", "/instruct", "/instruct!", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
+	"/login", "/theme", "/refine", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
-// REPL output styles. Package vars, not constants, so stealth mode (theme.go)
-// can swap them at runtime. All (re)built by applyReplStyles from the active
-// palette - once from theme.go's init, again on every /stealth toggle.
+// REPL output styles. Package vars, not constants, so the active theme
+// (theme.go) can swap them at runtime. All (re)built by applyReplStyles from
+// the active palette - once from theme.go's init, again on every /theme switch.
 //
 //nolint:gochecknoglobals // runtime-swappable REPL styles (stealth mode)
 var (
@@ -227,8 +227,8 @@ type REPL struct {
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
-	saveStealthFn      func(bool) error                    // persists stealth mode; nil if unavailable
-	saveThemeFn        func(string) error                  // persists stealth theme; nil if unavailable
+	saveThemeFn        func(string) error                  // persists the selected theme; nil if unavailable
+	saveModelNameFn    func(string) error                  // persists the /model name display mode; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -305,15 +305,17 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		autoContextDetect: true,
 	}
 	loop.SetOnAutoCompact(func(summary string) {
-		// The auto-compact/fold call itself consumed real tokens; without
-		// this the cumulative in:/out: counter would silently never count it.
-		r.syncTokenCounter()
-		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
-			styleReplSuccess.Render(fmt.Sprintf(
-				"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
-			)),
-			styleReplDim.Render("Summary: "+firstLine(summary)),
-		)
+		// Compact already replaced the cumulative counters with the context
+		// that remains. Copy those into the REPL counter; do not add the
+		// compaction call on top of the old total.
+		r.copyContextCounters()
+		line := styleReplSuccess.Render(fmt.Sprintf(
+			"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
+		))
+		if preview := summaryPreview(summary); preview != "" {
+			line += "\n" + styleReplDim.Render("Summary: "+preview)
+		}
+		fmt.Fprintf(os.Stdout, "\n%s\n\n", line)
 	})
 	// Enable thinking in auto mode by default so reasoning models work out of the box.
 	loop.SetThinking(&domain.ThinkingConfig{
@@ -407,18 +409,18 @@ func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
 	r.saveDefaultFn = fn
 }
 
-// SetSaveStealthFn injects the function that persists stealth mode on/off.
-// Called by /stealth. When nil, /stealth still toggles for the session but
+// SetSaveThemeFn injects the function that persists the selected theme.
+// Called by /theme. When nil, /theme still switches for the session but
 // does not persist.
-func (r *REPL) SetSaveStealthFn(fn func(bool) error) {
-	r.saveStealthFn = fn
-}
-
-// SetSaveThemeFn injects the function that persists the selected stealth
-// theme. Called by /theme. When nil, /theme still switches for the session
-// but does not persist.
 func (r *REPL) SetSaveThemeFn(fn func(string) error) {
 	r.saveThemeFn = fn
+}
+
+// SetSaveModelNameFn injects the function that persists the /model name
+// display mode. Called by /model name. When nil, /model name still switches
+// for the session but does not persist.
+func (r *REPL) SetSaveModelNameFn(fn func(string) error) {
+	r.saveModelNameFn = fn
 }
 
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
@@ -458,6 +460,17 @@ func (tc *TokenCounter) OutputTokens() int64 { return tc.outputTokens.Load() }
 func (tc *TokenCounter) Reset() {
 	tc.inputTokens.Store(0)
 	tc.outputTokens.Store(0)
+}
+
+// copyContextCounters copies the post-compact sent/generated totals into the
+// REPL counter. compactWithLLM already stored them on the session counters.
+func (r *REPL) copyContextCounters() {
+	if r.tokenCounter == nil {
+		return
+	}
+	r.tokenCounter.Reset()
+	r.tokenCounter.AddInput(llm.SessionInputTokens())
+	r.tokenCounter.AddOutput(llm.SessionOutputTokens())
 }
 
 // syncTokenCounter reads the latest cache record from GlobalPromptCacheStats
@@ -503,14 +516,19 @@ func (r *REPL) modeline() string {
 	meta := styleReplMeta.Render
 
 	var parts []string
-	parts = append(parts, styleModelName.Render(DisplayModelName(r.loop.config.Model)))
+	// DisplayModelName returns "" when /model name hide is set; omit the
+	// segment entirely rather than rendering an empty one (which would leave
+	// a stray " · " separator).
+	if shown := DisplayModelName(r.loop.config.Model); shown != "" {
+		parts = append(parts, styleModelName.Render(shown))
+	}
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		parts = append(parts, meta(ctxStr))
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("in:"+formatCompactCount(llm.TokenInputs)))
-		parts = append(parts, meta("out:"+formatCompactCount(llm.TokenOutputs)))
+		parts = append(parts, meta("sent:"+formatCompactCount(llm.SessionInputTokens())))
+		parts = append(parts, meta("generated:"+formatCompactCount(llm.SessionOutputTokens())))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -1382,17 +1400,19 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
 	defer tick.Stop()
 	i := 0
-	tcStr := compactTokenStatus()
 	for {
 		select {
 		case <-tick.C:
 			if skip != nil && skip() {
+				// Thinking or a tool owns the frame now. Drop ours so it
+				// is not a second copy left above theirs.
+				eraseLiveStatus(out)
 				continue
 			}
-			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			fmt.Fprintf(out, "\r%s  %s\033[K", tcStr, frame)
+			drawLiveStatus(out, styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
 			i++
 		case <-done:
+			eraseLiveStatus(out)
 			return
 		}
 	}
@@ -1561,17 +1581,13 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 			tick := time.NewTicker(replTickerMs * time.Millisecond)
 			defer tick.Stop()
 			i := 0
-			tcStr := compactTokenStatus()
 			for {
 				select {
 				case <-tick.C:
-					fmt.Fprintf(
-						os.Stdout,
-						"\r%s  %s",
-						tcStr, styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
-					)
+					drawLiveStatus(os.Stdout, styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
 					i++
 				case <-done:
+					eraseLiveStatus(os.Stdout)
 					return
 				}
 			}
@@ -2496,12 +2512,14 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdTools(args)
 	case "/upgrade":
 		return r.cmdUpgrade(args)
+	case "/konfig":
+		return r.cmdKonfig(args)
 	case "/login":
 		return r.cmdLogin(args)
-	case "/stealth":
-		return r.cmdStealth(args)
 	case "/theme":
 		return r.cmdTheme(args)
+	case "/harness":
+		return r.cmdHarness(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2524,6 +2542,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, r.cmdGoal(args)
 	case "/refine":
 		r.cmdRefine(args)
+		return true, nil
+	case "/handshake":
+		r.cmdHandshake(args)
 		return true, nil
 	case "/judges":
 		r.cmdJudges(args)
@@ -2571,6 +2592,7 @@ func (r *REPL) cmdHelp() error {
 		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
 		"  /model <url>                       Register a .gguf/.llamafile URL or OpenAI-compatible endpoint",
 		"  /model favorite <name>             Star a model (shown first in /model, persists); unfavorite to remove",
+		"  /model name [show|hide|abbreviate|auto]  Show or set how the modeline displays the model name",
 		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
 		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
 		"  /skills                            List loaded skills",
@@ -2588,8 +2610,11 @@ func (r *REPL) cmdHelp() error {
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
-		"  /stealth [on|off]                  Muted UI - dark gray, model name barely visible (for use in public)",
-		"  /theme [black|linux|vim|emacs]     Show or set the stealth-mode theme (visible once /stealth is on)",
+		"  /theme [name|list]                 Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom",
+		"  /harness [list]                    List harness sections (system-prompt text) with their enabled/disabled state",
+		"  /harness enable|disable <name>     Toggle a harness section, persisted to ~/.kdeps/harness/<name>.yaml",
+		"  /harness events [list]             List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state",
+		"  /harness events enable|disable <name>  Toggle an event, persisted to ~/.kdeps/events/<name>.yaml",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
@@ -2612,6 +2637,9 @@ func (r *REPL) cmdHelp() error {
 		"  /memory show <key>                 Show one entry's full value, type, and related keys",
 		"  /upgrade                           Check for and install the latest stable kdeps release",
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
+		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
+		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
+		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -2886,6 +2914,48 @@ func (r *REPL) cmdModelFavorite(name string, fav bool) error {
 	return nil
 }
 
+// modelNameDisplayChoices lists the valid /model name arguments, in the
+// order shown in error messages and /help.
+//
+//nolint:gochecknoglobals // immutable command metadata
+var modelNameDisplayChoices = []string{
+	modelNameDisplayShow, modelNameDisplayHide, modelNameDisplayAbbreviate, "auto",
+}
+
+// cmdModelName handles /model name [show|hide|abbreviate|auto]. Bare shows
+// the current mode; an argument sets it and persists via saveModelNameFn.
+// "auto" restores the theme-based default (see DisplayModelName).
+func (r *REPL) cmdModelName(args []string) error {
+	if len(args) == 0 {
+		mode := ModelNameDisplayMode()
+		if mode == modelNameDisplayAuto {
+			mode = "auto"
+		}
+		fmt.Fprintf(os.Stdout, "Model name display: %s\n", mode)
+		fmt.Fprintf(os.Stdout, "Valid: %s\n", strings.Join(modelNameDisplayChoices, ", "))
+		return nil
+	}
+
+	mode := strings.ToLower(args[0])
+	if mode == "auto" {
+		mode = modelNameDisplayAuto
+	}
+	if !SetModelNameDisplay(mode) {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Unknown /model name mode: "+args[0]+". Valid: "+strings.Join(modelNameDisplayChoices, ", ")))
+		return nil
+	}
+	if r.saveModelNameFn != nil {
+		if err := r.saveModelNameFn(mode); err != nil {
+			return fmt.Errorf("persist model name display setting: %w", err)
+		}
+	}
+
+	fmt.Fprintln(os.Stdout, r.modeline())
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Model name display set to "+args[0]+" (saved)"))
+	return nil
+}
+
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
@@ -2903,6 +2973,8 @@ func (r *REPL) cmdModel(args []string) error {
 			return r.cmdModelFavorite(strings.Join(args[1:], " "), true)
 		case "unfavorite", "unfav", "unstar":
 			return r.cmdModelFavorite(strings.Join(args[1:], " "), false)
+		case "name":
+			return r.cmdModelName(args[1:])
 		}
 	}
 	if len(args) > 0 {
@@ -2924,6 +2996,7 @@ var toolSettingNames = []string{
 	"rounds", "retries", "retry-delay", "stall-timeout",
 	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
 	"web-limit", "bash-limit", "file-limit", "code-limit",
+	"leaf-nodes", "leaf-chars",
 }
 
 // cmdModelTool handles /model tool [list | set <setting> <value>].
@@ -2976,10 +3049,14 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 5)", cfg.WebLimit)},
-		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 25)", cfg.BashLimit)},
-		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 40)", cfg.FileLimit)},
-		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 15)", cfg.CodeLimit)},
+		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 20)", cfg.WebLimit)},
+		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 50)", cfg.BashLimit)},
+		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 80)", cfg.FileLimit)},
+		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 30)", cfg.CodeLimit)},
+		{"leaf-nodes", fmt.Sprintf(
+			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
+		{"leaf-chars", fmt.Sprintf(
+			"%d  (max characters kept per leaf entry, 0 = unlimited)", cfg.MaxLeafChars)},
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
 	for _, row := range rows {
@@ -3097,6 +3174,22 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		cfg.CodeLimit = n
 		return fmt.Sprintf("Code search limit set to %d per request", n), ""
 	},
+	"leaf-nodes": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "leaf-nodes must be a non-negative integer (0=unlimited)"
+		}
+		cfg.MaxLeafNodes = n
+		return fmt.Sprintf("Memory-graph leaf-node cap set to %d", n), ""
+	},
+	"leaf-chars": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "leaf-chars must be a non-negative integer (0=unlimited)"
+		}
+		cfg.MaxLeafChars = n
+		return fmt.Sprintf("Per-leaf character cap set to %d", n), ""
+	},
 }
 
 // setToolSetting applies value to the named setting via toolSettingAppliers.
@@ -3114,60 +3207,28 @@ func (r *REPL) setToolSetting(name, value string) {
 	}
 	// Persist the change so it survives across sessions.
 	r.persistTuning()
+	// Some settings (e.g. web-limit, leaf-nodes, leaf-chars) are rendered into
+	// the system preamble text (WebCallLimit, memory leaf caps), which is built
+	// once per session and cached (cachedSystemPreamble). Without this the new
+	// value takes effect for enforcement immediately but the model keeps seeing
+	// the old value described in its prompt until a model switch or /harness
+	// toggle happens to invalidate the cache -- invalidate here so every
+	// /model tool set change is reflected on the very next turn.
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (saved; applies from the next turn)"))
 }
 
 // cmdModelDefault handles /model default [name].
 // With no name: prints the current default from settings.
 // With a name: saves it as the new default and switches to it.
-// cmdStealth toggles stealth ("Muted") mode. Renders the whole REPL in
-// near-black grays with the model name barely visible - for use in public.
-//
-//	/stealth          toggle
-//	/stealth on|off   set explicitly
-func (r *REPL) cmdStealth(args []string) error {
-	on := !stealthEnabled()
-	if len(args) > 0 {
-		switch strings.ToLower(args[0]) {
-		case "on", "true", "1":
-			on = true
-		case "off", "false", "0":
-			on = false
-		case "toggle":
-			// keep computed toggle
-		default:
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /stealth [on|off]"))
-			return nil
-		}
-	}
-
-	SetStealth(on)
-	if r.saveStealthFn != nil {
-		if err := r.saveStealthFn(on); err != nil {
-			return fmt.Errorf("persist stealth setting: %w", err)
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, r.modeline())
-	switch {
-	case on && CurrentThemeName() == "black":
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on - the model name is now barely visible."))
-	case on:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on (theme: "+CurrentThemeName()+")."))
-	default:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode off."))
-	}
-	return nil
-}
-
-// cmdTheme handles /theme: bare shows the current theme and the list of
-// valid names; /theme <name> switches (black, linux, vim, emacs), persisted
-// via saveThemeFn. Theme selection is independent of /stealth on|off - it
-// only becomes visible once stealth is on.
+// cmdTheme handles /theme: bare (or "/theme list") shows the current theme
+// and the built-in and custom (~/.kdeps/themes/) names separately; /theme
+// <name> switches immediately (no separate on/off layer -- picking any
+// theme other than "normal" is what used to be a separate /stealth toggle),
+// persisted via saveThemeFn.
 func (r *REPL) cmdTheme(args []string) error {
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
-		fmt.Fprintf(os.Stdout, "Available: %s\n", strings.Join(ThemeNames(), ", "))
+	if len(args) == 0 || strings.EqualFold(args[0], "list") {
+		r.printThemeList()
 		return nil
 	}
 
@@ -3183,11 +3244,23 @@ func (r *REPL) cmdTheme(args []string) error {
 		}
 	}
 
+	fmt.Fprintln(os.Stdout, r.modeline())
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Theme set to "+name+" (saved)"))
-	if !stealthEnabled() {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("(stealth is off - turn it on with /stealth to see it)"))
-	}
 	return nil
+}
+
+// printThemeList prints the current theme and the built-in and custom
+// theme names separately, so a custom ~/.kdeps/themes/*.yaml file is
+// distinguishable from a shipped one at a glance.
+func (r *REPL) printThemeList() {
+	fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
+	fmt.Fprintf(os.Stdout, "Built-in: %s\n", strings.Join(BuiltinThemeNames(), ", "))
+	custom := CustomThemeNames()
+	if len(custom) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Custom (~/.kdeps/themes): none"))
+		return
+	}
+	fmt.Fprintf(os.Stdout, "Custom (~/.kdeps/themes): %s\n", strings.Join(custom, ", "))
 }
 
 func (r *REPL) cmdModelDefault(args []string) error {
@@ -3331,7 +3404,7 @@ func (r *REPL) applyModelSwitch(model string) {
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
-	r.loop.config.AutoCompactThreshold = budget
+	r.loop.config.AutoCompactThreshold = autoCompactThresholdForCtxWindow(newLimit)
 	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = bareModel
@@ -3380,6 +3453,9 @@ func (r *REPL) applyModelSwitch(model string) {
 	// New model: rebuild the frozen system preamble so the commit trailer names
 	// the model now in use instead of the previous one.
 	r.loop.InvalidateSystemPreamble()
+	// Mandatory session-integrity handshake: confirm the new model's
+	// tool-calling path actually works before its next prompt goes out.
+	r.loop.RequireHandshake()
 	// Persist full LLM config so it's restored on next run.
 	r.loop.saveSessionConfig()
 	fmt.Fprintf(os.Stdout, "\n%s\n\n",
@@ -3863,10 +3939,8 @@ func (r *REPL) cmdCompact() error {
 			r.loop.Session().TurnCount(), forceKeepTurns)))
 		return nil
 	}
-	// The compaction call itself consumed real tokens (it's a real LLM call);
-	// without this the cumulative in:/out: counter in the status line would
-	// silently never count it.
-	r.syncTokenCounter()
+	// Counters were reset to the post-compact context inside ForceCompact.
+	r.copyContextCounters()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
 		styleReplHeading.Render("Compaction summary:"),
 		summary,
@@ -3892,11 +3966,17 @@ const (
 	foldPresetLooseItems     = 10
 )
 
-//nolint:gochecknoglobals // static lookup table
-var foldPresets = map[string]foldPreset{
-	"tight":    {threshold: foldPresetTightThreshold, items: foldPresetTightItems},
-	"balanced": {threshold: defaultFoldThreshold, items: defaultFoldContextItems},
-	"loose":    {threshold: foldPresetLooseThreshold, items: foldPresetLooseItems},
+// foldPresets returns the named /fold presets. "balanced" reads the "fold"
+// event's own configured threshold/items rather than a separate hardcoded
+// duplicate -- a function (not a package var) because the event registry is
+// only populated at init() time, after which package-var initializers have
+// already run.
+func foldPresets() map[string]foldPreset {
+	return map[string]foldPreset{
+		"tight":    {threshold: foldPresetTightThreshold, items: foldPresetTightItems},
+		"balanced": {threshold: foldTokensSinceCheckpoint(), items: foldItems()},
+		"loose":    {threshold: foldPresetLooseThreshold, items: foldPresetLooseItems},
+	}
 }
 
 // foldPresetNames lists valid /fold preset names in a fixed display order
@@ -3974,6 +4054,10 @@ func (r *REPL) cmdFoldItems(args []string) error {
 	}
 	r.loop.config.FoldContextItems = n
 	r.persistTuning()
+	// FoldContextItems is baked into the cached system preamble (memory prompt
+	// formatting) -- invalidate so the new cap applies from the next turn
+	// instead of only after a model switch.
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
 		fmt.Sprintf("Fold context-items cap set to %d (saved)", n)))
 	return nil
@@ -3986,7 +4070,7 @@ func (r *REPL) cmdFoldPreset(args []string) error {
 		return nil
 	}
 	name := strings.ToLower(args[1])
-	preset, ok := foldPresets[name]
+	preset, ok := foldPresets()[name]
 	if !ok {
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
 			"Unknown preset: "+name+". Valid: "+strings.Join(foldPresetNames, ", ")))
@@ -3995,6 +4079,7 @@ func (r *REPL) cmdFoldPreset(args []string) error {
 	r.loop.config.FoldThreshold = preset.threshold
 	r.loop.config.FoldContextItems = preset.items
 	r.persistTuning()
+	r.loop.InvalidateSystemPreamble()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf(
 		"Fold preset %q applied: threshold=%d, items=%d (saved)", name, preset.threshold, preset.items)))
 	return nil
@@ -4010,11 +4095,11 @@ func (r *REPL) cmdFoldStatus() error {
 	}
 	threshold := cfg.FoldThreshold
 	if threshold <= 0 {
-		threshold = defaultFoldThreshold
+		threshold = foldTokensSinceCheckpoint()
 	}
 	items := cfg.FoldContextItems
 	if items <= 0 {
-		items = defaultFoldContextItems
+		items = foldItems()
 	}
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Fold"))
 	fmt.Fprintf(os.Stdout, "  auto: %s\n", state)
@@ -4055,7 +4140,7 @@ func (r *REPL) cmdFoldNow() error {
 		r.explainNothingToFold()
 		return nil
 	}
-	r.syncTokenCounter()
+	r.copyContextCounters()
 	fmt.Fprintf(os.Stdout, "%s\n\n%s\n", styleReplHeading.Render("Fold summary:"), summary)
 	return nil
 }
@@ -4079,7 +4164,7 @@ func (r *REPL) explainNothingToFold() {
 		turns, needed, forceKeepTurns)
 
 	if tc := r.tokenCounter; tc != nil {
-		fmt.Fprintf(os.Stdout, "  token counter: in:%s out:%s\n",
+		fmt.Fprintf(os.Stdout, "  token counter: sent %s, generated %s\n",
 			formatCompactCount(tc.InputTokens()), formatCompactCount(tc.OutputTokens()))
 	}
 }
@@ -4659,6 +4744,9 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	}
 	// Replace the loop's session in-place via the interface (preserves IDs).
 	r.loop.session.ReplaceMessages(session.RawMessages())
+	// Mandatory session-integrity handshake: a resumed session's tool-calling
+	// path is unproven until the model has made one real call in it.
+	r.loop.RequireHandshake()
 	// Continue this stored session on exit instead of forking a new row.
 	r.loop.SetSessionID(id)
 	// Restore model from saved session metadata if available.
@@ -4933,7 +5021,7 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [in:%s|out:%s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
+	fmt.Fprintf(os.Stdout, "  %s [sent %s | generated %s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
 
 	// Convergence pipelines
 	wc, wm := WebConvergenceCalls()
@@ -4941,13 +5029,13 @@ func (r *REPL) cmdKartographer() error {
 		"system prompt <output> rule 24 (soft guidance)")
 	bc, bm := BashConvergenceCalls()
 	r.printConvergence("shell", "bash_exec %s trackBashCall()", bc, bm,
-		fmt.Sprintf("maxBashToolCalls=%d", bm))
+		fmt.Sprintf("bash-call-budget event=%d", bm))
 	fc, fm := FileConvergenceCalls()
 	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
-		fmt.Sprintf("maxFileToolCalls=%d", fm))
+		fmt.Sprintf("file-call-budget event=%d", fm))
 	cc, cm := CodeConvergenceCalls()
 	r.printConvergence("code", "search_local / code_search %s trackCodeCall()", cc, cm,
-		fmt.Sprintf("maxCodeToolCalls=%d", cm))
+		fmt.Sprintf("code-call-budget event=%d", cm))
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()
@@ -4963,7 +5051,7 @@ func (r *REPL) cmdKartographer() error {
 
 	// Memory bridge
 	fmt.Fprintln(os.Stdout, meta("memory"))
-	fmt.Fprintf(os.Stdout, "  %s memory_search / memory_list before every action\n", tee)
+	fmt.Fprintf(os.Stdout, "  %s memory_search before every action\n", tee)
 	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)
@@ -5144,6 +5232,45 @@ func (r *REPL) cmdRefine(args []string) {
 		}
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /refine [on|off]"))
+	}
+}
+
+// cmdHandshake inspects and toggles the mandatory session-integrity
+// handshake: a forced challenge/response tool call on model change, session
+// resume, and post-compaction/fold, that exists to enforce that the model
+// actually uses kdeps's real tool-call channel against the new context
+// instead of fabricating a plausible-looking result in text. Off by
+// default -- it adds a round-trip at each of those points -- so this is
+// opt-in for setups that want the stronger guarantee. No attempt cap once
+// enabled: a miss is retried for as long as it takes rather than silently
+// giving up and proceeding unverified.
+func (r *REPL) cmdHandshake(args []string) {
+	if len(args) == 0 {
+		if r.loop.HandshakeEnabled() {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"session-integrity handshake is on — model change, resume, and compaction/fold "+
+					"each force a verified tool call before the next prompt"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"session-integrity handshake is off — /handshake on to enable"))
+		}
+		return
+	}
+	switch args[0] {
+	case toggleOn, toggleOff:
+		enabled := args[0] == toggleOn
+		r.loop.SetHandshakeEnabled(enabled)
+		r.persistTuning()
+		if enabled {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"session-integrity handshake enabled — verifying on the current model now, "+
+					"before your next prompt, and again on every model change, resume, and compaction/fold"))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+				"session-integrity handshake disabled"))
+		}
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /handshake [on|off]"))
 	}
 }
 
@@ -5631,7 +5758,7 @@ func (r *REPL) cmdContext(args []string) error {
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := n * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
-	r.loop.config.AutoCompactThreshold = budget
+	r.loop.config.AutoCompactThreshold = autoCompactThresholdForCtxWindow(n)
 	r.loop.Session().SetTokenBudget(n, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.contextSize = n

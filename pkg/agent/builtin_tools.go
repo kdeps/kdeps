@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -125,8 +126,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
 	registerMemoryQueryTool(reg)
-	// After all tools exist, map familiar names (grep, cat, ls, ...) to them.
-	registerToolAliases(reg)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
@@ -153,7 +152,13 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 	})
 }
 
-const maxFileReadBytes = 1 << 20 // 1 MB
+// maxFileReadBytes returns the "file-read-limit" event's byte cap on any
+// single file a builtin tool (read_file, md5_file, tail_file, ...) will read
+// or stat-check before reading.
+func maxFileReadBytes() int {
+	const fallback = 1 << 20 // 1 MB; used only if the event registry is unavailable
+	return effectiveBytes(eventFileReadLimit, fallback)
+}
 
 // requireAbsFilePath extracts the "file_path" arg, checks it is non-empty,
 // resolves it against the working directory if relative, and rejects
@@ -185,16 +190,47 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 }
 
 // resolveReadFilePath is requireAbsFilePath for read-only file tools: when the
-// model omits file_path it falls back to the last file any file tool touched
+// model omits file_path, it resolves from match_id (a prior search_local
+// hit) if given, else falls back to the last file any file tool touched
 // this session ("re-read what I was just looking at"). Never used for
 // write_file/edit_file -- guessing a path there could clobber the wrong file.
 func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
 	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) == "" {
-		if lf := lastFile(); lf != "" {
+		if id, _ := args["match_id"].(string); id != "" {
+			if err := resolveMatchIDIntoArgs(toolName, id, args); err != nil {
+				return "", err
+			}
+		} else if lf := lastFile(); lf != "" {
 			args[toolParamFilePath] = lf
 		}
 	}
 	return requireAbsFilePath(toolName, args)
+}
+
+// resolveMatchIDIntoArgs resolves id to its file, filling file_path and --
+// unless the caller already gave its own offset/limit -- a range centered
+// on the match's line using context_before/context_after (default
+// defaultAnchorContext each, same as edit_file's anchor view).
+func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
+	ref, ok := resolveMatchID(id)
+	if !ok {
+		return fmt.Errorf(
+			"%s: match_id %q not found (it may have expired or come from a different search)", toolName, id)
+	}
+	args[toolParamFilePath] = ref.path
+	if _, hasOffset := args["offset"]; hasOffset {
+		return nil
+	}
+	before, after := viewAnchorContext(args)
+	start := ref.line - before
+	if start < 1 {
+		start = 1
+	}
+	args["offset"] = float64(start)
+	if _, hasLimit := args["limit"]; !hasLimit {
+		args["limit"] = float64(before + after + 1)
+	}
+	return nil
 }
 
 // registerReadFile registers a local file reading tool.
@@ -205,15 +241,15 @@ func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode`) - use those numbers for edit_file insert/view. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking.",
+		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. IMPORTANT: ^I, ^X, and the trailing $ are a display convention this tool adds - the real file does NOT contain those literal characters. When quoting text back into edit_file's old_str, write the real tab/control character (or match a whole line via view_range/anchor instead), never the literal caret sequence - copying \"^I\" as text will not match a real tab byte. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.",
 		Category:     "file",
-		OutputFormat: "text with a 1-based line number on each line",
+		OutputFormat: "text with a 1-based line number on each line; tabs shown as ^I, control chars as ^X, $ marks true end of line (display only - not literal file content)",
 		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
 		SeeAlso:      "list_files, search_local, edit_file, load_document",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
-				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit).",
+				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit), or use match_id instead.",
 			},
 			"offset": {
 				Type:        "number",
@@ -222,6 +258,19 @@ func registerReadFile(reg *kdepstools.Registry) {
 			"limit": {
 				Type:        "number",
 				Description: "Maximum number of lines to read. Optional; reads entire file up to the size limit if omitted.",
+			},
+			"match_id": {
+				Type: toolParamString,
+				Description: "A match_id from a search_local result, instead of file_path. Reads the " +
+					"region around that hit (context_before/context_after lines, default 20 each).",
+			},
+			"context_before": {
+				Type:        "number",
+				Description: "Only with match_id: lines of context before the match (default 20)",
+			},
+			"context_after": {
+				Type:        "number",
+				Description: "Only with match_id: lines of context after the match (default 20)",
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
@@ -261,12 +310,12 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("read_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
 		return "", fmt.Errorf(
 			"read_file: %s is %d bytes (max %d)",
 			filePath,
 			info.Size(),
-			maxFileReadBytes,
+			limit,
 		)
 	}
 
@@ -340,14 +389,17 @@ func formatFileLines(content string, args map[string]any) string {
 		endLine = min(startLine+int(v), totalLines)
 	}
 
-	// Build output with line numbers (cat -n style) so the LLM can reference
-	// exact positions.
+	// Build output with line numbers (cat -n style) plus visible whitespace
+	// and control characters (cat -A style: tabs as ^I, other control chars
+	// as ^X, a $ marking the true end of line so trailing whitespace before
+	// it is unambiguous) so the LLM can see indentation and stray characters
+	// a plain read would hide.
 	shown := lines[startLine:endLine]
 	var sb strings.Builder
 	digitWidth := len(strconv.Itoa(startLine + len(shown)))
 	for i, line := range shown {
 		ln := startLine + i + 1
-		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, ln, line)
+		fmt.Fprintf(&sb, "%*d\t%s$\n", digitWidth, ln, visibleWhitespace(line))
 	}
 	out := strings.TrimSuffix(sb.String(), "\n")
 
@@ -357,6 +409,38 @@ func formatFileLines(content string, args map[string]any) string {
 	}
 
 	return out
+}
+
+// visibleWhitespace renders a line the way `cat -A` (`cat -vET`) would: a
+// literal tab becomes "^I" and any other C0 control character or DEL becomes
+// its caret notation ("^X" for byte X, "^?" for DEL), so read_file's output
+// distinguishes tabs from spaces and surfaces stray control characters that
+// would otherwise be invisible. Operates on runes, not bytes, so valid
+// multi-byte UTF-8 text is left untouched -- only ASCII control characters
+// are ever rewritten. The caller appends "$" after this to mark the true end
+// of line, which is what makes trailing whitespace visible.
+const (
+	runeDEL          = 0x7f
+	c0ControlUpper   = 0x20 // first non-control ASCII rune; runes below this are C0 controls
+	caretNotationGap = 64   // caret notation: control char N prints as '^' + (N+64)
+)
+
+func visibleWhitespace(line string) string {
+	var sb strings.Builder
+	for _, r := range line {
+		switch {
+		case r == '\t':
+			sb.WriteString("^I")
+		case r == runeDEL:
+			sb.WriteString("^?")
+		case r < c0ControlUpper:
+			sb.WriteByte('^')
+			sb.WriteRune(r + caretNotationGap)
+		default:
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }
 
 // defaultTailLines is how many lines from the end of a file tail_file
@@ -408,8 +492,8 @@ func md5File(filePath string) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("md5_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
-		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
+		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
 	}
 	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
@@ -471,8 +555,8 @@ func tailLocalFile(filePath string, args map[string]any) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("tail_file: %s is a directory", filePath)
 	}
-	if info.Size() > maxFileReadBytes {
-		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
+		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
 	}
 	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
@@ -571,11 +655,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			return "", fmt.Errorf("write_file: %w", err)
 		}
 		content, _ := args["content"].(string)
-		if len(content) > maxFileReadBytes {
+		if limit := maxFileReadBytes(); len(content) > limit {
 			return "", fmt.Errorf(
 				"write_file: content is %d bytes (max %d)",
 				len(content),
-				maxFileReadBytes,
+				limit,
 			)
 		}
 		info, statErr := AppFS.Stat(filePath)
@@ -937,6 +1021,10 @@ func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("sql_query: query is required")
 			}
+			// Same reasoning as bash_exec: an HTML-escaped comparison
+			// operator (WHERE x &lt; 5) is executable-syntax corruption,
+			// not literal content -- unescape before validating/running.
+			query = html.UnescapeString(query)
 			trimmed := strings.TrimSpace(strings.ToUpper(query))
 			if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
 				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
@@ -1387,6 +1475,13 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		if command == "" {
 			return "", errors.New("bash_exec: command is required")
 		}
+		// Some models emit HTML-escaped shell operators (&amp;&amp; for &&,
+		// &quot; for ", &lt;/&gt; for </>) -- e.g. when the command text
+		// passed through an HTML-rendering step upstream. Unescape before
+		// validating/running so the actual operators are seen, not their
+		// entity form (which would either fail outright or run as literal
+		// text). A no-op for a command with no entities.
+		command = html.UnescapeString(command)
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
@@ -2550,7 +2645,6 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 	registerMemorySaveTool(reg)
 	registerMemorySearchTool(reg)
 	registerMemoryDeleteTool(reg)
-	registerMemoryListTool(reg)
 }
 
 func registerMemorySaveTool(reg *kdepstools.Registry) {
@@ -2599,10 +2693,25 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 	})
 }
 
+// memorySearchResultCap bounds how many matching entries memory_search shows.
+// A broad query against a long-lived store ("save memory after every turn,"
+// "every tool call creates an entry") can match hundreds of entries; showing
+// all of them, each at full value length, is exactly the kind of unbounded
+// per-call cost that made memory_search "consume millions of tokens" over a
+// session where it's mandated before every action. Matches beyond the cap
+// are still real -- just not dumped in full. The ones shown are the best
+// matches (key hit, then more query words, then newer UpdatedAt). The model
+// is told how many more
+// exist and can narrow the query instead.
+const memorySearchResultCap = 20
+
 func registerMemorySearchTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "memory_search",
-		Description: "Search persistent memory for entries matching a query. Returns matching key-value pairs. Use to recall previously saved facts, preferences, or decisions.",
+		Name: "memory_search",
+		Description: fmt.Sprintf(
+			"Search persistent memory for entries matching a query. Returns up to %d matching key-value pairs (each value capped), best match first: a key hit outranks a value-only hit, more query words outrank fewer, and a newer update breaks a tie. Use to recall previously saved facts, preferences, or decisions. There is no memory_list tool; the memory graph is already in the system prompt.",
+			memorySearchResultCap,
+		),
 		Parameters: map[string]domain.ToolParam{
 			toolParamQuery: {
 				Type:        toolParamString,
@@ -2618,34 +2727,61 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("memory_search: query is required")
 			}
-			results := memoryStoreInstance.Search(query)
-			if len(results) > 0 {
-				var sb strings.Builder
-				fmt.Fprintf(&sb, "Found %d memory entries:\n", len(results))
-				for _, entry := range results {
-					fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
-				}
-				return sb.String(), nil
+			if results := memoryStoreInstance.Search(query); len(results) > 0 {
+				return formatMemorySearchResults(results), nil
 			}
-
-			// No memory results — fall back to local file search.
-			wd, err := os.Getwd()
-			if err != nil {
-				return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
-			}
-			exec := execSearch.NewExecutor()
-			searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
-				Path:  wd,
-				Query: query,
-				Index: true,
-			})
-			if searchErr != nil {
-				return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
-			}
-			out, _ := json.MarshalIndent(searchResult, "", "  ")
-			return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s", string(out)), nil
+			return memorySearchLocalFileFallback(query)
 		},
 	})
+}
+
+// formatMemorySearchResults renders capped, per-value-truncated memory
+// matches for memory_search. Order is the relevance order Search returned
+// (key hit, then more query words, then newer UpdatedAt). See
+// memorySearchResultCap.
+func formatMemorySearchResults(results []MemoryEntry) string {
+	total := len(results)
+	shown := append([]MemoryEntry(nil), results...)
+	if len(shown) > memorySearchResultCap {
+		shown = shown[:memorySearchResultCap]
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Found %d memory entries", total)
+	if total > len(shown) {
+		fmt.Fprintf(&sb, " (showing %d)", len(shown))
+	}
+	sb.WriteString(":\n")
+	for _, entry := range shown {
+		fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, truncateValue(entry.Value, maxValueLength))
+	}
+	if total > len(shown) {
+		fmt.Fprintf(&sb, "... and %d more (narrow the query to see them)\n", total-len(shown))
+	}
+	return sb.String()
+}
+
+// memorySearchLocalFileFallback runs when memory has no hits for query --
+// capped the same way search_local itself is: a handful of matches, not an
+// unbounded indexed-repo JSON dump (the previous behavior here was itself an
+// unbounded-token-cost surprise for a tool named "memory_search").
+func memorySearchLocalFileFallback(query string) (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
+	}
+	exec := execSearch.NewExecutor()
+	searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
+		Path:  wd,
+		Query: query,
+		Index: true,
+		Limit: memorySearchResultCap,
+	})
+	if searchErr != nil {
+		return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
+	}
+	out, _ := json.MarshalIndent(searchResult, "", "  ")
+	return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s",
+		truncateValue(string(out), maxToolResultBytes())), nil
 }
 
 func registerMemoryDeleteTool(reg *kdepstools.Registry) {
@@ -2671,36 +2807,6 @@ func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 				return "", fmt.Errorf("memory_delete: %w", err)
 			}
 			return fmt.Sprintf("Deleted memory entry %q.", key), nil
-		},
-	})
-}
-
-func registerMemoryListTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "memory_list",
-		Description: "List all keys in persistent memory. Returns key names only — use memory_search to find entries by content.",
-		Parameters:  map[string]domain.ToolParam{},
-		Execute: func(_ map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_list: memory store is not configured")
-			}
-			entries := memoryStoreInstance.List()
-			var sb strings.Builder
-			if len(entries) == 0 {
-				fmt.Fprint(&sb, "No memory entries.")
-			} else {
-				fmt.Fprintf(&sb, "%d memory entries:\n", len(entries))
-				for _, entry := range entries {
-					fmt.Fprintf(&sb, "- %s\n", entry.Key)
-				}
-			}
-			// Append the relationship graph so the agent can trace workflow chains.
-			graph := memoryStoreInstance.FormatGraphForPrompt(0)
-			if graph != "" {
-				sb.WriteByte('\n')
-				sb.WriteString(graph)
-			}
-			return sb.String(), nil
 		},
 	})
 }

@@ -62,7 +62,7 @@ The block is truncated to a token budget, but not oldest-first: the **active tas
 
 The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front - one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
 
-Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
+Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool. The graph above is the context.
 
 ## Compaction integration
 
@@ -78,6 +78,12 @@ This preserves important information across compaction boundaries.
 After every compaction (or [fold](/agent/repl#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
 
 The previous checkpoint is never silently discarded: it's archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply aren't in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
+
+## Leaf-node limits
+
+The memory graph is a kartographer dependency tree: each entry's `references` field points at its parent keys, and a **leaf** is any entry nothing else references - a terminal node with no children pointing back at it. Most everyday facts (`fact:`, `tool_result:`) are leaves; `purpose:`/`progress:` entries with children pointing at them are not.
+
+Two knobs cap leaves specifically, independent of the checkpoint cap above - `/model tool set leaf-nodes <n>` (max leaf entries kept in the prompt, 0 = unlimited) and `/model tool set leaf-chars <n>` (max characters kept per leaf entry's value, 0 = unlimited, truncated with an ellipsis). Both exempt the active task chain (the resume node, its ancestry, and anything matching the current prompt's focus) the same way the byte-budget truncation pass already does - losing where the agent is and how it got there is worse than overshooting either cap. Neither ever touches the store itself: dropped or truncated leaves stay fully intact and retrievable with `/memory list` / `/memory show`, only this one render is affected.
 
 ## Session persistence
 

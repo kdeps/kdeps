@@ -1,0 +1,11 @@
+name: nudge-sandbox-hallucination
+kind: standalone
+maxOccurrences: 2
+body: >-
+  You made no tool call, and phrases like "NO CONTENT AVAILABLE", "expired",
+  "/mnt/data", or "cannot access the filesystem" come from a code-interpreter
+  sandbox that is not this environment. kdeps has no sandbox and never
+  returns those messages -- nothing ran. The real working directory is a
+  live filesystem with the files from the task present now. Make an actual
+  kdeps tool call (bash_exec, read_file, ...) through the tool interface and
+  wait for the runtime's result.

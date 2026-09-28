@@ -19,11 +19,13 @@
 package agent
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,7 +47,6 @@ const (
 	maxValueLength  = 500     // max characters for a single memory value
 
 	// Memory formatting constants.
-	memoryHalfDivisor     = 2   // split token budget between entries and graph
 	memoryXMLOverhead     = 30  // bytes per entry for XML tags in prompt
 	memoryMaxKeyLength    = 80  // max chars for a memory key
 	memoryMaxFirstLine    = 40  // max chars for tool result first line
@@ -391,26 +392,84 @@ func (m *MemoryStore) RecentKeys(limit int) ([]string, int) {
 	return keys, total
 }
 
-// Search returns entries where the query matches (case-insensitive) in the key or value.
-// Returns nil when cwd has not been set.
+// Search returns entries where any query word matches (case-insensitive) in
+// the key or value. Order is relevance, then latest: more key hits first, then
+// more words matched, then newer UpdatedAt, then key. Returns nil when cwd
+// has not been set or the query is empty.
 func (m *MemoryStore) Search(query string) []MemoryEntry {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.path == "" || query == "" {
+	terms := memoryQueryTerms(query)
+	if m.path == "" || len(terms) == 0 {
 		return nil
 	}
-	lower := strings.ToLower(query)
 	var results []MemoryEntry
 	for _, e := range m.entries {
-		if strings.Contains(strings.ToLower(e.Key), lower) ||
-			strings.Contains(strings.ToLower(e.Value), lower) {
+		if _, hits := memorySearchRank(e, terms); hits > 0 {
 			results = append(results, e)
 		}
 	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Key < results[j].Key
+	slices.SortStableFunc(results, func(a, b MemoryEntry) int {
+		ak, ah := memorySearchRank(a, terms)
+		bk, bh := memorySearchRank(b, terms)
+		if c := cmp.Compare(bk, ak); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(bh, ah); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(b.UpdatedAt, a.UpdatedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Key, b.Key)
 	})
 	return results
+}
+
+// memoryQueryTerms splits a search query into lowercase words. A single word
+// is kept as-is. Extra words shorter than 2 characters are dropped so "a"
+// does not match every entry; if that drops everything, the original words
+// are kept.
+func memoryQueryTerms(query string) []string {
+	fields := strings.Fields(strings.ToLower(strings.TrimSpace(query)))
+	if len(fields) <= 1 {
+		return fields
+	}
+	terms := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if utf8.RuneCountInString(field) >= minMemoryQueryWordRunes {
+			terms = append(terms, field)
+		}
+	}
+	if len(terms) == 0 {
+		return fields
+	}
+	return terms
+}
+
+// minMemoryQueryWordRunes is the shortest extra word kept when a query has
+// more than one word. A one-character word would match almost every entry.
+const minMemoryQueryWordRunes = 2
+
+// memorySearchRank scores one entry against query words. The first result is
+// how many words appear in the key. The second is how many appear in the key
+// or the value. A key hit outranks a value-only hit; more hits outrank fewer.
+func memorySearchRank(entry MemoryEntry, terms []string) (int, int) {
+	key := strings.ToLower(entry.Key)
+	value := strings.ToLower(entry.Value)
+	keyHits := 0
+	hits := 0
+	for _, term := range terms {
+		inKey := strings.Contains(key, term)
+		inVal := strings.Contains(value, term)
+		if inKey {
+			keyHits++
+		}
+		if inKey || inVal {
+			hits++
+		}
+	}
+	return keyHits, hits
 }
 
 // SetRelation adds a directed edge from key → relatedKey. Both keys must exist.
@@ -557,46 +616,6 @@ func (w *stringWriter) WriteLine(content string) {
 	}
 }
 
-// FormatGraphForPrompt returns the memory relationship graph as text suitable for
-// LLM prompt injection. Uses inlined graph traversal (see graph.go).
-// Format: "A -> B -> D\nA -> C -> D". Returns empty string when no relationships exist.
-func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
-	deps := m.BuildDependencyMap()
-	if len(deps) == 0 {
-		return ""
-	}
-
-	repo := newInMemoryGraphRepository(deps)
-	formatter := newArrowPathFormatter()
-	writer := &stringWriter{buf: &strings.Builder{}}
-	pathSvc := newGraphPathService(formatter, writer)
-	depSvc := newGraphDependencyService(repo, pathSvc)
-
-	// Traverse each node to build complete graph output.
-	for key := range deps {
-		depSvc.TraverseGraph(key)
-	}
-
-	if writer.lines == 0 {
-		return ""
-	}
-
-	output := writer.buf.String()
-	if maxTokens <= 0 {
-		maxTokens = memoryMaxTokens / memoryHalfDivisor // half for entries, half for graph
-	}
-	maxBytes := maxTokens * charsPerToken
-	if len(output) > maxBytes {
-		output = output[:maxBytes]
-		// Cut at last newline to avoid truncating mid-path.
-		if lastNL := strings.LastIndex(output, "\n"); lastNL > 0 {
-			output = output[:lastNL]
-		}
-	}
-
-	return "<memory-graph>\n" + output + "</memory-graph>"
-}
-
 // FormatGraphNode returns the dependency paths for a single key.
 // Returns empty string when the key has no references or doesn't exist.
 func (m *MemoryStore) FormatGraphNode(key string) string {
@@ -619,9 +638,6 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 
 	// Build reverse dependencies too.
 	revWriter := &stringWriter{buf: &strings.Builder{}}
-
-	stack := depSvc.BuildDependencyStack(key)
-	_ = stack // topological order available if needed
 
 	// List direct and reverse dependencies as structured output.
 	var sb strings.Builder
@@ -675,6 +691,69 @@ func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEnt
 	return append(other, checkpoints[:maxCheckpoints]...)
 }
 
+// leafKeys returns the set of entries no other entry references as a parent
+// -- kartographer memory-graph terminals ("leaf nodes"). An entry's
+// References field holds its parent keys (see ancestryChain), so a leaf is
+// any key that never appears in another entry's References.
+func leafKeys(entries []MemoryEntry) map[string]bool {
+	referenced := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		for _, p := range e.References {
+			referenced[p] = true
+		}
+	}
+	leaves := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !referenced[e.Key] {
+			leaves[e.Key] = true
+		}
+	}
+	return leaves
+}
+
+// capLeafCount keeps at most maxLeaves leaf entries (see leafKeys) --
+// newest updated first -- plus every priority leaf (the active task chain,
+// exempt from this cap the same way it's exempt from the byte-budget pass)
+// and every non-leaf entry unchanged. Entries dropped here are only
+// excluded from this one render; they remain in the store untouched, same
+// contract as capCheckpointEntries. maxLeaves <= 0 means no cap.
+func capLeafCount(entries []MemoryEntry, leaves, priority map[string]bool, maxLeaves int) []MemoryEntry {
+	if maxLeaves <= 0 {
+		return entries
+	}
+	var droppable, kept []MemoryEntry
+	for _, e := range entries {
+		if leaves[e.Key] && !priority[e.Key] {
+			droppable = append(droppable, e)
+		} else {
+			kept = append(kept, e)
+		}
+	}
+	if len(droppable) <= maxLeaves {
+		return entries
+	}
+	sort.Slice(droppable, func(i, j int) bool { return droppable[i].UpdatedAt > droppable[j].UpdatedAt })
+	return append(kept, droppable[:maxLeaves]...)
+}
+
+// truncateLeafValues caps each non-priority leaf entry's rendered Value to
+// maxChars, so one oversized leaf can't crowd out the rest of the byte
+// budget. Non-leaf entries and priority leaves are returned unchanged.
+// maxChars <= 0 means no truncation.
+func truncateLeafValues(entries []MemoryEntry, leaves, priority map[string]bool, maxChars int) []MemoryEntry {
+	if maxChars <= 0 {
+		return entries
+	}
+	out := make([]MemoryEntry, len(entries))
+	for i, e := range entries {
+		if leaves[e.Key] && !priority[e.Key] && len(e.Value) > maxChars {
+			e.Value = truncateEllipsis(e.Value, maxChars)
+		}
+		out[i] = e
+	}
+	return out
+}
+
 // FormatForPrompt renders memory as a single graph-ordered block for the system
 // prompt. Entries are ordered topologically via the kartographer dependency
 // graph (a parent always precedes the children that reference it), each value is
@@ -684,7 +763,7 @@ func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEnt
 // edges to dropped entries are omitted so no arrow dangles. Returns "" when there
 // are no entries or cwd is unset.
 func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
-	return m.FormatForPromptCapped(maxTokens, focus, 0)
+	return m.FormatForPromptCapped(maxTokens, focus, 0, 0, 0)
 }
 
 // listCapped returns m.List(), optionally passed through capCheckpointEntries
@@ -698,7 +777,7 @@ func (m *MemoryStore) listCapped(maxCheckpoints int) []MemoryEntry {
 	return entries
 }
 
-// FormatForPromptCapped is FormatForPrompt with an additional cap: at most
+// FormatForPromptCapped is FormatForPrompt with additional caps: at most
 // maxCheckpoints checkpoint-family entries (the active checkpoint:summary
 // plus archived checkpoint:archive:* entries, see AutoCapture) are considered
 // for injection, newest first -- keeping the graph focused on a bounded,
@@ -706,19 +785,22 @@ func (m *MemoryStore) listCapped(maxCheckpoints int) []MemoryEntry {
 // ToolTuning.FoldContextItems) even though older ones remain in the store,
 // retrievable via /memory list / /memory show. maxCheckpoints <= 0 means no
 // cap (identical to FormatForPrompt).
-func (m *MemoryStore) FormatForPromptCapped(maxTokens int, focus string, maxCheckpoints int) string {
-	entries := m.listCapped(maxCheckpoints)
-	if len(entries) == 0 {
-		return ""
-	}
-	if maxTokens <= 0 {
-		maxTokens = memoryMaxTokens
-	}
-
-	byKey := make(map[string]MemoryEntry, len(entries))
-	for _, e := range entries {
-		byKey[e.Key] = e
-	}
+//
+// maxLeafNodes and maxLeafChars cap the kartographer graph's leaf entries --
+// nodes no other entry references as a parent (see leafKeys) -- by count and
+// per-entry character length respectively (Config.MaxLeafNodes/MaxLeafChars).
+// Neither ever caps a leaf on the active priority chain (the resume node and
+// its ancestry, focus matches, the newest unresolved error): losing where the
+// model is and how it got there is worse than overshooting either budget, the
+// same rule the byte-budget pass below already follows. <= 0 means no cap.
+// priorityKeys computes the set of entries FormatForPromptCapped never
+// drops or truncates: the resume node and its ancestry (E), any entry
+// matching the current prompt's focus and its ancestry (I), and the newest
+// unresolved error and its ancestry (M) -- split out of FormatForPromptCapped
+// purely to keep that function's own cognitive complexity under the lint
+// threshold. Returns the resume key, the last-error key, and the combined
+// priority set.
+func priorityKeys(entries []MemoryEntry, byKey map[string]MemoryEntry, focus string) (string, string, map[string]bool) {
 	// E: the current task chain (the resume node and its transitive parents) is
 	// always kept, so a large memory never truncates away where we are and how we
 	// got here; unrelated/older entries drop first.
@@ -736,6 +818,37 @@ func (m *MemoryStore) FormatForPromptCapped(maxTokens int, focus string, maxChec
 	lastErr := newestErrorKey(entries)
 	for k := range ancestryChain(lastErr, byKey) {
 		priority[k] = true
+	}
+	return resume, lastErr, priority
+}
+
+func (m *MemoryStore) FormatForPromptCapped(
+	maxTokens int, focus string, maxCheckpoints, maxLeafNodes, maxLeafChars int,
+) string {
+	entries := m.listCapped(maxCheckpoints)
+	if len(entries) == 0 {
+		return ""
+	}
+	if maxTokens <= 0 {
+		maxTokens = memoryMaxTokens
+	}
+
+	byKey := make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
+	}
+	resume, lastErr, priority := priorityKeys(entries, byKey, focus)
+
+	// Leaf caps run after priority is known (so a priority leaf -- e.g. the
+	// resume node itself is very often a leaf -- is never dropped or
+	// truncated) but before the byte-budget pass (so a capped/truncated leaf
+	// frees room the budget pass can actually use).
+	leaves := leafKeys(entries)
+	entries = capLeafCount(entries, leaves, priority, maxLeafNodes)
+	entries = truncateLeafValues(entries, leaves, priority, maxLeafChars)
+	byKey = make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
 	}
 
 	keep := selectKeptEntries(entries, maxTokens*charsPerToken, priority)
@@ -881,9 +994,6 @@ func newDepService(deps map[string][]string) graphDependencyService {
 	return newGraphDependencyService(repo, pathSvc)
 }
 
-// memoryFocusMax bounds how many prompt-relevant entries are force-kept.
-const memoryFocusMax = 5
-
 // memoryStopwords are common words ignored when matching a prompt to memory. The
 // 3-char entries matter because significantTokens now accepts length-3 tokens (R)
 // to catch technical terms like "api"/"sql"/"css"/"git" — without these, common
@@ -939,9 +1049,10 @@ func focusScore(e MemoryEntry, toks []string) int {
 	return score
 }
 
-// focusMatches returns up to memoryFocusMax keys most relevant to focus (the
-// current prompt), strongest match first (T), recency breaking ties. Matching is
-// word-boundary based (S). Empty when focus is empty or nothing matches.
+// focusMatches returns up to the "memory-focus-max" event's cap of keys most
+// relevant to focus (the current prompt), strongest match first (T), recency
+// breaking ties. Matching is word-boundary based (S). Empty when focus is
+// empty or nothing matches.
 func focusMatches(entries []MemoryEntry, focus string) []string {
 	toks := significantTokens(focus)
 	if len(toks) == 0 {
@@ -969,7 +1080,7 @@ func focusMatches(entries []MemoryEntry, focus string) []string {
 
 	var out []string
 	for _, c := range cands {
-		if len(out) >= memoryFocusMax {
+		if len(out) >= memoryFocusMax() {
 			break
 		}
 		out = append(out, c.key)
@@ -1066,22 +1177,19 @@ func resumeKeyFrom(entries []MemoryEntry) string {
 	return best
 }
 
-// memoryActiveChainMax bounds how many entries the active task chain force-keeps.
-// Because entries auto-link into one long chain, keeping the *entire* ancestry
-// would defeat truncation; the nearest few ancestors are the useful context.
-const memoryActiveChainMax = 8
-
-// ancestryChain returns key plus its nearest transitive parents (References), up
-// to memoryActiveChainMax entries, breadth-first (closest ancestors first), so
-// the current task's immediate provenance is preserved through truncation without
-// dragging in the whole session history. Empty when key is "".
+// ancestryChain returns key plus its nearest transitive parents (References),
+// up to the "memory-chain-max" event's cap, breadth-first (closest ancestors
+// first) -- because entries auto-link into one long chain, keeping the
+// *entire* ancestry would defeat truncation, so the current task's immediate
+// provenance is preserved through truncation without dragging in the whole
+// session history. Empty when key is "".
 func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
 	set := make(map[string]bool)
 	if key == "" {
 		return set
 	}
 	queue := []string{key}
-	for len(queue) > 0 && len(set) < memoryActiveChainMax {
+	for len(queue) > 0 && len(set) < memoryChainMax() {
 		k := queue[0]
 		queue = queue[1:]
 		if set[k] {

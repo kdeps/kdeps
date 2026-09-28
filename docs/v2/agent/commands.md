@@ -19,6 +19,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
 | `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
+| `/model name [show\|hide\|abbreviate\|auto]` | Show or set how the modeline displays the model name, overriding the theme's default (see [Themes](/agent/repl#themes)); persists |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -32,8 +33,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
-| `/stealth [on\|off]` | Muted UI - render everything in dark gray with the model name barely visible (for use in public); persists to `~/.kdeps/agent-loop-settings.yaml`. Also `--stealth` / `KDEPS_STEALTH=1` at startup |
-| `/theme [black\|linux\|vim\|emacs]` | Show or set the stealth-mode theme (see [Themes](/agent/repl#themes)); persists. Also `--theme` / `KDEPS_THEME` at startup |
+| `/theme [name\|list]` | Show or set the REPL's look - `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl#themes)); `list` shows built-in and custom names separately; persists. Also `--theme` / `KDEPS_THEME` at startup |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
@@ -49,7 +49,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
 | `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
-| `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `aliases`, `memory`, `goals`, `feedback`, `files` |
+| `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files` |
 | `/instruct list` | Name the topics without briefing the model |
 | `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
@@ -69,6 +69,15 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/agent/tools#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl#nightly-builds)) |
+| `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl#installing-a-specific-version-including-a-downgrade)) |
+| `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check. Turning it on verifies the current model immediately, before your next prompt, then again on every model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools#session-integrity-handshake)) |
+| `/harness [list]` | List harness sections (the system-prompt text sent every turn) with their enabled/disabled state |
+| `/harness enable\|disable <name>` | Turn a harness section on/off; persists to `~/.kdeps/harness/<name>.yaml` and takes effect on the next turn (no restart) |
+| `/harness events [list]` | List [reactive LLM events](/agent/events) with a trigger summary, action, and enabled/disabled state |
+| `/harness events enable\|disable <name>` | Turn an event on/off; persists to `~/.kdeps/events/<name>.yaml` and takes effect immediately - a disabled event's threshold can never fire |
+| `/harness preset [list]` | List built-in + user [presets](/agent/events#presets) (e.g. `frugal`, `balanced`, `thorough`) with their descriptions |
+| `/harness preset <name>` | Apply a preset: writes its bundled event overrides to `~/.kdeps/events/*.yaml` and reloads immediately - no restart |
+| `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/llm-server/m365)) |
 
 ## Auto-detected commands and files
@@ -113,8 +122,7 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 | `--new` | Start a clean session, skipping the resume picker for this folder |
 | `--model` / `--backend` / `--base-url` | Override the model for this run |
 | `--system <text>` | Prepend a system prompt |
-| `--stealth` | Muted UI (see [Stealth mode](/agent/repl#stealth-mode)) |
-| `--theme <name>` | Stealth-mode theme: `black` (default), `linux`, `vim`, or `emacs` (see [Themes](/agent/repl#themes)) |
+| `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl#themes)) |
 
 Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 `kdeps` runs in. See [Sessions](/agent/repl#sessions).

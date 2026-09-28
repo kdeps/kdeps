@@ -113,6 +113,28 @@ func InstructionsFor(m Method) string {
 	}
 }
 
+// InstructionsForVersion returns upgrade instructions for a non-standalone
+// install method when an explicit target version (/upgrade <version>,
+// --upgrade --target-version) was requested. Homebrew/.deb/.apk always install
+// whatever their repository currently carries -- there is no "install this
+// exact version, including an older one" command for any of them -- so this
+// points at the release page directly instead of a package-manager command
+// that can't do what was asked. Empty for MethodStandalone, since that case
+// is handled by Perform instead.
+func InstructionsForVersion(m Method) string {
+	switch m {
+	case MethodHomebrew, MethodDebPkg, MethodApkPkg:
+		return "Installing a specific version (including a downgrade) isn't supported through your package " +
+			"manager. Download the archive for that version directly from https://github.com/" +
+			kdepsReleaseRepo + "/releases, or switch to a standalone install to use " +
+			"--upgrade --target-version / /upgrade <version> directly."
+	case MethodStandalone:
+		return ""
+	default:
+		return ""
+	}
+}
+
 // InstructionsForNightly returns upgrade instructions for a non-standalone
 // install method when the nightly channel was requested. Homebrew/.deb/.apk
 // only ever track the latest STABLE release -- InstructionsFor's commands

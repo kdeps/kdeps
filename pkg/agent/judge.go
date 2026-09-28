@@ -37,10 +37,6 @@ import (
 // judge_verdict tool — never by parsing prose — mirroring the
 // task_complete/task_fail pattern in goal_enforce.go.
 
-// defaultJudgeMaxRounds bounds tool rounds for a single judge's review. Small
-// on purpose: a judge verifies claims, it does not redo the work.
-const defaultJudgeMaxRounds = 15
-
 // maxJudgeConcurrency caps how many judges run at once. Independent judges
 // reviewing the same output have no reason to run sequentially, but an
 // unbounded fan-out could open too many concurrent LLM connections.
@@ -56,7 +52,8 @@ type JudgeSpec struct {
 	// Tools lists the registered tool names this judge may call. Empty means
 	// every tool available to the parent loop.
 	Tools []string
-	// MaxRounds caps this judge's tool rounds. 0 uses defaultJudgeMaxRounds.
+	// MaxRounds caps this judge's tool rounds. 0 uses the "judge-max-rounds"
+	// event's default.
 	MaxRounds int
 }
 
@@ -70,16 +67,7 @@ type JudgeVerdict struct {
 
 // judgeSystemPrompt builds the system prompt for a judge's ephemeral loop.
 func judgeSystemPrompt(spec JudgeSpec) string {
-	return fmt.Sprintf(
-		"You are an independent reviewer named %q, judging a candidate answer "+
-			"against this criteria:\n%s\n\n"+
-			"Use tools if needed to verify claims in the answer (read files, run "+
-			"commands, search) before ruling. When you are done, call judge_verdict "+
-			"exactly once. Set approved=true only if the answer fully satisfies your "+
-			"criteria; otherwise set approved=false and feedback to what specifically "+
-			"must be fixed.",
-		spec.Name, spec.Criteria,
-	)
+	return harnessRender("judge-system", struct{ Name, Criteria string }{spec.Name, spec.Criteria})
 }
 
 // judgePrompt states the original request and the candidate output verbatim.
@@ -163,7 +151,7 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 
 	maxRounds := spec.MaxRounds
 	if maxRounds <= 0 {
-		maxRounds = defaultJudgeMaxRounds
+		maxRounds = effectiveRounds(eventJudgeMaxRounds)
 	}
 
 	judgeLoop := New(l.engine, l.workflow, judgeRegistry, Config{
@@ -224,7 +212,7 @@ func (l *Loop) iterateWithJudges(
 ) (string, string) {
 	maxIter := l.config.JudgeMaxIterations
 	if maxIter <= 0 {
-		maxIter = defaultJudgeMaxIterations
+		maxIter = effectiveRounds(eventJudgeIterations)
 	}
 	names := judgeNames(roster)
 	for iter := range maxIter {

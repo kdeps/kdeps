@@ -28,21 +28,26 @@ import (
 const (
 	compactKeepRecentTokens = 20000
 	compactReserveTokens    = 16384 // tokens reserved for summary prompt + output
-	compactMinTurns         = 4     // don't compact unless at least 4 turns exist
-	charsPerToken           = 4     // rough chars-per-token estimate for the fallback path
-	charsPerTokenRoundUp    = 3     // rounding offset for integer ceiling division
-
-	// defaultFoldThreshold is the token delta (since the last checkpoint) that
-	// triggers a "fold" -- a lighter, more frequent checkpoint-only
-	// summarize/archive pass, independent of the full-context-window
-	// auto-compact safety net. Configurable/persisted via
-	// Config.FoldThreshold / ToolTuning.FoldThreshold, see /fold.
-	defaultFoldThreshold = 2000
-	// defaultFoldContextItems caps how many recent checkpoints (active +
-	// archived) compete for space in the memory prompt block. Configurable/
-	// persisted via Config.FoldContextItems / ToolTuning.FoldContextItems.
-	defaultFoldContextItems = 5
+	// compactMinTurns is the structural floor findCutIndex/forcedCutIndex
+	// need to safely pick a cut point -- distinct from the "auto-compact"/
+	// "fold" events' own minTurns trigger gate (events.go), which governs
+	// *when* to fire, not how many messages are needed to cut. Used as their
+	// fallback too when an event's minTurns is unset (see effectiveMinTurns).
+	compactMinTurns      = 4
+	charsPerToken        = 4 // rough chars-per-token estimate for the fallback path
+	charsPerTokenRoundUp = 3 // rounding offset for integer ceiling division
 )
+
+// effectiveMinTurns returns the registered event's minTurns trigger gate, or
+// compactMinTurns when the event is unregistered or its minTurns is unset --
+// so a user override that omits minTurns can never accidentally disable the
+// gate entirely (0 would otherwise mean "fire immediately").
+func effectiveMinTurns(eventName string) int {
+	if n := eventMinTurns(eventName); n > 0 {
+		return n
+	}
+	return compactMinTurns
+}
 
 // compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
 // compaction text when it is injected as a context message for the next turn.
@@ -62,84 +67,141 @@ const (
 	branchSummarySuffix = `</summary>`
 )
 
-const compactionSystemPrompt = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.
+// normalizeCompactionSummary drops a leading "Summary" title and any section
+// whose body is empty or only an unfilled "[...]" template line. A compact
+// that starts "Summary" / "## Goal" with nothing under the heading was being
+// saved and shown as-is.
+func normalizeCompactionSummary(summary string) string {
+	summary = strings.ReplaceAll(summary, "\r\n", "\n")
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return ""
+	}
+	var lines []string
+	for _, line := range strings.Split(summary, "\n") {
+		if isSummaryChromeLine(strings.TrimSpace(line)) {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	// A reply that is only the word "summary" is kept. "Summary ## Goal"
+	// with nothing after it is not.
+	if strings.TrimSpace(strings.Join(lines, "\n")) == "" {
+		if strings.Contains(strings.ToLower(summary), "##") {
+			return ""
+		}
+		return strings.TrimSpace(summary)
+	}
 
-Do NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.`
+	type section struct {
+		heading string
+		body    []string
+	}
+	var sections []section
+	var cur section
+	var have bool
+	flush := func() {
+		if have {
+			sections = append(sections, cur)
+		}
+	}
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "## ") && !strings.HasPrefix(trim, "### ") {
+			flush()
+			cur = section{heading: trim}
+			have = true
+			continue
+		}
+		have = true
+		cur.body = append(cur.body, line)
+	}
+	flush()
 
-const compactionUserPrompt = `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
+	var out []string
+	for _, sec := range sections {
+		body := filterSectionBody(sec.body)
+		if body == "" {
+			continue
+		}
+		if sec.heading != "" {
+			out = append(out, sec.heading+"\n"+body)
+			continue
+		}
+		out = append(out, body)
+	}
+	return strings.TrimSpace(strings.Join(out, "\n\n"))
+}
 
-Use this EXACT format:
+// isSummaryChromeLine reports a title the model prints before the real
+// sections: "Summary", "Summary:", or "Summary ## Goal" with no body.
+func isSummaryChromeLine(trim string) bool {
+	s := strings.Trim(trim, "*_`")
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = strings.TrimRight(s, ":")
+	s = strings.Join(strings.Fields(s), " ")
+	if rest, ok := strings.CutPrefix(s, "summary"); ok {
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, ":"))
+		return rest == "" || rest == "## goal"
+	}
+	return false
+}
 
-## Goal
-[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
+// isTemplatePlaceholder reports an unfilled format line such as
+// "[What is the user trying to accomplish?]" or "- [Or "(none)" ...]".
+func isTemplatePlaceholder(trim string) bool {
+	s := strings.TrimSpace(trim)
+	if s == "" {
+		return false
+	}
+	for _, p := range []string{"- ", "* "} {
+		if rest, ok := strings.CutPrefix(s, p); ok {
+			s = strings.TrimSpace(rest)
+			break
+		}
+	}
+	if len(s) > 2 && s[0] >= '1' && s[0] <= '9' && s[1] == '.' {
+		s = strings.TrimSpace(s[2:])
+	}
+	for _, p := range []string{"[x] ", "[X] ", "[ ] "} {
+		if rest, ok := strings.CutPrefix(s, p); ok {
+			s = strings.TrimSpace(rest)
+			break
+		}
+	}
+	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {
+		return false
+	}
+	return !strings.ContainsAny(s[1:len(s)-1], "[]")
+}
 
-## Constraints & Preferences
-- [Any constraints, preferences, or requirements mentioned by user]
-- [Or "(none)" if none were mentioned]
+func filterSectionBody(lines []string) string {
+	var kept []string
+	for _, line := range lines {
+		if isTemplatePlaceholder(strings.TrimSpace(line)) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
+}
 
-## Progress
-### Done
-- [x] [Completed tasks/changes]
-
-### In Progress
-- [ ] [Current work]
-
-### Blocked
-- [Issues preventing progress, if any]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale]
-
-## Next Steps
-1. [Ordered list of what should happen next]
-
-## Critical Context
-- [Any data, examples, or references needed to continue]
-- [Or "(none)" if not applicable]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`
-
-// updateCompactionUserPrompt is used when a previous summary already exists.
-// It instructs the LLM to update the existing summary with new messages rather
-// than summarizing from scratch. Mirrors pi's UPDATE_SUMMARIZATION_PROMPT.
-const updateCompactionUserPrompt = `The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
-
-Update the existing structured summary with new information. RULES:
-- PRESERVE all existing information from the previous summary
-- ADD new progress, decisions, and context from the new messages
-- UPDATE the Progress section: move items from "In Progress" to "Done" when completed
-- UPDATE "Next Steps" based on what was accomplished
-- PRESERVE exact file paths, function names, and error messages
-- If something is no longer relevant, you may remove it
-
-Use this EXACT format:
-
-## Goal
-[Preserve existing goals, add new ones if the task expanded]
-
-## Constraints & Preferences
-- [Preserve existing, add new ones discovered]
-
-## Progress
-### Done
-- [x] [Include previously done items AND newly completed items]
-
-### In Progress
-- [ ] [Current work - update based on progress]
-
-### Blocked
-- [Current blockers - remove if resolved]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale] (preserve all previous, add new)
-
-## Next Steps
-1. [Update based on current state]
-
-## Critical Context
-- [Preserve important context, add new if needed]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`
+// summaryPreview is the one line shown after auto-compact. Headings are
+// skipped so the line is the goal sentence, not "## Goal".
+func summaryPreview(summary string) string {
+	summary = normalizeCompactionSummary(summary)
+	var b strings.Builder
+	for _, line := range strings.Split(summary, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		b.WriteString(t)
+		b.WriteByte('\n')
+	}
+	return firstLine(b.String())
+}
 
 // formatFileOperations formats file read/modified lists as XML summary metadata.
 // Mirrors pi's formatFileOperations() from compaction/utils.ts.
@@ -198,12 +260,14 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 
 	var kept int
 	cutIdx := n // default: keep everything (summarize nothing)
+	consumedAll := true
 
 	// Walk backwards one message at a time. Only snap the cut point when we land
 	// on a user message, ensuring context always starts with a user turn.
 	for i := n - 1; i >= 0; i-- {
 		msgTokens := estimateTokens(messages[i], modelHint)
 		if kept+msgTokens > keepRecentTokens {
+			consumedAll = false
 			break
 		}
 		kept += msgTokens
@@ -212,19 +276,41 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 		}
 	}
 
-	if cutIdx == 0 {
-		return 0 // all turns fit within budget - nothing to compact
+	// Everything fit. cutIdx is then the first user message, which is not 0
+	// once a compaction summary sits in front -- that must not count as work
+	// left to summarize.
+	if consumedAll {
+		return 0
 	}
 	// Ensure at least 1 complete turn is kept (even if it blows the budget).
 	if cutIdx > n-sessionMsgsPer {
 		cutIdx = n - sessionMsgsPer
 	}
-
+	if cutIdx <= 0 {
+		return 0
+	}
+	// A leading summary plus less than compactRetriggerMargin of real
+	// conversation is not worth another compaction. The next prompt would
+	// otherwise compact again immediately. The first compact has no summary
+	// yet, so this does not apply to it.
+	overflow := messages[:cutIdx]
+	if len(overflow) >= sessionMsgsPer && overflow[0].Role == RoleCompactionSummary {
+		overflow = overflow[sessionMsgsPer:]
+		if estimateSessionTokens(overflow, modelHint) < compactRetriggerMargin {
+			return 0
+		}
+	}
 	return cutIdx
 }
 
 // forceKeepTurns is how many recent turns a manual /compact leaves untouched.
 const forceKeepTurns = 3
+
+// compactRetriggerMargin is how many tokens of real conversation must sit
+// outside the kept window before another compaction runs. Without it, the
+// summary left by the first compact sits just outside that window, so the
+// next prompt looks overdue and compact runs again, forever.
+const compactRetriggerMargin = 2000
 
 // forcedCutIndex is findCutIndex for a user-invoked /compact: it summarizes
 // everything except the last forceKeepTurns turns, ignoring the token budget, so
@@ -258,7 +344,7 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 	if threshold <= 0 {
 		return false
 	}
-	if len(messages) < sessionMsgsPer*compactMinTurns {
+	if len(messages) < sessionMsgsPer*effectiveMinTurns(eventAutoCompact) {
 		return false
 	}
 	estimated := estimateSessionTokens(messages, modelHint)
@@ -275,13 +361,14 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 // the last checkpoint to justify folding it in again -- a tighter, more
 // frequent cadence than shouldAutoCompact's full-context-window safety net.
 // sinceNanos is the active checkpoint's UpdatedAt (converted from
-// milliseconds), or 0 when no checkpoint exists yet -- compactMinTurns still
-// gates the very first fold the same way it gates the first compaction.
+// milliseconds), or 0 when no checkpoint exists yet -- the "fold" event's
+// minTurns gate still applies to the very first fold the same way it
+// applies to the first compaction.
 func shouldFold(messages []SessionMessage, sinceNanos int64, thresholdTokens int, modelHint string) bool {
 	if thresholdTokens <= 0 {
 		return false
 	}
-	if len(messages) < sessionMsgsPer*compactMinTurns {
+	if len(messages) < sessionMsgsPer*effectiveMinTurns(eventFold) {
 		return false
 	}
 	return tokensSinceCheckpoint(messages, sinceNanos, modelHint) >= thresholdTokens

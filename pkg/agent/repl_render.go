@@ -695,6 +695,10 @@ type liveThinkingWriter struct {
 	// active is read by the REPL spinner goroutine: while thinking text owns
 	// the current terminal line, spinner frames must not be drawn over it.
 	active atomic.Bool
+	// tailRows is how many status rows the last repaint appended. Flush
+	// erases just those, so the thinking text stays and the live status
+	// is drawn once below it.
+	tailRows int
 }
 
 // Write appends the chunk and repaints the rendered block. Rendering markdown on
@@ -704,16 +708,19 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+	liveStatus.mu.Lock()
+	defer liveStatus.mu.Unlock()
 	w.active.Store(true)
+	// The spinner's frame is the other copy. Clear it before the thinking
+	// block, which redraws the same status as its last rows.
+	eraseLiveStatusLocked(os.Stdout)
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
-		// \r\033[K clears any leftover tool/spinner text on the current line; the
-		// header then sits on that clean line and the redrawn block starts below.
 		fmt.Fprintf(os.Stdout, "%s%s\r\n", ansiClearLine, hdr)
 		w.started = true
 	}
 	w.buf.Write(p)
-	w.repaint()
+	w.repaintLocked()
 	return len(p), nil
 }
 
@@ -722,22 +729,29 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 // downward, and reprints. This only tracks correctly while the block fits on
 // screen: once it is taller than the terminal, the top scrolls out of reach and
 // the cursor-up math cannot return to it (the inherent limit of re-rendering).
-func (w *liveThinkingWriter) repaint() {
+// repaintLocked redraws the thinking text and, under it, the one status
+// frame. Caller holds liveStatus.mu. The status rows are part of this
+// block so each new reasoning chunk updates sent/generated in place
+// instead of printing a second line.
+func (w *liveThinkingWriter) repaintLocked() {
 	rendered := renderThinkingMarkdown(strings.TrimRight(w.buf.String(), "\n"))
-	rendered = strings.Trim(rendered, "\n") // drop the document's leading/trailing blank lines
+	rendered = strings.Trim(rendered, "\n")
 	if rendered == "" {
 		return
 	}
-	rendered = withThinkingGutter(rendered)               // dim left border per line (same line count)
-	rendered = strings.ReplaceAll(rendered, "\n", "\r\n") // raw mode needs \r\n
+	rendered = withThinkingGutter(rendered)
+	rendered = strings.ReplaceAll(rendered, "\n", "\r\n")
+	tail, tailRows := statusTail()
+	rendered += "\r\n" + tail
 	rows := strings.Count(rendered, "\r\n") + 1
+	w.tailRows = tailRows
 
 	var sb strings.Builder
-	sb.WriteString("\r") // column 0 of the current (last-rendered) line
+	sb.WriteString("\r")
 	if w.prevRows > 1 {
-		fmt.Fprintf(&sb, "\033[%dA", w.prevRows-1) // up to the first rendered line
+		fmt.Fprintf(&sb, "\033[%dA", w.prevRows-1)
 	}
-	sb.WriteString("\033[0J") // erase the old block from here downward
+	sb.WriteString("\033[0J")
 	sb.WriteString(rendered)
 	fmt.Fprint(os.Stdout, sb.String())
 	w.prevRows = rows
@@ -778,6 +792,12 @@ func dedent(text string) string {
 
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
+		liveStatus.mu.Lock()
+		if w.tailRows > 0 {
+			fmt.Fprint(os.Stdout, eraseFrame(w.tailRows))
+			w.tailRows = 0
+		}
+		liveStatus.mu.Unlock()
 		fmt.Fprint(os.Stdout, ansiReset+"\r\n")
 		// memoryStoreInstance directly, not GetOrCreateMemoryStore: the latter
 		// lazily creates a store against the real process CWD on first call,

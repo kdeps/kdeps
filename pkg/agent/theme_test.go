@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
 // parseChannels returns the R,G,B values of a "#rrggbb" hex string.
@@ -42,77 +44,80 @@ func parseChannels(t *testing.T, hex string) [3]int64 {
 	return out
 }
 
-func channelSum(c [3]int64) int64 { return c[0] + c[1] + c[2] }
-
-func TestSetStealth_TogglesActivePalette(t *testing.T) {
-	t.Cleanup(func() { SetStealth(false) })
+func TestSetTheme_TogglesActivePalette(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
 
 	if stealthEnabled() {
-		t.Fatal("stealth should be off by default")
+		t.Fatal("normal should not be a disguise")
 	}
-	SetStealth(true)
+	if !SetTheme("black") {
+		t.Fatal("SetTheme(\"black\") should succeed")
+	}
 	if !stealthEnabled() || !StealthActive() {
-		t.Fatal("SetStealth(true) did not enable stealth")
+		t.Fatal("SetTheme(\"black\") did not enable the disguise")
 	}
-	if activePalette != &stealthPalette {
-		t.Fatal("activePalette is not stealthPalette")
+	if activePalette != themes["black"].palette {
+		t.Fatal("activePalette is not the black theme's palette")
 	}
-	SetStealth(false)
+	if !SetTheme("normal") {
+		t.Fatal("SetTheme(\"normal\") should succeed")
+	}
 	if stealthEnabled() {
-		t.Fatal("SetStealth(false) did not disable stealth")
+		t.Fatal("SetTheme(\"normal\") did not disable the disguise")
 	}
-	if activePalette != &normalPalette {
-		t.Fatal("activePalette did not return to normalPalette")
+	if activePalette != themes["normal"].palette {
+		t.Fatal("activePalette did not return to the normal theme's palette")
 	}
 }
 
-func TestStealthPalette_IsAllDark(t *testing.T) {
-	// Every color in the stealth palette must be a near-black gray: all three
-	// channels below 0x48. This is what makes it unreadable from across a room.
-	const maxChannel = 0x48
+func TestBlackTheme_IsMonochromeLegibleGray(t *testing.T) {
+	// Every field in the black theme must share one legible dark-gray color
+	// (r == g == b, roughly mid-range) -- a single flat hue rather than a
+	// near-invisible near-black palette.
+	p := themes["black"].palette
 	fields := map[string]string{
-		"heading": stealthPalette.heading, "link": stealthPalette.link,
-		"code": stealthPalette.code, "codeBlock": stealthPalette.codeBlock,
-		"text": stealthPalette.text, "thinking": stealthPalette.thinking,
-		"muted": stealthPalette.muted, "bullet": stealthPalette.bullet,
-		"quote": stealthPalette.quote, "borderHr": stealthPalette.borderHr,
-		"synKeyword": stealthPalette.synKeyword, "synFunc": stealthPalette.synFunc,
-		"synStr": stealthPalette.synStr, "synComment": stealthPalette.synComment,
-		"synNum": stealthPalette.synNum, "synType": stealthPalette.synType,
-		"synOp":     stealthPalette.synOp,
-		"replError": stealthPalette.replError, "replMeta": stealthPalette.replMeta,
-		"replHeading": stealthPalette.replHeading, "replSuccess": stealthPalette.replSuccess,
-		"replPrompt": stealthPalette.replPrompt, "replInfo": stealthPalette.replInfo,
-		"replDim": stealthPalette.replDim, "bannerText": stealthPalette.bannerText,
-		"bannerBorder": stealthPalette.bannerBorder, "modelsReady": stealthPalette.modelsReady,
-		"modelsNoKey": stealthPalette.modelsNoKey, "modelsCurrent": stealthPalette.modelsCurrent,
-		"modelName": stealthPalette.modelName,
+		"heading": p.heading, "link": p.link,
+		"code": p.code, "codeBlock": p.codeBlock,
+		"text": p.text, "thinking": p.thinking,
+		"muted": p.muted, "bullet": p.bullet,
+		"quote": p.quote, "borderHr": p.borderHr,
+		"synKeyword": p.synKeyword, "synFunc": p.synFunc,
+		"synStr": p.synStr, "synComment": p.synComment,
+		"synNum": p.synNum, "synType": p.synType,
+		"synOp":     p.synOp,
+		"replError": p.replError, "replMeta": p.replMeta,
+		"replHeading": p.replHeading, "replSuccess": p.replSuccess,
+		"replPrompt": p.replPrompt, "replInfo": p.replInfo,
+		"replDim": p.replDim, "bannerText": p.bannerText,
+		"bannerBorder": p.bannerBorder, "modelsReady": p.modelsReady,
+		"modelsNoKey": p.modelsNoKey, "modelsCurrent": p.modelsCurrent,
+		"modelName": p.modelName,
 	}
+	want := p.heading
 	for name, hex := range fields {
-		c := parseChannels(t, hex)
-		if c[0] >= maxChannel || c[1] >= maxChannel || c[2] >= maxChannel {
-			t.Errorf("stealthPalette.%s = %s is too bright for stealth (max channel < %#x)", name, hex, maxChannel)
+		if hex != want {
+			t.Errorf("black.%s = %s, want the same color as heading (%s) -- black is monochrome", name, hex, want)
 		}
 	}
-	if stealthPalette.bold {
-		t.Error("stealthPalette.bold must be false - bold raises contrast")
+	c := parseChannels(t, want)
+	if c[0] != c[1] || c[1] != c[2] {
+		t.Errorf("black theme color %s is not grayscale (r=%d g=%d b=%d)", want, c[0], c[1], c[2])
+	}
+	const (
+		minChannel = 0x40 // dark enough to still read as "muted"
+		maxChannel = 0xA0 // light enough to be legible on a dark background
+	)
+	if c[0] < minChannel || c[0] > maxChannel {
+		t.Errorf("black theme color %s channel %d is outside the legible-gray range [%#x, %#x]",
+			want, c[0], minChannel, maxChannel)
+	}
+	if p.bold {
+		t.Error("black.bold must be false - keeps the flat gray from reading as a second, brighter color")
 	}
 }
 
-func TestStealthPalette_ModelNameIsDarkest(t *testing.T) {
-	modelSum := channelSum(parseChannels(t, stealthPalette.modelName))
-	for _, hex := range []string{
-		stealthPalette.text, stealthPalette.heading, stealthPalette.replPrompt,
-		stealthPalette.replMeta, stealthPalette.bannerText,
-	} {
-		if channelSum(parseChannels(t, hex)) < modelSum {
-			t.Fatalf("modelName %s is not the darkest - %s is darker", stealthPalette.modelName, hex)
-		}
-	}
-}
-
-func TestSetStealth_InvalidatesRenderers(t *testing.T) {
-	t.Cleanup(func() { SetStealth(false) })
+func TestSetTheme_InvalidatesRenderers(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
 	// Prime the cache.
 	if _, err := getRenderer(); err != nil {
 		t.Fatalf("getRenderer: %v", err)
@@ -123,67 +128,36 @@ func TestSetStealth_InvalidatesRenderers(t *testing.T) {
 	if !primed {
 		t.Skip("renderer cache not populated in this environment")
 	}
-	SetStealth(true)
+	_ = SetTheme("black")
 	rendererMu.Lock()
 	defer rendererMu.Unlock()
 	if cachedRenderer != nil || cachedThinkingRenderer != nil {
-		t.Fatal("SetStealth did not drop the cached glamour renderers")
+		t.Fatal("SetTheme did not drop the cached glamour renderers")
 	}
 }
 
-func TestResolveStealthEnv(t *testing.T) {
-	for _, v := range []string{"1", "true", "TRUE", "yes", " Yes "} {
-		t.Setenv("KDEPS_STEALTH", v)
-		if !ResolveStealthEnv() {
-			t.Errorf("ResolveStealthEnv() = false for KDEPS_STEALTH=%q", v)
-		}
-	}
-	for _, v := range []string{"", "0", "false", "no", "off"} {
-		t.Setenv("KDEPS_STEALTH", v)
-		if ResolveStealthEnv() {
-			t.Errorf("ResolveStealthEnv() = true for KDEPS_STEALTH=%q", v)
-		}
-	}
-}
-
-func TestApplyReplStyles_StealthUsesModelNameColor(t *testing.T) {
-	t.Cleanup(func() { SetStealth(false) })
-	SetStealth(true)
+func TestApplyReplStyles_BlackThemeUsesModelNameColor(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+	_ = SetTheme("black")
 	got := styleModelName.Render("llama3.2")
 	// Under `go test` there is no TTY so lipgloss may strip color; only assert
 	// when the environment actually renders SGR codes.
 	if strings.Contains(got, "\x1b[") {
-		c := parseChannels(t, stealthPalette.modelName) // "#1c1c1c" -> 28;28;28
+		c := parseChannels(t, themes["black"].palette.modelName)
 		sgr := fmt.Sprintf("38;2;%d;%d;%d", c[0], c[1], c[2])
 		if !strings.Contains(got, sgr) {
 			t.Fatalf("styleModelName render %q missing %q", got, sgr)
 		}
 		if strings.Contains(got, "\x1b[1m") || strings.Contains(got, ";1m") {
-			t.Fatalf("styleModelName is bold in stealth mode: %q", got)
+			t.Fatalf("styleModelName is bold under the black theme: %q", got)
 		}
-	}
-}
-
-func TestRenderStealthSample(t *testing.T) {
-	got := RenderStealthSample()
-	if got == "" {
-		t.Fatal("RenderStealthSample must not be empty")
-	}
-	if !strings.Contains(got, "kdeps agent") {
-		t.Fatalf("RenderStealthSample() missing banner text: %q", got)
-	}
-	if !strings.Contains(got, "llama3.2:1b") {
-		t.Fatalf("RenderStealthSample() missing sample model name: %q", got)
-	}
-	if !strings.Contains(got, "\n") {
-		t.Fatal("RenderStealthSample() must join multiple styled lines")
 	}
 }
 
 // --- Theme selection ---
 
 func TestSetTheme_UnknownNameLeavesCurrentThemeUnchanged(t *testing.T) {
-	t.Cleanup(func() { _ = SetTheme("black") })
+	t.Cleanup(func() { _ = SetTheme("normal") })
 	SetTheme("vim")
 	if ok := SetTheme("bogus"); ok {
 		t.Fatal("SetTheme(\"bogus\") should return false")
@@ -193,64 +167,62 @@ func TestSetTheme_UnknownNameLeavesCurrentThemeUnchanged(t *testing.T) {
 	}
 }
 
-func TestSetTheme_IsIndependentOfStealthOnOff(t *testing.T) {
-	t.Cleanup(func() {
-		SetStealth(false)
-		_ = SetTheme("black")
-	})
-	SetStealth(false)
+func TestSetTheme_TakesEffectImmediately(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
 	if ok := SetTheme("vim"); !ok {
 		t.Fatal("SetTheme(\"vim\") should succeed")
 	}
-	// Choosing a theme while stealth is off must not turn stealth on, and
-	// must not change the rendered palette yet.
-	if stealthEnabled() {
-		t.Fatal("SetTheme must not enable stealth")
+	if !stealthEnabled() {
+		t.Fatal("a non-normal theme must be immediately active - there is no separate on/off layer")
 	}
-	if activePalette != &normalPalette {
-		t.Fatal("activePalette must stay normalPalette while stealth is off")
+	if activePalette != themes["vim"].palette {
+		t.Fatal("activePalette did not switch to the vim theme")
 	}
-	if CurrentThemeName() != "vim" {
-		t.Fatalf("CurrentThemeName() = %q, want \"vim\"", CurrentThemeName())
-	}
-
-	// Turning stealth on now must immediately pick up the already-chosen theme.
-	SetStealth(true)
-	if activePalette != &vimPalette {
-		t.Fatal("SetStealth(true) did not pick up the previously chosen vim theme")
+	if activePromptText != themes["vim"].promptText {
+		t.Fatalf("activePromptText = %q, want %q", activePromptText, themes["vim"].promptText)
 	}
 }
 
-func TestThemes_PromptTextAndPaletteAppliedWhenStealthOn(t *testing.T) {
-	t.Cleanup(func() {
-		SetStealth(false)
-		_ = SetTheme("black")
-	})
-	cases := []struct {
-		name   string
-		want   *palette
-		prompt string
-	}{
-		{"black", &stealthPalette, "> "},
-		{"linux", &linuxPalette, "$ "},
-		{"vim", &vimPalette, ": "},
-		{"emacs", &emacsPalette, "M-x "},
+// TestSetTheme_SyncsPickerColors is the unit-level guard for "model and
+// session selections are themable too": every SetTheme call must push the
+// new theme's chrome colors into pkg/tui so /model, /settings, and the
+// resume picker match it, via rebuildTheme -> syncPickerColors.
+func TestSetTheme_SyncsPickerColors(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+
+	for _, name := range []string{"normal", "black", "linux", "vim", "emacs"} {
+		t.Run(name, func(t *testing.T) {
+			if ok := SetTheme(name); !ok {
+				t.Fatalf("SetTheme(%q) failed", name)
+			}
+			p := themes[name].palette
+			got := tui.CurrentPickerColors()
+			want := tui.PickerColors{
+				Accent:  p.replHeading,
+				Success: p.replSuccess,
+				Warning: p.replError,
+				Dim:     p.replDim,
+				Bold:    p.bold,
+			}
+			if got != want {
+				t.Errorf("tui.CurrentPickerColors() after SetTheme(%q) = %+v, want %+v", name, got, want)
+			}
+		})
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if ok := SetTheme(tc.name); !ok {
-				t.Fatalf("SetTheme(%q) failed", tc.name)
+}
+
+func TestThemes_PromptTextAndPaletteApplied(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+	for _, name := range []string{"normal", "black", "linux", "vim", "emacs"} {
+		t.Run(name, func(t *testing.T) {
+			if ok := SetTheme(name); !ok {
+				t.Fatalf("SetTheme(%q) failed", name)
 			}
-			SetStealth(true)
-			if activePalette != tc.want {
-				t.Errorf("theme %q: activePalette not applied", tc.name)
+			if activePalette != themes[name].palette {
+				t.Errorf("theme %q: activePalette not applied", name)
 			}
-			if activePromptText != tc.prompt {
-				t.Errorf("theme %q: activePromptText = %q, want %q", tc.name, activePromptText, tc.prompt)
-			}
-			SetStealth(false)
-			if activePalette != &normalPalette || activePromptText != "> " {
-				t.Errorf("theme %q: turning stealth off did not restore normal palette/prompt", tc.name)
+			if activePromptText != themes[name].promptText {
+				t.Errorf("theme %q: activePromptText = %q, want %q", name, activePromptText, themes[name].promptText)
 			}
 		})
 	}
@@ -268,8 +240,52 @@ func TestThemeNames_MatchesRegisteredThemes(t *testing.T) {
 	}
 }
 
+func TestThemeNames_IncludesAllBuiltins(t *testing.T) {
+	names := ThemeNames()
+	for _, want := range []string{"normal", "black", "linux", "vim", "emacs"} {
+		found := false
+		for _, n := range names {
+			if n == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("ThemeNames() missing built-in %q: %v", want, names)
+		}
+	}
+}
+
+func TestBuiltinThemeNames_ListsExactlyTheFiveShipped(t *testing.T) {
+	got := BuiltinThemeNames()
+	want := []string{"normal", "black", "linux", "vim", "emacs"}
+	if len(got) != len(want) {
+		t.Fatalf("BuiltinThemeNames() = %v, want %v", got, want)
+	}
+	for i, name := range want {
+		if got[i] != name {
+			t.Errorf("BuiltinThemeNames()[%d] = %q, want %q", i, got[i], name)
+		}
+	}
+}
+
+func TestCustomThemeNames_EmptyWithNoUserThemes(t *testing.T) {
+	// Force a clean HOME (no ~/.kdeps/themes) rather than relying on the
+	// ambient one, so this doesn't depend on test execution order relative
+	// to the user-theme tests in theme_yaml_test.go that mutate the same
+	// package-level registry.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	t.Cleanup(initThemes)
+	initThemes()
+
+	if got := CustomThemeNames(); len(got) != 0 {
+		t.Errorf("CustomThemeNames() = %v, want empty (no user theme files)", got)
+	}
+}
+
 func TestResolveThemeEnv(t *testing.T) {
-	for _, v := range []string{"vim", "VIM", " emacs ", "linux", "black"} {
+	for _, v := range []string{"vim", "VIM", " emacs ", "linux", "black", "normal"} {
 		t.Setenv("KDEPS_THEME", v)
 		got := ResolveThemeEnv()
 		want := strings.ToLower(strings.TrimSpace(v))
@@ -300,29 +316,22 @@ func TestAbbreviateModelName(t *testing.T) {
 	}
 }
 
-// TestDisplayModelName_TheGivenAwayConcern is a regression guard: the
-// linux/vim/emacs themes render the model-name color at full legibility, so
-// showing the literal model name would spell out "llama"/"claude"/"gpt" and
-// give the disguise away even though the surrounding chrome looks like a
-// different program. Only the black theme (and stealth off) show it verbatim
-// - black already hides it by color alone.
+// TestDisplayModelName_TheGivenAwayConcern is a regression guard: every
+// disguise theme (anything but normal) renders at full legibility now that
+// black is a flat legible gray rather than a near-invisible one, so showing
+// the literal model name would spell out "llama"/"claude"/"gpt" and give the
+// disguise away even though the surrounding chrome looks like a different
+// program. Only normal shows it verbatim, because there's no disguise at all.
 func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
-	t.Cleanup(func() {
-		SetStealth(false)
-		_ = SetTheme("black")
-	})
+	t.Cleanup(func() { _ = SetTheme("normal") })
 	const raw = "claude-sonnet-5"
 
+	_ = SetTheme("normal")
 	if got := DisplayModelName(raw); got != raw {
-		t.Errorf("stealth off: DisplayModelName(%q) = %q, want verbatim", raw, got)
+		t.Errorf("normal theme: DisplayModelName(%q) = %q, want verbatim", raw, got)
 	}
 
-	SetStealth(true)
-	if got := DisplayModelName(raw); got != raw {
-		t.Errorf("black theme: DisplayModelName(%q) = %q, want verbatim (color alone hides it)", raw, got)
-	}
-
-	for _, name := range []string{"linux", "vim", "emacs"} {
+	for _, name := range []string{"black", "linux", "vim", "emacs"} {
 		_ = SetTheme(name)
 		got := DisplayModelName(raw)
 		if got == raw {
@@ -331,6 +340,63 @@ func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 		if strings.Contains(strings.ToLower(got), "claude") {
 			t.Errorf("theme %q: abbreviation %q still spells out the vendor name", name, got)
 		}
+	}
+}
+
+func TestSetModelNameDisplay_ValidModesAccepted(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	for _, mode := range []string{"show", "hide", "abbreviate", ""} {
+		if !SetModelNameDisplay(mode) {
+			t.Errorf("SetModelNameDisplay(%q) = false, want true", mode)
+		}
+		if got := ModelNameDisplayMode(); got != mode {
+			t.Errorf("ModelNameDisplayMode() = %q, want %q", got, mode)
+		}
+	}
+}
+
+func TestSetModelNameDisplay_UnknownModeRejectedLeavesCurrentUnchanged(t *testing.T) {
+	t.Cleanup(func() { _ = SetModelNameDisplay("") })
+	if !SetModelNameDisplay("abbreviate") {
+		t.Fatal("SetModelNameDisplay(\"abbreviate\") should succeed")
+	}
+	if SetModelNameDisplay("bogus") {
+		t.Fatal("SetModelNameDisplay(\"bogus\") should return false")
+	}
+	if got := ModelNameDisplayMode(); got != "abbreviate" {
+		t.Errorf("ModelNameDisplayMode() = %q, want unchanged \"abbreviate\"", got)
+	}
+}
+
+func TestDisplayModelName_OverrideWinsRegardlessOfTheme(t *testing.T) {
+	t.Cleanup(func() {
+		_ = SetModelNameDisplay("")
+		_ = SetTheme("normal")
+	})
+	const raw = "claude-sonnet-5"
+
+	_ = SetTheme("vim") // a disguise theme -- would abbreviate by default
+
+	if !SetModelNameDisplay("show") {
+		t.Fatal("SetModelNameDisplay(\"show\") should succeed")
+	}
+	if got := DisplayModelName(raw); got != raw {
+		t.Errorf("show override: DisplayModelName(%q) = %q, want verbatim", raw, got)
+	}
+
+	if !SetModelNameDisplay("hide") {
+		t.Fatal("SetModelNameDisplay(\"hide\") should succeed")
+	}
+	if got := DisplayModelName(raw); got != "" {
+		t.Errorf("hide override: DisplayModelName(%q) = %q, want \"\"", raw, got)
+	}
+
+	_ = SetTheme("normal") // would show verbatim by default
+	if !SetModelNameDisplay("abbreviate") {
+		t.Fatal("SetModelNameDisplay(\"abbreviate\") should succeed")
+	}
+	if got := DisplayModelName(raw); got == raw || got == "" {
+		t.Errorf("abbreviate override under normal: DisplayModelName(%q) = %q, want an abbreviation", raw, got)
 	}
 }
 
@@ -347,5 +413,21 @@ func TestHexToSGRForeground(t *testing.T) {
 	}
 	if got := hexToSGRForeground("not-a-color"); got != "" {
 		t.Errorf("hexToSGRForeground on invalid input = %q, want \"\"", got)
+	}
+}
+
+func TestRenderStealthSample(t *testing.T) {
+	got := RenderStealthSample()
+	if got == "" {
+		t.Fatal("RenderStealthSample must not be empty")
+	}
+	if !strings.Contains(got, "kdeps agent") {
+		t.Fatalf("RenderStealthSample() missing banner text: %q", got)
+	}
+	if !strings.Contains(got, "llama3.2:1b") {
+		t.Fatalf("RenderStealthSample() missing sample model name: %q", got)
+	}
+	if !strings.Contains(got, "\n") {
+		t.Fatal("RenderStealthSample() must join multiple styled lines")
 	}
 }

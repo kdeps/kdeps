@@ -1,0 +1,43 @@
+# linux: plain, monochrome-ish light-gray-on-black - the look of a default
+# terminal emulator with no fancy syntax highlighting. Unlike black this is
+# fully legible; the disguise is "looks like an ordinary shell session", not
+# "hard to read".
+name: linux
+prompt: "$ "
+bold: true
+palette:
+  heading: "#FFFFFF"
+  link: "#5FAFFF"
+  code: "#D4D4D4"
+  codeBlock: "#D4D4D4"
+  text: "#E5E5E5"
+  thinking: "#AAAAAA"
+  muted: "#808080"
+  bullet: "#AAAAAA"
+  quote: "#AAAAAA"
+  borderHr: "#444444"
+
+  synKeyword: "#D4D4D4"
+  synFunc: "#AAAAAA"
+  synStr: "#D4D4D4"
+  synComment: "#808080"
+  synNum: "#D4D4D4"
+  synType: "#D4D4D4"
+  synOp: "#D4D4D4"
+
+  replError: "#FF5555"
+  replMeta: "#808080"
+  replHeading: "#FFFFFF"
+  replSuccess: "#55FF55"
+  replPrompt: "#E5E5E5"
+  replInfo: "#AAAAAA"
+  replDim: "#808080"
+
+  bannerText: "#E5E5E5"
+  bannerBorder: "#444444"
+
+  modelsReady: "#55FF55"
+  modelsNoKey: "#808080"
+  modelsCurrent: "#FFFFFF"
+
+  modelName: "#E5E5E5"

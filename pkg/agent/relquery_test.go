@@ -128,7 +128,7 @@ func TestMemoryRelation_TruncatesToLimitKeepingMostRecent(t *testing.T) {
 	ms := NewMemoryStore(t.TempDir())
 	ms.SetCwd("/Users/test/Projects/truncation")
 
-	total := relMemoryLimit + 5
+	total := relMemoryLimit() + 5
 	for i := range total {
 		key := fmt.Sprintf("key-%04d", i)
 		require.NoError(t, ms.Set(key, "v"))
@@ -141,7 +141,7 @@ func TestMemoryRelation_TruncatesToLimitKeepingMostRecent(t *testing.T) {
 	}
 
 	rows := memoryRelation(ms)
-	require.Len(t, rows, relMemoryLimit)
+	require.Len(t, rows, relMemoryLimit())
 	// The oldest 5 entries (key-0000..key-0004) must have been dropped.
 	seen := make(map[string]bool, len(rows))
 	for _, r := range rows {

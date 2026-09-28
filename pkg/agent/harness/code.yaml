@@ -1,0 +1,10 @@
+name: code
+kind: preamble-section
+order: 100
+body: |-
+  <code>
+  14. Return the simplest solution that works. Three similar lines is better than
+      a premature abstraction. No helpers for single-use operations.
+  15. Comment only the non-obvious WHY: a hidden constraint, a subtle invariant,
+      a workaround for a specific bug. Never comment unchanged code.
+  </code>

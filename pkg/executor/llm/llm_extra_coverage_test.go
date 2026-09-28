@@ -613,7 +613,8 @@ func TestResolvedGGUFURL_DefaultPortUnhealthy(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
 
 	// Get a valid path for a known alias.
-	path, ok := GGUFCachedPath("qwen3.5:4b", modelsDir)
+	alias := testGGUFAlias(t)
+	path, ok := GGUFCachedPath(alias, modelsDir)
 	require.True(t, ok)
 
 	// Remove from served map.
@@ -628,7 +629,7 @@ func TestResolvedGGUFURL_DefaultPortUnhealthy(t *testing.T) {
 		return nil, errors.New("connection refused")
 	}
 
-	result := ResolvedGGUFURL("qwen3.5:4b")
+	result := ResolvedGGUFURL(alias)
 	assert.Equal(t, "", result)
 }
 
@@ -756,15 +757,16 @@ func TestDownloadedModelAliases_GGUFStatSuccess(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
 	// Get the expected path for a known GGUF alias and create a file there.
-	if p, ok := GGUFCachedPath("qwen3.5:4b", dir); ok {
+	alias := testGGUFAlias(t)
+	if p, ok := GGUFCachedPath(alias, dir); ok {
 		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0750))
 		require.NoError(t, os.WriteFile(p, []byte("dummy"), 0600))
 	}
 
 	result := DownloadedModelAliases()
 	assert.NotNil(t, result)
-	// At minimum "qwen3.5:4b" should appear since its file was created.
-	assert.Contains(t, result, "qwen3.5:4b")
+	// At minimum this alias should appear since its file was created.
+	assert.Contains(t, result, alias)
 }
 
 // ---- gguf_server.go: detectOSArch darwin+arm64 (covers the darwin/arm64 branch) ----

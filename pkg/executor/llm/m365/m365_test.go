@@ -880,6 +880,34 @@ func TestModelSessionRefreshAgent(t *testing.T) {
 
 // --- agent.go ---
 
+// The provisioned agent is the only standing instruction a GPT-tone turn
+// has before the per-request <tools> block. It must teach the <invoke>
+// shape ParseFencedToolCalls actually recovers. The old Markdown-fence
+// shape is not parsed, so a model that followed it produced no tool call.
+func TestAgentInstructions_TeachInvokeFormat(t *testing.T) {
+	if !strings.Contains(agentInstructions, "kdeps is a parser") {
+		t.Fatal("agent instructions must say kdeps parses the invoke block at runtime")
+	}
+	if !strings.Contains(agentInstructions, "interpreter") {
+		t.Fatal("agent instructions must say kdeps interprets the invoke block, not the model's code interpreter")
+	}
+	if !strings.Contains(agentInstructions, "LITERAL") {
+		t.Fatal("agent instructions must say the invoke block is a LITERAL invoke block")
+	}
+	if !strings.Contains(agentInstructions, "at runtime") {
+		t.Fatal("agent instructions must say the invoke block is parsed at runtime")
+	}
+	if !strings.Contains(agentInstructions, `<invoke name="tool_name">`) {
+		t.Fatal("agent instructions must teach the invoke format the parser accepts")
+	}
+	if !strings.Contains(agentInstructions, `<parameter name="param_name">`) {
+		t.Fatal("agent instructions must teach parameter tags")
+	}
+	if strings.Contains(agentInstructions, "```<tool_name>") {
+		t.Fatal("markdown-fence tool calls are no longer parsed and must not be taught")
+	}
+}
+
 func TestAgentNamingAndCache(t *testing.T) {
 	if len(getInstructionsHash()) != 8 {
 		t.Errorf("hash length = %d", len(getInstructionsHash()))
@@ -965,18 +993,18 @@ func TestCachePath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cache.json")
 	t.Setenv("M365_CACHE_FILE", path)
-	if got := CachePath(); got != path {
-		t.Errorf("CachePath() = %q, want %q", got, path)
+	if got := cacheFile(); got != path {
+		t.Errorf("cacheFile() = %q, want %q", got, path)
 	}
 }
 
 func TestConfigDir(t *testing.T) {
-	got := ConfigDir()
+	got := configDir()
 	if got == "" {
-		t.Fatal("ConfigDir() must not be empty")
+		t.Fatal("configDir() must not be empty")
 	}
 	if !strings.HasSuffix(got, filepath.Join(".config", "kdeps", "m365")) {
-		t.Errorf("ConfigDir() = %q, want a path ending in .config/kdeps/m365", got)
+		t.Errorf("configDir() = %q, want a path ending in .config/kdeps/m365", got)
 	}
 }
 

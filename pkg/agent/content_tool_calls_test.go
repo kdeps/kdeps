@@ -146,6 +146,65 @@ func TestSalvageContentToolCalls_InvokeMultipleParams(t *testing.T) {
 	assert.JSONEq(t, `{"file_path":"/a.go","start_line":3,"new_string":"x"}`, calls[0].Arguments)
 }
 
+// TestSalvageContentToolCalls_InvokeDecodesHTMLEntities covers a model (seen
+// live on GPT-5.6) that writes the text-fallback <invoke> form as if it were
+// real markup and entity-encodes it accordingly: "a && b" arrives as
+// "a &amp;&amp; b", which then fails when bash_exec runs it verbatim.
+func TestSalvageContentToolCalls_InvokeDecodesHTMLEntities(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls foo &amp;&amp; ls bar</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{"command":"ls foo && ls bar"}`, calls[0].Arguments)
+}
+
+// TestSalvageContentToolCalls_InvokeDecodesOtherEntities covers the rest of
+// the commonly-seen entity set in one pass, not just &amp;.
+func TestSalvageContentToolCalls_InvokeDecodesOtherEntities(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">if [ 1 -lt 2 ]; then echo &quot;a&apos;b&quot; &gt; out.txt; fi</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t,
+		`{"command":"if [ 1 -lt 2 ]; then echo \"a'b\" > out.txt; fi"}`,
+		calls[0].Arguments)
+}
+
+// TestSalvageContentToolCalls_RepairsEscapedClosingTags covers a model that
+// treats the text-fallback <invoke> markup as a JSON string it's embedding
+// and escapes every "/" as "\/" -- turning "</invoke>" into "<\/invoke>",
+// which the tag regexes don't match at all, silently dropping the call.
+func TestSalvageContentToolCalls_RepairsEscapedClosingTags(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls -la<\/parameter><\/invoke>`
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"ls -la"}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+}
+
+// TestSalvageContentToolCalls_InvokeDecodesEscapedSlashesInValue covers the
+// same stray JSON escaping inside a parameter's value, not just around the
+// closing tags: a file path arrives as "a\/b\/c" instead of "a/b/c".
+func TestSalvageContentToolCalls_InvokeDecodesEscapedSlashesInValue(t *testing.T) {
+	in := `<invoke name="read_file"><parameter name="file_path">pkg\/agent\/loop.go</parameter></invoke>`
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{"file_path":"pkg/agent/loop.go"}`, calls[0].Arguments)
+}
+
+// TestSalvageContentToolCalls_RepairsDoubleSlashClosingTag covers a
+// different, no-backslash mangling of the same closing tag: some models
+// write "<//invoke>"/"<///parameter>" (a doubled/tripled literal slash)
+// instead of "</invoke>"/"</parameter>", which the tag regexes don't match
+// at all, silently dropping the call.
+func TestSalvageContentToolCalls_RepairsDoubleSlashClosingTag(t *testing.T) {
+	in := `<invoke name="bash_exec"><parameter name="command">ls -la<//parameter><///invoke>`
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"ls -la"}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+}
+
 func TestSalvageContentToolCalls_InvokeNamespaced(t *testing.T) {
 	// A leaked call may carry a namespace prefix on the tags.
 	prefix := "an" + "tml:"
@@ -174,4 +233,103 @@ func TestArgsToJSON(t *testing.T) {
 		"a JSON string containing an object is unwrapped")
 	assert.Equal(t, "{}", argsToJSON(json.RawMessage(`"not an object"`)))
 	assert.Equal(t, "{}", argsToJSON(json.RawMessage(`not valid json at all`)))
+}
+
+// A code fence demonstrating the <invoke>/<parameter> tool-call syntax --
+// exactly what use-kdeps-tools.yaml teaches models to write -- must survive
+// intact: it is example text, not a real call and not a hallucinated result,
+// and every regex in this file runs over the whole reply with no notion of
+// "inside a fence" unless protectFencedCodeBlocks shields it first.
+func TestSalvageContentToolCalls_InvokeExampleInsideFenceSurvives(t *testing.T) {
+	in := "Here is how to call it:\n\n```\n" +
+		`<invoke name="read_file">` + "\n" +
+		`<parameter name="file_path">cmd/serve.go</parameter>` + "\n" +
+		"</invoke>\n```\n\nThen wait for the result."
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	assert.Empty(t, calls, "example markup inside a fence must never be parsed as a real call")
+	assert.False(t, fake)
+	assert.Contains(t, cleaned, `<invoke name="read_file">`)
+	assert.Contains(t, cleaned, `<parameter name="file_path">cmd/serve.go</parameter>`)
+	assert.Contains(t, cleaned, "```")
+	assert.Contains(t, cleaned, "Then wait for the result.")
+}
+
+// A <tool_response> shown inside a fence as a documentation example (e.g.
+// explaining what NOT to write) must not be flagged as a hallucinated result
+// -- only a real, unfenced self-authored <tool_response> is.
+func TestSalvageContentToolCalls_ToolResponseInsideFenceNotFlagged(t *testing.T) {
+	in := "Never write this yourself:\n\n```\n<tool_response>fake</tool_response>\n```\n\nCall the real tool instead."
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	assert.Empty(t, calls)
+	assert.False(t, fake, "a fenced example must not be flagged as a hallucinated result")
+	assert.Contains(t, cleaned, "<tool_response>fake</tool_response>")
+	assert.Contains(t, cleaned, "Call the real tool instead.")
+}
+
+// Tilde fences must be protected the same as backtick fences.
+func TestSalvageContentToolCalls_InvokeExampleInsideTildeFenceSurvives(t *testing.T) {
+	in := "Example:\n\n~~~\n" + `<invoke name="bash_exec"><parameter name="command">pwd</parameter></invoke>` + "\n~~~\n\nDone."
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	assert.Empty(t, calls)
+	assert.Contains(t, cleaned, `<invoke name="bash_exec">`)
+	assert.Contains(t, cleaned, "~~~")
+}
+
+// A real (unfenced) tool call written as text right next to a fenced example
+// must still be recovered -- fence protection must not swallow genuine calls
+// outside the fence.
+func TestSalvageContentToolCalls_RealCallOutsideFenceStillRecovered(t *testing.T) {
+	in := `<tool_call>{"name":"bash_exec","arguments":{"command":"pwd"}}</tool_call>` +
+		"\n\nFor reference, the syntax looks like:\n\n```\n<invoke name=\"bash_exec\"></invoke>\n```"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.Contains(t, cleaned, "```")
+	assert.Contains(t, cleaned, `<invoke name="bash_exec"></invoke>`)
+}
+
+// TestSalvageHandshakeToolCall_RecoversFencedInvoke is the direct regression
+// test for a live failure mode: a small local model, asked to send a
+// literal <invoke> block for session_handshake, wrote a genuine,
+// correctly-coded one but wrapped it in a markdown code fence out of habit.
+// salvageContentToolCalls correctly treats that as a protected "example" (see
+// TestSalvageContentToolCalls_InvokeExampleInsideFenceSurvives) and drops
+// it -- exactly right for an ordinary turn, but it meant a real, intentional
+// handshake call was silently never dispatched, causing an endless retry
+// loop even though the model "did it correctly." salvageHandshakeToolCall is
+// the narrow, handshake-only fallback that recovers it.
+func TestSalvageHandshakeToolCall_RecoversFencedInvoke(t *testing.T) {
+	in := "Here is the literal invoke block:\n\n```\n" +
+		`<invoke name="session_handshake">` + "\n" +
+		`<parameter name="code">2705</parameter>` + "\n" +
+		"</invoke>\n```\n\nI've sent the block exactly as specified."
+	calls, _, _ := salvageHandshakeToolCall(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "session_handshake", calls[0].Name)
+	// A purely-numeric value is legitimately encoded as a JSON number here
+	// (parametersToJSON, isJSONScalar), not a string -- see
+	// TestHandshakeCodeArg_CoercesJSONNumber for why the session_handshake
+	// tool's own arg extraction must handle that.
+	assert.JSONEq(t, `{"code":2705}`, calls[0].Arguments)
+}
+
+// TestSalvageHandshakeToolCall_IgnoresOtherFencedTools ensures the fallback
+// stays narrowly scoped: a fenced example for a DIFFERENT tool (the exact
+// false-positive protectFencedCodeBlocks exists to prevent) must not be
+// recovered by this handshake-only path either.
+func TestSalvageHandshakeToolCall_IgnoresOtherFencedTools(t *testing.T) {
+	in := "Here is how to call it:\n\n```\n" +
+		`<invoke name="bash_exec"><parameter name="command">pwd</parameter></invoke>` +
+		"\n```"
+	calls, _, _ := salvageHandshakeToolCall(in)
+	assert.Empty(t, calls, "only a fenced session_handshake call may be recovered here")
+}
+
+// TestSalvageHandshakeToolCall_UnfencedStillWorks ensures the fallback is not
+// fence-only -- an ordinary, unfenced literal invoke still recovers.
+func TestSalvageHandshakeToolCall_UnfencedStillWorks(t *testing.T) {
+	in := `<invoke name="session_handshake"><parameter name="code">1234</parameter></invoke>`
+	calls, _, _ := salvageHandshakeToolCall(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "session_handshake", calls[0].Name)
 }

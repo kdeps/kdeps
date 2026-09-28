@@ -40,10 +40,10 @@ type ToolTuning struct {
 	CompactTokenBudget   int
 	MaxTurns             int
 	MaxHistoryTokens     int
-	WebLimit             int // max web_search/web_scraper calls per request (0=default 3)
-	BashLimit            int // max bash_exec calls per request (0=default 25)
-	FileLimit            int // max read_file/list_files calls per request (0=default 40)
-	CodeLimit            int // max search_local/code_search calls per request (0=default 15)
+	WebLimit             int // max web_search/web_scraper calls per request (0=default 20)
+	BashLimit            int // max bash_exec calls per request (0=default 50)
+	FileLimit            int // max read_file/list_files calls per request (0=default 80)
+	CodeLimit            int // max search_local/code_search calls per request (0=default 30)
 	// turo reducer state (empty TuroLevel means turo was never configured).
 	TuroLevel    string
 	TuroOff      bool
@@ -91,6 +91,11 @@ type ToolTuning struct {
 	// lets a future default flip.
 	RefineOff        bool
 	RefineConfigured bool
+	// HandshakeOn persists the /handshake on|off choice (default: off). No
+	// "configured" sentinel needed -- off is also the zero value, so a
+	// snapshot from before this field existed (unmarshals to false) already
+	// restores the correct default.
+	HandshakeOn bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -106,6 +111,12 @@ type ToolTuning struct {
 	// on-by-default behavior instead of silently disabling it.
 	FoldAuto       bool
 	FoldConfigured bool
+	// MaxLeafNodes persists the memory-graph leaf-count cap (0 = unlimited).
+	// See Config.MaxLeafNodes.
+	MaxLeafNodes int
+	// MaxLeafChars persists the per-leaf character truncation cap
+	// (0 = unlimited). See Config.MaxLeafChars.
+	MaxLeafChars int
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -150,10 +161,13 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		ContextSize:          r.contextSize,
 		RefineOff:            !c.PromptRefine,
 		RefineConfigured:     true,
+		HandshakeOn:          c.HandshakeEnabled,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
 		FoldConfigured:       true,
+		MaxLeafNodes:         c.MaxLeafNodes,
+		MaxLeafChars:         c.MaxLeafChars,
 	}
 }
 
@@ -238,6 +252,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if t.RefineConfigured {
 		r.loop.SetPromptRefine(!t.RefineOff)
 	}
+	r.loop.SetHandshakeEnabled(t.HandshakeOn)
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}
@@ -246,6 +261,12 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	}
 	if t.FoldConfigured {
 		c.FoldOff = !t.FoldAuto
+	}
+	if t.MaxLeafNodes > 0 {
+		c.MaxLeafNodes = t.MaxLeafNodes
+	}
+	if t.MaxLeafChars > 0 {
+		c.MaxLeafChars = t.MaxLeafChars
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
@@ -264,7 +285,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		const contextHistoryFraction, contextHistoryDivisor = 3, 4
 		budget := t.ContextSize * contextHistoryFraction / contextHistoryDivisor
 		c.CompactTokenBudget = budget
-		c.AutoCompactThreshold = budget
+		c.AutoCompactThreshold = autoCompactThresholdForCtxWindow(t.ContextSize)
 		if r.loop.Session() != nil {
 			r.loop.Session().SetTokenBudget(t.ContextSize, c.Model)
 		}

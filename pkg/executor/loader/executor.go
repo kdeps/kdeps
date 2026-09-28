@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -46,6 +47,71 @@ import (
 
 //nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
 var AppFS afero.Fs = afero.NewOsFs()
+
+// defaultMaxLoaderInputBytes bounds any single document a loader reads into
+// memory. Same risk this package's sibling, pkg/input/file, already guards
+// against (KDEPS_FILE_INPUT_MAX_BYTES): the whole file is read into one Go
+// string, then duplicated again by the RAG pipeline (splitDocuments,
+// json.Marshal in buildLoaderResult, whatever the workflow does with the
+// content downstream) -- a truly huge document silently multiplies past
+// available memory and gets SIGKILLed by the OS's low-memory killer, which
+// by definition leaves no core dump. Failing fast with a clear error beats
+// that every time. KDEPS_LOADER_MAX_BYTES raises or lowers it (0 disables
+// the check entirely).
+const defaultMaxLoaderInputBytes = 256 << 20 // 256 MiB
+
+// maxLoaderInputBytes returns the effective limit: the KDEPS_LOADER_MAX_BYTES
+// override when it parses as a valid, non-negative integer, else the default.
+func maxLoaderInputBytes() int64 {
+	raw := os.Getenv("KDEPS_LOADER_MAX_BYTES")
+	if raw == "" {
+		return defaultMaxLoaderInputBytes
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || n < 0 {
+		return defaultMaxLoaderInputBytes
+	}
+	return n
+}
+
+// formatByteSize renders n as a human-scaled size (KB/MB/GB) for error
+// messages. Mirrors pkg/input/file's formatByteSize -- no shared util
+// package exists for this between the two, and one small helper is not
+// worth introducing one for.
+func formatByteSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// checkFileSizeLimit stats path and errors if it exceeds the configured
+// loader input limit (0 disables the check). Callers that already have the
+// file open should stat the open handle instead (see loadPDF) rather than
+// stat-then-open, avoiding a TOCTOU gap and a redundant syscall.
+func checkFileSizeLimit(path string) error {
+	limit := maxLoaderInputBytes()
+	if limit <= 0 {
+		return nil
+	}
+	info, err := AppFS.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.Size() > limit {
+		return fmt.Errorf(
+			"file %s is %s, over the %s loader input limit (KDEPS_LOADER_MAX_BYTES to raise it, 0 to disable)",
+			path, formatByteSize(info.Size()), formatByteSize(limit),
+		)
+	}
+	return nil
+}
 
 // Document is a simple document type for loader output.
 type Document struct {
@@ -160,6 +226,9 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 }
 
 func loadText(source string) ([]Document, error) {
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader text: %w", err)
+	}
 	data, err := afero.ReadFile(AppFS, source)
 	if err != nil {
 		return nil, fmt.Errorf("loader text: read %s: %w", source, err)
@@ -168,6 +237,9 @@ func loadText(source string) ([]Document, error) {
 }
 
 func loadHTML(source string) ([]Document, error) {
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader html: %w", err)
+	}
 	f, err := os.Open(source)
 	if err != nil {
 		return nil, fmt.Errorf("loader html: open %s: %w", source, err)
@@ -184,6 +256,9 @@ func loadHTML(source string) ([]Document, error) {
 }
 
 func loadCSV(source string, columns []string) ([]Document, error) {
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader csv: %w", err)
+	}
 	f, err := os.Open(source)
 	if err != nil {
 		return nil, fmt.Errorf("loader csv: open %s: %w", source, err)
@@ -249,6 +324,13 @@ func loadPDF(source, password string) ([]Document, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loader pdf: stat %s: %w", source, err)
 	}
+	if limit := maxLoaderInputBytes(); limit > 0 && info.Size() > limit {
+		return nil, fmt.Errorf(
+			"loader pdf: file %s is %s, over the %s loader input limit "+
+				"(KDEPS_LOADER_MAX_BYTES to raise it, 0 to disable)",
+			source, formatByteSize(info.Size()), formatByteSize(limit),
+		)
+	}
 
 	var reader *pdf.Reader
 	if password != "" {
@@ -295,6 +377,15 @@ func loadDirectory(source string) ([]Document, error) {
 		if err != nil || d.IsDir() {
 			return nil //nolint:nilerr // skip unreadable dirs/files; continue walk
 		}
+		// An oversized file is skipped the same way an unreadable one is --
+		// this is a best-effort batch load, not a single explicit document
+		// the caller asked for by name (contrast loadText/loadPDF, which
+		// hard-error): one huge file in a directory of thousands must not
+		// abort ingesting the rest, but must also not be the one file that
+		// silently OOMs the whole load.
+		if sizeErr := checkFileSizeLimit(path); sizeErr != nil {
+			return nil //nolint:nilerr // skip oversized files; continue walk
+		}
 		data, rerr := afero.ReadFile(
 			AppFS,
 			path,
@@ -329,6 +420,9 @@ func loadNotionDirectory(source string) ([]Document, error) {
 			continue
 		}
 		path := filepath.Join(source, entry.Name())
+		if sizeErr := checkFileSizeLimit(path); sizeErr != nil {
+			continue // skip oversized files, same tolerant handling as an unreadable one
+		}
 		data, rerr := afero.ReadFile(AppFS, path)
 		if rerr != nil {
 			continue
@@ -360,6 +454,9 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 	if _, lookErr := exec.LookPath(bin); lookErr != nil {
 		return nil, fmt.Errorf("loader %s: %s not found in PATH", label, bin)
 	}
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader %s: %w", label, err)
+	}
 	tmpDir, dirErr := os.MkdirTemp("", "kdeps-"+label+"-*")
 	if dirErr != nil {
 		return nil, fmt.Errorf("loader %s: temp dir: %w", label, dirErr)
@@ -373,6 +470,9 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 	output, cmdErr := cmd.CombinedOutput()
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader %s: %w: %s", label, cmdErr, string(output))
+	}
+	if err := checkFileSizeLimit(tmpFile); err != nil {
+		return nil, fmt.Errorf("loader %s: %w", label, err)
 	}
 	data, readErr := afero.ReadFile(AppFS, tmpFile)
 	if readErr != nil {
@@ -388,6 +488,9 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 func loadPandoc(source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("pandoc"); lookErr != nil {
 		return nil, errors.New("loader pandoc: pandoc not found in PATH (install pandoc)")
+	}
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader pandoc: %w", err)
 	}
 	// No --from flag: pandoc auto-detects the input format from the file
 	// extension. Passing the literal string "auto" as a --from value is
@@ -441,6 +544,9 @@ func loadTextutil(source string) ([]Document, error) {
 func loadHTMLLynx(source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("lynx"); lookErr != nil {
 		return nil, errors.New("loader html_lynx: lynx not found in PATH (install lynx)")
+	}
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, fmt.Errorf("loader html_lynx: %w", err)
 	}
 	cmd := exec.CommandContext(context.Background(), "lynx", "-dump", "-nonumbers", source)
 	output, cmdErr := cmd.CombinedOutput()

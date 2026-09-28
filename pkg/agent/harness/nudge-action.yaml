@@ -1,0 +1,7 @@
+name: nudge-action
+kind: standalone
+maxOccurrences: 2
+body: >-
+  Your previous response contained no tool call and no answer. If you
+  intended to call a tool, call it now. Otherwise, answer directly in plain
+  text. Do not reply with reasoning alone.

@@ -320,7 +320,7 @@ func TestRunStreaming_UnlimitedRounds(t *testing.T) {
 	responses := make([]mockStreamResponse, 0, 61)
 	for i := range 60 { // more than the default cap of 50
 		// Distinct arguments per round: identical calls would trip the
-		// repeat-block guard (maxIdenticalToolCalls) before 60 rounds.
+		// repeat-block guard (the identical-tool-calls event) before 60 rounds.
 		toolCall := domain.StreamedToolCall{
 			ID:        strconv.Itoa(i),
 			Name:      "noop",
@@ -386,10 +386,11 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)
 	require.NoError(t, err)
-	if ms.callCount != maxIdenticalToolCalls {
+	want := effectiveRounds(eventIdenticalCalls)
+	if ms.callCount != want {
 		t.Fatalf(
 			"expected loop to break after %d identical calls, got %d",
-			maxIdenticalToolCalls,
+			want,
 			ms.callCount,
 		)
 	}
@@ -634,6 +635,81 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 	)
 	// Exact rendering of the registered tool from ToolPrompt.
 	assert.Contains(t, preamble, "**calc**: calculator")
+	assert.Contains(t, preamble, `<invoke name="calc">`)
+}
+
+// Later turns repeat the live tool list next to the reminder. The cached
+// preamble already has it; the model writes <invoke> from the latest system
+// message, so that message has to carry the names too.
+func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "noop",
+		Description: "no-op test tool",
+		Parameters: map[string]domain.ToolParam{
+			"target": {Description: "what to skip", Required: true},
+		},
+		Execute: func(_ map[string]any) (string, error) { return "ok", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+	loop.session.Append("first", "done")
+
+	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble(""))
+	require.NotEmpty(t, cfg.Tools)
+	// New() also registers identity_get. Tool order follows map iteration,
+	// so match by name instead of position.
+	var names []string
+	for _, tool := range cfg.Tools {
+		names = append(names, tool.Name)
+	}
+	assert.Contains(t, names, "noop")
+
+	var reminder string
+	for _, item := range cfg.Scenario {
+		if strings.HasPrefix(item.Prompt, "Reminder:") {
+			reminder = item.Prompt
+		}
+	}
+	require.NotEmpty(t, reminder, "turn 2 must restate the tool reminder")
+	assert.Contains(t, reminder, "<available_tools>")
+	assert.Contains(t, reminder, `<invoke name="noop">`)
+	assert.Contains(t, reminder, `<parameter name="target">`)
+}
+
+// TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the
+// "internals" harness section's CONVERGENCE paragraph: it must state the web
+// call limit models actually hit (globalWebCache.max), not a hardcoded
+// number that goes stale the moment that limit changes.
+func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T) {
+	// globalWebCache.max is process-wide state (builtin_tool_cache.go); pin
+	// it explicitly so this test is immune to another test's
+	// SetConvergenceLimits call leaving a different value behind.
+	SetConvergenceLimits(7, 0, 0, 0)
+	t.Cleanup(func() {
+		SetConvergenceLimits(effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget), 0, 0, 0)
+	})
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "deepseek-reasoner",
+		Backend:  "deepseek",
+		Streamer: &mockStreamer{},
+	})
+
+	preamble := loop.buildSystemPreamble("")
+	assert.Contains(t, preamble, "after 7 distinct web calls")
+	assert.NotContains(t, preamble, "{{.WebCallLimit}}", "the placeholder must not leak through unrendered")
 }
 
 // TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext verifies tool
@@ -989,9 +1065,9 @@ func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
 	var parsed map[string]string
 	require.NoError(t, json.Unmarshal([]byte(result), &parsed),
 		"error result must be valid JSON even when the error contains quotes")
-	assert.LessOrEqual(t, len(parsed["error"]), toolErrorMaxLen+10,
+	assert.LessOrEqual(t, len(parsed["error"]), toolErrorMaxLen()+10,
 		"error text fed to the LLM must be truncated")
-	assert.LessOrEqual(t, len(buf.String()), toolErrorMaxLen+200,
+	assert.LessOrEqual(t, len(buf.String()), toolErrorMaxLen()+200,
 		"terminal output must be truncated")
 }
 
@@ -1296,7 +1372,7 @@ func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
 	reg := tools.NewRegistry()
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
-		Streamer:             ms,
+		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
 		AutoCompactThreshold: 1,
 	})
@@ -1970,40 +2046,6 @@ func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
 	assert.Equal(t, "another_value", entry.Value)
 }
 
-// TestRunStreaming_MemoryTools_List verifies memory_list works through
-// RunStreaming: save multiple facts, then list them.
-func TestRunStreaming_MemoryTools_List(t *testing.T) {
-	store := setupMemoryStoreForTools(t)
-
-	require.NoError(t, store.Set("key_a", "value_a"))
-	require.NoError(t, store.Set("key_b", "value_b"))
-
-	listTC := domain.StreamedToolCall{ID: "1", Name: "memory_list", Arguments: "{}"}
-
-	ms := &mockStreamer{
-		responses: []mockStreamResponse{
-			{content: "listing", toolCalls: []domain.StreamedToolCall{listTC}},
-			{content: "key_a, key_b", toolCalls: nil},
-		},
-	}
-
-	eng := executor.NewEngine(nil)
-	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
-
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model:         "test",
-		Streamer:      ms,
-		MaxToolRounds: 5,
-		MemoryStore:   store,
-	})
-
-	var buf bytes.Buffer
-	result, err := loop.RunStreaming(context.Background(), "list all memory entries", &buf)
-	require.NoError(t, err)
-	assert.Equal(t, "key_a, key_b", result)
-}
-
 // TestRunStreaming_MemoryTools_NoStore verifies memory tools gracefully
 // handle a nil MemoryStore (no crash, clear error message).
 func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
@@ -2170,7 +2212,7 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "hello", &buf)
 	require.NoError(t, err)
 
-	// Two silent rounds draw two nudges (maxNudgesPerKind); a third silent
+	// Two silent rounds draw two nudges (nudge-action's maxOccurrences); a third silent
 	// round (the streamer's canned responses exhausted, defaulting to "")
 	// finally settles the turn with the notice.
 	assert.Len(t, ms.cfgs, 3, "two silent-round nudges, then the notice")
@@ -2354,9 +2396,119 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	assert.Contains(t, result, "edit failed")
 }
 
+// TestRunStreaming_RecoveredToolCallIsPraised covers the positive
+// counterpart to the [TOOL FAILED] banner: a tool call that fails, then
+// succeeds on retry, must carry a [GOOD] acknowledgment in the SAME tool
+// result message -- so the reinforcement rides along in conversation
+// history (not just printed to the terminal for that one round) and
+// survives into later tasks in the session, for a model that "forgets how
+// to call a tool" mid-session to actually carry the correction forward.
+func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			calls++
+			if calls == 1 {
+				return "", errors.New("old_string not found in /a.go")
+			}
+			return "edit applied", nil
+		},
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "edit_file", Arguments: "{}"}}},
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "2", Name: "edit_file", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "fix it", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 3)
+	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the first failure must still be flagged")
+	assert.Contains(t, ms.cfgs[2].Messages, "[GOOD]", "the recovered success must carry praise")
+	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
+}
+
+// TestRunStreaming_FirstToolCallsArePraised covers a direct user request: the
+// first few successful tool calls in a session are praised outright, not
+// only ones recovering from a failure -- building the habit of real tool
+// calls early. TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit
+// below covers the far side of tool-call-early-praise's maxOccurrences.
+func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) { return "file contents", nil },
+	})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "read_file", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read it", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.Contains(t, ms.cfgs[1].Messages, "[GOOD]",
+		"the first successful tool call in a session must be praised")
+}
+
+// TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit guards the scope
+// decision: past harness "tool-call-early-praise"'s configured
+// maxOccurrences, an ordinary success with no prior failure gets no praise --
+// otherwise every routine read_file/bash_exec for the rest of a long session
+// would carry a [GOOD] banner, constant noise rather than reinforcement.
+func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
+	limit := harnessOccurrenceLimit("tool-call-early-praise")
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) { return "file contents", nil },
+	})
+	responses := make([]mockStreamResponse, 0, limit+2)
+	for i := range limit + 1 {
+		// Distinct Arguments per round: identical consecutive calls would
+		// trip the loop's own stuck-repeat guard (the identical-tool-calls event)
+		// before this test ever reaches the call past the praise limit.
+		tc := domain.StreamedToolCall{
+			ID: strconv.Itoa(i), Name: "read_file",
+			Arguments: fmt.Sprintf(`{"file_path":"f%d.txt"}`, i),
+		}
+		responses = append(responses, mockStreamResponse{content: "", toolCalls: []domain.StreamedToolCall{tc}})
+	}
+	responses = append(responses, mockStreamResponse{content: "Done.", toolCalls: nil})
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: limit + 5,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read it repeatedly", &buf)
+	require.NoError(t, err)
+
+	// cfgs[i].Messages accumulates every round-trip so far, so the round
+	// right after the (limit+1)-th call -- index limit+1 -- carries limit+1
+	// tool results but only limit [GOOD] banners: the first N calls stay
+	// praised in history, the (N+1)-th must not add one.
+	require.Greater(t, len(ms.cfgs), limit+1)
+	got := strings.Count(ms.cfgs[limit+1].Messages, "[GOOD]")
+	assert.Equal(t, limit, got,
+		"only the first %d calls should ever be praised, got %d [GOOD] banners", limit, got)
+}
+
 // A model that repeats the bald "done" claim a second time (never
 // acknowledging the failure) draws a second, sharper nudge instead of the
-// turn silently accepting the repeat -- bounded to maxNudgesPerKind, same as
+// turn silently accepting the repeat -- bounded to nudge-unresolved-failure's maxOccurrences, same as
 // the sandbox-hallucination nudge.
 func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
 	eng := executor.NewEngine(nil)
@@ -2475,7 +2627,7 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
-// The sandbox nudge is bounded to maxNudgesPerKind (2): a model that regresses
+// The sandbox nudge is bounded to nudge-sandbox-hallucination's maxOccurrences (2): a model that regresses
 // into the same hallucination a second time within the turn draws a second,
 // sharper nudge instead of the turn silently ending on the first repeat.
 func TestRunStreaming_SandboxHallucinationNudgedTwiceThenAnswers(t *testing.T) {
@@ -2494,7 +2646,7 @@ func TestRunStreaming_SandboxHallucinationNudgedTwiceThenAnswers(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
-// Once maxNudgesPerKind nudges are spent and the model is *still* describing a
+// Once nudge-sandbox-hallucination's maxOccurrences nudges are spent and the model is *still* describing a
 // fabricated sandbox session, the turn must not silently settle on it as a
 // trustworthy answer -- the returned content is flagged with
 // sandboxUnverifiedBanner instead.
@@ -2512,6 +2664,26 @@ func TestRunStreaming_SandboxHallucinationExhaustedGetsBanner(t *testing.T) {
 	assert.Contains(t, got, sandboxUnverifiedBanner)
 	assert.Contains(t, got, "/mnt/data is empty", "the model's own words are kept, only flagged")
 	assert.Contains(t, buf.String(), sandboxUnverifiedBanner, "the banner reaches the writer too")
+}
+
+// TestRunStreaming_SandboxRecoveryIsPraised covers a direct user request:
+// once a model has faked a sandbox session and then makes a real tool call
+// instead, that call is praised specifically for using the real filesystem
+// through a genuine kdeps tool -- not just the generic recovery praise.
+func TestRunStreaming_SandboxRecoveryIsPraised(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "NO CONTENT AVAILABLE, cannot access the filesystem.", toolCalls: nil},
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "Done.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "read main.go", &buf)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(ms.cfgs), 3)
+	assert.Contains(t, ms.cfgs[2].Messages, "not the simulated sandbox",
+		"the real tool call right after a sandbox hallucination must carry the sandbox-recovery praise")
 }
 
 // A session that has already produced one sandbox hallucination gets the full
@@ -2546,6 +2718,59 @@ func TestRunStreaming_SandboxHallucinationEscalatesReminderAcrossTurns(t *testin
 	}
 	assert.True(t, found,
 		"turn 2 must carry the full kdepsToolsFirstGuidance block, not just the one-line reminder")
+}
+
+// A text-only reply that reads as giving up ("I cannot complete this") right
+// after a tool call succeeded this turn must draw a push-back nudge instead
+// of ending the turn on the refusal -- there was real progress on the table.
+func TestRunStreaming_GiveUpAfterProgressIsNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+		{content: "Actually, here is the answer.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 3, "the give-up reply after a successful tool call must draw one nudge")
+	assert.Contains(t, ms.cfgs[2].Prompt, "reads as giving up")
+	assert.Equal(t, "Actually, here is the answer.", got)
+}
+
+// The same give-up language with NO tool call having succeeded this turn must
+// not be nudged -- there is nothing to push back with, and settleActiveFromText
+// (or, outside goal mode, a plain stop) must handle it as before.
+func TestRunStreaming_GiveUpWithNoProgressIsNotNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 1, "no progress this turn means no give-up nudge -- the turn ends here")
+	assert.Equal(t, "I cannot complete this, no access to the repo.", got)
+}
+
+// The give-up nudge is bounded to nudge-give-up's maxOccurrences (2): a model that keeps
+// giving up after progress draws a second, sharper nudge, then the third
+// give-up reply is accepted as the turn's final answer.
+func TestRunStreaming_GiveUpNudgedTwiceThenAccepted(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "I cannot complete this.", toolCalls: nil},
+		{content: "I am unable to do this.", toolCalls: nil},
+		{content: "I cannot complete this, final answer.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 4, "two give-up nudges, then the third refusal is accepted")
+	assert.NotContains(t, ms.cfgs[2].Prompt, "second time this turn", "first nudge is not a repeat")
+	assert.Contains(t, ms.cfgs[3].Prompt, "second time this turn", "second nudge must read as a repeat")
+	assert.Equal(t, "I cannot complete this, final answer.", got)
 }
 
 // Every nudge that tells the model to "make a real tool call" must show it

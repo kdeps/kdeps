@@ -39,7 +39,7 @@ func TestGatheredToolDigest_InlinesResultsSkipsBlocks(t *testing.T) {
 		{"role": "tool", "name": "web_search", toolParamContent: "convergence (5 calls): ALL web/search calls blocked"},
 		{"role": "tool", "name": "web_scraper", toolParamContent: "Reuters: markets rose 2%"},
 	})
-	digest := gatheredToolDigest(history, maxForceAnswerDigestBytes)
+	digest := gatheredToolDigest(history, effectiveBytes(eventForceAnswerDigest, 12*1024))
 
 	if !strings.Contains(digest, "ceasefire signed") || !strings.Contains(digest, "markets rose 2%") {
 		t.Fatalf("digest missing gathered research:\n%s", digest)
@@ -76,7 +76,7 @@ func TestGatheredToolDigest_AllToolTypes(t *testing.T) {
 			toolParamContent: "convergence (15 calls): ALL code searches blocked — narrow your approach and work with existing results",
 		},
 	})
-	digest := gatheredToolDigest(history, maxForceAnswerDigestBytes)
+	digest := gatheredToolDigest(history, effectiveBytes(eventForceAnswerDigest, 12*1024))
 
 	for _, want := range []string{"go version go1.26", "package main func main", "loop.go:914 appendToolRoundTrip"} {
 		if !strings.Contains(digest, want) {
@@ -162,7 +162,7 @@ func TestGatheredToolDigest_EmptyWhenNoToolResults(t *testing.T) {
 		{"role": RoleUser, toolParamContent: "hi"},
 		{"role": RoleAssistant, toolParamContent: "hello"},
 	})
-	if d := gatheredToolDigest(history, maxForceAnswerDigestBytes); d != "" {
+	if d := gatheredToolDigest(history, effectiveBytes(eventForceAnswerDigest, 12*1024)); d != "" {
 		t.Fatalf("expected empty digest, got %q", d)
 	}
 }

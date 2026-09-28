@@ -340,7 +340,7 @@ func TestFormatForPromptCapped_ExcludesOldCheckpointsButKeepsOthers(t *testing.T
 		Type:      memTypeStatus,
 	}
 
-	capped := store.FormatForPromptCapped(10000, "", 2)
+	capped := store.FormatForPromptCapped(10000, "", 2, 0, 0)
 	assert.Contains(t, capped, "newest checkpoint")
 	assert.Contains(t, capped, "older checkpoint")
 	assert.NotContains(t, capped, "oldest checkpoint dropped from prompt")
@@ -350,6 +350,148 @@ func TestFormatForPromptCapped_ExcludesOldCheckpointsButKeepsOthers(t *testing.T
 	// /memory show already read the entries directly, unaffected by this.
 	uncapped := store.FormatForPrompt(10000, "")
 	assert.Contains(t, uncapped, "oldest checkpoint dropped from prompt")
+}
+
+// --- kartographer memory-graph leaf limits ---
+
+func TestLeafKeys_IdentifiesTerminalNodesOnly(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: "root"},
+		{Key: "progress:child", Value: "child", References: []string{"purpose:root"}},
+		{Key: "fact:grandchild", Value: "gc", References: []string{"progress:child"}},
+		{Key: "fact:isolated", Value: "iso"},
+	}
+	leaves := leafKeys(entries)
+	assert.False(t, leaves["purpose:root"], "referenced by progress:child -- not a leaf")
+	assert.False(t, leaves["progress:child"], "referenced by fact:grandchild -- not a leaf")
+	assert.True(t, leaves["fact:grandchild"], "nothing references it -- a leaf")
+	assert.True(t, leaves["fact:isolated"], "nothing references it -- a leaf")
+}
+
+func TestCapLeafCount_KeepsNewestLeavesAndAllNonLeaves(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: "root", UpdatedAt: 0},
+		{Key: "fact:leaf1", Value: "l1", UpdatedAt: 100, References: []string{"purpose:root"}},
+		{Key: "fact:leaf2", Value: "l2", UpdatedAt: 200, References: []string{"purpose:root"}},
+		{Key: "fact:leaf3", Value: "l3", UpdatedAt: 300, References: []string{"purpose:root"}},
+	}
+	leaves := leafKeys(entries)
+	require.True(t, leaves["fact:leaf1"] && leaves["fact:leaf2"] && leaves["fact:leaf3"])
+
+	got := capLeafCount(entries, leaves, map[string]bool{}, 2)
+	keys := make(map[string]bool, len(got))
+	for _, e := range got {
+		keys[e.Key] = true
+	}
+	assert.True(t, keys["purpose:root"], "non-leaf entries are never capped")
+	assert.True(t, keys["fact:leaf2"], "2nd newest leaf kept")
+	assert.True(t, keys["fact:leaf3"], "newest leaf kept")
+	assert.False(t, keys["fact:leaf1"], "oldest leaf beyond the cap is dropped")
+	assert.Len(t, got, 3)
+}
+
+func TestCapLeafCount_ExemptsPriorityLeaves(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "fact:oldest-leaf", Value: "oldest", UpdatedAt: 50},
+		{Key: "fact:old-leaf", Value: "old", UpdatedAt: 100},
+		{Key: "progress:resume", Value: "resume", UpdatedAt: 200}, // a leaf itself, and priority
+	}
+	leaves := leafKeys(entries)
+	priority := map[string]bool{"progress:resume": true}
+
+	got := capLeafCount(entries, leaves, priority, 0)
+	assert.Equal(t, entries, got, "maxLeaves <= 0 means unlimited, no cap at all")
+
+	// Two non-priority leaves compete for one slot -- the priority leaf never
+	// counts against the cap at all, so it survives regardless.
+	got = capLeafCount(entries, leaves, priority, 1)
+	keys := make(map[string]bool, len(got))
+	for _, e := range got {
+		keys[e.Key] = true
+	}
+	assert.True(t, keys["progress:resume"], "priority leaf is never capped")
+	assert.True(t, keys["fact:old-leaf"], "the one droppable slot goes to the newer non-priority leaf")
+	assert.False(t, keys["fact:oldest-leaf"], "the older non-priority leaf loses the slot")
+}
+
+func TestCapLeafCount_UnderCapReturnsAllUnchanged(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "fact:leaf1", Value: "l1", UpdatedAt: 100},
+		{Key: "fact:leaf2", Value: "l2", UpdatedAt: 200},
+	}
+	leaves := leafKeys(entries)
+	got := capLeafCount(entries, leaves, map[string]bool{}, 5)
+	assert.Equal(t, entries, got)
+}
+
+func TestTruncateLeafValues_TruncatesOnlyNonPriorityLeaves(t *testing.T) {
+	longValue := strings.Repeat("x", 100)
+	entries := []MemoryEntry{
+		{Key: "purpose:root", Value: longValue},
+		{Key: "fact:leaf", Value: longValue, References: []string{"purpose:root"}},
+		{Key: "fact:priority-leaf", Value: longValue},
+	}
+	leaves := leafKeys(entries)
+	priority := map[string]bool{"fact:priority-leaf": true}
+
+	got := truncateLeafValues(entries, leaves, priority, 10)
+	byKey := make(map[string]MemoryEntry, len(got))
+	for _, e := range got {
+		byKey[e.Key] = e
+	}
+	assert.Equal(t, longValue, byKey["purpose:root"].Value, "non-leaf entries are never truncated")
+	assert.Equal(t, longValue, byKey["fact:priority-leaf"].Value, "priority leaves are never truncated")
+	assert.Less(t, len(byKey["fact:leaf"].Value), len(longValue), "non-priority leaf is truncated")
+}
+
+func TestTruncateLeafValues_ZeroMeansUnlimited(t *testing.T) {
+	entries := []MemoryEntry{{Key: "fact:leaf", Value: strings.Repeat("x", 100)}}
+	got := truncateLeafValues(entries, leafKeys(entries), map[string]bool{}, 0)
+	assert.Equal(t, entries, got)
+}
+
+func TestFormatForPromptCapped_LeafNodeCapKeepsParentChainAndNewestLeaves(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	store.entries["purpose:root"] = MemoryEntry{
+		Key: "purpose:root", Value: "the goal", UpdatedAt: 0, Type: memTypePurpose,
+	}
+	store.entries["fact:old-leaf"] = MemoryEntry{
+		Key: "fact:old-leaf", Value: "old leaf dropped", UpdatedAt: 100,
+		Type: memTypeFact, References: []string{"purpose:root"},
+	}
+	store.entries["fact:new-leaf"] = MemoryEntry{
+		Key: "fact:new-leaf", Value: "new leaf kept", UpdatedAt: 200,
+		Type: memTypeFact, References: []string{"purpose:root"},
+	}
+
+	capped := store.FormatForPromptCapped(10000, "", 0, 1, 0)
+	assert.Contains(t, capped, "the goal", "non-leaf parent is never capped")
+	assert.Contains(t, capped, "new leaf kept")
+	assert.NotContains(t, capped, "old leaf dropped")
+
+	uncapped := store.FormatForPromptCapped(10000, "", 0, 0, 0)
+	assert.Contains(t, uncapped, "old leaf dropped", "0 means unlimited, unaffected")
+}
+
+func TestFormatForPromptCapped_LeafCharCapTruncatesLongLeafValue(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	longValue := "start-marker-" + strings.Repeat("y", 200)
+	store.entries["fact:big-leaf"] = MemoryEntry{
+		Key: "fact:big-leaf", Value: longValue, UpdatedAt: 0, Type: memTypeFact,
+	}
+
+	capped := store.FormatForPromptCapped(10000, "", 0, 0, 20)
+	assert.Contains(t, capped, "start-marker", "truncation keeps the front of the value")
+	assert.NotContains(t, capped, longValue, "the full untruncated value must not appear")
+
+	uncapped := store.FormatForPromptCapped(10000, "", 0, 0, 0)
+	assert.Contains(t, uncapped, longValue, "0 means unlimited, unaffected")
 }
 
 func TestMemoryStore_FormatForPrompt(t *testing.T) {
@@ -568,32 +710,6 @@ func TestMemoryStore_BuildDependencyMap(t *testing.T) {
 	assert.Contains(t, deps, "a")
 	assert.Contains(t, deps, "b")
 	assert.Contains(t, deps, "c")
-}
-
-func TestMemoryStore_FormatGraphForPrompt(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	store.SetCwd("/Users/test/Projects/foo")
-
-	require.NoError(t, store.Set("a", "A"))
-	require.NoError(t, store.Set("b", "B"))
-	require.NoError(t, store.Set("c", "C"))
-	require.NoError(t, store.SetRelation("a", "b"))
-	require.NoError(t, store.SetRelation("a", "c"))
-
-	graph := store.FormatGraphForPrompt(100)
-	assert.Contains(t, graph, "<memory-graph>")
-	assert.Contains(t, graph, "</memory-graph>")
-	assert.Contains(t, graph, "->") // arrow paths
-}
-
-func TestMemoryStore_FormatGraphForPrompt_NoRelations(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	store.SetCwd("/Users/test/Projects/foo")
-
-	require.NoError(t, store.Set("a", "A"))
-	assert.Equal(t, "", store.FormatGraphForPrompt(100))
 }
 
 func TestMemoryStore_FormatGraphNode(t *testing.T) {
@@ -1035,7 +1151,7 @@ func TestAncestryChain_BoundedAndNearestFirst(t *testing.T) {
 		byKey[e.Key] = e
 	}
 	set := ancestryChain("nu", byKey) // start near the end
-	assert.LessOrEqual(t, len(set), memoryActiveChainMax, "chain is bounded")
+	assert.LessOrEqual(t, len(set), memoryChainMax(), "chain is bounded")
 	assert.True(t, set["nu"], "includes the active node")
 	assert.True(t, set["nt"], "includes the nearest parent")
 }
@@ -1144,7 +1260,7 @@ func TestFocusMatches_RanksStrongMatchesFirst(t *testing.T) {
 	entries := []MemoryEntry{
 		{Key: "result:auth_tokens", Value: "issued", UpdatedAt: 1},
 	}
-	for i := range memoryFocusMax + 2 {
+	for i := range memoryFocusMax() + 2 {
 		entries = append(entries, MemoryEntry{
 			Key: "note:n" + string(rune('a'+i)), Value: "mentions auth once",
 			UpdatedAt: int64(100 + i),
@@ -1152,7 +1268,7 @@ func TestFocusMatches_RanksStrongMatchesFirst(t *testing.T) {
 	}
 	got := focusMatches(entries, "auth tokens")
 	assert.Contains(t, got, "result:auth_tokens", "older strong key+multi-token match survives the cap")
-	assert.LessOrEqual(t, len(got), memoryFocusMax, "capped at memoryFocusMax")
+	assert.LessOrEqual(t, len(got), memoryFocusMax(), "capped at memoryFocusMax")
 }
 
 func TestFocusScore(t *testing.T) {
@@ -1225,12 +1341,6 @@ func TestMemoryStore_BuildDependencyMap_NoCwd(t *testing.T) {
 	assert.Nil(t, store.BuildDependencyMap())
 }
 
-func TestMemoryStore_FormatGraphForPrompt_NoCwd(t *testing.T) {
-	dir := t.TempDir()
-	store := NewMemoryStore(dir)
-	assert.Equal(t, "", store.FormatGraphForPrompt(100))
-}
-
 func TestMemoryStore_FormatGraphNode_NoCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
@@ -1255,9 +1365,10 @@ func TestMemoryTools_Registered(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(reg)
 
-	for _, name := range []string{"memory_save", "memory_search", "memory_delete", "memory_list"} {
+	for _, name := range []string{"memory_save", "memory_search", "memory_delete"} {
 		assert.NotNil(t, reg.Get(name), "tool %q should be registered", name)
 	}
+	assert.Nil(t, reg.Get("memory_list"), "memory_list is not a tool; the graph is in the prompt")
 }
 
 func TestMemoryTools_SaveSearch(t *testing.T) {
@@ -1379,56 +1490,92 @@ func TestMemoryTools_Search_NoResults(t *testing.T) {
 	assert.Contains(t, result, "No memory entries found")
 }
 
+// TestMemoryTools_Search_CapsResultCount guards the fix for "memory_search
+// consumes millions of tokens": a broad query against a store with more than
+// memorySearchResultCap matches must not dump every one of them -- only the
+// cap, plus a count of how many more exist.
+func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	total := memorySearchResultCap + 5
+	for i := range total {
+		require.NoError(t, store.Set(fmt.Sprintf("match-%02d", i), "shared-query-term"))
+	}
+	// Force a known recency order. A tight Set loop can share one millisecond,
+	// and the cap must keep the newest facts, not the alphabetically first keys.
+	store.mu.Lock()
+	for i := range total {
+		key := fmt.Sprintf("match-%02d", i)
+		entry := store.entries[key]
+		entry.UpdatedAt = int64(i)
+		store.entries[key] = entry
+	}
+	store.mu.Unlock()
+
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "shared-query-term"})
+	require.NoError(t, err)
+	assert.Contains(t, result, fmt.Sprintf("Found %d memory entries", total))
+	assert.Contains(t, result, fmt.Sprintf("showing %d", memorySearchResultCap))
+	assert.Contains(t, result, "5 more")
+	assert.Contains(t, result, "match-24", "the newest match must be shown")
+	assert.NotContains(t, result, "match-00", "the oldest match must be past the cap")
+	assert.Equal(t, memorySearchResultCap, strings.Count(result, "shared-query-term"),
+		"only the capped number of matches should have their value printed")
+}
+
+// TestMemoryTools_Search_TruncatesLongValues guards the same bug from the
+// other direction: even a single match must not blow the budget if its
+// value is enormous.
+func TestMemoryTools_Search_TruncatesLongValues(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	huge := strings.Repeat("x", maxValueLength*10)
+	require.NoError(t, store.Set("giant", huge))
+
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "giant"})
+	require.NoError(t, err)
+	assert.Less(t, len(result), len(huge), "the giant value must be truncated, not echoed in full")
+	assert.Contains(t, result, truncationMarker)
+}
+
 func TestMemoryTools_RegisteredInBuiltinTools(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 
 	// Tools should be present (even though memoryStoreInstance may be nil).
-	for _, name := range []string{"memory_save", "memory_search", "memory_delete", "memory_list"} {
+	for _, name := range []string{"memory_save", "memory_search", "memory_delete"} {
 		assert.NotNil(t, reg.Get(name), "tool %q should be in RegisterBuiltinTools", name)
 	}
+	assert.Nil(t, reg.Get("memory_list"))
 }
 
-func TestMemoryTools_List(t *testing.T) {
+func TestMemoryTools_Search_KeyHitOutranksNewerValue(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(reg)
 
-	require.NoError(t, store.Set("a", "one"))
-	require.NoError(t, store.Set("b", "two"))
-	require.NoError(t, store.SetRelation("a", "b"))
+	require.NoError(t, store.Set("billing", "old fact"))
+	require.NoError(t, store.Set("note", "billing details"))
+	store.mu.Lock()
+	billing := store.entries["billing"]
+	billing.UpdatedAt = 1
+	store.entries["billing"] = billing
+	note := store.entries["note"]
+	note.UpdatedAt = 100
+	store.entries["note"] = note
+	store.mu.Unlock()
 
-	listTool := reg.Get("memory_list")
-	require.NotNil(t, listTool)
-
-	result, err := listTool.Execute(nil)
+	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "billing"})
 	require.NoError(t, err)
-	assert.Contains(t, result, "2 memory entries")
-	assert.Contains(t, result, "a")
-	assert.Contains(t, result, "b")
-	// Graph should be included.
-	assert.Contains(t, result, "<memory-graph>")
-	assert.Contains(t, result, "</memory-graph>")
-	assert.Contains(t, result, "->")
-}
-
-func TestMemoryTools_List_NoGraph(t *testing.T) {
-	store := setupMemoryStoreForTools(t)
-	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
-
-	// Use keys that won't auto-link: same type (note) with no parent type,
-	// and the fallback only links to the most recent entry. Setting a single
-	// entry with no prior entries means no link target exists.
-	require.NoError(t, store.Set("x", "one"))
-
-	listTool := reg.Get("memory_list")
-	require.NotNil(t, listTool)
-
-	result, err := listTool.Execute(nil)
-	require.NoError(t, err)
-	assert.Contains(t, result, "1 memory entr")
-	assert.NotContains(t, result, "<memory-graph>")
+	billIdx := strings.Index(result, "billing:")
+	noteIdx := strings.Index(result, "note:")
+	require.GreaterOrEqual(t, billIdx, 0)
+	require.GreaterOrEqual(t, noteIdx, 0)
+	assert.Less(t, billIdx, noteIdx, "a key hit must rank above a newer value-only hit")
 }
 
 func TestMemoryStore_InstanceVar(t *testing.T) {

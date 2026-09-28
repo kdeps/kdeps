@@ -83,7 +83,7 @@ func TestRunUpgradeCmd_CheckFails(t *testing.T) {
 	}, nil, nil)
 
 	var out bytes.Buffer
-	err := runUpgradeCmd(&out, false)
+	err := runUpgradeCmd(&out, false, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "check failed")
 }
@@ -94,7 +94,7 @@ func TestRunUpgradeCmd_UpToDate(t *testing.T) {
 	}, nil, nil)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, false))
+	require.NoError(t, runUpgradeCmd(&out, false, ""))
 	assert.Contains(t, out.String(), "up to date")
 }
 
@@ -109,7 +109,7 @@ func TestRunUpgradeCmd_NonStandaloneInstructionsOnly(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, false))
+	require.NoError(t, runUpgradeCmd(&out, false, ""))
 	assert.False(t, performCalled)
 	assert.Contains(t, out.String(), "apt")
 }
@@ -127,7 +127,7 @@ func TestRunUpgradeCmd_StandaloneDeclinedWithoutYes(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, false))
+	require.NoError(t, runUpgradeCmd(&out, false, ""))
 	assert.False(t, performCalled)
 	assert.Contains(t, out.String(), "skipped")
 }
@@ -144,7 +144,7 @@ func TestRunUpgradeCmd_StandaloneConfirmedViaEnv(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, false))
+	require.NoError(t, runUpgradeCmd(&out, false, ""))
 	assert.Equal(t, "2.9.0", gotTag)
 	assert.Contains(t, out.String(), "Updated to v2.9.0")
 }
@@ -160,7 +160,7 @@ func TestRunUpgradeCmd_PerformFails(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	err := runUpgradeCmd(&out, false)
+	err := runUpgradeCmd(&out, false, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "checksum mismatch")
 }
@@ -192,7 +192,7 @@ func TestRunUpgradeCmd_Nightly_UpToDate(t *testing.T) {
 	}, nil, nil)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, true))
+	require.NoError(t, runUpgradeCmd(&out, true, ""))
 	assert.Contains(t, out.String(), "already on the latest nightly")
 }
 
@@ -209,7 +209,7 @@ func TestRunUpgradeCmd_Nightly_NonStandaloneGetsNightlySpecificInstructions(t *t
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, true))
+	require.NoError(t, runUpgradeCmd(&out, true, ""))
 	assert.False(t, performCalled)
 	assert.Contains(t, out.String(), "package manager")
 	assert.NotContains(t, out.String(), "brew upgrade kdeps")
@@ -229,9 +229,94 @@ func TestRunUpgradeCmd_Nightly_StandaloneConfirmedInstallsNightlyTag(t *testing.
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out, true))
+	require.NoError(t, runUpgradeCmd(&out, true, ""))
 	assert.Equal(t, "2.9.0-nightly202608260200", gotTag)
 	assert.Contains(t, out.String(), "Updated to v2.9.0-nightly202608260200")
+}
+
+// stubCmdUpgradeCurrentVersion overrides upgradeCurrentVersionFunc for the
+// duration of the test.
+func stubCmdUpgradeCurrentVersion(t *testing.T, current string) {
+	t.Helper()
+	orig := upgradeCurrentVersionFunc
+	upgradeCurrentVersionFunc = func() string { return current }
+	t.Cleanup(func() { upgradeCurrentVersionFunc = orig })
+}
+
+func TestRunUpgradeCmd_ExplicitVersion_InvalidVersionRejected(t *testing.T) {
+	performCalled := false
+	stubCmdUpgradeHooks(t, nil, nil, func(context.Context, io.Writer, string) error {
+		performCalled = true
+		return nil
+	})
+
+	var out bytes.Buffer
+	err := runUpgradeCmd(&out, false, "not-a-version")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid version")
+	assert.False(t, performCalled)
+}
+
+func TestRunUpgradeCmd_ExplicitVersion_NonStandaloneGetsInstructions(t *testing.T) {
+	performCalled := false
+	stubCmdUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodHomebrew },
+		func(context.Context, io.Writer, string) error { performCalled = true; return nil },
+	)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, false, "2.5.0"))
+	assert.False(t, performCalled)
+	assert.Contains(t, out.String(), "specific version")
+}
+
+func TestRunUpgradeCmd_ExplicitVersion_Downgrade(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	stubCmdUpgradeCurrentVersion(t, "2.9.0")
+	var gotTag string
+	stubCmdUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, false, "2.5.0"))
+	assert.Equal(t, "2.5.0", gotTag, "must install exactly the requested (older) version")
+	assert.Contains(t, out.String(), "Downgraded to v2.5.0")
+}
+
+func TestRunUpgradeCmd_ExplicitVersion_UpgradeTargetTakesPriorityOverNightly(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	stubCmdUpgradeCurrentVersion(t, "2.5.0")
+	var gotTag string
+	stubCmdUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, true, "2.9.0"))
+	assert.Equal(t, "2.9.0", gotTag, "explicit target-version must win over --nightly")
+	assert.Contains(t, out.String(), "Updated to v2.9.0")
+}
+
+func TestRootCmd_UpgradeTargetVersionFlagShortCircuits(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	stubCmdUpgradeCurrentVersion(t, "2.9.0")
+	var gotTag string
+	stubCmdUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"--upgrade", "--target-version", "v2.5.0"})
+	require.NoError(t, root.Execute())
+	assert.Equal(t, "2.5.0", gotTag, "leading v must be stripped")
+	assert.Contains(t, out.String(), "Downgraded to v2.5.0")
 }
 
 func TestRootCmd_UpgradeNightlyFlagShortCircuits(t *testing.T) {

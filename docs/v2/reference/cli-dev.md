@@ -210,9 +210,11 @@ kdeps --upgrade
 | Flag | Description | Default |
 |---|---|---|
 | `--nightly` | Check the nightly channel instead of the latest stable release | `false` |
+| `--target-version` | Install this exact version instead of the latest, skipping the update check - can be older than the running build (a downgrade); takes priority over `--nightly` | `""` |
 
 ```bash
 kdeps --upgrade --nightly
+kdeps --upgrade --target-version 2.35.0
 ```
 
 ---
@@ -263,6 +265,19 @@ kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + G
 ```
 
 `list` shows a TYPE column (LF, GGUF, or model name) for each entry. `update` fetches the latest registries from HuggingFace and writes to both `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. Ollama models are discovered from the local `ollama list` output. Local entries are preserved across updates.
+
+---
+
+## `kdeps konfig export`
+
+Export the current effective agent-loop config - tuning, harness, themes, and skills - to one self-contained YAML file. See [konfig](/agent/konfig) for the full file format and the REPL's `/konfig export` equivalent.
+
+```bash
+kdeps konfig export              # writes ./konfig.yaml
+kdeps konfig export path/to/mine.yaml
+```
+
+Reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml`, or built-in defaults if nothing has ever been customized - so this works even against a completely fresh `~/.kdeps`.
 
 ---
 

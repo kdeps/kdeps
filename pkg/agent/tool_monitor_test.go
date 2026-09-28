@@ -226,7 +226,7 @@ func TestRunQuietMonitor_DrawsOnSilenceAndYieldsToOutput(t *testing.T) {
 	assert.Contains(t, out, "! make lint running (", "frame must draw during silence")
 	outIdx := strings.Index(out, "real output")
 	require.GreaterOrEqual(t, outIdx, 0)
-	assert.Contains(t, out[:outIdx], "\r\033[K",
+	assert.Contains(t, out[:outIdx], "\r\033[0J",
 		"the frame must be erased before real output prints")
 }
 

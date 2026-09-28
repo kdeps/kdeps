@@ -88,6 +88,17 @@ func (e *Executor) resolveChatRequestConfig(
 	config *domain.ChatConfig, allTools []domain.Tool, backendName string,
 ) ChatRequestConfig {
 	contextLength := config.ContextLength
+	if contextLength == 0 && config.MaxTokens != nil && *config.MaxTokens > 0 {
+		// chat.maxTokens (and the agent loop's syntheticCallMaxTokens) is an
+		// explicit per-request generation cap, so it beats the env fallback
+		// and the catalog. Streaming already sends it via llms.WithMaxTokens;
+		// BuildRequest only reads ContextLength, so without this the cap never
+		// reached the wire for compaction, planning, judging, refine, or a
+		// workflow Execute that set maxTokens and left contextLength unset.
+		// A non-positive pointer means "no explicit cap" (yaml 0 = model
+		// default) and falls through. contextLength, when set, still wins.
+		contextLength = *config.MaxTokens
+	}
 	if contextLength == 0 {
 		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
 			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
@@ -162,9 +173,10 @@ const defaultAnthropicChatContextLength = 8192
 // exceptions: a real positive default (defaultAnthropicChatContextLength)
 // rather than erroring out (Anthropic) or silently truncating on an
 // unverified gateway default (m365). A resource on any backend that needs a
-// specific cap can still set contextLength explicitly, and a known model's
-// real catalog ceiling (see resolveChatRequestConfig's ModelMaxOutputTokens
-// lookup) still takes priority over this fallback either way.
+// specific cap can still set contextLength or maxTokens explicitly.
+// Precedence when several are present: contextLength, then maxTokens, then
+// KDEPS_CHAT_CONTEXT_LENGTH, then the catalog ceiling (see
+// resolveChatRequestConfig's ModelMaxOutputTokens lookup), then this fallback.
 func defaultChatContextLength(backendName string) int {
 	switch backendName {
 	case BackendFile, BackendGGUF, "ollama":

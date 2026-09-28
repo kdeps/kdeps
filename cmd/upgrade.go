@@ -23,32 +23,42 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"golang.org/x/term"
 
 	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
 )
 
-// upgradeFreshFunc, upgradeFreshNightlyFunc, upgradeDetectFunc, and
-// upgradePerformFunc are kupgrade.Fresh/FreshNightly/Detect/Perform,
-// overridable in tests so runUpgradeCmd can be exercised without a real
-// GitHub call, real install-method detection, or a real binary replacement.
+// upgradeFreshFunc, upgradeFreshNightlyFunc, upgradeDetectFunc,
+// upgradePerformFunc, and upgradeCurrentVersionFunc are
+// kupgrade.Fresh/FreshNightly/Detect/Perform/CurrentVersion, overridable in
+// tests so runUpgradeCmd can be exercised without a real GitHub call, real
+// install-method detection, or a real binary replacement.
 //
 //nolint:gochecknoglobals // test-replaceable hooks
 var (
-	upgradeFreshFunc        = kupgrade.Fresh
-	upgradeFreshNightlyFunc = kupgrade.FreshNightly
-	upgradeDetectFunc       = kupgrade.Detect
-	upgradePerformFunc      = kupgrade.Perform
+	upgradeFreshFunc          = kupgrade.Fresh
+	upgradeFreshNightlyFunc   = kupgrade.FreshNightly
+	upgradeDetectFunc         = kupgrade.Detect
+	upgradePerformFunc        = kupgrade.Perform
+	upgradeCurrentVersionFunc = kupgrade.CurrentVersion
 )
 
 // runUpgradeCmd implements "kdeps --upgrade" (and "kdeps --upgrade
-// --nightly"): the same check -> instructions or confirm-and-replace flow as
-// the REPL's /upgrade command (pkg/agent's cmdUpgrade), but driven from a
-// plain cobra command exit rather than the REPL loop. nightly switches the
-// channel from the latest stable release to the latest nightly build.
-func runUpgradeCmd(w io.Writer, nightly bool) error {
+// --nightly" / "kdeps --upgrade --target-version X.Y.Z"): the same check ->
+// instructions or confirm-and-replace flow as the REPL's /upgrade command
+// (pkg/agent's cmdUpgrade), but driven from a plain cobra command exit
+// rather than the REPL loop. nightly switches the channel from the latest
+// stable release to the latest nightly build; a non-empty targetVersion
+// installs exactly that version instead -- including an older one than the
+// running build, i.e. a downgrade -- and takes priority over nightly if
+// both are somehow set.
+func runUpgradeCmd(w io.Writer, nightly bool, targetVersion string) error {
 	ctx := context.Background()
+	if targetVersion != "" {
+		return runUpgradeToVersionCmd(ctx, w, strings.TrimPrefix(targetVersion, "v"))
+	}
 	checkFunc := upgradeFreshFunc
 	if nightly {
 		checkFunc = upgradeFreshNightlyFunc
@@ -90,4 +100,63 @@ func runUpgradeCmd(w io.Writer, nightly bool) error {
 	}
 	fmt.Fprintf(w, "Updated to v%s.\n", result.Latest)
 	return nil
+}
+
+// runUpgradeToVersionCmd implements "kdeps --upgrade --target-version X.Y.Z":
+// installs an explicit target version directly, skipping the "is an update
+// available" check -- the version was named explicitly, so kdeps installs
+// exactly that one, whether newer (upgrade), older (downgrade), or the same
+// (reinstall) than the running build. No live GitHub check is needed here,
+// unlike the latest/nightly paths, since there's no "latest" to look up.
+func runUpgradeToVersionCmd(ctx context.Context, w io.Writer, target string) error {
+	if !kupgrade.IsValidVersion(target) {
+		return fmt.Errorf("upgrade: invalid version %q", target)
+	}
+
+	method := upgradeDetectFunc()
+	if instructions := kupgrade.InstructionsForVersion(method); instructions != "" {
+		fmt.Fprintln(w, instructions)
+		return nil
+	}
+
+	verb := upgradeVerbFor(upgradeCurrentVersionFunc(), target)
+	if !kupgrade.Confirm(
+		w, os.Stdin, term.IsTerminal(int(os.Stdin.Fd())),
+		fmt.Sprintf("%s v%s now? [Y/n] ", verb, target),
+	) {
+		fmt.Fprintln(w, "Upgrade skipped.")
+		return nil
+	}
+
+	if performErr := upgradePerformFunc(ctx, w, target); performErr != nil {
+		return fmt.Errorf("upgrade: %w", performErr)
+	}
+	fmt.Fprintf(w, "%s to v%s.\n", upgradeVerbPast(verb), target)
+	return nil
+}
+
+// upgradeVerbFor phrases an explicit-version confirmation prompt as an
+// upgrade, downgrade, or reinstall, based on how target compares to current.
+func upgradeVerbFor(current, target string) string {
+	switch {
+	case kupgrade.CompareVersions(current, target) < 0:
+		return "Downgrade to"
+	case kupgrade.CompareVersions(current, target) > 0:
+		return "Upgrade to"
+	default:
+		return "Reinstall"
+	}
+}
+
+// upgradeVerbPast maps upgradeVerbFor's imperative phrasing to the
+// past-tense form used in the success message.
+func upgradeVerbPast(verb string) string {
+	switch verb {
+	case "Downgrade to":
+		return "Downgraded"
+	case "Upgrade to":
+		return "Updated"
+	default:
+		return "Reinstalled"
+	}
 }

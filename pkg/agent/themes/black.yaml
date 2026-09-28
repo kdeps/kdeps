@@ -1,0 +1,45 @@
+# black: a single legible dark gray used for every element. Earlier
+# revisions used near-invisible near-black grays meant to blend into a black
+# terminal background; that traded away readability for a disguise effect
+# color alone can no longer provide once the model name is abbreviated (see
+# DisplayModelName). One flat #767676 keeps the "muted" look without being
+# unreadable.
+name: black
+prompt: "> "
+bold: false
+palette:
+  heading: "#767676"
+  link: "#767676"
+  code: "#767676"
+  codeBlock: "#767676"
+  text: "#767676"
+  thinking: "#767676"
+  muted: "#767676"
+  bullet: "#767676"
+  quote: "#767676"
+  borderHr: "#767676"
+
+  synKeyword: "#767676"
+  synFunc: "#767676"
+  synStr: "#767676"
+  synComment: "#767676"
+  synNum: "#767676"
+  synType: "#767676"
+  synOp: "#767676"
+
+  replError: "#767676"
+  replMeta: "#767676"
+  replHeading: "#767676"
+  replSuccess: "#767676"
+  replPrompt: "#767676"
+  replInfo: "#767676"
+  replDim: "#767676"
+
+  bannerText: "#767676"
+  bannerBorder: "#767676"
+
+  modelsReady: "#767676"
+  modelsNoKey: "#767676"
+  modelsCurrent: "#767676"
+
+  modelName: "#767676"

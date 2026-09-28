@@ -39,6 +39,14 @@ around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after
 it and type there - for example stage a stack trace and type
 `why does this happen: ` in front of it, then submit.
 
+## Line editing and history search
+
+The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history.
+
+`Ctrl+R` starts an incremental **backward** search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches **forward** the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
+
+`Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that's a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
+
 ## Multimodal input
 
 Attach images and other binary files to your prompt using `@`:
@@ -76,43 +84,96 @@ The REPL renders the model's markdown responses - headings, bold, lists, tables,
 
 When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as **live markdown**, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header and behind a dim left gutter (`|`) so the whole block reads as a distinct aside from the final answer. Inline code renders styled (by color, not literal backticks) in both the reasoning and the response.
 
-## Stealth mode
+## Themes
 
-`--stealth` (or `KDEPS_STEALTH=1`, or `/stealth` at runtime) renders the whole REPL - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers - in near-black dark grays (forced 24-bit color so the shades don't round up on a 256-color terminal). The model name in the status line is the dimmest element on screen, deliberately close to invisible against a dark terminal. Nothing about the output stops working; it just does not read as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office.
+`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the REPL's entire look - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries. `normal` is the bright default; every other theme is a disguise that no longer reads as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office. There's no separate on/off flag - picking a theme takes effect immediately.
+
+The `/model` picker, the `/settings` picker, and the startup resume picker (`--resume`/session history) run outside the REPL's own text rendering, in their own full-screen views - but they pick up the exact same theme colors (accent, success, warning, dim, bold), not just a muted/bright toggle. Switching to `vim` recolors those pickers with vim's yellow/green/red accents; switching to `black` collapses them to the same flat gray as everything else.
 
 ```bash
-kdeps --stealth                # start muted
+kdeps --theme black             # start disguised
 ```
 
 ```text
-/stealth        toggle muted mode
-/stealth on     turn it on
-/stealth off    turn it off
+/theme              show the current theme and the list of valid names
+/theme list         same as bare /theme - built-in and custom names shown separately
+/theme vim          switch themes - normal, black, linux, vim, emacs, or a custom name
 ```
-
-The runtime toggle is remembered - `/stealth on` writes `stealth: true` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts muted too. Precedence: the `--stealth` flag wins, then `KDEPS_STEALTH`, then the persisted setting. The flag and env var override the stored value for that one session without changing it. Stealth affects rendering only - prompts, responses, memory, tool calls, and logs are unchanged.
-
-### Themes
-
-Stealth mode has four looks, chosen independently of whether stealth is on or off - picking a theme just decides what stealth renders as once it's turned on:
 
 | Theme | Look |
 |---|---|
-| `black` (default) | Near-black grays, the model name barely visible - the original stealth look above |
+| `normal` (default) | The bright default palette - no disguise |
+| `black` | A single flat, legible dark gray (`#767676`) for every element - muted and monochrome, but readable, not near-invisible |
 | `linux` | Plain, monochrome-ish light-gray-on-black, like a default terminal with no syntax highlighting |
 | `vim` | vim's classic default colorscheme conventions (yellow keywords, cyan identifiers, red strings) and a `: ` command-line prompt |
 | `emacs` | A common terminal-Emacs highlight set (purple keywords, blue functions, salmon strings) and an `M-x ` prompt |
 
+`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts with it too. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `normal`.
+
+Every theme but `normal` renders the model-name color at full legibility, so the literal model name is shortened to initials in the status line by default - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color. Override this with `/model name`:
+
 ```text
-/theme              show the current theme and the list of valid names
-/theme vim          switch themes - black, linux, vim, or emacs
+/model name              show the current mode
+/model name show         always show the literal model name, regardless of theme
+/model name hide         omit the model name from the modeline entirely
+/model name abbreviate   always abbreviate, even under normal
+/model name auto         back to the theme-based default (the factory setting)
 ```
 
-`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, same persistence as `/stealth`. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `black`. Since theme selection is independent of `/stealth on|off`, `/theme vim` while stealth is off is remembered but has no visible effect until you also run `/stealth on`.
+`/model name <mode>` persists to `~/.kdeps/agent-loop-settings.yaml` the same way `/theme` does. The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
 
-`linux`/`vim`/`emacs` render the model-name color at full legibility (unlike `black`, which hides it by color alone), so the literal model name is shortened to initials in the status line for those three themes - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color.
+### Context-path status line
 
-The spinner that appears while waiting for a response never carries a descriptive word either way - no "generating," no "thinking" - just the animated glyph and the token counter. A label would spell out that an AI is producing a response regardless of how dim its color is.
+Directly above the session counter, whenever the running model's context window is known, a line shows what this turn's prompt is made of:
+
+```
+[turn 12.4k/200k | sys 8.1k | mem 1.2k | hist 2.4k | bash_exec 700]
+[sent 1.2m | generated 30]
+```
+
+`turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, `goal` the active task, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
+
+`sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `/compact` and `/fold` replace both with the context that remains: `sent` is that context, `generated` is the model-written part still in it. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame: each tick rewrites those rows in place.
+
+### Custom themes
+
+Every theme - built-in or not - is a YAML file. Drop your own into `~/.kdeps/themes/<name>.yaml` and it shows up in `/theme`'s list immediately:
+
+```yaml
+# ~/.kdeps/themes/solarized.yaml
+name: solarized     # optional - defaults to the filename without its extension
+prompt: "$ "         # the literal prompt text this theme renders
+bold: true
+palette:
+  heading: "#b58900"
+  text: "#839496"
+  # any field you omit falls back to the "normal" theme's value, so a
+  # custom theme can override just a couple of accent colors and leave
+  # everything else alone
+```
+
+A custom theme can reuse a built-in's name (e.g. your own `vim.yaml`) to override it. An invalid color value in one field is dropped with a warning; the rest of the file still loads.
+
+Every `palette:` field is optional; the full set is `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).
+
+## Custom harness
+
+Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they're the "harness." Like themes, the built-ins are compiled in, and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+
+```yaml
+# ~/.kdeps/harness/house-style.yaml
+name: house-style        # optional - defaults to the filename without its extension
+kind: preamble-section    # "preamble-section" (sent on every turn) or "standalone" (looked up by name)
+order: 200                 # only meaningful for preamble-section; controls where it lands among the others
+body: |-
+  Always answer in one paragraph, then a bulleted "next steps" list.
+```
+
+A `preamble-section` entry is appended to every turn's system preamble automatically - no other configuration needed. A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
+
+The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, and `use-kdeps-tools`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools#session-integrity-handshake)).
+
+There's no `/harness` command: unlike a theme, harness content loads once at startup and isn't switched at runtime.
 
 ## Turn-complete alert
 
@@ -155,7 +216,7 @@ write the call as text --- `<tool_call>{"name":...,"arguments":{...}}</tool_call
 or a bare JSON object --- and sometimes follow it with a **self-written
 `<tool_response>`** block and a false "done".
 
-kdeps recovers a text-written tool call and runs it for real. A model-authored
+kdeps is a parser and an interpreter. It parses a text-written tool call out of the message at runtime, including a matched `<invoke>` block, and interprets it for real. That is not the model's code interpreter. Without the native tool channel, that block is a LITERAL invoke block: the tags written as text. The system preamble lists every registered tool in `<available_tools>`, each with an `<invoke>` skeleton, and later turns repeat that list. A model-authored
 `<tool_response>` is always a hallucination (only the runtime produces tool
 results): kdeps strips it, does not accept the turn as finished, and nudges the
 model once to make the actual call and wait for the real result. These markers
@@ -183,6 +244,15 @@ turns fires only once the saved conversation exceeds the token budget (`/model
 tool set compact-threshold <n>`), which for a long run of short-but-tool-heavy
 turns may never happen - use `/compact` directly. Neither affects a running
 turn's tool output; that is bounded by the in-flight window above.
+
+A heading the summarizer leaves blank is dropped before the summary is saved
+or shown. That includes a bare `Summary` title and a `## Goal` with nothing
+under it. The auto-compact line prints the first sentence of what remains,
+not the heading.
+
+The summary from that compact is not itself a reason to compact again. The
+next one waits until real conversation, not the summary, has fallen outside
+the kept window.
 
 Both the compact budget (how much recent conversation stays verbatim) and the
 auto-compaction threshold default to 3/4 of the model's known context window,
@@ -224,12 +294,13 @@ compact-threshold`/`compact-budget` already do.
 budget entirely and always summarizes everything except the last few turns,
 same as `/compact`. The only way it comes back with nothing is too few turns
 to have anything beyond what it always keeps verbatim - it then prints the
-turn count needed and the current `in:`/`out:` token counter, a number to
+turn count needed and the current `sent`/`generated` token counter, a number to
 check instead of just an assertion.
 
-Both `/compact` and `/fold` refresh the cumulative token counter (`in:`/`out:`
-in the status line) immediately after they run, since the summarization call
-itself uses real tokens that would otherwise never get counted.
+Both `/compact` and `/fold` reset `sent` and `generated` to the context that
+remains. `sent` is that context (system prompt, memory, and the kept
+history). `generated` is the model-written part still in it, including the
+new summary. The old cumulative totals are dropped.
 
 ## Sessions
 
@@ -267,7 +338,7 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 - Resuming, continuing, then exiting **updates the same session** - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
-- Settings (`/refine`, `/stealth`, the default model, tool tuning), the model
+- Settings (`/refine`, `/theme`, the default model, tool tuning), the model
   cache, and everything else under `~/.kdeps/` are unchanged.
 - `ctrl+d` on a highlighted session deletes it in place (the "Start a new
   session" row can't be deleted) - same as `/session delete <id>`, just
@@ -319,6 +390,17 @@ Run `/upgrade` (or `kdeps --upgrade` outside the REPL) any time to check immedia
 kdeps also cuts a nightly build from `main` most days. `/upgrade nightly` (or `kdeps --upgrade --nightly`) switches the channel for that one check: it installs the latest nightly instead of the latest stable.
 
 Nightly opt-in only works for a **standalone** install - Homebrew/.deb/.apk only ever track stable, so on those `/upgrade nightly` prints standalone-install instructions instead of a package-manager command. "Already up to date" for the nightly channel means you're running that exact nightly tag: a nightly reuses the current stable version number until the next stable release ships, so it is always offered until you are actually on it.
+
+### Installing a specific version (including a downgrade)
+
+`/upgrade <version>` (or `kdeps --upgrade --target-version <version>` outside the REPL) installs exactly that version, skipping the "is an update available" check entirely - the version was named explicitly, so kdeps installs it whether it's newer than the running build (upgrade), older (downgrade), or the same (reinstall):
+
+```
+/upgrade 2.35.0
+Downgrade to v2.35.0 now? [Y/n]
+```
+
+Same standalone-only restriction as nightly: Homebrew/.deb/.apk can't be told to install a specific (especially older) version, so those print a link to the release page instead.
 
 ## See also
 

@@ -39,20 +39,6 @@ const judgeRosterActionID = "agent_loop_judge_roster"
 // being independent perspectives and just multiply review cost.
 const maxAutoJudges = 3
 
-// defaultJudgeMaxIterations bounds the revise-and-rejudge loop.
-const defaultJudgeMaxIterations = 2
-
-const judgeRosterSystemPrompt = `You generate a panel of reviewer personas to judge a candidate answer to a user request.
-
-Reply with ONLY a JSON object, no prose and no code fence:
-{"judges":[{"name":"correctness","criteria":"one-line rubric"},{"name":"security","criteria":"one-line rubric"}]}
-
-Rules:
-- Choose personas actually relevant to THIS request; do not always return the same set.
-- A simple request needs only one judge.
-- Maximum 3 judges.
-- Each criteria is one concise sentence stating exactly what that judge checks for.`
-
 // generateJudgeRoster asks the model for a panel of reviewer personas suited
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.
@@ -67,11 +53,11 @@ func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
 		Role:    l.config.Role,
 		Prompt:  "Request:\n" + input,
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: judgeRosterSystemPrompt},
+			{Role: "system", Prompt: harnessText("judge-roster-system")},
 		},
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {

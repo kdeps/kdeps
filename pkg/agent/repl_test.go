@@ -2797,7 +2797,7 @@ func TestApplyConfigDefaults_ModelServiceNotCalledWhenBaseURLSet(t *testing.T) {
 // A recognized model's default CompactTokenBudget/AutoCompactThreshold must
 // scale to its real context window (same 3/4 ratio the REPL's /model switch
 // already applies, repl.go handleModelSwitch) instead of the flat
-// compactKeepRecentTokens/defaultAutoCompactThreshold constants -- so a
+// compactKeepRecentTokens/"auto-compact" event's flat tokens fallback -- so a
 // session that never touches /model still gets sensibly-scaled defaults for
 // whichever model it starts on.
 func TestApplyConfigDefaults_CompactBudgetScalesToKnownModel(t *testing.T) {
@@ -2818,11 +2818,12 @@ func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
 	if cfg.CompactTokenBudget != compactKeepRecentTokens {
 		t.Errorf("CompactTokenBudget = %d, want flat default %d", cfg.CompactTokenBudget, compactKeepRecentTokens)
 	}
-	if cfg.AutoCompactThreshold != defaultAutoCompactThreshold {
+	want := autoCompactTokens()
+	if cfg.AutoCompactThreshold != want {
 		t.Errorf(
 			"AutoCompactThreshold = %d, want flat default %d",
 			cfg.AutoCompactThreshold,
-			defaultAutoCompactThreshold,
+			want,
 		)
 	}
 }
@@ -2833,11 +2834,13 @@ func TestApplyConfigDefaults_CompactBudgetFlatForUnknownModel(t *testing.T) {
 // something applyConfigDefaults needs to touch.
 func TestApplyConfigDefaults_FoldDefaults(t *testing.T) {
 	cfg := applyConfigDefaults(Config{Model: "test"})
-	if cfg.FoldThreshold != defaultFoldThreshold {
-		t.Errorf("FoldThreshold = %d, want default %d", cfg.FoldThreshold, defaultFoldThreshold)
+	wantThreshold := foldTokensSinceCheckpoint()
+	if cfg.FoldThreshold != wantThreshold {
+		t.Errorf("FoldThreshold = %d, want default %d", cfg.FoldThreshold, wantThreshold)
 	}
-	if cfg.FoldContextItems != defaultFoldContextItems {
-		t.Errorf("FoldContextItems = %d, want default %d", cfg.FoldContextItems, defaultFoldContextItems)
+	wantItems := foldItems()
+	if cfg.FoldContextItems != wantItems {
+		t.Errorf("FoldContextItems = %d, want default %d", cfg.FoldContextItems, wantItems)
 	}
 	if cfg.FoldOff {
 		t.Error("FoldOff should be false (auto-fold on) by default")
@@ -2964,16 +2967,16 @@ func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
 }
 
 // TestBuildSystemPreamble_MemoryKeysCapped guards against dumping every stored
-// key into the system prompt: with more entries than memoryKeysListLimit, the
-// <memory-keys> block must stay capped and say how many more exist, not grow
-// unboundedly with the store.
+// key into the system prompt: with more entries than the "memory-keys-limit"
+// event's cap, the <memory-keys> block must stay capped and say how many more
+// exist, not grow unboundedly with the store.
 func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewMemoryStore(t.TempDir())
 	store.SetCwd("/tmp/memory-keys-cap-test")
 	loop.memoryStore = store
 
-	total := memoryKeysListLimit + 25
+	total := memoryKeysLimit() + 25
 	for i := range total {
 		require.NoError(t, store.Set(fmt.Sprintf("key-%04d", i), "value"))
 	}
@@ -2990,8 +2993,8 @@ func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 	block := preamble[start:end]
 
 	shown := strings.Count(block, "\nkey-")
-	assert.LessOrEqual(t, shown, memoryKeysListLimit, "memory-keys block must be capped")
-	assert.Contains(t, block, fmt.Sprintf("... and %d more", total-memoryKeysListLimit))
+	assert.LessOrEqual(t, shown, memoryKeysLimit(), "memory-keys block must be capped")
+	assert.Contains(t, block, fmt.Sprintf("... and %d more", total-memoryKeysLimit()))
 }
 
 // --- SetModelTypes / SetCloudModelBackends / SetModelPickerFn ---
@@ -3199,7 +3202,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	reg := tools.NewRegistry()
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
-		Streamer:             ms,
+		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
 		AutoCompactThreshold: 1,
 		MaxToolRounds:        3,
@@ -3404,11 +3407,16 @@ func TestContextLimitForModel_CloudModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	// Cloud models (those BackendForModel returns non-empty) get contextLimitCloud
-	// Use a known cloud model ID from the KnownCloudModels list
+	// contextLimitForModel checks ContextWindowForModel first, which now
+	// resolves any KnownCloudModels entry (ContextWindowForModel delegates to
+	// executorLLM.ModelContextWindow before its own older, narrower table) --
+	// every catalog entry carries a real ContextWindow, so a known cloud
+	// model gets its actual window, not the generic contextLimitCloud
+	// fallback (that fallback only fires for a cloud backend match with no
+	// catalog window at all, which no longer happens for any real entry).
 	for _, m := range llm.KnownCloudModels {
 		if BackendForModel(m.ID) != "" {
-			assert.Equal(t, contextLimitCloud, repl.contextLimitForModel(m.ID))
+			assert.Equal(t, m.ContextWindow, repl.contextLimitForModel(m.ID))
 			return
 		}
 	}
@@ -3623,12 +3631,12 @@ func TestCmdFold_Preset(t *testing.T) {
 	defer repl.cancel()
 
 	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "tight"}) })
-	assert.Equal(t, foldPresets["tight"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets["tight"].items, loop.config.FoldContextItems)
+	assert.Equal(t, foldPresets()["tight"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets()["tight"].items, loop.config.FoldContextItems)
 
 	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "loose"}) })
-	assert.Equal(t, foldPresets["loose"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets["loose"].items, loop.config.FoldContextItems)
+	assert.Equal(t, foldPresets()["loose"].threshold, loop.config.FoldThreshold)
+	assert.Equal(t, foldPresets()["loose"].items, loop.config.FoldContextItems)
 }
 
 func TestCmdFold_ThresholdRejectsMissingArgAndInvalidValue(t *testing.T) {
@@ -3687,8 +3695,8 @@ func TestCmdFoldStatus_NoCheckpointYet(t *testing.T) {
 	out := captureStdout(t, func() { require.NoError(t, repl.cmdFold(nil)) })
 
 	assert.Contains(t, out, "auto: on")
-	assert.Contains(t, out, fmt.Sprintf("threshold: %d tokens", defaultFoldThreshold))
-	assert.Contains(t, out, fmt.Sprintf("context items: %d", defaultFoldContextItems))
+	assert.Contains(t, out, fmt.Sprintf("threshold: %d tokens", foldTokensSinceCheckpoint()))
+	assert.Contains(t, out, fmt.Sprintf("context items: %d", foldItems()))
 	assert.Contains(t, out, "last fold: never")
 }
 
@@ -3712,46 +3720,48 @@ func TestCmdFoldStatus_WithCheckpoint(t *testing.T) {
 	assert.Contains(t, out, "accumulated since:")
 }
 
-// The compaction/fold call itself consumes real tokens (it's a real LLM
-// call); cmdCompact and cmdFoldNow must call syncTokenCounter afterward so
-// the cumulative in:/out: display counts it, not just leave it at whatever
-// the last real turn left behind.
-func TestCmdCompact_SyncsTokenCounter(t *testing.T) {
+// After /compact and /fold now, sent/generated are the context that remains,
+// not the cumulative total and not the compaction call's own usage.
+func TestCmdCompact_ResetsCountersToContext(t *testing.T) {
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
-	// forcedCutIndex needs n > forceKeepTurns*sessionMsgsPer + sessionMsgsPer
-	// (see its own bounds check), so forceKeepTurns+1 turns (exactly at the
-	// boundary) returns 0 -- one more turn is required to actually cut.
 	for range forceKeepTurns + 2 {
 		loop.session.Append("user msg", "assistant reply")
 	}
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	repl.tokenCounter.Reset()
+	repl.tokenCounter.AddInput(99999)
+	repl.tokenCounter.AddOutput(88888)
+	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(123, 45)
 	captureStdout(t, func() { _ = repl.cmdCompact() })
 
-	assert.Equal(t, int64(123), repl.tokenCounter.InputTokens())
-	assert.Equal(t, int64(45), repl.tokenCounter.OutputTokens())
+	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
+	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
+	assert.Equal(t, llm.SessionOutputTokens(), repl.tokenCounter.OutputTokens())
+	assert.NotEqual(t, int64(123), repl.tokenCounter.InputTokens())
+	assert.Positive(t, repl.tokenCounter.InputTokens())
+	assert.Positive(t, repl.tokenCounter.OutputTokens())
 }
 
-func TestCmdFoldNow_SyncsTokenCounter(t *testing.T) {
-	// /fold now forces a fold via ForceCompact, which ignores the compaction
-	// budget entirely: enough turns (more than forceKeepTurns+1) is all it
-	// takes to guarantee something to summarize.
+func TestCmdFoldNow_ResetsCountersToContext(t *testing.T) {
 	loop := makeTestLoopWithEngine("## Progress\n- did things")
 	for range forceKeepTurns + 2 {
 		loop.session.Append("user msg", "assistant reply")
 	}
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	repl.tokenCounter.Reset()
+	repl.tokenCounter.AddInput(99999)
+	repl.tokenCounter.AddOutput(88888)
+	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(77, 33)
 	captureStdout(t, func() { _ = repl.cmdFoldNow() })
 
-	assert.Equal(t, int64(77), repl.tokenCounter.InputTokens())
-	assert.Equal(t, int64(33), repl.tokenCounter.OutputTokens())
+	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
+	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
+	assert.Equal(t, llm.SessionOutputTokens(), repl.tokenCounter.OutputTokens())
+	assert.NotEqual(t, int64(77), repl.tokenCounter.InputTokens())
 }
 
 // TestCmdFoldNow_ExplainsTooFewTurns covers explainNothingToFold's only
@@ -3772,7 +3782,7 @@ func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
 
 	assert.Contains(t, out, "Nothing to fold yet")
 	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", forceKeepTurns+2))
-	assert.Contains(t, out, "token counter: in:5 out:2")
+	assert.Contains(t, out, "token counter: sent 5, generated 2")
 }
 
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {

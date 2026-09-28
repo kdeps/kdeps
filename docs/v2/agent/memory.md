@@ -14,16 +14,15 @@ The memory store is injected into every LLM call automatically as a single graph
 
 ## Built-in memory tools
 
-The agent has four LLM-callable tools for interacting with persistent memory:
+The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_search`.
 
 | Tool | Description |
 |------|-------------|
 | `memory_save` | Save a fact with a key and value. Keys should be short and descriptive. |
-| `memory_search` | Search entries by key or value (case-insensitive substring match). |
+| `memory_search` | Search entries by key or value. Returns at most 20 matches, best first; each value is cut at 500 characters. |
 | `memory_delete` | Remove an entry by key. |
-| `memory_list` | List all stored keys (use `memory_search` to find content). |
 
-A fifth tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.
+Another tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.
 
 ### memory_save
 
@@ -41,7 +40,7 @@ Creates or updates a memory entry. The entry is persisted immediately to disk.
 
 ### memory_search
 
-Finds entries where the key or value contains the query string (case-insensitive).
+Finds entries where a query word appears in the key or value (case-insensitive). A key hit ranks above a value-only hit. More words matched ranks above fewer. A newer update breaks a tie.
 
 ```json
 {
@@ -52,13 +51,21 @@ Finds entries where the key or value contains the query string (case-insensitive
 }
 ```
 
-Returns matching entries as formatted text:
+Returns matching entries as formatted text. At most 20 matches are printed, best match first, and each value is cut at 500 characters (a cut value ends in `...`). When more matches exist, the header says how many were found and how many are shown, and the last line says how many were left out:
 
 ```
 Found 2 memory entries:
 - project_name: kdeps - Go module github.com/kdeps/kdeps/v2
 - project_structure: Monorepo layout: cmd/, pkg/ (25 packages), docs/, tests/
 ```
+
+```
+Found 25 memory entries (showing 20):
+- match-00: shared fact
+... and 5 more (narrow the query to see them)
+```
+
+No memory hits falls through to a local file search of the working directory, also capped at 20 matches. The file-search JSON is cut if it exceeds the tool-result byte cap.
 
 ### memory_delete
 
@@ -70,16 +77,6 @@ Removes a single entry by key.
   "parameters": {
     "key": "stale_fact"
   }
-}
-```
-
-### memory_list
-
-Returns all stored keys (no content). Use `memory_search` to find specific entries.
-
-```json
-{
-  "name": "memory_list"
 }
 ```
 
@@ -134,7 +131,7 @@ Entries are auto-classified by key pattern. The type controls where the entry si
 
 ## Workflow mode
 
-Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. `memory_query` is the exception: it needs the agent loop's live state and is agent mode only.
+Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. Workflow resources can still call `memory_list()` to enumerate keys. The agent loop does not register that as a tool. `memory_query` is agent mode only: it needs the agent loop's live state.
 
 ## Configuration
 

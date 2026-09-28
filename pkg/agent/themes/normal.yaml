@@ -1,0 +1,39 @@
+name: normal
+prompt: "> "
+bold: true
+palette:
+  heading: "#FFD60A"
+  link: "#81A2BE"
+  code: "#00E5FF"
+  codeBlock: "#A8FF78"
+  text: "#CDD6F4"
+  thinking: "#888888"
+  muted: "#555555"
+  bullet: "#00E5FF"
+  quote: "#888888"
+  borderHr: "#333333"
+
+  synKeyword: "#FF79C6"
+  synFunc: "#61AFEF"
+  synStr: "#A8FF78"
+  synComment: "#676767"
+  synNum: "#FFD60A"
+  synType: "#00E5FF"
+  synOp: "#EF8080"
+
+  replError: "#FF2D78"
+  replMeta: "#888888"
+  replHeading: "#00E5FF"
+  replSuccess: "#00FF87"
+  replPrompt: "#00E5FF"
+  replInfo: "#7AA2F7"
+  replDim: "#555555"
+
+  bannerText: "#CDD6F4"
+  bannerBorder: "#333333"
+
+  modelsReady: "#00E5FF"
+  modelsNoKey: "#555555"
+  modelsCurrent: "#FFD60A"
+
+  modelName: "#00E5FF"

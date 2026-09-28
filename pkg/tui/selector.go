@@ -52,11 +52,11 @@ const (
 	helpText        = "↑/↓ navigate  space toggle  tab/shift+tab switch section  enter confirm  q quit"
 )
 
-// Selector styles. Package vars, not initialized inline, so stealth mode
-// (stealth.go) can rebuild them. buildSelectorStyles is called once from
-// stealth.go's init and again on every SetStealth.
+// Selector styles. Package vars, not initialized inline, so the picker theme
+// (picker_theme.go) can rebuild them. buildSelectorStyles is called once from
+// picker_theme.go's init and again on every SetPickerColors.
 //
-//nolint:gochecknoglobals // runtime-swappable picker styles (stealth mode)
+//nolint:gochecknoglobals // runtime-swappable picker styles (theme-driven)
 var (
 	styleBase    lipgloss.Style
 	styleTab     lipgloss.Style
@@ -69,18 +69,19 @@ var (
 	styleSuccess lipgloss.Style
 )
 
-// buildSelectorStyles rebuilds the selector styles honoring stealth mode.
+// buildSelectorStyles rebuilds the selector styles from the active picker
+// palette (see SetPickerColors).
 func buildSelectorStyles() {
-	bold := !stealthEnabled()
+	bold := pickerColors.Bold
 	styleBase = lipgloss.NewStyle()
 	styleTab = lipgloss.NewStyle().Padding(0, tabPadH)
-	styleTabSel = lipgloss.NewStyle().Padding(0, tabPadH).Bold(bold).Foreground(col("#00E5FF"))
-	styleEnabled = lipgloss.NewStyle().Foreground(col("#00E5FF"))
-	styleDim = lipgloss.NewStyle().Foreground(colDim("#555555"))
-	styleHelp = lipgloss.NewStyle().Foreground(colDim("#555555")).Italic(true)
-	styleCursor = lipgloss.NewStyle().Foreground(col("#00E5FF")).Bold(bold)
-	styleAccent = lipgloss.NewStyle().Foreground(col("#00E5FF"))
-	styleSuccess = lipgloss.NewStyle().Foreground(col("#00FF87"))
+	styleTabSel = lipgloss.NewStyle().Padding(0, tabPadH).Bold(bold).Foreground(accentColor())
+	styleEnabled = lipgloss.NewStyle().Foreground(accentColor())
+	styleDim = lipgloss.NewStyle().Foreground(dimColor())
+	styleHelp = lipgloss.NewStyle().Foreground(dimColor()).Italic(true)
+	styleCursor = lipgloss.NewStyle().Foreground(accentColor()).Bold(bold)
+	styleAccent = lipgloss.NewStyle().Foreground(accentColor())
+	styleSuccess = lipgloss.NewStyle().Foreground(successColor())
 }
 
 //nolint:gochecknoglobals // const slice

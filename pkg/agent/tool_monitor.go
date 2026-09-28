@@ -125,7 +125,6 @@ func (t *lastLineTracker) Silence() time.Duration {
 type monitoredWriter struct {
 	mu    sync.Mutex
 	dst   io.Writer
-	frame bool // a monitor frame currently owns the terminal line
 	track *lastLineTracker
 }
 
@@ -136,30 +135,11 @@ func newMonitoredWriter(dst io.Writer, track *lastLineTracker) *monitoredWriter 
 func (m *monitoredWriter) Write(p []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.frame {
-		_, _ = io.WriteString(m.dst, "\r\033[K")
-		m.frame = false
-	}
+	// Real output takes the line. Clear the shared status frame first so
+	// the text does not land in the middle of a redraw.
+	eraseLiveStatus(m.dst)
 	_, _ = m.track.Write(p)
 	return m.dst.Write(p)
-}
-
-// drawFrame writes a status frame and marks the line as frame-owned.
-func (m *monitoredWriter) drawFrame(s string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	_, _ = io.WriteString(m.dst, s)
-	m.frame = true
-}
-
-// clearFrame erases a drawn frame, if any.
-func (m *monitoredWriter) clearFrame() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.frame {
-		_, _ = io.WriteString(m.dst, "\r\033[K")
-		m.frame = false
-	}
 }
 
 // runQuietMonitor draws "label running (elapsed)" frames only while the
@@ -174,7 +154,6 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	defer tick.Stop()
 	i := 0
 	for {
-		tcStr := compactTokenStatus()
 		select {
 		case <-tick.C:
 			silence := mw.track.Silence()
@@ -187,11 +166,11 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 				warn = fmt.Sprintf(" · no output for %s (Ctrl+C to kill)", silence.Round(time.Second))
 			}
 			elapsed := time.Since(start).Round(time.Second)
-			mw.drawFrame(fmt.Sprintf("\r%s  %s %s running (%s)%s\033[K",
-				tcStr, styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
+			drawLiveStatus(mw.dst, fmt.Sprintf("%s %s running (%s)%s",
+				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
 			i++
 		case <-stop:
-			mw.clearFrame()
+			eraseLiveStatus(mw.dst)
 			return
 		}
 	}
@@ -202,27 +181,32 @@ func isHeadless() bool {
 	return !term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-// compactTokenStatus returns a compact token counter string for the monitor
-// and spinner lines (e.g. "[in:12k|out:3k] "). Always returns a value,
-// starting at "[in:0|out:0] " so the counter is omnipresent.
+// compactTokenStatus is the session token counter under the turn breakdown.
+// "sent" is the sum of prompt tokens handed to the model across every call
+// this session (history is re-sent each round, so this grows faster than
+// one turn's window). "generated" is the sum of tokens the model wrote back.
+// Always returns a value, starting at "[sent 0 | generated 0] ".
 func compactTokenStatus() string {
-	in := llm.TokenInputs
-	out := llm.TokenOutputs
-	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
+	in := llm.SessionInputTokens()
+	out := llm.SessionOutputTokens()
+	parts := []string{
+		"sent " + formatCompactCount(in),
+		"generated " + formatCompactCount(out),
+	}
 	if calls, limit := WebConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("web %d/%d", calls, limit))
 	}
 	if calls, limit := BashConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("sh %d/%d", calls, limit))
 	}
 	if calls, limit := FileConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("file %d/%d", calls, limit))
 	}
 	if calls, limit := CodeConvergenceCalls(); limit > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, limit))
+		parts = append(parts, fmt.Sprintf("src %d/%d", calls, limit))
 	}
 	return styleReplDim.Render("[") +
-		styleReplMeta.Render(strings.Join(parts, "|")) +
+		styleReplMeta.Render(strings.Join(parts, " | ")) +
 		styleReplDim.Render("] ")
 }
 
@@ -270,7 +254,6 @@ func runToolMonitor(
 	i := 0
 	stalled := false
 	for {
-		tcStr := compactTokenStatus()
 		select {
 		case <-tick.C:
 			if i == 0 && beforeFirstDraw != nil {
@@ -282,10 +265,11 @@ func runToolMonitor(
 			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
 			}
-			fmt.Fprintf(w, "\r%s  %s %s running (%s)%s\033[K",
-				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
+			drawLiveStatus(w, fmt.Sprintf("%s %s running (%s)%s",
+				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status))
 			i++
 		case <-stop:
+			eraseLiveStatus(w)
 			return
 		}
 	}

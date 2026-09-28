@@ -131,9 +131,9 @@ func TestCapToolResult(t *testing.T) {
 	if got := capToolResult(small); got != small {
 		t.Fatalf("small result should pass through unchanged, got %q", got)
 	}
-	big := strings.Repeat("x\n", maxToolResultBytes) // well over the cap
+	big := strings.Repeat("x\n", maxToolResultBytes()) // well over the cap
 	got := capToolResult(big)
-	if len(got) > maxToolResultBytes+120 {
+	if len(got) > maxToolResultBytes()+120 {
 		t.Fatalf("capped result too large: %d bytes", len(got))
 	}
 	if !strings.Contains(got, "truncated") {

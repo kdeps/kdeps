@@ -1,0 +1,5 @@
+name: handshake-ack
+kind: standalone
+body: >-
+  good, that's exactly how you make a real kdeps tool call. Keep calling
+  tools this way.

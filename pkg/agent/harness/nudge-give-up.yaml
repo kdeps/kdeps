@@ -1,0 +1,9 @@
+name: nudge-give-up
+kind: standalone
+maxOccurrences: 2
+body: >-
+  Your reply reads as giving up, but tool calls just succeeded this turn and
+  no work tool is currently failing. If the goal is still reachable, keep
+  going with a different approach. Only stop here if you state exactly what
+  is blocking you -- a missing credential, a permission you don't have, or a
+  precondition that genuinely cannot be met.

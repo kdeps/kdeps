@@ -950,6 +950,27 @@ func TestContextWindowForModel_Unknown(t *testing.T) {
 	assert.Equal(t, 0, ctx)
 }
 
+// M365's aliases ("claude-sonnet", "quick", "gpt-5.x", ...) never match this
+// file's own static table (keyed on real Anthropic/OpenAI API version
+// strings) -- they must resolve through executorLLM.KnownCloudModels, where
+// the m365 catalog entries carry a conservative estimated window (M365
+// doesn't publish exact limits). See ContextWindowForModel's doc comment.
+func TestContextWindowForModel_M365Aliases(t *testing.T) {
+	t.Parallel()
+	for _, model := range []string{"m365-copilot", "quick", "claude-sonnet", "claude-opus", "gpt-5.5"} {
+		assert.Greaterf(t, ContextWindowForModel(model), 0, "m365 alias %q must resolve a window", model)
+	}
+}
+
+// A current Anthropic model not present in this file's own (older, narrower)
+// static table must still resolve via executorLLM.KnownCloudModels.
+func TestContextWindowForModel_CurrentCloudModelNotInStaticTable(t *testing.T) {
+	t.Parallel()
+	assert.Greater(t, ContextWindowForModel("claude-opus-4-8"), 0)
+	assert.NotContains(t, modelContextWindows, "claude-opus-4-8",
+		"this test's premise is that the model is absent from the older static table")
+}
+
 // ---- compact.go: countTokensSilent ----
 
 func TestCountTokensSilent_Empty(t *testing.T) {

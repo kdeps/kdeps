@@ -20,7 +20,9 @@ package agent
 
 import (
 	"encoding/json"
+	"html"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -66,7 +68,53 @@ var (
 	dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
 	// dsmlTagRe matches a stray DSML tag left by a truncated/malformed block.
 	dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
+
+	// multiSlashClosingTagRe matches "<" followed by two or more literal "/"
+	// characters -- some models write a closing tag as "<//invoke>" or
+	// "<///parameter>" instead of "</invoke>"/"</parameter>" (no backslashes
+	// involved, just a doubled/tripled slash). None of the tag regexes below
+	// match the mangled form, silently dropping the whole call, exactly like
+	// the backslash-escaped case above, so collapsing the run down to a
+	// single "/" before any tag matching runs is required, not cosmetic.
+	multiSlashClosingTagRe = regexp.MustCompile(`<//+`)
+
+	// fencedCodeBlockRe matches a triple-backtick or triple-tilde fenced code
+	// block (optional language tag on the opening fence, DOTALL body, closes
+	// on the nearest fence of either style). A block explaining the
+	// <invoke>/<parameter> tool-call syntax -- exactly what use-kdeps-tools.yaml
+	// teaches models to write -- would otherwise be indistinguishable from a
+	// real text-fallback tool call to every regex below, which run over the
+	// whole reply with no notion of "inside a fence." protectFencedCodeBlocks/
+	// restoreFencedCodeBlocks swap fenced spans out before salvage runs and
+	// back in afterward so example code can never be stripped or misparsed.
+	fencedCodeBlockRe = regexp.MustCompile("(?s)(```|~~~)[^\n]*\n.*?\n(```|~~~)")
 )
+
+// fencedCodeBlockPlaceholder brackets a block's index while it is swapped out
+// of the text salvageContentToolCalls's regexes see. NUL bytes never occur in
+// real model output, so this can never collide with genuine content.
+const fencedCodeBlockPlaceholder = "\x00KDEPSFENCE\x00"
+
+// protectFencedCodeBlocks replaces every fenced code block in content with a
+// placeholder and returns the placeholder'd text plus the blocks in order, for
+// restoreFencedCodeBlocks to put back once salvage/strip processing is done.
+func protectFencedCodeBlocks(content string) (string, []string) {
+	var blocks []string
+	protected := fencedCodeBlockRe.ReplaceAllStringFunc(content, func(m string) string {
+		blocks = append(blocks, m)
+		return fencedCodeBlockPlaceholder + strconv.Itoa(len(blocks)-1) + fencedCodeBlockPlaceholder
+	})
+	return protected, blocks
+}
+
+// restoreFencedCodeBlocks reverses protectFencedCodeBlocks.
+func restoreFencedCodeBlocks(content string, blocks []string) string {
+	for i, b := range blocks {
+		placeholder := fencedCodeBlockPlaceholder + strconv.Itoa(i) + fencedCodeBlockPlaceholder
+		content = strings.ReplaceAll(content, placeholder, b)
+	}
+	return content
+}
 
 // toolCallArgKeys are the field names models use for a tool call's arguments.
 func toolCallArgKeys() []string { return []string{"arguments", "parameters", "args", "input"} }
@@ -78,8 +126,27 @@ func toolCallArgKeys() []string { return []string{"arguments", "parameters", "ar
 // <observation> removed and trimmed; hallucinated is true when such a
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
+	protected, fences := protectFencedCodeBlocks(content)
+	calls, cleaned, hallucinated := salvageUnfencedContentToolCalls(protected)
+	return calls, restoreFencedCodeBlocks(cleaned, fences), hallucinated
+}
+
+// salvageUnfencedContentToolCalls is salvageContentToolCalls's original body,
+// run only on text with fenced code blocks already swapped out for
+// placeholders (see protectFencedCodeBlocks).
+func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
-	cleaned := content
+	// A model that treats this text-fallback markup as a JSON string it's
+	// embedding (rather than the literal tags kdeps expects) sometimes
+	// escapes every "/" as "\/" -- a legal, no-op JSON string escape, but it
+	// turns "</invoke>" into "<\/invoke>", which none of the tag regexes
+	// below match, silently dropping the whole call. "<\/" has no other
+	// meaning here, so repairing it unconditionally is safe.
+	cleaned := strings.ReplaceAll(content, `<\/`, "</")
+	// Separately, some models mangle a closing tag with an extra literal
+	// slash instead ("<//invoke>", "<///parameter>") -- same failure, no
+	// backslash involved.
+	cleaned = multiSlashClosingTagRe.ReplaceAllString(cleaned, "</")
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {
@@ -126,6 +193,31 @@ func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string,
 	}
 	cleaned = strings.TrimSpace(strayToolTagRe.ReplaceAllString(cleaned, ""))
 	return calls, cleaned, hallucinated
+}
+
+// salvageHandshakeToolCall recovers a tool call from raw model text WITHOUT
+// the fenced-code-block protection salvageContentToolCalls normally applies,
+// then keeps only calls named session_handshake. Used only for the
+// mandatory session-integrity handshake (see handleEmptyToolRound, gated on
+// l.handshake != nil): live testing against a small local model showed it
+// writing a genuine, correctly-coded <invoke> block but wrapping it in a
+// markdown code fence out of habit -- protectFencedCodeBlocks would
+// otherwise treat that as an illustrative example and silently drop it,
+// exactly like it should for an ordinary turn. That protection exists to
+// stop a documentation-style code sample for a DIFFERENT tool from being
+// misread as a real call; the risk it guards against is negligible here
+// specifically, since nothing dispatches unless the recovered call is named
+// session_handshake, and only the handshake round itself ever asks for that
+// tool.
+func salvageHandshakeToolCall(content string) ([]domain.StreamedToolCall, string, bool) {
+	calls, cleaned, fake := salvageUnfencedContentToolCalls(content)
+	var kept []domain.StreamedToolCall
+	for _, c := range calls {
+		if c.Name == "session_handshake" {
+			kept = append(kept, c)
+		}
+	}
+	return kept, cleaned, fake
 }
 
 // collectTagCalls appends every parseable tool call inside re's first
@@ -175,10 +267,24 @@ func parseToolCallJSON(body string) *domain.StreamedToolCall {
 // is a bare JSON scalar (number, true/false, null) is kept as that scalar so
 // e.g. insert_line 3 arrives as a number; everything else (including {...} /
 // [...], which are ambiguous with an intended string) is a JSON string.
+//
+// V is HTML/XML-unescaped first: some models (e.g. GPT-5.6) write this
+// text-fallback tool-call form as if it were real markup and entity-encode
+// it accordingly, so a shell command like "a && b" arrives as literally
+// "a &amp;&amp; b" -- which then fails when bash_exec runs it verbatim. A
+// single html.UnescapeString handles &amp; and every other named/numeric
+// entity (&lt;, &gt;, &quot;, &#39;, &nbsp;, ...) in one pass.
 func parametersToJSON(body string) string {
 	obj := map[string]json.RawMessage{}
 	for _, p := range parameterRe.FindAllStringSubmatch(body, -1) {
-		key, val := p[1], strings.TrimSpace(p[2])
+		key := p[1]
+		// The same stray JSON-string escaping salvageContentToolCalls repairs
+		// in closing tags shows up inside values too -- a file path parameter
+		// arrives as "a\/b\/c" instead of "a/b/c". "\/" is valid-but-redundant
+		// JSON escaping, so unescaping it is a no-op for any value that was
+		// actually meant this way.
+		val := strings.ReplaceAll(html.UnescapeString(p[2]), `\/`, "/")
+		val = strings.TrimSpace(val)
 		if isJSONScalar(val) {
 			obj[key] = json.RawMessage(val)
 			continue

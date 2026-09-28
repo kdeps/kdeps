@@ -91,8 +91,8 @@ func TestWindowToolHistory_DropsOldestKeepsHeadAndRecent(t *testing.T) {
 	}
 
 	// Result must be within budget.
-	if got := msgsTokens(out, ""); got > toolLoopMessageBudget {
-		t.Fatalf("windowed history %d tokens exceeds budget %d", got, toolLoopMessageBudget)
+	if got := msgsTokens(out, ""); got > toolLoopMessageBudget() {
+		t.Fatalf("windowed history %d tokens exceeds budget %d", got, toolLoopMessageBudget())
 	}
 
 	// Pairing must be valid: every tool message's tool_call_id must be answered
@@ -266,7 +266,7 @@ func TestRunStreaming_ToolLoopHistoryStaysBounded(t *testing.T) {
 	// Without windowing this would be ~rounds * (16 KB cap / 4) ~= 160k tokens.
 	// With it, the array is held near toolLoopMessageBudget plus at most one
 	// fresh round-trip of slack.
-	if sentTokens > toolLoopMessageBudget*2 {
+	if sentTokens > toolLoopMessageBudget()*2 {
 		t.Fatalf("in-flight history grew to %d tokens; windowing not bounding it", sentTokens)
 	}
 }

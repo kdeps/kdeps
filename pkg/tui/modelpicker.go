@@ -366,19 +366,19 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 	return marker + nameStr + pad + tag + checkmark
 }
 
-// styleForFitLevel returns the lipgloss style for the given llmfit fit level.
-// Perfect = green, Good = cyan, Marginal = dim, Too Tight = pink,
-// unrecognized = default.
+// styleForFitLevel returns the lipgloss style for the given llmfit fit level,
+// from the active picker palette (see SetPickerColors): Perfect = success,
+// Good = accent, Marginal = dim, Too Tight = warning, unrecognized = default.
 func styleForFitLevel(level string) lipgloss.Style {
 	switch level {
 	case "Perfect":
-		return lipgloss.NewStyle().Foreground(col("#00FF87"))
+		return lipgloss.NewStyle().Foreground(successColor())
 	case "Good":
-		return lipgloss.NewStyle().Foreground(col("#00E5FF"))
+		return lipgloss.NewStyle().Foreground(accentColor())
 	case "Marginal":
-		return lipgloss.NewStyle().Foreground(colDim("#888888"))
+		return lipgloss.NewStyle().Foreground(dimColor())
 	case "Too Tight", "TooTight":
-		return lipgloss.NewStyle().Foreground(col("#FF2D78"))
+		return lipgloss.NewStyle().Foreground(warningColor())
 	default:
 		return lipgloss.NewStyle()
 	}

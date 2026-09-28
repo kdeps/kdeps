@@ -99,6 +99,35 @@ func checkNightlyAgainst(ctx context.Context, current string) (CheckResult, erro
 	}, nil
 }
 
+// CurrentVersion returns the running kdeps version (pkg/version.Version),
+// overridable in tests. Used by the explicit-version /upgrade <version> and
+// --upgrade --target-version paths, which target a specific tag directly and so
+// never call Check/Fresh (no "latest" lookup needed).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var CurrentVersion = func() string { return version.Version }
+
+// IsValidVersion reports whether v (with or without a leading "v") is a
+// syntactically valid semantic version -- for validating a user-supplied
+// /upgrade <version> or --upgrade --target-version target before attempting a
+// download that would otherwise fail with an opaque 404.
+func IsValidVersion(v string) bool {
+	return semver.IsValid("v" + strings.TrimPrefix(v, "v"))
+}
+
+// CompareVersions reports whether target is older (<0), the same (0), or
+// newer (>0) than current -- for phrasing an explicit-version /upgrade
+// confirmation as an upgrade, downgrade, or reinstall. Falls back to 0
+// (reinstall wording) when either side isn't valid semver, the same
+// conservative fallback versionLess uses.
+func CompareVersions(current, target string) int {
+	vc, vt := "v"+strings.TrimPrefix(current, "v"), "v"+strings.TrimPrefix(target, "v")
+	if !semver.IsValid(vc) || !semver.IsValid(vt) {
+		return 0
+	}
+	return semver.Compare(vt, vc)
+}
+
 // versionLess reports whether a is an older version than b, comparing as
 // semver ("vX.Y.Z" form required by golang.org/x/mod/semver). Falls back to
 // a simple string inequality when either side isn't valid semver (e.g. a

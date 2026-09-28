@@ -23,17 +23,6 @@ import (
 	"sync"
 )
 
-const (
-	// maxWebToolCalls caps DISTINCT web_search + web_scraper calls per turn.
-	// The two share this budget, so it must leave room for a search plus a few
-	// source fetches. Runaway research is bounded by the force-answer-on-
-	// convergence stop instead.
-	maxWebToolCalls  = 20
-	maxBashToolCalls = 50
-	maxFileToolCalls = 80
-	maxCodeToolCalls = 30
-)
-
 // convergenceCache tracks distinct tool calls and enforces a session limit.
 // Used by web, bash, file, and code search tools.
 //
@@ -93,24 +82,29 @@ func (c *convergenceCache) trackCall(key string, fn func() (string, error)) (str
 
 //nolint:gochecknoglobals,lll // process-wide convergence limiters shared across all tool registrations
 var (
+	// max below is a safety-net initial value only -- applyConvergenceCacheDefaults
+	// (events.go, called from initEvents) overwrites it with the "*-call-budget"
+	// event's DistinctCalls once the event registry is populated, which always
+	// happens before any user code runs (package-var initializers, including this
+	// one, complete before any init() function in the package).
 	globalWebCache = &convergenceCache{
 		m:   make(map[string]string),
-		max: maxWebToolCalls,
+		max: builtinWebCallBudget,
 		msg: "ALL web/search calls blocked — do NOT retry with different queries. Synthesize your answer NOW from the data you already have.",
 	}
 	globalBashCache = &convergenceCache{
 		m:   make(map[string]string),
-		max: maxBashToolCalls,
+		max: builtinBashCallBudget,
 		msg: "ALL shell commands blocked — consolidate your approach and continue without bash_exec",
 	}
 	globalFileCache = &convergenceCache{
 		m:   make(map[string]string),
-		max: maxFileToolCalls,
+		max: builtinFileCallBudget,
 		msg: "ALL file reads blocked — work with what you have already read",
 	}
 	globalCodeCache = &convergenceCache{
 		m:   make(map[string]string),
-		max: maxCodeToolCalls,
+		max: builtinCodeCallBudget,
 		msg: "ALL code searches blocked — narrow your approach and work with existing results",
 	}
 )
@@ -163,7 +157,7 @@ type webToolCache = convergenceCache
 func newWebToolCache() *webToolCache {
 	return &webToolCache{
 		m:   make(map[string]string),
-		max: maxWebToolCalls,
+		max: effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget),
 		msg: "stop searching — synthesize from data already gathered",
 	}
 }

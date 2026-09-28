@@ -1,0 +1,4 @@
+name: nudge-sandbox-hallucination-qualifier
+kind: standalone
+body: >-
+  If you were not attempting tool use, ignore this and answer normally.

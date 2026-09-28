@@ -16,14 +16,29 @@ package agent
 
 import "testing"
 
+// defaultWebCallBudget is the "web-call-budget" event's configured default,
+// used by several tests below that need to compare against or restore it.
+func defaultWebCallBudget() int {
+	return effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget)
+}
+
+// defaultCallBudgetLimits returns the four call-budget events' configured
+// defaults, in SetConvergenceLimits' (web, bash, file, code) order.
+func defaultCallBudgetLimits() (int, int, int, int) {
+	return defaultWebCallBudget(),
+		effectiveDistinctCalls(eventBashCallBudget, builtinBashCallBudget),
+		effectiveDistinctCalls(eventFileCallBudget, builtinFileCallBudget),
+		effectiveDistinctCalls(eventCodeCallBudget, builtinCodeCallBudget)
+}
+
 // withCleanBudgets isolates a test from the process-wide convergence caches.
 func withCleanBudgets(t *testing.T) {
 	t.Helper()
 	ResetConvergence()
-	SetConvergenceLimits(maxWebToolCalls, maxBashToolCalls, maxFileToolCalls, maxCodeToolCalls)
+	SetConvergenceLimits(defaultCallBudgetLimits())
 	t.Cleanup(func() {
 		ResetConvergence()
-		SetConvergenceLimits(maxWebToolCalls, maxBashToolCalls, maxFileToolCalls, maxCodeToolCalls)
+		SetConvergenceLimits(defaultCallBudgetLimits())
 	})
 }
 
@@ -55,7 +70,7 @@ func TestBudgetTuner_NoChangeBeforeMinSamples(t *testing.T) {
 			t.Fatal("must not adjust before the minimum sample count")
 		}
 	}
-	if _, maxAfter := globalWebCache.count(); maxAfter != maxWebToolCalls {
+	if _, maxAfter := globalWebCache.count(); maxAfter != defaultWebCallBudget() {
 		t.Fatalf("cap moved early: %d", maxAfter)
 	}
 }
@@ -70,8 +85,8 @@ func TestBudgetTuner_CutsOnLowYield(t *testing.T) {
 	for range budgetMinSamples {
 		final, _ = b.record(toolNameWebSearch, false)
 	}
-	if final >= maxWebToolCalls {
-		t.Fatalf("a failing category should be cut below %d, got %d", maxWebToolCalls, final)
+	if final >= defaultWebCallBudget() {
+		t.Fatalf("a failing category should be cut below %d, got %d", defaultWebCallBudget(), final)
 	}
 	if _, capNow := globalWebCache.count(); capNow != final {
 		t.Fatalf("cache cap not updated: got %d, want %d", capNow, final)
@@ -102,7 +117,8 @@ func TestBudgetTuner_CutNeverBlocksCompletedCalls(t *testing.T) {
 // by the ceiling.
 func TestBudgetTuner_ExtendsOnHighYieldNearCap(t *testing.T) {
 	withCleanBudgets(t)
-	SetConvergenceLimits(5, maxBashToolCalls, maxFileToolCalls, maxCodeToolCalls)
+	_, bash, file, code := defaultCallBudgetLimits()
+	SetConvergenceLimits(5, bash, file, code)
 	b := newBudgetTuner()
 
 	// Consume up to the cap so the extension condition applies.
@@ -124,7 +140,8 @@ func TestBudgetTuner_ExtendsOnHighYieldNearCap(t *testing.T) {
 // Growth is bounded no matter how long the category keeps paying off.
 func TestBudgetTuner_RespectsCeiling(t *testing.T) {
 	withCleanBudgets(t)
-	SetConvergenceLimits(4, maxBashToolCalls, maxFileToolCalls, maxCodeToolCalls)
+	_, bash, file, code := defaultCallBudgetLimits()
+	SetConvergenceLimits(4, bash, file, code)
 	b := newBudgetTuner()
 
 	final := 0

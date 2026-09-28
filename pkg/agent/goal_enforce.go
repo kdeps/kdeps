@@ -90,10 +90,10 @@ func newGoalEnforcer(
 	goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int, requireEvidence bool,
 ) *goalEnforcer {
 	if maxUnproductive <= 0 {
-		maxUnproductive = defaultMaxUnproductiveRounds
+		maxUnproductive = effectiveRounds(eventUnproductiveRound)
 	}
 	if taskBudget <= 0 {
-		taskBudget = defaultTaskRoundBudget
+		taskBudget = effectiveRounds(eventTaskRoundBudget)
 	}
 	return &goalEnforcer{
 		goal:            goal,
@@ -614,6 +614,21 @@ var refusalMarkers = []string{
 	"not able to", "no access", "blocked",
 }
 
+// looksLikeGiveUp reports whether a text-only reply reads as the model
+// declining to continue rather than answering or reporting a result. Shared
+// by settleActiveFromText's task-outcome classification and
+// resolveEmptyToolRound's give-up nudge (loop.go) so both readings of "the
+// model gave up" use the same list and never drift apart.
+func looksLikeGiveUp(content string) bool {
+	lower := strings.ToLower(content)
+	for _, m := range refusalMarkers {
+		if strings.Contains(lower, m) {
+			return true
+		}
+	}
+	return false
+}
+
 // settleActiveFromText closes the active task using a text-only round as its
 // outcome and reports whether another task is now active.
 //
@@ -632,12 +647,8 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 
 	status := GoalTaskDone
 	note := firstLine(content)
-	lower := strings.ToLower(content)
-	for _, m := range refusalMarkers {
-		if strings.Contains(lower, m) {
-			status = GoalTaskFailed
-			break
-		}
+	if looksLikeGiveUp(content) {
+		status = GoalTaskFailed
 	}
 	// A prose "done" right after a work tool failed is the exact bug this
 	// guards: record the task failed, not done, and tell the model why.
@@ -649,7 +660,7 @@ func (l *Loop) settleActiveFromText(content string, w io.Writer) bool {
 	}
 	// Content still reading as a fabricated sandbox/code-interpreter session
 	// only reaches here once handleEmptyToolRound's nudge retries are already
-	// exhausted (see maxNudgesPerKind) -- the model never made a real tool
+	// exhausted (see each nudge-*.yaml's maxOccurrences) -- the model never made a real tool
 	// call, so this cannot be a genuine completion.
 	if status == GoalTaskDone && looksLikeSandboxHallucination(content) {
 		status = GoalTaskFailed
@@ -714,7 +725,9 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 	}
 
 	*cfg = e.applyEscalation(*cfg, level)
-	*cfg = withGoalDirective(*cfg, e.directive()+e.escalationNote(level))
+	directive := e.directive() + e.escalationNote(level)
+	*cfg = withGoalDirective(*cfg, directive)
+	recordContextSegment("goal", directive)
 }
 
 // reportGoalEvent surfaces a state-machine transition to the user AND queues it

@@ -1,0 +1,27 @@
+name: handshake
+kind: standalone
+body: |
+  <session-integrity-check>
+  Before anything else this turn: call the session_handshake tool with the
+  parameter code set to exactly "{{.Challenge}}" -- that exact 4-digit
+  string, unchanged. Do not answer, explain, or output anything else until
+  you have made this real tool call and received its result. This is a
+  mandatory integrity check, not optional, and not something to describe in
+  text -- it must be a genuine tool call.
+
+  If your backend has a native tool-call channel, use that. Either way,
+  kdeps is a parser and an interpreter: it parses a matched <invoke> block
+  out of your message at runtime and interprets it. Not your code interpreter.
+  Writing the block is the call, not an example.
+  If you have no native channel, the block is a LITERAL invoke block: write
+  the characters <invoke> and </invoke> as literal text. Emit one block
+  exactly like this (open tag and close tag, nothing else around it -- do
+  NOT put it inside a markdown code fence, ``` or otherwise):
+
+    <invoke name="session_handshake">
+    <parameter name="code">{{.Challenge}}</parameter>
+    </invoke>
+
+  Emit that one block now and wait for the real result before doing
+  anything else.
+  </session-integrity-check>

@@ -28,15 +28,16 @@ type Settings struct {
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
 
-	// Stealth persists muted ("Muted") UI mode. Set via /stealth in the REPL.
-	// The --stealth flag and KDEPS_STEALTH env var override it for one session
-	// without changing the stored value.
-	Stealth bool `yaml:"stealth,omitempty"`
-
-	// Theme persists the selected stealth-mode theme (black, linux, vim,
-	// emacs). Set via /theme in the REPL. The --theme flag and KDEPS_THEME
-	// env var override it for one session without changing the stored value.
+	// Theme persists the selected REPL theme (normal, black, linux, vim,
+	// emacs, or a custom name from ~/.kdeps/themes/). Set via /theme in the
+	// REPL. The --theme flag and KDEPS_THEME env var override it for one
+	// session without changing the stored value.
 	Theme string `yaml:"theme,omitempty"`
+
+	// ModelNameDisplay persists how the modeline shows the model name: "show",
+	// "hide", or "abbreviate". Empty means automatic (theme-based). Set via
+	// /model name in the REPL.
+	ModelNameDisplay string `yaml:"model_name_display,omitempty"`
 
 	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
 	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
@@ -89,10 +90,13 @@ type AgentLoopTuning struct {
 	ContextSize          int    `yaml:"context_size,omitempty"`
 	RefineOff            bool   `yaml:"refine_off,omitempty"`
 	RefineConfigured     bool   `yaml:"refine_configured,omitempty"`
+	HandshakeOn          bool   `yaml:"handshake_on,omitempty"`
 	FoldThreshold        int    `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int    `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool   `yaml:"fold_auto,omitempty"`
 	FoldConfigured       bool   `yaml:"fold_configured,omitempty"`
+	MaxLeafNodes         int    `yaml:"max_leaf_nodes,omitempty"`
+	MaxLeafChars         int    `yaml:"max_leaf_chars,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest
@@ -145,16 +149,6 @@ func SaveDefaultModel(model string) error {
 	return s.Save()
 }
 
-// SaveStealth updates only the Stealth field and persists the settings file.
-func SaveStealth(on bool) error {
-	s, err := LoadSettings()
-	if err != nil {
-		return err
-	}
-	s.Stealth = on
-	return s.Save()
-}
-
 // SaveTheme updates only the Theme field and persists the settings file.
 func SaveTheme(name string) error {
 	s, err := LoadSettings()
@@ -162,6 +156,17 @@ func SaveTheme(name string) error {
 		return err
 	}
 	s.Theme = name
+	return s.Save()
+}
+
+// SaveModelNameDisplay updates only the ModelNameDisplay field and persists
+// the settings file.
+func SaveModelNameDisplay(mode string) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.ModelNameDisplay = mode
 	return s.Save()
 }
 

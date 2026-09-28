@@ -362,6 +362,24 @@ func TestSQLQuery_Tool_WithDBPath(t *testing.T) {
 	assert.NotContains(t, result, "Bob")
 }
 
+func TestSQLQuery_UnescapesHTMLEntitiesInQuery(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_query")
+	require.NotNil(t, tool)
+	// &lt; is the HTML-escaped form of < -- without unescaping this would
+	// either fail to parse or silently match nothing.
+	result, err := tool.Execute(map[string]any{
+		"query":   "SELECT name FROM users WHERE id &lt; 2",
+		"db_path": dbPath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Alice")
+	assert.NotContains(t, result, "Bob")
+}
+
 func TestSQLOpenEngine_EmptyPath(t *testing.T) {
 	t.Setenv("KDEPS_SQL_DB_PATH", "")
 	_, err := sqlOpenEngine("")
@@ -528,6 +546,19 @@ func TestBashExec_RunsCommand(t *testing.T) {
 	out, err := tool.Execute(map[string]any{"command": "echo hello"})
 	require.NoError(t, err)
 	assert.Equal(t, "hello", out)
+}
+
+func TestBashExec_UnescapesHTMLEntitiesInCommand(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+	// &amp;&amp; is the HTML-escaped form of && -- a model that emitted this
+	// meant a real shell "and", not the literal 8 characters.
+	out, err := tool.Execute(map[string]any{"command": "echo a &amp;&amp; echo b"})
+	require.NoError(t, err)
+	assert.Equal(t, "a\nb", out)
 }
 
 func TestBashExec_FailingCommandReturnsError(t *testing.T) {
@@ -1888,6 +1919,21 @@ func TestReadFile_Registered(t *testing.T) {
 	assert.NotNil(t, tool.Execute)
 }
 
+// TestReadFile_DescriptionWarnsMarkersAreNotLiteral covers a real failure
+// mode the visible-whitespace rendering could otherwise cause: a model
+// quoting the displayed "^I"/"$" back into edit_file's old_str as literal
+// text, which would never byte-match a real tab character. The tool
+// description must tell the model these are display-only.
+func TestReadFile_DescriptionWarnsMarkersAreNotLiteral(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	assert.Contains(t, tool.Description, "does NOT contain those literal characters")
+	assert.Contains(t, tool.Description, "old_str")
+	assert.Contains(t, tool.OutputFormat, "display only")
+}
+
 func TestReadFile_Parameters(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -1979,7 +2025,7 @@ func TestReadFile_Success(t *testing.T) {
 
 	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, err)
-	assert.Equal(t, "1\tline 1\n2\tline 2\n3\tline 3\n4\tline 4\n5\tline 5", result)
+	assert.Equal(t, "1\tline 1$\n2\tline 2$\n3\tline 3$\n4\tline 4$\n5\tline 5$", result)
 }
 
 func TestReadFile_WithOffset(t *testing.T) {
@@ -2002,7 +2048,7 @@ func TestReadFile_WithOffset(t *testing.T) {
 		"offset":    float64(3),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "3\tline 3\n4\tline 4\n5\tline 5\n[3/5 lines shown]", result)
+	assert.Equal(t, "3\tline 3$\n4\tline 4$\n5\tline 5$\n[3/5 lines shown]", result)
 }
 
 func TestReadFile_WithOffsetAndLimit(t *testing.T) {
@@ -2026,7 +2072,68 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 		"limit":     float64(2),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "2\tline 2\n3\tline 3\n[2/5 lines shown]", result)
+	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
+}
+
+func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-matchid-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	lines := make([]string, 0, 20)
+	for i := 1; i <= 20; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(content), 0o600))
+
+	id := mintMatchID(tmpFile.Name(), 10, "sha256:test")
+	rememberMatch(id, matchRef{path: tmpFile.Name(), line: 10, revision: "sha256:test"})
+
+	result, err := tool.Execute(map[string]any{
+		"match_id": id, "context_before": float64(2), "context_after": float64(2),
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "10\tline 10")
+	assert.Contains(t, result, "8\tline 8")
+	assert.Contains(t, result, "12\tline 12")
+	assert.NotContains(t, result, "\tline 7")
+	assert.NotContains(t, result, "\tline 13")
+}
+
+func TestReadFile_MatchID_UnknownIDErrors(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"match_id": "match-doesnotexist"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "match-doesnotexist")
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestReadFile_MatchID_IgnoredWhenFilePathGiven(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-matchid2-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("only line\n"), 0o600))
+
+	// An unresolvable match_id must not error when file_path is explicitly given.
+	result, err := tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(), "match_id": "match-doesnotexist",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "only line")
 }
 
 func TestReadFile_OffsetBeyondEOF(t *testing.T) {
@@ -2071,7 +2178,68 @@ func TestReadFile_LimitBeyondEOF(t *testing.T) {
 		"limit":     float64(100),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "1\tline 1\n2\tline 2", result)
+	assert.Equal(t, "1\tline 1$\n2\tline 2$", result)
+}
+
+// TestReadFile_ShowsTabsSpacesAndControlChars covers making whitespace and
+// control characters visible (cat -A style): a tab becomes ^I, a bell
+// character becomes ^G, and a $ marks the true end of each line so trailing
+// spaces are visible instead of silently absorbed by the terminal/model.
+func TestReadFile_ShowsTabsSpacesAndControlChars(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-whitespace-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("\tindented\nno tab here  \nbell\ahere\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "1\t^Iindented$\n2\tno tab here  $\n3\tbell^Ghere$", result)
+}
+
+// TestVisibleWhitespace_LeavesUnicodeIntact ensures the rune-based transform
+// never corrupts valid multi-byte UTF-8 text -- only ASCII control
+// characters are ever rewritten.
+func TestVisibleWhitespace_LeavesUnicodeIntact(t *testing.T) {
+	assert.Equal(t, "héllo→wörld", visibleWhitespace("héllo→wörld"))
+}
+
+// TestVisibleWhitespace_EscapesTabAndControlChars is the direct unit test
+// for the helper.
+func TestVisibleWhitespace_EscapesTabAndControlChars(t *testing.T) {
+	assert.Equal(t, "a^Ib", visibleWhitespace("a\tb"))
+	assert.Equal(t, "a^Gb", visibleWhitespace("a\ab"))
+	assert.Equal(t, "a^?b", visibleWhitespace("a\x7fb"))
+	assert.Equal(t, "plain text", visibleWhitespace("plain text"))
+}
+
+// TestReadFile_CRLFLineEndingShowsAsCaretM covers a CRLF file: splitting on
+// "\n" leaves a trailing \r on each line, which must render as ^M -- making
+// Windows-style line endings visible instead of silently swallowed.
+func TestReadFile_CRLFLineEndingShowsAsCaretM(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-crlf-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("line one\r\nline two\r\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "1\tline one^M$\n2\tline two^M$", result)
 }
 
 func TestReadFile_EmptyFile(t *testing.T) {
@@ -3059,7 +3227,7 @@ func TestWriteFile_ContentTooLarge(t *testing.T) {
 	require.NotNil(t, tool)
 
 	tmpFile := filepath.Join(t.TempDir(), "large-output.txt")
-	bigContent := strings.Repeat("x", maxFileReadBytes+1)
+	bigContent := strings.Repeat("x", maxFileReadBytes()+1)
 	_, err := tool.Execute(map[string]any{
 		"file_path": tmpFile,
 		"content":   bigContent,

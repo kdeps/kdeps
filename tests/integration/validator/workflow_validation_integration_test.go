@@ -32,44 +32,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
-// loadResourceFiles loads resources from resources directory into workflow.
-//
-//nolint:unused // helper retained for future tests
-func loadResourceFiles(
-	workflow *domain.Workflow,
-	resourcesDir string,
-	yamlParser *yaml.Parser,
-) error {
-	// Check if resources directory exists
-	if _, err := os.Stat(resourcesDir); os.IsNotExist(err) {
-		return nil // No resources directory is ok
-	}
-
-	// Find all .yaml files
-	entries, err := os.ReadDir(resourcesDir)
-	if err != nil {
-		return err
-	}
-
-	// Parse each resource file
-	for _, entry := range entries {
-		if entry.IsDir() ||
-			(filepath.Ext(entry.Name()) != ".yaml" && filepath.Ext(entry.Name()) != ".yml") {
-			continue
-		}
-
-		resourcePath := filepath.Join(resourcesDir, entry.Name())
-		resource, resourceErr := yamlParser.ParseResource(resourcePath)
-		if resourceErr != nil {
-			return resourceErr
-		}
-
-		workflow.Resources = append(workflow.Resources, resource)
-	}
-
-	return nil
-}
-
 func TestWorkflowValidationIntegration_CompleteWorkflow(t *testing.T) {
 	// Test complete workflow parsing and validation pipeline
 	schemaValidator, err := validator.NewSchemaValidator()

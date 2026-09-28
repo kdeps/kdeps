@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // canonicalToolNames are the real built-in tools that alias targets must exist
@@ -39,17 +38,8 @@ var canonicalToolNames = map[string]bool{
 	"code_symbols": true, "code_diagnostics": true, "code_search": true,
 	"sql_query": true, "sql_list_tables": true, "sql_describe_table": true,
 	"load_document": true, "transcribe_audio": true, "retrieve_context": true,
-	"memory_save": true, "memory_search": true, "memory_delete": true, "memory_list": true,
+	"memory_save": true, "memory_search": true, "memory_delete": true,
 	"task_complete": true, "task_fail": true,
-}
-
-func TestToolNameAliases_AllTargetsAreRealTools(t *testing.T) {
-	for alias, canonical := range toolNameAliases {
-		assert.Truef(t, canonicalToolNames[canonical],
-			"alias %q -> %q: target is not a known canonical tool", alias, canonical)
-		assert.NotContainsf(t, canonicalToolNames, alias,
-			"alias %q collides with a real tool name", alias)
-	}
 }
 
 func TestToolParamAliases_TargetsAreRealTools(t *testing.T) {
@@ -57,29 +47,6 @@ func TestToolParamAliases_TargetsAreRealTools(t *testing.T) {
 		assert.Truef(t, canonicalToolNames[canonical],
 			"param-alias table references unknown tool %q", canonical)
 	}
-}
-
-func TestRegisterToolAliases_RoutesFamiliarNames(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	reg.Register(&kdepstools.Tool{Name: "search_local"})
-	reg.Register(&kdepstools.Tool{Name: "read_file"})
-	reg.Register(&kdepstools.Tool{Name: "bash_exec"})
-	registerToolAliases(reg)
-
-	cases := map[string]string{
-		"grep": "search_local", "rg": "search_local",
-		"cat": "read_file", "read": "read_file",
-		"bash": "bash_exec", "sh": "bash_exec", "run": "bash_exec",
-	}
-	for alias, canonical := range cases {
-		got := reg.Get(alias)
-		assert.NotNilf(t, got, "alias %q did not resolve", alias)
-		if got != nil {
-			assert.Equalf(t, canonical, got.Name, "alias %q routed wrong", alias)
-		}
-	}
-	// Aliases whose target is not registered must not be created.
-	assert.Nil(t, reg.Get("google"), "web_search not registered, so 'google' must not resolve")
 }
 
 func TestNormalizeToolArgs(t *testing.T) {

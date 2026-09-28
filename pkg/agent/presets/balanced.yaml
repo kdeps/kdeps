@@ -1,0 +1,66 @@
+name: balanced
+description: >-
+  The shipped, out-of-the-box defaults for every token-economy event.
+  Applying this after switching to "frugal" or "thorough" resets them all
+  in one step, without needing to hand-edit or delete override files.
+events:
+  - name: auto-compact
+    on:
+      tokens: 30000
+      ctxWindowFraction: 0.75
+      minTurns: 4
+    run: compact
+  - name: fold
+    on:
+      tokensSinceCheckpoint: 2000
+      minTurns: 4
+    items: 5
+    run: compact
+  - name: memory-prompt-limit
+    on:
+      tokens: 500
+    run: truncate
+  - name: memory-keys-limit
+    items: 100
+    run: cap
+  - name: memory-focus-max
+    items: 5
+    run: cap
+  - name: memory-chain-max
+    items: 8
+    run: cap
+  - name: rel-memory-limit
+    items: 500
+    run: cap
+  - name: tool-result-truncate
+    on:
+      bytes: 16384
+    run: truncate
+  - name: tool-error-truncate
+    on:
+      bytes: 500
+    run: truncate
+  - name: force-answer-digest
+    on:
+      bytes: 12288
+    run: truncate
+  - name: history-window-trim
+    on:
+      bytes: 24576
+    run: drop_oldest
+  - name: web-call-budget
+    on:
+      distinctCalls: 20
+    run: block
+  - name: bash-call-budget
+    on:
+      distinctCalls: 50
+    run: block
+  - name: file-call-budget
+    on:
+      distinctCalls: 80
+    run: block
+  - name: code-call-budget
+    on:
+      distinctCalls: 30
+    run: block

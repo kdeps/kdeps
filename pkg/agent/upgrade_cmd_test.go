@@ -242,6 +242,89 @@ func TestCmdUpgrade_Nightly_StandaloneConfirmedInstallsNightlyTag(t *testing.T) 
 	assert.Equal(t, "2.9.0-nightly202608260200", gotTag)
 }
 
+// stubUpgradeCurrentVersion overrides upgradeCurrentVersionFunc for the
+// duration of the test.
+func stubUpgradeCurrentVersion(t *testing.T, current string) {
+	t.Helper()
+	orig := upgradeCurrentVersionFunc
+	upgradeCurrentVersionFunc = func() string { return current }
+	t.Cleanup(func() { upgradeCurrentVersionFunc = orig })
+}
+
+func TestCmdUpgrade_ExplicitVersion_InvalidVersionRejected(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	performCalled := false
+	stubUpgradeHooks(t, nil, nil, func(context.Context, io.Writer, string) error {
+		performCalled = true
+		return nil
+	})
+
+	require.NoError(t, repl.cmdUpgrade([]string{"not-a-version"}))
+	assert.False(t, performCalled)
+}
+
+func TestCmdUpgrade_ExplicitVersion_NonStandaloneGetsInstructions(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	performCalled := false
+	stubUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodHomebrew },
+		func(context.Context, io.Writer, string) error { performCalled = true; return nil },
+	)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"2.5.0"}))
+	assert.False(t, performCalled, "must never self-replace for a Homebrew install")
+}
+
+func TestCmdUpgrade_ExplicitVersion_Downgrade(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	stubUpgradeCurrentVersion(t, "2.9.0")
+	var gotTag string
+	stubUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"2.5.0"}))
+	assert.Equal(t, "2.5.0", gotTag, "must install exactly the requested (older) version")
+}
+
+func TestCmdUpgrade_ExplicitVersion_UpgradeAndReinstallPhrasing(t *testing.T) {
+	assert.Equal(t, "Downgrade to", upgradeVerbFor("2.9.0", "2.5.0"))
+	assert.Equal(t, "Upgrade to", upgradeVerbFor("2.5.0", "2.9.0"))
+	assert.Equal(t, "Reinstall", upgradeVerbFor("2.9.0", "2.9.0"))
+	assert.Equal(t, "Downgraded", upgradeVerbPast("Downgrade to"))
+	assert.Equal(t, "Updated", upgradeVerbPast("Upgrade to"))
+	assert.Equal(t, "Reinstalled", upgradeVerbPast("Reinstall"))
+}
+
+func TestCmdUpgrade_ExplicitVersion_DeclinedWithoutYes(t *testing.T) {
+	t.Setenv("KDEPS_YES", "")
+	t.Setenv("KDEPS_ASSUME_YES", "")
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	stubUpgradeCurrentVersion(t, "2.9.0")
+	performCalled := false
+	stubUpgradeHooks(t, nil,
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(context.Context, io.Writer, string) error { performCalled = true; return nil },
+	)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"v2.5.0"}), "a leading v must be accepted and stripped")
+	assert.False(t, performCalled)
+}
+
 func TestDispatchCommand_Upgrade(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

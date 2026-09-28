@@ -19,10 +19,15 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // makeTurns builds a slice of n user+assistant message pairs.
@@ -180,6 +185,73 @@ func TestFindCutIndex_CutAlwaysAtUserRole(t *testing.T) {
 	}
 	if msgs[cut].Role != "user" {
 		t.Fatalf("cut index %d has role %q, want \"user\"", cut, msgs[cut].Role)
+	}
+}
+
+func TestFindCutIndex_SummaryPrefixDoesNotRetrigger(t *testing.T) {
+	// After one compact the session is [summary, ack, recent turns]. Those
+	// recent turns fit in the keep budget. The summary sitting in front must
+	// not make the next prompt compact again.
+	recent := makeTurns(compactMinTurns)
+	msgs := append([]SessionMessage{
+		{Role: RoleCompactionSummary, Content: "summary of the earlier turns"},
+		{Role: RoleAssistant, Content: "Understood. Continuing."},
+	}, recent...)
+	if got := findCutIndex(msgs, compactKeepRecentTokens, "gpt-4o"); got != 0 {
+		t.Fatalf("summary prefix retriggered a cut at %d", got)
+	}
+}
+
+func TestFindCutIndex_RealOverflowStillCuts(t *testing.T) {
+	msgs := []SessionMessage{
+		{Role: RoleCompactionSummary, Content: "old summary"},
+		{Role: RoleAssistant, Content: "ack"},
+	}
+	for range 12 {
+		msgs = append(msgs,
+			SessionMessage{Role: "user", Content: strings.Repeat("u", 4000)},
+			SessionMessage{Role: "assistant", Content: strings.Repeat("a", 4000)},
+		)
+	}
+	got := findCutIndex(msgs, 2000, "gpt-4o")
+	if got <= sessionMsgsPer {
+		t.Fatalf("expected a cut past the summary pair, got %d", got)
+	}
+	if msgs[got].Role != "user" {
+		t.Fatalf("cut role %q", msgs[got].Role)
+	}
+}
+
+func TestCompactWithLLM_DoesNotRepeatOnNextCall(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		calls++
+		return "## Goal\nShip it.\n\n## Progress\n### Done\n- [x] did the work", nil
+	})
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 400,
+	})
+	for range 8 {
+		loop.session.Append("question", strings.Repeat("answer ", 800))
+	}
+	first, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == "" {
+		t.Fatal("expected the first compaction to summarize")
+	}
+	if calls != 1 {
+		t.Fatalf("first compaction calls = %d, want 1", calls)
+	}
+	second, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != "" || calls != 1 {
+		t.Fatalf("second compaction = %q after %d calls, want no further summary", second, calls)
 	}
 }
 
@@ -383,7 +455,7 @@ func TestShouldAutoCompact_KnownModelBelowWindow(t *testing.T) {
 	// gpt-4o has 128k context; 4 turns of 100-char messages (~200 tokens total)
 	// is well below 128000-16384=111616, so should not compact.
 	msgs := makeTurns(compactMinTurns)
-	if shouldAutoCompact(msgs, defaultAutoCompactThreshold, "gpt-4o") {
+	if shouldAutoCompact(msgs, autoCompactTokens(), "gpt-4o") {
 		t.Fatal("expected false: tiny history is far below gpt-4o window")
 	}
 }
@@ -682,5 +754,88 @@ func TestForcedCutIndex(t *testing.T) {
 		if got%sessionMsgsPer != 0 {
 			t.Errorf("%d turns: cut %d not on a turn boundary", turns, got)
 		}
+	}
+}
+
+func TestShouldAutoCompactNow_DisabledEventNeverFires(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	if err := SetEventEnabled(eventAutoCompact, false); err != nil {
+		t.Fatal(err)
+	}
+	loop := makeTestLoop(nil)
+	loop.config.AutoCompactThreshold = 1 // would otherwise fire immediately
+	msgs := makeTurns(compactMinTurns + 5)
+	if loop.shouldAutoCompactNow(msgs) {
+		t.Fatal("expected a disabled auto-compact event to never fire")
+	}
+}
+
+func TestShouldAutoCompactNow_EnabledEventFiresNormally(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	loop := makeTestLoop(nil)
+	loop.config.AutoCompactThreshold = 1
+	loop.config.Model = "some-unregistered-local-gguf" // unknown ctx window: uses flat threshold
+	msgs := makeTurns(compactMinTurns + 5)
+	if !loop.shouldAutoCompactNow(msgs) {
+		t.Fatal("expected an enabled auto-compact event to fire once its threshold is exceeded")
+	}
+}
+
+func TestNormalizeCompactionSummary_DropsEmptyGoal(t *testing.T) {
+	in := "Summary\n\n## Goal\n\n## Progress\n### Done\n- [x] fixed the parser\n"
+	got := normalizeCompactionSummary(in)
+	if strings.Contains(got, "## Goal") || strings.Contains(strings.ToLower(got), "summary") {
+		t.Fatalf("empty title and goal kept: %q", got)
+	}
+	want := "## Progress\n### Done\n- [x] fixed the parser"
+	if got != want {
+		t.Fatalf("got %q", got)
+	}
+	if preview := summaryPreview(in); preview != "- [x] fixed the parser" {
+		t.Fatalf("preview %q", preview)
+	}
+}
+
+func TestNormalizeCompactionSummary_DropsSummaryGoalTitle(t *testing.T) {
+	in := "Summary ## Goal\n\n## Constraints & Preferences\n- keep the tests\n"
+	got := normalizeCompactionSummary(in)
+	if strings.Contains(got, "Summary") || strings.Contains(got, "## Goal") {
+		t.Fatalf("chrome kept: %q", got)
+	}
+	if !strings.Contains(got, "keep the tests") {
+		t.Fatalf("body lost: %q", got)
+	}
+}
+
+func TestNormalizeCompactionSummary_KeepsRealGoal(t *testing.T) {
+	in := "## Goal\nShip the parser fix.\n\n## Constraints & Preferences\n- [Any constraints, preferences, or requirements mentioned by user]\n- keep tests green\n"
+	got := normalizeCompactionSummary(in)
+	if !strings.Contains(got, "## Goal\nShip the parser fix.") {
+		t.Fatalf("goal lost: %q", got)
+	}
+	if strings.Contains(got, "Any constraints") {
+		t.Fatalf("placeholder kept: %q", got)
+	}
+	if !strings.Contains(got, "- keep tests green") {
+		t.Fatalf("real bullet lost: %q", got)
+	}
+	if preview := summaryPreview(in); preview != "Ship the parser fix." {
+		t.Fatalf("preview %q", preview)
+	}
+}
+
+func TestShouldFoldNow_DisabledEventNeverFires(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	if err := SetEventEnabled(eventFold, false); err != nil {
+		t.Fatal(err)
+	}
+	loop := makeTestLoop(nil)
+	loop.config.FoldThreshold = 1
+	msgs := makeTurns(compactMinTurns + 5)
+	if loop.shouldFoldNow(msgs) {
+		t.Fatal("expected a disabled fold event to never fire")
 	}
 }
