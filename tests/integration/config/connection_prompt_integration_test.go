@@ -89,6 +89,32 @@ func TestConnectionEnvOverride_RoundTrip(t *testing.T) {
 	assert.True(t, config.ConnectionInEnv(config.ConnKindSMTP, "alerts"))
 }
 
+// Regression guard: a prompted bot connection (Discord/Slack/Telegram/
+// WhatsApp) must round-trip through the real config load path, not just a
+// direct YAML unmarshal. This is the shape that silently dropped every field
+// before the double-nesting fix in promptBotConnection.
+func TestPromptAndSaveConnection_BotRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	var out bytes.Buffer
+	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindBot, "discord", &out,
+		bufio.NewReader(strings.NewReader("dtoken-rt\n"))))
+	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindBot, "slack", &out,
+		bufio.NewReader(strings.NewReader("xoxb-rt\nxapp-rt\n\n"))))
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	require.True(t, config.HasConnection(cfg, config.ConnKindBot, "discord"))
+	require.True(t, config.HasConnection(cfg, config.ConnKindBot, "slack"))
+	require.NotNil(t, cfg.BotConnections)
+	require.NotNil(t, cfg.BotConnections.Discord)
+	assert.Equal(t, "dtoken-rt", cfg.BotConnections.Discord.BotToken)
+	require.NotNil(t, cfg.BotConnections.Slack)
+	assert.Equal(t, "xoxb-rt", cfg.BotConnections.Slack.BotToken)
+	assert.Equal(t, "xapp-rt", cfg.BotConnections.Slack.AppToken)
+}
+
 // A missing cloud LLM key prompted at run time must be written to config.yaml
 // (and exported) so the chat resource can authenticate.
 func TestPromptAndSaveLLMKey_RoundTrip(t *testing.T) {

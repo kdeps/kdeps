@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -106,6 +107,32 @@ func TestCheckPathBoundary_OutsideCWD_NonInteractiveDenied(t *testing.T) {
 	assert.Contains(t, denyReason, "no terminal available")
 }
 
+func TestBlockOnPathBoundary_NotBlockedReturnsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	chdirTo(t, dir)
+
+	l := &Loop{}
+	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": dir})
+	assert.False(t, blocked)
+	assert.Empty(t, result)
+}
+
+func TestBlockOnPathBoundary_BlockedClosesOpenToolCallLine(t *testing.T) {
+	dir := t.TempDir()
+	chdirTo(t, dir)
+	outside := t.TempDir()
+
+	var buf bytes.Buffer
+	l := &Loop{config: Config{ToolOutputWriter: &buf}}
+	l.toolLineOpen.Store(true)
+
+	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": filepath.Join(outside, "x.txt")})
+	assert.True(t, blocked)
+	assert.Contains(t, result, "outside the working directory")
+	assert.Contains(t, buf.String(), "blocked:", "the open tool-call line must be closed with the deny reason")
+	assert.False(t, l.toolLineOpen.Load(), "closeToolCallLine must clear the open flag")
+}
+
 func TestCheckPathBoundary_ParentOfCWDIsOutside(t *testing.T) {
 	parent := t.TempDir()
 	cwd := filepath.Join(parent, "acme")
@@ -180,4 +207,34 @@ func TestGlobalApprovalTokenRegistry_PathBoundaryScopeIsDistinctFromToolScope(t 
 
 	found := GlobalApprovalTokenRegistry.FindMatchingGranted(pathBoundaryToolName, abs, time.Now())
 	assert.Nil(t, found, "a write_file tool-scope grant must not satisfy a path-boundary check")
+}
+
+// go test's stdin is never a real terminal, so term.MakeRaw always fails here
+// and both prompts must fail closed (deny) rather than block or panic.
+
+func TestPromptToolApproval_FailsClosedWithoutTTY(t *testing.T) {
+	l := &Loop{}
+	var out bytes.Buffer
+	decision := l.promptToolApproval(&out, "bash_exec", `{"command":"ls"}`)
+	assert.Equal(t, approveDeny, decision)
+	assert.Contains(t, out.String(), "Approve tool")
+	assert.Contains(t, out.String(), "Can't read interactive input")
+}
+
+func TestPromptToolApproval_NoArgsSummary(t *testing.T) {
+	l := &Loop{}
+	var out bytes.Buffer
+	decision := l.promptToolApproval(&out, "noop_tool", "")
+	assert.Equal(t, approveDeny, decision)
+	assert.Contains(t, out.String(), `Approve tool "noop_tool" ?`)
+}
+
+func TestPromptPathApproval_FailsClosedWithoutTTY(t *testing.T) {
+	l := &Loop{}
+	var out bytes.Buffer
+	decision := l.promptPathApproval(&out, "/etc/passwd", "/home/user")
+	assert.Equal(t, approveDeny, decision)
+	assert.Contains(t, out.String(), "Approve access outside")
+	assert.Contains(t, out.String(), "/etc/passwd")
+	assert.Contains(t, out.String(), "Can't read interactive input")
 }

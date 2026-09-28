@@ -605,3 +605,29 @@ func TestSummarizeToolArgs_EmptyKeySkipped(t *testing.T) {
 		t.Logf("result: %q", result)
 	}
 }
+
+func TestDedent_NoExcessIndentReturnsInputUnchanged(t *testing.T) {
+	t.Parallel()
+	text := "line one\n  line two\nline three"
+	if got := dedent(text); got != text {
+		t.Errorf("dedent(%q) = %q, want unchanged", text, got)
+	}
+}
+
+func TestDedent_CapsExcessiveIndentToFour(t *testing.T) {
+	t.Parallel()
+	text := "normal\n" + strings.Repeat(" ", 12) + "deeply indented\nnormal again"
+	want := "normal\n    deeply indented\nnormal again"
+	if got := dedent(text); got != want {
+		t.Errorf("dedent(%q) = %q, want %q", text, got, want)
+	}
+}
+
+func TestDedent_BlankLinesSkipped(t *testing.T) {
+	t.Parallel()
+	text := "\n   \n" + strings.Repeat(" ", 10) + "indented"
+	want := "\n   \n    indented"
+	if got := dedent(text); got != want {
+		t.Errorf("dedent(%q) = %q, want %q", text, got, want)
+	}
+}

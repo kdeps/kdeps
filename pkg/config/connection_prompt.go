@@ -120,7 +120,7 @@ func PromptAndSaveConnection(kind, name string, out io.StringWriter, in *bufio.R
 	w.printf("  Connection %q (%s) is referenced but not configured.\n", name, kind)
 	w.println("  Enter its details to save them to ~/.kdeps/config.yaml.")
 
-	value, err := promptConnectionValue(kind, w, out, in)
+	value, err := promptConnectionValue(kind, name, w, out, in)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func PromptAndSaveConnection(kind, name string, out io.StringWriter, in *bufio.R
 // promptConnectionValue asks for the fields specific to a connection kind and
 // returns a value whose YAML marshaling matches the connection's config struct.
 func promptConnectionValue(
-	kind string, w *fmtWriter, out io.StringWriter, in *bufio.Reader,
+	kind, name string, w *fmtWriter, out io.StringWriter, in *bufio.Reader,
 ) (any, error) {
 	switch kind {
 	case ConnKindSMTP:
@@ -158,7 +158,7 @@ func promptConnectionValue(
 	case ConnKindHTTP:
 		return promptHTTPConnection(w, out, in)
 	case ConnKindBot:
-		return promptBotConnection(w, out, in)
+		return promptBotConnection(w, out, in, name) // name is the platform: discord/slack/telegram/whatsapp
 	default:
 		return nil, fmt.Errorf("unknown connection kind %q", kind)
 	}
@@ -217,27 +217,30 @@ func promptHTTPConnection(
 	return cfg, nil
 }
 
-// promptBotConnection interactively collects the fields for a bot platform,
-// returning a BotConnectionConfig that wraps the platform's config struct.
+// promptBotConnection interactively collects the fields for one bot platform.
+// platform (the caller-supplied connection name -- "discord", "slack",
+// "telegram", or "whatsapp") picks which fields to ask for, and the returned
+// value is the platform's own config struct (e.g. *DiscordConnectionConfig),
+// not the BotConnectionConfig wrapper: injectConnection writes it at
+// bot_connections.<platform>, which is exactly where BotConnectionConfig's
+// yaml tags expect that struct to live -- wrapping it again here would nest
+// it one level too deep and silently drop every field.
 func promptBotConnection(
-	w *fmtWriter, out io.StringWriter, in *bufio.Reader,
+	w *fmtWriter, out io.StringWriter, in *bufio.Reader, platform string,
 ) (any, error) {
-	platform := strings.ToLower(promptLine(out, in,
-		"  Platform [discord/slack/telegram/whatsapp]: ", ""))
-
-	switch platform {
+	switch strings.ToLower(platform) {
 	case "discord":
 		token, err := promptSecret(w, in, "  Discord bot token")
 		if err != nil {
 			return nil, err
 		}
-		return BotConnectionConfig{Discord: &DiscordConnectionConfig{BotToken: token}}, nil
+		return &DiscordConnectionConfig{BotToken: token}, nil
 	case "telegram":
 		token, err := promptSecret(w, in, "  Telegram bot token")
 		if err != nil {
 			return nil, err
 		}
-		return BotConnectionConfig{Telegram: &TelegramConnectionConfig{BotToken: token}}, nil
+		return &TelegramConnectionConfig{BotToken: token}, nil
 	case "slack":
 		token, err := promptSecret(w, in, "  Slack bot token (xoxb-)")
 		if err != nil {
@@ -252,7 +255,7 @@ func promptBotConnection(
 		if signingSecret != "" {
 			slack.SigningSecret = signingSecret
 		}
-		return BotConnectionConfig{Slack: slack}, nil
+		return slack, nil
 	case "whatsapp":
 		phoneNumberID := promptLine(out, in, "  WhatsApp Phone Number ID: ", "")
 		accessToken, err := promptSecret(w, in, "  WhatsApp Access Token")
@@ -264,7 +267,7 @@ func promptBotConnection(
 		if webhookSecret != "" {
 			wa.WebhookSecret = webhookSecret
 		}
-		return BotConnectionConfig{WhatsApp: wa}, nil
+		return wa, nil
 	default:
 		return nil, fmt.Errorf("unknown bot platform %q", platform)
 	}

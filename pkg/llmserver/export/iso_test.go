@@ -62,3 +62,57 @@ func TestGenerateLinuxKitYAML(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateLinuxKitYAML_NilRecipe(t *testing.T) {
+	if _, err := GenerateLinuxKitYAML(ISOOptions{Image: "x"}); err == nil {
+		t.Fatal("expected an error for a nil recipe")
+	}
+}
+
+func TestGenerateLinuxKitYAML_EmptyImage(t *testing.T) {
+	r := &recipe.Recipe{ID: "x", API: recipe.APIConfig{Port: 8000}}
+	if _, err := GenerateLinuxKitYAML(ISOOptions{Recipe: r}); err == nil {
+		t.Fatal("expected an error for an empty image")
+	}
+}
+
+func TestGenerateLinuxKitYAML_InvalidRecipe(t *testing.T) {
+	// A recipe missing required fields (no API port, no engine) fails
+	// recipe.Validate.
+	r := &recipe.Recipe{}
+	if _, err := GenerateLinuxKitYAML(ISOOptions{Recipe: r, Image: "x"}); err == nil {
+		t.Fatal("expected an error for an invalid recipe")
+	}
+}
+
+func TestGenerateLinuxKitYAML_Arm64AndDefaults(t *testing.T) {
+	r := &recipe.Recipe{
+		ID:   "ollama",
+		Name: "Ollama",
+		API: recipe.APIConfig{
+			Port:     8000,
+			BasePath: "/v1",
+			ChatPath: "/v1/chat/completions",
+			Health:   recipe.Health{Method: "GET", Path: "/v1/models"},
+			Auth:     recipe.AuthConfig{Mode: recipe.AuthNone},
+		},
+		Engine: recipe.EngineConfig{
+			Kind:      recipe.EngineOllama,
+			BaseImage: "ubuntu:24.04",
+			Command:   []string{"ollama", "serve"},
+		},
+		Models:    recipe.ModelsConfig{Strategy: recipe.ModelPull},
+		Resources: recipe.Resources{GPU: recipe.GPUOptional},
+	}
+	// No Hostname, no Arch, no Model: defaults + arm64 cmdline branch.
+	out, err := GenerateLinuxKitYAML(ISOOptions{Recipe: r, Image: "img:latest", Arch: "arm64"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "console=ttyAMA0") {
+		t.Errorf("expected arm64 console cmdline, got:\n%s", out)
+	}
+	if strings.Contains(out, "LLM_MODEL=") {
+		t.Errorf("no Model set: LLM_MODEL should be absent:\n%s", out)
+	}
+}

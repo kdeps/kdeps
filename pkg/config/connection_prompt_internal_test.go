@@ -191,6 +191,171 @@ func TestPromptAndSaveConnection_HTTPBearer(t *testing.T) {
 	assert.Equal(t, "tok-123", cfg.HTTPConnections["api"].Auth.Token)
 }
 
+func TestPromptAndSaveConnection_BotDiscord(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("dtoken\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "discord", &out, in))
+
+	cfg := readConfigFile(t, path)
+	require.NotNil(t, cfg.BotConnections)
+	require.NotNil(t, cfg.BotConnections.Discord)
+	assert.Equal(t, "dtoken", cfg.BotConnections.Discord.BotToken)
+}
+
+func TestPromptAndSaveConnection_BotTelegram(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("ttoken\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "telegram", &out, in))
+
+	cfg := readConfigFile(t, path)
+	require.NotNil(t, cfg.BotConnections.Telegram)
+	assert.Equal(t, "ttoken", cfg.BotConnections.Telegram.BotToken)
+}
+
+func TestPromptAndSaveConnection_BotSlackWithOptionalFields(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("xoxb-tok\nxapp-tok\nsign-secret\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "slack", &out, in))
+
+	cfg := readConfigFile(t, path)
+	require.NotNil(t, cfg.BotConnections.Slack)
+	assert.Equal(t, "xoxb-tok", cfg.BotConnections.Slack.BotToken)
+	assert.Equal(t, "xapp-tok", cfg.BotConnections.Slack.AppToken)
+	assert.Equal(t, "sign-secret", cfg.BotConnections.Slack.SigningSecret)
+}
+
+func TestPromptAndSaveConnection_BotSlackMinimal(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	// No app token, no signing secret.
+	in := bufio.NewReader(strings.NewReader("xoxb-tok\n\n\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "slack", &out, in))
+
+	cfg := readConfigFile(t, path)
+	require.NotNil(t, cfg.BotConnections.Slack)
+	assert.Empty(t, cfg.BotConnections.Slack.AppToken)
+	assert.Empty(t, cfg.BotConnections.Slack.SigningSecret)
+}
+
+func TestPromptAndSaveConnection_BotWhatsApp(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("12345\naccess-tok\nwebhook-secret\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "whatsapp", &out, in))
+
+	cfg := readConfigFile(t, path)
+	require.NotNil(t, cfg.BotConnections.WhatsApp)
+	assert.Equal(t, "12345", cfg.BotConnections.WhatsApp.PhoneNumberID)
+	assert.Equal(t, "access-tok", cfg.BotConnections.WhatsApp.AccessToken)
+	assert.Equal(t, "webhook-secret", cfg.BotConnections.WhatsApp.WebhookSecret)
+}
+
+func TestPromptAndSaveConnection_BotUnknownPlatform(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader(""))
+	var out testWriter
+	err := PromptAndSaveConnection(ConnKindBot, "myspace", &out, in)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown bot platform")
+}
+
+func TestPromptAndSaveConnection_HTTPBasicAndAPIKeyAndProxy(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("basic\nuser\npass\nhttp://proxy.example.com\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-basic", &out, in))
+
+	cfg := readConfigFile(t, path)
+	auth := cfg.HTTPConnections["api-basic"].Auth
+	require.NotNil(t, auth)
+	assert.Equal(t, "basic", auth.Type)
+	assert.Equal(t, "user", auth.Username)
+	assert.Equal(t, "pass", auth.Password)
+	assert.Equal(t, "http://proxy.example.com", cfg.HTTPConnections["api-basic"].Proxy)
+
+	in = bufio.NewReader(strings.NewReader("api_key\nX-API-Key\nsecretval\n\n"))
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-key", &out, in))
+	cfg = readConfigFile(t, path)
+	auth = cfg.HTTPConnections["api-key"].Auth
+	require.NotNil(t, auth)
+	assert.Equal(t, "api_key", auth.Type)
+	assert.Equal(t, "X-API-Key", auth.Key)
+	assert.Equal(t, "secretval", auth.Value)
+
+	in = bufio.NewReader(strings.NewReader("none\n\n"))
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-none", &out, in))
+	cfg = readConfigFile(t, path)
+	assert.Nil(t, cfg.HTTPConnections["api-none"].Auth)
+}
+
 func TestPromptAndSaveConnection_UnknownKind(t *testing.T) {
 	in := bufio.NewReader(strings.NewReader(""))
 	var out testWriter

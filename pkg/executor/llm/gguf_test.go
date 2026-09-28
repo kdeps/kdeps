@@ -447,6 +447,27 @@ func TestModelDownload_SharedHelper_CacheHit(t *testing.T) {
 	assert.Equal(t, dest, path)
 }
 
+// TestDownloadModelFile_ExportedWrapper covers the package-external entry
+// point (used by e.g. the transcribe executor's whisper.cpp model) with the
+// same cache-hit path: it must delegate to downloadModelFile unchanged.
+func TestDownloadModelFile_ExportedWrapper(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "cached2.gguf")
+	require.NoError(t, afero.WriteFile(fs, dest, []byte("data"), 0600))
+
+	origGet := httpGet
+	t.Cleanup(func() { httpGet = origGet })
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
+		t.Fatal("httpGet should not be called for cache hit")
+		return nil, nil
+	}
+
+	path, err := DownloadModelFile(context.Background(), "https://example.com/cached2.gguf", "model.gguf", dir, nil, fs)
+	require.NoError(t, err)
+	assert.Equal(t, dest, path)
+}
+
 func TestLoadOrSeedLocalGGUFRegistry_EmptyPath(t *testing.T) {
 	assert.Nil(t, loadOrSeedLocalGGUFRegistry(""))
 }

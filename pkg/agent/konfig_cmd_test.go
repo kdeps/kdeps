@@ -77,3 +77,55 @@ func TestCmdKonfigExport_WritesFileAtGivenPath(t *testing.T) {
 	_, err := ReadKonfig(path)
 	require.NoError(t, err)
 }
+
+// TestCmdKonfigImport_RoundTripsAnExportedFile exports the current
+// (isolated) config, mutates a harness setting for real, then imports the
+// exported file back and confirms the setting was actually restored -- not
+// just that the command printed success text.
+func TestCmdKonfigImport_RoundTripsAnExportedFile(t *testing.T) {
+	isolateKonfigHome(t)
+	isolateHarnessAndEventsHome(t)
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	path := filepath.Join(t.TempDir(), "konfig.yaml")
+	require.NoError(t, repl.dispatchCommand("/konfig export "+path))
+
+	require.NoError(t, SetHarnessEnabled("memory", false))
+	require.False(t, HarnessEnabled("memory"))
+
+	require.NoError(t, repl.dispatchCommand("/konfig import "+path))
+	assert.True(t, HarnessEnabled("memory"), "importing the exported konfig must restore the harness section")
+}
+
+// TestCmdKonfigImport_WithSkillsNotesRestartRequired covers the branch where
+// the imported konfig carries skills: the success message must say a
+// restart is needed to pick them up.
+func TestCmdKonfigImport_WithSkillsNotesRestartRequired(t *testing.T) {
+	isolateKonfigHome(t)
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	k := &Konfig{Skills: []KonfigSkill{{Name: "my-skill", Content: "# My Skill"}}}
+	path := filepath.Join(t.TempDir(), "with-skills.yaml")
+	require.NoError(t, WriteKonfig(k, path))
+
+	out := captureStdout(t, func() {
+		require.NoError(t, repl.dispatchCommand("/konfig import "+path))
+	})
+	assert.Contains(t, out, "restart to pick up imported skills")
+}
+
+// TestCmdKonfigImport_MissingFileReportsErrorWithoutPanicking covers the
+// ReadKonfig-fails branch: a nonexistent path must produce a clean error
+// message via cmdKonfigImport, not a REPL-loop error or a panic.
+func TestCmdKonfigImport_MissingFileReportsErrorWithoutPanicking(t *testing.T) {
+	isolateKonfigHome(t)
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	require.NoError(t, repl.dispatchCommand("/konfig import "+filepath.Join(t.TempDir(), "does-not-exist.yaml")))
+}
