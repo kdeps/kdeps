@@ -680,6 +680,66 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 	assert.Contains(t, reminder, `<parameter name="target">`)
 }
 
+// TestBuildChatConfig_IncludesActiveHarnessReminder covers /harness
+// reminders <name> on: the named section's raw body must reach every
+// buildChatConfig call as its own scenario item, including the very FIRST
+// turn (unlike the tools-reminder, which only repeats after turn 0).
+func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
+	var found bool
+	for _, item := range cfg.Scenario {
+		if item.Prompt == harnessText("m365-sandbox") {
+			found = true
+		}
+	}
+	assert.True(t, found, "an active harness reminder must appear on the very first turn")
+}
+
+// TestBuildChatConfig_NoReminderScenarioWhenNoneActive ensures the reminder
+// wiring is a true no-op (no extra empty scenario item) when nothing is
+// active.
+func TestBuildChatConfig_NoReminderScenarioWhenNoneActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
+	for _, item := range cfg.Scenario {
+		assert.NotEmpty(t, strings.TrimSpace(item.Prompt), "no empty reminder scenario item should be added")
+	}
+}
+
+// TestToolResultMessage_AppendsActiveHarnessReminder covers the tool-call
+// side: an active reminder must be appended to every tool result, including
+// the task-state-tool short-circuit path.
+func TestToolResultMessage_AppendsActiveHarnessReminder(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	got := loop.toolResultMessage(context.Background(),
+		domain.StreamedToolCall{Name: "read_file"}, "file contents")
+	assert.Contains(t, got, harnessText("m365-sandbox"))
+}
+
 // TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the
 // "internals" harness section's CONVERGENCE paragraph: it must state the web
 // call limit models actually hit (globalWebCache.max), not a hardcoded

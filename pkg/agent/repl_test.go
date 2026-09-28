@@ -847,6 +847,25 @@ func TestDynamicPrompt_WithTurns(t *testing.T) {
 	assert.Contains(t, m, "·", "modeline segments are separated by a middle dot")
 }
 
+// TestModeline_ReminderSegmentAppearsOnlyWhileActive covers the /harness
+// reminders HUD indicator: it must be absent by default, appear the moment a
+// reminder is turned on, and disappear again once it's turned off -- same
+// on-only-when-active convention as mem:.
+func TestModeline_ReminderSegmentAppearsOnlyWhileActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	assert.NotContains(t, repl.modeline(), "reminder:")
+
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+	assert.Contains(t, repl.modeline(), "reminder:tools-reminder")
+
+	require.NoError(t, SetHarnessReminder("tools-reminder", false))
+	assert.NotContains(t, repl.modeline(), "reminder:")
+}
+
 // TestContextUsageStr_ReflectsLocalContextSizeChange pins the reported bug:
 // running /context <size> must update the "<consumed>/<this_context>" prompt
 // segment immediately, since /context calls llm.SetLocalContextSize without

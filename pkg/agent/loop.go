@@ -2324,6 +2324,18 @@ func (l *Loop) toolResultMessage(
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
+	return appendHarnessReminders(l.buildToolResultMessage(ctx, tc, result))
+}
+
+// buildToolResultMessage is toolResultMessage's original body, factored out
+// so every return path -- including the task-state-tool short-circuit --
+// passes through the single appendHarnessReminders call in toolResultMessage
+// rather than needing its own.
+func (l *Loop) buildToolResultMessage(
+	ctx context.Context,
+	tc domain.StreamedToolCall,
+	result string,
+) string {
 	if isTaskStateTool(tc.Name) {
 		return turoReduce(ctx, capToolResult(result))
 	}
@@ -3210,6 +3222,18 @@ func (l *Loop) buildChatConfig(
 		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
 			domain.ScenarioItem{Role: "system", Prompt: reminder})
+	}
+
+	// Any harness section forced on via "/harness reminders <name> on" goes
+	// onto every prompt, from the very first turn -- unlike the tools-reminder
+	// above (which only repeats existing preamble content after turn 0), this
+	// is a general-purpose override that can force even a normally
+	// special-cased standalone entry (a nudge, a sandbox warning, ...) into
+	// view regardless of whether its own trigger condition ever fires. See
+	// appendHarnessReminders.
+	if reminders := harnessRemindersBlock(); reminders != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario,
+			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}
 
 	return chatCfg

@@ -75,13 +75,91 @@ func SetHarnessEnabled(name string, enabled bool) error {
 	}
 	entry := yamlHarnessEntry{
 		Name: key, Kind: e.kind, Order: e.order, Body: e.body,
-		Disabled: !enabled, MaxOccurrences: e.maxOccurrences,
+		Disabled: !enabled, MaxOccurrences: e.maxOccurrences, Remind: e.remind,
 	}
 	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
 		return err
 	}
 	initHarness()
 	return nil
+}
+
+// HarnessReminderEnabled reports whether a harness section's body is forced
+// onto every LLM prompt and every tool call result (see
+// appendHarnessReminders). An unregistered name reports false -- unlike
+// HarnessEnabled's fail-open default, there is no reminder to force for a
+// section that does not exist.
+func HarnessReminderEnabled(name string) bool {
+	e, ok := harnessRegistry[strings.ToLower(strings.TrimSpace(name))]
+	return ok && e.remind
+}
+
+// SetHarnessReminder persists a harness section's forced-reminder state (see
+// HarnessReminderEnabled) the same way SetHarnessEnabled persists
+// enabled/disabled, and reloads the in-process registry immediately. Errors
+// if name isn't a registered section. Callers with a live Loop should also
+// call Loop.InvalidateSystemPreamble afterward, same as SetHarnessEnabled.
+func SetHarnessReminder(name string, enabled bool) error {
+	key := strings.ToLower(strings.TrimSpace(name))
+	e, ok := harnessRegistry[key]
+	if !ok {
+		return fmt.Errorf("harness: unknown section %q", name)
+	}
+	entry := yamlHarnessEntry{
+		Name: key, Kind: e.kind, Order: e.order, Body: e.body,
+		Disabled: e.disabled, MaxOccurrences: e.maxOccurrences, Remind: enabled,
+	}
+	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
+		return err
+	}
+	initHarness()
+	return nil
+}
+
+// harnessReminderNames returns the sorted names of every harness section
+// currently forced as a reminder (see HarnessReminderEnabled) -- used to
+// build the combined reminder block (appendHarnessReminders) and the REPL
+// HUD's "reminder:" segment.
+func harnessReminderNames() []string {
+	var names []string
+	for name, e := range harnessRegistry {
+		if e.remind {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// harnessRemindersBlock joins every active reminder harness section's raw
+// body with blank lines, in name order -- "" when no reminders are active.
+// Used both to append to a tool result (appendHarnessReminders) and to build
+// the extra system scenario item buildChatConfig sends on every prompt.
+func harnessRemindersBlock() string {
+	names := harnessReminderNames()
+	if len(names) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
+		if body := harnessText(name); body != "" {
+			parts = append(parts, body)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// appendHarnessReminders appends harnessRemindersBlock to content (with a
+// blank-line separator), so every active reminder reaches the model on every
+// tool call result (toolResultMessage) regardless of that section's own
+// normal kind/trigger. A no-op (returns content unchanged) when no reminders
+// are active.
+func appendHarnessReminders(content string) string {
+	block := harnessRemindersBlock()
+	if block == "" {
+		return content
+	}
+	return content + "\n\n" + block
 }
 
 // harnessOccurrenceLimit returns a standalone entry's configured occurrence

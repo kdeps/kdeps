@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,4 +143,106 @@ func TestSummarizeEventTrigger_ItemsOnlyNotesNoTrigger(t *testing.T) {
 	got := summarizeEventTrigger(Event{Items: 5})
 	assert.Contains(t, got, "items=5")
 	assert.Contains(t, got, "no trigger")
+}
+
+func TestCmdHarnessReminders_NoArgsListsReminders(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders"))
+}
+
+func TestCmdHarnessReminders_List(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders list"))
+}
+
+func TestCmdHarnessReminders_OnOffRoundTrip(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+
+	assert.False(t, HarnessReminderEnabled("tools-reminder"))
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder on"))
+	assert.True(t, HarnessReminderEnabled("tools-reminder"))
+	assert.Contains(t, harnessReminderNames(), "tools-reminder")
+
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder off"))
+	assert.False(t, HarnessReminderEnabled("tools-reminder"))
+	assert.NotContains(t, harnessReminderNames(), "tools-reminder")
+}
+
+func TestCmdHarnessReminders_UnknownNameReportsErrorWithoutPanicking(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders does-not-exist on"))
+}
+
+func TestCmdHarnessReminders_MissingStateShowsUsage(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder"))
+	assert.False(t, HarnessReminderEnabled("tools-reminder"))
+}
+
+func TestCmdHarnessReminders_InvalidStateShowsUsage(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder bogus"))
+	assert.False(t, HarnessReminderEnabled("tools-reminder"))
+}
+
+// TestSetHarnessEnabled_PreservesReminderFlag guards against a real bug the
+// two override writers could easily reintroduce: SetHarnessEnabled rewrites
+// the whole yamlHarnessEntry, so it must carry the existing remind flag
+// forward instead of silently clearing it, and vice versa for
+// SetHarnessReminder and the disabled flag.
+func TestSetHarnessEnabled_PreservesReminderFlag(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+	require.NoError(t, SetHarnessEnabled("tools-reminder", false))
+	assert.True(t, HarnessReminderEnabled("tools-reminder"), "disabling a section must not clear its reminder flag")
+	assert.False(t, HarnessEnabled("tools-reminder"))
+}
+
+func TestSetHarnessReminder_PreservesDisabledFlag(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+
+	require.NoError(t, SetHarnessEnabled("tools-reminder", false))
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+	assert.False(t, HarnessEnabled("tools-reminder"), "enabling a reminder must not re-enable a disabled section")
+	assert.True(t, HarnessReminderEnabled("tools-reminder"))
+}
+
+func TestHarnessRemindersBlock_EmptyWhenNoneActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	assert.Empty(t, harnessRemindersBlock())
+}
+
+func TestHarnessRemindersBlock_JoinsActiveBodiesSorted(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+
+	block := harnessRemindersBlock()
+	m365Body := harnessText("m365-sandbox")
+	toolsBody := harnessText("tools-reminder")
+	require.Contains(t, block, m365Body)
+	require.Contains(t, block, toolsBody)
+	// "m365-sandbox" sorts before "tools-reminder" (harnessReminderNames is sorted).
+	assert.Less(t, strings.Index(block, m365Body), strings.Index(block, toolsBody))
+}
+
+func TestAppendHarnessReminders_NoOpWhenNoneActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	assert.Equal(t, "original", appendHarnessReminders("original"))
+}
+
+func TestAppendHarnessReminders_AppendsActiveBlock(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+
+	got := appendHarnessReminders("tool result")
+	assert.True(t, strings.HasPrefix(got, "tool result\n\n"))
+	assert.Contains(t, got, harnessText("tools-reminder"))
 }

@@ -47,15 +47,73 @@ func (r *REPL) cmdHarness(args []string) error {
 		return r.cmdHarnessEvents(args[1:])
 	case "preset":
 		return r.cmdHarnessPreset(args[1:])
+	case "reminders":
+		return r.cmdHarnessReminders(args[1:])
 	default:
 		fmt.Fprintln(
 			os.Stderr,
 			styleReplError.Render(
-				"Usage: /harness [list|enable <name>|disable <name>|events ...|preset [list|<name>]]",
+				"Usage: /harness [list|enable <name>|disable <name>|events ...|preset [list|<name>]|reminders [list|<name> on|off]]",
 			),
 		)
 		return nil
 	}
+}
+
+// cmdHarnessReminders implements "/harness reminders [list|<name> on|off]":
+// forcing a harness section's body onto every LLM prompt and every tool call
+// result (see appendHarnessReminders), independent of that section's own
+// normal enabled/disabled state or trigger condition.
+func (r *REPL) cmdHarnessReminders(args []string) error {
+	if len(args) == 0 || strings.ToLower(args[0]) == "list" {
+		return r.cmdHarnessRemindersList()
+	}
+	const remindersArity = 2 // <name> on|off
+	if len(args) < remindersArity {
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness reminders <name> on|off"))
+		return nil
+	}
+	name := args[0]
+	enabled, ok := parseOnOff(args[1])
+	if !ok {
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness reminders <name> on|off"))
+		return nil
+	}
+	if err := SetHarnessReminder(name, enabled); err != nil {
+		fmt.Fprintln(os.Stdout, styleReplError.Render("Harness reminder failed: "+err.Error()))
+		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	}
+	r.loop.InvalidateSystemPreamble()
+	state := "off"
+	if enabled {
+		state = "on"
+	}
+	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
+		"Harness reminder %q %s (saved; fed to every prompt and tool result)", name, state)))
+	return nil
+}
+
+// cmdHarnessRemindersList prints every harness section with its reminder
+// on/off state, sorted by name.
+func (r *REPL) cmdHarnessRemindersList() error {
+	names := make([]string, 0, len(harnessRegistry))
+	for name := range harnessRegistry {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Harness reminders"))
+	for _, name := range names {
+		state := "off"
+		if harnessRegistry[name].remind {
+			state = styleReplSuccess.Render("on")
+		}
+		fmt.Fprintf(os.Stdout, "  %-28s %s\n", name, state)
+	}
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"Use /harness reminders <name> on|off to toggle. Feeds that section's text to every "+
+			"LLM prompt and every tool call result until turned off. Persisted like enable/disable."))
+	return nil
 }
 
 // cmdHarnessList prints every harness section (built-in plus user overrides,

@@ -79,6 +79,12 @@ type yamlHarnessEntry struct {
 	// this only supplies the configurable ceiling. Meaningless on a
 	// preamble-section entry, which has no occurrence count to cap.
 	MaxOccurrences int `yaml:"maxOccurrences,omitempty"`
+	// Remind forces this entry's body onto every LLM prompt and every tool
+	// call result, regardless of its normal kind/trigger (a preamble-section
+	// entry's own placement, or a standalone entry's specific call site).
+	// False (the zero value) means no forced reminder. Set/unset via
+	// "/harness reminders <name> on|off"; see harness_reminders.go.
+	Remind bool `yaml:"remind,omitempty"`
 }
 
 // harnessEntry is the parsed, in-memory form.
@@ -88,6 +94,7 @@ type harnessEntry struct {
 	body           string
 	disabled       bool
 	maxOccurrences int
+	remind         bool
 }
 
 // userHarnessDirName is the subdirectory of ~/.kdeps holding user harness
@@ -155,7 +162,7 @@ func parseBuiltinHarnessFileFrom(fsys harnessFS, out map[string]*harnessEntry, f
 	name := harnessNameFromYAML(ye, filename)
 	out[name] = &harnessEntry{
 		kind: ye.Kind, order: ye.Order, body: ye.Body,
-		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 	}
 }
 
@@ -223,7 +230,7 @@ func loadUserHarness() (map[string]*harnessEntry, []error) {
 		}
 		out[name] = &harnessEntry{
 			kind: kind, order: ye.Order, body: ye.Body,
-			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 		}
 	}
 	return out, errs

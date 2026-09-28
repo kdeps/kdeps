@@ -548,6 +548,12 @@ func (r *REPL) modeline() string {
 		}
 		parts = append(parts, styleReplSuccess.Render(label))
 	}
+	// "reminder:" only appears while at least one /harness reminders <name> on
+	// is active, and disappears the moment the last one is turned off -- same
+	// on-only-when-active convention as mem:.
+	if names := harnessReminderNames(); len(names) > 0 {
+		parts = append(parts, styleReplSuccess.Render("reminder:"+strings.Join(names, ",")))
+	}
 	return strings.Join(parts, dim(" · "))
 }
 
