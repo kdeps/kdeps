@@ -207,16 +207,16 @@ type Config struct {
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
 	// WebLimit caps web_search/web_scraper calls per user request (0=use the
-	// "web-call-budget" event's default, see events.go).
+	// "web-call-budget" event's default, see events.go; <0=unlimited).
 	WebLimit int
 	// BashLimit caps bash_exec calls per user request (0=use the
-	// "bash-call-budget" event's default).
+	// "bash-call-budget" event's default; <0=unlimited).
 	BashLimit int
 	// FileLimit caps read_file/list_files calls per user request (0=use the
-	// "file-call-budget" event's default).
+	// "file-call-budget" event's default; <0=unlimited).
 	FileLimit int
 	// CodeLimit caps search_local/code_search calls per user request (0=use
-	// the "code-call-budget" event's default).
+	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
 	// GoalEnforcement decomposes each prompt into a task list and drives the
 	// loop through it, refusing to revisit settled tasks and failing a task
@@ -2932,8 +2932,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		// limit models actually hit (globalWebCache, builtin_tool_cache.go),
 		// not a hardcoded number that would silently go stale the next time
 		// that limit changes.
-		_, webCallLimit := WebConvergenceCalls()
-		toolParts = append(toolParts, renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit}))
+		toolParts = append(toolParts, renderAssembledPreamble(currentPreambleData()))
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}

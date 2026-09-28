@@ -3041,6 +3041,21 @@ func parseOnOff(v string) (bool, bool) {
 	}
 }
 
+// unlimitedCallLimit is the Config *Limit value meaning "no cap" (negative,
+// since 0 means "use the event default"; see SetConvergenceLimits).
+const unlimitedCallLimit = -1
+
+func callLimitLabel(n int) string {
+	switch {
+	case n < 0:
+		return "unlimited"
+	case n == 0:
+		return "default"
+	default:
+		return strconv.Itoa(n)
+	}
+}
+
 // printToolSettings prints every tunable with its current value.
 func (r *REPL) printToolSettings() {
 	cfg := &r.loop.config
@@ -3055,10 +3070,14 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 20)", cfg.WebLimit)},
-		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 50)", cfg.BashLimit)},
-		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 80)", cfg.FileLimit)},
-		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 30)", cfg.CodeLimit)},
+		{"web-limit", fmt.Sprintf(
+			"%s  (max web_search/web_scraper per request, 0=unlimited)", callLimitLabel(cfg.WebLimit))},
+		{"bash-limit", fmt.Sprintf(
+			"%s  (max bash_exec per request, 0=unlimited)", callLimitLabel(cfg.BashLimit))},
+		{"file-limit", fmt.Sprintf(
+			"%s  (max read_file/list_files per request, 0=unlimited)", callLimitLabel(cfg.FileLimit))},
+		{"code-limit", fmt.Sprintf(
+			"%s  (max search_local/code_search per request, 0=unlimited)", callLimitLabel(cfg.CodeLimit))},
 		{"leaf-nodes", fmt.Sprintf(
 			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
 		{"leaf-chars", fmt.Sprintf(
@@ -3153,6 +3172,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		if err != nil || n < 0 {
 			return "", "web-limit must be a non-negative integer (0=unlimited)"
 		}
+		if n == 0 {
+			cfg.WebLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Web call limit removed (unlimited per request)", ""
+		}
 		cfg.WebLimit = n
 		return fmt.Sprintf("Web call limit set to %d per request", n), ""
 	},
@@ -3160,6 +3183,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return "", "bash-limit must be a non-negative integer (0=unlimited)"
+		}
+		if n == 0 {
+			cfg.BashLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Bash call limit removed (unlimited per request)", ""
 		}
 		cfg.BashLimit = n
 		return fmt.Sprintf("Bash call limit set to %d per request", n), ""
@@ -3169,6 +3196,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		if err != nil || n < 0 {
 			return "", "file-limit must be a non-negative integer (0=unlimited)"
 		}
+		if n == 0 {
+			cfg.FileLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "File read limit removed (unlimited per request)", ""
+		}
 		cfg.FileLimit = n
 		return fmt.Sprintf("File read limit set to %d per request", n), ""
 	},
@@ -3176,6 +3207,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return "", "code-limit must be a non-negative integer (0=unlimited)"
+		}
+		if n == 0 {
+			cfg.CodeLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Code search limit removed (unlimited per request)", ""
 		}
 		cfg.CodeLimit = n
 		return fmt.Sprintf("Code search limit set to %d per request", n), ""

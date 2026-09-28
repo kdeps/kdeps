@@ -18,7 +18,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
-| `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
+| `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set web-limit 0` (also `bash-limit`/`file-limit`/`code-limit`; `0` removes that per-request call cap), `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
 | `/model name [show\|hide\|abbreviate\|auto]` | Show or set how the modeline displays the model name, overriding the theme's default (see [Themes](/agent/repl#themes)); persists |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |

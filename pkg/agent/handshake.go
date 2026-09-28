@@ -658,8 +658,7 @@ func handshakeStrongRetryNudge(challenge string, misses int, plural string) stri
 // anything else happens -- so it must get the identical addition, not a
 // weaker or bespoke echo of it.
 func (l *Loop) handshakeGrounding(toolNames ...string) string {
-	_, webCallLimit := WebConvergenceCalls()
-	grounding := renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit})
+	grounding := renderAssembledPreamble(currentPreambleData())
 	if grounding == "" {
 		grounding = handshakeGroundingSystemMessage
 	}

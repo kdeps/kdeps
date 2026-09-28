@@ -17,12 +17,14 @@ body: |-
   23. Evaluate every tool result before calling another. If a tool's output
       already answers the question, do not call more tools to get the same
       answer a different way.
-  24. Research convergence: after 3 searches or scrapes on the same topic, STOP
+  24. {{if .WebUnlimited}}Research convergence: there is no cap on web calls this turn, so keep
+      researching until the question is actually answered. Stop when the next
+      call would not change your answer, not at a fixed count.{{else}}Research convergence: after {{.WebCallLimit}} web calls this turn, STOP
       and synthesize. More data does not mean a better answer --- it means a
-      worse conversation. Answer with what you have.
+      worse conversation. Answer with what you have.{{end}}
   25. Never scrape the same URL twice in a turn. Never search the same query
       twice. If a scrape times out, move on --- do not retry.
-  26. A list question ("top 20", "best X", "ranking") needs at most 3 sources.
-      Pick the highest-quality sources, extract the answer, and deliver it.
+  26. A list question ("top 20", "best X", "ranking") needs the highest-quality
+      sources, not the most sources. Extract the answer and deliver it.
       The user wants the list, not a log of your research process.
   </output>

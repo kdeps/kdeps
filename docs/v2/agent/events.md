@@ -117,7 +117,7 @@ run: block
 | `file-call-budget` | distinct `read_file`/`list_files` paths per turn | 80 |
 | `code-call-budget` | distinct `search_local`/`code_search` queries per turn | 30 |
 
-These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event.
+These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls are still stopped by `identical-tool-calls`.
 
 ## Memory events
 

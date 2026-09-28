@@ -253,6 +253,16 @@ func harnessAssembledPreamble() string {
 // changes.
 type harnessPreambleData struct {
 	WebCallLimit int
+	// WebUnlimited is true when no web-call cap is enforced (web-limit set to
+	// 0, or the web-call-budget event disabled), so prompt text must not tell
+	// the model to stop after a fixed number of searches.
+	WebUnlimited bool
+}
+
+// currentPreambleData snapshots the web-call limit actually enforced now.
+func currentPreambleData() harnessPreambleData {
+	_, limit := WebConvergenceCalls()
+	return harnessPreambleData{WebCallLimit: limit, WebUnlimited: limit >= disabledSentinel}
 }
 
 // renderAssembledPreamble executes the cached assembledPreamble join as a Go

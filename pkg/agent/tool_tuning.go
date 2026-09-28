@@ -40,10 +40,10 @@ type ToolTuning struct {
 	CompactTokenBudget   int
 	MaxTurns             int
 	MaxHistoryTokens     int
-	WebLimit             int // max web_search/web_scraper calls per request (0=default 20)
-	BashLimit            int // max bash_exec calls per request (0=default 50)
-	FileLimit            int // max read_file/list_files calls per request (0=default 80)
-	CodeLimit            int // max search_local/code_search calls per request (0=default 30)
+	WebLimit             int // max web_search/web_scraper calls per request (0=event default 20, <0=unlimited)
+	BashLimit            int // max bash_exec calls per request (0=event default 50, <0=unlimited)
+	FileLimit            int // max read_file/list_files calls per request (0=event default 80, <0=unlimited)
+	CodeLimit            int // max search_local/code_search calls per request (0=event default 30, <0=unlimited)
 	// turo reducer state (empty TuroLevel means turo was never configured).
 	TuroLevel    string
 	TuroOff      bool
