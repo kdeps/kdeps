@@ -26,6 +26,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1329,14 +1331,6 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
-		// Detect a model stuck re-issuing the same tool call. The loop
-		// dispatches toolCalls[0], so track that signature.
-		identicalRepeats, lastToolSig = trackRepeat(toolCalls[0], lastToolSig, identicalRepeats)
-		if identicalRepeats >= effectiveRounds(eventIdenticalCalls) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
-		}
-
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
@@ -1347,6 +1341,16 @@ func (l *Loop) runToolRounds(
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
+		}
+		// Detect a model stuck re-issuing the same tool call AND getting the
+		// same result back. The loop dispatches toolCalls[0], so track that
+		// call. Repeating a call whose result keeps changing (polling a log,
+		// re-running tests after an edit) is progress, not a stuck loop.
+		identicalRepeats, lastToolSig = trackRepeat(
+			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
+		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
+			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+			break
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
@@ -1859,10 +1863,29 @@ func isConvergenceBlocked(result string) bool {
 	return strings.Contains(result, "convergence (") && strings.Contains(result, "calls)")
 }
 
-// trackRepeat updates the consecutive-identical-tool-call counter. It returns
-// the new repeat count and the signature of the current call.
-func trackRepeat(tc domain.StreamedToolCall, lastSig string, repeats int) (int, string) {
-	sig := tc.Name + "\x00" + tc.Arguments
+// identicalRepeatLimit is how many identical call+result rounds in a row end
+// the turn. A tool whose category limit (web/bash/file/code) is unlimited is
+// exempt -- an unlimited tool limit means the user removed the cap, and the
+// stuck-loop guard must not reimpose one. Other tools use the
+// identical-tool-calls event threshold.
+func identicalRepeatLimit(toolName string) int {
+	if cache := cacheForCategory(categoryForTool(toolName)); cache != nil {
+		if _, limit := cache.count(); limit >= disabledSentinel {
+			return disabledSentinel
+		}
+	}
+	return effectiveRounds(eventIdenticalCalls)
+}
+
+// trackRepeat updates the consecutive-identical-tool-call counter. A round
+// only counts as a repeat when both the call and its result match the previous
+// round's. It returns the new repeat count and the current round's signature.
+func trackRepeat(
+	tc domain.StreamedToolCall,
+	resultSig, lastSig string,
+	repeats int,
+) (int, string) {
+	sig := tc.Name + "\x00" + tc.Arguments + "\x00" + resultSig
 	if sig == lastSig {
 		return repeats + 1, sig
 	}
@@ -2185,6 +2208,10 @@ type roundOutcome struct {
 	productive bool
 	// advanced is true when the task state machine moved (task_complete/fail).
 	advanced bool
+	// resultSig fingerprints the last executed call's raw result, so the
+	// stuck-loop guard can tell a repeated call that keeps returning the same
+	// thing from one whose output is changing.
+	resultSig string
 }
 
 func (l *Loop) appendToolRoundTrip(
@@ -2293,6 +2320,8 @@ func (l *Loop) executeToolCalls(
 		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
 			result = l.dispatchOrRefuse(tc, w)
 		}
+		sum := sha256.Sum256([]byte(result))
+		outcome.resultSig = hex.EncodeToString(sum[:8])
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
 		}

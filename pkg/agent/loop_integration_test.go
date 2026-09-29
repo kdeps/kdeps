@@ -2857,3 +2857,24 @@ func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 		}
 	}
 }
+
+func TestRunStreaming_UnlimitedToolLimitDoesNotBreakRepeatLoop(t *testing.T) {
+	resetConvergenceLimitsAfter(t)
+	SetConvergenceLimits(0, -1, 0, 0)
+	toolCall := domain.StreamedToolCall{
+		ID: "1", Name: "bash_exec", Arguments: `{"command":"echo hello"}`,
+	}
+	responses := make([]mockStreamResponse, 0, 8)
+	for range 6 {
+		responses = append(responses, mockStreamResponse{toolCalls: []domain.StreamedToolCall{toolCall}})
+	}
+	responses = append(responses, mockStreamResponse{content: "Done."})
+	ms := &mockStreamer{responses: responses}
+	loop := newStreamingLoop(ms, 0)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.NotContains(t, result, "repeated the same")
+	assert.Equal(t, 7, ms.callCount)
+}
