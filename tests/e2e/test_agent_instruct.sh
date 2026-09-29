@@ -62,7 +62,7 @@ fi
 
 # /harness reminders accepts /instruct topics, lists them, and persists them.
 REM_OUTPUT=$(printf '/harness reminders instruct:goals on\n/harness reminders list\n/quit\n' \
-    | HOME="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$INSTRUCT_HOME" USERPROFILE="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
 
 if output_grep_fixed 'Harness reminder "instruct:goals" on' "$REM_OUTPUT" \
     && output_grep_fixed "instruct:files" "$REM_OUTPUT"; then
