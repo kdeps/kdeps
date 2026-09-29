@@ -117,6 +117,9 @@ type ToolTuning struct {
 	// MaxLeafChars persists the per-leaf character truncation cap
 	// (0 = unlimited). See Config.MaxLeafChars.
 	MaxLeafChars int
+	// InstructReminders persists the /instruct topics forced onto every
+	// prompt and tool result via /harness reminders instruct:<topic> on.
+	InstructReminders []string
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -168,6 +171,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		FoldConfigured:       true,
 		MaxLeafNodes:         c.MaxLeafNodes,
 		MaxLeafChars:         c.MaxLeafChars,
+		InstructReminders:    append([]string(nil), c.InstructReminders...),
 	}
 }
 
@@ -268,6 +272,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if t.MaxLeafChars > 0 {
 		c.MaxLeafChars = t.MaxLeafChars
 	}
+	c.InstructReminders = validInstructReminders(t.InstructReminders)
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
 	// built-in default for it), so no extra sentinel is needed here.

@@ -79,12 +79,12 @@ func (r *REPL) cmdHarnessReminders(args []string) error {
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness reminders <name> on|off"))
 		return nil
 	}
-	if err := SetHarnessReminder(name, enabled); err != nil {
+	if err := r.setReminder(name, enabled); err != nil {
 		fmt.Fprintln(os.Stdout, styleReplError.Render("Harness reminder failed: "+err.Error()))
 		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
 	}
 	r.loop.InvalidateSystemPreamble()
-	state := "off"
+	state := toggleOff
 	if enabled {
 		state = "on"
 	}
@@ -93,8 +93,23 @@ func (r *REPL) cmdHarnessReminders(args []string) error {
 	return nil
 }
 
-// cmdHarnessRemindersList prints every harness section with its reminder
-// on/off state, sorted by name.
+// setReminder routes a reminder toggle to a harness section or an /instruct
+// topic (see resolveReminderName), persisting the instruct-topic case with
+// the rest of the tool tuning.
+func (r *REPL) setReminder(name string, enabled bool) error {
+	kind, key := resolveReminderName(name)
+	if kind == reminderInstruct {
+		if err := r.loop.SetInstructReminder(key, enabled); err != nil {
+			return err
+		}
+		r.persistTuning()
+		return nil
+	}
+	return SetHarnessReminder(name, enabled)
+}
+
+// cmdHarnessRemindersList prints every harness section and every /instruct
+// topic (as instruct:<topic>) with its reminder on/off state, sorted by name.
 func (r *REPL) cmdHarnessRemindersList() error {
 	names := make([]string, 0, len(harnessRegistry))
 	for name := range harnessRegistry {
@@ -110,9 +125,18 @@ func (r *REPL) cmdHarnessRemindersList() error {
 		}
 		fmt.Fprintf(os.Stdout, "  %-28s %s\n", name, state)
 	}
+	for _, t := range instructTopicList() {
+		state := "off"
+		if r.loop.InstructReminderEnabled(t.name) {
+			state = styleReplSuccess.Render("on")
+		}
+		fmt.Fprintf(os.Stdout, "  %-28s %s\n", instructReminderPrefix+t.name, state)
+	}
 	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness reminders <name> on|off to toggle. Feeds that section's text to every "+
-			"LLM prompt and every tool call result until turned off. Persisted like enable/disable."))
+		"Use /harness reminders <name> on|off to toggle. Feeds that section's (or /instruct "+
+			"topic's) text to every LLM prompt and every tool call result until turned off. "+
+			"Persisted. A bare /instruct topic name works when no harness section shares it "+
+			"(tools and memory do - use instruct:tools / instruct:memory)."))
 	return nil
 }
 

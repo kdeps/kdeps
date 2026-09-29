@@ -106,9 +106,9 @@ default.`
 const instructFeedbackBody = `Every "[kdeps] ..." system note and every {"error": ...} result is feedback --
 read it and change what you do next. A step is not done until its tool returned
 a real success; a "[TOOL FAILED]" banner means nothing changed, so retry it or
-say plainly that it failed. Convergence: after 3 web searches or scrapes on a
-topic, all further web calls are BLOCKED for the whole session -- that means
-STOP and answer from what you already have, not retry with new queries.`
+say plainly that it failed. Convergence: when a web call comes back BLOCKED
+because the per-request web-call limit was reached, STOP and answer from what
+you already have, not retry with new queries.`
 
 const instructFilesBody = `The working directory is a real, live filesystem -- the files named in the task
 are present right now. Always read a file before editing it. Put temporary

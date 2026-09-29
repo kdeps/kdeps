@@ -233,16 +233,116 @@ func TestHarnessRemindersBlock_JoinsActiveBodiesSorted(t *testing.T) {
 	assert.Less(t, strings.Index(block, m365Body), strings.Index(block, toolsBody))
 }
 
-func TestAppendHarnessReminders_NoOpWhenNoneActive(t *testing.T) {
+func TestAppendReminders_NoOpWhenNoneActive(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
-	assert.Equal(t, "original", appendHarnessReminders("original"))
+	assert.Equal(t, "original", newHarnessTestREPL(t).loop.appendReminders("original"))
 }
 
-func TestAppendHarnessReminders_AppendsActiveBlock(t *testing.T) {
+func TestAppendReminders_AppendsActiveBlock(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	require.NoError(t, SetHarnessReminder("tools-reminder", true))
 
-	got := appendHarnessReminders("tool result")
+	got := newHarnessTestREPL(t).loop.appendReminders("tool result")
 	assert.True(t, strings.HasPrefix(got, "tool result\n\n"))
 	assert.Contains(t, got, harnessText("tools-reminder"))
+}
+
+func TestResolveReminderName(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	cases := []struct {
+		in   string
+		kind reminderKind
+		key  string
+	}{
+		{"instruct:goals", reminderInstruct, "goals"},
+		{"INSTRUCT:Tools", reminderInstruct, "tools"},
+		{"tools", reminderHarness, "tools"},
+		{"memory", reminderHarness, "memory"},
+		{"goals", reminderInstruct, "goals"},
+		{"files", reminderInstruct, "files"},
+		{"nonexistent", reminderHarness, "nonexistent"},
+	}
+	for _, c := range cases {
+		kind, key := resolveReminderName(c.in)
+		assert.Equal(t, c.kind, kind, c.in)
+		assert.Equal(t, c.key, key, c.in)
+	}
+}
+
+func TestInstructReminder_OnOffRoundTrip(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	l := repl.loop
+
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:goals on"))
+	assert.True(t, l.InstructReminderEnabled("goals"))
+	assert.Contains(t, l.reminderNames(), "instruct:goals")
+	assert.Contains(t, repl.modeline(), "instruct:goals")
+	assert.Contains(t, l.remindersBlock(), "Goal-directed execution")
+	got := l.appendReminders("tool result")
+	assert.True(t, strings.HasPrefix(got, "tool result\n\n"))
+	assert.Contains(t, got, "task_complete")
+
+	require.NoError(t, repl.dispatchCommand("/harness reminders files on"))
+	assert.True(t, l.InstructReminderEnabled("files"))
+
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:goals off"))
+	assert.False(t, l.InstructReminderEnabled("goals"))
+	assert.NotContains(t, l.reminderNames(), "instruct:goals")
+	assert.NotContains(t, l.remindersBlock(), "Goal-directed execution")
+	assert.Contains(t, l.remindersBlock(), "Filesystem and temp files")
+}
+
+func TestInstructReminder_BareCollidingNameStaysHarness(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools on"))
+	assert.True(t, HarnessReminderEnabled("tools"))
+	assert.False(t, repl.loop.InstructReminderEnabled("tools"))
+	require.NoError(t, repl.dispatchCommand("/harness reminders tools off"))
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:tools on"))
+	assert.True(t, repl.loop.InstructReminderEnabled("tools"))
+	assert.False(t, HarnessReminderEnabled("tools"))
+}
+
+func TestInstructReminder_AvailableRendersLiveCatalog(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.loop.SetInstructReminder("available", true))
+	assert.Contains(t, repl.loop.remindersBlock(), "Tools available in this session")
+}
+
+func TestInstructReminder_UnknownTopicErrors(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.Error(t, repl.loop.SetInstructReminder("nope", true))
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:nope on"))
+	assert.Empty(t, repl.loop.config.InstructReminders)
+}
+
+func TestInstructReminder_PersistsThroughTuning(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	require.NoError(t, repl.loop.SetInstructReminder("modes", true))
+	snap := repl.toolTuningSnapshot()
+	assert.Equal(t, []string{"modes"}, snap.InstructReminders)
+
+	other := newHarnessTestREPL(t)
+	snap.InstructReminders = append(snap.InstructReminders, "bogus", "modes")
+	other.applyToolTuning(snap)
+	assert.Equal(t, []string{"modes"}, other.loop.config.InstructReminders)
+}
+
+func TestValidInstructReminders_DedupsAndSorts(t *testing.T) {
+	assert.Equal(t, []string{"files", "goals"}, validInstructReminders([]string{"goals", "FILES", "goals", "x"}))
+	assert.Nil(t, validInstructReminders(nil))
+}
+
+func TestCmdHarnessRemindersList_IncludesInstructTopics(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/harness reminders list")) })
+	for _, topic := range instructTopicList() {
+		assert.Contains(t, out, "instruct:"+topic.name)
+	}
 }

@@ -149,13 +149,121 @@ func harnessRemindersBlock() string {
 	return strings.Join(parts, "\n\n")
 }
 
-// appendHarnessReminders appends harnessRemindersBlock to content (with a
-// blank-line separator), so every active reminder reaches the model on every
-// tool call result (toolResultMessage) regardless of that section's own
-// normal kind/trigger. A no-op (returns content unchanged) when no reminders
-// are active.
-func appendHarnessReminders(content string) string {
-	block := harnessRemindersBlock()
+// instructReminderPrefix namespaces an /instruct topic in reminder names, so it
+// never collides with a harness section of the same name ("tools", "memory").
+const instructReminderPrefix = "instruct:"
+
+type reminderKind int
+
+const (
+	reminderHarness reminderKind = iota
+	reminderInstruct
+)
+
+// resolveReminderName maps a user-supplied reminder name to a harness section
+// or an /instruct topic. "instruct:<topic>" is always a topic; a bare name is
+// a harness section when one exists (so "tools"/"memory" keep meaning the
+// harness section), otherwise a topic if one matches. key is the normalized
+// topic name for reminderInstruct; unresolvable names fall through as
+// reminderHarness so SetHarnessReminder reports the error.
+func resolveReminderName(name string) (reminderKind, string) {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if topic, ok := strings.CutPrefix(n, instructReminderPrefix); ok {
+		return reminderInstruct, topic
+	}
+	if _, ok := harnessRegistry[n]; ok {
+		return reminderHarness, n
+	}
+	if _, ok := findInstructTopic(n); ok {
+		return reminderInstruct, n
+	}
+	return reminderHarness, n
+}
+
+// validInstructReminders keeps only known topic names, deduplicated and sorted,
+// so a stale or hand-edited settings file cannot inject unknown reminders.
+func validInstructReminders(names []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, n := range names {
+		n = strings.ToLower(strings.TrimSpace(n))
+		if _, ok := findInstructTopic(n); ok && !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// InstructReminderEnabled reports whether an /instruct topic is forced onto
+// every LLM prompt and tool result.
+func (l *Loop) InstructReminderEnabled(topic string) bool {
+	topic = strings.ToLower(strings.TrimSpace(topic))
+	for _, n := range l.config.InstructReminders {
+		if n == topic {
+			return true
+		}
+	}
+	return false
+}
+
+// SetInstructReminder turns the forced reminder for one /instruct topic on or
+// off for this loop. Errors for an unknown topic. The caller persists tuning
+// and invalidates the cached preamble.
+func (l *Loop) SetInstructReminder(topic string, enabled bool) error {
+	topic = strings.ToLower(strings.TrimSpace(topic))
+	if _, ok := findInstructTopic(topic); !ok {
+		return fmt.Errorf("harness: unknown instruct topic %q", topic)
+	}
+	names := l.config.InstructReminders
+	if enabled {
+		names = append(names, topic)
+	} else {
+		kept := names[:0:0]
+		for _, n := range names {
+			if n != topic {
+				kept = append(kept, n)
+			}
+		}
+		names = kept
+	}
+	l.config.InstructReminders = validInstructReminders(names)
+	return nil
+}
+
+// reminderNames returns every active reminder: harness section names followed
+// by "instruct:<topic>" entries. Drives the HUD "reminder:" segment.
+func (l *Loop) reminderNames() []string {
+	names := harnessReminderNames()
+	for _, t := range instructTopicList() {
+		if l.InstructReminderEnabled(t.name) {
+			names = append(names, instructReminderPrefix+t.name)
+		}
+	}
+	return names
+}
+
+// remindersBlock is harnessRemindersBlock plus the rendered text of every
+// active /instruct topic reminder ("available" is rendered live from this
+// loop's tool catalog).
+func (l *Loop) remindersBlock() string {
+	parts := []string{}
+	if b := harnessRemindersBlock(); b != "" {
+		parts = append(parts, b)
+	}
+	for _, t := range instructTopicList() {
+		if l.InstructReminderEnabled(t.name) {
+			parts = append(parts, renderInstructTopic(l, t))
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// appendReminders appends remindersBlock to content; a no-op when none are
+// active.
+func (l *Loop) appendReminders(content string) string {
+	block := l.remindersBlock()
 	if block == "" {
 		return content
 	}

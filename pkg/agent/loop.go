@@ -116,6 +116,10 @@ type Config struct {
 	// so one oversized leaf can't crowd out everything else. 0 means
 	// unlimited (no truncation).
 	MaxLeafChars int
+	// InstructReminders lists the /instruct topic names forced onto every LLM
+	// prompt and tool result (see Loop.SetInstructReminder), alongside the
+	// harness-section reminders.
+	InstructReminders []string
 	// FoldOff disables automatic folding once FoldThreshold is crossed.
 	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
 	// the zero value is the enabled default, not a silently-forced override.
@@ -2324,12 +2328,12 @@ func (l *Loop) toolResultMessage(
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
-	return appendHarnessReminders(l.buildToolResultMessage(ctx, tc, result))
+	return l.appendReminders(l.buildToolResultMessage(ctx, tc, result))
 }
 
 // buildToolResultMessage is toolResultMessage's original body, factored out
 // so every return path -- including the task-state-tool short-circuit --
-// passes through the single appendHarnessReminders call in toolResultMessage
+// passes through the single appendReminders call in toolResultMessage
 // rather than needing its own.
 func (l *Loop) buildToolResultMessage(
 	ctx context.Context,
@@ -3229,8 +3233,8 @@ func (l *Loop) buildChatConfig(
 	// is a general-purpose override that can force even a normally
 	// special-cased standalone entry (a nudge, a sandbox warning, ...) into
 	// view regardless of whether its own trigger condition ever fires. See
-	// appendHarnessReminders.
-	if reminders := harnessRemindersBlock(); reminders != "" {
+	// appendReminders.
+	if reminders := l.remindersBlock(); reminders != "" {
 		chatCfg.Scenario = append(chatCfg.Scenario,
 			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}

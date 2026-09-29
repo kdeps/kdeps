@@ -79,6 +79,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/harness preset <name>` | Apply a preset: writes its bundled event overrides to `~/.kdeps/events/*.yaml` and reloads immediately - no restart |
 | `/harness reminders [list]` | List every harness section with its reminder on/off state (see [Harness reminders](/agent/tools#harness-reminders)) |
 | `/harness reminders <name> on\|off` | Force that section's text onto every LLM prompt and every tool call result, independent of its own enabled/disabled state or normal trigger; persists to `~/.kdeps/harness/<name>.yaml`. A `reminder:<names>` segment appears in the status line (next to `turo:`) while any are active, and disappears when the last one is turned off |
+| `/harness reminders instruct:<topic> on\|off` | Same, for an `/instruct` topic (`overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files`); a bare topic name also works unless a harness section shares it (`tools`, `memory`). Persists to `~/.kdeps/agent-loop-settings.yaml` |
 | `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/llm-server/m365)) |
 

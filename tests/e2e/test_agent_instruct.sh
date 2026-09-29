@@ -59,3 +59,21 @@ if output_grep_fixed "/instruct!" "$OUTPUT"; then
 else
     test_failed "instruct - /help missing /instruct!" "Output: $OUTPUT"
 fi
+
+# /harness reminders accepts /instruct topics, lists them, and persists them.
+REM_OUTPUT=$(printf '/harness reminders instruct:goals on\n/harness reminders list\n/quit\n' \
+    | HOME="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+
+if output_grep_fixed 'Harness reminder "instruct:goals" on' "$REM_OUTPUT" \
+    && output_grep_fixed "instruct:files" "$REM_OUTPUT"; then
+    test_passed "instruct - /harness reminders accepts and lists instruct topics"
+else
+    test_failed "instruct - /harness reminders instruct topic not handled" "Output: $REM_OUTPUT"
+fi
+
+if grep -q "instruct_reminders" "$INSTRUCT_HOME/.kdeps/agent-loop-settings.yaml" 2>/dev/null \
+    && grep -q "goals" "$INSTRUCT_HOME/.kdeps/agent-loop-settings.yaml" 2>/dev/null; then
+    test_passed "instruct - instruct-topic reminder persisted to settings"
+else
+    test_failed "instruct - instruct-topic reminder not persisted" "Output: $REM_OUTPUT"
+fi
