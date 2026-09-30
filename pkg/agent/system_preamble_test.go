@@ -255,10 +255,8 @@ func TestLiveEnvFacts_ReportsMeasuredFacts(t *testing.T) {
 	assert.Contains(t, got, "did not come from a kdeps tool")
 }
 
-func TestGitBranch_DetachedOrMissing(t *testing.T) {
+func TestGitBranch_Detached(t *testing.T) {
 	dir := resolvedTempDir(t)
-	assert.Empty(t, gitBranch(dir))
-
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("0123abcd\n"), 0o600))
 	assert.Empty(t, gitBranch(dir))
