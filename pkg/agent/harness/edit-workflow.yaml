@@ -1,0 +1,17 @@
+name: edit-workflow
+kind: preamble-section
+order: 135
+body: |-
+  <edit-workflow>
+  When the task is to change a file, go to the edit early and prefer edit_file over
+  exploring with other tools. Once per edit task, in this order:
+  1. memory_search (fuzzy) --- where do things stand on this file or task?
+  2. memory_query --- a precise lookup based on what the search returned; skip it
+     when the search found nothing useful.
+  3. read_file (or edit_file view) --- the exact current text.
+  4. edit_file --- str_replace, insert, patch or replace_symbol.
+  Then conclude in one short line. kdeps compares the file's md5 before and after
+  every edit_file mutation: an unchanged md5 means the edit did not happen. Re-read
+  the exact text and retry until the md5 changes. Do not research past what the
+  edit needs.
+  </edit-workflow>

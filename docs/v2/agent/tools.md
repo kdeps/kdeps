@@ -272,6 +272,23 @@ change:
 Omitting `revision` skips the check entirely - it's an extra safeguard on top
 of the read-this-turn gate above, not a replacement for it.
 
+**Verified by md5, retried until it lands.** The loop hashes (md5) the file
+before and after every mutating `edit_file` call (`str_replace`, `insert`,
+`patch`, `replace_symbol`, `undo_edit`; `dry_run` and `view` are skipped) and
+appends the result to the tool output: `[md5 a1b2c3d4e5f6 -> 0f9e8d7c6b5a: file
+changed]`, or `[EDIT NOT APPLIED] md5 ... is still ...` when nothing changed
+(an error, or a no-op such as `old_str` equal to `new_str`). A turn cannot end
+while the last edit left the md5 unchanged: the model is pushed back (harness
+entry `nudge-edit-unchanged`, at most 4 times) to re-view the file and retry,
+and if every retry is spent the turn ends with a `[kdeps: the last edit to ...
+never changed the file]` notice instead of a false "done".
+
+**Edit tasks conclude early.** The `edit-workflow` preamble section tells the
+model to go to the edit once per task in this order: `memory_search` (fuzzy: where
+do things stand) -> `memory_query` (precise, based on the search) -> `read_file`
+(or `edit_file view`) -> `edit_file`, then finish in one short line instead of
+exploring with other tools. Turn it off with `/harness disable edit-workflow`.
+
 **Preview first with `dry_run`.** `str_replace`, `insert`, `patch`, and
 `replace_symbol` all accept `dry_run: true` - the same diff and would-be
 `[revision ...]` are returned, but nothing is written to disk and nothing is

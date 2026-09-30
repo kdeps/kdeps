@@ -328,6 +328,10 @@ type Loop struct {
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// pendingEdit is the latest mutating edit_file call that left its file's md5
+	// unchanged; cleared when a later edit changes the file. The turn cannot end
+	// on it without a bounded push-back (nudge-edit-unchanged).
+	pendingEdit *pendingEdit
 	// successfulWorkToolCalls counts every successful (non-error, non-task-
 	// state) work tool result for the life of the session. Never reset --
 	// drives harness "tool-call-early-praise"'s maxOccurrences: the first few real tool calls a
@@ -1281,6 +1285,7 @@ func (l *Loop) runToolRounds(
 	l.captureCallOutputs(chatCfg)
 	l.modelNotes = nil
 	l.lastWorkFailure = nil
+	l.pendingEdit = nil
 	l.turnStartWorkToolCalls = l.successfulWorkToolCalls
 
 	var finalContent string
@@ -1501,6 +1506,20 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domai
 func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := harnessRender("nudge-unresolved-failure", struct{ Tool, Msg string }{f.tool, f.msg})
+	if repeat {
+		note += " " + harnessText("repeat-offense-note")
+	}
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// nudgeEditUnchangedConfig fires when the turn is about to end while the last
+// mutating edit_file call left its file's md5 unchanged: the edit did not
+// happen, so the model must re-read and retry until the md5 differs.
+// repeat is true on the second and later strikes within this turn.
+func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat bool) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := harnessRender("nudge-edit-unchanged", struct{ Path, MD5 string }{p.path, shortMD5(p.md5)})
 	if repeat {
 		note += " " + harnessText("repeat-offense-note")
 	}
@@ -2015,6 +2034,7 @@ type turnNudges struct {
 	sandbox       int // prose describing a failed sandbox/code-interpreter session
 	workFailure   int // turn ending while the last work tool is still failing
 	giveUp        int // reply reads as declining to continue despite real progress this turn
+	editUnchanged int // turn ending while the last edit_file left the file's md5 unchanged
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -2143,6 +2163,16 @@ func (l *Loop) resolveEmptyToolRound(
 	// same as before this was bounded to more than one nudge. Otherwise a
 	// model that answers honestly on its second attempt would draw a second
 	// nudge anyway, punishing the exact behavior being asked for.
+	if l.pendingEdit != nil {
+		if harnessOccurrenceAllowed("nudge-edit-unchanged", nudges.editUnchanged) {
+			repeat := nudges.editUnchanged > 0
+			nudges.editUnchanged++
+			return nil, res.content, nudgeEditUnchangedConfig(res.chatCfg, l.pendingEdit, repeat), false
+		}
+		notice := editUnchangedNotice(l.pendingEdit)
+		_, _ = io.WriteString(w, notice)
+		return nil, notice + res.content, res.chatCfg, true
+	}
 	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
 		if harnessOccurrenceAllowed("nudge-unresolved-failure", nudges.workFailure) {
 			repeat := nudges.workFailure > 0
@@ -2318,6 +2348,11 @@ func (l *Loop) executeToolCalls(
 	msgs := make([]map[string]any, 0, len(toolCalls))
 	for _, tc := range toolCalls {
 		result := `{"error":"interrupted by user"}`
+		editPath, isEdit := mutatingEditTarget(tc.Name, tc.Arguments)
+		md5Before := ""
+		if isEdit {
+			md5Before = fileMD5(editPath)
+		}
 		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
 			result = l.dispatchOrRefuse(tc, w)
 		}
@@ -2332,11 +2367,15 @@ func (l *Loop) executeToolCalls(
 		if isTaskStateTool(tc.Name) && !isToolErrorResult(result) {
 			outcome.advanced = true
 		}
+		content := l.toolResultMessage(ctx, tc, result)
+		if isEdit && ctx.Err() == nil {
+			content += l.editMD5Note(editPath, md5Before, fileMD5(editPath))
+		}
 		msgs = append(msgs, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
 			"name":           tc.Name,
-			toolParamContent: l.toolResultMessage(ctx, tc, result),
+			toolParamContent: content,
 		})
 		l.recordToolCall(tc.Name, tc.Arguments, result)
 	}

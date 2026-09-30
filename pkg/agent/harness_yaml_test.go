@@ -43,7 +43,7 @@ var (
 	wantPreambleSections = []string{
 		"memory", "tools", "narration", "autonomy", "safety", "errors",
 		"scope", "accuracy", "honesty", "code", "output", "internals",
-		"use-kdeps-tools",
+		"use-kdeps-tools", "edit-workflow",
 	}
 	wantStandaloneEntries = []string{
 		"m365-sandbox", "tools-reminder", "skills-preamble",
@@ -53,7 +53,7 @@ var (
 		"handshake-ack", "invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
 		"nudge-sandbox-hallucination-qualifier", "nudge-unresolved-failure",
-		"nudge-give-up", "tool-call-early-praise", "tool-call-recovery-praise",
+		"nudge-give-up", "nudge-edit-unchanged", "tool-call-early-praise", "tool-call-recovery-praise",
 		"tool-call-sandbox-recovery-praise", "handshake-evidence",
 		"handshake-evidence-retry", "handshake-evidence-praise",
 	}

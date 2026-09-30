@@ -1,0 +1,8 @@
+name: nudge-edit-unchanged
+kind: standalone
+maxOccurrences: 4
+body: >-
+  Your last edit to {{.Path}} did not change the file: its md5 is still
+  {{.MD5}}. The edit was not made. Call edit_file view on the exact region,
+  copy the current text byte-for-byte, and edit again. Keep going until the md5
+  changes. Do not say the edit is done.

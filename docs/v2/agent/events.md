@@ -187,7 +187,7 @@ An unregistered or corrupted event/harness name always fails **open** (enabled) 
 
 ## Occurrence caps on standalone harness text
 
-Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-give-up`), same as `tool-call-early-praise`'s positive-reinforcement text. These aren't sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
+Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-give-up`), same as `tool-call-early-praise`'s positive-reinforcement text. These aren't sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
 
 ```yaml
 # ~/.kdeps/harness/nudge-give-up.yaml (built-in default -- shown for reference)
