@@ -24,3 +24,11 @@ if output_grep_fixed "nudge-edit-unchanged" "$OUTPUT" \
 else
     test_failed "edit md5 - nudge-edit-unchanged missing" "Output: $OUTPUT"
 fi
+
+if grep -aqF "[files edited this session]" "$KDEPS_BIN" \
+    && grep -aqF "never md5 a file yourself" "$KDEPS_BIN" \
+    && grep -aqF "memory_query query=filter(memory, .key ==" "$KDEPS_BIN"; then
+    test_passed "tool status - binary carries the md5 / memory-id / retry status ledger"
+else
+    test_failed "tool status - status ledger text missing from the built binary"
+fi

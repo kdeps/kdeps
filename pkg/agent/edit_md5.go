@@ -93,17 +93,15 @@ func shortMD5(sum string) string {
 	return sum
 }
 
-// editMD5Note compares a mutating edit's before/after md5, updates the loop's
-// pending-edit state, and returns the line appended to the tool result.
-func (l *Loop) editMD5Note(path, before, after string) string {
+// trackEdit compares a mutating edit's before/after md5, updates the loop's
+// pending-edit state, and reports whether the file changed.
+func (l *Loop) trackEdit(path, before, after string) bool {
 	if before != after {
 		l.pendingEdit = nil
-		return "\n[md5 " + shortMD5(before) + " -> " + shortMD5(after) + ": file changed]"
+		return true
 	}
 	l.pendingEdit = &pendingEdit{path: path, md5: after}
-	return "\n[EDIT NOT APPLIED] md5 of " + path + " is still " + shortMD5(after) +
-		": the file did not change. Do not report this edit as done. Re-read the exact " +
-		"current text with edit_file view and retry until the md5 changes."
+	return false
 }
 
 // editUnchangedNotice is shown when the turn ends with the edit still not applied.

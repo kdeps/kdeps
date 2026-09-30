@@ -45,6 +45,7 @@ type scriptedRound struct {
 type scriptedStreamer struct {
 	rounds  []scriptedRound
 	prompts []string
+	msgs    []string
 	i       int
 }
 
@@ -52,6 +53,7 @@ func (s *scriptedStreamer) StreamChat(
 	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
 	s.prompts = append(s.prompts, cfg.Prompt)
+	s.msgs = append(s.msgs, cfg.Messages)
 	r := s.rounds[min(s.i, len(s.rounds)-1)]
 	s.i++
 	return r.content, r.calls, nil
@@ -104,4 +106,56 @@ func TestEditMD5_NoOpEditIsRetriedUntilFileChanges(t *testing.T) {
 	assert.NotContains(t, result, "never changed the file")
 	assert.Contains(t, strings.Join(s.prompts, "\n"), "did not change the file",
 		"the no-op edit must draw the md5 retry nudge")
+}
+
+// Every tool result carries kdeps' own status: the recorded md5 and a memory id
+// for an applied edit, the error plus a read-first retry block for a failed one,
+// and the stored status entry can be read back from memory.
+func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	path := filepath.Join(dir, "a.txt")
+	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
+
+	ms := agent.NewMemoryStore(t.TempDir())
+	ms.SetCwd(dir)
+	reg := tools.NewRegistry()
+	agent.RegisterBuiltinTools(t.Context(), reg)
+
+	s := &scriptedStreamer{rounds: []scriptedRound{
+		{calls: []domain.StreamedToolCall{editToolCall(t, "1", map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "absent", "new_str": "x",
+		})}},
+		{calls: []domain.StreamedToolCall{editToolCall(t, "2", map[string]any{
+			"command": "view", "file_path": path,
+		})}},
+		{calls: []domain.StreamedToolCall{editToolCall(t, "3", map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "hello", "new_str": "goodbye",
+		})}},
+		{content: "Edited: hello is now goodbye."},
+	}}
+	loop := agent.New(executor.NewEngine(nil), &domain.Workflow{
+		APIVersion: "kdeps.io/v1", Kind: "Workflow",
+		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
+	}, reg, agent.Config{Model: "test", Streamer: s, MaxToolRounds: 10, MemoryStore: ms})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(t.Context(), "change hello to goodbye", &buf)
+	require.NoError(t, err)
+
+	all := strings.Join(s.msgs, "\n")
+	assert.Contains(t, all, "EDIT NOT APPLIED", "failed edit is flagged")
+	assert.Contains(t, all, "read the file first", "failed edit says to read first")
+	assert.Contains(t, all, "Read the exact current text", "retry blocks are present")
+	assert.Contains(t, all, "EDIT OK", "applied edit is confirmed with its md5")
+	assert.Contains(t, all, "files edited this session")
+
+	statusKeys := 0
+	for _, e := range ms.List() {
+		if strings.HasPrefix(e.Key, "status:edit_file:") {
+			statusKeys++
+			assert.Contains(t, all, e.Key, "the memory id shown matches a stored entry")
+		}
+	}
+	assert.Equal(t, 3, statusKeys, "one status entry per edit_file call")
 }

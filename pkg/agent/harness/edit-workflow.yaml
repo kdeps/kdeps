@@ -10,8 +10,11 @@ body: |-
      when the search found nothing useful.
   3. read_file (or edit_file view) --- the exact current text.
   4. edit_file --- str_replace, insert, patch or replace_symbol.
-  Then conclude in one short line. kdeps compares the file's md5 before and after
-  every edit_file mutation: an unchanged md5 means the edit did not happen. Re-read
-  the exact text and retry until the md5 changes. Do not research past what the
-  edit needs.
+  Then conclude in one short line. kdeps records the file's md5 before and after
+  every edit_file mutation and shows it in the tool result with a memory id, so
+  never md5 a file yourself. An unchanged md5 means the edit did not happen: the
+  result shows the error and tells you to read the file first, then gives the exact
+  call to retry. Retry until the md5 changes. Every other tool result also shows
+  its memory id on success, or its error and the exact call to retry on failure.
+  Do not research past what the edit needs.
   </edit-workflow>

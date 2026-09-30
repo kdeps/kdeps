@@ -332,6 +332,12 @@ type Loop struct {
 	// unchanged; cleared when a later edit changes the file. The turn cannot end
 	// on it without a bounded push-back (nudge-edit-unchanged).
 	pendingEdit *pendingEdit
+	// editedFiles, statusKeys and statusSeq are the persistent tool-status
+	// ledger (tool_status.go): files edited with their kdeps-recorded md5,
+	// and the memory keys of the status entries written for tool calls.
+	editedFiles []editedFile
+	statusKeys  []string
+	statusSeq   int64
 	// successfulWorkToolCalls counts every successful (non-error, non-task-
 	// state) work tool result for the life of the session. Never reset --
 	// drives harness "tool-call-early-praise"'s maxOccurrences: the first few real tool calls a
@@ -2368,8 +2374,8 @@ func (l *Loop) executeToolCalls(
 			outcome.advanced = true
 		}
 		content := l.toolResultMessage(ctx, tc, result)
-		if isEdit && ctx.Err() == nil {
-			content += l.editMD5Note(editPath, md5Before, fileMD5(editPath))
+		if ctx.Err() == nil {
+			content += l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
 		}
 		msgs = append(msgs, map[string]any{
 			"role":           "tool",

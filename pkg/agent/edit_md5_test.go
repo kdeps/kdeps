@@ -80,18 +80,16 @@ func TestFileMD5AndShort(t *testing.T) {
 	assert.Equal(t, "abc", shortMD5("abc"))
 }
 
-func TestEditMD5Note(t *testing.T) {
+func TestTrackEdit(t *testing.T) {
 	l := &Loop{}
-	note := l.editMD5Note("/a.go", "aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb")
-	assert.Contains(t, note, "aaaaaaaaaaaa -> bbbbbbbbbbbb: file changed")
+	assert.True(t, l.trackEdit("/a.go", "aaaa", "bbbb"))
 	assert.Nil(t, l.pendingEdit)
 
-	note = l.editMD5Note("/a.go", "cccc", "cccc")
-	assert.Contains(t, note, "[EDIT NOT APPLIED]")
+	assert.False(t, l.trackEdit("/a.go", "cccc", "cccc"))
 	require.NotNil(t, l.pendingEdit)
 	assert.Equal(t, "/a.go", l.pendingEdit.path)
 
-	l.editMD5Note("/a.go", "cccc", "dddd")
+	assert.True(t, l.trackEdit("/a.go", "cccc", "dddd"))
 	assert.Nil(t, l.pendingEdit, "a later real change clears the pending edit")
 }
 
@@ -142,7 +140,7 @@ func TestRunStreaming_UnchangedEditNudgedUntilMD5Changes(t *testing.T) {
 	require.Len(t, ms.cfgs, 4)
 	assert.Contains(t, ms.cfgs[1].Messages, "[EDIT NOT APPLIED]")
 	assert.Contains(t, ms.cfgs[2].Prompt, "did not change the file")
-	assert.Contains(t, ms.cfgs[3].Messages, "file changed")
+	assert.Contains(t, ms.cfgs[3].Messages, "[EDIT OK]")
 	assert.Equal(t, "Edited for real.", result)
 	assert.NotContains(t, result, "never changed the file")
 }

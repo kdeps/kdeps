@@ -275,8 +275,8 @@ of the read-this-turn gate above, not a replacement for it.
 **Verified by md5, retried until it lands.** The loop hashes (md5) the file
 before and after every mutating `edit_file` call (`str_replace`, `insert`,
 `patch`, `replace_symbol`, `undo_edit`; `dry_run` and `view` are skipped) and
-appends the result to the tool output: `[md5 a1b2c3d4e5f6 -> 0f9e8d7c6b5a: file
-changed]`, or `[EDIT NOT APPLIED] md5 ... is still ...` when nothing changed
+appends the result to the tool output: `[EDIT OK] path md5 a1b2c3d4e5f6 ->
+0f9e8d7c6b5a`, or `[EDIT NOT APPLIED] md5 ... is still ...` when nothing changed
 (an error, or a no-op such as `old_str` equal to `new_str`). A turn cannot end
 while the last edit left the md5 unchanged: the model is pushed back (harness
 entry `nudge-edit-unchanged`, at most 4 times) to re-view the file and retry,
@@ -288,6 +288,24 @@ model to go to the edit once per task in this order: `memory_search` (fuzzy: whe
 do things stand) -> `memory_query` (precise, based on the search) -> `read_file`
 (or `edit_file view`) -> `edit_file`, then finish in one short line instead of
 exploring with other tools. Turn it off with `/harness disable edit-workflow`.
+
+**Persistent tool status.** Every tool result carries kdeps' own record of what
+happened, so the model never hashes a file or guesses whether a call worked. The
+status is also written to memory (`status:<tool>:<id>`, last 60 kept) so it can
+be looked up later.
+
+```text
+edit applied   -> [EDIT OK] path md5 A -> B + memory id + [files edited this session]
+edit unchanged -> [EDIT NOT APPLIED] + the error + "read the file first" + view block + retry block
+tool ok        -> [STATUS ok] tool + memory id
+tool failed    -> [STATUS FAILED] tool: error + memory id + exact <invoke> to retry
+```
+
+Each memory id comes with the usage that reads it back, for example
+`memory_query query=filter(memory, .key == "status:bash_exec:1790787027780")`.
+The `[files edited this session]` list (last 5 files, md5 and applied/not
+applied) stays in every edit result. Task-state and memory tools are not
+tracked. Applies to agent mode only.
 
 **Preview first with `dry_run`.** `str_replace`, `insert`, `patch`, and
 `replace_symbol` all accept `dry_run: true` - the same diff and would-be
