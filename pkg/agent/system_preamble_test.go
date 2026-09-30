@@ -23,9 +23,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -232,4 +235,44 @@ func TestBuildChatConfig_CacheControlOnlyForAnthropic(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLiveEnvFacts_ReportsMeasuredFacts(t *testing.T) {
+	dir := resolvedTempDir(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("x"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/feature/x\n"), 0o600))
+
+	now := time.Date(2026, 9, 30, 14, 3, 0, 0, time.UTC)
+	got := liveEnvFacts(dir, now)
+
+	assert.Contains(t, got, "2026-09-30 14:03 UTC")
+	assert.Contains(t, got, runtime.GOOS+"/"+runtime.GOARCH)
+	assert.Contains(t, got, "4 entries in the working directory (2 files, 2 dirs)")
+	assert.Contains(t, got, "git branch feature/x")
+	assert.Contains(t, got, "did not come from a kdeps tool")
+}
+
+func TestGitBranch_DetachedOrMissing(t *testing.T) {
+	dir := resolvedTempDir(t)
+	assert.Empty(t, gitBranch(dir))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("0123abcd\n"), 0o600))
+	assert.Empty(t, gitBranch(dir))
+}
+
+func TestCachedSystemPreamble_IncludesLiveEnvFactsEveryCall(t *testing.T) {
+	l := loopWithRegisteredTool(t)
+	dir := resolvedTempDir(t)
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWD) }()
+	require.NoError(t, os.Chdir(dir))
+
+	assert.Contains(t, l.cachedSystemPreamble("focus"), "0 entries in the working directory")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.txt"), []byte("x"), 0o600))
+	assert.Contains(t, l.cachedSystemPreamble("focus"), "1 entries in the working directory (1 files, 0 dirs)")
 }

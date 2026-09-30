@@ -27,6 +27,7 @@ body: |-
 
   MEMORY BRIDGE — kdeps switches LLM models between turns. Memory is the
   ONLY state that survives a model switch. Every turn auto-saves to
-  persistent memory. Check memory before every action; save after every
-  turn. This is not optional — it is the core reliability mechanism.
+  persistent memory. Read it on your first turn after a model switch, resume or
+  compaction, and when a task refers to earlier work; save decisions and
+  progress when they happen. The memory graph is already in this prompt.
   </internals>

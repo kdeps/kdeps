@@ -2958,10 +2958,10 @@ func TestBuildSystemPreamble_MemoryRulesSurviveVerbatim(t *testing.T) {
 
 	// Byte-for-byte: turoReduce must never see this text, so mechanical
 	// rewriting (filler removal, synonym substitution) cannot have touched it.
-	assert.Contains(t, preamble, "MANDATORY RULE #1 — Check memory before every action.")
-	assert.Contains(t, preamble, "FAILURE TO CHECK MEMORY FIRST IS A BUG.")
-	assert.Contains(t, preamble, "MANDATORY RULE #2 — Save memory after every turn.")
-	assert.Contains(t, preamble, "FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG.")
+	assert.Contains(t, preamble, "MEMORY RULE #1 — Check memory when it can help.")
+	assert.Contains(t, preamble, "Do not query before every action")
+	assert.Contains(t, preamble, "MEMORY RULE #2 — Save what a future model would need.")
+	assert.NotContains(t, preamble, "IS A BUG")
 }
 
 func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
@@ -2975,14 +2975,14 @@ func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	// Memory rules are not "non-essential" content — they must still be sent
 	// even when the context budget is too small for skills.
-	assert.Contains(t, preamble, "MANDATORY RULE #1")
-	assert.Contains(t, preamble, "MANDATORY RULE #2")
+	assert.Contains(t, preamble, "MEMORY RULE #1")
+	assert.Contains(t, preamble, "MEMORY RULE #2")
 }
 
 func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
 	loop := makeTestLoop(nil) // memoryStore left nil
 	preamble := loop.buildSystemPreamble("")
-	assert.NotContains(t, preamble, "MANDATORY RULE")
+	assert.NotContains(t, preamble, "MEMORY RULE")
 }
 
 // TestBuildSystemPreamble_MemoryKeysCapped guards against dumping every stored

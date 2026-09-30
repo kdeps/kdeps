@@ -14,12 +14,12 @@ The memory store is injected into every LLM call automatically as a single graph
 
 ## Built-in memory tools
 
-The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_search`.
+The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
 
 | Tool | Description |
 |------|-------------|
 | `memory_save` | Save a fact with a key and value. Keys should be short and descriptive. |
-| `memory_search` | Search entries by key or value. Returns at most 20 matches, best first; each value is cut at 500 characters. |
+| `memory_search` | Fuzzy text search of entries by key or value. Returns at most 20 matches, best first; each value is cut at 500 characters. |
 | `memory_delete` | Remove an entry by key. |
 
 Another tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.

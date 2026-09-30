@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2917,10 +2918,10 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	limit := l.preambleLimit()
 	var parts []string
 
-	// MANDATORY MEMORY RULES are built separately from the rest of the
+	// MEMORY RULES are built separately from the rest of the
 	// preamble and never passed through turoReduce below: turo's lexical
 	// rewriting (filler removal, synonym substitution) can mangle directive
-	// language like "MANDATORY RULE" or "IS A BUG", and this text is the core
+	// language like "MEMORY RULE", and this text is the core
 	// multi-model reliability mechanism, so it must survive byte-for-byte.
 	// It is also excluded from the small-context truncation further down, so
 	// it is always sent regardless of context budget. The preamble is cached
@@ -2938,12 +2939,12 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		// Recent keys, so the model can see what is stored without a list tool.
 		// Capped
 		// and recency-ordered — with thousands of entries the full list alone
-		// could be tens of thousands of tokens; memory_search covers the rest.
+		// could be tens of thousands of tokens; memory_query covers the rest.
 		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
 			block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
 			if total > len(keyNames) {
 				block += fmt.Sprintf(
-					"\n... and %d more (use memory_search to find older entries)",
+					"\n... and %d more (use memory_query to find older entries)",
 					total-len(keyNames),
 				)
 			}
@@ -3068,47 +3069,83 @@ func (l *Loop) dateAndWDPreamble() string {
 		now.Day(),
 	)
 	if wd, err := os.Getwd(); err == nil && wd != "" {
-		return dateStr + "\nWorking directory: " + wd + "\n"
+		return dateStr + "\nWorking directory: " + wd + "\n" + liveEnvFacts(wd, now) + "\n"
 	}
 	return dateStr
 }
 
+// liveEnvFacts returns facts kdeps measured itself, just now, in the real
+// executing environment. A model that suspects it is in a sandbox can check its
+// kdeps tools against them: a list_files/bash_exec result that disagrees, or
+// looks empty, came from somewhere else.
+func liveEnvFacts(wd string, now time.Time) string {
+	facts := []string{now.Format("2006-01-02 15:04 MST"), runtime.GOOS + "/" + runtime.GOARCH}
+	if entries, err := os.ReadDir(wd); err == nil {
+		dirs := 0
+		for _, e := range entries {
+			if e.IsDir() {
+				dirs++
+			}
+		}
+		facts = append(facts, fmt.Sprintf("%d entries in the working directory (%d files, %d dirs)",
+			len(entries), len(entries)-dirs, dirs))
+	}
+	if branch := gitBranch(wd); branch != "" {
+		facts = append(facts, "git branch "+branch)
+	}
+	return "Live environment, measured by kdeps just now: " + strings.Join(facts, ", ") +
+		". Your kdeps tools run here; a tool result that disagrees means it did not come from a kdeps tool."
+}
+
+// gitBranch reads the checked-out branch from the nearest .git/HEAD at or above
+// dir, or "" when there is none (or HEAD is detached, or .git is a worktree file).
+func gitBranch(dir string) string {
+	for {
+		if b, err := os.ReadFile(filepath.Join(dir, ".git", "HEAD")); err == nil {
+			ref := strings.TrimSpace(string(b))
+			if name, ok := strings.CutPrefix(ref, "ref: refs/heads/"); ok {
+				return name
+			}
+			return ""
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 // memoryRulesPreamble returns the memory-related system prompt rules.
-// These are mandatory directives, not suggestions. The LLM MUST follow them.
+// Directives, not suggestions, but scoped to when memory actually helps.
 func (l *Loop) memoryRulesPreamble() []string {
 	return []string{
-		"MANDATORY RULE #1 — Check memory before every action. " +
-			"Before taking ANY action, call memory_search to see " +
-			"what is already known about the task. Memory contains persistent facts, " +
-			"previous tool call results, and past actions. Every tool call automatically " +
-			"creates a memory entry — use them to avoid redundant work. " +
-			"FAILURE TO CHECK MEMORY FIRST IS A BUG. " +
+		"MEMORY RULE #1 — Check memory when it can help. " +
+			"The memory graph and recent keys are already in this prompt. Call " +
+			"memory_query (prefer it: a precise relational lookup over memory entries, " +
+			"tool-call history and tasks, e.g. filter(memory, .type == \"decision\")) " +
+			"when the task refers to earlier work, when you need a fact that is not in " +
+			"the prompt, or on your first turn after a model switch, resume or " +
+			"compaction. Use memory_search only for a fuzzy text match when you do not " +
+			"know the key or type. Do not query before every action: if the answer " +
+			"is already in the prompt or this conversation, a lookup only wastes a round. " +
 			"To persist a fact, write [MEMORY: key] value on its own line. " +
 			"WHY THIS EXISTS: kdeps is a multi-model system. When the orchestrator " +
 			"switches from one LLM to another (e.g. Sonnet -> Haiku -> Gemini), the " +
 			"conversation context is DESTROYED. The new model starts with ZERO knowledge " +
 			"of what happened before. Memory is the ONLY mechanism that survives a " +
-			"model switch. If you skip the memory check, the new model is flying blind — " +
-			"it will repeat work, overwrite state, and break the pipeline. " +
-			"This is not a suggestion. It is the single most important reliability " +
-			"mechanism in the system. Treat it like a parachute: check before every jump.",
-		"MANDATORY RULE #2 — Save memory after every turn. " +
-			"After every LLM response, save important facts, decisions, and progress " +
-			"using memory_save or [MEMORY: key] value. " +
-			"Ask: what will be useful to remember next session? " +
+			"model switch, so the first turn after one must read it.",
+		"MEMORY RULE #2 — Save what a future model would need. " +
+			"When you finish a task, make a decision, or learn something the user " +
+			"corrected, record it with [MEMORY: key] value (no extra tool call) or " +
+			"memory_save. Skip turns where nothing changed. " +
 			"Save goals as 'prompt:*', decisions as 'decision:*', progress as " +
 			"'progress:*', and results as 'result:*'. " +
-			"FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG. " +
 			"Entries auto-link into a graph showing the workflow chain " +
 			"from prompt -> tool calls -> results -> status. " +
-			"WHY THIS EXISTS: Every turn could be the LAST turn before a model switch. " +
-			"You do not know when the orchestrator will rotate models. If you haven't " +
-			"saved your state, that work is GONE — the next model will have no record " +
-			"of what you did, what you decided, or what comes next. " +
-			"Save after every turn, every time, without exception. " +
-			"The cost of one extra save is negligible. The cost of a lost turn is " +
-			"a corrupted pipeline and hours of debugging.",
-		"MANDATORY RULE #3 — Memory is history, not a current capability check. " +
+			"WHY THIS EXISTS: any turn could be the last before a model switch, and " +
+			"unsaved decisions and progress are gone once it happens.",
+		"MEMORY RULE #3 — Memory is history, not a current capability check. " +
 			"A memory entry recording that a tool call failed, was unavailable, or " +
 			"could not be completed in a PAST turn or session is NOT evidence that the " +
 			"same tool is unavailable NOW. Never refuse or skip a tool call because " +

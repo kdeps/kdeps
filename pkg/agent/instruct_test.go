@@ -39,7 +39,7 @@ func TestBuildInstruct_SingleTopic(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Contains(t, out, "## Memory bridge (critical)")
-	assert.Contains(t, out, "memory_search BEFORE every read")
+	assert.Contains(t, out, "memory_query (preferred")
 	assert.NotContains(t, out, "## How to call a tool")
 }
 
