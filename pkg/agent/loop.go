@@ -1865,15 +1865,15 @@ func isConvergenceBlocked(result string) bool {
 }
 
 // identicalRepeatLimit is how many identical call+result rounds in a row end
-// the turn. A tool whose category limit (web/bash/file/code) is unlimited is
-// exempt -- an unlimited tool limit means the user removed the cap, and the
-// stuck-loop guard must not reimpose one. Other tools use the
-// identical-tool-calls event threshold.
+// the turn. A tool with a category limit (web/bash/file/code) uses its
+// allocated budget as it stands now (including adaptive changes), never a
+// fixed value: identical repeats are served from the cache for free, so the
+// tool limit is the one cap the user set, and an unlimited limit means no stop
+// at all. Uncategorized tools use the identical-tool-calls event threshold.
 func identicalRepeatLimit(toolName string) int {
 	if cache := cacheForCategory(categoryForTool(toolName)); cache != nil {
-		if _, limit := cache.count(); limit >= disabledSentinel {
-			return disabledSentinel
-		}
+		_, limit := cache.count()
+		return limit
 	}
 	return effectiveRounds(eventIdenticalCalls)
 }

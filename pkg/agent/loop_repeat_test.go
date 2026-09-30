@@ -21,15 +21,15 @@ func TestTrackRepeat_CountsOnlyIdenticalCallAndResult(t *testing.T) {
 	assert.Equal(t, 1, n, "different call resets")
 }
 
-func TestIdenticalRepeatLimit_UnlimitedToolLimitExempts(t *testing.T) {
+func TestIdenticalRepeatLimit_FollowsToolLimit(t *testing.T) {
 	resetConvergenceLimitsAfter(t)
 	def := effectiveRounds(eventIdenticalCalls)
 
-	assert.Equal(t, def, identicalRepeatLimit("bash_exec"))
-	assert.Equal(t, def, identicalRepeatLimit("some_other_tool"))
+	_, fileLimit := FileConvergenceCalls()
+	assert.Equal(t, fileLimit, identicalRepeatLimit("read_file"), "read_file follows the file limit")
+	assert.Equal(t, def, identicalRepeatLimit("some_other_tool"), "uncategorized tools keep the event threshold")
 
-	SetConvergenceLimits(0, -1, 0, 0)
-	assert.Equal(t, disabledSentinel, identicalRepeatLimit("bash_exec"), "unlimited bash limit exempts bash_exec")
-	assert.Equal(t, def, identicalRepeatLimit("web_search"), "other categories keep the guard")
-	assert.Equal(t, def, identicalRepeatLimit("some_other_tool"), "uncategorized tools keep the guard")
+	SetConvergenceLimits(0, -1, 7, 0)
+	assert.Equal(t, disabledSentinel, identicalRepeatLimit("bash_exec"), "unlimited bash limit never stops")
+	assert.Equal(t, 7, identicalRepeatLimit("read_file"), "custom file limit applies")
 }

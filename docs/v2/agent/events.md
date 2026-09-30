@@ -66,7 +66,7 @@ run: force_answer
 
 | Event | Fires after | Action |
 |---|---|---|
-| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row (a tool whose per-turn limit is unlimited, e.g. `/model tool set bash-limit 0`, is exempt) | ends the turn as a stuck loop |
+| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their allocated budget instead (`/model tool set <category>-limit <n>`; `0` = unlimited = never stops) | ends the turn as a stuck loop |
 | `convergence-block` | this many consecutive rounds end in a convergence-blocked tool call (the model kept trying once a web/bash/file/code budget ran out) | strips every tool and forces a text answer |
 | `task-round-budget` | a single goal-directed task spends this many tool rounds | force-closes the task |
 | `unproductive-rounds` | this many consecutive rounds produce no new tool result or state change | force-closes the task and fails it forward |
@@ -117,7 +117,7 @@ run: block
 | `file-call-budget` | distinct `read_file`/`list_files` paths per turn | 80 |
 | `code-call-budget` | distinct `search_local`/`code_search` queries per turn | 30 |
 
-These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls (same call, same result) are still stopped by `identical-tool-calls` -- except for a tool whose limit is 0, which is exempt from that stop too.
+These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls (same call, same result) stop after as many rounds as the tool's allocated budget; only tools without a budget use the `identical-tool-calls` threshold.
 
 ## Memory events
 

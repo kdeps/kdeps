@@ -382,11 +382,13 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	}
 	ms := &mockStreamer{responses: responses}
 	loop := newStreamingLoop(ms, 0) // unlimited rounds — only the guard can stop it
+	resetConvergenceLimitsAfter(t)
+	SetConvergenceLimits(0, 5, 0, 0) // the bash tool limit is the repeat cap
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)
 	require.NoError(t, err)
-	want := effectiveRounds(eventIdenticalCalls)
+	want := identicalRepeatLimit("bash_exec")
 	if ms.callCount != want {
 		t.Fatalf(
 			"expected loop to break after %d identical calls, got %d",
