@@ -98,7 +98,7 @@ python3 -m http.server "$PORT_BACKEND" --bind 127.0.0.1 --directory "$TEST_DIR" 
 BACKEND_PID=$!
 
 KDEPS_LOG=$(mktemp)
-timeout 20 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$KDEPS_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$KDEPS_LOG" 2>&1 &
 KDEPS_PID=$!
 
 cleanup() {

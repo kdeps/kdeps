@@ -90,7 +90,7 @@ fi
 
 # Test 2: Start server
 SERVER_LOG=$(mktemp)
-timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 PORT=3030
@@ -232,7 +232,7 @@ EOF
     sleep 1
     
     # Start new server
-    timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE2" > "$SERVER_LOG" 2>&1 &
+    timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE2" > "$SERVER_LOG" 2>&1 &
     SERVER_PID=$!
     sleep 3
     

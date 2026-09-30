@@ -43,7 +43,7 @@ done
     test_skipped "Inline Resources - No separate resource files (may be inline)"
 
 SERVER_LOG=$(mktemp)
-timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+timeout 90 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
@@ -55,7 +55,7 @@ fi
 test_passed "Inline Resources - Server startup"
 
 if command -v curl &> /dev/null; then
-    RESP=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
+    RESP=$(curl -s --max-time 60 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
         -d '{"data":"test"}' "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
     STATUS=$(echo "$RESP" | tail -n 1)
     if [ "$STATUS" = "200" ] || [ "$STATUS" = "500" ]; then

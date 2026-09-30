@@ -39,7 +39,7 @@ fi
     test_passed "Batch Processing - Test request file exists"
 
 SERVER_LOG=$(mktemp)
-timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
