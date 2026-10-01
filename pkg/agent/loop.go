@@ -278,6 +278,12 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
+	// Observer, when set, receives typed events (tool start/end, narration)
+	// for a graphical front end. It runs on the loop goroutine: never block.
+	Observer func(LoopEvent)
+	// Approver, when set, answers tool and path approval prompts instead of the
+	// terminal's raw-keypress prompt, and works without InteractiveTTY.
+	Approver func(ApprovalRequest) ApprovalChoice
 }
 
 // activeLoop is set during Loop construction so the memory_query builtin
@@ -2358,6 +2364,11 @@ func (l *Loop) executeToolCalls(
 	msgs := make([]map[string]any, 0, len(toolCalls))
 	for _, tc := range toolCalls {
 		tc.Arguments = unescapeExecutableArgs(tc.Name, tc.Arguments)
+		started := time.Now()
+		l.emit(LoopEvent{
+			Type: LoopEventToolStart, CallID: tc.ID, Tool: tc.Name,
+			Args: tc.Arguments, Summary: summarizeToolArgs(tc.Arguments),
+		})
 		result := `{"error":"interrupted by user"}`
 		editPath, isEdit := mutatingEditTarget(tc.Name, tc.Arguments)
 		md5Before := ""
@@ -2379,9 +2390,17 @@ func (l *Loop) executeToolCalls(
 			outcome.advanced = true
 		}
 		content := l.toolResultMessage(ctx, tc, result)
+		note := ""
 		if ctx.Err() == nil {
-			content += l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			content += note
 		}
+		l.emit(LoopEvent{
+			Type: LoopEventToolEnd, CallID: tc.ID, Tool: tc.Name,
+			Args: tc.Arguments, Summary: summarizeToolArgs(tc.Arguments),
+			Result: capToolResult(result), Error: isToolErrorResult(result),
+			Status: strings.TrimSpace(note), Duration: time.Since(started),
+		})
 		msgs = append(msgs, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
@@ -2496,6 +2515,7 @@ func (l *Loop) emitNarration(w io.Writer, content string) {
 	if text == "" {
 		return
 	}
+	l.emit(LoopEvent{Type: LoopEventNarration, Text: text})
 	if pw := l.progressWriter(w); pw != nil {
 		fmt.Fprintf(pw, "\n%s\n", text)
 	}
@@ -2614,14 +2634,20 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 	if tok := GlobalApprovalTokenRegistry.FindMatchingGranted(canonical, "", time.Now()); tok != nil {
 		return "", false, true
 	}
-	if !l.config.InteractiveTTY {
-		return "", false, false
+	decision, viaApprover := l.approverDecision(ApprovalRequest{
+		Kind: "tool", Tool: canonical, Args: rawArgs, Summary: summarizeToolArgs(rawArgs),
+	})
+	if !viaApprover {
+		if !l.config.InteractiveTTY {
+			return "", false, false
+		}
+		w := l.config.ToolOutputWriter
+		if w == nil {
+			w = os.Stdout
+		}
+		decision = l.promptToolApproval(w, canonical, rawArgs)
 	}
-	w := l.config.ToolOutputWriter
-	if w == nil {
-		w = os.Stdout
-	}
-	switch l.promptToolApproval(w, canonical, rawArgs) {
+	switch decision {
 	case approveOnce:
 		return "", false, true
 	case approveAlways:
