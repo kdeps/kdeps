@@ -18,8 +18,15 @@ function scrollDown() {
   m.scrollTop = m.scrollHeight;
 }
 
+// Assistant text is Markdown; everything else is plain text.
 function addMessage(cls, text) {
-  const e = el("div", "msg " + cls, text);
+  const e = el("div", "msg " + cls);
+  if (cls === "assistant") {
+    e.raw = text;
+    renderMarkdown(e, text);
+  } else {
+    e.textContent = text;
+  }
   $("messages").appendChild(e);
   scrollDown();
   return e;
@@ -28,6 +35,18 @@ function addMessage(cls, text) {
 function setRunning(on) {
   $("send").hidden = on;
   $("stop").hidden = !on;
+}
+
+// Streamed tokens re-render at most once per frame.
+function appendAssistant(node, text) {
+  node.raw += text;
+  if (node.pending) return;
+  node.pending = true;
+  requestAnimationFrame(() => {
+    node.pending = false;
+    renderMarkdown(node, node.raw);
+    scrollDown();
+  });
 }
 
 async function refreshSessions() {
@@ -46,8 +65,33 @@ async function refreshSessions() {
     const open = () => openSession(h.session.id);
     li.addEventListener("click", open);
     li.addEventListener("keydown", (ev) => { if (ev.key === "Enter") open(); });
+    const del = el("button", "del", "Delete");
+    del.type = "button";
+    del.setAttribute("aria-label", "Delete chat");
+    del.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (del.dataset.armed !== "1") {
+        del.dataset.armed = "1";
+        del.textContent = "Sure?";
+        setTimeout(() => { del.dataset.armed = ""; del.textContent = "Delete"; }, 3000);
+        return;
+      }
+      removeSession(h.session.id);
+    });
+    li.appendChild(del);
     ul.appendChild(li);
   }
+}
+
+async function removeSession(id) {
+  try {
+    await api.DeleteSession(id);
+    if (id === state.current) {
+      $("messages").replaceChildren();
+      state.current = null;
+    }
+  } catch (e) { addMessage("error", String(e)); }
+  refreshSessions();
 }
 
 async function openSession(id) {
@@ -104,7 +148,7 @@ function onEvent(e) {
   switch (e.kind) {
     case "token":
       if (!state.turn) state.turn = addMessage("assistant", "");
-      state.turn.textContent += e.text;
+      appendAssistant(state.turn, e.text);
       scrollDown();
       break;
     case "narration":

@@ -40,8 +40,24 @@ jobs:
         env:
           CGO_LDFLAGS: ${{ matrix.ldflags }}
         run: go test -tags "${{ matrix.tags }}" -count=1 ./...
+      - name: Front end tests
+        working-directory: desktop
+        run: node frontend/test/markdown_test.js
       - name: Build kdeps-desktop
         working-directory: desktop
         env:
           CGO_LDFLAGS: ${{ matrix.ldflags }}
         run: go build -tags "${{ matrix.tags }}" -ldflags "-s -w" -o kdeps-desktop-${{ runner.os }} .
+      - name: Package (macOS dmg)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          mkdir -p ../dist/desktop
+          cp kdeps-desktop-${{ runner.os }} ../dist/desktop/kdeps-desktop
+          ../desktop/packaging/macos/package.sh ../dist/desktop/kdeps-desktop dev ../dist/desktop
+      - name: Upload macOS dmg
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kdeps-desktop-dmg
+          path: dist/desktop/*.dmg

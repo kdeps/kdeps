@@ -17,6 +17,10 @@ body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); }
 #sessions li { padding: 8px; border-radius: 2px; cursor: pointer; border: 1px solid transparent; transition: border-color .15s ease; }
 #sessions li:hover, #sessions li:focus-visible { border-color: var(--line); }
 #sessions li.active { border-color: var(--accent); }
+#sessions li { position: relative; }
+#sessions .del { position: absolute; top: 6px; right: 6px; display: none; font-size: 11px; padding: 2px 6px; border-radius: 2px; background: transparent; color: var(--text2); border: 1px solid var(--line); cursor: pointer; transition: border-color .15s ease; }
+#sessions li:hover .del, #sessions li:focus-within .del { display: block; }
+#sessions .del:hover, #sessions .del:focus-visible { border-color: var(--accent); color: var(--text); }
 #sessions .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sessions .snippet { color: var(--text2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side-foot { padding: 12px; border-top: 1px solid var(--line); }
@@ -72,3 +76,17 @@ html[data-accent="pink"] { --accent: #ff2d78; }
 html[data-accent="yellow"] { --accent: #ffd60a; }
 html[data-density="compact"] body { font-size: 13px; }
 html[data-density="compact"] #messages { gap: 10px; padding: 16px; }
+
+.msg.assistant { white-space: normal; line-height: 1.55; }
+.msg.assistant > :first-child { margin-top: 0; }
+.msg.assistant > :last-child { margin-bottom: 0; }
+.msg.assistant p { margin: 0 0 10px; white-space: pre-wrap; }
+.msg.assistant h3, .msg.assistant h4, .msg.assistant h5, .msg.assistant h6 { margin: 14px 0 6px; letter-spacing: -0.01em; }
+.msg.assistant ul, .msg.assistant ol { margin: 0 0 10px; padding-left: 22px; }
+.msg.assistant blockquote { margin: 0 0 10px; padding: 2px 12px; border-left: 2px solid var(--line); color: var(--text2); white-space: pre-wrap; }
+.msg.assistant hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+.msg.assistant code { font-family: var(--mono); font-size: 0.92em; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); border-radius: 2px; padding: 1px 4px; }
+.msg.assistant pre { margin: 0 0 10px; padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); border-radius: 2px; overflow-x: auto; }
+.msg.assistant pre code { background: none; border: 0; padding: 0; white-space: pre; }
+.msg.assistant a { color: var(--accent); text-decoration: none; }
+.msg.assistant a:hover, .msg.assistant a:focus-visible { text-decoration: underline; }

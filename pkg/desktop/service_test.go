@@ -643,3 +643,21 @@ func TestSetWorkspace_UnenterableDir(t *testing.T) {
 	assert.Error(t, h.svc.SetWorkspace(dir))
 	assert.Equal(t, before, h.svc.Workspace())
 }
+
+func TestSetWorkspace_MemoryDoesNotLeakAcrossWorkspaces(t *testing.T) {
+	h := newHarness(t)
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+
+	a, b := t.TempDir(), t.TempDir()
+	require.NoError(t, h.svc.SetWorkspace(a))
+	require.NoError(t, h.svc.SaveMemory("only-in-a", "x"))
+	require.NoError(t, h.svc.SetWorkspace(b))
+	for _, e := range h.svc.ListMemory() {
+		assert.NotEqual(t, "only-in-a", e.Key)
+	}
+	require.NoError(t, h.svc.SetWorkspace(a))
+	assert.NotEmpty(t, h.svc.SearchMemory("only-in-a"))
+}

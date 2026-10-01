@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 )
 
 // Workspace is the folder sessions, memory and tools are scoped to.
@@ -61,8 +63,13 @@ func (s *Service) SetWorkspace(dir string) error {
 
 	_ = os.Setenv("KDEPS_WORKSPACE_ROOT", abs)
 	s.store.SetCwd(abs)
+	// Load merges into the cache, so a fresh store is needed to keep the
+	// previous workspace's entries from leaking into this one.
+	s.mu.Lock()
+	s.memStore = agent.NewMemoryStore(s.opts.StateDir)
 	s.memStore.SetCwd(abs)
 	_ = s.memStore.Load()
+	s.mu.Unlock()
 	s.openLoop(nil, "")
 	return nil
 }

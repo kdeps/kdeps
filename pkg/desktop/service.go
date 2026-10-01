@@ -393,21 +393,28 @@ func (s *Service) DeleteSession(id string) error {
 
 // ---- memory ----
 
-// ListMemory returns every memory entry for this folder.
-func (s *Service) ListMemory() []agent.MemoryEntry { return s.memStore.List() }
+// mem returns the current workspace memory store.
+func (s *Service) mem() *agent.MemoryStore {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.memStore
+}
+
+// ListMemory returns every memory entry of the current workspace.
+func (s *Service) ListMemory() []agent.MemoryEntry { return s.mem().List() }
 
 // SearchMemory returns entries matching query.
-func (s *Service) SearchMemory(query string) []agent.MemoryEntry { return s.memStore.Search(query) }
+func (s *Service) SearchMemory(query string) []agent.MemoryEntry { return s.mem().Search(query) }
 
 // SaveMemory creates or updates an entry and persists it.
 func (s *Service) SaveMemory(key, value string) error {
 	if strings.TrimSpace(key) == "" {
 		return errors.New("desktop: memory key is required")
 	}
-	return s.memStore.Set(key, value)
+	return s.mem().Set(key, value)
 }
 
 // DeleteMemory removes an entry and persists the change.
 func (s *Service) DeleteMemory(key string) error {
-	return s.memStore.Delete(key)
+	return s.mem().Delete(key)
 }
