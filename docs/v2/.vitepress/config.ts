@@ -123,6 +123,7 @@ export default defineConfig({
             { text: 'Built-in tools', link: '/agent/tools' },
             { text: 'Shell execution', link: '/agent/shell' },
             { text: 'Local model management', link: '/agent/models' },
+            { text: 'Desktop app', link: '/agent/desktop' },
           ]
         },
         {

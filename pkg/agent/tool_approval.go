@@ -174,14 +174,18 @@ func (l *Loop) checkPathBoundary(args map[string]any) (string, bool) {
 	}
 
 	denyReason := fmt.Sprintf("path %s is outside the working directory %s", abs, root)
-	if !l.config.InteractiveTTY {
-		return denyReason + " (no terminal available to approve it)", true
+	decision, viaApprover := l.approverDecision(ApprovalRequest{Kind: "path", Path: abs, Root: root})
+	if !viaApprover {
+		if !l.config.InteractiveTTY {
+			return denyReason + " (no terminal available to approve it)", true
+		}
+		w := l.config.ToolOutputWriter
+		if w == nil {
+			w = os.Stdout
+		}
+		decision = l.promptPathApproval(w, abs, root)
 	}
-	w := l.config.ToolOutputWriter
-	if w == nil {
-		w = os.Stdout
-	}
-	switch l.promptPathApproval(w, abs, root) {
+	switch decision {
 	case approveOnce:
 		return "", false
 	case approveAlways:

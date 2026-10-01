@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kdeps</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="side-head">
+      <button id="new-chat" class="primary">New chat</button>
+      <input id="search" type="search" placeholder="Search chats" aria-label="Search chats">
+    </div>
+    <ul id="sessions" aria-label="Chat history"></ul>
+    <div class="side-foot">
+      <button id="workspace" title="Switch workspace folder"></button>
+      <button id="open-settings">Settings</button>
+    </div>
+  </aside>
+  <main id="chat">
+    <div id="messages" role="log" aria-live="polite"></div>
+    <div id="attachments"></div>
+    <form id="composer">
+      <button type="button" id="attach" title="Attach files" aria-label="Attach files">+</button>
+      <textarea id="input" rows="1" placeholder="Message kdeps - drop files anywhere" aria-label="Message"></textarea>
+      <button type="submit" id="send" class="primary">Send</button>
+      <button type="button" id="stop" hidden>Stop</button>
+    </form>
+  </main>
+</div>
+<div id="drop" hidden>Drop files to attach</div>
+<dialog id="approval">
+  <h2 id="approval-title"></h2>
+  <pre id="approval-body"></pre>
+  <div class="row">
+    <button id="ap-once" class="primary">Allow once</button>
+    <button id="ap-always">Always allow</button>
+    <button id="ap-deny">Deny</button>
+  </div>
+</dialog>
+<dialog id="settings" aria-labelledby="settings-title">
+  <header class="set-head">
+    <h2 id="settings-title">Settings</h2>
+    <button id="settings-close" aria-label="Close settings">Close</button>
+  </header>
+  <div class="set-body">
+    <nav id="settings-tabs" role="tablist" aria-label="Settings sections"></nav>
+    <section id="settings-pane" role="tabpanel"></section>
+  </div>
+</dialog>
+<script src="markdown.js"></script>
+  <script src="app.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

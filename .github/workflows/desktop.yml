@@ -1,0 +1,63 @@
+name: Desktop
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "desktop/**", "pkg/desktop/**", ".github/workflows/desktop.yml" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "desktop/**", "pkg/desktop/**", ".github/workflows/desktop.yml" ]
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            tags: desktop,production,webkit2_41
+          - os: macos-latest
+            tags: desktop,production
+            ldflags: -framework UniformTypeIdentifiers
+          - os: windows-latest
+            tags: desktop,production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+      - name: Install Linux WebView dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb
+      - name: Test
+        working-directory: desktop
+        env:
+          CGO_LDFLAGS: ${{ matrix.ldflags }}
+        run: go test -tags "${{ matrix.tags }}" -count=1 ./...
+      - name: Front end tests
+        working-directory: desktop
+        run: node frontend/test/markdown_test.js
+      - name: Build kdeps-desktop
+        working-directory: desktop
+        env:
+          CGO_LDFLAGS: ${{ matrix.ldflags }}
+        run: go build -tags "${{ matrix.tags }}" -ldflags "-s -w" -o kdeps-desktop-${{ runner.os }} .
+      - name: Package (macOS dmg)
+        if: runner.os == 'macOS'
+        working-directory: desktop
+        run: |
+          mkdir -p ../dist/desktop
+          cp kdeps-desktop-${{ runner.os }} ../dist/desktop/kdeps-desktop
+          ../desktop/packaging/macos/package.sh ../dist/desktop/kdeps-desktop dev ../dist/desktop
+      - name: Upload macOS dmg
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kdeps-desktop-dmg
+          path: dist/desktop/*.dmg
