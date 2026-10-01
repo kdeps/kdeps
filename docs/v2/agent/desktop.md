@@ -22,7 +22,7 @@ It is an agent-mode front end. Workflows, components and agencies still show up 
 
 ## Download
 
-Every tagged release attaches the desktop app next to the CLI archives, built by the `Release` workflow on native runners:
+Every tagged release attaches the desktop app next to the CLI archives, built on native runners by the `Release Desktop` workflow (it runs when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches to an existing tag):
 
 | OS | File | Notes |
 |----|------|-------|
