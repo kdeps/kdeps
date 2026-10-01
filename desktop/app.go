@@ -117,3 +117,26 @@ func (a *App) PickFiles() ([]string, error) {
 		DefaultDirectory: a.Service.Workspace(),
 	})
 }
+
+// SaveProfile asks for a destination and writes the work profile (konfig)
+// there. It returns the chosen path, or "" when cancelled.
+func (a *App) SaveProfile() (string, error) {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export work profile",
+		DefaultFilename: "kdeps-profile.yaml",
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, a.Service.ExportProfile(path)
+}
+
+// LoadProfile asks for a profile file and applies it. It returns the chosen
+// path, or "" when cancelled.
+func (a *App) LoadProfile() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Import work profile"})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, a.Service.ImportProfile(path)
+}

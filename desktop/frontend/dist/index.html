@@ -16,6 +16,7 @@
     <ul id="sessions" aria-label="Chat history"></ul>
     <div class="side-foot">
       <button id="workspace" title="Switch workspace folder"></button>
+      <button id="open-settings">Settings</button>
     </div>
   </aside>
   <main id="chat">
@@ -39,6 +40,17 @@
     <button id="ap-deny">Deny</button>
   </div>
 </dialog>
+<dialog id="settings" aria-labelledby="settings-title">
+  <header class="set-head">
+    <h2 id="settings-title">Settings</h2>
+    <button id="settings-close" aria-label="Close settings">Close</button>
+  </header>
+  <div class="set-body">
+    <nav id="settings-tabs" role="tablist" aria-label="Settings sections"></nav>
+    <section id="settings-pane" role="tabpanel"></section>
+  </div>
+</dialog>
 <script src="app.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>
