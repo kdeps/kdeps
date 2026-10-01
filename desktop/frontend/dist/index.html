@@ -20,8 +20,13 @@
     </div>
   </aside>
   <main id="chat">
+    <header id="topbar">
+      <button id="model-btn" type="button" title="Choose model" aria-haspopup="dialog">Model</button>
+      <span id="model-backend" class="hint"></span>
+    </header>
     <div id="messages" role="log" aria-live="polite"></div>
     <div id="attachments"></div>
+    <ul id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
     <form id="composer">
       <button type="button" id="attach" title="Attach files" aria-label="Attach files">+</button>
       <textarea id="input" rows="1" placeholder="Message kdeps - drop files anywhere" aria-label="Message"></textarea>
@@ -40,6 +45,18 @@
     <button id="ap-deny">Deny</button>
   </div>
 </dialog>
+<dialog id="models" aria-labelledby="models-title">
+  <header class="set-head">
+    <h2 id="models-title">Choose model</h2>
+    <button id="models-close" aria-label="Close model picker">Close</button>
+  </header>
+  <div class="models-tools">
+    <input id="models-q" type="search" placeholder="Search models" aria-label="Search models">
+    <div id="models-types" role="group" aria-label="Model type"></div>
+  </div>
+  <ul id="models-list" aria-label="Models"></ul>
+  <div id="models-confirm" hidden></div>
+</dialog>
 <dialog id="settings" aria-labelledby="settings-title">
   <header class="set-head">
     <h2 id="settings-title">Settings</h2>
@@ -52,7 +69,9 @@
 </dialog>
 <script src="markdown.js"></script>
 <script src="settingctl.js"></script>
+<script src="composer.js"></script>
   <script src="app.js"></script>
 <script src="settings.js"></script>
+<script src="repl.js"></script>
 </body>
 </html>

@@ -234,3 +234,75 @@ func TestDesktop_SettingsAndHarnessRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "always answer in haiku", got2)
 }
+
+func newREPLService(t *testing.T) (*desktop.Service, *collector) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("KDEPS_PERMISSION_MODE", "")
+	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+	col := &collector{ch: make(chan desktop.Event, 4096)}
+	svc, err := desktop.New(t.Context(), desktop.Options{
+		Emit:     col.emit,
+		Engine:   cmd.NewDesktopEngine(),
+		Cwd:      t.TempDir(),
+		StateDir: filepath.Join(home, ".kdeps"),
+		Model:    "test",
+		Streamer: &replayStreamer{},
+		WireREPL: cmd.DesktopWireREPL,
+	})
+	require.NoError(t, err)
+	return svc, col
+}
+
+func TestDesktop_ReplCommandsRunLikeTheCLI(t *testing.T) {
+	svc, col := newREPLService(t)
+
+	require.NoError(t, svc.Command("/help"))
+	col.waitFor(t, desktop.KindTurnEnd)
+	var out strings.Builder
+	col.mu.Lock()
+	for _, e := range col.events {
+		if e.Kind == desktop.KindCommandOut {
+			out.WriteString(e.Text)
+		}
+	}
+	col.mu.Unlock()
+	assert.Contains(t, out.String(), "/model")
+	assert.NotContains(t, out.String(), "\x1b")
+
+	names := map[string]bool{}
+	for _, c := range svc.Commands() {
+		names[c.Name] = true
+	}
+	assert.True(t, names["/model"])
+	assert.True(t, names["/help"])
+}
+
+func TestDesktop_ModelCatalogIncludesHarvestedRegistries(t *testing.T) {
+	svc, _ := newREPLService(t)
+
+	types := map[string]int{}
+	for _, m := range svc.Models() {
+		types[m.Type]++
+	}
+	assert.Positive(t, types["llamafile"]+types["gguf"], "harvested local registries are listed")
+	assert.Positive(t, types["cloud"], "cloud catalog is listed")
+}
+
+func TestDesktop_CompletionMatchesCLI(t *testing.T) {
+	svc, _ := newREPLService(t)
+
+	got := svc.Complete("/mod", 4)
+	assert.Contains(t, got.Candidates, "/model")
+	assert.Equal(t, 4, got.Replace)
+}
+
+func TestDesktop_StartModelResolves(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	model, backend := cmd.DesktopStartModel(t.Context())
+	assert.NotEqual(t, "", model+backend, "a default model or backend is resolved")
+}

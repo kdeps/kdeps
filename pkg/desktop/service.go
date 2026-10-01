@@ -50,6 +50,13 @@ const (
 	KindApproval  = "approval"
 	KindTurnEnd   = "turn_end"
 	KindError     = "error"
+	// KindCommandOut is live text printed by a slash command (what the CLI
+	// REPL would print to the terminal).
+	KindCommandOut = "command_out"
+	// KindModel reports the active model after a switch (Model, Backend).
+	KindModel = "model"
+	// KindUI asks the front end to act: Text is "settings", "clear" or "reload".
+	KindUI = "ui"
 )
 
 // Approval is a pending request the front end must answer via Approve.
@@ -77,6 +84,8 @@ type Event struct {
 	DurationMS int64     `json:"durationMs,omitempty"`
 	SessionID  string    `json:"sessionId,omitempty"`
 	Approval   *Approval `json:"approval,omitempty"`
+	Model      string    `json:"model,omitempty"`
+	Backend    string    `json:"backend,omitempty"`
 }
 
 // Message is one chat turn entry of a stored session.
@@ -103,6 +112,12 @@ type Options struct {
 	Registry *tools.Registry
 	// Permission is the tool permission mode. Default: ask (GUI approval modal).
 	Permission agent.PermissionMode
+	// ResolveModel picks the startup model and backend when Model and Backend
+	// are empty. Default: agent.ResolveModelAndBackend.
+	ResolveModel func(ctx context.Context) (model, backend string)
+	// WireREPL connects the headless REPL to the model catalog and the
+	// persistence hooks the CLI REPL gets. Optional.
+	WireREPL func(*agent.REPL)
 }
 
 // Service owns one active chat (an agent Loop) at a time.
@@ -115,6 +130,8 @@ type Service struct {
 
 	mu        sync.Mutex
 	loop      *agent.Loop
+	repl      *agent.REPL
+	cmdDescs  map[string]string
 	running   bool
 	turnCtx   context.Context
 	cancel    context.CancelFunc
@@ -137,7 +154,11 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 		opts.Permission = agent.PermissionAsk
 	}
 	if opts.Model == "" && opts.Backend == "" {
-		opts.Model, opts.Backend = agent.ResolveModelAndBackend("", "")
+		if opts.ResolveModel != nil {
+			opts.Model, opts.Backend = opts.ResolveModel(ctx)
+		} else {
+			opts.Model, opts.Backend = agent.ResolveModelAndBackend("", "")
+		}
 	}
 
 	s := &Service{
@@ -187,9 +208,25 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Metadata:   domain.WorkflowMetadata{Name: "agent", Version: "0.0.0"},
 	}
 	loop := agent.New(s.opts.Engine, wf, s.registry, cfg)
+	repl := agent.NewREPL(s.ctx, loop)
+	repl.SetHeadless()
+	// NewREPL turns thinking on for the terminal; the chat view renders plain
+	// answer text, so leave it off until the user runs /thinking.
+	loop.SetThinking(nil)
+	repl.SetRunFn(func(ctx context.Context, input string) (string, error) {
+		_, err := loop.RunStreaming(ctx, input, &tokenWriter{emit: s.opts.Emit})
+		return "", err
+	})
+	if s.opts.WireREPL != nil {
+		s.opts.WireREPL(repl)
+	}
 	s.mu.Lock()
-	s.loop = loop
+	old := s.repl
+	s.loop, s.repl, s.cmdDescs = loop, repl, nil
 	s.mu.Unlock()
+	if old != nil {
+		old.Close()
+	}
 }
 
 // SessionID is the active chat's stored id ("" until its first turn finishes).
@@ -241,7 +278,11 @@ func (s *Service) runTurn(ctx context.Context, cancel context.CancelFunc, loop *
 	s.running = false
 	s.mu.Unlock()
 	if err != nil && ctx.Err() == nil {
-		s.opts.Emit(Event{Kind: KindError, Text: err.Error()})
+		cfg := loop.Config()
+		s.opts.Emit(Event{Kind: KindError, Text: fmt.Sprintf(
+			"%s\n\nModel: %s (%s). Pick another with the model selector or /model.",
+			err, cfg.Model, cfg.Backend,
+		)})
 		return
 	}
 	s.opts.Emit(Event{Kind: KindTurnEnd, SessionID: loop.SessionID()})

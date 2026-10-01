@@ -13,7 +13,7 @@ echo "Testing desktop GUI..."
 DESKTOP_DIR="$SCRIPT_DIR/../../desktop"
 DIST="$DESKTOP_DIR/frontend/dist"
 
-for f in index.html style.css markdown.js app.js settings.js; do
+for f in index.html style.css markdown.js app.js settings.js composer.js repl.js; do
     if [ -s "$DIST/$f" ]; then
         test_passed "desktop - embedded asset $f present"
     else
@@ -39,7 +39,7 @@ fi
 
 if command -v node >/dev/null 2>&1; then
     SYNTAX_OK=1
-    for f in markdown.js settingctl.js app.js settings.js; do
+    for f in markdown.js settingctl.js composer.js app.js settings.js repl.js; do
         node --check "$DIST/$f" >/dev/null 2>&1 || SYNTAX_OK=0
     done
     if [ "$SYNTAX_OK" = 1 ]; then
@@ -56,6 +56,11 @@ if command -v node >/dev/null 2>&1; then
         test_passed "desktop - settings control picker tests pass"
     else
         test_failed "desktop - settings control picker tests failed"
+    fi
+    if node "$DESKTOP_DIR/frontend/test/composer_test.js" >/dev/null 2>&1; then
+        test_passed "desktop - autocomplete and model picker tests pass"
+    else
+        test_failed "desktop - autocomplete and model picker tests failed"
     fi
 else
     test_skipped "desktop - node not installed, skipping script syntax check and markdown tests"

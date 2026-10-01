@@ -4,7 +4,7 @@ const api = window.go.main.App;
 const rt = window.runtime;
 const $ = (id) => document.getElementById(id);
 
-const state = { files: [], current: null, pending: null, turn: null, tools: new Map() };
+const state = { files: [], current: null, pending: null, turn: null, tools: new Map(), cmd: null, draft: "" };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -55,6 +55,11 @@ async function refreshSessions() {
   try { hits = (await api.SearchSessions(q)) || []; } catch (e) { addMessage("error", String(e)); }
   const ul = $("sessions");
   ul.replaceChildren();
+  if (!state.current && state.draft) {
+    const d = el("li", "draft active");
+    d.append(el("div", "title", state.draft), el("div", "snippet", "Current chat (not saved yet)"));
+    ul.appendChild(d);
+  }
   for (const h of hits) {
     const li = el("li");
     li.tabIndex = 0;
@@ -98,6 +103,7 @@ async function openSession(id) {
   try {
     const msgs = (await api.LoadSession(id)) || [];
     $("messages").replaceChildren();
+    state.draft = "";
     for (const m of msgs) addMessage(m.role === "user" ? "user" : "assistant", m.content);
     state.current = id;
     refreshSessions();
@@ -108,6 +114,7 @@ async function newChat() {
   try { await api.NewChat(); } catch (e) { addMessage("error", String(e)); return; }
   $("messages").replaceChildren();
   state.current = null;
+  state.draft = "";
   state.turn = null;
   refreshSessions();
 }
@@ -135,11 +142,18 @@ async function send(ev) {
   addMessage("user", text);
   const files = state.files;
   $("input").value = "";
+  closeSuggest();
   state.files = [];
   renderAttachments();
   state.turn = null;
+  state.cmd = null;
   try {
-    await api.Send(text, files);
+    if (text.startsWith("/")) {
+      await api.Command(text);
+    } else {
+      if (!state.current && !state.draft) { state.draft = text; refreshSessions(); }
+      await api.Send(text, files);
+    }
     setRunning(true);
   } catch (e) { addMessage("error", String(e)); }
 }
@@ -175,13 +189,26 @@ function onEvent(e) {
     case "approval":
       askApproval(e.approval);
       break;
-    case "error":
-      addMessage("error", e.text);
+    case "command_out":
+      onCommandOut(e.text);
+      break;
+    case "model":
+      onModelEvent(e);
+      break;
+    case "ui":
+      onUIEvent(e);
+      break;
+    case "error": {
+      const m = addMessage("error", e.text);
+      addSwitchModelButton(m);
       setRunning(false);
       break;
+    }
     case "turn_end":
       state.current = e.sessionId || state.current;
+      if (state.current) state.draft = "";
       state.turn = null;
+      state.cmd = null;
       setRunning(false);
       refreshSessions();
       break;
@@ -210,7 +237,7 @@ async function refreshWorkspace() {
 async function switchWorkspace() {
   try {
     const dir = await api.PickWorkspace();
-    if (dir) { state.current = null; $("messages").replaceChildren(); await refreshWorkspace(); refreshSessions(); }
+    if (dir) { state.current = null; state.draft = ""; $("messages").replaceChildren(); await refreshWorkspace(); refreshSessions(); refreshModelBtn(); loadCommands(); }
   } catch (e) { addMessage("error", String(e)); }
 }
 
@@ -222,6 +249,7 @@ window.addEventListener("dragover", (e) => e.preventDefault());
 
 $("composer").addEventListener("submit", send);
 $("input").addEventListener("keydown", (ev) => {
+  if (suggestHandleKey(ev)) return;
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("composer").requestSubmit(); }
 });
 $("stop").addEventListener("click", () => api.Cancel());

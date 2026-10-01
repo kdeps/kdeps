@@ -18,11 +18,48 @@
 
 package cmd
 
-import "github.com/kdeps/kdeps/v2/pkg/executor"
+import (
+	"context"
+
+	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tui"
+)
 
 // NewDesktopEngine returns the fully wired execution engine (all executors and
 // the agent memory store) for in-process front ends such as the desktop app.
 func NewDesktopEngine() *executor.Engine {
 	eng := setupEngine(nil, false)
 	return setupEngineWithMemory(eng, nil, false)
+}
+
+// DesktopStartModel resolves the startup model and backend the same way the
+// CLI does: the saved default model, KDEPS_DEFAULT_BACKEND, the model catalog,
+// then the best installed local model.
+func DesktopStartModel(ctx context.Context) (string, string) {
+	settings, _ := tui.LoadSettings()
+	return resolveStartModelWithAutoPick(ctx, &agentLoopFlags{}, settings)
+}
+
+// DesktopWireREPL connects a headless REPL to the same model catalog (harvested
+// llamafile/GGUF registries, Ollama, cloud), provider status and persistence
+// hooks the CLI REPL gets, so /model and Tab completion behave identically.
+func DesktopWireREPL(repl *agent.REPL) {
+	refreshREPLModelLists(repl)
+	repl.SetProviderStatus(agent.BuildProviderStatus())
+	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
+	if s, err := tui.LoadSettings(); err == nil {
+		endpoints := make(map[string]string, len(s.CustomOpenAIModels))
+		for _, m := range s.CustomOpenAIModels {
+			endpoints[m.Alias] = m.BaseURL
+		}
+		repl.SetCustomEndpoints(endpoints, tui.AddCustomOpenAIModel)
+		repl.SetFavorites(s.FavoriteModels, tui.SetFavoriteModel)
+	}
+	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
+	repl.SetSaveThemeFn(tui.SaveTheme)
+	repl.SetSaveModelNameFn(tui.SaveModelNameDisplay)
+	repl.SetSaveTuningFn(func(t agent.ToolTuning) error {
+		return tui.SaveAgentLoopTuning(tui.AgentLoopTuning(t))
+	})
 }

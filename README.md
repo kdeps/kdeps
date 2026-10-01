@@ -117,7 +117,7 @@ brew install kdeps/tap/kdeps
 
 ### Desktop app
 
-A chat window for the agent loop - history, search, drag-and-drop files, and a settings modal (harness, custom instructions, memories, all `config.yaml` settings). One Go codebase for macOS, Linux and Windows; download it from the release page (macOS `.dmg`, Linux `.tar.gz`, Windows `.zip`) or build it with `make desktop-package`. [Docs](https://kdeps.com/agent/desktop)
+A chat window for the agent loop - the same slash commands, autocomplete and model picker (harvested llamafile/GGUF, Ollama and cloud models) as the terminal REPL, history, search, drag-and-drop files, and a settings modal (harness, custom instructions, memories, all `config.yaml` settings). One Go codebase for macOS, Linux and Windows; download it from the release page (macOS `.dmg`, Linux `.tar.gz`, Windows `.zip`) or build it with `make desktop-package`. [Docs](https://kdeps.com/agent/desktop)
 
 ```bash
 make desktop-package   # macOS: dist/desktop/*.dmg | Linux: .tar.gz | Windows: .zip

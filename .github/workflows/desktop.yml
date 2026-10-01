@@ -45,6 +45,7 @@ jobs:
         run: |
           node frontend/test/markdown_test.js
           node frontend/test/settingctl_test.js
+          node frontend/test/composer_test.js
       - name: Build kdeps-desktop
         working-directory: desktop
         env:

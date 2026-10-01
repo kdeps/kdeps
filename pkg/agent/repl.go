@@ -286,6 +286,8 @@ type REPL struct {
 	// restored session starts local model servers at the same --ctx-size.
 	// 0 means never explicitly set.
 	contextSize int
+	// headless is set when a GUI drives the REPL: no spinner or cursor control.
+	headless bool
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -1579,6 +1581,11 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 		r.syncTokenCounter()
 		return res.resp, res.err
 	case <-timer.C:
+		if r.headless {
+			res := <-ch
+			r.syncTokenCounter()
+			return res.resp, res.err
+		}
 		// Animated spinner while waiting for LLM response. No descriptive
 		// word alongside it, same as drawSpinnerFrames -- see its doc comment.
 		spinFrames := strings.Split(spinnerGlyphs, "")

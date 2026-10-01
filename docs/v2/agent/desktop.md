@@ -84,6 +84,27 @@ Window state lives in `kdeps-desktop/state.json` under your OS config directory 
 drop file -> attach chip -> Send -> prompt + file text -> agent loop
 ```
 
+## Models, slash commands and autocomplete
+
+The window is a client of the same REPL the terminal runs, so it behaves the same: every slash command goes through the CLI's own dispatcher and its output streams into the chat live (terminal colors stripped).
+
+```text
+composer ──/cmd──> REPL dispatcher ──stdout──> live output block
+   │                    │
+   └─plain text─> agent loop ─tokens─> assistant message
+```
+
+| Feature | Behavior |
+|---------|----------|
+| Model picker | The model name at the top of the chat opens the picker (so does a bare `/model`). It lists everything `/model list` shows: the harvested llamafile and GGUF registries, Ollama models and the cloud catalog, filterable by type and searchable. Badges show current, ready, not downloaded and no API key. |
+| Switching | Picking a ready model runs `/model <name>`. A model that is not downloaded asks first, then downloads it with progress in the chat. A cloud model without a key points you to Settings. The choice is saved as the default for the next launch. |
+| Start model | A saved default wins, then the same auto-pick the terminal uses (installed model, available key, or catalog). |
+| Slash commands | Type `/` for the command list with one-line descriptions. Skills and prompts appear too. Terminal-only commands (`/exit`, `/editor`, `/login`, `/upgrade`) reply with the window equivalent; `/settings` and `/theme` open Settings; `/clear` clears the view. |
+| Autocomplete | Tab, Up and Down complete slash commands, subcommands, model names and `@file` paths, with the same candidates as terminal tab completion. |
+| Failed turns | An unreachable backend (for example no network to the auto-picked cloud model) shows the model name and a Switch model button. The unsaved chat stays visible in the sidebar until a turn succeeds. |
+
+Both modes run on the agent loop: this page is **agent mode** only.
+
 ## Settings modal
 
 Open it with the Settings button at the bottom of the sidebar. Six tabs:

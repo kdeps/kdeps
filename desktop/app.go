@@ -70,7 +70,16 @@ func (a *App) init(ctx context.Context, emit func(desktop.Event), engine *execut
 	if info, err := os.Stat(ws); err != nil || !info.IsDir() {
 		ws, _ = os.UserHomeDir()
 	}
-	svc, err := desktop.New(ctx, desktop.Options{Emit: emit, Engine: engine, Cwd: ws})
+	// A window has no tty to answer the CLI's download prompt; the front end
+	// confirms in its own UI before a local model is selected.
+	_ = os.Setenv("KDEPS_ASSUME_YES", "1")
+	svc, err := desktop.New(ctx, desktop.Options{
+		Emit:         emit,
+		Engine:       engine,
+		Cwd:          ws,
+		ResolveModel: cmd.DesktopStartModel,
+		WireREPL:     cmd.DesktopWireREPL,
+	})
 	if err != nil {
 		return err
 	}
