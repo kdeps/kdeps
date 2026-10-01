@@ -95,6 +95,7 @@ export default defineConfig({
             { text: 'Concepts overview', link: '/start/concepts' },
             { text: 'Installation', link: '/start/installation' },
             { text: 'Local models', link: '/start/local-models' },
+            { text: 'Data sovereignty', link: '/start/data-sovereignty' },
             { text: 'Glossary', link: '/reference/glossary' },
           ]
         },

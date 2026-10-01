@@ -10,6 +10,8 @@ kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, an
 
 Because it runs open-source models by default (llamafile, Ollama, any HuggingFace GGUF), the built appliance has **no per-token cost and no AI subscription** - it is free to run forever, on or off the cloud. Cloud providers work too when you want them; the backend is one line of config, not baked into the workflow.
 
+That also makes kdeps a [data sovereignty](/start/data-sovereignty) tool: run your own LLM and coding agent on servers in your own country, and your prompts, code, and data never reach a foreign cloud provider.
+
 ## The six products
 
 kdeps is a small number of bounded pieces - agent, workflow, agencies, LLM
@@ -120,6 +122,7 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 | Operations teams | Automate repetitive work: log analysis, PR reviews, triage, ticket creation, incident messaging |
 | SMEs without an AI hire | Add AI to existing business processes and APIs with near-zero code and no recurring AI bill |
 | Marketing and growth | Content pipelines, SEO automation, campaign reporting |
+| Regulated and public-sector teams | Keep AI inside your own jurisdiction - self-hosted LLM and coding agent, no data sent abroad |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 Concretely: log-file analysis, automated code reviews, JIRA ticket creation from an alert, an incident summary posted to MS Teams - each is a workflow that calls a model and one or two external APIs, deployed as one image.
