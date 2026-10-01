@@ -31,6 +31,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"os"
 	"os/exec"
@@ -1867,6 +1868,9 @@ func summarizeToolArgs(raw string) string {
 	// Prefer file_path, then query, then url, then expression, then first string value.
 	for _, key := range []string{toolParamFilePath, toolParamQuery, toolParamURL, toolParamExpression, toolParamCommand} {
 		if v, ok := m[key].(string); ok && v != "" {
+			if key == toolParamCommand || key == toolParamQuery {
+				v = html.UnescapeString(v) // some backends emit &amp;&amp; for &&
+			}
 			return truncateEllipsis(v, toolArgMaxDisplay)
 		}
 	}
@@ -2353,6 +2357,7 @@ func (l *Loop) executeToolCalls(
 	var outcome roundOutcome
 	msgs := make([]map[string]any, 0, len(toolCalls))
 	for _, tc := range toolCalls {
+		tc.Arguments = unescapeExecutableArgs(tc.Name, tc.Arguments)
 		result := `{"error":"interrupted by user"}`
 		editPath, isEdit := mutatingEditTarget(tc.Name, tc.Arguments)
 		md5Before := ""

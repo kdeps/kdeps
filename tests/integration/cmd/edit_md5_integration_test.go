@@ -159,3 +159,33 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	}
 	assert.Equal(t, 3, statusKeys, "one status entry per edit_file call")
 }
+
+// A revision echoed as bare hex (no "sha256:" prefix) is the same revision, not
+// a changed file: the edit must land instead of failing with a stale-revision error.
+func TestEditFile_BareHexRevisionIsAccepted(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	path := filepath.Join(dir, "a.txt")
+	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
+
+	reg := tools.NewRegistry()
+	agent.RegisterBuiltinTools(t.Context(), reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+
+	view, err := tool.Execute(map[string]any{"command": "view", "file_path": path})
+	require.NoError(t, err)
+	i := strings.Index(view, "[revision sha256:")
+	require.NotEqual(t, -1, i, view)
+	bare := strings.TrimSuffix(strings.TrimPrefix(view[i:], "[revision sha256:"), "]")
+	bare = strings.TrimSpace(strings.SplitN(bare, "]", 2)[0])
+
+	_, err = tool.Execute(map[string]any{
+		"command": "str_replace", "file_path": path,
+		"old_str": "hello", "new_str": "goodbye", "revision": bare,
+	})
+	require.NoError(t, err)
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "goodbye world\n", string(got))
+}

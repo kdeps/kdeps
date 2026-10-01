@@ -191,3 +191,26 @@ func TestEditedFilesLedger_UpsertAndCap(t *testing.T) {
 	assert.Equal(t, statusEditedFilesShown, strings.Count(ledger, "\n- "))
 	assert.Contains(t, ledger, "/fa md5 new NOT applied")
 }
+
+func TestUnescapeExecutableArgs(t *testing.T) {
+	got := unescapeExecutableArgs("bash_exec", `{"command":"cd /w &amp;&amp; git diff &lt; x"}`)
+	var m map[string]string
+	require.NoError(t, json.Unmarshal([]byte(got), &m))
+	assert.Equal(t, "cd /w && git diff < x", m["command"])
+
+	got = unescapeExecutableArgs("sql_query", `{"query":"SELECT 1 WHERE a &lt; 2"}`)
+	require.NoError(t, json.Unmarshal([]byte(got), &m))
+	assert.Equal(t, "SELECT 1 WHERE a < 2", m["query"])
+
+	same := `{"command":"ls"}`
+	assert.Equal(t, same, unescapeExecutableArgs("bash_exec", same))
+	file := `{"content":"a &amp; b"}`
+	assert.Equal(t, file, unescapeExecutableArgs("write_file", file), "file content untouched")
+	assert.Equal(t, "not json", unescapeExecutableArgs("bash_exec", "not json"))
+}
+
+func TestSummarizeToolArgs_UnescapesCommandEntities(t *testing.T) {
+	got := summarizeToolArgs(`{"command":"cd /w &amp;&amp; ls"}`)
+	assert.Equal(t, "cd /w && ls", got)
+	assert.Equal(t, "a &amp; b", summarizeToolArgs(`{"file_path":"a &amp; b"}`))
+}

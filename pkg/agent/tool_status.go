@@ -21,6 +21,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"sort"
 	"strings"
 	"time"
@@ -269,4 +270,36 @@ func invokeBlock(name string, args map[string]any, maxVal int, placeholders bool
 	b.WriteString("</invoke>")
 
 	return b.String()
+}
+
+// unescapeExecutableArgs turns HTML entities in a command-like argument back
+// into the characters they stand for (&amp;&amp; -> &&), so the call line, the
+// tool-call log and any retry block show what actually runs. Only shell and
+// SQL text is touched: file content may legitimately contain entities.
+func unescapeExecutableArgs(name, arguments string) string {
+	var key string
+	switch name {
+	case toolNameBashExec:
+		key = toolParamCommand
+	case "sql_query":
+		key = toolParamQuery
+	default:
+		return arguments
+	}
+	var args map[string]any
+	if json.Unmarshal([]byte(arguments), &args) != nil {
+		return arguments
+	}
+	text, _ := args[key].(string)
+	clean := html.UnescapeString(text)
+	if clean == text {
+		return arguments
+	}
+	args[key] = clean
+	out, err := json.Marshal(args)
+	if err != nil {
+		return arguments
+	}
+
+	return string(out)
 }

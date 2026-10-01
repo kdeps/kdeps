@@ -983,3 +983,24 @@ func TestEditFile_ChainedEditsNoReReadNeeded(t *testing.T) {
 	got, _ := os.ReadFile(f)
 	assert.Equal(t, "A\nb\nC\n", string(got))
 }
+
+func TestRevisionMatches_AcceptsBareHexAndWrappers(t *testing.T) {
+	got := fileRevision([]byte("abc"))
+	hex := strings.TrimPrefix(got, "sha256:")
+
+	assert.True(t, revisionMatches(got, got))
+	assert.True(t, revisionMatches(hex, got), "bare hex without the sha256: prefix")
+	assert.True(t, revisionMatches("  "+strings.ToUpper(hex)+" ", got), "case and space")
+	assert.True(t, revisionMatches("[revision "+got+"]", got), "copied marker")
+	assert.True(t, revisionMatches(hex[:8], got), "shortened prefix")
+	assert.False(t, revisionMatches("sha256:000000000000", got))
+	assert.False(t, revisionMatches(hex[:3], got), "too short to identify a revision")
+	assert.False(t, revisionMatches("", got))
+}
+
+func TestCheckRevision_BareHexIsNotStale(t *testing.T) {
+	content := "hello\n"
+	hex := strings.TrimPrefix(fileRevision([]byte(content)), "sha256:")
+	require.NoError(t, checkRevision("/f", content, map[string]any{"revision": hex}))
+	require.Error(t, checkRevision("/f", content, map[string]any{"revision": "deadbeefcafe"}))
+}

@@ -270,7 +270,12 @@ change:
 ```
 
 Omitting `revision` skips the check entirely - it's an extra safeguard on top
-of the read-this-turn gate above, not a replacement for it.
+of the read-this-turn gate above, not a replacement for it. The token is
+matched on its hex digits, so `sha256:1a2b3c4d5e6f`, bare `1a2b3c4d5e6f`, and
+`[revision sha256:1a2b3c4d5e6f]` are all accepted (6+ hex digits).
+
+`bash_exec` and `sql_query` text is HTML-unescaped before it runs and before it
+is shown, so a backend that emits `&amp;&amp;` still runs and displays `&&`.
 
 **Verified by md5, retried until it lands.** The loop hashes (md5) the file
 before and after every mutating `edit_file` call (`str_replace`, `insert`,

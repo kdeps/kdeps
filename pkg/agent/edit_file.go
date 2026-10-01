@@ -74,6 +74,9 @@ const defaultAnchorContext = 20
 // file's edit history, short enough to stay cheap to read and retype.
 const revisionHexLen = 12
 
+// revisionMinHexLen is the shortest hex prefix accepted as a revision.
+const revisionMinHexLen = 6
+
 // editFileHistory is the process-global per-path undo stack (not reset per
 // turn: "undo that" is useful across turns).
 //
@@ -1151,16 +1154,39 @@ func appendRevision(path, text string) string {
 // A blank/absent revision arg skips the check entirely.
 func checkRevision(path, content string, args map[string]any) error {
 	want, _ := args["revision"].(string)
-	if want == "" {
+	if strings.TrimSpace(want) == "" {
 		return nil
 	}
 	got := fileRevision([]byte(content))
-	if got != want {
+	if !revisionMatches(want, got) {
 		return fmt.Errorf(
 			"edit_file: %s changed since revision %s was read (it is now %s) - "+
 				"view the file again and retry", path, want, got)
 	}
 	return nil
+}
+
+// revisionMatches compares a model-supplied revision with the file's current
+// one by hex digest, ignoring the "sha256:" prefix, a "[revision ...]" wrapper,
+// case and surrounding space -- models routinely echo only the bare hex, which
+// must not read as a changed file.
+func revisionMatches(want, got string) bool {
+	w := revisionHex(want)
+	g := revisionHex(got)
+	if len(w) < revisionMinHexLen || g == "" {
+		return false
+	}
+	return strings.HasPrefix(g, w) || strings.HasPrefix(w, g)
+}
+
+// revisionHex reduces a revision token to its lowercase hex digest.
+func revisionHex(rev string) string {
+	rev = strings.ToLower(strings.TrimSpace(rev))
+	rev = strings.TrimPrefix(rev, "[")
+	rev = strings.TrimSuffix(rev, "]")
+	rev = strings.TrimSpace(strings.TrimPrefix(rev, "revision"))
+	rev = strings.TrimPrefix(rev, "sha256:")
+	return strings.TrimSpace(rev)
 }
 
 // editedSnippet renders the review message with a numbered window of newContent
