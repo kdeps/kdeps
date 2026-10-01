@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/desktop"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -443,4 +444,140 @@ func TestStore_Unusable(t *testing.T) {
 	_, err = svc.SearchSessions("x")
 	assert.Error(t, err)
 	assert.Error(t, svc.SaveMemory("k", "v"))
+}
+
+func TestSettings_ListAndSet(t *testing.T) {
+	h := newHarness(t)
+	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+
+	require.NoError(t, h.svc.SetSetting("llm.backend", "ollama"))
+	require.NoError(t, h.svc.SetSetting("llm.openai_api_key", "sk-secret"))
+	fields, err := h.svc.Settings()
+	require.NoError(t, err)
+
+	got := map[string]config.SettingField{}
+	for _, f := range fields {
+		got[f.Path] = f
+	}
+	assert.Equal(t, "ollama", got["llm.backend"].Value)
+	assert.True(t, got["llm.openai_api_key"].Set)
+	assert.Nil(t, got["llm.openai_api_key"].Value)
+
+	assert.Error(t, h.svc.SetSetting("llm.nope", "x"))
+}
+
+func TestSettings_MalformedConfig(t *testing.T) {
+	h := newHarness(t)
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("llm: [unterminated\n"), 0o600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	_, err := h.svc.Settings()
+	assert.Error(t, err)
+}
+
+func isolateHome(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
+}
+
+func TestHarness_ListToggleAndPresets(t *testing.T) {
+	isolateHome(t)
+	h := newHarness(t)
+
+	secs := h.svc.HarnessSections()
+	require.NotEmpty(t, secs)
+	name := secs[0].Name
+	require.NoError(t, h.svc.SetHarnessSection(name, false, true))
+	for _, sec := range h.svc.HarnessSections() {
+		if sec.Name == name {
+			assert.False(t, sec.Enabled)
+			assert.True(t, sec.Remind)
+		}
+	}
+	require.NoError(t, h.svc.SetHarnessSection(name, true, false))
+	assert.Error(t, h.svc.SetHarnessSection("no-such-section", true, false))
+
+	presets := h.svc.Presets()
+	require.NotEmpty(t, presets)
+	require.NoError(t, h.svc.ApplyPreset(presets[0].Name))
+	assert.Error(t, h.svc.ApplyPreset("no-such-preset"))
+}
+
+func TestInstructions_ReadWriteRemove(t *testing.T) {
+	h := newHarness(t)
+	got, err := h.svc.Instructions()
+	require.NoError(t, err)
+	assert.Empty(t, got)
+
+	require.NoError(t, h.svc.SetInstructions("Always answer in French."))
+	got, err = h.svc.Instructions()
+	require.NoError(t, err)
+	assert.Equal(t, "Always answer in French.", got)
+
+	require.NoError(t, h.svc.SetInstructions("  \n"))
+	got, err = h.svc.Instructions()
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	require.NoError(t, h.svc.SetInstructions(""), "removing an absent file is fine")
+}
+
+func TestInstructions_Errors(t *testing.T) {
+	svc, err := desktop.New(t.Context(), desktop.Options{
+		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(nil), StateDir: t.TempDir(),
+		Cwd: filepath.Join(t.TempDir(), "missing-dir"), Model: "test",
+		Streamer: &scriptedStreamer{}, Registry: tools.NewRegistry(),
+	})
+	require.NoError(t, err)
+	assert.Error(t, svc.SetInstructions("x"), "workspace dir does not exist")
+
+	file := filepath.Join(t.TempDir(), "afile")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	svc2, err := desktop.New(t.Context(), desktop.Options{
+		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(nil), StateDir: t.TempDir(),
+		Cwd: file, Model: "test", Streamer: &scriptedStreamer{}, Registry: tools.NewRegistry(),
+	})
+	require.NoError(t, err)
+	_, err = svc2.Instructions()
+	assert.Error(t, err, "workspace is a file, so KDEPS.md is not a path")
+	assert.Error(t, svc2.SetInstructions(""), "remove fails with ENOTDIR")
+}
+
+func TestProfile_ExportImportRoundTrip(t *testing.T) {
+	isolateHome(t)
+	h := newHarness(t)
+	path := filepath.Join(t.TempDir(), "profile", "work.konfig.yaml")
+
+	require.NoError(t, h.svc.ExportProfile(path))
+	_, err := os.Stat(path)
+	require.NoError(t, err)
+	require.NoError(t, h.svc.ImportProfile(path))
+
+	assert.Error(t, h.svc.ImportProfile(filepath.Join(t.TempDir(), "absent.yaml")))
+	bad := filepath.Join(t.TempDir(), "bad.yaml")
+	require.NoError(t, os.WriteFile(bad, []byte("tuning: [oops\n"), 0o600))
+	assert.Error(t, h.svc.ImportProfile(bad))
+	assert.Error(t, h.svc.ExportProfile(filepath.Join(path, "child", "x.yaml")), "parent is a file")
+}
+
+func TestProfile_BrokenHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	h := newHarness(t)
+	path := filepath.Join(t.TempDir(), "p.yaml")
+	require.NoError(t, h.svc.ExportProfile(path))
+
+	// A malformed settings file breaks export.
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".kdeps"), 0o700))
+	settings := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
+	require.NoError(t, os.WriteFile(settings, []byte("x: [oops\n"), 0o600))
+	assert.Error(t, h.svc.ExportProfile(filepath.Join(t.TempDir(), "q.yaml")))
+
+	// ~/.kdeps being a file breaks import (cannot write overrides).
+	file := filepath.Join(t.TempDir(), "homefile")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	t.Setenv("HOME", file)
+	t.Setenv("USERPROFILE", file)
+	assert.Error(t, h.svc.ImportProfile(path))
 }
