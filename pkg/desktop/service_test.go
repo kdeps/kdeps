@@ -539,9 +539,11 @@ func TestInstructions_Errors(t *testing.T) {
 		Cwd: file, Model: "test", Streamer: &scriptedStreamer{}, Registry: tools.NewRegistry(),
 	})
 	require.NoError(t, err)
-	_, err = svc2.Instructions()
-	assert.Error(t, err, "workspace is a file, so KDEPS.md is not a path")
-	assert.Error(t, svc2.SetInstructions(""), "remove fails with ENOTDIR")
+	if runtime.GOOS != "windows" { // Windows reports a missing path, not ENOTDIR
+		_, err = svc2.Instructions()
+		assert.Error(t, err, "workspace is a file, so KDEPS.md is not a path")
+		assert.Error(t, svc2.SetInstructions(""), "remove fails with ENOTDIR")
+	}
 }
 
 func TestProfile_ExportImportRoundTrip(t *testing.T) {
