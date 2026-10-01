@@ -309,3 +309,6 @@ ai-email-client
 # (cwd-relative bolt DBs). Do not ignore directories named memory (e.g. e2e components).
 memory
 !**/memory/
+
+# desktop shell binaries
+/desktop/kdeps-desktop*

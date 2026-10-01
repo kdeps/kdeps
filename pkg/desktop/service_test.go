@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -580,4 +581,65 @@ func TestProfile_BrokenHome(t *testing.T) {
 	t.Setenv("HOME", file)
 	t.Setenv("USERPROFILE", file)
 	assert.Error(t, h.svc.ImportProfile(path))
+}
+
+func TestSetWorkspace_RescopesHistoryAndEnv(t *testing.T) {
+	h := newHarness(t, scriptedResponse{content: "in a"})
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+
+	a, b := t.TempDir(), t.TempDir()
+	require.NoError(t, h.svc.SetWorkspace(a))
+	assert.Equal(t, a, h.svc.Workspace())
+	assert.Equal(t, a, os.Getenv("KDEPS_WORKSPACE_ROOT"))
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	resolvedA, err := filepath.EvalSymlinks(a)
+	require.NoError(t, err)
+	assert.Equal(t, resolvedA, wd)
+
+	require.NoError(t, h.svc.Send("hi", nil))
+	h.log.waitFor(t, desktop.KindTurnEnd)
+	metas, err := h.svc.ListSessions()
+	require.NoError(t, err)
+	assert.Len(t, metas, 1)
+
+	require.NoError(t, h.svc.SetWorkspace(b))
+	metas, err = h.svc.ListSessions()
+	require.NoError(t, err)
+	assert.Empty(t, metas, "history is scoped per workspace")
+	require.NoError(t, h.svc.SetWorkspace(a))
+	metas, err = h.svc.ListSessions()
+	require.NoError(t, err)
+	assert.Len(t, metas, 1)
+}
+
+func TestSetWorkspace_Rejects(t *testing.T) {
+	h := newHarness(t, scriptedResponse{content: "x"})
+	assert.ErrorContains(t, h.svc.SetWorkspace("relative/dir"), "absolute")
+	assert.Error(t, h.svc.SetWorkspace(filepath.Join(t.TempDir(), "missing")))
+	file := filepath.Join(t.TempDir(), "f.txt")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	assert.ErrorContains(t, h.svc.SetWorkspace(file), "not a directory")
+
+	h.streamer.gate = make(chan struct{})
+	require.NoError(t, h.svc.Send("one", nil))
+	assert.ErrorContains(t, h.svc.SetWorkspace(t.TempDir()), "turn is running")
+	close(h.streamer.gate)
+	h.log.waitFor(t, desktop.KindTurnEnd)
+}
+
+func TestSetWorkspace_UnenterableDir(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("permission bits not enforced")
+	}
+	h := newHarness(t)
+	dir := filepath.Join(t.TempDir(), "locked")
+	require.NoError(t, os.Mkdir(dir, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	before := h.svc.Workspace()
+	assert.Error(t, h.svc.SetWorkspace(dir))
+	assert.Equal(t, before, h.svc.Workspace())
 }
