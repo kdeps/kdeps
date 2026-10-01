@@ -598,9 +598,11 @@ func TestSetWorkspace_RescopesHistoryAndEnv(t *testing.T) {
 	assert.Equal(t, a, os.Getenv("KDEPS_WORKSPACE_ROOT"))
 	wd, err := os.Getwd()
 	require.NoError(t, err)
-	resolvedA, err := filepath.EvalSymlinks(a)
+	wdInfo, err := os.Stat(wd)
 	require.NoError(t, err)
-	assert.Equal(t, resolvedA, wd)
+	aInfo, err := os.Stat(a)
+	require.NoError(t, err)
+	assert.True(t, os.SameFile(aInfo, wdInfo), "cwd is the workspace (short/long and symlinked paths compare equal)")
 
 	require.NoError(t, h.svc.Send("hi", nil))
 	h.log.waitFor(t, desktop.KindTurnEnd)
