@@ -95,27 +95,79 @@ function settingRow(f, say) {
   const row = el("div", "field");
   const lab = el("label", "", f.label);
   lab.title = f.path;
+  const kind = settingControl(f);
+  const id = "set-" + f.path;
+  const cur = f.value === null || f.value === undefined ? "" : String(f.value);
   let input;
-  if (f.type === "bool") {
+  let read = () => input.value;
+  let extra = null;
+  if (kind === "checkbox") {
     input = el("input");
     input.type = "checkbox";
     input.checked = f.value === true;
+    read = () => input.checked;
+  } else if (kind === "select") {
+    input = el("select");
+    for (const v of selectChoices(f)) {
+      const o = el("option", "", v === "" ? "(default)" : v);
+      o.value = v;
+      input.appendChild(o);
+    }
+    input.value = cur;
+  } else if (kind === "range") {
+    input = el("input");
+    input.type = "range";
+    input.min = f.min;
+    input.max = f.max;
+    input.step = f.step || "any";
+    input.value = cur === "" ? String(f.min) : cur;
+    const out = el("output", "range-val", cur === "" ? "default" : cur);
+    input.addEventListener("input", () => { out.textContent = input.value; });
+    const reset = el("button", "link", "reset");
+    reset.type = "button";
+    reset.addEventListener("click", async () => {
+      input.value = String(f.min);
+      out.textContent = "default";
+      try { await api.SetSetting(f.path, ""); say("Reset " + f.path); } catch (e) { say(String(e), true); }
+    });
+    extra = [out, reset];
   } else {
     input = el("input");
-    input.type = f.secret ? "password" : f.type === "string" ? "text" : "number";
-    if (f.type === "number") input.step = "any";
-    if (f.secret) input.placeholder = f.set ? "stored (type to replace)" : "not set";
-    else if (f.value !== null && f.value !== undefined) input.value = String(f.value);
+    input.type = kind === "password" ? "password" : kind === "number" ? "number" : "text";
+    if (f.type === "number" && kind === "number") input.step = "any";
+    if (kind === "password") input.placeholder = f.set ? "stored (type to replace)" : "not set";
+    else input.value = cur;
+    if (kind === "suggest") {
+      const dl = el("datalist");
+      dl.id = id + "-list";
+      const items = f.path === "defaults.timezone" && Intl.supportedValuesOf
+        ? Intl.supportedValuesOf("timeZone").concat(f.suggestions || [])
+        : f.suggestions;
+      for (const v of items) {
+        const o = el("option");
+        o.value = v;
+        dl.appendChild(o);
+      }
+      input.setAttribute("list", dl.id);
+      extra = [dl];
+    }
   }
-  lab.htmlFor = input.id = "set-" + f.path;
+  lab.htmlFor = input.id = id;
   input.addEventListener("change", async () => {
-    const value = f.type === "bool" ? input.checked : input.value;
     try {
-      await api.SetSetting(f.path, value);
+      await api.SetSetting(f.path, read());
       say("Saved " + f.path);
     } catch (e) { say(String(e), true); }
   });
-  row.append(lab, input);
+  row.append(lab);
+  if (extra && kind === "range") {
+    const wrap = el("div", "range-wrap");
+    wrap.append(input, ...extra);
+    row.append(wrap);
+  } else {
+    row.append(input, ...(extra || []));
+  }
+  if (f.help) row.append(el("div", "help", f.help));
   return row;
 }
 

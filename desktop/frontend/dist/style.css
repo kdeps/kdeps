@@ -64,6 +64,12 @@ dialog pre { white-space: pre-wrap; word-break: break-word; font-family: var(--m
 .field { display: grid; grid-template-columns: 240px 1fr; gap: 8px; align-items: center; }
 .field label { font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-wrap: anywhere; }
 .field input[type="text"], .field input[type="password"], .field input[type="number"] { width: 100%; }
+.field select, .field input[type="range"] { width: 100%; }
+.field .help { grid-column: 2; color: var(--text2); font-size: 11px; margin-top: -4px; }
+.range-wrap { display: grid; grid-template-columns: 1fr 56px auto; gap: 8px; align-items: center; }
+.range-val { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.field button.link { background: none; border: 0; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0; }
+.field button.link:hover, .field button.link:focus-visible { text-decoration: underline; }
 .hint { color: var(--text2); font-size: 12px; }
 .card { border: 1px solid var(--line); border-radius: 2px; padding: 10px 12px; display: grid; gap: 6px; }
 .card .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }

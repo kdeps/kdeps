@@ -55,6 +55,16 @@ type SettingField struct {
 	Set bool `json:"set"`
 	// Value is the current value (nil when unset or secret).
 	Value any `json:"value"`
+	// Options, when set, is the closed list of accepted values (render a select).
+	Options []string `json:"options,omitempty"`
+	// Suggestions are common values for a free-form field (render a datalist).
+	Suggestions []string `json:"suggestions,omitempty"`
+	// Help is a one-line description shown under the control.
+	Help string `json:"help,omitempty"`
+	// Min, Max and Step bound a numeric field; both Min and Max set means a slider.
+	Min  *float64 `json:"min,omitempty"`
+	Max  *float64 `json:"max,omitempty"`
+	Step *float64 `json:"step,omitempty"`
 }
 
 // Settings lists every editable scalar in the config with its current value.
@@ -88,6 +98,7 @@ func collectSettings(v reflect.Value, prefix string, out *[]SettingField) {
 			Secret: isSecretSetting(path),
 		}
 		fillSettingValue(&field, fv)
+		applySettingMeta(&field)
 		*out = append(*out, field)
 	}
 }

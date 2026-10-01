@@ -91,7 +91,7 @@ Open it with the Settings button at the bottom of the sidebar. Six tabs:
 | Tab | What it edits |
 |-----|---------------|
 | Appearance | Theme (light, dark, system), accent color and density. Stored in the WebView's local storage, not in `config.yaml`. |
-| All settings | Every scalar in `~/.kdeps/config.yaml` (`llm.backend`, `llm.ctx_size`, `resource_defaults.chat.temperature`, ...), generated from the config schema so new fields appear automatically. Secret fields (keys, tokens) show only whether one is set and are write-only. |
+| All settings | Every scalar in `~/.kdeps/config.yaml` (`llm.backend`, `llm.ctx_size`, `resource_defaults.chat.temperature`, ...), generated from the config schema so new fields appear automatically. Secret fields (keys, tokens) show only whether one is set and are write-only. Fields with a fixed set of values render as dropdowns (`llm.backend`, `llm.strategy`, `resource_defaults.onError.action`), numeric ranges as sliders with a reset link (`temperature`, `top_p`, penalties), and free-form fields (timeouts, context sizes, Python version, timezone, hosts) offer a suggestion list while still accepting any value. A one-line help text sits under each. |
 | Prompts and harness | System-prompt harness sections (toggle each, and whether it is repeated as a per-turn reminder) plus the preset list, same as `/harness` in the REPL. |
 | Custom instructions | Free text saved to `KDEPS.md` in the workspace, which the agent loads into every session's system prompt for that folder. |
 | Memories | The workspace's persistent memory: list, add or overwrite (same key) and delete facts. |

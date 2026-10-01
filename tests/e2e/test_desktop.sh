@@ -39,7 +39,7 @@ fi
 
 if command -v node >/dev/null 2>&1; then
     SYNTAX_OK=1
-    for f in markdown.js app.js settings.js; do
+    for f in markdown.js settingctl.js app.js settings.js; do
         node --check "$DIST/$f" >/dev/null 2>&1 || SYNTAX_OK=0
     done
     if [ "$SYNTAX_OK" = 1 ]; then
@@ -51,6 +51,11 @@ if command -v node >/dev/null 2>&1; then
         test_passed "desktop - markdown renderer tests (including XSS cases) pass"
     else
         test_failed "desktop - markdown renderer tests failed"
+    fi
+    if node "$DESKTOP_DIR/frontend/test/settingctl_test.js" >/dev/null 2>&1; then
+        test_passed "desktop - settings control picker tests pass"
+    else
+        test_failed "desktop - settings control picker tests failed"
     fi
 else
     test_skipped "desktop - node not installed, skipping script syntax check and markdown tests"

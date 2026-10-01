@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/desktop"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -212,6 +213,18 @@ func TestDesktop_SettingsAndHarnessRoundTrip(t *testing.T) {
 		}
 	}
 	assert.Equal(t, "ollama", got)
+
+	byPath := map[string]config.SettingField{}
+	for _, f := range fields {
+		byPath[f.Path] = f
+	}
+	assert.Contains(t, byPath["llm.backend"].Options, "ollama")
+	assert.Equal(t, []string{"fail", "continue", "retry"}, byPath["resource_defaults.onError.action"].Options)
+	require.NotNil(t, byPath["resource_defaults.chat.temperature"].Max)
+	assert.Contains(t, byPath["resource_defaults.chat.timeout"].Suggestions, "30s")
+	for _, o := range byPath["resource_defaults.onError.action"].Options {
+		require.NoError(t, svc.SetSetting("resource_defaults.onError.action", o))
+	}
 
 	assert.NotEmpty(t, svc.HarnessSections())
 	assert.NotEmpty(t, svc.Presets())

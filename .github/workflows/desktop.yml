@@ -42,7 +42,9 @@ jobs:
         run: go test -tags "${{ matrix.tags }}" -count=1 ./...
       - name: Front end tests
         working-directory: desktop
-        run: node frontend/test/markdown_test.js
+        run: |
+          node frontend/test/markdown_test.js
+          node frontend/test/settingctl_test.js
       - name: Build kdeps-desktop
         working-directory: desktop
         env:
