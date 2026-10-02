@@ -562,29 +562,15 @@ func (r *REPL) modeline() string {
 // contextUsageStr returns a "used/total" token display string (e.g. "293k/512k").
 // Returns "" when there is no meaningful usage to show.
 func (r *REPL) contextUsageStr() string {
-	used := r.loop.Session().TotalTokens()
+	used := llm.LastCallInputTokens()
+	if used <= 0 {
+		used = int64(r.loop.Session().TotalTokens())
+	}
 	if used <= 0 {
 		return ""
 	}
 	total := r.contextLimitForModel(r.loop.config.Model)
-	return fmt.Sprintf("%s/%s", formatTokenCount(used), formatTokenCount(total))
-}
-
-// formatTokenCount renders a token count as a compact string:
-// values >= 1M use "Nm" (e.g. "1m"), >= 1K use "Nk" (e.g. "32k"), else plain digits.
-func formatTokenCount(n int) string {
-	const (
-		kibi = 1024
-		mebi = 1024 * kibi
-	)
-	switch {
-	case n >= mebi:
-		return fmt.Sprintf("%dm", n/mebi)
-	case n >= kibi:
-		return fmt.Sprintf("%dk", n/kibi)
-	default:
-		return strconv.Itoa(n)
-	}
+	return fmt.Sprintf("%s/%s", formatCompactCount(used), formatCompactCount(int64(total)))
 }
 
 // buildCompleter returns a custom AutoCompleter with fuzzy command matching

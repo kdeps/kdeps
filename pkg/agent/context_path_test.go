@@ -189,3 +189,38 @@ func TestResetContextSegments_ClearsPreviousTurn(t *testing.T) {
 	resetContextSegments(modelGPT4o, "")
 	assert.Equal(t, "", contextPathStatus(), "a new turn must start with a clean trail")
 }
+
+func TestReconcileSegments(t *testing.T) {
+	segs := []contextSegment{{Label: "system prompt", Tokens: 600}, {Label: "memory", Tokens: 400}}
+	sum := func(in []contextSegment) int {
+		n := 0
+		for _, s := range in {
+			n += s.Tokens
+		}
+		return n
+	}
+
+	assert.Equal(t, segs, reconcileSegments(segs, 0), "no measurement leaves estimates alone")
+	assert.Equal(t, segs, reconcileSegments(segs, 1000), "exact match unchanged")
+
+	over := reconcileSegments(segs, 1500)
+	require.Len(t, over, 3)
+	assert.Equal(t, "other", over[2].Label)
+	assert.Equal(t, 500, over[2].Tokens)
+	assert.Equal(t, 1500, sum(over))
+
+	under := reconcileSegments(segs, 333)
+	assert.Equal(t, 333, sum(under), "overshooting estimates scale down to the measured total")
+	assert.Equal(t, segs[0].Label, under[0].Label)
+}
+
+func TestContextPathStatus_TurnTotalIsMeasuredPromptSize(t *testing.T) {
+	resetContextSegments(modelGPT4o, "")
+	t.Cleanup(executorLLM.ResetLastCallInput)
+	recordContextSegment("system prompt", strings.Repeat("word ", 100))
+	executorLLM.SetLastCallInputForTest(20700)
+
+	status := contextPathStatus()
+	assert.Contains(t, status, "turn 20.7k/128.0k")
+	assert.Contains(t, status, "other ")
+}

@@ -883,13 +883,29 @@ func TestContextUsageStr_ReflectsLocalContextSizeChange(t *testing.T) {
 
 	llm.SetLocalContextSize(4096)
 	before := repl.contextUsageStr()
-	assert.Contains(t, before, "/4k")
+	assert.Contains(t, before, "/4.1k")
 
 	// Simulate /context 256k without switching models.
 	llm.SetLocalContextSize(262144)
 	after := repl.contextUsageStr()
-	assert.Contains(t, after, "/256k")
+	assert.Contains(t, after, "/262.1k")
 	assert.NotEqual(t, before, after)
+}
+
+func TestContextUsageStr_PrefersMeasuredPromptSize(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = modelGPT4o
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	resetContextSegments(modelGPT4o, "")
+	llm.ResetLastCallInput()
+	t.Cleanup(llm.ResetLastCallInput)
+	assert.NotContains(t, repl.contextUsageStr(), "20.7k", "no measurement yet: falls back to session size")
+
+	llm.SetLastCallInputForTest(20700)
+	assert.Equal(t, "20.7k/128.0k", repl.contextUsageStr())
 }
 
 // --- buildCompleter ---

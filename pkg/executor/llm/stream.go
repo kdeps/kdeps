@@ -1536,7 +1536,20 @@ var (
 	TokenOutputs int64
 	liveInputs   int64
 	liveOutputs  int64
+	lastCallIn   int64
 )
+
+// LastCallInputTokens is the real prompt size of the most recent model call
+// this turn: the provider-reported count, or the size of the messages actually
+// sent when the provider reports none. It is the context the model really held,
+// so the turn display can show the measured total instead of a sum of estimates.
+func LastCallInputTokens() int64 { return atomic.LoadInt64(&lastCallIn) }
+
+// SetLastCallInputForTest seeds the per-turn measurement.
+func SetLastCallInputForTest(n int64) { atomic.StoreInt64(&lastCallIn, n) }
+
+// ResetLastCallInput clears the per-turn measurement at the start of a turn.
+func ResetLastCallInput() { atomic.StoreInt64(&lastCallIn, 0) }
 
 // SessionInputTokens is prompt tokens handed to the model this session,
 // including the call that is streaming right now.
@@ -1601,6 +1614,7 @@ func generateAccounted(
 ) (*llms.ContentResponse, error) {
 	liveIn := estimateMessageTokens(cfg.Model, messages)
 	addLive(&liveInputs, liveIn)
+	atomic.StoreInt64(&lastCallIn, liveIn)
 	outBefore := atomic.LoadInt64(&liveOutputs)
 	resp, err := call()
 	streamedOut := atomic.LoadInt64(&liveOutputs) - outBefore
@@ -1610,6 +1624,9 @@ func generateAccounted(
 		return nil, err
 	}
 	recIn, recOut := recordTokenUsage(resp)
+	if recIn > liveIn {
+		atomic.StoreInt64(&lastCallIn, recIn)
+	}
 	if recIn == 0 && recOut == 0 {
 		atomic.AddInt64(&TokenInputs, liveIn)
 		gen := streamedOut

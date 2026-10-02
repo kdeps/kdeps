@@ -135,6 +135,8 @@ Directly above the session counter, whenever the running model's context window 
 
 `sent` is the running total of prompt tokens handed to the model this session. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `/compact` and `/fold` replace both with the context that remains: `sent` is that context, `generated` is the model-written part still in it. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame: each tick rewrites those rows in place.
 
+The `turn` figure is the prompt size the model actually received on its most recent call: the provider-reported count when the backend returns one, otherwise the size of the messages sent. The per-part numbers (`sys`, `mem`, `hist`, tools) are estimates taken before the call, so they are scaled to add up to that total, and anything they do not cover (your message, tool schemas, framing) shows as `other`. Before the first call of a turn the parts are shown as plain estimates. The modeline `used/limit` shows the same figure against the same window, in the same decimal format (`20.7k/128.0k`).
+
 ### Custom themes
 
 Every theme - built-in or not - is a YAML file. Drop your own into `~/.kdeps/themes/<name>.yaml` and it shows up in `/theme`'s list immediately:

@@ -60,4 +60,8 @@ func TestSessionTokens_IncludeLiveThenReplaceWithUsage(t *testing.T) {
 	assert.Equal(t, int64(9), SessionOutputTokens())
 	assert.Equal(t, int64(0), atomic.LoadInt64(&liveInputs))
 	assert.Equal(t, int64(0), atomic.LoadInt64(&liveOutputs))
+	assert.Equal(t, int64(40), LastCallInputTokens(), "provider-reported prompt size becomes the turn size")
+
+	ResetLastCallInput()
+	assert.Equal(t, int64(0), LastCallInputTokens())
 }
