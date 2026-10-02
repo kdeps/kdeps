@@ -194,14 +194,21 @@ async function renderHarness(pane) {
     const top = el("div", "top");
     const en = el("input"); en.type = "checkbox"; en.checked = s.enabled; en.id = "hs-en-" + s.name;
     const rm = el("input"); rm.type = "checkbox"; rm.checked = s.remind; rm.id = "hs-rm-" + s.name;
-    const l1 = el("label", "", "enabled"); l1.htmlFor = en.id;
-    const l2 = el("label", "", "remind each turn"); l2.htmlFor = rm.id;
+    const toggle = (input, text) => {
+      const l = el("label", "toggle");
+      l.append(input, el("span", "", text));
+      return l;
+    };
     const save = async () => {
       try { await api.SetHarnessSection(s.name, en.checked, rm.checked); say("Saved " + s.name); } catch (e) { say(String(e), true); }
     };
     en.addEventListener("change", save);
     rm.addEventListener("change", save);
-    top.append(el("strong", "", s.name), el("span", "hint", s.kind), en, l1, rm, l2);
+    const title = el("div", "hs-title");
+    title.append(el("strong", "", s.name), el("span", "hint", s.kind));
+    const toggles = el("div", "hs-toggles");
+    toggles.append(toggle(en, "enabled"), toggle(rm, "remind each turn"));
+    top.append(title, toggles);
     const body = el("details");
     body.append(el("summary", "hint", "text"), el("pre", "hint", s.body));
     card.append(top, body);

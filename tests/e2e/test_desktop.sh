@@ -106,6 +106,15 @@ else
     test_failed "desktop - release workflow is missing a macOS architecture"
 fi
 
+# Harness cards lay their toggles out in one aligned group, with checkboxes reset to a fixed size.
+if grep -q 'hs-toggles' "$DESKTOP_DIR/frontend/dist/settings.js" \
+    && grep -q '^\.hs-toggles' "$DESKTOP_DIR/frontend/dist/style.css" \
+    && grep -q '^input\[type="checkbox"\]' "$DESKTOP_DIR/frontend/dist/style.css"; then
+    test_passed "desktop - harness toggles are grouped and aligned"
+else
+    test_failed "desktop - harness toggle layout missing"
+fi
+
 # App icon on every platform: Windows exe resource, Linux window icon + launcher, in-app logo.
 if [ -s "$DESKTOP_DIR/rsrc_windows_amd64.syso" ] \
     && grep -q 'go:embed packaging/icon.png' "$DESKTOP_DIR/main.go" \

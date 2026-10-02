@@ -133,3 +133,8 @@ html[data-density="compact"] #messages { gap: 10px; padding: 16px; }
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; }
 .brand img { display: block; }
+input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; flex: none; accent-color: var(--accent); cursor: pointer; }
+.card .top { flex-wrap: wrap; }
+.hs-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 200px; }
+.hs-toggles { display: flex; gap: 16px; align-items: center; flex: none; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); white-space: nowrap; cursor: pointer; }
