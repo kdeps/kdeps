@@ -30,6 +30,41 @@ brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or In
 
 After `brew tap kdeps/tap` the short form `brew install --cask kdeps-desktop` works too. Update with `brew upgrade --cask kdeps-desktop`. The cask is rewritten in `kdeps/homebrew-tap` by the `Release Desktop` workflow on every release.
 
+### Linux
+
+```bash
+# Debian/Ubuntu runtime libraries (Fedora: sudo dnf install gtk3 webkit2gtk4.1)
+sudo apt install -y libgtk-3-0 libwebkit2gtk-4.1-0
+
+VERSION=2.53.2   # latest: https://github.com/kdeps/kdeps/releases/latest
+curl -fLO "https://github.com/kdeps/kdeps/releases/download/v${VERSION}/kdeps-desktop_${VERSION}_linux_amd64.tar.gz"
+
+tmp="$(mktemp -d)" && tar -xzf "kdeps-desktop_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
+mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/icons
+install -m 755 "$tmp/kdeps-desktop" ~/.local/bin/                 # binary (~/.local/bin must be on PATH)
+cp "$tmp/kdeps-desktop.desktop" ~/.local/share/applications/      # launcher entry
+cp "$tmp/kdeps.png" ~/.local/share/icons/                         # launcher icon
+
+kdeps-desktop   # or find "kdeps" in your app launcher
+```
+
+### Windows (PowerShell)
+
+```powershell
+$v = "2.53.2"   # latest: https://github.com/kdeps/kdeps/releases/latest
+$dir = "$env:LOCALAPPDATA\kdeps-desktop"
+Invoke-WebRequest "https://github.com/kdeps/kdeps/releases/download/v$v/kdeps-desktop_${v}_windows_amd64.zip" -OutFile kdeps-desktop.zip
+Expand-Archive kdeps-desktop.zip -DestinationPath $dir -Force
+
+# Start menu shortcut
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\kdeps.lnk")
+$s.TargetPath = "$dir\kdeps-desktop.exe"; $s.Save()
+
+& "$dir\kdeps-desktop.exe"
+```
+
+The WebView2 runtime ships with Windows 11; on Windows 10 install it from Microsoft first. The exe is not code-signed, so SmartScreen may warn on first launch: More info, then Run anyway.
+
 ## Download
 
 Every tagged release attaches the desktop app next to the CLI archives, built on native runners by the `Release Desktop` workflow (it runs when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches to an existing tag):

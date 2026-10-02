@@ -121,6 +121,11 @@ A chat window for the agent loop - the same slash commands, autocomplete and mod
 
 ```bash
 brew install --cask kdeps/tap/kdeps-desktop   # macOS (Apple Silicon and Intel)
+```
+
+Linux (`.tar.gz`) and Windows (`.zip`) copy-paste install steps: [Desktop app docs](https://kdeps.com/agent/desktop#install).
+
+```bash
 make desktop-package   # macOS: dist/desktop/*.dmg | Linux: .tar.gz | Windows: .zip
 ```
 

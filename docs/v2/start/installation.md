@@ -14,7 +14,7 @@ Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/qu
 brew install kdeps/tap/kdeps
 ```
 
-Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. See [Desktop app](../agent/desktop).
+Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows install steps (download, extract, launcher or Start menu entry) are in [Desktop app](../agent/desktop#install).
 
 ### Linux, macOS, and Windows (curl)
 
