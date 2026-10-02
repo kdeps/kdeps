@@ -51,22 +51,24 @@ dialog pre { white-space: pre-wrap; word-break: break-word; font-family: var(--m
 [hidden] { display: none !important; }
 
 .side-foot { display: grid; gap: 8px; }
-#settings { width: min(900px, 94vw); height: min(640px, 90vh); padding: 0; }
+#settings { width: min(900px, 94vw); max-width: 94vw; height: min(640px, 90vh); padding: 0; overflow: hidden; }
 #settings[open] { display: flex; flex-direction: column; }
 .set-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .set-head h2 { margin: 0; font-size: 17px; }
 .set-body { display: flex; flex: 1; min-height: 0; }
-#settings-tabs { width: 180px; border-right: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+#settings-tabs { width: 180px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 #settings-tabs button { text-align: left; border-color: transparent; }
 #settings-tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
-#settings-pane { flex: 1; overflow-y: auto; padding: 16px; display: grid; gap: 12px; align-content: start; }
+#settings-pane { flex: 1; min-width: 0; overflow-x: hidden; overflow-y: auto; padding: 16px; display: grid; gap: 12px; align-content: start; }
 .eyebrow { font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--accent); margin-top: 8px; }
-.field { display: grid; grid-template-columns: 240px 1fr; gap: 8px; align-items: center; }
-.field label { font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-wrap: anywhere; }
+.field { display: grid; grid-template-columns: minmax(120px, 240px) minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.field > * { min-width: 0; }
+.field input[type="checkbox"] { justify-self: start; }
+.field label { font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-wrap: anywhere; word-break: break-word; }
 .field input[type="text"], .field input[type="password"], .field input[type="number"] { width: 100%; }
 .field select, .field input[type="range"] { width: 100%; }
 .field .help { grid-column: 2; color: var(--text2); font-size: 11px; margin-top: -4px; }
-.range-wrap { display: grid; grid-template-columns: 1fr 56px auto; gap: 8px; align-items: center; }
+.range-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(56px, auto) auto; gap: 8px; align-items: center; }
 .range-val { font-family: var(--mono); font-size: 12px; color: var(--text2); }
 .field button.link { background: none; border: 0; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0; }
 .field button.link:hover, .field button.link:focus-visible { text-decoration: underline; }
@@ -107,7 +109,7 @@ html[data-density="compact"] #messages { gap: 10px; padding: 16px; }
 #suggest li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; border-radius: 2px; cursor: pointer; font-family: var(--mono); font-size: 12px; border: 1px solid transparent; }
 #suggest li:hover, #suggest li[aria-selected="true"] { border-color: var(--accent); }
 #suggest .desc { color: var(--text2); font-family: var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#models { width: min(720px, 94vw); height: min(620px, 90vh); padding: 0; }
+#models { width: min(720px, 94vw); max-width: 94vw; height: min(620px, 90vh); padding: 0; }
 #models[open] { display: flex; flex-direction: column; }
 .models-tools { padding: 10px 16px; display: grid; gap: 8px; border-bottom: 1px solid var(--line); }
 #models-types { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -123,3 +125,9 @@ html[data-density="compact"] #messages { gap: 10px; padding: 16px; }
 .badge { font-family: var(--mono); font-size: 10px; text-transform: uppercase; border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; color: var(--text2); }
 .badge.ok { color: var(--accent); border-color: var(--accent); }
 #models-confirm { padding: 12px 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+@media (max-width: 720px) {
+  #settings .set-body { flex-direction: column; }
+  #settings-tabs { width: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); }
+  .field { grid-template-columns: minmax(0, 1fr); }
+  .field .help { grid-column: 1; }
+}

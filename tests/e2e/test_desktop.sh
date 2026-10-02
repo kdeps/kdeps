@@ -90,6 +90,22 @@ else
     test_skipped "desktop - no native webview toolchain, skipping shell compile"
 fi
 
+# Dialogs must not be capped narrower than the settings width, or form rows overflow.
+if grep -Eq '^#settings \{[^}]*max-width: 94vw' "$DESKTOP_DIR/frontend/dist/style.css" \
+    && grep -Eq 'minmax\(0, 1fr\)' "$DESKTOP_DIR/frontend/dist/style.css"; then
+    test_passed "desktop - settings dialog width and field grid cannot overflow"
+else
+    test_failed "desktop - settings dialog or field grid can overflow"
+fi
+
+# Release builds cover Apple Silicon and Intel Macs.
+if grep -q 'goarch: amd64' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml" \
+    && grep -q 'goarch: arm64' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml"; then
+    test_passed "desktop - release workflow builds macOS arm64 and amd64"
+else
+    test_failed "desktop - release workflow is missing a macOS architecture"
+fi
+
 # Packaging files the Makefile and release workflow depend on.
 [ -x "$DESKTOP_DIR/packaging/macos/package.sh" ] && [ -f "$DESKTOP_DIR/packaging/macos/Info.plist.in" ] \
     && [ -f "$DESKTOP_DIR/packaging/icon.png" ] \

@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   desktop:
-    name: desktop (${{ matrix.os }})
+    name: desktop (${{ matrix.os }}-${{ matrix.goarch }})
     if: "!contains(github.event.release.tag_name || inputs.tag, '-nightly')"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -26,13 +26,22 @@ jobs:
       matrix:
         include:
           - os: macos-latest
+            goarch: arm64
+            tags: desktop,production
+            ldflags: -s -w
+            cgo_ldflags: -framework UniformTypeIdentifiers
+          # Intel Mac: cross-compiled on the arm64 runner (clang targets x86_64).
+          - os: macos-latest
+            goarch: amd64
             tags: desktop,production
             ldflags: -s -w
             cgo_ldflags: -framework UniformTypeIdentifiers
           - os: ubuntu-latest
+            goarch: amd64
             tags: desktop,production,webkit2_41
             ldflags: -s -w
           - os: windows-latest
+            goarch: amd64
             tags: desktop,production
             ldflags: -s -w -H windowsgui
     defaults:
@@ -55,6 +64,8 @@ jobs:
       - name: Build and package
         env:
           CGO_LDFLAGS: ${{ matrix.cgo_ldflags }}
+          CGO_ENABLED: ${{ runner.os == 'macOS' && '1' || '' }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
           v="${VERSION#v}"
@@ -64,7 +75,7 @@ jobs:
             -o "../dist/desktop/kdeps-desktop${ext}" .)
           case "$RUNNER_OS" in
             macOS)
-              desktop/packaging/macos/package.sh dist/desktop/kdeps-desktop "$v" dist/desktop ;;
+              desktop/packaging/macos/package.sh dist/desktop/kdeps-desktop "$v" dist/desktop "${{ matrix.goarch }}" ;;
             Linux)
               tar -C dist/desktop -czf "dist/desktop/kdeps-desktop_${v}_linux_amd64.tar.gz" kdeps-desktop ;;
             Windows)

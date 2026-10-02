@@ -38,7 +38,7 @@ desktop-build:
 desktop-package: desktop-build
 	@set -e; v="$(patsubst v%,%,$(VERSION))"; \
 	case "$(DESKTOP_OS)" in \
-	Darwin) desktop/packaging/macos/package.sh $(DESKTOP_OUT)/kdeps-desktop "$$v" $(DESKTOP_OUT) ;; \
+	Darwin) desktop/packaging/macos/package.sh $(DESKTOP_OUT)/kdeps-desktop "$$v" $(DESKTOP_OUT) $(GOARCH) ;; \
 	Linux) a=$$(uname -m); f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_linux_$$a.tar.gz; \
 	  tar -C $(DESKTOP_OUT) -czf $$f kdeps-desktop; echo $$f ;; \
 	*) f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_windows_amd64.zip; \

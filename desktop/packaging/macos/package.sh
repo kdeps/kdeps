@@ -8,6 +8,8 @@ set -euo pipefail
 BIN="$1"
 VERSION="${2#v}"
 OUT="$3"
+ARCH="${4:-$(uname -m)}"
+case "$ARCH" in x86_64) ARCH=amd64 ;; esac
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ICON="$HERE/../icon.png"
 
@@ -38,7 +40,7 @@ fi
 
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-DMG="$OUT/kdeps-desktop_${VERSION}_darwin_$(uname -m).dmg"
+DMG="$OUT/kdeps-desktop_${VERSION}_darwin_${ARCH}.dmg"
 rm -f "$DMG"
 # hdiutil create fails intermittently (resource busy / spurious ENOSPC) on busy hosts.
 for attempt in 1 2 3 4 5; do
