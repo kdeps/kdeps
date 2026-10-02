@@ -127,6 +127,20 @@ else
     test_failed "desktop - app icon missing on some platform"
 fi
 
+# Homebrew cask: generator emits a valid cask for both architectures, and the release workflow publishes it.
+CASK_OUT="$("$DESKTOP_DIR/packaging/macos/make-cask.sh" v1.2.3 aaa111 bbb222 2>/dev/null)"
+if echo "$CASK_OUT" | grep -q '^cask "kdeps-desktop" do' \
+    && echo "$CASK_OUT" | grep -q 'version "1.2.3"' \
+    && echo "$CASK_OUT" | grep -q 'sha256 "aaa111"' \
+    && echo "$CASK_OUT" | grep -q 'sha256 "bbb222"' \
+    && echo "$CASK_OUT" | grep -q 'darwin_arm64.dmg' && echo "$CASK_OUT" | grep -q 'darwin_amd64.dmg' \
+    && echo "$CASK_OUT" | grep -q 'app "kdeps.app"' \
+    && grep -q 'make-cask.sh' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml"; then
+    test_passed "desktop - homebrew cask generated and published by the release workflow"
+else
+    test_failed "desktop - homebrew cask generation or publishing missing"
+fi
+
 # Packaging files the Makefile and release workflow depend on.
 [ -x "$DESKTOP_DIR/packaging/macos/package.sh" ] && [ -f "$DESKTOP_DIR/packaging/macos/Info.plist.in" ] \
     && [ -f "$DESKTOP_DIR/packaging/icon.png" ] \

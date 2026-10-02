@@ -20,6 +20,16 @@ loop -> tools
 
 It is an agent-mode front end. Workflows, components and agencies still show up only as tools the model may call; the window never runs a workflow by itself.
 
+## Install
+
+The app is standalone: the `kdeps` CLI does not need to be installed. You only need a model (a cloud API key, or a local model it downloads on first use).
+
+```bash
+brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or Intel; clears the quarantine flag
+```
+
+After `brew tap kdeps/tap` the short form `brew install --cask kdeps-desktop` works too. Update with `brew upgrade --cask kdeps-desktop`. The cask is rewritten in `kdeps/homebrew-tap` by the `Release Desktop` workflow on every release.
+
 ## Download
 
 Every tagged release attaches the desktop app next to the CLI archives, built on native runners by the `Release Desktop` workflow (it runs when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches to an existing tag):

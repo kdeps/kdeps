@@ -3,6 +3,7 @@ name: Release Desktop
 # Builds the desktop app natively per OS and attaches it to a GitHub release.
 # Runs when goreleaser (release.yml) publishes a release, or by hand for an
 # existing tag: gh workflow run release-desktop.yml -f tag=v2.53.0
+# The cask job then refreshes Casks/kdeps-desktop.rb in kdeps/homebrew-tap.
 
 on:
   release:
@@ -95,3 +96,31 @@ jobs:
             assets+=("$f" "$f.sha256")
           done
           gh release upload "$VERSION" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+  cask:
+    name: update homebrew cask
+    needs: desktop
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      VERSION: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Write the cask and push it to the tap
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          sha() { gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern "kdeps-desktop_${v}_darwin_$1.dmg.sha256" -O - | cut -d' ' -f1; }
+          arm="$(sha arm64)"; intel="$(sha amd64)"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/kdeps/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          desktop/packaging/macos/make-cask.sh "$v" "$arm" "$intel" > tap/Casks/kdeps-desktop.rb
+          cd tap
+          git config user.name "kdeps-release"
+          git config user.email "noreply@kdeps.com"
+          git add Casks/kdeps-desktop.rb
+          git diff --cached --quiet && exit 0
+          git commit -m "kdeps-desktop ${v}"
+          git push origin HEAD:main
