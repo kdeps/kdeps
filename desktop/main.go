@@ -27,6 +27,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 )
 
 const (
@@ -36,6 +37,12 @@ const (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// icon is the window icon on Linux; macOS and Windows take theirs from the
+// app bundle and the exe resource (rsrc_windows_amd64.syso).
+//
+//go:embed packaging/icon.png
+var icon []byte
 
 func main() {
 	path, err := statePath()
@@ -55,6 +62,7 @@ func main() {
 		DragAndDrop: &options.DragAndDrop{EnableFileDrop: true},
 		OnStartup:   app.startup,
 		Bind:        []any{app},
+		Linux:       &linux.Options{Icon: icon, ProgramName: "kdeps"},
 	})
 	if err != nil {
 		log.Fatal(err)

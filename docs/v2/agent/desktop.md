@@ -28,7 +28,7 @@ Every tagged release attaches the desktop app next to the CLI archives, built on
 |----|------|-------|
 | macOS (Apple Silicon) | `kdeps-desktop_<version>_darwin_arm64.dmg` | Drag `kdeps.app` to Applications. Ad-hoc signed, so the first launch needs right-click, Open. |
 | macOS (Intel, x86_64) | `kdeps-desktop_<version>_darwin_amd64.dmg` | Same as above, for Intel Macs. |
-| Linux | `kdeps-desktop_<version>_linux_amd64.tar.gz` | Needs `libgtk-3` and `libwebkit2gtk-4.1` installed. |
+| Linux | `kdeps-desktop_<version>_linux_amd64.tar.gz` | Needs `libgtk-3` and `libwebkit2gtk-4.1` installed. Includes `kdeps-desktop.desktop` and `kdeps.png`: copy them to `~/.local/share/applications/` and `~/.local/share/icons/` for a launcher icon. |
 | Windows | `kdeps-desktop_<version>_windows_amd64.zip` | Needs the WebView2 runtime (ships with Windows 11). |
 
 Each file has a `.sha256` beside it.

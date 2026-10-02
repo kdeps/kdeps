@@ -106,6 +106,18 @@ else
     test_failed "desktop - release workflow is missing a macOS architecture"
 fi
 
+# App icon on every platform: Windows exe resource, Linux window icon + launcher, in-app logo.
+if [ -s "$DESKTOP_DIR/rsrc_windows_amd64.syso" ] \
+    && grep -q 'go:embed packaging/icon.png' "$DESKTOP_DIR/main.go" \
+    && [ -s "$DESKTOP_DIR/packaging/linux/kdeps.png" ] \
+    && grep -q '^Icon=kdeps' "$DESKTOP_DIR/packaging/linux/kdeps-desktop.desktop" \
+    && [ -s "$DESKTOP_DIR/frontend/dist/icon.png" ] \
+    && grep -q 'rel="icon"' "$DESKTOP_DIR/frontend/dist/index.html"; then
+    test_passed "desktop - app icon wired for macOS, Windows, Linux and the window"
+else
+    test_failed "desktop - app icon missing on some platform"
+fi
+
 # Packaging files the Makefile and release workflow depend on.
 [ -x "$DESKTOP_DIR/packaging/macos/package.sh" ] && [ -f "$DESKTOP_DIR/packaging/macos/Info.plist.in" ] \
     && [ -f "$DESKTOP_DIR/packaging/icon.png" ] \

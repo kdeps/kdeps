@@ -40,7 +40,8 @@ desktop-package: desktop-build
 	case "$(DESKTOP_OS)" in \
 	Darwin) desktop/packaging/macos/package.sh $(DESKTOP_OUT)/kdeps-desktop "$$v" $(DESKTOP_OUT) $(GOARCH) ;; \
 	Linux) a=$$(uname -m); f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_linux_$$a.tar.gz; \
-	  tar -C $(DESKTOP_OUT) -czf $$f kdeps-desktop; echo $$f ;; \
+	  cp desktop/packaging/linux/kdeps-desktop.desktop desktop/packaging/linux/kdeps.png $(DESKTOP_OUT)/; \
+	  tar -C $(DESKTOP_OUT) -czf $$f kdeps-desktop kdeps-desktop.desktop kdeps.png; echo $$f ;; \
 	*) f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_windows_amd64.zip; \
 	  (cd $(DESKTOP_OUT) && powershell -NoProfile -Command "Compress-Archive -Force -Path kdeps-desktop.exe -DestinationPath $$(basename $$f)" 2>/dev/null || zip -j $$(basename $$f) kdeps-desktop.exe); echo $$f ;; \
 	esac

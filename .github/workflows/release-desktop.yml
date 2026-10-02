@@ -77,7 +77,8 @@ jobs:
             macOS)
               desktop/packaging/macos/package.sh dist/desktop/kdeps-desktop "$v" dist/desktop "${{ matrix.goarch }}" ;;
             Linux)
-              tar -C dist/desktop -czf "dist/desktop/kdeps-desktop_${v}_linux_amd64.tar.gz" kdeps-desktop ;;
+              cp desktop/packaging/linux/kdeps-desktop.desktop desktop/packaging/linux/kdeps.png dist/desktop/
+              tar -C dist/desktop -czf "dist/desktop/kdeps-desktop_${v}_linux_amd64.tar.gz" kdeps-desktop kdeps-desktop.desktop kdeps.png ;;
             Windows)
               (cd dist/desktop && 7z a -tzip "kdeps-desktop_${v}_windows_amd64.zip" kdeps-desktop.exe) ;;
           esac
