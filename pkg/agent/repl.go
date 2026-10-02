@@ -112,7 +112,7 @@ var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
-	"/login", "/theme", "/refine", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
+	"/login", "/theme", "/refine", "/efficiency", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
 // REPL output styles. Package vars, not constants, so the active theme
@@ -2556,6 +2556,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 	case "/refine":
 		r.cmdRefine(args)
 		return true, nil
+	case "/efficiency":
+		r.cmdEfficiency(args)
+		return true, nil
 	case "/handshake":
 		r.cmdHandshake(args)
 		return true, nil
@@ -2651,6 +2654,7 @@ func (r *REPL) cmdHelp() error {
 		"  /upgrade                           Check for and install the latest stable kdeps release",
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
 		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
+		"  /efficiency [on|off|verbose|<setting> <n>|preset <name>|reset]  Show or tune efficiency enforcement (soft stops on read-only loops; persists)",
 		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
 		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",

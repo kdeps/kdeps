@@ -1,0 +1,18 @@
+name: efficiency-verbose
+disabled: true
+on:
+  # --- All possible trigger fields (an event sets only the ones it uses) ---
+  # tokens: <int>                 flat token-count threshold (session-wide measurement)
+  # ctxWindowFraction: <float>    fraction of the model's context window, e.g. 0.75 = 75% full
+  # tokensSinceCheckpoint: <int>  tokens accumulated since the last fold checkpoint
+  # minTurns: <int>               gate: never fire before this many turns exist (token events only)
+  # rounds: <int>                 round/repeat-count threshold (stuck-loop/task/judge/handshake/efficiency events)
+  # bytes: <int>                  byte-length threshold (truncation-cluster events)
+  # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code/efficiency call-budget events)
+
+  # Disabled (default): the model-facing stop notes stay hidden from the human.
+  # Enabled: stop and resume notes are mirrored to the terminal for debugging.
+# run: selects the action fired once the trigger above is met. Efficiency events
+# are read by the efficiency governor (pkg/agent/efficiency.go), not fired as an
+# action, so "block" here is a placeholder that satisfies action validation.
+run: block

@@ -204,7 +204,7 @@ The count itself is tracked wherever it already lived before this existed -- a t
 
 ## Presets
 
-Hand-tuning fifteen different events one at a time to make a session cheaper (or more thorough) is tedious. A **preset** is a named, coherent bundle of event overrides -- applying one is like `/fold preset` but for the whole token-economy cluster at once, not just fold:
+Hand-tuning dozens of events one at a time to make a session cheaper (or more thorough) is tedious. A **preset** is a named, coherent bundle of event overrides -- applying one is like `/fold preset` but for the whole token-economy cluster at once, not just fold:
 
 ```
 /harness preset                 # list built-in + user presets, with descriptions
@@ -213,7 +213,7 @@ Hand-tuning fifteen different events one at a time to make a session cheaper (or
 /harness preset balanced        # apply: reset every tuned event back to its shipped default
 ```
 
-Three presets ship today, all tuning the same fifteen events (`auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`) at three intensities:
+Three presets ship today, all tuning the same events (`auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, plus the ten [efficiency](./efficiency.md) events) at three intensities:
 
 | Preset | Use it for |
 |---|---|
@@ -227,6 +227,6 @@ Like harness sections and events, a preset is built-in-embed plus `~/.kdeps` use
 
 ## Status
 
-Twenty-three events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. Every one can be listed and toggled via `/harness events` (see "Enabling and disabling" above); there is no `/event set <field> <value>` command yet for changing a trigger's numeric threshold from the REPL -- edit the YAML file directly for that, the same way a custom `/theme` or harness section is authored.
+Ten more events (`efficiency`, `efficiency-verbose`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`) drive [efficiency enforcement](./efficiency.md). Twenty-three other events and ten actions ship today. Events: `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `task-round-budget`, `unproductive-rounds`, `handshake-timeout`, `judge-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, and `rel-memory-limit`. Every one can be listed and toggled via `/harness events` (see "Enabling and disabling" above); there is no `/event set <field> <value>` command yet for changing a trigger's numeric threshold from the REPL -- edit the YAML file directly for that, the same way a custom `/theme` or harness section is authored.
 
 Not every hardcoded limit became an event: pure caps with no "measure, then fire one action" shape and no reasonable way to express as a bare `items:` count either -- the auto-generated judge panel's max size, per-turn nudge counts, log-line caps, a goroutine semaphore's buffer size -- stay plain Go constants. Turning every number in the codebase into an event would just move the same duplication into YAML instead of removing it.

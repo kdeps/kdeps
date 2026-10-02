@@ -47,6 +47,12 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/goal clear` | Drop the active goal (the next prompt starts a new one) |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
+| `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
+| `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |
+| `/efficiency verbose on\|off` | Reveal the hidden model-facing channel for debugging; off by default, persists |
+| `/efficiency <setting> <n\|off>` | Set one limit: `reads`, `actions`, `stops`, `tighten`, `web`, `bash`, `file`, `code`; persists |
+| `/efficiency preset <name>` | Overwrite every efficiency value from `frugal`, `balanced` or `thorough` |
+| `/efficiency reset` | Restore the shipped defaults |
 | `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
 | `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files` |

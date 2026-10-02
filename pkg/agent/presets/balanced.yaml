@@ -64,3 +64,39 @@ events:
     on:
       distinctCalls: 30
     run: block
+  - name: efficiency
+    run: block
+  - name: efficiency-verbose
+    disabled: true
+    run: block
+  - name: efficiency-reads
+    on:
+      rounds: 6
+    run: block
+  - name: efficiency-actions
+    on:
+      rounds: 30
+    run: block
+  - name: efficiency-stops
+    on:
+      rounds: 3
+    run: block
+  - name: efficiency-tighten
+    items: 1
+    run: block
+  - name: efficiency-web
+    on:
+      distinctCalls: 5
+    run: block
+  - name: efficiency-bash
+    on:
+      distinctCalls: 8
+    run: block
+  - name: efficiency-file
+    on:
+      distinctCalls: 10
+    run: block
+  - name: efficiency-code
+    on:
+      distinctCalls: 6
+    run: block

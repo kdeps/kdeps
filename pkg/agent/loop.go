@@ -381,6 +381,8 @@ type Loop struct {
 	// (e.g. folding system-role messages for chat templates that reject
 	// them). Read by the REPL's /prompt command; overwritten on every call.
 	lastSentMessages []map[string]interface{}
+	// eff is the efficiency-enforcement ledger (efficiency.go).
+	eff effLedger
 	// lastSentTools holds the exact tool definitions included in the most
 	// recent outgoing LLM request. Tools are a separate top-level request
 	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
@@ -1286,7 +1288,7 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 
 // runToolRounds drives the tool-call loop, returning the final content string.
 //
-//nolint:gocognit
+//nolint:gocognit,funlen // efficiency gate adds statements to an already-orchestrating loop
 func (l *Loop) runToolRounds(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -1300,6 +1302,7 @@ func (l *Loop) runToolRounds(
 	l.lastWorkFailure = nil
 	l.pendingEdit = nil
 	l.turnStartWorkToolCalls = l.successfulWorkToolCalls
+	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1324,7 +1327,7 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
@@ -1350,12 +1353,27 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
+		// Efficiency governor: a refused call is discarded before it runs, so it
+		// leaves nothing in history, events or the terminal.
+		switch l.efficiencyAdmit(toolCalls[0]) {
+		case effDrop:
+			continue
+		case effEnd:
+			chatCfg = forceAnswerConfig(chatCfg)
+			continue
+		case effAbort:
+			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
+		case effAdmit:
+		}
+
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
 
 		var outcome roundOutcome
+		workBefore := l.successfulWorkToolCalls
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
@@ -1994,7 +2012,10 @@ func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
 // most recent call, or nil if no call has completed yet. Used by the REPL's
 // /prompt command.
 func (l *Loop) LastSentMessages() []map[string]interface{} {
-	return l.lastSentMessages
+	if EfficiencyVerbose() {
+		return l.lastSentMessages
+	}
+	return scrubEfficiency(l.lastSentMessages)
 }
 
 // LastSentTools returns the exact tool definitions sent to the LLM on the
