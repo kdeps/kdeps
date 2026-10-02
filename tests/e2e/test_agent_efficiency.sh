@@ -45,27 +45,36 @@ else
     test_failed "efficiency - bad arguments did not show usage" "Output: $OUTPUT"
 fi
 
-# A fresh launch with the same HOME must show every earlier change persisted.
-OUTPUT=$(run_eff '/efficiency')
-if output_grep_i "state *off" "$OUTPUT" && output_grep_i "verbose *on" "$OUTPUT" \
-    && output_grep_i "reads *3" "$OUTPUT"; then
+# One fresh launch (same HOME) covers persistence, preset and reset; each REPL
+# launch is slow on Windows runners, so keep the launch count low. The Nth
+# "Efficiency enforcement" status block is the state after the Nth /efficiency.
+OUTPUT=$(run_eff "$(printf '/efficiency\n/efficiency preset frugal\n/efficiency\n/efficiency reads 9\n/efficiency reset\n/efficiency')")
+
+status_block() {
+    awk -v n="$1" '/Efficiency enforcement/ {c++} c == n' <<< "$OUTPUT"
+}
+
+# Persisted from the first launch: off, verbose on, reads 3.
+B1=$(status_block 1)
+if output_grep_i "state *off" "$B1" && output_grep_i "verbose *on" "$B1" \
+    && output_grep_i "reads *3" "$B1"; then
     test_passed "efficiency - changes persist across launches"
 else
-    test_failed "efficiency - changes did not persist" "Output: $OUTPUT"
+    test_failed "efficiency - changes did not persist" "Output: $B1"
 fi
 
 # A harness preset overwrites everything: on, verbose off, reads = frugal value.
-OUTPUT=$(run_eff "$(printf '/efficiency preset frugal\n/efficiency')")
-if output_grep_i "state *on" "$OUTPUT" && output_grep_i "verbose *off" "$OUTPUT" \
-    && output_grep_i "reads *4" "$OUTPUT"; then
+B2=$(status_block 2)
+if output_grep_i "state *on" "$B2" && output_grep_i "verbose *off" "$B2" \
+    && output_grep_i "reads *4" "$B2"; then
     test_passed "efficiency - preset overwrites all values"
 else
-    test_failed "efficiency - preset did not overwrite all values" "Output: $OUTPUT"
+    test_failed "efficiency - preset did not overwrite all values" "Output: $B2"
 fi
 
-OUTPUT=$(run_eff "$(printf '/efficiency reads 9\n/efficiency reset\n/efficiency')")
-if output_grep_i "reset to defaults" "$OUTPUT" && output_grep_i "reads *6" "$OUTPUT"; then
+B3=$(status_block 3)
+if output_grep_i "reset to defaults" "$OUTPUT" && output_grep_i "reads *6" "$B3"; then
     test_passed "efficiency - reset restores defaults"
 else
-    test_failed "efficiency - reset did not restore defaults" "Output: $OUTPUT"
+    test_failed "efficiency - reset did not restore defaults" "Output: $B3"
 fi
