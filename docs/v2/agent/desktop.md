@@ -28,9 +28,19 @@ The app is standalone: the `kdeps` CLI does not need to be installed. You only n
 brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or Intel; clears the quarantine flag
 ```
 
-After `brew tap kdeps/tap` the short form `brew install --cask kdeps-desktop` works too. Update with `brew upgrade --cask kdeps-desktop`. The cask is rewritten in `kdeps/homebrew-tap` by the `Release Desktop` workflow on every release.
+After `brew tap kdeps/tap` the short form `brew install --cask kdeps-desktop` works too. Update with `brew upgrade --cask kdeps-desktop`. The cask and the Scoop manifest are rewritten by the `Release Desktop` workflow on every release.
 
-### Linux
+### Linux (packages)
+
+Releases after v2.53.2 attach a `.deb`, `.rpm` and Arch package. They install the app, launcher entry and icon, and pull in the GTK and WebKit libraries as dependencies:
+
+```bash
+sudo apt install ./kdeps-desktop_<version>_linux_amd64.deb        # Debian, Ubuntu
+sudo dnf install ./kdeps-desktop_<version>_linux_amd64.rpm        # Fedora, RHEL
+sudo pacman -U kdeps-desktop_<version>_linux_amd64.pkg.tar.zst    # Arch
+```
+
+### Linux (tarball)
 
 ```bash
 # Debian/Ubuntu runtime libraries (Fedora: sudo dnf install gtk3 webkit2gtk4.1)
@@ -46,6 +56,13 @@ cp "$tmp/kdeps-desktop.desktop" ~/.local/share/applications/      # launcher ent
 cp "$tmp/kdeps.png" ~/.local/share/icons/                         # launcher icon
 
 kdeps-desktop   # or find "kdeps" in your app launcher
+```
+
+### Windows (Scoop)
+
+```powershell
+scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
+scoop install kdeps-desktop   # adds a Start menu shortcut; scoop update kdeps-desktop upgrades it
 ```
 
 ### Windows (PowerShell)

@@ -14,7 +14,28 @@ Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/qu
 brew install kdeps/tap/kdeps
 ```
 
-Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows install steps (download, extract, launcher or Start menu entry) are in [Desktop app](../agent/desktop#install).
+Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows (Scoop, packages, or manual) install steps are in [Desktop app](../agent/desktop#install).
+
+### Windows (Scoop)
+
+```powershell
+scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
+scoop install kdeps           # CLI
+scoop install kdeps-desktop   # desktop app, standalone
+```
+
+### Linux packages (deb, rpm, apk, Arch)
+
+Each release attaches native CLI packages, so the package manager tracks the install. Pick the file for your distro from the [releases page](https://github.com/kdeps/kdeps/releases/latest):
+
+```bash
+sudo apt install ./kdeps_<version>_linux_amd64.deb            # Debian, Ubuntu
+sudo dnf install ./kdeps_<version>_linux_amd64.rpm            # Fedora, RHEL
+sudo pacman -U kdeps_<version>_linux_amd64.pkg.tar.zst        # Arch
+sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
+```
+
+Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you; see [Desktop app](../agent/desktop#install).
 
 ### Linux, macOS, and Windows (curl)
 

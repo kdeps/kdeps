@@ -123,7 +123,7 @@ A chat window for the agent loop - the same slash commands, autocomplete and mod
 brew install --cask kdeps/tap/kdeps-desktop   # macOS (Apple Silicon and Intel)
 ```
 
-Linux (`.tar.gz`) and Windows (`.zip`) copy-paste install steps: [Desktop app docs](https://kdeps.com/agent/desktop#install).
+Windows: `scoop bucket add kdeps https://github.com/kdeps/scoop-bucket && scoop install kdeps-desktop`. Linux: `.deb`, `.rpm`, Arch package or `.tar.gz`. Full steps: [Desktop app docs](https://kdeps.com/agent/desktop#install).
 
 ```bash
 make desktop-package   # macOS: dist/desktop/*.dmg | Linux: .tar.gz | Windows: .zip

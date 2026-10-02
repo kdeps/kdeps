@@ -141,6 +141,25 @@ else
     test_failed "desktop - homebrew cask generation or publishing missing"
 fi
 
+# Wide distribution: Scoop manifest, AUR package files, native Linux packages, goreleaser publishers.
+PKG="$DESKTOP_DIR/packaging"
+SCOOP_OUT="$("$PKG/windows/make-scoop.sh" v1.2.3 abc 2>/dev/null)"
+AUR_DIR="$(mktemp -d)"
+"$PKG/linux/make-aur.sh" v1.2.3 abc "$AUR_DIR" >/dev/null 2>&1
+if echo "$SCOOP_OUT" | grep -q 'windows_amd64.zip' && echo "$SCOOP_OUT" | grep -q '"hash": "abc"' \
+    && grep -q '^pkgname=kdeps-desktop-bin' "$AUR_DIR/PKGBUILD" && grep -q 'pkgver = 1.2.3' "$AUR_DIR/.SRCINFO" \
+    && grep -q 'libwebkit2gtk-4.1-0' "$PKG/linux/nfpm.yaml" \
+    && grep -q 'nfpm package' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml" \
+    && grep -q 'make-scoop.sh' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml" \
+    && grep -q 'make-aur.sh' "$DESKTOP_DIR/../.github/workflows/release-desktop.yml" \
+    && grep -q '^scoops:' "$DESKTOP_DIR/../.goreleaser.yaml" && grep -q '^aurs:' "$DESKTOP_DIR/../.goreleaser.yaml" \
+    && grep -q '^winget:' "$DESKTOP_DIR/../.goreleaser.yaml"; then
+    test_passed "desktop - scoop, AUR, deb/rpm/arch and winget publishing wired"
+else
+    test_failed "desktop - package manager publishing is incomplete"
+fi
+rm -rf "$AUR_DIR"
+
 # Packaging files the Makefile and release workflow depend on.
 [ -x "$DESKTOP_DIR/packaging/macos/package.sh" ] && [ -f "$DESKTOP_DIR/packaging/macos/Info.plist.in" ] \
     && [ -f "$DESKTOP_DIR/packaging/icon.png" ] \

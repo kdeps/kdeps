@@ -46,6 +46,8 @@ jobs:
         env:
           SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
       - name: Trigger build-server redeploy
         uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
