@@ -226,12 +226,16 @@ export -f llm_server_crashed skip_or_fail_llm
 # when GNU timeout is missing.
 _kdeps_timeout_shim() {
     local secs="$1"; shift
-    "$@" &
+    # An async job gets /dev/null as stdin when job control is off; keep the pipe.
+    "$@" <&0 &
     local pid=$!
+    # The watchdog must not inherit stdout/stderr: inside $(...) or a pipeline the
+    # capture stays open until `sleep $secs` exits, so every call took the full
+    # timeout on Windows (killing the subshell does not kill its sleep).
     (
         sleep "$secs"
         kill "$pid" 2>/dev/null || true
-    ) &
+    ) >/dev/null 2>&1 </dev/null &
     local wdog=$!
     trap 'kill "$pid" "$wdog" 2>/dev/null || true' EXIT TERM INT
     wait "$pid"
