@@ -43,6 +43,7 @@ func effIntegrationLoop(t *testing.T, s agent.Streamer) (*agent.Loop, string) {
 	t.Setenv("USERPROFILE", home)
 	dir := t.TempDir()
 	t.Chdir(dir)
+	t.Cleanup(agent.WaitForBackgroundIndexing) // lazy indexer writes .kdeps/ into dir
 	path := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
 	reg := tools.NewRegistry()

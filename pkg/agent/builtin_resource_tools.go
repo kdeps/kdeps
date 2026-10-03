@@ -368,7 +368,7 @@ func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string,
 		if resultsOK {
 			paths := extractResultPaths(results)
 			if len(paths) > 0 {
-				go exec.IndexFiles(paths)
+				indexInBackground(func() { exec.IndexFiles(paths) })
 			}
 			annotateSearchMatches(results, config.Query)
 		}

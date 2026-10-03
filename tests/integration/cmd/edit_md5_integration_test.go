@@ -71,6 +71,7 @@ func editToolCall(t *testing.T, id string, args map[string]any) domain.StreamedT
 func TestEditMD5_NoOpEditIsRetriedUntilFileChanges(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
+	t.Cleanup(agent.WaitForBackgroundIndexing) // lazy indexer writes .kdeps/ into dir
 	path := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
 
@@ -114,6 +115,7 @@ func TestEditMD5_NoOpEditIsRetriedUntilFileChanges(t *testing.T) {
 func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
+	t.Cleanup(agent.WaitForBackgroundIndexing) // lazy indexer writes .kdeps/ into dir
 	path := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
 
@@ -165,6 +167,7 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 func TestEditFile_BareHexRevisionIsAccepted(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
+	t.Cleanup(agent.WaitForBackgroundIndexing) // lazy indexer writes .kdeps/ into dir
 	path := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
 

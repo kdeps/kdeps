@@ -34,6 +34,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/afero"
@@ -324,7 +325,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		if docErr != nil {
 			return "", fmt.Errorf("read_file: %w", docErr)
 		}
-		go execSearch.NewExecutor().IndexFile(filePath)
+		indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
 		return formatFileLines(content, args), nil
 	}
 
@@ -337,7 +338,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	}
 
 	// Lazily index every file that's read into the search index.
-	go execSearch.NewExecutor().IndexFile(filePath)
+	indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
 
 	return formatFileLines(string(data), args), nil
 }
@@ -2810,3 +2811,14 @@ func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 		},
 	})
 }
+
+var backgroundIndexing sync.WaitGroup //nolint:gochecknoglobals // tracks fire-and-forget index writes
+
+// indexInBackground runs a lazy index write without blocking the tool call.
+func indexInBackground(fn func()) {
+	backgroundIndexing.Go(fn)
+}
+
+// WaitForBackgroundIndexing blocks until pending lazy index writes finish, so
+// callers (tests) can remove the working directory the indexer writes into.
+func WaitForBackgroundIndexing() { backgroundIndexing.Wait() }
