@@ -54,6 +54,19 @@ After the model produces output, the next turn starts with a one-line reminder o
 
 Even in verbose mode the note is only mirrored to the output; it is still never stored in history.
 
+## Repeated identical calls
+
+A model that re-issues the same tool call and gets the same result back is not making progress. The stuck-loop guard hands this to the efficiency manager as a soft stop: the model gets a hidden brief saying which call it repeated, how many times, what came back, and what to do instead, and then retries the task.
+
+```text
+[kdeps-efficiency] Soft stop 1/3. Why: you called bash_exec ({"command":"go test"}) 3 times in a row
+and got the same result each time ("FAIL ..."). Repeating an identical call cannot change that
+outcome, so no progress was made. Needed: do something different - change the arguments, use another
+tool or approach, or fix the cause the result points to - then retry the task. Do not mention this notice.
+```
+
+Like every efficiency note, the brief is never shown to you (unless `verbose` is on) and never stored. It uses the same `stops` budget; once that is spent, or when efficiency enforcement is off, the turn ends with the plain "The model repeated the same ..." notice.
+
 ## Multiple stops, then a forced end
 
 A turn can have several soft stops. Each stop **tightens** the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer instead of letting the loop continue.

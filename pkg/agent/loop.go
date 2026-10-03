@@ -1386,8 +1386,13 @@ func (l *Loop) runToolRounds(
 		identicalRepeats, lastToolSig = trackRepeat(
 			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
 		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
+			// The efficiency manager briefs the model (hidden channel) and lets it
+			// retry while it has soft stops left; only then does the turn end.
+			if !l.efficiencyRepeatStop(toolCalls[0], outcome.result, identicalRepeats) {
+				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+				break
+			}
+			identicalRepeats, lastToolSig = 0, ""
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
@@ -2280,6 +2285,9 @@ type roundOutcome struct {
 	// stuck-loop guard can tell a repeated call that keeps returning the same
 	// thing from one whose output is changing.
 	resultSig string
+	// result is the last executed call's raw result, kept so the efficiency
+	// manager can quote it back to a model that is stuck repeating the call.
+	result string
 }
 
 func (l *Loop) appendToolRoundTrip(
@@ -2401,6 +2409,7 @@ func (l *Loop) executeToolCalls(
 		}
 		sum := sha256.Sum256([]byte(result))
 		outcome.resultSig = hex.EncodeToString(sum[:8])
+		outcome.result = result
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
 		}

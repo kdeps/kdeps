@@ -20,6 +20,8 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +36,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-func effIntegrationLoop(t *testing.T, s *scriptedStreamer) (*agent.Loop, string) {
+func effIntegrationLoop(t *testing.T, s agent.Streamer) (*agent.Loop, string) {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -123,4 +125,48 @@ func TestEfficiency_PresetsOverwriteAndValuesPersist(t *testing.T) {
 	e, ok := agent.EventByName("efficiency-reads")
 	require.True(t, ok)
 	assert.Equal(t, 6, e.On.Rounds)
+}
+
+// reactiveStreamer repeats one tool call until its prompt carries the
+// efficiency brief, then answers.
+type reactiveStreamer struct {
+	call    domain.StreamedToolCall
+	prompts []string
+	msgs    []string
+}
+
+func (r *reactiveStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	r.prompts = append(r.prompts, cfg.Prompt)
+	r.msgs = append(r.msgs, cfg.Messages)
+	if strings.Contains(cfg.Prompt, "[kdeps-efficiency]") {
+		return "Switched approach: the file already says hello world.", nil, nil
+	}
+	return "", []domain.StreamedToolCall{r.call}, nil
+}
+
+// A model that keeps re-issuing the same call and getting the same result is
+// briefed on the hidden efficiency channel (what it did wrong and what to do)
+// and retries, instead of the turn ending with a human-visible stuck notice.
+func TestEfficiency_RepeatedCallBriefsModelInvisiblyAndRetries(t *testing.T) {
+	r := &reactiveStreamer{}
+	loop, path := effIntegrationLoop(t, r)
+	r.call = editToolCall(t, "v", map[string]any{"command": "view", "file_path": path})
+	require.NoError(t, agent.SetEfficiencyValue("reads", 1000))
+	require.NoError(t, agent.SetEfficiencyValue("actions", 1000))
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(t.Context(), "what does a.txt say?", &buf)
+	require.NoError(t, err)
+
+	assert.Contains(t, result, "Switched approach")
+	assert.NotContains(t, result, "repeated the same")
+	brief := r.prompts[len(r.prompts)-1]
+	assert.Contains(t, brief, "[kdeps-efficiency] Soft stop 1/")
+	assert.Contains(t, brief, "times in a row")
+	assert.Contains(t, brief, "retry the task")
+	assert.NotContains(t, buf.String(), "kdeps-efficiency")
+	assert.NotContains(t, buf.String(), "repeated the same")
+	assert.NotContains(t, strings.Join(r.msgs, "\n"), "kdeps-efficiency", "never stored in history")
 }

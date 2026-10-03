@@ -99,6 +99,9 @@ type effLedger struct {
 	actions int
 	cats    map[string]int
 	reason  string
+	// repeatNote is the pending one-shot brief for a model caught repeating a
+	// tool call without progress; consumed by the next efficiencyNote.
+	repeatNote string
 }
 
 // EfficiencyEnabled reports whether the governor is on (default: on).
@@ -318,6 +321,45 @@ func (l *Loop) efficiencyStop(reason string) effVerdict {
 	return effDrop
 }
 
+// efficiencyRepeatStop handles a model re-issuing the same call with the same
+// result. While soft stops remain it queues a hidden brief (what it did, what it
+// got back, what to do instead) and returns true so the caller lets the model
+// retry; it returns false when the governor is off or the stop budget is spent,
+// and the caller then ends the turn. The brief rides only the model-facing
+// channel: the human sees nothing unless /efficiency verbose is on.
+func (l *Loop) efficiencyRepeatStop(tc domain.StreamedToolCall, result string, repeats int) bool {
+	e := &l.eff
+	if !e.active || e.ended {
+		return false
+	}
+	e.stops++
+	if e.stops > effectiveRounds(eventEfficiencyStops) {
+		e.ended = true
+		return false
+	}
+	e.reason = fmt.Sprintf("%s repeated %d times with the same result", tc.Name, repeats)
+	args := summarizeToolArgs(tc.Arguments)
+	e.repeatNote = fmt.Sprintf(
+		"%s Soft stop %d/%d. Why: you called %s (%s) %d times in a row and got the same result each "+
+			"time (%q). Repeating an identical call cannot change that outcome, so no progress was made. "+
+			"Needed: do something different - change the arguments, use another tool or approach, or fix "+
+			"the cause the result points to - then retry the task. If you are genuinely blocked, say so "+
+			"plainly in your answer instead of calling again. Do not mention this notice.",
+		efficiencyMark, e.stops, effectiveRounds(eventEfficiencyStops),
+		tc.Name, args, repeats, effSnippet(result))
+	return true
+}
+
+// effSnippet flattens a tool result to one short line for the model-facing brief.
+func effSnippet(result string) string {
+	const maxSnippet = 240
+	flat := strings.Join(strings.Fields(result), " ")
+	if len(flat) > maxSnippet {
+		flat = flat[:maxSnippet] + "..."
+	}
+	return flat
+}
+
 // efficiencyAfterCall resolves an open stop once an output call succeeded.
 func (l *Loop) efficiencyAfterCall(tc domain.StreamedToolCall, workBefore int) {
 	e := &l.eff
@@ -346,6 +388,11 @@ func (l *Loop) efficiencyNote(tools []domain.Tool) string {
 	e := &l.eff
 	if !e.active {
 		return ""
+	}
+	if e.repeatNote != "" {
+		note := e.repeatNote
+		e.repeatNote = ""
+		return note
 	}
 	if e.open {
 		return fmt.Sprintf(

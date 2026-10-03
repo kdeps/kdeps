@@ -382,6 +382,8 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	}
 	ms := &mockStreamer{responses: responses}
 	loop := newStreamingLoop(ms, 0) // unlimited rounds — only the guard can stop it
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(false)) // legacy path: no brief, turn ends
 	resetConvergenceLimitsAfter(t)
 	SetConvergenceLimits(0, 5, 0, 0) // the bash tool limit is the repeat cap
 
@@ -399,6 +401,40 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	if !strings.Contains(result, "repeated the same") {
 		t.Fatalf("expected stuck-loop notice, got %q", result)
 	}
+}
+
+func TestRunStreaming_RepeatBriefsModelThenRetries(t *testing.T) {
+	// With efficiency on, a repeat stuck-loop is not a turn-ending human-visible
+	// notice: the model gets a hidden brief on its next call and may retry.
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(true))
+
+	toolCall := domain.StreamedToolCall{
+		ID: "1", Name: "noop", Arguments: "{}",
+	}
+	n := identicalRepeatLimit("noop")
+	responses := make([]mockStreamResponse, 0, n+1)
+	for range n {
+		responses = append(responses, mockStreamResponse{toolCalls: []domain.StreamedToolCall{toolCall}})
+	}
+	responses = append(responses, mockStreamResponse{content: "switched approach, done"})
+	rec := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := newStreamingLoop(rec, 0)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.Contains(t, result, "switched approach")
+	assert.NotContains(t, result, "repeated the same")
+	assert.NotContains(t, buf.String(), efficiencyMark, "humans must not see the brief")
+	assert.NotContains(t, buf.String(), "repeated the same")
+
+	require.Len(t, rec.cfgs, n+1)
+	last := rec.cfgs[n]
+	assert.Contains(t, last.Prompt, efficiencyMark)
+	assert.Contains(t, last.Prompt, "noop")
+	assert.Contains(t, last.Prompt, "same result")
+	assert.NotContains(t, rec.cfgs[0].Prompt, efficiencyMark)
 }
 
 // cfgRecordingStreamer wraps mockStreamer and snapshots the ChatConfig of

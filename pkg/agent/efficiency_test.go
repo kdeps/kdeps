@@ -443,3 +443,56 @@ func TestRunStreaming_EfficiencyForcedEnd(t *testing.T) {
 	assert.Less(t, len(ms.cfgs), 12, "governor must bound the loop")
 	assert.NotContains(t, result, efficiencyMark)
 }
+
+func TestEfficiencyRepeatStop_BriefsModelWithContext(t *testing.T) {
+	l := effLoop(t)
+	tc := effCall(toolNameEditFile, `{"path":"a.go"}`)
+
+	require.True(t, l.efficiencyRepeatStop(tc, `{"error":"old_string not found"}`, 3))
+	note := l.efficiencyNote(effCfg().Tools)
+
+	assert.Contains(t, note, efficiencyMark)
+	assert.Contains(t, note, "Soft stop 1/")
+	assert.Contains(t, note, toolNameEditFile)
+	assert.Contains(t, note, "3 times in a row")
+	assert.Contains(t, note, "old_string not found", "the repeated result is quoted back")
+	assert.Contains(t, note, "retry the task")
+	assert.Contains(t, note, "Do not mention this notice")
+	assert.Empty(t, l.efficiencyNote(effCfg().Tools), "the brief is one-shot")
+	assert.False(t, l.eff.open, "a repeat brief must not narrow the tool list")
+}
+
+func TestEfficiencyRepeatStop_EndsTurnOncePastStopBudget(t *testing.T) {
+	l := effLoop(t)
+	tc := effCall(toolNameBashExec, `{"command":"ls"}`)
+	budget := effectiveRounds(eventEfficiencyStops)
+	for range budget {
+		require.True(t, l.efficiencyRepeatStop(tc, "same", 3))
+	}
+	assert.False(t, l.efficiencyRepeatStop(tc, "same", 3), "budget spent: caller ends the turn")
+	assert.True(t, l.eff.ended)
+}
+
+func TestEfficiencyRepeatStop_InactiveGovernorKeepsOldBehavior(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
+	l := &Loop{}
+	assert.False(t, l.efficiencyRepeatStop(effCall(toolNameBashExec, "{}"), "x", 3))
+}
+
+func TestEffSnippet(t *testing.T) {
+	assert.Equal(t, "a b c", effSnippet("a\n  b\tc "))
+	long := effSnippet(strings.Repeat("x", 500))
+	assert.Len(t, long, 243)
+	assert.True(t, strings.HasSuffix(long, "..."))
+}
+
+func TestEfficiencyRepeatStop_ConfigCarriesBriefHiddenFromHuman(t *testing.T) {
+	l := effLoop(t)
+	require.True(t, l.efficiencyRepeatStop(effCall(toolNameBashExec, `{"command":"go test"}`), "FAIL", 3))
+
+	var human bytes.Buffer
+	cfg := l.efficiencyConfig(effCfg(), &human)
+	assert.Contains(t, cfg.Prompt, efficiencyMark)
+	assert.Contains(t, cfg.Prompt, "FAIL")
+	assert.Empty(t, human.String(), "humans see nothing unless verbose is on")
+}
