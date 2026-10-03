@@ -23,6 +23,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 
 	"golang.org/x/term"
@@ -378,4 +379,30 @@ func eraseFrame(prevRows int) string {
 	}
 	sb.WriteString("\033[0J")
 	return sb.String()
+}
+
+// turnTokenBase is the session sent/generated total at the start of the current
+// user turn, so the display can show what this turn alone consumed.
+//
+//nolint:gochecknoglobals // per-process turn baseline read by the live status frame
+var turnTokenBase struct{ in, out atomic.Int64 }
+
+// beginTurnTokens snapshots the session counters at the start of a user turn.
+func beginTurnTokens() {
+	turnTokenBase.in.Store(executorLLM.SessionInputTokens())
+	turnTokenBase.out.Store(executorLLM.SessionOutputTokens())
+}
+
+// turnTokenDelta returns the tokens sent and generated since beginTurnTokens.
+// A compaction or fold lowers the session totals mid-turn; the baseline is
+// lowered with them so the delta never goes negative.
+func turnTokenDelta() (int64, int64) {
+	curIn, curOut := executorLLM.SessionInputTokens(), executorLLM.SessionOutputTokens()
+	if curIn < turnTokenBase.in.Load() {
+		turnTokenBase.in.Store(curIn)
+	}
+	if curOut < turnTokenBase.out.Load() {
+		turnTokenBase.out.Store(curOut)
+	}
+	return curIn - turnTokenBase.in.Load(), curOut - turnTokenBase.out.Load()
 }

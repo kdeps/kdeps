@@ -185,13 +185,20 @@ func isHeadless() bool {
 // "sent" is the sum of prompt tokens handed to the model across every call
 // this session (history is re-sent each round, so this grows faster than
 // one turn's window). "generated" is the sum of tokens the model wrote back.
-// Always returns a value, starting at "[sent 0 | generated 0] ".
+// "total" is sent + generated: everything spent this session. None of these
+// are measured against the window; only the turn figure above is. "this turn"
+// is the sent/generated delta since the user's message (shown once non-zero).
+// Always returns a value, starting at "[session sent 0 | generated 0 | total 0] ".
 func compactTokenStatus() string {
 	in := llm.SessionInputTokens()
 	out := llm.SessionOutputTokens()
 	parts := []string{
-		"sent " + formatCompactCount(in),
+		"session sent " + formatCompactCount(in),
 		"generated " + formatCompactCount(out),
+		"total " + formatCompactCount(in+out),
+	}
+	if dIn, dOut := turnTokenDelta(); dIn > 0 || dOut > 0 {
+		parts = append(parts, "this turn +"+formatCompactCount(dIn)+" sent +"+formatCompactCount(dOut)+" generated")
 	}
 	if calls, limit := WebConvergenceCalls(); limit > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("web %d/%d", calls, limit))

@@ -529,8 +529,7 @@ func (r *REPL) modeline() string {
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("sent:"+formatCompactCount(llm.SessionInputTokens())))
-		parts = append(parts, meta("generated:"+formatCompactCount(llm.SessionOutputTokens())))
+		parts = append(parts, meta("session:"+formatCompactCount(llm.SessionInputTokens()+llm.SessionOutputTokens())))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -1931,6 +1930,7 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
+	beginTurnTokens()
 	// Reset convergence counters and apply configured limits per user request.
 	ResetConvergence()
 	SetConvergenceLimits(
@@ -5059,7 +5059,8 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [sent %s | generated %s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
+	fmt.Fprintf(os.Stdout, "  %s [session sent %s | generated %s | total %s]\n\n",
+		end, formatCompactCount(in), formatCompactCount(out), formatCompactCount(in+out))
 
 	// Convergence pipelines
 	wc, wm := WebConvergenceCalls()
