@@ -237,7 +237,7 @@ The `file:` resource is designed for coding agent workflows. A typical edit cycl
   name: Analyze and suggest fix
   requires: [readFile]
   chat:
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-4-6
     prompt: "Review this code and suggest a fix: {{ get('readFile').content }}"
 
 # Step 3: Apply the fix as a patch

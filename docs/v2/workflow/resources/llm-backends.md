@@ -256,7 +256,7 @@ Anthropic-specific options are set per resource, not in `config.yaml`.
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   promptCaching: true
   scenario:
     - role: system
@@ -273,7 +273,7 @@ chat:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   anthropicExtendedOutput: true
   maxTokens: 16000
   prompt: "{{ get('q') }}"
@@ -286,7 +286,7 @@ Pass arbitrary beta feature strings via `anthropicBetaHeaders`:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   anthropicBetaHeaders:
     - output-128k-2025-02-19
     - interleaved-thinking-2025-05-14

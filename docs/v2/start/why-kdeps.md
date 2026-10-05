@@ -1,16 +1,16 @@
 # Why kdeps?
 
-kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each.
+kdeps is built for AI workloads that run unattended in production. This page covers both workflow mode and agent mode: why the two exist and when to use each.
 
 ## The problem
 
-There is no streamlined way to build **AI agents and custom APIs - not chatbots** - on open-source, self-hosted LLMs. Every project re-implements the same glue: retrieval, deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and a way to deploy the result anywhere.
+Building **AI agents and custom APIs - not chatbots** - on open-source, self-hosted LLMs means re-implementing the same glue in every project: retrieval, deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and a way to deploy the result anywhere.
 
-kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop. Everything a retrieval-augmented agent needs ships in one Dockerized image.
+kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
 
-Because it runs open-source models by default (llamafile, Ollama, any HuggingFace GGUF), the built appliance has **no per-token cost and no AI subscription** - it is free to run forever, on or off the cloud. Cloud providers work too when you want them; the backend is one line of config, not baked into the workflow.
+Because it runs open-source models by default (llamafile, Ollama, any HuggingFace GGUF), the built appliance has **no per-token cost and no AI subscription** - you pay only for the hardware it runs on, on or off the cloud. Cloud providers work too when you want them; the backend is one line of config, not baked into the workflow.
 
-That also makes kdeps a [data sovereignty](/start/data-sovereignty) tool: run your own LLM and coding agent on servers in your own country, and your prompts, code, and data never reach a foreign cloud provider.
+That also makes kdeps a [data sovereignty](/start/data-sovereignty) tool: run your own LLM and coding agent on servers you control, in the region you choose, and your prompts, code, and data never reach a third-party AI provider.
 
 ## The six products
 
@@ -90,13 +90,11 @@ The same `workflow.yaml` works in both. You do not need to rewrite anything to s
 
 ## Agencies
 
-Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output - every step is version-controlled, testable, and independently deployable.
+kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output - every step is version-controlled, testable, and independently deployable.
 
 ## Built to last
 
-Most AI tooling has a short half-life. A workflow written against a popular AI SDK in 2023 is unlikely to run without modification today. Model APIs deprecate. SDK interfaces churn. Libraries get abandoned.
-
-kdeps reduces how many moving parts can break on you. The thing you archive is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Hand that image to a new engineer years later and it runs exactly as it did the day you built it.
+Model APIs deprecate and SDK interfaces change. kdeps reduces how many of those moving parts can break a running workload. The thing you archive is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Redeploying that image later runs the same runtime and model, with no live dependency on a vendor API.
 
 What stays stable:
 
@@ -122,7 +120,7 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 | Operations teams | Automate repetitive work: log analysis, PR reviews, triage, ticket creation, incident messaging |
 | SMEs without an AI hire | Add AI to existing business processes and APIs with near-zero code and no recurring AI bill |
 | Marketing and growth | Content pipelines, SEO automation, campaign reporting |
-| Regulated and public-sector teams | Keep AI inside your own jurisdiction - self-hosted LLM and coding agent, no data sent abroad |
+| Regulated and public-sector teams | Meet data-residency rules - self-hosted LLM and coding agent in the region you choose |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 Concretely: log-file analysis, automated code reviews, JIRA ticket creation from an alert, an incident summary posted to MS Teams - each is a workflow that calls a model and one or two external APIs, deployed as one image.
@@ -131,7 +129,7 @@ Concretely: log-file analysis, automated code reviews, JIRA ticket creation from
 
 kdeps is short for **knowledge dependencies**. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
 
-## Innovation technology
+## Built on
 
 kdeps is built on two small open-source projects developed alongside it. Both are standalone Go tools you can use on their own.
 

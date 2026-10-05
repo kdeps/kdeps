@@ -46,10 +46,10 @@ llm:
 
 | Model | Description |
 |-------|-------------|
-| `claude-sonnet-4-20250514` | Latest Claude Sonnet 4 |
-| `claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet |
-| `claude-3-opus-20240229` | Most capable Claude 3 |
-| `claude-3-haiku-20240307` | Fast, efficient |
+| `claude-opus-5-5` | Most capable |
+| `claude-sonnet-5-5` | Balanced speed and capability |
+| `claude-haiku-4-5-20251001` | Fastest, lowest cost |
+| `claude-sonnet-4-6` | The auto-router's Anthropic fallback |
 
 Prompt caching, extended 128K output, and custom beta headers: see
 [LLM Backends - Anthropic](/workflow/resources/llm-backends#anthropic-prompt-caching-and-extended-output).
@@ -198,7 +198,7 @@ llm:
   openrouter_api_key: sk-or-...
 ```
 
-Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
+Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
 ### AWS bedrock
 
@@ -208,7 +208,7 @@ llm:
   backend: bedrock
 ```
 
-Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key - set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` or `meta.llama3-1-70b-instruct-v1:0`.
+Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key - set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `meta.llama3-1-70b-instruct-v1:0` (Anthropic models on Bedrock use the `anthropic.` prefix).
 
 ### IBM WatsonX
 

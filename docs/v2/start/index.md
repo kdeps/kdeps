@@ -17,7 +17,8 @@ changelog of the agent's behavior. Because it runs open-source models by default
 the unit has no per-token cost and no dependency on an external AI service; it
 works the same on your laptop and inside an air-gapped network. That is
 [data sovereignty](/start/data-sovereignty): run your own LLM and coding agent on
-servers in your own country, with no prompts or data sent to foreign AI clouds.
+servers you control, in the region you choose, with no prompts or data sent to a
+third-party AI provider.
 
 ## The problem it solves
 

@@ -29,7 +29,6 @@ Agencies are the natural evolution from single agents. Where a single agent hand
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
 | No inter-agent delegation | Agents delegate work to each other via `agent:` resource |
-| Limited scope | Self-governing system handles complex end-to-end tasks autonomously |
 
 ## Directory structure
 

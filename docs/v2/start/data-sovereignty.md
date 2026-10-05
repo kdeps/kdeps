@@ -1,11 +1,11 @@
 ---
 title: Data Sovereignty
-description: Run your own LLM and coding agent on servers in your own country. Prompts, code, and data stay inside your jurisdiction - no foreign cloud in the loop.
+description: Run your own LLM and coding agent on servers you control, in the region you choose. Prompts, code, and data stay inside your boundary - no third-party AI provider in the loop.
 ---
 
 # Data sovereignty
 
-kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on **servers you choose, in the country you choose**. Your prompts, source code, and customer data never have to cross a border or reach a foreign cloud provider.
+kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on **servers you control, in the region you choose**. Your prompts, source code, and customer data never have to leave that boundary or reach a third-party AI provider.
 
 Works in workflow mode, agent mode and agencies.
 
@@ -18,7 +18,7 @@ U: "Your users\nand developers" {shape: oval}
 A: "kdeps agent / workflow\non YOUR server"
 L: "LLM server\non YOUR server"
 D: "Your data\n(files, DBs, repos)"
-X: "Foreign hosted AI API" {style.stroke-dash: 4}
+X: "Third-party hosted AI API" {style.stroke-dash: 4}
 
 U -> A: request
 A -> L: "/v1 (local network)"
@@ -28,7 +28,7 @@ A -> X: "off by default" {style.stroke-dash: 4}
 
 Everything on the solid path stays inside your boundary. The dashed path only exists if you add a hosted backend to `~/.kdeps/config.yaml` - kdeps never adds it for you.
 
-## Three ways to keep it in-country
+## Three ways to keep it inside your boundary
 
 ### 1. Coding agent on your own machine
 
