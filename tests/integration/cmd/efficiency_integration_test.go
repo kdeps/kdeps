@@ -21,6 +21,7 @@ package cmd_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -170,4 +171,90 @@ func TestEfficiency_RepeatedCallBriefsModelInvisiblyAndRetries(t *testing.T) {
 	assert.NotContains(t, buf.String(), "kdeps-efficiency")
 	assert.NotContains(t, buf.String(), "repeated the same")
 	assert.NotContains(t, strings.Join(r.msgs, "\n"), "kdeps-efficiency", "never stored in history")
+}
+
+// A failed edit is soft-stopped by kdeps: the error and the file lines around
+// the spot it aimed at reach the model only on the hidden channel, the model
+// retries, and neither the human output nor history shows any of it.
+func TestEfficiency_FailedEditBriefedWithFileContextAndRetried(t *testing.T) {
+	s := &scriptedStreamer{}
+	loop, path := effIntegrationLoop(t, s)
+	s.rounds = []scriptedRound{
+		{calls: []domain.StreamedToolCall{editToolCall(t, "v", map[string]any{
+			"command": "view", "file_path": path,
+		})}},
+		{calls: []domain.StreamedToolCall{editToolCall(t, "bad", map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "hello world\nmore", "new_str": "x",
+		})}},
+		{calls: []domain.StreamedToolCall{editToolCall(t, "good", map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "hello", "new_str": "goodbye",
+		})}},
+		{content: "Edited: hello is now goodbye."},
+	}
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(t.Context(), "change hello to goodbye", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "Edited: hello is now goodbye.", result)
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "goodbye world\n", string(got))
+
+	require.Len(t, s.prompts, 4)
+	brief := s.prompts[2]
+	assert.Contains(t, brief, "[kdeps-efficiency] Soft stop (failure 1/")
+	assert.Contains(t, brief, "Current content of "+path+", lines 1-1 of 1:\n1\thello world")
+	assert.Contains(t, brief, "EDIT NOT APPLIED")
+	assert.NotContains(t, s.prompts[3], "Soft stop (failure", "the brief is one-shot")
+	assert.NotContains(t, buf.String(), "kdeps-efficiency")
+	assert.NotContains(t, buf.String(), "EDIT NOT APPLIED")
+	history := strings.Join(s.msgs, "\n")
+	assert.NotContains(t, history, "kdeps-efficiency", "never stored in history")
+	assert.NotContains(t, history, "[TOOL FAILED]")
+}
+
+// failingStreamer returns err for its first n calls, then answers.
+type failingStreamer struct {
+	n       int
+	err     error
+	prompts []string
+}
+
+func (f *failingStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	f.prompts = append(f.prompts, cfg.Prompt)
+	if len(f.prompts) <= f.n {
+		return "", nil, f.err
+	}
+	return "answered", nil, nil
+}
+
+// A rejected LLM call is soft-stopped and retried with the error on the hidden
+// channel; credential errors are returned at once, and a persistent error is
+// returned once the failure budget is spent.
+func TestEfficiency_LLMErrorsSoftStoppedThenReturned(t *testing.T) {
+	f := &failingStreamer{n: 1, err: errors.New("400 malformed tool call")}
+	loop, _ := effIntegrationLoop(t, f)
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(t.Context(), "hi", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "answered", result)
+	require.Len(t, f.prompts, 2)
+	assert.Contains(t, f.prompts[1], "Soft stop (failure 1/")
+	assert.Contains(t, f.prompts[1], "400 malformed tool call")
+	assert.NotContains(t, buf.String(), "kdeps-efficiency")
+
+	auth := &failingStreamer{n: 99, err: errors.New("401 Unauthorized")}
+	loop, _ = effIntegrationLoop(t, auth)
+	_, err = loop.RunStreaming(t.Context(), "hi", &bytes.Buffer{})
+	require.ErrorContains(t, err, "401 Unauthorized")
+	assert.Len(t, auth.prompts, 1, "a credential error is not retried")
+
+	stuck := &failingStreamer{n: 99, err: errors.New("400 bad request")}
+	loop, _ = effIntegrationLoop(t, stuck)
+	require.NoError(t, agent.SetEfficiencyValue("failures", 1))
+	_, err = loop.RunStreaming(t.Context(), "hi", &bytes.Buffer{})
+	require.ErrorContains(t, err, "400 bad request")
+	assert.Len(t, stuck.prompts, 2, "one briefed retry, then the error")
 }

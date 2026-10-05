@@ -1316,6 +1316,9 @@ func (l *Loop) runToolRounds(
 	identicalRepeats := 0
 	convergenceBlocks := 0
 	forcedFinal := false
+	// llmErr is the last soft-stopped LLM-call error; if the rounds run out
+	// before a call succeeds, the turn reports it instead of ending silently.
+	var llmErr error
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -1329,8 +1332,15 @@ func (l *Loop) runToolRounds(
 		var roundBuf strings.Builder
 		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
 		if err != nil {
+			// A failed call the model may be able to avoid is soft-stopped: the
+			// error goes to the model on the hidden channel and the round reruns.
+			if ctx.Err() == nil && l.efficiencyLLMErrorStop(err) {
+				llmErr = err
+				continue
+			}
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
+		llmErr = nil
 		// A model that copies the goal directive back instead of answering it
 		// leaves the turn with no reply at all. Drop the directive, stop
 		// enforcing, and redo the round as a plain one.
@@ -1396,6 +1406,9 @@ func (l *Loop) runToolRounds(
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
+	}
+	if llmErr != nil {
+		return "", fmt.Errorf("agent loop stream: %w", llmErr)
 	}
 	return l.ensureNonSilentFinal(finalContent, capped, w), nil
 }
@@ -2420,9 +2433,15 @@ func (l *Loop) executeToolCalls(
 			outcome.advanced = true
 		}
 		content := l.toolResultMessage(ctx, tc, result)
+		briefed := l.takeBriefedFailure()
 		note := ""
 		if ctx.Err() == nil {
 			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			if briefed {
+				// Soft-stopped failure: the status note rides the hidden brief.
+				l.attachToFailureBrief(note)
+				note = ""
+			}
 			content += note
 		}
 		l.emit(LoopEvent{
@@ -2476,6 +2495,11 @@ func (l *Loop) buildToolResultMessage(
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
+		// Soft stop: the error and the context to fix it reach the model on the
+		// hidden channel, so history keeps only the raw error.
+		if ctx.Err() == nil && l.efficiencyFailureStop(tc, result) {
+			return capToolResult(result)
+		}
 		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed -- do NOT report it as done."

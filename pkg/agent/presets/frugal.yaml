@@ -82,6 +82,10 @@ events:
     on:
       rounds: 2
     run: block
+  - name: efficiency-failures
+    on:
+      rounds: 3
+    run: block
   - name: efficiency-tighten
     items: 1
     run: block

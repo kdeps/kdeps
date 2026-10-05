@@ -856,8 +856,9 @@ func TestFuzzyFilter_NoMatch(t *testing.T) {
 
 // ---- builtin_tools.go: registerBashJobList ----
 
+// Not parallel: bashJobRegistry is global and parallel tests start jobs.
 func TestRegisterBashJobList_Empty(t *testing.T) {
-	t.Parallel()
+	bashJobRegistry.reset()
 	reg := kdepstools.NewRegistry()
 	registerBashJobList(reg)
 
