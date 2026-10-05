@@ -23,6 +23,7 @@
 package desktop
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -38,8 +40,18 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// maxInlineAttachmentBytes caps a dropped text file inlined into the prompt.
-const maxInlineAttachmentBytes = 1 << 20
+// maxInlineAttachmentBytes caps a dropped text file inlined into the prompt;
+// larger files are listed for the model to read in pages.
+const maxInlineAttachmentBytes = 64 << 10
+
+// analyzeAttachmentsPrompt is the prompt for files sent without a message.
+const analyzeAttachmentsPrompt = "Analyze the attached files: work out what each one is, " +
+	"read it with the right tool, summarize what it contains, and suggest what I can do with it."
+
+// attachmentToolHint tells the model how to open files that were not inlined.
+const attachmentToolHint = "Attached files (not inlined). Inspect each with your tools - " +
+	"read_file for text, code, PDF, DOCX, EPUB, RTF and ODT (use offset/limit for large files); " +
+	"load_document for CSV and HTML; list_files for folders - then decide what to do with it:"
 
 // Event kinds delivered to Options.Emit.
 const (
@@ -358,30 +370,55 @@ func (w *tokenWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// buildInput appends dropped text files to the prompt and splits out media.
+// buildInput turns dropped files into the turn's input. Media goes to the
+// model as multimodal parts, small UTF-8 text files are inlined, and the rest
+// (documents, folders, binaries, large files) are listed so the model reads
+// them with the right tool. An empty prompt asks the model to analyze them.
 func buildInput(prompt string, files []string) (string, []string, error) {
-	var media []string
+	if strings.TrimSpace(prompt) == "" {
+		if len(files) == 0 {
+			return "", nil, errors.New("desktop: empty message")
+		}
+		prompt = analyzeAttachmentsPrompt
+	}
+	var media, listed []string
 	var b strings.Builder
 	b.WriteString(prompt)
 	for _, f := range files {
-		if agent.IsMediaAttachment(f) {
-			media = append(media, f)
-			continue
-		}
 		info, err := os.Stat(f)
 		if err != nil {
 			return "", nil, fmt.Errorf("desktop: attachment %q: %w", f, err)
 		}
-		if info.Size() > maxInlineAttachmentBytes {
-			return "", nil, fmt.Errorf("desktop: attachment %q is larger than %d bytes", f, maxInlineAttachmentBytes)
+		if info.IsDir() {
+			listed = append(listed, fmt.Sprintf("- %s (folder)", f))
+			continue
 		}
-		data, err := os.ReadFile(f)
-		if err != nil {
-			return "", nil, fmt.Errorf("desktop: attachment %q: %w", f, err)
+		if agent.IsMediaAttachment(f) {
+			media = append(media, f)
+			continue
 		}
-		fmt.Fprintf(&b, "\n\n--- %s ---\n%s", f, strings.TrimRight(string(data), "\n"))
+		if text, ok := inlineText(f, info.Size()); ok {
+			fmt.Fprintf(&b, "\n\n--- %s ---\n%s", f, text)
+			continue
+		}
+		listed = append(listed, fmt.Sprintf("- %s (%d bytes)", f, info.Size()))
+	}
+	if len(listed) > 0 {
+		fmt.Fprintf(&b, "\n\n%s\n%s", attachmentToolHint, strings.Join(listed, "\n"))
 	}
 	return strings.TrimSpace(b.String()), media, nil
+}
+
+// inlineText returns a file's contents when it is small, valid UTF-8 text.
+func inlineText(path string, size int64) (string, bool) {
+	if size > maxInlineAttachmentBytes {
+		return "", false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return "", false
+	}
+	return strings.TrimRight(string(data), "\n"), true
 }
 
 // ---- history ----

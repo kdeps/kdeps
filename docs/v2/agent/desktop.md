@@ -140,11 +140,25 @@ Window state lives in `kdeps-desktop/state.json` under your OS config directory 
 | Search | The sidebar search box matches the chat name, first prompt and every message (case-insensitive) and shows the matching snippet. |
 | Streaming | Tokens render as they arrive. Narration lines ("Reading config.yaml...") and tool cards show each call, its arguments and result. |
 | Approvals | In the default `ask` permission mode a modal shows each tool call or out-of-workspace path. Choose allow once, allow always, or deny. |
-| Files | Drag files onto the window or use the attach button. Text files up to 1 MiB are inlined into the prompt; other files are passed as paths. |
+| Files | Drag files or folders onto the window, or use the attach button. Dropping onto an empty composer sends them at once and the agent analyzes them: what each file is, what it contains, and what you can do with it. Type a message first (or attach with the button) to give your own instruction instead. Images, audio, video and PDFs go to the model as multimodal parts; UTF-8 text up to 64 KiB is inlined; everything else (DOCX, CSV, large logs, binaries, folders) is listed by path and size, and the model opens it with the right tool (`read_file`, `load_document`, `list_files`). |
 | Stop | The send button becomes stop while a turn runs; cancelling is not an error. |
 
-```text
-drop file -> attach chip -> Send -> prompt + file text -> agent loop
+```d2
+direction: right
+drop: "drop files" {shape: oval}
+empty: "composer empty?" {shape: diamond}
+chip: "attach chip\n(wait for your message)"
+send: "send turn"
+split: "sort each file" {shape: diamond}
+loop: "agent loop" {shape: oval}
+drop -> empty
+empty -> send: "yes: analyze them"
+empty -> chip: "no"
+chip -> send: "Send"
+send -> split
+split -> loop: "media: multimodal part"
+split -> loop: "small text: inlined"
+split -> loop: "other: path + size,\nmodel reads with a tool"
 ```
 
 ## Models, slash commands and autocomplete

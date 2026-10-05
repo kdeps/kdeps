@@ -19,6 +19,7 @@
 package desktop_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -352,11 +353,53 @@ func TestSend_Attachments(t *testing.T) {
 func TestSend_AttachmentErrors(t *testing.T) {
 	h := newHarness(t)
 	assert.ErrorContains(t, h.svc.Send("x", []string{filepath.Join(t.TempDir(), "missing.txt")}), "attachment")
-
-	big := filepath.Join(t.TempDir(), "big.txt")
-	require.NoError(t, os.WriteFile(big, make([]byte, (1<<20)+1), 0o600))
-	assert.ErrorContains(t, h.svc.Send("x", []string{big}), "larger than")
+	assert.ErrorContains(t, h.svc.Send("  ", nil), "empty message")
 	assert.False(t, h.svc.Running(), "a rejected send must not leave the service busy")
+}
+
+// firstUserMessage sends one turn and returns the user message as saved.
+func firstUserMessage(t *testing.T, prompt string, files []string) string {
+	t.Helper()
+	h := newHarness(t, scriptedResponse{content: "ok"})
+	require.NoError(t, h.svc.Send(prompt, files))
+	h.log.waitFor(t, desktop.KindTurnEnd)
+	metas, err := h.svc.ListSessions()
+	require.NoError(t, err)
+	require.Len(t, metas, 1)
+	msgs, err := h.svc.LoadSession(metas[0].ID)
+	require.NoError(t, err)
+	return msgs[0].Content
+}
+
+func TestSend_ListsFilesItCannotInline(t *testing.T) {
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.log")
+	require.NoError(t, os.WriteFile(big, bytes.Repeat([]byte("a"), (64<<10)+1), 0o600))
+	bin := filepath.Join(dir, "data.bin")
+	require.NoError(t, os.WriteFile(bin, []byte{0x00, 0xff, 0x10}, 0o600))
+	docx := filepath.Join(dir, "report.docx")
+	require.NoError(t, os.WriteFile(docx, []byte("PK\x03\x04\xff\xfe"), 0o600))
+	sub := filepath.Join(dir, "project")
+	require.NoError(t, os.Mkdir(sub, 0o700))
+
+	got := firstUserMessage(t, "what are these", []string{big, bin, docx, sub})
+	assert.True(t, strings.HasPrefix(got, "what are these"))
+	assert.Contains(t, got, "read_file")
+	assert.Contains(t, got, "- "+big+" (65537 bytes)")
+	assert.Contains(t, got, "- "+bin+" (3 bytes)")
+	assert.Contains(t, got, "- "+docx+" (")
+	assert.Contains(t, got, "- "+sub+" (folder)")
+	assert.NotContains(t, got, "--- "+big+" ---", "large files are listed, not inlined")
+}
+
+func TestSend_FilesWithoutMessageAskForAnalysis(t *testing.T) {
+	txt := filepath.Join(t.TempDir(), "todo.md")
+	require.NoError(t, os.WriteFile(txt, []byte("- ship it\n"), 0o600))
+
+	got := firstUserMessage(t, "", []string{txt})
+	assert.True(t, strings.HasPrefix(got, "Analyze the attached files"))
+	assert.Contains(t, got, "--- "+txt+" ---\n- ship it")
+	assert.NotContains(t, got, "read_file", "inlined text needs no tool hint")
 }
 
 func userMemoryKeys(svc *desktop.Service) []string {
@@ -412,9 +455,6 @@ func TestSend_MediaAndUnreadableAttachments(t *testing.T) {
 	require.NoError(t, os.WriteFile(img, []byte("png"), 0o600))
 	require.NoError(t, h.svc.Send("look", []string{img}))
 	h.log.waitFor(t, desktop.KindTurnEnd)
-
-	dir := t.TempDir() // stat succeeds, read fails
-	assert.ErrorContains(t, h.svc.Send("x", []string{dir}), "attachment")
 }
 
 func TestDeleteSession_Errors(t *testing.T) {
