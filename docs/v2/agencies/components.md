@@ -6,7 +6,7 @@ Components work in both modes. In workflow mode, a resource invokes a component 
 
 ## Overview
 
-Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows - you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
+Components encapsulate resources, configuration, and dependencies into a single package. They are callable sub-workflows: you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
 
 ## Types of components
 

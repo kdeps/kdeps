@@ -1,39 +1,16 @@
 # Use an MCP server as a tool
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you give an LLM tools that are backed by an external
+Give an LLM tools that are backed by an external
 [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server instead
 of your own resources. kdeps starts the server as a subprocess, performs the
 handshake, calls the tool, and shuts it down.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart) and read
-[Tools (function calling)](/workflow/tools). It assumes you know:
-
-- Basic YAML
-- What an MCP server is at a high level
-
-By the end you will be able to:
-
-- Define a tool with an `mcp:` block instead of `script:`
-- Point it at an MCP server started with `npx` or `uvx`
-- Restrict the server's filesystem access with its arguments
-
-## Background
 
 A workflow-mode tool normally runs one of your resources (`script:`). An `mcp:`
 tool runs a tool exposed by an MCP server. `mcp:` and `script:` are mutually
 exclusive. A fresh subprocess is started for each tool invocation and only
 `stdio` transport is supported.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- Node.js with `npx` on `PATH` (for the filesystem MCP server).
-- A working directory for the project.
+**Needs:** Node.js with `npx` on `PATH` (for the filesystem MCP server).
 
 ## Step 1: create the project
 
@@ -136,14 +113,6 @@ curl -X POST http://localhost:16395/chat \
 
 The model calls `read_file` with `path: "/tmp/note.txt"`, kdeps runs the MCP
 server, returns the contents, and the model answers.
-
-## Summary
-
-You gave an LLM tools that:
-
-- Are backed by an external MCP server, not your own resources
-- Use an `mcp:` block with `server`, `args`, and `transport`
-- Are sandboxed to one directory by the server's arguments
 
 ## Next steps
 

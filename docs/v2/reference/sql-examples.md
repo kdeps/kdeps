@@ -2,7 +2,7 @@
 
 Example queries for the [`sql:` resource](/workflow/resources/sql). All examples use parameterized queries to prevent SQL injection.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## User lookup
 

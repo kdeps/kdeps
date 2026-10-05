@@ -91,7 +91,7 @@ kdeps run my-agency/agency.yaml
 
 ## Inter-agent calls (agent:)
 
-The `agent:` resource type is like calling a function where the function is an entire workflow. kdeps runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
+The `agent:` resource runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
 
 ```d2
 direction: right

@@ -1,7 +1,5 @@
 # Efficiency enforcement
 
-*Applies to agent mode.*
-
 A model that is stuck "looking around" - `ls`, `read_file`, `grep`, read-only `bash`, over and over - burns tokens without producing anything. **Efficiency enforcement** is a governor inside kdeps (not a prompt hint) that soft-stops that loop and forces the next action to be an **output** action: write a file, edit, run a command that changes something, call a workflow.
 
 It is like a circuit breaker on read-only exploration: it trips, tells the model why, and only lets the model continue once it has produced something.

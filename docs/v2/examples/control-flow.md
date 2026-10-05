@@ -1,36 +1,13 @@
 # Use conditionals and list operations
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build one resource that demonstrates every control-flow
+Build one resource that demonstrates every control-flow
 tool kdeps expressions give you: the ternary operator, the logical operators,
 and the list functions `filter`, `map`, `all`, and `any`.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic boolean logic
-
-By the end you will be able to:
-
-- Choose a value with `cond ? a : b`
-- Combine booleans with `&&`, `||`, `!`
-- Filter, map, and test a list with `filter`, `map`, `all`, `any`
-
-## Background
 
 kdeps expressions run on [expr-lang](https://expr-lang.org/). Inside a
 `before:` or `after:` block each line is a bare expression - no `{{ }}`. The
 list functions take a predicate in braces where `.` is the current element:
 `filter(people, {.age >= 18})`.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -149,14 +126,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You used, in one resource:
-
-- The ternary operator to pick a label
-- `&&`, `||`, `!` to combine booleans
-- `filter`, `map`, `all`, `any` with `{.field}` predicates over a list
 
 ## Next steps
 

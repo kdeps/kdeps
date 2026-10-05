@@ -2,7 +2,7 @@
 
 Every function available in kdeps expressions - usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Core functions
 

@@ -2,7 +2,7 @@
 
 Three resources for reaching a person. Each has its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Channel | Reference |
 | :--- | :--- | :--- |

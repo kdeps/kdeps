@@ -1,36 +1,14 @@
 # Call an authenticated external API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an endpoint that calls a third-party API with a
+Build an endpoint that calls a third-party API with a
 bearer token, retries on transient failures, and caches the response. You will
 also see API-key auth and TLS options.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- HTTP status codes and auth headers
-
-By the end you will be able to:
-
-- Add bearer or API-key auth to an `httpClient:` request
-- Retry on specific status codes with exponential backoff
-- Cache a response with a TTL and a cache key
-
-## Background
 
 The `httpClient:` resource makes an outbound request and stores the parsed body
 as its output. It has built-in `auth:`, `retry:`, `cache:`, and `tls:` blocks -
 you do not write retry loops or token headers by hand.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
-- Network access (the example calls `httpbin.org`).
+**Needs:** Network access (the example calls `httpbin.org`).
 
 ## Step 1: create the project
 
@@ -158,14 +136,6 @@ Skip TLS verification (test environments only):
 tls:
   insecureSkipVerify: true
 ```
-
-## Summary
-
-You built an endpoint that:
-
-- Adds a bearer token with `auth: { type: bearer }`
-- Retries only on 5xx with exponential backoff via `retry:`
-- Caches the response for 5 minutes with `cache:`
 
 ## Next steps
 

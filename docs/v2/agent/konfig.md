@@ -1,7 +1,5 @@
 # konfig
 
-*Applies to agent mode.*
-
 konfig is one YAML file that is a total, self-contained, declarative description of a kdeps agent's behavior - tuning, harness, themes, events, actions, presets, and skills. Export it from the current effective state (even a completely default, never-customized setup) and hand the file to another machine to fully configure an agent there, no other setup needed.
 
 ## Exporting

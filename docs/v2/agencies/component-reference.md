@@ -2,7 +2,7 @@
 
 Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/agencies/components).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## component.yaml reference
 

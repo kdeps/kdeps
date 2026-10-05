@@ -1,6 +1,6 @@
 ---
 title: What is kdeps?
-description: kdeps in plain English - what it is, the problem it solves, and the smallest mental model before you run anything.
+description: What kdeps is, the problem it solves, and the smallest mental model before you run anything.
 ---
 
 # What is kdeps?
@@ -21,7 +21,7 @@ servers in your own country, with no prompts or data sent to foreign AI clouds.
 
 ## The problem it solves
 
-Calling an LLM is easy. Shipping that call as something you can review, version,
+Calling an LLM takes a few lines. Shipping that call as something you can review, version,
 and run inside your own boundary is not. You end up hand-writing the same glue
 every time: input validation, retries, ordering between steps, a fixed response
 schema, a container, a way to run it offline for tests. kdeps is that glue,

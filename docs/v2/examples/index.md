@@ -2,8 +2,6 @@
 
 Complete, runnable projects that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
 
-## Overview
-
 Examples are grouped by the [product](/start/) they belong to. Pick the one
 closest to what you're building.
 

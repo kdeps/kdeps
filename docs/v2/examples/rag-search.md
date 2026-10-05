@@ -1,39 +1,13 @@
 # Build a document search API (RAG)
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an HTTP API with two endpoints: one indexes a
+Build an HTTP API with two endpoints: one indexes a
 document, the other searches the indexed documents and returns the closest
 matches. It uses the built-in `embedding:` resource, which stores text in a
 local SQLite index - no external vector database, no API key.
 
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to send POST requests with `curl`
-
-By the end you will be able to:
-
-- Serve two routes from one workflow
-- Scope a resource to a route with `validations.routes`
-- Store text with `embedding: operation: upsert`
-- Retrieve ranked matches with `embedding: operation: search`
-
-## Background
-
-Retrieval-augmented generation (RAG) means: before you ask an LLM a question,
-you retrieve the most relevant documents and put them in the prompt. This
-tutorial builds the retrieval half. The `embedding:` resource keeps a keyword
+This is the retrieval half of RAG. The `embedding:` resource keeps a keyword
 index in SQLite and ranks results by match - enough for a working search API
 with zero setup.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -193,15 +167,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built a search API that:
-
-- Serves `/index` and `/search` from one workflow
-- Scopes each resource to its route with `validations.routes`
-- Stores text with `embedding: operation: upsert`
-- Retrieves ranked matches with `embedding: operation: search`
 
 ## Next steps
 

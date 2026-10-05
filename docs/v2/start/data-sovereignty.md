@@ -7,9 +7,7 @@ description: Run your own LLM and coding agent on servers in your own country. P
 
 kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on **servers you choose, in the country you choose**. Your prompts, source code, and customer data never have to cross a border or reach a foreign cloud provider.
 
-*Applies to workflow mode, agent mode, and agencies.*
-
-Think of it as the difference between renting an AI from someone else's datacenter and owning an appliance in yours. `kdeps` is the appliance.
+Works in workflow mode, agent mode and agencies.
 
 ## Where your data goes
 

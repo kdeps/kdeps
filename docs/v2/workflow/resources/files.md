@@ -3,7 +3,7 @@
 Two resources for local files and version control. Each has its own reference
 page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Does | Reference |
 | :--- | :--- | :--- |

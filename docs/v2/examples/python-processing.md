@@ -1,36 +1,13 @@
 # Process data with a Python script
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API that runs a Python script to validate and
+Build an API that runs a Python script to validate and
 convert data formats (JSON, YAML). It shows the `python:` resource: how it
 receives request data, and how its printed output becomes the resource result.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python
-
-By the end you will be able to:
-
-- Read request fields in a script with `input()` / `get()`
-- Return structured data by printing JSON
-- Install a Python package for the script
-
-## Background
 
 The `python:` resource runs a script and captures its stdout as the resource's
 output. If the script prints a JSON object, downstream resources can read its
 fields. Expression placeholders are substituted into the script text before it
 runs, so wrap them in triple quotes to keep the script valid Python.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -148,15 +125,6 @@ Response:
 ```json
 { "success": true, "data": { "result": { "output": "a: 1\nb:\n- 2\n- 3" } } }
 ```
-
-## Summary
-
-You built an API where a Python script:
-
-- Reads request fields with `input()` (templated into the script)
-- Uses a third-party package declared under `packages:`
-- Returns structured data by printing a JSON object
-- Is exposed through `output('process')`
 
 ## Next steps
 

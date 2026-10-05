@@ -2,8 +2,6 @@
 
 The [agent loop](/agent/) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
 
-*Applies to agent mode.*
-
 ## TaskRegistry
 
 Tracks every task created by the agent loop. Each task has a unique ID (`task-N`), status (`created` -> `running` -> `completed`/`failed`/`stopped`), description, prompt, and an append-only output and message transcript. Tasks can be assigned to a team and carry a heartbeat for stall detection.

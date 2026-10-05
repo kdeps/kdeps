@@ -1,39 +1,15 @@
 # Give an LLM tools to call
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API where the LLM can call your own resources
+Build an API where the LLM can call your own resources
 mid-response. When the model needs a calculation or a database lookup, it calls
 a tool, kdeps runs the target resource, feeds the result back, and the model
 continues.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python
-
-By the end you will be able to:
-
-- Define a tool on a `chat:` resource with `tools:`
-- Point a tool at a resource with `script:`
-- Read tool arguments in the target resource with `get(name, 'memory')`
-- Understand why tool resources are "unreachable" in `kdeps validate`
-
-## Background
 
 A tool is a function the LLM can call. In workflow mode you declare tools in
 `chat.tools`: each has a name, a description the model uses to decide when to
 call it, a `script:` naming the resource that runs it, and a parameter schema.
 The tool resource is not in the dependency graph - it runs only when the model
 calls it.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -207,14 +183,6 @@ curl -X POST http://localhost:16395/api/v1/tools \
 The model calls `calculate` with `expression: "sqrt(144)"`, calls
 `search_database` with `query: "widgets", category: "blue"`, then answers using
 both results.
-
-## Summary
-
-You built an API where the LLM:
-
-- Chooses between two tools based on their descriptions
-- Calls `calcTool` (a `python:` resource) and `dbTool` (an `apiResponse:` resource)
-- Reads its own arguments in each tool with `get(name, 'memory')`
 
 ## Next steps
 

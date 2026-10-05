@@ -7,8 +7,6 @@ description: Install kdeps and start an AI agent REPL on your machine. No Docker
 
 kdeps ships as a standalone binary. Install it, run it, and you have an interactive AI agent running on your machine. No Docker. No config file. No API key required if you use a local model.
 
-*Applies to [agent mode](/agent/) - the interactive LLM chat REPL. New to kdeps? Start with [What is kdeps?](/start/).*
-
 ## Install
 
 **macOS (Homebrew):**
@@ -41,7 +39,7 @@ kdeps --version
 kdeps
 ```
 
-That's it. kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use you confirm the download; it is cached in `~/.kdeps/models/`. No API key needed.
+kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use you confirm the download; it is cached in `~/.kdeps/models/`. No API key needed.
 
 ```text
 kdeps v2.x.x

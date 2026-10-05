@@ -1,37 +1,14 @@
 # Scrape a web page and summarize it
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API that takes a URL, fetches the page with the
+Build an API that takes a URL, fetches the page with the
 built-in `scraper:` resource, sends the extracted text to a local LLM, and
 returns a short summary as JSON.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to send a POST request with `curl`
-- What a CSS selector is
-
-By the end you will be able to:
-
-- Fetch and extract page text with `scraper:`
-- Pass one resource's output to another with `output()`
-- Force a JSON reply from the LLM with `jsonResponse`
-
-## Background
 
 The `scraper:` resource fetches a URL and returns its readable text. It runs
 in-process - no browser, no external service. For pages that need JavaScript
 rendering, use the [`browser:` resource](/workflow/resources/browser) instead.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
-- Network access.
+**Needs:** Network access.
 
 ## Step 1: create the project
 
@@ -167,14 +144,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built an API that:
-
-- Fetches and extracts page text with `scraper:`
-- Passes the text to the LLM with `output('fetch').content`
-- Forces a structured reply with `jsonResponse` and `jsonResponseKeys`
 
 ## Next steps
 

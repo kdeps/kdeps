@@ -2,8 +2,6 @@
 
 Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 
-*Applies to agent mode.*
-
 | Command | Description |
 |---------|-------------|
 | `/help` | Show available commands |

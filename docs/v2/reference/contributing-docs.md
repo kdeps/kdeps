@@ -10,7 +10,7 @@ A page is exactly one type. If your page answers two questions, split it.
 | You want to... | Use type | Skeleton below |
 | :--- | :--- | :--- |
 | Explain an idea or how a subsystem works | Concept | [Concept](#concept-skeleton) |
-| Teach a beginner by building one example end to end | Tutorial | [Tutorial](#tutorial-skeleton) |
+| Build one working example end to end | Tutorial | [Tutorial](#tutorial-skeleton) |
 | Give exact steps for one task the reader already understands | How-to | [How-to](#how-to-skeleton) |
 | List fields, flags, functions, or values | Reference | [Reference](#reference-skeleton) |
 | Get a new user to a working result fast | Quickstart | [Quickstart](#quickstart-skeleton) |
@@ -23,7 +23,7 @@ A page is exactly one type. If your page answers two questions, split it.
 ```markdown
 # <Noun phrase>
 
-<One sentence: "X does Y" or "X is like Z, but W". State the mode(s).>
+<One sentence: "X does Y". State the mode only on shared pages.>
 
 <Definition paragraph. What it is, what problem it solves.>
 
@@ -40,16 +40,13 @@ A page is exactly one type. If your page answers two questions, split it.
 ```markdown
 # <Verb phrase: "Build a ...">
 
-## Overview
-<What you will build, who it is for, assumed knowledge, learning objectives.>
+<One or two sentences: what you build. Facts the reader needs, if any.>
 
-## Before you start
-<Prerequisites as a bullet list.>
+**Needs:** <only real dependencies: a tool, an account, a model. Omit if none.>
 
 ## <Task 1>
 1. <Verb-first step.>
 
-## Summary
 ## Next steps
 ```
 
@@ -95,10 +92,8 @@ Resource pages (`resources/*`) are reference pages. Use:
 ```markdown
 # <Product> quickstart
 
-## Overview
-<The parts this covers, the audience, assumed concepts.>
+<One sentence: what you will have running at the end.>
 
-## Before you start
 ## Install
 ## Part 1: <task>
 ### Step 1: <step>

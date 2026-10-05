@@ -2,7 +2,7 @@
 
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing, allowlists, and streaming.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 Every model listed here - OpenAI, Anthropic (Claude), Google (Gemini), Groq, Ollama, local llamafile / GGUF, and the rest - is **probabilistic**: the same prompt can return different text on each call. Determinism in kdeps comes from [workflow mode](/workflow/) wrapping the model, not from the model itself. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 

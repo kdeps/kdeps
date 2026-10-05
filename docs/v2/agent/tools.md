@@ -2,8 +2,6 @@
 
 The [agent loop](/agent/) has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
 
-*Applies to agent mode.*
-
 ## Fenced tools only, and narration
 
 Two instructions go into the system preamble for **every** model whenever tools are registered:

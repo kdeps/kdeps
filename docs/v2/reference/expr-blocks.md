@@ -1,8 +1,8 @@
 # Inline resource blocks (before / after)
 
-`before:` and `after:` are expression lists that run around a resource's main action - `before:` prepares data before the action runs, `after:` processes output after it completes. Think of them like setup/teardown blocks around a function call.
+`before:` and `after:` are expression lists that run around a resource's main action - `before:` prepares data before the action runs, `after:` processes output after it completes.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 - `before:` runs before the main action (chat, httpClient, sql, file, etc.)
 - `after:` runs after the main action

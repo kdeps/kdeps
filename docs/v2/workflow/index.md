@@ -43,7 +43,7 @@ D -> E: "output stored as get('llm')"
 E -> F
 ```
 
-`requires:` is like an import - the resource won't run until its dependencies have output. Resources with no shared dependency path run concurrently.
+A resource runs only after everything in its `requires:` has produced output. Resources with no shared dependency path run concurrently.
 
 ## When to use workflow mode
 

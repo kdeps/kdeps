@@ -2,7 +2,7 @@
 
 Common errors, what they mean, and how to fix them.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Dependency errors
 

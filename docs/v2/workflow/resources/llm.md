@@ -404,7 +404,7 @@ chat:
 
 ## Few-shot prompting
 
-Inject example user/assistant pairs before the conversation to demonstrate the expected output format. Like calling a function with example inputs and outputs - the model learns the pattern from the examples.
+Inject example user/assistant pairs before the conversation to demonstrate the expected output format. The model follows the pattern in the examples.
 
 <div v-pre>
 
