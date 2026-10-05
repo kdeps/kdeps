@@ -149,7 +149,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 ### Agent loop mode
 
-An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D). Each prompt is rewritten for clarity before the turn (`/refine off` to disable), and a built-in governor soft-stops read-only exploration loops (`ls`/`read_file` over and over) and forces the model to produce output (`/efficiency off` to disable). Sessions and memory are kept per working directory under `~/.kdeps/`; `kdeps` in a folder with history offers a resume picker.
+An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D). Each prompt is rewritten for clarity before the turn (`/refine off` to disable), and a built-in governor soft-stops read-only exploration loops (`ls`/`read_file` over and over) and forces the model to produce output, and soft-stops every failed tool or model call so the model retries with the error and the surrounding file lines on a hidden channel (`/efficiency off` to disable). Sessions and memory are kept per working directory under `~/.kdeps/`; `kdeps` in a folder with history offers a resume picker.
 
 ```bash
 kdeps                            # bare agent loop REPL (resume picker if this folder has history)

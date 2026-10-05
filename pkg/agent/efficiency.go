@@ -99,9 +99,14 @@ type effLedger struct {
 	actions int
 	cats    map[string]int
 	reason  string
-	// repeatNote is the pending one-shot brief for a model caught repeating a
-	// tool call without progress; consumed by the next efficiencyNote.
-	repeatNote string
+	// failures counts this turn's failure soft stops (efficiency_failure.go).
+	failures int
+	// briefedFailure marks that the call just executed was soft-stopped, so
+	// its status note joins the brief instead of history (executeToolCalls).
+	briefedFailure bool
+	// briefs are pending one-shot notes (a repeated call, a failed tool or LLM
+	// call) delivered with the next model call by efficiencyNote.
+	briefs []string
 }
 
 // EfficiencyEnabled reports whether the governor is on (default: on).
@@ -339,14 +344,14 @@ func (l *Loop) efficiencyRepeatStop(tc domain.StreamedToolCall, result string, r
 	}
 	e.reason = fmt.Sprintf("%s repeated %d times with the same result", tc.Name, repeats)
 	args := summarizeToolArgs(tc.Arguments)
-	e.repeatNote = fmt.Sprintf(
+	l.queueEfficiencyBrief(fmt.Sprintf(
 		"%s Soft stop %d/%d. Why: you called %s (%s) %d times in a row and got the same result each "+
 			"time (%q). Repeating an identical call cannot change that outcome, so no progress was made. "+
 			"Needed: do something different - change the arguments, use another tool or approach, or fix "+
 			"the cause the result points to - then retry the task. If you are genuinely blocked, say so "+
 			"plainly in your answer instead of calling again. Do not mention this notice.",
 		efficiencyMark, e.stops, effectiveRounds(eventEfficiencyStops),
-		tc.Name, args, repeats, effSnippet(result))
+		tc.Name, args, repeats, effSnippet(result)))
 	return true
 }
 
@@ -389,11 +394,17 @@ func (l *Loop) efficiencyNote(tools []domain.Tool) string {
 	if !e.active {
 		return ""
 	}
-	if e.repeatNote != "" {
-		note := e.repeatNote
-		e.repeatNote = ""
-		return note
+	notes := e.briefs
+	e.briefs = nil
+	if note := l.efficiencyStateNote(tools); note != "" {
+		notes = append(notes, note)
 	}
+	return strings.Join(notes, "\n\n")
+}
+
+// efficiencyStateNote is the note for an open stop or a resume ("" if neither).
+func (l *Loop) efficiencyStateNote(tools []domain.Tool) string {
+	e := &l.eff
 	if e.open {
 		return fmt.Sprintf(
 			"%s Soft stop %d/%d. Why: %s. Needed: your next call must be an OUTPUT action (%s) that "+

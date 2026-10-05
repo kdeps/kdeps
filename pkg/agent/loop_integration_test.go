@@ -2460,9 +2460,10 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	assert.NotContains(t, result, "invoke")
 }
 
-// A failed work tool must be flagged to the model with a [TOOL FAILED] banner,
-// and the loop must not end the turn on a "done" claim right after it -- it
-// nudges once for a real success or an honest failure.
+// A failed work tool is soft-stopped: the error reaches the model on the hidden
+// efficiency channel (not as a [TOOL FAILED] banner in history), and the loop
+// must not end the turn on a "done" claim right after it -- it nudges once for
+// a real success or an honest failure.
 func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	calls := 0
 	eng := executor.NewEngine(nil)
@@ -2487,8 +2488,10 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 2)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]",
-		"the model must see the failed tool flagged")
+	assert.Contains(t, ms.cfgs[1].Prompt, efficiencyMark+" Soft stop (failure 1/",
+		"the model must be briefed on the failure")
+	assert.Contains(t, ms.cfgs[1].Prompt, "old_string not found in /a.go")
+	assert.NotContains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the brief replaces the history banner")
 	require.Len(t, ms.cfgs, 3, "a 'done' claim after a failed tool must draw one nudge")
 	assert.Contains(t, ms.cfgs[2].Prompt, "edit_file call failed")
 	assert.Contains(t, result, "edit failed")
@@ -2528,7 +2531,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 3)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the first failure must still be flagged")
+	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/", "the first failure must still be flagged")
 	assert.Contains(t, ms.cfgs[2].Messages, "[GOOD]", "the recovered success must carry praise")
 	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
 }

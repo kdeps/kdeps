@@ -43,6 +43,7 @@ var efficiencyValues = []struct {
 	{"reads", eventEfficiencyReads, "consecutive read-only calls before a stop", effValRounds},
 	{"actions", eventEfficiencyActions, "tool calls per turn before a stop", effValRounds},
 	{"stops", eventEfficiencyStops, "soft stops per turn before the turn ends", effValRounds},
+	{"failures", eventEfficiencyFailures, "failed tool/LLM calls briefed and retried per turn", effValRounds},
 	{"tighten", eventEfficiencyTighten, "reads budget lost per stop", effValItems},
 	{"web", eventEfficiencyWeb, "web calls per turn", effValDistinct},
 	{"bash", eventEfficiencyBash, "read-only bash calls per turn", effValDistinct},

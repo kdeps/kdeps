@@ -67,6 +67,57 @@ tool or approach, or fix the cause the result points to - then retry the task. D
 
 Like every efficiency note, the brief is never shown to you (unless `verbose` is on) and never stored. It uses the same `stops` budget; once that is spent, or when efficiency enforcement is off, the turn ends with the plain "The model repeated the same ..." notice.
 
+## Failed tool calls and failed model calls
+
+A failed call is stopped by kdeps itself - the model is not left to notice the error on its own. The moment a tool call fails (an edit that did not match, a missing path, bad arguments, an unknown tool, a denied call) or the model call itself is rejected, kdeps soft-stops, sends the model the error plus whatever it needs to fix it on the hidden channel, and the model tries again with that information.
+
+```d2
+direction: down
+call: "model calls a tool" {shape: oval}
+failed: "call failed?" {shape: diamond}
+ok: "result goes to history"
+brief: "soft stop\nhidden brief: error + context\n(file lines / folder listing / retry example)"
+budget: "failures left this turn?" {shape: diamond}
+banner: "plain [TOOL FAILED] banner\nin the tool result"
+retry: "model retries with the new information"
+call -> failed
+failed -> ok: "no"
+failed -> budget: "yes"
+budget -> brief: "yes"
+budget -> banner: "no"
+brief -> retry
+retry -> call
+```
+
+What the brief carries depends on the failure:
+
+| Failure | Extra context in the brief |
+|---|---|
+| `edit_file` did not apply | the file's current lines around the spot the edit aimed at (20 lines either side, numbered), plus the read-first retry example |
+| a path does not exist | the entries of the nearest existing folder, so the model can pick the real name |
+| any other tool error | the error, the call's arguments and a retry example |
+| the model call was rejected (bad request, malformed tool call) | the error; the round is re-run |
+
+```text
+[kdeps-efficiency] Soft stop (failure 1/5). Your last call failed and nothing changed: edit_file
+({"command":"str_replace","file_path":"/app/main.go",...}). Error: "old_str did not match ..."
+
+Current content of /app/main.go, lines 40-80 of 212:
+40	func main() {
+41		cfg := load()
+...
+
+Needed: use this to fix the cause and call again now - correct the arguments, the path or the text
+you match on, or use another tool. If it cannot be done, say plainly in your answer that this step
+failed; do NOT report it as done. Do not mention this notice.
+```
+
+The tool result in history keeps only the raw error (APIs require a result for every call); the brief, the file lines and the retry example never reach history, the REPL or the desktop app (unless `verbose` is on). You still see that the call failed in its tool line.
+
+Model-call errors that the model cannot fix are never retried this way: transient errors (rate limits, 5xx, network) are already retried with backoff, context overflow is compacted, and credential, billing, quota and unknown-model errors are returned to you at once.
+
+Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. Once it is spent the plain `[TOOL FAILED]` banner returns for tool calls, and a failing model call returns its error - also when the turn runs out of rounds first, so a turn never ends silently on a swallowed error.
+
 ## Multiple stops, then a forced end
 
 A turn can have several soft stops. Each stop **tightens** the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer instead of letting the loop continue.
@@ -82,6 +133,7 @@ Enforcement stands down when it is off, when the `audit` or `explain` agent pres
 /efficiency on|off             # master switch (persists)
 /efficiency verbose on|off     # reveal the model-facing channel (persists)
 /efficiency reads 4            # consecutive reads before a stop (persists)
+/efficiency failures 8         # failed calls briefed and retried per turn (persists)
 /efficiency web off            # remove one limit entirely (persists)
 /efficiency preset frugal      # overwrite ALL values from a harness preset
 /efficiency reset              # back to shipped defaults
@@ -92,6 +144,7 @@ Enforcement stands down when it is off, when the `audit` or `explain` agent pres
 | `reads` | consecutive read-only calls before a stop | 6 |
 | `actions` | tool calls per turn before a stop | 30 |
 | `stops` | soft stops per turn before the turn ends | 3 |
+| `failures` | failed tool/LLM calls briefed and retried per turn | 5 |
 | `tighten` | reads budget lost per stop | 1 |
 | `web` | web calls per turn | 5 |
 | `bash` | read-only bash calls per turn | 8 |
@@ -102,13 +155,13 @@ Enforcement stands down when it is off, when the `audit` or `explain` agent pres
 
 The `frugal`, `balanced` and `thorough` [harness presets](/agent/events#presets) set **every** efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
 
-| Preset | reads | actions | stops | tighten | web | bash | file | code |
-|---|---|---|---|---|---|---|---|---|
-| `frugal` | 4 | 20 | 2 | 1 | 3 | 5 | 6 | 4 |
-| `balanced` | 6 | 30 | 3 | 1 | 5 | 8 | 10 | 6 |
-| `thorough` | 12 | 60 | 4 | off | 8 | 15 | 20 | 10 |
+| Preset | reads | actions | stops | failures | tighten | web | bash | file | code |
+|---|---|---|---|---|---|---|---|---|---|
+| `frugal` | 4 | 20 | 2 | 3 | 1 | 3 | 5 | 6 | 4 |
+| `balanced` | 6 | 30 | 3 | 5 | 1 | 5 | 8 | 10 | 6 |
+| `thorough` | 12 | 60 | 4 | 8 | off | 8 | 15 | 20 | 10 |
 
-Each value is a normal [event](/agent/events) (`efficiency`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`, `efficiency-verbose`), stored as an override in `~/.kdeps/events/<name>.yaml` and round-tripped by [konfig](/agent/konfig):
+Each value is a normal [event](/agent/events) (`efficiency`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-failures`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`, `efficiency-verbose`), stored as an override in `~/.kdeps/events/<name>.yaml` and round-tripped by [konfig](/agent/konfig):
 
 ```yaml
 # ~/.kdeps/events/efficiency-reads.yaml
