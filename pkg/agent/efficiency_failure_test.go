@@ -88,7 +88,7 @@ func TestEfficiencyFailureStop_MissingPathListsFolder(t *testing.T) {
 	missing := filepath.Join(dir, "nope", "confg.yaml")
 
 	require.True(t, l.efficiencyFailureStop(
-		effCall(toolNameReadFile, `{"file_path":"`+missing+`"}`), `{"error":"no such file"}`))
+		effCall(toolNameReadFile, failEditArgs(t, map[string]any{"file_path": missing})), `{"error":"no such file"}`))
 	note := l.efficiencyNote(nil)
 	assert.Contains(t, note, missing+" does not exist. Entries in "+dir+": config.yaml, src/")
 }
@@ -163,13 +163,13 @@ func TestFailureFileContext_Skips(t *testing.T) {
 	dir := t.TempDir()
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `not json`)))
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `{"command":"view"}`)))
-	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `{"file_path":"`+dir+`"}`)), "folder")
+	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, failEditArgs(t, map[string]any{"file_path": dir}))), "folder")
 	file := numberedFile(t, 3)
-	assert.Empty(t, failureFileContext(effCall(toolNameReadFile, `{"file_path":"`+file+`"}`)),
+	assert.Empty(t, failureFileContext(effCall(toolNameReadFile, failEditArgs(t, map[string]any{"file_path": file}))),
 		"only edits get an excerpt of an existing file")
 	bin := filepath.Join(dir, "x.bin")
 	require.NoError(t, os.WriteFile(bin, []byte{0xff, 0xfe}, 0o600))
-	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `{"file_path":"`+bin+`"}`)), "binary")
+	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, failEditArgs(t, map[string]any{"file_path": bin}))), "binary")
 	assert.Contains(t, failureFileContext(effCall(toolNameListFiles, `{"path":"/nonexistent-kdeps/x"}`)),
 		"/nonexistent-kdeps/x does not exist.")
 }
@@ -229,9 +229,13 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 		}}
 	}
 	ms.inner = mockStreamer{responses: []mockStreamResponse{
-		call("v", `{"command":"view","file_path":"`+path+`"}`),
-		call("bad", `{"command":"str_replace","file_path":"`+path+`","old_str":"line 12\nline 99","new_str":"X"}`),
-		call("good", `{"command":"str_replace","file_path":"`+path+`","old_str":"line 12\n","new_str":"LINE 12\n"}`),
+		call("v", failEditArgs(t, map[string]any{"command": "view", "file_path": path})),
+		call("bad", failEditArgs(t, map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "line 12\nline 99", "new_str": "X",
+		})),
+		call("good", failEditArgs(t, map[string]any{
+			"command": "str_replace", "file_path": path, "old_str": "line 12\n", "new_str": "LINE 12\n",
+		})),
 		{content: "edited line 12"},
 	}}
 
