@@ -68,6 +68,8 @@ jobs:
           CGO_LDFLAGS: ${{ matrix.cgo_ldflags }}
           CGO_ENABLED: ${{ runner.os == 'macOS' && '1' || '' }}
           GOARCH: ${{ matrix.goarch }}
+          # Match LSMinimumSystemVersion; the runner's SDK default (26.x) makes the app unlaunchable on older macOS.
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
           set -euo pipefail
           v="${VERSION#v}"

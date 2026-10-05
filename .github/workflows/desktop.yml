@@ -50,6 +50,7 @@ jobs:
         working-directory: desktop
         env:
           CGO_LDFLAGS: ${{ matrix.ldflags }}
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: go build -tags "${{ matrix.tags }}" -ldflags "-s -w" -o kdeps-desktop-${{ runner.os }} .
       - name: Package (macOS dmg)
         if: runner.os == 'macOS'

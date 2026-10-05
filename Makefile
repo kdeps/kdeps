@@ -20,6 +20,8 @@ DESKTOP_OS := $(shell uname -s)
 ifeq ($(DESKTOP_OS),Darwin)
 DESKTOP_TAGS := desktop,production
 export CGO_LDFLAGS := -framework UniformTypeIdentifiers
+# Match LSMinimumSystemVersion; otherwise clang stamps the host/SDK version as minos.
+export MACOSX_DEPLOYMENT_TARGET := 11.0
 else ifeq ($(DESKTOP_OS),Linux)
 DESKTOP_TAGS := desktop,production,webkit2_41
 else
