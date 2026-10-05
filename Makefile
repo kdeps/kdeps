@@ -19,7 +19,10 @@ DESKTOP_OUT := dist/desktop
 DESKTOP_OS := $(shell uname -s)
 ifeq ($(DESKTOP_OS),Darwin)
 DESKTOP_TAGS := desktop,production
-export CGO_LDFLAGS := -framework UniformTypeIdentifiers
+# Match LSMinimumSystemVersion; otherwise clang stamps the host/SDK version as minos.
+# Flags (not MACOSX_DEPLOYMENT_TARGET) so the go build cache keys on them.
+export CGO_CFLAGS := -O2 -g -mmacosx-version-min=11.0
+export CGO_LDFLAGS := -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
 else ifeq ($(DESKTOP_OS),Linux)
 DESKTOP_TAGS := desktop,production,webkit2_41
 else

@@ -31,13 +31,13 @@ jobs:
             goarch: arm64
             tags: desktop,production
             ldflags: -s -w
-            cgo_ldflags: -framework UniformTypeIdentifiers
+            cgo_ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
           # Intel Mac: cross-compiled on the arm64 runner (clang targets x86_64).
           - os: macos-latest
             goarch: amd64
             tags: desktop,production
             ldflags: -s -w
-            cgo_ldflags: -framework UniformTypeIdentifiers
+            cgo_ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
           - os: ubuntu-latest
             goarch: amd64
             tags: desktop,production,webkit2_41
@@ -68,6 +68,8 @@ jobs:
           CGO_LDFLAGS: ${{ matrix.cgo_ldflags }}
           CGO_ENABLED: ${{ runner.os == 'macOS' && '1' || '' }}
           GOARCH: ${{ matrix.goarch }}
+          # Match LSMinimumSystemVersion; the runner's SDK default (26.x) makes the app unlaunchable on older macOS.
+          CGO_CFLAGS: ${{ runner.os == 'macOS' && '-O2 -g -mmacosx-version-min=11.0' || '' }}
         run: |
           set -euo pipefail
           v="${VERSION#v}"

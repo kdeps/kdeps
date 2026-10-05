@@ -127,6 +127,26 @@ else
     test_failed "desktop - app icon missing on some platform"
 fi
 
+# File drop: the webview must not open the file in place of the app, and a drop
+# onto an empty composer sends at once so the agent analyzes the files.
+if grep -q 'DisableWebViewDrop: true' "$DESKTOP_DIR/main.go" \
+    && grep -q 'addEventListener("drop", (e) => { e.preventDefault()' "$DESKTOP_DIR/frontend/dist/app.js" \
+    && grep -q 'requestSubmit' "$DESKTOP_DIR/frontend/dist/app.js" \
+    && grep -q 'analyzeAttachmentsPrompt' "$PROJECT_ROOT/pkg/desktop/service.go"; then
+    test_passed "desktop - dropped files attach and are analyzed"
+else
+    test_failed "desktop - file drop opens the file or does nothing"
+fi
+
+# macOS minimum: release builds must not require a newer macOS than Info.plist declares.
+if grep -q 'mmacosx-version-min=11.0' "$PROJECT_ROOT/.github/workflows/release-desktop.yml" \
+    && grep -q 'mmacosx-version-min=11.0' "$PROJECT_ROOT/Makefile" \
+    && grep -q 'MIN_OS=11.0' "$DESKTOP_DIR/packaging/macos/package.sh"; then
+    test_passed "desktop - macOS builds target 11.0"
+else
+    test_failed "desktop - macOS deployment target not pinned"
+fi
+
 # Homebrew cask: generator emits a valid cask for both architectures, and the release workflow publishes it.
 CASK_OUT="$("$DESKTOP_DIR/packaging/macos/make-cask.sh" v1.2.3 aaa111 bbb222 2>/dev/null)"
 if echo "$CASK_OUT" | grep -q '^cask "kdeps-desktop" do' \

@@ -22,6 +22,15 @@ ICONSET="$OUT/icon.iconset"
 rm -rf "$APP" "$STAGE" "$ICONSET"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$STAGE" "$ICONSET"
 
+# Refuse a binary whose minos exceeds LSMinimumSystemVersion: Finder shows it as
+# unlaunchable (crossed-out icon) on any macOS older than minos.
+MIN_OS=11.0
+minos="$(otool -l "$BIN" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')"
+if [ -n "$minos" ] && [ "$(printf '%s\n%s\n' "$MIN_OS" "$minos" | sort -V | tail -1)" != "$MIN_OS" ]; then
+  echo "binary minos $minos > $MIN_OS; rebuild with CGO_CFLAGS/CGO_LDFLAGS=-mmacosx-version-min=$MIN_OS" >&2
+  exit 1
+fi
+
 cp "$BIN" "$APP/Contents/MacOS/kdeps-desktop"
 sed "s/@VERSION@/$PLIST_VERSION/g" "$HERE/Info.plist.in" > "$APP/Contents/Info.plist"
 

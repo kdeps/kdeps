@@ -59,7 +59,9 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		DragAndDrop: &options.DragAndDrop{EnableFileDrop: true},
+		// DisableWebViewDrop: Wails hands us the paths; WebKit must not also
+		// open the dropped file in place of the app.
+		DragAndDrop: &options.DragAndDrop{EnableFileDrop: true, DisableWebViewDrop: true},
 		OnStartup:   app.startup,
 		Bind:        []any{app},
 		Linux:       &linux.Options{Icon: icon, ProgramName: "kdeps"},

@@ -131,16 +131,17 @@ function renderAttachments() {
 }
 
 function addFiles(paths) {
-  for (const p of paths || []) if (!state.files.includes(p)) state.files.push(p);
+  for (const p of paths || []) if (p && !state.files.includes(p)) state.files.push(p);
   renderAttachments();
 }
 
 async function send(ev) {
   ev.preventDefault();
   const text = $("input").value.trim();
-  if (!text) return;
-  addMessage("user", text);
   const files = state.files;
+  if (!text && !files.length) return;
+  // Files alone ask the agent to work out what they are and what to do with them.
+  addMessage("user", text || "Analyze: " + files.map((f) => f.split(/[\\/]/).pop()).join(", "));
   $("input").value = "";
   closeSuggest();
   state.files = [];
@@ -148,10 +149,10 @@ async function send(ev) {
   state.turn = null;
   state.cmd = null;
   try {
-    if (text.startsWith("/")) {
+    if (text.startsWith("/") && !files.length) {
       await api.Command(text);
     } else {
-      if (!state.current && !state.draft) { state.draft = text; refreshSessions(); }
+      if (!state.current && !state.draft) { state.draft = text || "Analyze files"; refreshSessions(); }
       await api.Send(text, files);
     }
     setRunning(true);
@@ -244,7 +245,8 @@ async function switchWorkspace() {
 let dragDepth = 0;
 window.addEventListener("dragenter", () => { dragDepth++; $("drop").hidden = false; });
 window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("drop").hidden = true; } });
-window.addEventListener("drop", () => { dragDepth = 0; $("drop").hidden = true; });
+// preventDefault stops the webview from opening the file in place of the app.
+window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("drop").hidden = true; });
 window.addEventListener("dragover", (e) => e.preventDefault());
 
 $("composer").addEventListener("submit", send);
@@ -263,6 +265,13 @@ $("ap-deny").addEventListener("click", () => answer("deny"));
 $("approval").addEventListener("cancel", (ev) => { ev.preventDefault(); answer("deny"); });
 
 rt.EventsOn("kdeps:event", onEvent);
-rt.EventsOn("kdeps:files", addFiles);
+// Dropped files attach; with an empty composer and no turn running they are
+// sent straight away so the agent analyzes them.
+rt.EventsOn("kdeps:files", (paths) => {
+  dragDepth = 0;
+  $("drop").hidden = true;
+  addFiles(paths);
+  if (!$("input").value.trim() && !$("send").hidden) $("composer").requestSubmit();
+});
 api.Ready().then(() => { refreshWorkspace(); refreshSessions(); })
   .catch((e) => addMessage("error", "startup failed: " + e));
