@@ -1,7 +1,5 @@
 # Desktop app
 
-*Applies to agent mode.*
-
 This is the reference for installing, building and configuring the app. For the product overview, see [kdeps desktop](/desktop/).
 
 The desktop app is the agent loop in a window: a chat UI with history, search, drag-and-drop files and a settings modal. It is the same `pkg/agent` loop the terminal REPL runs, so tools, memory, sessions, goals and judges behave identically - only the front end differs. One codebase builds for macOS, Linux and Windows (a [Wails](https://wails.io) shell around the system WebView, no Electron).
@@ -48,7 +46,7 @@ sudo pacman -U kdeps-desktop_<version>_linux_amd64.pkg.tar.zst    # Arch
 # Debian/Ubuntu runtime libraries (Fedora: sudo dnf install gtk3 webkit2gtk4.1)
 sudo apt install -y libgtk-3-0 libwebkit2gtk-4.1-0
 
-VERSION=2.53.2   # latest: https://github.com/kdeps/kdeps/releases/latest
+VERSION=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/kdeps/kdeps/releases/latest | sed "s#.*/v##")   # latest release, e.g. 2.55.0
 curl -fLO "https://github.com/kdeps/kdeps/releases/download/v${VERSION}/kdeps-desktop_${VERSION}_linux_amd64.tar.gz"
 
 tmp="$(mktemp -d)" && tar -xzf "kdeps-desktop_${VERSION}_linux_amd64.tar.gz" -C "$tmp"
@@ -70,7 +68,7 @@ scoop install kdeps-desktop   # adds a Start menu shortcut; scoop update kdeps-d
 ### Windows (PowerShell)
 
 ```powershell
-$v = "2.53.2"   # latest: https://github.com/kdeps/kdeps/releases/latest
+$v = (Invoke-RestMethod https://api.github.com/repos/kdeps/kdeps/releases/latest).tag_name.TrimStart("v")   # latest release
 $dir = "$env:LOCALAPPDATA\kdeps-desktop"
 Invoke-WebRequest "https://github.com/kdeps/kdeps/releases/download/v$v/kdeps-desktop_${v}_windows_amd64.zip" -OutFile kdeps-desktop.zip
 Expand-Archive kdeps-desktop.zip -DestinationPath $dir -Force

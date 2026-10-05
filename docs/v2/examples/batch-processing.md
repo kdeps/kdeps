@@ -1,39 +1,16 @@
 # Process a batch of items in one request
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an HTTP API that takes a list of items in one
+Build an HTTP API that takes a list of items in one
 request, fetches data for each item, transforms each result, and returns an
 aggregated summary. It uses `items:` iteration - a resource runs once per
 element in a list.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to send a POST request with `curl`
-
-By the end you will be able to:
-
-- Iterate a resource over a list with `items:`
-- Read the current element with `item` (or `get('current')`)
-- Iterate a second resource over the first resource's results
-- Aggregate iteration output with `len()`
-
-## Background
 
 Without `items:`, a resource runs once. With `items:` set to a list, the
 resource runs once per element, and each run produces its own output. The
 collected outputs become the resource's result - a list the next resource can
 iterate over in turn.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
-- Network access (the example calls the public GitHub API).
+**Needs:** Network access (the example calls the public GitHub API).
 
 ## Step 1: create the project
 
@@ -179,15 +156,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built an API that:
-
-- Iterates `fetch` over the request's `items` array with `items:`
-- Iterates `transform` over `fetch`'s collected results
-- Reads nested fields safely with `safe()` and `default()`
-- Aggregates the outputs with `len()` in the response
 
 ## Next steps
 

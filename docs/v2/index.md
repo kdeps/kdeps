@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: Build git-native AI appliances
-  tagline: "Your agent is YAML in your repo - reviewed as a pull request, versioned by tag. kdeps ships it with the open-source model as one deployment: cloud, on-prem, edge, or air-gapped. Run your own LLM and coding agent on your own country's servers - your data never leaves."
+  tagline: "Your agent is YAML in your repo - reviewed as a pull request, versioned by tag. kdeps ships it with the open-source model as one deployment: cloud, on-prem, edge, or air-gapped. Run your own LLM and coding agent on servers you control - your data stays there."
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /agent/ai-assisted-authoring
   actions:

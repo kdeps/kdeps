@@ -15,7 +15,7 @@
 
 **Git-native AI Appliance Builder** - your agent is YAML in your repo; ship the workflow, tools, and model as one self-contained deployment that runs anywhere.
 
-kdeps packages an AI workload - agent or deterministic API, not a chatbot - into a unit you can run as a terminal REPL, an HTTP API, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. That makes kdeps a data-sovereignty tool: run your own LLM and coding agent on servers in your own country, and your prompts, code, and data never reach a foreign cloud. kdeps is a small number of bounded pieces - pick the one you need:
+kdeps packages an AI workload - agent or deterministic API, not a chatbot - into a unit you can run as a terminal REPL, an HTTP API, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. That makes kdeps a data-sovereignty tool: run your own LLM and coding agent on servers you control, in the region you choose, and your prompts, code, and data never reach a third-party AI provider. kdeps is a small number of bounded pieces - pick the one you need:
 
 - **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
 - **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
@@ -26,7 +26,7 @@ kdeps packages an AI workload - agent or deterministic API, not a chatbot - into
 
 ## Data sovereignty
 
-Run your own LLM and coding agent on your own country's servers - no prompts, source code, or customer data sent to foreign AI providers.
+Run your own LLM and coding agent on servers you control, in the region you choose - no prompts, source code, or customer data sent to a third-party AI provider.
 
 ```text
 users -> kdeps agent/workflow (your server) -> LLM server (your server)
@@ -201,7 +201,7 @@ Docs: [Deployment guide](https://kdeps.com/deploy/) · [TLS and HTTPS](https://k
 - **Global config** - machine-local settings (LLM backend, API keys, SQL/SMTP/IMAP connections) live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. `kdeps edit` to open it, `kdeps doctor` to check it. [Docs](https://kdeps.com/reference/advanced-config)
 - **Security** - when `apiServer` is set, requests require a bearer token (`KDEPS_API_AUTH_TOKEN`) and pass through rate-limit, body-size, and concurrency caps before reaching the DAG. [Docs](https://kdeps.com/reference/security)
 - **Logging** - structured JSON via `log/slog`. `KDEPS_LOG_FORMAT=json` for production; default level WARN; `--verbose` (INFO), `--debug` (DEBUG).
-- **Innovation technology** - two standalone Go tools built alongside kdeps: [kdeps/kartographer](https://github.com/kdeps/kartographer) (graph library for resolving dependent nodes - powers the `requires:` DAG and folder/skill graphs) and [kdeps/turo](https://github.com/kdeps/turo) (reduces prose to content words to cut LLM input tokens - the optional agent-mode [prompt reducer](https://kdeps.com/agent/turo)).
+- **Built on** - two standalone Go tools built alongside kdeps: [kdeps/kartographer](https://github.com/kdeps/kartographer) (graph library for resolving dependent nodes - powers the `requires:` DAG and folder/skill graphs) and [kdeps/turo](https://github.com/kdeps/turo) (reduces prose to content words to cut LLM input tokens - the optional agent-mode [prompt reducer](https://kdeps.com/agent/turo)).
 - **Book** - [*AI Appliances - Build & Deploy Autonomous AI Agents and Agencies in YAML*](https://leanpub.com/kdeps). Free (PDF, EPUB, web).
 
 ---

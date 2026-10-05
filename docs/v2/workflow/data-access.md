@@ -50,7 +50,7 @@ after:
   - set('user_id', get('id'), 'session')        # survives to the next request
 ```
 
-`set()` is like assigning to a variable. Downstream resources read it with `get()`.
+Downstream resources read a `set()` value with `get()`.
 
 ## file() - read uploaded files
 

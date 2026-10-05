@@ -1,28 +1,9 @@
 # Build a phone assistant (IVR)
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an interactive voice response (IVR) phone menu: the
+Build an interactive voice response (IVR) phone menu: the
 caller hears a menu, presses a key or speaks, and the workflow either reads a
 static answer or has an LLM answer a spoken question. It uses the `telephony:`
 resource with a provider such as Twilio.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How webhook-based telephony providers work (a call triggers HTTP POSTs)
-
-By the end you will be able to:
-
-- Present a keypad menu with `telephony: action: menu`
-- Read a static message with `telephony: action: say`
-- Gather spoken input with `telephony: action: ask`
-- Route the spoken question to an LLM
-
-## Background
 
 A telephony provider turns a phone call into HTTP webhooks. Each menu choice
 maps to a route; the provider posts to that route when the caller acts. The
@@ -30,11 +11,7 @@ maps to a route; the provider posts to that route when the caller acts. The
 control (TwiML for Twilio). A spoken transcription arrives in the webhook body
 as `SpeechResult`.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A telephony provider account (Twilio) and a phone number, for a live test.
-- A working directory for the project.
+**Needs:** A telephony provider account (Twilio) and a phone number, for a live test.
 
 ## Step 1: create the project
 
@@ -205,15 +182,6 @@ curl -X POST http://localhost:16395/twilio/answer \
 
 For a live call, point your provider's voice webhook at
 `https://<your-host>/twilio/voice`.
-
-## Summary
-
-You built an IVR that:
-
-- Presents a keypad menu with `telephony: action: menu`
-- Reads a fixed answer with `action: say`
-- Gathers speech with `action: ask`
-- Sends the transcription (`SpeechResult`) to an LLM
 
 ## Next steps
 

@@ -3,7 +3,7 @@
 Three resources that build a retrieval-augmented generation (RAG) pipeline.
 Each has its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ```text
 loader (load + chunk)  ->  embedding OR vectorStore (index)  ->  embedding OR vectorStore (search)  ->  chat (answer with context)

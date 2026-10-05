@@ -41,7 +41,7 @@ Tries routes in priority order. On error, automatically retries the next route.
 llm:
   strategy: fallback
   models:
-    - model: claude-sonnet-4-20250514
+    - model: claude-sonnet-4-6
       backend: anthropic
       priority: 1
     - model: gpt-4o
@@ -86,7 +86,7 @@ llm:
   models:
     - model: gpt-4o
       backend: openai
-    - model: claude-sonnet-4-20250514
+    - model: claude-sonnet-4-6
       backend: anthropic
 ```
 

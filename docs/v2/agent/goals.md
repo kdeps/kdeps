@@ -2,8 +2,6 @@
 
 With goal-directed execution on, every prompt in the [agent loop REPL](/agent/) becomes an explicit task list that Go code drives to completion.
 
-*Applies to agent mode.*
-
 **Off by default.** Goal-directed execution adds a planning LLM call and extra
 output per turn, so it is opt-in: `/goal on` enables it for the session and
 persists the choice; `/goal off` turns it back off. Library and test callers

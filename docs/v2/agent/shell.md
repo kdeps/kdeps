@@ -2,8 +2,6 @@
 
 `bash_exec`, one of the [built-in tools](/agent/tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run.
 
-*Applies to agent mode.*
-
 | Key | Effect |
 |-----|--------|
 | `Ctrl+C` | Cancel the running tool. Partial output is returned to the LLM as a result so it can decide what to do next. Works for any built-in tool, not only `bash_exec`. |

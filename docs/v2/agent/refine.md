@@ -1,7 +1,5 @@
 # Prompt refinement
 
-*Applies to agent mode.*
-
 A terse or under-specified prompt ("fix that", "add the flag") makes the model
 guess, which wastes the first few tool rounds. **Prompt refinement** runs one
 cheap LLM call before the turn starts that rewrites your prompt into a clearer,

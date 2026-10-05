@@ -5,9 +5,9 @@ description: Run kdeps entirely offline with local models. Your code and prompts
 
 # Local models (llamafile & Ollama)
 
-kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine. For the full in-country picture (your own LLM server, air-gapped bundles), see [Data sovereignty](/start/data-sovereignty).
+kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine. For the full self-hosted picture (your own LLM server, air-gapped bundles), see [Data sovereignty](/start/data-sovereignty).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 Two local backends are supported: **llamafile** (the default, zero-install) and **Ollama** (model manager with a broader catalog).
 

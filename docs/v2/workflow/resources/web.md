@@ -2,7 +2,7 @@
 
 Three resources for reaching the web. Each has its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Use it for | Reference |
 | :--- | :--- | :--- |

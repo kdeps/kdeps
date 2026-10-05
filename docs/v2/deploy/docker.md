@@ -2,8 +2,6 @@
 
 `kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed - kdeps generates one from your `workflow.yaml`.
 
-*Applies to workflow mode.*
-
 ## Overview
 
 ```bash

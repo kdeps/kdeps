@@ -2,7 +2,7 @@
 
 Use cases, dynamic items, collecting results, and best practices for the [`items:` field](/workflow/items).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Use cases
 

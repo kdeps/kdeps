@@ -2,23 +2,7 @@
 
 Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt; the model decides when to call the workflow; kdeps runs the full DAG and returns the result.
 
-*Applies to agent mode - the interactive LLM chat REPL.*
-
-## Overview
-
-This tutorial is for developers who have:
-
-- Run the [agent REPL](/agent/quickstart)
-- Built the [quickstart](/workflow/quickstart) HTTP API (or any `workflow.yaml`)
-
-By the end you will load that workflow as a tool named after `metadata.name`, call it from a prompt, and see the DAG run as one tool invocation.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`)
-- A workflow directory with `workflow.yaml` and a `metadata.name` (the quickstart project `my-agent` is enough)
-
-No extra install. The same local llamafile from the REPL is used.
+**Needs:** a workflow directory with `workflow.yaml` and a `metadata.name` (the quickstart project `my-agent` works).
 
 ## How it works
 

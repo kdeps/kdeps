@@ -1,41 +1,15 @@
 # Build a document summarizer
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build a single-shot workflow that reads a document from a
+Build a single-shot workflow that reads a document from a
 file, sends it to a local LLM, and returns a structured JSON summary. It runs
 once and exits - no server, no polling.
-
-This tutorial is for developers who have installed kdeps and run the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to run a shell command and pipe input
-
-By the end you will be able to:
-
-- Configure the `file` input source
-- Read file content in a resource with `input()`
-- Chain an LLM resource to a response resource
-- Run the workflow three different ways (flag, stdin, env var)
-
-## Background
 
 kdeps workflows usually run as an HTTP API. The `file` input source is the
 exception: the workflow reads one file, processes it, prints the result, and
 exits. This is the shape you want for a cron job, a CI step, or a
 `kdeps run ... | jq` one-liner.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
-- A text file to summarize. Any `.txt` or `.md` file works.
-
-No LLM server is required. The default model runs as a local llamafile,
-downloaded on first run.
+**Needs:** A text file to summarize. Any `.txt` or `.md` file works.
 
 ## Step 1: create the project
 
@@ -187,15 +161,6 @@ Output:
   }
 }
 ```
-
-## Summary
-
-You built a single-shot workflow that:
-
-- Uses the `file` input source to run once and exit
-- Reads file content with `input('fileContent')`
-- Chains three resources with `requires:` and `get()`
-- Returns structured JSON
 
 ## Next steps
 

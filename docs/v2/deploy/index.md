@@ -15,8 +15,6 @@ rather than run it yourself, [kdeps registry](/registry/).
 
 ---
 
-*Applies to workflow mode.*
-
 End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
 
 ## Overview

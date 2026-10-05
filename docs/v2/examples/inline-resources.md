@@ -1,36 +1,13 @@
 # Run extra resources inline
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you attach `exec:`, `python:`, and `sql:` actions directly to
+Attach `exec:`, `python:`, and `sql:` actions directly to
 one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python and SQL
-
-By the end you will be able to:
-
-- Run a full action inside `before:` (setup)
-- Run full actions inside `after:` (post-processing)
-- Decide when an inline action is clearer than a separate resource
-
-## Background
 
 `before:` and `after:` usually hold bare expressions. They can also hold whole
 resource actions - `chat:`, `httpClient:`, `sql:`, `python:`, `exec:` - as list
 items. Use inline actions for one-off setup or teardown that only this resource
 needs; use a separate resource when other resources also depend on the result.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -146,14 +123,6 @@ curl -X POST http://localhost:16396/api/v1/process \
 
 The `before:` exec runs, then the chat, then the `after:` SQL insert and Python
 script - all within the `main` resource.
-
-## Summary
-
-You attached full actions to one resource:
-
-- `exec:` in `before:` for setup
-- `sql:` and `python:` in `after:` for persistence and post-processing
-- Kept them inline because nothing else depends on their output
 
 ## Next steps
 

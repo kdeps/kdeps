@@ -2,7 +2,7 @@
 
 Build a two-resource LLM API in [workflow mode](/workflow/), then load the same file as a tool in [agent mode](/agent/).
 
-*Applies to both workflow mode and agent mode. New to kdeps? Read [What is kdeps?](/start/) first.*
+Works in workflow and agent mode.
 
 ## The mental model
 

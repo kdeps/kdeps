@@ -3,7 +3,7 @@
 Two resources that pull text out of a media file. Each has its own reference
 page. Both can run fully offline with no API key.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Extracts text from | Reference |
 | :--- | :--- | :--- |

@@ -2,7 +2,7 @@
 
 Examples, error handling, and debugging guidance for the [`python:` resource](/workflow/resources/python).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Examples
 

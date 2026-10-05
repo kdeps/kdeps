@@ -1,36 +1,13 @@
 # Wrap a shell command in an API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API endpoint that runs a shell command with the
+Build an API endpoint that runs a shell command with the
 `exec:` resource and returns its output as JSON. This is the pattern for
 exposing a script, a CLI tool, or a system check as an HTTP service.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic shell commands
-
-By the end you will be able to:
-
-- Run a command with `exec:` and a timeout
-- Scope a resource to a method and route
-- Read request metadata with `info()`
-
-## Background
 
 The `exec:` resource runs a command and stores its stdout as the resource's
 output. It is the escape hatch for anything kdeps has no native resource for.
 The command runs with the privileges of the kdeps process, so only expose
 commands you trust.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -131,14 +108,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built an API that:
-
-- Runs a shell command with `exec:` and a 10-second timeout
-- Restricts the endpoint to `GET` with `validations.methods`
-- Returns the command output plus request metadata from `info()`
 
 ## Next steps
 

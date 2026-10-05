@@ -1,28 +1,9 @@
 # Scope environment variables per component
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build two components that both read the same environment
+Build two components that both read the same environment
 variable name but can be given different values - one per component - without
 touching the global variable. You will also see the `.env` file kdeps
 scaffolds for each component on first run.
-
-This tutorial is for developers who have completed the
-[Reusable component](/examples/custom-component) tutorial. It assumes you know:
-
-- Basic YAML
-- How environment variables work
-
-By the end you will be able to:
-
-- Read an environment variable in a component with `env()`
-- Override it for one component with a `{COMPONENT}_{VAR}` prefix
-- Fall back to a component's `.env` file
-- Understand the auto-scaffolded `.env` and `README.md`
-
-## Background
 
 When a component runs, `env('API_KEY')` is resolved in this order:
 
@@ -32,11 +13,6 @@ When a component runs, `env('API_KEY')` is resolved in this order:
 
 So a `translator` component and a `summarizer` component can each get their own
 key while sharing one variable name in the YAML.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the structure
 
@@ -203,14 +179,6 @@ cat components/translator/README.md   # generated from component.yaml metadata
 
 Fill in `.env` to provide a lowest-priority fallback value when no process
 environment variable is set.
-
-## Summary
-
-You built two components that:
-
-- Read the same variable name with `env('API_KEY')`
-- Resolve it independently: `{COMPONENT}_API_KEY` -> `API_KEY` -> `.env`
-- Got an auto-scaffolded `.env` and `README.md` on first run
 
 ## Next steps
 

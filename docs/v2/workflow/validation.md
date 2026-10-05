@@ -2,7 +2,7 @@
 
 The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
 
-*Applies to workflow mode.* Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
+Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
 
 ```yaml
 # resources/example.yaml

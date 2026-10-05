@@ -58,11 +58,18 @@ reference documents the CLI itself, not a mode-specific feature.
 
 ## Page structure
 
-- Start with a one-sentence summary: "X does Y" or "X is like Z, but W".
+- Start with a one-sentence summary: "X does Y".
 - Diagram before prose for any multi-step or multi-component concept: D2
   (` ```d2 ` block) for 4+ nodes or branching, ASCII (` ```text ` block) for
   linear flows of 3 nodes or fewer. Do not mix both on one page.
-- Lead with plain English before any YAML or code.
+- Write for a working developer. Do not explain programming basics (imports,
+  variables, functions, YAML, `curl`) or use analogies to them; state what the
+  thing does.
+- No audience lines ("this page is for..."), learning objectives, "you will be
+  able to", or end-of-page recaps of what the reader just did.
+- State the mode only where it is not clear from the section: a page under
+  `agent/` is agent mode and a page under `workflow/`, `deploy/` or `examples/`
+  is workflow mode. Shared pages say it in their first sentence.
 - Every non-obvious YAML field gets an inline comment explaining purpose and
   behavior: `timeout: 30s  # hard stop - returns error, does not retry`.
 - No dot-notation for config (`settings.apiServer.auth`). Show the real YAML block.

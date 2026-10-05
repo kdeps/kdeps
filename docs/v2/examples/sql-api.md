@@ -1,38 +1,15 @@
 # Build a SQL-backed API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API with two endpoints over a SQLite database:
+Build an API with two endpoints over a SQLite database:
 `GET /report` runs an analytics query and returns CSV; `POST /update` applies a
 batch of updates in a transaction.
 
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic SQL
-
-By the end you will be able to:
-
-- Declare a database connection in `workflow.yaml`
-- Run a parameterized query with `sql:` and `params:`
-- Return results as CSV or JSON with `format:`
-- Apply a batch of writes in one transaction with `paramsBatch:`
-
-## Background
-
 The `sql:` resource runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
 or Oracle. Parameters use `$1`, `$2`, ... placeholders - never string
-interpolation - so input cannot break out of the query. This tutorial uses
+interpolation - so input cannot break out of the query. This example uses
 SQLite so it runs with no database server.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- The `sqlite3` CLI (for creating the demo database).
-- A working directory for the project.
+**Needs:** The `sqlite3` CLI (for creating the demo database).
 
 ## Step 1: create the project and database
 
@@ -181,15 +158,6 @@ curl -X POST http://localhost:16395/update \
   -H "Content-Type: application/json" \
   -d '{"changes": [["inactive", 1], ["active", 3]]}'
 ```
-
-## Summary
-
-You built a SQL-backed API that:
-
-- Declares a SQLite connection in `sqlConnections`
-- Runs a parameterized analytics query returning CSV
-- Applies a batch of updates in one transaction with `paramsBatch:`
-- Routes `GET` and `POST` to different resources
 
 ## Next steps
 

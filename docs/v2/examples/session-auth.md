@@ -1,38 +1,13 @@
 # Add login and sessions to an API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API with two endpoints: `POST /login` checks a
+Build an API with two endpoints: `POST /login` checks a
 username and password and starts a session; `GET /session` returns the session
 data but only for a logged-in caller. Session state persists in SQLite.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python
-- How cookies and sessions work at a high level
-
-By the end you will be able to:
-
-- Configure SQLite-backed sessions with a TTL
-- Write session values with `set(key, value, 'session')`
-- Read them with `get(key, 'session')`
-- Gate a resource on a session value with `validations.check`
-
-## Background
 
 A session is per-caller key/value storage that survives across requests. kdeps
 issues a session id automatically and tracks it with a cookie. With
 `session.type: sqlite`, session data is written to a file, so it survives a
 server restart.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -193,15 +168,6 @@ curl -b cookies.txt http://localhost:16395/api/v1/session \
 ```
 
 Without the cookie the same call returns `401 not logged in`.
-
-## Summary
-
-You built an API that:
-
-- Persists sessions to SQLite with a 30-minute TTL
-- Writes session values in an `after:` block with `set(..., 'session')`
-- Reads them with `get(..., 'session')` and `session()`
-- Blocks unauthenticated calls with a `validations.check` on a session value
 
 ## Next steps
 

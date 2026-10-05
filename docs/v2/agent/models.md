@@ -2,8 +2,6 @@
 
 Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-session, auto-routing, and running local model servers.
 
-*Applies to agent mode.*
-
 ## Switching models
 
 `/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
