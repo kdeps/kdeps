@@ -23,7 +23,8 @@ jobs:
             tags: desktop,production,webkit2_41
           - os: macos-latest
             tags: desktop,production
-            ldflags: -framework UniformTypeIdentifiers
+            ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
+            cflags: -O2 -g -mmacosx-version-min=11.0
           - os: windows-latest
             tags: desktop,production
     steps:
@@ -50,7 +51,7 @@ jobs:
         working-directory: desktop
         env:
           CGO_LDFLAGS: ${{ matrix.ldflags }}
-          MACOSX_DEPLOYMENT_TARGET: "11.0"
+          CGO_CFLAGS: ${{ matrix.cflags }}
         run: go build -tags "${{ matrix.tags }}" -ldflags "-s -w" -o kdeps-desktop-${{ runner.os }} .
       - name: Package (macOS dmg)
         if: runner.os == 'macOS'

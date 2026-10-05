@@ -27,7 +27,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$STAGE" "$ICONSET"
 MIN_OS=11.0
 minos="$(otool -l "$BIN" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')"
 if [ -n "$minos" ] && [ "$(printf '%s\n%s\n' "$MIN_OS" "$minos" | sort -V | tail -1)" != "$MIN_OS" ]; then
-  echo "binary minos $minos > $MIN_OS; rebuild with MACOSX_DEPLOYMENT_TARGET=$MIN_OS" >&2
+  echo "binary minos $minos > $MIN_OS; rebuild with CGO_CFLAGS/CGO_LDFLAGS=-mmacosx-version-min=$MIN_OS" >&2
   exit 1
 fi
 
