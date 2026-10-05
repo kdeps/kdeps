@@ -2,6 +2,8 @@
 
 *Applies to agent mode.*
 
+This is the reference for installing, building and configuring the app. For the product overview, see [kdeps desktop](/desktop/).
+
 The desktop app is the agent loop in a window: a chat UI with history, search, drag-and-drop files and a settings modal. It is the same `pkg/agent` loop the terminal REPL runs, so tools, memory, sessions, goals and judges behave identically - only the front end differs. One codebase builds for macOS, Linux and Windows (a [Wails](https://wails.io) shell around the system WebView, no Electron).
 
 ```d2

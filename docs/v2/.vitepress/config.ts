@@ -61,6 +61,7 @@ export default defineConfig({
     nav: [
       { text: 'Start', link: '/start/' },
       { text: 'Agent', link: '/agent/' },
+      { text: 'Desktop', link: '/desktop/' },
       { text: 'Workflow', link: '/workflow/' },
       { text: 'Agencies', link: '/agencies/' },
       { text: 'LLM server', link: '/llm-server/' },
@@ -123,7 +124,8 @@ export default defineConfig({
             { text: 'Built-in tools', link: '/agent/tools' },
             { text: 'Shell execution', link: '/agent/shell' },
             { text: 'Local model management', link: '/agent/models' },
-            { text: 'Desktop app', link: '/agent/desktop' },
+            { text: 'Desktop app', link: '/desktop/' },
+            { text: 'Desktop app reference', link: '/agent/desktop' },
           ]
         },
         {

@@ -30,10 +30,14 @@ import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeComparison from './HomeComparison.vue'
 import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
+import DesktopLanding from './DesktopLanding.vue'
 import './custom.css'
 
 export default {
   extends: DefaultTheme,
+  enhanceApp({ app }) {
+    app.component('DesktopLanding', DesktopLanding)
+  },
   Layout() {
     return h(DefaultTheme.Layout, null, {
       'nav-bar-content-before': () => h(MegaNav),

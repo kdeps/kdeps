@@ -56,6 +56,7 @@ const categories: MenuCategory[] = [
       items: [
         { title: 'Overview', desc: 'Autonomous LLM REPL, fully offline, no API key', link: '/agent/' },
         { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
+        { title: 'Desktop app', desc: 'The agent in a native window for macOS, Windows and Linux', link: '/desktop/' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools the LLM can call', link: '/agent/tools' },
         { title: 'Goal-directed execution', desc: 'Turns a prompt into a task list Go code drives to completion', link: '/agent/goals' },
         { title: 'Judge panel', desc: 'Checks the work is actually good, not just that it moved', link: '/agent/judges' },
