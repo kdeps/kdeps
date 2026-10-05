@@ -163,13 +163,14 @@ func TestFailureFileContext_Skips(t *testing.T) {
 	dir := t.TempDir()
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `not json`)))
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `{"command":"view"}`)))
-	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, failEditArgs(t, map[string]any{"file_path": dir}))), "folder")
+	pathArgs := func(p string) string { return failEditArgs(t, map[string]any{"file_path": p}) }
+	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, pathArgs(dir))), "folder")
 	file := numberedFile(t, 3)
-	assert.Empty(t, failureFileContext(effCall(toolNameReadFile, failEditArgs(t, map[string]any{"file_path": file}))),
+	assert.Empty(t, failureFileContext(effCall(toolNameReadFile, pathArgs(file))),
 		"only edits get an excerpt of an existing file")
 	bin := filepath.Join(dir, "x.bin")
 	require.NoError(t, os.WriteFile(bin, []byte{0xff, 0xfe}, 0o600))
-	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, failEditArgs(t, map[string]any{"file_path": bin}))), "binary")
+	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, pathArgs(bin))), "binary")
 	assert.Contains(t, failureFileContext(effCall(toolNameListFiles, `{"path":"/nonexistent-kdeps/x"}`)),
 		"/nonexistent-kdeps/x does not exist.")
 }
