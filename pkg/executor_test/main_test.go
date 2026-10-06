@@ -16,37 +16,24 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+package executor_test
 
 import (
 	"os"
 	"testing"
 )
 
+// TestMain gives the tests an empty home: session storage defaults to
+// ~/.kdeps/sessions.db, which a running kdeps (CLI or desktop app) holds
+// locked.
 func TestMain(m *testing.M) {
-	// Point at an empty, isolated directory instead of unsetting: unset falls
-	// back to the real ~/.kdeps/components, which flakes when that directory
-	// has leftover or concurrently-written component fixtures on a shared
-	// machine (e.g. other test suites/agents running against the same home dir).
-	dir, err := os.MkdirTemp("", "kdeps-component-dir")
+	home, err := os.MkdirTemp("", "kdeps-test-home")
 	if err == nil {
-		_ = os.Setenv("KDEPS_COMPONENT_DIR", dir)
-	} else {
-		_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
-	}
-	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
-	// Session storage defaults to ~/.kdeps/sessions.db, which a running kdeps
-	// (CLI or desktop app) holds locked; use an empty home instead.
-	home, homeErr := os.MkdirTemp("", "kdeps-test-home")
-	if homeErr == nil {
 		_ = os.Setenv("HOME", home)
 		_ = os.Setenv("USERPROFILE", home)
 	}
 	code := m.Run()
-	if dir != "" {
-		_ = os.RemoveAll(dir)
-	}
-	if homeErr == nil {
+	if err == nil {
 		_ = os.RemoveAll(home)
 	}
 	os.Exit(code)

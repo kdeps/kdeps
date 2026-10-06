@@ -32,7 +32,7 @@ const features = [
   { title: 'You approve every action', body: 'In ask mode each tool call and every path outside the workspace opens an approval: allow once, allow always, or deny.' },
   { title: 'Workspaces with memory', body: 'A workspace is a folder. History, search and persistent memory are kept per folder, and file tools never leave it.' },
   { title: 'Every setting, no YAML', body: 'Settings are generated from the config schema: dropdowns, sliders and suggestions for every field, plus harness sections, custom instructions and memories.' },
-  { title: 'Take your setup anywhere', body: 'Export tuning, harness settings and skills as one profile file and import it on the next machine.' },
+  { title: 'Build and run workflows', body: 'Create workflows and components from a template, add resources with forms, run them with one button, or hand them to the chat agent as tools.' },
 ]
 
 const rows = [

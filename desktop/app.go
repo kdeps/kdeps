@@ -20,6 +20,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -79,12 +81,42 @@ func (a *App) init(ctx context.Context, emit func(desktop.Event), engine *execut
 		Cwd:          ws,
 		ResolveModel: cmd.DesktopStartModel,
 		WireREPL:     cmd.DesktopWireREPL,
+		Runner:       cmd.NewDesktopRunner(cliArgv()...),
 	})
 	if err != nil {
 		return err
 	}
 	a.Service = svc
 	return a.Service.SetWorkspace(ws)
+}
+
+// shutdown is Wails' OnShutdown hook: projects started from the app stop
+// with it.
+func (a *App) shutdown(_ context.Context) {
+	if a.Service != nil {
+		a.Service.StopAll()
+	}
+}
+
+// RevealProject opens a project's folder in the system file manager, for
+// editing files the builder leaves alone.
+func (a *App) RevealProject(path string) error {
+	for _, p := range a.Service.Projects() {
+		if p.Path == path {
+			runtime.BrowserOpenURL(a.ctx, (&url.URL{Scheme: "file", Path: p.Dir}).String())
+			return nil
+		}
+	}
+	return fmt.Errorf("desktop: %s is not a listed project", path)
+}
+
+// cliArgv invokes this binary as the kdeps CLI.
+func cliArgv() []string {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = os.Args[0]
+	}
+	return []string{exe, cmd.DesktopCLIFlag}
 }
 
 // Ready blocks until startup has finished. The frontend can load before
@@ -125,6 +157,21 @@ func (a *App) PickFiles() ([]string, error) {
 		Title:            "Attach files",
 		DefaultDirectory: a.Service.Workspace(),
 	})
+}
+
+// ImportEnvFile asks for any text file of NAME=value lines and returns its
+// validated text, for the Run tab to add to a project's variables. It
+// returns "" when cancelled.
+func (a *App) ImportEnvFile() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Import environment variables",
+		DefaultDirectory: a.Service.Workspace(),
+		ShowHiddenFiles:  true,
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return a.Service.ReadEnvFile(path)
 }
 
 // SaveProfile asks for a destination and writes the work profile (konfig)

@@ -119,6 +119,7 @@ func newService(t *testing.T, turns ...replayTurn) (*desktop.Service, *collector
 		StateDir: filepath.Join(home, ".kdeps"),
 		Model:    "test",
 		Streamer: &replayStreamer{turns: turns},
+		Runner:   cmd.NewDesktopRunner(os.Args[0], cmd.DesktopCLIFlag),
 	})
 	require.NoError(t, err)
 
