@@ -1,14 +1,26 @@
 # kdeps agent
 
-**An autonomous LLM REPL you run locally.** Tool use, persistent memory, multi-step
-reasoning, skills, goals, and a judge panel - against a local model, no API key,
-fully offline. Whole workflows and components register as callable tools; the
+**An autonomous LLM REPL you run on your machine.** Tool use, persistent memory, multi-step
+reasoning, skills, goals, and a judge panel. The default model is local, with no API key,
+fully offline. Point `llm.base_url` at an [LLM server](/llm-server/) you run and the same
+REPL sends prompts there. Whole workflows and components register as callable tools; the
 model decides what to invoke.
 
 ```bash
 kdeps            # bare REPL - built-in tools only
 kdeps ./my-agent # also load that agent's workflows/components as tools
 ```
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1   # your LLM server, your network
+  models:
+    - llama3.2                            # one model, or several
+```
+
+The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
 **Not this?** If you want a deterministic request→response pipeline (same input,
 same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).

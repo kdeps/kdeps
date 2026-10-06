@@ -24,7 +24,7 @@ features:
     link: /workflow/
     linkText: Build a workflow
   - title: kdeps agent
-    details: Run `kdeps` and you are in an AI REPL - an autonomous agent with tool use and memory that works fully offline against a local model.
+    details: Run `kdeps` and you are in an AI REPL - an autonomous agent with tool use and memory. It runs offline against a local model, or against an LLM server you host.
     link: /agent/
     linkText: Explore the agent
   - title: kdeps agencies

@@ -18,7 +18,7 @@
 kdeps packages an AI workload - a deterministic API or an agent, not a chatbot - into a unit you can run as an HTTP API, a terminal REPL, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. That makes kdeps a data-sovereignty tool: run your own LLM and coding agent on servers you control, in the region you choose, and your prompts, code, and data never reach a third-party AI provider. kdeps is a small number of bounded pieces - pick the one you need:
 
 - **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
-- **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
+- **[kdeps agent](https://kdeps.com/agent/)** - coding CLI. Tool use and memory, offline against a local model, or pointed at an LLM server you run (`llm.base_url`).
 - **[kdeps agencies](https://kdeps.com/agencies/)** - coordinate several specialized agents as one system, delegating work through the `agent:` resource.
 - **[kdeps LLM server](https://kdeps.com/llm-server/)** - provision a standalone OpenAI-compatible inference appliance, no workflow path required.
 - **[kdeps deploy](https://kdeps.com/deploy/)** - Docker image, Kubernetes manifests, a bootable ISO, or a single binary. Same workflow.yaml, no rewrites, no re-config.
@@ -29,14 +29,25 @@ kdeps packages an AI workload - a deterministic API or an agent, not a chatbot -
 Run your own LLM and coding agent on servers you control, in the region you choose - no prompts, source code, or customer data sent to a third-party AI provider.
 
 ```text
-users -> kdeps agent/workflow (your server) -> LLM server (your server)
-                                    \-> your data (files, DBs, repos)
+desktop app and CLI (each machine) -- /v1 --> LLM server you run
+workflows (your server)              -- /v1 --> LLM server
+your data (files, DBs, repos) stays on those machines
+hosted API: off unless you configure it
 ```
 
 ```bash
-kdeps                 # coding agent REPL on a local model - nothing leaves the machine
-kdeps llm wizard      # stand up your own OpenAI-compatible LLM server in your datacenter
+kdeps                 # coding CLI; local model by default
+kdeps llm wizard      # LLM server in your datacenter; point the desktop and the CLI at it
 kdeps bundle build    # pin the model inside an image for air-gapped networks
+```
+
+```yaml
+# ~/.kdeps/config.yaml on each desktop and CLI
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1   # your LLM server
+  models:
+    - llama3.2                            # one model, or several
 ```
 
 Hosted backends are opt-in, never default. See [Data sovereignty](https://kdeps.com/start/data-sovereignty).

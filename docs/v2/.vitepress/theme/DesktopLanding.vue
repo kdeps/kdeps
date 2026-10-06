@@ -36,10 +36,10 @@ const features = [
 ]
 
 const rows = [
-  { label: 'Your prompts and files leave the machine', hosted: 'Always', kdeps: 'Never, with a local model' },
+  { label: 'Your prompts and files leave your boundary', hosted: 'Always', kdeps: 'Never, with a local model or your own LLM server' },
   { label: 'Works offline / air-gapped', hosted: 'No', kdeps: 'Yes - the UI loads nothing from a CDN' },
   { label: 'Edits files and runs commands for you', hosted: 'In a remote sandbox', kdeps: 'In your workspace, with approval' },
-  { label: 'Choice of model', hosted: "The vendor's", kdeps: '300+ local builds, Ollama, 11 clouds' },
+  { label: 'Choice of model', hosted: "The vendor's", kdeps: '300+ local builds, Ollama, a server you run, or a cloud key' },
   { label: 'Price', hosted: 'Subscription or per token', kdeps: 'Free, Apache 2.0' },
 ]
 </script>
@@ -53,7 +53,9 @@ const rows = [
         <h1>Your AI agent,<br>on your desk.</h1>
         <p class="lede">
           The kdeps agent in a native window for macOS, Windows and Linux. Run a local model and nothing
-          leaves your machine - or bring your own key. Drop in files, approve its actions, keep the history.
+          leaves your machine, or point Settings at an <a href="/llm-server/">LLM server</a> you run.
+          Drop in files, approve its actions, keep the history.
+          The boundary is <a href="/start/data-sovereignty">data sovereignty</a>.
         </p>
         <div class="ctas">
           <a class="btn primary" :href="releases">Download for macOS</a>
@@ -156,7 +158,7 @@ const rows = [
         <div class="steps">
           <div class="step"><div class="num">01</div><h3>Install</h3><p>Homebrew, Scoop, a Linux package, or the file from the release page.</p></div>
           <div class="arrow">-></div>
-          <div class="step"><div class="num">02</div><h3>Pick a model</h3><p>Click the model name. Choose a local build to stay offline, or a cloud model and paste its key in Settings.</p></div>
+          <div class="step"><div class="num">02</div><h3>Pick a model</h3><p>Click the model name. Choose a local build to stay offline, set the base URL of an LLM server you run, or pick a cloud model and paste its key in Settings.</p></div>
           <div class="arrow">-></div>
           <div class="step"><div class="num">03</div><h3>Ask or drop a file</h3><p>Type a question, or drop files on the window and the agent starts analyzing them.</p></div>
         </div>
@@ -200,7 +202,7 @@ const rows = [
     <section class="band final">
       <div class="container">
         <h2>Stop renting your AI. Run it.</h2>
-        <p class="sub">A local model, your files, your machine.</p>
+        <p class="sub">A local model or your own server. Your files. Your machine.</p>
         <div class="ctas center">
           <a class="btn primary" :href="releases">Download kdeps desktop</a>
           <a class="btn" href="/agent/desktop">Read the docs</a>

@@ -2,6 +2,17 @@
 
 This is the reference for installing, building and configuring the app. For the product overview, see [kdeps desktop](/desktop/).
 
+The window uses the same model config as the [coding CLI](/agent/). A local model stays on this machine. To use a server you run, set `llm.base_url` in Settings or in `~/.kdeps/config.yaml`. The steps are [Desktop app to a private LLM server](/start/data-sovereignty#desktop-app-to-a-private-llm-server). Build that server with [kdeps LLM server](/llm-server/).
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1   # your LLM server, your network
+  models:
+    - llama3.2                            # one model, or several
+```
+
 The desktop app is the agent loop in a window: a chat UI with history, search, drag-and-drop files and a settings modal. It is the same `pkg/agent` loop the terminal REPL runs, so tools, memory, sessions, goals and judges behave identically - only the front end differs. One codebase builds for macOS, Linux and Windows (a [Wails](https://wails.io) shell around the system WebView, no Electron).
 
 ```d2
@@ -22,7 +33,7 @@ It is an agent-mode front end. Workflows, components and agencies still show up 
 
 ## Install
 
-The app is standalone: the `kdeps` CLI does not need to be installed. You only need a model (a cloud API key, or a local model it downloads on first use).
+The app is standalone: the `kdeps` CLI does not need to be installed. You need a model: one this app downloads on first use, an LLM server you run, or a cloud API key.
 
 ```bash
 brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or Intel; clears the quarantine flag
@@ -199,4 +210,4 @@ Saving a setting writes `config.yaml` (preserving comments and other keys) and a
 
 ## Offline
 
-The front end is plain HTML, CSS and JavaScript embedded in the binary. It loads nothing from a CDN, so the app works air-gapped with a local model - the data sovereignty story is the same as the CLI's.
+The front end is plain HTML, CSS and JavaScript embedded in the binary. It loads nothing from a CDN, so the app works air-gapped with a local model. Pointed at an LLM server you run, prompts go to that server and stop there. The rule is the same as the CLI's: [Data sovereignty](/start/data-sovereignty).
