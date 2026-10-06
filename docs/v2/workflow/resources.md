@@ -88,7 +88,7 @@ apiResponse:
     answer: get('llm').message.content   # reply text from the llm resource
 ```
 
-`requires:` lists **direct** dependencies only. kdeps resolves transitive dependencies automatically - you do not list the whole chain.
+`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically - you do not list the whole chain.
 
 ## Resource types
 

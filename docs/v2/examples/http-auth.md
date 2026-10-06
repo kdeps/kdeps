@@ -5,8 +5,9 @@ bearer token, retries on transient failures, and caches the response. You will
 also see API-key auth and TLS options.
 
 The `httpClient:` resource makes an outbound request and stores the parsed body
-as its output. It has built-in `auth:`, `retry:`, `cache:`, and `tls:` blocks -
-you do not write retry loops or token headers by hand.
+as its output. Credentials come from a named connection in `~/.kdeps/config.yaml`
+(`connectionName:`), so the token never sits in the repo. `retry:`, `cache:` and
+`tls:` are built in - you do not write retry loops or token headers by hand.
 
 **Needs:** Network access (the example calls `httpbin.org`).
 
@@ -57,9 +58,7 @@ httpClient:
   method: GET
   url: "https://httpbin.org/bearer"
   timeout: 10s
-  auth:
-    type: bearer
-    token: "{{ get('api_token', 'demo-token') }}"   # ?api_token=... or default
+  connectionName: httpbin                           # auth from http_connections.httpbin
   retry:
     maxAttempts: 3
     backoff: 1s
@@ -71,6 +70,17 @@ httpClient:
 ```
 
 </div>
+
+The `httpbin` connection holds the bearer token, machine-locally:
+
+```yaml
+# ~/.kdeps/config.yaml
+http_connections:
+  httpbin:
+    auth:
+      type: bearer          # basic | bearer | api_key | oauth2
+      token: my-real-token
+```
 
 ## Step 4: return the result
 
@@ -98,36 +108,57 @@ apiResponse:
 ```bash
 kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
+# skip these two if http_connections.httpbin is in config.yaml
+export KDEPS_HTTP_CONNECTIONS_HTTPBIN_AUTH_TYPE=bearer
+export KDEPS_HTTP_CONNECTIONS_HTTPBIN_AUTH_TOKEN=my-real-token
 kdeps run .
 ```
 
 ```bash
-curl "http://localhost:16395/api/v1/call?api_token=my-real-token" \
+curl http://localhost:16395/api/v1/call \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
 ```
+
+The upstream accepted the token:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": 200,
+    "upstream": {
+      "statusCode": 200,
+      "data": {"authenticated": true, "token": "my-real-token"},
+      "headers": {"Content-Type": "application/json", "...": "..."}
+    },
+    "at": "..."
+  }
+}
+```
+
+A `"statusCode": 401` here means the connection has no token: check the two
+`KDEPS_HTTP_CONNECTIONS_HTTPBIN_*` variables or `http_connections.httpbin`.
 
 The second identical call within 5 minutes returns the cached body without
 hitting `httpbin.org`.
 
 ## Other auth types
 
-API key in a header:
+Other auth types are set on the named connection in `~/.kdeps/config.yaml`:
 
 ```yaml
-# resources/call.yaml (auth block)
-auth:
-  type: api_key
-  key: "X-API-Key"
-  value: "{{ get('api_key') }}"
-```
-
-Basic auth:
-
-```yaml
-auth:
-  type: basic
-  username: "{{ get('user') }}"
-  password: "{{ get('pass') }}"
+# ~/.kdeps/config.yaml
+http_connections:
+  partner_api:
+    auth:
+      type: api_key
+      key: "X-API-Key"      # header name
+      value: "sk-..."       # header value
+  legacy_api:
+    auth:
+      type: basic
+      username: svc-user
+      password: "..."
 ```
 
 Skip TLS verification (test environments only):

@@ -9,7 +9,7 @@ kdeps can run entirely offline. When you use a local model backend, nothing is s
 
 Works in workflow and agent mode.
 
-Two local backends are supported: **llamafile** (the default, zero-install) and **Ollama** (model manager with a broader catalog).
+Two local backends are supported: llamafile (the default, zero-install) and Ollama (model manager with a broader catalog).
 
 ---
 

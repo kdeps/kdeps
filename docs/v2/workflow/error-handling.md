@@ -128,7 +128,7 @@ onError:
     - error.message contains 'deadline exceeded'
 ```
 
-If the error doesn't match any `when` condition, the error is NOT handled and propagates normally.
+If the error does not match any `when` condition, the error is NOT handled and propagates normally.
 
 ### Execute expressions on error (`expr`)
 

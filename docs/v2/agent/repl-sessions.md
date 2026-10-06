@@ -39,18 +39,18 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 
 - The picker only appears in an interactive terminal with at least one saved
   session for this folder and no `--resume` / `--new`. Piped input starts clean.
-- Resuming, continuing, then exiting **updates the same session** - it does not
+- Resuming, continuing, then exiting updates the same session - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
 - Settings (`/refine`, `/theme`, the default model, tool tuning), the model
   cache, and everything else under `~/.kdeps/` are unchanged.
 - `ctrl+d` on a highlighted session deletes it in place (the "Start a new
-  session" row can't be deleted) - same as `/session delete <id>`, just
+  session" row cannot be deleted) - same as `/session delete <id>`, just
   reachable from the picker itself.
 - Multiple `kdeps` instances can point at the same folder at once, each with
   its own picker and its own chosen (or new) session - the underlying session
   file is opened only for the moment of each read/write, not held open for an
-  instance's whole run, so instances don't lock each other out.
+  instance's whole run, so instances do not lock each other out.
 
 ## Session commands
 

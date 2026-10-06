@@ -6,7 +6,7 @@ Common questions about kdeps installation, usage, and architecture.
 
 Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all resources are free to use.
 
-## What's the difference between workflow mode and agent mode?
+## What is the difference between workflow mode and agent mode?
 
 [Workflow mode](/workflow/) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
@@ -32,7 +32,7 @@ Set the backend, base URL, and model via flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
-Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `scraper`, `browser`, `file`, `git`, `codeIntelligence`, and `apiResponse` don't require an LLM. You can build pure data pipelines with no AI at all.
+Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `scraper`, `browser`, `file`, `git`, `codeIntelligence`, and `apiResponse` do not require an LLM. You can build pure data pipelines with no AI at all.
 
 ## How is this different from writing a Python script?
 
@@ -43,7 +43,7 @@ kdeps separates orchestration (the DAG, dependencies, error handling) from imple
 - Session and memory management
 - Input validation
 
-You'd have to write all of that yourself in a script. kdeps gives it to you from a YAML file.
+You would have to write all of that yourself in a script. kdeps gives it to you from a YAML file.
 
 ## How is this different from LangChain?
 
@@ -82,9 +82,9 @@ httpClient:
 
 Never hardcode secrets in workflow YAML files.
 
-## What's the maximum workflow size?
+## What is the maximum workflow size?
 
-There's no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
+There is no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
 
 ## Can I use kdeps in CI/CD pipelines?
 

@@ -274,7 +274,7 @@ browser:
 
 ## Output
 
-After execution the resource output contains the **result of the last `evaluate` action** (or the final page URL when no evaluate action is present).
+After execution the resource output contains the result of the last `evaluate` action (or the final page URL when no evaluate action is present).
 Access it with `get('actionId')`.
 
 ```yaml

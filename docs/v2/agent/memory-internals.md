@@ -12,7 +12,7 @@ The agent loop extracts facts from every turn without an explicit `memory_save` 
 [MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v2
 ```
 
-The marker is extracted into the store and then **removed from the reply** before it is shown or written to the transcript - the model's `[MEMORY: ...]` line and any echoed `GOAL:` / `ACTIVE TASK` directive fragment never reach the terminal.
+The marker is extracted into the store and then removed from the reply before it is shown or written to the transcript - the model's `[MEMORY: ...]` line and any echoed `GOAL:` / `ACTIVE TASK` directive fragment never reach the terminal.
 
 **2. Action sentences.** The first action sentence of the assistant response is captured as a `last_action` entry:
 
@@ -40,11 +40,11 @@ prompt -> purpose -> progress -> tool_result -> result -> status
                                action, error, file, decision, fact, note
 ```
 
-The graph is **inlined into the `<memory>` block** rather than drawn as a separate diagram: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. Each entry renders on exactly one line - a multiline value has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
+The graph is inlined into the `<memory>` block rather than drawn as a separate diagram: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. Each entry renders on exactly one line - a multiline value has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
 
 ## Prompt injection
 
-On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type plus the resume target with its **relative age**), the entries in topological order (parents first) with `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream dependencies:
+On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type plus the resume target with its relative age), the entries in topological order (parents first) with `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream dependencies:
 
 ```
 <memory>
@@ -60,7 +60,7 @@ The `(2m ago)` hint is a coarse relative age (`just now`/`Nm`/`Nh`/`Nd ago`) a m
 
 ## What the budget keeps
 
-The block is truncated to a token budget, but not oldest-first: the **active task chain**, entries **relevant to the current prompt** (matched on significant prompt words at word boundaries), and the **newest unresolved error** are always kept - unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
+The block is truncated to a token budget, but not oldest-first: the active task chain, entries relevant to the current prompt (matched on significant prompt words at word boundaries), and the **newest unresolved error** are always kept - unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
 
 ## Unresolved errors
 
@@ -83,7 +83,7 @@ This preserves important information across compaction boundaries.
 
 After every compaction (or [fold](/agent/repl-context#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
 
-The previous checkpoint is never silently discarded: it's archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply aren't in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
+The previous checkpoint is never silently discarded: it is archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply are not in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 
 ## Leaf-node limits
 
@@ -99,7 +99,7 @@ The agent's full LLM config (model, backend, base URL) is saved to `session:conf
 
 To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries - the oldest are auto-deleted when the cap is reached. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
 
-Auto-extracted **low-signal** entries (types `note` and `fact`) are globally capped at 50 combined - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+Auto-extracted low-signal entries (types `note` and `fact`) are globally capped at 50 combined - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
 
 ## See also
 

@@ -5,7 +5,7 @@ description: What kdeps is, the problem it solves, and the smallest mental model
 
 # What is kdeps?
 
-kdeps is a **git-native AI appliance builder**. You describe an agent in YAML -
+kdeps is a git-native AI appliance builder. You describe an agent in YAML -
 which model to call, what to validate, what shape the answer takes - and those
 files are the whole spec. Commit them, and kdeps packages the workflow, its
 tools, and the model into one self-contained unit you can run as an HTTP

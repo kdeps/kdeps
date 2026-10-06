@@ -1,6 +1,6 @@
 # Code intelligence resource
 
-The `codeIntelligence:` resource provides structured code navigation using **LSP** (Language Server Protocol) for semantic accuracy, with automatic fallback to [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) when no LSP server is available. Supports Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, and Java. Works in both modes: a DAG step in workflow mode, a built-in tool in agent mode.
+The `codeIntelligence:` resource provides structured code navigation using LSP (Language Server Protocol) for semantic accuracy, with automatic fallback to [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) when no LSP server is available. Supports Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, and Java. Works in both modes: a DAG step in workflow mode, a built-in tool in agent mode.
 
 ## How it works
 
@@ -49,11 +49,11 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, it is
 | `extensions` | indexFolder | File extensions to index, e.g. `[".md", ".yaml"]`. Defaults to `.md`/`.markdown`/`.txt`/`.yaml`/`.yml`. |
 | `graphDBPath` | indexFolder, graphFile, graphTopic, graphAll | Graph index db path. Defaults to `"<path>/.kdeps/graph.db"`, or `"<CWD>/.kdeps/graph.db"` for indexFolder/graphFile (which ignore `path`) and whenever `path` is also omitted. |
 
-> **`path` is ignored for `indexFolder`.** It always indexes the process's current working directory - there is no way to point it at an arbitrary filesystem location, by design (an LLM or workflow can't be tricked into indexing something outside the project it's running in).
+> `path` is ignored for `indexFolder`. It always indexes the process's current working directory - there is no way to point it at an arbitrary filesystem location, by design (an LLM or workflow cannot be tricked into indexing something outside the project it is running in).
 
 ## Requirements
 
-LSP servers are **optional but recommended** for semantic accuracy:
+LSP servers are optional but recommended for semantic accuracy:
 
 | Language | LSP Server | Install |
 |----------|-----------|---------|

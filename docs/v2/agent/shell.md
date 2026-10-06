@@ -42,7 +42,7 @@ Install it with `brew install rtk`, or skip it - kdeps runs your commands unchan
 | `KDEPS_RTK=off` | Never use rtk, even if installed. |
 | `RTK_DISABLED=1` | Also honored. rtk's own escape hatch, so one variable turns it off everywhere. |
 
-What this does **not** change:
+What this does not change:
 
 - **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. rtk can never block execution.
 - **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.

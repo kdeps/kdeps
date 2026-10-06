@@ -88,7 +88,7 @@ for the full compact-threshold safety net, it checkpoints the conversation
 (same structured Goal/Progress/Decisions summary, saved to
 [memory](/agent/memory-internals#checkpoint-summaries)) every time a
 configurable amount of *new* conversation has accumulated since the last
-checkpoint. It's on by default (2000 tokens, keeping the last 5 checkpoints
+checkpoint. It is on by default (2000 tokens, keeping the last 5 checkpoints
 in the prompt's memory block) and needs no setup.
 
 | Command | Effect |

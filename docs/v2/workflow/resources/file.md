@@ -208,7 +208,7 @@ file:
 
 ## Append
 
-Appends content to the end of a file, creating it if it doesn't exist.
+Appends content to the end of a file, creating it if it does not exist.
 
 ```yaml
 # resources/append.yaml

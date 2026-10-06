@@ -25,7 +25,7 @@ kdeps bundle package path/to/workflow.yaml
 
 This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
 
-### What's included
+### What is included
 
 ```
 myagent-1.0.0.kdeps
@@ -94,8 +94,8 @@ docker run --device=/dev/kfd --device=/dev/dri myregistry/myagent:latest
 
 kdeps automatically selects the base OS based on GPU requirements:
 
-- **No `--gpu` flag** → **Alpine** (CPU-only, smallest images ~300MB)
-- **`--gpu` specified** → **Ubuntu** (GPU support, glibc-based)
+- **No `--gpu` flag** → Alpine (CPU-only, smallest images ~300MB)
+- **`--gpu` specified** → Ubuntu (GPU support, glibc-based)
 
 The OS is automatically chosen to ensure compatibility:
 
@@ -185,7 +185,7 @@ Build with models included:
 kdeps bundle build myagent-1.0.0.kdeps
 ```
 
-The resulting image contains all models and doesn't require internet access.
+The resulting image contains all models and does not require internet access.
 
 ## Python dependencies
 
@@ -427,7 +427,7 @@ See the [Kubernetes deployment guide](kubernetes) for the full reference.
 
 ## LLM server appliance (not an agent image)
 
-This page packages **agents** (`workflow.yaml` + kdeps). For a **standalone** OpenAI-compatible model server:
+This page packages agents (`workflow.yaml` + kdeps). For a standalone OpenAI-compatible model server:
 
 ```bash
 kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
@@ -438,7 +438,7 @@ See [LLM server appliance](/llm-server/).
 
 ## HTTPS / custom domain
 
-For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports **80** and **443**. Persist the certificate cache:
+For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports 80 and 443. Persist the certificate cache:
 
 ```bash
 docker run -p 80:80 -p 443:443 \

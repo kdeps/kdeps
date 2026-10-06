@@ -14,11 +14,11 @@ Every event (and every harness section) can be turned off entirely, from the REP
 
 This writes `disabled: true` (or removes it) in `~/.kdeps/events/<name>.yaml` -- the same override file `/konfig import` already writes to -- then reloads the registry in place. A disabled event's trigger can never fire: its threshold is treated as unreachably large (or, for `auto-compact`/`fold`, the loop skips the check outright, since their own context-window-aware branch would otherwise ignore an inflated threshold). Harness sections work the same way under the plain `/harness` command (`/harness list`, `/harness enable|disable <name>`) -- a disabled preamble section drops out of the system prompt on the very next turn, and a disabled standalone section (e.g. `m365-sandbox`) returns empty when looked up.
 
-An unregistered or corrupted event/harness name always fails **open** (enabled) -- a missing config entry must never silently disable a safety mechanism; only an explicit `disabled: true` does.
+An unregistered or corrupted event/harness name always fails open (enabled) -- a missing config entry must never silently disable a safety mechanism; only an explicit `disabled: true` does.
 
 ## Occurrence caps on standalone harness text
 
-Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-give-up`), same as `tool-call-early-praise`'s positive-reinforcement text. These aren't sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
+Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-give-up`), same as `tool-call-early-praise`'s positive-reinforcement text. These are not sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
 
 ```yaml
 # ~/.kdeps/harness/nudge-give-up.yaml (built-in default -- shown for reference)
@@ -58,7 +58,7 @@ Applying a preset writes each tuned event straight to its normal `~/.kdeps/event
 
 ## Authoring a preset
 
-Like harness sections and events, a preset is built-in-embed plus `~/.kdeps` user-override, merged by name: drop a `~/.kdeps/presets/frugal.yaml` to override the built-in `frugal`, or a differently-named file to add a preset of your own. A preset's shape is the same as its target override files -- an `events:` list of full event entries -- so authoring one is just collecting the event overrides you'd otherwise hand-write into one document with a `name:`/`description:`. Presets round-trip through [konfig](./konfig.md) export/import like every other registry.
+Like harness sections and events, a preset is built-in-embed plus `~/.kdeps` user-override, merged by name: drop a `~/.kdeps/presets/frugal.yaml` to override the built-in `frugal`, or a differently-named file to add a preset of your own. A preset's shape is the same as its target override files -- an `events:` list of full event entries -- so authoring one is just collecting the event overrides you would otherwise hand-write into one document with a `name:`/`description:`. Presets round-trip through [konfig](./konfig.md) export/import like every other registry.
 
 ## Status
 

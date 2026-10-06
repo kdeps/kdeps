@@ -196,7 +196,7 @@ items:
 
 ## Best practices
 
-- Use skip conditions to avoid processing items that don't qualify
+- Use skip conditions to avoid processing items that do not qualify
 - Use `prev` / `next` accessors to pass context between items
 - For very large batches, use the `python:` resource with pandas
 

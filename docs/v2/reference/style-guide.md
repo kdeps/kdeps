@@ -45,6 +45,11 @@ reference and the glossary document the CLI and the terms, not a mode.
 - Short to medium sentences. Cut every word that has not earned its place.
 - Do not cluster more than three nouns. Break with "of", "for", "with".
 - No metaphors, idioms, or slang.
+- Use full forms, not contractions: "do not", "it is", "cannot".
+- State the point in the first sentence of a page or section. No warm-up.
+- Do not hedge or apologize. State limits flatly: "X does not support Y."
+- Bold only labels (start of a list item or table cell), a term's defining use,
+  and warnings. No bold for emphasis in running prose.
 - Refer to one thing with one term, always. Do not alternate synonyms.
 - Cap each topic (each H2 section) at roughly 300 words. Split if longer.
 
@@ -76,6 +81,10 @@ reference and the glossary document the CLI and the terms, not a mode.
 - Collect every inline link into a `See also` section at the end.
 
 ## Procedures
+
+- End every procedure with what the reader should see: the real response, the
+  changed row, or the file that now exists. Run it to get that output; mark text
+  produced by a model as varying.
 
 - One sentence per step, starting with a verb.
 - Chunk procedures longer than 10 steps into sub-sections of 5 to 10 steps.

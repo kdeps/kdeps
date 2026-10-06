@@ -22,7 +22,7 @@ searchLocal:
 | `glob` | string | no | - | Filename glob pattern (e.g. `*.md`, `report_*.csv`) |
 | `limit` | integer | no | `0` | Max results (0 = unlimited) |
 
-When both `query` and `glob` are set, a file must match **both** to be included.
+When both `query` and `glob` are set, a file must match both to be included.
 
 ## Output
 

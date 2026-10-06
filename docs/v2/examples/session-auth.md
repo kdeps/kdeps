@@ -160,6 +160,10 @@ curl -c cookies.txt -X POST http://localhost:16395/api/v1/login \
   -d '{"username": "admin", "password": "secret"}'
 ```
 
+```json
+{"success": true, "data": {"endpoint": "/api/v1/login", "user_id": "admin"}}
+```
+
 Call the guarded endpoint with the cookie:
 
 ```bash
@@ -167,7 +171,15 @@ curl -b cookies.txt http://localhost:16395/api/v1/session \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
 ```
 
-Without the cookie the same call returns `401 not logged in`.
+```json
+{"success": true, "data": {"endpoint": "/api/v1/session", "user_id": "admin"}}
+```
+
+Without the cookie the same call returns HTTP 401:
+
+```json
+{"success": false, "error": {"code": "PREFLIGHT_FAILED", "message": "not logged in"}}
+```
 
 ## Next steps
 

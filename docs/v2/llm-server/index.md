@@ -9,13 +9,13 @@ kdeps llm wizard          # pick engine + model, then build/run/export
 ```
 
 **Not this?** `kdeps llm` deploys *only* the model server. To package an agent
-(workflow + model) as an image, that's [kdeps deploy](/deploy/). To run a model
+(workflow + model) as an image, that is [kdeps deploy](/deploy/). To run a model
 locally with no server at all, the default llamafile backend already does that -
 see [Local models](/start/local-models).
 
 ---
 
-Serves **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
+Serves both workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
 
 ## How it fits
 
@@ -90,7 +90,7 @@ kdeps llm export iso --engine ollama --model llama3.2 --config-only -o llm.yml
 
 ## Client contract
 
-Every appliance exposes OpenAI-compatible chat completions. On the **client** kdeps host:
+Every appliance exposes OpenAI-compatible chat completions. On the client kdeps host:
 
 ```yaml
 # ~/.kdeps/config.yaml

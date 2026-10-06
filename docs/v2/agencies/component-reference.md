@@ -66,7 +66,7 @@ setup:
 ```
 
 **Behaviour:**
-- `setup` runs **once per component per engine lifetime** (cached - subsequent calls are no-ops).
+- `setup` runs once per component per engine lifetime (cached - subsequent calls are no-ops).
 - `pythonPackages` are installed via `uv pip install`. Already-present packages are skipped.
 - `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If no supported package manager is found, a warning is logged and execution continues.
 - `commands` run in order after package installs. A non-zero exit terminates setup with an error.
@@ -81,7 +81,7 @@ teardown:
 ```
 
 **Behaviour:**
-- `teardown.commands` run after **every invocation** of the component (not cached).
+- `teardown.commands` run after every invocation of the component (not cached).
 - Errors in teardown commands are logged as warnings but do not propagate - teardown is best-effort.
 
 ### Deprecated: top-level `pythonPackages`
@@ -128,7 +128,7 @@ When a resource calls a component, kdeps validates `with:` against the interface
 
 ## Input scoping
 
-Inputs from `with:` are injected under **two** scoped keys, so the same component can be called twice with different inputs:
+Inputs from `with:` are injected under two scoped keys, so the same component can be called twice with different inputs:
 
 | Key pattern | Example |
 |---|---|

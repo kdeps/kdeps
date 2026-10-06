@@ -1,6 +1,6 @@
 # LLM commands
 
-`kdeps llm` provisions **standalone LLM server appliances**. These are not agent packages - there is **no workflow path argument**.
+`kdeps llm` provisions standalone LLM server appliances. These are not agent packages - there is no workflow path argument.
 
 Architecture, stock recipes, and client wiring: [LLM server appliance](/llm-server/).
 

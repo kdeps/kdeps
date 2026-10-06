@@ -1,6 +1,6 @@
 # Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
+Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is project-scoped - facts saved in one REPL session are available in later sessions for the same project.
 
 Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals).
 
@@ -8,7 +8,7 @@ Persistent memory is primarily an agent mode concept, but the memory tools also 
 
 Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
-Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it's stored at `~/.kdeps/memory/global/memory.bolt` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored at `~/.kdeps/memory/global/memory.bolt` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
 
 The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
@@ -105,7 +105,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent mode only** - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is agent mode only - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
 
 ## Memory entry types
 

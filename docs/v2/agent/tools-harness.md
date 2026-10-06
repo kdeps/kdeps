@@ -4,7 +4,7 @@
 
 ## Every prompt and every tool result
 
-Every harness section (the pieces of text kdeps sends the LLM to shape its behavior - see [Custom harness](/agent/repl#custom-harness)) has its own normal home: a preamble section goes into the once-per-session system prompt in order, a standalone entry fires only at its one specific call site (a nudge, a praise line, the m365 sandbox warning, the compaction/goal/judge/refine system prompts). `/harness reminders <name> on` overrides that: it forces the named section's raw text onto **every** LLM prompt (from the very first turn, not just after turn one like the tools reminder) and onto **every** tool call result, regardless of whether that section's own trigger condition would ever fire on its own.
+Every harness section (the pieces of text kdeps sends the LLM to shape its behavior - see [Custom harness](/agent/repl#custom-harness)) has its own normal home: a preamble section goes into the once-per-session system prompt in order, a standalone entry fires only at its one specific call site (a nudge, a praise line, the m365 sandbox warning, the compaction/goal/judge/refine system prompts). `/harness reminders <name> on` overrides that: it forces the named section's raw text onto every LLM prompt (from the very first turn, not just after turn one like the tools reminder) and onto every tool call result, regardless of whether that section's own trigger condition would ever fire on its own.
 
 ```
 /harness reminders m365-sandbox on

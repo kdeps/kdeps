@@ -263,7 +263,7 @@ For multiple containers sharing sessions:
 2. **Set appropriate TTL** - Balance security and convenience
 3. **Store minimal data** - Session storage is not a database
 4. **Handle missing sessions** - Always provide defaults
-5. **Secure sensitive data** - Don't store passwords in sessions
+5. **Secure sensitive data** - Do not store passwords in sessions
 
 ## Security notes
 

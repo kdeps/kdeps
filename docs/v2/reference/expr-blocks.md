@@ -259,7 +259,7 @@ after:
 
 ## Limitations
 
-- **No return values**: Expressions don't return values (use `set()` to store results)
+- **No return values**: Expressions do not return values (use `set()` to store results)
 - **Sequential execution**: Expressions run one after another
 - **Error handling**: If an expression fails, the resource fails
 - **Complex logic**: For complex operations, use Python resources

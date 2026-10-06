@@ -1,6 +1,6 @@
 # Exec resource
 
-The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that don't have a native resource type.
+The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that do not have a native resource type.
 
 ## Where it runs
 

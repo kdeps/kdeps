@@ -13,7 +13,7 @@ References are derived per file type:
 | Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, Java | Import/include statements - relative (`from . import x`, `#include "local.h"`) and non-relative/module-style (`import "github.com/x/pkg"`), the latter matched against files actually present in the indexed folder. Heuristic regex extraction, not a full parser - ambiguous or external/stdlib imports are dropped, not guessed. |
 | `.json` / `.yaml` / `.yml` (bare, no frontmatter) | No reference extraction |
 
-All of the above (plus any file with a leading `---` YAML frontmatter block) get **topic** extraction from a `topics:`/`tags:` list - for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
+All of the above (plus any file with a leading `---` YAML frontmatter block) get topic extraction from a `topics:`/`tags:` list - for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
 
 The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs - indexing source code, HTML, or JSON requires opting in explicitly, so pointing `indexFolder` at a project root never silently walks an entire source tree by surprise:
 

@@ -1,6 +1,6 @@
 # Skills and prompt templates
 
-Markdown files that shape how the agent behaves: **skills** (reusable behavior guidelines), **prompt templates** (reusable named prompts), and **instructions** (project rules discovered automatically). This is **agent mode** only. These are files the kdeps REPL loads. They are not the [kdeps skill for coding agents](/agent/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
+Markdown files that shape how the agent behaves: skills (reusable behavior guidelines), prompt templates (reusable named prompts), and instructions (project rules discovered automatically). This is agent mode only. These are files the kdeps REPL loads. They are not the [kdeps skill for coding agents](/agent/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
 
 ## Skills
 

@@ -9,7 +9,7 @@ rewrites, no re-config.
 kdeps bundle build .      # workflow + model -> Docker image
 ```
 
-**Not this?** To deploy a shared model server instead of an agent, that's
+**Not this?** To deploy a shared model server instead of an agent, that is
 [kdeps LLM server](/llm-server/). To publish an agent for others to install
 rather than run it yourself, [kdeps registry](/registry/).
 
@@ -153,7 +153,7 @@ deploy:
 
 ## Standalone binaries (no Docker)
 
-For edge deployments that can't run containers, use the prepackage flow:
+For edge deployments that cannot run containers, use the prepackage flow:
 
 ```bash
 kdeps bundle package . --output dist/
@@ -170,7 +170,7 @@ See [Standalone binaries](/deploy/binaries) for self-contained single-binary exp
 
 ## Optional: LLM server appliance (not an agent)
 
-To deploy a **shared OpenAI-compatible inference server** (no workflow) for many kdeps clients:
+To deploy a shared OpenAI-compatible inference server (no workflow) for many kdeps clients:
 
 ```bash
 kdeps llm list
@@ -199,7 +199,7 @@ settings:
     portNum: 443
 ```
 
-Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deploy/tls-https).
+Open ports 80 and 443, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deploy/tls-https).
 
 ## See also
 

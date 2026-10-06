@@ -88,7 +88,7 @@ onError:
 
 ---
 
-> **Need more?** For PDF extraction, OCR, and document types (.docx, .xlsx), install the component:
+> Need more? For PDF extraction, OCR, and document types (.docx, .xlsx), install the component:
 > ```bash
 > kdeps registry install scraper
 > ```

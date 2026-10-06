@@ -174,23 +174,18 @@ sql_connections:
     connection: "sqlite://./cache.db"
 ```
 
-`workflow.yaml` - pool config only (no credentials):
+Pool settings go on the `sql:` resource (no credentials):
 
 ```yaml
-settings:
-  sqlConnections:
-    primary:
-      pool:
-        maxConnections: 25
-        minConnections: 5
-        maxIdleTime: "30m"
-        connectionTimeout: "10s"
-    analytics:
-      pool:
-        maxConnections: 10
-        minConnections: 2
-        maxIdleTime: "15m"
-        connectionTimeout: "5s"
+# resources/orders.yaml
+sql:
+  connectionName: primary
+  pool:
+    maxConnections: 25
+    minConnections: 5
+    maxIdleTime: "30m"
+    connectionTimeout: "10s"
+  query: "SELECT * FROM orders"
 ```
 
 ### Pool configuration
@@ -202,7 +197,7 @@ settings:
 | `maxIdleTime` | 5m | Max time before idle connection is closed |
 | `connectionTimeout` | (none - no connection lifetime limit) | Connection acquisition timeout |
 
-These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
+These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of the `sql:` resource entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is not backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
 
 ### Using named connections
 
@@ -317,7 +312,7 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 ## Global defaults (`defaults`, `resource_defaults`)
 
 `~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
-a workflow doesn't set the equivalent field itself. Edit it with
+a workflow does not set the equivalent field itself. Edit it with
 [`kdeps edit`](/reference/cli-dev#kdeps-edit); [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
 checks it (along with Ollama/Python/installed agents) before you hit run.
 
@@ -361,7 +356,7 @@ resource's own `timeout:`, for example) - either can still be overridden
 per-resource in `workflow.yaml`, which always wins over the global default.
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing
-API keys, invalid durations, and agent profiles under `agents:` that don't
+API keys, invalid durations, and agent profiles under `agents:` that do not
 match any installed workflow's `metadata.name`.
 
 ## Agent identity
@@ -387,7 +382,7 @@ agents:
           url: https://crm.example.com
 ```
 
-Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They're used in three places:
+Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They are used in three places:
 
 - **Git commits.** In agent mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
 - **Outbound email.** An [`email:` resource](/workflow/resources/email) with no `from:` set defaults to `identity.email`.

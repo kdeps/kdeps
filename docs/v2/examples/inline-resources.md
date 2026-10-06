@@ -41,9 +41,12 @@ settings:
         methods: [POST]
   agentSettings:
     pythonVersion: "3.12"
-  sqlConnections:
-    results:
-      connection: "sqlite:///./results.db"
+```
+
+The `results` database is named in the resources and defined machine-locally:
+
+```bash
+export KDEPS_SQL_CONNECTIONS_RESULTS_CONNECTION="sqlite://./results.db"   # or sql_connections.results in ~/.kdeps/config.yaml
 ```
 
 ## Step 3: the main resource with inline actions
@@ -111,6 +114,7 @@ apiResponse:
 ```bash
 kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
+export KDEPS_SQL_CONNECTIONS_RESULTS_CONNECTION="sqlite://./results.db"   # skip if set in config.yaml
 kdeps run .
 ```
 
@@ -122,7 +126,18 @@ curl -X POST http://localhost:16396/api/v1/process \
 ```
 
 The `before:` exec runs, then the chat, then the `after:` SQL insert and Python
-script - all within the `main` resource.
+script - all within the `main` resource. The model's wording varies:
+
+```json
+{"success": true, "data": {"formal": "Could you please send me the file you requested?"}}
+```
+
+Confirm the `after:` insert landed:
+
+```bash
+sqlite3 results.db "SELECT * FROM runs"
+# hey can you send me that file|2026-10-06 03:09:40
+```
 
 ## Next steps
 

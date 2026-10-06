@@ -180,6 +180,12 @@ curl -X POST http://localhost:16395/twilio/answer \
   -d '{"SpeechResult": "what time do you close"}'
 ```
 
+Only the route's resource fills its key; the model's wording varies:
+
+```json
+{"success": true, "data": {"answer": "Typically, I'm available to chat until 5 PM, Monday through Friday.", "ask": null, "hours": null, "menu": null}}
+```
+
 For a live call, point your provider's voice webhook at
 `https://<your-host>/twilio/voice`.
 

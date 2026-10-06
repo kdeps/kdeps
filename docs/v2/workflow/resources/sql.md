@@ -37,7 +37,7 @@ sql:
 
 ## Connection configuration
 
-Connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
+Connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives on the `sql:` resource.
 
 `~/.kdeps/config.yaml` - credentials:
 
@@ -50,23 +50,6 @@ sql_connections:
 ```
 
 If `connectionName` refers to a connection missing from `config.yaml`, `kdeps run` prompts for the DSN at startup and saves it (interactive terminals only; skipped in CI/pipes, where the "connection not found" error surfaces instead). See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
-
-`workflow.yaml` - pool config:
-
-```yaml
-settings:
-  sqlConnections:
-    main:
-      pool:
-        maxConnections: 10
-        minConnections: 2
-        maxIdleTime: "30s"
-        connectionTimeout: "5s"
-    analytics:
-      pool:
-        maxConnections: 5
-        minConnections: 1
-```
 
 Use in resources:
 
@@ -250,21 +233,20 @@ Output:
 
 ## Connection pooling
 
-`workflow.yaml`'s `sqlConnections` entry holds pool config only - no
-`connection:` field. The DSN itself always comes from `sql_connections` in
-`~/.kdeps/config.yaml` (see [Connection Configuration](#connection-configuration)
-above); a connection string here would be silently ignored.
+Set the pool on the `sql:` resource. The DSN still comes from `sql_connections`
+in `~/.kdeps/config.yaml` (see [Connection Configuration](#connection-configuration)
+above).
 
 ```yaml
-# workflow.yaml
-settings:
-  sqlConnections:
-    main:
-      pool:
-        maxConnections: 20      # Maximum pool size
-        minConnections: 5       # Minimum idle connections
-        maxIdleTime: "30s"     # Close idle connections after
-        connectionTimeout: "5s" # Timeout for acquiring connection
+# resources/users.yaml
+sql:
+  connectionName: main
+  pool:
+    maxConnections: 20      # maximum pool size
+    minConnections: 5       # minimum idle connections
+    maxIdleTime: "30s"      # close idle connections after
+    connectionTimeout: "5s" # timeout for acquiring a connection
+  query: "SELECT * FROM users"
 ```
 
 ## Accessing results

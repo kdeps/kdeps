@@ -180,7 +180,7 @@ composer ──/cmd──> REPL dispatcher ──stdout──> live output block
 | Autocomplete | Tab, Up and Down complete slash commands, subcommands, model names and `@file` paths, with the same candidates as terminal tab completion. |
 | Failed turns | An unreachable backend (for example no network to the auto-picked cloud model) shows the model name and a Switch model button. The unsaved chat stays visible in the sidebar until a turn succeeds. |
 
-Both modes run on the agent loop: this page is **agent mode** only.
+Both modes run on the agent loop: this page is agent mode only.
 
 ## Settings modal
 

@@ -91,7 +91,7 @@ after:
 
 ## The input object
 
-`input.field` is a shorthand for a request **body** field - identical to `get('field')`, but with property syntax:
+`input.field` is a shorthand for a request body field - identical to `get('field')`, but with property syntax:
 
 <div v-pre>
 

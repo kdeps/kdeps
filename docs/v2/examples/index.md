@@ -3,7 +3,7 @@
 Complete, runnable projects. Copy the files on the page and run the command there. A local model needs no API key. Add a key only when that example calls a cloud provider.
 
 Examples are grouped by the [product](/start/) they belong to. Pick the one
-closest to what you're building.
+closest to what you are building.
 
 ### kdeps workflow
 
