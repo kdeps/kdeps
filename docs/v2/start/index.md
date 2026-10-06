@@ -8,9 +8,9 @@ description: What kdeps is, the problem it solves, and the smallest mental model
 kdeps is a **git-native AI appliance builder**. You describe an agent in YAML -
 which model to call, what to validate, what shape the answer takes - and those
 files are the whole spec. Commit them, and kdeps packages the workflow, its
-tools, and the model into one self-contained unit you can run as a terminal
-REPL, an HTTP API, a Docker image, a Kubernetes deployment, a bootable ISO, or a
-single binary. The same files, no rewrite, no framework to import.
+tools, and the model into one self-contained unit you can run as an HTTP
+API, a terminal REPL, a Docker image, a Kubernetes deployment, a bootable ISO, or a
+single binary. Same `workflow.yaml`, no rewrites, no re-config, no framework to import.
 
 Change the YAML and the appliance behaves differently - your git history is the
 changelog of the agent's behavior. Because it runs open-source models by default,
@@ -26,14 +26,9 @@ Calling an LLM takes a few lines. Shipping that call as something you can review
 and run inside your own boundary is not. You end up hand-writing the same glue
 every time: input validation, retries, ordering between steps, a fixed response
 schema, a container, a way to run it offline for tests. kdeps is that glue,
-declared in YAML that lives in your repo.
-
-The result is one deployable unit - REPL, API, Docker image, ISO, or binary -
-with the model packaged in. It runs open-source models by default (llamafile,
-Ollama, or any HuggingFace GGUF), so there is no per-token bill and no
-third-party AI subscription. Cloud providers (OpenAI, Anthropic, Groq) still
-work when you want them; the backend is one line of machine-local config, not
-part of the repo.
+declared in YAML that lives in your repo. Cloud providers (OpenAI, Anthropic,
+Groq) still work when you want them; the backend is one line of machine-local
+config, not part of the repo.
 
 ## The smallest mental model
 
@@ -110,8 +105,8 @@ kdeps is a small number of bounded things. Most people need one or two.
 
 | You want to... | Product |
 |---|---|
-| A local autonomous agent - tool use, memory, a REPL | [kdeps agent](/agent/) |
 | A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/workflow/) |
+| A local autonomous agent - tool use, memory, a REPL | [kdeps agent](/agent/) |
 | To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
 | Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
 | To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/) |
@@ -124,7 +119,7 @@ step in building or running your own.
 
 | You want to... | Start here |
 |---|---|
+| Build a real HTTP API from YAML | [Quickstart](/workflow/quickstart) |
 | Run an AI agent locally right now | [Run locally in 30 seconds](/agent/quickstart) |
 | Understand why kdeps works this way | [Why kdeps?](/start/why-kdeps) |
-| Build a real HTTP API from YAML | [Quickstart](/workflow/quickstart) |
 | See the full picture of every concept | [Concepts overview](/start/concepts) |

@@ -17,11 +17,7 @@ reuse one bundle of resources across projects, that's a
 
 ---
 
-An AI agency is a collection of kdeps agents that cooperate on a task. Agencies work in both modes: `kdeps run my-agency/` runs the entry-point pipeline; `kdeps ./my-agency/` registers the agency as one LLM tool and runs that pipeline only when the model calls it.
-
 ## Use cases
-
-Agencies are the natural evolution from single agents. Where a single agent handles one workflow, an agency coordinates many specialized agents - each one a reproducible, repeatable process - into a unified system that tackles multi-step problems.
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|

@@ -2,6 +2,8 @@
 
 `bash_exec`, one of the [built-in tools](/agent/tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run.
 
+A command is HTML-unescaped before it is validated and run. Some models emit `&amp;&amp;` for `&&`, `&quot;` for `"`, or `&lt;`/`&gt;` for `<`/`>` when the text passed through an HTML-rendering step upstream. `sql_query` gets the same treatment, since an escaped comparison (`WHERE x &lt; 5`) is the same kind of corruption there.
+
 | Key | Effect |
 |-----|--------|
 | `Ctrl+C` | Cancel the running tool. Partial output is returned to the LLM as a result so it can decide what to do next. Works for any built-in tool, not only `bash_exec`. |

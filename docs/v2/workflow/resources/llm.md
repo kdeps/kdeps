@@ -44,7 +44,7 @@ chat:
 
 If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and - when no default backend is set - points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
 
-### Model resolution order
+## Model resolution order
 
 `model:` is optional. When omitted, kdeps resolves it in this order:
 
@@ -90,7 +90,17 @@ chat:
   topP: 0.9             # nucleus sampling threshold (0.0 to 1.0)
   frequencyPenalty: 0.0 # penalises tokens that have appeared frequently (-2.0 to 2.0)
   presencePenalty: 0.0  # penalises any token that has appeared at all (-2.0 to 2.0)
+```
 
+</div>
+
+## History, tools, and files
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
   # pre-fill the conversation history before the prompt
   scenario:
     - role: system
@@ -111,7 +121,15 @@ chat:
   # attach files for vision-capable models
   files:
     - "{{ get('file', 'filepath') }}"
+```
 
+</div>
+
+## JSON shape, timeout, and streaming
+
+```yaml
+# resources/example.yaml
+chat:
   jsonResponse: true         # ask the model to return valid JSON
   jsonResponseKeys:          # keys to extract from the JSON response
     - answer
@@ -132,7 +150,13 @@ chat:
 
   timeout: 60s               # hard stop -- returns error, does not retry
   streaming: true            # Ollama only: stream NDJSON; kdeps accumulates before returning
+```
 
+## Reasoning, few-shot, and extra sampling
+
+```yaml
+# resources/example.yaml
+chat:
   # chain-of-thought / few-shot
   chainOfThought: false      # inject step-by-step reasoning prefix into system prompt
   fewShotEmbeddingModel: ""  # embedding model for semantic few-shot selection (requires fewShotSelectK)
@@ -143,7 +167,13 @@ chat:
   n: 1                       # alias for candidateCount (OpenAI style)
   minLength: 0               # minimum response length in tokens
   maxLength: 0               # maximum response length in tokens (alias for maxTokens)
+```
 
+## Provider fields
+
+```yaml
+# resources/example.yaml
+chat:
   # anthropic-specific
   promptCaching: false           # add prompt-caching beta header; Anthropic only
   anthropicExtendedOutput: false # enable 128K output; adds interleaved-thinking beta header
@@ -164,8 +194,6 @@ chat:
   ollamaPullModel: false     # auto-pull model if not present
   ollamaPullTimeout: ""      # timeout for model pull (e.g. "10m")
 ```
-
-</div>
 
 ## Advanced parameters
 
@@ -274,7 +302,7 @@ chat:
 
 </div>
 
-## Tools (function calling)
+## Function calling
 
 Enable LLMs to call other resources:
 
@@ -619,5 +647,5 @@ to retry or substitute a fallback.
 ## See also
 
 - [LLM backends](/workflow/resources/llm-backends) - Configure model, backend, API keys, and routing
-- [Tools](/workflow/tools) - LLM function calling
+- [Function calling](/workflow/tools) - LLM function calling
 - [Docker deployment](/deploy/docker) - Deploying with local models

@@ -7,21 +7,11 @@
     <div class="container">
       <p class="section-eyebrow">getting started</p>
       <h2 class="section-title">How it works</h2>
-      <p class="section-sub">Start in the REPL. Write YAML when you want a pipeline. Ship the same file.</p>
+      <p class="section-sub">Write YAML. Run it. Ship the same file.</p>
 
       <div class="steps">
         <div class="step">
           <div class="step-num">01</div>
-          <div class="step-body">
-            <h3>Run kdeps</h3>
-            <p><code>kdeps</code> opens the agent REPL. No YAML. No API key. A local model downloads on first use.</p>
-          </div>
-        </div>
-
-        <div class="step-arrow">→</div>
-
-        <div class="step">
-          <div class="step-num">02</div>
           <div class="step-body">
             <h3>Write YAML</h3>
             <p>Declare resources -- chat, HTTP, Python, SQL. Wire them with <code>requires:</code>. One file, both modes.</p>
@@ -31,10 +21,20 @@
         <div class="step-arrow">→</div>
 
         <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <h3>Run it</h3>
+            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads that pipeline as a tool in the REPL.</p>
+          </div>
+        </div>
+
+        <div class="step-arrow">→</div>
+
+        <div class="step">
           <div class="step-num">03</div>
           <div class="step-body">
             <h3>Ship it</h3>
-            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads it as a tool. Export Docker, Kubernetes, ISO, or a binary.</p>
+            <p>Export Docker, Kubernetes, ISO, or a binary. Same workflow.yaml, no rewrites, no re-config.</p>
           </div>
         </div>
       </div>

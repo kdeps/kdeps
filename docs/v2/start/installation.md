@@ -4,11 +4,11 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 Works in workflow and agent mode.
 
-Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/quickstart).
+Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/quickstart).
 
 ## Installing the kdeps CLI
 
-### macOS (Homebrew)
+## macOS (Homebrew)
 
 ```bash
 brew install kdeps/tap/kdeps
@@ -16,7 +16,7 @@ brew install kdeps/tap/kdeps
 
 Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows (Scoop, packages, or manual) install steps are in [Desktop app](../agent/desktop#install).
 
-### Windows (Scoop)
+## Windows (Scoop)
 
 ```powershell
 scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
@@ -24,7 +24,7 @@ scoop install kdeps           # CLI
 scoop install kdeps-desktop   # desktop app, standalone
 ```
 
-### Linux packages (deb, rpm, apk, Arch)
+## Linux packages (deb, rpm, apk, Arch)
 
 Each release attaches native CLI packages, so the package manager tracks the install. Pick the file for your distro from the [releases page](https://github.com/kdeps/kdeps/releases/latest):
 
@@ -37,13 +37,13 @@ sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
 
 Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you; see [Desktop app](../agent/desktop#install).
 
-### Linux, macOS, and Windows (curl)
+## Linux, macOS, and Windows (curl)
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-### Windows (PowerShell)
+## Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
@@ -55,7 +55,7 @@ Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `P
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.21.0 -BinDir C:\tools\bin
 ```
 
-### Windows (wget in WSL or Git Bash)
+## Windows (wget in WSL or Git Bash)
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
@@ -63,7 +63,7 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
 > Note: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
 
-### From source
+## From source
 
 Recommended: `go install`
 
@@ -212,8 +212,8 @@ sudo usermod -aG docker $USER
 
 ## See also
 
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [CLI reference](/reference/cli) - Complete command reference
 - [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

@@ -30,7 +30,7 @@ then reach for the rest as you need them.
 | [Expressions](/workflow/expressions) | expr-lang snippets in `{{ }}`, `before:`/`after:`, and `check:` | Both |
 | [Expression helpers](/workflow/expression-helpers) | `Json()`, `Safe()`, `Debug()`, `default()` and other utilities | Both |
 | [Data access](/workflow/data-access) | `get()`/`set()` plus the `input` and `request` shorthands | Both (`input`/`request`: workflow) |
-| [Tools (function calling)](/workflow/tools) | Let a `chat:` resource call other resources mid-response | Workflow |
+| [Function calling](/workflow/tools) | Let a `chat:` resource call other resources mid-response | Workflow |
 | [Inline resources](/workflow/inline-resources) | `chat`/`sql`/`python`/... actions nested in a resource's `before:`/`after:` | Both |
 
 ## Control flow and input

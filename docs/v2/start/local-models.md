@@ -182,4 +182,5 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 
 - [LLM backends reference](/workflow/resources/llm-backends) - Full backend config, routing strategies, all provider options
 - [LLM providers reference](/llm-server/providers) - Per-provider snippets for cloud backends
-- [Run locally in 30 seconds](/agent/quickstart) - Quick start with the agent REPL
+- [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally in 30 seconds](/agent/quickstart) - agent REPL in 30 seconds

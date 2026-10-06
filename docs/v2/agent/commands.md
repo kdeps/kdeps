@@ -17,7 +17,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
 | `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set web-limit 0` (also `bash-limit`/`file-limit`/`code-limit`; `0` removes that per-request call cap), `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
-| `/model name [show\|hide\|abbreviate\|auto]` | Show or set how the modeline displays the model name, overriding the theme's default (see [Themes](/agent/repl#themes)); persists |
+| `/model name [show\|hide\|abbreviate\|auto]` | Show or set how the modeline displays the model name, overriding the theme's default (see [Themes](/agent/repl-themes#themes)); persists |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -27,11 +27,11 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/prompt` | Show the exact LLM request for the last turn (system prompt, messages, tool schemas) |
 | `/prompt raw` | Same, unformatted - the raw JSON payload sent to the model |
 | `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](/agent/tools#permission-modes)) |
-| `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage this folder's saved sessions and navigate branching history (see [Sessions](/agent/repl#sessions)) |
+| `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage this folder's saved sessions and navigate branching history (see [Sessions](/agent/repl-sessions#sessions)) |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
-| `/theme [name\|list]` | Show or set the REPL's look - `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl#themes)); `list` shows built-in and custom names separately; persists. Also `--theme` / `KDEPS_THEME` at startup |
+| `/theme [name\|list]` | Show or set the REPL's look - `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)); `list` shows built-in and custom names separately; persists. Also `--theme` / `KDEPS_THEME` at startup |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
@@ -71,17 +71,17 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/agent/tools#lean-mode)) |
-| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl#updating-kdeps)) |
-| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl#nightly-builds)) |
-| `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl#installing-a-specific-version-including-a-downgrade)) |
-| `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check. Turning it on verifies the current model immediately, before your next prompt, then again on every model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools#session-integrity-handshake)) |
+| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl-updating#updating-kdeps)) |
+| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl-updating#nightly-builds)) |
+| `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl-updating#installing-a-specific-version-including-a-downgrade)) |
+| `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check. Turning it on verifies the current model immediately, before your next prompt, then again on every model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)) |
 | `/harness [list]` | List harness sections (the system-prompt text sent every turn) with their enabled/disabled state |
 | `/harness enable\|disable <name>` | Turn a harness section on/off; persists to `~/.kdeps/harness/<name>.yaml` and takes effect on the next turn (no restart) |
 | `/harness events [list]` | List [reactive LLM events](/agent/events) with a trigger summary, action, and enabled/disabled state |
 | `/harness events enable\|disable <name>` | Turn an event on/off; persists to `~/.kdeps/events/<name>.yaml` and takes effect immediately - a disabled event's threshold can never fire |
-| `/harness preset [list]` | List built-in + user [presets](/agent/events#presets) (e.g. `frugal`, `balanced`, `thorough`) with their descriptions |
+| `/harness preset [list]` | List built-in + user [presets](/agent/events-presets#presets) (e.g. `frugal`, `balanced`, `thorough`) with their descriptions |
 | `/harness preset <name>` | Apply a preset: writes its bundled event overrides to `~/.kdeps/events/*.yaml` and reloads immediately - no restart |
-| `/harness reminders [list]` | List every harness section with its reminder on/off state (see [Harness reminders](/agent/tools#harness-reminders)) |
+| `/harness reminders [list]` | List every harness section with its reminder on/off state (see [Harness reminders](/agent/tools-harness#harness-reminders)) |
 | `/harness reminders <name> on\|off` | Force that section's text onto every LLM prompt and every tool call result, independent of its own enabled/disabled state or normal trigger; persists to `~/.kdeps/harness/<name>.yaml`. A `reminder:<names>` segment appears in the status line (next to `turo:`) while any are active, and disappears when the last one is turned off |
 | `/harness reminders instruct:<topic> on\|off` | Same, for an `/instruct` topic (`overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files`); a bare topic name also works unless a harness section shares it (`tools`, `memory`). Persists to `~/.kdeps/agent-loop-settings.yaml` |
 | `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
@@ -115,9 +115,15 @@ the turn
 
 Only text inside `"..."` or `'...'` is ever scanned - typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
 
+## Text files and read-only commands
+
 The same scan finds existing, readable **text files** by name (`look at "main.go"`) and offers to inline them like `@main.go` would - images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
 
-**Pipes and command substitution** are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting - its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
+## Pipes and command substitution
+
+Pipes and command substitution are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting - its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
+
+## Auto-context on and off
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
@@ -129,10 +135,10 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 | `--new` | Start a clean session, skipping the resume picker for this folder |
 | `--model` / `--backend` / `--base-url` | Override the model for this run |
 | `--system <text>` | Prepend a system prompt |
-| `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl#themes)) |
+| `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)) |
 
 Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
-`kdeps` runs in. See [Sessions](/agent/repl#sessions).
+`kdeps` runs in. See [Sessions](/agent/repl-sessions#sessions).
 
 ## See also
 

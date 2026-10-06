@@ -98,6 +98,8 @@ The REPL starts with your workflow registered as a callable tool. The LLM decide
 
 ## Next steps
 
+- [REPL slash commands](/agent/commands) - `/help` and the commands you type in the session
+- [Built-in tools](/agent/tools) - the tools the model can call
 - [Quickstart](/workflow/quickstart) - build an HTTP API from the same binary
 - [Load a workflow as a tool](/workflow/as-a-tool) - register a `workflow.yaml` in this REPL
 - [Local models (llamafile and Ollama)](/start/local-models) - offline setup, model selection, privacy

@@ -1,4 +1,4 @@
-# Tools (function calling)
+# Function calling
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
 
@@ -55,7 +55,7 @@ tools:
 
 ## Tool types
 
-### Resource-based tools
+## Resource-based tools
 
 Tools that reference other kdeps resources:
 
@@ -90,7 +90,7 @@ chat:
 
 </div>
 
-### External MCP tools
+## External MCP tools
 
 Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
@@ -144,7 +144,7 @@ chat:
 
 </div>
 
-### Multiple tools
+## Multiple tools
 
 Define multiple tools for different capabilities:
 
@@ -235,7 +235,7 @@ LLM generates final response
 
 ## See also
 
-- [Tools reference](/reference/tools) - examples, tool chaining, best practices, debugging
+- [Function calling](/reference/tools) - examples, tool chaining, best practices, debugging
 - [LLM resource](/workflow/resources/llm) - Full LLM configuration
 - [LLM backends](/workflow/resources/llm-backends) - Streaming and backend options
 - [Python resource](/workflow/resources/python) - Building tool scripts

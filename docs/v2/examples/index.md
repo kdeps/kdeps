@@ -1,15 +1,9 @@
 # Examples
 
-Complete, runnable projects that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
+Complete, runnable projects. Copy the files on the page and run the command there. A local model needs no API key. Add a key only when that example calls a cloud provider.
 
 Examples are grouped by the [product](/start/) they belong to. Pick the one
 closest to what you're building.
-
-### kdeps agent
-
-| Example | What it demonstrates |
-|---|---|
-| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
 
 ### kdeps workflow
 
@@ -38,6 +32,13 @@ closest to what you're building.
 | [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
+### kdeps agent
+
+| Example | What it demonstrates |
+|---|---|
+| [Read a file in the REPL](/examples/agent-repl) | `kdeps` with no YAML and no API key: `read_file`, then `write_file` |
+| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
+
 ### kdeps agencies
 
 | Example | What it demonstrates |
@@ -45,18 +46,6 @@ closest to what you're building.
 | [Two-agent agency](/examples/agency) | `kind: Agency`, `agent:` resource, `params:` |
 | [Reusable component](/examples/custom-component) | `component.yaml`, `interface.inputs`, `component:` + `with:` |
 | [Per-component env vars](/examples/component-env) | `env()` scoping, `{COMPONENT}_{VAR}` override, `.env` files |
-
-## Load a workflow as a tool
-
-The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
-started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
-`metadata.name`; kdeps runs the full DAG.
-
-Best for:
-- Turning an API you already wrote into a REPL tool
-- Seeing agent mode without a new YAML kind
-
-[Build it step by step](/workflow/as-a-tool)
 
 ## Document summarizer
 
@@ -207,18 +196,6 @@ Best for:
 
 [Build it step by step](/examples/http-auth)
 
-## Two-agent agency
-
-Two agents in one project: the entry-point agent calls the other with the
-`agent:` resource and returns the combined result. Introduces `kind: Agency`
-and the `agency.yaml` manifest.
-
-Best for:
-- Splitting a large workflow into independently testable agents
-- Learning multi-agent orchestration
-
-[Build it step by step](/examples/agency)
-
 ## MCP server tools
 
 Give an LLM tools backed by an external Model Context Protocol server. kdeps
@@ -264,17 +241,6 @@ Best for:
 
 [Build it step by step](/examples/local-file-search)
 
-## Reusable component
-
-Build a component - a bundle of resources with a typed input interface - and
-call it from a workflow with `component:`.
-
-Best for:
-- Packaging logic you reuse across projects
-- Learning the `interface.inputs` schema and auto-discovery
-
-[Build it step by step](/examples/custom-component)
-
 ## Python data processing
 
 An API that runs a Python script to validate and convert data formats. Shows
@@ -285,18 +251,6 @@ Best for:
 - Learning `input()` templating and `packages:`
 
 [Build it step by step](/examples/python-processing)
-
-## Per-component env vars
-
-Two components that read the same variable name but can each be given a
-different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
-scaffolds per component.
-
-Best for:
-- Giving each component its own API key without changing shared YAML
-- Understanding component env resolution order
-
-[Build it step by step](/examples/component-env)
 
 ## Static site
 
@@ -343,6 +297,63 @@ Best for:
 - Seeing how complex agents fit in ~20 lines of YAML
 - Learning the `POST /api/v1/run` pattern
 - Adapting a pattern to your own data
+
+## Read a file in the REPL
+
+A folder with one text file. `kdeps` reads it and writes the answer next to it. No workflow YAML. No API key.
+
+Best for:
+- Seeing the agent REPL before you write a workflow
+- Checking that `read_file` and `write_file` run on your machine
+
+[Build it step by step](/examples/agent-repl)
+
+## Load a workflow as a tool
+
+The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
+started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
+`metadata.name`; kdeps runs the full DAG.
+
+Best for:
+- Turning an API you already wrote into a REPL tool
+- Seeing agent mode without a new YAML kind
+
+[Build it step by step](/workflow/as-a-tool)
+
+## Two-agent agency
+
+Two agents in one project: the entry-point agent calls the other with the
+`agent:` resource and returns the combined result. Introduces `kind: Agency`
+and the `agency.yaml` manifest.
+
+Best for:
+- Splitting a large workflow into independently testable agents
+- Learning multi-agent orchestration
+
+[Build it step by step](/examples/agency)
+
+## Reusable component
+
+Build a component - a bundle of resources with a typed input interface - and
+call it from a workflow with `component:`.
+
+Best for:
+- Packaging logic you reuse across projects
+- Learning the `interface.inputs` schema and auto-discovery
+
+[Build it step by step](/examples/custom-component)
+
+## Per-component env vars
+
+Two components that read the same variable name but can each be given a
+different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
+scaffolds per component.
+
+Best for:
+- Giving each component its own API key without changing shared YAML
+- Understanding component env resolution order
+
+[Build it step by step](/examples/component-env)
 
 ## See also
 

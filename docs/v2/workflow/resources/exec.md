@@ -81,7 +81,7 @@ exec:
 
 ## Examples
 
-### System information
+## System information
 
 ```yaml
 # resources/system-info.yaml
@@ -92,7 +92,7 @@ exec:
   timeout: 10s
 ```
 
-### File operations
+## File operations
 
 <div v-pre>
 
@@ -118,7 +118,7 @@ exec:
 
 </div>
 
-### Git operations
+## Git operations
 
 ```yaml
 # resources/git-info.yaml
@@ -135,7 +135,7 @@ exec:
   timeout: 30s
 ```
 
-### Process external tools
+## Process external tools
 
 <div v-pre>
 
@@ -159,7 +159,7 @@ exec:
 
 </div>
 
-### FFmpeg video processing
+## FFmpeg video processing
 
 ```yaml
 # resources/extract-audio.yaml
@@ -179,7 +179,7 @@ exec:
   timeout: 300s
 ```
 
-### OCR with tesseract
+## OCR with tesseract
 
 <div v-pre>
 
@@ -203,7 +203,7 @@ exec:
 
 </div>
 
-### Docker operations
+## Docker operations
 
 ```yaml
 # resources/docker-info.yaml
@@ -217,7 +217,7 @@ exec:
   timeout: 30s
 ```
 
-### Curl API call
+## Curl API call
 
 <div v-pre>
 

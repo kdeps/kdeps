@@ -6,7 +6,7 @@ every time. Auditable, testable, safe to run unattended. Serve it as an HTTP
 API, a bot, or a file processor.
 
 ```bash
-kdeps run ./my-agent/      # run once / serve on :3000
+kdeps run ./my-agent/      # run once / serve on :16395
 ```
 
 **Not this?** For an autonomous agent that decides what to do next, use
@@ -15,13 +15,6 @@ kdeps run ./my-agent/      # run once / serve on :3000
 [kdeps deploy](/deploy/docker).
 
 ---
-
-
-Run with:
-
-```bash
-kdeps run workflow.yaml    # or kdeps run ./my-agent/ to point at a directory containing workflow.yaml
-```
 
 If the workflow has no `chat:` resource, kdeps does not download a model or start an LLM server. `/health` binds immediately. Models download on the first chat request.
 
@@ -65,75 +58,7 @@ A resource runs only after everything in its `requires:` has produced output. Re
 
 ## Minimal example
 
-`workflow.yaml`:
-
-```yaml
-# workflow.yaml
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: chat-api
-  version: "1.0.0"
-  targetActionId: response
-
-settings:
-  apiServer:
-    hostIp: "127.0.0.1"
-    portNum: 16395
-    routes:
-      - path: /api/v1/chat
-        methods: [POST]
-```
-
-`resources/llm.yaml`:
-
-<div v-pre>
-
-```yaml
-# resources/llm.yaml
-actionId: llm
-validations:
-  check:
-    - get('q') != ''
-  error:
-    code: 400
-    message: "'q' is required"
-chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  timeout: 60s
-```
-
-</div>
-
-`resources/response.yaml`:
-
-```yaml
-# resources/response.yaml
-actionId: response
-requires: [llm]
-apiResponse:
-  success: true
-  response:
-    # chat output is the raw response object; the reply text is at .message.content
-    answer: get('llm').message.content
-```
-
-Run:
-
-```bash
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run workflow.yaml
-
-curl -X POST http://localhost:16395/api/v1/chat \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"q": "What is entropy?"}'
-```
-
-`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security reference](/reference/security).
+The two-resource chat API, the auth token, and the curl are on the [workflow quickstart](/workflow/quickstart). `/health` is exempt from that token. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security reference](/reference/security).
 
 ## Input sources
 

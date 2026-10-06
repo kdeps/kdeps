@@ -12,27 +12,27 @@ skeleton from [Contributing to docs](./contributing-docs).
 
 | Type | Answers | Lives in |
 | :--- | :--- | :--- |
-| Concept | "What is it and why does it matter?" | `concepts/`, `modes/` |
-| Tutorial | "Teach me by building one example." | `getting-started/`, `examples/` |
-| How-to | "How do I do one specific task?" | `guides/`, `deployment/` |
-| Reference | "What are the exact fields, flags, and values?" | `reference/`, `resources/`, `configuration/` |
-| Quickstart | "Get me to a working result fast." | `getting-started/quickstart` |
-| Troubleshooting | "Something broke. Fix it." | `guides/troubleshooting` |
+| Concept | "What is it and why does it matter?" | `start/` |
+| Tutorial | "Teach me by building one example." | `examples/` |
+| How-to | "How do I do one specific task?" | `agent/`, `workflow/`, `deploy/`, `agencies/`, `llm-server/`, `registry/` |
+| Reference | "What are the exact fields, flags, and values?" | `reference/`, `workflow/resources/` |
+| Quickstart | "Get me to a working result fast." | `workflow/quickstart`, `agent/quickstart` |
+| Troubleshooting | "Something broke. Fix it." | `reference/troubleshooting` |
 | Glossary | "Define this term." | `reference/glossary` |
 
-## Two modes - always label
+## Two modes
 
-kdeps has two modes. Every concept, feature, how-to, tutorial, and deployment
-page states which mode(s) it applies to in the first paragraph or an info
-callout. Pure CLI command references and the glossary are exempt - a command
-reference documents the CLI itself, not a mode-specific feature.
+The directory is the label. `agent/` is agent mode. `workflow/`, `deploy/`, and
+`examples/` are workflow mode. On a shared page (`start/`, `reference/`), name
+the mode in the first sentence. Do not add an "Applies to" banner. A CLI
+reference and the glossary document the CLI and the terms, not a mode.
 
 - **Workflow mode** - DAG-deterministic request/response pipelines.
 - **Agent mode** - autonomous LLM agents with tool use and memory.
 
 ## Voice and tone
 
-- Mildly casual, serious but not stiff, warm and direct.
+- Mildly casual, serious but not stiff, direct.
 - Second person ("you"), present tense, active voice.
 - No opinions, no hype, no marketing adjectives.
 - Answer first. Context second. Nice-to-know last (inverted pyramid).

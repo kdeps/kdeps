@@ -152,7 +152,7 @@ direction: down
 A: "POST /api/v1/chat\n{\"q\": \"What is entropy?\"}" {shape: oval}
 B: "resource: llm\nvalidates get('q') != ''; calls llama3.2:1b"
 C: "resource: response\nrequires: [llm]; reads get('llm').message.content"
-D: "{\"success\": true, \"response\": {\"answer\": \"...\"}}" {shape: oval}
+D: "{\"success\": true, \"data\": {\"answer\": \"...\"}}" {shape: oval}
 
 A -> B
 B -> C: "output stored as get('llm')"

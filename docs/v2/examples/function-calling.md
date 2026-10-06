@@ -186,7 +186,7 @@ both results.
 
 ## Next steps
 
-- [Tools (function calling)](/workflow/tools) - MCP tools, multiple tools, parameter types
-- [Tools reference](/reference/tools) - tool chaining, debugging
+- [Function calling](/workflow/tools) - MCP tools, multiple tools, parameter types
+- [Function calling](/reference/tools) - tool chaining, debugging
 - [Python resource](/workflow/resources/python) - building tool scripts
 - [Agent mode](/agent/) - tools that are whole workflows

@@ -49,6 +49,22 @@ const version = (theme.value as Record<string, string>).docsVersion || ''
 
 const categories: MenuCategory[] = [
   {
+    key: 'workflow',
+    label: 'AI Workflows',
+    link: '/workflow/',
+    groups: [{
+      items: [
+        { title: 'Overview', desc: 'Deterministic YAML pipeline, same input, same execution path', link: '/workflow/' },
+        { title: 'Quickstart', desc: 'Build your first workflow', link: '/workflow/quickstart' },
+        { title: 'Resource catalog', desc: 'LLM, RAG, SQL, HTTP, browser, exec, email, and more', link: '/workflow/resources' },
+        { title: 'Expressions', desc: 'get()/safe()/default() and the templating layer', link: '/workflow/expressions' },
+        { title: 'Function calling', desc: 'Register a resource as an LLM-callable tool', link: '/workflow/tools' },
+        { title: 'Error handling (onError)', desc: 'Per-resource retry/fallback control', link: '/workflow/error-handling' },
+        { title: 'Workflow as a tool', desc: 'Call an entire pipeline like a function', link: '/workflow/as-a-tool' },
+      ],
+    }],
+  },
+  {
     key: 'agent',
     label: 'AI Code Agents',
     link: '/agent/',
@@ -62,22 +78,6 @@ const categories: MenuCategory[] = [
         { title: 'Judge panel', desc: 'Checks the work is actually good, not just that it moved', link: '/agent/judges' },
         { title: 'Persistent memory', desc: 'Facts and decisions carried across sessions', link: '/agent/memory' },
         { title: 'Skills & prompt templates', desc: 'Reusable playbooks the agent loads on demand', link: '/agent/skills' },
-      ],
-    }],
-  },
-  {
-    key: 'workflow',
-    label: 'AI Workflows',
-    link: '/workflow/',
-    groups: [{
-      items: [
-        { title: 'Overview', desc: 'Deterministic YAML pipeline, same input, same execution path', link: '/workflow/' },
-        { title: 'Quickstart', desc: 'Build your first workflow', link: '/workflow/quickstart' },
-        { title: 'Resource catalog', desc: 'LLM, RAG, SQL, HTTP, browser, exec, email, and more', link: '/workflow/resources' },
-        { title: 'Expressions', desc: 'get()/safe()/default() and the templating layer', link: '/workflow/expressions' },
-        { title: 'Tools (function calling)', desc: 'Register a resource as an LLM-callable tool', link: '/workflow/tools' },
-        { title: 'Error handling (onError)', desc: 'Per-resource retry/fallback control', link: '/workflow/error-handling' },
-        { title: 'Workflow as a tool', desc: 'Call an entire pipeline like a function', link: '/workflow/as-a-tool' },
       ],
     }],
   },
@@ -138,7 +138,7 @@ const categories: MenuCategory[] = [
       items: [
         { title: 'CLI reference', desc: 'Every command and flag', link: '/reference/cli' },
         { title: 'Expression functions', desc: 'The full get()/safe()/... function list', link: '/reference/expression-functions' },
-        { title: 'Tools reference', desc: 'Built-in agent tools, params and outputs', link: '/reference/tools' },
+        { title: 'Function calling', desc: 'The tools: block on a workflow chat resource', link: '/reference/tools' },
         { title: 'Security reference', desc: 'The auth/rate-limit/validation gate chain', link: '/reference/security' },
         { title: 'Management API', desc: 'HTTP endpoints for operating a running kdeps host', link: '/reference/management-api' },
         { title: 'Glossary', desc: 'Terms and concepts', link: '/reference/glossary' },

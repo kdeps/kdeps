@@ -116,7 +116,7 @@ server, returns the contents, and the model answers.
 
 ## Next steps
 
-- [Tools (function calling)](/workflow/tools) - `script:` tools, parameter types
-- [Tools reference](/reference/tools) - MCP details, debugging
+- [Function calling](/workflow/tools) - `script:` tools, parameter types
+- [Function calling](/reference/tools) - MCP details, debugging
 - [Function calling tutorial](/examples/function-calling) - tools backed by your own resources
 - [Agent loop built-in tools](/agent/tools) - MCP in agent mode

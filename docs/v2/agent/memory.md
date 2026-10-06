@@ -24,7 +24,7 @@ The agent has three LLM-callable tools for interacting with persistent memory. T
 
 Another tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.
 
-### memory_save
+## memory_save
 
 Creates or updates a memory entry. The entry is persisted immediately to disk.
 
@@ -38,7 +38,7 @@ Creates or updates a memory entry. The entry is persisted immediately to disk.
 }
 ```
 
-### memory_search
+## memory_search
 
 Finds entries where a query word appears in the key or value (case-insensitive). A key hit ranks above a value-only hit. More words matched ranks above fewer. A newer update breaks a tie.
 
@@ -67,7 +67,7 @@ Found 25 memory entries (showing 20):
 
 No memory hits falls through to a local file search of the working directory, also capped at 20 matches. The file-search JSON is cut if it exceeds the tool-result byte cap.
 
-### memory_delete
+## memory_delete
 
 Removes a single entry by key.
 

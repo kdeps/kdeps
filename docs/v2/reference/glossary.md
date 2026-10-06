@@ -48,8 +48,8 @@ mode and agent mode.
 | `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
-| <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl#themes) |
-| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Tools](/workflow/tools) |
+| <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl-themes#themes) |
+| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
 | <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/workflow/validation) |
 | workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/workflow/configuration) |
 

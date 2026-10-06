@@ -44,6 +44,13 @@ before:                 # prepare values the action reads
   - set('pre', 'value')
 after:                  # process the output for downstream resources
   - set('post', 'value')
+```
+
+## The one action
+
+```yaml
+# resources/my-resource.yaml
+actionId: myResource        # required: unique ID -- used by requires: and get()
 
 # Exactly one primary action per resource (apiResponse: may accompany it
 # on the same resource to format the HTTP response):
@@ -87,7 +94,7 @@ apiResponse:
 
 All executors are compiled into the `kdeps` binary and require no installation. They are grouped here by function; each links to its own reference page.
 
-### AI & language
+## AI & language
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -100,7 +107,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) | [Transcribe](/workflow/resources/transcribe) |
 | `ocr` | Text from an image via tesseract - local, no API key | [OCR](/workflow/resources/ocr) |
 
-### Web
+## Web
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -110,7 +117,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
 | `searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily | [searchWeb](/workflow/resources/search-web) |
 
-### Data & system
+## Data & system
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -121,7 +128,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `exec` | Run a shell command, stdout captured | [Exec](/workflow/resources/exec) |
 | `codeIntelligence` | Symbol search, definitions, references, folder graph | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |
 
-### Messaging
+## Messaging
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -129,7 +136,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `telephony` | Voice call handling (say, ask, menu, dial, record) | [Telephony](/workflow/resources/telephony) |
 | `botReply` | Reply to the chat platform that delivered the message | [Bot reply](/workflow/resources/bot-reply) |
 
-### Orchestration
+## Orchestration
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -137,7 +144,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component` | Call a reusable resource bundle | [Component](/agencies/component-resource) |
 | `apiResponse` | Return data to the HTTP caller | [API response](/workflow/resources/api-response) |
 
-### Registry components (installable via `kdeps registry install`)
+## Registry components (installable via `kdeps registry install`)
 
 Some install names (`scraper`, `browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
 

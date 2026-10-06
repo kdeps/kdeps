@@ -61,7 +61,7 @@ file:
 
 ## Operation details
 
-### Read
+## Read
 
 Reads a file and returns its content. By default returns UTF-8 text. Set `encoding: base64` for binary files.
 
@@ -86,7 +86,7 @@ file:
 }
 ```
 
-### Write
+## Write
 
 Writes content to a file. Creates parent directories automatically. Optionally creates a `.bak` backup if the file already exists.
 
@@ -100,7 +100,7 @@ file:
   mode: "0644"
 ```
 
-### Patch
+## Patch
 
 Applies a [unified diff](https://en.wikipedia.org/wiki/Diff#Unified_format) to a file. Supports standard `@@ -N,M +N,M @@` hunk headers, context lines, additions, and removals.
 
@@ -121,7 +121,7 @@ file:
 
 **Tip:** Use `dryRun: true` to verify the patch applies cleanly before modifying the file.
 
-### List
+## List
 
 Lists entries in a directory, or returns single-file info. Supports glob filtering and recursive traversal.
 
@@ -134,7 +134,7 @@ file:
   recursive: false
 ```
 
-### Delete
+## Delete
 
 Removes a file or directory. Returns success (not an error) if the path does not exist.
 
@@ -146,7 +146,7 @@ file:
   dryRun: false
 ```
 
-### Exists
+## Exists
 
 Checks whether a path exists and returns metadata if it does.
 
@@ -170,7 +170,7 @@ file:
 }
 ```
 
-### Mkdir
+## Mkdir
 
 Creates a directory, including all parent directories. Succeeds silently if the directory already exists.
 
@@ -182,7 +182,7 @@ file:
   mode: "0755"
 ```
 
-### Copy
+## Copy
 
 Copies a file or directory to a destination path. Directories are copied recursively.
 
@@ -194,7 +194,7 @@ file:
   path: /path/to/dest.txt
 ```
 
-### Move
+## Move
 
 Moves or renames a file or directory. Works across filesystems on supported platforms.
 
@@ -206,7 +206,7 @@ file:
   path: /path/to/dest.txt
 ```
 
-### Append
+## Append
 
 Appends content to the end of a file, creating it if it doesn't exist.
 

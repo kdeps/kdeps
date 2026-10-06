@@ -116,7 +116,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 `llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a **plain allowlist** (model names only) or as a **router route table** (with routing metadata). The `llm.strategy` field switches between the two modes.
 
-### Allowlist mode (no strategy)
+## Allowlist mode (no strategy)
 
 When `strategy` is absent, `llm.models` is a simple list of permitted model names:
 
@@ -140,7 +140,7 @@ llm:
 
 Any request for a model not in this list is overridden to the first model and a warning is logged. Models listed here are pre-pulled into Docker/ISO artifacts.
 
-### Routing mode (with strategy)
+## Routing mode (with strategy)
 
 When `strategy` is set, the models list acts as router routes:
 
@@ -172,7 +172,7 @@ llm:
       priority: 1
 ```
 
-### Entry fields
+## Entry fields
 
 Each model entry supports these fields:
 
@@ -407,6 +407,6 @@ See [LLM server appliance](/llm-server/) and [LLM commands](/llm-server/cli).
 
 - [LLM provider reference](/llm-server/providers) - Per-provider config snippets and model names
 - [LLM resource](/workflow/resources/llm) - Complete LLM resource documentation
-- [Tools](/workflow/tools) - LLM function calling
+- [Function calling](/workflow/tools) - LLM function calling
 - [Docker deployment](/deploy/docker) - Deploying with local models
 

@@ -59,7 +59,7 @@ Paths are top-level under `settings` (not under `apiServer`). Same certs apply t
 
 kdeps uses Go `autocert` (ACME) against Let's Encrypt production or staging.
 
-### Minimal config
+## Minimal config
 
 ```yaml
 # workflow.yaml
@@ -75,7 +75,7 @@ settings:
         methods: [POST]
 ```
 
-### Full field reference
+## Full field reference
 
 ```yaml
 settings:
@@ -106,14 +106,14 @@ settings:
 | `staging` | `false` | Use LE staging directory |
 | `httpChallengeAddr` | `":80"` | Bind address for HTTP-01; empty string disables it |
 
-### DNS and ports
+## DNS and ports
 
 1. Create **A/AAAA** records for every hostname in `domain` / `domains` pointing at this machine (or load balancer that forwards 80/443).
 2. Open **TCP 80** (HTTP-01 challenge) and **TCP 443** (HTTPS app + TLS-ALPN-01).
 3. Prefer listening on **port 443** for production HTTPS.
 4. Ensure the process can **write** `cacheDir` (persist this volume in Docker/K8s so renewals keep working).
 
-### What kdeps starts
+## What kdeps starts
 
 When `letsEncrypt` is active (and no static PEM):
 
@@ -122,7 +122,7 @@ When `letsEncrypt` is active (and no static PEM):
 
 Certificates renew automatically while the process is running and the cache directory is preserved.
 
-### Staging checklist
+## Staging checklist
 
 Before production, validate the path with staging:
 

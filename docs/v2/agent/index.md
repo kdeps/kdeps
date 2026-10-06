@@ -16,23 +16,7 @@ To orchestrate several agents as one system, [kdeps agencies](/agencies/).
 
 ---
 
-Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows and agencies as tools.
-
-## Starting the agent loop
-
-```bash
-kdeps                              # runs the agent loop REPL
-kdeps --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
-kdeps --skill ~/.kdeps/skills/     # load skill files
-kdeps --resume <session-id>        # continue a saved session
-```
-
 ## Single workflow vs folder
-
-```bash
-kdeps ./my-agent/     # registers the workflow as an LLM-callable tool (named after metadata.name)
-kdeps ./agents/       # registers every workflow and agency in the folder as a separate tool
-```
 
 When you point at a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest - not the filename.
 
@@ -128,7 +112,7 @@ kdeps --resume abc123def456                      # resume a session
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
-| Per-folder session history and the startup resume picker | [Sessions](/agent/repl#sessions) |
+| Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
 | Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## Differences from workflow mode

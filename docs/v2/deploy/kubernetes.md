@@ -119,7 +119,7 @@ When `resources` is absent, no `resources:` block is emitted (Kubernetes default
 
 `kdeps export k8s` produces a single YAML document with a Deployment and a Service separated by `---` (plus a NetworkPolicy when opted in).
 
-### Deployment
+## Deployment
 
 ```yaml
 # k8s.yaml
@@ -171,7 +171,7 @@ spec:
           periodSeconds: 30        # re-probe every 30s
 ```
 
-### Service
+## Service
 
 ```yaml
 # k8s.yaml
@@ -193,7 +193,7 @@ spec:
 
 Probes follow what the workflow serves: an `apiServer` workflow gets HTTP probes on `/health` at the `api` port; a web-only workflow gets TCP probes on the `web` port (the web server has no `/health` endpoint); a workflow with neither gets no probes.
 
-### NetworkPolicy (opt-in)
+## NetworkPolicy (opt-in)
 
 Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat`, `httpClient`, `searchWeb`, and `sql` resources can reach external services.
 
@@ -222,6 +222,8 @@ The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0
 
 Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); on clusters without one the policy is accepted but has no effect.
 
+## Auth tokens
+
 When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `agentSettings.env`):
 
 ```yaml
@@ -244,6 +246,8 @@ kdeps export k8s examples/chatbot --output k8s.yaml
 kubectl apply -f k8s.yaml
 ```
 
+## Env secrets
+
 Secret-like keys in `agentSettings.env` (for example `OPENAI_API_KEY`) are not baked into the manifest. Export emits `secretKeyRef` entries against `{metadata.name}-env` instead:
 
 ```yaml
@@ -260,6 +264,8 @@ stringData:
 ```bash
 kubectl apply -f deploy/env-secret.yaml
 ```
+
+## Pod securityContext
 
 Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false` since kdeps workloads never call the Kubernetes API.
 

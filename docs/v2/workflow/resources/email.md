@@ -42,7 +42,7 @@ imap_connections:
     tls: true
 ```
 
-### Interactive setup on first run
+## Interactive setup on first run
 
 If a resource references a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` - so you never have to hand-edit the file to get going:
 
@@ -61,7 +61,7 @@ This is interactive-only: when stdin is not a terminal (CI, pipes), kdeps skips 
 
 Values already provided by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are never prompted for and never written to `config.yaml`; kdeps prints a notice that it is using the value from the environment.
 
-### Set connections via environment variables
+## Set connections via environment variables
 
 Every named connection can be supplied entirely from the environment - no `config.yaml` entry needed - using the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>`. The name is matched case-insensitively and used lowercased, so reference it in lowercase in resources (`connectionName: default`, `smtpConnection: alerts`). Env values win over `config.yaml`, per field:
 

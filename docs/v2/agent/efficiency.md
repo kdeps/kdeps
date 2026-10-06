@@ -87,6 +87,8 @@ brief -> retry
 retry -> call
 ```
 
+## What the brief carries
+
 What the brief carries depends on the failure:
 
 | Failure | Extra context in the brief |
@@ -110,9 +112,15 @@ you match on, or use another tool. If it cannot be done, say plainly in your ans
 failed; do NOT report it as done. Do not mention this notice.
 ```
 
+## The tool result in history
+
 The tool result in history keeps only the raw error (APIs require a result for every call); the brief, the file lines and the retry example never reach history, the REPL or the desktop app (unless `verbose` is on). You still see that the call failed in its tool line.
 
+## Errors the model cannot fix
+
 Model-call errors that the model cannot fix are never retried this way: transient errors (rate limits, 5xx, network) are already retried with backoff, context overflow is compacted, and credential, billing, quota and unknown-model errors are returned to you at once.
+
+## The failures budget
 
 Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. Once it is spent the plain `[TOOL FAILED]` banner returns for tool calls, and a failing model call returns its error - also when the turn runs out of rounds first, so a turn never ends silently on a swallowed error.
 
@@ -151,7 +159,7 @@ Enforcement stands down when it is off, when the `audit` or `explain` agent pres
 
 ## Presets
 
-The `frugal`, `balanced` and `thorough` [harness presets](/agent/events#presets) set **every** efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
+The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#presets) set **every** efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
 
 | Preset | reads | actions | stops | failures | tighten | web | bash | file | code |
 |---|---|---|---|---|---|---|---|---|---|

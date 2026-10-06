@@ -17,7 +17,7 @@ model alias tables, and the Docker `installOllama` flag live on one page - see
 
 Any API that implements the OpenAI chat completions API works with kdeps.
 
-### OpenAI
+## OpenAI
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -35,7 +35,7 @@ llm:
 
 Azure and older-compat servers: see [LLM Backends - legacy token param](/workflow/resources/llm-backends#openai-legacy-token-param).
 
-### Anthropic (claude)
+## Anthropic (claude)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -54,7 +54,7 @@ llm:
 Prompt caching, extended 128K output, and custom beta headers: see
 [LLM Backends - Anthropic](/workflow/resources/llm-backends#anthropic-prompt-caching-and-extended-output).
 
-### Google (gemini / vertex AI)
+## Google (gemini / vertex AI)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -73,7 +73,7 @@ llm:
 
 CachedContent and safety threshold options (`googleCachedContent`, `googleHarmThreshold`): see [LLM Backends - Google](/workflow/resources/llm-backends#google-cached-content-and-safety-threshold).
 
-### Mistral
+## Mistral
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -90,7 +90,7 @@ llm:
 | `open-mistral-7b` | Open-source 7B |
 | `open-mixtral-8x7b` | MoE model |
 
-### Groq
+## Groq
 
 Ultra-fast inference with Groq hardware.
 
@@ -108,7 +108,7 @@ llm:
 | `mixtral-8x7b-32768` | Mixtral with 32K context |
 | `gemma2-9b-it` | Google Gemma 2 9B |
 
-### Together AI
+## Together AI
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -124,7 +124,7 @@ llm:
 | `mistralai/Mixtral-8x7B-Instruct-v0.1` | Mixtral 8x7B |
 | `Qwen/Qwen2-72B-Instruct` | Qwen2 72B |
 
-### Perplexity
+## Perplexity
 
 Search-augmented LLM responses.
 
@@ -141,7 +141,7 @@ llm:
 | `llama-3.1-sonar-small-128k-online` | Small with web search |
 | `llama-3.1-sonar-large-128k-chat` | Large chat only |
 
-### Cohere
+## Cohere
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -157,7 +157,7 @@ llm:
 | `command` | Standard |
 | `command-light` | Fast, efficient |
 
-### DeepSeek
+## DeepSeek
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -172,7 +172,7 @@ llm:
 | `deepseek-v4-flash` | Fast |
 | `deepseek-coder` | Code generation |
 
-### xAI (grok)
+## xAI (grok)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -187,7 +187,7 @@ llm:
 | `grok-beta` | Grok beta |
 | `grok-vision-beta` | Grok with vision |
 
-### OpenRouter
+## OpenRouter
 
 Access 100+ models from multiple providers through a single API.
 
@@ -200,7 +200,7 @@ llm:
 
 Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
-### AWS bedrock
+## AWS bedrock
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -210,7 +210,7 @@ llm:
 
 Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key - set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `meta.llama3-1-70b-instruct-v1:0` (Anthropic models on Bedrock use the `anthropic.` prefix).
 
-### IBM WatsonX
+## IBM WatsonX
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -221,7 +221,7 @@ llm:
 
 Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` field for it). `model` is a WatsonX model ID, e.g. `ibm/granite-13b-chat-v2` or `meta-llama/llama-3-70b-instruct`.
 
-### M365 Copilot
+## M365 Copilot
 
 Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it (`m365` backend) - no API key, authentication is a signed-in Microsoft 365 account via a browser sign-in flow (interactive) or a scripted `secrets.json` (headless/CI).
 

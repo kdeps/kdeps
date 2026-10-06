@@ -15,8 +15,8 @@ Need help with kdeps? Use the channel that fits your question.
 ## Before you ask
 
 - Check the [documentation](https://kdeps.com), especially the
-  [troubleshooting guide](https://kdeps.com/guides/troubleshooting) and the
-  [FAQ](https://kdeps.com/guides/faq).
+  [troubleshooting guide](https://kdeps.com/reference/troubleshooting) and the
+  [FAQ](https://kdeps.com/reference/faq).
 - Search [existing issues](https://github.com/kdeps/kdeps/issues) and
   [discussions](https://github.com/kdeps/kdeps/discussions).
 - Run `kdeps doctor` and include its output.

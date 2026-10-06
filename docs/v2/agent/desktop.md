@@ -30,7 +30,7 @@ brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or In
 
 After `brew tap kdeps/tap` the short form `brew install --cask kdeps-desktop` works too. Update with `brew upgrade --cask kdeps-desktop`. The cask and the Scoop manifest are rewritten by the `Release Desktop` workflow on every release.
 
-### Linux (packages)
+## Linux (packages)
 
 Releases after v2.53.2 attach a `.deb`, `.rpm` and Arch package. They install the app, launcher entry and icon, and pull in the GTK and WebKit libraries as dependencies:
 
@@ -40,7 +40,7 @@ sudo dnf install ./kdeps-desktop_<version>_linux_amd64.rpm        # Fedora, RHEL
 sudo pacman -U kdeps-desktop_<version>_linux_amd64.pkg.tar.zst    # Arch
 ```
 
-### Linux (tarball)
+## Linux (tarball)
 
 ```bash
 # Debian/Ubuntu runtime libraries (Fedora: sudo dnf install gtk3 webkit2gtk4.1)
@@ -58,14 +58,14 @@ cp "$tmp/kdeps.png" ~/.local/share/icons/                         # launcher ico
 kdeps-desktop   # or find "kdeps" in your app launcher
 ```
 
-### Windows (Scoop)
+## Windows (Scoop)
 
 ```powershell
 scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
 scoop install kdeps-desktop   # adds a Start menu shortcut; scoop update kdeps-desktop upgrades it
 ```
 
-### Windows (PowerShell)
+## Windows (PowerShell)
 
 ```powershell
 $v = (Invoke-RestMethod https://api.github.com/repos/kdeps/kdeps/releases/latest).tag_name.TrimStart("v")   # latest release

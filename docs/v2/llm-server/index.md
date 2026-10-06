@@ -111,7 +111,7 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources keep using `chat.model` as usual - only the backend URL changes. Applies to **workflow mode** and **agent mode**.
+Chat resources in workflow mode and agent mode keep using `chat.model`. Only the backend URL changes.
 
 ## Stock recipes
 

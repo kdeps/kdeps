@@ -58,9 +58,15 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 
 The `(2m ago)` hint is a coarse relative age (`just now`/`Nm`/`Nh`/`Nd ago`) a model uses after an orchestrator model switch to judge whether to re-verify before continuing.
 
+## What the budget keeps
+
 The block is truncated to a token budget, but not oldest-first: the **active task chain**, entries **relevant to the current prompt** (matched on significant prompt words at word boundaries), and the **newest unresolved error** are always kept - unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
 
+## Unresolved errors
+
 The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front - one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
+
+## Duplicate facts
 
 Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool. The graph above is the context.
 
@@ -75,7 +81,7 @@ This preserves important information across compaction boundaries.
 
 ## Checkpoint summaries
 
-After every compaction (or [fold](/agent/repl#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
+After every compaction (or [fold](/agent/repl-context#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
 
 The previous checkpoint is never silently discarded: it's archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply aren't in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 

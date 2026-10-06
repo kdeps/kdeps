@@ -102,8 +102,8 @@ Agent mode conversation history is a different store: JSONL files under `~/.kdep
 
 ## See also
 
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
 - [Execution flow](/workflow/execution-flow) - how the engine runs resources
 - [Troubleshooting](/reference/troubleshooting) - common errors and fixes

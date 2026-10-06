@@ -132,4 +132,4 @@ chat:
 
 - [SQL resource](/workflow/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
 - [Python resource](/workflow/resources/python) - Post-process SQL results with pandas
-- [Tools reference](/reference/tools) - Use SQL as an LLM tool
+- [Function calling](/reference/tools) - Use SQL as an LLM tool

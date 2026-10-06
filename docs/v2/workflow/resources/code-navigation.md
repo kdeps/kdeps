@@ -73,7 +73,7 @@ sudo apt install ripgrep   # Ubuntu/Debian
 
 ## Operations
 
-### Symbol search
+## Symbol search
 
 Searches for a symbol or pattern across files. Uses LSP `workspace/symbol` for semantic search, or `rg` regex as fallback.
 
@@ -97,7 +97,7 @@ codeIntelligence:
 }
 ```
 
-### Definition
+## Definition
 
 Finds the definition of a symbol. Uses LSP `textDocument/definition` for semantic precision (no false positives on comments or similar names).
 
@@ -108,7 +108,7 @@ codeIntelligence:
   path: /path/to/project/main.go
 ```
 
-### References
+## References
 
 Finds all references to a symbol across the codebase. LSP returns cross-file results with type-level accuracy.
 
@@ -120,7 +120,7 @@ codeIntelligence:
   pattern: "*.go"
 ```
 
-### Document symbols
+## Document symbols
 
 Lists all symbols in a file with nesting (methods inside classes, etc.). LSP returns structured `DocumentSymbol[]` with children.
 
@@ -143,7 +143,7 @@ codeIntelligence:
 }
 ```
 
-### Hover
+## Hover
 
 Retrieves documentation and type information for a symbol. LSP returns real doc comments and type signatures.
 
@@ -154,7 +154,7 @@ codeIntelligence:
   path: /path/to/project/main.go
 ```
 
-### Diagnostics
+## Diagnostics
 
 Runs compiler/linter diagnostics on a file. LSP returns errors and warnings from the language server (e.g., `gopls` for Go, `pyright` for Python). Falls back to `go vet` for Go files when no LSP server is available.
 
@@ -175,7 +175,7 @@ codeIntelligence:
 }
 ```
 
-### Graphing an indexed folder
+## Graphing an indexed folder
 
 `indexFolder`/`graphFile`/`graphTopic`/`graphAll` are different from the LSP/rg operations above: instead of searching live files, they build and query a small persistent graph database of the current working directory, tracking which files link to which and which share a topic (from `topics:`/`tags:` frontmatter).
 

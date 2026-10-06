@@ -110,7 +110,7 @@ browser:
 
 ## Examples
 
-### Stealth mode login (bot detection evasion)
+## Stealth mode login (bot detection evasion)
 
 For websites that block headless browsers, enable `stealthMode` and consider using non-headless mode to appear more human-like:
 
@@ -137,7 +137,7 @@ browser:
         wait: "3000ms"
 ```
 
-### Form fill and submit
+## Form fill and submit
 
 <div v-pre>
 
@@ -172,7 +172,7 @@ browser:
 
 </div>
 
-### Screenshot of a dynamic dashboard
+## Screenshot of a dynamic dashboard
 
 ```yaml
 # resources/dashboard-shot.yaml
@@ -195,7 +195,7 @@ browser:
       screenshot: "/tmp/dashboard.png"
 ```
 
-### Extract JavaScript-rendered data
+## Extract JavaScript-rendered data
 
 ```yaml
 # resources/extract-data.yaml
@@ -217,7 +217,7 @@ browser:
       products: "{{ get('extractData') }}"
 ```
 
-### Multi-step login with persistent session
+## Multi-step login with persistent session
 
 <div v-pre>
 
@@ -249,7 +249,7 @@ browser:
 
 </div>
 
-### File upload
+## File upload
 
 ```yaml
 # resources/upload-document.yaml
