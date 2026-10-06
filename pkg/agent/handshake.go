@@ -347,7 +347,7 @@ func capHandshakeHistory(history []map[string]any) []map[string]any {
 	}
 	head := history[:perPair]
 	tail := history[len(history)-(maxLen-perPair):]
-	out := make([]map[string]any, 0, len(head)+len(tail))
+	out := make([]map[string]any, 0, maxLen)
 	out = append(out, head...)
 	out = append(out, tail...)
 	return out
