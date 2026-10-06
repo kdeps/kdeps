@@ -112,7 +112,19 @@ curl -X POST http://localhost:16395/chat \
 ```
 
 The model calls `read_file` with `path: "/tmp/note.txt"`, kdeps runs the MCP
-server, returns the contents, and the model answers.
+server, returns the contents (`hello from mcp`), and the model answers in
+text. With `llama3.2:1b` the reply was:
+
+```json
+{"success": true, "data": {"reply": {"message": {"role": "assistant", "content": "The contents of /tmp/note.txt are:"}}}}
+```
+
+The wording comes from the model and varies. Small local models such as
+`llama3.2:1b` often write the tool call as JSON text instead of a structured
+call; kdeps recovers it, runs the tool, and stops a model that keeps
+re-issuing the same call by asking once more, without tools, for a plain
+answer. A 1B model's answer can be thin, as above; use a larger model
+for dependable tool use.
 
 ## Next steps
 

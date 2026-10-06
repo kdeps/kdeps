@@ -139,7 +139,19 @@ func addRequestBodyInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
 	if ctx.Request == nil || ctx.Request.Body == nil {
 		return
 	}
-	env["input"] = ctx.Request.Body
+	env["input"] = inputFunc(ctx)
+}
+
+// inputFunc is input('name') for expressions: the same lookup as ctx.Input
+// (input processors, query, headers, body, component inputs); nil when absent.
+func inputFunc(ctx *ExecutionContext) func(string, ...string) interface{} {
+	return func(name string, inputType ...string) interface{} {
+		val, err := ctx.Input(name, inputType...)
+		if err != nil {
+			return nil
+		}
+		return val
+	}
 }
 
 func addRawItemEnv(env map[string]interface{}, ctx *ExecutionContext) {
@@ -164,11 +176,7 @@ func addEngineInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
 	if ctx.Request == nil {
 		return
 	}
-	if ctx.Request.Body != nil {
-		env["input"] = ctx.Request.Body
-		return
-	}
-	env["input"] = map[string]interface{}{}
+	env["input"] = inputFunc(ctx)
 }
 
 func addRichRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {

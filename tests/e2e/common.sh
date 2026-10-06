@@ -102,7 +102,16 @@ export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/tests/e2e/examples/components"
 # temp directory that has no ~/.kdeps/config.yaml.
 export KDEPS_SKIP_BOOTSTRAP=1
 
-# apiServer requires a token; provide a default for E2E runs without ~/.kdeps/config.yaml.
+# Run against an empty config, as CI does. config.yaml values take precedence
+# over the environment, so a developer's ~/.kdeps/config.yaml (api_auth_token,
+# backends, connections) would otherwise change what these tests see.
+if [ -z "${KDEPS_CONFIG_PATH:-}" ]; then
+    KDEPS_E2E_CONFIG_DIR="$(mktemp -d)"
+    export KDEPS_CONFIG_PATH="$KDEPS_E2E_CONFIG_DIR/config.yaml"
+    : > "$KDEPS_CONFIG_PATH"
+fi
+
+# apiServer requires a token; provide a default for E2E runs.
 export KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN:-e2e-test-auth-token}"
 
 _kdeps_curl_find_url() {
@@ -254,7 +263,15 @@ case "$(uname -s)" in
         ;;
     Darwin)
         if command -v gtimeout >/dev/null 2>&1; then
-            timeout() { gtimeout "$@"; }
+            # A backgrounded function runs in a subshell. exec replaces that
+            # subshell so `kill $!` signals gtimeout, which then stops kdeps.
+            # In the current shell, exec would replace the test runner.
+            timeout() {
+                if [[ ${BASH_SUBSHELL:-0} -gt 0 ]]; then
+                    exec gtimeout "$@"
+                fi
+                gtimeout "$@"
+            }
             export -f timeout
         elif ! command -v timeout >/dev/null 2>&1; then
             timeout() { _kdeps_timeout_shim "$@"; }

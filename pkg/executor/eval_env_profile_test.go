@@ -63,7 +63,7 @@ func TestBuildEvalEnv_RequestProfile(t *testing.T) {
 	}
 
 	env := BuildEvalEnv(ctx, EvalEnvRequest)
-	assert.Equal(t, ctx.Request.Body, env["input"])
+	assert.Equal(t, ctx.Request.Body["id"], env["input"].(func(string, ...string) interface{})("id"))
 	assert.Equal(t, ctx.Items["item"], env["item"])
 }
 
@@ -215,7 +215,7 @@ func TestBuildEvalEnv_EngineProfile(t *testing.T) {
 	env := BuildEvalEnv(ctx, EvalEnvEngine)
 	assert.Contains(t, env, "http")
 	assert.Contains(t, env, "telephony")
-	assert.Equal(t, ctx.Request.Body, env["input"])
+	assert.Equal(t, "hi", env["input"].(func(string, ...string) interface{})("q"))
 	assert.Equal(t, "/tmp/input.txt", env["inputFilePath"])
 	req, ok := env["request"].(map[string]interface{})
 	require.True(t, ok)

@@ -571,7 +571,7 @@ func TestExecutor_Execute_WithInputContext(t *testing.T) {
 	config := &domain.ExecConfig{
 		Command: "echo",
 		Args: []string{
-			"{{input.message}} ({{input.count}})",
+			"{{input('message')}} ({{input('count')}})",
 		},
 	}
 

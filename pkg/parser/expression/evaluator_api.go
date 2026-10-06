@@ -114,14 +114,14 @@ func (e *Evaluator) addContextAPIWrappers(evalEnv map[string]interface{}) {
 		return val
 	}
 	if e.api.Input != nil {
-		if _, isObject := evalEnv["input"].(map[string]interface{}); !isObject {
-			evalEnv["input"] = func(name string, inputType ...string) interface{} {
-				val, err := e.api.Input(name, inputType...)
-				if err != nil {
-					return nil
-				}
-				return val
+		// input('name') is always the function, even when a request body is
+		// present: it already reads the body, query, headers and component inputs.
+		evalEnv["input"] = func(name string, inputType ...string) interface{} {
+			val, err := e.api.Input(name, inputType...)
+			if err != nil {
+				return nil
 			}
+			return val
 		}
 	}
 	if e.api.Output != nil {
@@ -152,15 +152,21 @@ func (e *Evaluator) addIterationAPIWrappers(evalEnv map[string]interface{}) {
 	if e.api.Loop != nil {
 		evalEnv["loop"] = e.buildLoopObject()
 	}
-	evalEnv["env"] = func(name string) interface{} {
+	// env('NAME') or env('NAME', 'fallback'): the fallback is returned when the
+	// variable is unset or empty.
+	evalEnv["env"] = func(name string, fallback ...string) interface{} {
+		var val string
 		if e.api.Env != nil {
-			val, err := e.api.Env(name)
-			if err != nil {
-				return ""
+			if v, err := e.api.Env(name); err == nil {
+				val = v
 			}
-			return val
+		} else {
+			val = os.Getenv(name)
 		}
-		return os.Getenv(name)
+		if val == "" && len(fallback) > 0 {
+			return fallback[0]
+		}
+		return val
 	}
 	if e.api.ConfigNamespace != nil {
 		for _, ns := range namespace.All() {
