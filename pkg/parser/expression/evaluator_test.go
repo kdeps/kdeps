@@ -925,31 +925,31 @@ func TestEvaluator_buildEnvironment_EnvVariables(t *testing.T) {
 	assert.Equal(t, true, result3)
 }
 
-func TestEvaluator_buildEnvironment_InputAsObject(t *testing.T) {
+// input('name') stays callable even when the environment already binds input
+// to the request-body object.
+func TestEvaluator_buildEnvironment_InputIsAlwaysCallable(t *testing.T) {
 	api := &domain.UnifiedAPI{
-		Input: func(_ string, _ ...string) (interface{}, error) {
-			return "input value", nil
+		Input: func(name string, _ ...string) (interface{}, error) {
+			return "value of " + name, nil
 		},
 	}
 
 	evaluator := expression.NewEvaluator(api)
 
-	// Test that when input is already an object, it's preserved
 	env := map[string]interface{}{
 		"input": map[string]interface{}{
 			"items": []string{"a", "b"},
 		},
 	}
 
-	// Test accessing input as object
 	expr := &domain.Expression{
-		Raw:  "input.items",
+		Raw:  "input('items')",
 		Type: domain.ExprTypeDirect,
 	}
 
 	result, err := evaluator.Evaluate(expr, env)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b"}, result)
+	assert.Equal(t, "value of items", result)
 }
 
 func TestEvaluator_buildEnvironment_OutputFunction(t *testing.T) {
@@ -1695,5 +1695,30 @@ func TestInterpolationWithUnifiedAPI(t *testing.T) {
 	expected := "User: test_user, Count: 10"
 	if result != expected {
 		t.Errorf("Got %v, want %v", result, expected)
+	}
+}
+
+func TestEvaluator_EnvFallback(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Env: func(name string) (string, error) {
+			if name == "SET" {
+				return "real", nil
+			}
+			return "", nil
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	for raw, want := range map[string]interface{}{
+		"env('SET')":               "real",
+		"env('SET', 'fallback')":   "real",
+		"env('UNSET', 'fallback')": "fallback",
+		"env('UNSET')":             "",
+	} {
+		got, err := evaluator.Evaluate(
+			&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect},
+			map[string]interface{}{},
+		)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
 	}
 }

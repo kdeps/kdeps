@@ -54,13 +54,44 @@ resources:
     apiResponse:
       success: true
       response:
-        out: "{{ get('translate') }}"
+        out: "{{ trim(get('translate').stdout) }}"   # the echoed line, not the whole exec result
 ```
 
 </div>
 
-Create `components/summarizer/component.yaml` - identical but with
-`name: summarizer` and `"summarizer using key: ..."` in the echo.
+Create `components/summarizer/component.yaml`, the same shape under its own name:
+
+<div v-pre>
+
+```yaml
+# components/summarizer/component.yaml
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: summarizer
+  version: "1.0.0"
+
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+
+resources:
+  - actionId: summarize
+    name: Summarize
+    exec:
+      command: "echo"
+      args:
+        - "summarizer using key: {{ env('API_KEY', 'none') }} -- text: {{ input('text') }}"
+    apiResponse:
+      success: true
+      response:
+        out: "{{ trim(get('summarize').stdout) }}"   # the echoed line, not the whole exec result
+```
+
+</div>
 
 ## Step 3: call both components
 
@@ -108,8 +139,8 @@ requires: [runTranslate, runSummarize]
 apiResponse:
   success: true
   response:
-    translator: "{{ output('runTranslate').out }}"
-    summarizer: "{{ output('runSummarize').out }}"
+    translator: "{{ output('runTranslate').data.out }}"   # a component call returns its apiResponse
+    summarizer: "{{ output('runSummarize').data.out }}"
 ```
 
 </div>

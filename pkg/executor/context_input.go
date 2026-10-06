@@ -72,7 +72,8 @@ func (ctx *ExecutionContext) inputAutoDetect(name string) (interface{}, error) {
 }
 
 // Input retrieves input values with unified access.
-// Priority: Input-processor results → Query Parameter → Header → Request Body
+// Priority: Input-processor results → component with: value (inside a component
+// call) → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	kdeps_debug.Log("enter: Input")
@@ -85,6 +86,13 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 
 	if val, ok := ctx.getInputByName(name); ok {
 		return val, nil
+	}
+
+	// Inside a component call, input('x') is the caller's with: x value.
+	if ctx.CurrentComponent != "" && ctx.Memory != nil {
+		if val, ok := ctx.Memory.Get(ctx.CurrentComponent + "." + name); ok {
+			return val, nil
+		}
 	}
 
 	return ctx.inputAutoDetect(name)

@@ -2490,7 +2490,7 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 		Name:     "Test Resource",
 
 		Chat: &domain.ChatConfig{
-			Model:   "{{input.model}}", // Valid expression
+			Model:   "{{input('model')}}", // Valid expression
 			Prompt:  "test prompt",
 			Timeout: "30s",
 		},
@@ -2601,7 +2601,7 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 			Name:     "LLM Resource",
 
 			Chat: &domain.ChatConfig{
-				Model:   "{{input.model}}", // Expression that evaluates
+				Model:   "{{input('model')}}", // Expression that evaluates
 				Prompt:  "test prompt",
 				Timeout: "10s", // Short timeout for testing
 				Backend: "ollama",
@@ -2631,7 +2631,7 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 			Name:     "LLM Resource",
 
 			Chat: &domain.ChatConfig{
-				Model:   "{{input.model_config.name}}", // Nested expression
+				Model:   "{{input('model_config').name}}", // Nested expression
 				Prompt:  "test prompt",
 				Timeout: "5s", // Very short for quick test
 			},
@@ -3036,9 +3036,9 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 
 			Validations: &domain.ValidationsConfig{
 				Check: []domain.Expression{
-					{Raw: "request.method == 'GET'"}, // Tests request.method accessor
-					{Raw: "request.path == '/test'"}, // Tests request.path accessor
-					{Raw: "input.test == 'value'"},   // Tests input accessor
+					{Raw: "request.method == 'GET'"},  // Tests request.method accessor
+					{Raw: "request.path == '/test'"},  // Tests request.path accessor
+					{Raw: "input('test') == 'value'"}, // Tests input accessor
 				},
 			},
 		}
@@ -3248,7 +3248,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 
 			Validations: &domain.ValidationsConfig{
 				Check: []domain.Expression{
-					{Raw: "input.debug == 'test'"}, // Should trigger debug logging
+					{Raw: "input('debug') == 'test'"}, // Should trigger debug logging
 				},
 			},
 		}
@@ -3948,7 +3948,7 @@ func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
 			name: "multiple conditions - all false",
 			conditions: []domain.Expression{
 				{Raw: "false"},
-				{Raw: "input.count < 3"}, // 5 < 3 = false
+				{Raw: "input('count') < 3"}, // 5 < 3 = false
 			},
 			shouldSkip:  false,
 			expectError: false,
@@ -3988,7 +3988,7 @@ func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
 		{
 			name: "expression with template syntax",
 			conditions: []domain.Expression{
-				{Raw: "{{input.skip_flag}}"}, // Should be true
+				{Raw: "{{input('skip_flag')}}"}, // Should be true
 			},
 			shouldSkip:  true,
 			expectError: false,
@@ -4095,7 +4095,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 
 			Validations: &domain.ValidationsConfig{
 				Check: []domain.Expression{
-					{Raw: "input.valid == true"}, // Should pass
+					{Raw: "input('valid') == true"}, // Should pass
 				},
 			},
 		}
@@ -4131,7 +4131,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			ActionID: "test-resource",
 			Name:     "Test Resource",
 
-			Items: []string{"input.items"}, // Access items from request body
+			Items: []string{"input('items')"}, // Access items from request body
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
 				Response: map[string]interface{}{
@@ -4185,7 +4185,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			Name:     "LLM Resource",
 
 			Chat: &domain.ChatConfig{
-				Model:   "{{input.model}}", // Expression accessing request data
+				Model:   "{{input('model')}}", // Expression accessing request data
 				Prompt:  "Test prompt",
 				Role:    "user",
 				Timeout: "30s",
@@ -4373,7 +4373,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			Name:     "Test Resource",
 
 			Before: []domain.ActionConfig{
-				{Expr: "input.counter + 1"}, // Simple expression that should evaluate
+				{Expr: "input('counter') + 1"}, // Simple expression that should evaluate
 			},
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
@@ -4690,7 +4690,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 					{Raw: "request.headers['X-Custom'] == 'custom-value'"},
 					{Raw: "request.query.page == '1'"},
 					{Raw: "request.query.limit == '10'"},
-					{Raw: "input.simple == 'value'"},
+					{Raw: "input('simple') == 'value'"},
 					{Raw: "request.IP == '192.168.1.100'"},
 					{Raw: "request.ID == 'req-12345'"},
 				},
@@ -4734,7 +4734,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 
 			Validations: &domain.ValidationsConfig{
 				Check: []domain.Expression{
-					{Raw: "input.test == 'data'"}, // Should trigger debug logging if enabled
+					{Raw: "input('test') == 'data'"}, // Should trigger debug logging if enabled
 				},
 			},
 		}

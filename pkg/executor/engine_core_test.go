@@ -802,7 +802,7 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 		Name:     "LLM Resource",
 
 		Chat: &domain.ChatConfig{
-			Model:   "{{input.model_name}}", // Expression that should evaluate
+			Model:   "{{input('model_name')}}", // Expression that should evaluate
 			Prompt:  "test prompt",
 			Timeout: "30s",
 		},
@@ -1058,14 +1058,14 @@ func TestEngine_BuildEvaluationEnvironment(t *testing.T) {
 		Body:   map[string]interface{}{"key": "value"},
 	}
 	env = eng.BuildEvaluationEnvironment(ctx)
-	assert.Equal(t, map[string]interface{}{"key": "value"}, env["input"])
+	assert.Equal(t, "value", env["input"].(func(string, ...string) interface{})("key"))
 	reqObj, ok := env["request"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "POST", reqObj["method"])
 
 	ctx.Request = &executor.RequestContext{Method: "GET", Path: "/test"}
 	env = eng.BuildEvaluationEnvironment(ctx)
-	assert.Equal(t, map[string]interface{}{}, env["input"])
+	assert.Nil(t, env["input"].(func(string, ...string) interface{})("key"))
 
 	ctx.Items["item"] = map[string]interface{}{"field": "val"}
 	env = eng.BuildEvaluationEnvironment(ctx)
