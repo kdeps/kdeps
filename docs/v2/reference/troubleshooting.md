@@ -22,7 +22,7 @@ Fix: break the cycle by removing one of the `requires` edges. If both resources 
 Error: resource 'fetchData' depends on unknown resource 'missingResource'
 ```
 
-A `requires` field references an actionId that doesn't exist in the workflow.
+A `requires` field references an actionId that does not exist in the workflow.
 
 Fix: check for typos in the `requires` list, or add the missing resource. ActionIds are case-sensitive.
 
@@ -32,7 +32,7 @@ Fix: check for typos in the `requires` list, or add the missing resource. Action
 Error: target resource 'respond' not found
 ```
 
-`metadata.targetActionId` references a resource that doesn't exist.
+`metadata.targetActionId` references a resource that does not exist.
 
 Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 
@@ -60,7 +60,7 @@ A check expression contains a syntax error or references an undefined variable.
 Fix: validate the expression syntax. Common causes:
 - Unclosed <span v-pre>`{{ }}`</span> braces
 - Misspelled function names (`get` not `Get`, `len` not `length`)
-- Referencing a key that doesn't exist without a nil check
+- Referencing a key that does not exist without a nil check
 
 ## Expression errors
 
@@ -70,18 +70,18 @@ Fix: validate the expression syntax. Common causes:
 Error: Expression evaluation failed (code: EXPRESSION_ERR)
 ```
 
-An expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations) couldn't be evaluated.
+An expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations) could not be evaluated.
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
 - **Nil access**: `lower(get('name'))` when name is nil - use `lower(get('name') ?? '')` instead
-- **Undefined function**: using a function that doesn't exist in expr-lang
+- **Undefined function**: using a function that does not exist in expr-lang
 
 ### Missing value in string interpolation
 
 <div v-pre>
 
-If `{{ get('missingKey') }}` renders as empty string, the key doesn't exist in any data source. Use `default(get('missingKey'), 'fallback')` to provide a default.
+If `{{ get('missingKey') }}` renders as empty string, the key does not exist in any data source. Use `default(get('missingKey'), 'fallback')` to provide a default.
 
 </div>
 
@@ -93,7 +93,7 @@ If `{{ get('missingKey') }}` renders as empty string, the key doesn't exist in a
 Error: model 'llama3.2' not found
 ```
 
-The configured LLM model isn't available on the backend.
+The configured LLM model is not available on the backend.
 
 Fix:
 - For the default file backend: check the alias with `kdeps llamafile list` (e.g. `llama3.2:1b`), or pass a URL/path to a `.llamafile`
@@ -101,7 +101,7 @@ Fix:
 - For OpenAI: check the model name (e.g., `gpt-4o`, not `gpt-4`)
 - Verify the `--model` flag or `KDEPS_AGENT_MODEL` env var
 
-### llamafile won't start (exec format / run-detectors errors)
+### llamafile will not start (exec format / run-detectors errors)
 
 Llamafiles are portable executables that re-exec themselves via `/bin/sh`.
 On some kernels (binfmt_misc misconfiguration, WSL) the trampoline fails.
@@ -178,7 +178,7 @@ Fix: check stderr output. Run the workflow with `--debug` to see full Python out
 Error: Resource execution failed: exec: "mycommand": executable file not found in $PATH
 ```
 
-The shell command isn't available on the system.
+The shell command is not available on the system.
 
 Fix: install the command or use the full path. Verify the command works in a regular shell first.
 
@@ -195,7 +195,7 @@ A `loop.while` condition never became false, and the safety cap stopped executio
 Fix:
 - Check the `while` expression - is it ever becoming false?
 - Increase `maxIterations` if you genuinely need more iterations
-- Add an `every` delay to slow the loop if it's running too fast
+- Add an `every` delay to slow the loop if it is running too fast
 
 ## Authentication errors
 

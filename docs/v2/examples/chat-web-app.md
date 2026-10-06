@@ -144,6 +144,12 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"message": "Say hi in one word."}'
 ```
 
+```json
+{"success": true, "data": {"reply": "Hi."}}
+```
+
+The reply text comes from the model and varies; `success: true` with a `reply` string means the chat resource ran.
+
 ## Next steps
 
 - [Static site tutorial](/examples/static-site) - web server mode on its own

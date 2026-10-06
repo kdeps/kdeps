@@ -202,8 +202,6 @@ settings:
         methods: [GET, POST]
       - path: /api/users/:id
         methods: [GET, PUT, DELETE]
-  sqlConnections:
-    db: {}  # pool config here; DSN goes in ~/.kdeps/config.yaml sql_connections.db.connection
 ```
 
 **resources/list-users.yaml:**

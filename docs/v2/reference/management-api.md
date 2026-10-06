@@ -17,7 +17,7 @@ Workflow mode only.
 
 ## Authentication
 
-All management endpoints require a **bearer token** separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
+All management endpoints require a bearer token separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=api-secret

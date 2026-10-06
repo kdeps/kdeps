@@ -88,7 +88,7 @@ Execution order: `C` -> `B` -> `A`
 
 ### Independent resources
 
-Resources that don't depend on each other (neither directly nor transitively) can run concurrently:
+Resources that do not depend on each other (neither directly nor transitively) can run concurrently:
 
 <div v-pre>
 

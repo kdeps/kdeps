@@ -34,19 +34,19 @@ A `view` also satisfies the [read-before-edit](/agent/tools-edit-rules#read-befo
 ## str_replace
 
 `str_replace` - pass `old_str` (the exact current text) and `new_str`.
-`old_str` must match the file **byte-for-byte** - indentation and all:
+`old_str` must match the file byte-for-byte - indentation and all:
 
 - 0 matches -> `old_str did not appear verbatim` (copy it from a `view`).
 - 2+ matches -> the error lists every line the text starts on; either add
   surrounding lines to make it unique, or pass `occurrence: N` (1-based) to
   pick one of the listed matches directly.
 - 1 match (or a resolved `occurrence`) -> the swap is written and the result
-  is a **numbered snippet of the changed region** plus the file's new
+  is a numbered snippet of the changed region plus the file's new
   `[revision ...]`.
 
 Instead of `old_str`, pass `start_anchor`/`end_anchor` to replace everything
 from one unique string through another (inclusive) - useful for a large block
-you don't want to retype:
+you do not want to retype:
 
 ```xml
 <invoke name="edit_file">
@@ -63,13 +63,13 @@ you don't want to retype:
 `insert` - pass `insert_line` (0 = before the first line, N = after line N)
 and `new_str`. Returns the same numbered snippet. Instead of `insert_line`,
 pass `insert_before_anchor`/`insert_after_anchor` (a unique string) to
-position by content instead of a line number you'd otherwise have to look up.
+position by content instead of a line number you would otherwise have to look up.
 
 ## patch
 
 `patch` - pass `patch`, a standard unified diff with one or more `@@` hunks.
 Each hunk's context and removed lines must match the file byte-for-byte and
-appear **exactly once**; hunks are resolved against the file's original
+appear exactly once; hunks are resolved against the file's original
 content and applied atomically - if any hunk fails to resolve, nothing is
 written:
 
@@ -109,7 +109,7 @@ useful only when a function and a type share a name:
 Where the symbol's block *ends* is found **lexically, not by a language
 parser**: a brace-depth scan for C-like bodies (Go, JS/TS, Java, C/C++/C#,
 Rust - braces inside string/comment text are correctly ignored), or an
-indentation scan when there's no opening brace nearby (Python `def`/`class`).
+indentation scan when there is no opening brace nearby (Python `def`/`class`).
 This covers ordinary top-level declarations reliably without requiring
 gopls/pyright/tree-sitter or any other external parser to be installed, but
 it is not full-language-semantics: it does not parse JavaScript embedded

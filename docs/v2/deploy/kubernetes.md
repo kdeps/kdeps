@@ -316,7 +316,7 @@ Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appli
 Two patterns:
 
 1. **Ingress TLS** (cert-manager / cloud LB) - terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
-2. **In-pod Let's Encrypt** - set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
+2. **In-pod Let's Encrypt** - set `settings.letsEncrypt.domain`, listen on 443, expose Service ports 80/443, and mount a PVC at `cacheDir`.
 
 ```yaml
 settings:

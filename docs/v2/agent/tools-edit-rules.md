@@ -23,7 +23,7 @@ change:
 {"error": "edit_file: /app/server.go changed since revision sha256:1a2b3c4d5e6f was read (it is now sha256:9f8e7d6c5b4a) - view the file again and retry"}
 ```
 
-Omitting `revision` skips the check entirely - it's an extra safeguard on top
+Omitting `revision` skips the check entirely - it is an extra safeguard on top
 of the read-this-turn gate above, not a replacement for it. The token is
 matched on its hex digits, so `sha256:1a2b3c4d5e6f`, bare `1a2b3c4d5e6f`, and
 `[revision sha256:1a2b3c4d5e6f]` are all accepted (6+ hex digits).
@@ -92,4 +92,4 @@ means depends on the file extension:
 | `.yaml`/`.yml` | Real parse via `yaml.v3` |
 | `.js`/`.ts`/`.java`/`.c`/`.cpp`/`.cs`/`.rs`/`.php`/`.swift`/`.kt`/etc. | Balanced `()[]{}` scan (string/comment-aware) - lexical, not a real parse |
 | `.py`/`.rb`/`.sh`/etc. | Same balanced-delimiter scan, `#` treated as a comment |
-| anything else | No-op - `validate_syntax` never blocks a file type it can't check |
+| anything else | No-op - `validate_syntax` never blocks a file type it cannot check |

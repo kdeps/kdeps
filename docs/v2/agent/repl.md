@@ -1,10 +1,10 @@
 # Agent loop REPL features
 
-Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is **agent mode** only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/); for the slash commands, see [REPL slash commands](/agent/commands).
+Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/); for the slash commands, see [REPL slash commands](/agent/commands).
 
 ## Pasting
 
-Paste a block of text and the REPL treats it as **one prompt**, not one turn per
+Paste a block of text and the REPL treats it as one prompt, not one turn per
 line - it uses the terminal's bracketed-paste mode, which the REPL re-enables
 before every prompt so a child process (an editor opened with `!`, a pager) or a
 terminal that resets it cannot leave a later paste splitting into per-line
@@ -43,9 +43,9 @@ it and type there - for example stage a stack trace and type
 
 The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history.
 
-`Ctrl+R` starts an incremental **backward** search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches **forward** the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
+`Ctrl+R` starts an incremental backward search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches forward the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
 
-`Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that's a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
+`Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that is a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
 
 ## Multimodal input
 
@@ -73,20 +73,20 @@ review @notes.txt and summarize the key points
 
 Before each turn, kdeps runs one cheap LLM call that rewrites a terse or
 under-specified prompt into a clearer, self-contained version and runs the turn
-on the rewrite. It is **on by default**; when the prompt is changed the REPL
+on the rewrite. It is on by default; when the prompt is changed the REPL
 prints `[refine] -> <rewritten prompt>` before any work starts, and the rewrite
 is what gets saved to the session. Toggle with `/refine on|off` (persists to
 `~/.kdeps/agent-loop-settings.yaml`). Full details: [Prompt refinement](/agent/refine).
 
 ## Response rendering
 
-The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It **auto-detects the terminal's color depth** (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.
+The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It auto-detects the terminal's color depth (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.
 
-When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as **live markdown**, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header and behind a dim left gutter (`|`) so the whole block reads as a distinct aside from the final answer. Inline code renders styled (by color, not literal backticks) in both the reasoning and the response.
+When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as live markdown, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header and behind a dim left gutter (`|`) so the whole block reads as a distinct aside from the final answer. Inline code renders styled (by color, not literal backticks) in both the reasoning and the response.
 
 ## Custom harness
 
-Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they're the "harness." Like themes, the built-ins are compiled in, and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are compiled in, and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
@@ -101,13 +101,13 @@ A `preamble-section` entry is appended to every turn's system preamble automatic
 
 The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, and `use-kdeps-tools`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
 
-There's no `/harness` command: unlike a theme, harness content loads once at startup and isn't switched at runtime.
+There is no `/harness` command: unlike a theme, harness content loads once at startup and is not switched at runtime.
 
 ## Turn-complete alert
 
 When a turn takes a while (a long research loop, a slow local model), the REPL rings the terminal and posts a desktop notification once the response is ready, so you can step away and come back when it beeps:
 
-- The terminal **bell** marks the tab/window as having activity in most terminals, tmux, and screen.
+- The terminal bell marks the tab/window as having activity in most terminals, tmux, and screen.
 - An **OSC 9** desktop notification (`kdeps: response ready`) appears in terminals that support it (iTerm2, WezTerm, kitty); it is silently ignored elsewhere.
 
 Only turns longer than a threshold alert, so quick replies stay quiet.
@@ -125,7 +125,7 @@ Transient LLM errors (HTTP 429, 5xx, network timeouts) are automatically retried
 
 The agent loop tracks a tool budget (`MaxToolRounds`) that limits how many tool calls the agent can make per turn. When the budget is nearly exhausted, the REPL presents interactive options: `(i)ncrease` the budget (adds 100 rounds), `(c)hange` to a specific number (`0` = unlimited), or `(i)gnore` to continue. When `AutoToolAllocation` is enabled in config, the budget increases automatically without prompting.
 
-When a tool stalls (no output for the stall-timeout duration), the default is to **auto-increase** the timeout by the increment (default 5m) and announce it. Set `/model tool set autokill on` to **kill** a stalled tool at the timeout instead (mutually exclusive with auto-increase). Tune both with `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`. `AutoToolAllocation` (budget) and `AutoStallAllocation` (stall time) are independent and both on by default.
+When a tool stalls (no output for the stall-timeout duration), the default is to auto-increase the timeout by the increment (default 5m) and announce it. Set `/model tool set autokill on` to kill a stalled tool at the timeout instead (mutually exclusive with auto-increase). Tune both with `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`. `AutoToolAllocation` (budget) and `AutoStallAllocation` (stall time) are independent and both on by default.
 
 ## See also
 

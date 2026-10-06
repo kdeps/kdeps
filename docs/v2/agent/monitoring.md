@@ -10,11 +10,11 @@ The same status line covers `! <cmd>` / `!! <cmd>` shell commands and `@file` re
 
 The monitor also detects hung tools. Staleness is measured by *silence*, not wall-clock time - a long build that keeps printing never trips it. After 2 minutes without output the line warns (`no output for 3m20s`); after the stall timeout (default 10 minutes of silence, tune with `/model tool set stall-timeout 5m`, `0` disables) the tool is killed and the model receives a structured error explaining the hang so it can retry with a narrower or more verbose command, or run it in the background.
 
-When a tool stalls, the default is **auto-increase**: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
+When a tool stalls, the default is auto-increase: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
 
 Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive - enabling one disables the other):
 
-- `autokill on` - a stalled tool is **killed** at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
+- `autokill on` - a stalled tool is killed at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
 - `autokill off` - the default auto-increase-and-announce behavior.
 
 To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.

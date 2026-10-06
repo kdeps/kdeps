@@ -1,6 +1,6 @@
 # Efficiency enforcement
 
-A model that is stuck "looking around" - `ls`, `read_file`, `grep`, read-only `bash`, over and over - burns tokens without producing anything. **Efficiency enforcement** is a governor inside kdeps (not a prompt hint) that soft-stops that loop and forces the next action to be an **output** action: write a file, edit, run a command that changes something, call a workflow.
+A model that is stuck "looking around" - `ls`, `read_file`, `grep`, read-only `bash`, over and over - burns tokens without producing anything. **Efficiency enforcement** is a governor inside kdeps (not a prompt hint) that soft-stops that loop and forces the next action to be an output action: write a file, edit, run a command that changes something, call a workflow.
 
 It is like a circuit breaker on read-only exploration: it trips, tells the model why, and only lets the model continue once it has produced something.
 
@@ -126,7 +126,7 @@ Failures have their own per-turn budget, `failures` (default 5), separate from `
 
 ## Multiple stops, then a forced end
 
-A turn can have several soft stops. Each stop **tightens** the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer instead of letting the loop continue.
+A turn can have several soft stops. Each stop tightens the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer instead of letting the loop continue.
 
 ## Exempt
 
@@ -159,7 +159,7 @@ Enforcement stands down when it is off, when the `audit` or `explain` agent pres
 
 ## Presets
 
-The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#presets) set **every** efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
+The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#presets) set every efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
 
 | Preset | reads | actions | stops | failures | tighten | web | bash | file | code |
 |---|---|---|---|---|---|---|---|---|---|

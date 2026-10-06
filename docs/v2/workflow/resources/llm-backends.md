@@ -114,7 +114,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 ## Unified models list
 
-`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a **plain allowlist** (model names only) or as a **router route table** (with routing metadata). The `llm.strategy` field switches between the two modes.
+`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a plain allowlist (model names only) or as a router route table (with routing metadata). The `llm.strategy` field switches between the two modes.
 
 ## Allowlist mode (no strategy)
 

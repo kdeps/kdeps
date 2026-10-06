@@ -26,12 +26,12 @@ failed"), so a skimmed error is hard to miss. The turn will not end on a "done"
 claim made right after a work tool failed: the loop pushes back for a real
 success or an honest "it failed" - up to twice, with the second push-back
 reading as a repeat, same bound as the other corrective nudges. If the model
-still hasn't acknowledged the failure after both, the turn does not settle on
+still has not acknowledged the failure after both, the turn does not settle on
 the bald claim unflagged: the response is followed by a notice naming the
 tool and its error, so the claim is kept but clearly marked unresolved. An
 honest admission at any point (in whatever words) is accepted immediately,
 no nudge needed. With a goal active, `task_complete` on such a task is
-refused, and a prose "done" records the task **failed**, not done.
+refused, and a prose "done" records the task failed, not done.
 
 Loop-generated notices - goal transitions, budget changes, forced task failures,
 context-window trims - are injected into the model's context as `[kdeps] ...`
@@ -52,7 +52,7 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ## Lean mode
 
-The full tool catalog (~55 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is **on by default for every session**. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool catalog (~55 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time

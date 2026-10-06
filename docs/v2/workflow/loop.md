@@ -2,7 +2,7 @@
 
 The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration - making kdeps workflows Turing complete.
 
-Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
+Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a repeated scheduled task that pauses for a fixed duration between iterations.
 
 ## Basic usage
 
@@ -77,7 +77,7 @@ after:
 
 ## `loop.results()` - self-referential termination
 
-`loop.results()` returns a slice of all results from **previous** iterations. This enables patterns where the termination condition depends on what the loop has already produced:
+`loop.results()` returns a slice of all results from previous iterations. This enables patterns where the termination condition depends on what the loop has already produced:
 
 <div v-pre>
 
@@ -96,7 +96,7 @@ The loop runs until 3 results have been collected, regardless of how many iterat
 
 ## Streaming response
 
-When `apiResponse` is present, every iteration produces one response map. Multiple per-iteration responses constitute a **streaming response** - a slice returned to the caller. This mirrors how `items` with `apiResponse` works.
+When `apiResponse` is present, every iteration produces one response map. Multiple per-iteration responses constitute a streaming response - a slice returned to the caller. This mirrors how `items` with `apiResponse` works.
 
 <div v-pre>
 
@@ -136,7 +136,7 @@ loop:
 
 ## `every:` - repeated scheduled tasks
 
-Add `every:` to pause the loop for a fixed duration **between** iterations, turning it into a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
+Add `every:` to pause the loop for a fixed duration between iterations, turning it into a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
 
 <div v-pre>
 
@@ -157,7 +157,7 @@ apiResponse:
 
 </div>
 
-The sleep is **skipped after the last iteration** - the caller receives results without an unnecessary trailing delay.
+The sleep is skipped after the last iteration - the caller receives results without an unnecessary trailing delay.
 
 ### Combining `while: "true"` with `every:` for infinite polling
 

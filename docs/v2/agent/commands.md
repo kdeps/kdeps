@@ -117,7 +117,7 @@ Only text inside `"..."` or `'...'` is ever scanned - typing `can you check df -
 
 ## Text files and read-only commands
 
-The same scan finds existing, readable **text files** by name (`look at "main.go"`) and offers to inline them like `@main.go` would - images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
+The same scan finds existing, readable text files by name (`look at "main.go"`) and offers to inline them like `@main.go` would - images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
 
 ## Pipes and command substitution
 

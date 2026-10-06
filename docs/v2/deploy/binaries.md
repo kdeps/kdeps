@@ -71,7 +71,7 @@ kdeps bundle prepackage dist/my-agent-1.0.0.kdeps --output dist/
 
 ## Cross-architecture builds
 
-For the **host architecture**, `prepackage` reuses the running kdeps binary as
+For the host architecture, `prepackage` reuses the running kdeps binary as
 the base.  For all other architectures, it downloads the corresponding release
 binary from [GitHub Releases](https://github.com/kdeps/kdeps/releases).
 

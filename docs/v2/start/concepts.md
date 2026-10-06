@@ -6,7 +6,7 @@ The mental model behind kdeps: how a workflow is shaped, how data moves between 
 
 A kdeps project is a folder. `workflow.yaml` is the manifest - name, version,
 and `targetActionId` (the resource that produces the final result). Every other
-`.yaml` file under `resources/` is a single **resource**: one LLM call, one SQL
+`.yaml` file under `resources/` is a single resource: one LLM call, one SQL
 query, one shell command, one HTTP request. A resource lists what it `requires:`,
 and kdeps runs the resources in that dependency order, passing each one's output
 forward. That ordered graph is the workflow.

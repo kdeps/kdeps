@@ -11,7 +11,7 @@ kdeps ./my-agent # also load that agent's workflows/components as tools
 ```
 
 **Not this?** If you want a deterministic request→response pipeline (same input,
-same execution path, safe to run unattended), that's [kdeps workflow](/workflow/).
+same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).
 To orchestrate several agents as one system, [kdeps agencies](/agencies/).
 
 ---

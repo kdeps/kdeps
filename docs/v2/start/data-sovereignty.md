@@ -5,7 +5,7 @@ description: Run your own LLM and coding agent on servers you control, in the re
 
 # Data sovereignty
 
-kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on **servers you control, in the region you choose**. Your prompts, source code, and customer data never have to leave that boundary or reach a third-party AI provider.
+kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on servers you control, in the region you choose. Your prompts, source code, and customer data never have to leave that boundary or reach a third-party AI provider.
 
 Works in workflow mode, agent mode and agencies.
 

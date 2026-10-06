@@ -73,7 +73,7 @@ validations:
 
 ## Preflight checks
 
-Preflight checks validate inputs **before** resource execution begins. If any condition fails, execution is aborted with a custom error.
+Preflight checks validate inputs before resource execution begins. If any condition fails, execution is aborted with a custom error.
 
 ### Basic usage
 
@@ -161,8 +161,8 @@ chat:
 
 ### How it works
 
-- Resource only executes if **both** conditions match
-- If restrictions don't match, resource is skipped silently
+- Resource only executes if both conditions match
+- If restrictions do not match, resource is skipped silently
 - Empty arrays mean "allow all"
 
 ### Method restrictions

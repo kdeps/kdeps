@@ -164,7 +164,7 @@ apiResponse:
 
 </div>
 
-### 6. Grocery waste - meal plan from what's expiring
+### 6. Grocery waste - meal plan from what is expiring
 
 <div v-pre>
 

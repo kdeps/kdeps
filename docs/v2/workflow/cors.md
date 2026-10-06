@@ -129,7 +129,7 @@ cors:
 
 ### Compatibility
 
-- **Disable Credentials When Possible**: Set `allowCredentials: false` if your API doesn't require cookies or authentication headers to simplify CORS handling.
+- **Disable Credentials When Possible**: Set `allowCredentials: false` if your API does not require cookies or authentication headers to simplify CORS handling.
 - **Handle Preflight Requests**: Ensure your routes support `OPTIONS` method for preflight requests.
 
 ## Troubleshooting

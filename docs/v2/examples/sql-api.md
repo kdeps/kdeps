@@ -28,7 +28,7 @@ INSERT INTO users (email, age, status, created_at) VALUES
 SQL
 ```
 
-## Step 2: declare the connection and routes
+## Step 2: declare the routes and the connection
 
 Create `workflow.yaml`:
 
@@ -50,10 +50,19 @@ settings:
         methods: [GET]
       - path: /update
         methods: [POST]
-  sqlConnections:
-    demo:
-      connection: "sqlite:///./demo.db"   # relative to the workflow directory
 ```
+
+Resources refer to the database by name (`connectionName: demo`). The DSN is
+machine-local, so it lives in `~/.kdeps/config.yaml`, not in the workflow:
+
+```yaml
+# ~/.kdeps/config.yaml
+sql_connections:
+  demo:
+    connection: "sqlite://./demo.db"   # relative to the directory you run kdeps from
+```
+
+Or set it for one shell with `export KDEPS_SQL_CONNECTIONS_DEMO_CONNECTION="sqlite://./demo.db"`.
 
 ## Step 3: the analytics query
 
@@ -140,6 +149,7 @@ Only the resource matching the request's route runs; the other is skipped.
 ```bash
 kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
+export KDEPS_SQL_CONNECTIONS_DEMO_CONNECTION="sqlite://./demo.db"   # skip if set in config.yaml
 kdeps run .
 ```
 
@@ -150,6 +160,12 @@ curl "http://localhost:16395/report?since=2024-03-01" \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
 ```
 
+It returns the CSV inside the combined response:
+
+```json
+{"success": true, "data": {"report": "avg_age,status,total\n29,active,2\n44,inactive,1\n", "update": null, "at": "..."}}
+```
+
 Apply updates:
 
 ```bash
@@ -157,6 +173,15 @@ curl -X POST http://localhost:16395/update \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changes": [["inactive", 1], ["active", 3]]}'
+```
+
+Confirm the change landed:
+
+```bash
+sqlite3 demo.db "SELECT id, status FROM users"
+# 1|inactive
+# 2|active
+# 3|active
 ```
 
 ## Next steps

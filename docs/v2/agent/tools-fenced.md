@@ -4,7 +4,7 @@ Every model is told to call the fenced kdeps tools, and to say what it is about 
 
 ## Fenced tools only, and narration
 
-Two instructions go into the system preamble for **every** model whenever tools are registered:
+Two instructions go into the system preamble for every model whenever tools are registered:
 
 ## Use the fenced kdeps tools, not a built-in sandbox
 
@@ -28,7 +28,7 @@ The same preamble lists every registered tool in an `<available_tools>` block: n
 
 ## Simulated sandbox sessions are caught, and escalated
 
-When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem" - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). A model that repeats the same hallucination a second time within one turn gets a second, sharper nudge instead of the turn silently accepting the repeat as a real answer - each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn, not once. If the model still hasn't made a real call after both nudges, the turn does not settle on the fake transcript unflagged: in goal mode the active task is recorded failed, not done; otherwise the returned text is prefixed with a clear "this describes a sandbox that doesn't exist here, treat it as unverified" banner (the model's words are kept, just flagged). Separately, once a session has produced even one such hallucination, every later turn resends the full fenced-tools guidance (with the worked `<invoke>` examples) instead of the one-line reminder - a model that has shown this failure mode gets more reinforcement, not less.
+When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem" - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). A model that repeats the same hallucination a second time within one turn gets a second, sharper nudge instead of the turn silently accepting the repeat as a real answer - each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn, not once. If the model still has not made a real call after both nudges, the turn does not settle on the fake transcript unflagged: in goal mode the active task is recorded failed, not done; otherwise the returned text is prefixed with a clear "this describes a sandbox that doesn't exist here, treat it as unverified" banner (the model's words are kept, just flagged). Separately, once a session has produced even one such hallucination, every later turn resends the full fenced-tools guidance (with the worked `<invoke>` examples) instead of the one-line reminder - a model that has shown this failure mode gets more reinforcement, not less.
 
 ## A premature "sorry, I can't" is pushed back on when there was real progress
 

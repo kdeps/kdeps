@@ -12,7 +12,7 @@ kdeps konfig export [path]     # default ./konfig.yaml, from a bare CLI invocati
 /konfig export [path]          # inside the REPL, exports the LIVE session's config
 ```
 
-The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/goal on`, etc. that hasn't necessarily been touched via a command that persists it elsewhere.
+The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/goal on`, etc. that has not necessarily been touched via a command that persists it elsewhere.
 
 ## Importing
 
@@ -27,7 +27,7 @@ kdeps --konfig <path> [path]   # import, then start the agent loop
 
 Importing writes every section to where it already lives on disk -- harness entries to `~/.kdeps/harness/<name>.yaml`, themes to `~/.kdeps/themes/<name>.yaml`, events to `~/.kdeps/events/<name>.yaml`, actions to `~/.kdeps/actions/<name>.yaml`, presets to `~/.kdeps/presets/<name>.yaml`, skills to `~/.kdeps/skills/<name>/SKILL.md`, and tuning/registry/active-theme into `~/.kdeps/agent-loop-settings.yaml` -- overriding any built-in or existing user entry of the same name. `kdeps konfig import` and `/konfig import` also reload the in-process harness, theme, event, action, and preset registries and apply the active theme immediately; `--konfig <path>` applies before the rest of startup reads settings, so the freshly imported values take effect for that run without a second step. Imported skills are picked up the next time the process starts (a running REPL's skill list is loaded once at startup).
 
-## What's in the file
+## What is in the file
 
 | Section | Contents |
 |---|---|
@@ -41,7 +41,7 @@ Importing writes every section to where it already lives on disk -- harness entr
 | `skills` | Every loaded skill, with its full `SKILL.md` content inlined - skills travel with the file, not by path |
 | `registry` | Enabled workflow/agency/component/skill lists, default model, model-name display mode, favorite models, custom OpenAI-compatible endpoints |
 
-Harness and themes are exported as the **full effective set**, not a diff against the binary's built-ins - the file alone fully determines behavior on any machine or kdeps version, independent of what that machine's own `~/.kdeps` happens to contain.
+Harness and themes are exported as the full effective set, not a diff against the binary's built-ins - the file alone fully determines behavior on any machine or kdeps version, independent of what that machine's own `~/.kdeps` happens to contain.
 
 ## Status
 

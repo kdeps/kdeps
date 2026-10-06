@@ -25,7 +25,7 @@ Every line `read_file` returns is prefixed with its 1-based line number, and the
 
 ## Colored diff
 
-`write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
+`write_file` and `edit_file` print a colored diff of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
 ## Jumping from search_local to read_file with match_id
 
@@ -49,6 +49,6 @@ Every `search_local` result that finds its query in the file carries `match_id`,
 </invoke>
 ```
 
-A `match_id` is process-local and capped in count (oldest evicted first) - it's for chaining a search into a read within the same session, not a durable reference. An unresolvable one (evicted, or from a different process) is a clear error naming it; `file_path` given explicitly always takes priority over `match_id`.
+A `match_id` is process-local and capped in count (oldest evicted first) - it is for chaining a search into a read within the same session, not a durable reference. An unresolvable one (evicted, or from a different process) is a clear error naming it; `file_path` given explicitly always takes priority over `match_id`.
 
 The six `edit_file` commands are on [Edit file](/agent/tools-edit).

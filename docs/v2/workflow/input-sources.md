@@ -88,7 +88,7 @@ memory well past the raw file size once a resource copies that content again
 (e.g. interpolating it into a `python:`/`exec:` argument, or a script that
 builds an in-memory row list). Past a certain size that risks an OOM kill from
 the OS - which, being a `SIGKILL`, leaves no error and no core dump, just a
-vanished process. `--file`/stdin input is capped at **256 MiB** by default;
+vanished process. `--file`/stdin input is capped at 256 MiB by default;
 `kdeps run` fails fast with a clear error instead of reading a file over that.
 Raise or lower it with `KDEPS_FILE_INPUT_MAX_BYTES` (bytes; `0` disables the
 check):

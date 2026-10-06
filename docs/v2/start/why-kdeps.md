@@ -84,7 +84,7 @@ kdeps [agencies](/reference/glossary#agency) let you compose multiple specialize
 
 ## Built to last
 
-Model APIs deprecate and SDK interfaces change. kdeps reduces how many of those moving parts can break a running workload. The thing you archive is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Redeploying that image later runs the same runtime and model, with no live dependency on a vendor API.
+Model APIs deprecate and SDK interfaces change. kdeps reduces how many of those moving parts can break a running workload. The thing you archive is the built appliance - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Redeploying that image later runs the same runtime and model, with no live dependency on a vendor API.
 
 ## What stays stable
 
@@ -121,7 +121,7 @@ Concretely: log-file analysis, automated code reviews, JIRA ticket creation from
 
 ## The name
 
-kdeps is short for **knowledge dependencies**. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
+kdeps is short for knowledge dependencies. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
 
 ## Built on
 
