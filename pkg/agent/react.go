@@ -260,7 +260,11 @@ func (l *Loop) dispatchReactTool(toolName, toolInput string) string {
 	normalizeToolArgs(toolName, args)
 	coerceToolArgTypes(tool.Parameters, args)
 	if denyReason, blocked := l.checkPathBoundary(args); blocked {
-		return fmt.Sprintf(`{"error":"%s"}`, denyReason)
+		encoded, marshalErr := json.Marshal(map[string]string{"error": denyReason})
+		if marshalErr != nil {
+			return `{"error":"path denied"}`
+		}
+		return string(encoded)
 	}
 	result, err := tool.Execute(args)
 	if err != nil {

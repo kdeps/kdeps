@@ -79,6 +79,11 @@ func TestMemoryIDLines(t *testing.T) {
 	got := memoryIDLines("status:bash_exec:1")
 	assert.Contains(t, got, "memory id: status:bash_exec:1")
 	assert.Contains(t, got, `memory_query query=filter(memory, .key == "status:bash_exec:1")`)
+
+	quoted := memoryIDLines(`say "hi"`)
+	assert.Contains(t, quoted, `memory id: say "hi"`)
+	assert.Contains(t, quoted, `"say \"hi\""`)
+	assert.Contains(t, invokeBlock(`say "hi"`, map[string]any{}, 10, false), `<invoke name="say \"hi\"">`)
 }
 
 func TestToolStatusNote_SuccessShowsMemoryID(t *testing.T) {

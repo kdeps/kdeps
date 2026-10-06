@@ -219,8 +219,7 @@ func memoryIDLines(id string) string {
 		return ""
 	}
 
-	return "\nmemory id: " + id + "\nview it: memory_query query=filter(memory, .key == \"" +
-		id + "\")"
+	return fmt.Sprintf("\nmemory id: %s\nview it: memory_query query=filter(memory, .key == %q)", id, id)
 }
 
 // invokeBlockFromJSON renders a call's raw JSON arguments as an <invoke> block.
@@ -245,7 +244,7 @@ func invokeBlock(name string, args map[string]any, maxVal int, placeholders bool
 	sort.Strings(keys)
 
 	var b strings.Builder
-	b.WriteString("<invoke name=\"" + name + "\">\n")
+	fmt.Fprintf(&b, "<invoke name=%q>\n", name)
 	for _, k := range keys {
 		var val string
 		switch v := args[k].(type) {

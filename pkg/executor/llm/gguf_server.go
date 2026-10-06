@@ -416,6 +416,21 @@ func installLlamaServerForArch(dest, osArch string) error {
 	return nil
 }
 
+// archiveEntryPath flattens an archive name into destDir. Directory prefixes
+// are dropped. "." and ".." are rejected so the result cannot leave destDir.
+func archiveEntryPath(destDir, name, skipBase string) (string, bool) {
+	base := filepath.Base(name)
+	if base == "." || base == ".." || base == skipBase {
+		return "", false
+	}
+	outPath := filepath.Join(destDir, base)
+	rel, err := filepath.Rel(destDir, outPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return outPath, true
+}
+
 // extractSiblingFiles extracts every regular file in the archive other than
 // skipBase (already handled by extractZipFile/extractTarGzFile) into destDir,
 // flattening any directory structure the archive uses -- see the comment in
@@ -438,11 +453,11 @@ func extractZipSiblings(zipPath, destDir, skipBase string) error {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		base := filepath.Base(f.Name)
-		if base == skipBase {
+		outPath, ok := archiveEntryPath(destDir, f.Name, skipBase)
+		if !ok {
 			continue
 		}
-		if copyErr := copyZipEntryTo(f, filepath.Join(destDir, base)); copyErr != nil {
+		if copyErr := copyZipEntryTo(f, outPath); copyErr != nil {
 			return copyErr
 		}
 	}
@@ -492,27 +507,34 @@ func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
 		if nextErr != nil {
 			return nextErr
 		}
-		base := filepath.Base(hdr.Name)
-		if base == skipBase {
+		outPath, ok := archiveEntryPath(destDir, hdr.Name, skipBase)
+		if !ok {
 			continue
 		}
 		switch hdr.Typeflag {
 		case tar.TypeReg:
-			if copyErr := copyTarEntryTo(tr, filepath.Join(destDir, base)); copyErr != nil {
+			if copyErr := copyTarEntryTo(tr, outPath); copyErr != nil {
 				return copyErr
 			}
 		case tar.TypeSymlink:
 			symlinks = append(symlinks, hdr)
 		}
 	}
+	return linkArchiveSiblings(destDir, skipBase, symlinks)
+}
+
+func linkArchiveSiblings(destDir, skipBase string, symlinks []*tar.Header) error {
 	for _, hdr := range symlinks {
-		base := filepath.Base(hdr.Name)
-		if base == skipBase {
+		outPath, ok := archiveEntryPath(destDir, hdr.Name, skipBase)
+		if !ok {
 			continue
 		}
-		outPath := filepath.Join(destDir, base)
+		linkName, linkOK := archiveEntryPath(destDir, hdr.Linkname, "")
+		if !linkOK {
+			continue
+		}
 		_ = os.Remove(outPath)
-		if linkErr := os.Symlink(filepath.Base(hdr.Linkname), outPath); linkErr != nil {
+		if linkErr := os.Symlink(filepath.Base(linkName), outPath); linkErr != nil {
 			return linkErr
 		}
 	}
