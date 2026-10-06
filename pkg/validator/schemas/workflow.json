@@ -368,8 +368,27 @@
               }
             }
           ]
+        },
+        "certFile": {
+          "type": "string"
+        },
+        "keyFile": {
+          "type": "string"
+        },
+        "letsEncrypt": {
+          "type": "object"
+        },
+        "webServer": {
+          "type": "object"
+        },
+        "session": {
+          "type": "object"
+        },
+        "llm": {
+          "type": "object"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "resources": {
       "type": "array",

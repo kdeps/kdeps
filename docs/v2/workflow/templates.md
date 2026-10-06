@@ -19,10 +19,11 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
+  apiServer:
 {% if env.PORT %}
-  portNum: {{ env.PORT | int }}
+    portNum: {{ env.PORT | int }}
 {% else %}
-  portNum: 8080
+    portNum: 8080
 {% endif %}
 ```
 
@@ -80,8 +81,8 @@ Use `-` to trim surrounding whitespace:
 
 ```jinja
 settings:
-{%- if env.TLS_ENABLED == 'true' %}
-  tls: true
+{%- if env.CERT_FILE %}
+  certFile: {{ env.CERT_FILE }}
 {%- endif %}
 ```
 

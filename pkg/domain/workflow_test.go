@@ -272,8 +272,9 @@ env:
 	}
 }
 
-func TestSQLConnectionYAML(t *testing.T) {
+func TestSQLConfigPoolYAML(t *testing.T) {
 	yamlData := `
+connectionName: main
 pool:
   maxConnections: 10
   minConnections: 2
@@ -281,7 +282,7 @@ pool:
   connectionTimeout: 10s
 `
 
-	var conn domain.SQLConnection
+	var conn domain.SQLConfig
 	err := yaml.Unmarshal([]byte(yamlData), &conn)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)

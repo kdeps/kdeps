@@ -128,8 +128,6 @@ settings:
     pythonPackages:
       - requests
       - pandas
-  sqlConnections:
-    default: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -156,7 +154,6 @@ settings:
 	assert.Equal(t, "3.12", workflow.Settings.AgentSettings.PythonVersion)
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "requests")
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "pandas")
-	assert.Contains(t, workflow.Settings.SQLConnections, "default")
 
 	// Verify resources were loaded (should be 4 resources)
 	assert.Len(t, workflow.Resources, 4)
@@ -376,8 +373,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  sqlConnections:
-    testdb: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -501,5 +496,33 @@ settings:
 			assert.Equal(t, "helper-agent", res.Agent.Name)
 			assert.Equal(t, "hello", res.Agent.Params["query"])
 		}
+	}
+}
+
+// A workflow that still declares a removed or unknown settings key fails to
+// parse, naming the key, instead of the setting being silently ignored.
+func TestWorkflowValidationIntegration_RejectsUnknownSettings(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	yamlParser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	for _, key := range []string{"sqlConnections", "apiServerMode"} {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o755))
+		wf := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: strict-settings
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  ` + key + `:
+    main: {}
+`
+		path := filepath.Join(dir, "workflow.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(wf), 0o600))
+		_, parseErr := yamlParser.ParseWorkflow(path)
+		require.Error(t, parseErr, key)
+		assert.Contains(t, parseErr.Error(), key)
 	}
 }

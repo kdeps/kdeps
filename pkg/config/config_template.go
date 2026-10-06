@@ -172,7 +172,7 @@ defaults:
 # ── Named SQL connections — DSNs for sql resources ───────────────────────────
 # Resources reference connections by name via sql.connectionName.
 # Pool config (maxConnections, minConnections, maxIdleTime, connectionTimeout)
-# stays in workflow.yaml under settings.sqlConnections.<name>.pool.
+# goes on the sql: resource as pool:.
 # sql_connections:
 #   default:
 #     connection: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
