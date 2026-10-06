@@ -139,13 +139,6 @@ settings:
       - pandas
       - numpy
     requirementsFile: requirements.txt
-  sqlConnections:
-    primary:
-      pool:
-        maxConnections: 10
-    secondary:
-      pool:
-        maxConnections: 5
 `
 
 	err = os.WriteFile(workflowPath, []byte(workflowYAML), 0644)
@@ -172,12 +165,6 @@ settings:
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "pandas")
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "numpy")
 	assert.Equal(t, "requirements.txt", workflow.Settings.AgentSettings.RequirementsFile)
-
-	// Verify SQL connections (DSNs live in ~/.kdeps/config.yaml, not here)
-	assert.Contains(t, workflow.Settings.SQLConnections, "primary")
-	assert.Contains(t, workflow.Settings.SQLConnections, "secondary")
-	assert.Equal(t, 10, workflow.Settings.SQLConnections["primary"].Pool.MaxConnections)
-	assert.Equal(t, 5, workflow.Settings.SQLConnections["secondary"].Pool.MaxConnections)
 }
 
 func TestYAMLParser_ParseMultipleResourceTypes(t *testing.T) {
@@ -544,15 +531,6 @@ settings:
       - uvicorn
     requirementsFile: requirements-large.txt
     timezone: America/New_York
-  sqlConnections:
-    main_db:
-      connection: "postgresql://user:password@localhost:5432/maindb"
-    analytics_db:
-      connection: "mysql://user:password@localhost:3306/analytics"
-    cache_db:
-      connection: "redis://localhost:6379"
-    warehouse:
-      connection: "snowflake://user:password@account.snowflakecomputing.com/database"
 `
 
 	err = os.WriteFile(workflowPath, []byte(workflowYAML), 0644)
@@ -574,10 +552,4 @@ settings:
 	assert.Len(t, workflow.Settings.AgentSettings.PythonPackages, 8)
 	assert.Equal(t, "requirements-large.txt", workflow.Settings.AgentSettings.RequirementsFile)
 	assert.Equal(t, "America/New_York", workflow.Settings.AgentSettings.Timezone)
-
-	assert.Len(t, workflow.Settings.SQLConnections, 4)
-	assert.Contains(t, workflow.Settings.SQLConnections, "main_db")
-	assert.Contains(t, workflow.Settings.SQLConnections, "analytics_db")
-	assert.Contains(t, workflow.Settings.SQLConnections, "cache_db")
-	assert.Contains(t, workflow.Settings.SQLConnections, "warehouse")
 }

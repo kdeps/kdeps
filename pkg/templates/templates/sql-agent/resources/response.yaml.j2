@@ -1,0 +1,13 @@
+actionId: formatResponse
+name: Format Response
+requires:
+  - executeQuery
+
+validations:
+  methods: [POST]
+  routes: [/api/query]
+
+apiResponse:
+  success: true
+  response:
+    results: get('executeQuery')

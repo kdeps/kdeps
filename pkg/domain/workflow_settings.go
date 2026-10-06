@@ -283,12 +283,6 @@ type PackageVersions struct {
 	UV     string `yaml:"uv,omitempty"`     // default: latest GitHub release at bundle build time
 }
 
-// SQLConnection represents pool configuration for a named SQL connection.
-// The connection string (DSN) lives in ~/.kdeps/config.yaml under sql_connections.<name>.connection.
-type SQLConnection struct {
-	Pool *PoolConfig `yaml:"pool,omitempty"`
-}
-
 // PoolConfig represents connection pool configuration.
 type PoolConfig struct {
 	MaxConnections    int    `yaml:"maxConnections"`

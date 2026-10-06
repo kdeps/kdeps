@@ -63,17 +63,34 @@ else
     test_failed "SQL Advanced - Resource files exist" "Missing resource files"
 fi
 
-# Test 3: Check SQL connections configuration
-if grep -q "sqlConnections:" "$WORKFLOW_PATH"; then
-    test_passed "SQL Advanced - SQL connections configured"
-    
-    # Count connections
-    CONN_COUNT=$(grep -c "connection:" "$WORKFLOW_PATH" || echo "0")
-    if [ "$CONN_COUNT" -gt 0 ]; then
-        test_passed "SQL Advanced - SQL connections defined ($CONN_COUNT found)"
-    fi
+# Test 3: resources use named connections; DSNs never live in the workflow
+CONN_REFS=$(cat "$PROJECT_ROOT/examples/sql-advanced/resources/"*.yaml | grep -c "connectionName:" || echo "0")
+if [ "$CONN_REFS" -gt 0 ] && ! grep -q "sqlConnections:" "$WORKFLOW_PATH"; then
+    test_passed "SQL Advanced - resources use named connections ($CONN_REFS refs, DSN in config.yaml)"
 else
-    test_failed "SQL Advanced - SQL connections configured" "sqlConnections missing from workflow"
+    test_failed "SQL Advanced - named connections" "refs=$CONN_REFS; workflow must not declare sqlConnections"
+fi
+
+# Test 3b: a workflow that still declares settings.sqlConnections is rejected
+STRICT_DIR=$(mktemp -d)
+mkdir -p "$STRICT_DIR/resources"
+cat > "$STRICT_DIR/workflow.yaml" <<'WFEOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: strict
+  version: "1.0.0"
+  targetActionId: r
+settings:
+  sqlConnections:
+    main: {}
+WFEOF
+STRICT_OUT=$("$KDEPS_BIN" validate "$STRICT_DIR" 2>&1 || true)
+rm -rf "$STRICT_DIR"
+if echo "$STRICT_OUT" | grep -q "sqlConnections is not allowed"; then
+    test_passed "SQL Advanced - settings.sqlConnections is rejected by validate"
+else
+    test_failed "SQL Advanced - settings.sqlConnections rejected" "Output: $STRICT_OUT"
 fi
 
 # Test 4: Start server against a throwaway SQLite DB instead of the
@@ -302,6 +319,8 @@ if command -v python3 &>/dev/null && [ -n "${KDEPS_BIN:-}" ] && [ -x "${KDEPS_BI
     MOCK_SQL_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
     MOCK_WORK_DIR=$(mktemp -d)
     MOCK_DB="$MOCK_WORK_DIR/test.db"
+    # Windows (Git Bash): Python and kdeps need a native C:/... path, not /tmp/...
+    if command -v cygpath >/dev/null 2>&1; then MOCK_DB=$(cygpath -m "$MOCK_DB"); fi
     MOCK_SQL_LOG=$(mktemp)
     MOCK_SQL_PID=""
 
@@ -352,9 +371,6 @@ settings:
         - "*"
   agentSettings:
     timezone: Etc/UTC
-  sqlConnections:
-    analytics:
-      connection: "sqlite://${MOCK_DB}"
 WFEOF
 
     cat > "$MOCK_WORK_DIR/resources/sqltest.yaml" <<RESEOF
@@ -379,7 +395,8 @@ apiResponse:
     timestamp: "{{ info('current_time') }}"
 RESEOF
 
-    "$KDEPS_BIN" run "$MOCK_WORK_DIR/workflow.yaml" >"$MOCK_SQL_LOG" 2>&1 &
+    KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION="sqlite://${MOCK_DB}" \
+        "$KDEPS_BIN" run "$MOCK_WORK_DIR/workflow.yaml" >"$MOCK_SQL_LOG" 2>&1 &
     MOCK_SQL_PID=$!
 
     MOCK_READY=false
@@ -392,18 +409,20 @@ RESEOF
         test_passed "SQL Advanced - SQLite mock server started"
 
         GET_RESP=$(curl -s --max-time 10 -X GET \
+            -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
             "http://127.0.0.1:${MOCK_SQL_PORT}/api/v1/sql-demo" 2>&1)
-        if output_grep "success|analytics|total_users" "$GET_RESP"; then
+        if output_grep "total_users" "$GET_RESP"; then
             test_passed "SQL Advanced - GET endpoint (SQLite mock)"
         else
             test_failed "SQL Advanced - GET endpoint (SQLite mock)" "resp=$GET_RESP"
         fi
 
         POST_RESP=$(curl -s --max-time 10 -X POST \
+            -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{}' \
             "http://127.0.0.1:${MOCK_SQL_PORT}/api/v1/sql-demo" 2>&1)
-        if output_grep "success|analytics|total_users" "$POST_RESP"; then
+        if output_grep "total_users" "$POST_RESP"; then
             test_passed "SQL Advanced - POST endpoint (SQLite mock)"
         else
             test_failed "SQL Advanced - POST endpoint (SQLite mock)" "resp=$POST_RESP"

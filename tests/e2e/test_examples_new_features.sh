@@ -182,11 +182,11 @@ else
         test_failed "file-processor - declares sources: [file]" "sources: [file] not found in $FP_WF"
     fi
 
-    # T20: apiServerMode is false (single-shot)
-    if ! grep -q "apiServerMode:" "$FP_WF"; then
-        test_passed "file-processor - no apiServerMode (single-shot)"
+    # T20: single-shot, so no apiServer block
+    if ! grep -q "^  apiServer:" "$FP_WF"; then
+        test_passed "file-processor - no apiServer block (single-shot)"
     else
-        test_failed "file-processor - no apiServerMode" "apiServerMode: still found in $FP_WF"
+        test_failed "file-processor - no apiServer block" "apiServer: found in $FP_WF"
     fi
 
     # T21: summarize resource uses input('fileContent')

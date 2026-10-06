@@ -1,0 +1,23 @@
+actionId: executeQuery
+name: Execute SQL Query
+
+validations:
+  methods: [POST]
+  routes: [/api/query]
+  check:
+    - get('status') in ['active', 'inactive', 'pending']
+  error:
+    code: 400
+    message: "status must be active, inactive, or pending"
+
+sql:
+  connectionName: main          # sql_connections.main in ~/.kdeps/config.yaml
+  query: |
+    SELECT *
+    FROM users
+    WHERE status = $1
+    LIMIT $2
+  params:
+    - get('status')
+    - default(get('limit'), 10)
+  format: json

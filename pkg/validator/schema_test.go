@@ -19,6 +19,7 @@
 package validator_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -3326,5 +3327,44 @@ func TestGetTypeSuggestion_OuterSwitchCases(t *testing.T) {
 				t.Errorf("GetTypeSuggestion(%q, %q) = %q, want %q", tt.field, tt.descStr, got, tt.expected)
 			}
 		})
+	}
+}
+
+// settings is a closed set: every real key validates, and a removed or
+// misspelled one (sqlConnections, apiServerMode) fails instead of being ignored.
+func TestSchemaValidator_WorkflowSettingsAreStrict(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+	workflow := func(settings map[string]interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"apiVersion": "kdeps.io/v1",
+			"kind":       "Workflow",
+			"metadata": map[string]interface{}{
+				"name": "strict", "version": "1.0.0", "targetActionId": "main",
+			},
+			"settings": settings,
+		}
+	}
+	valid := map[string]interface{}{
+		"certFile":      "cert.pem",
+		"keyFile":       "key.pem",
+		"letsEncrypt":   map[string]interface{}{},
+		"apiServer":     map[string]interface{}{"portNum": 16395},
+		"webServer":     map[string]interface{}{},
+		"agentSettings": map[string]interface{}{"timezone": "UTC"},
+		"session":       map[string]interface{}{},
+		"input":         map[string]interface{}{"sources": []interface{}{"api"}},
+		"llm":           map[string]interface{}{},
+	}
+	if validErr := v.ValidateWorkflow(workflow(valid)); validErr != nil {
+		t.Fatalf("every real settings key must validate: %v", validErr)
+	}
+	for _, key := range []string{"sqlConnections", "apiServerMode", "apiservr"} {
+		keyErr := v.ValidateWorkflow(workflow(map[string]interface{}{key: map[string]interface{}{}}))
+		if keyErr == nil || !strings.Contains(keyErr.Error(), key) {
+			t.Errorf("settings.%s must be rejected by name, got %v", key, keyErr)
+		}
 	}
 }

@@ -33,8 +33,6 @@ The server will start on http://0.0.0.0:16395
 
 ```yaml
 settings:
-  webServerMode: true  # Enable WebServer mode
-
   webServer:
     hostIp: "0.0.0.0"  # Bind to localhost
     portNum: 16395         # Port to listen on

@@ -40,7 +40,8 @@ metadata:
   version: 1.2.3
   targetActionId: main
 settings:
-  portNum: 1234
+  apiServer:
+    portNum: 1234
   agentSettings:
     replicas: 2
 `

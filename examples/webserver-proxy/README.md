@@ -43,7 +43,6 @@ curl http://127.0.0.1:16395/health
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     routes:
       - path: "/"

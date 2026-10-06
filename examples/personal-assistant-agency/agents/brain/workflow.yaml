@@ -31,9 +31,9 @@ settings:
     timezone: "UTC"
     pythonVersion: "3.12"
 
-  sqlConnections:
-    memory:
-      connection: "sqlite:///tmp/pa-memory/conversations.db"
+  # The `memory` SQL connection is machine-local:
+  # ~/.kdeps/config.yaml sql_connections.memory.connection, e.g.
+  # export KDEPS_SQL_CONNECTIONS_MEMORY_CONNECTION="sqlite:///tmp/pa-memory/conversations.db"
 
 resources:
 

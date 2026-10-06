@@ -105,13 +105,13 @@ if $ROUTES_OK; then
 fi
 
 # ── Test 9: gateway is the only server-mode agent ────────────────────────────
-BRAIN_SERVER=$(grep -E "apiServerMode:\s*true" "$BRAIN_WF" 2>/dev/null || echo "")
-HEARTBEAT_SERVER=$(grep -E "apiServerMode:\s*true" "$HEARTBEAT_WF" 2>/dev/null || echo "")
+BRAIN_SERVER=$(grep -E "^  apiServer:" "$BRAIN_WF" 2>/dev/null || echo "")
+HEARTBEAT_SERVER=$(grep -E "^  apiServer:" "$HEARTBEAT_WF" 2>/dev/null || echo "")
 if [ -z "$BRAIN_SERVER" ] && [ -z "$HEARTBEAT_SERVER" ]; then
     test_passed "Personal Assistant Agency - brain and heartbeat are internal agents"
 else
     test_failed "Personal Assistant Agency - brain and heartbeat are internal agents" \
-        "brain or heartbeat has apiServerMode: true (should be internal only)"
+        "brain or heartbeat declares an apiServer block (should be internal only)"
 fi
 
 # ── Test 10: gateway calls pa-brain ──────────────────────────────────────────
@@ -131,11 +131,11 @@ else
 fi
 
 # ── Test 12: brain workflow uses SQL for memory storage ──────────────────────
-if grep -q "sqlConnections:" "$BRAIN_WF"; then
+if grep -q "connectionName: memory" "$BRAIN_WF" && ! grep -q "sqlConnections:" "$BRAIN_WF"; then
     test_passed "Personal Assistant Agency - brain uses SQL memory storage"
 else
     test_failed "Personal Assistant Agency - brain uses SQL memory storage" \
-        "sqlConnections not found in $BRAIN_WF"
+        "expected connectionName: memory and no workflow sqlConnections in $BRAIN_WF"
 fi
 
 # ── Test 13: brain uses Python for memory operations ─────────────────────────
@@ -151,7 +151,7 @@ if grep -E "apiServerMode:\s*false" "$HEARTBEAT_WF" &>/dev/null; then
     test_passed "Personal Assistant Agency - heartbeat is internal (apiServerMode: false)"
 else
     # apiServerMode defaults to false when absent; check it isn't set to true
-    if ! grep -E "apiServerMode:\s*true" "$HEARTBEAT_WF" &>/dev/null; then
+    if ! grep -E "^  apiServer:" "$HEARTBEAT_WF" &>/dev/null; then
         test_passed "Personal Assistant Agency - heartbeat is internal (apiServerMode not set to true)"
     else
         test_failed "Personal Assistant Agency - heartbeat is internal" \

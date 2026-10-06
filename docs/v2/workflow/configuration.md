@@ -57,7 +57,7 @@ settings:
   session: { ... }         # session persistence settings
 ```
 
-Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 

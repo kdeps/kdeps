@@ -6,12 +6,14 @@
 
 1. Run in development mode:
    ```bash
+   export KDEPS_API_AUTH_TOKEN=dev-token   # the API server will not start without a token
    kdeps run workflow.yaml --dev
    ```
 
 2. Test the API:
    ```bash
    curl -X POST http://localhost:{{ port }}/api/v1/chat \
+     -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"q": "Hello!"}'
    ```
