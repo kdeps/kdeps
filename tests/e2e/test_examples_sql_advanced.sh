@@ -319,6 +319,8 @@ if command -v python3 &>/dev/null && [ -n "${KDEPS_BIN:-}" ] && [ -x "${KDEPS_BI
     MOCK_SQL_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
     MOCK_WORK_DIR=$(mktemp -d)
     MOCK_DB="$MOCK_WORK_DIR/test.db"
+    # Windows (Git Bash): Python and kdeps need a native C:/... path, not /tmp/...
+    if command -v cygpath >/dev/null 2>&1; then MOCK_DB=$(cygpath -m "$MOCK_DB"); fi
     MOCK_SQL_LOG=$(mktemp)
     MOCK_SQL_PID=""
 
