@@ -47,7 +47,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, it is
 | `recursive` | all | Search subdirectories (rg fallback only) |
 | `topic` | graphTopic | Topic/tag to graph, as declared in a file's frontmatter |
 | `extensions` | indexFolder | File extensions to index, e.g. `[".md", ".yaml"]`. Defaults to `.md`/`.markdown`/`.txt`/`.yaml`/`.yml`. |
-| `graphDBPath` | indexFolder, graphFile, graphTopic, graphAll | Graph index db path. Defaults to `"<path>/.kdeps/graph.db"`, or `"<CWD>/.kdeps/graph.db"` for indexFolder/graphFile (which ignore `path`) and whenever `path` is also omitted. |
+| `graphDBPath` | indexFolder, graphFile, graphTopic, graphAll | Graph index db path. Defaults to `~/.kdeps/projects/<folder>-<hash>/graph.db` for `path`, or for the working folder with indexFolder/graphFile (which ignore `path`) and whenever `path` is also omitted. Nothing is written into the indexed folder. |
 
 > `path` is ignored for `indexFolder`. It always indexes the process's current working directory - there is no way to point it at an arbitrary filesystem location, by design (an LLM or workflow cannot be tricked into indexing something outside the project it is running in).
 

@@ -45,8 +45,8 @@ type CodeIntelligenceConfig struct {
 	// Graph fields — indexFolder/graphFile/graphTopic/graphAll only.
 	Topic      string   `yaml:"topic,omitempty"`      // topic name for graphTopic
 	Extensions []string `yaml:"extensions,omitempty"` // file extensions to index for indexFolder (defaults to .md/.markdown/.txt/.yaml/.yml)
-	// GraphDBPath is the bbolt graph index db path. Defaults to "<path>/.kdeps/graph.db",
-	// or "<CWD>/.kdeps/graph.db" for indexFolder (which ignores Path) and whenever Path is
-	// also unset.
+	// GraphDBPath is the bbolt graph index db path. Defaults to graph.db in the
+	// data dir under ~/.kdeps/projects of Path, or of the working folder for
+	// indexFolder (which ignores Path) and whenever Path is also unset.
 	GraphDBPath string `yaml:"graphDBPath,omitempty"`
 }

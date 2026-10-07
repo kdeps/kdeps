@@ -16,7 +16,7 @@ This page is HTTP session storage. Agent mode conversation history is a differen
 settings:
   session:
     type: sqlite                    # "sqlite" or "memory"
-    path: ".kdeps/sessions.db"      # SQLite file path
+    path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
     ttl: "30m"                      # Session expiration
     cleanupInterval: "5m"           # Cleanup frequency
 ```

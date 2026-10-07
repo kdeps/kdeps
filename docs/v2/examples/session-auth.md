@@ -43,7 +43,7 @@ settings:
     pythonVersion: "3.12"
   session:
     type: sqlite                 # persist to a file
-    path: .kdeps/sessions.db     # relative to the workflow directory
+    # no path: the db is ~/.kdeps/sessions.db, outside the project and its git history
     ttl: 30m                     # session expires 30 minutes after last use
     cleanupInterval: 5m          # sweep expired sessions every 5 minutes
 ```
