@@ -19,7 +19,8 @@ Skills are discovered from:
 
 - `~/.kdeps/skills/` (global)
 - `~/.agents/skills/` (where `npx skills` installs)
-- paths passed with `--skill` (explicit, repeatable), for example a `skills/` folder you keep in the project
+- `./.kdeps/skills/` (the project's own, see [The .kdeps folder](#the-kdeps-folder))
+- paths passed with `--skill` (explicit, repeatable)
 
 Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
 
@@ -57,7 +58,7 @@ argument-hint: <PR number or URL>
 Review the pull request at $1. Check for: correctness, test coverage, and breaking changes.
 ```
 
-Place templates in `~/.kdeps/prompts/`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
+Place templates in `~/.kdeps/prompts/` or the project's `./.kdeps/prompts/`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
 
 ```bash
 /review-pr 1234
@@ -70,10 +71,27 @@ The agent automatically discovers instruction files by walking up the directory 
 
 - `KDEPS.md`, `KDEPS.local.md` at any ancestor directory
 - `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md` at any ancestor directory
+- every `*.md` file directly in a `.kdeps/` folder at any ancestor directory (`.kdeps/KDEPS.md` first, then the rest by name)
 
 `KDEPS.md` is kdeps' own instruction file and takes the highest priority: it is discovered first, keeps its full character budget, and the agent is told that `KDEPS.md` wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or the rest.
 
 Duplicate content (by hash) is deduplicated. Total injected context is capped at ~12 KB. Instructions are injected into the system prompt at startup.
+
+## The .kdeps folder
+
+A project's `.kdeps/` folder holds Markdown you write for the agent. kdeps only reads it, never writes to it, so it is safe to commit. Everything kdeps generates (memory, chat history, indexes) lives in `~/.kdeps`.
+
+```text
+my-project/
+  KDEPS.md              # project rules, read first
+  .kdeps/
+    style.md            # read as instructions, like KDEPS.md
+    architecture.md     # every *.md here is read
+    skills/
+      review.md         # /review
+    prompts/
+      release-notes.md  # /release-notes
+```
 
 ## See also
 

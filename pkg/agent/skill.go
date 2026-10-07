@@ -41,8 +41,8 @@ type Skill struct {
 	Hidden bool
 }
 
-// defaultSkillDirs returns the global skill directories. Projects get no
-// .kdeps folder of their own; pass a project's skills with --skill.
+// defaultSkillDirs returns the global skill directories and the project's
+// .kdeps/skills (read-only: kdeps never writes into a project's .kdeps).
 func defaultSkillDirs() []string {
 	home, _ := os.UserHomeDir()
 	dirs := []string{}
@@ -50,6 +50,9 @@ func defaultSkillDirs() []string {
 		dirs = append(dirs, filepath.Join(home, ".kdeps", "skills"))
 		// Standard npx skills install path.
 		dirs = append(dirs, filepath.Join(home, ".agents", "skills"))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		dirs = append(dirs, filepath.Join(cwd, kdepsDirName, "skills"))
 	}
 	return dirs
 }

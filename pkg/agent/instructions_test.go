@@ -59,23 +59,48 @@ func TestDiscoverInstructions_WalksUp(t *testing.T) {
 	}
 }
 
-// A project gets no .kdeps folder: instructions inside one are not read.
-func TestDiscoverInstructions_IgnoresKdepsDir(t *testing.T) {
+// Every Markdown file in a .kdeps folder is read as instructions, KDEPS.md
+// first; other files are ignored and the folder is never written to.
+func TestDiscoverInstructions_ReadsKdepsDirMarkdown(t *testing.T) {
 	dir := t.TempDir()
 	kdepsDir := filepath.Join(dir, ".kdeps")
-	if err := os.MkdirAll(kdepsDir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(kdepsDir, "skills"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(
-		filepath.Join(kdepsDir, "instructions.md"),
-		[]byte("# Hidden instructions"),
-		0644,
-	); err != nil {
-		t.Fatal(err)
+	files := map[string]string{
+		"style.md":        "# Style guide",
+		"KDEPS.md":        "# Project rules",
+		"architecture.MD": "# Architecture notes",
+		"notes.txt":       "# Not markdown",
 	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(kdepsDir, name), []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, _ := os.ReadDir(kdepsDir)
 
-	if result := discoverInstructions(dir); strings.Contains(result, "Hidden instructions") {
-		t.Fatalf("instructions under .kdeps/ must not be read, got %q", result)
+	result := discoverInstructions(dir)
+	for _, want := range []string{"Style guide", "Project rules", "Architecture notes"} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("expected %q from .kdeps, got %q", want, result)
+		}
+	}
+	if strings.Contains(result, "Not markdown") {
+		t.Fatalf("non-Markdown files must be ignored, got %q", result)
+	}
+	if strings.Index(result, "Project rules") > strings.Index(result, "Architecture notes") {
+		t.Fatalf(".kdeps/KDEPS.md must come first, got %q", result)
+	}
+	after, _ := os.ReadDir(kdepsDir)
+	if len(after) != len(before) {
+		t.Fatalf(".kdeps must be read-only: had %d entries, now %d", len(before), len(after))
+	}
+}
+
+func TestKdepsDirMarkdown_NoFolder(t *testing.T) {
+	if got := kdepsDirMarkdown(t.TempDir()); got != nil {
+		t.Fatalf("expected nil without a .kdeps folder, got %v", got)
 	}
 }
 
@@ -189,5 +214,23 @@ func TestDiscoverInstructions_NoKDEPSmdNoNote(t *testing.T) {
 	}
 	if strings.Contains(discoverInstructions(dir), "takes priority over") {
 		t.Fatal("no KDEPS.md present -> no precedence note")
+	}
+}
+
+func TestDefaultDirs_IncludeProjectKdeps(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	skills, prompts := defaultSkillDirs(), defaultPromptDirs()
+	wantSkills := filepath.Join(wd, ".kdeps", "skills")
+	wantPrompts := filepath.Join(wd, ".kdeps", "prompts")
+	if skills[len(skills)-1] != wantSkills {
+		t.Fatalf("expected project skills %q last, got %v", wantSkills, skills)
+	}
+	if prompts[len(prompts)-1] != wantPrompts {
+		t.Fatalf("expected project prompts %q last, got %v", wantPrompts, prompts)
 	}
 }
