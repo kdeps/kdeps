@@ -89,7 +89,7 @@ func TestDesktop_ProjectBuildAndRun(t *testing.T) {
 	assert.Equal(t, filepath.Join(workspace, "echo"), p.Dir)
 	require.NoError(
 		t,
-		os.WriteFile(filepath.Join(p.Dir, ".env"), []byte("ROOT=$PWD/echo\nGREETING=from-dotenv\n"), 0o600),
+		os.WriteFile(filepath.Join(p.Dir, ".env"), []byte("ROOT=$PWD\nGREETING=from-dotenv\n"), 0o600),
 	)
 	require.NoError(t, svc.SetProjectEnv(p.Path, "GREETING=from-app"))
 
@@ -115,7 +115,7 @@ func TestDesktop_ProjectBuildAndRun(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(body, &reply), string(body))
-	assert.Equal(t, "ping from-app "+workspace+"/echo", reply.Data.Echo, // $PWD/echo expands as written
+	assert.Equal(t, "ping from-app "+p.Dir, reply.Data.Echo, // $PWD is the project folder
 		".env loads automatically and app variables override it")
 
 	svc.Stop(p.Path)
