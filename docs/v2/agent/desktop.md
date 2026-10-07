@@ -191,22 +191,119 @@ composer ──/cmd──> REPL dispatcher ──stdout──> live output block
 | Autocomplete | Tab, Up and Down complete slash commands, subcommands, model names and `@file` paths, with the same candidates as terminal tab completion. |
 | Failed turns | An unreachable backend (for example no network to the auto-picked cloud model) shows the model name and a Switch model button. The unsaved chat stays visible in the sidebar until a turn succeeds. |
 
-Both modes run on the agent loop: this page is agent mode only.
+Chat runs on the agent loop. The Projects window below also builds and runs workflow-mode projects.
 
 ## Settings modal
 
-Open it with the Settings button at the bottom of the sidebar. Six tabs:
+Open it with the Settings button at the bottom of the sidebar. Seven tabs:
 
 | Tab | What it edits |
 |-----|---------------|
 | Appearance | Theme (light, dark, system), accent color and density. Stored in the WebView's local storage, not in `config.yaml`. |
 | All settings | Every scalar in `~/.kdeps/config.yaml` (`llm.backend`, `llm.ctx_size`, `resource_defaults.chat.temperature`, ...), generated from the config schema so new fields appear automatically. Secret fields (keys, tokens) show only whether one is set and are write-only. Fields with a fixed set of values render as dropdowns (`llm.backend`, `llm.strategy`, `resource_defaults.onError.action`), numeric ranges as sliders with a reset link (`temperature`, `top_p`, penalties), and free-form fields (timeouts, context sizes, Python version, timezone, hosts) offer a suggestion list while still accepting any value. A one-line help text sits under each. |
+| Config file | The whole `~/.kdeps/config.yaml` as text (created from the template if missing), for what the generated fields do not cover: `sql_connections`, `http_connections` and the other connection lists, `agents` profiles, the LLM `router`. Save writes it as typed, comments included. YAML that does not parse is refused with the parser error; unknown keys and bad values are saved and listed as warnings. Values apply to the running app at once, except variables you exported before starting it, which still win. |
 | Prompts and harness | System-prompt harness sections (toggle each, and whether it is repeated as a per-turn reminder) plus the preset list, same as `/harness` in the REPL. |
 | Custom instructions | Free text saved to `KDEPS.md` in the workspace, which the agent loads into every session's system prompt for that folder. |
 | Memories | The workspace's persistent memory: list, add or overwrite (same key) and delete facts. |
 | Work profile | Export or import tuning, harness settings and skills as one konfig file, to carry your setup between machines. |
 
 Saving a setting writes `config.yaml` (preserving comments and other keys) and applies the matching environment variable to the running process. Changing instructions or harness sections rebuilds the system prompt before the next turn.
+
+## Projects: workflows, agencies and components
+
+The Projects window lists every workflow, agency and component in the workspace, plus the packages `kdeps registry install` put in `~/.kdeps/agents` and `~/.kdeps/components`. From there you build a project with forms, run it, or hand it to the chat agent as a tool. It is `kdeps new`, `kdeps run` and a YAML editor in one window. Open it with the Projects button at the bottom of the sidebar.
+
+This section covers both modes: you build and run workflow-mode projects, and "Use in chat" turns one into a tool for agent mode.
+
+```d2
+direction: right
+list: "Projects list\n(workspace + installed)" {shape: oval}
+build: "Build tab\n(forms)"
+files: "workflow.yaml\nresources/*.yaml"
+env: ".env + app variables"
+run: "Run tab\n(kdeps run <dir>)"
+chat: "Overview: Use in chat\n(agent tool)"
+engine: "kdeps engine\n(DAG, all executors)" {shape: oval}
+list -> build: "edit"
+build -> files: "writes YAML"
+files -> run
+env -> run
+files -> chat
+run -> engine: "server: each request\nelse: once"
+chat -> engine: "when the agent calls it"
+```
+
+| Tab | What it does |
+|-----|--------------|
+| Overview | Name, version, path and parse errors. **Use in chat** registers the project as a tool the chat agent may call; it never runs unless the agent calls it. **Validate**, **Open folder** and **Delete** (workspace projects only, asks twice). |
+| Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` from the workspace with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
+| Build | The manifest form (name, description, version, target, and the `settings` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`validations`, `onError`, `loop`, `before`, `after`, `items`). |
+
+**New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`), the same templates as `kdeps new`, and opens it in Build.
+
+### How the builder writes YAML
+
+Every resource type the engine has (chat, httpClient, sql, python, exec, apiResponse, browser, email, scraper, ...) is offered, with its fields read from the kdeps types, so new executors appear without an app update. A card shows the fields that have a value; **add field** lists the rest with their descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
+
+Saving a card with type `chat` and three fields writes this file:
+
+```yaml
+# resources/ask.yaml - written by the Build tab
+actionId: ask                       # what other resources list in requires and read with output('ask')
+name: Ask the model
+requires:
+  - fetch                           # ticked in the requires checkboxes
+chat:
+  model: llama3.2:1b
+  prompt: Say hi to {{ get('who') }}  # multi-line fields are text areas
+  temperature: 0.3                  # numbers are checked: "warm" is refused as "chat.temperature: must be a number"
+```
+
+| Rule | Behavior |
+|------|----------|
+| Where new resources go | A workflow gets `resources/<actionId>.yaml`. A manifest that already lists `resources:` inline (every component does) gets the new item appended there. |
+| Editing existing files | Only the parts you changed are rewritten. Untouched keys keep their comments and order. |
+| Checks before writing | `actionId` must be unique and use letters, digits, `-` or `_`; the resource must pass the resource schema. After a save the whole project is validated and any problem (for example a `requires` that names a missing resource) is shown with the save. |
+| Read-only | Installed packages, and Jinja2 files (`*.j2`), are shown but not edited. Use Open folder for those. |
+
+### Environment variables
+
+The Run tab sets the environment of a workflow or agency run. Running `house-finder` with these settings is the same as typing `HOUSE_FINDER_ROOT=$PWD/house-finder kdeps run $PWD/house-finder` in the workspace folder; the app always passes the project folder as an absolute path:
+
+```bash
+# house-finder/.env - loaded automatically on every Run
+HOUSE_FINDER_ROOT=$PWD/house-finder   # $PWD is the workspace folder, where kdeps run starts
+CITY=Amsterdam
+```
+
+```bash
+# Run tab > variables - saved in the app, override .env on the same name
+CITY=Utrecht
+```
+
+| Source | Behavior |
+|--------|----------|
+| `.env` in the project folder | Read on every Run; the tab lists the names it found. A line that is not `NAME=value` stops the run with that line. |
+| **variables** box | `NAME=value` per line, `#` comments, optional `export ` prefix and quotes. Saved per project in `~/.kdeps/desktop-project-env.json`. Wins over `.env`. |
+| **Add** | Appends one `NAME=value` from the name and value fields. |
+| **Import from file** | Appends the `NAME=value` lines of any text file you pick; it does not need to be named `.env`. |
+
+`$NAME` references expand, with earlier lines visible to later ones. The output log prints the command with names only (`$ HOUSE_FINDER_ROOT=... kdeps run /Users/you/Projects/house-finder`), never the values.
+
+### Servers need an API token
+
+Every kdeps API server requires a token, from the app as from the CLI. Set it once:
+
+```yaml
+# ~/.kdeps/config.yaml
+api_auth_token: "change-me"   # or export KDEPS_API_AUTH_TOKEN; requests send it as a Bearer token or X-API-Key
+```
+
+```bash
+curl -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" http://127.0.0.1:16395/api/v1/hello
+```
+
+If the configured port is taken, the next free one is used and shown. A running project stops when you click Stop, delete the project, or quit the app. The app runs projects with its own binary, so the `kdeps` CLI does not need to be installed.
 
 ## Offline
 

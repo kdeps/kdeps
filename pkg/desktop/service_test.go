@@ -705,3 +705,30 @@ func TestSetWorkspace_MemoryDoesNotLeakAcrossWorkspaces(t *testing.T) {
 	require.NoError(t, h.svc.SetWorkspace(a))
 	assert.NotEmpty(t, h.svc.SearchMemory("only-in-a"))
 }
+
+func TestConfigFile_RoundTrip(t *testing.T) {
+	h := newHarness(t)
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_SQL_MAX_ROWS", "")
+
+	file, err := h.svc.ConfigFile()
+	require.NoError(t, err)
+	assert.Equal(t, path, file.Path)
+	assert.NotEmpty(t, file.Text, "a missing config.yaml is created from the template")
+
+	text := "# connections live here\nresource_defaults:\n  sql:\n    max_rows: 7\n"
+	warnings, err := h.svc.SaveConfigFile(text)
+	require.NoError(t, err)
+	assert.Empty(t, warnings)
+	assert.Equal(t, "7", os.Getenv("KDEPS_SQL_MAX_ROWS"), "a saved value applies to the running app")
+	file, err = h.svc.ConfigFile()
+	require.NoError(t, err)
+	assert.Equal(t, text, file.Text)
+
+	_, err = h.svc.SaveConfigFile("llm: [oops")
+	require.ErrorContains(t, err, "config.yaml")
+	warnings, err = h.svc.SaveConfigFile("mystery_key: 1\n")
+	require.NoError(t, err)
+	assert.NotEmpty(t, warnings)
+}

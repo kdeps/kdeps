@@ -5,6 +5,7 @@
 const TABS = [
   ["appearance", "Appearance", renderAppearance],
   ["all", "All settings", renderAllSettings],
+  ["config", "Config file", renderConfigFile],
   ["harness", "Prompts and harness", renderHarness],
   ["instructions", "Custom instructions", renderInstructions],
   ["memories", "Memories", renderMemories],
@@ -228,6 +229,32 @@ async function renderInstructions(pane) {
   pane.prepend(el("div", "hint", "Instructions for this workspace, saved as KDEPS.md and sent with every chat."));
   pane.insertBefore(ta, pane.lastChild);
   pane.insertBefore(save, pane.lastChild);
+}
+
+// renderConfigFile edits ~/.kdeps/config.yaml as text, for what the
+// generated fields do not cover (connections, agent profiles, router).
+async function renderConfigFile(pane) {
+  const say = status(pane);
+  const file = await api.ConfigFile();
+  const ta = el("textarea", "config-yaml");
+  ta.value = file.text || "";
+  ta.spellcheck = false;
+  ta.setAttribute("aria-label", "config.yaml");
+  const save = el("button", "primary", "Save");
+  save.addEventListener("click", async () => {
+    try {
+      const warnings = (await api.SaveConfigFile(ta.value)) || [];
+      say(warnings.length ? "Saved, with warnings:\n" + warnings.join("\n") : "Saved. Changes apply now.", warnings.length > 0);
+    } catch (e) { say(String(e), true); }
+  });
+  const reload = el("button", "", "Reload");
+  reload.addEventListener("click", () => selectTab("config"));
+  const row = el("div", "row");
+  row.style.justifyContent = "flex-start";
+  row.append(save, reload);
+  pane.prepend(el("div", "hint", "The global config: " + file.path + ". Connections, agent profiles and the router live here. YAML that does not parse is not saved."));
+  pane.insertBefore(ta, pane.lastChild);
+  pane.insertBefore(row, pane.lastChild);
 }
 
 async function renderMemories(pane) {

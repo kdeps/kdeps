@@ -35,3 +35,23 @@ func (s *Service) Settings() ([]config.SettingField, error) {
 func (s *Service) SetSetting(path string, value any) error {
 	return config.PersistField(path, value)
 }
+
+// ConfigFile is the raw global config.yaml.
+type ConfigFile struct {
+	Path string `json:"path"`
+	Text string `json:"text"`
+}
+
+// ConfigFile returns ~/.kdeps/config.yaml as text, creating it from the
+// template when it does not exist.
+func (s *Service) ConfigFile() (ConfigFile, error) {
+	path, text, err := config.ReadFile()
+	return ConfigFile{Path: path, Text: text}, err
+}
+
+// SaveConfigFile replaces config.yaml with text. YAML that does not parse is
+// refused; other problems come back as warnings after the save. Values
+// apply to this app at once, except variables exported before it started.
+func (s *Service) SaveConfigFile(text string) ([]string, error) {
+	return config.ReplaceFile(text)
+}

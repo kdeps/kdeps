@@ -64,6 +64,12 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 	return newSchemaValidatorFromFS(schemas)
 }
 
+// SchemaJSON returns the embedded JSON schema named name ("resource",
+// "workflow", "agency" or "component").
+func SchemaJSON(name string) ([]byte, error) {
+	return fs.ReadFile(schemas, "schemas/"+name+".json")
+}
+
 // loadSchemaFromFS reads and compiles a JSON schema from fsys.
 func loadSchemaFromFS(fsys fs.FS, filename, label string) (*gojsonschema.Schema, error) {
 	data, err := fs.ReadFile(fsys, filename)

@@ -18,6 +18,7 @@
     <ul id="sessions" aria-label="Chat history"></ul>
     <div class="side-foot">
       <button id="workspace" title="Switch workspace folder"></button>
+      <button id="open-projects" title="Workflows, agencies and components">Projects</button>
       <button id="open-settings">Settings</button>
     </div>
   </aside>
@@ -69,11 +70,32 @@
     <section id="settings-pane" role="tabpanel"></section>
   </div>
 </dialog>
+<dialog id="projects" aria-labelledby="projects-title">
+  <header class="set-head">
+    <h2 id="projects-title">Projects</h2>
+    <button id="projects-close" aria-label="Close projects">Close</button>
+  </header>
+  <div class="set-body">
+    <nav id="pj-side" aria-label="Projects">
+      <div class="pj-actions">
+        <button id="pj-new" type="button" class="primary">New</button>
+        <button id="pj-refresh" type="button">Refresh</button>
+      </div>
+      <ul id="pj-list"></ul>
+    </nav>
+    <section id="pj-main">
+      <div id="pj-tabs" role="tablist" aria-label="Project sections"></div>
+      <div id="pj-pane" role="tabpanel"></div>
+    </section>
+  </div>
+</dialog>
 <script src="markdown.js"></script>
 <script src="settingctl.js"></script>
 <script src="composer.js"></script>
-  <script src="app.js"></script>
+<script src="app.js"></script>
 <script src="settings.js"></script>
+<script src="projectsctl.js"></script>
+<script src="projects.js"></script>
 <script src="repl.js"></script>
 </body>
 </html>

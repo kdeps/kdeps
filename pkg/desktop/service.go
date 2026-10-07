@@ -130,6 +130,9 @@ type Options struct {
 	// WireREPL connects the headless REPL to the model catalog and the
 	// persistence hooks the CLI REPL gets. Optional.
 	WireREPL func(*agent.REPL)
+	// Runner runs workflows, agencies and components and wraps them as chat tools.
+	// Optional; without it those actions return an error.
+	Runner Runner
 }
 
 // Service owns one active chat (an agent Loop) at a time.
@@ -149,6 +152,10 @@ type Service struct {
 	cancel    context.CancelFunc
 	pending   map[string]chan agent.ApprovalChoice
 	approvSeq int
+	// inChat maps a project manifest path to the tool SetInChat registered.
+	inChat map[string]*tools.Tool
+	// procs maps a project manifest path to its running `kdeps run`.
+	procs map[string]*running
 }
 
 // New builds a Service whose work all derives from ctx.
@@ -180,6 +187,8 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 		memStore: agent.NewMemoryStore(opts.StateDir),
 		registry: opts.Registry,
 		pending:  map[string]chan agent.ApprovalChoice{},
+		inChat:   map[string]*tools.Tool{},
+		procs:    map[string]*running{},
 	}
 	s.store.SetCwd(opts.Cwd)
 	s.memStore.SetCwd(opts.Cwd)

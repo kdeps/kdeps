@@ -205,6 +205,12 @@ function onEvent(e) {
       setRunning(false);
       break;
     }
+    case "run_progress":
+    case "run_log":
+    case "run_url":
+    case "run_stopped":
+      onProjectEvent(e);
+      break;
     case "turn_end":
       state.current = e.sessionId || state.current;
       if (state.current) state.draft = "";
