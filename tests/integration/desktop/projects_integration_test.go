@@ -19,6 +19,7 @@
 package desktop_test
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -108,7 +109,13 @@ func TestDesktop_ProjectBuildAndRun(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode, string(body))
-	assert.Contains(t, string(body), "ping from-app "+workspace+"/echo", // $PWD/echo expands as written
+	var reply struct {
+		Data struct {
+			Echo string `json:"echo"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(body, &reply), string(body))
+	assert.Equal(t, "ping from-app "+workspace+"/echo", reply.Data.Echo, // $PWD/echo expands as written
 		".env loads automatically and app variables override it")
 
 	svc.Stop(p.Path)
