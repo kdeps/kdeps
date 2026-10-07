@@ -732,3 +732,54 @@ func TestConfigFile_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, warnings)
 }
+
+func TestSearchAllSessions_AcrossWorkspaces(t *testing.T) {
+	h := newHarness(t,
+		scriptedResponse{content: "The capital of France is Paris."},
+		scriptedResponse{content: "Bananas are yellow."},
+	)
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	wsA := h.svc.Workspace()
+	require.NoError(t, h.svc.Send("capital question", nil))
+	inA := h.log.waitFor(t, desktop.KindTurnEnd).SessionID
+
+	wsB := t.TempDir()
+	require.NoError(t, h.svc.SetWorkspace(wsB))
+	require.NoError(t, h.svc.Send("fruit question", nil))
+	inB := h.log.waitFor(t, desktop.KindTurnEnd).SessionID
+
+	mine, err := h.svc.SearchSessions("")
+	require.NoError(t, err)
+	require.Len(t, mine, 1, "this folder lists only its own chats")
+
+	all, err := h.svc.SearchAllSessions("", nil)
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+	assert.Equal(t, inB, all[0].Session.ID, "newest first")
+	assert.Equal(t, wsB, all[0].Session.Cwd)
+	assert.Equal(t, inA, all[1].Session.ID)
+	assert.Equal(t, wsA, all[1].Session.Cwd)
+
+	hits, err := h.svc.SearchAllSessions("PARIS", nil)
+	require.NoError(t, err)
+	require.Len(t, hits, 1, "message text of another folder's chat is searched")
+	assert.Equal(t, inA, hits[0].Session.ID)
+	assert.Contains(t, hits[0].Snippet, "Paris")
+
+	hits, err = h.svc.SearchAllSessions(filepath.Base(wsB), nil)
+	require.NoError(t, err)
+	require.Len(t, hits, 1, "the folder name matches too")
+	assert.Equal(t, "fruit question", hits[0].Snippet, "a folder match shows the usual preview")
+
+	require.NoError(t, h.svc.DeleteSessionIn(wsA, inA))
+	all, err = h.svc.SearchAllSessions("", nil)
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.NoError(t, h.svc.DeleteSessionIn(wsB, inB), "the current folder's chat deletes too")
+	all, err = h.svc.SearchAllSessions("", nil)
+	require.NoError(t, err)
+	assert.Empty(t, all)
+}

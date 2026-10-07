@@ -72,8 +72,10 @@ type Project struct {
 	InChat bool `json:"inChat"`
 	// Running is true while the workflow or agency runs.
 	Running bool `json:"running"`
-	// URL is the server address a running project printed, if any.
+	// URL is the API server address a running project printed, if any.
 	URL string `json:"url,omitempty"`
+	// WebURL is the web interface a running project serves, if any.
+	WebURL string `json:"webUrl,omitempty"`
 }
 
 // Route is one API route a workflow serves.
@@ -115,7 +117,7 @@ func (s *Service) Projects() []Project {
 	for i := range out {
 		out[i].InChat = s.inChat[out[i].Path] != nil
 		if r, ok := s.procs[out[i].Path]; ok {
-			out[i].Running, out[i].URL = true, r.url
+			out[i].Running, out[i].URL, out[i].WebURL = true, r.url, r.webURL
 		}
 	}
 	return out

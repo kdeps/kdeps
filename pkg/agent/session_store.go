@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -64,6 +65,8 @@ type SessionMetadata struct {
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
 	FirstPrompt string `json:"firstPrompt,omitempty"`
+	// Cwd is the project folder the session belongs to.
+	Cwd string `json:"cwd,omitempty"`
 }
 
 // SessionStore persists conversation sessions in a bbolt database.
@@ -98,6 +101,7 @@ type sessionEntry struct {
 	CreatedAt   int64  `json:"createdAt,omitempty"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 	FirstPrompt string `json:"firstPrompt,omitempty"`
+	Cwd         string `json:"cwd,omitempty"`
 }
 
 // sessionFirstPromptMax caps the stored preview of a session's opening prompt.
@@ -226,6 +230,7 @@ func (s *SessionStore) Upsert(id string, session SessionReader, name, model stri
 		Type: "session_meta", Timestamp: now, SessionID: id,
 		Name: name, Model: model, Turns: session.TurnCount(),
 		CreatedAt: createdAt, UpdatedAt: now, FirstPrompt: firstUserPrompt(session),
+		Cwd: s.cwd,
 	}}
 	for _, m := range session.Messages() {
 		entries = append(entries, sessionEntry{
@@ -348,7 +353,88 @@ func metaFromEntries(entries []sessionEntry, key string) *SessionMetadata {
 	return &SessionMetadata{
 		ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns,
 		CreatedAt: createdAt, UpdatedAt: updatedAt, FirstPrompt: firstPrompt,
+		Cwd: e.Cwd,
 	}
+}
+
+// ListAllMeta returns the sessions of every project folder kept under this
+// store's base path, newest first, each with its Cwd. A session saved before
+// sessions recorded their folder is matched to one of known (folders the
+// caller has seen); failing that, its folder name is decoded when that path
+// exists. Sessions whose folder cannot be found are left out, as are folders
+// whose store cannot be opened (another process holding it).
+func (s *SessionStore) ListAllMeta(known []string) ([]SessionMetadata, error) {
+	entries, err := afero.ReadDir(AppFS, s.basePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	byKey := make(map[string]string, len(known))
+	for _, k := range known {
+		byKey[encodeCwd(k)] = k
+	}
+	var all []SessionMetadata
+	for _, e := range entries {
+		if e.IsDir() {
+			all = append(all, s.folderMeta(e.Name(), byKey)...)
+		}
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].UpdatedAt > all[j].UpdatedAt })
+	return all, nil
+}
+
+// folderMeta lists the sessions of one encoded folder under the base path,
+// each with its Cwd; see ListAllMeta.
+func (s *SessionStore) folderMeta(name string, byKey map[string]string) []SessionMetadata {
+	if len(name) < 4 || !strings.HasPrefix(name, "--") || !strings.HasSuffix(name, "--") {
+		return nil
+	}
+	dir := filepath.Join(s.basePath, name)
+	if _, err := AppFS.Stat(filepath.Join(dir, "sessions.bolt")); err != nil {
+		return nil
+	}
+	metas, err := (&SessionStore{basePath: dir}).ListMeta()
+	if err != nil {
+		return nil
+	}
+	folder := byKey[name]
+	if folder == "" {
+		folder = decodeCwd(name)
+	}
+	out := make([]SessionMetadata, 0, len(metas))
+	for _, m := range metas {
+		if m.Cwd == "" {
+			m.Cwd = folder
+		}
+		if m.Cwd != "" {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// decodeCwd guesses the folder an encoded name came from by reading every
+// "-" as a separator; encodeCwd is lossy, so the guess is used only when that
+// folder exists.
+func decodeCwd(name string) string {
+	inner := strings.TrimSuffix(strings.TrimPrefix(name, "--"), "--")
+	guess := string(filepath.Separator) + strings.ReplaceAll(inner, "-", string(filepath.Separator))
+	if info, err := os.Stat(guess); err == nil && info.IsDir() && encodeCwd(guess) == name {
+		return guess
+	}
+	return ""
+}
+
+// LoadFrom loads session id from the store of folder cwd.
+func (s *SessionStore) LoadFrom(cwd, id string) (*Session, error) {
+	return (&SessionStore{basePath: s.basePath, cwd: cwd}).Load(id)
+}
+
+// DeleteFrom deletes session id from the store of folder cwd.
+func (s *SessionStore) DeleteFrom(cwd, id string) error {
+	return (&SessionStore{basePath: s.basePath, cwd: cwd}).Delete(id)
 }
 
 // ListMeta returns metadata for all sessions, newest first.

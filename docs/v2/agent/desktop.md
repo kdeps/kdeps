@@ -148,6 +148,7 @@ Window state lives in `kdeps-desktop/state.json` under your OS config directory 
 | Feature | Behavior |
 |---------|----------|
 | History | Every session in the workspace is listed in the sidebar, newest first. Click to reload; hover a row and click Delete twice to remove it. |
+| All folders | The **This folder / All folders** switch under the search box. All folders lists the chats of every workspace (terminal `kdeps` chats included), grouped by folder, newest first. Opening a chat from another folder switches the workspace to that folder. Search covers chat names, messages and folder names. The choice is remembered. |
 | Search | The sidebar search box matches the chat name, first prompt and every message (case-insensitive) and shows the matching snippet. |
 | Streaming | Tokens render as they arrive. Narration lines ("Reading config.yaml...") and tool cards show each call, its arguments and result. |
 | Approvals | In the default `ask` permission mode a modal shows each tool call or out-of-workspace path. Choose allow once, allow always, or deny. |
@@ -236,7 +237,7 @@ chat -> engine: "when the agent calls it"
 | Tab | What it does |
 |-----|--------------|
 | Overview | Name, version, path and parse errors. **Use in chat** registers the project as a tool the chat agent may call; it never runs unless the agent calls it. **Validate**, **Open folder** and **Delete** (workspace projects only, asks twice). |
-| Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` from the workspace with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
+| Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` from the workspace with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output, plus an **Open** button that opens the web interface in your browser when the project has a `webServer`; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
 | Build | The manifest form (name, description, version, target, and the `settings` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`validations`, `onError`, `loop`, `before`, `after`, `items`). |
 
 **New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`), the same templates as `kdeps new`, and opens it in Build.

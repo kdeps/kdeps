@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/desktop"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -89,4 +90,41 @@ func TestApp_ReadyReportsInitResult(t *testing.T) {
 	failed.initErr = os.ErrInvalid
 	close(failed.ready)
 	assert.ErrorIs(t, failed.Ready(), os.ErrInvalid)
+}
+
+func TestApp_OpenChatSwitchesWorkspace(t *testing.T) {
+	app := newTestApp(t, filepath.Join(t.TempDir(), "state.json"))
+	other := t.TempDir()
+	store := agent.NewSessionStore("")
+	store.SetCwd(other)
+	sess := agent.NewSession(0)
+	sess.Append("hello from the other folder", "hi")
+	id, err := store.Save(sess)
+	require.NoError(t, err)
+
+	hits, err := app.SearchAllSessions("other folder")
+	require.NoError(t, err)
+	require.Len(t, hits, 1)
+	assert.Equal(t, other, hits[0].Session.Cwd)
+
+	msgs, err := app.OpenChat(other, id)
+	require.NoError(t, err)
+	require.NotEmpty(t, msgs)
+	assert.Equal(t, "hello from the other folder", msgs[0].Content)
+	assert.Equal(t, other, app.Workspace(), "opening another folder's chat switches the workspace")
+	assert.Equal(t, []string{other}, app.Recent())
+
+	msgs, err = app.OpenChat(other, id)
+	require.NoError(t, err, "a chat of the current folder opens without a switch")
+	assert.NotEmpty(t, msgs)
+
+	_, err = app.OpenChat(filepath.Join(t.TempDir(), "missing"), id)
+	assert.Error(t, err)
+}
+
+func TestApp_OpenInBrowserRefusesNonWeb(t *testing.T) {
+	app := &App{}
+	for _, bad := range []string{"file:///etc/passwd", "javascript:alert(1)", "http://", "not a url", ""} {
+		assert.Error(t, app.OpenInBrowser(bad), bad)
+	}
 }

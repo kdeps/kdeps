@@ -247,9 +247,17 @@ function renderProcessRun(pane, p) {
     } catch (e) { say(String(e), true); btn.disabled = false; }
   }, p.running ? "" : "primary");
   btn.disabled = !!p.error;
-  card.insertBefore(btn, card.lastChild);
+  const controls = el("div", "pj-actions");
+  controls.appendChild(btn);
+  if (p.running && p.webUrl) {
+    const open = pjButton("Open", () => api.OpenInBrowser(p.webUrl).catch((e) => say(String(e), true)), "primary");
+    open.title = "Open " + p.webUrl + " in your browser";
+    controls.appendChild(open);
+  }
+  card.insertBefore(controls, card.lastChild);
   if (p.running) {
-    say(p.url ? "Running at " + p.url : "Running");
+    const where = [p.webUrl && p.webUrl !== p.url ? "web " + p.webUrl : "", p.url ? (p.webUrl && p.webUrl !== p.url ? "API " : "") + p.url : ""].filter(Boolean);
+    say(where.length ? "Running at " + where.join(", ") : "Running");
     for (const r of p.url ? p.routes || [] : []) {
       const line = el("div", "pj-curl");
       const code = el("code", "", curlFor(p.url, r));

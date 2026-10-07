@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,7 +44,8 @@ const (
 	KindRunProgress = "run_progress"
 	// KindRunLog is one output line of a running workflow or agency.
 	KindRunLog = "run_log"
-	// KindRunURL carries the server URL a running project printed.
+	// KindRunURL carries the server URLs a running project printed: Text is
+	// the API URL, Summary the web interface URL.
 	KindRunURL = "run_url"
 	// KindRunStopped follows the exit of a running workflow or agency.
 	KindRunStopped = "run_stopped"
@@ -77,16 +79,58 @@ type RunResult struct {
 }
 
 type running struct {
-	proc *Process
-	url  string
+	proc   *Process
+	url    string
+	webURL string
 }
 
-// serverLine matches the line `kdeps run` prints when a server starts.
-var serverLine = regexp.MustCompile(`Starting (?:HTTP |API |web )?server on (\S+)`)
+// Lines `kdeps run` prints when its servers start.
+var (
+	apiLine   = regexp.MustCompile(`Starting HTTP server on (\S+)`)
+	webLine   = regexp.MustCompile(`Starting web server on (\S+)`)
+	bothLine  = regexp.MustCompile(`Starting server on (\S+) \(API \+ Web\)`)
+	splitLine = regexp.MustCompile(`Starting API server on (\S+) and web server on port (\d+)`)
+)
+
+// serverURLs reads a `kdeps run` output line for the API and web server
+// addresses it announces; both are "" when the line announces none.
+func serverURLs(line string) (string, string) {
+	if m := splitLine.FindStringSubmatch(line); m != nil {
+		host, _, err := net.SplitHostPort(m[1])
+		if err != nil {
+			return "", ""
+		}
+		return browserURL(m[1]), browserURL(net.JoinHostPort(host, m[2]))
+	}
+	if m := bothLine.FindStringSubmatch(line); m != nil {
+		return browserURL(m[1]), browserURL(m[1])
+	}
+	if m := webLine.FindStringSubmatch(line); m != nil {
+		return "", browserURL(m[1])
+	}
+	if m := apiLine.FindStringSubmatch(line); m != nil {
+		return browserURL(m[1]), ""
+	}
+	return "", ""
+}
+
+// browserURL turns a listen address into a URL a browser on this machine can
+// open: a wildcard host (all interfaces) becomes 127.0.0.1.
+func browserURL(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "http://" + addr
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
+}
 
 // Run starts the workflow or agency at path, as `kdeps run` would, with the
-// project's saved env. Output arrives as run_log events, the server URL (if
-// it starts one) as run_url, and run_stopped follows the exit.
+// project's saved env. Output arrives as run_log events, the API and web
+// server URLs (if it starts any) as run_url (Text = API URL, Summary = web
+// URL), and run_stopped follows the exit.
 func (s *Service) Run(path string) error {
 	if s.opts.Runner == nil {
 		return errors.New("desktop: running projects is not available")
@@ -111,19 +155,20 @@ func (s *Service) Run(path string) error {
 	r := &running{}
 	logs := &lineWriter{emit: func(line string) {
 		s.opts.Emit(Event{Kind: KindRunLog, Tool: path, Text: line})
-		m := serverLine.FindStringSubmatch(line)
-		if m == nil {
+		api, web := serverURLs(line)
+		if api == "" && web == "" {
 			return
 		}
 		s.mu.Lock()
-		first := r.url == ""
-		if first {
-			r.url = "http://" + m[1]
+		if r.url == "" {
+			r.url = api
 		}
+		if r.webURL == "" {
+			r.webURL = web
+		}
+		api, web = r.url, r.webURL
 		s.mu.Unlock()
-		if first {
-			s.opts.Emit(Event{Kind: KindRunURL, Tool: path, Text: "http://" + m[1]})
-		}
+		s.opts.Emit(Event{Kind: KindRunURL, Tool: path, Text: api, Summary: web})
 	}}
 	proc, err := s.opts.Runner.Start(s.ctx, p, s.Workspace(), env, logs)
 	if err != nil {

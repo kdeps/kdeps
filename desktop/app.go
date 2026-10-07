@@ -98,6 +98,17 @@ func (a *App) shutdown(_ context.Context) {
 	}
 }
 
+// OpenInBrowser opens a running project's web interface in the default
+// browser. Only http and https URLs are opened.
+func (a *App) OpenInBrowser(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("desktop: %q is not a web address", raw)
+	}
+	runtime.BrowserOpenURL(a.ctx, u.String())
+	return nil
+}
+
 // RevealProject opens a project's folder in the system file manager, for
 // editing files the builder leaves alone.
 func (a *App) RevealProject(path string) error {
@@ -136,6 +147,23 @@ func (a *App) OpenWorkspace(dir string) error {
 	}
 	a.state = a.state.withWorkspace(dir)
 	return saveState(a.statePath, a.state)
+}
+
+// SearchAllSessions searches the chats of every folder, placing older chats
+// through the recent workspaces.
+func (a *App) SearchAllSessions(query string) ([]desktop.SessionHit, error) {
+	return a.Service.SearchAllSessions(query, a.state.Recent)
+}
+
+// OpenChat opens chat id of folder dir, switching the workspace to dir first
+// when it is another folder.
+func (a *App) OpenChat(dir, id string) ([]desktop.Message, error) {
+	if dir != a.Service.Workspace() {
+		if err := a.OpenWorkspace(dir); err != nil {
+			return nil, err
+		}
+	}
+	return a.Service.LoadSession(id)
 }
 
 // PickWorkspace shows the native folder dialog and opens the chosen folder.
