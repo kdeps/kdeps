@@ -108,7 +108,7 @@ func TestDesktop_ProjectBuildAndRun(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode, string(body))
-	assert.Contains(t, string(body), "ping from-app "+filepath.Join(workspace, "echo"),
+	assert.Contains(t, string(body), "ping from-app "+workspace+"/echo", // $PWD/echo expands as written
 		".env loads automatically and app variables override it")
 
 	svc.Stop(p.Path)
