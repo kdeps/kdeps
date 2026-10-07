@@ -31,6 +31,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 
 	"github.com/kdeps/kdeps/v2/cmd"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -54,6 +55,7 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == cmd.DesktopCLIFlag {
 		os.Args = append(os.Args[:1], os.Args[2:]...)
 		if err := cmd.Execute(version.Version, version.Commit); err != nil {
+			kdepslog.Error("fatal", "error", err)
 			os.Exit(1)
 		}
 		return

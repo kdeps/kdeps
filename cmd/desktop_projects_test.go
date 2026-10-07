@@ -214,9 +214,11 @@ func TestDesktopRunner_StartFailureExits(t *testing.T) {
 	dir := filepath.Join(ws, "broken")
 	writeProjectFile(t, filepath.Join(dir, "workflow.yaml"), "metadata: [oops\n")
 	p := desktop.Project{Path: filepath.Join(dir, "workflow.yaml"), Dir: dir, Kind: desktop.ProjectWorkflow}
-	proc, err := cliRunner().Start(t.Context(), p, ws, nil, io.Discard)
+	logs := &syncBuffer{}
+	proc, err := cliRunner().Start(t.Context(), p, ws, nil, logs)
 	require.NoError(t, err)
 	assert.Error(t, waitDone(t, proc), "a failed kdeps run reports its exit")
+	assert.Contains(t, logs.String(), "yaml", "the reason reaches the log, not only the exit status")
 }
 
 func TestDesktopRunner_StartRefusals(t *testing.T) {
