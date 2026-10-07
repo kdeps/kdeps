@@ -340,16 +340,17 @@ func TestRun(t *testing.T) {
 		t,
 		h.svc.SetProjectEnv(
 			hello,
-			"# where the data lives\nexport HOUSE_FINDER_ROOT=$PWD/hello\nDATA=\"$HOUSE_FINDER_ROOT/data\"\n",
+			"# where the data lives\nexport HOUSE_FINDER_ROOT=$PWD\nDATA=\"$HOUSE_FINDER_ROOT/data\"\n",
 		),
 	)
 
 	require.NoError(t, h.svc.Run(hello))
-	assert.Equal(t, h.ws, h.runner.dir, "kdeps run starts in the workspace, like a shell would")
+	proj := filepath.Join(h.ws, "hello")
+	assert.Equal(t, proj, h.runner.dir, "kdeps run starts in the project folder, wherever the workspace is")
 	assert.Equal(t, []string{
-		"HOUSE_FINDER_ROOT=" + h.ws + "/hello",
-		"DATA=" + h.ws + "/hello/data",
-	}, h.runner.env, "$PWD is the workspace and earlier lines expand in later ones")
+		"HOUSE_FINDER_ROOT=" + proj,
+		"DATA=" + proj + "/data",
+	}, h.runner.env, "$PWD is the project folder and earlier lines expand in later ones")
 
 	assert.Equal(t, "  ✓ Starting HTTP server on 127.0.0.1:16395", h.log.waitFor(t, desktop.KindRunLog).Text)
 	url := h.log.waitFor(t, desktop.KindRunURL)
@@ -395,7 +396,7 @@ func TestRun_ExitErrorIsReported(t *testing.T) {
 func TestRun_DotEnvLoadsFirst(t *testing.T) {
 	h := newProjectHarness(t, true)
 	hello := h.addHello(t)
-	writeFile(t, filepath.Join(h.ws, "hello", ".env"), "# from the project\nHOUSE_FINDER_ROOT=$PWD/hello\nMODE=file\n")
+	writeFile(t, filepath.Join(h.ws, "hello", ".env"), "# from the project\nHOUSE_FINDER_ROOT=$PWD\nMODE=file\n")
 	require.NoError(t, h.svc.SetProjectEnv(hello, "MODE=app\nEXTRA=$HOUSE_FINDER_ROOT/x"))
 
 	names, err := h.svc.ProjectDotEnv(hello)
@@ -404,9 +405,9 @@ func TestRun_DotEnvLoadsFirst(t *testing.T) {
 
 	require.NoError(t, h.svc.Run(hello))
 	assert.Equal(t, []string{
-		"HOUSE_FINDER_ROOT=" + h.ws + "/hello",
+		"HOUSE_FINDER_ROOT=" + filepath.Join(h.ws, "hello"),
 		"MODE=app",
-		"EXTRA=" + h.ws + "/hello/x",
+		"EXTRA=" + filepath.Join(h.ws, "hello") + "/x",
 	}, h.runner.env, ".env loads automatically; app variables win on the same name")
 	h.svc.Stop(hello)
 

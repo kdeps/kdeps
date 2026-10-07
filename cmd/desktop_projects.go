@@ -136,8 +136,8 @@ func (desktopRunner) Tool(p desktop.Project) (*tools.Tool, error) {
 	return prep.tool, nil
 }
 
-// Start runs `kdeps run <absolute p.Dir>` in dir with env added, as a child process,
-// so every execution mode (API or web server, bot, file input, single run)
+// Start runs `kdeps run <absolute p.Dir>` in dir (the project folder) with
+// env added, as a child process, so every execution mode (API or web server, bot, file input, single run)
 // behaves exactly as on the command line.
 func (r desktopRunner) Start(
 	ctx context.Context, p desktop.Project, dir string, env []string, logs io.Writer,

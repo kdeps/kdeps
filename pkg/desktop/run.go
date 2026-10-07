@@ -170,7 +170,9 @@ func (s *Service) Run(path string) error {
 		s.mu.Unlock()
 		s.opts.Emit(Event{Kind: KindRunURL, Tool: path, Text: api, Summary: web})
 	}}
-	proc, err := s.opts.Runner.Start(s.ctx, p, s.Workspace(), env, logs)
+	// The project runs in its own folder, so $PWD (and relative paths in its
+	// env) mean the project, wherever the workspace is.
+	proc, err := s.opts.Runner.Start(s.ctx, p, p.Dir, env, logs)
 	if err != nil {
 		return err
 	}
@@ -371,7 +373,7 @@ func readEnvFile(file string) ([][2]string, error) {
 
 // expandedEnv is the env a Run adds: the project's .env first, then the
 // lines saved in the app (which win on the same name). $VAR references
-// expand; $PWD is the workspace folder `kdeps run` starts in, and earlier
+// expand; $PWD is the project folder `kdeps run` starts in, and earlier
 // lines are visible to later ones.
 func (s *Service) expandedEnv(p Project) ([]string, error) {
 	fromFile, err := readEnvFile(filepath.Join(p.Dir, dotEnv))
@@ -382,14 +384,13 @@ func (s *Service) expandedEnv(p Project) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ws := s.Workspace()
 	set := map[string]string{}
 	lookup := func(name string) string {
 		if v, ok := set[name]; ok {
 			return v
 		}
 		if name == "PWD" {
-			return ws
+			return p.Dir
 		}
 		return os.Getenv(name)
 	}

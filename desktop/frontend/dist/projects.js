@@ -197,8 +197,8 @@ function renderProcessRun(pane, p) {
       : "A .env file in the project folder loads automatically on every run.";
   }).catch((e) => { dotenv.textContent = String(e); dotenv.className = "status err"; });
   const env = pjField(envCard, "variables", Object.assign(pjTextarea("", 4), { className: "mono" }),
-    "NAME=value per line. These override .env. $PWD is the workspace folder. Import from file reads NAME=value lines from any text file.");
-  env.placeholder = "DATA_DIR=$PWD/" + p.dir.split(/[\\/]/).pop();
+    "NAME=value per line. These override .env. $PWD is the project folder. Import from file reads NAME=value lines from any text file.");
+  env.placeholder = "DATA_DIR=$PWD/data";
   api.ProjectEnv(p.path).then((t) => { env.value = t || ""; }).catch(() => {});
   const envSay = pjStatus(envCard);
   const save = async () => {
@@ -231,7 +231,7 @@ function renderProcessRun(pane, p) {
 
   pane.appendChild(el("div", "eyebrow", "Run"));
   const card = el("div", "card pj-form");
-  card.appendChild(el("div", "hint", "Same as `kdeps run " + p.dir + "` from the workspace: an API or web server keeps running until you stop it; anything else runs once."));
+  card.appendChild(el("div", "hint", "Same as `kdeps run " + p.dir + "` run inside the project folder: an API or web server keeps running until you stop it; anything else runs once."));
   const say = pjStatus(card);
   const btn = pjButton(p.running ? "Stop" : "Run", async () => {
     btn.disabled = true;
