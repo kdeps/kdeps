@@ -136,7 +136,7 @@ func (desktopRunner) Tool(p desktop.Project) (*tools.Tool, error) {
 	return prep.tool, nil
 }
 
-// Start runs `kdeps run <p.Dir>` in dir with env added, as a child process,
+// Start runs `kdeps run <absolute p.Dir>` in dir with env added, as a child process,
 // so every execution mode (API or web server, bot, file input, single run)
 // behaves exactly as on the command line.
 func (r desktopRunner) Start(
@@ -148,9 +148,10 @@ func (r desktopRunner) Start(
 	if len(r.cli) == 0 {
 		return nil, errors.New("no kdeps CLI to run with")
 	}
-	arg := p.Dir
-	if rel, err := filepath.Rel(dir, p.Dir); err == nil && !strings.HasPrefix(rel, "..") {
-		arg = rel
+	// Always the absolute folder, so the command and its log are unambiguous.
+	arg, absErr := filepath.Abs(p.Dir)
+	if absErr != nil {
+		return nil, absErr
 	}
 	//nolint:gosec // G204: argv is the app's own binary plus a listed project folder
 	c := exec.CommandContext(ctx, r.cli[0], append(append([]string{}, r.cli[1:]...), "run", arg)...)

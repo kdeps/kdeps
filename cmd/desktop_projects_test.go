@@ -141,8 +141,8 @@ func TestDesktopRunner_StartServesAPI(t *testing.T) {
 	require.NotNil(t, m, logs.String())
 	assert.True(
 		t,
-		strings.HasPrefix(logs.String(), "$ kdeps run hello\n"),
-		"the relative dir is run, like on the command line",
+		strings.HasPrefix(logs.String(), "$ kdeps run "+filepath.Join(ws, "hello")+"\n"),
+		"the project folder is passed as an absolute path",
 	)
 
 	var resp *http.Response
@@ -202,7 +202,7 @@ apiResponse:
 	out := logs.String()
 	assert.True(
 		t,
-		strings.HasPrefix(out, "$ HOUSE_FINDER_ROOT=... kdeps run finder\n"),
+		strings.HasPrefix(out, "$ HOUSE_FINDER_ROOT=... kdeps run "+dir+"\n"),
 		"env names are shown, values are not",
 	)
 	assert.Contains(t, out, "root="+dir, "the env reaches the run")

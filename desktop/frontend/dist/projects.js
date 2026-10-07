@@ -231,7 +231,7 @@ function renderProcessRun(pane, p) {
 
   pane.appendChild(el("div", "eyebrow", "Run"));
   const card = el("div", "card pj-form");
-  card.appendChild(el("div", "hint", "Same as `kdeps run " + p.dir.split(/[\\/]/).pop() + "` from the workspace: an API or web server keeps running until you stop it; anything else runs once."));
+  card.appendChild(el("div", "hint", "Same as `kdeps run " + p.dir + "` from the workspace: an API or web server keeps running until you stop it; anything else runs once."));
   const say = pjStatus(card);
   const btn = pjButton(p.running ? "Stop" : "Run", async () => {
     btn.disabled = true;

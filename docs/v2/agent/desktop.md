@@ -236,7 +236,7 @@ chat -> engine: "when the agent calls it"
 | Tab | What it does |
 |-----|--------------|
 | Overview | Name, version, path and parse errors. **Use in chat** registers the project as a tool the chat agent may call; it never runs unless the agent calls it. **Validate**, **Open folder** and **Delete** (workspace projects only, asks twice). |
-| Run | One **Run** button. For a workflow or agency it runs `kdeps run <folder>` from the workspace with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
+| Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` from the workspace with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
 | Build | The manifest form (name, description, version, target, and the `settings` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`validations`, `onError`, `loop`, `before`, `after`, `items`). |
 
 **New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`), the same templates as `kdeps new`, and opens it in Build.
@@ -268,7 +268,7 @@ chat:
 
 ### Environment variables
 
-The Run tab sets the environment of a workflow or agency run. Running `house-finder` with these settings is the same as typing `HOUSE_FINDER_ROOT=$PWD/house-finder kdeps run house-finder` in the workspace folder:
+The Run tab sets the environment of a workflow or agency run. Running `house-finder` with these settings is the same as typing `HOUSE_FINDER_ROOT=$PWD/house-finder kdeps run $PWD/house-finder` in the workspace folder; the app always passes the project folder as an absolute path:
 
 ```bash
 # house-finder/.env - loaded automatically on every Run
@@ -288,7 +288,7 @@ CITY=Utrecht
 | **Add** | Appends one `NAME=value` from the name and value fields. |
 | **Import from file** | Appends the `NAME=value` lines of any text file you pick; it does not need to be named `.env`. |
 
-`$NAME` references expand, with earlier lines visible to later ones. The output log prints the command with names only (`$ HOUSE_FINDER_ROOT=... kdeps run house-finder`), never the values.
+`$NAME` references expand, with earlier lines visible to later ones. The output log prints the command with names only (`$ HOUSE_FINDER_ROOT=... kdeps run /Users/you/Projects/house-finder`), never the values.
 
 ### Servers need an API token
 
