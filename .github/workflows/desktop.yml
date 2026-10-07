@@ -48,6 +48,7 @@ jobs:
           node frontend/test/settingctl_test.js
           node frontend/test/composer_test.js
           node frontend/test/projectsctl_test.js
+          node frontend/test/chatsctl_test.js
       - name: Build kdeps-desktop
         working-directory: desktop
         env:

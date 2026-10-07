@@ -4,7 +4,8 @@ const api = window.go.main.App;
 const rt = window.runtime;
 const $ = (id) => document.getElementById(id);
 
-const state = { files: [], current: null, pending: null, turn: null, tools: new Map(), cmd: null, draft: "" };
+const state = { files: [], current: null, pending: null, turn: null, tools: new Map(), cmd: null, draft: "", ws: "", scope: "folder" };
+try { state.scope = localStorage.getItem("kdeps.chatScope") === "all" ? "all" : "folder"; } catch (_) { /* storage unavailable */ }
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -52,7 +53,9 @@ function appendAssistant(node, text) {
 async function refreshSessions() {
   const q = $("search").value;
   let hits = [];
-  try { hits = (await api.SearchSessions(q)) || []; } catch (e) { addMessage("error", String(e)); }
+  const all = state.scope === "all";
+  try { hits = (await (all ? api.SearchAllSessions(q) : api.SearchSessions(q))) || []; } catch (e) { addMessage("error", String(e)); }
+  for (const b of document.querySelectorAll("#chat-scope button")) b.setAttribute("aria-pressed", String(b.dataset.scope === state.scope));
   const ul = $("sessions");
   ul.replaceChildren();
   if (!state.current && state.draft) {
@@ -60,38 +63,49 @@ async function refreshSessions() {
     d.append(el("div", "title", state.draft), el("div", "snippet", "Current chat (not saved yet)"));
     ul.appendChild(d);
   }
-  for (const h of hits) {
-    const li = el("li");
-    li.tabIndex = 0;
-    li.dataset.id = h.session.id;
-    li.append(el("div", "title", h.session.name || h.session.firstPrompt || h.session.id),
-              el("div", "snippet", h.snippet || ""));
-    if (h.session.id === state.current) li.classList.add("active");
-    const open = () => openSession(h.session.id);
-    li.addEventListener("click", open);
-    li.addEventListener("keydown", (ev) => { if (ev.key === "Enter") open(); });
-    const del = el("button", "del", "Delete");
-    del.type = "button";
-    del.setAttribute("aria-label", "Delete chat");
-    del.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      if (del.dataset.armed !== "1") {
-        del.dataset.armed = "1";
-        del.textContent = "Sure?";
-        setTimeout(() => { del.dataset.armed = ""; del.textContent = "Delete"; }, 3000);
-        return;
-      }
-      removeSession(h.session.id);
-    });
-    li.appendChild(del);
-    ul.appendChild(li);
+  const groups = all ? folderGroups(hits, state.ws) : [{ dir: state.ws, hits }];
+  for (const g of groups) {
+    if (all) {
+      const head = el("li", "folder" + (g.current ? " current" : ""), g.name + (g.current ? " (current)" : ""));
+      head.title = g.dir;
+      ul.appendChild(head);
+    }
+    for (const h of g.hits) addSessionRow(ul, h, g.dir);
   }
 }
 
-async function removeSession(id) {
+function addSessionRow(ul, h, dir) {
+  const li = el("li");
+  li.tabIndex = 0;
+  li.dataset.id = h.session.id;
+  li.append(el("div", "title", h.session.name || h.session.firstPrompt || h.session.id),
+            el("div", "snippet", h.snippet || ""));
+  if (h.session.id === state.current && dir === state.ws) li.classList.add("active");
+  const open = () => (dir === state.ws ? openSession(h.session.id) : openChatIn(dir, h.session.id));
+  li.addEventListener("click", open);
+  li.addEventListener("keydown", (ev) => { if (ev.key === "Enter") open(); });
+  const del = el("button", "del", "Delete");
+  del.type = "button";
+  del.setAttribute("aria-label", "Delete chat");
+  del.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (del.dataset.armed !== "1") {
+      del.dataset.armed = "1";
+      del.textContent = "Sure?";
+      setTimeout(() => { del.dataset.armed = ""; del.textContent = "Delete"; }, 3000);
+      return;
+    }
+    removeSession(h.session.id, dir);
+  });
+  li.appendChild(del);
+  ul.appendChild(li);
+}
+
+async function removeSession(id, dir) {
   try {
-    await api.DeleteSession(id);
-    if (id === state.current) {
+    if (dir && dir !== state.ws) await api.DeleteSessionIn(dir, id);
+    else await api.DeleteSession(id);
+    if (id === state.current && (!dir || dir === state.ws)) {
       $("messages").replaceChildren();
       state.current = null;
     }
@@ -101,13 +115,33 @@ async function removeSession(id) {
 
 async function openSession(id) {
   try {
-    const msgs = (await api.LoadSession(id)) || [];
-    $("messages").replaceChildren();
-    state.draft = "";
-    for (const m of msgs) addMessage(m.role === "user" ? "user" : "assistant", m.content);
-    state.current = id;
-    refreshSessions();
+    showChat(id, (await api.LoadSession(id)) || []);
   } catch (e) { addMessage("error", String(e)); }
+}
+
+// openChatIn opens a chat of another folder; the workspace switches to it.
+async function openChatIn(dir, id) {
+  try {
+    const msgs = (await api.OpenChat(dir, id)) || [];
+    await refreshWorkspace();
+    refreshModelBtn();
+    loadCommands();
+    showChat(id, msgs);
+  } catch (e) { addMessage("error", String(e)); }
+}
+
+function showChat(id, msgs) {
+  $("messages").replaceChildren();
+  state.draft = "";
+  for (const m of msgs) addMessage(m.role === "user" ? "user" : "assistant", m.content);
+  state.current = id;
+  refreshSessions();
+}
+
+function setChatScope(scope) {
+  state.scope = scope;
+  try { localStorage.setItem("kdeps.chatScope", scope); } catch (_) { /* storage unavailable */ }
+  refreshSessions();
 }
 
 async function newChat() {
@@ -237,6 +271,7 @@ function answer(choice) {
 
 async function refreshWorkspace() {
   const ws = await api.Workspace();
+  state.ws = ws;
   $("workspace").textContent = ws;
   $("workspace").title = ws;
 }
@@ -265,6 +300,7 @@ $("new-chat").addEventListener("click", newChat);
 $("workspace").addEventListener("click", switchWorkspace);
 $("attach").addEventListener("click", async () => addFiles(await api.PickFiles()));
 $("search").addEventListener("input", refreshSessions);
+for (const b of document.querySelectorAll("#chat-scope button")) b.addEventListener("click", () => setChatScope(b.dataset.scope));
 $("ap-once").addEventListener("click", () => answer("once"));
 $("ap-always").addEventListener("click", () => answer("always"));
 $("ap-deny").addEventListener("click", () => answer("deny"));
@@ -279,5 +315,5 @@ rt.EventsOn("kdeps:files", (paths) => {
   addFiles(paths);
   if (!$("input").value.trim() && !$("send").hidden) $("composer").requestSubmit();
 });
-api.Ready().then(() => { refreshWorkspace(); refreshSessions(); })
+api.Ready().then(async () => { await refreshWorkspace(); refreshSessions(); })
   .catch((e) => addMessage("error", "startup failed: " + e));

@@ -184,3 +184,9 @@ input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; flex:
 #pj-pane > button, .card > button, .pj-form > button { justify-self: start; }
 .pj-envadd input { flex: 1 1 140px; width: auto !important; }
 #settings-pane textarea.config-yaml { min-height: 380px; white-space: pre; tab-size: 2; }
+#chat-scope { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+#chat-scope button { font-size: 12px; padding: 4px 6px; }
+#chat-scope button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+#sessions li.folder { cursor: default; padding: 10px 8px 4px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--text2); border-color: transparent; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sessions li.folder:hover { border-color: transparent; }
+#sessions li.folder.current { color: var(--accent); }

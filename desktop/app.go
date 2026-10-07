@@ -138,6 +138,23 @@ func (a *App) OpenWorkspace(dir string) error {
 	return saveState(a.statePath, a.state)
 }
 
+// SearchAllSessions searches the chats of every folder, placing older chats
+// through the recent workspaces.
+func (a *App) SearchAllSessions(query string) ([]desktop.SessionHit, error) {
+	return a.Service.SearchAllSessions(query, a.state.Recent)
+}
+
+// OpenChat opens chat id of folder dir, switching the workspace to dir first
+// when it is another folder.
+func (a *App) OpenChat(dir, id string) ([]desktop.Message, error) {
+	if dir != a.Service.Workspace() {
+		if err := a.OpenWorkspace(dir); err != nil {
+			return nil, err
+		}
+	}
+	return a.Service.LoadSession(id)
+}
+
 // PickWorkspace shows the native folder dialog and opens the chosen folder.
 // It returns "" when the dialog is cancelled.
 func (a *App) PickWorkspace() (string, error) {

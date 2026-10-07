@@ -76,6 +76,52 @@ func (s *Service) SearchSessions(query string) ([]SessionHit, error) {
 	return hits, nil
 }
 
+// SearchAllSessions is SearchSessions over the chats of every folder (the
+// CLI's too), each hit carrying its folder in Session.Cwd. known lists
+// folders the caller has seen, so older chats that did not record their
+// folder can still be placed.
+func (s *Service) SearchAllSessions(query string, known []string) ([]SessionHit, error) {
+	metas, err := s.store.ListAllMeta(append([]string{s.Workspace()}, known...))
+	if err != nil {
+		return nil, err
+	}
+	q := strings.ToLower(strings.TrimSpace(query))
+	hits := make([]SessionHit, 0, len(metas))
+	for _, m := range metas {
+		if q == "" {
+			hits = append(hits, SessionHit{Session: m, Snippet: m.FirstPrompt})
+			continue
+		}
+		if snip, ok := matchSnippet(m.Name+" "+m.FirstPrompt, q); ok {
+			hits = append(hits, SessionHit{Session: m, Snippet: snip})
+			continue
+		}
+		// A folder match lists the chat with its usual preview.
+		if strings.Contains(strings.ToLower(m.Cwd), q) {
+			hits = append(hits, SessionHit{Session: m, Snippet: m.FirstPrompt})
+			continue
+		}
+		if saved, loadErr := s.store.LoadFrom(m.Cwd, m.ID); loadErr == nil {
+			for _, msg := range saved.Messages() {
+				if snip, ok := matchSnippet(msg.Content, q); ok {
+					hits = append(hits, SessionHit{Session: m, Snippet: snip})
+					break
+				}
+			}
+		}
+	}
+	return hits, nil
+}
+
+// DeleteSessionIn removes a saved chat of folder cwd; for the current
+// workspace it is DeleteSession.
+func (s *Service) DeleteSessionIn(cwd, id string) error {
+	if cwd == s.Workspace() {
+		return s.DeleteSession(id)
+	}
+	return s.store.DeleteFrom(cwd, id)
+}
+
 // matchSnippet returns a one-line excerpt around the first case-insensitive
 // occurrence of lowerQuery in text.
 func matchSnippet(text, lowerQuery string) (string, bool) {

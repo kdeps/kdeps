@@ -148,6 +148,7 @@ Window state lives in `kdeps-desktop/state.json` under your OS config directory 
 | Feature | Behavior |
 |---------|----------|
 | History | Every session in the workspace is listed in the sidebar, newest first. Click to reload; hover a row and click Delete twice to remove it. |
+| All folders | The **This folder / All folders** switch under the search box. All folders lists the chats of every workspace (terminal `kdeps` chats included), grouped by folder, newest first. Opening a chat from another folder switches the workspace to that folder. Search covers chat names, messages and folder names. The choice is remembered. |
 | Search | The sidebar search box matches the chat name, first prompt and every message (case-insensitive) and shows the matching snippet. |
 | Streaming | Tokens render as they arrive. Narration lines ("Reading config.yaml...") and tool cards show each call, its arguments and result. |
 | Approvals | In the default `ask` permission mode a modal shows each tool call or out-of-workspace path. Choose allow once, allow always, or deny. |
