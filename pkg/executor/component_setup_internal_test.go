@@ -172,7 +172,9 @@ func TestRunComponentSetup_CacheHit(t *testing.T) {
 	require.NoError(t, e.runComponentSetup(comp, ctx))
 }
 
-func TestRunComponentSetup_ScaffoldFiles(t *testing.T) {
+// Running a component never writes into its folder: no .env or README.md
+// appears unless `kdeps component update` is run.
+func TestRunComponentSetup_WritesNothingIntoComponentDir(t *testing.T) {
 	e := &Engine{}
 	e.logger = slog.Default()
 	tmpDir := t.TempDir()
@@ -182,6 +184,9 @@ func TestRunComponentSetup_ScaffoldFiles(t *testing.T) {
 		Setup:    &domain.ComponentSetup{Commands: []string{"true"}},
 	}
 	require.NoError(t, e.runComponentSetup(comp, &ExecutionContext{}))
+	entries, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries)
 }
 
 func TestRunCommand_Simple(t *testing.T) {
@@ -271,26 +276,6 @@ func TestInstallComponentPythonPackages_WithRequirements(t *testing.T) {
 		},
 	}
 	_ = e.installComponentPythonPackages([]string{"requests"}, ctx)
-}
-
-// ---------------------------------------------------------------------------
-// scaffoldComponentFilesIfNeeded error path
-// ---------------------------------------------------------------------------
-
-func TestScaffoldComponentFilesIfNeeded_ReadOnlyDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	roDir := filepath.Join(tmpDir, "readonly")
-	require.NoError(t, os.MkdirAll(roDir, 0755))
-	require.NoError(t, os.Chmod(roDir, 0o000))
-	t.Cleanup(func() { _ = os.Chmod(roDir, 0755) })
-
-	e := &Engine{logger: slog.Default()}
-	comp := &domain.Component{
-		Metadata: domain.ComponentMetadata{Name: "test-scaffold-ro"},
-		Dir:      roDir,
-	}
-	// Should log a warning but not panic.
-	e.scaffoldComponentFilesIfNeeded(comp)
 }
 
 // ---------------------------------------------------------------------------

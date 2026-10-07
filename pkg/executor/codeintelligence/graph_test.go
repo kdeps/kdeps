@@ -10,6 +10,7 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -217,7 +218,7 @@ func TestExecute_GraphAll_DefaultsDBPathToCWD(t *testing.T) {
 	if !ok || len(roots) != 2 {
 		t.Fatalf("unexpected roots: %v", m["roots"])
 	}
-	if _, statErr := os.Stat(filepath.Join(root, ".kdeps", "graph.db")); statErr != nil {
+	if _, statErr := os.Stat(datadir.File(root, "graph.db")); statErr != nil {
 		t.Fatalf("expected graph.db under the CWD override: %v", statErr)
 	}
 }
@@ -363,7 +364,7 @@ func TestGraphDBPath_DefaultsToCWD(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: unexpected error: %v", op, err)
 		}
-		want := filepath.Join(dir, ".kdeps", "graph.db")
+		want := datadir.File(dir, "graph.db")
 		if got != want {
 			t.Fatalf("%s: got %q, want %q", op, got, want)
 		}
@@ -379,7 +380,7 @@ func TestGraphDBPath_IndexFolderAndGraphFileIgnorePath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: unexpected error: %v", op, err)
 		}
-		want := filepath.Join(dir, ".kdeps", "graph.db")
+		want := datadir.File(dir, "graph.db")
 		if got != want {
 			t.Fatalf("%s: Path was not ignored: got %q, want %q", op, got, want)
 		}
@@ -392,7 +393,7 @@ func TestGraphDBPath_GraphTopicUsesPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := filepath.Join(root, ".kdeps", "graph.db")
+	want := datadir.File(root, "graph.db")
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

@@ -41,6 +41,7 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -63,15 +64,16 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-// indexDBPath returns the default index database path for a directory.
+// indexDBPath returns the default index database path for a directory. It
+// lives in the folder's data dir under ~/.kdeps, never in the folder itself.
 func indexDBPath(dir string) string {
-	return filepath.Join(dir, ".kdeps", "index.db")
+	return datadir.File(dir, "index.db")
 }
 
 // graphDBPath returns the default kartographer graph database path for a
 // directory -- deliberately separate from indexDBPath's TF-IDF index.db.
 func graphDBPath(dir string) string {
-	return filepath.Join(dir, ".kdeps", "graph.db")
+	return datadir.File(dir, "graph.db")
 }
 
 const (

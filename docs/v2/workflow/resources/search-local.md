@@ -96,7 +96,7 @@ chat:
 
 ## Indexed search (ranked results)
 
-`index: true` switches `searchLocal` from a plain directory walk to a persistent TF-IDF inverted index, giving each result a relevance `score` instead of just a yes/no filename/content match. The index is built once (or incrementally reused) at `<path>/.kdeps/index.db` and speeds up repeated searches of the same folder.
+`index: true` switches `searchLocal` from a plain directory walk to a persistent TF-IDF inverted index, giving each result a relevance `score` instead of just a yes/no filename/content match. The index is built once (or incrementally reused) at `~/.kdeps/projects/<folder>-<hash>/index.db` and speeds up repeated searches of the same folder. Nothing is written into the searched folder, so a git repository stays clean.
 
 ```yaml
 searchLocal:
@@ -105,7 +105,7 @@ searchLocal:
   index: true                # build/use a persistent TF-IDF index instead of walking every search
   fuzzy: true                 # optional: Levenshtein fuzzy matching (requires index: true)
   maxDistance: 2               # optional: max edit distance for fuzzy matching, default 2
-  indexDBPath: "/custom/index.db"  # optional: override the default <path>/.kdeps/index.db
+  indexDBPath: "/custom/index.db"  # optional: override the default ~/.kdeps/projects/<folder>-<hash>/index.db
   graphBoost: true             # optional: re-rank using the folder's link/topic graph (requires index: true)
 ```
 
@@ -114,12 +114,12 @@ searchLocal:
 | `index` | bool | no | `false` | Build/use a persistent TF-IDF inverted index instead of a plain walk |
 | `fuzzy` | bool | no | `false` | Enable Levenshtein fuzzy term matching (requires `index: true`) |
 | `maxDistance` | integer | no | `2` | Max edit distance for fuzzy matching |
-| `indexDBPath` | string | no | `<path>/.kdeps/index.db` | Where the TF-IDF index is stored |
+| `indexDBPath` | string | no | `~/.kdeps/projects/<folder>-<hash>/index.db` | Where the TF-IDF index is stored (`<hash>` is from the folder's absolute path) |
 | `graphBoost` | bool | no | `false` | Re-rank results using the same [kartographer](https://github.com/kdeps/kartographer) reference/topic graph `codeIntelligence`'s [`indexFolder`/`graphAll`](/workflow/resources/code-graph) builds - requires `index: true` |
 
 ## How graphBoost ranks results
 
-`searchLocal` already ranks by TF-IDF. `graphBoost` additionally builds a graph of the folder - markdown links and shared `topics:`/`tags:` frontmatter - at `<path>/.kdeps/graph.db` (kept separate from `indexDBPath`). A result linked from, or sharing a topic with, a top-5 TF-IDF match gets boosted 25% before the final sort, so a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one - useful when the top match is a short "index" page.
+`searchLocal` already ranks by TF-IDF. `graphBoost` additionally builds a graph of the folder - markdown links and shared `topics:`/`tags:` frontmatter - at `~/.kdeps/projects/<folder>-<hash>/graph.db` (kept separate from `indexDBPath`). A result linked from, or sharing a topic with, a top-5 TF-IDF match gets boosted 25% before the final sort, so a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one - useful when the top match is a short "index" page.
 
 ```yaml
 # resources/search-graph.yaml

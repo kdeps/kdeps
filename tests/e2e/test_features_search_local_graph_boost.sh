@@ -7,6 +7,8 @@ echo "Testing searchLocal graphBoost Feature..."
 
 TEST_DIR=$(mktemp -d)
 DOCS_DIR="$TEST_DIR/docs"
+# Index and graph dbs go to the global data dir, never into the docs folder.
+export KDEPS_DATA_DIR="$TEST_DIR/data"
 mkdir -p "$DOCS_DIR" "$TEST_DIR/resources"
 WORKFLOW_FILE="$TEST_DIR/workflow.yaml"
 RESOURCE_FILE_SEARCH="$TEST_DIR/resources/search.yaml"
@@ -121,11 +123,18 @@ else
     test_skipped "searchLocal graphBoost - POST endpoint (curl not available)"
 fi
 
-# Test 4: The graph db (separate from the TF-IDF index.db) was created on disk.
-if [ -f "$DOCS_DIR/.kdeps/graph.db" ]; then
-    test_passed "searchLocal graphBoost - graph.db created on disk"
+# Test 4: The graph db (separate from the TF-IDF index.db) was created in the
+# data dir, and nothing was written into the searched folder.
+GRAPH_DB=$(find "$KDEPS_DATA_DIR" -name graph.db 2>/dev/null | head -1)
+if [ -n "$GRAPH_DB" ]; then
+    test_passed "searchLocal graphBoost - graph.db created in the data dir"
 else
-    test_failed "searchLocal graphBoost - graph.db created on disk" "Not found at $DOCS_DIR/.kdeps/graph.db"
+    test_failed "searchLocal graphBoost - graph.db created in the data dir" "No graph.db under $KDEPS_DATA_DIR"
+fi
+if [ ! -e "$DOCS_DIR/.kdeps" ]; then
+    test_passed "searchLocal graphBoost - nothing written into the searched folder"
+else
+    test_failed "searchLocal graphBoost - nothing written into the searched folder" "$DOCS_DIR/.kdeps exists"
 fi
 
 kill $SERVER_PID 2>/dev/null || true

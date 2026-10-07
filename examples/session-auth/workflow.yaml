@@ -27,6 +27,7 @@ settings:
   # Session storage configuration
   session:
     type: "sqlite"              # Use SQLite for persistent storage
-    path: ".kdeps/sessions.db"  # Relative to workflow directory
+    # path omitted: the db is ~/.kdeps/sessions.db, outside the project, so
+    # session data never ends up in its git history
     ttl: "30m"                  # 30 minute session expiration
     cleanupInterval: "5m"       # Cleanup expired sessions every 5 minutes

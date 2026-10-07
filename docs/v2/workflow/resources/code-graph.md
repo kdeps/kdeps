@@ -23,11 +23,11 @@ codeIntelligence:
   extensions: [".go", ".md"]  # opt in to Go import graphing alongside docs
 ```
 
-`indexFolder` must run once before `graphFile`/`graphTopic`/`graphAll` can query the same graph database (same `graphDBPath`, which defaults to `<CWD>/.kdeps/graph.db`).
+`indexFolder` must run once before `graphFile`/`graphTopic`/`graphAll` can query the same graph database (same `graphDBPath`, which defaults to `~/.kdeps/projects/<folder>-<hash>/graph.db` for the working folder; nothing is written into the folder itself).
 
 ```text
 indexFolder() -> walks the CWD, extracts links + frontmatter topics
-              -> writes them into <CWD>/.kdeps/graph.db
+              -> writes them into ~/.kdeps/projects/<folder>-<hash>/graph.db
                    -> graphFile(path)   returns that file's references + topic-related files
                    -> graphTopic(topic) returns every file tagged `topic` + the full reference graph
                    -> graphAll()        returns the full reference graph + every root file
@@ -79,7 +79,7 @@ codeIntelligence:
 codeIntelligence:
   operation: graphTopic
   topic: getting-started
-  # path: /path/to/docs  # optional: locate the graph db elsewhere; defaults to <CWD>/.kdeps/graph.db
+  # path: /path/to/docs  # optional: locate the graph db elsewhere; defaults to ~/.kdeps/projects/<folder>-<hash>/graph.db
 ```
 
 **Graph the whole index** - the full reference graph plus every root file (files nothing else references):

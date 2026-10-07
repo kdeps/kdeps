@@ -342,12 +342,13 @@ else
         test_failed "auto-env - summarizer has no-API extractive fallback" "Extractive fallback not found in $AE_SUMM"
     fi
 
-    # T40: both component dirs have no pre-existing .env (auto-scaffold happens at runtime)
+    # T40: running a component never writes into its folder; .env files only
+    # appear when the user runs `kdeps component update`.
     if [ ! -f "$PROJECT_ROOT/examples/auto-env/components/translator/.env" ] && \
        [ ! -f "$PROJECT_ROOT/examples/auto-env/components/summarizer/.env" ]; then
-        test_passed "auto-env - .env files absent before first run (auto-scaffolded at runtime)"
+        test_passed "auto-env - no .env files written into component folders"
     else
-        test_passed "auto-env - .env files present (auto-scaffolded on a prior run)"
+        test_failed "auto-env - no .env files written into component folders" "a component folder has a .env kdeps should not create"
     fi
 fi
 

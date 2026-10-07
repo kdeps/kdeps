@@ -27,18 +27,13 @@ import (
 
 // runComponentSetup runs a component's setup block (once per component per engine lifetime).
 // It installs Python packages into the workflow venv, installs OS packages via the
-// detected package manager, and runs any setup commands. It also auto-scaffolds a
-// .env template and README.md in the component's directory when they are absent.
+// detected package manager, and runs any setup commands. It never writes into the
+// component's folder; `kdeps component update` creates .env and README.md on request.
 //
 // Results are cached in e.componentSetupCache — subsequent calls for the same component
 // name are no-ops.
 func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext) error {
 	kdeps_debug.Log("enter: runComponentSetup")
-
-	// Always scaffold files on first run regardless of whether setup deps exist.
-	if comp.Dir != "" {
-		e.scaffoldComponentFilesIfNeeded(comp)
-	}
 
 	if !componentNeedsSetup(comp) {
 		return nil
@@ -115,20 +110,6 @@ func dedupeStrings(vals []string) []string {
 		out = append(out, v)
 	}
 	return out
-}
-
-// scaffoldComponentFilesIfNeeded creates .env and README.md in the component
-// directory when they are absent. Errors are logged and do not block execution.
-func (e *Engine) scaffoldComponentFilesIfNeeded(comp *domain.Component) {
-	written, err := ScaffoldComponentFiles(comp, comp.Dir)
-	if err != nil {
-		e.logger.Warn("component file scaffolding failed",
-			"component", comp.Metadata.Name, "dir", comp.Dir, "error", err)
-		return
-	}
-	for _, f := range written {
-		e.logger.Info("scaffolded component file", "component", comp.Metadata.Name, "file", f)
-	}
 }
 
 // runComponentTeardown runs a component's teardown commands after resource execution.

@@ -16,24 +16,23 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package searchlocal_test
+package codeintelligence
 
 import (
 	"os"
 	"testing"
 )
 
+// TestMain points the index and graph dbs at a throwaway data dir instead of
+// ~/.kdeps/projects.
 func TestMain(m *testing.M) {
-	os.Setenv("KDEPS_MEMORY_DB_PATH", ":memory:")
-	// Index and graph dbs go to a throwaway data dir, not ~/.kdeps/projects.
-	dataDir, err := os.MkdirTemp("", "kdeps-data")
+	dir, err := os.MkdirTemp("", "kdeps-data")
 	if err == nil {
-		os.Setenv("KDEPS_DATA_DIR", dataDir)
+		_ = os.Setenv("KDEPS_DATA_DIR", dir)
 	}
 	code := m.Run()
 	if err == nil {
-		os.RemoveAll(dataDir)
+		_ = os.RemoveAll(dir)
 	}
-	os.Unsetenv("KDEPS_MEMORY_DB_PATH")
 	os.Exit(code)
 }

@@ -2518,7 +2518,7 @@ func graphCodeToolDefs() []codeToolDef {
 				},
 				"graphDBPath": {
 					Type:        toolParamString,
-					Description: "Graph index db path. Defaults to \"<CWD>/.kdeps/graph.db\".",
+					Description: "Graph index db path. Defaults to graph.db in the working folder's data dir under ~/.kdeps/projects.",
 				},
 			},
 		},
@@ -2534,7 +2534,7 @@ func graphCodeToolDefs() []codeToolDef {
 				},
 				"graphDBPath": {
 					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<CWD>/.kdeps/graph.db\".",
+					Description: "Graph index db path used by code_index_folder. Defaults to graph.db in the working folder's data dir under ~/.kdeps/projects.",
 				},
 			},
 		},
@@ -2554,7 +2554,7 @@ func graphCodeToolDefs() []codeToolDef {
 				},
 				"graphDBPath": {
 					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\", or \"<CWD>/.kdeps/graph.db\" when path is also omitted.",
+					Description: "Graph index db path used by code_index_folder. Defaults to graph.db in the data dir under ~/.kdeps/projects of path, or of the working folder when path is omitted.",
 				},
 			},
 		},
@@ -2569,7 +2569,7 @@ func graphCodeToolDefs() []codeToolDef {
 				},
 				"graphDBPath": {
 					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\", or \"<CWD>/.kdeps/graph.db\" when path is also omitted.",
+					Description: "Graph index db path used by code_index_folder. Defaults to graph.db in the data dir under ~/.kdeps/projects of path, or of the working folder when path is omitted.",
 				},
 			},
 		},

@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	codeintelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
@@ -63,7 +64,7 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
 	workflow := &domain.Workflow{
@@ -119,7 +120,7 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
 	workflow := &domain.Workflow{
@@ -171,7 +172,7 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
 	workflow := &domain.Workflow{

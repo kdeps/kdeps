@@ -18,7 +18,6 @@ Sessions are configured in `workflow.yaml`:
 settings:
   session:
     type: "sqlite"              # Storage type: "sqlite" or "memory"
-    path: ".kdeps/sessions.db"  # Database path (relative or absolute)
     ttl: "30m"                  # Session expiration time
     cleanupInterval: "5m"       # Cleanup interval for expired sessions
 ```
@@ -26,7 +25,7 @@ settings:
 ### Configuration Options
 
 - **type**: `"sqlite"` (persistent) or `"memory"` (in-memory, lost on restart)
-- **path**: Path to SQLite database file (default: `~/.kdeps/sessions.db`)
+- **path**: Path to the SQLite database file (default: `~/.kdeps/sessions.db`). Keep it outside the project folder: session data does not belong in its git history.
 - **ttl**: Session expiration time in Go duration format (e.g., `"30m"`, `"1h"`, `"24h"`)
 - **cleanupInterval**: How often to clean up expired sessions (e.g., `"5m"`, `"1h"`)
 

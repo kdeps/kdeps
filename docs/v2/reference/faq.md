@@ -100,6 +100,24 @@ HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, 
 
 Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
+## Does kdeps write into my project folder?
+
+No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can end up in a project's git history. A project folder only holds files you write yourself.
+
+| Data | Where |
+|------|-------|
+| Agent chat history | `~/.kdeps/sessions/<folder>/` |
+| Agent memory | `~/.kdeps/memory/<folder>/` |
+| `searchLocal` index and graph, `codeIntelligence` graph | `~/.kdeps/projects/<folder name>-<hash>/index.db`, `graph.db` |
+| HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |
+| Models, config, API keys, connections | `~/.kdeps/models/`, `~/.kdeps/config.yaml` |
+
+kdeps only reads files you write yourself: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...), a `.kdeps/` folder of Markdown instructions, skills and prompt templates, workflow files, and `.env` for the desktop Run tab. It never writes into a project's `.kdeps/`, so that folder is safe to commit.
+
+```bash
+export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (index and graph dbs) elsewhere
+```
+
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API

@@ -37,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -2959,7 +2960,7 @@ func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2978,7 +2979,7 @@ func TestRegisterCodeIntelligenceTools_IndexFolder_IgnoresPath(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2998,7 +2999,7 @@ func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3022,7 +3023,7 @@ func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3046,7 +3047,7 @@ func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3081,7 +3082,7 @@ func TestRegisterCodeIntelligenceTools_GraphAll_DefaultsToCWD(t *testing.T) {
 	out, err := tool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, out, "roots")
-	_, statErr := os.Stat(filepath.Join(root, ".kdeps", "graph.db"))
+	_, statErr := os.Stat(datadir.File(root, "graph.db"))
 	require.NoError(t, statErr, "expected graph.db under the CWD")
 }
 
