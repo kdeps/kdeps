@@ -266,7 +266,7 @@ func TestSaveResource_Errors(t *testing.T) {
 		"missing inline": {func() desktop.ResourceForm { f := ok; f.ID = "inline:9"; return f }(), "not found"},
 		"missing file": {
 			func() desktop.ResourceForm { f := ok; f.ID = "file:gone.yaml"; return f }(),
-			"no such file",
+			"gone.yaml",
 		},
 	}
 	for name, c := range cases {
