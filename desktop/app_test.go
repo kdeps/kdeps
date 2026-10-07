@@ -121,3 +121,10 @@ func TestApp_OpenChatSwitchesWorkspace(t *testing.T) {
 	_, err = app.OpenChat(filepath.Join(t.TempDir(), "missing"), id)
 	assert.Error(t, err)
 }
+
+func TestApp_OpenInBrowserRefusesNonWeb(t *testing.T) {
+	app := &App{}
+	for _, bad := range []string{"file:///etc/passwd", "javascript:alert(1)", "http://", "not a url", ""} {
+		assert.Error(t, app.OpenInBrowser(bad), bad)
+	}
+}

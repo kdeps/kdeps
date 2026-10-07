@@ -21,6 +21,8 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -88,9 +90,10 @@ func TestSessionStore_ListAllMeta_LegacyFolder(t *testing.T) {
 		folders[m.Cwd] = true
 	}
 	assert.True(t, folders[dashed], "a known folder resolves even when its name has dashes")
-	if !folders[plain] {
-		// The decoded guess only works when no path segment contains "-".
-		assert.Contains(t, plain, "-")
+	// Decoding a folder name only works for Unix paths without "-" (a drive
+	// letter or a dash makes the name ambiguous); known folders cover the rest.
+	if runtime.GOOS != "windows" && !strings.Contains(plain, "-") {
+		assert.True(t, folders[plain], "a decodable folder name resolves when that folder exists")
 	}
 	assert.False(t, folders[gone], "a folder that cannot be found is left out")
 }

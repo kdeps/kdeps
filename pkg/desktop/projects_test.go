@@ -354,10 +354,14 @@ func TestRun(t *testing.T) {
 	assert.Equal(t, "  ✓ Starting HTTP server on 127.0.0.1:16395", h.log.waitFor(t, desktop.KindRunLog).Text)
 	url := h.log.waitFor(t, desktop.KindRunURL)
 	assert.Equal(t, "http://127.0.0.1:16395", url.Text)
+	assert.Empty(t, url.Summary, "an API server alone has no web interface")
 	assert.Equal(t, hello, url.Tool)
+	url = h.log.waitFor(t, desktop.KindRunURL)
+	assert.Equal(t, "http://127.0.0.1:9", url.Summary, "the web server line adds the web interface")
 	p := findProject(h.svc.Projects(), hello)
 	assert.True(t, p.Running)
-	assert.Equal(t, "http://127.0.0.1:16395", p.URL, "the first server line wins")
+	assert.Equal(t, "http://127.0.0.1:16395", p.URL)
+	assert.Equal(t, "http://127.0.0.1:9", p.WebURL)
 
 	require.NoError(t, h.svc.Run(hello), "running twice keeps the one process")
 

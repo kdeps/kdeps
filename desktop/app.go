@@ -98,6 +98,17 @@ func (a *App) shutdown(_ context.Context) {
 	}
 }
 
+// OpenInBrowser opens a running project's web interface in the default
+// browser. Only http and https URLs are opened.
+func (a *App) OpenInBrowser(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("desktop: %q is not a web address", raw)
+	}
+	runtime.BrowserOpenURL(a.ctx, u.String())
+	return nil
+}
+
 // RevealProject opens a project's folder in the system file manager, for
 // editing files the builder leaves alone.
 func (a *App) RevealProject(path string) error {
