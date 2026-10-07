@@ -59,20 +59,23 @@ func TestDiscoverInstructions_WalksUp(t *testing.T) {
 	}
 }
 
-func TestDiscoverInstructions_FindsKdepsDir(t *testing.T) {
+// A project gets no .kdeps folder: instructions inside one are not read.
+func TestDiscoverInstructions_IgnoresKdepsDir(t *testing.T) {
 	dir := t.TempDir()
 	kdepsDir := filepath.Join(dir, ".kdeps")
 	if err := os.MkdirAll(kdepsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	content := "# App instructions"
-	if err := os.WriteFile(filepath.Join(kdepsDir, "instructions.md"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(kdepsDir, "instructions.md"),
+		[]byte("# Hidden instructions"),
+		0644,
+	); err != nil {
 		t.Fatal(err)
 	}
 
-	result := discoverInstructions(dir)
-	if !strings.Contains(result, "App instructions") {
-		t.Fatalf("expected to find .kdeps/instructions.md, got %q", result)
+	if result := discoverInstructions(dir); strings.Contains(result, "Hidden instructions") {
+		t.Fatalf("instructions under .kdeps/ must not be read, got %q", result)
 	}
 }
 
@@ -132,18 +135,11 @@ func TestDiscoverInstructions_TruncatesAtMaxTotal(t *testing.T) {
 		strings.Repeat("b", 5000),
 		strings.Repeat("c", 5000),
 	}
-	names := []string{"CLAUDE.md", "CLAUDE.local.md"}
+	names := []string{"CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"}
 	for i, name := range names {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(chunks[i]), 0644); err != nil {
 			t.Fatal(err)
 		}
-	}
-	kdepsDir := filepath.Join(dir, ".kdeps")
-	if err := os.MkdirAll(kdepsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(kdepsDir, "CLAUDE.md"), []byte(chunks[2]), 0644); err != nil {
-		t.Fatal(err)
 	}
 	result := discoverInstructions(dir)
 	if result == "" {

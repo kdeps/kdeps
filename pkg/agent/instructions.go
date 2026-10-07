@@ -43,8 +43,8 @@ type instructionFile struct {
 
 // discoverInstructions walks up from startDir to the filesystem root,
 // collecting AI instruction files (KDEPS.md, CLAUDE.md, AGENTS.md, GEMINI.md,
-// COPILOT.md, CURSOR.md, CODEX.md, .cursorrules, .kdeps/KDEPS.md,
-// .kdeps/CLAUDE.md, .kdeps/instructions.md, .github/copilot-instructions.md).
+// COPILOT.md, CURSOR.md, CODEX.md, .cursorrules,
+// .github/copilot-instructions.md).
 //
 // KDEPS.md is kdeps' own instruction file and comes first: it is discovered
 // before the others, keeps its full character budget, and formatInstructions
@@ -74,9 +74,6 @@ func discoverInstructions(startDir string) string {
 		"CODEX.md",
 		".cursorrules",
 		filepath.Join(".github", "copilot-instructions.md"),
-		filepath.Join(".kdeps", "KDEPS.md"),
-		filepath.Join(".kdeps", "CLAUDE.md"),
-		filepath.Join(".kdeps", "instructions.md"),
 	}
 
 	seen := make(map[string]bool) // content hash
@@ -140,7 +137,7 @@ func discoverInstructions(startDir string) string {
 }
 
 // kdepsInstructionFile reports whether name is one of kdeps' own instruction
-// files (KDEPS.md, KDEPS.local.md, or .kdeps/KDEPS.md).
+// files (KDEPS.md or KDEPS.local.md).
 func kdepsInstructionFile(name string) bool {
 	base := filepath.Base(name)
 	return base == "KDEPS.md" || base == "KDEPS.local.md"

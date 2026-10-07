@@ -5000,7 +5000,8 @@ func copyToClipboard(ctx context.Context, text string) error {
 }
 
 // cmdReload reloads skills, prompt templates, and instructions from disk.
-// Picks up changes to .kdeps/skills/ and .kdeps/prompts/ without restarting.
+// Picks up changes to ~/.kdeps/skills/, ~/.kdeps/prompts/ and --skill paths
+// without restarting.
 func (r *REPL) cmdReload() error {
 	r.loop.Reload()
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reloaded skills and prompt templates from disk."))

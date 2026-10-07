@@ -18,8 +18,8 @@ Always check for error handling. Prefer early returns over nested conditions.
 Skills are discovered from:
 
 - `~/.kdeps/skills/` (global)
-- `./.kdeps/skills/` (project-local)
-- paths passed with `--skill` (explicit, repeatable)
+- `~/.agents/skills/` (where `npx skills` installs)
+- paths passed with `--skill` (explicit, repeatable), for example a `skills/` folder you keep in the project
 
 Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
 
@@ -57,7 +57,7 @@ argument-hint: <PR number or URL>
 Review the pull request at $1. Check for: correctness, test coverage, and breaking changes.
 ```
 
-Place templates in `~/.kdeps/prompts/` or `./.kdeps/prompts/`, or pass `--prompt <dir>`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
+Place templates in `~/.kdeps/prompts/`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
 
 ```bash
 /review-pr 1234
@@ -70,7 +70,6 @@ The agent automatically discovers instruction files by walking up the directory 
 
 - `KDEPS.md`, `KDEPS.local.md` at any ancestor directory
 - `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md` at any ancestor directory
-- `.kdeps/KDEPS.md`, `.kdeps/CLAUDE.md`, `.kdeps/instructions.md` at any ancestor directory
 
 `KDEPS.md` is kdeps' own instruction file and takes the highest priority: it is discovered first, keeps its full character budget, and the agent is told that `KDEPS.md` wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or the rest.
 

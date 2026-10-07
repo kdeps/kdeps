@@ -112,7 +112,7 @@ No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can 
 | HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |
 | Models, config, API keys, connections | `~/.kdeps/models/`, `~/.kdeps/config.yaml` |
 
-Read from the project when present, never written: `KDEPS.md` or `.kdeps/KDEPS.md` (instructions), `.kdeps/skills/`, `.kdeps/prompts/`, and `.env`.
+A project never gets a `.kdeps` folder. kdeps only reads files you put there yourself: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...) for instructions, workflow files, and `.env` for the desktop Run tab.
 
 ```bash
 export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (index and graph dbs) elsewhere

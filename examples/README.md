@@ -142,11 +142,9 @@ cd session-auth && kdeps run workflow.yaml --dev
 ```
 
 ### 🌍 [Auto-Env](./auto-env/)
-Demonstrates automatic environment variable scoping per component, auto-scaffolded `.env` templates, and `kdeps component update`.
+Demonstrates automatic environment variable scoping per component and an optional per-component `.env` fallback.
 - `TRANSLATOR_OPENAI_API_KEY` overrides `OPENAI_API_KEY` inside `translator` only
-- On first run, kdeps auto-creates `.env` template with all `env()` vars listed blank
-- On first run, kdeps auto-creates `README.md` from component metadata
-- `kdeps component update` merges new vars into an existing `.env`
+- A `.env` you create in a component folder is the lowest-priority source; kdeps never writes it
 - Summarizer falls back to extractive summary when no API key is set
 
 **Run:**

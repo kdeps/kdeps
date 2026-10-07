@@ -306,25 +306,7 @@ OPENAI_API_KEY=sk-my-key
 SCRAPER_TIMEOUT=30
 ```
 
-### Auto-scaffolded files
-
-When a component runs for the first time, kdeps auto-creates these files if absent:
-- **`.env`** - template listing all `env()` variables found in resources, with empty values
-- **`README.md`** - generated from `component.yaml` metadata
-
-Existing files are never overwritten.
-
-### `kdeps registry update`
-
-Scaffold or merge `.env` and `README.md` without running the component:
-
-```bash
-kdeps registry update ./components/scraper
-```
-
-- If `.env` does not exist: full template created with all detected `env()` vars.
-- If `.env` already exists: only missing vars appended. Existing values preserved.
-- `README.md` is created from metadata only when absent.
+kdeps only reads a component's `.env`; it never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).
 
 ## Complete example: scraper component
 

@@ -51,18 +51,14 @@ type PromptTemplate struct {
 	Source string
 }
 
-// defaultPromptDirs returns the global and project-level prompt directories.
+// defaultPromptDirs returns the global prompt directory. Projects get no
+// .kdeps folder of their own.
 func defaultPromptDirs() []string {
 	home, _ := os.UserHomeDir()
-	cwd, _ := os.Getwd()
-	var dirs []string
-	if home != "" {
-		dirs = append(dirs, filepath.Join(home, ".kdeps", promptTemplateDirName))
+	if home == "" {
+		return nil
 	}
-	if cwd != "" {
-		dirs = append(dirs, filepath.Join(cwd, ".kdeps", promptTemplateDirName))
-	}
-	return dirs
+	return []string{filepath.Join(home, ".kdeps", promptTemplateDirName)}
 }
 
 // loadPromptTemplateSlice loads prompt templates from the given directories
