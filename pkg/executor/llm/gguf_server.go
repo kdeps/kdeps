@@ -450,7 +450,9 @@ func extractZipSiblings(zipPath, destDir, skipBase string) error {
 	}
 	defer reader.Close()
 	for _, f := range reader.File {
-		if f.FileInfo().IsDir() {
+		// Entries with ".." are never extracted; archiveEntryPath also keeps
+		// the rest inside destDir.
+		if f.FileInfo().IsDir() || strings.Contains(f.Name, "..") {
 			continue
 		}
 		outPath, ok := archiveEntryPath(destDir, f.Name, skipBase)
@@ -506,6 +508,11 @@ func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
 		}
 		if nextErr != nil {
 			return nextErr
+		}
+		// Entries with ".." are never extracted; archiveEntryPath also keeps
+		// the rest inside destDir.
+		if strings.Contains(hdr.Name, "..") {
+			continue
 		}
 		outPath, ok := archiveEntryPath(destDir, hdr.Name, skipBase)
 		if !ok {

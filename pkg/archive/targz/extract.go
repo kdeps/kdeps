@@ -89,6 +89,16 @@ func extractOneEntry(
 		return 0, nil
 	}
 
+	// Any ".." in the entry name is refused outright (CodeQL go/zipslip tracks
+	// this literal check on the name; it does not follow ResolveTarget).
+	name := hdr.Name
+	if strings.Contains(name, "..") {
+		if opts.SkipBadPaths {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("invalid archive path: %s", name)
+	}
+
 	// Zip Slip guard: compute absTarget directly from destDir + hdr.Name so
 	// CodeQL go/zipslip can track the sanitization (source → join → HasPrefix
 	// guard → sink). File operations use absTarget, not the ResolveTarget return
@@ -97,7 +107,7 @@ func extractOneEntry(
 	if baseErr != nil {
 		return 0, fmt.Errorf("failed to resolve destination: %s", destDir)
 	}
-	absTarget, absErr := filepath.Abs(filepath.Join(destDir, filepath.Clean(hdr.Name)))
+	absTarget, absErr := filepath.Abs(filepath.Join(destDir, filepath.Clean(name)))
 	if absErr != nil {
 		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
 	}

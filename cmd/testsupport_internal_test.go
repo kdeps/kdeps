@@ -37,8 +37,8 @@ import (
 	"testing"
 	"time"
 
-	dockclient "github.com/docker/docker/api/types/image"
-	dockapi "github.com/docker/docker/client"
+	dockclient "github.com/moby/moby/api/types/image"
+	dockapi "github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
@@ -257,17 +257,17 @@ var (
 	_ = hex.EncodeToString
 	_ = json.Marshal
 	_ = dockclient.InspectResponse{}
-	_ = dockapi.NewClientWithOpts
+	_ = dockapi.New
 	_ = yaml.Marshal
 	_ = time.Now
 )
 
 func newBuildDockerClient(t *testing.T, handler gapRoundTripper) {
 	t.Helper()
-	cli, err := dockapi.NewClientWithOpts(
+	cli, err := dockapi.New(
 		dockapi.WithHost("tcp://127.0.0.1:2375"),
 		dockapi.WithHTTPClient(&http.Client{Transport: handler}),
-		dockapi.WithVersion("1.41"),
+		dockapi.WithAPIVersion("1.41"),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cli.Close() })
@@ -330,10 +330,10 @@ func (f gapRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) { re
 
 func newExportDockerClient(t *testing.T, handler gapRoundTripper) *docker.Client {
 	t.Helper()
-	cli, err := dockapi.NewClientWithOpts(
+	cli, err := dockapi.New(
 		dockapi.WithHost("tcp://127.0.0.1:2375"),
 		dockapi.WithHTTPClient(&http.Client{Transport: handler}),
-		dockapi.WithVersion("1.41"),
+		dockapi.WithAPIVersion("1.41"),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cli.Close() })

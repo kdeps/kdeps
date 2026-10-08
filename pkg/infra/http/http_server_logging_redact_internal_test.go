@@ -16,34 +16,29 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package docker
+package http
 
 import (
-	"fmt"
+	stdhttp "net/http"
+	"testing"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"github.com/moby/moby/client"
+	"github.com/stretchr/testify/assert"
 )
 
-// Client wraps Docker client operations.
-type Client struct {
-	Cli *client.Client
-}
+func TestRedactCredentials(t *testing.T) {
+	h := stdhttp.Header{}
+	h.Set("Authorization", "Bearer s3cr3t-token")
+	h.Set("X-Api-Key", "key-123456")
+	h.Set("Cookie", "1")
 
-// NewClient creates a new Docker client.
-func NewClient() (*Client, error) {
-	kdeps_debug.Log("enter: NewClient")
-	cli, err := client.New(client.FromEnv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Docker client: %w", err)
-	}
+	msg := "upstream said: bad header Bearer s3cr3t-token; key key-123456; token s3cr3t-token; count 1"
+	got := redactCredentials(msg, h)
+	assert.NotContains(t, got, "s3cr3t-token")
+	assert.NotContains(t, got, "key-123456")
+	assert.Contains(t, got, "[redacted]")
+	assert.Contains(t, got, "count 1", "values shorter than minRedactLen are left alone")
+	assert.Contains(t, got, "upstream said", "the rest of the error is kept")
 
-	return &Client{Cli: cli}, nil
-}
-
-// Close closes the Docker client.
-func (c *Client) Close() error {
-	kdeps_debug.Log("enter: Close")
-	return c.Cli.Close()
+	assert.Equal(t, "plain error", redactCredentials("plain error", stdhttp.Header{}))
+	assert.Empty(t, lastField("   "))
 }
