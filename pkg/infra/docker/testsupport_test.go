@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 
 	dockerpkg "github.com/kdeps/kdeps/v2/pkg/infra/docker"
@@ -48,10 +48,10 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 func newMockDockerClient(t *testing.T, handler func(*http.Request) (*http.Response, error)) *dockerpkg.Client {
 	t.Helper()
 
-	cli, err := client.NewClientWithOpts(
+	cli, err := client.New(
 		client.WithHost("tcp://127.0.0.1:2375"),
 		client.WithHTTPClient(&http.Client{Transport: roundTripFunc(handler)}),
-		client.WithVersion("1.41"),
+		client.WithAPIVersion("1.41"),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cli.Close() })

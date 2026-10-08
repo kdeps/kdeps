@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	dockclient "github.com/docker/docker/client"
+	dockclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -192,10 +192,10 @@ resources:
 
 func newMockDockerClientForBuild(t *testing.T, handler func(*http.Request) (*http.Response, error)) *docker.Client {
 	t.Helper()
-	cli, err := dockclient.NewClientWithOpts(
+	cli, err := dockclient.New(
 		dockclient.WithHost("tcp://127.0.0.1:2375"),
 		dockclient.WithHTTPClient(&http.Client{Transport: roundTripFuncMock(handler)}),
-		dockclient.WithVersion("1.41"),
+		dockclient.WithAPIVersion("1.41"),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cli.Close() })

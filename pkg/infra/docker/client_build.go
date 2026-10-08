@@ -28,7 +28,8 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
-	"github.com/docker/docker/api/types/build"
+	"github.com/moby/moby/api/types/build"
+	"github.com/moby/moby/client"
 )
 
 // BuildImage builds a Docker image from a Dockerfile.
@@ -48,7 +49,7 @@ func (c *Client) BuildImage(
 		return errors.New("image name cannot be empty")
 	}
 
-	buildOptions := build.ImageBuildOptions{
+	buildOptions := client.ImageBuildOptions{
 		Context:    buildContext,
 		Dockerfile: dockerfilePath,
 		Tags:       []string{imageName},
