@@ -14,29 +14,40 @@ depends on the size:
 ```d2
 direction: right
 paste: "Paste" {shape: oval}
-check: "<= 4 lines\nAND <= 20 words\nAND <= 240 chars?" {shape: diamond}
+check: "one line\nAND <= 20 words\nAND <= 240 chars?" {shape: diamond}
 inline: "Inline as literal,\neditable text"
-stage: "Write to a temp file\nshow [pasted N lines @path]"
+stage: "Save to memory as paste:<id>\nline + history show @paste:<id>"
 model: "Model receives the\nfull text on submit" {shape: oval}
 paste -> check
 check -> inline: yes
 check -> stage: no
 inline -> model
-stage -> model: "@path expands\nback to contents"
+stage -> model: "@paste:<id> expands\nback to the text"
 ```
 
-A **small** paste is inserted as ordinary editable text on the input line.
+A **small** single-line paste is inserted as ordinary editable text on the input line.
 
-A **large** paste is staged to a file under a temp dir so the prompt and your
-scrollback stay readable; the line shows
-`[pasted 123 lines @/tmp/kdeps-paste-xxxx/paste-1.txt]`. Press Enter once to
-submit: that marker is expanded back to the file's contents, so the model always
-gets the whole paste - only the on-screen line and the REPL history keep the
-short form. The temp dir is removed when the REPL exits.
+Any other paste is saved to memory under an id like `paste:3f9a1c2e` (in the
+folder's memory under `~/.kdeps/memory/`). A multi-line paste of up to 4 lines,
+20 words and 240 characters is shown verbatim on the edit line; a larger one is
+shown as `@paste:3f9a1c2e` so the prompt and your scrollback stay readable.
+Press Enter once to submit: the reference expands back to the pasted text, so
+the model always gets the whole paste.
 
-The large-paste marker is a single character on the edit line, so you can **edit
-around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after
-it and type there - for example stage a stack trace and type
+```text
+you> why does this fail: @paste:3f9a1c2e      <- what the line and history keep
+model sees: why does this fail:
+--- @paste:3f9a1c2e ---
+<the full pasted text>
+```
+
+REPL history (Up arrow, `Ctrl+R`) stores the `@paste:<id>` reference, not the
+text. Recalling it in a later session still works, because the paste lives in
+the folder's memory.
+
+The paste is a single character on the edit line, so you can **edit around
+it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after it
+and type there - for example paste a stack trace and type
 `why does this happen: ` in front of it, then submit.
 
 ## Line editing and history search
@@ -68,6 +79,33 @@ review @notes.txt and summarize the key points
 - Image/binary refs (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.tiff`, `.pdf`, `.mp3`, `.mp4`, `.wav`) are sent as multimodal content to the LLM.
 - Text file refs are expanded inline in the prompt.
 - Unresolvable refs (file not found, access denied) are left unchanged in the text.
+
+## Memory references
+
+`@<memory-id>` expands to that memory entry's value, the same way `@notes.txt`
+expands to the file's contents. Any memory id works: pastes (`paste:<id>`),
+entries the model saved with `memory_save`, or ids listed by `/memory`. Tab
+completes memory ids after `@` alongside file paths.
+
+```bash
+# Reuse an earlier paste
+compare @paste:3f9a1c2e with the output of the last run
+
+# Pull a saved memory entry into the prompt
+follow @plan:migration step by step
+```
+
+The model receives:
+
+```text
+compare
+--- @paste:3f9a1c2e ---
+<the pasted text>
+with the output of the last run
+```
+
+An existing file takes priority over a memory id with the same name. An unknown
+id is left unchanged in the text.
 
 ## Prompt refinement
 

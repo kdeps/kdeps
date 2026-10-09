@@ -514,14 +514,14 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 // --- expandFileRefs ---
 
 func TestExpandFileRefs_NoRefs(t *testing.T) {
-	out, files := expandFileRefs("hello world")
+	out, files := expandFileRefs("hello world", nil)
 	assert.Equal(t, "hello world", out)
 	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_UnreadablePath(t *testing.T) {
 	// @nonexistent-file should be left as-is
-	out, files := expandFileRefs("check @/nonexistent/file.txt please")
+	out, files := expandFileRefs("check @/nonexistent/file.txt please", nil)
 	assert.Contains(t, out, "@/nonexistent/file.txt")
 	assert.Empty(t, files)
 }
@@ -531,7 +531,7 @@ func TestExpandFileRefs_RealFile(t *testing.T) {
 	p := filepath.Join(dir, "notes.txt")
 	require.NoError(t, os.WriteFile(p, []byte("hello from file"), 0o644))
 
-	out, files := expandFileRefs("review @" + p)
+	out, files := expandFileRefs("review @"+p, nil)
 	assert.Contains(t, out, "hello from file")
 	assert.Contains(t, out, "notes.txt")
 	assert.Empty(t, files) // text files expand inline, not as attachments
@@ -542,21 +542,21 @@ func TestExpandFileRefs_ImageFile(t *testing.T) {
 	p := filepath.Join(dir, "photo.png")
 	require.NoError(t, os.WriteFile(p, []byte("\x89PNG"), 0o644))
 
-	out, files := expandFileRefs("describe @" + p)
+	out, files := expandFileRefs("describe @"+p, nil)
 	// Image ref should be stripped from text, not embedded inline
 	assert.NotContains(t, out, "photo.png")
 	assert.Contains(t, files, p)
 }
 
 func TestExpandFileRefs_ImageNotFound(t *testing.T) {
-	out, files := expandFileRefs("describe @/nonexistent/photo.png")
+	out, files := expandFileRefs("describe @/nonexistent/photo.png", nil)
 	// Non-existent image ref left unchanged (file not accessible)
 	assert.Contains(t, out, "@/nonexistent/photo.png")
 	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_URLImage(t *testing.T) {
-	out, files := expandFileRefs("describe @https://example.com/photo.png what is this?")
+	out, files := expandFileRefs("describe @https://example.com/photo.png what is this?", nil)
 	// URL refs are always treated as multimodal attachments, removed from text
 	assert.NotContains(t, out, "https://example.com/photo.png")
 	assert.Contains(t, files, "https://example.com/photo.png")

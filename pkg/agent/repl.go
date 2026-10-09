@@ -22,6 +22,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -169,12 +171,6 @@ const historyFileName = "repl_history"
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
-// pasteRefRe matches the large-paste marker "[pasted N lines @path]" left in the
-// input on submit. It is expanded to the staged file's contents before the
-// generic @ref pass, which would otherwise swallow the trailing "]" into the
-// path and fail the read.
-var pasteRefRe = regexp.MustCompile(`\[pasted \d+ lines @([^\]\s]+)\]`)
-
 //nolint:gochecknoglobals // test-replaceable network function hooks
 var (
 	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
@@ -255,9 +251,9 @@ type REPL struct {
 	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
 	// line, so it can be navigated and edited like any other character before it
 	// submits as one prompt. A small single-line paste bypasses this entirely
-	// (raw text into readline); a large paste is staged to pasteTmpDir.
+	// (raw text into readline); any other paste is saved to memory and submits
+	// as its "@paste:<id>" reference.
 	pendingPastes []pendingPaste // one entry per staged paste, in edit-line order
-	pasteTmpDir   string         // temp dir holding large-paste files; created lazily, removed on exit
 	tokenCounter  *TokenCounter  // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
@@ -635,8 +631,10 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	tokenLen := len([]rune(token))
 
 	// @file: fuzzy file completion; uses fd for deep search when available.
+	// Memory ids complete alongside, since @<memory-id> expands like a file.
 	if strings.HasPrefix(token, "@") {
-		return doAtFileCompletion(c.repl.loopCtx, token[1:])
+		results, n := doAtFileCompletion(c.repl.loopCtx, token[1:])
+		return append(results, c.repl.memoryKeyCompletions(token[1:])...), n
 	}
 
 	// /command (no space typed yet): fuzzy command name completion.
@@ -1307,26 +1305,13 @@ var imageExts = map[string]bool{
 	".pdf": true, ".mp3": true, ".mp4": true, ".wav": true,
 }
 
-// expandFileRefs replaces @path tokens that refer to text files with their contents.
-// Image and binary file references are extracted and returned in the files slice
-// so the caller can attach them as multimodal content. Unresolvable refs are kept as-is.
-func expandFileRefs(input string) (string, []string) {
+// expandFileRefs replaces @path tokens that refer to text files with their contents,
+// and @<memory-id> tokens (when memory is non-nil and no such file exists) with
+// that memory entry's value. Image and binary file references are extracted and
+// returned in the files slice so the caller can attach them as multimodal
+// content. Unresolvable refs are kept as-is.
+func expandFileRefs(input string, memory func(key string) (string, bool)) (string, []string) {
 	var files []string
-
-	// Large-paste markers first: expand "[pasted N lines @path]" to the staged
-	// body so the model sees the full paste. Left untouched on a read error.
-	input = pasteRefRe.ReplaceAllStringFunc(input, func(match string) string {
-		m := pasteRefRe.FindStringSubmatch(match)
-		if m == nil {
-			return match
-		}
-		path := m[1]
-		data, err := afero.ReadFile(AppFS, path)
-		if err != nil {
-			return match
-		}
-		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
-	})
 
 	text := atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
 		path := match[1:]
@@ -1345,6 +1330,9 @@ func expandFileRefs(input string) (string, []string) {
 		}
 		data, err := afero.ReadFile(AppFS, path)
 		if err != nil {
+			if value, ok := lookupMemory(memory, path); ok {
+				return fmt.Sprintf("\n\n--- %s ---\n%s", match, strings.TrimRight(value, "\n"))
+			}
 			return match
 		}
 		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
@@ -1352,10 +1340,18 @@ func expandFileRefs(input string) (string, []string) {
 	return strings.TrimSpace(text), files
 }
 
+// lookupMemory resolves key through memory, which may be nil.
+func lookupMemory(memory func(key string) (string, bool), key string) (string, bool) {
+	if memory == nil {
+		return "", false
+	}
+	return memory(key)
+}
+
 // expandFileRefsMonitored runs expandFileRefs under a quiet status line, so
 // reading large @file refs shows liveness ("@file refs running (3s)")
 // instead of a silent pause. Inputs without @ skip the monitor entirely.
-func expandFileRefsMonitored(input string) (string, []string) {
+func expandFileRefsMonitored(input string, memory func(key string) (string, bool)) (string, []string) {
 	if !strings.Contains(input, "@") {
 		return input, nil
 	}
@@ -1368,7 +1364,7 @@ func expandFileRefsMonitored(input string) (string, []string) {
 		defer wg.Done()
 		runQuietMonitor(mw, "@file refs", start, stop)
 	}()
-	expanded, files := expandFileRefs(input)
+	expanded, files := expandFileRefs(input, memory)
 	close(stop)
 	wg.Wait()
 	return expanded, files
@@ -1680,7 +1676,6 @@ func (r *REPL) Run() error {
 		if r.readlineInst != nil {
 			_ = r.readlineInst.Close()
 		}
-		r.cleanupPasteTmp()
 	}()
 
 	r.readlineInst = rl
@@ -1778,7 +1773,6 @@ func (r *REPL) restoreTerminalAndExit(sig os.Signal) {
 	// hanging around.
 	go func() {
 		fmt.Fprint(os.Stdout, ansiDisableBracketedPaste+"\r\n")
-		r.cleanupPasteTmp()
 		llm.ShutdownLocalServers()
 	}()
 	code := signalExitBase + int(syscall.SIGTERM)
@@ -1858,6 +1852,9 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		if input == "" {
 			continue
 		}
+		// History is saved here, not by readline, so it keeps the "@paste:<id>"
+		// reference instead of the paste sentinel rune.
+		_ = rl.SaveHistory(input)
 		if procErr := r.processInput(input); procErr != nil {
 			if !errors.Is(procErr, context.Canceled) {
 				fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
@@ -1973,7 +1970,7 @@ func (r *REPL) processInput(input string) error {
 		}
 	}
 
-	expanded, imgFiles := expandFileRefsMonitored(input)
+	expanded, imgFiles := expandFileRefsMonitored(input, r.memoryValue)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
 		// An image-only message ("@shot.png") leaves the prompt empty and
@@ -2041,74 +2038,94 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
-// pendingPaste is one staged paste: a small multi-line body shown inline
-// verbatim, or a large body written to a temp file and shown as a marker.
+// pendingPaste is one staged paste: a multi-line or large body saved to memory
+// under key, shown on the edit line as the body (small) or "@key" (large).
 type pendingPaste struct {
-	body    string
-	lines   int
-	large   bool
-	tmpPath string // set only when large
+	body  string
+	lines int
+	large bool
+	key   string // memory id; empty when memory is unavailable
 }
 
-// marker renders the large-paste placeholder that stands in for the body on the
-// edit line and in REPL history. Its "@path" token is expanded back to the file
-// contents at turn time (see pasteRefRe / expandFileRefs).
-func (p pendingPaste) marker() string {
-	return fmt.Sprintf("[pasted %d lines @%s]", p.lines, p.tmpPath)
+// pasteKeyPrefix names the memory entries that hold pasted text.
+const pasteKeyPrefix = "paste:"
+
+// pasteIDBytes is the random part of a paste memory id (hex-encoded).
+const pasteIDBytes = 4
+
+// ref is the "@<memory-id>" reference that stands in for the paste in the
+// submitted line and in REPL history. expandFileRefs resolves it back to the
+// body at turn time, in this session or a later one.
+func (p pendingPaste) ref() string {
+	return "@" + p.key
 }
 
 // onPasteContent stages a completed paste that is not a small single-line one
-// (those are handed to readline as raw text upstream). Large pastes are written
-// to a temp file so the edit line and history stay compact; the model still
-// receives the full body via marker expansion on submit.
+// (those are handed to readline as raw text upstream) and saves its body to
+// memory, so the line and history carry a short "@paste:<id>" reference.
 func (r *REPL) onPasteContent(content string, large bool, lines int) {
-	p := pendingPaste{body: content, lines: lines, large: large}
-	if large {
-		p.tmpPath = r.stagePasteFile(content)
-	}
-	r.pendingPastes = append(r.pendingPastes, p)
+	r.pendingPastes = append(r.pendingPastes, pendingPaste{
+		body: content, lines: lines, large: large, key: r.savePaste(content),
+	})
 }
 
-// stagePasteFile writes a large paste body to a file in the session's paste
-// temp dir (created on first use) and returns the path, or "" on any error.
-func (r *REPL) stagePasteFile(content string) string {
-	if r.pasteTmpDir == "" {
-		dir, err := os.MkdirTemp("", "kdeps-paste-")
-		if err != nil {
-			return ""
-		}
-		r.pasteTmpDir = dir
-	}
-	path := filepath.Join(r.pasteTmpDir, fmt.Sprintf("paste-%d.txt", len(r.pendingPastes)+1))
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+// savePaste stores a paste body in memory and returns its key, or "" when
+// memory is unavailable or the save fails.
+func (r *REPL) savePaste(content string) string {
+	if r.loop == nil || r.loop.memoryStore == nil {
 		return ""
 	}
-	return path
+	id := make([]byte, pasteIDBytes)
+	if _, err := rand.Read(id); err != nil {
+		return ""
+	}
+	key := pasteKeyPrefix + hex.EncodeToString(id)
+	if err := r.loop.memoryStore.Set(key, content); err != nil {
+		return ""
+	}
+	if _, ok := r.loop.memoryStore.Get(key); !ok {
+		return "" // store has no folder set: Set was a no-op
+	}
+	return key
+}
+
+// memoryKeyCompletions returns the untyped suffixes of memory ids starting
+// with prefix. An empty prefix completes files only.
+func (r *REPL) memoryKeyCompletions(prefix string) [][]rune {
+	if prefix == "" || r.loop == nil || r.loop.memoryStore == nil {
+		return nil
+	}
+	var out [][]rune
+	for _, e := range r.loop.memoryStore.List() {
+		if rest, ok := strings.CutPrefix(e.Key, prefix); ok && rest != "" {
+			out = append(out, []rune(rest))
+		}
+	}
+	return out
+}
+
+// memoryValue resolves an @<memory-id> reference for expandFileRefs.
+func (r *REPL) memoryValue(key string) (string, bool) {
+	if r.loop == nil || r.loop.memoryStore == nil {
+		return "", false
+	}
+	e, ok := r.loop.memoryStore.Get(key)
+	return e.Value, ok
 }
 
 // expandPasteSentinels replaces each paste sentinel in a submitted line, in
-// order, with its staged paste's verbatim body (small) or its
-// "[pasted N lines @path]" marker (large). The marker is expanded back to the
-// file contents for the model in expandFileRefs; REPL history keeps it compact.
-// Pending pastes are cleared afterwards.
+// order, with its "@<memory-id>" reference, or with the verbatim body when it
+// could not be saved to memory. Pending pastes are cleared afterwards.
 func (r *REPL) expandPasteSentinels(line string) string {
 	for _, p := range r.pendingPastes {
 		sub := p.body
-		if p.large && p.tmpPath != "" {
-			sub = p.marker()
+		if p.key != "" {
+			sub = p.ref()
 		}
 		line = strings.Replace(line, string(pasteSentinel), sub, 1)
 	}
 	r.pendingPastes = nil
 	return line
-}
-
-// cleanupPasteTmp removes the large-paste temp dir. Safe to call more than once.
-func (r *REPL) cleanupPasteTmp() {
-	if r.pasteTmpDir != "" {
-		_ = os.RemoveAll(r.pasteTmpDir)
-		r.pasteTmpDir = ""
-	}
 }
 
 // pasteMarker is the fallback glyph shown for a sentinel with no matching
@@ -2117,14 +2134,14 @@ const pasteMarker = '▧'
 
 // pastePainter returns a readline Painter that expands each paste sentinel to
 // what the user should see: a small paste's real text, or a large paste's
-// "[pasted N lines @path]" marker.
+// "@<memory-id>" reference.
 func (r *REPL) pastePainter() readline.Painter {
 	return pastePainter{repl: r}
 }
 
 // pastePainter implements readline.Painter. It walks the edit line and replaces
 // the k-th paste sentinel with the k-th pending paste's rendered form (body for
-// small, marker for large), leaving everything the user typed around it intact.
+// small, reference for large), leaving everything the user typed around it intact.
 // The render is no longer the same length as the buffer — showing the real
 // content is worth the imperfect cursor tracking around a multi-row paste.
 type pastePainter struct{ repl *REPL }
@@ -2139,8 +2156,8 @@ func (p pastePainter) Paint(line []rune, _ int) []rune {
 		}
 		if p.repl != nil && seen < len(p.repl.pendingPastes) {
 			pp := p.repl.pendingPastes[seen]
-			if pp.large && pp.tmpPath != "" {
-				out = append(out, []rune(pp.marker())...)
+			if pp.large && pp.key != "" {
+				out = append(out, []rune(pp.ref())...)
 			} else {
 				out = append(out, []rune(pp.body)...)
 			}
@@ -2157,17 +2174,18 @@ func (p pastePainter) Paint(line []rune, _ int) []rune {
 // tears readline down for a child process.
 func (r *REPL) newReadline() (*readline.Instance, error) {
 	return readline.NewEx(&readline.Config{
-		Prompt:              r.dynamicPrompt(),
-		HistoryLimit:        replHistoryMax,
-		HistoryFile:         r.historyPath,
-		HistorySearchFold:   true,
-		AutoComplete:        r.buildCompleter(),
-		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
-		EOFPrompt:           "exit",
-		Stdin:               newBracketedPasteReader(os.Stdin, nil, r.onPasteContent),
-		Stdout:              os.Stdout,
-		FuncFilterInputRune: r.filterToolInterrupt,
-		Painter:             r.pastePainter(),
+		Prompt:                 r.dynamicPrompt(),
+		HistoryLimit:           replHistoryMax,
+		HistoryFile:            r.historyPath,
+		DisableAutoSaveHistory: true, // runLoop saves the line after paste expansion
+		HistorySearchFold:      true,
+		AutoComplete:           r.buildCompleter(),
+		InterruptPrompt:        "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:              "exit",
+		Stdin:                  newBracketedPasteReader(os.Stdin, nil, r.onPasteContent),
+		Stdout:                 os.Stdout,
+		FuncFilterInputRune:    r.filterToolInterrupt,
+		Painter:                r.pastePainter(),
 	})
 }
 

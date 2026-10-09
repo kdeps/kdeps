@@ -25,8 +25,8 @@ import (
 
 // A paste at or under every one of these limits is "small": it is handed to
 // readline as literal text (single-line) or shown inline verbatim (multi-line).
-// Anything over a limit is "large" and is staged to a temp file, with the edit
-// line showing a "[pasted N lines @path]" marker instead of the body.
+// Anything over a limit is "large": the edit line shows its "@paste:<id>"
+// memory reference instead of the body.
 const (
 	pasteMaxLines = 4
 	pasteMaxWords = 20
