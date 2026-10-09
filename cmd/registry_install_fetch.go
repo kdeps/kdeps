@@ -29,6 +29,7 @@ import (
 	stdhttp "net/http"
 	"os"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -73,6 +74,9 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 	}
 	if info.LatestVersion == "" {
 		return nil, fmt.Errorf("no version found for package %s", name)
+	}
+	if assets.IsPackageType(info.Type) {
+		return nil, fmt.Errorf("%s is a kdeps %s asset; install it with: kdeps update", name, info.Type)
 	}
 	return &info, nil
 }

@@ -29,7 +29,7 @@ license: Apache-2.0                    # optional - SPDX identifier
 |---|---|---|
 | `name` | yes | Unique package name. Lowercase, alphanumeric + hyphens. |
 | `version` | yes | Semantic version (`1.2.0`). One formula per version. |
-| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. |
+| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `theme`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
 | `github` | yes | `owner/repo` string. The repo containing the tagged release. |
 | `tarball` | yes | Full URL to the release tarball. Use GitHub's `/archive/refs/tags/v{version}.tar.gz` pattern. |
 | `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps registry submit --tag`. |
@@ -68,6 +68,23 @@ type: agency
 ```
 
 Example: `cv-matcher`, `research-pipeline`
+
+### kdeps assets
+
+kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, LLM server recipes, model registries, project templates) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps registry install`.
+
+```yaml
+# formulas/kdeps-harness-safety.yaml  (written by kdeps CI, not by hand)
+name: kdeps-harness-safety
+version: 1.0.0
+type: harness            # harness | event | action | preset | theme | tool | recipe | model | template
+github: kdeps/packages
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/harness/safety/1.0.0.yaml
+sha256: 5a2844c4...      # SHA256 of that YAML file
+description: 'kdeps harness: safety'
+tags: [kdeps, harness]
+license: Apache-2.0
+```
 
 ## Publishing workflow
 
@@ -120,6 +137,7 @@ registry/
     search.yaml
     summarizer.yaml
     cv-matcher.yaml
+    kdeps-harness-safety.yaml   # kdeps assets, written by kdeps CI
     ...
   README.md
 ```

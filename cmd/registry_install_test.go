@@ -660,6 +660,18 @@ func TestResolvePackageInfo_EmptyVersion(t *testing.T) {
 	assert.Contains(t, err.Error(), "no version found")
 }
 
+func TestResolvePackageInfo_AssetType(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		body, _ := json.Marshal(map[string]string{"latestVersion": "1.0.0", "type": "harness"})
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	_, err := resolvePackageInfo("kdeps-harness-safety", srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps update")
+}
+
 // ---------------------------------------------------------------------------
 // downloadArchive — 404 and 5xx branches
 // ---------------------------------------------------------------------------

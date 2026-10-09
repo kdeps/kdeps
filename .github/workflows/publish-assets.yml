@@ -1,0 +1,74 @@
+name: Publish Assets
+
+# Publishes every versioned asset (harness, events, actions, presets, themes,
+# tool definitions, LLM server recipes, project templates) like any registry
+# package: files go to assets/ in kdeps/packages as <set>/<name>/<version>.yaml
+# plus index.json, and each item gets formulas/kdeps-<set>-<name>.yaml in
+# kdeps/registry, which kdeps.io indexes. `kdeps update` downloads from there. A version is published once; changing a file without
+# bumping its version fails this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/agent/harness/**'
+      - 'pkg/agent/events/**'
+      - 'pkg/agent/actions/**'
+      - 'pkg/agent/presets/**'
+      - 'pkg/agent/themes/**'
+      - 'pkg/agent/tools/**'
+      - 'pkg/llmserver/catalog/recipes/**'
+      - 'pkg/templates/templates/**'
+      - 'pkg/assets/**'
+      - 'tools/publish-assets/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-assets
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+      - name: Check out kdeps/packages
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kdeps/packages
+          ref: main
+          path: packages
+          # GITHUB_TOKEN cannot push to another repository.
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - name: Check out kdeps/registry
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kdeps/registry
+          ref: main
+          path: registry
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - name: Publish new versions
+        run: go run ./tools/publish-assets -out packages/assets -formulas registry/formulas -commit "$GITHUB_SHA"
+      - name: Push
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          msg="assets: publish from kdeps/kdeps@${GITHUB_SHA::12}"
+          # Files first, so every formula's URL resolves once kdeps.io syncs.
+          for repo_dir in packages:assets registry:formulas; do
+            repo=${repo_dir%%:*} dir=${repo_dir#*:}
+            git -C "$repo" add "$dir"
+            if git -C "$repo" diff --cached --quiet; then
+              echo "$repo: nothing new"
+              continue
+            fi
+            git -C "$repo" commit -m "$msg"
+            git -C "$repo" push origin main
+          done
