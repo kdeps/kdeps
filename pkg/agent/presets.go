@@ -75,7 +75,7 @@ func userPresetsDir() (string, error) {
 
 // loadBuiltinPresets parses every embedded presets/*.yaml file.
 func loadBuiltinPresets() map[string]*Preset {
-	return loadBuiltinYAMLDir(builtinPresetsFS, "presets", "presets", parseYAMLPreset,
+	return loadBuiltinYAMLDir(assetsFS("presets", builtinPresetsFS), "presets", "presets", parseYAMLPreset,
 		func(p Preset) string { return p.Name })
 }
 

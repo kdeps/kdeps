@@ -1,3 +1,4 @@
+version: 1.0.0
 # vim: leans on vim's classic "default" colorscheme conventions for the syn*
 # fields specifically (Statement yellow, Identifier cyan, Constant/String
 # red, Comment cyan-blue, Type green, Special magenta) - the one theme where

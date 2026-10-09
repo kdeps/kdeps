@@ -142,7 +142,7 @@ Custom engines use `engine.kind: custom` (or a stock kind) with `install` + `com
 id: my-vllm
 name: My vLLM
 description: vLLM OpenAI-compat server
-version: "1"
+version: 1.0.0   # version of this recipe file; bump when you change it
 api:
   port: 8000
   base_path: /v1

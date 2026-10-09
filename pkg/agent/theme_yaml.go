@@ -123,7 +123,7 @@ type themeFS interface {
 
 // loadBuiltinThemes parses every embedded themes/*.yaml file.
 func loadBuiltinThemes() map[string]*theme {
-	return loadBuiltinThemesFrom(builtinThemeFS)
+	return loadBuiltinThemesFrom(assetsFS("themes", builtinThemeFS))
 }
 
 // loadBuiltinThemesFrom is loadBuiltinThemes parameterized over the

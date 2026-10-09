@@ -1,3 +1,4 @@
+version: 1.0.0
 name: errors
 kind: preamble-section
 order: 60

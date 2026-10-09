@@ -1,7 +1,7 @@
 id: openai-compat
 name: Generic OpenAI-compatible
 description: Thin recipe for any image that already serves OpenAI-compatible /v1 on port 8000
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

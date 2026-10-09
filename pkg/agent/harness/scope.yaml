@@ -1,3 +1,4 @@
+version: 1.0.0
 name: scope
 kind: preamble-section
 order: 70

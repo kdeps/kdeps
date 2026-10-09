@@ -1,3 +1,4 @@
+version: 1.0.0
 name: output
 kind: preamble-section
 order: 110

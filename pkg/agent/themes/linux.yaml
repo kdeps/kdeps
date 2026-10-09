@@ -1,3 +1,4 @@
+version: 1.0.0
 # linux: plain, monochrome-ish light-gray-on-black - the look of a default
 # terminal emulator with no fancy syntax highlighting. Unlike black this is
 # fully legible; the disguise is "looks like an ordinary shell session", not

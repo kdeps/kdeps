@@ -562,6 +562,9 @@ func registerWriteFile(reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameWriteFile,
 	})
+	if tool == nil {
+		return
+	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		filePath, err := requireAbsFilePath("write_file", args)
 		if err != nil {
@@ -1246,6 +1249,9 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameBashExec,
 	})
+	if tool == nil {
+		return
+	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		command, _ := args["command"].(string)
 		if command == "" {

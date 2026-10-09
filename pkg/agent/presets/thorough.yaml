@@ -1,3 +1,4 @@
+version: 1.0.0
 name: thorough
 description: >-
   Maximizes context retention: compacts and folds much less often, injects

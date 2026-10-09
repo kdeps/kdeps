@@ -1,3 +1,4 @@
+version: 1.0.0
 name: nudge-give-up
 kind: standalone
 maxOccurrences: 2

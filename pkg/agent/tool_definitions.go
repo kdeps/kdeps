@@ -56,7 +56,7 @@ type toolDefinition struct {
 // same as a bad harness file.
 //
 //nolint:gochecknoglobals // parsed once from the embedded files
-var toolDefinitions = loadToolDefinitionsFrom(builtinToolDefsFS)
+var toolDefinitions = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
 
 // loadToolDefinitionsFrom parses every tools/*.yaml file in fsys.
 func loadToolDefinitionsFrom(fsys themeFS) map[string]toolDefinition {
@@ -88,12 +88,12 @@ func defined(t *kdepstools.Tool) *kdepstools.Tool {
 }
 
 // definedAs fills t's model-facing fields from the definition with the given
-// id. A tool without a definition is returned unchanged
-// (TestToolDefinitions_EveryToolDefined keeps that from shipping).
+// id. It returns nil when there is no definition (the user removed it with
+// kdeps update), and Registry.Register ignores nil, so the tool is not offered.
 func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	d, ok := toolDefinitions[id]
 	if !ok {
-		return t
+		return nil
 	}
 	if d.Name != "" {
 		t.Name = d.Name
