@@ -1,0 +1,11 @@
+version: 1.0.0
+category: web
+description: Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.
+constraints: 60s timeout; never scrape the same URL twice in a turn; fails on authenticated/private URLs; may be blocked by some sites
+outputFormat: HTML page converted to markdown text
+seeAlso: web_search, wikipedia, http_request
+parameters:
+  url:
+    type: string
+    description: The full URL (including https://) to fetch and extract text from
+    required: true

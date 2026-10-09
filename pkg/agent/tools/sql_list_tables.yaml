@@ -1,0 +1,6 @@
+version: 1.0.0
+description: List all tables in a SQLite database. Use this to discover available data before querying. Returns a newline-separated list of table names.
+parameters:
+  db_path:
+    type: string
+    description: Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.

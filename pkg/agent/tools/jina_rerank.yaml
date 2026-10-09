@@ -1,0 +1,17 @@
+version: 1.0.0
+description: Rerank a list of documents by relevance to a query using Jina AI's reranking API. Requires JINA_API_KEY.
+parameters:
+  documents:
+    type: string
+    description: JSON array of document texts to rerank
+    required: true
+  model:
+    type: string
+    description: 'Jina rerank model (default: jina-reranker-v2-base-multilingual)'
+  query:
+    type: string
+    description: The search query to rank documents against
+    required: true
+  top_n:
+    type: number
+    description: 'Number of top results to return (default: 5)'

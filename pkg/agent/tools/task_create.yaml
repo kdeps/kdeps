@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Create a new task in the global task registry. Returns the task ID. Use for tracking discrete work items that may span multiple LLM turns.
+parameters:
+  description:
+    type: string
+    description: Short human-readable description of the task
+    required: true
+  prompt:
+    type: string
+    description: The task prompt or description of work to do
+    required: true

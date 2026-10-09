@@ -122,21 +122,8 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	var mu sync.Mutex
 	settled := false
 	verdict := approve
-	judgeRegistry.Register(&kdepstools.Tool{
+	judgeRegistry.Register(defined(&kdepstools.Tool{
 		Name: "judge_verdict",
-		Description: "Settle your review of the candidate output. Must be called " +
-			"exactly once, when your review is complete.",
-		Parameters: map[string]domain.ToolParam{
-			"approved": {
-				Type:        "boolean",
-				Description: "true if the output meets your criteria",
-				Required:    true,
-			},
-			"feedback": {
-				Type:        toolParamString,
-				Description: "Required when approved is false: what specifically to fix",
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			approved, _ := args["approved"].(bool)
 			feedback, _ := args["feedback"].(string)
@@ -147,7 +134,7 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 			cancel()
 			return "verdict recorded", nil
 		},
-	})
+	}))
 
 	maxRounds := spec.MaxRounds
 	if maxRounds <= 0 {

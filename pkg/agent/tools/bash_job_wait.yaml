@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Wait for a background bash job (from bash_exec backgrounded via Ctrl+Z) to complete and return its full output. Use the job_id from the bash_exec backgrounded result.
+parameters:
+  job_id:
+    type: number
+    description: Job ID returned by bash_exec when backgrounded
+    required: true

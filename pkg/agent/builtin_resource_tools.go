@@ -49,19 +49,8 @@ func registerResourceTools(ctx context.Context, reg *kdepstools.Registry) {
 func registerHTTPTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execHTTP.NewExecutor()
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "http_request",
-		Description: "Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout.",
-		Parameters: map[string]domain.ToolParam{
-			"url": {Type: toolParamString, Description: "The URL to request", Required: true},
-			"method": {
-				Type:        toolParamString,
-				Description: "HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET",
-			},
-			"headers":     {Type: "object", Description: "HTTP headers as key-value pairs"},
-			toolParamData: {Type: "object", Description: "Request body as JSON (for POST/PUT/PATCH)"},
-			"timeout":     {Type: toolParamString, Description: "Request timeout, e.g. '30s'. Default: 30s"},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "http_request",
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.HTTPClientConfig{}
 			if v, ok := args["url"].(string); ok {
@@ -90,7 +79,7 @@ func registerHTTPTool(_ context.Context, reg *kdepstools.Registry) {
 			out, _ := json.MarshalIndent(result, "", "  ")
 			return string(out), nil
 		},
-	})
+	}))
 }
 
 // registerSearchLocalTool registers a local file search tool (search_local).
@@ -101,54 +90,23 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 
 	fmt.Fprintln(os.Stderr, "searchLocal: files auto-indexed on read/search — /search index for full pre-index")
 
-	reg.Register(&kdepstools.Tool{
-		Name:        toolNameSearchLocal,
-		Description: "Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).",
-		Parameters: map[string]domain.ToolParam{
-			toolParamPath: {
-				Type:        toolParamString,
-				Description: "Directory to search in (absolute path)",
-				Required:    true,
-			},
-			toolParamQuery: {Type: toolParamString, Description: "Search term or regex pattern", Required: true},
-			"glob":         {Type: toolParamString, Description: "File glob filter, e.g. '*.go', '*.py'"},
-			"limit":        {Type: toolParamNumber, Description: "Maximum number of results. Default: 3"},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: toolNameSearchLocal,
 		Execute: func(args map[string]any) (string, error) {
 			query, _ := args[toolParamQuery].(string)
 			return trackCodeCall(query, func() (string, error) {
 				return executeSearchLocal(exec, args)
 			})
 		},
-	})
+	}))
 }
 
 // registerTranscribeTool registers an audio transcription tool (transcribe_audio).
 func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execTranscribe.NewExecutor()
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "transcribe_audio",
-		Description: "Transcribe an audio or video file to text. Whisper API backends (openai, groq, local) support mp3, mp4, mpeg, mpga, m4a, wav, webm; the whisper-cpp backend runs entirely offline (no API key, no network after the model is cached) and supports flac, mp3, ogg, wav only. Returns the transcribed text. Requires: file (absolute path to audio file). Optional: model (default whisper-1), backend (openai, groq, local, whisper-cpp), modelPath (whisper-cpp only -- overrides the auto-downloaded default model).",
-		Parameters: map[string]domain.ToolParam{
-			"file": {
-				Type:        toolParamString,
-				Description: "Absolute path to the audio/video file to transcribe",
-				Required:    true,
-			},
-			toolParamModel: {
-				Type:        toolParamString,
-				Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3. Ignored for whisper-cpp.",
-			},
-			"backend": {
-				Type:        toolParamString,
-				Description: "Provider: openai (default), groq, local, or whisper-cpp (offline, no API key)",
-			},
-			"modelPath": {
-				Type:        toolParamString,
-				Description: "whisper-cpp only: absolute path to a GGML model file. Default: auto-downloaded ggml-base.en.bin",
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "transcribe_audio",
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.TranscribeConfig{}
 			if v, ok := args["file"].(string); ok {
@@ -174,27 +132,15 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 			out, _ := json.MarshalIndent(result, "", "  ")
 			return string(out), nil
 		},
-	})
+	}))
 }
 
 // registerOCRTool registers an image text-extraction tool (ocr_image).
 func registerOCRTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execOCR.NewExecutor()
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "ocr_image",
-		Description: "Extract text from an image via tesseract OCR. Runs entirely locally -- no API key required. Supports png, jpg/jpeg, tiff, bmp, gif. Requires: file (absolute path to the image). Optional: language (tesseract -l value, e.g. 'eng' or 'eng+fra'; default 'eng'). Does not support PDF -- use load_document with type pdf for text-layer PDFs.",
-		Parameters: map[string]domain.ToolParam{
-			"file": {
-				Type:        toolParamString,
-				Description: "Absolute path to the image to extract text from",
-				Required:    true,
-			},
-			"language": {
-				Type:        toolParamString,
-				Description: "tesseract -l value, e.g. 'eng' or 'eng+fra'. Default: eng",
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "ocr_image",
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.OCRConfig{}
 			if v, ok := args["file"].(string); ok {
@@ -214,31 +160,15 @@ func registerOCRTool(_ context.Context, reg *kdepstools.Registry) {
 			out, _ := json.MarshalIndent(result, "", "  ")
 			return string(out), nil
 		},
-	})
+	}))
 }
 
 // registerLoaderTool registers a document loader tool (load_document).
 func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execLoader.NewExecutor()
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "load_document",
-		Description: "Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, pdfcpu), DOCX/EPUB/RTF/ODT (pandoc), HTML (goquery, lynx), CSV, text, directory, notion, markdown (textutil). Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
-		Parameters: map[string]domain.ToolParam{
-			"source": {
-				Type:        toolParamString,
-				Description: "Absolute path to the document file",
-				Required:    true,
-			},
-			"type": {
-				Type:        toolParamString,
-				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, html, html_lynx, csv, text, textutil, directory, notion. Auto-detected from the file extension if omitted. pdf=Go lib, pdf_pdftotext=poppler, pdf_cpu=pdfcpu, pandoc=universal, docx/epub/rtf/odt=pandoc, html_lynx=lynx, textutil=macOS.",
-			},
-			"chunkSize": {
-				Type:        toolParamNumber,
-				Description: "Split into chunks of this many characters (for RAG). 0 = no splitting.",
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "load_document",
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.LoaderConfig{}
 			if v, ok := args["source"].(string); ok {
@@ -261,7 +191,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 			out, _ := json.MarshalIndent(result, "", "  ")
 			return string(out), nil
 		},
-	})
+	}))
 }
 
 // registerEmbeddingTools registers embedding tools (embedding_vectorize, embedding_search).
@@ -269,56 +199,23 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 	exec := execEmbedding.NewExecutor()
 
 	embedTools := []struct {
-		name, desc, op string
-		params         map[string]domain.ToolParam
+		name, op string
 	}{
 		{
 			name: "embedding_search",
-			desc: "Search for documents semantically similar to a query in the local embedding database. Returns ranked results with similarity scores. Requires: query (natural language search query), collection (name of the document collection). Optional: limit (max results, default 5).",
 			op:   "search",
-			params: map[string]domain.ToolParam{
-				toolParamQuery: {
-					Type:        toolParamString,
-					Description: "Natural language search query",
-					Required:    true,
-				},
-				"collection": {
-					Type:        toolParamString,
-					Description: "Name of the document collection to search",
-					Required:    true,
-				},
-				"limit": {
-					Type:        toolParamNumber,
-					Description: "Maximum number of results. Default: 5",
-				},
-			},
 		},
 		{
 			name: "embedding_vectorize",
-			desc: "Convert text into vector embeddings using an embedding model. Returns the embedding vectors. Use for indexing documents into the local embedding database or computing semantic similarity. Requires: texts (list of strings to embed). Optional: model, backend.",
 			op:   "vectorize",
-			params: map[string]domain.ToolParam{
-				"texts": {
-					Type:        "array",
-					Description: "List of text strings to convert to embeddings",
-					Required:    true,
-				},
-				toolParamModel: {
-					Type:        toolParamString,
-					Description: "Embedding model, e.g. text-embedding-3-small",
-				},
-				"backend": {Type: toolParamString, Description: "Backend: openai, ollama, google"},
-			},
 		},
 	}
 
 	for _, et := range embedTools {
-		reg.Register(&kdepstools.Tool{
-			Name:        et.name,
-			Description: et.desc,
-			Parameters:  et.params,
-			Execute:     makeEmbeddingExecute(exec, et.op),
-		})
+		reg.Register(defined(&kdepstools.Tool{
+			Name:    et.name,
+			Execute: makeEmbeddingExecute(exec, et.op),
+		}))
 	}
 }
 

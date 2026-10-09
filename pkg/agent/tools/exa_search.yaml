@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Search the web using Exa (formerly Metaphor) neural search. Finds highly relevant URLs and content using AI-powered link prediction. Best for research, finding authoritative sources, and content discovery. Requires EXA_API_KEY.
+parameters:
+  query:
+    type: string
+    description: The search query or prompt to find relevant links for
+    required: true

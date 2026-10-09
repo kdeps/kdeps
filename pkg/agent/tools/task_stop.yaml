@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Stop a running or created task. Sets its status to stopped. Returns success or not-found.
+parameters:
+  task_id:
+    type: string
+    description: The task ID to stop
+    required: true

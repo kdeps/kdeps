@@ -1,0 +1,6 @@
+version: 1.0.0
+description: List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Omit path to list the current working directory.
+parameters:
+  path:
+    type: string
+    description: Absolute path to the directory to list. Omit to list the current working directory.

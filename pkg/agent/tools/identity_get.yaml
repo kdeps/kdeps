@@ -1,0 +1,4 @@
+version: 1.0.0
+category: agent
+description: 'Return this agent''s configured identity: name, email, and mailing address. Use this to answer questions about who you are, or to sign outputs (commits, emails) as this agent. Never returns credentials.'
+outputFormat: plain text

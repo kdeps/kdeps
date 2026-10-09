@@ -32,7 +32,6 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -110,144 +109,11 @@ func popEditHistory(path string) (string, bool) {
 const editReviewSuffix = "\nReview the snippet and make sure the change is what you intended. " +
 	"Edit again if it is not."
 
-// editFileParams is the edit_file tool's parameter schema, split out of
-// registerEditFile to keep that function under the linter's length limit.
-func editFileParams() map[string]domain.ToolParam {
-	return map[string]domain.ToolParam{
-		"command": {
-			Type:        toolParamString,
-			Description: "view | str_replace | insert | patch | replace_symbol | undo_edit",
-			Required:    true,
-			Enum:        []string{"view", "str_replace", "insert", "patch", "replace_symbol", "undo_edit"},
-		},
-		toolParamFilePath: {
-			Type:        toolParamString,
-			Description: "Absolute path to the file",
-			Required:    true,
-		},
-		"old_str": {
-			Type:        toolParamString,
-			Description: "str_replace: the exact current text to replace (byte-for-byte, unique in the file)",
-		},
-		"new_str": {
-			Type:        toolParamString,
-			Description: "str_replace: the replacement text. insert: the text to insert.",
-		},
-		"occurrence": {
-			Type: toolParamNumber,
-			Description: "str_replace: 1-based index of which match to replace when old_str is not " +
-				"unique (see the error's line list)",
-		},
-		"start_anchor": {
-			Type: toolParamString,
-			Description: "str_replace: replace from start_anchor through end_anchor (inclusive) " +
-				"instead of passing the whole block as old_str. Must be unique in the file.",
-		},
-		"end_anchor": {
-			Type:        toolParamString,
-			Description: "str_replace: the end of the start_anchor/end_anchor range. Required with start_anchor.",
-		},
-		"insert_line": {
-			Type:        toolParamNumber,
-			Description: "insert: line number to insert after (0 = top of file)",
-		},
-		"insert_before_anchor": {
-			Type: toolParamString,
-			Description: "insert: insert new_str directly before this unique string's line, instead of " +
-				"passing insert_line",
-		},
-		"insert_after_anchor": {
-			Type: toolParamString,
-			Description: "insert: insert new_str directly after this unique string's line, instead of " +
-				"passing insert_line",
-		},
-		"view_range": {
-			Type:        "array",
-			ItemsType:   toolParamNumber,
-			Description: "view: [start, end] 1-based inclusive line range; end -1 reads to the end of the file",
-		},
-		"anchor": {
-			Type:        toolParamString,
-			Description: "view: show the region around this unique string instead of a line range",
-		},
-		"symbol": {
-			Type: toolParamString,
-			Description: "view/replace_symbol: a function/type/class/etc. name. Its extent is found " +
-				"lexically (brace depth or indentation) - must be declared exactly once in the file.",
-		},
-		"symbol_kind": {
-			Type: toolParamString,
-			Description: "view/replace_symbol: narrow which declaration keywords count as a match, e.g. " +
-				"\"function\" or \"type\" - only useful when a function and a type share a name",
-		},
-		"context_before": {
-			Type:        toolParamNumber,
-			Description: "view: lines of context before an anchor match (default 20)",
-		},
-		"context_after": {
-			Type:        toolParamNumber,
-			Description: "view: lines of context after an anchor match (default 20)",
-		},
-		"patch": {
-			Type: toolParamString,
-			Description: "patch: a unified diff with one or more @@ hunks. Each hunk's context and " +
-				"removed lines must match the file byte-for-byte and appear exactly once.",
-		},
-		"revision": {
-			Type: toolParamString,
-			Description: "str_replace/insert/patch/replace_symbol: the file's revision from your last " +
-				"view/edit of it. If the file changed since then, the edit is rejected instead of " +
-				"silently overwriting the change.",
-		},
-		"dry_run": {
-			Type: toolParamBoolean,
-			Description: "str_replace/insert/patch/replace_symbol: preview the result (diff + would-be " +
-				"revision) without writing the file",
-		},
-		"validate_syntax": {
-			Type: toolParamBoolean,
-			Description: "str_replace/insert/patch/replace_symbol: reject the edit (nothing is written) if " +
-				"the resulting file fails a syntax check. Real parsing for .go/.json/.yaml/.yml; a " +
-				"balanced-delimiter check for other common source files; a no-op for unrecognized file types.",
-		},
-	}
-}
-
 // registerEditFile registers the command-dispatched file editor as edit_file.
 func registerEditFile(reg *kdepstools.Registry) {
-	tool := &kdepstools.Tool{
+	tool := defined(&kdepstools.Tool{
 		Name: toolNameEditFile,
-		Description: "Edit a file. Pass command:\n" +
-			"- view: show the file, or the view_range [start,end] (1-based, -1 = end), or the region " +
-			"around an anchor string or a named symbol (context_before/context_after lines, default " +
-			"20), with line numbers.\n" +
-			"- str_replace: replace old_str with new_str. old_str MUST match the file byte-for-byte " +
-			"(indentation and all) and appear EXACTLY ONCE - copy it from a view or read_file, or pass " +
-			"occurrence to pick one of several matches. Instead of old_str you can pass start_anchor/" +
-			"end_anchor to replace everything between two unique anchor strings. No fuzzy matching.\n" +
-			"- insert: insert new_str after line insert_line (0 = before the first line), or pass " +
-			"insert_before_anchor/insert_after_anchor instead of a line number.\n" +
-			"- patch: apply a standard unified diff (one or more @@ hunks) atomically. Each hunk's " +
-			"context+removed lines must match the file byte-for-byte and appear exactly once.\n" +
-			"- replace_symbol: replace a whole function/type/class/etc. by symbol name with new_str. " +
-			"The symbol must be declared exactly once in the file; its extent (where the block ends) " +
-			"is found lexically (brace depth or indentation), not with a language parser.\n" +
-			"- undo_edit: revert the last mutation on this file.\n" +
-			"str_replace, insert, patch, and replace_symbol require that you have read the file this " +
-			"turn, and return a numbered snippet of the changed region plus the file's new revision. " +
-			"Pass revision (from a prior view/edit) to reject the edit if the file changed since you " +
-			"read it. Pass dry_run to preview the result without writing. Pass validate_syntax to " +
-			"reject a result that fails a syntax check instead of writing it. Absolute path required.",
-		Category:     "code",
-		OutputFormat: "numbered snippet of the edited region plus its revision",
-		Constraints: "read the file this turn before str_replace/insert/patch/replace_symbol; old_str must be " +
-			"byte-exact and unique unless occurrence is given (add surrounding lines to disambiguate instead); " +
-			"replace_symbol's extent detection is lexical, not a parser - an ambiguous or unrecognized " +
-			"declaration errors rather than guessing; validate_syntax runs before any write, so a " +
-			"rejected edit is never written, never needing an undo",
-		SeeAlso:    "read_file, write_file",
-		Parameters: editFileParams(),
-	}
+	})
 	tool.Execute = func(args map[string]any) (string, error) {
 		// Accept the kdeps parameter names (old_string/new_string/path) directly,
 		// not only when the loop's pre-dispatch normalization ran.

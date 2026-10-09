@@ -1,0 +1,13 @@
+version: 1.0.0
+description: 'Graph every indexed file tagged with a topic, plus the full reference graph. Requires an index built with code_index_folder first. Requires: topic.'
+parameters:
+  graphDBPath:
+    type: string
+    description: Graph index db path used by code_index_folder. Defaults to graph.db in the data dir under ~/.kdeps/projects of path, or of the working folder when path is omitted.
+  path:
+    type: string
+    description: Indexed folder root, used to locate the default graph db path. Defaults to the CWD (where code_index_folder built the index).
+  topic:
+    type: string
+    description: Topic/tag to graph, as declared in a file's frontmatter
+    required: true

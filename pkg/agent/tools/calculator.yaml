@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.
+parameters:
+  expression:
+    type: string
+    description: The mathematical expression to evaluate
+    required: true

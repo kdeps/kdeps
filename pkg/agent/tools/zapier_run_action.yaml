@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Execute a Zapier NLA action by action ID with natural language instructions. First use zapier_list_actions to find available action IDs. Requires ZAPIER_NLA_API_KEY.
+parameters:
+  action_id:
+    type: string
+    description: The Zapier NLA action ID to execute (from zapier_list_actions)
+    required: true
+  instructions:
+    type: string
+    description: Natural language instructions describing what to do with this action
+    required: true

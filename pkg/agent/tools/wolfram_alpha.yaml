@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Query Wolfram Alpha for factual computations, math, science, unit conversions, and data lookups. Returns a concise plain-text answer. Requires WOLFRAM_APP_ID.
+parameters:
+  query:
+    type: string
+    description: The question or computation to evaluate (e.g. 'integral of x^2', 'population of France', '42 miles in km')
+    required: true

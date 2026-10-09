@@ -1,0 +1,11 @@
+version: 1.0.0
+description: 'Get documentation and type info for a symbol. Returns doc comments and type signatures. Requires: symbol, path.'
+parameters:
+  path:
+    type: string
+    description: File containing the symbol (absolute path)
+    required: true
+  symbol:
+    type: string
+    description: Symbol name to get documentation for
+    required: true

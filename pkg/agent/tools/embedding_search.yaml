@@ -1,0 +1,14 @@
+version: 1.0.0
+description: 'Search for documents semantically similar to a query in the local embedding database. Returns ranked results with similarity scores. Requires: query (natural language search query), collection (name of the document collection). Optional: limit (max results, default 5).'
+parameters:
+  collection:
+    type: string
+    description: Name of the document collection to search
+    required: true
+  limit:
+    type: number
+    description: 'Maximum number of results. Default: 5'
+  query:
+    type: string
+    description: Natural language search query
+    required: true

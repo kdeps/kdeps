@@ -1,0 +1,10 @@
+version: 1.0.0
+description: Return the schema (column names and types) for a table in a SQLite database. Use before writing queries to know the exact column names.
+parameters:
+  db_path:
+    type: string
+    description: Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.
+  table:
+    type: string
+    description: Name of the table to describe
+    required: true

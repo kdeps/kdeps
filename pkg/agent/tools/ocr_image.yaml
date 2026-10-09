@@ -1,0 +1,10 @@
+version: 1.0.0
+description: 'Extract text from an image via tesseract OCR. Runs entirely locally -- no API key required. Supports png, jpg/jpeg, tiff, bmp, gif. Requires: file (absolute path to the image). Optional: language (tesseract -l value, e.g. ''eng'' or ''eng+fra''; default ''eng''). Does not support PDF -- use load_document with type pdf for text-layer PDFs.'
+parameters:
+  file:
+    type: string
+    description: Absolute path to the image to extract text from
+    required: true
+  language:
+    type: string
+    description: 'tesseract -l value, e.g. ''eng'' or ''eng+fra''. Default: eng'

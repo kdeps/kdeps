@@ -1,0 +1,10 @@
+version: 1.0.0
+description: Retrieve semantically relevant text chunks from the configured RAG index. Use for finding code, documentation, or notes related to a query before implementing or answering. Requires KDEPS_RAG_BASE_URL pointing to a compatible RAG service.
+parameters:
+  query:
+    type: string
+    description: The search query to find relevant context for
+    required: true
+  top_k:
+    type: number
+    description: 'Number of results to return (default: 5, max: 32)'

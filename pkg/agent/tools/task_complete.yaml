@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Mark a task as completed. Call this when a task's work is done.
+parameters:
+  task_id:
+    type: string
+    description: The task ID to mark complete
+    required: true

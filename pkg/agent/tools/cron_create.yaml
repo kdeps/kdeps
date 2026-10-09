@@ -1,0 +1,19 @@
+version: 1.0.0
+description: Create a new scheduled cron job. The job will fire at the given cron expression and create a task each time it fires. Returns the cron ID.
+parameters:
+  expression:
+    type: string
+    description: Cron expression (e.g. '0 */6 * * *' for every 6 hours). Standard 5-field POSIX cron.
+    required: true
+  name:
+    type: string
+    description: Human-readable cron job name
+    required: true
+  task_description:
+    type: string
+    description: Description template for created tasks
+    required: true
+  task_prompt:
+    type: string
+    description: Prompt template for the task created when this cron fires
+    required: true

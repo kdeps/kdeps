@@ -1,0 +1,3 @@
+version: 1.0.0
+description: List all approval tokens, their statuses, and scopes.
+parameters: {}

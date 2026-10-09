@@ -1,0 +1,11 @@
+version: 1.0.0
+category: web
+description: Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.
+constraints: requires PERPLEXITY_API_KEY; slower and more expensive than web_search; use sparingly
+outputFormat: AI-generated answer with citations
+seeAlso: web_search, web_scraper
+parameters:
+  query:
+    type: string
+    description: The search query or question to answer using Perplexity AI
+    required: true

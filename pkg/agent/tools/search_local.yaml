@@ -1,0 +1,17 @@
+version: 1.0.0
+description: 'Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).'
+parameters:
+  glob:
+    type: string
+    description: File glob filter, e.g. '*.go', '*.py'
+  limit:
+    type: number
+    description: 'Maximum number of results. Default: 3'
+  path:
+    type: string
+    description: Directory to search in (absolute path)
+    required: true
+  query:
+    type: string
+    description: Search term or regex pattern
+    required: true
