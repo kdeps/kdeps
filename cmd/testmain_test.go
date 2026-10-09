@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 		_ = os.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
 	}
 	_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
+	// No asset downloads from tests: the first-run download would reach the network.
+	_ = os.Setenv("KDEPS_ASSETS_URL", "off")
 	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
 	// Isolate config loading from the developer's real ~/.kdeps/config.yaml:
 	// any test that runs a workflow applies config values to the process env

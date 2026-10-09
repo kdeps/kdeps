@@ -219,6 +219,30 @@ kdeps --upgrade --target-version 2.35.0
 
 ---
 
+## `kdeps update`
+
+Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, LLM server recipes and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+
+```bash
+kdeps update                          # every item to its newest version
+kdeps update harness                  # every item in one set
+kdeps update harness/safety           # one item to its newest version (unpins it)
+kdeps update harness/safety@1.2.0     # exactly that version, pinned (older = downgrade)
+kdeps update --check                  # list available updates, change nothing
+kdeps update --list                   # every item, its version and state
+kdeps update --remove themes/vim      # remove items (restore with: kdeps update themes/vim)
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `--check` | List available updates without installing them | `false` |
+| `--list` | List every asset with its version and state (`built-in`, `downloaded`, `pinned`, `removed`) | `false` |
+| `--remove` | Remove assets (`set/name`, comma-separated or repeated) | `[]` |
+
+---
+
 ## `kdeps chat`
 
 Interactive AI assistant that generates and runs kdeps workflows from natural language.

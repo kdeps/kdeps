@@ -290,7 +290,28 @@ window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth =
 window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("drop").hidden = true; });
 window.addEventListener("dragover", (e) => e.preventDefault());
 
+// Published asset updates (harness, tool definitions, themes, templates) show
+// as a topbar button; clicking it runs /update like a typed command.
+async function showAssetUpdates() {
+  const notice = await api.AssetUpdateNotice();
+  const btn = $("update-btn");
+  btn.hidden = !notice;
+  btn.title = notice;
+}
+
+async function runAssetUpdate() {
+  $("update-btn").hidden = true;
+  addMessage("user", "/update");
+  state.turn = null;
+  state.cmd = null;
+  try {
+    await api.Command("/update");
+    setRunning(true);
+  } catch (e) { addMessage("error", String(e)); }
+}
+
 $("composer").addEventListener("submit", send);
+$("update-btn").addEventListener("click", runAssetUpdate);
 $("input").addEventListener("keydown", (ev) => {
   if (suggestHandleKey(ev)) return;
   if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("composer").requestSubmit(); }
@@ -315,5 +336,5 @@ rt.EventsOn("kdeps:files", (paths) => {
   addFiles(paths);
   if (!$("input").value.trim() && !$("send").hidden) $("composer").requestSubmit();
 });
-api.Ready().then(async () => { await refreshWorkspace(); refreshSessions(); })
+api.Ready().then(async () => { await refreshWorkspace(); refreshSessions(); showAssetUpdates(); })
   .catch((e) => addMessage("error", "startup failed: " + e));

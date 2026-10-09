@@ -73,6 +73,9 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/agent/tools#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl-updating#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl-updating#nightly-builds)) |
+| `/update [item[@version]...]` | Update harness, tool definitions, themes, recipes and templates; no args updates everything (see [Updating assets](/agent/repl-updating#updating-assets)) |
+| `/update check` \| `/update list` | Show available asset updates \| every asset with its version and state |
+| `/update remove <item>...` | Remove assets; restore one with `/update <item>` |
 | `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl-updating#installing-a-specific-version-including-a-downgrade)) |
 | `/handshake [on\|off]` | Show or toggle the mandatory session-integrity tool-call check. Turning it on verifies the current model immediately, before your next prompt, then again on every model change/resume/compaction/fold (off by default, persists across sessions - see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)) |
 | `/harness [list]` | List harness sections (the system-prompt text sent every turn) with their enabled/disabled state |

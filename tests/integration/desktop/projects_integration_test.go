@@ -47,6 +47,8 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(0)
 	}
+	// No asset downloads from tests: the first-run download would reach the network.
+	_ = os.Setenv("KDEPS_ASSETS_URL", "off")
 	os.Exit(m.Run())
 }
 

@@ -113,7 +113,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/update", "/konfig",
 	"/login", "/theme", "/refine", "/efficiency", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
 }
 
@@ -2575,6 +2575,9 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, r.cmdInstruct(false, args)
 	case "/instruct!":
 		return true, r.cmdInstruct(true, args)
+	case "/update":
+		r.cmdUpdate(args)
+		return true, nil
 	}
 	return false, nil
 }
@@ -2658,6 +2661,9 @@ func (r *REPL) cmdHelp() error {
 		"  /upgrade                           Check for and install the latest stable kdeps release",
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
 		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
+		"  /update [item[@version]...]        Update harness, tool definitions, themes, templates (no args: all)",
+		"  /update check | list               Show available updates | every asset and its version",
+		"  /update remove <item>...           Remove assets (restore with /update <item>)",
 		"  /efficiency [on|off|verbose|<setting> <n>|preset <name>|reset]  Show or tune efficiency enforcement (soft stops on read-only loops; persists)",
 		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
 		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
