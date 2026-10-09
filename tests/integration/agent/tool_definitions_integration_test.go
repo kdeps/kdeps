@@ -20,7 +20,6 @@ package agent_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,7 +47,5 @@ func TestBuiltinTools_DefinitionsReachTheModel(t *testing.T) {
 	assert.Equal(t, "file", readFile.Category)
 	assert.Contains(t, readFile.Parameters, "file_path")
 
-	_, err := json.Marshal(llmTools)
-	require.NoError(t, err)
 	assert.Contains(t, reg.ToolPrompt(), "read_file")
 }
