@@ -1,0 +1,15 @@
+version: 1.0.0
+name: task_complete
+description: Mark the ACTIVE task finished and advance to the next one. Call this as soon as the active task's objective is met. Pass the active task's id and a one-line summary of what was achieved.
+parameters:
+  evidence:
+    type: string
+    description: What verification was run and what it showed (e.g. 'ran go test ./pkg/foo, 12 passed', 'diffed output.txt before/after, matches expected'). Required when this task made tool calls; omit for a pure-reasoning task with nothing to verify.
+  id:
+    type: integer
+    description: The id of the active task being completed
+    required: true
+  summary:
+    type: string
+    description: One line describing what was accomplished
+    required: true

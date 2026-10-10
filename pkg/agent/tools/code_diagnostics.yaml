@@ -1,0 +1,7 @@
+version: 1.0.0
+description: 'Get compiler/linter diagnostics for a file. Returns errors, warnings, hints. Requires: path.'
+parameters:
+  path:
+    type: string
+    description: File to check (absolute path)
+    required: true

@@ -131,17 +131,8 @@ func (l *Loop) registerSessionHandshakeTool() {
 	if l.registry == nil {
 		return
 	}
-	l.registry.Register(&tools.Tool{
+	l.registry.Register(defined(&tools.Tool{
 		Name: "session_handshake",
-		Description: "This tool is real, registered, and available to you right now -- call it " +
-			"when a <session-integrity-check> directive asks for it, with the exact code it " +
-			"gives you. It's an internal integrity check, so there's no reason to call it " +
-			"unprompted, but if a directive just asked for it, that call is expected and safe.",
-		Category: "agent",
-		Parameters: map[string]domain.ToolParam{
-			"code": {Type: "string", Description: "The exact 4-digit code from the directive.", Required: true},
-		},
-		OutputFormat: "plain text",
 		Execute: func(args map[string]interface{}) (string, error) {
 			code := handshakeCodeArg(args["code"])
 			if l.handshake != nil {
@@ -149,7 +140,7 @@ func (l *Loop) registerSessionHandshakeTool() {
 			}
 			return handshakeAck(code), nil
 		},
-	})
+	}))
 }
 
 // handshakeCodeArg coerces the session_handshake tool's "code" argument to a

@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Append text to a task's output log. Use for recording intermediate results.
+parameters:
+  task_id:
+    type: string
+    description: The task ID to append output to
+    required: true
+  text:
+    type: string
+    description: Text to append to the task output
+    required: true

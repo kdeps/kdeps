@@ -526,20 +526,8 @@ func (l *Loop) registerSkillLoader() {
 	if !hasVisible {
 		return
 	}
-	l.registry.Register(&tools.Tool{
+	l.registry.Register(defined(&tools.Tool{
 		Name: "load_skill",
-		Description: "Load the full instructions for a named skill. Call this when the " +
-			"user's task matches one of the skills listed in <available_skills>. Returns " +
-			"the skill's complete instructions to follow.",
-		Category:     "agent",
-		OutputFormat: "the skill's full instruction text",
-		Parameters: map[string]domain.ToolParam{
-			"name": {
-				Type:        "string",
-				Description: "The exact skill name from <available_skills>",
-				Required:    true,
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			name, _ := args["name"].(string)
 			if name == "" {
@@ -558,7 +546,7 @@ func (l *Loop) registerSkillLoader() {
 			}
 			return content, nil
 		},
-	})
+	}))
 }
 
 // registerIdentityTool registers identity_get so the LLM can answer "who are
@@ -571,13 +559,8 @@ func (l *Loop) registerIdentityTool() {
 	if l.registry == nil {
 		return
 	}
-	l.registry.Register(&tools.Tool{
+	l.registry.Register(defined(&tools.Tool{
 		Name: "identity_get",
-		Description: "Return this agent's configured identity: name, email, and " +
-			"mailing address. Use this to answer questions about who you are, or to " +
-			"sign outputs (commits, emails) as this agent. Never returns credentials.",
-		Category:     "agent",
-		OutputFormat: "plain text",
 		Execute: func(map[string]any) (string, error) {
 			id := l.config.Identity
 			if id == nil || (id.Name == "" && id.Email == "" && id.Address == "") {
@@ -595,7 +578,7 @@ func (l *Loop) registerIdentityTool() {
 			}
 			return strings.TrimSpace(b.String()), nil
 		},
-	})
+	}))
 }
 
 // Store returns the session store, or nil if none was configured.

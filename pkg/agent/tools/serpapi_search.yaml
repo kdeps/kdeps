@@ -1,0 +1,11 @@
+version: 1.0.0
+category: web
+description: Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.
+constraints: requires SERPAPI_API_KEY; use only when web_search results are stale
+outputFormat: JSON search results with title, url, snippet
+seeAlso: web_search, web_scraper
+parameters:
+  query:
+    type: string
+    description: The search query to look up on Google
+    required: true

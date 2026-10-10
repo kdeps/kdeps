@@ -1,0 +1,10 @@
+version: 1.0.0
+description: 'Graph a single indexed file: its reference tree plus every other indexed file that shares a topic with it. Requires an index built with code_index_folder first. Requires: path.'
+parameters:
+  graphDBPath:
+    type: string
+    description: Graph index db path used by code_index_folder. Defaults to graph.db in the working folder's data dir under ~/.kdeps/projects.
+  path:
+    type: string
+    description: Indexed file to graph (absolute path)
+    required: true

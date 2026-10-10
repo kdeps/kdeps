@@ -1,0 +1,15 @@
+version: 1.0.0
+category: file
+description: Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.
+constraints: overwrites entire file — use edit_file for targeted changes; must use absolute path
+outputFormat: confirmation message with bytes written
+seeAlso: edit_file, read_file
+parameters:
+  content:
+    type: string
+    description: Text content to write to the file
+    required: true
+  file_path:
+    type: string
+    description: Absolute path to the file to write
+    required: true

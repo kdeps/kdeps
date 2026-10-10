@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Get a team's details by ID. Returns task IDs, status, and name.
+parameters:
+  team_id:
+    type: string
+    description: The team ID
+    required: true

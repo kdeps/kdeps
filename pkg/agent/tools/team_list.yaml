@@ -1,0 +1,3 @@
+version: 1.0.0
+description: List all teams in the registry.
+parameters: {}

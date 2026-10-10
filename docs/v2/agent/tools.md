@@ -14,6 +14,29 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
 
+## Tool definitions
+
+Each built-in tool's model-facing text is a YAML definition compiled into
+kdeps: the description, category, usage notes and parameter schema the model
+sees. The tool's code only supplies its name and what it runs.
+
+```yaml
+# tools/md5_file.yaml (built-in, shown for reference)
+version: 1.0.0       # bumped whenever the text the model sees changes
+category: file       # section header in the tool list sent to the model
+description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed ...
+seeAlso: read_file, tail_file, list_files   # shown as "See also: ..."
+parameters:
+  file_path:
+    type: string
+    description: Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.
+```
+
+Optional fields: `constraints` (limits and gotchas, shown inline), `outputFormat`
+(what the tool returns), and `name` (the tool name the model sees, when it
+differs from the file name: goal mode's `goal_task_complete.yaml` registers as
+`task_complete`).
+
 ## Parameter-name synonyms
 
 A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. This is scoped to parameter names only: kdeps does not maintain a separate table of alternate *tool* names (e.g. routing a call to `grep` as if it were `search_local`) - the tool list already tells the model the real name to call, and a second, silently-redirecting name for the same tool added maintenance cost without fixing the cases where a model loses track of what tools it has.

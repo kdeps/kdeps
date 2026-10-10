@@ -1,0 +1,3 @@
+version: 1.0.0
+description: List all cron jobs in the registry. Shows expression, status, and last/next run times.
+parameters: {}

@@ -1,0 +1,17 @@
+version: 1.0.0
+description: Rerank a list of documents by relevance to a query using Cohere's reranking API. Returns documents sorted by relevance score. Requires COHERE_API_KEY.
+parameters:
+  documents:
+    type: string
+    description: JSON array of document texts to rerank, e.g. ["doc1", "doc2"]
+    required: true
+  model:
+    type: string
+    description: 'Cohere rerank model (default: rerank-v3.5)'
+  query:
+    type: string
+    description: The search query to rank documents against
+    required: true
+  top_n:
+    type: number
+    description: 'Number of top results to return (default: 5)'

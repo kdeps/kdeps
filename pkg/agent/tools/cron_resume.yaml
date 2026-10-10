@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Resume a paused cron job.
+parameters:
+  cron_id:
+    type: string
+    description: Cron ID to resume
+    required: true

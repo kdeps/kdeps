@@ -1,0 +1,10 @@
+version: 1.0.0
+description: Execute a SQL query against a SQLite database and return the results as formatted text. Use SELECT statements to retrieve data. Non-SELECT statements are rejected for safety.
+parameters:
+  db_path:
+    type: string
+    description: Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.
+  query:
+    type: string
+    description: The SQL SELECT statement to execute
+    required: true
