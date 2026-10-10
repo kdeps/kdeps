@@ -231,6 +231,7 @@ pkg/**/**/*.yaml
 !pkg/agent/tools/*.yaml
 !pkg/templates/templates/*/template.yaml
 !pkg/llmserver/catalog/recipes/*.yaml
+!pkg/executor/llm/models/*.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov

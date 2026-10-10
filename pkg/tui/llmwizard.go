@@ -353,7 +353,7 @@ func pickFromHarvest(engineID, filterType, current string) (string, error) {
 	if len(items) == 0 {
 		return RunTextInput(
 			fmt.Sprintf("Model for %s (harvest empty)", engineID),
-			"Type a model alias or path — run: kdeps llamafile update",
+			"Type a model alias or path — run: kdeps update models",
 			current,
 		)
 	}

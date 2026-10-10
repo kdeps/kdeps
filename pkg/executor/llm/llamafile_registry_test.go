@@ -69,7 +69,7 @@ func TestListLlamafileMappings_NonEmpty(t *testing.T) {
 
 func TestLlamafileRegistryVersion(t *testing.T) {
 	ReloadRegistry()
-	assert.Equal(t, 1, LlamafileRegistryVersion())
+	assert.Equal(t, "1.0.0", LlamafileRegistryVersion())
 }
 
 func TestWriteLocalRegistry_CreatesFile(t *testing.T) {
@@ -113,20 +113,18 @@ func TestWriteLocalRegistry_WritesToHome(t *testing.T) {
 	assert.Contains(t, string(data), "llamafiles:")
 }
 
-func TestLocalRegistrySeedsFromEmbedded(t *testing.T) {
+func TestLocalRegistryNotSeeded(t *testing.T) {
 	home := t.TempDir()
 	origHome := userHomeDirFunc
 	t.Cleanup(func() { userHomeDirFunc = origHome })
 	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
-	// Trigger registry load (seeds the local file via loadLlamafileRegistry).
-	_ = LlamafileAliasNames()
-
-	localPath := filepath.Join(home, ".kdeps", "llamafile_versions.yaml")
-	data, err := os.ReadFile(localPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "llama3.2")
+	// The registry comes from the models asset; the local file holds only
+	// the user's own entries and is not created on load.
+	assert.Contains(t, LlamafileAliasNames(), "llama3.2")
+	_, err := os.Stat(filepath.Join(home, ".kdeps", "llamafile_versions.yaml"))
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestReloadRegistry_PicksUpNewEntries(t *testing.T) {

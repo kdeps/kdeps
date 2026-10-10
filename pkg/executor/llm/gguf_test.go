@@ -410,13 +410,13 @@ func TestLocalGGUFRegistryPath_HomeDirError(t *testing.T) {
 	assert.Empty(t, path)
 }
 
-func TestGGUFRegistry_LoadOrSeed_SeededWhenMissing(t *testing.T) {
+func TestGGUFRegistry_LoadLocal_MissingIsNotCreated(t *testing.T) {
 	dir := t.TempDir()
 	localPath := filepath.Join(dir, ".kdeps", "gguf_versions.yaml")
 
-	result := loadOrSeedLocalGGUFRegistry(localPath)
-	// Returns nil on first call (file didn't exist yet, only seeds it)
-	assert.Nil(t, result)
+	assert.Nil(t, loadLocalGGUFRegistry(localPath))
+	_, err := os.Stat(localPath)
+	assert.True(t, os.IsNotExist(err), "the local file holds only user entries; it is never seeded")
 }
 
 func TestGGUFRegistry_ParseGGUFYAML_Invalid(t *testing.T) {
@@ -447,25 +447,25 @@ func TestModelDownload_SharedHelper_CacheHit(t *testing.T) {
 	assert.Equal(t, dest, path)
 }
 
-func TestLoadOrSeedLocalGGUFRegistry_EmptyPath(t *testing.T) {
-	assert.Nil(t, loadOrSeedLocalGGUFRegistry(""))
+func TestLoadLocalGGUFRegistry_EmptyPath(t *testing.T) {
+	assert.Nil(t, loadLocalGGUFRegistry(""))
 }
 
-func TestLoadOrSeedLocalGGUFRegistry_ReadError(t *testing.T) {
+func TestLoadLocalGGUFRegistry_ReadError(t *testing.T) {
 	// Pass a directory: os.Stat succeeds but os.ReadFile fails.
 	path := t.TempDir()
-	result := loadOrSeedLocalGGUFRegistry(path)
+	result := loadLocalGGUFRegistry(path)
 	assert.Nil(t, result)
 }
 
 func TestMergeGGUFRegistries_NilEmbedded(t *testing.T) {
-	local := &ggufVersions{Version: 1, GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
+	local := &ggufVersions{Version: "1.0.0", GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
 	result := mergeGGUFRegistries(nil, local)
 	require.NotNil(t, result)
 }
 
 func TestMergeGGUFRegistries_NilLocal(t *testing.T) {
-	embedded := &ggufVersions{Version: 1, GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
+	embedded := &ggufVersions{Version: "1.0.0", GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
 	result := mergeGGUFRegistries(embedded, nil)
 	assert.Equal(t, embedded, result)
 }

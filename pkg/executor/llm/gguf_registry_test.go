@@ -81,7 +81,7 @@ func TestListGGUFMappings_NonEmpty(t *testing.T) {
 func TestGGUFRegistryVersion(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	assert.Equal(t, 1, GGUFRegistryVersion())
+	assert.Equal(t, "1.0.0", GGUFRegistryVersion())
 }
 
 func TestGGUFRegistry_LocalOverride(t *testing.T) {

@@ -2661,7 +2661,7 @@ func (r *REPL) cmdHelp() error {
 		"  /upgrade                           Check for and install the latest stable kdeps release",
 		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
 		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
-		"  /update [item[@version]...]        Update harness, tool definitions, themes, templates (no args: all)",
+		"  /update [item[@version]...]        Update harness, tools, themes, models, templates (no args: all)",
 		"  /update check | list               Show available updates | every asset and its version",
 		"  /update remove <item>...           Remove assets (restore with /update <item>)",
 		"  /efficiency [on|off|verbose|<setting> <n>|preset <name>|reset]  Show or tune efficiency enforcement (soft stops on read-only loops; persists)",

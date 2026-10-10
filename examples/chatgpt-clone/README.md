@@ -106,11 +106,11 @@ Get list of available models.
 | qwen3.5:0.8b | 0.8B | Tiny, fast, multilingual (~1.3 GB) |
 | qwen3.5:2b | 2B | Multilingual support (~3 GB) |
 
-Model ids are llamafile registry aliases. List all known aliases (or refresh
-the registry from HuggingFace):
+Model ids are llamafile registry aliases. List all known aliases (or install
+the newest registry):
 ```bash
 kdeps llamafile list
-kdeps llamafile update
+kdeps update models
 ```
 
 To add more models, add their alias to `resources/models.yaml` and the model

@@ -221,7 +221,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## `kdeps update`
 
-Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, LLM server recipes and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, LLM server recipes, model registries and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
 
 ```bash
 kdeps update                          # every item to its newest version
@@ -285,10 +285,10 @@ When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
-kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + GGUF)
+kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. `update` fetches the latest registries from HuggingFace and writes to both `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. Ollama models are discovered from the local `ollama list` output. Local entries are preserved across updates.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output.
 
 ---
 

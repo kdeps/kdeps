@@ -269,13 +269,13 @@ jobs:
         exit 1
 
     # Tests run against the committed llamafile registry
-    # (pkg/executor/llm/llamafile_versions_data.go); the registry is refreshed
+    # (pkg/executor/llm/models/llamafile.yaml); the registry is refreshed
     # and committed by the nightly workflow, never harvested live here.
     - name: Cache llamafile models
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.kdeps/models
-        key: llamafiles-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+        key: llamafiles-${{ hashFiles('pkg/executor/llm/models/llamafile.yaml') }}
 
     - name: Build
       run: make build
@@ -416,7 +416,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.kdeps/models
-          key: llamafiles-windows-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+          key: llamafiles-windows-${{ hashFiles('pkg/executor/llm/models/llamafile.yaml') }}
 
       - name: Build kdeps binary for e2e
         shell: bash

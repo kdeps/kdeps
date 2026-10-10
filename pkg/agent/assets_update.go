@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 const (
@@ -52,6 +53,8 @@ func ReloadAssets() {
 	initEvents()
 	initPresets()
 	toolDefinitions = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
+	executorLLM.ReloadRegistry()
+	executorLLM.ReloadGGUFRegistry()
 }
 
 // EnsureAssets runs the first-run download: when the asset store has never
