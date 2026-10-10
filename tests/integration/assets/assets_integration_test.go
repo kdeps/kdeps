@@ -20,6 +20,7 @@ package assets_test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
 )
 
@@ -67,4 +69,39 @@ func TestRecipes_DownloadedAndRemovedItemsReachTheCatalog(t *testing.T) {
 	require.NoError(t, assets.Reset(root, "recipes/sglang"))
 	_, err = catalog.Get("sglang")
 	require.NoError(t, err)
+}
+
+// TestModels_UpdateReplacesRegistryAndKeepsUserEntries installs a newer
+// models/gguf registry and checks alias resolution: the download replaces the
+// compiled-in registry, and the user's own entries still merge on top.
+func TestModels_UpdateReplacesRegistryAndKeepsUserEntries(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("KDEPS_ASSETS_DIR", root)
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
+	t.Cleanup(llm.ReloadGGUFRegistry)
+
+	items, err := assets.Items("models", root)
+	require.NoError(t, err)
+	ids := make([]string, 0, len(items))
+	for _, it := range items {
+		ids = append(ids, it.ID)
+	}
+	assert.ElementsMatch(t, []string{"models/gguf", "models/llamafile"}, ids)
+	require.Error(t, assets.Remove(root, "models/gguf"), "model registries are required")
+
+	llm.ReloadGGUFRegistry()
+	_, ok := llm.ResolveGGUFAlias("qwen3.6")
+	require.True(t, ok, "compiled-in registry")
+
+	data := []byte("version: 9.0.0\nggufs:\n  - alias: fresh\n    url: https://example.com/fresh.gguf\n")
+	require.NoError(t, assets.Install(root, "models/gguf", data, false))
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".kdeps"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".kdeps", "gguf_versions.yaml"),
+		[]byte("ggufs:\n  - alias: mine\n    url: https://example.com/mine.gguf\n"), 0o600))
+
+	llm.ReloadGGUFRegistry()
+	assert.Equal(t, "9.0.0", llm.GGUFRegistryVersion())
+	assert.Equal(t, []string{"fresh", "mine"}, llm.GGUFAliasNames())
 }

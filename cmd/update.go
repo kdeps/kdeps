@@ -26,12 +26,12 @@ import (
 
 // newUpdateCmd is "kdeps update": update the versioned assets (harness,
 // events, actions, presets, themes, tool definitions, LLM server recipes,
-// project templates). The kdeps binary itself is updated by --upgrade.
+// model registries, project templates). The kdeps binary itself is updated by --upgrade.
 func newUpdateCmd() *cobra.Command {
 	var opts agent.UpdateOptions
 	c := &cobra.Command{
 		Use:   "update [item[@version]...]",
-		Short: "Update harness, tool definitions, themes, recipes and templates",
+		Short: "Update harness, tool definitions, themes, recipes, model registries and templates",
 		Long: `Update kdeps' versioned assets from kdeps.io.
 
   kdeps update                          every item to its newest version
@@ -42,7 +42,7 @@ func newUpdateCmd() *cobra.Command {
   kdeps update --list                   every item, its version and state
   kdeps update --remove themes/dracula  remove items (restore with kdeps update <item>)
 
-Sets: harness, events, actions, presets, themes, tools, recipes, templates.
+Sets: harness, events, actions, presets, themes, tools, recipes, models, templates.
 The kdeps binary itself is updated with kdeps --upgrade.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Items = args

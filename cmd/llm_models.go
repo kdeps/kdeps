@@ -36,11 +36,11 @@ func newLLMModelsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "models",
 		Short: "List available models from the llamafile/GGUF harvest",
-		Long: `Show models available from the embedded and local harvest registries
-(same data as kdeps llamafile list). The wizard model step browses this list.
+		Long: `Show models available from the model registries (same data as
+kdeps llamafile list). The wizard model step browses this list.
 
-Update harvest:
-  kdeps llamafile update
+Update the registries:
+  kdeps update models
 
 Filter:
   kdeps llm models --type llamafile
@@ -75,7 +75,7 @@ func runLLMModels(kind string) error {
 	}
 
 	lfN, ggN := tui.HarvestCounts()
-	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps llamafile update)\n\n", lfN, ggN)
+	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps update models)\n\n", lfN, ggN)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llmModelsPad, ' ', 0)
 	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS")

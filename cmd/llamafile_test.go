@@ -19,8 +19,6 @@
 package cmd
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +29,7 @@ func TestNewLlamafileCmd(t *testing.T) {
 	c := newLlamafileCmd()
 	require.NotNil(t, c)
 	assert.Equal(t, "llamafile", c.Use)
-	assert.Len(t, c.Commands(), 2)
+	assert.Len(t, c.Commands(), 1) // list; the registries update with kdeps update models
 }
 
 func TestNewLlamafileListCmd(t *testing.T) {
@@ -39,13 +37,6 @@ func TestNewLlamafileListCmd(t *testing.T) {
 	require.NotNil(t, c)
 	assert.Equal(t, "list", c.Use)
 	assert.Contains(t, c.Short, "List")
-}
-
-func TestNewLlamafileUpdateCmd(t *testing.T) {
-	c := newLlamafileUpdateCmd()
-	require.NotNil(t, c)
-	assert.Equal(t, "update", c.Use)
-	assert.Contains(t, c.Short, "Update")
 }
 
 func TestRunLlamafileList_RegistryHasEntries(t *testing.T) {
@@ -84,32 +75,4 @@ func TestExtractQuantFromFilename_Unknown(t *testing.T) {
 func TestExtractQuantFromFilename_Empty(t *testing.T) {
 	got := extractQuantFromFilename("")
 	assert.Empty(t, got)
-}
-
-func TestRunLlamafileUpdate_FetchError(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	// Point to unreachable source to force fetch failure.
-	t.Setenv("KDEPS_LLAMAFILE_SOURCE", "http://127.0.0.1:1")
-	err := runLlamafileUpdate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "update failed")
-}
-
-func TestRunLlamafileUpdate_Success(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write(
-			[]byte(
-				"version: 1\nllamafiles:\n  - alias: cli-test-model\n    url: https://cli/test.llamafile\n    size_bytes: 1000\n",
-			),
-		)
-	}))
-	t.Cleanup(srv.Close)
-	t.Setenv("KDEPS_LLAMAFILE_SOURCE", srv.URL)
-
-	err := runLlamafileUpdate()
-	require.NoError(t, err)
 }

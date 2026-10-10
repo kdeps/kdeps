@@ -1,6 +1,6 @@
 # Updating kdeps
 
-`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, themes, recipes and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
+`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
 
 kdeps checks GitHub for a newer stable release at startup (throttled to once every 24 hours, cached at `~/.kdeps/update-check.json`, bounded to 3 seconds) and, if one exists, prints a one-line notice under the banner:
 
@@ -44,6 +44,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `themes` | A REPL color theme | `themes/vim` |
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
+| `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace) | `models/gguf` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
 
 ```d2
@@ -89,7 +90,7 @@ How a version is chosen:
 - Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and the built-in version is used instead.
 - A download is used only while it is newer than the built-in version or pinned, so upgrading the binary never leaves you on older assets.
 
-Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) and the loop's control tools (`goal_task_complete`, `goal_task_fail`, `judge_verdict`, `session_handshake`). Turn a harness section off without removing it with `/harness disable <name>`.
+Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) the loop's control tools (`goal_task_complete`, `goal_task_fail`, `judge_verdict`, `session_handshake`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
 
 Your own overrides still win: files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and the like are layered on top of whatever version is installed.
 

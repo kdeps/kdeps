@@ -47,7 +47,7 @@ type LlamafileEntry struct {
 
 // llamafileVersions is the parsed root of the YAML registry.
 type llamafileVersions struct {
-	Version    int              `yaml:"version"`
+	Version    string           `yaml:"version,omitempty"`
 	Llamafiles []LlamafileEntry `yaml:"llamafiles"`
 }
 
@@ -58,7 +58,8 @@ var (
 	llamafileAliasMap       map[string]string // alias → URL
 )
 
-// localRegistryPath returns the path to the user's local registry override.
+// localRegistryPath returns the path to the user's own llamafile entries
+// (custom URLs), merged over the registry asset.
 // Uses the shared userHomeDirFunc hook (see gguf_registry.go) rather than
 // os.UserHomeDir directly so tests can override it: os.UserHomeDir() reads
 // USERPROFILE on Windows, not HOME, so t.Setenv("HOME", ...) alone has no
@@ -74,37 +75,37 @@ func localRegistryPath() string {
 func loadLlamafileRegistry() {
 	kdeps_debug.Log("enter: loadLlamafileRegistry")
 
-	embedded := parseLlamafileYAML([]byte(defaultLlamafileVersionsYAML))
-	local := loadOrSeedLocalRegistry(localRegistryPath())
-	llamafileRegistryData = mergeLlamafileRegistries(embedded, local)
+	base := parseLlamafileYAML(readModelRegistry(llamafileRegistryItem))
+	local := loadLocalRegistry(localRegistryPath())
+	llamafileRegistryData = mergeLlamafileRegistries(base, local)
 
 	llamafileAliasMap = buildAliasMap(llamafileRegistryData.Llamafiles,
 		func(e LlamafileEntry) string { return e.Alias },
 		func(e LlamafileEntry) string { return e.URL })
 }
 
-// loadOrSeedLocalRegistry reads the local registry file, seeding it from the
-// embedded data when missing. Returns nil when no usable local data exists.
-func loadOrSeedLocalRegistry(localPath string) *llamafileVersions {
-	raw, ok := loadOrSeedLocalFile(localPath, defaultLlamafileVersionsYAML)
+// loadLocalRegistry reads the local registry file. Returns nil when no usable
+// local data exists.
+func loadLocalRegistry(localPath string) *llamafileVersions {
+	raw, ok := loadLocalFile(localPath)
 	if !ok {
 		return nil
 	}
 	return parseLlamafileYAML(raw)
 }
 
-// mergeLlamafileRegistries overlays local entries onto the embedded base.
+// mergeLlamafileRegistries overlays local entries onto the registry asset.
 // Local entries win per alias; local-only entries are appended.
-func mergeLlamafileRegistries(embedded, local *llamafileVersions) *llamafileVersions {
-	if embedded == nil {
-		embedded = &llamafileVersions{Version: 1}
+func mergeLlamafileRegistries(base, local *llamafileVersions) *llamafileVersions {
+	if base == nil {
+		base = &llamafileVersions{}
 	}
 	if local == nil {
-		return embedded
+		return base
 	}
 	return &llamafileVersions{
-		Version: embedded.Version,
-		Llamafiles: mergeByAlias(embedded.Llamafiles, local.Llamafiles,
+		Version: base.Version,
+		Llamafiles: mergeByAlias(base.Llamafiles, local.Llamafiles,
 			func(e LlamafileEntry) string { return e.Alias }),
 	}
 }
@@ -127,15 +128,12 @@ func ensureRegistryLoaded() {
 	loadLlamafileRegistry()
 }
 
-// WriteLocalRegistry writes the given entries to ~/.kdeps/llamafile_versions.yaml.
-// Used by the update command.
+// WriteLocalRegistry writes the user's own entries to
+// ~/.kdeps/llamafile_versions.yaml.
 func WriteLocalRegistry(entries []LlamafileEntry) error {
 	ensureRegistryLoaded()
 
-	v := llamafileVersions{
-		Version:    1,
-		Llamafiles: entries,
-	}
+	v := llamafileVersions{Llamafiles: entries}
 
 	raw, err := yaml.Marshal(&v)
 	if err != nil {
@@ -152,8 +150,8 @@ func WriteLocalRegistry(entries []LlamafileEntry) error {
 	return afero.WriteFile(AppFS, localPath, raw, 0600)
 }
 
-// ReloadRegistry forces a re-read of the registry on the next access.
-// Used after an update.
+// ReloadRegistry re-reads the registry (after `kdeps update models` or a
+// local registration).
 func ReloadRegistry() {
 	llamafileRegistryLoaded = false
 	ensureRegistryLoaded()
@@ -208,8 +206,8 @@ func ListLlamafileMappings() []LlamafileEntry {
 	return llamafileRegistryData.Llamafiles
 }
 
-// LlamafileRegistryVersion returns the version of the loaded registry.
-func LlamafileRegistryVersion() int {
+// LlamafileRegistryVersion is the version of the llamafile registry asset in use.
+func LlamafileRegistryVersion() string {
 	ensureRegistryLoaded()
 	return llamafileRegistryData.Version
 }

@@ -279,20 +279,10 @@ func hfDownloadWithToken(ctx context.Context, rawURL, dest, token string) error 
 // registry is invalidated so the next lookup picks up the new entry.
 func HFRegisterGGUFEntry(entry GGUFEntry) error {
 	localPath := localGGUFRegistryPath()
-	// loadOrSeedLocalFile creates the file on first call but returns false.
-	// Re-read the file directly so we always have content to work with.
-	raw, _ := loadOrSeedLocalFile(localPath, defaultGGUFVersionsYAML)
-	if raw == nil {
-		// File was just seeded; read it back.
-		var readErr error
-		raw, readErr = os.ReadFile(localPath)
-		if readErr != nil {
-			return fmt.Errorf("hf register: could not read registry at %s: %w", localPath, readErr)
-		}
-	}
+	raw, _ := loadLocalFile(localPath)
 	reg := parseGGUFYAML(raw)
 	if reg == nil {
-		reg = &ggufVersions{Version: 1}
+		reg = &ggufVersions{}
 	}
 	replaced := false
 	for i, e := range reg.GGUFs {
@@ -308,6 +298,9 @@ func HFRegisterGGUFEntry(entry GGUFEntry) error {
 	data, err := yaml.Marshal(reg)
 	if err != nil {
 		return fmt.Errorf("hf register: marshal: %w", err)
+	}
+	if mkErr := os.MkdirAll(filepath.Dir(localPath), 0o750); mkErr != nil {
+		return fmt.Errorf("hf register: %w", mkErr)
 	}
 	if writeErr := os.WriteFile(localPath, data, 0o600); writeErr != nil {
 		return fmt.Errorf("hf register: write: %w", writeErr)

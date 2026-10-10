@@ -34,6 +34,7 @@ import (
 
 	_ "github.com/kdeps/kdeps/v2/pkg/agent" // registers harness, events, actions, presets, themes, tools
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	_ "github.com/kdeps/kdeps/v2/pkg/executor/llm"      // registers models
 	_ "github.com/kdeps/kdeps/v2/pkg/llmserver/catalog" // registers recipes
 	_ "github.com/kdeps/kdeps/v2/pkg/templates"         // registers templates
 )

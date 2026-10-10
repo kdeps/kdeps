@@ -43,7 +43,7 @@ type GGUFEntry struct {
 }
 
 type ggufVersions struct {
-	Version int         `yaml:"version"`
+	Version string      `yaml:"version,omitempty"`
 	GGUFs   []GGUFEntry `yaml:"ggufs"`
 }
 
@@ -54,6 +54,8 @@ var (
 	ggufAliasMap       map[string]string
 )
 
+// localGGUFRegistryPath is the user's own GGUF entries (models registered
+// from HuggingFace search or a custom URL), merged over the registry asset.
 func localGGUFRegistryPath() string {
 	home, err := userHomeDirFunc()
 	if err != nil {
@@ -65,33 +67,33 @@ func localGGUFRegistryPath() string {
 func loadGGUFRegistry() {
 	kdeps_debug.Log("enter: loadGGUFRegistry")
 
-	embedded := parseGGUFYAML([]byte(defaultGGUFVersionsYAML))
-	local := loadOrSeedLocalGGUFRegistry(localGGUFRegistryPath())
-	ggufRegistryData = mergeGGUFRegistries(embedded, local)
+	base := parseGGUFYAML(readModelRegistry(ggufRegistryItem))
+	local := loadLocalGGUFRegistry(localGGUFRegistryPath())
+	ggufRegistryData = mergeGGUFRegistries(base, local)
 
 	ggufAliasMap = buildAliasMap(ggufRegistryData.GGUFs,
 		func(e GGUFEntry) string { return e.Alias },
 		func(e GGUFEntry) string { return e.URL })
 }
 
-func loadOrSeedLocalGGUFRegistry(localPath string) *ggufVersions {
-	raw, ok := loadOrSeedLocalFile(localPath, defaultGGUFVersionsYAML)
+func loadLocalGGUFRegistry(localPath string) *ggufVersions {
+	raw, ok := loadLocalFile(localPath)
 	if !ok {
 		return nil
 	}
 	return parseGGUFYAML(raw)
 }
 
-func mergeGGUFRegistries(embedded, local *ggufVersions) *ggufVersions {
-	if embedded == nil {
-		embedded = &ggufVersions{Version: 1}
+func mergeGGUFRegistries(base, local *ggufVersions) *ggufVersions {
+	if base == nil {
+		base = &ggufVersions{}
 	}
 	if local == nil {
-		return embedded
+		return base
 	}
 	return &ggufVersions{
-		Version: embedded.Version,
-		GGUFs: mergeByAlias(embedded.GGUFs, local.GGUFs,
+		Version: base.Version,
+		GGUFs: mergeByAlias(base.GGUFs, local.GGUFs,
 			func(e GGUFEntry) string { return e.Alias }),
 	}
 }
@@ -172,7 +174,8 @@ func ListGGUFMappings() []GGUFEntry {
 	return ggufRegistryData.GGUFs
 }
 
-func GGUFRegistryVersion() int {
+// GGUFRegistryVersion is the version of the GGUF registry asset in use.
+func GGUFRegistryVersion() string {
 	ensureGGUFRegistryLoaded()
 	return ggufRegistryData.Version
 }

@@ -33,7 +33,7 @@ part of the alias so you can trade size for quality:
 
 ```bash
 kdeps llamafile list      # all known aliases (the registry has 100+ models)
-kdeps llamafile update    # refresh the registry from HuggingFace
+kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 The `chat.model` field also accepts a direct URL, an absolute/relative path to

@@ -9,7 +9,7 @@ set -euo pipefail
 base=${1:?base ref}
 head=${2:?head ref}
 
-flat_re='^(pkg/agent/(harness|events|actions|presets|themes|tools)|pkg/llmserver/catalog/recipes)/[^/]+\.yaml$'
+flat_re='^(pkg/agent/(harness|events|actions|presets|themes|tools)|pkg/llmserver/catalog/recipes|pkg/executor/llm/models)/[^/]+\.yaml$'
 tmpl_re='^pkg/templates/templates/([^/]+)/'
 
 version_at() { # <ref> <path> -> version or empty

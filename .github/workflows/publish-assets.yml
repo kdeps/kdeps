@@ -1,11 +1,12 @@
 name: Publish Assets
 
 # Publishes every versioned asset (harness, events, actions, presets, themes,
-# tool definitions, LLM server recipes, project templates) like any registry
-# package: files go to assets/ in kdeps/packages as <set>/<name>/<version>.yaml
-# plus index.json, and each item gets formulas/kdeps-<set>-<name>.yaml in
-# kdeps/registry, which kdeps.io indexes. `kdeps update` downloads from there. A version is published once; changing a file without
-# bumping its version fails this workflow.
+# tool definitions, LLM server recipes, model registries, project templates)
+# like any registry package: files go to assets/ in kdeps/packages as
+# <set>/<name>/<version>.yaml plus index.json, and each item gets
+# formulas/kdeps-<set>-<name>.yaml in kdeps/registry, which kdeps.io indexes.
+# `kdeps update` downloads from there. A version is published once; changing
+# a file without bumping its version fails this workflow.
 
 on:
   push:
@@ -18,6 +19,7 @@ on:
       - 'pkg/agent/themes/**'
       - 'pkg/agent/tools/**'
       - 'pkg/llmserver/catalog/recipes/**'
+      - 'pkg/executor/llm/models/**'
       - 'pkg/templates/templates/**'
       - 'pkg/assets/**'
       - 'tools/publish-assets/**'

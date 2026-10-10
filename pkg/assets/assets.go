@@ -46,7 +46,7 @@ import (
 // Sets lists every versioned set, in display order.
 //
 //nolint:gochecknoglobals // fixed list of set names
-var Sets = []string{"harness", "events", "actions", "presets", "themes", "tools", "recipes", "templates"}
+var Sets = []string{"harness", "events", "actions", "presets", "themes", "tools", "recipes", "models", "templates"}
 
 // BundleSet is the set whose items are directories, distributed as one YAML
 // bundle file each; every other set's item is a single YAML file.

@@ -375,7 +375,8 @@ deps:
 	@go mod download
 	@go mod tidy
 
-# Harvest llamafile registry from HuggingFace (requires huggingface_hub)
+# Harvest the llamafile + GGUF model registries (pkg/executor/llm/models/) from
+# HuggingFace (requires huggingface_hub); a changed registry gets a version bump
 harvest-llamafiles:
 	@echo "Harvesting llamafile registry from HuggingFace..."
 	@test -x .venv-harvest/bin/python || python3 -m venv .venv-harvest

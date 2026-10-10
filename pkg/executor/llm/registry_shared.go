@@ -19,8 +19,6 @@
 package llm
 
 import (
-	"path/filepath"
-
 	"github.com/spf13/afero"
 )
 
@@ -58,28 +56,15 @@ func buildAliasMap[E any](entries []E, alias func(E) string, url func(E) string)
 	return m
 }
 
-// loadOrSeedLocalFile reads localPath, seeding it with defaultYAML if absent.
-// Returns the raw bytes and true on success, or nil/false if the file is absent or unreadable.
-func loadOrSeedLocalFile(localPath, defaultYAML string) ([]byte, bool) {
+// loadLocalFile reads the user's local registry file. Returns nil/false when
+// the path is empty or the file is absent or unreadable.
+func loadLocalFile(localPath string) ([]byte, bool) {
 	if localPath == "" {
-		return nil, false
-	}
-	if _, statErr := AppFS.Stat(localPath); statErr != nil {
-		if mkdirErr := AppFS.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr == nil {
-			_ = afero.WriteFile(AppFS, localPath, []byte(defaultYAML), 0600)
-		}
 		return nil, false
 	}
 	raw, err := afero.ReadFile(AppFS, localPath)
 	if err != nil {
 		return nil, false
 	}
-	// Return the local file as-is; the caller merges it over the embedded
-	// registry (embedded is the base, so binary upgrades still surface new
-	// aliases; local entries override or extend it). Discarding the local file
-	// whenever it differed from the embedded default — as a previous "stale
-	// cache" guard did — also wiped legitimate user overrides and entries
-	// written by `kdeps update`, which is the opposite of what the local
-	// registry is for.
 	return raw, true
 }

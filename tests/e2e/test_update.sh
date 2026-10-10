@@ -19,15 +19,18 @@ fi
 UPD_DIR=$(mktemp -d)
 UPD_PUB="$UPD_DIR/published"
 UPD_ROOT="$UPD_DIR/assets"
-mkdir -p "$UPD_PUB/tools/md5_file" "$UPD_PUB/harness/safety"
+mkdir -p "$UPD_PUB/tools/md5_file" "$UPD_PUB/harness/safety" "$UPD_PUB/models/gguf"
 
 sha() { python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 
 printf 'version: 1.1.0\ncategory: file\ndescription: Updated md5 description.\n' > "$UPD_PUB/tools/md5_file/1.1.0.yaml"
 printf 'version: 1.0.0\nname: safety\nkind: preamble-section\norder: 50\nbody: published 1.0.0\n' > "$UPD_PUB/harness/safety/1.0.0.yaml"
 printf 'version: 1.2.0\nname: safety\nkind: preamble-section\norder: 50\nbody: published 1.2.0\n' > "$UPD_PUB/harness/safety/1.2.0.yaml"
+printf 'version: 9.0.0\nggufs:\n  - alias: e2e-fresh-model\n    url: https://example.com/e2e-fresh.gguf\n' > "$UPD_PUB/models/gguf/9.0.0.yaml"
 cat > "$UPD_PUB/index.json" <<JSON
 {"items": {
+  "models/gguf": {"latest": "9.0.0", "versions": [
+    {"version": "9.0.0", "sha256": "$(sha "$UPD_PUB/models/gguf/9.0.0.yaml")", "date": "2026-10-09T00:00:00Z"}]},
   "tools/md5_file": {"latest": "1.1.0", "versions": [
     {"version": "1.1.0", "sha256": "$(sha "$UPD_PUB/tools/md5_file/1.1.0.yaml")", "date": "2026-10-09T00:00:00Z"}]},
   "harness/safety": {"latest": "1.2.0", "versions": [
@@ -59,6 +62,19 @@ if output_grep "tools/md5_file +install" "$OUT" && grep -q "Updated md5 descript
     test_passed "update installs newer versions"
 else
     test_failed "update" "$OUT"
+fi
+
+OUT=$(HOME="$UPD_DIR" KDEPS_ASSETS_URL=off KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" llamafile list 2>&1)
+if output_grep "GGUF +e2e-fresh-model" "$OUT" && ! output_grep "GGUF +qwen3\.6 " "$OUT"; then
+    test_passed "update models/gguf replaces the model registry"
+else
+    test_failed "update models/gguf" "$OUT"
+fi
+
+if OUT=$(upd --remove models/gguf); then
+    test_failed "update --remove refuses a model registry" "$OUT"
+else
+    test_passed "update --remove refuses a model registry"
 fi
 
 OUT=$(upd --list)

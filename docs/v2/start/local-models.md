@@ -37,7 +37,7 @@ kdeps --model llama3.2:3b    # 2.2 GB, good balance
 
 ```bash
 kdeps llamafile list          # show known model aliases and sizes
-kdeps llamafile update        # refresh the registry from HuggingFace
+kdeps update models           # newest registry (harvested nightly from HuggingFace)
 ```
 
 Known aliases and their sizes:
