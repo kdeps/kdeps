@@ -21,12 +21,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/desktop"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -75,6 +77,9 @@ func (a *App) init(ctx context.Context, emit func(desktop.Event), engine *execut
 	// A window has no tty to answer the CLI's download prompt; the front end
 	// confirms in its own UI before a local model is selected.
 	_ = os.Setenv("KDEPS_ASSUME_YES", "1")
+	// First run: fetch the latest harness, tool definitions and templates
+	// before the chat service registers its tools.
+	agent.EnsureAssets(ctx, io.Discard)
 	svc, err := desktop.New(ctx, desktop.Options{
 		Emit:         emit,
 		Engine:       engine,
@@ -135,6 +140,13 @@ func cliArgv() []string {
 func (a *App) Ready() error {
 	<-a.ready
 	return a.initErr
+}
+
+// AssetUpdateNotice returns the "asset updates available" line, or "" when
+// everything is current or the check failed.
+func (a *App) AssetUpdateNotice() string {
+	<-a.ready
+	return agent.AssetUpdateNotice(a.ctx)
 }
 
 // Recent lists recently opened workspace folders, newest first.

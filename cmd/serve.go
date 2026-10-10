@@ -182,6 +182,11 @@ const updateCheckTimeout = 3 * time.Second
 //nolint:gochecknoglobals // test-replaceable hook
 var updateAvailabilityNoticeFunc = kupgrade.CachedOrFresh
 
+// assetUpdateNoticeFunc is agent.AssetUpdateNotice, overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var assetUpdateNoticeFunc = agent.AssetUpdateNotice
+
 // updateAvailabilityNotice returns a one-line "update available" notice, or
 // "" when kdeps is current or the check couldn't complete in time/failed
 // (never surfaced as an error -- a broken update check must not block or
@@ -266,6 +271,11 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if err := importKonfigFlag(flags.Konfig); err != nil {
 		return err
 	}
+
+	// First run: fetch the latest harness, tool definitions and templates
+	// before tools are registered (no-op once set up, offline, or with
+	// KDEPS_ASSETS_URL=off).
+	agent.EnsureAssets(rootCtx, os.Stdout)
 
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
@@ -447,6 +457,9 @@ func wireREPL(
 	notices := optionalToolNotices()
 	notices = append(notices, agent.RequestSizePreflightWarnings()...)
 	if notice := updateAvailabilityNotice(ctx); notice != "" {
+		notices = append(notices, notice)
+	}
+	if notice := assetUpdateNoticeFunc(ctx); notice != "" {
 		notices = append(notices, notice)
 	}
 	repl.SetStartupNotices(notices)

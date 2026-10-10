@@ -229,7 +229,8 @@ type ReadFS interface {
 // as seed (files under dir, e.g. "harness/safety.yaml"): seed files, replaced
 // by valid downloaded versions from root, minus removed items. A downloaded
 // file that is unreadable, fails its lock checksum, or needs a newer kdeps is
-// ignored and the seed file stays.
+// ignored and the seed file stays. So is an unpinned download that is not
+// newer than the seed: after a kdeps upgrade the compiled-in version wins.
 func Overlay(set string, seed fs.FS, dir, root string) ReadFS {
 	out := fstest.MapFS{}
 	_ = fs.WalkDir(seed, dir, func(p string, d fs.DirEntry, err error) error {
@@ -254,7 +255,7 @@ func Overlay(set string, seed fs.FS, dir, root string) ReadFS {
 			continue
 		}
 		data, ok := downloaded(root, set, name, e)
-		if !ok {
+		if !ok || (!e.Pinned && !Newer(e.Version, seedVersion(out, set, dir, name))) {
 			continue
 		}
 		applyDownloaded(out, set, dir, name, data)
@@ -280,6 +281,24 @@ func downloaded(root, set, name string, e LockEntry) ([]byte, bool) {
 		return nil, false
 	}
 	return data, true
+}
+
+// seedVersion is the version header of name's seed file in out, or "" when
+// the item has no seed (then any download is newer).
+func seedVersion(out fstest.MapFS, set, dir, name string) string {
+	p := path.Join(dir, name+yamlExt)
+	if set == BundleSet {
+		p = path.Join(dir, name, ManifestFile)
+	}
+	f, ok := out[p]
+	if !ok {
+		return ""
+	}
+	h, err := ParseHeader(f.Data)
+	if err != nil {
+		return ""
+	}
+	return h.Version
 }
 
 func dropItem(out fstest.MapFS, set, dir, name string) {

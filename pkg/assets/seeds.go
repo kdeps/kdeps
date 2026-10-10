@@ -120,7 +120,8 @@ func Items(set, root string) ([]Item, error) {
 			byName[name] = it
 		}
 		it.Pinned, it.Removed = e.Pinned, e.Removed
-		if _, ok := downloaded(root, set, name, e); ok && !e.Removed {
+		_, ok := downloaded(root, set, name, e)
+		if ok && !e.Removed && (e.Pinned || Newer(e.Version, it.SeedVersion)) {
 			it.Version, it.Downloaded = e.Version, true
 		}
 	}
@@ -177,11 +178,30 @@ func Remove(root, id string) error {
 	if err != nil {
 		return err
 	}
+	if !known(set, name, root, lock) {
+		return fmt.Errorf("assets: no such item %s (see kdeps update --list)", id)
+	}
 	if rmErr := os.Remove(FilePath(root, set, name)); rmErr != nil && !os.IsNotExist(rmErr) {
 		return fmt.Errorf("assets: remove %s: %w", id, rmErr)
 	}
 	lock.Items[id] = LockEntry{Removed: true, UpdatedAt: time.Now().UTC()}
 	return WriteLock(root, lock)
+}
+
+// known reports whether set/name is compiled in, downloaded or in the lock.
+func known(set, name, root string, lock Lock) bool {
+	if _, ok := lock.Items[ID(set, name)]; ok {
+		return true
+	}
+	if _, err := os.Stat(FilePath(root, set, name)); err == nil {
+		return true
+	}
+	s, err := seedFor(set)
+	if err != nil {
+		return false
+	}
+	_, ok := seedVersions(set, s)[name]
+	return ok
 }
 
 // Install writes a downloaded item's file and records it in the lock. The
