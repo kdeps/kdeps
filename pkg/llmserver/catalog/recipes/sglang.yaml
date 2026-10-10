@@ -1,7 +1,7 @@
 id: sglang
 name: SGLang
 description: SGLang OpenAI-compatible serving runtime (GPU)
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

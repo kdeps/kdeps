@@ -171,7 +171,7 @@ func userEventsDir() (string, error) {
 
 // loadBuiltinEvents parses every embedded events/*.yaml file.
 func loadBuiltinEvents() map[string]*Event {
-	return loadBuiltinEventsFrom(builtinEventsFS)
+	return loadBuiltinEventsFrom(assetsFS("events", builtinEventsFS))
 }
 
 // loadBuiltinEventsFrom is loadBuiltinEvents parameterized over the

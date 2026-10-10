@@ -120,7 +120,7 @@ type harnessFS = themeFS
 
 // loadBuiltinHarness parses every embedded harness/*.yaml file.
 func loadBuiltinHarness() map[string]*harnessEntry {
-	return loadBuiltinHarnessFrom(builtinHarnessFS)
+	return loadBuiltinHarnessFrom(assetsFS("harness", builtinHarnessFS))
 }
 
 // loadBuiltinHarnessFrom is loadBuiltinHarness parameterized over the

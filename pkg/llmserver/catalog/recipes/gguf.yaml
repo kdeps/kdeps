@@ -1,7 +1,7 @@
 id: gguf
 name: GGUF (llama-server)
 description: Alias for llama-server — GGUF weights via llama.cpp OpenAI-compatible /v1
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

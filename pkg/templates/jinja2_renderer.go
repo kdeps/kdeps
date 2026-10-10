@@ -20,10 +20,10 @@ package templates
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"sync"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/nikolalohinski/gonja/v2"
@@ -33,12 +33,12 @@ import (
 // Jinja2Renderer renders templates using Jinja2 template syntax via gonja.
 // Parsed templates are cached to avoid repeated parsing of the same content.
 type Jinja2Renderer struct {
-	fs    embed.FS
+	fs    assets.ReadFS
 	cache sync.Map // map[string]*gonjaExec.Template
 }
 
 // NewJinja2Renderer creates a new Jinja2 template renderer.
-func NewJinja2Renderer(fs embed.FS) *Jinja2Renderer {
+func NewJinja2Renderer(fs assets.ReadFS) *Jinja2Renderer {
 	kdeps_debug.Log("enter: NewJinja2Renderer")
 	return &Jinja2Renderer{
 		fs: fs,

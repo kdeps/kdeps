@@ -1,3 +1,4 @@
+version: 1.0.0
 name: memory-keys-limit
 # This event has no "on:" trigger block -- "items" below is a plain count
 # that always applies, unlike a trigger which fires only once crossed. An

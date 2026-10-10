@@ -1,7 +1,7 @@
 id: localai
 name: LocalAI
 description: LocalAI drop-in OpenAI-compatible API (CPU/GPU images)
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

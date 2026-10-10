@@ -1,7 +1,7 @@
 id: vllm
 name: vLLM
 description: High-throughput OpenAI-compatible server (vLLM) for GPU inference
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

@@ -1,7 +1,7 @@
 id: tgi
 name: Text Generation Inference (TGI)
 description: Hugging Face TGI with OpenAI-compatible /v1 (GPU-oriented)
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

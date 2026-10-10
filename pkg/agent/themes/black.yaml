@@ -1,3 +1,4 @@
+version: 1.0.0
 # black: a single legible dark gray used for every element. Earlier
 # revisions used near-invisible near-black grays meant to blend into a black
 # terminal background; that traded away readability for a disguise effect

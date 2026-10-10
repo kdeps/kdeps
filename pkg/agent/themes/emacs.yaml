@@ -1,3 +1,4 @@
+version: 1.0.0
 # emacs: a common terminal-Emacs highlighting set (keyword purple, function
 # blue, string salmon, comment green).
 name: emacs

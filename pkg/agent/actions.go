@@ -88,7 +88,7 @@ func userActionsDir() (string, error) {
 
 // loadBuiltinActions parses every embedded actions/*.yaml file.
 func loadBuiltinActions() map[string]*Action {
-	return loadBuiltinActionsFrom(builtinActionsFS)
+	return loadBuiltinActionsFrom(assetsFS("actions", builtinActionsFS))
 }
 
 // loadBuiltinActionsFrom is loadBuiltinActions parameterized over the

@@ -1,7 +1,7 @@
 id: ollama
 name: Ollama
 description: Ollama inference server with OpenAI-compatible /v1 surface
-version: "1"
+version: 1.0.0
 
 api:
   port: 8000

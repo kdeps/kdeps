@@ -1,3 +1,4 @@
+version: 1.0.0
 name: balanced
 description: >-
   The shipped, out-of-the-box defaults for every token-economy event.

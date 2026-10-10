@@ -106,9 +106,10 @@ func TestDefinedAs(t *testing.T) {
 	got.Parameters["extra"] = got.Parameters["file_path"]
 	assert.NotContains(t, toolDefinitions["md5_file"].Parameters, "extra")
 
-	unknown := &kdepstools.Tool{Name: "no_such_tool", Description: "kept"}
-	assert.Same(t, unknown, defined(unknown))
-	assert.Equal(t, "kept", unknown.Description)
+	assert.Nil(t, defined(&kdepstools.Tool{Name: "no_such_tool"}), "no definition: not offered")
+	reg := kdepstools.NewRegistry()
+	reg.Register(defined(&kdepstools.Tool{Name: "no_such_tool"}))
+	assert.Empty(t, reg.List())
 }
 
 func TestLoadToolDefinitionsFrom(t *testing.T) {

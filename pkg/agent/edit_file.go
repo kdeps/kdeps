@@ -114,6 +114,9 @@ func registerEditFile(reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameEditFile,
 	})
+	if tool == nil {
+		return
+	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		// Accept the kdeps parameter names (old_string/new_string/path) directly,
 		// not only when the loop's pre-dispatch normalization ran.

@@ -73,9 +73,12 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Register adds a tool to the registry.
+// Register adds a tool to the registry. A nil tool is ignored.
 func (r *Registry) Register(t *Tool) {
 	kdeps_debug.Log("enter: Register")
+	if t == nil {
+		return
+	}
 	r.tools[t.Name] = t
 }
 

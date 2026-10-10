@@ -1,3 +1,4 @@
+version: 1.0.0
 name: frugal
 description: >-
   Minimizes token usage: compacts and folds history sooner, injects far

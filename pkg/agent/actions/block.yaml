@@ -1,3 +1,4 @@
+version: 1.0.0
 name: block
 # kind names the trigger shape this action is meant for. Valid values:
 #   tokens         a token-count measurement (events' "tokens"/"ctxWindowFraction"/"tokensSinceCheckpoint")

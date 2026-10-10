@@ -20,15 +20,41 @@ package templates
 
 import (
 	"embed"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
+	"slices"
 
+	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 //go:embed templates
 var templatesFS embed.FS
+
+// templatesSet is the asset set (and embed dir) holding the project templates.
+const templatesSet = "templates"
+
+//nolint:gochecknoinits // registers the project templates as a versioned asset set
+func init() {
+	assets.RegisterSeed(templatesSet, assets.Seed{FS: templatesFS, Dir: templatesSet, Validate: validateTemplateBundle})
+}
+
+// validateTemplateBundle checks a downloaded template bundle.
+func validateTemplateBundle(data []byte, _ string) error {
+	var b assets.Bundle
+	if err := yaml.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	if len(b.Files) == 0 {
+		return errors.New("template bundle has no files")
+	}
+	return nil
+}
 
 // TemplateData holds variables for template rendering.
 type TemplateData struct {
@@ -77,17 +103,20 @@ func (g *Generator) GenerateProject(
 	data TemplateData,
 ) error {
 	kdeps_debug.Log("enter: GenerateProject")
-	templateDir := path.Join("templates", templateName)
-	entries, readErr := templatesFS.ReadDir(templateDir)
+	fsys := assets.Overlay(templatesSet, templatesFS, templatesSet, assets.Root())
+	templateDir := path.Join(templatesSet, templateName)
+	all, readErr := fsys.ReadDir(templateDir)
 	if readErr != nil {
 		return fmt.Errorf("template not found: %s", templateName)
 	}
+	// The version manifest describes the template; it is not project content.
+	entries := slices.DeleteFunc(all, func(e fs.DirEntry) bool { return e.Name() == assets.ManifestFile })
 
 	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create directory: %w", mkdirErr)
 	}
 
-	renderer := NewJinja2Renderer(templatesFS)
+	renderer := NewJinja2Renderer(fsys)
 
 	return g.walkJinja2Template(renderer, templateDir, outputDir, data, entries)
 }
