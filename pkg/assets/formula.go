@@ -19,7 +19,6 @@
 package assets
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -105,14 +104,7 @@ func WriteFormulas(dir, assetsDir, fileBase string, idx Index) error {
 		if err != nil {
 			return err
 		}
-		var buf bytes.Buffer
-		enc := yaml.NewEncoder(&buf)
-		enc.SetIndent(2) //nolint:mnd // registry formula indent
-		if encErr := enc.Encode(f); encErr != nil {
-			return encErr
-		}
-		dst := filepath.Join(dir, f.Name+yamlExt)
-		if wErr := os.WriteFile(dst, buf.Bytes(), 0o644); wErr != nil { //nolint:gosec // public formula
+		if wErr := writeFormula(dir, f); wErr != nil {
 			return wErr
 		}
 	}

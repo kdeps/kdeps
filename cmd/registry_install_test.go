@@ -672,6 +672,18 @@ func TestResolvePackageInfo_AssetType(t *testing.T) {
 	assert.Contains(t, err.Error(), "kdeps update")
 }
 
+func TestResolvePackageInfo_ResourceType(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		body, _ := json.Marshal(map[string]string{"latestVersion": "2.58.2", "type": "resource"})
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	_, err := resolvePackageInfo("kdeps-resource-scraper", srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "built-in kdeps resource type")
+}
+
 // ---------------------------------------------------------------------------
 // downloadArchive — 404 and 5xx branches
 // ---------------------------------------------------------------------------

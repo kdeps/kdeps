@@ -206,7 +206,7 @@ Docs: [Deployment guide](https://kdeps.com/deploy/) · [TLS and HTTPS](https://k
 
 ## Reference
 
-- **Registry** - `kdeps registry search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io)
+- **Registry** - `kdeps registry search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io) lists them together with the built-in resource types and kdeps' own versioned assets.
 - **Agent skill** - `npx skills add https://github.com/kdeps/skill --skill kdeps` teaches Claude Code, Cursor, and other agents to scaffold kdeps projects. [Docs](https://kdeps.com/agent/ai-assisted-authoring)
 - **LLM server appliance** - `kdeps llm wizard` builds a standalone OpenAI-compatible inference server (`ollama`, `llamafile`, `gguf`, `vllm`, `tgi`, `sglang`, and more), no workflow path required. [Docs](https://kdeps.com/llm-server/) · [Commands](https://kdeps.com/llm-server/cli)
 - **Updates** - `kdeps update` refreshes the harness, tool definitions, themes, LLM server recipes, model registries and project templates without a new release (first run does it automatically); `kdeps update --remove <item>` drops ones you don't want. `kdeps --upgrade` updates the binary. [Docs](https://kdeps.com/agent/repl-updating#updating-assets)

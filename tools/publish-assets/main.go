@@ -27,9 +27,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	_ "github.com/kdeps/kdeps/v2/pkg/agent" // registers harness, events, actions, presets, themes, tools
@@ -45,11 +47,16 @@ const exitUsage = 2
 // defaultFileBase serves assets/ of kdeps/packages; formulas point here.
 const defaultFileBase = "https://raw.githubusercontent.com/" + assets.PackagesRepo + "/main/assets"
 
+const defaultResourceBase = "https://raw.githubusercontent.com/" + assets.PackagesRepo + "/main/" + assets.ResourcesDir
+
 func main() {
 	out := flag.String("out", "", "assets/ directory of a kdeps/packages checkout to write into")
 	formulas := flag.String("formulas", "", "formulas/ directory of a kdeps/registry checkout to write into")
 	fileBase := flag.String("file-base", defaultFileBase, "URL the published assets/ directory is served from")
 	commit := flag.String("commit", "", "commit the files come from")
+	resources := flag.String("resources", "", "resources/ directory of a kdeps/packages checkout to publish resource docs into (optional)")
+	resourceBase := flag.String("resource-base", defaultResourceBase, "URL the published resources/ directory is served from")
+	docs := flag.String("docs", "docs/v2", "docs/v2 directory of the kdeps checkout")
 	flag.Parse()
 	if *out == "" || *formulas == "" {
 		fmt.Fprintln(os.Stderr, "publish-assets: -out and -formulas are required")
@@ -68,8 +75,30 @@ func main() {
 		fmt.Fprintln(os.Stderr, "publish-assets: formulas:", err)
 		os.Exit(1)
 	}
+	if *resources != "" {
+		if rErr := publishResources(*formulas, *resources, *docs, *resourceBase); rErr != nil {
+			fmt.Fprintln(os.Stderr, "publish-assets: resources:", rErr)
+			os.Exit(1)
+		}
+	}
 	for _, id := range published {
 		fmt.Fprintln(os.Stdout, "published", id)
 	}
 	fmt.Fprintf(os.Stdout, "%d new versions\n", len(published))
+}
+
+// publishResources publishes the built-in resource types' docs at the kdeps
+// version in docs/package.json.
+func publishResources(formulas, resources, docs, base string) error {
+	data, err := os.ReadFile(filepath.Join(docs, "package.json"))
+	if err != nil {
+		return err
+	}
+	var pkg struct {
+		Version string `json:"version"`
+	}
+	if err = json.Unmarshal(data, &pkg); err != nil {
+		return err
+	}
+	return assets.WriteResources(formulas, resources, docs, base, pkg.Version)
 }
