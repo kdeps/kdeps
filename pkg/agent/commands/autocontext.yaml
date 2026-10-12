@@ -1,0 +1,9 @@
+version: 1.0.0
+name: autocontext
+order: 120
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[on|off]"
+    help: Show or toggle auto-detecting command/file mentions in chat input

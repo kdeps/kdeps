@@ -1,0 +1,13 @@
+version: 1.0.0
+name: update
+order: 280
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[item[@version]...]"
+    help: "Update harness, tools, themes, models, templates (no args: all)"
+  - args: "check | list"
+    help: "Show available updates | every asset and its version"
+  - args: "remove <item>..."
+    help: "Remove assets (restore with /update <item>)"

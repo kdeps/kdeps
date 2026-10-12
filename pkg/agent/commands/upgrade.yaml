@@ -1,0 +1,13 @@
+version: 1.0.0
+name: upgrade
+order: 270
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Check for and install the latest stable kdeps release
+  - args: nightly
+    help: Check for and install the latest nightly kdeps build
+  - args: "<version>"
+    help: "Install an exact version (older = downgrade), e.g. /upgrade 2.35.0"

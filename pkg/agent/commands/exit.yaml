@@ -1,0 +1,10 @@
+version: 1.0.0
+name: exit
+order: 360
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+aliases: [quit]
+usage:
+  - args: ""
+    help: Exit kdeps (also Ctrl+D)

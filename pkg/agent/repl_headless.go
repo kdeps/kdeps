@@ -36,9 +36,8 @@ import (
 var headlessStdoutMu sync.Mutex
 
 var (
-	ansiCSIRe   = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
-	ansiOSCRe   = regexp.MustCompile(`\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)`)
-	helpEntryRe = regexp.MustCompile(`^\s+(/\S+)(?:.*?)\s{2,}(\S.*)$`)
+	ansiCSIRe = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+	ansiOSCRe = regexp.MustCompile(`\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)`)
 )
 
 // SetHeadless marks the REPL as driven by a GUI: no spinner or cursor control
@@ -140,23 +139,14 @@ func (r *REPL) Complete(line string, pos int) Completion {
 	return Completion{Candidates: out, Replace: length}
 }
 
-// CommandDescriptions maps each slash command to the first one-line summary in
-// /help, for a command palette.
+// CommandDescriptions maps each slash command and alias to its one-line
+// summary (its first usage's help in the commands asset set), for a command
+// palette.
 func (r *REPL) CommandDescriptions() map[string]string {
-	var sb strings.Builder
-	prev := r.headless
-	r.headless = true
-	_ = r.ExecuteCommand(r.loopCtx, &sb, "/help")
-	r.headless = prev
-
 	out := map[string]string{}
-	for _, ln := range strings.Split(sb.String(), "\n") {
-		m := helpEntryRe.FindStringSubmatch(ln)
-		if m == nil {
-			continue
-		}
-		if _, seen := out[m[1]]; !seen {
-			out[m[1]] = strings.TrimSpace(m[2])
+	for _, c := range slashCommands {
+		for _, n := range c.names() {
+			out["/"+n] = c.Usage[0].Help
 		}
 	}
 	return out

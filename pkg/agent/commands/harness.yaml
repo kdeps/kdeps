@@ -1,0 +1,15 @@
+version: 1.0.0
+name: harness
+order: 190
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[list]"
+    help: List harness sections (system-prompt text) with their enabled/disabled state
+  - args: "enable|disable <name>"
+    help: "Toggle a harness section, persisted to ~/.kdeps/harness/<name>.yaml"
+  - args: "events [list]"
+    help: List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state
+  - args: "events enable|disable <name>"
+    help: "Toggle an event, persisted to ~/.kdeps/events/<name>.yaml"

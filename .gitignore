@@ -229,6 +229,7 @@ pkg/**/**/*.yaml
 !pkg/agent/actions/*.yaml
 !pkg/agent/presets/*.yaml
 !pkg/agent/tools/*.yaml
+!pkg/agent/commands/*.yaml
 !pkg/templates/templates/*/template.yaml
 !pkg/llmserver/catalog/recipes/*.yaml
 !pkg/executor/llm/models/*.yaml

@@ -1,0 +1,11 @@
+version: 1.0.0
+name: frugal
+order: 500
+# A declared command: kdeps runs the steps under run: in order. A step is
+# either another slash command or a prompt sent to the model; both take the
+# command's arguments as $1, $2, ... and $ARGUMENTS.
+usage:
+  - args: ""
+    help: Spend fewer tokens - apply the frugal preset to every token-economy event
+run:
+  - command: /efficiency preset frugal

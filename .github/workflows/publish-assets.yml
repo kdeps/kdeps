@@ -1,6 +1,6 @@
 name: Publish Assets
 
-# Publishes every versioned asset (harness, events, actions, presets, themes,
+# Publishes every versioned asset (harness, events, actions, presets, themes, slash commands,
 # tool definitions, LLM server recipes, model registries, project templates)
 # like any registry package: files go to assets/ in kdeps/packages as
 # <set>/<name>/<version>.yaml plus index.json, and each item gets
@@ -22,6 +22,7 @@ on:
       - 'pkg/agent/presets/**'
       - 'pkg/agent/themes/**'
       - 'pkg/agent/tools/**'
+      - 'pkg/agent/commands/**'
       - 'pkg/llmserver/catalog/recipes/**'
       - 'pkg/executor/llm/models/**'
       - 'pkg/templates/templates/**'

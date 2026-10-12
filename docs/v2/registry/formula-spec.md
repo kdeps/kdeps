@@ -71,13 +71,13 @@ Example: `cv-matcher`, `research-pipeline`
 
 ### kdeps assets
 
-kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, LLM server recipes, model registries, project templates) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps registry install`.
+kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps registry install`.
 
 ```yaml
 # formulas/kdeps-harness-safety.yaml  (written by kdeps CI, not by hand)
 name: kdeps-harness-safety
 version: 1.0.0
-type: harness            # harness | event | action | preset | theme | tool | recipe | model | template
+type: harness            # harness | event | action | preset | theme | tool | command | recipe | model | template
 github: kdeps/packages
 tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/harness/safety/1.0.0.yaml
 sha256: 5a2844c4...      # SHA256 of that YAML file

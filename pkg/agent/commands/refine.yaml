@@ -1,0 +1,9 @@
+version: 1.0.0
+name: refine
+order: 220
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[on|off]"
+    help: Show or toggle pre-turn prompt refinement (on by default)

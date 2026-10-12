@@ -1,0 +1,9 @@
+version: 1.0.0
+name: history
+order: 90
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Show recent conversation turns

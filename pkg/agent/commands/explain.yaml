@@ -1,0 +1,10 @@
+version: 1.0.0
+name: explain
+order: 530
+usage:
+  - args: "<file, symbol or topic>"
+    help: Explain how something in this project works, reading the code first
+run:
+  - prompt: |-
+      Explain how $ARGUMENTS works in this project. Find and read the relevant code first;
+      cite files and functions by path. Start with a one-sentence answer, then the details.

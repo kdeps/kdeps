@@ -109,14 +109,6 @@ const (
 	modelTypeOllama    = "ollama"
 )
 
-//nolint:gochecknoglobals // command list must be package-level for completer
-var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model", "/context",
-	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/update", "/konfig",
-	"/login", "/theme", "/refine", "/efficiency", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
-}
-
 // REPL output styles. Package vars, not constants, so the active theme
 // (theme.go) can swap them at runtime. All (re)built by applyReplStyles from
 // the active palette - once from theme.go's init, again on every /theme switch.
@@ -216,6 +208,7 @@ type REPL struct {
 	ctx                context.Context    // per-turn; SIGINT or Ctrl+C cancels this
 	cancel             context.CancelFunc // cancels per-turn ctx
 	history            []string
+	commandDepth       int                                 // declared commands currently running (runDeclaredCommand)
 	modelNames         []string                            // suggestions for /model <tab>
 	downloadedModels   map[string]bool                     // set of already-downloaded model aliases
 	modelTypes         map[string]string                   // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
@@ -1110,8 +1103,7 @@ func modelTag(r *REPL, name string) string {
 
 // allCommandNames returns all slash command names including loaded skills and prompt templates.
 func (r *REPL) allCommandNames() []string {
-	names := make([]string, 0, len(builtinCmds)+len(r.loop.skillList)+len(r.loop.prompts))
-	names = append(names, builtinCmds...)
+	names := commandNames()
 	for _, sk := range r.loop.skillList {
 		names = append(names, "/"+sk.Name)
 	}
@@ -2583,9 +2575,13 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 }
 
 // dispatchUnknownCommand handles a slash command that is not a REPL built-in: it
-// tries a matching skill, then a prompt, and finally reports it as unknown.
+// tries a declared command (commands asset set), a matching skill, then a
+// prompt, and finally reports it as unknown.
 func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 	name := strings.TrimPrefix(command, "/")
+	if c := declaredCommand(name); c != nil {
+		return r.runDeclaredCommand(c, args)
+	}
 	if sk := r.loop.SkillByName(name); sk != nil {
 		return r.cmdInvokeSkill(sk, args)
 	}
@@ -2599,77 +2595,13 @@ func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	dim := styleReplDim.Render
-	lines := []string{
-		heading("Available commands:"),
-		"  /help                              Show this help message",
-		"  /settings                          Open the tool/skill selector and save selections",
-		"  /clear                             Clear the conversation history",
-		"  /model [name]                      Show or set the LLM model",
-		"  /model default [name]              Show or save the default startup model",
-		"  /model list                        List all available models with provider status",
-		"  /model ps                          List running local model servers (llamafile/gguf)",
-		"  /model ps kill <model>             Kill a running local model server",
-		"  /model ps switch <model>           Switch to a running local model server",
-		"  /model hff search <query>          Search HuggingFace for GGUF models",
-		"  /model hff info <repo>             List GGUF files available in a HuggingFace repo",
-		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
-		"  /model <url>                       Register a .gguf/.llamafile URL or OpenAI-compatible endpoint",
-		"  /model favorite <name>             Star a model (shown first in /model, persists); unfavorite to remove",
-		"  /model name [show|hide|abbreviate|auto]  Show or set how the modeline displays the model name",
-		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
-		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
-		"  /skills                            List loaded skills",
-		"  /prompts                           List loaded prompt templates",
-		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
-		"  /compact                           Compact conversation history (keep recent turns)",
-		"  /fold [now|auto [off]|threshold <n>|items <n>|preset <name>]  Lighter, more frequent checkpoint-only summarize+archive (default: auto on, 2000 tokens, 5 items)",
-		"  /history                           Show recent conversation turns",
-		"  /prompt                            Show the exact messages+tools sent to the LLM on the last call, with token estimates",
-		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
-		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
-		"  /autocontext [on|off]              Show or toggle auto-detecting command/file mentions in chat input",
-		"  /tools [full|lean]                 Show or toggle the lean/full tool set for this session",
-		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
-		"  /editor                            Open $EDITOR to compose a long prompt",
-		"  /copy                              Copy the last assistant response to the system clipboard",
-		"  /reload                            Reload skills, prompt templates, and instructions from disk",
-		"  /theme [name|list]                 Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom",
-		"  /harness [list]                    List harness sections (system-prompt text) with their enabled/disabled state",
-		"  /harness enable|disable <name>     Toggle a harness section, persisted to ~/.kdeps/harness/<name>.yaml",
-		"  /harness events [list]             List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state",
-		"  /harness events enable|disable <name>  Toggle an event, persisted to ~/.kdeps/events/<name>.yaml",
-		"  /context                           Show current context window size",
-		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
-		"  /goal                              Show the active goal's task list and progress",
-		"  /goal new <text>                   Replace the active goal with a new plan",
-		"  /goal skip                         Abandon the active task and move to the next",
-		"  /goal clear                        Drop the active goal (stops task enforcement)",
-		"  /refine [on|off]                   Show or toggle pre-turn prompt refinement (on by default)",
-		"  /instruct [topic]                  Brief the model on kdeps (tools, calling, memory, modes); primes the next prompt",
-		"  /instruct! [topic]                 Same briefing, sent as a turn now - the model reads and acknowledges it on the spot",
-		"  /instruct list                     Show the briefing topics",
-		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
-		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
-		"  /judges remove <name>              Remove a judge from the explicit roster",
-		"  /judges auto [on|off]              Show or toggle a per-turn auto-generated roster",
-		"  /judges clear                      Disable the judge panel entirely",
-		"  /memory                            Show memory store overview (entry count, most recent entries)",
-		"  /memory list                       List all stored memory entries",
-		"  /memory search <query>             Search memory keys/values for a substring",
-		"  /memory show <key>                 Show one entry's full value, type, and related keys",
-		"  /upgrade                           Check for and install the latest stable kdeps release",
-		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
-		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
-		"  /update [item[@version]...]        Update harness, tools, themes, models, templates (no args: all)",
-		"  /update check | list               Show available updates | every asset and its version",
-		"  /update remove <item>...           Remove assets (restore with /update <item>)",
-		"  /efficiency [on|off|verbose|<setting> <n>|preset <name>|reset]  Show or tune efficiency enforcement (soft stops on read-only loops; persists)",
-		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
-		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
+	lines := append([]string{heading("Available commands:")}, commandHelpLines()...)
+	lines = append(
+		lines,
+		"  /<skill-name> [..]                 Invoke a loaded skill or prompt template by name",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
-	}
+	)
 	for _, l := range lines {
 		fmt.Fprintln(os.Stdout, l)
 	}

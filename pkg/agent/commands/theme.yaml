@@ -1,0 +1,9 @@
+version: 1.0.0
+name: theme
+order: 180
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[name|list]"
+    help: "Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom"

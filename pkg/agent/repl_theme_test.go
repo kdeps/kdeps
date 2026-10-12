@@ -110,11 +110,15 @@ func TestCmdTheme_SwitchIsImmediatelyVisible(t *testing.T) {
 }
 
 func TestThemeCommandRegistered(t *testing.T) {
-	assert.True(t, slices.Contains(builtinCmds, "/theme"), "/theme must be in the completer list")
+	assert.True(t, slices.Contains(commandNames(), "/theme"), "/theme must be in the completer list")
 }
 
 func TestStealthCommandRemoved(t *testing.T) {
-	assert.False(t, slices.Contains(builtinCmds, "/stealth"), "/stealth was deprecated and removed in favor of /theme")
+	assert.False(
+		t,
+		slices.Contains(commandNames(), "/stealth"),
+		"/stealth was deprecated and removed in favor of /theme",
+	)
 }
 
 func TestDispatchTheme(t *testing.T) {

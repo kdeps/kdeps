@@ -1,0 +1,11 @@
+version: 1.0.0
+name: instruct
+order: 230
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[topic]"
+    help: "Brief the model on kdeps (tools, calling, memory, modes); primes the next prompt"
+  - args: list
+    help: Show the briefing topics
