@@ -122,7 +122,11 @@ trap - EXIT
 FR_DIR=$(mktemp -d)
 if (cd "$PROJECT_ROOT" && go run ./tools/publish-assets -src assets -out "$FR_DIR/pub" -formulas "$FR_DIR/formulas" >/dev/null 2>&1); then
     FR_PORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-    (cd "$FR_DIR/pub" && exec python3 -m http.server "$FR_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
+    # kdeps downloads in parallel; the default listen backlog (5) makes Windows
+    # refuse connections beyond it.
+    (cd "$FR_DIR/pub" && exec python3 -c 'import functools,http.server as h,sys
+h.ThreadingHTTPServer.request_queue_size = 64
+h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.SimpleHTTPRequestHandler, directory=".")).serve_forever()' "$FR_PORT" >/dev/null 2>&1) &
     FR_SRV=$!
     trap 'kill "$FR_SRV" 2>/dev/null; rm -rf "$FR_DIR"' EXIT
     for _ in $(seq 1 50); do

@@ -38,6 +38,10 @@ const (
 	// maxDownload caps one index or file download.
 	maxDownload    = 16 << 20
 	requestTimeout = 30 * time.Second
+	// fetchAttempts and retryDelay retry a dropped connection or a server
+	// error; a 4xx answer is final.
+	fetchAttempts = 3
+	retryDelay    = 250 * time.Millisecond
 )
 
 // ErrDisabled is returned when downloads are turned off (KDEPS_ASSETS_URL=off).
@@ -128,24 +132,47 @@ func (c *Client) get(ctx context.Context, url func(source) string) ([]byte, erro
 }
 
 func (c *Client) fetch(ctx context.Context, url string) ([]byte, error) {
+	var err error
+	for attempt := range fetchAttempts {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, errors.Join(err, ctx.Err())
+			case <-time.After(time.Duration(attempt) * retryDelay):
+			}
+		}
+		var data []byte
+		var retry bool
+		data, retry, err = c.fetchOnce(ctx, url)
+		if err == nil || !retry {
+			return data, err
+		}
+	}
+	return nil, err
+}
+
+// fetchOnce makes one request; retry reports whether a failure may be
+// transient (no response, or a 5xx/429).
+func (c *Client) fetchOnce(ctx context.Context, url string) ([]byte, bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, ctx.Err() == nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s: %s", url, resp.Status)
+		retry := resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests
+		return nil, retry, fmt.Errorf("%s: %s", url, resp.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload+1))
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	if len(data) > maxDownload {
-		return nil, fmt.Errorf("%s: larger than %d bytes", url, maxDownload)
+		return nil, false, fmt.Errorf("%s: larger than %d bytes", url, maxDownload)
 	}
-	return data, nil
+	return data, false, nil
 }

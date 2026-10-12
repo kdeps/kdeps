@@ -294,11 +294,17 @@ func Ensure(ctx context.Context, root string, c *Client) (bool, error) {
 	if len(Missing()) == 0 {
 		return false, nil
 	}
-	if _, err := Update(ctx, root, c, nil, false); err != nil {
+	changes, err := Update(ctx, root, c, nil, false)
+	if err != nil {
 		return false, fmt.Errorf("%w (%w)", errNotInstalled(Missing()), err)
 	}
 	_ = MarkInitialized(root)
 	if missing := Missing(); len(missing) > 0 {
+		for _, ch := range changes {
+			if ch.Action == ActionFailed {
+				return true, fmt.Errorf("%w (%s: %s)", errNotInstalled(missing), ch.ID, ch.Note)
+			}
+		}
 		return true, errNotInstalled(missing)
 	}
 	return true, nil

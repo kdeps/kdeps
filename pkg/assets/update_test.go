@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -293,4 +294,35 @@ func TestUpdate_ManyItemsInParallelAndOneFails(t *testing.T) {
 	lock, err := ReadLock(root)
 	require.NoError(t, err)
 	assert.Len(t, lock.Items, len(files)-1, "every other item installed; the lock kept every write")
+}
+
+func TestClient_RetriesTransientFailures(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := hits.Add(1)
+		switch {
+		case r.URL.Path == "/missing":
+			http.NotFound(w, r)
+		case n == 1:
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case n == 2:
+			hj, _ := w.(http.Hijacker)
+			conn, _, _ := hj.Hijack()
+			_ = conn.Close() // dropped connection
+		default:
+			_, _ = w.Write([]byte("ok"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{HTTP: srv.Client()}
+
+	data, err := c.fetch(t.Context(), srv.URL+"/item")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", string(data))
+	assert.Equal(t, int32(3), hits.Load(), "a 503 and a dropped connection are retried")
+
+	hits.Store(10)
+	_, err = c.fetch(t.Context(), srv.URL+"/missing")
+	require.ErrorContains(t, err, "404")
+	assert.Equal(t, int32(11), hits.Load(), "a 404 is final")
 }
