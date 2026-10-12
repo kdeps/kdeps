@@ -19,7 +19,7 @@
 package agent
 
 import (
-	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,16 +32,15 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // Themes are data, not code: every built-in theme (normal, black, linux,
-// vim, emacs) ships as an embedded YAML file under themes/, and users can
+// vim, emacs) is a YAML file in the themes asset set, and users can
 // drop their own into ~/.kdeps/themes/*.yaml to add a theme or override a
 // built-in by reusing its name -- no Go code or recompilation required
 // either way.
-
-//go:embed themes/*.yaml
-var builtinThemeFS embed.FS
 
 // yamlPalette mirrors palette's color fields with exported names and yaml
 // tags so a theme file can be unmarshaled directly. Every field is optional:
@@ -105,7 +104,7 @@ func userThemesDir() (string, error) {
 	return filepath.Join(home, ".kdeps", userThemesDirName), nil
 }
 
-// builtinNormalFile is the embedded file defining the "normal" theme, which
+// builtinNormalFile is the asset file defining the "normal" theme, which
 // must be parsed before any other built-in or user theme: every one of them
 // merges onto its palette as the fallback for fields they leave unset (see
 // paletteFromYAML). It cannot come from the package-level themes var, which
@@ -113,30 +112,28 @@ func userThemesDir() (string, error) {
 const builtinNormalFile = "normal.yaml"
 
 // themeFS is what loadBuiltinThemesFrom/parseBuiltinFileFrom need from a
-// filesystem of theme YAML files. embed.FS satisfies it directly; tests pass
-// a fake to exercise the read/parse-error panics that a real, compiled-in
-// embed can never actually hit.
+// filesystem of theme YAML files. Tests pass a fake to exercise unreadable
+// and invalid files.
 type themeFS interface {
 	fs.ReadDirFS
 	fs.ReadFileFS
 }
 
-// loadBuiltinThemes parses every embedded themes/*.yaml file.
+// loadBuiltinThemes parses every themes/*.yaml file of the asset set.
 func loadBuiltinThemes() map[string]*theme {
-	return loadBuiltinThemesFrom(assetsFS("themes", builtinThemeFS))
+	return loadBuiltinThemesFrom(assets.Open("themes"))
 }
 
 // loadBuiltinThemesFrom is loadBuiltinThemes parameterized over the
 // filesystem, so tests can exercise loadBuiltinThemes' logic (skip
 // directories, skip the already-parsed normal.yaml, merge onto normal's
-// palette) without touching the real embed. A parse failure here is a bug in
-// the shipped files, not user input -- it panics (caught once, at init, same
-// severity as a missing embed) rather than silently shipping a broken
-// built-in theme.
+// palette). A file that cannot be read or parsed is skipped with a warning
+// (see warnAsset); without normal.yaml the others merge onto a zero palette.
 func loadBuiltinThemesFrom(fsys themeFS) map[string]*theme {
 	entries, err := fsys.ReadDir("themes")
 	if err != nil {
-		panic(fmt.Sprintf("theme: read embedded themes dir: %v", err))
+		warnAsset(err)
+		return map[string]*theme{}
 	}
 	out := make(map[string]*theme, len(entries))
 
@@ -155,19 +152,22 @@ func loadBuiltinThemesFrom(fsys themeFS) map[string]*theme {
 // parseBuiltinFileFrom parses one theme file from fsys, merges it onto base,
 // stores it in out under its resolved name, and returns the resulting
 // palette (so the caller can capture normal's palette as the base for the
-// rest). Panics on any read/parse error -- these are shipped files, not user
-// input.
+// rest). A missing normal.yaml (store not filled yet) returns base silently;
+// any other unreadable or invalid file is skipped with a warning.
 func parseBuiltinFileFrom(fsys themeFS, out map[string]*theme, filename string, base palette) palette {
-	// fs.FS paths (embed.FS included) are always forward-slash, regardless of
-	// OS -- filepath.Join would emit a backslash on Windows and break the
-	// lookup.
+	// fs.FS paths are always forward-slash, regardless of OS -- filepath.Join
+	// would emit a backslash on Windows and break the lookup.
 	data, err := fsys.ReadFile(path.Join("themes", filename))
 	if err != nil {
-		panic(fmt.Sprintf("theme: read embedded %s: %v", filename, err))
+		if !errors.Is(err, fs.ErrNotExist) {
+			warnAsset(err)
+		}
+		return base
 	}
 	yt, err := parseYAMLTheme(data, filename)
 	if err != nil {
-		panic(fmt.Sprintf("theme: parse embedded %s: %v", filename, err))
+		warnAsset(fmt.Errorf("theme %w", err))
+		return base
 	}
 	name := themeNameFromYAML(yt, filename)
 	p := paletteFromYAML(base, yt)

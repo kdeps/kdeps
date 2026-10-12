@@ -21,6 +21,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -50,16 +52,16 @@ func TestCommands_EveryGoCommandHasAnAsset(t *testing.T) {
 	for _, c := range goCommands {
 		assert.Contains(t, names, "/"+c, "no commands/ asset for /%s", c)
 	}
-	entries, err := builtinCommandsFS.ReadDir("commands")
+	entries, err := os.ReadDir(filepath.Join(assets.Source(), "commands"))
 	require.NoError(t, err)
 	assert.Len(t, slashCommands, len(entries), "every shipped command file must load")
 }
 
 func TestCommands_BuiltinItemsAreRequired(t *testing.T) {
-	items := builtinCommandItems()
-	assert.Contains(t, items, "model")
-	assert.Contains(t, items, "instruct-now")
-	assert.NotContains(t, items, "review", "declared commands can be removed")
+	assert.True(t, builtinCommandItem("model"))
+	assert.True(t, builtinCommandItem("instruct-now"))
+	assert.False(t, builtinCommandItem("review"), "declared commands can be removed")
+	assert.False(t, builtinCommandItem("nope"))
 	require.Error(t, assets.Remove(t.TempDir(), "commands/model"))
 }
 

@@ -39,7 +39,7 @@ import (
 func serveAssets(t *testing.T, files map[string]string) string {
 	t.Helper()
 	// Registered before the Setenv calls, so it runs after they are undone
-	// and reloads the package registries from the real (seed) state.
+	// and reloads the package registries from the repo's assets/.
 	t.Cleanup(ReloadAssets)
 	dir := t.TempDir()
 	idx := assets.Index{Items: map[string]assets.IndexItem{}}
@@ -90,7 +90,7 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{List: true}))
 	assert.Regexp(t, `tools/md5_file\s+1\.1\.0\s+downloaded`, out.String())
 	assert.Regexp(t, `themes/vim\s+1\.0\.0\s+removed`, out.String())
-	assert.Regexp(t, `harness/safety\s+1\.0\.0\s+built-in`, out.String())
+	assert.Regexp(t, `harness/safety\s+1\.0\.0\s+source`, out.String())
 
 	err := RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"themes/normal"}})
 	assert.ErrorContains(t, err, "required")
@@ -101,34 +101,34 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 }
 
 func TestEnsureAssets_FirstRunThenNoop(t *testing.T) {
-	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	// A release binary: no source directory, nothing installed.
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
 	var out bytes.Buffer
-	EnsureAssets(context.Background(), &out)
-	assert.Contains(t, out.String(), "first run")
-	assert.Contains(t, out.String(), "1 assets updated.")
-	assert.True(t, assets.Initialized(root))
-	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description)
+	err := EnsureAssets(context.Background(), &out)
+	assert.Contains(t, out.String(), "Downloading kdeps assets")
+	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description, "reloaded")
+	require.ErrorContains(t, err, "harness", "sets with nothing published stay missing")
+	assert.NotContains(t, err.Error(), "tools,")
 
+	// With every set present there is nothing to do.
+	t.Setenv(assets.SourceEnv, "")
 	out.Reset()
-	EnsureAssets(context.Background(), &out)
-	assert.Empty(t, out.String(), "only on the first run")
+	require.NoError(t, EnsureAssets(context.Background(), &out))
+	assert.Empty(t, out.String())
 }
 
 func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
-	root := t.TempDir()
-	t.Setenv("KDEPS_ASSETS_DIR", root)
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	down := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(down.Close)
 	t.Setenv("KDEPS_ASSETS_URL", down.URL)
 	var out bytes.Buffer
-	EnsureAssets(context.Background(), &out)
-	assert.Contains(t, out.String(), "using the built-in versions")
-	assert.False(t, assets.Initialized(root), "retried on the next start")
+	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "connect to the internet and run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
-	out.Reset()
-	EnsureAssets(context.Background(), &out)
-	assert.Empty(t, out.String())
+	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "KDEPS_ASSETS_URL=off")
 }
 
 func TestAssetUpdateNotice(t *testing.T) {

@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"embed"
 	"fmt"
 	"maps"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // A Preset is a named, coherent bundle of harness/event overrides -- e.g.
@@ -38,13 +39,11 @@ import (
 // registries. Unlike a full konfig.yaml, a preset never touches
 // tuning/registry/theme/skills/actions -- applying one can never clobber
 // unrelated persisted settings, only the harness sections and events it
-// explicitly names. Same built-in-embed + ~/.kdeps user-override pattern as
+// explicitly names. Same asset-set + ~/.kdeps user-override pattern as
 // events/harness/actions/themes: drop a same-named file into
 // ~/.kdeps/presets/ to override a built-in preset, or a differently-named
 // one to add a custom preset of your own.
 //
-//go:embed presets/*.yaml
-var builtinPresetsFS embed.FS
 
 // Preset is one on-disk presets/<name>.yaml document. Harness/Events reuse
 // the exact on-disk shapes yamlHarnessEntry/Event already have, so a preset
@@ -73,9 +72,9 @@ func userPresetsDir() (string, error) {
 	return filepath.Join(home, ".kdeps", userPresetsDirName), nil
 }
 
-// loadBuiltinPresets parses every embedded presets/*.yaml file.
+// loadBuiltinPresets parses every presets/*.yaml file of the asset set.
 func loadBuiltinPresets() map[string]*Preset {
-	return loadBuiltinYAMLDir(assetsFS("presets", builtinPresetsFS), "presets", "presets", parseYAMLPreset,
+	return loadBuiltinYAMLDir(assets.Open("presets"), "presets", "presets", parseYAMLPreset,
 		func(p Preset) string { return p.Name })
 }
 

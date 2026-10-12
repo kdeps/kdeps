@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,15 +32,15 @@ func TestAssetsFS_DownloadAndRemoveReachLoaders(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("KDEPS_ASSETS_DIR", root)
 
-	// A downloaded tool definition replaces the compiled-in one.
+	// A newer downloaded tool definition replaces the source one.
 	def := []byte("version: 1.1.0\ncategory: file\ndescription: Updated md5 text.\n")
 	require.NoError(t, assets.Install(root, "tools/md5_file", def, false))
-	defs := loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
+	defs := loadToolDefinitionsFrom(assets.Open("tools"))
 	assert.Equal(t, "Updated md5 text.", defs["md5_file"].Description)
 
 	// A removed one is gone, so the tool is not registered.
 	require.NoError(t, assets.Remove(root, "tools/tail_file"))
-	defs = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
+	defs = loadToolDefinitionsFrom(assets.Open("tools"))
 	assert.NotContains(t, defs, "tail_file")
 
 	// Removing a harness section drops it from the loaded harness.
@@ -54,10 +55,10 @@ func TestRequiredAssets_CannotBeRemoved(t *testing.T) {
 		assert.ErrorContains(t, assets.Remove(root, id), "required", id)
 	}
 	for _, name := range requiredHarness {
-		assert.FileExists(t, "harness/"+name+".yaml")
+		assert.FileExists(t, filepath.Join(assets.Source(), "harness", name+".yaml"))
 	}
 	for _, name := range requiredTools {
-		assert.FileExists(t, "tools/"+name+".yaml")
+		assert.FileExists(t, filepath.Join(assets.Source(), "tools", name+".yaml"))
 	}
 }
 
@@ -77,13 +78,13 @@ func TestAssetValidators_RejectBadDownloads(t *testing.T) {
 	require.NoError(t, assets.Install(root, "tools/md5_file", []byte("version: 1.1.0\ndescription: ok\n"), false))
 }
 
-func TestSeedFiles_HaveVersions(t *testing.T) {
-	for _, set := range []string{"harness", "events", "actions", "presets", "themes", "tools"} {
+func TestSourceFiles_HaveVersions(t *testing.T) {
+	for _, set := range []string{"harness", "events", "actions", "presets", "themes", "tools", "commands"} {
 		items, err := assets.Items(set, t.TempDir())
 		require.NoError(t, err, set)
 		require.NotEmpty(t, items, set)
 		for _, it := range items {
-			assert.NotEmpty(t, it.SeedVersion, "%s has no version header", it.ID)
+			assert.NotEmpty(t, it.BaseVersion, "%s has no version header", it.ID)
 		}
 	}
 }

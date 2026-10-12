@@ -16,9 +16,10 @@ Permission modes and lean mode stay on this page. The calling rules are their ow
 
 ## Tool definitions
 
-Each built-in tool's model-facing text is a YAML definition compiled into
-kdeps: the description, category, usage notes and parameter schema the model
-sees. The tool's code only supplies its name and what it runs.
+Each built-in tool's model-facing text is a YAML definition in the `tools`
+asset set, installed by `kdeps update`: the description, category, usage
+notes and parameter schema the model sees. The tool's code only supplies its
+name and what it runs.
 
 ```yaml
 # tools/md5_file.yaml (built-in, shown for reference)

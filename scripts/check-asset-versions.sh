@@ -9,8 +9,8 @@ set -euo pipefail
 base=${1:?base ref}
 head=${2:?head ref}
 
-flat_re='^(pkg/agent/(harness|events|actions|presets|themes|tools|commands)|pkg/llmserver/catalog/recipes|pkg/executor/llm/models)/[^/]+\.yaml$'
-tmpl_re='^pkg/templates/templates/([^/]+)/'
+flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models)/[^/]+\.yaml$'
+tmpl_re='^assets/templates/([^/]+)/'
 
 version_at() { # <ref> <path> -> version or empty
 	git show "$1:$2" 2>/dev/null | sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1
@@ -44,8 +44,8 @@ while IFS= read -r f; do
 		item=${BASH_REMATCH[1]}
 		case $seen in *" $item "*) continue ;; esac
 		seen="$seen$item "
-		manifest="pkg/templates/templates/$item/template.yaml"
-		git cat-file -e "$head:pkg/templates/templates/$item" 2>/dev/null || continue # template deleted
+		manifest="assets/templates/$item/template.yaml"
+		git cat-file -e "$head:assets/templates/$item" 2>/dev/null || continue # template deleted
 		check "$manifest" "template $item" || failed=1
 	fi
 done < <(git diff --name-only --diff-filter=AMR "$base" "$head")

@@ -71,6 +71,13 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 		return 1
 	}
 
+	assetsCleanup, assetsErr := useBundledAssets(tmpPath)
+	if assetsErr != nil {
+		kdepslog.Error("failed to read the package's kdeps assets", "error", assetsErr)
+		return 1
+	}
+	defer assetsCleanup()
+
 	// Inject "run <tmpPath>" into os.Args so the cobra root command picks it up.
 	origArgs := os.Args
 	os.Args = []string{ //nolint:reassign // intentional override for command dispatch

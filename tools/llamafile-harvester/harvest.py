@@ -4,8 +4,8 @@ llamafile-harvester — HuggingFace llamafile model registry builder.
 
 Queries the HuggingFace Hub API for all models tagged 'llamafile',
 collects sibling .llamafile files, deduplicates by model, and writes the
-model registries kdeps ships and publishes as versioned assets:
-pkg/executor/llm/models/llamafile.yaml and pkg/executor/llm/models/gguf.yaml.
+model registries kdeps publishes as versioned assets:
+assets/models/llamafile.yaml and assets/models/gguf.yaml.
 A registry whose entries changed gets its patch version bumped (published
 versions are immutable); an unchanged registry is left as is.
 
@@ -41,7 +41,7 @@ import sys
 from collections import OrderedDict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "pkg", "executor", "llm", "models"))
+MODELS_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "assets", "models"))
 
 try:
     from huggingface_hub import HfApi

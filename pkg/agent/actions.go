@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"embed"
 	"fmt"
 	"maps"
 	"os"
@@ -27,6 +26,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // Actions are the fixed vocabulary an event's "run:" field draws from --
@@ -34,14 +35,12 @@ import (
 // cannot themselves live in YAML (they perform real side effects: summarize
 // a conversation, truncate a string, refuse a call), but the vocabulary of
 // valid names, what each one conceptually does, and which events use them
-// is data -- so it gets the same built-in-embed + ~/.kdeps user-override
+// is data -- so it gets the same asset-set + ~/.kdeps user-override
 // pattern as harness/themes/events. Every event's declared "run:" is
 // validated against this registry at load time (validateEventActions,
 // called from initEvents): an unrecognized action name is a loud
 // stderr warning, never a silent no-op or a crash.
 //
-//go:embed actions/*.yaml
-var builtinActionsFS embed.FS
 
 // Built-in action names, referenced from every file that dispatches one
 // instead of a literal string at the call site.
@@ -86,16 +85,13 @@ func userActionsDir() (string, error) {
 	return filepath.Join(home, ".kdeps", userActionsDirName), nil
 }
 
-// loadBuiltinActions parses every embedded actions/*.yaml file.
+// loadBuiltinActions parses every actions/*.yaml file of the asset set.
 func loadBuiltinActions() map[string]*Action {
-	return loadBuiltinActionsFrom(assetsFS("actions", builtinActionsFS))
+	return loadBuiltinActionsFrom(assets.Open("actions"))
 }
 
 // loadBuiltinActionsFrom is loadBuiltinActions parameterized over the
-// filesystem (harnessFS: ReadDir + ReadFile), so tests can exercise it
-// without touching the real embed. A parse failure here is a bug in a
-// shipped file, not user input -- it panics, same severity as
-// harness/theme/event's own embedded loaders.
+// filesystem (harnessFS: ReadDir + ReadFile), so tests can exercise it.
 func loadBuiltinActionsFrom(fsys harnessFS) map[string]*Action {
 	return loadBuiltinYAMLDir(fsys, "actions", "actions", parseYAMLAction, func(a Action) string { return a.Name })
 }

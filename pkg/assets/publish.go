@@ -87,28 +87,26 @@ func (it IndexItem) Find(version string) (IndexVersion, bool) {
 	return IndexVersion{}, false
 }
 
-// SeedFiles returns every item of set as its published bytes: a flat item's
-// file, or a bundle item's files encoded as a Bundle.
-func SeedFiles(set string) (map[string][]byte, error) {
-	s, err := seedFor(set)
+// SourceFiles returns every item of set in the source directory src as its
+// published bytes: a flat item's file, or a bundle item's files encoded as a
+// Bundle.
+func SourceFiles(src, set string) (map[string][]byte, error) {
+	fsys := os.DirFS(src)
+	entries, err := fs.ReadDir(fsys, set)
 	if err != nil {
-		return nil, err
-	}
-	entries, err := fs.ReadDir(s.FS, s.Dir)
-	if err != nil {
-		return nil, fmt.Errorf("assets: read %s seed: %w", set, err)
+		return nil, fmt.Errorf("assets: read %s source: %w", set, err)
 	}
 	out := map[string][]byte{}
 	for _, e := range entries {
 		switch {
 		case set == BundleSet && e.IsDir():
-			data, bErr := bundleOf(s.FS, path.Join(s.Dir, e.Name()))
+			data, bErr := bundleOf(fsys, path.Join(set, e.Name()))
 			if bErr != nil {
 				return nil, fmt.Errorf("assets: bundle %s/%s: %w", set, e.Name(), bErr)
 			}
 			out[e.Name()] = data
 		case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
-			data, rErr := fs.ReadFile(s.FS, path.Join(s.Dir, e.Name()))
+			data, rErr := fs.ReadFile(fsys, path.Join(set, e.Name()))
 			if rErr != nil {
 				return nil, rErr
 			}
@@ -151,11 +149,12 @@ func bundleOf(fsys fs.FS, dir string) ([]byte, error) {
 	return yaml.Marshal(b)
 }
 
-// Publish writes every seed item's current version into out (assets/ in a
-// kdeps/packages checkout) and updates out/index.json. A version already published
+// Publish writes every item's current version from the source directory src
+// (the repo's assets/) into out (assets/ in a kdeps/packages checkout) and
+// updates out/index.json. A version already published
 // must be byte-identical: changing a file without bumping its version is an
 // error. It returns the ids of newly published versions.
-func Publish(out, commit string, now time.Time) ([]string, error) {
+func Publish(src, out, commit string, now time.Time) ([]string, error) {
 	idx, err := ReadIndex(out)
 	if err != nil {
 		return nil, err
@@ -163,7 +162,7 @@ func Publish(out, commit string, now time.Time) ([]string, error) {
 	var published []string
 	var errs []error
 	for _, set := range Sets {
-		files, sErr := SeedFiles(set)
+		files, sErr := SourceFiles(src, set)
 		if sErr != nil {
 			errs = append(errs, sErr)
 			continue

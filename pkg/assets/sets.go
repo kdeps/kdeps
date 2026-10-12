@@ -19,86 +19,79 @@
 package assets
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
-// Seed describes one set's compiled-in files.
-type Seed struct {
-	FS  fs.FS  // holds the files under Dir
-	Dir string // e.g. "harness"
+// Spec is what the package owning a set tells this one about it.
+type Spec struct {
 	// Validate is the set's own parser. Install runs it on a downloaded file,
 	// so a file the loader would reject never replaces a working one.
 	Validate func(data []byte, name string) error
-	// Required names items that cannot be removed (the loader needs them).
-	Required []string
+	// Required reports whether an item cannot be removed (the loader needs it).
+	Required func(name string) bool
 }
 
-//nolint:gochecknoglobals // seeds are registered once from each owning package's init
+//nolint:gochecknoglobals // specs are registered once from each owning package's init
 var (
-	seedsMu sync.RWMutex
-	seeds   = map[string]Seed{}
+	specsMu sync.RWMutex
+	specs   = map[string]Spec{}
 )
 
-// RegisterSeed records set's compiled-in files. The package that embeds a set
-// calls it from init, so this package can serve sets owned by packages it
-// cannot import.
-func RegisterSeed(set string, s Seed) {
-	seedsMu.Lock()
-	defer seedsMu.Unlock()
-	seeds[set] = s
+// Register records set's Spec. The package that loads a set calls it from
+// init, so this package can check sets owned by packages it cannot import.
+func Register(set string, s Spec) {
+	specsMu.Lock()
+	defer specsMu.Unlock()
+	specs[set] = s
 }
 
-func seedFor(set string) (Seed, error) {
-	seedsMu.RLock()
-	defer seedsMu.RUnlock()
-	s, ok := seeds[set]
+func specFor(set string) (Spec, error) {
+	specsMu.RLock()
+	defer specsMu.RUnlock()
+	s, ok := specs[set]
 	if !ok {
-		return Seed{}, fmt.Errorf("assets: set %q has no registered seed", set)
+		return Spec{}, fmt.Errorf("assets: set %q is not registered", set)
 	}
 	return s, nil
 }
 
 // required reports whether set/name is an item its loader cannot do without.
 func required(set, name string) bool {
-	s, err := seedFor(set)
-	return err == nil && slices.Contains(s.Required, name)
+	s, err := specFor(set)
+	return err == nil && s.Required != nil && s.Required(name)
 }
 
-// Open returns set's merged view (see Overlay) rooted at Root().
-func Open(set string) (ReadFS, error) {
-	s, err := seedFor(set)
-	if err != nil {
-		return nil, err
-	}
-	return Overlay(set, s.FS, s.Dir, Root()), nil
+// Open returns set's files as its loader reads them (see overlay), from
+// Source() and Root().
+func Open(set string) ReadFS {
+	return overlay(set, sourceFS(), Root())
 }
 
-// Item describes one asset: its compiled-in version and its local state.
+// Item describes one asset: its source version and its local state.
 type Item struct {
 	ID          string `json:"id"`
 	Set         string `json:"set"`
 	Name        string `json:"name"`
-	SeedVersion string `json:"seedVersion,omitempty"` // empty when the item exists only as a download
-	Version     string `json:"version"`               // version in use (downloaded, else seed)
+	BaseVersion string `json:"baseVersion,omitempty"` // version in Source(); empty in a release binary
+	Version     string `json:"version"`               // version in use (downloaded, else source)
 	Downloaded  bool   `json:"downloaded,omitempty"`
 	Pinned      bool   `json:"pinned,omitempty"`
 	Removed     bool   `json:"removed,omitempty"`
 }
 
-// Items lists every item of set: compiled-in ones plus downloaded ones,
-// sorted by name.
+// Items lists every item of set: source ones plus downloaded ones, sorted by
+// name.
 func Items(set, root string) ([]Item, error) {
-	s, err := seedFor(set)
-	if err != nil {
+	if _, err := specFor(set); err != nil {
 		return nil, err
 	}
 	lock, err := ReadLock(root)
@@ -106,8 +99,8 @@ func Items(set, root string) ([]Item, error) {
 		return nil, err
 	}
 	byName := map[string]*Item{}
-	for name, v := range seedVersions(set, s) {
-		byName[name] = &Item{ID: ID(set, name), Set: set, Name: name, SeedVersion: v, Version: v}
+	for name, v := range baseVersions(set, sourceFS()) {
+		byName[name] = &Item{ID: ID(set, name), Set: set, Name: name, BaseVersion: v, Version: v}
 	}
 	for id, e := range lock.Items {
 		ls, name, splitErr := SplitID(id)
@@ -121,7 +114,7 @@ func Items(set, root string) ([]Item, error) {
 		}
 		it.Pinned, it.Removed = e.Pinned, e.Removed
 		_, ok := downloaded(root, set, name, e)
-		if ok && !e.Removed && (e.Pinned || Newer(e.Version, it.SeedVersion)) {
+		if ok && !e.Removed && (e.Pinned || Newer(e.Version, it.BaseVersion)) {
 			it.Version, it.Downloaded = e.Version, true
 		}
 	}
@@ -133,10 +126,10 @@ func Items(set, root string) ([]Item, error) {
 	return out, nil
 }
 
-// seedVersions maps each compiled-in item name of set to its header version.
-func seedVersions(set string, s Seed) map[string]string {
+// baseVersions maps each item name of set in base to its header version.
+func baseVersions(set string, base fs.FS) map[string]string {
 	out := map[string]string{}
-	entries, err := fs.ReadDir(s.FS, s.Dir)
+	entries, err := fs.ReadDir(base, set)
 	if err != nil {
 		return out
 	}
@@ -144,13 +137,13 @@ func seedVersions(set string, s Seed) map[string]string {
 		var file, name string
 		switch {
 		case set == BundleSet && e.IsDir():
-			name, file = e.Name(), path.Join(s.Dir, e.Name(), ManifestFile)
+			name, file = e.Name(), path.Join(set, e.Name(), ManifestFile)
 		case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
-			name, file = strings.TrimSuffix(e.Name(), yamlExt), path.Join(s.Dir, e.Name())
+			name, file = strings.TrimSuffix(e.Name(), yamlExt), path.Join(set, e.Name())
 		default:
 			continue
 		}
-		data, readErr := fs.ReadFile(s.FS, file)
+		data, readErr := fs.ReadFile(base, file)
 		if readErr != nil {
 			continue
 		}
@@ -188,7 +181,7 @@ func Remove(root, id string) error {
 	return WriteLock(root, lock)
 }
 
-// known reports whether set/name is compiled in, downloaded or in the lock.
+// known reports whether set/name is in the source, downloaded or in the lock.
 func known(set, name, root string, lock Lock) bool {
 	if _, ok := lock.Items[ID(set, name)]; ok {
 		return true
@@ -196,11 +189,7 @@ func known(set, name, root string, lock Lock) bool {
 	if _, err := os.Stat(FilePath(root, set, name)); err == nil {
 		return true
 	}
-	s, err := seedFor(set)
-	if err != nil {
-		return false
-	}
-	_, ok := seedVersions(set, s)[name]
+	_, ok := baseVersions(set, sourceFS())[name]
 	return ok
 }
 
@@ -224,7 +213,7 @@ func Install(root, id string, data []byte, pinned bool) error {
 	if !Compatible(h.Kdeps) {
 		return fmt.Errorf("assets: %s@%s needs kdeps %s", id, h.Version, h.Kdeps)
 	}
-	if s, seedErr := seedFor(set); seedErr == nil && s.Validate != nil {
+	if s, specErr := specFor(set); specErr == nil && s.Validate != nil {
 		if vErr := s.Validate(data, name); vErr != nil {
 			return fmt.Errorf("assets: %s@%s is invalid: %w", id, h.Version, vErr)
 		}
@@ -244,7 +233,7 @@ func Install(root, id string, data []byte, pinned bool) error {
 }
 
 // Reset forgets an item's local state (download, pin, removal), so the
-// compiled-in version is used again.
+// source version is used again.
 func Reset(root, id string) error {
 	set, name, err := SplitID(id)
 	if err != nil {
@@ -259,4 +248,69 @@ func Reset(root, id string) error {
 	}
 	delete(lock.Items, id)
 	return WriteLock(root, lock)
+}
+
+// ExportDir names the store an Export is copied to inside a Docker build
+// context.
+const ExportDir = "kdeps-assets"
+
+// Export returns every registered set as Open sees it, laid out as a store:
+// <set>/<name>.yaml files plus lock.json, keyed by slash path. kdeps build
+// copies it into images, so a container starts with the builder's assets
+// and needs no download.
+func Export() (map[string][]byte, error) {
+	out := map[string][]byte{}
+	lock := Lock{Items: map[string]LockEntry{}}
+	now := time.Now().UTC()
+	for _, set := range Sets {
+		if _, err := specFor(set); err != nil {
+			continue
+		}
+		fsys := Open(set)
+		entries, err := fsys.ReadDir(set)
+		if err != nil {
+			return nil, fmt.Errorf("assets: export %s: %w", set, err)
+		}
+		for _, e := range entries {
+			name, data, ok, itemErr := exportItem(fsys, set, e)
+			if itemErr != nil {
+				return nil, itemErr
+			}
+			if !ok {
+				continue
+			}
+			h, hErr := ParseHeader(data)
+			if hErr != nil {
+				return nil, fmt.Errorf("assets: export %s: %w", ID(set, name), hErr)
+			}
+			out[set+"/"+name+yamlExt] = data
+			lock.Items[ID(set, name)] = LockEntry{Version: h.Version, SHA256: Sum(data), UpdatedAt: now}
+		}
+	}
+	data, err := json.MarshalIndent(lock, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	out[lockFileName] = data
+	return out, nil
+}
+
+// exportItem returns one entry of set as its store file: a flat item's file,
+// or a bundle item's directory encoded as a Bundle.
+func exportItem(fsys ReadFS, set string, e fs.DirEntry) (string, []byte, bool, error) {
+	switch {
+	case set == BundleSet && e.IsDir():
+		data, err := bundleOf(fsys, path.Join(set, e.Name()))
+		if err != nil {
+			return "", nil, false, fmt.Errorf("assets: export %s: %w", ID(set, e.Name()), err)
+		}
+		return e.Name(), data, true, nil
+	case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
+		data, err := fsys.ReadFile(path.Join(set, e.Name()))
+		if err != nil {
+			return "", nil, false, err
+		}
+		return strings.TrimSuffix(e.Name(), yamlExt), data, true, nil
+	}
+	return "", nil, false, nil
 }

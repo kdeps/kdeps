@@ -19,7 +19,6 @@
 package catalog
 
 import (
-	"embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -33,28 +32,22 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
 )
 
-//go:embed recipes/*.yaml
-var stockRecipes embed.FS
-
-// recipesSet is the asset set (and embed dir) holding the stock recipes.
+// recipesSet is the asset set holding the stock recipes.
 const recipesSet = "recipes"
 
 //nolint:gochecknoinits // registers the stock recipes as a versioned asset set
 func init() {
-	assets.RegisterSeed(
-		recipesSet,
-		assets.Seed{FS: stockRecipes, Dir: recipesSet, Validate: func(data []byte, _ string) error {
-			_, err := parseRecipe(data)
-			return err
-		}},
-	)
+	assets.Register(recipesSet, assets.Spec{Validate: func(data []byte, _ string) error {
+		_, err := parseRecipe(data)
+		return err
+	}})
 }
 
 // Options controls where recipes are loaded from.
 // Empty paths skip that source. LoadDefault uses stock + ~/.kdeps/llm-servers + ./llm-servers.
 type Options struct {
-	// Stock is the filesystem of stock recipes. Nil uses the built-in recipes
-	// with downloaded versions and removals applied (see pkg/assets).
+	// Stock is the filesystem of stock recipes. Nil uses the recipes asset set
+	// (see pkg/assets).
 	Stock fs.FS
 	// UserDir is ~/.kdeps/llm-servers (or override). Empty skips.
 	UserDir string
@@ -91,7 +84,7 @@ func Load(opts Options) ([]recipe.Entry, error) {
 
 	stock := opts.Stock
 	if stock == nil {
-		stock = assets.Overlay(recipesSet, stockRecipes, recipesSet, assets.Root())
+		stock = assets.Open(recipesSet)
 	}
 	if err := loadFS(stock, "recipes", recipe.SourceStock, byID); err != nil {
 		return nil, err

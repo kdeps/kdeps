@@ -17,10 +17,13 @@
 // license notices and attribution when redistributing derived code.
 
 // Package assets manages kdeps' versioned behavior files: harness sections,
-// events, actions, presets, themes, tool definitions, LLM server recipes and
-// project templates. Each set ships compiled into the binary as a seed;
-// downloaded versions in ~/.kdeps/assets/<set>/ replace seed files, and items
-// the user removed are hidden. Loaders read a set through Overlay.
+// events, actions, presets, themes, tool definitions, slash commands, LLM
+// server recipes, model registries and project templates. None of them is
+// compiled into the binary: they are published to the registry and installed
+// into ~/.kdeps/assets by kdeps update (Ensure runs it on first start). A
+// source directory ($KDEPS_ASSETS_SRC, or the repo's assets/ under go test)
+// sits under the store, for developing assets. Loaders read a set through
+// Open.
 package assets
 
 import (
@@ -34,6 +37,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"testing"
 	"testing/fstest"
 	"time"
 
@@ -54,7 +59,7 @@ var Sets = []string{
 // bundle file each; every other set's item is a single YAML file.
 const BundleSet = "templates"
 
-// ManifestFile names the version header file inside a bundle item's seed
+// ManifestFile names the version header file inside a bundle item's source
 // directory. Template walkers skip it.
 const ManifestFile = "template.yaml"
 
@@ -94,16 +99,73 @@ type Lock struct {
 	Items map[string]LockEntry `json:"items"`
 }
 
+// SourceEnv names a directory laid out like the repo's assets/ (one
+// <set>/<name>.yaml per item, a directory per template) that kdeps loads
+// under the store, for developing assets.
+const SourceEnv = "KDEPS_ASSETS_SRC"
+
 // Root returns the assets directory: $KDEPS_ASSETS_DIR, or ~/.kdeps/assets.
+// Under go test it defaults to a per-process temp directory, so tests never
+// read or write the user's store.
 func Root() string {
 	if d := os.Getenv("KDEPS_ASSETS_DIR"); d != "" {
 		return d
+	}
+	if testing.Testing() {
+		return filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-test-assets-%d", os.Getpid()))
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return filepath.Join(".kdeps", "assets")
 	}
 	return filepath.Join(home, ".kdeps", "assets")
+}
+
+// Source returns the source directory loaded under the store: $KDEPS_ASSETS_SRC,
+// or the repo's assets/ under go test (exported as $KDEPS_ASSETS_SRC, so
+// kdeps processes a test starts load it too). Release binaries have none.
+func Source() string {
+	if d := os.Getenv(SourceEnv); d != "" {
+		return d
+	}
+	if testing.Testing() {
+		return repoSource()
+	}
+	return ""
+}
+
+//nolint:gochecknoglobals // found once per test process
+var repoSourceOnce = sync.OnceValue(func() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, statErr := os.Stat(filepath.Join(dir, "go.mod")); statErr == nil {
+			src := filepath.Join(dir, "assets")
+			if _, srcErr := os.Stat(src); srcErr != nil {
+				return ""
+			}
+			_ = os.Setenv(SourceEnv, src)
+			return src
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+})
+
+// repoSource is the assets/ directory of the module the test runs in.
+func repoSource() string { return repoSourceOnce() }
+
+// sourceFS is Source() as a file system, or an empty one.
+func sourceFS() fs.FS {
+	if src := Source(); src != "" {
+		return os.DirFS(src)
+	}
+	return fstest.MapFS{}
 }
 
 // ID joins a set and item name into an item id.
@@ -227,19 +289,20 @@ type ReadFS interface {
 	fs.ReadFileFS
 }
 
-// Overlay returns set's files as loaders should see them, rooted the same way
-// as seed (files under dir, e.g. "harness/safety.yaml"): seed files, replaced
-// by valid downloaded versions from root, minus removed items. A downloaded
-// file that is unreadable, fails its lock checksum, or needs a newer kdeps is
-// ignored and the seed file stays. So is an unpinned download that is not
-// newer than the seed: after a kdeps upgrade the compiled-in version wins.
-func Overlay(set string, seed fs.FS, dir, root string) ReadFS {
+// overlay returns set's files as loaders should see them (files under the set
+// name, e.g. "harness/safety.yaml"): source files, replaced by valid
+// downloaded versions from root, minus removed items. A downloaded file that
+// is unreadable, fails its lock checksum, or needs a newer kdeps is ignored.
+// So is an unpinned download that is not newer than its source file, so an
+// edited source file wins while developing it.
+func overlay(set string, base fs.FS, root string) ReadFS {
+	dir := set
 	out := fstest.MapFS{}
-	_ = fs.WalkDir(seed, dir, func(p string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(base, dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			return nil //nolint:nilerr // an unreadable seed entry is skipped, not fatal
+			return nil //nolint:nilerr // an unreadable source entry is skipped, not fatal
 		}
-		if data, readErr := fs.ReadFile(seed, p); readErr == nil {
+		if data, readErr := fs.ReadFile(base, p); readErr == nil {
 			out[p] = &fstest.MapFile{Data: data}
 		}
 		return nil
@@ -257,7 +320,7 @@ func Overlay(set string, seed fs.FS, dir, root string) ReadFS {
 			continue
 		}
 		data, ok := downloaded(root, set, name, e)
-		if !ok || (!e.Pinned && !Newer(e.Version, seedVersion(out, set, dir, name))) {
+		if !ok || (!e.Pinned && !Newer(e.Version, baseVersion(out, set, dir, name))) {
 			continue
 		}
 		applyDownloaded(out, set, dir, name, data)
@@ -285,9 +348,9 @@ func downloaded(root, set, name string, e LockEntry) ([]byte, bool) {
 	return data, true
 }
 
-// seedVersion is the version header of name's seed file in out, or "" when
-// the item has no seed (then any download is newer).
-func seedVersion(out fstest.MapFS, set, dir, name string) string {
+// baseVersion is the version header of name's source file in out, or "" when
+// the item has none (then any download is newer).
+func baseVersion(out fstest.MapFS, set, dir, name string) string {
 	p := path.Join(dir, name+yamlExt)
 	if set == BundleSet {
 		p = path.Join(dir, name, ManifestFile)

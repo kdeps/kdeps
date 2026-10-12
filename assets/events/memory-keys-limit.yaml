@@ -1,5 +1,5 @@
-version: 1.0.0
-name: rel-memory-limit
+version: 1.0.1
+name: memory-keys-limit
 # This event has no "on:" trigger block -- "items" below is a plain count
 # that always applies, unlike a trigger which fires only once crossed. An
 # "on:" block could be added here if a real trigger condition were ever
@@ -12,12 +12,13 @@ name: rel-memory-limit
 #   bytes: <int>                  byte-length threshold (truncation-cluster events)
 #   distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-# Bounds the base memory relation fed into a memory_query join so a
-# nested-loop join has a bounded worst case regardless of how much state has
-# accumulated.
-items: 500
+# Caps how many key names the <memory-keys> preamble block lists. Without a
+# cap, a store with thousands of entries would dump every key into the
+# system prompt on every session -- the model instead sees the most
+# recently updated entries and a count of how many more exist.
+items: 100
 # run: selects the action performed for this event's "items" cap.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit

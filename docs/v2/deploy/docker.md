@@ -346,6 +346,12 @@ RUN apk upgrade --no-cache && \
 # script ref and the binary tag to their own version; dev builds use main.
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/v2.1.0/install.sh | sh -s -- -b /usr/local/bin v2.1.0
 
+# kdeps assets (harness, tool definitions, model registries, ...) from the
+# machine running kdeps build: the binary ships none, so the container needs
+# no download at start
+ENV KDEPS_ASSETS_DIR=/app/.kdeps/assets
+COPY kdeps-assets/ /app/.kdeps/assets/
+
 # Copy agent files
 COPY workflow.yaml /app/workflow.yaml
 COPY resources/ /app/resources/

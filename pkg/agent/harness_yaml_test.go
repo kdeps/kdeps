@@ -177,9 +177,12 @@ func (f fakeHarnessFS) ReadFile(name string) ([]byte, error) {
 	return data, nil
 }
 
-func TestLoadBuiltinHarnessFrom_ReadDirErrorPanics(t *testing.T) {
+func TestLoadBuiltinHarnessFrom_ReadDirErrorWarns(t *testing.T) {
 	fsys := fakeHarnessFS{readDirErr: errors.New("boom")}
-	assert.Panics(t, func() { loadBuiltinHarnessFrom(fsys) })
+	var got map[string]*harnessEntry
+	out := captureStderr(t, func() { got = loadBuiltinHarnessFrom(fsys) })
+	assert.Empty(t, got)
+	assert.Contains(t, out, "skipping asset: boom")
 }
 
 func TestLoadBuiltinHarnessFrom_SkipsDirectoryEntries(t *testing.T) {
@@ -197,14 +200,20 @@ func TestLoadBuiltinHarnessFrom_SkipsDirectoryEntries(t *testing.T) {
 	assert.Contains(t, got, "memory")
 }
 
-func TestParseBuiltinHarnessFileFrom_ReadErrorPanics(t *testing.T) {
+func TestParseBuiltinHarnessFileFrom_ReadErrorSkips(t *testing.T) {
+	out := map[string]*harnessEntry{}
 	fsys := fakeHarnessFS{readFileErr: errors.New("boom")}
-	assert.Panics(t, func() { parseBuiltinHarnessFileFrom(fsys, map[string]*harnessEntry{}, "x.yaml") })
+	stderr := captureStderr(t, func() { parseBuiltinHarnessFileFrom(fsys, out, "x.yaml") })
+	assert.Empty(t, out)
+	assert.Contains(t, stderr, "boom")
 }
 
-func TestParseBuiltinHarnessFileFrom_ParseErrorPanics(t *testing.T) {
+func TestParseBuiltinHarnessFileFrom_ParseErrorSkips(t *testing.T) {
+	out := map[string]*harnessEntry{}
 	fsys := fakeHarnessFS{files: map[string][]byte{path.Join("harness", "bad.yaml"): []byte("not: [valid")}}
-	assert.Panics(t, func() { parseBuiltinHarnessFileFrom(fsys, map[string]*harnessEntry{}, "bad.yaml") })
+	stderr := captureStderr(t, func() { parseBuiltinHarnessFileFrom(fsys, out, "bad.yaml") })
+	assert.Empty(t, out)
+	assert.Contains(t, stderr, "bad.yaml")
 }
 
 // --- parseYAMLHarnessEntry / harnessNameFromYAML ---

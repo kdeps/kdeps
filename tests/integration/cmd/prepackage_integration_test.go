@@ -23,6 +23,7 @@ package cmd_test
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
@@ -135,7 +136,8 @@ func createKdepsArchive(destPath, srcDir string) error {
 //  2. Prepackage it for the host architecture.
 //  3. Verify the output binary exists and is larger than the source archive.
 //  4. Verify that DetectEmbeddedPackage finds the payload.
-//  5. Verify that the detected bytes are byte-for-byte identical to the source.
+//  5. Verify that the payload holds the source archive's entries plus the
+//     bundled kdeps assets.
 func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	kdepsFile := buildMinimalKdeps(t)
 	outDir := t.TempDir()
@@ -173,15 +175,32 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	require.True(t, found, "DetectEmbeddedPackage must detect the embedded payload")
 	assert.NotEmpty(t, detected)
 
-	// Detected bytes must match the original .kdeps file exactly.
+	// The payload is the source archive plus the packager's kdeps assets.
 	original, err := os.ReadFile(kdepsFile)
 	require.NoError(t, err)
-	assert.Equal(
-		t,
-		original,
-		detected,
-		"detected payload must be byte-for-byte identical to source",
-	)
+	payload := tarGzNames(t, detected)
+	for _, name := range tarGzNames(t, original) {
+		assert.Contains(t, payload, name)
+	}
+	assert.Contains(t, payload, cmd.BundledAssetsDir+"/lock.json")
+	assert.Contains(t, payload, cmd.BundledAssetsDir+"/themes/normal.yaml")
+}
+
+// tarGzNames lists the entry names of a tar.gz archive.
+func tarGzNames(t *testing.T, data []byte) []string {
+	t.Helper()
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	require.NoError(t, err)
+	tr := tar.NewReader(gz)
+	var names []string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		names = append(names, hdr.Name)
+	}
+	return names
 }
 
 // TestPrepackageIntegration_OutputNaming verifies that the output filename

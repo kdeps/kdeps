@@ -1,5 +1,5 @@
-version: 1.0.0
-name: memory-prompt-limit
+version: 1.0.1
+name: tool-result-truncate
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,11 +10,14 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # Approximate token cap on how much memory content is injected into the
-  # system preamble each turn.
-  tokens: 500
+  # Any single tool result fed back to the LLM past this size is truncated
+  # on a line boundary. bash_exec truncates its own output, but other tools
+  # (searches, scrapers, workflow/agency calls) can return arbitrarily large
+  # payloads that would otherwise pile into history and get re-sent every
+  # round.
+  bytes: 16384
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit

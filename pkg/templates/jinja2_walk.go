@@ -103,7 +103,7 @@ func (g *Generator) processJinja2File(
 	return nil
 }
 
-// copyFileFromFS copies a file from the renderer's embedded filesystem to a target path.
+// copyFileFromFS copies a file from the renderer's filesystem to a target path.
 func (r *Jinja2Renderer) copyFileFromFS(sourcePath, targetPath string) error {
 	kdeps_debug.Log("enter: copyFileFromFS")
 	content, err := r.fs.ReadFile(sourcePath)

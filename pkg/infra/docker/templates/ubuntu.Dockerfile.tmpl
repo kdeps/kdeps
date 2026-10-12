@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH \
     KDEPS_BIND_HOST=0.0.0.0 \
+    KDEPS_ASSETS_DIR=/app/.kdeps/assets \
     {{- if .LlamafileModels }}
     KDEPS_MODELS_DIR=/app/.kdeps/models \
     {{- end }}
@@ -96,6 +97,10 @@ RUN /usr/local/bin/uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
 COPY {{ .RequirementsFile }} /tmp/requirements.txt
 RUN /usr/local/bin/uv pip install -r /tmp/requirements.txt
 {{- end }}
+
+# kdeps assets (harness, tools, model registries, ...) from the build host,
+# so the container needs no download at start
+COPY kdeps-assets/ /app/.kdeps/assets/
 
 # Copy workflow files
 {{- if not .UsePrepackagedBinary }}

@@ -20,83 +20,73 @@ package agent
 
 import (
 	"errors"
-	"io/fs"
-	"strings"
+	"fmt"
+	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
-// assetsFS returns set's files as the loaders read them: the compiled-in seed
-// with downloaded versions and removed items applied (see pkg/assets).
-func assetsFS(set string, seed fs.FS) assets.ReadFS {
-	return assets.Overlay(set, seed, set, assets.Root())
+// warnAsset reports an asset file a loader skipped. Asset files are
+// downloaded, so one that a newer kdeps would read (or a corrupt one) must
+// never stop kdeps from starting -- kdeps update can then fix it.
+func warnAsset(err error) {
+	fmt.Fprintln(os.Stderr, "kdeps: skipping asset:", err)
 }
 
-//nolint:gochecknoinits // registers this package's compiled-in asset sets
+//nolint:gochecknoinits // registers this package's asset sets
 func init() {
-	assets.RegisterSeed(
-		"harness",
-		assets.Seed{FS: builtinHarnessFS, Dir: "harness", Validate: func(data []byte, name string) error {
+	assets.Register("harness", assets.Spec{
+		Validate: func(data []byte, name string) error {
 			_, err := parseYAMLHarnessEntry(data, name)
 			return err
-		}, Required: requiredHarness},
-	)
-	assets.RegisterSeed(
-		"events",
-		assets.Seed{FS: builtinEventsFS, Dir: "events", Validate: func(data []byte, name string) error {
-			_, err := parseYAMLEvent(data, name)
-			return err
-		}},
-	)
-	assets.RegisterSeed(
-		"actions",
-		assets.Seed{FS: builtinActionsFS, Dir: "actions", Validate: func(data []byte, name string) error {
-			_, err := parseYAMLAction(data, name)
-			return err
-		}},
-	)
-	assets.RegisterSeed(
-		"presets",
-		assets.Seed{FS: builtinPresetsFS, Dir: "presets", Validate: func(data []byte, name string) error {
-			_, err := parseYAMLPreset(data, name)
-			return err
-		}},
-	)
-	assets.RegisterSeed(
-		"themes",
-		assets.Seed{FS: builtinThemeFS, Dir: "themes", Validate: func(data []byte, name string) error {
+		},
+		Required: func(name string) bool { return slices.Contains(requiredHarness, name) },
+	})
+	assets.Register("events", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLEvent(data, name)
+		return err
+	}})
+	assets.Register("actions", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLAction(data, name)
+		return err
+	}})
+	assets.Register("presets", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLPreset(data, name)
+		return err
+	}})
+	assets.Register("themes", assets.Spec{
+		Validate: func(data []byte, name string) error {
 			_, err := parseYAMLTheme(data, name)
 			return err
-		}, Required: []string{"normal"}},
-	)
-	assets.RegisterSeed("tools", assets.Seed{
-		FS: builtinToolDefsFS, Dir: "tools", Validate: validateToolDefinition, Required: requiredTools,
+		},
+		Required: func(name string) bool { return name == "normal" },
 	})
-	assets.RegisterSeed("commands", assets.Seed{
-		FS: builtinCommandsFS, Dir: "commands", Validate: func(data []byte, name string) error {
+	assets.Register("tools", assets.Spec{
+		Validate: validateToolDefinition,
+		Required: func(name string) bool { return slices.Contains(requiredTools, name) },
+	})
+	assets.Register("commands", assets.Spec{
+		Validate: func(data []byte, name string) error {
 			_, err := parseYAMLCommand(data, name)
 			return err
-		}, Required: builtinCommandItems(),
+		},
+		Required: builtinCommandItem,
 	})
 }
 
-// builtinCommandItems are the compiled-in commands kdeps handles in Go: their
-// files can be updated, not removed, so /help and completion keep them.
-func builtinCommandItems() []string {
-	entries, _ := builtinCommandsFS.ReadDir("commands")
-	var out []string
-	for _, e := range entries {
-		data, err := builtinCommandsFS.ReadFile("commands/" + e.Name())
-		if err != nil {
-			continue
-		}
-		if c, pErr := parseYAMLCommand(data, e.Name()); pErr == nil && c.Builtin {
-			out = append(out, strings.TrimSuffix(e.Name(), ".yaml"))
+// builtinCommandItem reports whether item is the file of a command kdeps
+// handles in Go: it can be updated, not removed, so /help and completion
+// keep the command.
+func builtinCommandItem(item string) bool {
+	for _, c := range slashCommands {
+		if c.item == item {
+			return c.Builtin
 		}
 	}
-	return out
+	return false
 }
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,

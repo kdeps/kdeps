@@ -20,6 +20,7 @@ package assets
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -70,7 +71,7 @@ func byID(changes []Change) map[string]Change {
 }
 
 func TestUpdate_AllItemsAndNewOnes(t *testing.T) {
-	withSeeds(t, fstest.MapFS{
+	withSource(t, fstest.MapFS{
 		"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: seed\n")},
 		"harness/tools.yaml":  {Data: []byte("version: 1.0.0\nbody: seed tools\n")},
 	})
@@ -101,10 +102,9 @@ func TestUpdate_AllItemsAndNewOnes(t *testing.T) {
 	changes, err = Update(ctx, root, c, nil, false)
 	require.NoError(t, err)
 	assert.Equal(t, ActionInstall, byID(changes)["harness/safety"].Action)
-	o := Overlay(
+	o := overlay(
 		"harness",
 		fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: seed\n")}},
-		"harness",
 		root,
 	)
 	data, err := o.ReadFile("harness/safety.yaml")
@@ -120,7 +120,7 @@ func TestUpdate_AllItemsAndNewOnes(t *testing.T) {
 }
 
 func TestUpdate_PinUnpinRemoveRestore(t *testing.T) {
-	withSeeds(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: seed\n")}})
+	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: seed\n")}})
 	c := publishedServer(t, map[string]map[string]string{
 		"harness/safety": {
 			"1.0.0": "version: 1.0.0\nbody: seed\n",
@@ -174,15 +174,15 @@ func TestUpdate_PinUnpinRemoveRestore(t *testing.T) {
 	assert.Equal(t, ActionFailed, changes[1].Action)
 }
 
-func TestUpdate_SeedNewerThanPublishedResets(t *testing.T) {
-	withSeeds(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 2.0.0\nbody: seed\n")}})
+func TestUpdate_SourceNewerThanPublishedResets(t *testing.T) {
+	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 2.0.0\nbody: seed\n")}})
 	c := publishedServer(t, map[string]map[string]string{
 		"harness/safety": {"1.5.0": "version: 1.5.0\nbody: old\n"},
 	}, nil)
 	root := t.TempDir()
 	ctx := context.Background()
 
-	// An unpinned older download never shadows a newer compiled-in version.
+	// An unpinned older download never shadows a newer source version.
 	require.NoError(t, Install(root, "harness/safety", []byte("version: 1.5.0\nbody: old\n"), false))
 	items, _ := Items("harness", root)
 	assert.Equal(t, "2.0.0", items[0].Version)
@@ -210,7 +210,7 @@ func TestUpdate_SeedNewerThanPublishedResets(t *testing.T) {
 }
 
 func TestClient_FallbackChecksumAndDisabled(t *testing.T) {
-	withSeeds(t, fstest.MapFS{})
+	withSource(t, fstest.MapFS{})
 	good := publishedServer(t, map[string]map[string]string{"harness/x": {"1.0.0": "version: 1.0.0\n"}}, nil)
 	idx, err := good.Index(context.Background())
 	require.NoError(t, err)
@@ -240,7 +240,7 @@ func TestClient_FallbackChecksumAndDisabled(t *testing.T) {
 }
 
 func TestAvailableUpdates_CachesAndInitialized(t *testing.T) {
-	withSeeds(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\n")}})
+	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\n")}})
 	c := publishedServer(t, map[string]map[string]string{"harness/safety": {"1.1.0": "version: 1.1.0\n"}}, nil)
 	root := t.TempDir()
 	ctx := context.Background()
@@ -263,4 +263,34 @@ func TestAvailableUpdates_CachesAndInitialized(t *testing.T) {
 	require.NoError(t, MarkInitialized(root))
 	assert.True(t, Initialized(root))
 	require.NoError(t, MarkInitialized(root))
+}
+
+func TestUpdate_ManyItemsInParallelAndOneFails(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	files := map[string]map[string]string{}
+	for i := range 3 * downloadWorkers {
+		files[fmt.Sprintf("harness/h%02d", i)] = map[string]string{
+			"1.0.0": fmt.Sprintf("version: 1.0.0\nbody: %d\n", i),
+		}
+	}
+	c := publishedServer(t, files, nil)
+	root := t.TempDir()
+	// One item's index checksum does not match its published file.
+	idx, err := c.Index(t.Context())
+	require.NoError(t, err)
+	broken := idx.Items["harness/h07"].Versions[0]
+	broken.SHA256 = Sum([]byte("other"))
+	idx.Items["harness/h07"] = IndexItem{Latest: "1.0.0", Versions: []IndexVersion{broken}}
+
+	changes := make([]Change, 0, len(files))
+	for id := range files {
+		changes = append(changes, Change{ID: id, Action: ActionInstall, To: "1.0.0"})
+	}
+	applyAll(t.Context(), root, c, changes, idx)
+	got := byID(changes)
+	assert.Equal(t, ActionFailed, got["harness/h07"].Action)
+	assert.Contains(t, got["harness/h07"].Note, "checksum")
+	lock, err := ReadLock(root)
+	require.NoError(t, err)
+	assert.Len(t, lock.Items, len(files)-1, "every other item installed; the lock kept every write")
 }

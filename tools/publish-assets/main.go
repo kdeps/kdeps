@@ -23,7 +23,7 @@
 // .github/workflows/publish-assets.yml on every push to main that touches an
 // asset.
 //
-//	go run ./tools/publish-assets -out packages/assets -formulas registry/formulas -commit "$GITHUB_SHA"
+//	go run ./tools/publish-assets -src assets -out packages/assets -formulas registry/formulas -commit "$GITHUB_SHA"
 package main
 
 import (
@@ -34,11 +34,7 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/kdeps/kdeps/v2/pkg/agent" // registers harness, events, actions, presets, themes, tools
 	"github.com/kdeps/kdeps/v2/pkg/assets"
-	_ "github.com/kdeps/kdeps/v2/pkg/executor/llm"      // registers models
-	_ "github.com/kdeps/kdeps/v2/pkg/llmserver/catalog" // registers recipes
-	_ "github.com/kdeps/kdeps/v2/pkg/templates"         // registers templates
 )
 
 // exitUsage is the exit code for a missing flag.
@@ -50,6 +46,7 @@ const defaultFileBase = "https://raw.githubusercontent.com/" + assets.PackagesRe
 const defaultResourceBase = "https://raw.githubusercontent.com/" + assets.PackagesRepo + "/main/" + assets.ResourcesDir
 
 func main() {
+	src := flag.String("src", "assets", "assets/ directory of the kdeps checkout to publish from")
 	out := flag.String("out", "", "assets/ directory of a kdeps/packages checkout to write into")
 	formulas := flag.String("formulas", "", "formulas/ directory of a kdeps/registry checkout to write into")
 	fileBase := flag.String("file-base", defaultFileBase, "URL the published assets/ directory is served from")
@@ -62,7 +59,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "publish-assets: -out and -formulas are required")
 		os.Exit(exitUsage)
 	}
-	published, err := assets.Publish(*out, *commit, time.Now())
+	published, err := assets.Publish(*src, *out, *commit, time.Now())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "publish-assets:", err)
 		os.Exit(1)

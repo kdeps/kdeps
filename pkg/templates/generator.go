@@ -19,7 +19,6 @@
 package templates
 
 import (
-	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -33,15 +32,12 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-//go:embed templates
-var templatesFS embed.FS
-
-// templatesSet is the asset set (and embed dir) holding the project templates.
+// templatesSet is the asset set holding the project templates.
 const templatesSet = "templates"
 
 //nolint:gochecknoinits // registers the project templates as a versioned asset set
 func init() {
-	assets.RegisterSeed(templatesSet, assets.Seed{FS: templatesFS, Dir: templatesSet, Validate: validateTemplateBundle})
+	assets.Register(templatesSet, assets.Spec{Validate: validateTemplateBundle})
 }
 
 // validateTemplateBundle checks a downloaded template bundle.
@@ -103,7 +99,7 @@ func (g *Generator) GenerateProject(
 	data TemplateData,
 ) error {
 	kdeps_debug.Log("enter: GenerateProject")
-	fsys := assets.Overlay(templatesSet, templatesFS, templatesSet, assets.Root())
+	fsys := assets.Open(templatesSet)
 	templateDir := path.Join(templatesSet, templateName)
 	all, readErr := fsys.ReadDir(templateDir)
 	if readErr != nil {

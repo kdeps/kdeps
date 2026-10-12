@@ -42,13 +42,13 @@ func TestRecipes_DownloadedAndRemovedItemsReachTheCatalog(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, items)
 	for _, it := range items {
-		assert.Equal(t, "1.0.0", it.SeedVersion, it.ID)
+		assert.Equal(t, "1.0.0", it.BaseVersion, it.ID)
 		assert.False(t, it.Downloaded)
 	}
 
-	seed, err := os.ReadFile("../../../pkg/llmserver/catalog/recipes/tgi.yaml")
+	src, err := os.ReadFile(filepath.Join(assets.Source(), "recipes", "tgi.yaml"))
 	require.NoError(t, err)
-	updated := strings.Replace(string(seed), "version: 1.0.0", "version: 1.1.0", 1)
+	updated := strings.Replace(string(src), "version: 1.0.0", "version: 1.1.0", 1)
 	updated = strings.Replace(updated, "name: Text Generation Inference (TGI)", "name: TGI updated", 1)
 	require.NoError(t, assets.Install(root, "recipes/tgi", []byte(updated), true))
 
@@ -73,7 +73,7 @@ func TestRecipes_DownloadedAndRemovedItemsReachTheCatalog(t *testing.T) {
 
 // TestModels_UpdateReplacesRegistryAndKeepsUserEntries installs a newer
 // models/gguf registry and checks alias resolution: the download replaces the
-// compiled-in registry, and the user's own entries still merge on top.
+// source registry, and the user's own entries still merge on top.
 func TestModels_UpdateReplacesRegistryAndKeepsUserEntries(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
@@ -93,7 +93,7 @@ func TestModels_UpdateReplacesRegistryAndKeepsUserEntries(t *testing.T) {
 
 	llm.ReloadGGUFRegistry()
 	_, ok := llm.ResolveGGUFAlias("qwen3.6")
-	require.True(t, ok, "compiled-in registry")
+	require.True(t, ok, "source registry")
 
 	data := []byte("version: 9.0.0\nggufs:\n  - alias: fresh\n    url: https://example.com/fresh.gguf\n")
 	require.NoError(t, assets.Install(root, "models/gguf", data, false))

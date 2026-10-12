@@ -21,6 +21,7 @@ package assets
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -30,36 +31,50 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// withSeeds swaps in test seeds for every set for the duration of the test.
-func withSeeds(t *testing.T, harness fstest.MapFS) {
+// withSource registers every set and makes Source() a directory holding the
+// given harness files, the test template bundle and an empty dir per set.
+func withSource(t *testing.T, harness fstest.MapFS) {
 	t.Helper()
-	seedsMu.Lock()
-	saved := seeds
-	seeds = map[string]Seed{}
-	seedsMu.Unlock()
+	specsMu.Lock()
+	saved := specs
+	specs = map[string]Spec{}
+	specsMu.Unlock()
 	t.Cleanup(func() {
-		seedsMu.Lock()
-		seeds = saved
-		seedsMu.Unlock()
+		specsMu.Lock()
+		specs = saved
+		specsMu.Unlock()
 	})
-	empty := fstest.MapFS{}
+	files := fstest.MapFS{}
 	for _, set := range Sets {
-		empty[set+"/.keep"] = &fstest.MapFile{}
-		RegisterSeed(set, Seed{FS: empty, Dir: set})
+		Register(set, Spec{})
+		files[set+"/.keep"] = &fstest.MapFile{}
 	}
-	RegisterSeed("harness", Seed{FS: harness, Dir: "harness"})
-	RegisterSeed(BundleSet, Seed{FS: seedFS(), Dir: BundleSet})
+	for name, f := range harness {
+		files[name] = f
+	}
+	for name, f := range sourceFiles() {
+		if strings.HasPrefix(name, BundleSet+"/") {
+			files[name] = f
+		}
+	}
+	writeSource(t, files)
+}
+
+// setSourceFile replaces one file in Source().
+func setSourceFile(t *testing.T, name, data string) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(filepath.Join(Source(), filepath.FromSlash(name)), []byte(data), 0o600))
 }
 
 func TestPublish_WritesVersionsAndIndex(t *testing.T) {
-	withSeeds(t, fstest.MapFS{
+	withSource(t, fstest.MapFS{
 		"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: a\n")},
 		"harness/tools.yaml":  {Data: []byte("version: 2.0.0\nkdeps: \">=2.60.0\"\nbody: b\n")},
 	})
 	out := t.TempDir()
 	now := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
 
-	got, err := Publish(out, "c1", now)
+	got, err := Publish(Source(), out, "c1", now)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"harness/safety@1.0.0", "harness/tools@2.0.0", "templates/api@1.0.0"}, got)
 
@@ -74,7 +89,7 @@ func TestPublish_WritesVersionsAndIndex(t *testing.T) {
 	assert.Equal(t, "1.0.0", b.Version)
 	assert.Equal(
 		t,
-		map[string]string{"workflow.yaml.j2": "seed workflow", "resources/llm.yaml.j2": "seed llm"},
+		map[string]string{"workflow.yaml.j2": "source workflow", "resources/llm.yaml.j2": "source llm"},
 		b.Files,
 	)
 
@@ -87,21 +102,21 @@ func TestPublish_WritesVersionsAndIndex(t *testing.T) {
 	assert.Equal(t, "c1", tools.Versions[0].Commit)
 	assert.Equal(t, now, tools.Versions[0].Date)
 
-	// Unchanged seeds publish nothing new.
-	got, err = Publish(out, "c2", now)
+	// Unchanged sources publish nothing new.
+	got, err = Publish(Source(), out, "c2", now)
 	require.NoError(t, err)
 	assert.Empty(t, got)
 }
 
 func TestPublish_BumpAddsVersionAndReuseFails(t *testing.T) {
 	harness := fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: a\n")}}
-	withSeeds(t, harness)
+	withSource(t, harness)
 	out := t.TempDir()
-	_, err := Publish(out, "c1", time.Now())
+	_, err := Publish(Source(), out, "c1", time.Now())
 	require.NoError(t, err)
 
-	harness["harness/safety.yaml"] = &fstest.MapFile{Data: []byte("version: 1.1.0\nbody: b\n")}
-	got, err := Publish(out, "c2", time.Now())
+	setSourceFile(t, "harness/safety.yaml", "version: 1.1.0\nbody: b\n")
+	got, err := Publish(Source(), out, "c2", time.Now())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"harness/safety@1.1.0"}, got)
 	idx, _ := ReadIndex(out)
@@ -110,12 +125,12 @@ func TestPublish_BumpAddsVersionAndReuseFails(t *testing.T) {
 	assert.Len(t, it.Versions, 2)
 	assert.FileExists(t, filepath.Join(out, "harness", "safety", "1.0.0.yaml"), "old versions stay")
 
-	harness["harness/safety.yaml"] = &fstest.MapFile{Data: []byte("version: 1.1.0\nbody: changed\n")}
-	_, err = Publish(out, "c3", time.Now())
+	setSourceFile(t, "harness/safety.yaml", "version: 1.1.0\nbody: changed\n")
+	_, err = Publish(Source(), out, "c3", time.Now())
 	assert.ErrorContains(t, err, "already published with different content")
 
-	harness["harness/safety.yaml"] = &fstest.MapFile{Data: []byte("body: no version\n")}
-	_, err = Publish(out, "c4", time.Now())
+	setSourceFile(t, "harness/safety.yaml", "body: no version\n")
+	_, err = Publish(Source(), out, "c4", time.Now())
 	assert.ErrorContains(t, err, "invalid version")
 }
 
@@ -142,6 +157,6 @@ func TestIndex_ParseErrors(t *testing.T) {
 	assert.NotNil(t, idx.Items)
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, IndexFile), []byte("nope"), 0o600))
-	_, err = Publish(dir, "c", time.Now())
+	_, err = Publish(Source(), dir, "c", time.Now())
 	require.Error(t, err)
 }

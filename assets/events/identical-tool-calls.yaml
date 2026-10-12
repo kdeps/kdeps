@@ -1,5 +1,5 @@
-version: 1.0.0
-name: file-call-budget
+version: 1.0.1
+name: identical-tool-calls
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,11 +10,12 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # DISTINCT read_file/list_files paths per turn. Re-reading an already-seen
-  # file never counts twice.
-  distinctCalls: 80
+  # How many times in a row the model may issue the exact same tool call
+  # before the turn is ended as a stuck loop. Floored at 1 if unset/corrupt
+  # (see effectiveRounds) -- never resolves to "fire on the first round".
+  rounds: 3
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit
@@ -25,4 +26,4 @@ on:
 #   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
-run: block
+run: force_answer

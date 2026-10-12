@@ -191,7 +191,10 @@ func SetTheme(name string) bool {
 // applyActiveTheme recomputes activePalette/activePromptText/activeInputTint
 // from currentThemeKey, then rebuilds every derived style.
 func applyActiveTheme() {
-	t := themes[currentThemeKey]
+	t, ok := themes[currentThemeKey]
+	if !ok { // no themes installed yet (first run, before EnsureAssets): plain colors
+		t = &theme{palette: &palette{}}
+	}
 	activePalette = t.palette
 	activePromptText = t.promptText
 	activeInputTint = hexToSGRForeground(activePalette.thinking)

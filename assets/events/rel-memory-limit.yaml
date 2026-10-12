@@ -1,5 +1,5 @@
-version: 1.0.0
-name: memory-focus-max
+version: 1.0.1
+name: rel-memory-limit
 # This event has no "on:" trigger block -- "items" below is a plain count
 # that always applies, unlike a trigger which fires only once crossed. An
 # "on:" block could be added here if a real trigger condition were ever
@@ -12,11 +12,12 @@ name: memory-focus-max
 #   bytes: <int>                  byte-length threshold (truncation-cluster events)
 #   distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-# Bounds how many prompt-relevant entries are force-kept when memory is
-# truncated to fit its token budget.
-items: 5
+# Bounds the base memory relation fed into a memory_query join so a
+# nested-loop join has a bounded worst case regardless of how much state has
+# accumulated.
+items: 500
 # run: selects the action performed for this event's "items" cap.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit

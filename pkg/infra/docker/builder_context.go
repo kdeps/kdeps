@@ -23,9 +23,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -60,6 +63,10 @@ func (b *Builder) CreateBuildContext(
 	}
 	if addErr := b.addFileToTar(tw, "supervisord.conf", []byte(supervisord)); addErr != nil {
 		return nil, fmt.Errorf("failed to add supervisord.conf: %w", addErr)
+	}
+
+	if err := b.addAssetsToContext(tw); err != nil {
+		return nil, err
 	}
 
 	if len(b.PrepackagedBinaries) > 0 {
@@ -101,6 +108,22 @@ func (b *Builder) addPrepackagedBinariesToContext(tw *tar.Writer) error {
 		}
 		if addErr := b.addFileToTar(tw, entryName, content); addErr != nil {
 			return fmt.Errorf("failed to add prepackaged binary for %s: %w", arch, addErr)
+		}
+	}
+	return nil
+}
+
+// addAssetsToContext adds the build host's kdeps assets under
+// assets.ExportDir; the Dockerfile copies them to the container's store.
+func (b *Builder) addAssetsToContext(tw *tar.Writer) error {
+	kdeps_debug.Log("enter: addAssetsToContext")
+	files, err := assets.Export()
+	if err != nil {
+		return fmt.Errorf("failed to export kdeps assets: %w", err)
+	}
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		if addErr := b.addFileToTar(tw, assets.ExportDir+"/"+name, files[name]); addErr != nil {
+			return fmt.Errorf("failed to add kdeps asset %s: %w", name, addErr)
 		}
 	}
 	return nil

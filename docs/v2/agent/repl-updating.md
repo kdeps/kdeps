@@ -50,11 +50,11 @@ kdeps' behavior files are versioned assets that update separately from the binar
 
 ```d2
 direction: right
-main: "kdeps repo, main" {shape: oval}
+main: "kdeps repo, main\nassets/<set>/" {shape: oval}
 branch: "kdeps/packages assets/\n<set>/<name>/<version>.yaml\n+ index.json"
 formulas: "kdeps/registry\nformulas/kdeps-<set>-<name>.yaml"
 site: "kdeps.io\none catalog: packages,\nresource types, assets"
-update: "kdeps update\n(first run: automatic)"
+update: "kdeps update\n(first run: automatic, required)"
 store: "~/.kdeps/assets/\nfiles + lock.json"
 loader: "loaders\n(user overrides on top)" {shape: oval}
 main -> branch: "publish on merge"
@@ -62,10 +62,19 @@ main -> formulas: "one formula per item"
 formulas -> site: "indexed like any package"
 branch -> update: "download + sha256 check"
 update -> store
-store -> loader: "newer than built-in,\nor pinned"
+store -> loader
 ```
 
-Every item ships compiled into the binary, so kdeps works offline. On the first run, kdeps downloads the newest version of every item (bounded to 20 seconds; offline it starts on the built-in versions and tries again next start). After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
+The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. On the first run (and after an upgrade that adds a set), any command that needs them downloads the newest version of every item first:
+
+```text
+$ kdeps
+Downloading kdeps assets (harness, tools, commands, themes, templates, models)...
+```
+
+Offline with nothing installed, kdeps stops and tells you to connect and run `kdeps update` (`kdeps update`, `kdeps validate` and `kdeps registry` run without assets). Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+
+After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
 
 ```text
 2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps update.
@@ -79,7 +88,7 @@ kdeps update tools                    # every item in one set
 kdeps update harness/safety           # newest version of one item; unpins and restores it
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
 kdeps update --check                  # what would change
-kdeps update --list                   # every item: version, built-in | downloaded | pinned | removed
+kdeps update --list                   # every item: version, downloaded | pinned | removed
 kdeps update --remove themes/vim,presets/frugal   # remove items
 ```
 
@@ -88,11 +97,17 @@ kdeps update --remove themes/vim,presets/frugal   # remove items
 How a version is chosen:
 
 - Each file starts with `version:` (semver) and may declare `kdeps: ">=X.Y.Z"`, the oldest kdeps that can load it. Versions that need a newer kdeps are skipped (`kdeps --upgrade` first).
-- Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and the built-in version is used instead.
-- A download is used only while it is newer than the built-in version or pinned, so upgrading the binary never leaves you on older assets.
+- Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
+- A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
 
 Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) the loop's control tools (`goal_task_complete`, `goal_task_fail`, `judge_verdict`, `session_handshake`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
 
 Your own overrides still win: files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and the like are layered on top of whatever version is installed.
 
 `KDEPS_ASSETS_URL` points downloads at a mirror laid out like `assets/` in kdeps/packages (`index.json` plus `<set>/<name>/<version>.yaml`); `KDEPS_ASSETS_URL=off` turns downloads off.
+
+To work on assets, point `KDEPS_ASSETS_SRC` at a directory laid out like `assets/` in the kdeps repo (`<set>/<name>.yaml`, one directory per template). kdeps loads it under the store, so an edited file is used as soon as it has a higher `version:` than the installed one:
+
+```bash
+KDEPS_ASSETS_SRC=~/src/kdeps/assets ./kdeps   # run on a checkout's assets
+```

@@ -41,15 +41,15 @@ func TestPackageTypes(t *testing.T) {
 }
 
 func TestWriteFormulas_LatestVersionOfEachItem(t *testing.T) {
-	withSeeds(t, fstest.MapFS{
+	withSource(t, fstest.MapFS{
 		"harness/safety.yaml": {Data: []byte("version: 1.0.0\ndescription: |\n  Safety rules.\n  More.\nbody: a\n")},
 	})
 	out := t.TempDir()
-	_, err := Publish(out, "c1", time.Now())
+	_, err := Publish(Source(), out, "c1", time.Now())
 	require.NoError(t, err)
 	// A newer version of the same item: the formula moves to it.
-	withSeeds(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.1.0\nbody: b\n")}})
-	_, err = Publish(out, "c2", time.Now())
+	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.1.0\nbody: b\n")}})
+	_, err = Publish(Source(), out, "c2", time.Now())
 	require.NoError(t, err)
 
 	idx, err := ReadIndex(out)
@@ -79,11 +79,11 @@ func TestWriteFormulas_LatestVersionOfEachItem(t *testing.T) {
 }
 
 func TestWriteFormulas_DescriptionFromFile(t *testing.T) {
-	withSeeds(t, fstest.MapFS{
+	withSource(t, fstest.MapFS{
 		"harness/safety.yaml": {Data: []byte("version: 1.0.0\ndescription: |\n  Safety rules.\n  More.\n")},
 	})
 	out := t.TempDir()
-	_, err := Publish(out, "c1", time.Now())
+	_, err := Publish(Source(), out, "c1", time.Now())
 	require.NoError(t, err)
 	idx, err := ReadIndex(out)
 	require.NoError(t, err)
