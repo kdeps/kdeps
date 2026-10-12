@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,7 +34,7 @@ import (
 const (
 	ActionInstall = "install" // new item, or newer version
 	ActionPin     = "pin"     // explicit item@version
-	ActionReset   = "reset"   // back to the compiled-in version
+	ActionReset   = "reset"   // back to the source version
 	ActionRemove  = "remove"  // hidden from loaders
 	ActionCurrent = "current" // nothing newer
 	ActionSkip    = "skip"    // pinned/removed/incompatible; see Note
@@ -108,14 +109,54 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 				continue
 			}
 			seen[id] = true
-			ch := plan(id, t, local[id], idx.Items[id])
-			if !check && ch.Pending() {
-				ch = apply(ctx, root, c, ch, idx.Items[id])
-			}
-			changes = append(changes, ch)
+			changes = append(changes, plan(id, t, local[id], idx.Items[id]))
 		}
 	}
+	if !check {
+		applyAll(ctx, root, c, changes, idx)
+	}
 	return changes, nil
+}
+
+// downloadWorkers bounds concurrent downloads: a first run fetches every
+// item, and one at a time that takes most of a minute.
+const downloadWorkers = 8
+
+// applyAll carries out every pending change in place: downloads run in
+// parallel, installs (which rewrite the lock) one at a time.
+func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx Index) {
+	data := make([][]byte, len(changes))
+	errs := make([]error, len(changes))
+	sem := make(chan struct{}, downloadWorkers)
+	var wg sync.WaitGroup
+	for i, ch := range changes {
+		if ch.Action != ActionInstall && ch.Action != ActionPin {
+			continue
+		}
+		wg.Go(func() {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			v, _ := idx.Items[ch.ID].Find(ch.To)
+			data[i], errs[i] = c.File(ctx, ch.ID, v)
+		})
+	}
+	wg.Wait()
+	for i, ch := range changes {
+		if !ch.Pending() {
+			continue
+		}
+		err := errs[i]
+		switch {
+		case err != nil:
+		case ch.Action == ActionReset:
+			err = Reset(root, ch.ID)
+		default:
+			err = Install(root, ch.ID, data[i], ch.Action == ActionPin)
+		}
+		if err != nil {
+			changes[i].Action, changes[i].Note = ActionFailed, err.Error()
+		}
+	}
 }
 
 // scope lists the item ids a target covers.
@@ -169,11 +210,11 @@ func plan(id string, t target, it Item, pub IndexItem) Change {
 		return ch
 	}
 	best, ok := pub.NewestCompatible()
-	if t.name != "" && (!ok || !Newer(best.Version, it.SeedVersion)) && it.SeedVersion != "" {
-		// Named item with nothing newer than the compiled-in version: make
-		// sure the seed is what is in use (drops a pin, removal or old download).
+	if t.name != "" && (!ok || !Newer(best.Version, it.BaseVersion)) && it.BaseVersion != "" {
+		// Named item with nothing newer than its source version: make sure the
+		// source is what is in use (drops a pin, removal or old download).
 		if it.Downloaded || it.Pinned || it.Removed {
-			ch.Action, ch.To = ActionReset, it.SeedVersion
+			ch.Action, ch.To = ActionReset, it.BaseVersion
 			return ch
 		}
 		ch.Action = ActionCurrent
@@ -183,7 +224,7 @@ func plan(id string, t target, it Item, pub IndexItem) Change {
 	case !ok && len(pub.Versions) > 0:
 		return skip(ch, "newer versions need a newer kdeps; run kdeps upgrade")
 	case !ok:
-		if t.name != "" && it.SeedVersion == "" && !it.Downloaded {
+		if t.name != "" && it.BaseVersion == "" && !it.Downloaded {
 			ch.Action, ch.Note = ActionFailed, "no such item"
 			return ch
 		}
@@ -198,24 +239,6 @@ func plan(id string, t target, it Item, pub IndexItem) Change {
 
 func skip(ch Change, note string) Change {
 	ch.Action, ch.Note = ActionSkip, note
-	return ch
-}
-
-func apply(ctx context.Context, root string, c *Client, ch Change, pub IndexItem) Change {
-	if ch.Action == ActionReset {
-		if err := Reset(root, ch.ID); err != nil {
-			ch.Action, ch.Note = ActionFailed, err.Error()
-		}
-		return ch
-	}
-	v, _ := pub.Find(ch.To)
-	data, err := c.File(ctx, ch.ID, v)
-	if err == nil {
-		err = Install(root, ch.ID, data, ch.Action == ActionPin)
-	}
-	if err != nil {
-		ch.Action, ch.Note = ActionFailed, err.Error()
-	}
 	return ch
 }
 
@@ -246,6 +269,52 @@ func RemoveItems(root string, ids []string) []Change {
 		changes = append(changes, ch)
 	}
 	return changes
+}
+
+// Missing lists the registered sets that have no items, as Open sees them.
+// Every set kdeps loads has at least one published item, so a missing set
+// means the store was never filled (or a newer kdeps added the set).
+func Missing() []string {
+	var out []string
+	for _, set := range Sets {
+		if _, err := specFor(set); err != nil {
+			continue
+		}
+		if entries, err := Open(set).ReadDir(set); err != nil || len(entries) == 0 {
+			out = append(out, set)
+		}
+	}
+	return out
+}
+
+// Ensure fills the store when a registered set has no items: it installs
+// the newest published version of every item. It returns whether it
+// downloaded anything, and an error when a set is still empty afterwards.
+func Ensure(ctx context.Context, root string, c *Client) (bool, error) {
+	if len(Missing()) == 0 {
+		return false, nil
+	}
+	changes, err := Update(ctx, root, c, nil, false)
+	if err != nil {
+		return false, fmt.Errorf("%w (%w)", errNotInstalled(Missing()), err)
+	}
+	_ = MarkInitialized(root)
+	if missing := Missing(); len(missing) > 0 {
+		for _, ch := range changes {
+			if ch.Action == ActionFailed {
+				return true, fmt.Errorf("%w (%s: %s)", errNotInstalled(missing), ch.ID, ch.Note)
+			}
+		}
+		return true, errNotInstalled(missing)
+	}
+	return true, nil
+}
+
+func errNotInstalled(sets []string) error {
+	return fmt.Errorf(
+		"kdeps assets are not installed (%s); connect to the internet and run kdeps update",
+		strings.Join(sets, ", "),
+	)
 }
 
 // Initialized reports whether the asset store has been set up (lock written).

@@ -78,7 +78,7 @@ else
 fi
 
 OUT=$(upd --list)
-if output_grep "harness/safety +1\.2\.0 +downloaded" "$OUT" && output_grep "harness/accuracy +1\.0\.0 +built-in" "$OUT"; then
+if output_grep "harness/safety +1\.2\.0 +downloaded" "$OUT" && output_grep "harness/accuracy +1\.0\.0 +source" "$OUT"; then
     test_passed "update --list shows versions and state"
 else
     test_failed "update --list" "$OUT"
@@ -107,7 +107,7 @@ else
 fi
 
 OUT=$(upd themes/vim)
-if output_grep "themes/vim +1\.0\.0 +built-in" "$(upd --list)"; then
+if output_grep "themes/vim +1\.0\.0 +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"
@@ -117,6 +117,53 @@ kill "$UPD_SRV" 2>/dev/null
 wait "$UPD_SRV" 2>/dev/null
 rm -rf "$UPD_DIR"
 trap - EXIT
+
+# First run of a release binary: no source directory and an empty store.
+FR_DIR=$(mktemp -d)
+if (cd "$PROJECT_ROOT" && go run ./tools/publish-assets -src assets -out "$FR_DIR/pub" -formulas "$FR_DIR/formulas" >/dev/null 2>&1); then
+    FR_PORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
+    # kdeps downloads in parallel; the default listen backlog (5) makes Windows
+    # refuse connections beyond it.
+    (cd "$FR_DIR/pub" && exec python3 -c 'import functools,http.server as h,sys
+h.ThreadingHTTPServer.request_queue_size = 64
+h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.SimpleHTTPRequestHandler, directory=".")).serve_forever()' "$FR_PORT" >/dev/null 2>&1) &
+    FR_SRV=$!
+    trap 'kill "$FR_SRV" 2>/dev/null; rm -rf "$FR_DIR"' EXIT
+    for _ in $(seq 1 50); do
+        python3 -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:$FR_PORT/index.json')" 2>/dev/null && break
+        sleep 0.1
+    done
+    fr() { HOME="$FR_DIR" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$FR_DIR/store" "$@" 2>&1 </dev/null; }
+
+    if OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list); then
+        test_failed "first run offline refuses to start" "$OUT"
+    elif output_grep "run kdeps update" "$OUT"; then
+        test_passed "first run offline refuses to start"
+    else
+        test_failed "first run offline message" "$OUT"
+    fi
+
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" llamafile list)
+    if output_grep "Downloading kdeps assets" "$OUT" && output_grep "GGUF" "$OUT" && [ -f "$FR_DIR/store/themes/normal.yaml" ]; then
+        test_passed "first run downloads every asset"
+    else
+        test_failed "first run download" "$OUT"
+    fi
+
+    OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list)
+    if ! output_grep "Downloading" "$OUT" && output_grep "GGUF" "$OUT"; then
+        test_passed "installed assets work offline"
+    else
+        test_failed "installed assets offline" "$OUT"
+    fi
+
+    kill "$FR_SRV" 2>/dev/null
+    wait "$FR_SRV" 2>/dev/null
+    trap - EXIT
+else
+    test_failed "first run: publish assets" "go run ./tools/publish-assets failed"
+fi
+rm -rf "$FR_DIR"
 
 echo ""
 echo "kdeps update E2E: done"

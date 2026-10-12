@@ -31,7 +31,7 @@ import (
 )
 
 // TestDesktop_DownloadedCommandRunsWithoutARelease installs a slash command
-// that only exists as a published asset (no compiled-in file), then checks it
+// that only exists as a published asset (not in the source directory), then checks it
 // is listed, runs its steps, and disappears when removed.
 func TestDesktop_DownloadedCommandRunsWithoutARelease(t *testing.T) {
 	root := t.TempDir()

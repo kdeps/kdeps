@@ -223,7 +223,7 @@ func TestGenerator_WalkTemplate_DirectoryRecursion(t *testing.T) {
 }
 
 func TestGenerator_EmbeddedTemplates(t *testing.T) {
-	// Verify that embedded templates are processed correctly
+	// Verify that the templates are processed correctly
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
 
@@ -237,10 +237,10 @@ func TestGenerator_EmbeddedTemplates(t *testing.T) {
 	err = generator.GenerateProject("api-service", outputDir, data)
 	require.NoError(t, err)
 
-	// Verify that embedded files were processed
+	// Verify that template files were processed
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	assert.NotEmpty(t, files, "Should process embedded files")
+	assert.NotEmpty(t, files, "Should process template files")
 }
 
 func TestGenerator_StripJinja2Ext_EdgeCases(t *testing.T) {
@@ -923,10 +923,10 @@ func TestGenerator_WalkEmbedFS_ReadFileError(t *testing.T) {
 	err = generator.GenerateProject("api-service", outputDir, data)
 	require.NoError(t, err)
 
-	// Verify that embedded files were read successfully
+	// Verify that template files were read successfully
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	assert.NotEmpty(t, files, "Should successfully read and process embedded files")
+	assert.NotEmpty(t, files, "Should successfully read and process template files")
 }
 
 func TestGenerator_WalkTemplate_SubdirectoryReadError(t *testing.T) {
@@ -1017,7 +1017,7 @@ func TestGenerator_WalkEmbedFS_ReadFileErrorCoverage(t *testing.T) {
 	// Verify ReadFile was called successfully (indirect coverage)
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	assert.NotEmpty(t, files, "Should successfully read embedded files")
+	assert.NotEmpty(t, files, "Should successfully read template files")
 }
 
 func TestGenerator_WalkTemplate_ReadDirErrorCoverage(t *testing.T) {
@@ -1202,7 +1202,7 @@ func TestGenerator_WalkEmbedFS_DirectoryRecursion(t *testing.T) {
 	// Verify that recursive directory processing worked
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	assert.NotEmpty(t, files, "Should process recursively embedded files")
+	assert.NotEmpty(t, files, "Should process recursively nested template files")
 }
 
 func TestGenerator_GenerateFile_FileCreation(t *testing.T) {
@@ -1256,7 +1256,7 @@ func TestGenerator_WalkEmbedFS_FileProcessing(t *testing.T) {
 	// Verify files were processed
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
-	assert.NotEmpty(t, files, "Should process embedded files")
+	assert.NotEmpty(t, files, "Should process template files")
 
 	// Check that no file has .tmpl extension (stripTemplateExt worked)
 	for _, file := range files {
@@ -1440,8 +1440,8 @@ func TestGenerator_WalkTemplate_DirectoryCreationFailure(t *testing.T) {
 
 func TestGenerator_WalkTemplate_ReadDirFailure(_ *testing.T) {
 	// This is harder to test directly since we can't easily make ReadDir fail
-	// on the embedded filesystem. The existing tests already cover the success paths.
-	// The readDir failure would occur if the embedded FS is corrupted, which is
+	// on the template filesystem. The existing tests already cover the success paths.
+	// The readDir failure would occur if the template files are corrupted, which is
 	// not something we can easily test in unit tests.
 
 	// Instead, we'll rely on the existing GenerateProject tests which indirectly

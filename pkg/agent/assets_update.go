@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	// firstRunAssetTimeout bounds the first-run download; past it kdeps starts
-	// on the compiled-in versions and retries on the next start.
-	firstRunAssetTimeout = 20 * time.Second
+	// firstRunAssetTimeout bounds the first-run download.
+	firstRunAssetTimeout = 60 * time.Second
 	// assetNoticeTimeout bounds the startup update check behind the notice.
 	assetNoticeTimeout = 3 * time.Second
 	// assetCheckTTL is how long an update check is reused.
@@ -53,40 +52,26 @@ func ReloadAssets() {
 	initEvents()
 	initPresets()
 	initCommands()
-	toolDefinitions = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
+	toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
 	executorLLM.ReloadRegistry()
 	executorLLM.ReloadGGUFRegistry()
 }
 
-// EnsureAssets runs the first-run download: when the asset store has never
-// been set up, it installs the newest published version of every item and
-// reloads. Offline or with downloads off it does nothing, and the compiled-in
-// versions are used.
-func EnsureAssets(ctx context.Context, w io.Writer) {
-	root := assets.Root()
-	c := assets.NewClient()
-	if assets.Initialized(root) || c.Disabled() {
-		return
+// EnsureAssets installs kdeps's assets when a set has none -- on first run,
+// or when this kdeps added a set -- and reloads them. kdeps ships no assets
+// of its own, so it returns an error when they cannot be downloaded.
+func EnsureAssets(ctx context.Context, w io.Writer) error {
+	if len(assets.Missing()) == 0 {
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout)
 	defer cancel()
-	fmt.Fprintln(
-		w,
-		styleReplDim.Render("Downloading the latest harness, tool definitions and templates (first run)..."),
-	)
-	changes, err := assets.Update(ctx, root, c, nil, false)
-	if err != nil {
-		fmt.Fprintln(
-			w,
-			styleReplDim.Render("Asset download skipped ("+firstLine(err.Error())+"); using the built-in versions."),
-		)
-		return
-	}
-	_ = assets.MarkInitialized(root)
-	if n := countApplied(changes); n > 0 {
+	fmt.Fprintln(w, "Downloading kdeps assets (harness, tools, commands, themes, templates, models)...")
+	downloaded, err := assets.Ensure(ctx, assets.Root(), assets.NewClient())
+	if downloaded {
 		ReloadAssets()
-		fmt.Fprintln(w, styleReplDim.Render(fmt.Sprintf("%d assets updated.", n)))
 	}
+	return err
 }
 
 // AssetUpdateNotice returns a one-line notice when published asset updates
@@ -188,7 +173,7 @@ func listAssets(w io.Writer, root string) error {
 		}
 		fmt.Fprintln(w, set)
 		for _, it := range items {
-			state := "built-in"
+			state := "source"
 			switch {
 			case it.Removed:
 				state = "removed"
@@ -201,16 +186,6 @@ func listAssets(w io.Writer, root string) error {
 		}
 	}
 	return nil
-}
-
-func countApplied(changes []assets.Change) int {
-	n := 0
-	for _, ch := range changes {
-		if ch.Pending() {
-			n++
-		}
-	}
-	return n
 }
 
 func orDash(s string) string {

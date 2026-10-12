@@ -20,6 +20,8 @@ package agent
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -122,8 +124,13 @@ func TestLoadToolDefinitionsFrom(t *testing.T) {
 	assert.Equal(t, "shown", defs["a"].Name)
 	assert.NotNil(t, defs["a"].Parameters, "explicit empty parameters stay non-nil")
 
-	assert.Panics(t, func() { loadToolDefinitionsFrom(fstest.MapFS{}) }, "missing tools dir")
-	assert.Panics(t, func() {
-		loadToolDefinitionsFrom(fstest.MapFS{"tools/bad.yaml": {Data: []byte("description: [")}})
-	}, "bad YAML")
+	stderr := captureStderr(t, func() {
+		assert.Empty(t, loadToolDefinitionsFrom(fstest.MapFS{}), "missing tools dir")
+		defs = loadToolDefinitionsFrom(fstest.MapFS{
+			"tools/bad.yaml":  {Data: []byte("description: [")},
+			"tools/good.yaml": {Data: []byte("version: 1.0.0\ndescription: g\n")},
+		})
+	})
+	assert.Equal(t, []string{"good"}, slices.Collect(maps.Keys(defs)), "a bad file is skipped, the rest load")
+	assert.Contains(t, stderr, "bad.yaml")
 }

@@ -16,16 +16,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'pkg/agent/harness/**'
-      - 'pkg/agent/events/**'
-      - 'pkg/agent/actions/**'
-      - 'pkg/agent/presets/**'
-      - 'pkg/agent/themes/**'
-      - 'pkg/agent/tools/**'
-      - 'pkg/agent/commands/**'
-      - 'pkg/llmserver/catalog/recipes/**'
-      - 'pkg/executor/llm/models/**'
-      - 'pkg/templates/templates/**'
+      - 'assets/**'
       - 'pkg/assets/**'
       - 'tools/publish-assets/**'
       - 'docs/v2/workflow/resources/**'
@@ -64,7 +55,7 @@ jobs:
           path: registry
           token: ${{ secrets.RELEASE_TOKEN }}
       - name: Publish new versions
-        run: go run ./tools/publish-assets -out packages/assets -formulas registry/formulas -resources packages/resources -commit "$GITHUB_SHA"
+        run: go run ./tools/publish-assets -src assets -out packages/assets -formulas registry/formulas -resources packages/resources -commit "$GITHUB_SHA"
       - name: Push
         run: |
           set -euo pipefail

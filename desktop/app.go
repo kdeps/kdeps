@@ -77,9 +77,11 @@ func (a *App) init(ctx context.Context, emit func(desktop.Event), engine *execut
 	// A window has no tty to answer the CLI's download prompt; the front end
 	// confirms in its own UI before a local model is selected.
 	_ = os.Setenv("KDEPS_ASSUME_YES", "1")
-	// First run: fetch the latest harness, tool definitions and templates
-	// before the chat service registers its tools.
-	agent.EnsureAssets(ctx, io.Discard)
+	// First run: install kdeps's assets (harness, tool definitions,
+	// commands, ...) before the chat service registers its tools.
+	if err := agent.EnsureAssets(ctx, io.Discard); err != nil {
+		return err
+	}
 	svc, err := desktop.New(ctx, desktop.Options{
 		Emit:         emit,
 		Engine:       engine,

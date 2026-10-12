@@ -25,10 +25,11 @@ else
     test_failed "edit md5 - nudge-edit-unchanged missing" "Output: $OUTPUT"
 fi
 
+# The ledger lives in the binary; the md5 rule is the edit-workflow harness asset.
 if grep -aqF "[files edited this session]" "$KDEPS_BIN" \
-    && grep -aqF "never md5 a file yourself" "$KDEPS_BIN" \
+    && grep -qF "never md5 a file yourself" "$KDEPS_ASSETS_SRC/harness/edit-workflow.yaml" \
     && grep -aqF "memory_query query=filter(memory, .key ==" "$KDEPS_BIN"; then
     test_passed "tool status - binary carries the md5 / memory-id / retry status ledger"
 else
-    test_failed "tool status - status ledger text missing from the built binary"
+    test_failed "tool status - status ledger text missing from the binary or the harness assets"
 fi

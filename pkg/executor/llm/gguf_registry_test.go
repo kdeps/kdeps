@@ -80,7 +80,7 @@ func TestListGGUFMappings_NonEmpty(t *testing.T) {
 
 func TestGGUFRegistryVersion(t *testing.T) {
 	t.Cleanup(ReloadGGUFRegistry)
-	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir()) // no downloaded registry: the compiled-in one is used
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir()) // no downloaded registry: the source one is used
 	ReloadGGUFRegistry()
 	assert.Equal(t, stockModelsVersion(t, ggufRegistryItem), GGUFRegistryVersion())
 }

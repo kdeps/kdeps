@@ -19,25 +19,21 @@
 package agent
 
 import (
-	"embed"
 	"fmt"
 	"maps"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// builtinToolDefsFS holds one YAML file per built-in tool: what the model
-// sees (description, parameters, usage notes). The Go code registering the
-// tool supplies only its name and implementation.
-//
-//go:embed tools/*.yaml
-var builtinToolDefsFS embed.FS
-
-// toolDefinition is one tools/<id>.yaml file. The file id is the lookup key;
+// toolDefinition is one tools/<id>.yaml file of the tools asset set: what the
+// model sees (description, parameters, usage notes). The Go code registering
+// the tool supplies only its name and implementation. The file id is the
+// lookup key;
 // Name overrides the tool name the model sees when two tools share one
 // (goal_task_complete and task_complete are both "task_complete").
 type toolDefinition struct {
@@ -52,17 +48,18 @@ type toolDefinition struct {
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its
-// parsed definition. Loaded once at init; a bad shipped file panics, the
-// same as a bad harness file.
+// parsed definition. Loaded at init and on asset reload.
 //
-//nolint:gochecknoglobals // parsed once from the embedded files
-var toolDefinitions = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
+//nolint:gochecknoglobals // parsed from the asset set
+var toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
 
-// loadToolDefinitionsFrom parses every tools/*.yaml file in fsys.
+// loadToolDefinitionsFrom parses every tools/*.yaml file in fsys. A file that
+// cannot be read or parsed is skipped with a warning (see warnAsset).
 func loadToolDefinitionsFrom(fsys themeFS) map[string]toolDefinition {
 	entries, err := fsys.ReadDir("tools")
 	if err != nil {
-		panic(fmt.Sprintf("tools: read embedded tools dir: %v", err))
+		warnAsset(err)
+		return map[string]toolDefinition{}
 	}
 	out := make(map[string]toolDefinition, len(entries))
 	for _, e := range entries {
@@ -71,11 +68,13 @@ func loadToolDefinitionsFrom(fsys themeFS) map[string]toolDefinition {
 		}
 		data, readErr := fsys.ReadFile("tools/" + e.Name())
 		if readErr != nil {
-			panic(fmt.Sprintf("tools: read %s: %v", e.Name(), readErr))
+			warnAsset(readErr)
+			continue
 		}
 		var d toolDefinition
 		if parseErr := yaml.Unmarshal(data, &d); parseErr != nil {
-			panic(fmt.Sprintf("tools: parse %s: %v", e.Name(), parseErr))
+			warnAsset(fmt.Errorf("tool %s: %w", e.Name(), parseErr))
+			continue
 		}
 		out[strings.TrimSuffix(e.Name(), ".yaml")] = d
 	}

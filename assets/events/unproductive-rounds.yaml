@@ -1,5 +1,5 @@
-version: 1.0.0
-name: judge-max-rounds
+version: 1.0.1
+name: unproductive-rounds
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,11 +10,11 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # Tool rounds for a single judge's review. Small on purpose -- a judge
-  # verifies claims, it does not redo the work.
-  rounds: 15
+  # Consecutive rounds that produce nothing new (no fresh tool result, no
+  # state change) before the active task is force-closed and failed forward.
+  rounds: 3
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit
@@ -25,7 +25,7 @@ on:
 #   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
-# NOTE: this event works by setting the judge sub-loop's MaxToolRounds and
-# relying on the loop's own generic round-exhaustion behavior, not a
-# distinct dispatchable step -- see docs/v2/agent/events.md.
-run: force_answer
+# NOTE: fail_task here actually drives a 4-step escalation ladder in
+# goal_enforce.go (reanchor -> narrow tools -> force close -> fail forward),
+# not a single function call -- see docs/v2/agent/events.md.
+run: fail_task

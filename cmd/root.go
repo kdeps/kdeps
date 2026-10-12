@@ -23,7 +23,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
@@ -90,8 +92,9 @@ func createRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.MaximumNArgs(1),
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			runRootPersistentPreRun(cmd)
+			return ensureAssets(cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if up, _ := cmd.Flags().GetBool("upgrade"); up {
@@ -172,6 +175,28 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 	bootstrapRootConfig()
 	maybeEnableInstrumentation(cmd)
 	kupgrade.CleanupOldBinary()
+}
+
+// assetFreeCommands run without kdeps's assets, so they work offline before
+// the first download (update is how the assets get installed).
+//
+//nolint:gochecknoglobals // fixed list
+var assetFreeCommands = []string{
+	"update", "validate", "registry", "help", "completion", "__complete", "__completeNoDesc",
+}
+
+// ensureAssets installs kdeps's assets before a command that loads them
+// (first run, or a set this kdeps added). kdeps ships none of its own.
+func ensureAssets(cmd *cobra.Command) error {
+	if up, _ := cmd.Flags().GetBool("upgrade"); up {
+		return nil
+	}
+	for c := cmd; c.HasParent(); c = c.Parent() {
+		if slices.Contains(assetFreeCommands, c.Name()) {
+			return nil
+		}
+	}
+	return agent.EnsureAssets(cmd.Context(), cmd.ErrOrStderr())
 }
 
 func initRootLogging(cmd *cobra.Command) {

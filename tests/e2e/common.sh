@@ -101,7 +101,9 @@ export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/tests/e2e/examples/components"
 # Prevent Bootstrap from blocking on stdin when tests override HOME to a
 # temp directory that has no ~/.kdeps/config.yaml.
 export KDEPS_SKIP_BOOTSTRAP=1
-# No first-run asset download; test_update.sh serves its own assets.
+# kdeps ships no assets: load this checkout's assets/ (the source of what
+# gets published) instead of downloading them. test_update.sh serves its own.
+export KDEPS_ASSETS_SRC="${KDEPS_ASSETS_SRC:-$PROJECT_ROOT/assets}"
 export KDEPS_ASSETS_URL="${KDEPS_ASSETS_URL:-off}"
 
 # Run against an empty config, as CI does. config.yaml values take precedence

@@ -76,7 +76,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           "$RUNNER_TEMP/hf-venv/bin/python" tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs || echo "harvest failed; keeping committed registry"
-          if git diff --quiet pkg/executor/llm/models/; then
+          if git diff --quiet assets/models/; then
             echo "has_registry_updates=false" >> $GITHUB_OUTPUT
           else
             echo "has_registry_updates=true" >> $GITHUB_OUTPUT
@@ -154,7 +154,7 @@ jobs:
         run: |
           # A changed registry carries a bumped version (harvest.py), so the
           # push triggers publish-assets and kdeps update picks it up.
-          git add pkg/executor/llm/models/
+          git add assets/models/
           git commit -m "chore: update llamafile/GGUF registry [nightly]"
           git pull --rebase origin main
           git push origin main

@@ -1,5 +1,5 @@
-version: 1.0.0
-name: force-answer-digest
+version: 1.0.1
+name: web-call-budget
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,12 +10,12 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # How much gathered tool output is inlined into the forced-answer prompt,
-  # so a run of large scrapes cannot blow the context window on the final
-  # synthesis turn.
-  bytes: 12288
+  # DISTINCT web_search + web_scraper calls per turn. The two share this
+  # budget, so it must leave room for a search plus a few source fetches.
+  # A repeat of an already-attempted call never counts twice.
+  distinctCalls: 20
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit
@@ -26,4 +26,4 @@ on:
 #   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
-run: truncate
+run: block

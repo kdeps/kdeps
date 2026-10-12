@@ -20,6 +20,8 @@ package llm
 
 import (
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -31,7 +33,7 @@ import (
 
 func TestStockModelRegistriesValid(t *testing.T) {
 	for _, name := range []string{llamafileRegistryItem, ggufRegistryItem} {
-		data, err := fs.ReadFile(stockModels, "models/"+name+".yaml")
+		data, err := os.ReadFile(filepath.Join(assets.Source(), "models", name+".yaml"))
 		require.NoError(t, err)
 		require.NoError(t, validateModelRegistry(data, name), name)
 		h, err := assets.ParseHeader(data)
@@ -40,10 +42,10 @@ func TestStockModelRegistriesValid(t *testing.T) {
 	}
 }
 
-// stockModelsVersion is the version of the compiled-in registry name.
+// stockModelsVersion is the version of the source registry name.
 func stockModelsVersion(t *testing.T, name string) string {
 	t.Helper()
-	data, err := fs.ReadFile(stockModels, "models/"+name+".yaml")
+	data, err := os.ReadFile(filepath.Join(assets.Source(), "models", name+".yaml"))
 	require.NoError(t, err)
 	h, err := assets.ParseHeader(data)
 	require.NoError(t, err)
@@ -73,7 +75,7 @@ func TestReadModelRegistry_Missing(t *testing.T) {
 }
 
 // A newer downloaded registry (`kdeps update models/gguf`) replaces the
-// compiled-in one; the user's local entries still merge on top.
+// source one; the user's local entries still merge on top.
 func TestModelRegistry_DownloadedVersionWins(t *testing.T) {
 	root := t.TempDir()
 	t.Cleanup(ReloadGGUFRegistry)

@@ -1,5 +1,5 @@
-version: 1.0.0
-name: unproductive-rounds
+version: 1.0.1
+name: history-window-trim
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,11 +10,13 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # Consecutive rounds that produce nothing new (no fresh tool result, no
-  # state change) before the active task is force-closed and failed forward.
-  rounds: 3
+  # Total estimated size of the in-flight message array during a single
+  # turn's tool loop. Past this, the oldest complete tool round-trips are
+  # dropped so a long loop does not re-send an ever-growing transcript on
+  # every round.
+  bytes: 24576
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit
@@ -25,7 +27,4 @@ on:
 #   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
-# NOTE: fail_task here actually drives a 4-step escalation ladder in
-# goal_enforce.go (reanchor -> narrow tools -> force close -> fail forward),
-# not a single function call -- see docs/v2/agent/events.md.
-run: fail_task
+run: drop_oldest

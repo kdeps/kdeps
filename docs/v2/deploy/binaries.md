@@ -20,13 +20,13 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 
 ## How it works
 
-The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically - exactly like `kdeps run`.
+The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically - exactly like `kdeps run`. The archive also carries the packaging machine's kdeps assets (harness, tool definitions, model registries, ...) under `.kdeps-assets/`, so the binary runs offline on the assets it was packaged with.
 
 ```d2
 direction: down
 
 A: "kdeps runtime (ELF)\nidentical to a normal kdeps binary"
-B: ".kdeps archive data\nyour workflow, resources, data"
+B: ".kdeps archive data\nyour workflow, resources, data\n+ .kdeps-assets/ (kdeps assets)"
 C: "24-byte trailer\n8-byte size field + 16-byte magic 'KDEPS_PACK'"
 
 A -> B -> C

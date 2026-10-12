@@ -375,7 +375,7 @@ deps:
 	@go mod download
 	@go mod tidy
 
-# Harvest the llamafile + GGUF model registries (pkg/executor/llm/models/) from
+# Harvest the llamafile + GGUF model registries (assets/models/) from
 # HuggingFace (requires huggingface_hub); a changed registry gets a version bump
 harvest-llamafiles:
 	@echo "Harvesting llamafile registry from HuggingFace..."

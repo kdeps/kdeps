@@ -1,5 +1,5 @@
-version: 1.0.0
-name: bash-call-budget
+version: 1.0.1
+name: fold
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -10,11 +10,18 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # DISTINCT bash_exec commands per turn. A repeated command (e.g. `go
-  # build` re-run after a fix) never counts twice.
-  distinctCalls: 50
+  # Token delta since the last checkpoint that triggers a fold -- a lighter,
+  # more frequent pass than auto-compact's full-context-window safety net.
+  tokensSinceCheckpoint: 2000
+  # Never fire before this many turns exist, regardless of token count.
+  minTurns: 4
+# items: a plain count with no trigger condition of its own -- always
+# applies, unlike the "on:" fields above which fire only once crossed.
+# How many recent checkpoints (active + archived) stay in the active
+# memory-prompt injection window.
+items: 5
 # run: selects the action fired once the trigger above is met.
-# Valid actions (pkg/agent/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
 #   truncate        shorten oversized content to a budget, marking what was cut
 #   reject          refuse an operation that exceeds a size limit
@@ -25,4 +32,6 @@ on:
 #   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
-run: block
+# Fires the same "compact" action as auto-compact -- fold is a tighter,
+# more frequent cadence for triggering it, not a separate lighter mechanism.
+run: compact

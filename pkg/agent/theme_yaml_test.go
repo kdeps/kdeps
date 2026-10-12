@@ -145,9 +145,12 @@ func (f fakeThemeFS) ReadFile(name string) ([]byte, error) {
 	return data, nil
 }
 
-func TestLoadBuiltinThemesFrom_ReadDirErrorPanics(t *testing.T) {
+func TestLoadBuiltinThemesFrom_ReadDirErrorWarns(t *testing.T) {
 	fsys := fakeThemeFS{readDirErr: errors.New("boom")}
-	assert.Panics(t, func() { loadBuiltinThemesFrom(fsys) })
+	var got map[string]*theme
+	out := captureStderr(t, func() { got = loadBuiltinThemesFrom(fsys) })
+	assert.Empty(t, got)
+	assert.Contains(t, out, "skipping asset: boom")
 }
 
 func TestLoadBuiltinThemesFrom_SkipsDirectoryEntries(t *testing.T) {
@@ -165,14 +168,31 @@ func TestLoadBuiltinThemesFrom_SkipsDirectoryEntries(t *testing.T) {
 	assert.Contains(t, got, "normal")
 }
 
-func TestParseBuiltinFileFrom_ReadErrorPanics(t *testing.T) {
+func TestParseBuiltinFileFrom_ReadErrorSkips(t *testing.T) {
+	base := palette{heading: "#123456"}
+	out := map[string]*theme{}
 	fsys := fakeThemeFS{readFileErr: errors.New("boom")}
-	assert.Panics(t, func() { parseBuiltinFileFrom(fsys, map[string]*theme{}, "x.yaml", palette{}) })
+	stderr := captureStderr(t, func() {
+		assert.Equal(t, base, parseBuiltinFileFrom(fsys, out, "x.yaml", base))
+	})
+	assert.Empty(t, out)
+	assert.Contains(t, stderr, "boom")
+
+	// A missing file (no themes installed yet) is skipped silently.
+	missing := fakeThemeFS{readFileErr: fs.ErrNotExist}
+	stderr = captureStderr(t, func() { parseBuiltinFileFrom(missing, out, builtinNormalFile, base) })
+	assert.Empty(t, stderr)
 }
 
-func TestParseBuiltinFileFrom_ParseErrorPanics(t *testing.T) {
+func TestParseBuiltinFileFrom_ParseErrorSkips(t *testing.T) {
+	base := palette{heading: "#123456"}
+	out := map[string]*theme{}
 	fsys := fakeThemeFS{files: map[string][]byte{path.Join("themes", "bad.yaml"): []byte("not: [valid")}}
-	assert.Panics(t, func() { parseBuiltinFileFrom(fsys, map[string]*theme{}, "bad.yaml", palette{}) })
+	stderr := captureStderr(t, func() {
+		assert.Equal(t, base, parseBuiltinFileFrom(fsys, out, "bad.yaml", base))
+	})
+	assert.Empty(t, out)
+	assert.Contains(t, stderr, "bad.yaml")
 }
 
 // --- parseYAMLTheme / themeNameFromYAML ---

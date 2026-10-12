@@ -272,11 +272,6 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		return err
 	}
 
-	// First run: fetch the latest harness, tool definitions and templates
-	// before tools are registered (no-op once set up, offline, or with
-	// KDEPS_ASSETS_URL=off).
-	agent.EnsureAssets(rootCtx, os.Stdout)
-
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
 

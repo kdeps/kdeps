@@ -20,7 +20,6 @@ package agent
 
 import (
 	"bytes"
-	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -39,9 +38,6 @@ import (
 // builtin command's file supplies the help, aliases and completion for a
 // command kdeps handles in Go; any other file defines the command entirely,
 // as a list of steps -- other slash commands and prompts sent to the model.
-
-//go:embed commands/*.yaml
-var builtinCommandsFS embed.FS
 
 // goCommands are the slash commands handled in Go by dispatchCommand and
 // dispatchControlCommand. Each has a builtin commands/ asset; a declared
@@ -73,6 +69,7 @@ type commandStep struct {
 }
 
 type slashCommand struct {
+	item    string         // file name without .yaml: the asset item id
 	Version string         `yaml:"version"`
 	Name    string         `yaml:"name"`
 	Order   int            `yaml:"order"`
@@ -152,11 +149,10 @@ func (c *slashCommand) validateDeclared() error {
 //nolint:gochecknoglobals // loaded once at init and on asset reload
 var slashCommands []*slashCommand
 
-// initCommands loads the commands set: compiled-in files with downloaded
-// versions and removed items applied.
-func initCommands() { slashCommands = loadCommandsFrom(assetsFS("commands", builtinCommandsFS)) }
+// initCommands loads the commands asset set.
+func initCommands() { slashCommands = loadCommandsFrom(assets.Open("commands")) }
 
-//nolint:gochecknoinits // loads the compiled-in commands
+//nolint:gochecknoinits // loads the commands asset set
 func init() { initCommands() }
 
 // loadCommandsFrom reads every commands/*.yaml in fsys, sorted by order then
@@ -178,9 +174,10 @@ func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
 		}
 		c, pErr := parseYAMLCommand(data, e.Name())
 		if pErr != nil {
-			fmt.Fprintln(os.Stderr, "kdeps: skipping", pErr)
+			warnAsset(pErr)
 			continue
 		}
+		c.item = strings.TrimSuffix(e.Name(), ".yaml")
 		byName[c.Name] = c
 	}
 	out := make([]*slashCommand, 0, len(byName))
