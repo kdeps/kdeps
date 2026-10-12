@@ -68,8 +68,10 @@ func TestListLlamafileMappings_NonEmpty(t *testing.T) {
 }
 
 func TestLlamafileRegistryVersion(t *testing.T) {
+	t.Cleanup(ReloadRegistry)
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir()) // no downloaded registry: the compiled-in one is used
 	ReloadRegistry()
-	assert.Equal(t, "1.0.0", LlamafileRegistryVersion())
+	assert.Equal(t, stockModelsVersion(t, llamafileRegistryItem), LlamafileRegistryVersion())
 }
 
 func TestWriteLocalRegistry_CreatesFile(t *testing.T) {

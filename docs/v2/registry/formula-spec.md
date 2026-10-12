@@ -86,6 +86,23 @@ tags: [kdeps, harness]
 license: Apache-2.0
 ```
 
+### kdeps resource types
+
+The built-in resource types (`scraper:`, `httpClient:`, `chat:`, ...) are listed in the registry too, as `type: resource`, so they can be browsed next to packages. They are compiled into the `kdeps` binary and need no install. CI writes one formula per type, named `kdeps-resource-<key>`; the `tarball` is the type's docs page, versioned with kdeps.
+
+```yaml
+# formulas/kdeps-resource-http-client.yaml  (written by kdeps CI, not by hand)
+name: kdeps-resource-http-client
+version: 2.58.2          # the kdeps release the page documents
+type: resource
+github: kdeps/packages
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/resources/httpClient/2.58.2.md
+sha256: 25d97114...      # SHA256 of that page
+description: The `httpClient:` resource makes an outbound HTTP request ...
+tags: [kdeps, resource, httpClient]   # the last tag is the resource's YAML key
+license: Apache-2.0
+```
+
 ## Publishing workflow
 
 ### 1. Create a release

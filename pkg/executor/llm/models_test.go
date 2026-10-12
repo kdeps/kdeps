@@ -40,6 +40,16 @@ func TestStockModelRegistriesValid(t *testing.T) {
 	}
 }
 
+// stockModelsVersion is the version of the compiled-in registry name.
+func stockModelsVersion(t *testing.T, name string) string {
+	t.Helper()
+	data, err := fs.ReadFile(stockModels, "models/"+name+".yaml")
+	require.NoError(t, err)
+	h, err := assets.ParseHeader(data)
+	require.NoError(t, err)
+	return h.Version
+}
+
 func TestValidateModelRegistry(t *testing.T) {
 	require.Error(t, validateModelRegistry([]byte("version: 1.0.0\nllamafiles: []\n"), llamafileRegistryItem))
 	require.Error(t, validateModelRegistry([]byte("version: 1.0.0\nggufs: []\n"), ggufRegistryItem))

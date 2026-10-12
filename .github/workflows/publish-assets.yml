@@ -7,6 +7,10 @@ name: Publish Assets
 # formulas/kdeps-<set>-<name>.yaml in kdeps/registry, which kdeps.io indexes.
 # `kdeps update` downloads from there. A version is published once; changing
 # a file without bumping its version fails this workflow.
+#
+# The built-in resource types (scraper:, httpClient:, ...) are listed the same
+# way as type "resource": each one's docs page goes to resources/<key>/
+# <kdeps version>.md in kdeps/packages, with formulas/kdeps-resource-<key>.yaml.
 
 on:
   push:
@@ -23,6 +27,9 @@ on:
       - 'pkg/templates/templates/**'
       - 'pkg/assets/**'
       - 'tools/publish-assets/**'
+      - 'docs/v2/workflow/resources/**'
+      - 'docs/v2/agencies/*-resource.md'
+      - 'docs/v2/package.json'
   workflow_dispatch:
 
 permissions:
@@ -56,7 +63,7 @@ jobs:
           path: registry
           token: ${{ secrets.RELEASE_TOKEN }}
       - name: Publish new versions
-        run: go run ./tools/publish-assets -out packages/assets -formulas registry/formulas -commit "$GITHUB_SHA"
+        run: go run ./tools/publish-assets -out packages/assets -formulas registry/formulas -resources packages/resources -commit "$GITHUB_SHA"
       - name: Push
         run: |
           set -euo pipefail
@@ -64,9 +71,10 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           msg="assets: publish from kdeps/kdeps@${GITHUB_SHA::12}"
           # Files first, so every formula's URL resolves once kdeps.io syncs.
-          for repo_dir in packages:assets registry:formulas; do
-            repo=${repo_dir%%:*} dir=${repo_dir#*:}
-            git -C "$repo" add "$dir"
+          for repo_dir in "packages:assets resources" registry:formulas; do
+            repo=${repo_dir%%:*} dirs=${repo_dir#*:}
+            # shellcheck disable=SC2086 # dirs is a space-separated list
+            git -C "$repo" add $dirs
             if git -C "$repo" diff --cached --quiet; then
               echo "$repo: nothing new"
               continue

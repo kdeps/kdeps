@@ -251,6 +251,10 @@ jobs:
           SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.create_tag.outputs.tag }}
+          # .goreleaser.yaml reads these to decide whether to publish to AUR and
+          # winget; nightlies never do, but the variables must exist.
+          AUR_KEY: ''
+          WINGET_TOKEN: ''
 
       - name: Update release status and notes
         if: steps.should_release.outputs.should_release == 'true'
