@@ -19,6 +19,7 @@
 package assets
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,4 +160,20 @@ func TestIndex_ParseErrors(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, IndexFile), []byte("nope"), 0o600))
 	_, err = Publish(Source(), dir, "c", time.Now())
 	require.Error(t, err)
+}
+
+func TestPublish_SkipsHiddenSourceFiles(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	setSourceFile(t, "templates/api/.gitkeep", "")
+	setSourceFile(t, "templates/api/_draft.j2", "draft")
+	files, err := SourceFiles(Source(), BundleSet)
+	require.NoError(t, err)
+	var b Bundle
+	require.NoError(t, yaml.Unmarshal(files["api"], &b))
+	assert.Contains(t, b.Files, "workflow.yaml.j2")
+	assert.NotContains(t, b.Files, ".gitkeep", "hidden files are left out, as go:embed did")
+	assert.NotContains(t, b.Files, "_draft.j2")
+
+	_, err = Open(BundleSet).ReadFile("templates/api/.gitkeep")
+	require.ErrorIs(t, err, fs.ErrNotExist, "loaders do not see them either")
 }

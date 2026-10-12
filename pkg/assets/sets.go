@@ -136,6 +136,8 @@ func baseVersions(set string, base fs.FS) map[string]string {
 	for _, e := range entries {
 		var file, name string
 		switch {
+		case hidden(e.Name()):
+			continue
 		case set == BundleSet && e.IsDir():
 			name, file = e.Name(), path.Join(set, e.Name(), ManifestFile)
 		case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):

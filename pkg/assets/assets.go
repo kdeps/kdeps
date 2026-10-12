@@ -300,16 +300,7 @@ type ReadFS interface {
 // edited source file wins while developing it.
 func overlay(set string, base fs.FS, root string) ReadFS {
 	dir := set
-	out := fstest.MapFS{}
-	_ = fs.WalkDir(base, dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil //nolint:nilerr // an unreadable source entry is skipped, not fatal
-		}
-		if data, readErr := fs.ReadFile(base, p); readErr == nil {
-			out[p] = &fstest.MapFile{Data: data}
-		}
-		return nil
-	})
+	out := readSource(base, dir)
 	lock, _ := ReadLock(root)
 	for id, e := range lock.Items {
 		s, name, err := SplitID(id)
@@ -349,6 +340,43 @@ func downloaded(root, set, name string, e LockEntry) ([]byte, bool) {
 		return nil, false
 	}
 	return data, true
+}
+
+// readSource reads every file under dir of base, leaving hidden ones out.
+func readSource(base fs.FS, dir string) fstest.MapFS {
+	out := fstest.MapFS{}
+	_ = fs.WalkDir(base, dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil //nolint:nilerr // an unreadable source entry is skipped, not fatal
+		}
+		if hidden(d.Name()) {
+			return skipEntry(d)
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if data, readErr := fs.ReadFile(base, p); readErr == nil {
+			out[p] = &fstest.MapFile{Data: data}
+		}
+		return nil
+	})
+	return out
+}
+
+// hidden reports whether a source file or directory is left out of a set,
+// the way go:embed leaves them out: names starting with "." or "_" (such as
+// .gitkeep).
+func hidden(name string) bool {
+	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+}
+
+// skipEntry skips a hidden entry in fs.WalkDir: the whole tree for a
+// directory, the one file otherwise.
+func skipEntry(d fs.DirEntry) error {
+	if d.IsDir() {
+		return fs.SkipDir
+	}
+	return nil
 }
 
 // baseVersion is the version header of name's source file in out, or "" when
