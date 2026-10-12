@@ -36,7 +36,10 @@ import (
 // whose SHA256 it carries.
 func TestResources_PublishedFromTheRealDocs(t *testing.T) {
 	formulas, files := t.TempDir(), t.TempDir()
-	require.NoError(t, assets.WriteResources(formulas, files, "../../../docs/v2", "https://files.example/resources", "2.0.0"))
+	require.NoError(
+		t,
+		assets.WriteResources(formulas, files, "../../../docs/v2", "https://files.example/resources", "2.0.0"),
+	)
 
 	entries, err := os.ReadDir(formulas)
 	require.NoError(t, err)
