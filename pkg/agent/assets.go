@@ -21,6 +21,7 @@ package agent
 import (
 	"errors"
 	"io/fs"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -73,6 +74,29 @@ func init() {
 	assets.RegisterSeed("tools", assets.Seed{
 		FS: builtinToolDefsFS, Dir: "tools", Validate: validateToolDefinition, Required: requiredTools,
 	})
+	assets.RegisterSeed("commands", assets.Seed{
+		FS: builtinCommandsFS, Dir: "commands", Validate: func(data []byte, name string) error {
+			_, err := parseYAMLCommand(data, name)
+			return err
+		}, Required: builtinCommandItems(),
+	})
+}
+
+// builtinCommandItems are the compiled-in commands kdeps handles in Go: their
+// files can be updated, not removed, so /help and completion keep them.
+func builtinCommandItems() []string {
+	entries, _ := builtinCommandsFS.ReadDir("commands")
+	var out []string
+	for _, e := range entries {
+		data, err := builtinCommandsFS.ReadFile("commands/" + e.Name())
+		if err != nil {
+			continue
+		}
+		if c, pErr := parseYAMLCommand(data, e.Name()); pErr == nil && c.Builtin {
+			out = append(out, strings.TrimSuffix(e.Name(), ".yaml"))
+		}
+	}
+	return out
 }
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,

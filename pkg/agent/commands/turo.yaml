@@ -1,0 +1,9 @@
+version: 1.0.0
+name: turo
+order: 205
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off]"
+    help: Show or set the turo prompt reducer (turo backend only)

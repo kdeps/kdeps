@@ -1,0 +1,11 @@
+version: 1.0.0
+name: prompt
+order: 100
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: "Show the exact messages+tools sent to the LLM on the last call, with token estimates"
+  - args: raw
+    help: "Same, as raw JSON (exact request wire format, full tool schemas)"

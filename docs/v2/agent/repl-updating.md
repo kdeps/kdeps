@@ -1,6 +1,6 @@
 # Updating kdeps
 
-`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
+`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, slash commands, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
 
 kdeps checks GitHub for a newer stable release at startup (throttled to once every 24 hours, cached at `~/.kdeps/update-check.json`, bounded to 3 seconds) and, if one exists, prints a one-line notice under the banner:
 
@@ -33,7 +33,7 @@ Same standalone-only restriction as nightly: Homebrew/.deb/.apk cannot be told t
 
 ## Updating assets
 
-kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes and tool definitions shape agent mode; LLM server recipes and the `kdeps new` project templates are used in workflow mode.
+kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes and the `kdeps new` project templates are used in workflow mode.
 
 | Set | What an item is | Example id |
 |---|---|---|
@@ -43,6 +43,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `presets` | A named bundle of harness/event settings | `presets/frugal` |
 | `themes` | A REPL color theme | `themes/vim` |
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
+| `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
 | `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace) | `models/gguf` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
@@ -52,7 +53,7 @@ direction: right
 main: "kdeps repo, main" {shape: oval}
 branch: "kdeps/packages assets/\n<set>/<name>/<version>.yaml\n+ index.json"
 formulas: "kdeps/registry\nformulas/kdeps-<set>-<name>.yaml"
-site: "kdeps.io\npackages + asset catalog"
+site: "kdeps.io\none catalog: packages,\nresource types, assets"
 update: "kdeps update\n(first run: automatic)"
 store: "~/.kdeps/assets/\nfiles + lock.json"
 loader: "loaders\n(user overrides on top)" {shape: oval}

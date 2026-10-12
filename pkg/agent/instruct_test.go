@@ -131,8 +131,8 @@ func TestCmdInstruct_UnknownTopic(t *testing.T) {
 }
 
 func TestInstructCommand_InBuiltinList(t *testing.T) {
-	assert.Contains(t, builtinCmds, "/instruct")
-	assert.Contains(t, builtinCmds, "/instruct!")
+	assert.Contains(t, commandNames(), "/instruct")
+	assert.Contains(t, commandNames(), "/instruct!")
 }
 
 // /instruct! sends the briefing as a real turn instead of appending it silently.

@@ -1,0 +1,9 @@
+version: 1.0.0
+name: thinking
+order: 110
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[off|minimal|low|medium|high|xhigh|auto]"
+    help: Show or set extended reasoning/thinking mode

@@ -1,0 +1,9 @@
+version: 1.0.0
+name: copy
+order: 160
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Copy the last assistant response to the system clipboard

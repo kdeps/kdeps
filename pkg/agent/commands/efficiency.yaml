@@ -1,0 +1,9 @@
+version: 1.0.0
+name: efficiency
+order: 290
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[on|off|verbose|<setting> <n>|preset <name>|reset]"
+    help: Show or tune efficiency enforcement (soft stops on read-only loops; persists)

@@ -221,7 +221,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## `kdeps update`
 
-Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, LLM server recipes, model registries and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
 
 ```bash
 kdeps update                          # every item to its newest version

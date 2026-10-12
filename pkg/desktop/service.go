@@ -146,7 +146,6 @@ type Service struct {
 	mu        sync.Mutex
 	loop      *agent.Loop
 	repl      *agent.REPL
-	cmdDescs  map[string]string
 	running   bool
 	turnCtx   context.Context
 	cancel    context.CancelFunc
@@ -243,7 +242,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 	}
 	s.mu.Lock()
 	old := s.repl
-	s.loop, s.repl, s.cmdDescs = loop, repl, nil
+	s.loop, s.repl = loop, repl
 	s.mu.Unlock()
 	if old != nil {
 		old.Close()

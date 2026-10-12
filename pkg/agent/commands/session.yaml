@@ -1,0 +1,9 @@
+version: 1.0.0
+name: session
+order: 140
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "list|save|load|delete|import|checkpoint|goto"
+    help: Manage saved sessions

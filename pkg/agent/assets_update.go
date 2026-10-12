@@ -42,7 +42,7 @@ const (
 )
 
 // ReloadAssets re-reads every asset set (harness, events, actions, presets,
-// themes, tool definitions) after an update, keeping the active theme.
+// themes, tool definitions, slash commands) after an update, keeping the active theme.
 // Already-registered tools keep their descriptions until the next start.
 func ReloadAssets() {
 	key, mode := currentThemeKey, modelNameDisplayMode
@@ -52,6 +52,7 @@ func ReloadAssets() {
 	initHarness()
 	initEvents()
 	initPresets()
+	initCommands()
 	toolDefinitions = loadToolDefinitionsFrom(assetsFS("tools", builtinToolDefsFS))
 	executorLLM.ReloadRegistry()
 	executorLLM.ReloadGGUFRegistry()

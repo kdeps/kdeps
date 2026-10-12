@@ -1,0 +1,9 @@
+version: 1.0.0
+name: login
+order: 350
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: "Sign in again (m365 backend): switch accounts or recover a revoked session"

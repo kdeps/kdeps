@@ -345,7 +345,7 @@ func TestCmdEfficiency(t *testing.T) {
 	r.cmdEfficiency([]string{"preset"})
 	r.cmdEfficiency([]string{"reset"})
 	assert.False(t, EfficiencyVerbose())
-	assert.Contains(t, builtinCmds, "/efficiency")
+	assert.Contains(t, commandNames(), "/efficiency")
 }
 
 func newEfficiencyLoop(t *testing.T, ms Streamer) *Loop {

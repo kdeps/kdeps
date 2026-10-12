@@ -143,6 +143,49 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 `kdeps` runs in. See [Sessions](/agent/repl-sessions#sessions).
 
+## Declared commands
+
+Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps update` keeps current. For a command kdeps runs itself, the file only supplies the `/help` text, aliases and tab completion. Any other file *is* the command: kdeps runs its `run:` steps in order, so a new command ships as an asset update, with no new binary.
+
+```d2
+direction: right
+input: "/review error handling" {shape: oval}
+lookup: "commands/review.yaml"
+step1: "step: command\n(another slash command)"
+step2: "step: prompt\n(sent to the model as a turn)"
+reply: "model reply" {shape: oval}
+input -> lookup: "name or alias"
+lookup -> step1: "run: in order"
+step1 -> step2
+step2 -> reply
+```
+
+```yaml
+# commands/review.yaml - shipped with kdeps; update with `kdeps update commands/review`
+version: 1.0.0            # bump on every change; kdeps update installs newer versions
+name: review              # typed as /review
+order: 520                # position in /help (lower first)
+aliases: [rv]             # optional: /rv runs it too
+usage:                    # one /help line each; the first is the command palette summary
+  - args: "[focus]"
+    help: Review the uncommitted changes in this repository
+run:                      # steps run in order; the first failing step stops the rest
+  - command: /efficiency preset thorough   # any slash command, including other declared ones
+  - prompt: |-                             # sent to the model as a user turn
+      Review the uncommitted changes. Extra focus, if given: $ARGUMENTS
+```
+
+- `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
+- A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
+- Built-in command files cannot be removed. Declared ones can, with `kdeps update --remove commands/<name>`, and `kdeps update commands/<name>` restores them.
+
+| Shipped declared command | Runs |
+|---|---|
+| `/frugal` | `/efficiency preset frugal` |
+| `/thorough` | `/efficiency preset thorough` |
+| `/review [focus]` | A prompt asking the model to review the uncommitted changes, without editing files |
+| `/explain <target>` | A prompt asking the model to read the code and explain how `<target>` works |
+
 ## See also
 
 - [Agent mode](/agent/) - overview and starting the REPL

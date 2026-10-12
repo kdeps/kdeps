@@ -1,0 +1,8 @@
+version: 1.0.0
+name: thorough
+order: 510
+usage:
+  - args: ""
+    help: Keep more context - apply the thorough preset to every token-economy event
+run:
+  - command: /efficiency preset thorough

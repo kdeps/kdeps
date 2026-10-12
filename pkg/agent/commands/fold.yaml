@@ -1,0 +1,9 @@
+version: 1.0.0
+name: fold
+order: 80
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[now|auto [off]|threshold <n>|items <n>|preset <name>]"
+    help: "Lighter, more frequent checkpoint-only summarize+archive (default: auto on, 2000 tokens, 5 items)"

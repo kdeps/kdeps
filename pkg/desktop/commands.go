@@ -209,15 +209,9 @@ func (s *Service) Complete(line string, pos int) agent.Completion {
 // one-line description from /help.
 func (s *Service) Commands() []CommandInfo {
 	s.mu.Lock()
-	repl, descs := s.repl, s.cmdDescs
-	running := s.running
+	repl := s.repl
 	s.mu.Unlock()
-	if descs == nil && !running {
-		descs = repl.CommandDescriptions()
-		s.mu.Lock()
-		s.cmdDescs = descs
-		s.mu.Unlock()
-	}
+	descs := repl.CommandDescriptions()
 	names := repl.CommandNames()
 	out := make([]CommandInfo, 0, len(names))
 	for _, n := range names {
