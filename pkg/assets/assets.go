@@ -37,7 +37,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -128,14 +127,19 @@ func Source() string {
 	if d := os.Getenv(SourceEnv); d != "" {
 		return d
 	}
-	if testing.Testing() {
-		return repoSource()
-	}
-	return ""
+	return testSource
 }
 
-//nolint:gochecknoglobals // found once per test process
-var repoSourceOnce = sync.OnceValue(func() string {
+// testSource is the repo's assets/ under go test, found at package init from
+// the directory go test starts in -- before any test can change it.
+//
+//nolint:gochecknoglobals // set once at init
+var testSource = findTestSource()
+
+func findTestSource() string {
+	if !testing.Testing() {
+		return ""
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -146,7 +150,9 @@ var repoSourceOnce = sync.OnceValue(func() string {
 			if _, srcErr := os.Stat(src); srcErr != nil {
 				return ""
 			}
-			_ = os.Setenv(SourceEnv, src)
+			if os.Getenv(SourceEnv) == "" {
+				_ = os.Setenv(SourceEnv, src)
+			}
 			return src
 		}
 		parent := filepath.Dir(dir)
@@ -155,10 +161,7 @@ var repoSourceOnce = sync.OnceValue(func() string {
 		}
 		dir = parent
 	}
-})
-
-// repoSource is the assets/ directory of the module the test runs in.
-func repoSource() string { return repoSourceOnce() }
+}
 
 // sourceFS is Source() as a file system, or an empty one.
 func sourceFS() fs.FS {

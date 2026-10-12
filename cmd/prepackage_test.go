@@ -556,9 +556,18 @@ func TestPrePackageWithFlags_MockServerLinux(t *testing.T) {
 	binPath := filepath.Join(outDir, entries[0].Name())
 	detected, found := cmd.DetectEmbeddedPackage(binPath)
 	require.True(t, found, "output binary should have an embedded .kdeps package")
-	sourceKdeps, readErr := os.ReadFile(kdepsPath)
-	require.NoError(t, readErr)
-	assert.Equal(t, sourceKdeps, detected, "embedded payload must match the source .kdeps file")
+	// The payload is the source package plus the packager's kdeps assets.
+	gz, gzErr := gzip.NewReader(bytes.NewReader(detected))
+	require.NoError(t, gzErr)
+	var names []string
+	for tr := tar.NewReader(gz); ; {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		names = append(names, hdr.Name)
+	}
+	assert.Contains(t, names, cmd.BundledAssetsDir+"/lock.json")
 }
 
 // TestExtractTarGz_Success verifies extractFromTarGz finds and returns the target file.

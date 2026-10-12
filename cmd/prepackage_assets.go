@@ -127,12 +127,15 @@ func extractBundledAssets(tr *tar.Reader) (string, error) {
 		if err != nil {
 			return dir, err
 		}
+		if strings.Contains(hdr.Name, "..") || hdr.Typeflag != tar.TypeReg {
+			continue // never write outside the store
+		}
 		rel, ok := strings.CutPrefix(hdr.Name, BundledAssetsDir+"/")
-		if !ok || hdr.Typeflag != tar.TypeReg {
+		if !ok {
 			continue
 		}
 		rel = path.Clean(rel)
-		if rel == "." || strings.HasPrefix(rel, "..") || path.IsAbs(rel) {
+		if rel == "." || path.IsAbs(rel) {
 			continue
 		}
 		if dir == "" {
