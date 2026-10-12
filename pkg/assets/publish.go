@@ -99,6 +99,8 @@ func SourceFiles(src, set string) (map[string][]byte, error) {
 	out := map[string][]byte{}
 	for _, e := range entries {
 		switch {
+		case hidden(e.Name()):
+			continue
 		case set == BundleSet && e.IsDir():
 			data, bErr := bundleOf(fsys, path.Join(set, e.Name()))
 			if bErr != nil {
@@ -129,8 +131,14 @@ func bundleOf(fsys fs.FS, dir string) ([]byte, error) {
 	}
 	b := Bundle{Header: h, Files: map[string]string{}}
 	walkErr := fs.WalkDir(fsys, dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
 			return err
+		}
+		if hidden(d.Name()) {
+			return skipEntry(d)
+		}
+		if d.IsDir() {
+			return nil
 		}
 		rel := strings.TrimPrefix(p, dir+"/")
 		if rel == ManifestFile {
