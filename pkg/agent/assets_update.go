@@ -55,6 +55,7 @@ func ReloadAssets() {
 	toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
 	executorLLM.ReloadRegistry()
 	executorLLM.ReloadGGUFRegistry()
+	executorLLM.ReloadCloudModels()
 }
 
 // EnsureAssets installs kdeps's assets when a set has none -- on first run,

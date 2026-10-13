@@ -44,6 +44,7 @@ const agentBackendFile = "file"
 func refreshREPLModelLists(repl *agent.REPL) {
 	// Refresh registries to pick up any embedded data changes since last build.
 	llm.ReloadGGUFRegistry()
+	llm.ReloadCloudModels()
 	llm.ReloadRegistry()
 	entries := buildUnifiedEntries()
 	names := make([]string, 0, len(entries))

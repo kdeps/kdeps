@@ -179,15 +179,28 @@ s.close()
     # macOS mktemp does not support suffixes after the X placeholders — omit .py
     _MOCK_SCRIPT=$(mktemp /tmp/mock_registry_XXXXXX)
     cat > "$_MOCK_SCRIPT" << 'PYEOF'
-import http.server, sys, os, signal
+import http.server, sys, os, signal, threading, time
 signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
+# A script that sets its own EXIT trap replaces the kill below; exit when the
+# shell that started us is gone instead of outliving the run.
+parent = int(sys.argv[2])
+def watch():
+    while True:
+        time.sleep(1)
+        try:
+            os.kill(parent, 0)
+        except OSError:
+            os._exit(0)
+threading.Thread(target=watch, daemon=True).start()
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self): self.send_response(404); self.end_headers()
     def do_POST(self): self.send_response(404); self.end_headers()
     def log_message(self, *a): pass
 http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PYEOF
-    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" &
+    # No inherited stdout/stderr: a leftover server must not hold open the
+    # pipe a caller reads the e2e output through.
+    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$$" >/dev/null 2>&1 </dev/null &
     _MOCK_PID=$!
     sleep 0.2
     trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM

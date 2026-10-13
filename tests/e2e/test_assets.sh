@@ -6,6 +6,7 @@
 #     needs the schemas set
 #   - downloaded schemas and Docker templates work offline
 #   - KDEPS_ASSETS_SRC serves a checkout's assets/ to a dev binary
+#   - the cloud model catalog (models/cloud) feeds /model list
 #   - published bundles leave hidden source files out
 #   - the first download retries a flaky server
 #   - a missing published item fails the first run and is named
@@ -78,6 +79,18 @@ if output_grep "models/gguf +[0-9.]+ +source" "$OUT"; then
     test_passed "assets - update --list marks source items"
 else
     test_failed "assets - update --list source state" "$OUT"
+fi
+
+# The cloud model catalog is the models/cloud asset: an entry added there is
+# offered by /model list with no code change.
+printf '  # e2e\n  - id: "e2e-cloud-model"\n    backend: openai\n    desc: "e2e catalog entry"\n    envVar: OPENAI_API_KEY\n' \
+    >> "$AS_SRC/models/cloud.yaml"
+OUT=$(printf '/model list\n/quit\n' | HOME="$DEV_HOME" KDEPS_ASSETS_SRC="$AS_SRC" KDEPS_ASSETS_DIR="$DEV_HOME/store" \
+    KDEPS_ASSETS_URL=off OPENAI_API_KEY=e2e timeout 60 "$KDEPS_BIN" --new 2>&1 || true)
+if output_grep "e2e-cloud-model +e2e catalog entry" "$OUT"; then
+    test_passed "assets - a models/cloud entry appears in /model list"
+else
+    test_failed "assets - models/cloud entry missing from /model list" "$OUT"
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then

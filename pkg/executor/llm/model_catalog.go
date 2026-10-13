@@ -19,316 +19,64 @@
 package llm
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/tmc/langchaingo/llms"
-)
-
-// modelGPT4o is the OpenAI flagship model ID, used once below.
-const modelGPT4o = "gpt-4o"
-
-// Context window sizes (tokens) for well-known model families.
-const (
-	ctxAnthropic200k = 200_000
-	ctxAnthropic1M   = 1_000_000
-	ctxGemini15Pro   = 2_097_152
-	ctxGeminiFlash   = 1_048_576
-	ctxOpenAI128k    = 128_000
-	ctxOpenAI200k    = 200_000
-	ctxGrok          = 131_072
-	ctxDeepSeek      = 64_000
-	ctxGroqLarge     = 128_000
-	ctxGroqSmall     = 8_192
-	ctxMistralLarge  = 131_072
-	ctxMistralSmall  = 32_768
-	ctxCodestamp     = 256_000
-	ctxCohere        = 128_000
-	ctxTogetherLarge = 8_192
-	ctxTogetherSmall = 128_000
-	ctxPerplexity    = 128_000
-)
-
-// Max output token limits per model family (from pi models.generated.ts).
-const (
-	outAnthropic4k   = 4_096
-	outAnthropic8k   = 8_192
-	outAnthropic32k  = 32_000
-	outAnthropic64k  = 64_000
-	outAnthropic128k = 128_000
-	outOpenAI        = 16_384
-	outGemini        = 8_192
-	outDefault       = 4_096
+	"gopkg.in/yaml.v3"
 )
 
 // CloudModel describes a well-known cloud LLM model.
 type CloudModel struct {
-	ID               string // API model identifier, e.g. "claude-opus-4-8"
-	Backend          string // kdeps backend name, e.g. backendAnthropic
-	Desc             string // short human label, e.g. "Opus 4.8 - most capable"
-	EnvVar           string // API key env var, e.g. "ANTHROPIC_API_KEY"
-	SupportsThinking bool   // true when the model supports extended thinking / reasoning
-	SupportsImages   bool   // true when the model accepts image inputs
-	ContextWindow    int    // input token context window (0 = unknown)
-	MaxOutputTokens  int    // max output tokens per call (0 = unknown/use provider default)
+	ID               string `yaml:"id"`                        // API model identifier, e.g. "claude-opus-4-8"
+	Backend          string `yaml:"backend"`                   // kdeps backend name, e.g. backendAnthropic
+	Desc             string `yaml:"desc,omitempty"`            // short human label, e.g. "most capable"
+	EnvVar           string `yaml:"envVar,omitempty"`          // API key env var, e.g. "ANTHROPIC_API_KEY"
+	SupportsThinking bool   `yaml:"thinking,omitempty"`        // supports extended thinking / reasoning
+	SupportsImages   bool   `yaml:"images,omitempty"`          // accepts image inputs
+	ContextWindow    int    `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
+	MaxOutputTokens  int    `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
 }
 
-// KnownCloudModels is the static catalog of well-known cloud LLM models,
-// grouped by provider and ordered newest-first within each provider.
+// cloudRegistryItem is the models asset holding the cloud model catalog.
+const cloudRegistryItem = "cloud"
+
+// cloudCatalog is the models/cloud asset file.
+type cloudCatalog struct {
+	Models []CloudModel `yaml:"models"`
+}
+
+// KnownCloudModels is the cloud model catalog (the models/cloud asset),
+// grouped by provider and ordered newest-first within each provider. Loaded
+// at init and on asset reload (ReloadCloudModels).
 //
-//nolint:gochecknoglobals // read-only static catalog
-var KnownCloudModels = []CloudModel{
-	// Anthropic — claude-opus-4-6/7/8 have 1M context window (pi models.generated.ts)
-	{
-		ID: "claude-opus-4-8", Backend: backendAnthropic, Desc: "most capable",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic128k,
-	},
-	{
-		ID: "claude-sonnet-4-6", Backend: backendAnthropic, Desc: "balanced speed/intelligence",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic64k,
-	},
-	{
-		ID: "claude-haiku-4-5-20251001", Backend: backendAnthropic, Desc: "fast and lightweight",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
-	},
-	// Google
-	{
-		ID: "gemini-2.5-pro", Backend: "google", Desc: "most capable, best reasoning",
-		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
-	},
-	{
-		ID: "gemini-2.5-flash", Backend: "google", Desc: "fast multimodal",
-		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
-	},
-	{
-		ID: "gemini-2.0-flash", Backend: "google", Desc: "balanced",
-		EnvVar: "GOOGLE_API_KEY", SupportsImages: true,
-		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
-	},
-	{
-		ID: "gemini-1.5-pro", Backend: "google", Desc: "long context",
-		EnvVar: "GOOGLE_API_KEY", SupportsImages: true,
-		ContextWindow: ctxGemini15Pro, MaxOutputTokens: outGemini,
-	},
-	// OpenAI
-	{
-		ID: modelGPT4o, Backend: backendOpenAI, Desc: "flagship multimodal",
-		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-4o-mini", Backend: backendOpenAI, Desc: "fast and cheap",
-		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "o4-mini", Backend: backendOpenAI, Desc: "fast reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "o3", Backend: backendOpenAI, Desc: "advanced reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "o1", Backend: backendOpenAI, Desc: "reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	// xAI (Grok)
-	{
-		ID:              "grok-3",
-		Backend:         "xai",
-		Desc:            "most capable",
-		EnvVar:          "XAI_API_KEY",
-		ContextWindow:   ctxGrok,
-		MaxOutputTokens: outDefault,
-	},
-	{
-		ID:              "grok-3-fast",
-		Backend:         "xai",
-		Desc:            "fast",
-		EnvVar:          "XAI_API_KEY",
-		ContextWindow:   ctxGrok,
-		MaxOutputTokens: outDefault,
-	},
-	{
-		ID: "grok-3-mini", Backend: "xai", Desc: "small and cheap",
-		EnvVar: "XAI_API_KEY", SupportsThinking: true, ContextWindow: ctxGrok, MaxOutputTokens: outDefault,
-	},
-	{
-		ID:              "grok-2",
-		Backend:         "xai",
-		Desc:            "previous generation",
-		EnvVar:          "XAI_API_KEY",
-		ContextWindow:   ctxGrok,
-		MaxOutputTokens: outDefault,
-	},
-	// DeepSeek. The API rejects the retired deepseek-chat / deepseek-reasoner
-	// names outright ("The supported API model names are deepseek-v4-pro or
-	// deepseek-v4-flash"), so only the V4 names are offered.
-	{
-		ID: "deepseek-v4-pro", Backend: "deepseek", Desc: "flagship",
-		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
-	},
-	{
-		ID: "deepseek-v4-flash", Backend: "deepseek", Desc: "fast",
-		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
-	},
-	// Groq (fast inference)
-	{
-		ID: "llama-3.3-70b-versatile", Backend: "groq", Desc: "fast Llama 3.3 70B",
-		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge, MaxOutputTokens: outAnthropic8k,
-	},
-	{
-		ID: "llama-3.1-8b-instant", Backend: "groq", Desc: "fastest, smallest",
-		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge, MaxOutputTokens: outAnthropic8k,
-	},
-	{
-		ID:              "gemma2-9b-it",
-		Backend:         "groq",
-		Desc:            "Google Gemma 2",
-		EnvVar:          "GROQ_API_KEY",
-		ContextWindow:   ctxGroqSmall,
-		MaxOutputTokens: outDefault,
-	},
-	// Mistral
-	{
-		ID: "mistral-large-latest", Backend: "mistral", Desc: "most capable",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralLarge, MaxOutputTokens: outAnthropic8k,
-	},
-	{
-		ID: "mistral-small-latest", Backend: "mistral", Desc: "fast and cheap",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralSmall, MaxOutputTokens: outAnthropic8k,
-	},
-	{
-		ID: "codestral-latest", Backend: "mistral", Desc: "code specialist",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxCodestamp, MaxOutputTokens: outAnthropic8k,
-	},
-	// Cohere
-	{
-		ID:              "command-r-plus",
-		Backend:         "cohere",
-		Desc:            "most capable",
-		EnvVar:          "COHERE_API_KEY",
-		ContextWindow:   ctxCohere,
-		MaxOutputTokens: outDefault,
-	},
-	{
-		ID:              "command-r",
-		Backend:         "cohere",
-		Desc:            "balanced",
-		EnvVar:          "COHERE_API_KEY",
-		ContextWindow:   ctxCohere,
-		MaxOutputTokens: outDefault,
-	},
-	// Together AI
-	{
-		ID: "meta-llama/Llama-3-70b-chat-hf", Backend: "together", Desc: "Llama 3 70B",
-		EnvVar: "TOGETHER_API_KEY", ContextWindow: ctxTogetherLarge, MaxOutputTokens: outDefault,
-	},
-	{
-		ID: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", Backend: "together",
-		Desc: "Llama 3.1 8B fast", EnvVar: "TOGETHER_API_KEY",
-		ContextWindow: ctxTogetherSmall, MaxOutputTokens: outDefault,
-	},
-	// Perplexity (online search)
-	{
-		ID: "llama-3.1-sonar-large-128k-online", Backend: "perplexity",
-		Desc: "with web search", EnvVar: "PERPLEXITY_API_KEY",
-		ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
-	},
-	{
-		ID: "llama-3.1-sonar-small-128k-online", Backend: "perplexity",
-		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY",
-		ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
-	},
-	// M365 Copilot. Authenticates via a browser-login-cached token, not an API
-	// key env var (EnvVar left empty; BuildProviderStatus and
-	// TestKnownCloudModels_AllFieldsSet both special-case backend == m365 for
-	// that reason). The service doesn't publish exact context/output limits, so
-	// these use conservative estimates matching the underlying model family.
-	{
-		ID: "m365-copilot", Backend: backendM365, Desc: "default - service picks the model",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "quick", Backend: backendM365, Desc: "fast, lower-latency responses",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "think-deeper", Backend: backendM365, Desc: "extended reasoning", SupportsThinking: true,
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "claude-sonnet", Backend: backendM365, Desc: "Claude Sonnet via M365",
-		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
-	},
-	{
-		ID: "claude-sonnet-think-deeper", Backend: backendM365, Desc: "Claude Sonnet, extended reasoning",
-		SupportsThinking: true, ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
-	},
-	{
-		ID: "claude-opus", Backend: backendM365, Desc: "Claude Opus via M365",
-		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic128k,
-	},
-	{
-		ID: "gpt-5.6-think-deeper", Backend: backendM365, Desc: "GPT-5.6, extended reasoning (reasoning only for now)",
-		SupportsThinking: true, ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.5", Backend: backendM365, Desc: "GPT-5.5",
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.5-quick", Backend: backendM365, Desc: "GPT-5.5, fast",
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.5-think-deeper", Backend: backendM365, Desc: "GPT-5.5, extended reasoning", SupportsThinking: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.4", Backend: backendM365, Desc: "GPT-5.4", SupportsThinking: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.4-quick", Backend: backendM365, Desc: "GPT-5.4, fast",
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.4-think-deeper", Backend: backendM365, Desc: "GPT-5.4, extended reasoning", SupportsThinking: true,
-		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.3", Backend: backendM365, Desc: "GPT-5.3",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.3-quick", Backend: backendM365, Desc: "GPT-5.3, fast",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.3-think-deeper", Backend: backendM365, Desc: "GPT-5.3, extended reasoning", SupportsThinking: true,
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.2", Backend: backendM365, Desc: "GPT-5.2",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.2-quick", Backend: backendM365, Desc: "GPT-5.2, fast",
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
-	{
-		ID: "gpt-5.2-think-deeper", Backend: backendM365, Desc: "GPT-5.2, extended reasoning", SupportsThinking: true,
-		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
-	},
+//nolint:gochecknoglobals // parsed from the asset set
+var KnownCloudModels = loadCloudModels()
+
+// ReloadCloudModels re-reads the catalog after kdeps update.
+func ReloadCloudModels() { KnownCloudModels = loadCloudModels() }
+
+func loadCloudModels() []CloudModel {
+	c, err := parseCloudCatalog(readModelRegistry(cloudRegistryItem))
+	if err != nil {
+		return nil
+	}
+	return c.Models
+}
+
+// parseCloudCatalog decodes a models/cloud file; every model needs an id
+// and a backend.
+func parseCloudCatalog(data []byte) (cloudCatalog, error) {
+	var c cloudCatalog
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return c, err
+	}
+	for i, m := range c.Models {
+		if m.ID == "" || m.Backend == "" {
+			return c, fmt.Errorf("model %d needs an id and a backend", i)
+		}
+	}
+	return c, nil
 }
 
 // ModelSupportsThinking returns true when the model is known to support extended
