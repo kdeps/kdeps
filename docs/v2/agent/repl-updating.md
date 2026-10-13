@@ -33,7 +33,7 @@ Same standalone-only restriction as nightly: Homebrew/.deb/.apk cannot be told t
 
 ## Updating assets
 
-kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes and the `kdeps new` project templates are used in workflow mode.
+kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes, the `kdeps new` project templates, the workflow schemas, executor defaults and the Docker and Kubernetes templates are used in workflow mode.
 
 | Set | What an item is | Example id |
 |---|---|---|
@@ -47,6 +47,10 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `recipes` | An LLM server recipe | `recipes/vllm` |
 | `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace) | `models/gguf` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
+| `schemas` | The JSON schemas `kdeps validate`, `run` and `package` check workflows, resources, components and agencies against (all four files) | `schemas/v1` |
+| `defaults` | Executor defaults (timeouts, SQL pool sizes, search limits) used when neither the resource nor `config.yaml` sets a value | `defaults/executors` |
+| `docker` | The Dockerfile, entrypoint and supervisord templates `kdeps build` renders (all five files) | `docker/image` |
+| `k8s` | The Deployment, Service and NetworkPolicy templates `kdeps export k8s` renders (all three files) | `k8s/manifests` |
 
 ```d2
 direction: right
@@ -69,10 +73,10 @@ The `kdeps` binary contains none of these files: kdeps loads them only from `~/.
 
 ```text
 $ kdeps
-Downloading kdeps assets (harness, tools, commands, themes, templates, models)...
+Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...
 ```
 
-Offline with nothing installed, kdeps stops and tells you to connect and run `kdeps update` (`kdeps update`, `kdeps validate` and `kdeps registry` run without assets). Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+Offline with nothing installed, kdeps stops and tells you to connect and run `kdeps update` (`kdeps update` and `kdeps registry` run without assets; `kdeps validate` needs the `schemas` set). Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
 
 After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
 

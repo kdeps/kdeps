@@ -20,6 +20,7 @@ package assets
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -29,6 +30,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Spec is what the package owning a set tells this one about it.
@@ -62,6 +65,20 @@ func specFor(set string) (Spec, error) {
 		return Spec{}, fmt.Errorf("assets: set %q is not registered", set)
 	}
 	return s, nil
+}
+
+// Registered lists the sets of Sets whose loader is linked into this binary,
+// in display order. Every whole-store operation works on these.
+func Registered() []string {
+	specsMu.RLock()
+	defer specsMu.RUnlock()
+	out := make([]string, 0, len(Sets))
+	for _, set := range Sets {
+		if _, ok := specs[set]; ok {
+			out = append(out, set)
+		}
+	}
+	return out
 }
 
 // required reports whether set/name is an item its loader cannot do without.
@@ -138,9 +155,9 @@ func baseVersions(set string, base fs.FS) map[string]string {
 		switch {
 		case hidden(e.Name()):
 			continue
-		case set == BundleSet && e.IsDir():
+		case IsBundle(set) && e.IsDir():
 			name, file = e.Name(), path.Join(set, e.Name(), ManifestFile)
-		case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
+		case !IsBundle(set) && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
 			name, file = strings.TrimSuffix(e.Name(), yamlExt), path.Join(set, e.Name())
 		default:
 			continue
@@ -264,10 +281,7 @@ func Export() (map[string][]byte, error) {
 	out := map[string][]byte{}
 	lock := Lock{Items: map[string]LockEntry{}}
 	now := time.Now().UTC()
-	for _, set := range Sets {
-		if _, err := specFor(set); err != nil {
-			continue
-		}
+	for _, set := range Registered() {
 		fsys := Open(set)
 		entries, err := fsys.ReadDir(set)
 		if err != nil {
@@ -301,13 +315,13 @@ func Export() (map[string][]byte, error) {
 // or a bundle item's directory encoded as a Bundle.
 func exportItem(fsys ReadFS, set string, e fs.DirEntry) (string, []byte, bool, error) {
 	switch {
-	case set == BundleSet && e.IsDir():
+	case IsBundle(set) && e.IsDir():
 		data, err := bundleOf(fsys, path.Join(set, e.Name()))
 		if err != nil {
 			return "", nil, false, fmt.Errorf("assets: export %s: %w", ID(set, e.Name()), err)
 		}
 		return e.Name(), data, true, nil
-	case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
+	case !IsBundle(set) && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
 		data, err := fsys.ReadFile(path.Join(set, e.Name()))
 		if err != nil {
 			return "", nil, false, err
@@ -315,4 +329,30 @@ func exportItem(fsys ReadFS, set string, e fs.DirEntry) (string, []byte, bool, e
 		return strings.TrimSuffix(e.Name(), yamlExt), data, true, nil
 	}
 	return "", nil, false, nil
+}
+
+// ReadBundleFile returns file of the bundle item set/name as Open sees it.
+func ReadBundleFile(set, name, file string) ([]byte, error) {
+	data, err := Open(set).ReadFile(path.Join(set, name, file))
+	if err != nil {
+		return nil, fmt.Errorf("assets: %s has no %s (run kdeps update): %w", ID(set, name), file, err)
+	}
+	return data, nil
+}
+
+// ValidateBundle checks that data is a Bundle holding every file in want.
+func ValidateBundle(data []byte, want ...string) (Bundle, error) {
+	var b Bundle
+	if err := yaml.Unmarshal(data, &b); err != nil {
+		return b, err
+	}
+	if len(b.Files) == 0 {
+		return b, errors.New("bundle has no files")
+	}
+	for _, f := range want {
+		if _, ok := b.Files[f]; !ok {
+			return b, fmt.Errorf("bundle is missing %s", f)
+		}
+	}
+	return b, nil
 }

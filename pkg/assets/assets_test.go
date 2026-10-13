@@ -31,6 +31,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// templatesSet is the bundle set the tests use.
+const templatesSet = "templates"
+
 func sourceFiles() fstest.MapFS {
 	return fstest.MapFS{
 		"harness/safety.yaml":                 {Data: []byte("version: 1.0.0\nbody: source safety\n")},
@@ -66,7 +69,7 @@ func registerTestSets(t *testing.T) {
 			return err
 		},
 	})
-	Register(BundleSet, Spec{})
+	Register(templatesSet, Spec{})
 }
 
 func read(t *testing.T, fsys ReadFS, p string) string {
@@ -268,7 +271,7 @@ files:
   ../escape.txt: nope
 `)
 	require.NoError(t, Install(root, "templates/api", bundle, false))
-	o := overlay(BundleSet, sourceFiles(), root)
+	o := overlay(templatesSet, sourceFiles(), root)
 	assert.Equal(t, "new workflow", read(t, o, "templates/api/workflow.yaml.j2"))
 	assert.Equal(t, "agent a", read(t, o, "templates/api/agents/a.yaml.j2"))
 	assert.Contains(t, read(t, o, "templates/api/"+ManifestFile), "1.2.0")
@@ -277,15 +280,15 @@ files:
 	_, err = o.ReadFile("templates/escape.txt")
 	require.ErrorIs(t, err, fs.ErrNotExist, "paths outside the item are dropped")
 
-	items, err := Items(BundleSet, root)
+	items, err := Items(templatesSet, root)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "1.2.0", items[0].Version)
 	assert.Equal(t, "1.0.0", items[0].BaseVersion)
 
 	require.NoError(t, Remove(root, "templates/api"))
-	o = overlay(BundleSet, sourceFiles(), root)
-	entries, err := o.ReadDir(BundleSet)
+	o = overlay(templatesSet, sourceFiles(), root)
+	entries, err := o.ReadDir(templatesSet)
 	require.NoError(t, err)
 	assert.Empty(t, entries)
 }
@@ -351,6 +354,6 @@ func TestExport_StoreOfWhatLoadersSee(t *testing.T) {
 	}
 	o := overlay("harness", fstest.MapFS{}, store)
 	assert.Contains(t, read(t, o, "harness/safety.yaml"), "new safety")
-	o = overlay(BundleSet, fstest.MapFS{}, store)
+	o = overlay(templatesSet, fstest.MapFS{}, store)
 	assert.Equal(t, "source llm", read(t, o, "templates/api/resources/llm.yaml.j2"))
 }

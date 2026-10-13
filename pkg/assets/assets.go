@@ -36,6 +36,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -52,14 +53,22 @@ import (
 //nolint:gochecknoglobals // fixed list of set names
 var Sets = []string{
 	"harness", "events", "actions", "presets", "themes", "tools", "commands", "recipes", "models", "templates",
+	"docker", "k8s", "schemas", "defaults",
 }
 
-// BundleSet is the set whose items are directories, distributed as one YAML
-// bundle file each; every other set's item is a single YAML file.
-const BundleSet = "templates"
+// bundleSets are the sets whose items are directories, distributed as one
+// YAML bundle file each; every other set's item is a single YAML file.
+//
+//nolint:gochecknoglobals // fixed list of set names
+var bundleSets = []string{"templates", "docker", "k8s", "schemas"}
+
+// IsBundle reports whether set's items are directories (see Bundle).
+func IsBundle(set string) bool {
+	return slices.Contains(bundleSets, set)
+}
 
 // ManifestFile names the version header file inside a bundle item's source
-// directory. Template walkers skip it.
+// directory. Bundle readers skip it.
 const ManifestFile = "template.yaml"
 
 const (
@@ -383,7 +392,7 @@ func skipEntry(d fs.DirEntry) error {
 // the item has none (then any download is newer).
 func baseVersion(out fstest.MapFS, set, dir, name string) string {
 	p := path.Join(dir, name+yamlExt)
-	if set == BundleSet {
+	if IsBundle(set) {
 		p = path.Join(dir, name, ManifestFile)
 	}
 	f, ok := out[p]
@@ -398,7 +407,7 @@ func baseVersion(out fstest.MapFS, set, dir, name string) string {
 }
 
 func dropItem(out fstest.MapFS, set, dir, name string) {
-	if set != BundleSet {
+	if !IsBundle(set) {
 		delete(out, path.Join(dir, name+yamlExt))
 		return
 	}
@@ -411,7 +420,7 @@ func dropItem(out fstest.MapFS, set, dir, name string) {
 }
 
 func applyDownloaded(out fstest.MapFS, set, dir, name string, data []byte) {
-	if set != BundleSet {
+	if !IsBundle(set) {
 		out[path.Join(dir, name+yamlExt)] = &fstest.MapFile{Data: data}
 		return
 	}

@@ -66,7 +66,7 @@ func EnsureAssets(ctx context.Context, w io.Writer) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout)
 	defer cancel()
-	fmt.Fprintln(w, "Downloading kdeps assets (harness, tools, commands, themes, templates, models)...")
+	fmt.Fprintln(w, "Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...")
 	downloaded, err := assets.Ensure(ctx, assets.Root(), assets.NewClient())
 	if downloaded {
 		ReloadAssets()
@@ -166,7 +166,7 @@ func printChanges(w io.Writer, changes []assets.Change, check bool) {
 }
 
 func listAssets(w io.Writer, root string) error {
-	for _, set := range assets.Sets {
+	for _, set := range assets.Registered() {
 		items, err := assets.Items(set, root)
 		if err != nil {
 			return err

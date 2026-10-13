@@ -15,18 +15,37 @@
 package config
 
 import (
-	_ "embed"
 	"fmt"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
-//go:embed defaults.yml
-var defaultsYAML []byte
+// The executor defaults are the "executors" item of the "defaults" asset set.
+const (
+	defaultsSet  = "defaults"
+	defaultsItem = "executors"
+)
 
-// ExecutorDefaults holds all embedded default values for executors.
+//nolint:gochecknoinits // registers the executor defaults as a versioned asset set
+func init() {
+	assets.Register(defaultsSet, assets.Spec{
+		Validate: func(data []byte, _ string) error { return yaml.Unmarshal(data, &ExecutorDefaults{}) },
+		Required: func(name string) bool { return name == defaultsItem },
+	})
+}
+
+// readDefaults returns the executor defaults file (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var readDefaults = func() ([]byte, error) {
+	return assets.Open(defaultsSet).ReadFile(defaultsSet + "/" + defaultsItem + ".yaml")
+}
+
+// ExecutorDefaults holds the default values for executors.
 type ExecutorDefaults struct {
 	Chat      ChatExecutorDefaults   `yaml:"chat"`
 	HTTP      HTTPExecutorDefaults   `yaml:"http"`
@@ -88,10 +107,10 @@ type EmbeddingDefaults struct {
 	Limit      int    `yaml:"limit"`
 }
 
+//nolint:gochecknoglobals // package-level cache of the first successful load
 var (
-	parseDefaultsOnce sync.Once         //nolint:gochecknoglobals // package-level cache
-	parsedDefaults    *ExecutorDefaults //nolint:gochecknoglobals // package-level cache
-	errDefaultsParse  error
+	defaultsMu     sync.Mutex
+	parsedDefaults *ExecutorDefaults
 )
 
 func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
@@ -102,17 +121,26 @@ func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
 	return d
 }
 
-// GetDefaults returns the parsed embedded executor defaults.
+// GetDefaults returns the executor defaults from the defaults asset set. It
+// never returns nil: when the set is missing or broken it returns zero
+// values (each accessor then uses its own fallback) with the error. Only a
+// successful load is cached, so a later call sees assets installed since.
 func GetDefaults() (*ExecutorDefaults, error) {
-	parseDefaultsOnce.Do(func() {
-		var d ExecutorDefaults
-		if err := yaml.Unmarshal(defaultsYAML, &d); err != nil {
-			errDefaultsParse = fmt.Errorf("parse embedded defaults.yml: %w", err)
-			return
-		}
-		parsedDefaults = &d
-	})
-	return parsedDefaults, errDefaultsParse
+	defaultsMu.Lock()
+	defer defaultsMu.Unlock()
+	if parsedDefaults != nil {
+		return parsedDefaults, nil
+	}
+	data, err := readDefaults()
+	if err != nil {
+		return &ExecutorDefaults{}, fmt.Errorf("read executor defaults (run kdeps update): %w", err)
+	}
+	var d ExecutorDefaults
+	if err = yaml.Unmarshal(data, &d); err != nil {
+		return &ExecutorDefaults{}, fmt.Errorf("parse executor defaults: %w", err)
+	}
+	parsedDefaults = &d
+	return parsedDefaults, nil
 }
 
 // TimeoutDuration parses the chat timeout string into a time.Duration.

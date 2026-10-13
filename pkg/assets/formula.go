@@ -51,6 +51,10 @@ var setTypes = map[string]string{
 	"recipes":   "recipe",
 	"models":    "model",
 	"templates": "template",
+	"docker":    "dockerfile",
+	"k8s":       "manifest",
+	"schemas":   "schema",
+	"defaults":  "defaults",
 }
 
 // PackageType is the registry package type of set's items ("" if set is not

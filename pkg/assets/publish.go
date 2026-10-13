@@ -101,13 +101,13 @@ func SourceFiles(src, set string) (map[string][]byte, error) {
 		switch {
 		case hidden(e.Name()):
 			continue
-		case set == BundleSet && e.IsDir():
+		case IsBundle(set) && e.IsDir():
 			data, bErr := bundleOf(fsys, path.Join(set, e.Name()))
 			if bErr != nil {
 				return nil, fmt.Errorf("assets: bundle %s/%s: %w", set, e.Name(), bErr)
 			}
 			out[e.Name()] = data
-		case set != BundleSet && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
+		case !IsBundle(set) && !e.IsDir() && strings.HasSuffix(e.Name(), yamlExt):
 			data, rErr := fs.ReadFile(fsys, path.Join(set, e.Name()))
 			if rErr != nil {
 				return nil, rErr

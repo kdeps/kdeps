@@ -5593,11 +5593,8 @@ func TestServer_Start_WithHotReload2(t *testing.T) {
 		_ = server.Start(":0", true) // devMode = true
 	}()
 
-	// Give server time to start
-	time.Sleep(50 * time.Millisecond)
-
-	// Verify hot reload was set up
-	assert.NotNil(t, mockWatcher.callbacks)
+	// Hot reload registers its watches once the server goroutine runs.
+	assert.Eventually(t, func() bool { return mockWatcher.watchCount() > 0 }, 5*time.Second, 10*time.Millisecond)
 }
 
 // TestServer_Start_WithoutHotReload tests Start without hot reload.

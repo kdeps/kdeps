@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fails when a versioned asset file changed between BASE and HEAD without a
-# higher `version:` header. Template items are versioned by their
-# template.yaml, so any change inside a template directory needs a bump there.
+# higher `version:` header. Bundle items (templates, docker, k8s, schemas) are
+# versioned by their template.yaml, so any change inside a bundle directory
+# needs a bump there.
 #
 # usage: scripts/check-asset-versions.sh <base-ref> <head-ref>
 set -euo pipefail
@@ -9,8 +10,8 @@ set -euo pipefail
 base=${1:?base ref}
 head=${2:?head ref}
 
-flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models)/[^/]+\.yaml$'
-tmpl_re='^assets/templates/([^/]+)/'
+flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models|defaults)/[^/]+\.yaml$'
+bundle_re='^assets/(templates|docker|k8s|schemas)/([^/]+)/'
 
 version_at() { # <ref> <path> -> version or empty
 	git show "$1:$2" 2>/dev/null | sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1
@@ -40,13 +41,12 @@ seen=" "
 while IFS= read -r f; do
 	if [[ $f =~ $flat_re ]]; then
 		check "$f" "$f" || failed=1
-	elif [[ $f =~ $tmpl_re ]]; then
-		item=${BASH_REMATCH[1]}
+	elif [[ $f =~ $bundle_re ]]; then
+		item="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
 		case $seen in *" $item "*) continue ;; esac
 		seen="$seen$item "
-		manifest="assets/templates/$item/template.yaml"
-		git cat-file -e "$head:assets/templates/$item" 2>/dev/null || continue # template deleted
-		check "$manifest" "template $item" || failed=1
+		git cat-file -e "$head:assets/$item" 2>/dev/null || continue # bundle deleted
+		check "assets/$item/template.yaml" "bundle $item" || failed=1
 	fi
 done < <(git diff --name-only --diff-filter=AMR "$base" "$head")
 
