@@ -8,7 +8,7 @@ Works in workflow and agent mode.
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
 | `file:` | Read, write, patch, list, delete, copy, move files and directories | [File](/workflow/resources/file) |
-| `git:` | Status, diff, log, commit, branch, push, pull on a repository | [Git](/workflow/resources/git) |
+| `component: git` | Status, diff, log, commit, branch, push, pull on a repository | [Git](/workflow/resources/git) |
 
 ## See also
 

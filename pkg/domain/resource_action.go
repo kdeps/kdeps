@@ -42,7 +42,6 @@ type ActionConfig struct {
 	BotReply         *BotReplyConfig         `yaml:"botReply,omitempty"`
 	Email            *EmailConfig            `yaml:"email,omitempty"`
 	File             *FileResourceConfig     `yaml:"file,omitempty"`
-	Git              *GitResourceConfig      `yaml:"git,omitempty"`
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`

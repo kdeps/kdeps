@@ -1,10 +1,14 @@
-# Git resource
+# Git component
 
-The `git:` resource provides structured version control operations for reading repository state and making commits. It replaces ad-hoc shell commands (`exec git status`, `exec git log`) with type-safe, composable DAG operations that return structured output.
+The `git` component runs structured version-control operations - status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull - and returns parsed results (file lists, commit objects, branch lists) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+
+## Requirements
+
+`git` on `PATH`, and Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource that runs git and prints the structured result.
 
 ## Basic usage
 
@@ -12,161 +16,81 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it 
 # resources/status.yaml
 actionId: gitStatus
 name: Check Repository Status
-git:
-  operation: status
-  workingDir: /path/to/repo
+component:
+  name: git                    # from the components asset set; a components/git/ of your own wins
+  with:
+    operation: status
+    workingDir: /path/to/repo  # default: the current directory
 ```
 
 ```yaml
 # resources/commit.yaml
 actionId: gitCommit
 name: Commit Changes
-git:
-  operation: commit
-  workingDir: /path/to/repo
-  message: "feat: add new feature"
-  dryRun: true
+requires: [gitStatus]
+component:
+  name: git
+  with:
+    operation: commit
+    workingDir: /path/to/repo
+    message: "feat: add new feature"
+    dryRun: true               # report what would happen, change nothing
 ```
 
-## Operations
+## Inputs
 
-| Operation | Description |
-|-----------|-------------|
-| `status` | Show working tree status (`--porcelain -b`) |
-| `diff` | Show unstaged changes |
-| `log` | Show commit history |
-| `show` | Show commit details |
-| `branch` | List branches |
-| `remote` | List remote repositories |
-| `add` | Stage files |
-| `commit` | Create a commit |
-| `checkout` | Switch branches or restore files |
-| `init` | Initialize a new repository |
-| `clone` | Clone a repository |
-| `push` | Push to remote |
-| `pull` | Pull from remote |
-
-## Configuration options
-
-| Option | Operation | Description |
-|--------|-----------|-------------|
-| `operation` | all | The git operation to perform (required) |
-| `workingDir` | all | Working directory for git commands |
-| `paths` | add, checkout, diff, log | File paths to operate on |
-| `message` | commit | Commit message |
-| `branch` | checkout, branch, push, pull | Branch name |
-| `url` | clone | Remote repository URL |
-| `remote` | push, pull | Remote name (default: `origin`) |
-| `args` | show, checkout | Additional git arguments |
-| `maxCount` | log | Maximum commits to show (default: 10) |
+| Input | Operation | Description |
+|---|---|---|
+| `operation` | all | `status`, `diff`, `log`, `show`, `branch`, `remote`, `add`, `commit`, `checkout`, `init`, `clone`, `push`, `pull` (required) |
+| `workingDir` | all | Repository directory; for `clone`, the target directory |
+| `paths` | add, checkout, diff, log | Space-separated paths (`add` defaults to `.`) |
+| `message` | commit | Commit message (required for commit) |
+| `branch` | checkout, push, pull | Branch name |
+| `url` | clone | Repository URL |
+| `remote` | push, pull | Remote name (default `origin`) |
+| `args` | show | Extra space-separated git arguments, e.g. `HEAD~1` |
+| `maxCount` | log | Commits to list (default 10) |
 | `dryRun` | add, commit, checkout, init, clone, push, pull | Preview without modifying |
-| `format` | log, show | Custom git format string |
 
-## Operation details
+Component inputs are passed as strings, so `paths` and `args` are space-separated (quote a path with spaces, shell-style: `paths: "'my file.txt' src/"`).
 
-### Status
+## Output
 
-Returns structured output with branch, staged, unstaged, untracked, and conflicted files:
+Every result has `success: true` plus the operation's fields; a failing git command fails the resource with git's error.
 
-```yaml
-# resources/status.yaml
-git:
-  operation: status
-  workingDir: /path/to/repo
-```
-
-**Output:**
 ```json
-{
-  "success": true,
-  "branch": "main",
-  "staged": ["file1.go"],
-  "unstaged": ["file2.go"],
-  "untracked": ["new.txt"],
-  "conflicts": []
-}
+{"success": true, "branch": "main", "staged": ["file1.go"], "unstaged": ["file2.go"], "untracked": ["new.txt"], "conflicts": []}
 ```
 
-### Log
-
-Returns structured commit history:
+| Operation | Fields |
+|---|---|
+| `status` | `branch`, `staged`, `unstaged`, `untracked`, `conflicts` |
+| `diff` | `diff`, `additions`, `deletions` |
+| `log` | `commits` (`hash`, `author`, `email`, `date`, `message`), `count` |
+| `show` | `output` |
+| `branch` | `branches` (`name`, `current`, `remote`), `current`, `count` |
+| `remote` | `remotes` (`name`, `url`, `type`), `count` |
+| `add` / `commit` / `checkout` / `init` / `clone` / `push` / `pull` | `staged` / `committed`+`message` / `switched`+`branch`+`paths` / `initialized`+`path` / `cloned`+`url` / `pushed` or `pulled`+`remote`+`branch`; `dryRun: true` when previewing |
 
 ```yaml
-# resources/log.yaml
-git:
-  operation: log
-  workingDir: /path/to/repo
-  maxCount: 5
-  paths: ["src/"]
-```
-
-**Output:**
-```json
-{
-  "success": true,
-  "commits": [
-    {"hash": "abc123", "author": "Alice", "email": "alice@example.com", "date": "2026-06-13", "message": "fix: bug"}
-  ],
-  "count": 1
-}
-```
-
-### Diff
-
-Returns the unified diff with addition/deletion counts:
-
-```yaml
-# resources/diff.yaml
-git:
-  operation: diff
-  workingDir: /path/to/repo
-```
-
-### Commit
-
-Creates a commit with the given message:
-
-```yaml
-# resources/commit.yaml
-git:
-  operation: commit
-  workingDir: /path/to/repo
-  message: "feat: implement search"
-```
-
-### Add
-
-Stages files for commit:
-
-```yaml
-# resources/add.yaml
-git:
-  operation: add
-  workingDir: /path/to/repo
-  paths: ["src/main.go", "src/utils.go"]
-```
-
-## Dry run mode
-
-Every write operation supports `dryRun: true` to preview what would happen without modifying the repository:
-
-```yaml
-# resources/dry-run-commit.yaml
-git:
-  operation: commit
-  message: "feat: dangerous change"
-  dryRun: true
+# resources/report.yaml
+requires: [gitStatus]
+apiResponse:
+  success: true
+  response:
+    branch: "{{ output('gitStatus').branch }}"
+    untracked: "{{ output('gitStatus').untracked }}"
 ```
 
 ## Best practices
 
 1. **Always set `workingDir`** - avoid ambiguity about which repository is being operated on
 2. **Use `dryRun` on write operations** - verify before committing, pushing, or checking out
-3. **Check `success` field** in downstream resources to detect git failures
-4. **Use `status` before `add`** to understand what will be staged
-5. **Set `maxCount` on `log`** to avoid unbounded output
+3. **Use `status` before `add`** to understand what will be staged
+4. **Set `maxCount` on `log`** to keep output bounded
 
 ## See also
 
-- [Exec resource](/workflow/resources/exec) - shell commands (use for non-git CLI tools)
-- [Workflow configuration](/workflow/configuration) - settings reference
+- [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
+- [Exec resource](/workflow/resources/exec) - shell commands (use for other CLI tools)
+- [Python resource](/workflow/resources/python) - what the component's step runs on

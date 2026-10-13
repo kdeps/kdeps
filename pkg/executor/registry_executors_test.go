@@ -31,13 +31,6 @@ func TestSetGetFileExecutor(t *testing.T) {
 	}
 }
 
-func TestSetGetGitExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetGitExecutor(exec)
-	assert.NotNil(t, reg.GetGitExecutor())
-}
-
 func TestSetGetCodeIntelligenceExecutor(t *testing.T) {
 	reg := NewRegistry()
 	exec := &mockResourceExec{}
@@ -57,11 +50,6 @@ func TestSetGetVectorStoreExecutor(t *testing.T) {
 	exec := &mockResourceExec{}
 	reg.SetVectorStoreExecutor(exec)
 	assert.NotNil(t, reg.GetVectorStoreExecutor())
-}
-
-func TestGetGitExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetGitExecutor())
 }
 
 func TestGetLoaderExecutor_Nil(t *testing.T) {

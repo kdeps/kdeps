@@ -308,6 +308,6 @@ If `/config/settings.yaml` exists, the original is saved to `/config/settings.ya
 
 - [Exec resource](/workflow/resources/exec) - shell commands (use for CLI tools that lack a native resource)
 - [Python resource](/workflow/resources/python) - complex data processing
-- [Git resource](/workflow/resources/git) - version control operations
+- [Git component](/workflow/resources/git) - version control operations
 - [Code intelligence resource](/workflow/resources/code-navigation) - code navigation and search
 - [Workflow configuration](/workflow/configuration)

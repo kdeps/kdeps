@@ -153,14 +153,6 @@ func (e *Engine) executeFile(resource *domain.Resource, ctx *ExecutionContext) (
 	)
 }
 
-// executeGit executes a git resource.
-func (e *Engine) executeGit(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "git", resource.Git,
-		e.registry.GetGitExecutor, "git", "executeGit", ctx,
-	)
-}
-
 // executeCodeIntelligence executes a codeIntelligence resource.
 func (e *Engine) executeCodeIntelligence(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(
