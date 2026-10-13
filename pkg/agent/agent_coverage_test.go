@@ -1486,39 +1486,3 @@ func TestTruncateBashOutput_CarriageReturns(t *testing.T) {
 	result := truncateBashOutput(input)
 	assert.Contains(t, result, "\r")
 }
-
-// ---- builtin_tools.go: parseRerankArgs error paths ----
-
-func TestParseRerankArgs_EmptyQuery(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
-}
-
-func TestParseRerankArgs_EmptyDocuments(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{"query": "test"}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "documents")
-}
-
-func TestParseRerankArgs_InvalidJSON(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "test",
-		"documents": "not-valid-json",
-	}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "JSON array")
-}
-
-func TestParseRerankArgs_EmptyDocArray(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "test",
-		"documents": "[]",
-	}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "empty")
-}

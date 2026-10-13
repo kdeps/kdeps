@@ -115,5 +115,8 @@ func validateToolDefinition(data []byte, _ string) error {
 	if d.Description == "" {
 		return errors.New("description is required")
 	}
+	if d.HTTP != nil {
+		return d.HTTP.validate()
+	}
 	return nil
 }

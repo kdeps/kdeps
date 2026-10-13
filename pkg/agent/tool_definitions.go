@@ -45,6 +45,8 @@ type toolDefinition struct {
 	OutputFormat string                      `yaml:"outputFormat,omitempty"`
 	SeeAlso      string                      `yaml:"seeAlso,omitempty"`
 	Parameters   map[string]domain.ToolParam `yaml:"parameters,omitempty"`
+	// HTTP, when set, implements the tool as one HTTP call (see httpToolSpec).
+	HTTP *httpToolSpec `yaml:"http,omitempty"`
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its
