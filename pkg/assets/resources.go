@@ -68,7 +68,6 @@ var ResourceDocs = map[string]string{
 	"codeIntelligence": "workflow/resources/code-intelligence.md",
 	"loader":           "workflow/resources/loader.md",
 	"vectorStore":      "workflow/resources/vector-store.md",
-	"transcribe":       "workflow/resources/transcribe.md",
 	"apiResponse":      "workflow/resources/api-response.md",
 }
 

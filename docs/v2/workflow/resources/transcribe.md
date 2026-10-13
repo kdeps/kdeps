@@ -1,10 +1,27 @@
-# Transcribe resource
+# Transcribe component
 
-The `transcribe:` resource converts speech in an audio file to text using a Whisper model - OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline via a local `whisper-cli` binary with no API key at all.
+The `transcribe` component converts speech in an audio file to text with a Whisper model - OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline through a local `whisper-cli` binary with no API key. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same executor is available as the `transcribe_audio` built-in tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the same job is two built-in tools: `transcribe_audio` (the API backends, a [declared HTTP tool](/agent/tools#declared-http-tools)) and `transcribe_audio_offline` (whisper.cpp, a [declared exec tool](/agent/tools#declared-exec-tools)).
+
+## How it runs
+
+```d2
+direction: right
+call: "component: transcribe" {shape: oval}
+pick: "backend?" {shape: diamond}
+api: "httpClient POST\n<base>/audio/transcriptions\n(multipart: file + fields)"
+model: "httpClient GET model\nsaveTo models dir\n(skipped when cached)"
+cli: "exec whisper-cli\n-m model -f file -l lang"
+call -> pick
+pick -> api: "openai | groq | local"
+pick -> model: "whisper-cpp"
+model -> cli
+```
+
+Each step is a resource of the component gated by `validations.skip`, so only the chosen backend's steps run.
 
 ## Basic usage
 
@@ -12,9 +29,11 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the s
 # resources/transcribe.yaml
 actionId: transcribe
 name: Transcribe Audio
-transcribe:
-  file: /data/meeting.mp3
-  backend: openai
+component:
+  name: transcribe           # from the components asset set; a components/transcribe/ of your own wins
+  with:
+    file: /data/meeting.mp3  # required
+    backend: openai          # openai (default) | groq | local | whisper-cpp
 ```
 
 ```yaml
@@ -24,62 +43,46 @@ requires: [transcribe]
 apiResponse:
   success: true
   response:
-    text: "{{ output('transcribe') }}"
+    text: "{{ output('transcribe').body }}"   # API backends: the httpClient result's body
+    # offline: "{{ output('transcribe').stdout }}" - the whisper-cli exec result
 ```
 
-## Backends
+The API key comes from `OPENAI_API_KEY` (openai) or `GROQ_API_KEY` (groq); `local` sends none. A non-2xx answer fails the resource with the status and body.
 
-| `backend` | Requires | Formats | Notes |
-|---|---|---|---|
-| `openai` (default) | `OPENAI_API_KEY` | mp3, mp4, mpeg, mpga, m4a, wav, webm | Whisper API, model default `whisper-1` |
-| `groq` | `GROQ_API_KEY` | mp3, mp4, mpeg, mpga, m4a, wav, webm | Faster/cheaper Whisper-compatible API, e.g. `whisper-large-v3` |
-| `local` | - | mp3, mp4, mpeg, mpga, m4a, wav, webm | Self-hosted OpenAI-compatible Whisper HTTP server, `baseURL` points at it |
-| `whisper-cpp` | local `whisper-cli` binary on PATH | flac, mp3, ogg, wav only | Fully offline - no API key, no network after the model is cached |
-
-## Offline transcription (`whisper-cpp`)
+## Offline with whisper.cpp
 
 ```yaml
-transcribe:
-  file: /data/meeting.mp3
-  backend: whisper-cpp
+component:
+  name: transcribe
+  with:
+    file: /data/meeting.wav     # whisper-cpp takes flac, mp3, ogg, wav
+    backend: whisper-cpp        # no API key, no network after the model is cached
+    language: en                # default en
+    # modelPath: /models/ggml-small.en.bin   # default: <models dir>/ggml-base.en.bin
 ```
 
-No config beyond `file` and `backend` is required. On first use, a default English model (`ggml-base.en.bin`, ~140MB) auto-downloads to `~/.kdeps/models/` - the same cache directory used by `chat:`'s llamafile models - and every later call reuses the cached file. Requires the `whisper-cli` binary from [whisper.cpp](https://github.com/ggerganov/whisper.cpp) to be installed and on `PATH`.
+On first use the component downloads `ggml-base.en.bin` from Hugging Face into `$KDEPS_MODELS_DIR` (default `~/.kdeps/models`); later runs skip that step. `whisper-cli` must be on `PATH` (`brew install whisper-cpp`, or build whisper.cpp).
 
-Use `modelPath` to point at a different GGML model (a multilingual or larger model for better accuracy):
+## Inputs
 
-```yaml
-transcribe:
-  file: /data/interview.wav
-  backend: whisper-cpp
-  modelPath: /models/ggml-medium.bin
-  language: en
-```
-
-## Configuration options
-
-| Option | Applies to | Description |
+| Input | Default | Description |
 |---|---|---|
-| `file` | all | Path to the audio file (required) |
-| `backend` | all | `openai` (default), `groq`, `local`, `whisper-cpp`, or `system` (follow the machine config) |
-| `model` | openai, groq | Model name. Default `whisper-1`; Groq: `whisper-large-v3`. `system` = the default |
-| `baseURL` | local | Base URL of the self-hosted server. Ignored for `whisper-cpp` |
-| `modelPath` | whisper-cpp | Path to a GGML model file. Default: auto-downloaded `ggml-base.en.bin` |
-| `language` | all | ISO-639-1 language hint, e.g. `en` |
-| `prompt` | openai, groq, local | Optional context prompt to guide transcription style/vocabulary |
-| `responseFormat` | openai, groq, local | `text` (default), `json`, `srt`, `verbose_json`, `vtt` |
-| `temperature` | openai, groq, local | Sampling temperature, `0`-`1` |
-| `timestampGranularities` | openai, groq, local | `["segment"]` and/or `["word"]`, only with `responseFormat: verbose_json` |
+| `file` | (required) | Audio/video file. API backends: mp3, mp4, mpeg, mpga, m4a, wav, webm |
+| `backend` | `openai` | `openai`, `groq`, `local` or `whisper-cpp` |
+| `model` | `whisper-1` | API model (Groq: `whisper-large-v3`) |
+| `baseURL` | per backend | Overrides the API base URL (`.../v1`) |
+| `language` | auto (`en` offline) | ISO-639-1 code |
+| `prompt` | | Spelling hints for names and terms (API) |
+| `responseFormat` | `text` | `text`, `json`, `verbose_json`, `srt`, `vtt` (API) |
+| `temperature` | | 0-1 (API) |
+| `modelPath` | `<models dir>/ggml-base.en.bin` | whisper-cpp GGML model |
 
 ## Output
 
-The transcribed text, as a plain string:
-
-```json
-"This is a kdeps transcription test."
-```
+API backends return the `httpClient` result - the transcript is `body` (and `data` when `responseFormat` is JSON). whisper-cpp returns the `exec` result - the transcript is `stdout`.
 
 ## See also
 
-- [OCR component](/workflow/resources/ocr) - the equivalent offline, no-API-key pattern for images
-- [Resources overview](/workflow/resources) - all resource types
+- [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
+- [HTTP client resource](/workflow/resources/http-client#file-upload-download-and-failing-on-errors) - `files`, `saveTo`, `failOnError`
+- [OCR component](/workflow/resources/ocr) - the same pattern for images

@@ -26,6 +26,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -363,4 +365,106 @@ func TestHTTPToolSpec_Timeout(t *testing.T) {
 	_, err := callDeclaredHTTPTool(context.Background(), "slow",
 		&httpToolSpec{Method: "GET", URL: srv.URL, Timeout: "50ms"}, nil, nil)
 	require.ErrorContains(t, err, "slow: request:")
+}
+
+func TestDeclaredHTTPTool_MultipartFilesAndForm(t *testing.T) {
+	var got struct{ model, lang, file, name, ctype, auth string }
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got.ctype, got.auth = r.Header.Get("Content-Type"), r.Header.Get("Authorization")
+		require.NoError(t, r.ParseMultipartForm(1<<20))
+		got.model, got.lang = r.FormValue("model"), r.FormValue("language")
+		f, hdr, err := r.FormFile("file")
+		require.NoError(t, err)
+		defer f.Close()
+		b, _ := io.ReadAll(f)
+		got.file, got.name = string(b), hdr.Filename
+		_, _ = w.Write([]byte("the transcript"))
+	}))
+	t.Cleanup(srv.Close)
+	audio := filepath.Join(t.TempDir(), "a.wav")
+	require.NoError(t, os.WriteFile(audio, []byte("RIFF"), 0o600))
+
+	s := &httpToolSpec{
+		Method:  "POST",
+		URL:     srv.URL + "/audio/transcriptions",
+		Headers: map[string]string{"Authorization": "{{with .env.KEY}}Bearer {{.}}{{end}}"},
+		Files:   map[string]string{"file": "{{.args.file}}"},
+		Form:    map[string]string{"model": "{{.args.model}}", "language": "{{.args.language}}"},
+		Paths:   []string{"file"},
+	}
+	out, err := callDeclaredHTTPTool(context.Background(), "tr", s,
+		map[string]any{"file": audio, "model": "whisper-1"}, map[string]string{"KEY": ""})
+	require.NoError(t, err)
+	assert.Equal(t, "the transcript", out)
+	assert.Contains(t, got.ctype, "multipart/form-data")
+	assert.Equal(t, "whisper-1", got.model)
+	assert.Empty(t, got.lang, "an empty form field is left out")
+	assert.Equal(t, "RIFF", got.file)
+	assert.Equal(t, "a.wav", got.name)
+	assert.Empty(t, got.auth, "a header that renders empty is not sent")
+
+	t.Setenv("KDEPS_ALLOW_ROOT", "")
+	_, err = callDeclaredHTTPTool(context.Background(), "tr", s, map[string]any{"file": "/"}, nil)
+	require.ErrorContains(t, err, "tr: operation on root directory")
+	_, err = callDeclaredHTTPTool(context.Background(), "tr", s,
+		map[string]any{"file": filepath.Join(t.TempDir(), "missing.wav")}, nil)
+	require.ErrorContains(t, err, "tr:")
+}
+
+func TestHTTPToolSpec_OptionalEnv(t *testing.T) {
+	t.Setenv("OPT_A", "")
+	t.Setenv("OPT_B", "")
+	s := &httpToolSpec{Env: map[string][]string{"A": {"OPT_A", ""}, "B": {"OPT_B"}}}
+	_, ok := s.resolveEnv()
+	assert.False(t, ok, "a required entry still gates registration")
+
+	t.Setenv("OPT_B", "b")
+	env, ok := s.resolveEnv()
+	require.True(t, ok, "an optional entry may stay empty")
+	assert.Empty(t, env["A"])
+	assert.Equal(t, "b", env["B"])
+
+	t.Setenv("OPT_A", "a")
+	env, _ = s.resolveEnv()
+	assert.Equal(t, "a", env["A"])
+	require.Error(
+		t,
+		(&httpToolSpec{Method: "POST", URL: "https://x", Files: map[string]string{"f": "{{.args.f"}}).validate(),
+	)
+}
+
+func TestTranscribeAudio_Declared(t *testing.T) {
+	api := newFakeAPI(t, http.StatusOK, "hello there\n")
+	tool := declaredTool(t, "transcribe_audio", map[string]string{"OPENAI_API_KEY": "sk-o", "GROQ_API_KEY": "gk"})
+	audio := filepath.Join(t.TempDir(), "a.wav")
+	require.NoError(t, os.WriteFile(audio, []byte("RIFF"), 0o600))
+
+	out, err := tool.Execute(map[string]any{"file": audio})
+	require.NoError(t, err)
+	assert.Equal(t, "hello there", out)
+	req := api.last(t)
+	assert.Equal(t, "api.openai.com", req.Host)
+	assert.Equal(t, "/v1/audio/transcriptions", req.Path)
+	assert.Equal(t, "Bearer sk-o", req.Header.Get("Authorization"))
+	assert.Contains(t, req.Body, `name="model"`)
+	assert.Contains(t, req.Body, "whisper-1")
+	assert.Contains(t, req.Body, `filename="a.wav"`)
+
+	_, err = tool.Execute(map[string]any{"file": audio, "backend": "groq", "model": "whisper-large-v3"})
+	require.NoError(t, err)
+	req = api.last(t)
+	assert.Equal(t, "api.groq.com", req.Host)
+	assert.Equal(t, "/openai/v1/audio/transcriptions", req.Path)
+	assert.Equal(t, "Bearer gk", req.Header.Get("Authorization"))
+
+	_, err = tool.Execute(map[string]any{"file": audio, "backend": "local"})
+	require.NoError(t, err)
+	req = api.last(t)
+	assert.Equal(t, "localhost:8080", req.Host)
+	assert.Empty(t, req.Header.Get("Authorization"), "local sends no key")
+}
+
+func TestTranscribeAudio_RegisteredWithoutKeys(t *testing.T) {
+	tool := declaredTool(t, "transcribe_audio", map[string]string{"OPENAI_API_KEY": "", "GROQ_API_KEY": ""})
+	assert.NotNil(t, tool, "keys are optional: local needs none")
 }

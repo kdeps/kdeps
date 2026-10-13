@@ -131,6 +131,17 @@ Accesses the output of a completed resource.
 output('llmResource')        # Get LLM output
 ```
 
+### FileExists(path)
+Reports whether a file or directory exists on the machine running the workflow. Typical use is a `validations.skip` that avoids repeating a download.
+
+- **path**: Filesystem path (an empty path is false).
+
+**Examples:**
+```yaml
+fileExists('/data/models/model.bin')                                   # true once downloaded
+fileExists(env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base.en.bin')
+```
+
 ## Iteration functions
 
 Available inside `items:` blocks to access the state of the current loop iteration.

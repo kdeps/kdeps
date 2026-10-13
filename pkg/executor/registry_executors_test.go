@@ -59,13 +59,6 @@ func TestSetGetVectorStoreExecutor(t *testing.T) {
 	assert.NotNil(t, reg.GetVectorStoreExecutor())
 }
 
-func TestSetGetTranscribeExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetTranscribeExecutor(exec)
-	assert.NotNil(t, reg.GetTranscribeExecutor())
-}
-
 func TestGetGitExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetGitExecutor())
@@ -79,11 +72,6 @@ func TestGetLoaderExecutor_Nil(t *testing.T) {
 func TestGetVectorStoreExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetVectorStoreExecutor())
-}
-
-func TestGetTranscribeExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetTranscribeExecutor())
 }
 
 func TestGetCodeIntelligenceExecutor_Nil(t *testing.T) {

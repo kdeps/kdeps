@@ -62,7 +62,6 @@ type Resource struct {
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
-	Transcribe       *TranscribeConfig       `yaml:"transcribe,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete

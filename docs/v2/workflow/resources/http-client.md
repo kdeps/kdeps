@@ -206,6 +206,39 @@ httpClient:
   accountName: crm
 ```
 
+## File upload, download and failing on errors
+
+`files:` sends a `multipart/form-data` body: each key is a form field, each value the path of the file to upload; `data:` holds the text fields of the same form (empty ones are left out). `saveTo:` streams a 2xx response into a file instead of memory. `failOnError: true` turns a non-2xx response into a resource error instead of a result to inspect.
+
+```yaml
+# resources/upload.yaml - multipart upload (e.g. a Whisper API)
+httpClient:
+  method: POST
+  url: https://api.openai.com/v1/audio/transcriptions
+  headers:
+    Authorization: "Bearer {{ env('OPENAI_API_KEY') }}"
+  files:
+    file: "{{ get('audioPath') }}"     # field name -> file path, uploaded with its base name
+  data:
+    model: whisper-1                   # text fields of the same form
+    language: "{{ get('lang') }}"      # left out when empty
+  failOnError: true                    # 4xx/5xx fails the resource with the status and body
+```
+
+```yaml
+# resources/download.yaml - fetch a file once
+validations:
+  skip:
+    - "fileExists('/data/models/model.bin')"   # already there: do not download again
+httpClient:
+  method: GET
+  url: https://example.com/model.bin
+  saveTo: /data/models/model.bin       # parent dirs created; written to .part then renamed
+  timeout: 900s
+```
+
+With `saveTo`, the result is `{statusCode, status, headers, savedTo, bytes}` instead of `body`/`data`. A non-2xx response is not saved and comes back as a normal result (or an error with `failOnError`).
+
 ## Retry configuration
 
 Automatic retries with exponential backoff:

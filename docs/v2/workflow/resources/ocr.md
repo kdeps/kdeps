@@ -89,5 +89,5 @@ resources:
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [Transcribe resource](/workflow/resources/transcribe) - the equivalent offline pattern for audio (`whisper-cpp` backend)
+- [Transcribe component](/workflow/resources/transcribe) - the equivalent offline pattern for audio (`whisper-cpp` backend)
 - [Resources overview](/workflow/resources) - all resource types

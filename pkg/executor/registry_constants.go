@@ -48,6 +48,5 @@ const (
 	ExecutorCodeIntel   = "codeIntelligence"
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"
-	ExecutorTranscribe  = "transcribe"
 	ExecutorAPIResponse = "apiResponse"
 )

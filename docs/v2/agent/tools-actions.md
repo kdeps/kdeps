@@ -1,6 +1,6 @@
 # Action tools
 
-`http_request`, `search_local`, `transcribe_audio`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when their credentials are set (the Zapier tools are [declared HTTP tools](/agent/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
+`http_request`, `search_local`, `transcribe_audio`, `transcribe_audio_offline`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when their credentials are set (the Zapier tools are [declared HTTP tools](/agent/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Git commit attribution
 
@@ -44,6 +44,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 |------|-------------|
 | `http_request` | Make an HTTP request (GET/POST/PUT/DELETE/PATCH) |
 | `search_local` | Search the local document index |
-| `transcribe_audio` | Transcribe an audio file (OpenAI, Groq, a local HTTP server, or offline via whisper-cpp) |
+| `transcribe_audio` | Transcribe an audio file through a Whisper API (OpenAI, Groq, or a local HTTP server); a declared HTTP tool |
+| `transcribe_audio_offline` | Transcribe offline with whisper.cpp (`whisper-cli`), no API key; a declared exec tool |
 | `ocr_image` | Extract text from an image via tesseract (local, no API key); a [declared exec tool](/agent/tools#declared-exec-tools) |
 | `load_document` | Load and extract text from a document |

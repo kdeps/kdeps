@@ -20,11 +20,14 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -82,12 +85,24 @@ func (e *Executor) processResponse(
 	headers map[string]string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: processResponse")
+	if config.SaveTo != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return e.saveResponse(resp, config.SaveTo)
+	}
 	respBody, err := readLimitedResponseBody(resp, resolveMaxResponseBytes())
 	if err != nil {
 		return nil, err
 	}
 
 	response := e.formatHTTPResponse(resp, respBody)
+	if config.FailOnError && (resp.StatusCode < 200 || resp.StatusCode > 299) {
+		return response, fmt.Errorf(
+			"HTTP %s from %s %s: %s",
+			resp.Status,
+			method,
+			urlStr,
+			strings.TrimSpace(string(respBody)),
+		)
+	}
 
 	if config.Cache != nil {
 		e.cacheResponse(ctx, config.Cache, urlStr, method, headers, response)
@@ -95,3 +110,33 @@ func (e *Executor) processResponse(
 
 	return response, nil
 }
+
+// saveResponse streams resp's body into path, creating parent directories.
+func (e *Executor) saveResponse(resp *http.Response, path string) (interface{}, error) {
+	if err := os.MkdirAll(filepath.Dir(path), saveDirPerm); err != nil {
+		return nil, fmt.Errorf("saveTo: %w", err)
+	}
+	tmp := path + ".part"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return nil, fmt.Errorf("saveTo: %w", err)
+	}
+	n, copyErr := io.Copy(f, resp.Body)
+	closeErr := f.Close()
+	if copyErr != nil || closeErr != nil {
+		_ = os.Remove(tmp)
+		return nil, fmt.Errorf("saveTo %s: %w", path, errors.Join(copyErr, closeErr))
+	}
+	if err = os.Rename(tmp, path); err != nil {
+		return nil, fmt.Errorf("saveTo: %w", err)
+	}
+	return map[string]interface{}{
+		"statusCode": resp.StatusCode,
+		"status":     resp.Status,
+		"headers":    e.headersToMap(resp.Header),
+		"savedTo":    path,
+		"bytes":      n,
+	}, nil
+}
+
+const saveDirPerm = 0o750

@@ -90,11 +90,29 @@ http:
 | `cache` | Reuse the answer for identical arguments within the run |
 | `timeout` | Per-call limit (Go duration, default `30s`) |
 
+A block can upload files: `files` maps form fields to path templates and `form` holds text fields (empty ones are left out), sent as `multipart/form-data` instead of `body`. `paths` lists the parameters holding file paths, checked against the workspace boundary like `read_file`'s. An `env` entry whose variable list ends with `""` is optional (it may render empty, and the tool registers without it), and a header that renders empty is not sent:
+
+```yaml
+# tools/transcribe_audio.yaml (shipped, abridged)
+http:
+  env:
+    OPENAI: [OPENAI_API_KEY, ""]     # optional: the local backend needs no key
+  method: POST
+  url: '{{if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
+  headers:
+    Authorization: '{{with .env.OPENAI}}Bearer {{.}}{{end}}'   # omitted when empty
+  files:
+    file: "{{.args.file}}"           # uploaded as the "file" form field
+  form:
+    model: "{{.args.model}}"
+  paths: [file]
+```
+
 Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
 
 ## Declared exec tools
 
-A tool whose definition has an `exec:` block runs one program directly (no shell) and needs no Go code. `ocr_image` ships this way.
+A tool whose definition has an `exec:` block runs one program directly (no shell) and needs no Go code. `ocr_image` and `transcribe_audio_offline` ship this way.
 
 ```yaml
 # tools/ocr_image.yaml (shipped)
@@ -120,8 +138,9 @@ exec:
 | `args` | One template per argument; empty results are dropped, so an optional flag is two conditional args |
 | `paths` | Parameters holding file paths; each is checked like `read_file`'s path |
 | `install` | Package to name when `command` is missing |
+| `env` | As in an `http:` block: names templates read as `.env.NAME` (a trailing `""` makes one optional) |
 | `timeout` | Per-run limit (Go duration, default `60s`) |
-| `result` | Template over `.args` and `.stdout`; empty returns stdout trimmed |
+| `result` | Template over `.args`, `.env` and `.stdout`; empty returns stdout trimmed |
 
 A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
 
