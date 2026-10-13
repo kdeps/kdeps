@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -91,4 +92,43 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	// Once filled, a start makes no request.
 	srv.Close()
 	require.NoError(t, agent.EnsureAssets(t.Context(), io.Discard))
+}
+
+// TestInstall_NamedItemBringsItsRequires installs single items by name into
+// an empty store from the repo's published assets and checks that what each
+// declares under requires: comes with it.
+func TestInstall_NamedItemBringsItsRequires(t *testing.T) {
+	published := t.TempDir()
+	_, err := assets.Publish(assets.Source(), published, "test", time.Now())
+	require.NoError(t, err)
+	srv := httptest.NewServer(http.FileServer(http.Dir(published)))
+	t.Cleanup(srv.Close)
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
+	root := t.TempDir()
+	t.Setenv("KDEPS_ASSETS_DIR", root)
+
+	ids := func(changes []assets.Change) []string {
+		out := make([]string, 0, len(changes))
+		for _, c := range changes {
+			assert.Equal(t, assets.ActionInstall, c.Action, c.ID+": "+c.Note)
+			out = append(out, c.ID)
+		}
+		return out
+	}
+
+	changes, err := assets.Update(t.Context(), root, assets.NewClient(), []string{"components/searchWeb"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"schemas/v1", "components/searchWeb"}, ids(changes))
+	assert.Equal(t, "required by components/searchWeb", changes[0].Note)
+
+	changes, err = assets.Update(t.Context(), root, assets.NewClient(), []string{"commands/frugal"}, false)
+	require.NoError(t, err)
+	got := ids(changes)
+	assert.Contains(t, got, "presets/frugal")
+	assert.Contains(t, got, "events/auto-compact")
+	assert.Contains(t, got, "actions/compact")
+	assert.Equal(t, "commands/frugal", got[len(got)-1], "the command installs after what it requires")
+	assert.Less(t, slices.Index(got, "actions/compact"), slices.Index(got, "events/auto-compact"))
+	assert.Less(t, slices.Index(got, "events/auto-compact"), slices.Index(got, "presets/frugal"))
 }

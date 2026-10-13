@@ -71,19 +71,21 @@ Example: `cv-matcher`, `research-pipeline`
 
 ### kdeps assets
 
-kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps registry install`.
+kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, providers) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps registry install`, which also installs what an item lists under `requires:` ([how](/agent/repl-updating)). The formula carries those as `dependencies`.
 
 ```yaml
-# formulas/kdeps-harness-safety.yaml  (written by kdeps CI, not by hand)
-name: kdeps-harness-safety
-version: 1.0.0
-type: harness            # harness | event | action | preset | theme | tool | command | recipe | model | template
+# formulas/kdeps-components-searchWeb.yaml  (written by kdeps CI, not by hand)
+name: kdeps-components-searchWeb
+version: 1.0.1
+type: kdeps-component    # harness | event | action | preset | theme | tool | command | recipe | model | template | ...
 github: kdeps/packages
-tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/harness/safety/1.0.0.yaml
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/components/searchWeb/1.0.1.yaml
 sha256: 5a2844c4...      # SHA256 of that YAML file
-description: 'kdeps harness: safety'
-tags: [kdeps, harness]
+description: 'kdeps kdeps-component: searchWeb'
+tags: [kdeps, kdeps-component]
 license: Apache-2.0
+dependencies:            # the item's requires:, as package names; omitted when it has none
+  kdeps-schemas-v1: ">=1.0.3"
 ```
 
 ### kdeps resource types

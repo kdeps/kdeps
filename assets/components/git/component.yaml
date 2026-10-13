@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: git
   description: Structured git operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull)
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: operation

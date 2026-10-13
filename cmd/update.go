@@ -42,7 +42,12 @@ func newUpdateCmd() *cobra.Command {
   kdeps update --list                   every item, its version and state
   kdeps update --remove themes/dracula  remove items (restore with kdeps update <item>)
 
-Sets: harness, events, actions, presets, themes, tools, recipes, models, templates.
+An item that lists others under requires: installs them with it, first:
+kdeps update components/searchWeb also installs schemas/v1 when it is missing
+or too old.
+
+Sets: harness, events, actions, presets, themes, tools, commands, recipes, models,
+templates, docker, k8s, schemas, defaults, components, providers.
 The kdeps binary itself is updated with kdeps --upgrade.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Items = args

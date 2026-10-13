@@ -46,9 +46,11 @@ func publishedServer(t *testing.T, files map[string]map[string]string, kdeps map
 			p := filepath.Join(dir, filepath.FromSlash(PublishedPath(id, v)))
 			require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o750))
 			require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
+			h, err := ParseHeader([]byte(body))
+			require.NoError(t, err)
 			it.Versions = append(
 				it.Versions,
-				IndexVersion{Version: v, SHA256: Sum([]byte(body)), Kdeps: kdeps[id+"@"+v]},
+				IndexVersion{Version: v, SHA256: Sum([]byte(body)), Kdeps: kdeps[id+"@"+v], Requires: h.Requires},
 			)
 			if Newer(v, it.Latest) {
 				it.Latest = v
@@ -325,4 +327,112 @@ func TestClient_RetriesTransientFailures(t *testing.T) {
 	_, err = c.fetch(t.Context(), srv.URL+"/missing")
 	require.ErrorContains(t, err, "404")
 	assert.Equal(t, int32(11), hits.Load(), "a 404 is final")
+}
+
+func TestUpdate_InstallsRequiresFirst(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	c := publishedServer(t, map[string]map[string]string{
+		"presets/fast": {"1.0.0": "version: 1.0.0\nrequires:\n  events/compact: \">=1.1.0\"\n"},
+		"events/compact": {
+			"1.0.0": "version: 1.0.0\n",
+			"1.1.0": "version: 1.1.0\nrequires:\n  actions/run: \"\"\n",
+		},
+		"actions/run":   {"1.0.0": "version: 1.0.0\n"},
+		"actions/other": {"1.0.0": "version: 1.0.0\n"},
+	}, nil)
+	root := t.TempDir()
+
+	changes, err := Update(t.Context(), root, c, []string{"presets/fast"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, []Change{
+		{ID: "actions/run", To: "1.0.0", Action: ActionInstall, Note: "required by events/compact"},
+		{ID: "events/compact", To: "1.1.0", Action: ActionInstall, Note: "required by presets/fast"},
+		{ID: "presets/fast", To: "1.0.0", Action: ActionInstall},
+	}, changes, "requirements first, transitively; nothing else")
+	lock, err := ReadLock(root)
+	require.NoError(t, err)
+	assert.Len(t, lock.Items, 3)
+
+	// Satisfied requirements are left alone.
+	changes, err = Update(t.Context(), root, c, []string{"presets/fast"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, []Change{{ID: "presets/fast", From: "1.0.0", Action: ActionCurrent}}, changes)
+}
+
+func TestUpdate_UnmetRequiresFail(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	c := publishedServer(t, map[string]map[string]string{
+		"presets/fast":   {"1.0.0": "version: 1.0.0\nrequires:\n  events/compact: \">=2.0.0\"\n"},
+		"presets/slow":   {"1.0.0": "version: 1.0.0\nrequires:\n  events/compact: \">=1.1.0\"\n"},
+		"events/compact": {"1.0.0": "version: 1.0.0\n", "1.1.0": "version: 1.1.0\n"},
+	}, nil)
+	root := t.TempDir()
+	ctx := t.Context()
+
+	changes, err := Update(ctx, root, c, []string{"presets/fast"}, false)
+	require.NoError(t, err)
+	require.Len(t, changes, 1)
+	assert.Equal(t, ActionFailed, changes[0].Action)
+	assert.Equal(t, "needs events/compact >=2.0.0, which is not published for this kdeps", changes[0].Note)
+
+	// A pin outside the range is not overridden: the dependent fails.
+	_, err = Update(ctx, root, c, []string{"events/compact@1.0.0"}, false)
+	require.NoError(t, err)
+	changes, err = Update(ctx, root, c, []string{"presets/slow"}, false)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"needs events/compact >=1.1.0; events/compact is pinned at 1.0.0",
+		byID(changes)["presets/slow"].Note,
+	)
+	changes, err = Update(ctx, root, c, []string{"events/compact@1.0.0", "presets/slow"}, true)
+	require.NoError(t, err)
+	assert.Equal(t, ActionFailed, byID(changes)["presets/slow"].Action, "nor is one made in the same run")
+
+	// Updating the requirement by name unpins it, and the dependent installs.
+	changes, err = Update(ctx, root, c, []string{"events/compact", "presets/slow"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, ActionInstall, byID(changes)["presets/slow"].Action)
+	assert.Equal(t, "1.1.0", byID(changes)["events/compact"].To)
+}
+
+func TestApplyAll_RequirementFailureFailsDependent(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	c := publishedServer(t, map[string]map[string]string{
+		"presets/fast":   {"1.0.0": "version: 1.0.0\nrequires:\n  events/compact: \"\"\n"},
+		"events/compact": {"1.0.0": "version: 1.0.0\n"},
+	}, nil)
+	idx, err := c.Index(t.Context())
+	require.NoError(t, err)
+	broken := idx.Items["events/compact"].Versions[0]
+	broken.SHA256 = Sum([]byte("other"))
+	idx.Items["events/compact"] = IndexItem{Latest: "1.0.0", Versions: []IndexVersion{broken}}
+	root := t.TempDir()
+
+	changes := []Change{
+		{ID: "events/compact", To: "1.0.0", Action: ActionInstall},
+		{ID: "presets/fast", To: "1.0.0", Action: ActionInstall},
+	}
+	applyAll(t.Context(), root, c, changes, idx)
+	assert.Equal(t, ActionFailed, changes[1].Action)
+	assert.Equal(t, "required events/compact failed", changes[1].Note)
+	lock, err := ReadLock(root)
+	require.NoError(t, err)
+	assert.Empty(t, lock.Items)
+}
+
+func TestUpdate_RemovedRequirementIsRestored(t *testing.T) {
+	withSource(t, fstest.MapFS{"events/compact.yaml": {Data: []byte("version: 1.0.0\n")}})
+	c := publishedServer(t, map[string]map[string]string{
+		"presets/fast":   {"1.0.0": "version: 1.0.0\nrequires:\n  events/compact: \"\"\n"},
+		"events/compact": {"1.0.0": "version: 1.0.0\n"},
+	}, nil)
+	root := t.TempDir()
+	require.NoError(t, Remove(root, "events/compact"))
+
+	changes, err := Update(t.Context(), root, c, []string{"presets/fast"}, true)
+	require.NoError(t, err)
+	assert.Equal(t, Change{
+		ID: "events/compact", To: "1.0.0", Action: ActionInstall, Note: "required by presets/fast",
+	}, changes[0])
 }

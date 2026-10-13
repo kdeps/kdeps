@@ -103,6 +103,22 @@ kdeps update --remove themes/vim,presets/frugal   # remove items
 How a version is chosen:
 
 - Each file starts with `version:` (semver) and may declare `kdeps: ">=X.Y.Z"`, the oldest kdeps that can load it. Versions that need a newer kdeps are skipped (`kdeps --upgrade` first).
+- A file may list other items it needs under `requires:`, each with the versions it accepts. Installing it installs those first, at their newest version in range, when they are missing, removed or too old - and theirs, recursively:
+
+  ```yaml
+  # components/searchWeb/template.yaml (a bundle's header; a single-file item has these at its top)
+  version: 1.0.1
+  requires:
+    schemas/v1: ">=1.0.3"   # its component.yaml uses connection:, added in schemas/v1 1.0.3
+  ```
+
+  ```text
+  $ kdeps update components/searchWeb
+    schemas/v1                           install   - -> 1.0.3  (required by components/searchWeb)
+    components/searchWeb                 install   - -> 1.0.1
+  ```
+
+  An item whose requirement is not published for your kdeps, or is pinned to a version outside the range, fails instead of installing; update the pinned item by name to unpin it. Events require the action they run, presets the events and actions they tune, the `/frugal` and `/thorough` commands their preset, components the schema version their `component.yaml` needs. Publishing rejects a requirement no published version satisfies.
 - Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
 - A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
 

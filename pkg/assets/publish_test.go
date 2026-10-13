@@ -177,3 +177,37 @@ func TestPublish_SkipsHiddenSourceFiles(t *testing.T) {
 	_, err = Open(templatesSet).ReadFile("templates/api/.gitkeep")
 	require.ErrorIs(t, err, fs.ErrNotExist, "loaders do not see them either")
 }
+
+func TestPublish_Requires(t *testing.T) {
+	withSource(t, fstest.MapFS{
+		"events/compact.yaml": {Data: []byte("version: 1.1.0\n")},
+		"presets/fast.yaml":   {Data: []byte("version: 1.0.0\nrequires:\n  events/compact: \">=1.1.0\"\n")},
+	})
+	out := t.TempDir()
+	_, err := Publish(Source(), out, "c1", time.Now())
+	require.NoError(t, err)
+	idx, err := ReadIndex(out)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"events/compact": ">=1.1.0"}, idx.Items["presets/fast"].Versions[0].Requires)
+
+	for body, want := range map[string]string{
+		"version: 1.0.1\nrequires:\n  events/compact: \">=2.0.0\"\n": "requires events/compact >=2.0.0, which is not published",
+		"version: 1.0.2\nrequires:\n  events/missing: \"\"\n":        "requires events/missing, which is not published",
+		"version: 1.0.3\nrequires:\n  compact: \"\"\n":               `requires "compact": not an item id`,
+		"version: 1.0.4\nrequires:\n  nope/compact: \"\"\n":          `requires "nope/compact": not an item id`,
+		"version: 1.0.5\nrequires:\n  events/compact: \"1.1.0\"\n":   "the range must be >=X.Y.Z",
+	} {
+		setSourceFile(t, "presets/fast.yaml", body)
+		_, err = Publish(Source(), out, "c2", time.Now())
+		assert.ErrorContains(t, err, want, body)
+	}
+}
+
+func TestInRange(t *testing.T) {
+	assert.True(t, inRange("", "1.0.0"))
+	assert.True(t, inRange(">=1.0.3", "1.0.3"))
+	assert.True(t, inRange(" >= 1.0.3", "1.1.0"))
+	assert.False(t, inRange(">=1.0.3", "1.0.2"))
+	assert.False(t, inRange("1.0.3", "1.0.3"))
+	assert.False(t, inRange(">=x", "1.0.3"))
+}

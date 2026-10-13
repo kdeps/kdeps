@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -112,10 +113,119 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 			changes = append(changes, plan(id, t, local[id], idx.Items[id]))
 		}
 	}
+	changes = withRequires(changes, local, idx)
 	if !check {
 		applyAll(ctx, root, c, changes, idx)
 	}
 	return changes, nil
+}
+
+// requires is what the version a change installs needs (see Header.Requires).
+func requires(ch Change, idx Index) map[string]string {
+	if ch.Action != ActionInstall && ch.Action != ActionPin {
+		return nil
+	}
+	v, _ := idx.Items[ch.ID].Find(ch.To)
+	return v.Requires
+}
+
+// withRequires adds an install for every item a pending install requires and
+// does not have, recursively, and orders each item after what it requires. An
+// install whose requirement cannot be met (not published, or pinned outside
+// the range) fails instead.
+func withRequires(changes []Change, local map[string]Item, idx Index) []Change {
+	byID := make(map[string]Change, len(changes))
+	order := make([]string, 0, len(changes))
+	for _, ch := range changes {
+		byID[ch.ID] = ch
+		order = append(order, ch.ID)
+	}
+	queue := slices.Clone(order)
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		ch := byID[id]
+		for _, req := range sortedKeys(requires(ch, idx)) {
+			planned, note := need(req, requires(ch, idx)[req], id, byID, local, idx)
+			if note != "" {
+				ch.Action, ch.Note = ActionFailed, note
+				break
+			}
+			if planned {
+				if !slices.Contains(order, req) {
+					order = append(order, req)
+				}
+				queue = append(queue, req) // its new version may require more
+			}
+		}
+		byID[id] = ch
+	}
+	return requiresFirst(order, byID, idx)
+}
+
+// requiresFirst lists the changes in order, each after the ones it requires.
+func requiresFirst(order []string, byID map[string]Change, idx Index) []Change {
+	out := make([]Change, 0, len(order))
+	done := map[string]bool{}
+	var visit func(id string)
+	visit = func(id string) {
+		if done[id] {
+			return
+		}
+		done[id] = true
+		for _, req := range sortedKeys(requires(byID[id], idx)) {
+			if _, ok := byID[req]; ok {
+				visit(req)
+			}
+		}
+		out = append(out, byID[id])
+	}
+	for _, id := range order {
+		visit(id)
+	}
+	return out
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// need makes sure byID leaves req, which parent requires, at a version in rng,
+// planning an install when it would not. It reports whether it planned one,
+// or why it cannot.
+func need(req, rng, parent string, byID map[string]Change, local map[string]Item, idx Index) (bool, string) {
+	it, ch := local[req], byID[req]
+	cur, pinned := it.Version, it.Pinned
+	switch {
+	case ch.Action == ActionPin:
+		cur, pinned = ch.To, true
+	case ch.Pending() && ch.To != "":
+		cur = ch.To
+	case it.Removed:
+		cur = ""
+	}
+	if cur != "" && inRange(rng, cur) {
+		return false, ""
+	}
+	want := strings.TrimSpace(req + " " + rng)
+	if pinned && ch.Action != ActionInstall {
+		return false, fmt.Sprintf("needs %s; %s is pinned at %s", want, req, cur)
+	}
+	best, ok := idx.Items[req].NewestIn(rng)
+	if !ok {
+		return false, "needs " + want + ", which is not published for this kdeps"
+	}
+	from := it.Version
+	if it.Removed {
+		from = ""
+	}
+	byID[req] = Change{ID: req, From: from, To: best.Version, Action: ActionInstall, Note: "required by " + parent}
+	return true, ""
 }
 
 // downloadWorkers bounds concurrent downloads: a first run fetches every
@@ -141,11 +251,20 @@ func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx
 		})
 	}
 	wg.Wait()
+	failed := map[string]bool{}
 	for i, ch := range changes {
+		if ch.Action == ActionFailed {
+			failed[ch.ID] = true
+		}
 		if !ch.Pending() {
 			continue
 		}
 		err := errs[i]
+		for req := range requires(ch, idx) {
+			if failed[req] {
+				err = fmt.Errorf("required %s failed", req)
+			}
+		}
 		switch {
 		case err != nil:
 		case ch.Action == ActionReset:
@@ -155,6 +274,7 @@ func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx
 		}
 		if err != nil {
 			changes[i].Action, changes[i].Note = ActionFailed, err.Error()
+			failed[ch.ID] = true
 		}
 	}
 }

@@ -1,4 +1,7 @@
-version: 1.0.1
+version: 1.0.2
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
 name: memory-prompt-limit
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---

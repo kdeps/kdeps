@@ -105,3 +105,24 @@ func TestWriteFormulas_Errors(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	require.Error(t, WriteFormulas(filepath.Join(file, "sub"), t.TempDir(), "https://f", Index{}))
 }
+
+func TestWriteFormulas_Dependencies(t *testing.T) {
+	withSource(t, fstest.MapFS{
+		"events/fold.yaml":     {Data: []byte("version: 1.0.0\nrequires:\n  actions/compact: \"\"\n")},
+		"actions/compact.yaml": {Data: []byte("version: 1.2.0\n")},
+	})
+	out := t.TempDir()
+	_, err := Publish(Source(), out, "c1", time.Now())
+	require.NoError(t, err)
+	idx, err := ReadIndex(out)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	require.NoError(t, WriteFormulas(dir, out, "https://f", idx))
+
+	data, err := os.ReadFile(filepath.Join(dir, "kdeps-events-fold.yaml"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "dependencies:\n  kdeps-actions-compact: \"\"\n")
+	data, err = os.ReadFile(filepath.Join(dir, "kdeps-actions-compact.yaml"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "dependencies")
+}

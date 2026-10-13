@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: ocr
   description: Extract text from an image with the tesseract CLI
-  version: "1.0.1"
+  version: "1.0.2"
   targetActionId: ocrText
 setup:
   osPackages:

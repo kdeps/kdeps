@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -52,11 +53,13 @@ type IndexItem struct {
 
 // IndexVersion is one published version of an item.
 type IndexVersion struct {
-	Version string    `json:"version"`
-	SHA256  string    `json:"sha256"`
-	Kdeps   string    `json:"kdeps,omitempty"`
-	Commit  string    `json:"commit,omitempty"`
-	Date    time.Time `json:"date"`
+	Version string `json:"version"`
+	SHA256  string `json:"sha256"`
+	Kdeps   string `json:"kdeps,omitempty"`
+	// Requires is the version's header requires: (see Header).
+	Requires map[string]string `json:"requires,omitempty"`
+	Commit   string            `json:"commit,omitempty"`
+	Date     time.Time         `json:"date"`
 }
 
 // PublishedPath is where version of id lives under the published assets root.
@@ -67,10 +70,16 @@ func PublishedPath(id, version string) string {
 // NewestCompatible returns the newest version of it that the running kdeps
 // can load.
 func (it IndexItem) NewestCompatible() (IndexVersion, bool) {
+	return it.NewestIn("")
+}
+
+// NewestIn returns the newest version of it in rng (see Header.Requires)
+// that the running kdeps can load.
+func (it IndexItem) NewestIn(rng string) (IndexVersion, bool) {
 	var best IndexVersion
 	found := false
 	for _, v := range it.Versions {
-		if Compatible(v.Kdeps) && (!found || Newer(v.Version, best.Version)) {
+		if Compatible(v.Kdeps) && inRange(rng, v.Version) && (!found || Newer(v.Version, best.Version)) {
 			best, found = v, true
 		}
 	}
@@ -189,6 +198,7 @@ func Publish(src, out, commit string, now time.Time) ([]string, error) {
 			}
 		}
 	}
+	errs = append(errs, checkRequires(idx, published)...)
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -202,6 +212,14 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	}
 	if !semver.IsValid(canonical(h.Version)) {
 		return "", fmt.Errorf("%s: missing or invalid version %q", id, h.Version)
+	}
+	for req, rng := range h.Requires {
+		if s, n, sErr := SplitID(req); sErr != nil || n == "" || !slices.Contains(Sets, s) {
+			return "", fmt.Errorf("%s: requires %q: not an item id (<set>/<name>)", id, req)
+		}
+		if !inRange(rng, strings.TrimPrefix(strings.TrimSpace(rng), ">=")) { // only ">=X.Y.Z" admits its own bound
+			return "", fmt.Errorf("%s: requires %s %q: the range must be >=X.Y.Z", id, req, rng)
+		}
 	}
 	sum := Sum(data)
 	it := idx.Items[id]
@@ -223,12 +241,36 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 		return "", wErr
 	}
 	it.Versions = append(it.Versions, IndexVersion{
-		Version: h.Version, SHA256: sum, Kdeps: h.Kdeps, Commit: commit, Date: now.UTC(),
+		Version: h.Version, SHA256: sum, Kdeps: h.Kdeps, Requires: h.Requires, Commit: commit, Date: now.UTC(),
 	})
 	sort.Slice(it.Versions, func(i, j int) bool { return Newer(it.Versions[j].Version, it.Versions[i].Version) })
 	it.Latest = it.Versions[len(it.Versions)-1].Version
 	idx.Items[id] = it
 	return id + "@" + h.Version, nil
+}
+
+// checkRequires reports each newly published version (id@version) that
+// requires an item no published version of satisfies.
+func checkRequires(idx Index, published []string) []error {
+	var errs []error
+	for _, p := range published {
+		id, ver, _ := strings.Cut(p, "@")
+		v, _ := idx.Items[id].Find(ver)
+		reqs := make([]string, 0, len(v.Requires))
+		for req := range v.Requires {
+			reqs = append(reqs, req)
+		}
+		sort.Strings(reqs)
+		for _, req := range reqs {
+			if !slices.ContainsFunc(idx.Items[req].Versions, func(d IndexVersion) bool {
+				return inRange(v.Requires[req], d.Version)
+			}) {
+				want := strings.TrimSpace(req + " " + v.Requires[req])
+				errs = append(errs, fmt.Errorf("%s: requires %s, which is not published", p, want))
+			}
+		}
+	}
+	return errs
 }
 
 // ReadIndex reads dir/index.json. A missing file is an empty index.

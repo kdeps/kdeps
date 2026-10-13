@@ -77,6 +77,8 @@ type slashCommand struct {
 	Aliases []string       `yaml:"aliases"`
 	Usage   []commandUsage `yaml:"usage"`
 	Run     []commandStep  `yaml:"run"`
+	// Requires is the asset header's requires: (read by kdeps update, not here).
+	Requires map[string]string `yaml:"requires"`
 }
 
 // names is the command's name and aliases.

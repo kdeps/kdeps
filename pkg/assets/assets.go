@@ -84,6 +84,9 @@ type Header struct {
 	// Kdeps is the range of kdeps binaries that can load this version, e.g.
 	// ">=2.59.0". Empty means any.
 	Kdeps string `yaml:"kdeps,omitempty" json:"kdeps,omitempty"`
+	// Requires maps each item this one needs ("<set>/<name>") to the versions
+	// it accepts (">=X.Y.Z", or "" for any). kdeps update installs them with it.
+	Requires map[string]string `yaml:"requires,omitempty" json:"requires,omitempty"`
 }
 
 // Bundle is the downloaded form of a bundle-set item: its header plus every
@@ -266,15 +269,20 @@ func Compatible(rng string) bool {
 }
 
 func compatibleWith(rng, current string) bool {
+	return strings.Contains(current, "-dev") || inRange(rng, current)
+}
+
+// inRange reports whether version v is in rng (">=X.Y.Z", or "" for any).
+func inRange(rng, v string) bool {
 	rng = strings.TrimSpace(rng)
-	if rng == "" || strings.Contains(current, "-dev") {
+	if rng == "" {
 		return true
 	}
 	minVer, ok := strings.CutPrefix(rng, ">=")
 	if !ok {
 		return false
 	}
-	cur, low := canonical(current), canonical(strings.TrimSpace(minVer))
+	cur, low := canonical(v), canonical(strings.TrimSpace(minVer))
 	if !semver.IsValid(cur) || !semver.IsValid(low) {
 		return false
 	}
