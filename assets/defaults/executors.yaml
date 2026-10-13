@@ -1,7 +1,7 @@
 # Default values for kdeps executors.
 # Used when neither resource YAML nor config.yaml resource_defaults provides a value.
 # Values in config.yaml always override these.
-version: 1.0.0
+version: 1.0.1
 chat:
   timeout: "60s"
   context_length: 4096
@@ -19,8 +19,6 @@ sql:
   max_open_conns: 10
   max_idle_conns: 2
   conn_max_idle_time: "5m"
-scraper:
-  timeout: 30
 search_web:
   timeout: 15
   max_results: 5

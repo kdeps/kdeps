@@ -33,7 +33,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	embeddingexec "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
-	scraperexec "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	searchlocalexec "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	searchwebexec "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 )
@@ -62,37 +61,6 @@ func newCtxWithSearch(t *testing.T, apiKey string) *executor.ExecutionContext {
 func newIntTestDB(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "test.db")
-}
-
-// --- Scraper ---
-
-func TestIntegration_Scraper_PlainText(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("integration plain text"))
-	}))
-	defer srv.Close()
-
-	e := scraperexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.ScraperConfig{URL: srv.URL})
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.Contains(t, m["content"], "integration plain text")
-	assert.Equal(t, 200, m["status"])
-}
-
-func TestIntegration_Scraper_CSS(t *testing.T) {
-	html := `<html><body><h1 class="title">Integration Test</h1></body></html>`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(html))
-	}))
-	defer srv.Close()
-
-	e := scraperexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.ScraperConfig{URL: srv.URL, Selector: "h1.title"})
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.Equal(t, "Integration Test", m["content"])
 }
 
 // --- Embedding ---

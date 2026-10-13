@@ -12,7 +12,7 @@ closest to what you are building.
 | [Document summarizer](/examples/file-processor) | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | `embedding:` upsert and search, two routes in one workflow |
-| [Web scraper](/examples/web-scraper) | `scraper:` fetch, LLM summary, `jsonResponse` |
+| [Web scraper](/examples/web-scraper) | `component: scraper` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
 | [Shell command API](/examples/shell-command-api) | `exec:` with a timeout, method scoping, `info()` |
 | [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
@@ -87,8 +87,8 @@ Best for:
 
 ## Web scraper
 
-An API that takes a URL, fetches the page with the built-in `scraper:`
-resource, and returns an LLM summary as JSON.
+An API that takes a URL, fetches the page with the `scraper` component,
+and returns an LLM summary as JSON.
 
 Best for:
 - Turning a page into structured data

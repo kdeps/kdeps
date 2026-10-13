@@ -66,21 +66,21 @@ func TestWriteResources(t *testing.T) {
 	formulas, files := t.TempDir(), t.TempDir()
 	require.NoError(t, WriteResources(formulas, files, docsV2, "https://files.example/resources/", "2.58.2"))
 
-	doc, err := os.ReadFile(filepath.Join(files, "scraper", "2.58.2.md"))
+	doc, err := os.ReadFile(filepath.Join(files, "embedding", "2.58.2.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(doc), "# Scraper resource")
+	assert.Contains(t, string(doc), "# Embedding resource")
 	assert.NotContains(t, string(doc), "](/")
 
 	var f Formula
-	data, err := os.ReadFile(filepath.Join(formulas, "kdeps-resource-scraper.yaml"))
+	data, err := os.ReadFile(filepath.Join(formulas, "kdeps-resource-embedding.yaml"))
 	require.NoError(t, err)
 	require.NoError(t, yaml.Unmarshal(data, &f))
 	assert.Equal(t, "resource", f.Type)
 	assert.Equal(t, "2.58.2", f.Version)
-	assert.Equal(t, "https://files.example/resources/scraper/2.58.2.md", f.Tarball)
+	assert.Equal(t, "https://files.example/resources/embedding/2.58.2.md", f.Tarball)
 	assert.Equal(t, Sum(doc), f.SHA256)
-	assert.Equal(t, []string{"kdeps", "resource", "scraper"}, f.Tags)
-	assert.True(t, strings.HasPrefix(f.Description, "The `scraper` executor"), f.Description)
+	assert.Equal(t, []string{"kdeps", "resource", "embedding"}, f.Tags)
+	assert.True(t, strings.HasPrefix(f.Description, "The `embedding` executor"), f.Description)
 
 	entries, err := os.ReadDir(formulas)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestWriteResources_PrunesRemovedTypes(t *testing.T) {
 	}
 	require.NoError(t, WriteResources(formulas, t.TempDir(), docsV2, "https://f", "2.58.2"))
 	assert.NoFileExists(t, filepath.Join(formulas, "kdeps-resource-ocr.yaml"), "a type kdeps dropped is unlisted")
-	assert.FileExists(t, filepath.Join(formulas, "kdeps-resource-scraper.yaml"))
+	assert.FileExists(t, filepath.Join(formulas, "kdeps-resource-embedding.yaml"))
 	assert.FileExists(t, filepath.Join(formulas, "kdeps-tools-x.yaml"), "asset formulas are left alone")
 	assert.FileExists(t, filepath.Join(formulas, "other.yaml"))
 }

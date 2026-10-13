@@ -210,3 +210,51 @@ func TestGitComponent_StructuredOperations(t *testing.T) {
 	assert.Equal(t, "first: it's done", first["message"])
 	assert.Equal(t, "IT", first["author"])
 }
+
+// The scraper component fetches a page and returns {content, url, status},
+// with content narrowed to the CSS selector's matches when one is given.
+func TestScraperComponent_FetchAndSelect(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><h1 class="title">Integration</h1><p>rest</p></body></html>`))
+	}))
+	defer srv.Close()
+
+	run := func(with string) map[string]interface{} {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: scraper-component
+  version: "1.0.0"
+  targetActionId: s
+settings: {}
+`), 0o600))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(dir, "resources", "s.yaml"),
+			[]byte(
+				"actionId: s\nname: S\ncomponent:\n  name: scraper\n  with:\n    url: \""+srv.URL+"\"\n"+with,
+			),
+			0o600,
+		))
+		sv, err := validator.NewSchemaValidator()
+		require.NoError(t, err)
+		wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+		require.NoError(t, err)
+		result, err := newExecEngine().Execute(wf, nil)
+		require.NoError(t, err)
+		out, ok := result.(map[string]interface{})
+		require.True(t, ok, "%T", result)
+		return out
+	}
+
+	whole := run("")
+	assert.Contains(t, whole["content"], "<h1 class=\"title\">Integration</h1>")
+	assert.EqualValues(t, 200, whole["status"])
+	assert.Equal(t, srv.URL, whole["url"])
+
+	assert.Equal(t, "Integration", run("    selector: h1.title\n")["content"])
+}

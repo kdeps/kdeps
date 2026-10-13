@@ -60,6 +60,9 @@
             },
             "additionalProperties": false
           }
+        },
+        "output": {
+          "description": "The component's result, evaluated after its resources run (expressions resolved, maps and lists walked). Without it the result is the last resource's output."
         }
       },
       "additionalProperties": false

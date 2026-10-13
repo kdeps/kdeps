@@ -48,21 +48,21 @@ func TestCountPrimaryResourceTypes(t *testing.T) {
 			count: 1,
 		},
 		{
-			name: "scraper only",
+			name: "embedding only",
 			res: &domain.Resource{
-				ActionID: "a",
-				Name:     "n",
-				Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+				ActionID:  "a",
+				Name:      "n",
+				Embedding: &domain.EmbeddingConfig{Text: "t"},
 			},
 			count: 1,
 		},
 		{
-			name: "chat and scraper",
+			name: "chat and embedding",
 			res: &domain.Resource{
-				ActionID: "a",
-				Name:     "n",
-				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
-				Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+				ActionID:  "a",
+				Name:      "n",
+				Chat:      &domain.ChatConfig{Model: "m", Prompt: "p"},
+				Embedding: &domain.EmbeddingConfig{Text: "t"},
 			},
 			count: 2,
 		},
@@ -129,7 +129,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		},
 		{"agent", &domain.Resource{Agent: &domain.AgentCallConfig{}}, "agent"},
 		{"component", &domain.Resource{Component: &domain.ComponentCallConfig{}}, "component"},
-		{"scraper", &domain.Resource{Scraper: &domain.ScraperConfig{}}, "scraper"},
 		{"embedding", &domain.Resource{Embedding: &domain.EmbeddingConfig{}}, "embedding"},
 		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
 		{"searchWeb", &domain.Resource{SearchWeb: &domain.SearchWebConfig{}}, "searchWeb"},
@@ -171,7 +170,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	// Verify all expected resource types are present in the list.
 	expectedTypes := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"scraper", "embedding", "searchLocal", "searchWeb",
+		"embedding", "searchLocal", "searchWeb",
 		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
@@ -187,7 +186,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"scraper", "embedding", "searchLocal", "searchWeb",
+		"embedding", "searchLocal", "searchWeb",
 		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}

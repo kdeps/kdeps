@@ -147,9 +147,6 @@ func collectExecTypeStrings(r *domain.Resource) []string {
 			}
 		}
 	}
-	if r.Scraper != nil {
-		out = append(out, r.Scraper.URL)
-	}
 	if r.Embedding != nil {
 		out = append(out, r.Embedding.Text)
 	}

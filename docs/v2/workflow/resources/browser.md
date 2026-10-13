@@ -309,5 +309,5 @@ npx playwright install
 ## See also
 
 - [HTTP client](/workflow/resources/http-client) - simple HTTP requests without a browser
-- [Scraper](/workflow/resources/scraper) - text extraction from already-fetched pages
+- [Scraper component](/workflow/resources/scraper) - text extraction from already-fetched pages
 - [Python](/workflow/resources/python) - Custom Python automation scripts

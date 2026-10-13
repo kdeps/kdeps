@@ -18,13 +18,6 @@
 
 package domain
 
-// ScraperConfig represents web scraper configuration.
-type ScraperConfig struct {
-	URL      string `yaml:"url"`
-	Selector string `yaml:"selector,omitempty"`
-	Timeout  string `yaml:"timeout,omitempty"`
-}
-
 // EmbeddingConfig represents embedding/vector store configuration.
 type EmbeddingConfig struct {
 	// Operation controls the executor mode.

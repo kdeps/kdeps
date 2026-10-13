@@ -57,8 +57,25 @@ func (e *Engine) runComponentResources(
 		}
 	}
 
+	if comp.Interface != nil && comp.Interface.Output != nil {
+		shaped, err := e.evaluateComponentOutput(comp.Interface.Output, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("component %q output: %w", componentName, err)
+		}
+		lastResult = shaped
+	}
+
 	if lastResult != nil {
 		ctx.SetOutput(callerID, lastResult)
 	}
 	return lastResult, nil
+}
+
+// evaluateComponentOutput resolves a component's interface.output against
+// the outputs its resources produced.
+func (e *Engine) evaluateComponentOutput(output any, ctx *ExecutionContext) (interface{}, error) {
+	if err := e.ensureResponseEvaluator(ctx); err != nil {
+		return nil, err
+	}
+	return e.evaluateResponseValue(output, e.buildEvaluationEnvironment(ctx))
 }

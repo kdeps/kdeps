@@ -154,5 +154,5 @@ chat:
 ## See also
 
 - [Search resources](/workflow/resources/search) - overview and `searchLocal`
-- [Scraper resource](/workflow/resources/scraper) - Fetch URL content to feed into search pipelines
+- [Scraper component](/workflow/resources/scraper) - Fetch URL content to feed into search pipelines
 - [LLM resource](/workflow/resources/llm) - Use search results as context for chat resources

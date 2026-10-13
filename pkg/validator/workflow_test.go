@@ -1396,30 +1396,30 @@ func TestWorkflowValidator_ValidateResource_EmailExecType(t *testing.T) {
 	}
 }
 
-func TestWorkflowValidator_ValidateResource_ScraperExecType(t *testing.T) {
+func TestWorkflowValidator_ValidateResource_EmbeddingExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{
-		ActionID: "scraper-test",
-		Name:     "Scraper Test",
-		Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+		ActionID:  "embedding-test",
+		Name:      "Embedding Test",
+		Embedding: &domain.EmbeddingConfig{Text: "t"},
 	}
 	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
 	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Scraper execution type: %v", err)
+		t.Errorf("unexpected error for Embedding execution type: %v", err)
 	}
 }
 
-func TestWorkflowValidator_ValidateResource_ChatPlusScraperIsError(t *testing.T) {
+func TestWorkflowValidator_ValidateResource_ChatPlusEmbeddingIsError(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{
-		ActionID: "conflict",
-		Name:     "Conflict",
-		Chat:     &domain.ChatConfig{Model: "llama3.2:latest", Prompt: "hi"},
-		Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+		ActionID:  "conflict",
+		Name:      "Conflict",
+		Chat:      &domain.ChatConfig{Model: "llama3.2:latest", Prompt: "hi"},
+		Embedding: &domain.EmbeddingConfig{Text: "t"},
 	}
 	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
 	if err := v.ValidateResource(r, w); err == nil {
-		t.Fatal("expected error when chat and scraper are both set")
+		t.Fatal("expected error when chat and embedding are both set")
 	}
 }
 

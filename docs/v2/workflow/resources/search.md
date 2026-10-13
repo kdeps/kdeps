@@ -12,6 +12,6 @@ Works in workflow and agent mode.
 ## See also
 
 - [Embedding resource](/workflow/resources/embedding) - SQLite keyword store for on-prem RAG
-- [Scraper resource](/workflow/resources/scraper) - Fetch URL content to feed into search pipelines
+- [Scraper component](/workflow/resources/scraper) - Fetch URL content to feed into search pipelines
 - [LLM resource](/workflow/resources/llm) - Use search results as context for chat resources
 - [Resources overview](/workflow/resources) - all resource types

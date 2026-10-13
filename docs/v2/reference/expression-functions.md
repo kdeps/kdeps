@@ -142,6 +142,18 @@ fileExists('/data/models/model.bin')                                   # true on
 fileExists(env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base.en.bin')
 ```
 
+### htmlText(html, selector)
+Returns the text of every element matching a CSS selector, one per line. An empty selector returns `html` unchanged. The [scraper component](/workflow/resources/scraper) uses it on an `httpClient` body.
+
+- **html**: An HTML document or fragment.
+- **selector**: A CSS selector (`article.body`, `h1, h2`, `ul > li`).
+
+**Examples:**
+```yaml
+htmlText(output('fetchPage').body, 'h1.title')    # "Integration Test"
+htmlText(output('fetchPage').body, '')            # the whole body
+```
+
 ## Iteration functions
 
 Available inside `items:` blocks to access the state of the current loop iteration.

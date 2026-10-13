@@ -24,7 +24,6 @@ const (
 	ExecutorSQL         = "sql"
 	ExecutorPython      = "python"
 	ExecutorExec        = "exec"
-	ExecutorScraper     = "scraper"
 	ExecutorEmbedding   = "embedding"
 	ExecutorSearchLocal = "searchLocal"
 	ExecutorSearchWeb   = "searchWeb"

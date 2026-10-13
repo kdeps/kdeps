@@ -112,7 +112,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | YAML key | Description | Page |
 |---|---|---|
 | `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/workflow/resources/http-client) |
-| `scraper` | Fetch a URL and extract text, optional CSS selector | [Scraper](/workflow/resources/scraper) |
+| `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
 | `browser` | Playwright browser - navigation, forms, JS, screenshots | [Browser](/workflow/resources/browser) |
 | `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
 | `searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily | [searchWeb](/workflow/resources/search-web) |
@@ -146,11 +146,10 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 ## Registry components (installable via `kdeps registry install`)
 
-Some install names (`scraper`, `browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
+Some install names (`browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
 
 | Install name | Description |
 |-------------|-------------|
-| `scraper` | Extended content extraction: PDFs, .docx, .xlsx, images (type auto-detected) |
 | `browser` | Playwright browser with stealth mode, persistent sessions, and file upload |
 | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
 | `embedding` | Vector embeddings via OpenAI Embeddings API |

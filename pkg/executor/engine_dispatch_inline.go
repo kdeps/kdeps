@@ -118,9 +118,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorComponent: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeComponentCall(inlineSyntheticResource(inline, index), ctx)
 		},
-		ExecutorScraper: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineScraper(inline.Scraper, ctx)
-		},
 		ExecutorEmbedding: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineEmbedding(inline.Embedding, ctx)
 		},

@@ -50,7 +50,7 @@ func TestInlineResourceTypeNames_MatchesRegistry(t *testing.T) {
 
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"scraper", "embedding", "searchLocal", "searchWeb",
+		"embedding", "searchLocal", "searchWeb",
 		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}

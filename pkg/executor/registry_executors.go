@@ -34,13 +34,11 @@ func (r *Registry) GetSQLExecutor() ResourceExecutor    { return r.getExecutor(E
 func (r *Registry) GetPythonExecutor() ResourceExecutor { return r.getExecutor(ExecutorPython) }
 func (r *Registry) GetExecExecutor() ResourceExecutor   { return r.getExecutor(ExecutorExec) }
 
-func (r *Registry) SetScraperExecutor(exec ResourceExecutor)   { r.Register(ExecutorScraper, exec) }
 func (r *Registry) SetEmbeddingExecutor(exec ResourceExecutor) { r.Register(ExecutorEmbedding, exec) }
 func (r *Registry) SetSearchLocalExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorSearchLocal, exec)
 }
 
-func (r *Registry) GetScraperExecutor() ResourceExecutor   { return r.getExecutor(ExecutorScraper) }
 func (r *Registry) GetEmbeddingExecutor() ResourceExecutor { return r.getExecutor(ExecutorEmbedding) }
 func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorSearchLocal)

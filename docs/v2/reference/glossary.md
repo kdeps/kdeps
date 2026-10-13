@@ -39,7 +39,7 @@ mode and agent mode.
 | <a id="requires"></a>`requires` | A list of `actionId`s that must complete before this resource runs. Defines the DAG edges. Transitive dependencies resolve automatically. | [Execution flow](/workflow/execution-flow) |
 | resource | The fundamental building block of a workflow: an `actionId`, a primary action type, optional `requires`, and optional validations, loop, and error handling. | [Resources overview](/workflow/resources) |
 | scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
-| `scraper` | A resource action type for web scraping. Extracts structured data from HTML using CSS selectors. | [Scraper](/workflow/resources/scraper) |
+| `scraper` | A kdeps component (`component: scraper`) that fetches a page and returns its text, optionally narrowed by a CSS selector. | [Scraper](/workflow/resources/scraper) |
 | `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/workflow/resources/search-local) |
 | `searchWeb` | A resource action type for web search via configured search APIs. | [searchWeb](/workflow/resources/search-web) |
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |

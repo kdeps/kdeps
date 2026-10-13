@@ -1,39 +1,50 @@
-# Scraper resource
+# Scraper component
 
-The `scraper` executor is a native capability compiled into the `kdeps` binary. It fetches a URL and returns the text content, with optional CSS selector filtering.
+The `scraper` component fetches a URL and returns its text - the whole body, or only the elements matching a CSS selector. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
-Native `scraper:` is HTML text. For PDFs, .docx, .xlsx, and images, install the registry component of the same name (`kdeps registry install scraper`) and call it with `component:`. They are not the same thing.
+```text
+component: scraper -> httpClient GET url -> htmlText(body, selector) -> {content, url, status}
+```
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool; the agent's own `web_scraper` [built-in tool](/agent/tools-web) is separate.
 
 ## Configuration
 
+<div v-pre>
+
 ```yaml
 # resources/fetch.yaml
-scraper:
-  url: "https://example.com"     # required
-  selector: "article.content"    # optional CSS selector
-  timeout: 30                    # seconds (default: 30)
+actionId: fetch
+name: Fetch Page
+component:
+  name: scraper                  # from the components asset set; a components/scraper/ of your own wins
+  with:
+    url: "https://example.com"   # required, fetched with GET
+    selector: "article.content"  # optional CSS selector; empty = the whole body
+    timeout: 30s                 # duration (default 30s)
 ```
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `url` | string | yes | - | URL to fetch |
-| `selector` | string | no | - | CSS selector to scope extraction |
-| `timeout` | integer | no | `30` | Request timeout in seconds |
+</div>
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `url` | yes | - | URL to fetch |
+| `selector` | no | `""` | CSS selector; `content` becomes the text of each match, one per line |
+| `timeout` | no | `30s` | Request timeout as a duration |
 
 ## Output
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `content` | string | Extracted text (full body or selector match) |
+| `content` | string | The body, or the selector's matched text |
 | `url` | string | The URL that was fetched |
-| `status` | integer | HTTP status code |
-| `json` | string | Full result as a JSON string |
+| `status` | integer | HTTP status code - a 404 or 500 is reported here, not raised |
 
-Access fields with `output('actionId').content` etc.
+```json
+{"content": "Integration Test", "url": "https://example.com", "status": 200}
+```
 
 ## Examples
 
@@ -44,57 +55,86 @@ Access fields with `output('actionId').content` etc.
 ```yaml
 # resources/fetch.yaml
 actionId: fetch
-scraper:
-  url: "{{ get('url') }}"
+name: Fetch
+component:
+  name: scraper
+  with:
+    url: "{{ get('url') }}"
+```
 
----
+```yaml
+# resources/summarize.yaml
 actionId: summarize
+name: Summarize
 requires: [fetch]
 chat:
   model: llama3.2:1b
   prompt: "Summarize: {{ output('fetch').content }}"
-apiResponse:
-  response: "{{ output('summarize') }}"
 ```
 
 </div>
 
-### Extract with CSS selector
-
-<div v-pre>
+### Extract with a CSS selector
 
 ```yaml
 # resources/fetch-article.yaml
 actionId: fetchArticle
-scraper:
-  url: "https://news.example.com/article"
-  selector: "article.body"
+name: Fetch Article
+component:
+  name: scraper
+  with:
+    url: "https://news.example.com/article"
+    selector: "article.body"
+```
+
+## How it is built
+
+The component is one `httpClient` resource plus an `interface.output` block that shapes the result with the [`htmlText()`](/reference/expression-functions) expression function. Copy it into `components/scraper/` of your project to change it (add headers, follow a link, keep the raw HTML):
+
+<div v-pre>
+
+```yaml
+# components/scraper/component.yaml (as shipped, trimmed)
+interface:
+  inputs:
+    - {name: url, type: string, required: true}
+    - {name: selector, type: string, default: ""}
+    - {name: timeout, type: string, default: 30s}
+  output:                                         # the component's result
+    content: "{{ htmlText(output('scraperFetch').body, get('scraper.selector')) }}"
+    url: "{{ get('scraper.url') }}"
+    status: "{{ output('scraperFetch').statusCode }}"
+resources:
+  - actionId: scraperFetch
+    name: Fetch page
+    httpClient:
+      method: GET
+      url: "{{ get('scraper.url') }}"
+      timeout: "{{ get('scraper.timeout') }}"
 ```
 
 </div>
 
 ## Error handling
 
-Use `onError` to handle unreachable URLs gracefully:
+An unreachable host fails the resource. Use `onError` to continue with a fallback:
 
 ```yaml
 # resources/example.yaml
-scraper:
-  url: "https://example.com"
+actionId: example
+name: Example
+component:
+  name: scraper
+  with:
+    url: "https://example.com"
 onError:
   action: continue
   fallback: ""
 ```
-
----
-
-> Need more? For PDF extraction, OCR, and document types (.docx, .xlsx), install the component:
-> ```bash
-> kdeps registry install scraper
-> ```
 
 ## See also
 
 - [Embedding resource](/workflow/resources/embedding) - store and search scraped content
 - [LLM resource](/workflow/resources/llm) - feed scraped content into prompts
 - [HTTP client](/workflow/resources/http-client) - lower-level HTTP with auth, headers, caching
+- [Browser resource](/workflow/resources/browser) - pages that need JavaScript

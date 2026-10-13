@@ -133,7 +133,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" ("+domain.PrimaryResourceTypesList()+", apiResponse, before, after)",
+				" ("+domain.PrimaryResourceTypesList()+", before, after)",
 			nil,
 		)
 	}
