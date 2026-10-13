@@ -48,7 +48,9 @@ func init() {
 		Validate: validateModelRegistry,
 		// Default models and aliases resolve through these; they can be
 		// updated but not removed.
-		Required: func(name string) bool { return name == llamafileRegistryItem || name == ggufRegistryItem },
+		Required: func(name string) bool {
+			return name == llamafileRegistryItem || name == ggufRegistryItem || name == cloudRegistryItem
+		},
 	})
 }
 
@@ -63,6 +65,12 @@ func validateModelRegistry(data []byte, name string) error {
 		if v := parseGGUFYAML(data); v != nil {
 			n = len(v.GGUFs)
 		}
+	case cloudRegistryItem:
+		c, err := parseCloudCatalog(data)
+		if err != nil {
+			return err
+		}
+		n = len(c.Models)
 	default:
 		return fmt.Errorf("unknown model registry %q", name)
 	}

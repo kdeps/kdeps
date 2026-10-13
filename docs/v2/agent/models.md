@@ -14,6 +14,26 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
+## Cloud model catalog
+
+The cloud models `/model list` offers, and the context window, output limit and thinking/image support kdeps assumes for each, come from the `models/cloud` asset - not from the binary. A provider renaming or adding a model is a `kdeps update models/cloud` away.
+
+```yaml
+# models/cloud (as shipped, one entry)
+version: 1.0.0
+models:
+  - id: "claude-opus-4-8"     # the API model ID
+    backend: anthropic        # kdeps backend that serves it
+    desc: "most capable"      # label in /model list
+    envVar: ANTHROPIC_API_KEY # a key here marks the provider ready
+    thinking: true            # supports extended thinking
+    images: true              # accepts image input
+    contextWindow: 1000000    # input tokens; drives compaction and request sizing
+    maxOutputTokens: 128000   # per-call output cap sent to the provider
+```
+
+A model missing from the catalog still works by name (`/model my-fine-tune`); kdeps just uses the provider's defaults for it.
+
 ## Same alias, different backends
 
 llamafile, GGUF, and Ollama registries can each have their own, unrelated

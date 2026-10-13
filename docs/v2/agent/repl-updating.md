@@ -45,7 +45,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
-| `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace) | `models/gguf` |
+| `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace), or the cloud model catalog `models/cloud` (each provider's model IDs with context window, output limit, thinking and image support) | `models/gguf`, `models/cloud` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
 | `schemas` | The JSON schemas `kdeps validate`, `run` and `package` check workflows, resources, components and agencies against (all four files) | `schemas/v1` |
 | `defaults` | Executor defaults (timeouts, SQL pool sizes, search limits) used when neither the resource nor `config.yaml` sets a value | `defaults/executors` |

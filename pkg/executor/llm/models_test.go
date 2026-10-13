@@ -104,3 +104,39 @@ func TestModelRegistry_InstallRejectsInvalid(t *testing.T) {
 	root := t.TempDir()
 	require.Error(t, assets.Install(root, "models/gguf", []byte("version: 2.0.0\nggufs: []\n"), false))
 }
+
+func TestCloudCatalog_Validate(t *testing.T) {
+	require.NoError(t, validateModelRegistry(
+		[]byte("version: 1.0.0\nmodels:\n  - id: m\n    backend: openai\n"), cloudRegistryItem))
+	require.ErrorContains(
+		t,
+		validateModelRegistry([]byte("version: 1.0.0\nmodels: []\n"), cloudRegistryItem),
+		"no entries",
+	)
+	require.ErrorContains(t, validateModelRegistry(
+		[]byte("version: 1.0.0\nmodels:\n  - id: m\n"), cloudRegistryItem), "needs an id and a backend")
+	require.Error(t, validateModelRegistry([]byte("models: [\n"), cloudRegistryItem))
+}
+
+// A newer downloaded catalog (`kdeps update models/cloud`) replaces the
+// source one on reload.
+func TestCloudCatalog_DownloadedVersionWins(t *testing.T) {
+	root := t.TempDir()
+	t.Cleanup(ReloadCloudModels)
+	t.Setenv("KDEPS_ASSETS_DIR", root)
+	require.NotEmpty(t, KnownCloudModels, "the source catalog loads")
+
+	data := []byte("version: 99.0.0\nmodels:\n  - id: e2e-model\n    backend: openai\n    contextWindow: 4242\n")
+	require.NoError(t, assets.Install(root, "models/cloud", data, false))
+	ReloadCloudModels()
+	assert.Equal(t, 4242, ModelContextWindow("e2e-model"))
+	assert.Equal(t, "openai", BackendForModel("e2e-model"))
+	assert.Len(t, KnownCloudModels, 1)
+}
+
+func TestCloudCatalog_RequiredAndShipped(t *testing.T) {
+	require.Error(t, assets.Remove(t.TempDir(), "models/cloud"))
+	data, err := os.ReadFile(filepath.Join(assets.Source(), "models", cloudRegistryItem+".yaml"))
+	require.NoError(t, err)
+	require.NoError(t, validateModelRegistry(data, cloudRegistryItem))
+}

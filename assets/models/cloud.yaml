@@ -1,0 +1,318 @@
+# Cloud model catalog: model IDs kdeps knows per provider, with their
+# context window and output limits. Hand-maintained; bump version on change.
+version: 1.0.0
+models:
+  # anthropic
+  - id: "claude-opus-4-8"
+    backend: anthropic
+    desc: "most capable"
+    envVar: ANTHROPIC_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 1000000
+    maxOutputTokens: 128000
+  - id: "claude-sonnet-4-6"
+    backend: anthropic
+    desc: "balanced speed/intelligence"
+    envVar: ANTHROPIC_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 1000000
+    maxOutputTokens: 64000
+  - id: "claude-haiku-4-5-20251001"
+    backend: anthropic
+    desc: "fast and lightweight"
+    envVar: ANTHROPIC_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 200000
+    maxOutputTokens: 64000
+  # google
+  - id: "gemini-2.5-pro"
+    backend: google
+    desc: "most capable, best reasoning"
+    envVar: GOOGLE_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 1048576
+    maxOutputTokens: 8192
+  - id: "gemini-2.5-flash"
+    backend: google
+    desc: "fast multimodal"
+    envVar: GOOGLE_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 1048576
+    maxOutputTokens: 8192
+  - id: "gemini-2.0-flash"
+    backend: google
+    desc: "balanced"
+    envVar: GOOGLE_API_KEY
+    images: true
+    contextWindow: 1048576
+    maxOutputTokens: 8192
+  - id: "gemini-1.5-pro"
+    backend: google
+    desc: "long context"
+    envVar: GOOGLE_API_KEY
+    images: true
+    contextWindow: 2097152
+    maxOutputTokens: 8192
+  # openai
+  - id: "gpt-4o"
+    backend: openai
+    desc: "flagship multimodal"
+    envVar: OPENAI_API_KEY
+    images: true
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-4o-mini"
+    backend: openai
+    desc: "fast and cheap"
+    envVar: OPENAI_API_KEY
+    images: true
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "o4-mini"
+    backend: openai
+    desc: "fast reasoning"
+    envVar: OPENAI_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "o3"
+    backend: openai
+    desc: "advanced reasoning"
+    envVar: OPENAI_API_KEY
+    thinking: true
+    images: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "o1"
+    backend: openai
+    desc: "reasoning"
+    envVar: OPENAI_API_KEY
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  # xai
+  - id: "grok-3"
+    backend: xai
+    desc: "most capable"
+    envVar: XAI_API_KEY
+    contextWindow: 131072
+    maxOutputTokens: 4096
+  - id: "grok-3-fast"
+    backend: xai
+    desc: "fast"
+    envVar: XAI_API_KEY
+    contextWindow: 131072
+    maxOutputTokens: 4096
+  - id: "grok-3-mini"
+    backend: xai
+    desc: "small and cheap"
+    envVar: XAI_API_KEY
+    thinking: true
+    contextWindow: 131072
+    maxOutputTokens: 4096
+  - id: "grok-2"
+    backend: xai
+    desc: "previous generation"
+    envVar: XAI_API_KEY
+    contextWindow: 131072
+    maxOutputTokens: 4096
+  # deepseek
+  - id: "deepseek-v4-pro"
+    backend: deepseek
+    desc: "flagship"
+    envVar: DEEPSEEK_API_KEY
+    contextWindow: 64000
+    maxOutputTokens: 8192
+  - id: "deepseek-v4-flash"
+    backend: deepseek
+    desc: "fast"
+    envVar: DEEPSEEK_API_KEY
+    contextWindow: 64000
+    maxOutputTokens: 8192
+  # groq
+  - id: "llama-3.3-70b-versatile"
+    backend: groq
+    desc: "fast Llama 3.3 70B"
+    envVar: GROQ_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 8192
+  - id: "llama-3.1-8b-instant"
+    backend: groq
+    desc: "fastest, smallest"
+    envVar: GROQ_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 8192
+  - id: "gemma2-9b-it"
+    backend: groq
+    desc: "Google Gemma 2"
+    envVar: GROQ_API_KEY
+    contextWindow: 8192
+    maxOutputTokens: 4096
+  # mistral
+  - id: "mistral-large-latest"
+    backend: mistral
+    desc: "most capable"
+    envVar: MISTRAL_API_KEY
+    contextWindow: 131072
+    maxOutputTokens: 8192
+  - id: "mistral-small-latest"
+    backend: mistral
+    desc: "fast and cheap"
+    envVar: MISTRAL_API_KEY
+    contextWindow: 32768
+    maxOutputTokens: 8192
+  - id: "codestral-latest"
+    backend: mistral
+    desc: "code specialist"
+    envVar: MISTRAL_API_KEY
+    contextWindow: 256000
+    maxOutputTokens: 8192
+  # cohere
+  - id: "command-r-plus"
+    backend: cohere
+    desc: "most capable"
+    envVar: COHERE_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 4096
+  - id: "command-r"
+    backend: cohere
+    desc: "balanced"
+    envVar: COHERE_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 4096
+  # together
+  - id: "meta-llama/Llama-3-70b-chat-hf"
+    backend: together
+    desc: "Llama 3 70B"
+    envVar: TOGETHER_API_KEY
+    contextWindow: 8192
+    maxOutputTokens: 4096
+  - id: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+    backend: together
+    desc: "Llama 3.1 8B fast"
+    envVar: TOGETHER_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 4096
+  # perplexity
+  - id: "llama-3.1-sonar-large-128k-online"
+    backend: perplexity
+    desc: "with web search"
+    envVar: PERPLEXITY_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 4096
+  - id: "llama-3.1-sonar-small-128k-online"
+    backend: perplexity
+    desc: "fast with web search"
+    envVar: PERPLEXITY_API_KEY
+    contextWindow: 128000
+    maxOutputTokens: 4096
+  # m365
+  - id: "m365-copilot"
+    backend: m365
+    desc: "default - service picks the model"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "quick"
+    backend: m365
+    desc: "fast, lower-latency responses"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "think-deeper"
+    backend: m365
+    desc: "extended reasoning"
+    thinking: true
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "claude-sonnet"
+    backend: m365
+    desc: "Claude Sonnet via M365"
+    contextWindow: 200000
+    maxOutputTokens: 64000
+  - id: "claude-sonnet-think-deeper"
+    backend: m365
+    desc: "Claude Sonnet, extended reasoning"
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 64000
+  - id: "claude-opus"
+    backend: m365
+    desc: "Claude Opus via M365"
+    contextWindow: 200000
+    maxOutputTokens: 128000
+  - id: "gpt-5.6-think-deeper"
+    backend: m365
+    desc: "GPT-5.6, extended reasoning (reasoning only for now)"
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.5"
+    backend: m365
+    desc: "GPT-5.5"
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.5-quick"
+    backend: m365
+    desc: "GPT-5.5, fast"
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.5-think-deeper"
+    backend: m365
+    desc: "GPT-5.5, extended reasoning"
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.4"
+    backend: m365
+    desc: "GPT-5.4"
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.4-quick"
+    backend: m365
+    desc: "GPT-5.4, fast"
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.4-think-deeper"
+    backend: m365
+    desc: "GPT-5.4, extended reasoning"
+    thinking: true
+    contextWindow: 200000
+    maxOutputTokens: 16384
+  - id: "gpt-5.3"
+    backend: m365
+    desc: "GPT-5.3"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-5.3-quick"
+    backend: m365
+    desc: "GPT-5.3, fast"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-5.3-think-deeper"
+    backend: m365
+    desc: "GPT-5.3, extended reasoning"
+    thinking: true
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-5.2"
+    backend: m365
+    desc: "GPT-5.2"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-5.2-quick"
+    backend: m365
+    desc: "GPT-5.2, fast"
+    contextWindow: 128000
+    maxOutputTokens: 16384
+  - id: "gpt-5.2-think-deeper"
+    backend: m365
+    desc: "GPT-5.2, extended reasoning"
+    thinking: true
+    contextWindow: 128000
+    maxOutputTokens: 16384
