@@ -66,10 +66,10 @@ const defaultHTTPToolTimeout = 30 * time.Second
 //nolint:gochecknoglobals // test-replaceable
 var httpToolClient = http.DefaultClient
 
-// httpToolFuncs are the helpers an http: block's templates may call.
+// declaredToolFuncs are the helpers http: and exec: block templates may call.
 //
 //nolint:gochecknoglobals // fixed template function table
-var httpToolFuncs = template.FuncMap{
+var declaredToolFuncs = template.FuncMap{
 	"json": func(v any) (string, error) {
 		b, err := json.Marshal(v)
 		return string(b), err
@@ -92,9 +92,9 @@ var httpToolFuncs = template.FuncMap{
 	"get": getPath,
 }
 
-// parseHTTPToolTemplate parses one of an http: block's templates.
-func parseHTTPToolTemplate(name, src string) (*template.Template, error) {
-	return template.New(name).Funcs(httpToolFuncs).Option("missingkey=zero").Parse(src)
+// parseDeclaredTemplate parses one of an http: or exec: block's templates.
+func parseDeclaredTemplate(name, src string) (*template.Template, error) {
+	return template.New(name).Funcs(declaredToolFuncs).Option("missingkey=zero").Parse(src)
 }
 
 // validate checks the block's method and that every template parses.
@@ -122,7 +122,7 @@ func (s *httpToolSpec) validate() error {
 		srcs["header "+k] = v
 	}
 	for name, src := range srcs {
-		if _, err := parseHTTPToolTemplate(name, src); err != nil {
+		if _, err := parseDeclaredTemplate(name, src); err != nil {
 			return fmt.Errorf("http: %w", err)
 		}
 	}
@@ -146,22 +146,47 @@ func (s *httpToolSpec) resolveEnv() (map[string]string, bool) {
 	return out, true
 }
 
-// registerDeclaredHTTPTools registers every tool asset with an http: block
-// whose env resolves.
-func registerDeclaredHTTPTools(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
+// registerDeclaredTools registers every tool asset implemented by its own
+// YAML: an http: block whose env resolves, or an exec: block.
+func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
-		if d.HTTP == nil {
-			continue
+		switch {
+		case d.HTTP != nil:
+			env, ok := d.HTTP.resolveEnv()
+			if !ok {
+				continue
+			}
+			reg.Register(definedAs(id, &kdepstools.Tool{
+				Name:    id,
+				Execute: declaredHTTPExecute(ctx, id, d, env, cache),
+			}))
+		case d.Exec != nil:
+			reg.Register(definedAs(id, &kdepstools.Tool{
+				Name:    id,
+				Execute: declaredExecExecute(ctx, id, d),
+			}))
 		}
-		env, ok := d.HTTP.resolveEnv()
-		if !ok {
-			continue
+	}
+}
+
+// declaredName is the tool name the model sees for definition id.
+func declaredName(id string, d toolDefinition) string {
+	if d.Name != "" {
+		return d.Name
+	}
+	return id
+}
+
+// declaredExecExecute builds the Execute func of a declared exec tool.
+func declaredExecExecute(ctx context.Context, id string, d toolDefinition) func(map[string]any) (string, error) {
+	name := declaredName(id, d)
+	return func(args map[string]any) (string, error) {
+		full, err := withParamDefaults(name, d, args)
+		if err != nil {
+			return "", err
 		}
-		reg.Register(definedAs(id, &kdepstools.Tool{
-			Name:    id,
-			Execute: declaredHTTPExecute(ctx, id, d, env, cache),
-		}))
+		return callDeclaredExecTool(ctx, name, d.Exec, full)
 	}
 }
 
@@ -169,10 +194,7 @@ func registerDeclaredHTTPTools(ctx context.Context, reg *kdepstools.Registry, ca
 func declaredHTTPExecute(
 	ctx context.Context, id string, d toolDefinition, env map[string]string, cache *webToolCache,
 ) func(map[string]any) (string, error) {
-	name := id
-	if d.Name != "" {
-		name = d.Name
-	}
+	name := declaredName(id, d)
 	return func(args map[string]any) (string, error) {
 		full, err := withParamDefaults(name, d, args)
 		if err != nil {
@@ -206,15 +228,15 @@ func withParamDefaults(name string, d toolDefinition, args map[string]any) (map[
 	return full, nil
 }
 
-// httpToolRenderer renders an http: block's templates over data, naming
+// declaredRenderer renders an http: or exec: block's templates over data, naming
 // the tool and part in errors.
-type httpToolRenderer struct {
+type declaredRenderer struct {
 	name string
 	data map[string]any
 }
 
-func (r httpToolRenderer) render(part, src string) (string, error) {
-	tmpl, err := parseHTTPToolTemplate(part, src)
+func (r declaredRenderer) render(part, src string) (string, error) {
+	tmpl, err := parseDeclaredTemplate(part, src)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", r.name, err)
 	}
@@ -226,7 +248,7 @@ func (r httpToolRenderer) render(part, src string) (string, error) {
 }
 
 // newRequest renders the block's url, body and headers into a request.
-func (s *httpToolSpec) newRequest(ctx context.Context, r httpToolRenderer) (*http.Request, error) {
+func (s *httpToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*http.Request, error) {
 	reqURL, err := r.render("url", s.URL)
 	if err != nil {
 		return nil, err
@@ -266,7 +288,7 @@ func (s *httpToolSpec) timeout() time.Duration {
 func callDeclaredHTTPTool(
 	ctx context.Context, name string, s *httpToolSpec, args map[string]any, env map[string]string,
 ) (string, error) {
-	r := httpToolRenderer{name: name, data: map[string]any{"args": args, "env": env}}
+	r := declaredRenderer{name: name, data: map[string]any{"args": args, "env": env}}
 	reqCtx, cancel := context.WithTimeout(ctx, s.timeout())
 	defer cancel()
 	req, err := s.newRequest(reqCtx, r)

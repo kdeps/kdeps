@@ -41,20 +41,21 @@ const formulaPrefix = "kdeps-"
 //
 //nolint:gochecknoglobals // fixed set -> type table
 var setTypes = map[string]string{
-	"harness":   "harness",
-	"events":    "event",
-	"actions":   "action",
-	"presets":   "preset",
-	"themes":    "theme",
-	"tools":     "tool",
-	"commands":  "command",
-	"recipes":   "recipe",
-	"models":    "model",
-	"templates": "template",
-	"docker":    "dockerfile",
-	"k8s":       "manifest",
-	"schemas":   "schema",
-	"defaults":  "defaults",
+	"harness":    "harness",
+	"events":     "event",
+	"actions":    "action",
+	"presets":    "preset",
+	"themes":     "theme",
+	"tools":      "tool",
+	"commands":   "command",
+	"recipes":    "recipe",
+	"models":     "model",
+	"templates":  "template",
+	"docker":     "dockerfile",
+	"k8s":        "manifest",
+	"schemas":    "schema",
+	"defaults":   "defaults",
+	"components": "kdeps-component",
 }
 
 // PackageType is the registry package type of set's items ("" if set is not

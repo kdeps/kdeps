@@ -53,14 +53,14 @@ import (
 //nolint:gochecknoglobals // fixed list of set names
 var Sets = []string{
 	"harness", "events", "actions", "presets", "themes", "tools", "commands", "recipes", "models", "templates",
-	"docker", "k8s", "schemas", "defaults",
+	"docker", "k8s", "schemas", "defaults", "components",
 }
 
 // bundleSets are the sets whose items are directories, distributed as one
 // YAML bundle file each; every other set's item is a single YAML file.
 //
 //nolint:gochecknoglobals // fixed list of set names
-var bundleSets = []string{"templates", "docker", "k8s", "schemas"}
+var bundleSets = []string{"templates", "docker", "k8s", "schemas", "components"}
 
 // IsBundle reports whether set's items are directories (see Bundle).
 func IsBundle(set string) bool {

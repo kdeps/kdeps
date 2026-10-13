@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fails when a versioned asset file changed between BASE and HEAD without a
-# higher `version:` header. Bundle items (templates, docker, k8s, schemas) are
+# higher `version:` header. Bundle items (templates, docker, k8s, schemas,
+# components) are
 # versioned by their template.yaml, so any change inside a bundle directory
 # needs a bump there.
 #
@@ -11,7 +12,7 @@ base=${1:?base ref}
 head=${2:?head ref}
 
 flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models|defaults)/[^/]+\.yaml$'
-bundle_re='^assets/(templates|docker|k8s|schemas)/([^/]+)/'
+bundle_re='^assets/(templates|docker|k8s|schemas|components)/([^/]+)/'
 
 version_at() { # <ref> <path> -> version or empty
 	git show "$1:$2" 2>/dev/null | sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1

@@ -33,7 +33,7 @@ Same standalone-only restriction as nightly: Homebrew/.deb/.apk cannot be told t
 
 ## Updating assets
 
-kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes, the `kdeps new` project templates, the workflow schemas, executor defaults and the Docker and Kubernetes templates are used in workflow mode.
+kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes, the `kdeps new` project templates, the workflow schemas, executor defaults, kdeps components and the Docker and Kubernetes templates are used in workflow mode.
 
 | Set | What an item is | Example id |
 |---|---|---|
@@ -51,6 +51,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `defaults` | Executor defaults (timeouts, SQL pool sizes, search limits) used when neither the resource nor `config.yaml` sets a value | `defaults/executors` |
 | `docker` | The Dockerfile, entrypoint and supervisord templates `kdeps build` renders (all five files) | `docker/image` |
 | `k8s` | The Deployment, Service and NetworkPolicy templates `kdeps export k8s` renders (all three files) | `k8s/manifests` |
+| `components` | A kdeps component (YAML, no Go code) a workflow calls with `component:`, e.g. [ocr](/workflow/resources/ocr) | `components/ocr` |
 
 ```d2
 direction: right

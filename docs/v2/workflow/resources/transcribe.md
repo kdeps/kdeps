@@ -81,5 +81,5 @@ The transcribed text, as a plain string:
 
 ## See also
 
-- [OCR resource](/workflow/resources/ocr) - the equivalent offline, no-API-key pattern for images
+- [OCR component](/workflow/resources/ocr) - the equivalent offline, no-API-key pattern for images
 - [Resources overview](/workflow/resources) - all resource types

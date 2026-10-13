@@ -88,6 +88,18 @@ func TestWriteResources(t *testing.T) {
 	assert.False(t, IsPackageType(ResourcePackageType), "resources are not `kdeps update` assets")
 }
 
+func TestWriteResources_PrunesRemovedTypes(t *testing.T) {
+	formulas := t.TempDir()
+	for _, name := range []string{"kdeps-resource-ocr.yaml", "kdeps-tools-x.yaml", "other.yaml"} {
+		require.NoError(t, os.WriteFile(filepath.Join(formulas, name), []byte("name: x\n"), 0o600))
+	}
+	require.NoError(t, WriteResources(formulas, t.TempDir(), docsV2, "https://f", "2.58.2"))
+	assert.NoFileExists(t, filepath.Join(formulas, "kdeps-resource-ocr.yaml"), "a type kdeps dropped is unlisted")
+	assert.FileExists(t, filepath.Join(formulas, "kdeps-resource-scraper.yaml"))
+	assert.FileExists(t, filepath.Join(formulas, "kdeps-tools-x.yaml"), "asset formulas are left alone")
+	assert.FileExists(t, filepath.Join(formulas, "other.yaml"))
+}
+
 func TestWriteResources_Errors(t *testing.T) {
 	require.Error(t, WriteResources(t.TempDir(), t.TempDir(), docsV2, "https://f", "latest"))
 	require.Error(t, WriteResources(t.TempDir(), t.TempDir(), t.TempDir(), "https://f", "1.0.0"))
