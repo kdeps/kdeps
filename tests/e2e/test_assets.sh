@@ -2,7 +2,9 @@
 # E2E: kdeps ships no assets of its own.
 #
 # Covers what test_update.sh does not:
-#   - asset-free commands run offline before the first download
+#   - asset-free commands run offline before the first download; validate
+#     needs the schemas set
+#   - downloaded schemas and Docker templates work offline
 #   - KDEPS_ASSETS_SRC serves a checkout's assets/ to a dev binary
 #   - published bundles leave hidden source files out
 #   - the first download retries a flaky server
@@ -34,7 +36,7 @@ AF_HOME="$AS_DIR/free"
 mkdir -p "$AF_HOME"
 af_ok=1
 af_out=""
-for args in "validate $PROJECT_ROOT/examples/chatbot" "help" "completion bash" "update --list" "registry --help" "--version"; do
+for args in "help" "completion bash" "update --list" "registry --help" "--version"; do
     # shellcheck disable=SC2086 # args is a word list
     if ! OUT=$(as_run "$AF_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" $args) || output_grep "Downloading kdeps assets" "$OUT"; then
         af_ok=0
@@ -42,9 +44,18 @@ for args in "validate $PROJECT_ROOT/examples/chatbot" "help" "completion bash" "
     fi
 done
 if [ "$af_ok" = 1 ] && [ ! -e "$AF_HOME/store/lock.json" ]; then
-    test_passed "assets - validate/help/completion/update/registry run offline before the first download"
+    test_passed "assets - help/completion/update/registry run offline before the first download"
 else
     test_failed "assets - asset-free commands offline" "$af_out"
+fi
+
+# validate checks against the schemas asset set, so it needs the download.
+if OUT=$(as_run "$AF_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot"); then
+    test_failed "assets - validate offline with no assets fails" "$OUT"
+elif output_grep "run kdeps update" "$OUT"; then
+    test_passed "assets - validate needs the schemas asset set"
+else
+    test_failed "assets - validate offline message" "$OUT"
 fi
 
 # --- KDEPS_ASSETS_SRC: a dev binary reads a checkout's assets/ ---------------
@@ -129,6 +140,22 @@ if output_grep "Downloading kdeps assets" "$OUT" && output_grep "GGUF +e2e-src-m
     test_passed "assets - first run retries 503s and installs every asset"
 else
     test_failed "assets - first run against a flaky server" "$OUT"
+fi
+
+# The downloaded schemas, executor defaults and Docker/k8s templates are
+# what validate, run and the deploy commands use, offline from here on.
+fl_ok=1
+for f in schemas/v1.yaml defaults/executors.yaml docker/image.yaml k8s/manifests.yaml; do
+    [ -f "$FL_HOME/store/$f" ] || { fl_ok=0; echo "missing $f"; }
+done
+OUT=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
+output_grep "Schema validation passed" "$OUT" || fl_ok=0
+DF=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" bundle build "$PROJECT_ROOT/examples/chatbot" --show-dockerfile)
+output_grep_fixed "COPY kdeps-assets/ /app/.kdeps/assets/" "$DF" || fl_ok=0
+if [ "$fl_ok" = 1 ]; then
+    test_passed "assets - downloaded schemas and Docker templates work offline"
+else
+    test_failed "assets - downloaded schemas/templates" "$OUT $DF"
 fi
 
 # --- a tampered installed asset is ignored, not fatal -------------------------

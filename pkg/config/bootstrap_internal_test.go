@@ -21,14 +21,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
+	"time"
 
 	"errors"
 
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // --- writeConfig ---
@@ -499,25 +501,46 @@ func TestBootstrap_InteractivePath(t *testing.T) {
 
 // --- GetDefaults YAML parse error ---
 
-func TestGetDefaults_ParseError(t *testing.T) {
-	origYAML := make([]byte, len(defaultsYAML))
-	copy(origYAML, defaultsYAML)
-
-	defaultsYAML = []byte("invalid: {{")
-	parseDefaultsOnce = sync.Once{}
+// stubDefaults makes GetDefaults read data (or fail with err) until the test ends.
+func stubDefaults(t *testing.T, data []byte, err error) {
+	t.Helper()
+	orig := readDefaults
+	readDefaults = func() ([]byte, error) { return data, err }
 	parsedDefaults = nil
-	errDefaultsParse = nil
-
 	t.Cleanup(func() {
-		defaultsYAML = origYAML
-		parseDefaultsOnce = sync.Once{}
+		readDefaults = orig
 		parsedDefaults = nil
-		errDefaultsParse = nil
 	})
+}
 
-	_, err := GetDefaults()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parse embedded defaults.yml")
+func TestGetDefaults_ParseError(t *testing.T) {
+	stubDefaults(t, []byte("invalid: {{"), nil)
+	d, err := GetDefaults()
+	require.ErrorContains(t, err, "parse executor defaults")
+	require.NotNil(t, d, "callers dereference the result without checking")
+}
+
+func TestGetDefaults_MissingIsZeroAndNotCached(t *testing.T) {
+	stubDefaults(t, nil, errors.New("no such file"))
+	d, err := GetDefaults()
+	require.ErrorContains(t, err, "run kdeps update")
+	require.NotNil(t, d)
+	assert.Equal(t, 60*time.Second, d.Chat.TimeoutDuration(), "accessors fall back")
+
+	readDefaults = func() ([]byte, error) { return []byte("version: 1.0.0\nchat:\n  timeout: 5s\n"), nil }
+	d, err = GetDefaults()
+	require.NoError(t, err)
+	assert.Equal(t, 5*time.Second, d.Chat.TimeoutDuration(), "a later install is picked up")
+}
+
+func TestGetDefaults_FromAssets(t *testing.T) {
+	parsedDefaults = nil
+	t.Cleanup(func() { parsedDefaults = nil })
+	d, err := GetDefaults()
+	require.NoError(t, err)
+	assert.Equal(t, 1000, d.SQL.MaxRows)
+	require.Error(t, assets.Install(t.TempDir(), "defaults/executors", []byte("version: 2.0.0\nchat: [\n"), false))
+	require.Error(t, assets.Remove(t.TempDir(), "defaults/executors"), "required")
 }
 
 func TestConfigureBackendChoice_InvalidIsNoop(t *testing.T) {

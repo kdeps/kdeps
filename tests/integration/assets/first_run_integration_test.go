@@ -30,8 +30,13 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v2/pkg/infra/k8s"
 	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
+	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
 // TestFirstRun_EnsureInstallsEveryAsset starts from what a release binary
@@ -49,7 +54,10 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	t.Cleanup(agent.ReloadAssets)
 	agent.ReloadAssets()
+	assert.ElementsMatch(t, assets.Sets, assets.Registered(), "this test links every set's loader")
 	assert.ElementsMatch(t, assets.Sets, assets.Missing(), "a release binary starts with no assets")
+	_, err = validator.NewSchemaValidator()
+	require.Error(t, err, "no schemas before the download")
 	assert.Empty(t, agent.PresetNames())
 
 	// Offline: kdeps refuses to start without its assets.
@@ -64,6 +72,16 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	assert.NotEmpty(t, llm.GGUFAliasNames())
 	_, err = catalog.Get("tgi")
 	require.NoError(t, err)
+	_, err = validator.NewSchemaValidator()
+	require.NoError(t, err, "schemas")
+	_, err = k8s.NewGenerator("img").GenerateManifests(&domain.Workflow{})
+	require.NoError(t, err, "k8s templates")
+	df, err := (&docker.Builder{BaseOS: "alpine"}).GenerateDockerfile(&domain.Workflow{})
+	require.NoError(t, err, "docker templates")
+	assert.Contains(t, df, "COPY kdeps-assets/")
+	d, err := config.GetDefaults()
+	require.NoError(t, err, "executor defaults")
+	assert.Positive(t, d.SQL.MaxRows)
 
 	// Once filled, a start makes no request.
 	srv.Close()

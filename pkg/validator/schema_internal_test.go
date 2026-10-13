@@ -33,10 +33,10 @@ var validSchema = []byte(`{"type": "object"}`)
 // allValid returns an fstest.MapFS with valid schemas for all 4 schema files.
 func allValid() fstest.MapFS {
 	return fstest.MapFS{
-		"schemas/workflow.json":  {Data: validSchema},
-		"schemas/resource.json":  {Data: validSchema},
-		"schemas/agency.json":    {Data: validSchema},
-		"schemas/component.json": {Data: validSchema},
+		"workflow.json":  {Data: validSchema},
+		"resource.json":  {Data: validSchema},
+		"agency.json":    {Data: validSchema},
+		"component.json": {Data: validSchema},
 	}
 }
 
@@ -50,7 +50,7 @@ func TestNewSchemaValidatorFromFS_ReadErrors(t *testing.T) {
 
 	t.Run("missing resource.json", func(t *testing.T) {
 		fs := allValid()
-		delete(fs, "schemas/resource.json")
+		delete(fs, "resource.json")
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read resource schema")
@@ -58,7 +58,7 @@ func TestNewSchemaValidatorFromFS_ReadErrors(t *testing.T) {
 
 	t.Run("missing agency.json", func(t *testing.T) {
 		fs := allValid()
-		delete(fs, "schemas/agency.json")
+		delete(fs, "agency.json")
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read agency schema")
@@ -66,7 +66,7 @@ func TestNewSchemaValidatorFromFS_ReadErrors(t *testing.T) {
 
 	t.Run("missing component.json", func(t *testing.T) {
 		fs := allValid()
-		delete(fs, "schemas/component.json")
+		delete(fs, "component.json")
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read component schema")
@@ -77,7 +77,7 @@ func TestNewSchemaValidatorFromFS_ReadErrors(t *testing.T) {
 func TestNewSchemaValidatorFromFS_LoadErrors(t *testing.T) {
 	t.Run("invalid workflow.json", func(t *testing.T) {
 		fs := allValid()
-		fs["schemas/workflow.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
+		fs["workflow.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load workflow schema")
@@ -85,7 +85,7 @@ func TestNewSchemaValidatorFromFS_LoadErrors(t *testing.T) {
 
 	t.Run("invalid resource.json", func(t *testing.T) {
 		fs := allValid()
-		fs["schemas/resource.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
+		fs["resource.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load resource schema")
@@ -93,7 +93,7 @@ func TestNewSchemaValidatorFromFS_LoadErrors(t *testing.T) {
 
 	t.Run("invalid agency.json", func(t *testing.T) {
 		fs := allValid()
-		fs["schemas/agency.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
+		fs["agency.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load agency schema")
@@ -101,7 +101,7 @@ func TestNewSchemaValidatorFromFS_LoadErrors(t *testing.T) {
 
 	t.Run("invalid component.json", func(t *testing.T) {
 		fs := allValid()
-		fs["schemas/component.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
+		fs["component.json"] = &fstest.MapFile{Data: []byte("{invalid}")}
 		_, err := newSchemaValidatorFromFS(fs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load component schema")

@@ -182,7 +182,7 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"update", "validate", "registry", "help", "completion", "__complete", "__completeNoDesc",
+	"update", "registry", "help", "completion", "__complete", "__completeNoDesc",
 }
 
 // ensureAssets installs kdeps's assets before a command that loads them

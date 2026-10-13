@@ -215,7 +215,11 @@ func (b *Builder) renderBackendInstall(installOllama bool) (string, error) {
 		InstallOllama: installOllama,
 	}
 
-	out, err := texttmpl.Render("backend-install", backendInstallTemplate, backendData)
+	templateStr, err := dockerTemplate(backendInstallTemplate)
+	if err != nil {
+		return "", err
+	}
+	out, err := texttmpl.Render("backend-install", templateStr, backendData)
 	if err != nil {
 		return "", fmt.Errorf("failed to render backend install: %w", err)
 	}

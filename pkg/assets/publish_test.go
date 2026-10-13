@@ -54,7 +54,7 @@ func withSource(t *testing.T, harness fstest.MapFS) {
 		files[name] = f
 	}
 	for name, f := range sourceFiles() {
-		if strings.HasPrefix(name, BundleSet+"/") {
+		if strings.HasPrefix(name, templatesSet+"/") {
 			files[name] = f
 		}
 	}
@@ -166,7 +166,7 @@ func TestPublish_SkipsHiddenSourceFiles(t *testing.T) {
 	withSource(t, fstest.MapFS{})
 	setSourceFile(t, "templates/api/.gitkeep", "")
 	setSourceFile(t, "templates/api/_draft.j2", "draft")
-	files, err := SourceFiles(Source(), BundleSet)
+	files, err := SourceFiles(Source(), templatesSet)
 	require.NoError(t, err)
 	var b Bundle
 	require.NoError(t, yaml.Unmarshal(files["api"], &b))
@@ -174,6 +174,6 @@ func TestPublish_SkipsHiddenSourceFiles(t *testing.T) {
 	assert.NotContains(t, b.Files, ".gitkeep", "hidden files are left out, as go:embed did")
 	assert.NotContains(t, b.Files, "_draft.j2")
 
-	_, err = Open(BundleSet).ReadFile("templates/api/.gitkeep")
+	_, err = Open(templatesSet).ReadFile("templates/api/.gitkeep")
 	require.ErrorIs(t, err, fs.ErrNotExist, "loaders do not see them either")
 }

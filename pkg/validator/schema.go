@@ -19,19 +19,57 @@
 package validator
 
 import (
-	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/xeipuuv/gojsonschema"
 )
 
-//go:embed schemas/*.json
-var schemas embed.FS
+// The JSON schemas are the "v1" item (apiVersion kdeps.io/v1) of the
+// "schemas" asset set, one <name>.json file per document kind.
+const (
+	schemasSet  = "schemas"
+	schemasItem = "v1"
+)
+
+//nolint:gochecknoglobals // fixed list of document kinds
+var schemaNames = []string{"workflow", "resource", "agency", "component"}
+
+//nolint:gochecknoinits // registers the JSON schemas as a versioned asset set
+func init() {
+	assets.Register(schemasSet, assets.Spec{Validate: validateSchemaBundle, Required: func(name string) bool {
+		return name == schemasItem
+	}})
+}
+
+// validateSchemaBundle checks that a downloaded schemas bundle holds every
+// schema and that each one compiles.
+func validateSchemaBundle(data []byte, _ string) error {
+	want := make([]string, len(schemaNames))
+	for i, n := range schemaNames {
+		want[i] = n + ".json"
+	}
+	b, err := assets.ValidateBundle(data, want...)
+	if err != nil {
+		return err
+	}
+	for _, f := range want {
+		if _, cErr := gojsonschema.NewSchema(gojsonschema.NewStringLoader(b.Files[f])); cErr != nil {
+			return fmt.Errorf("%s: %w", f, cErr)
+		}
+	}
+	return nil
+}
+
+// schemaFS returns the schemas item's files, rooted at the item directory.
+func schemaFS() (fs.FS, error) {
+	return fs.Sub(assets.Open(schemasSet), schemasSet+"/"+schemasItem)
+}
 
 //nolint:gochecknoglobals // test-replaceable
 var splitFieldParts = func(s string) []string { return strings.Split(s, ".") }
@@ -61,13 +99,17 @@ type SchemaValidator struct {
 // NewSchemaValidator creates a new schema validator.
 func NewSchemaValidator() (*SchemaValidator, error) {
 	kdeps_debug.Log("enter: NewSchemaValidator")
-	return newSchemaValidatorFromFS(schemas)
+	fsys, err := schemaFS()
+	if err != nil {
+		return nil, err
+	}
+	return newSchemaValidatorFromFS(fsys)
 }
 
-// SchemaJSON returns the embedded JSON schema named name ("resource",
-// "workflow", "agency" or "component").
+// SchemaJSON returns the JSON schema named name ("resource", "workflow",
+// "agency" or "component") from the schemas asset set.
 func SchemaJSON(name string) ([]byte, error) {
-	return fs.ReadFile(schemas, "schemas/"+name+".json")
+	return assets.ReadBundleFile(schemasSet, schemasItem, name+".json")
 }
 
 // loadSchemaFromFS reads and compiles a JSON schema from fsys.
@@ -88,16 +130,16 @@ func newSchemaValidatorFromFS(fsys fs.FS) (*SchemaValidator, error) {
 	sv := &SchemaValidator{}
 	var err error
 
-	if sv.workflowSchema, err = loadSchemaFromFS(fsys, "schemas/workflow.json", "workflow"); err != nil {
+	if sv.workflowSchema, err = loadSchemaFromFS(fsys, "workflow.json", "workflow"); err != nil {
 		return nil, err
 	}
-	if sv.resourceSchema, err = loadSchemaFromFS(fsys, "schemas/resource.json", "resource"); err != nil {
+	if sv.resourceSchema, err = loadSchemaFromFS(fsys, "resource.json", "resource"); err != nil {
 		return nil, err
 	}
-	if sv.agencySchema, err = loadSchemaFromFS(fsys, "schemas/agency.json", "agency"); err != nil {
+	if sv.agencySchema, err = loadSchemaFromFS(fsys, "agency.json", "agency"); err != nil {
 		return nil, err
 	}
-	if sv.componentSchema, err = loadSchemaFromFS(fsys, "schemas/component.json", "component"); err != nil {
+	if sv.componentSchema, err = loadSchemaFromFS(fsys, "component.json", "component"); err != nil {
 		return nil, err
 	}
 

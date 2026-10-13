@@ -98,7 +98,7 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 	var changes []Change
 	if len(targets) == 0 {
 		targets = make([]target, 0, len(Sets))
-		for _, s := range Sets {
+		for _, s := range Registered() {
 			targets = append(targets, target{set: s})
 		}
 	}
@@ -245,7 +245,7 @@ func skip(ch Change, note string) Change {
 // localItems maps every known item id to its local state.
 func localItems(root string) (map[string]Item, error) {
 	out := map[string]Item{}
-	for _, s := range Sets {
+	for _, s := range Registered() {
 		items, err := Items(s, root)
 		if err != nil {
 			return nil, err
@@ -276,10 +276,7 @@ func RemoveItems(root string, ids []string) []Change {
 // means the store was never filled (or a newer kdeps added the set).
 func Missing() []string {
 	var out []string
-	for _, set := range Sets {
-		if _, err := specFor(set); err != nil {
-			continue
-		}
+	for _, set := range Registered() {
 		if entries, err := Open(set).ReadDir(set); err != nil || len(entries) == 0 {
 			out = append(out, set)
 		}

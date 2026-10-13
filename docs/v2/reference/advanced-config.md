@@ -197,7 +197,7 @@ sql:
 | `maxIdleTime` | 5m | Max time before idle connection is closed |
 | `connectionTimeout` | (none - no connection lifetime limit) | Connection acquisition timeout |
 
-These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of the `sql:` resource entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is not backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
+These defaults (the `defaults/executors` asset, updated with `kdeps update`) apply only when `pool:` is left out of the `sql:` resource entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is not backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
 
 ### Using named connections
 

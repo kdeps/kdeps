@@ -19,10 +19,14 @@
 package k8s
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -300,44 +304,47 @@ func TestGenerateManifests_OllamaViaEnvBackend(t *testing.T) {
 	assert.Contains(t, manifests, "containerPort: 11434")
 }
 
+// brokenManifestSource points the k8s asset set at a copy of the source
+// manifests with file replaced by an unparseable template.
+func brokenManifestSource(t *testing.T, file string) {
+	t.Helper()
+	src := t.TempDir()
+	dir := filepath.Join(src, k8sSet, k8sItem)
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	from := filepath.Join(assets.Source(), k8sSet, k8sItem)
+	entries, err := os.ReadDir(from)
+	require.NoError(t, err)
+	for _, e := range entries {
+		data, readErr := os.ReadFile(filepath.Join(from, e.Name()))
+		require.NoError(t, readErr)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, e.Name()), data, 0o600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte("{{ if }}"), 0o600))
+	t.Setenv(assets.SourceEnv, src)
+}
+
 func TestGenerateManifests_TemplateErrors(t *testing.T) {
-	// Corrupt templates to trigger errors in GenerateManifests
-	origDeployment := deploymentTemplate
-	origService := serviceTemplate
-	defer func() {
-		deploymentTemplate = origDeployment
-		serviceTemplate = origService
-	}()
-
 	generator := NewGenerator("test")
-	workflow := &domain.Workflow{}
-
-	// Error in deployment template
-	deploymentTemplate = "{{ if }}"
-	_, err := generator.GenerateManifests(workflow)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "render deployment template")
-
-	// Error in service template
-	deploymentTemplate = origDeployment
-	serviceTemplate = "{{ if }}"
-	_, err = generator.GenerateManifests(workflow)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "render service template")
-
-	// Error in networkpolicy template
-	origPolicy := networkPolicyTemplate
-	defer func() { networkPolicyTemplate = origPolicy }()
-	serviceTemplate = origService
-	networkPolicyTemplate = "{{ if }}"
 	npWorkflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
 		},
 	}
-	_, err = generator.GenerateManifests(npWorkflow)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "render networkpolicy template")
+	for _, name := range []string{deployment, service, networkPol} {
+		t.Run(name, func(t *testing.T) {
+			brokenManifestSource(t, name+templateExt)
+			_, err := generator.GenerateManifests(npWorkflow)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "render "+name+" template")
+		})
+	}
+}
+
+func TestGenerateManifests_NoAssets(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
+	_, err := NewGenerator("test").GenerateManifests(&domain.Workflow{})
+	require.ErrorContains(t, err, "run kdeps update")
 }
 
 func TestRenderTemplate_Error(t *testing.T) {

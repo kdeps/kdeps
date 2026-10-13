@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -215,6 +216,7 @@ func (m *MockFileWatcherWithError) Close() error {
 // MockFileWatcherWithCallback extends MockFileWatcher to capture callbacks.
 type MockFileWatcherWithCallback struct {
 	MockFileWatcher
+	mu        sync.Mutex
 	callbacks []func()
 }
 
@@ -226,6 +228,16 @@ func NewMockFileWatcherWithCallback() *MockFileWatcherWithCallback {
 }
 
 func (m *MockFileWatcherWithCallback) Watch(path string, callback func()) error {
+	m.mu.Lock()
 	m.callbacks = append(m.callbacks, callback)
+	m.mu.Unlock()
 	return m.MockFileWatcher.Watch(path, callback)
+}
+
+// watchCount is the number of Watch calls so far; safe while a server
+// goroutine is still registering watches.
+func (m *MockFileWatcherWithCallback) watchCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.callbacks)
 }
