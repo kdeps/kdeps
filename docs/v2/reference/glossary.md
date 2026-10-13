@@ -24,7 +24,7 @@ mode and agent mode.
 | `file()` | An expression function that reads uploaded or local files. Takes a glob pattern and an optional selector (`first`, `last`, `count`, `all`, `mime:<type>`). | [Unified API](/workflow/data-access) |
 | `file` (resource) | A resource action type for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/workflow/resources/file) |
 | `get()` | The primary data access function. Reads from query params, headers, body, session, memory, environment, or resource outputs, with auto-detection. | [Unified API](/workflow/data-access) |
-| `git` | A resource action type for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
+| `git` | A kdeps component (`component: git`) for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
 | `httpClient` | A resource action type for HTTP requests. Supports all methods, headers, query params, body, retry, and caching. | [HTTP client](/workflow/resources/http-client) |
 | `info()` | An expression function that returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`. | [Unified API](/workflow/data-access) |
 | `items` | An array a resource iterates over. The resource runs once per item. Access the current item via `item.current()` or `get('current')`. | [Items iteration](/workflow/items) |

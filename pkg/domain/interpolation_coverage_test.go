@@ -47,7 +47,7 @@ func excluded(reason string) interpolationFieldStatus {
 // interpolationManifest is the hard list: one entry per resource action
 // config struct fixed for interpolation coverage in this pass (see
 // pkg/executor/{scraper,embedding,loader,vectorstore,searchlocal,searchweb,
-// codeintelligence,git,file}/executor_eval.go), naming every
+// codeintelligence,file}/executor_eval.go), naming every
 // string/[]string field and classifying it interpolatable or excluded.
 //
 // TestInterpolationManifest_MatchesStructFields below reflects over each
@@ -134,17 +134,7 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Extensions":  interpolatable(),
 		"GraphDBPath": interpolatable(),
 	},
-	"GitResourceConfig": {
-		"Operation":  interpolatable(), // named type GitOperation, cast to/from string
-		"WorkingDir": interpolatable(),
-		"Message":    interpolatable(),
-		"Branch":     interpolatable(),
-		"URL":        interpolatable(),
-		"Remote":     interpolatable(),
-		"Format":     interpolatable(),
-		"Paths":      interpolatable(),
-		"Args":       interpolatable(),
-	},
+
 	"FileResourceConfig": {
 		"Operation": interpolatable(), // named type FileResourceOperation, cast to/from string
 		"Path":      interpolatable(),
@@ -172,7 +162,6 @@ func interpolationCoveredTypes() map[string]any {
 		"SearchLocalConfig":      SearchLocalConfig{},
 		"SearchWebConfig":        SearchWebConfig{},
 		"CodeIntelligenceConfig": CodeIntelligenceConfig{},
-		"GitResourceConfig":      GitResourceConfig{},
 		"FileResourceConfig":     FileResourceConfig{},
 	}
 }

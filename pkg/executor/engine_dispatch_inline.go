@@ -142,9 +142,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorFile: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineFile(inline.File, ctx)
 		},
-		ExecutorGit: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineGit(inline.Git, ctx)
-		},
 		ExecutorCodeIntel: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
 		},

@@ -123,7 +123,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 |---|---|---|
 | `sql` | Database queries and transactions | [SQL](/workflow/resources/sql) |
 | `file` | Read, write, patch, list, delete, copy, move files | [File](/workflow/resources/file) |
-| `git` | Status, diff, log, commit, branch, push, pull | [Git](/workflow/resources/git) |
+| `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `python` | Run a Python script, stdout parsed as JSON | [Python](/workflow/resources/python) |
 | `exec` | Run a shell command, stdout captured | [Exec](/workflow/resources/exec) |
 | `codeIntelligence` | Symbol search, definitions, references, folder graph | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |

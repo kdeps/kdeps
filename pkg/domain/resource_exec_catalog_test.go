@@ -40,7 +40,7 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 	wantInline := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "file", "git",
+		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	if len(inlineNames) != len(wantInline) {

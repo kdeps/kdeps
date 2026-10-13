@@ -84,20 +84,6 @@ func (e *Engine) executeInlineFile(
 	)
 }
 
-// executeInlineGit executes an inline git resource.
-func (e *Engine) executeInlineGit(
-	config *domain.GitResourceConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineGit",
-		e.registry.GetGitExecutor,
-		"git",
-		ctx,
-		config,
-	)
-}
-
 // executeInlineCodeIntelligence executes an inline codeIntelligence resource.
 func (e *Engine) executeInlineCodeIntelligence(
 	config *domain.CodeIntelligenceConfig,

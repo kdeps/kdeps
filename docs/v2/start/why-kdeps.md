@@ -58,7 +58,7 @@ The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
   `kdeps registry install owner/repo` pulls straight from a GitHub repo, no
   registry entry required. You never need it to build or deploy your own agent.
 
-The [`git:` resource](/workflow/resources/git) also lets an agent read and write
+The [`git` component](/workflow/resources/git) also lets an agent read and write
 repository state as part of its pipeline - status, diff, log, commit, branch.
 
 ## Two modes, one workflow file
