@@ -69,7 +69,7 @@ YAML
 # Test: end-to-end transcription against the committed sample audio
 # (tests/e2e/fixtures/transcribe-sample.mp3, spoken text "This is a kdeps
 # transcription test."). Requires a real OPENAI_API_KEY or GROQ_API_KEY --
-# unlike ocr:, transcribe: has no local/free backend in this repo, so this
+# unlike the ocr component, transcribe: has no local/free backend in this repo, so this
 # is a genuine secret-gated skip (same class as the tts (online)/search
 # Tier-4 component tests), not a fixable-without-secrets one.
 test_transcribe_live() {

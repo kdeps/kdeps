@@ -27,7 +27,6 @@ import (
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	execHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
-	execOCR "github.com/kdeps/kdeps/v2/pkg/executor/ocr"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	execTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -40,7 +39,6 @@ func registerResourceTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerHTTPTool(ctx, reg)
 	registerSearchLocalTool(ctx, reg)
 	registerTranscribeTool(ctx, reg)
-	registerOCRTool(ctx, reg)
 	registerLoaderTool(ctx, reg)
 	registerEmbeddingTools(ctx, reg)
 }
@@ -123,34 +121,6 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 			}
 			if v, ok := args["modelPath"].(string); ok {
 				config.ModelPath = v
-			}
-
-			result, err := exec.Execute(nil, config)
-			if err != nil {
-				return "", err
-			}
-			out, _ := json.MarshalIndent(result, "", "  ")
-			return string(out), nil
-		},
-	}))
-}
-
-// registerOCRTool registers an image text-extraction tool (ocr_image).
-func registerOCRTool(_ context.Context, reg *kdepstools.Registry) {
-	exec := execOCR.NewExecutor()
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "ocr_image",
-		Execute: func(args map[string]any) (string, error) {
-			config := &domain.OCRConfig{}
-			if v, ok := args["file"].(string); ok {
-				config.File = v
-				if err := ValidateRootPath(v); err != nil {
-					return "", fmt.Errorf("ocr_image: %w", err)
-				}
-			}
-			if v, ok := args["language"].(string); ok {
-				config.Language = v
 			}
 
 			result, err := exec.Execute(nil, config)

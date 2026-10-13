@@ -92,6 +92,39 @@ http:
 
 Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
 
+## Declared exec tools
+
+A tool whose definition has an `exec:` block runs one program directly (no shell) and needs no Go code. `ocr_image` ships this way.
+
+```yaml
+# tools/ocr_image.yaml (shipped)
+version: 1.1.0
+description: Extract text from an image via tesseract OCR ...
+parameters:
+  file: {type: string, required: true}
+  language: {type: string, default: eng}
+exec:
+  command: tesseract          # looked up on PATH when the tool runs
+  install: tesseract-ocr      # the error names it when tesseract is missing
+  paths: [file]               # checked against the workspace boundary before running
+  args:                       # templates over .args; an arg that renders empty is dropped
+    - "{{.args.file}}"
+    - stdout
+    - "-l"
+    - "{{.args.language}}"
+```
+
+| Field | Meaning |
+|---|---|
+| `command` | Program to run, found on `PATH` |
+| `args` | One template per argument; empty results are dropped, so an optional flag is two conditional args |
+| `paths` | Parameters holding file paths; each is checked like `read_file`'s path |
+| `install` | Package to name when `command` is missing |
+| `timeout` | Per-run limit (Go duration, default `60s`) |
+| `result` | Template over `.args` and `.stdout`; empty returns stdout trimmed |
+
+A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
+
 ## Parameter-name synonyms
 
 A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. This is scoped to parameter names only: kdeps does not maintain a separate table of alternate *tool* names (e.g. routing a call to `grep` as if it were `search_local`) - the tool list already tells the model the real name to call, and a second, silently-redirecting name for the same tool added maintenance cost without fixing the cases where a model loses track of what tools it has.

@@ -97,7 +97,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerSerpAPI(ctx, reg, webCache)
 	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
-	registerDeclaredHTTPTools(ctx, reg, webCache)
+	registerDeclaredTools(ctx, reg, webCache)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)

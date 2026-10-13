@@ -69,7 +69,6 @@ var ResourceDocs = map[string]string{
 	"loader":           "workflow/resources/loader.md",
 	"vectorStore":      "workflow/resources/vector-store.md",
 	"transcribe":       "workflow/resources/transcribe.md",
-	"ocr":              "workflow/resources/ocr.md",
 	"apiResponse":      "workflow/resources/api-response.md",
 }
 
@@ -140,6 +139,30 @@ func WriteResources(formulasDir, filesDir, docsDir, fileBase, version string) er
 		}
 		if wErr := writeFormula(formulasDir, f); wErr != nil {
 			return wErr
+		}
+	}
+	return pruneResourceFormulas(formulasDir)
+}
+
+// pruneResourceFormulas deletes the formulas of resource types kdeps no
+// longer has (a type moved to a component, say), so the registry stops
+// listing them.
+func pruneResourceFormulas(formulasDir string) error {
+	entries, err := os.ReadDir(formulasDir)
+	if err != nil {
+		return err
+	}
+	keep := make(map[string]bool, len(ResourceDocs))
+	for k := range ResourceDocs {
+		keep[ResourcePackageName(k)+yamlExt] = true
+	}
+	prefix := formulaPrefix + ResourcePackageType + "-"
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), prefix) || keep[e.Name()] {
+			continue
+		}
+		if rmErr := os.Remove(filepath.Join(formulasDir, e.Name())); rmErr != nil {
+			return rmErr
 		}
 	}
 	return nil

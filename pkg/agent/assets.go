@@ -115,8 +115,13 @@ func validateToolDefinition(data []byte, _ string) error {
 	if d.Description == "" {
 		return errors.New("description is required")
 	}
-	if d.HTTP != nil {
+	switch {
+	case d.HTTP != nil && d.Exec != nil:
+		return errors.New("a tool declares http: or exec:, not both")
+	case d.HTTP != nil:
 		return d.HTTP.validate()
+	case d.Exec != nil:
+		return d.Exec.validate()
 	}
 	return nil
 }

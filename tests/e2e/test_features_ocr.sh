@@ -17,114 +17,125 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for the ocr: resource action (tesseract-based image text extraction)
+# E2E tests for the ocr component (tesseract image text extraction), shipped in
+# the components asset set and called with component: {name: ocr}
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing ocr: resource action..."
+echo "Testing the ocr component (kdeps components asset set)..."
 
 if [ -z "${KDEPS_BIN:-}" ] || [ ! -x "${KDEPS_BIN}" ]; then
     test_skipped "ocr: kdeps binary not found"
     exit 0
 fi
 
-# Test: a workflow using ocr: validates
-test_ocr_validates() {
+# ocr_workflow writes a workflow whose extract resource is $1 and prints its dir.
+ocr_workflow() {
     local pkg_dir
     pkg_dir=$(mktemp -d)
     mkdir -p "$pkg_dir/resources"
-
     cat > "$pkg_dir/workflow.yaml" <<'YAML'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
-  name: ocr-validate-test
+  name: ocr-test
   version: "1.0.0"
   targetActionId: extract
 settings: {}
 YAML
+    printf '%s\n' "$1" > "$pkg_dir/resources/extract.yaml"
+    echo "$pkg_dir"
+}
 
-    cat > "$pkg_dir/resources/extract.yaml" <<'YAML'
-actionId: extract
+test_ocr_component_validates() {
+    local pkg_dir output
+    pkg_dir=$(ocr_workflow 'actionId: extract
 name: Extract Text
-ocr:
-  file: "/tmp/does-not-need-to-exist-for-validation.png"
-  language: "eng"
-YAML
-
-    if "$KDEPS_BIN" validate "$pkg_dir/workflow.yaml" &>/dev/null; then
-        test_passed "ocr - workflow using ocr: validates"
+component:
+  name: ocr
+  with:
+    file: /tmp/does-not-need-to-exist-for-validation.png
+    language: eng')
+    if output=$("$KDEPS_BIN" validate "$pkg_dir/workflow.yaml" 2>&1); then
+        test_passed "ocr - a workflow calling the ocr component validates"
     else
-        local output
-        output=$("$KDEPS_BIN" validate "$pkg_dir/workflow.yaml" 2>&1 || true)
-        test_failed "ocr - workflow using ocr: validates" "$output"
+        test_failed "ocr - a workflow calling the ocr component validates" "$output"
     fi
-
     rm -rf "$pkg_dir"
 }
 
-# Test: end-to-end extraction against the committed sample image
-# (tests/e2e/fixtures/ocr-sample.png, text "KDeps OCR Sample"). Skips if
-# tesseract is unavailable, matching the pattern used by the other
-# CLI-dependent e2e tests in this suite.
+test_ocr_resource_key_removed() {
+    local pkg_dir output
+    pkg_dir=$(ocr_workflow 'actionId: extract
+name: Extract Text
+ocr:
+  file: /tmp/x.png')
+    if output=$("$KDEPS_BIN" validate "$pkg_dir/workflow.yaml" 2>&1); then
+        test_failed "ocr - the ocr: resource key is gone" "validate accepted it: $output"
+    elif output_grep "must specify at least one execution type" "$output"; then
+        test_passed "ocr - the ocr: resource key is gone (use component: ocr)"
+    else
+        test_failed "ocr - ocr: rejection message" "$output"
+    fi
+    rm -rf "$pkg_dir"
+}
+
 test_ocr_extracts_text() {
     if ! command -v tesseract &>/dev/null; then
         test_skipped "ocr - end-to-end text extraction (tesseract not installed)"
         return 0
     fi
-
     local fixture="$PROJECT_ROOT/tests/e2e/fixtures/ocr-sample.png"
     if [ ! -f "$fixture" ]; then
         test_skipped "ocr - end-to-end text extraction (fixture not found: $fixture)"
         return 0
     fi
-
-    local pkg_dir
-    pkg_dir=$(mktemp -d)
-    mkdir -p "$pkg_dir/resources"
-
-    local img_path_native
-    img_path_native=$(to_native_path "$fixture")
-
-    cat > "$pkg_dir/workflow.yaml" <<'YAML'
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: ocr-e2e-test
-  version: "1.0.0"
-  targetActionId: extract
-settings: {}
-YAML
-
-    cat > "$pkg_dir/resources/extract.yaml" <<YAML
-actionId: extract
+    local pkg_dir result
+    pkg_dir=$(ocr_workflow "actionId: extract
 name: Extract Text
-ocr:
-  file: "${img_path_native}"
+component:
+  name: ocr
+  with:
+    file: \"$(to_native_path "$fixture")\"
 apiResponse:
   success: true
   response:
-    text: "{{ output('extract').text }}"
-YAML
-
-    local result
-    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+    text: \"{{ output('extract').stdout }}\"")
+    if result=$(timeout 60 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         if output_grep_i "KDeps OCR Sample" "$result"; then
-            test_passed "ocr - end-to-end text extraction"
+            test_passed "ocr - the ocr component extracts text end to end"
         else
             test_failed "ocr - end-to-end text extraction" "expected 'KDeps OCR Sample' in output: $result"
         fi
     else
         test_failed "ocr - end-to-end text extraction" "run failed: $result"
     fi
-
     rm -rf "$pkg_dir"
 }
 
-test_ocr_validates
+test_ocr_dockerfile_installs_tesseract() {
+    local pkg_dir output
+    pkg_dir=$(ocr_workflow 'actionId: extract
+name: Extract Text
+component:
+  name: ocr
+  with:
+    file: /data/a.png')
+    output=$("$KDEPS_BIN" bundle build "$pkg_dir" --show-dockerfile 2>&1 || true)
+    if output_grep "tesseract-ocr" "$output"; then
+        test_passed "ocr - the component's setup puts tesseract-ocr in the image"
+    else
+        test_failed "ocr - tesseract-ocr missing from the Dockerfile" "$output"
+    fi
+    rm -rf "$pkg_dir"
+}
+
+test_ocr_component_validates
+test_ocr_resource_key_removed
 test_ocr_extracts_text
+test_ocr_dockerfile_installs_tesseract
 
 echo ""

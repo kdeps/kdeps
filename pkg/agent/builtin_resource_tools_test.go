@@ -43,7 +43,6 @@ func TestRegisterResourceTools_AllRegistered(t *testing.T) {
 		"http_request",
 		"search_local",
 		"transcribe_audio",
-		"ocr_image",
 		"load_document",
 		"embedding_search",
 		"embedding_vectorize",
@@ -318,45 +317,36 @@ func TestRegisterTranscribeTool_Execute_WhisperCPP_ExtractsText(t *testing.T) {
 	assert.Contains(t, strings.ToLower(out), "transcription test")
 }
 
-// --- registerOCRTool ---
+// --- ocr_image (declared exec tool) ---
 
-func TestRegisterOCRTool_Registered(t *testing.T) {
+func ocrImageTool(t *testing.T) *kdepstools.Tool {
+	t.Helper()
 	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
+	registerDeclaredTools(context.Background(), reg, nil)
 	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-	assert.Equal(t, "ocr_image", tool.Name)
+	require.NotNil(t, tool, "ocr_image is declared by its tool asset")
+	return tool
+}
+
+func TestOCRImageTool_Declared(t *testing.T) {
+	tool := ocrImageTool(t)
 	assert.Contains(t, tool.Parameters, "file")
 	assert.True(t, tool.Parameters["file"].Required)
-	assert.Contains(t, tool.Parameters, "language")
 	assert.False(t, tool.Parameters["language"].Required)
-}
-
-func TestRegisterOCRTool_Execute_MissingFile(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "file is required")
+	require.ErrorContains(t, err, "ocr_image: file is required")
 }
 
-func TestRegisterOCRTool_Execute_WithInvalidFile(t *testing.T) {
-	if _, err := exec.LookPath("tesseract"); err != nil {
-		t.Skip("tesseract not found in PATH")
-	}
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-
-	_, err := tool.Execute(map[string]any{"file": "/nonexistent/image.png"})
-	assert.Error(t, err)
+func TestOCRImageTool_MissingTesseract(t *testing.T) {
+	orig := lookExecTool
+	lookExecTool = func(string) (string, error) { return "", exec.ErrNotFound }
+	t.Cleanup(func() { lookExecTool = orig })
+	_, err := ocrImageTool(t).Execute(map[string]any{"file": t.TempDir() + "/a.png"})
+	require.ErrorContains(t, err, "ocr_image: tesseract not found in PATH (install tesseract-ocr)")
 }
 
-func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
+func TestOCRImageTool_ExtractsText(t *testing.T) {
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		t.Skip("tesseract not found in PATH")
 	}
@@ -367,21 +357,17 @@ func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
 			t.Skip("ImageMagick (magick/convert) not found in PATH")
 		}
 	}
+	imgPath := filepath.Join(t.TempDir(), "test.png")
+	require.NoError(t, exec.Command(imCmd, "-size", "300x80", "xc:white",
+		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath).Run())
 
-	dir := t.TempDir()
-	imgPath := filepath.Join(dir, "test.png")
-	cmd := exec.Command(imCmd, "-size", "300x80", "xc:white",
-		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath)
-	require.NoError(t, cmd.Run())
-
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-
+	tool := ocrImageTool(t)
 	out, err := tool.Execute(map[string]any{"file": imgPath})
 	require.NoError(t, err)
 	assert.Contains(t, out, "TOOLTEST")
+
+	_, err = tool.Execute(map[string]any{"file": filepath.Join(t.TempDir(), "missing.png")})
+	require.ErrorContains(t, err, "ocr_image: tesseract:")
 }
 
 // --- registerLoaderTool ---

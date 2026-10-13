@@ -47,6 +47,8 @@ type toolDefinition struct {
 	Parameters   map[string]domain.ToolParam `yaml:"parameters,omitempty"`
 	// HTTP, when set, implements the tool as one HTTP call (see httpToolSpec).
 	HTTP *httpToolSpec `yaml:"http,omitempty"`
+	// Exec, when set, implements the tool as one program run (see execToolSpec).
+	Exec *execToolSpec `yaml:"exec,omitempty"`
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its
