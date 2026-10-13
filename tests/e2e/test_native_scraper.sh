@@ -28,13 +28,13 @@ echo "Testing native scraper executor..."
 
 # Skip if kdeps binary not available
 if [ -z "${KDEPS_BIN:-}" ] || [ ! -x "${KDEPS_BIN}" ]; then
-    test_skipped "native scraper - kdeps binary not found"
+    test_skipped "scraper component - kdeps binary not found"
     exit 0
 fi
 
 # Skip if Python not available (used to spin up a test HTTP server)
 if ! command -v python3 &>/dev/null; then
-    test_skipped "native scraper - python3 not available for test server"
+    test_skipped "scraper component - python3 not available for test server"
     exit 0
 fi
 
@@ -90,8 +90,10 @@ YAML
     cat > "$pkg_dir/resources/fetch-page.yaml" <<YAML
 actionId: fetch-page
 name: Fetch Page
-scraper:
-  url: "http://127.0.0.1:${SERVER_PORT}/"
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${SERVER_PORT}/"
 apiResponse:
   success: true
   response:
@@ -101,12 +103,12 @@ YAML
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         if output_grep_fixed "scraper-ok" "$result"; then
-            test_passed "native scraper - plain text fetch"
+            test_passed "scraper component - plain text fetch"
         else
-            test_failed "native scraper - plain text fetch (output format mismatch, may need server mode)"
+            test_failed "scraper component - plain text fetch (output format mismatch, may need server mode)"
         fi
     else
-        test_failed "native scraper - plain text fetch (run failed, may need full server environment)" "${result:-}"
+        test_failed "scraper component - plain text fetch (run failed, may need full server environment)" "${result:-}"
     fi
 
     stop_server
@@ -132,9 +134,11 @@ YAML
     cat > "$pkg_dir/resources/fetch-with-selector.yaml" <<YAML
 actionId: fetch-with-selector
 name: Fetch With Selector
-scraper:
-  url: "http://127.0.0.1:${SERVER_PORT}/"
-  selector: "p.result"
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${SERVER_PORT}/"
+    selector: "p.result"
 apiResponse:
   success: true
   response:
@@ -144,16 +148,44 @@ YAML
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         if output_grep_fixed "scraper-ok" "$result"; then
-            test_passed "native scraper - CSS selector"
+            test_passed "scraper component - CSS selector"
         else
-            test_failed "native scraper - CSS selector (output format mismatch)"
+            test_failed "scraper component - CSS selector (output format mismatch)"
         fi
     else
-        test_failed "native scraper - CSS selector (run failed)" "${result:-}"
+        test_failed "scraper component - CSS selector (run failed)" "${result:-}"
     fi
 
     stop_server
 }
 
+# Test: the scraper: resource key is gone (the scraper is a component)
+test_scraper_key_rejected() {
+    local pkg_dir="$WORK_DIR/scraper-key"
+    mkdir -p "$pkg_dir/resources"
+    cat > "$pkg_dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: scraper-key-test
+  version: "1.0.0"
+  targetActionId: old
+settings: {}
+YAML
+    cat > "$pkg_dir/resources/old.yaml" <<'YAML'
+actionId: old
+name: Old
+scraper:
+  url: "http://127.0.0.1:1/"
+YAML
+    local result
+    if result=$("$KDEPS_BIN" validate "$pkg_dir" 2>&1); then
+        test_failed "scraper component - scraper: resource key rejected" "validate passed: $result"
+    else
+        test_passed "scraper component - scraper: resource key rejected"
+    fi
+}
+
 test_scraper_plain_text
 test_scraper_css_selector
+test_scraper_key_rejected

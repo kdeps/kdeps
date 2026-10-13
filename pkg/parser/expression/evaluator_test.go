@@ -1745,3 +1745,19 @@ func TestEvaluator_FileExists(t *testing.T) {
 		assert.Equal(t, want, got, raw)
 	}
 }
+
+func TestEvaluator_HTMLText(t *testing.T) {
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	env := map[string]interface{}{
+		"page": `<html><body><p class="a">one</p><div><p class="a">two</p></div><p>skip</p></body></html>`,
+	}
+	for raw, want := range map[string]interface{}{
+		"htmlText(page, 'p.a')":      "one\ntwo",
+		"htmlText(page, 'h1')":       "",
+		"htmlText('plain text', '')": "plain text",
+	} {
+		got, err := evaluator.Evaluate(&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect}, env)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
+	}
+}

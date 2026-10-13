@@ -1,6 +1,6 @@
 # scraper-native
 
-Web scraping + AI summarization using the **built-in native scraper executor** -- pure Go, no Python dependencies.
+Web scraping + AI summarization with the **scraper component** (`component: scraper`) - an `httpClient` GET plus `htmlText()` CSS-selector extraction, no Python dependencies.
 
 ## Usage
 
@@ -24,7 +24,7 @@ curl -X POST http://localhost:16402/summarize \
 
 ## How it works
 
-1. **fetch** -- `run.scraper` fetches the URL and extracts text (optionally filtered by CSS selector)
+1. **fetch** -- `component: scraper` fetches the URL and extracts text (optionally filtered by CSS selector)
 2. **summarize** -- LLM condenses the scraped content into 3-5 sentences
 3. **response** -- returns the URL and summary as a JSON API response
 
@@ -34,7 +34,7 @@ curl -X POST http://localhost:16402/summarize \
 scraper-native/
 ├── workflow.yaml
 └── resources/
-    ├── fetch.yaml      # run.scraper - native HTTP + goquery
+    ├── fetch.yaml      # component: scraper - httpClient + htmlText()
     ├── summarize.yaml  # LLM summarization
     └── response.yaml   # API response
 ```

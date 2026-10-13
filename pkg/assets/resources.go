@@ -55,7 +55,6 @@ var ResourceDocs = map[string]string{
 	"exec":             "workflow/resources/exec.md",
 	"agent":            "agencies/agent-resource.md",
 	"component":        "agencies/component-resource.md",
-	"scraper":          "workflow/resources/scraper.md",
 	"embedding":        "workflow/resources/embedding.md",
 	"searchLocal":      "workflow/resources/search-local.md",
 	"searchWeb":        "workflow/resources/search-web.md",

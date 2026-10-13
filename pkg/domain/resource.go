@@ -49,7 +49,6 @@ type Resource struct {
 	Exec             *ExecConfig             `yaml:"exec,omitempty"`
 	Agent            *AgentCallConfig        `yaml:"agent,omitempty"`
 	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
-	Scraper          *ScraperConfig          `yaml:"scraper,omitempty"`
 	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
 	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
 	SearchWeb        *SearchWebConfig        `yaml:"searchWeb,omitempty"`

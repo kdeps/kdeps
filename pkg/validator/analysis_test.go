@@ -305,15 +305,6 @@ func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInScraperURL(t *testing.T) {
-	r := mkResource("target")
-	r.Scraper = &domain.ScraperConfig{URL: "{{ gone.url }}"}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
 func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 	r := mkResource("target")
 	r.Embedding = &domain.EmbeddingConfig{Text: "{{ gone.text }}"}

@@ -288,4 +288,4 @@ Pause execution for a duration or until a CSS selector appears.
 ## See also
 
 - [Browser resource](/workflow/resources/browser) - Configuration, stealth mode, sessions, and examples
-- [Scraper resource](/workflow/resources/scraper) - Text extraction from already-fetched pages
+- [Scraper component](/workflow/resources/scraper) - Text extraction from already-fetched pages

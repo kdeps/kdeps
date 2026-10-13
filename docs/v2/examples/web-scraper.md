@@ -1,11 +1,11 @@
 # Scrape a web page and summarize it
 
 Build an API that takes a URL, fetches the page with the
-built-in `scraper:` resource, sends the extracted text to a local LLM, and
+`scraper` component, sends the extracted text to a local LLM, and
 returns a short summary as JSON.
 
-The `scraper:` resource fetches a URL and returns its readable text. It runs
-in-process - no browser, no external service. For pages that need JavaScript
+The `scraper` component fetches a URL and returns its readable text - an
+`httpClient` GET, no browser, no external service. For pages that need JavaScript
 rendering, use the [`browser:` resource](/workflow/resources/browser) instead.
 
 **Needs:** Network access.
@@ -60,10 +60,12 @@ validations:
   error:
     code: 400
     message: "url is required"
-scraper:
-  url: "{{ get('url') }}"
-  selector: "{{ get('selector', '') }}"   # optional CSS selector; empty = whole page
-  timeout: 30
+component:
+  name: scraper                            # YAML component from the components asset set
+  with:
+    url: "{{ get('url') }}"
+    selector: "{{ get('selector', '') }}"  # optional CSS selector; empty = whole page
+    timeout: 30s
 ```
 
 </div>
@@ -147,7 +149,7 @@ Response:
 
 ## Next steps
 
-- [Scraper resource](/workflow/resources/scraper) - selectors, timeouts, output shape
+- [Scraper component](/workflow/resources/scraper) - selectors, timeouts, output shape
 - [Browser resource](/workflow/resources/browser) - JavaScript-rendered pages
 - [LLM resource](/workflow/resources/llm) - JSON mode, streaming, tools
 - [searchWeb](/workflow/resources/search-web) - find pages to scrape

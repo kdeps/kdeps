@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -127,6 +129,9 @@ func (e *Evaluator) addSerializationHelpers(evalEnv map[string]interface{}) {
 		return url.QueryEscape(fmt.Sprintf("%v", s))
 	}
 	evalEnv["toJSON"] = evalEnv["json"]
+	// htmlText(html, selector) returns the text of every element matching a
+	// CSS selector, one per line; an empty selector returns html unchanged.
+	evalEnv["htmlText"] = htmlText
 	evalEnv["fromJSON"] = func(s interface{}) interface{} {
 		str := fmt.Sprintf("%v", s)
 		var out interface{}
@@ -229,4 +234,21 @@ func (e *Evaluator) EvaluateCondition(exprStr string, env map[string]interface{}
 		}
 		return false, fmt.Errorf("condition must evaluate to boolean, got %T", result)
 	}
+}
+
+// htmlText extracts the text of the elements matching selector from html.
+func htmlText(html, selector string) string {
+	if selector == "" {
+		return html
+	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return ""
+	}
+	var sb strings.Builder
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		sb.WriteString(s.Text())
+		sb.WriteString("\n")
+	})
+	return strings.TrimSpace(sb.String())
 }

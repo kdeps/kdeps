@@ -52,7 +52,7 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
-7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe)); one is loaded only when a workflow calls it and does not provide a component of that name itself
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [scraper](/workflow/resources/scraper)); one is loaded only when a workflow calls it and does not provide a component of that name itself
 
 A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs:
 
@@ -71,7 +71,21 @@ resources:
     exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
 ```
 
-The component's output is the last resource that ran.
+The component's output is the last resource that ran, unless `interface.output` shapes it. `output` is evaluated after the resources run: strings are expressions, maps and lists are walked, so the caller gets fixed field names whatever the steps returned:
+
+<div v-pre>
+
+```yaml
+# components/fetch/component.yaml (interface, abridged)
+interface:
+  inputs:
+    - {name: url, type: string, required: true}
+  output:                                   # what output('<caller>') returns
+    text: "{{ htmlText(output('viaAPI').body, 'article') }}"
+    status: "{{ output('viaAPI').statusCode }}"
+```
+
+</div>
 
 `setup.osPackages` are installed by `kdeps build` in the image and, at run time, by the machine's package manager (apk, apt-get, brew). List the programs they provide under `setup.provides`: when every one is already on `PATH`, no package manager runs - a run on a machine that has the tool costs nothing extra.
 

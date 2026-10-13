@@ -100,6 +100,10 @@ type ComponentMetadata struct {
 // ComponentInterface declares the named inputs that the parent workflow must supply.
 type ComponentInterface struct {
 	Inputs []ComponentInput `yaml:"inputs,omitempty"`
+	// Output is the component's result, evaluated after its resources run
+	// (strings are expressions; maps and lists are walked). Nil keeps the
+	// last resource's output.
+	Output any `yaml:"output,omitempty"`
 }
 
 // ComponentInput describes a single named input parameter for the component.

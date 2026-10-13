@@ -63,11 +63,6 @@ func excluded(reason string) interpolationFieldStatus {
 //
 //nolint:gochecknoglobals // hard-coded manifest, maintained by hand on purpose
 var interpolationManifest = map[string]map[string]interpolationFieldStatus{
-	"ScraperConfig": {
-		"URL":      interpolatable(),
-		"Selector": interpolatable(),
-		"Timeout":  interpolatable(),
-	},
 	"EmbeddingConfig": {
 		"Operation":       interpolatable(),
 		"Text":            interpolatable(),
@@ -154,7 +149,6 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 // classified or the test below fails.
 func interpolationCoveredTypes() map[string]any {
 	return map[string]any{
-		"ScraperConfig":          ScraperConfig{},
 		"EmbeddingConfig":        EmbeddingConfig{},
 		"LoaderConfig":           LoaderConfig{},
 		"VectorStoreConfig":      VectorStoreConfig{},

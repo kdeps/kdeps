@@ -40,7 +40,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetSQLExecutor())
 	assert.Nil(t, registry.GetPythonExecutor())
 	assert.Nil(t, registry.GetExecExecutor())
-	assert.Nil(t, registry.GetScraperExecutor())
 	assert.Nil(t, registry.GetEmbeddingExecutor())
 	assert.Nil(t, registry.GetSearchLocalExecutor())
 	assert.Nil(t, registry.GetSearchWebExecutor())
@@ -59,7 +58,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockSQL := &mockExecutor{}
 	mockPython := &mockExecutor{}
 	mockExec := &mockExecutor{}
-	mockScraper := &mockExecutor{}
 	mockEmbedding := &mockExecutor{}
 	mockSearchLocal := &mockExecutor{}
 	mockSearchWeb := &mockExecutor{}
@@ -74,7 +72,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
-	registry.SetScraperExecutor(mockScraper)
 	registry.SetEmbeddingExecutor(mockEmbedding)
 	registry.SetSearchLocalExecutor(mockSearchLocal)
 	registry.SetSearchWebExecutor(mockSearchWeb)
@@ -89,7 +86,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockSQL, registry.GetSQLExecutor())
 	assert.Equal(t, mockPython, registry.GetPythonExecutor())
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
-	assert.Equal(t, mockScraper, registry.GetScraperExecutor())
 	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())
 	assert.Equal(t, mockSearchLocal, registry.GetSearchLocalExecutor())
 	assert.Equal(t, mockSearchWeb, registry.GetSearchWebExecutor())

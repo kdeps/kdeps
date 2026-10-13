@@ -41,7 +41,6 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
@@ -115,7 +114,6 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
-	registry.SetScraperExecutor(executorScraper.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())

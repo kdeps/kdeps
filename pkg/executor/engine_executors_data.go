@@ -22,14 +22,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// executeScraper executes a scraper resource.
-func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "scraper", resource.Scraper,
-		e.registry.GetScraperExecutor, "scraper", "executeScraper", ctx,
-	)
-}
-
 // executeEmbedding executes an embedding resource.
 func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(
@@ -44,11 +36,6 @@ func (e *Engine) executeSearchLocal(resource *domain.Resource, ctx *ExecutionCon
 		resource, "searchLocal", resource.SearchLocal,
 		e.registry.GetSearchLocalExecutor, "searchLocal", "executeSearchLocal", ctx,
 	)
-}
-
-// executeInlineScraper executes an inline scraper resource.
-func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegistered("executeInlineScraper", e.registry.GetScraperExecutor, "scraper", ctx, config)
 }
 
 // executeInlineEmbedding executes an inline embedding resource.

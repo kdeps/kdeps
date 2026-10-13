@@ -228,7 +228,6 @@ func TestE2E_EmbeddedDefaults(t *testing.T) {
 	assert.Equal(t, 10, defaults.SQL.MaxOpenConns)
 	assert.Equal(t, 2, defaults.SQL.MaxIdleConns)
 	assert.Equal(t, "5m", defaults.SQL.ConnMaxIdleTime)
-	assert.Equal(t, 30, defaults.Scraper.Timeout)
 	assert.Equal(t, 15, defaults.SearchWeb.Timeout)
 	assert.Equal(t, 5, defaults.SearchWeb.MaxResults)
 	assert.Equal(t, "kdeps-embedding.db", defaults.Embedding.DBPath)
