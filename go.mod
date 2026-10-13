@@ -44,7 +44,7 @@ require (
 	github.com/spf13/fileflow v0.1.0
 	github.com/spf13/pathologize v1.1.0
 	github.com/stretchr/testify v1.12.1
-	github.com/tmc/langchaingo v0.1.14
+	github.com/tmc/langchaingo v0.1.15
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.etcd.io/bbolt v1.5.0
 	go.mongodb.org/mongo-driver v1.17.10
