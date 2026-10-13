@@ -35,7 +35,6 @@ type ActionConfig struct {
 	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
 	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
 	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
-	SearchWeb        *SearchWebConfig        `yaml:"searchWeb,omitempty"`
 	Telephony        *TelephonyActionConfig  `yaml:"telephony,omitempty"`
 	Browser          *BrowserConfig          `yaml:"browser,omitempty"`
 	BotReply         *BotReplyConfig         `yaml:"botReply,omitempty"`

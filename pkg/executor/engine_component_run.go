@@ -46,6 +46,9 @@ func (e *Engine) runComponentResources(
 		if skip {
 			continue
 		}
+		if checkErr := e.RunPreflightCheck(compRes, ctx); checkErr != nil {
+			return nil, fmt.Errorf("component %q resource %q: %w", componentName, compRes.ActionID, checkErr)
+		}
 		result, execErr := e.ExecuteResource(compRes, ctx)
 		if execErr != nil {
 			return nil, fmt.Errorf("component %q resource %q failed: %w",

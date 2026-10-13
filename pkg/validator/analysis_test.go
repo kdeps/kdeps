@@ -323,15 +323,6 @@ func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
-	r := mkResource("target")
-	r.SearchWeb = &domain.SearchWebConfig{Query: "output('gone')"}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
 func TestAnalyzeWorkflow_ExpressionInBeforeInline(t *testing.T) {
 	r := mkResource("target")
 	r.Before = []domain.ActionConfig{

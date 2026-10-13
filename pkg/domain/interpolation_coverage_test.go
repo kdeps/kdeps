@@ -109,11 +109,6 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Glob":        interpolatable(),
 		"IndexDBPath": interpolatable(),
 	},
-	"SearchWebConfig": {
-		"Query":          interpolatable(),
-		"Provider":       interpolatable(),
-		"ConnectionName": interpolatable(),
-	},
 
 	"CodeIntelligenceConfig": {
 		"Operation":   interpolatable(), // named type CodeIntelligenceOperation, cast to/from string
@@ -154,7 +149,6 @@ func interpolationCoveredTypes() map[string]any {
 		"VectorStoreConfig":      VectorStoreConfig{},
 		"VectorStoreDocument":    VectorStoreDocument{},
 		"SearchLocalConfig":      SearchLocalConfig{},
-		"SearchWebConfig":        SearchWebConfig{},
 		"CodeIntelligenceConfig": CodeIntelligenceConfig{},
 		"FileResourceConfig":     FileResourceConfig{},
 	}

@@ -1,6 +1,9 @@
 actionId: search
 name: Web Search
-searchWeb:
-  query: "{{ get('query') }}"
-  provider: "{{ get('provider', 'ddg') }}"
-  maxResults: 5
+component:
+  name: searchWeb                             # YAML component from the components asset set
+  with:
+    query: "{{ get('query') }}"
+    provider: "{{ get('provider', 'ddg') }}"  # ddg needs no key
+    connectionName: "{{ get('connection', '') }}"  # search_connections.<name>.apiKey in ~/.kdeps/config.yaml
+    maxResults: 5

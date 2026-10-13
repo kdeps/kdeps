@@ -22,6 +22,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/config"
@@ -218,6 +219,7 @@ func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string)
 			c.scanList(comp.Resources)
 		}
 	}
+	c.scanComponentConnections(wf)
 	// Scan settings.input.bot for bot platform connections.
 	if wf.Settings.Input != nil && wf.Settings.Input.Bot != nil {
 		c.scanBotConfig(wf.Settings.Input.Bot)
@@ -285,6 +287,7 @@ func printMissingConnectionEnvVars(
 type connCollector struct {
 	seen        map[connRef]bool
 	used        map[string]bool
+	calls       []*domain.ComponentCallConfig
 	seenBackend map[string]bool
 	refs        []connRef
 	backends    []string
@@ -316,14 +319,14 @@ func (c *connCollector) scanList(resources []*domain.Resource) {
 		if res == nil {
 			continue
 		}
-		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.SearchWeb, res.Email, res.Component)
+		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.Email, res.Component)
 		for i := range res.Before {
 			a := res.Before[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Email, a.Component)
 		}
 		for i := range res.After {
 			a := res.After[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Email, a.Component)
 		}
 	}
 }
@@ -351,7 +354,6 @@ func (c *connCollector) scanAction(
 	chat *domain.ChatConfig,
 	http *domain.HTTPClientConfig,
 	sql *domain.SQLConfig,
-	searchWeb *domain.SearchWebConfig,
 	email *domain.EmailConfig,
 	component *domain.ComponentCallConfig,
 ) {
@@ -364,14 +366,31 @@ func (c *connCollector) scanAction(
 	if sql != nil {
 		c.add(config.ConnKindSQL, sql.ConnectionName)
 	}
-	if searchWeb != nil {
-		c.add(config.ConnKindSearch, searchWeb.ConnectionName)
-	}
 	if email != nil {
 		c.add(config.ConnKindSMTP, email.SMTPConnection)
 		c.add(config.ConnKindIMAP, email.IMAPConnection)
 	}
 	if component != nil {
 		c.used[component.Name] = true
+		c.calls = append(c.calls, component)
+	}
+}
+
+// scanComponentConnections registers the connections named by component calls:
+// a literal with: value for an input the component marks connection: <kind>.
+func (c *connCollector) scanComponentConnections(wf *domain.Workflow) {
+	for _, call := range c.calls {
+		comp := wf.Components[call.Name]
+		if comp == nil || comp.Interface == nil {
+			continue
+		}
+		for _, in := range comp.Interface.Inputs {
+			if in.Connection == "" {
+				continue
+			}
+			if name, ok := call.With[in.Name].(string); ok && !strings.Contains(name, "{{") {
+				c.add(in.Connection, name)
+			}
+		}
 	}
 }

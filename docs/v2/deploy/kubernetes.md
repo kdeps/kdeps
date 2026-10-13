@@ -80,7 +80,7 @@ settings:
 
     # Opt in to a NetworkPolicy that restricts pod ingress to the
     # configured server ports. Egress stays unrestricted so chat,
-    # httpClient, searchWeb, and sql resources can reach external services.
+    # httpClient (and components built on it, like searchWeb) and sql resources can reach external services.
     networkPolicy: true
 ```
 
@@ -195,7 +195,7 @@ Probes follow what the workflow serves: an `apiServer` workflow gets HTTP probes
 
 ## NetworkPolicy (opt-in)
 
-Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat`, `httpClient`, `searchWeb`, and `sql` resources can reach external services.
+Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat`, `httpClient`, and `sql` resources (and components such as `searchWeb`) can reach external services.
 
 ```yaml
 # k8s.yaml (appended when networkPolicy is enabled)

@@ -1,6 +1,6 @@
 # search-web-native
 
-Web search using the **built-in native searchWeb executor** -- uses DuckDuckGo by default, no API key needed. Optionally supports Brave, Bing, and Tavily.
+Web search with the **searchWeb component** (`component: searchWeb`) -- DuckDuckGo by default, no API key needed. Brave, Bing and Tavily read their key from `search_connections` in `~/.kdeps/config.yaml`.
 
 ## Usage
 
@@ -19,12 +19,12 @@ With Brave Search (requires API key):
 ```bash
 curl -X POST http://localhost:16398/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "latest Go release", "provider": "brave", "apiKey": "YOUR_BRAVE_KEY"}'
+  -d '{"query": "latest Go release", "provider": "brave", "connection": "brave"}'
 ```
 
 ## How it works
 
-1. **search** -- `run.searchWeb` queries DuckDuckGo (or Brave/Bing/Tavily) and returns structured results
+1. **search** -- `component: searchWeb` queries DuckDuckGo (or Brave/Bing/Tavily) and returns structured results
 2. **answer** -- LLM uses the results to answer the question
 3. **response** -- returns the AI answer as an API response
 

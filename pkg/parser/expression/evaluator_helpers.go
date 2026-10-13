@@ -132,6 +132,9 @@ func (e *Evaluator) addSerializationHelpers(evalEnv map[string]interface{}) {
 	// htmlText(html, selector) returns the text of every element matching a
 	// CSS selector, one per line; an empty selector returns html unchanged.
 	evalEnv["htmlText"] = htmlText
+	// htmlFind(html, selector) returns one map per matching element: its
+	// trimmed text under "text" plus each attribute (href, class, data-*).
+	evalEnv["htmlFind"] = htmlFind
 	evalEnv["fromJSON"] = func(s interface{}) interface{} {
 		str := fmt.Sprintf("%v", s)
 		var out interface{}
@@ -251,4 +254,22 @@ func htmlText(html, selector string) string {
 		sb.WriteString("\n")
 	})
 	return strings.TrimSpace(sb.String())
+}
+
+// htmlFind returns the elements matching selector as maps of their text and attributes.
+func htmlFind(html, selector string) []interface{} {
+	out := []interface{}{}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil || selector == "" {
+		return out
+	}
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		el := map[string]interface{}{}
+		for _, a := range s.Nodes[0].Attr {
+			el[a.Key] = a.Val
+		}
+		el["text"] = strings.TrimSpace(s.Text())
+		out = append(out, el)
+	})
+	return out
 }

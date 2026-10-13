@@ -115,7 +115,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
 | `browser` | Playwright browser - navigation, forms, JS, screenshots | [Browser](/workflow/resources/browser) |
 | `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
-| `searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily | [searchWeb](/workflow/resources/search-web) |
+| `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | [searchWeb](/workflow/resources/search-web) |
 
 ## Data & system
 

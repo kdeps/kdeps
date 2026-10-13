@@ -1761,3 +1761,26 @@ func TestEvaluator_HTMLText(t *testing.T) {
 		assert.Equal(t, want, got, raw)
 	}
 }
+
+func TestEvaluator_HTMLFind(t *testing.T) {
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	env := map[string]interface{}{
+		"page": `<a class="r" href="/a" data-href="https://a"> Alpha </a><a class="r" href="/b">Beta</a><a href="/c">C</a>`,
+	}
+	got, err := evaluator.Evaluate(&domain.Expression{Raw: "htmlFind(page, 'a.r')", Type: domain.ExprTypeDirect}, env)
+	require.NoError(t, err)
+	assert.Equal(t, []interface{}{
+		map[string]interface{}{"text": "Alpha", "class": "r", "href": "/a", "data-href": "https://a"},
+		map[string]interface{}{"text": "Beta", "class": "r", "href": "/b"},
+	}, got)
+
+	for raw, want := range map[string]interface{}{
+		"len(htmlFind(page, 'h1'))":   0,
+		"len(htmlFind(page, ''))":     0,
+		"htmlFind(page, 'a')[2].text": "C",
+	} {
+		val, evalErr := evaluator.Evaluate(&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect}, env)
+		require.NoError(t, evalErr, raw)
+		assert.Equal(t, want, val, raw)
+	}
+}

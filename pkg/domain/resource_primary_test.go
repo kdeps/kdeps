@@ -131,7 +131,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"component", &domain.Resource{Component: &domain.ComponentCallConfig{}}, "component"},
 		{"embedding", &domain.Resource{Embedding: &domain.EmbeddingConfig{}}, "embedding"},
 		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
-		{"searchWeb", &domain.Resource{SearchWeb: &domain.SearchWebConfig{}}, "searchWeb"},
 		{"telephony", &domain.Resource{Telephony: &domain.TelephonyActionConfig{}}, "telephony"},
 		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
 		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
@@ -170,7 +169,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	// Verify all expected resource types are present in the list.
 	expectedTypes := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"embedding", "searchLocal", "searchWeb",
+		"embedding", "searchLocal",
 		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
@@ -186,7 +185,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"embedding", "searchLocal", "searchWeb",
+		"embedding", "searchLocal",
 		"telephony", "browser", "botReply", "email", "file",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}

@@ -76,7 +76,12 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	require.NoError(t, err, "schemas")
 	_, err = k8s.NewGenerator("img").GenerateManifests(&domain.Workflow{})
 	require.NoError(t, err, "k8s templates")
-	df, err := (&docker.Builder{BaseOS: "alpine"}).GenerateDockerfile(&domain.Workflow{})
+	df, err := (&docker.Builder{BaseOS: "alpine"}).GenerateDockerfile(
+		&domain.Workflow{Settings: domain.WorkflowSettings{AgentSettings: domain.AgentSettings{
+			// pinned: no GitHub releases/latest lookup (rate-limited on CI runners)
+			Versions: &domain.PackageVersions{Kdeps: "2.0.0", Ollama: "0.5.4", UV: "0.6.3"},
+		}}},
+	)
 	require.NoError(t, err, "docker templates")
 	assert.Contains(t, df, "COPY kdeps-assets/")
 	d, err := config.GetDefaults()
