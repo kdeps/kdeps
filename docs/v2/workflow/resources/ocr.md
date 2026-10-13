@@ -74,6 +74,7 @@ metadata:
   targetActionId: ocrText
 setup:
   osPackages: [tesseract-ocr]   # installed by kdeps build
+  provides: [tesseract]         # already on PATH: no package manager runs
 interface:
   inputs:
     - {name: file, type: string, required: true}

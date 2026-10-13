@@ -30,7 +30,11 @@ package domain
 type ComponentSetup struct {
 	PythonPackages []string `yaml:"pythonPackages,omitempty"`
 	OsPackages     []string `yaml:"osPackages,omitempty"`
-	Commands       []string `yaml:"commands,omitempty"`
+	// Provides names the programs osPackages install (e.g. tesseract for
+	// tesseract-ocr). When every one is already on PATH the install is
+	// skipped, so a machine that has them never runs a package manager.
+	Provides []string `yaml:"provides,omitempty"`
+	Commands []string `yaml:"commands,omitempty"`
 }
 
 // ComponentTeardown declares commands that are run after the component's

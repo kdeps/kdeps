@@ -85,6 +85,11 @@
           "items": { "type": "string", "minLength": 1 },
           "description": "OS packages installed via apt-get/apk/brew before component resources run."
         },
+        "provides": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Programs the osPackages install (e.g. tesseract). When all are on PATH, the OS package install is skipped."
+        },
         "commands": {
           "type": "array",
           "items": { "type": "string" },
