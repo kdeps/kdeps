@@ -42,7 +42,13 @@ func TestDockerBuildContext_CarriesAssets(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("metadata:\n  name: t\n"), 0o600))
 
 	b := &docker.Builder{BaseOS: "alpine"}
-	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"}}
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{AgentSettings: domain.AgentSettings{
+			// pinned: no GitHub releases/latest lookup (rate-limited on CI runners)
+			Versions: &domain.PackageVersions{Kdeps: "2.0.0", Ollama: "0.5.4", UV: "0.6.3"},
+		}},
+	}
 	dockerfile, err := b.GenerateDockerfile(wf)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "COPY "+assets.ExportDir+"/ /app/.kdeps/assets/")
