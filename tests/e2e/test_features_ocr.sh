@@ -111,8 +111,8 @@ apiResponse:
   response:
     text: \"{{ output('extract').stdout }}\"")
     if result=$(timeout 60 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        if output_grep_i "KDeps OCR Sample" "$result"; then
-            test_passed "ocr - the ocr component extracts text end to end"
+        if output_grep_i "KDeps OCR Sample" "$result" && ! output_grep "OS package installation" "$result"; then
+            test_passed "ocr - the ocr component extracts text end to end (tesseract on PATH: no package install)"
         else
             test_failed "ocr - end-to-end text extraction" "expected 'KDeps OCR Sample' in output: $result"
         fi

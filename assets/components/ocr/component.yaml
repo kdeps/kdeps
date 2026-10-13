@@ -3,11 +3,13 @@ kind: Component
 metadata:
   name: ocr
   description: Extract text from an image with the tesseract CLI
-  version: "1.0.0"
+  version: "1.0.1"
   targetActionId: ocrText
 setup:
   osPackages:
     - tesseract-ocr          # kdeps build installs it in the image
+  provides:
+    - tesseract              # already on PATH: no package manager runs
 interface:
   inputs:
     - name: file

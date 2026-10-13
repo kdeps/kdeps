@@ -73,6 +73,15 @@ resources:
 
 The component's output is the last resource that ran.
 
+`setup.osPackages` are installed by `kdeps build` in the image and, at run time, by the machine's package manager (apk, apt-get, brew). List the programs they provide under `setup.provides`: when every one is already on `PATH`, no package manager runs - a run on a machine that has the tool costs nothing extra.
+
+```yaml
+# components/ocr/component.yaml (as shipped)
+setup:
+  osPackages: [tesseract-ocr]   # apt/apk package name, installed in images
+  provides: [tesseract]         # on PATH already: skip the install
+```
+
 Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 
 ## Calling a component

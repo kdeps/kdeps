@@ -87,7 +87,7 @@ func (e *Engine) installComponentPackages(
 		}
 	}
 
-	if len(setup.OsPackages) > 0 {
+	if len(setup.OsPackages) > 0 && !allOnPath(setup.Provides) {
 		if err := installOSPackages(setup.OsPackages); err != nil {
 			e.logger.Warn("Component OS package installation failed",
 				"component", comp.Metadata.Name,
