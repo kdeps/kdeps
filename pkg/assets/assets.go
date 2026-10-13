@@ -53,7 +53,7 @@ import (
 //nolint:gochecknoglobals // fixed list of set names
 var Sets = []string{
 	"harness", "events", "actions", "presets", "themes", "tools", "commands", "recipes", "models", "templates",
-	"docker", "k8s", "schemas", "defaults", "components",
+	"docker", "k8s", "schemas", "defaults", "components", "providers",
 }
 
 // bundleSets are the sets whose items are directories, distributed as one

@@ -19,9 +19,9 @@
 package config
 
 func primaryCloudProvider() cloudProvider {
-	return cloudProvidersList[0]
+	return cloudProviderList()[0]
 }
 
 func secondaryCloudProvider() cloudProvider {
-	return cloudProvidersList[1]
+	return cloudProviderList()[1]
 }

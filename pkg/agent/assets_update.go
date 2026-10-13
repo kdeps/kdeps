@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
@@ -56,6 +57,7 @@ func ReloadAssets() {
 	executorLLM.ReloadRegistry()
 	executorLLM.ReloadGGUFRegistry()
 	executorLLM.ReloadCloudModels()
+	kdepsconfig.ReloadProviders()
 }
 
 // EnsureAssets installs kdeps's assets when a set has none -- on first run,

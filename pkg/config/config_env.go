@@ -132,7 +132,7 @@ func applyLLMEnv(keys LLMKeys) {
 	if keys.Aria2cFlags != "" {
 		setIfUnset("KDEPS_ARIA2C_FLAGS", keys.Aria2cFlags)
 	}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		setIfUnset(p.envVar, p.getKey(keys))
 	}
 	applyRouterEnv(keys)

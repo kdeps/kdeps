@@ -49,7 +49,7 @@ func commentedProviderKey(b *strings.Builder, spacesAfterHash int, key, value st
 }
 
 // configOptionsReferenceBody is the static portion of the config.yaml options
-// reference. Provider-specific sections are generated from cloudProvidersList.
+// reference. Provider-specific sections are generated from cloudProviderList().
 func buildBackendOptionsSection() string {
 	names := providerNames()
 	parts := make([]string, len(names))
@@ -205,8 +205,7 @@ defaults:
 `
 
 func buildRoutingExamplesSection() string {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary, secondary := templateProviders()
 	var b strings.Builder
 	b.WriteString(`# ── Routing strategy + unified models list ──────────────────────────────
 # Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
@@ -279,8 +278,7 @@ func buildRoutingExamplesSection() string {
 }
 
 func buildAgentsExampleSection() string {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary, secondary := templateProviders()
 	var b strings.Builder
 	b.WriteString(`# ── Per-agent config profiles ──────────────────────────────────────────────
 # Each key under agents: must match a workflow metadata.name value. When that
@@ -343,7 +341,7 @@ llm:
 
   # ── Online provider API keys (set only the ones you use) ───────────────────
 `)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		fmt.Fprintf(&b, "  # %s: \"\"\n", p.yamlKey)
 	}
 	b.WriteString("\n")
@@ -363,8 +361,18 @@ func composeConfigTemplate(header, reference string) string {
 	return header + reference
 }
 
-// defaultConfigTemplate is the full scaffold template composed from generated
-// provider sections and the shared options reference body.
-//
-//nolint:gochecknoglobals // composed at init from generated + const sections
-var defaultConfigTemplate = composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference())
+// defaultConfigTemplate is the full scaffold template, composed when it is
+// written so the provider sections list the providers asset set as installed.
+func defaultConfigTemplate() string {
+	return composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference())
+}
+
+// templateProviders are the two providers the template's examples use: the
+// first two in provider order.
+func templateProviders() (cloudProvider, cloudProvider) {
+	list := cloudProviderList()
+	for len(list) < 2 {
+		list = append(list, builtinProviders...)
+	}
+	return list[0], list[1]
+}

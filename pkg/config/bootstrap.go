@@ -33,7 +33,7 @@ var isStdinTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
-	return allProviderNames
+	return allProviderNames()
 }
 
 // Bootstrap writes an initial ~/.kdeps/config.yaml by interactively asking the
@@ -180,16 +180,17 @@ func configureGGUF(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
 func configureCloud(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config) error {
 	w.println("")
 	w.println("  Which cloud provider?")
-	for i, p := range cloudProvidersList {
+	providers := cloudProviderList()
+	for i, p := range providers {
 		w.printf("    [%d] %s\n", i+1, p.name)
 	}
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 	idx := 1
 	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 ||
-		idx > len(cloudProvidersList) {
+		idx > len(providers) {
 		idx = 1
 	}
-	p := cloudProvidersList[idx-1]
+	p := providers[idx-1]
 	cfg.LLM.Backend = p.name
 
 	w.printf("\n  Enter your %s API key (input hidden): ", p.name)
@@ -336,7 +337,7 @@ func buildUserFields(cfg Config) string {
 	appendField(&lines, "  backend", cfg.LLM.Backend)
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		appendField(&lines, "  "+p.yamlKey, p.getKey(cfg.LLM))
 	}
 	appendModelsAndStrategy(&lines, cfg.LLM)

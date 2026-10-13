@@ -105,7 +105,7 @@ smtp_connections:
 
 	cfg := readConfigFile(t, path)
 	assert.Equal(t, "openai", cfg.LLM.Backend)
-	assert.Equal(t, "sk-test", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-test", cfg.LLM.Keys["openai_api_key"])
 	assert.Equal(t, "keep.example.com", cfg.SMTPConnections["existing"].Host)
 	assert.Equal(t, "new.example.com", cfg.SMTPConnections["added"].Host)
 	assert.Equal(t, 465, cfg.SMTPConnections["added"].Port)

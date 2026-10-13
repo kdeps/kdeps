@@ -54,7 +54,10 @@ func useTempConfig(t *testing.T, content string) string {
 func TestSettings_SchemaShape(t *testing.T) {
 	temp := 0.5
 	cfg := &config.Config{APIAuthToken: "tok"}
-	cfg.LLM.OpenAI = "sk-secret"
+	if cfg.LLM.Keys == nil {
+		cfg.LLM.Keys = map[string]string{}
+	}
+	cfg.LLM.Keys["openai_api_key"] = "sk-secret"
 	cfg.LLM.Backend = "ollama"
 	cfg.ResourceDefaults.Chat.Temperature = &temp
 	fields := cfg.Settings()

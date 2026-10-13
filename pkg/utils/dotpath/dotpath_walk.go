@@ -39,10 +39,18 @@ func step(v reflect.Value, seg string) (reflect.Value, error) {
 	switch v.Kind() { //nolint:exhaustive // only struct/map/slice are valid container types
 	case reflect.Struct:
 		f := findField(v, seg)
-		if !f.IsValid() {
-			return reflect.Value{}, fmt.Errorf("field %q not found", seg)
+		if f.IsValid() {
+			return f, nil
 		}
-		return f, nil
+		// A key the struct has no field for lives in its inline map, if any;
+		// an absent key reads as the zero value, like an empty field.
+		if inline, ok := inlineMap(v); ok {
+			if val := inline.MapIndex(reflect.ValueOf(seg)); val.IsValid() {
+				return val, nil
+			}
+			return reflect.Zero(inline.Type().Elem()), nil
+		}
+		return reflect.Value{}, fmt.Errorf("field %q not found", seg)
 	case reflect.Map:
 		key := reflect.ValueOf(seg)
 		if v.Type().Key().Kind() != reflect.String {

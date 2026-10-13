@@ -44,7 +44,7 @@ func newIntegrationCtx(t *testing.T) *executor.ExecutionContext {
 	ctx.Config = &config.Config{
 		LLM: config.LLMKeys{
 			OllamaHost: "http://localhost:11434",
-			OpenAI:     "sk-integration",
+			Keys:       map[string]string{"openai_api_key": "sk-integration"},
 		},
 		Defaults: config.Defaults{
 			Timezone: "UTC",
@@ -127,7 +127,7 @@ func TestIntegration_SetFunction_ConfigPath(t *testing.T) {
 	result, err := ev.Evaluate(expr, map[string]interface{}{})
 	require.NoError(t, err)
 	assert.Equal(t, true, result)
-	assert.Equal(t, "sk-updated", ctx.Config.LLM.OpenAI)
+	assert.Equal(t, "sk-updated", ctx.Config.LLM.Keys["openai_api_key"])
 }
 
 // TestIntegration_SetFunction_WorkflowPath verifies that

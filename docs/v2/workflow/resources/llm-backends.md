@@ -112,6 +112,31 @@ llm:
 
 Run `kdeps edit` to open the config file, or edit it directly.
 
+## OpenAI-compatible providers
+
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values.
+
+```text
+providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath
+```
+
+```yaml
+# providers/groq.yaml (shipped)
+version: 1.0.0
+name: groq                         # the backend: value
+label: Groq                        # display name
+order: 80                          # position in provider lists and the setup prompt
+configKey: groq_api_key            # llm.groq_api_key in ~/.kdeps/config.yaml
+envVar: GROQ_API_KEY               # an explicit env var wins over config.yaml
+defaultModel: llama-3.3-70b-versatile   # last-resort pick when nothing local is installed
+url: https://api.groq.com          # default host; llm.base_url overrides it
+chatPath: /openai/v1/chat/completions   # chat completions path under url
+embeddings: true                   # also serves OpenAI-compatible /embeddings
+hosts: [groq.com]                  # identifies the provider from a base URL
+```
+
+`url` may reference environment variables, e.g. Cloudflare's `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai`. Adding another OpenAI-compatible provider is one such file - drop it into `$KDEPS_ASSETS_SRC/providers/` while developing, or publish it to the asset set. Anthropic, Google, Cohere, Bedrock, WatsonX and M365 have their own protocols and stay built in.
+
 ## Unified models list
 
 `llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a plain allowlist (model names only) or as a router route table (with routing metadata). The `llm.strategy` field switches between the two modes.

@@ -1,0 +1,13 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.xai_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: xai
+label: xAI
+order: 110                # position in provider lists and the setup prompt
+configKey: xai_api_key
+envVar: XAI_API_KEY
+defaultModel: grok-3
+url: https://api.x.ai
+chatPath: /v1/chat/completions
+embeddings: true          # also serves OpenAI-compatible /embeddings
+hosts: [x.ai, api.x.ai]

@@ -1,0 +1,11 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.huggingface_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: huggingface
+label: HuggingFace
+order: 120                # position in provider lists and the setup prompt
+configKey: huggingface_api_key
+envVar: HF_TOKEN
+url: https://api-inference.huggingface.co
+chatPath: /v1/chat/completions
+hosts: [huggingface.co]
