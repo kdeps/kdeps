@@ -33,7 +33,11 @@ import (
 // .args (the call's arguments with declared defaults); result also sees
 // .stdout.
 type execToolSpec struct {
-	Command string `yaml:"command"`
+	// Env works as in an http: block: names templates read as .env.NAME,
+	// each from the first non-empty variable listed (a trailing "" makes it
+	// optional). The tool is registered only when every entry resolves.
+	Env     map[string][]string `yaml:"env,omitempty"`
+	Command string              `yaml:"command"`
 	// Args are rendered one by one; an argument that renders empty is
 	// dropped, so an optional flag can be written as two conditional args.
 	Args []string `yaml:"args,omitempty"`
@@ -82,7 +86,9 @@ func (s *execToolSpec) timeout() time.Duration {
 
 // callDeclaredExecTool runs the program an exec: block describes and renders
 // its answer.
-func callDeclaredExecTool(ctx context.Context, name string, s *execToolSpec, args map[string]any) (string, error) {
+func callDeclaredExecTool(
+	ctx context.Context, name string, s *execToolSpec, args map[string]any, env map[string]string,
+) (string, error) {
 	for _, p := range s.Paths {
 		if v, _ := args[p].(string); v != "" {
 			if err := ValidateRootPath(v); err != nil {
@@ -98,7 +104,7 @@ func callDeclaredExecTool(ctx context.Context, name string, s *execToolSpec, arg
 		}
 		return "", errors.New(msg)
 	}
-	r := declaredRenderer{name: name, data: map[string]any{"args": args}}
+	r := declaredRenderer{name: name, data: map[string]any{"args": args, "env": env}}
 	argv := make([]string, 0, len(s.Args))
 	for i, a := range s.Args {
 		v, rErr := r.render(fmt.Sprintf("arg %d", i), a)
@@ -126,4 +132,10 @@ func callDeclaredExecTool(ctx context.Context, name string, s *execToolSpec, arg
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// resolveEnv returns the block's env values, or false when a required one
+// is unset (see httpToolSpec.resolveEnv).
+func (s *execToolSpec) resolveEnv() (map[string]string, bool) {
+	return (&httpToolSpec{Env: s.Env}).resolveEnv()
 }

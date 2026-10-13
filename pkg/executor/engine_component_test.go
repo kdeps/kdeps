@@ -478,3 +478,40 @@ func TestExecuteComponentCall_DotEnvSuccessAndSetupFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "setuperr")
 	assert.Contains(t, err.Error(), "setup failed")
 }
+
+// A component resource's validations.skip decides whether it runs, so one
+// component can pick between resources from its inputs.
+func TestExecuteComponentCall_ResourcesHonorSkip(t *testing.T) {
+	branch := func(id, out, skip string) *domain.Resource {
+		return &domain.Resource{
+			APIVersion:  "kdeps.io/v1",
+			Kind:        "Resource",
+			ActionID:    id,
+			Exec:        &domain.ExecConfig{Command: "echo " + out},
+			Validations: &domain.ValidationsConfig{Skip: []domain.Expression{{Raw: skip}}},
+		}
+	}
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "pick"},
+		Interface: &domain.ComponentInterface{
+			Inputs: []domain.ComponentInput{{Name: "mode", Type: "string", Required: true}},
+		},
+		Resources: []*domain.Resource{
+			branch("viaA", "from-a", "get('pick.mode') != 'a'"),
+			branch("viaB", "from-b", "get('pick.mode') != 'b'"),
+		},
+	}
+	for mode, want := range map[string]string{"a": "from-a", "b": "from-b"} {
+		callerRes := &domain.Resource{
+			ActionID:  "caller",
+			Component: &domain.ComponentCallConfig{Name: "pick", With: map[string]interface{}{"mode": mode}},
+		}
+		eng := executor.NewEngine(slog.Default())
+		eng.GetRegistryForTesting().SetExecExecutor(executorExec.NewAdapter())
+		result, err := eng.Execute(makeComponentTestWorkflow("pick", comp, callerRes), nil)
+		require.NoError(t, err, mode)
+		m, ok := result.(map[string]interface{})
+		require.True(t, ok, "%T", result)
+		assert.Contains(t, m["stdout"], want, mode)
+	}
+}

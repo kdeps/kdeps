@@ -1,0 +1,31 @@
+version: 1.0.0
+description: 'Transcribe an audio file to text offline with whisper.cpp (whisper-cli): no API key, no network. Supports flac, mp3, ogg, wav. Uses the GGML model at modelPath, or ggml-base.en.bin in the kdeps models dir (the transcribe component downloads it on first use). Returns the transcribed text.'
+parameters:
+  file:
+    type: string
+    description: Absolute path to the audio file to transcribe
+    required: true
+  language:
+    type: string
+    description: 'ISO-639-1 code. Default: en'
+    default: en
+  modelPath:
+    type: string
+    description: 'Absolute path to a GGML model file. Default: <models dir>/ggml-base.en.bin'
+exec:
+  env:
+    MODELS: [KDEPS_MODELS_DIR, ""]        # optional: overrides ~/.kdeps/models
+    HOME: [HOME, USERPROFILE, ""]
+  command: whisper-cli
+  install: whisper-cpp
+  paths: [file, modelPath]
+  args:
+    - "-m"
+    - '{{or .args.modelPath (printf "%s/ggml-base.en.bin" (or .env.MODELS (printf "%s/.kdeps/models" .env.HOME)))}}'
+    - "-f"
+    - "{{.args.file}}"
+    - "-l"
+    - "{{.args.language}}"
+    - "-nt"
+    - "-np"
+  timeout: 600s

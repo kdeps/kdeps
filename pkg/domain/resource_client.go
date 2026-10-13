@@ -25,6 +25,20 @@ type HTTPClientConfig struct {
 	Data    interface{}       `yaml:"data,omitempty"`
 	Timeout string            `yaml:"timeout,omitempty"`
 
+	// Files sends a multipart/form-data body: each key is a form field and
+	// each value the path of a file uploaded as that field. Data's entries
+	// become the text fields of the same form.
+	Files map[string]string `yaml:"files,omitempty"`
+
+	// SaveTo streams a 2xx response body into this file (parent directories
+	// are created) instead of holding it in memory; the result reports
+	// savedTo and bytes in place of body.
+	SaveTo string `yaml:"saveTo,omitempty"`
+
+	// FailOnError makes a non-2xx response an error (the resource fails)
+	// instead of a result to inspect through statusCode.
+	FailOnError bool `yaml:"failOnError,omitempty"`
+
 	// Retry configuration
 	Retry *RetryConfig `yaml:"retry,omitempty"`
 

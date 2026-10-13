@@ -79,6 +79,14 @@ func (e *Executor) resolveConfig(
 		resolvedConfig.Timeout = timeoutStr
 	}
 
+	if config.SaveTo != "" {
+		saveTo, err := e.evaluateStringOrLiteral(evaluator, ctx, config.SaveTo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate saveTo: %w", err)
+		}
+		resolvedConfig.SaveTo = saveTo
+	}
+
 	if config.TLS != nil {
 		tlsConfig, err := e.resolveTLSConfig(evaluator, ctx, config.TLS)
 		if err != nil {

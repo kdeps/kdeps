@@ -39,14 +39,6 @@ func TestExecuteVectorStore_NilConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "vectorStore")
 }
 
-func TestExecuteTranscribe_NilConfig(t *testing.T) {
-	eng := newTestEngineInternal()
-	res := &domain.Resource{ActionID: "test", Transcribe: nil}
-	_, err := eng.executeTranscribe(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "transcribe")
-}
-
 func TestExecuteLoader_NoExecutor(t *testing.T) {
 	eng := newTestEngineInternal()
 	cfg := &domain.LoaderConfig{}
@@ -63,15 +55,6 @@ func TestExecuteVectorStore_NoExecutor(t *testing.T) {
 	_, err := eng.executeVectorStore(res, &ExecutionContext{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "vectorStore executor not available")
-}
-
-func TestExecuteTranscribe_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	cfg := &domain.TranscribeConfig{}
-	res := &domain.Resource{ActionID: "test", Transcribe: cfg}
-	_, err := eng.executeTranscribe(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "transcribe executor not available")
 }
 
 func TestExecuteInlineFile_NoExecutor(t *testing.T) {
@@ -107,11 +90,4 @@ func TestExecuteInlineVectorStore_NoExecutor(t *testing.T) {
 	_, err := eng.executeInlineVectorStore(&domain.VectorStoreConfig{}, &ExecutionContext{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "vectorStore executor not available")
-}
-
-func TestExecuteInlineTranscribe_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	_, err := eng.executeInlineTranscribe(&domain.TranscribeConfig{}, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "transcribe executor not available")
 }

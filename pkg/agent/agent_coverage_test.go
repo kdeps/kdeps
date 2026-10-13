@@ -1422,7 +1422,6 @@ func TestRegisterResourceTools_AllToolsAccessible(t *testing.T) {
 	// Verify all resource tools are registered (without executing them)
 	assert.NotNil(t, reg.Get("http_request"))
 	assert.NotNil(t, reg.Get("search_local"))
-	assert.NotNil(t, reg.Get("transcribe_audio"))
 	assert.NotNil(t, reg.Get("load_document"))
 	assert.NotNil(t, reg.Get("embedding_search"))
 	assert.NotNil(t, reg.Get("embedding_vectorize"))

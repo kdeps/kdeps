@@ -36,6 +36,16 @@ func (e *Engine) runComponentResources(
 
 	var lastResult interface{}
 	for _, compRes := range comp.Resources {
+		// A component resource's validations.skip picks which of its
+		// resources run, as it does for workflow resources.
+		skip, skipErr := e.ShouldSkipResource(compRes, ctx)
+		if skipErr != nil {
+			return nil, fmt.Errorf("component %q resource %q skip condition: %w",
+				componentName, compRes.ActionID, skipErr)
+		}
+		if skip {
+			continue
+		}
 		result, execErr := e.ExecuteResource(compRes, ctx)
 		if execErr != nil {
 			return nil, fmt.Errorf("component %q resource %q failed: %w",

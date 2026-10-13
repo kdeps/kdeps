@@ -1,0 +1,95 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: transcribe
+  description: Transcribe audio or video to text with a Whisper API or offline with whisper.cpp
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file
+      type: string
+      required: true
+      description: Path to the audio/video file. API backends take mp3, mp4, mpeg, mpga, m4a, wav, webm; whisper-cpp takes flac, mp3, ogg, wav.
+    - name: backend
+      type: string
+      default: openai
+      description: openai, groq, local (a self-hosted OpenAI-compatible Whisper server) or whisper-cpp (offline, no API key)
+    - name: model
+      type: string
+      default: whisper-1
+      description: API model (groq - whisper-large-v3); ignored by whisper-cpp
+    - name: baseURL
+      type: string
+      default: ""
+      description: Overrides the backend's API base URL (API backends only)
+    - name: language
+      type: string
+      default: ""
+      description: ISO-639-1 code, e.g. en; empty = auto-detect (whisper-cpp defaults to en)
+    - name: prompt
+      type: string
+      default: ""
+      description: Spelling hints for names and terms (API backends)
+    - name: responseFormat
+      type: string
+      default: text
+      description: text, json, verbose_json, srt or vtt (API backends)
+    - name: temperature
+      type: string
+      default: ""
+      description: Sampling temperature 0-1 (API backends)
+    - name: modelPath
+      type: string
+      default: ""
+      description: whisper-cpp GGML model; empty = ggml-base.en.bin, downloaded once to the models dir
+resources:
+  # API backends: POST the file as multipart form data.
+  - actionId: transcribeAPI
+    name: Transcribe (Whisper API)
+    validations:
+      skip:
+        - "get('transcribe.backend') == 'whisper-cpp'"
+    httpClient:
+      method: POST
+      url: "{{ get('transcribe.baseURL') != '' ? get('transcribe.baseURL') : (get('transcribe.backend') == 'groq' ? 'https://api.groq.com/openai/v1' : (get('transcribe.backend') == 'local' ? 'http://localhost:8080/v1' : 'https://api.openai.com/v1')) }}/audio/transcriptions"
+      headers:
+        Authorization: "Bearer {{ get('transcribe.backend') == 'groq' ? env('GROQ_API_KEY') : env('OPENAI_API_KEY') }}"
+      files:
+        file: "{{ get('transcribe.file') }}"
+      data:
+        model: "{{ get('transcribe.model') }}"
+        response_format: "{{ get('transcribe.responseFormat') }}"
+        language: "{{ get('transcribe.language') }}"
+        prompt: "{{ get('transcribe.prompt') }}"
+        temperature: "{{ get('transcribe.temperature') }}"
+      failOnError: true
+      timeout: 300s
+  # whisper-cpp: fetch the default model once, then run whisper-cli offline.
+  - actionId: transcribeModel
+    name: Download whisper.cpp model
+    validations:
+      skip:
+        - "get('transcribe.backend') != 'whisper-cpp' || get('transcribe.modelPath') != '' || fileExists(env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base.en.bin')"
+    httpClient:
+      method: GET
+      url: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+      saveTo: "{{ env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') }}/ggml-base.en.bin"
+      failOnError: true
+      timeout: 900s
+  - actionId: transcribeOffline
+    name: Transcribe (whisper.cpp)
+    validations:
+      skip:
+        - "get('transcribe.backend') != 'whisper-cpp'"
+    exec:
+      command: whisper-cli
+      args:
+        - "-m"
+        - "{{ get('transcribe.modelPath') != '' ? get('transcribe.modelPath') : env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base.en.bin' }}"
+        - "-f"
+        - "{{ get('transcribe.file') }}"
+        - "-l"
+        - "{{ get('transcribe.language') != '' ? get('transcribe.language') : 'en' }}"
+        - "-nt"
+        - "-np"
+      timeout: 600s

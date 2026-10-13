@@ -168,6 +168,12 @@ func (e *Evaluator) addIterationAPIWrappers(evalEnv map[string]interface{}) {
 		}
 		return val
 	}
+	// fileExists('path') reports whether a file or directory exists (a
+	// component skips a download whose target is already cached).
+	evalEnv["fileExists"] = func(path string) bool {
+		_, err := os.Stat(path)
+		return path != "" && err == nil
+	}
 	if e.api.ConfigNamespace != nil {
 		for _, ns := range namespace.All() {
 			if m := e.api.ConfigNamespace(ns); m != nil {

@@ -52,6 +52,26 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe)); one is loaded only when a workflow calls it and does not provide a component of that name itself
+
+A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs:
+
+```yaml
+# components/fetch/component.yaml (resources, abridged)
+resources:
+  - actionId: viaAPI
+    validations:
+      skip:
+        - "get('fetch.mode') != 'api'"     # inputs are get('<component>.<input>')
+    httpClient: {method: GET, url: "{{ get('fetch.url') }}"}
+  - actionId: viaCLI
+    validations:
+      skip:
+        - "get('fetch.mode') != 'cli'"
+    exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
+```
+
+The component's output is the last resource that ran.
 
 Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 

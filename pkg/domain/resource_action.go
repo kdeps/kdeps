@@ -46,7 +46,6 @@ type ActionConfig struct {
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
-	Transcribe       *TranscribeConfig       `yaml:"transcribe,omitempty"`
 	APIResponse      *APIResponseConfig      `yaml:"apiResponse,omitempty"`
 }
 

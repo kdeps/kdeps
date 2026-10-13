@@ -28,7 +28,6 @@ import (
 	execHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	execTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -38,7 +37,6 @@ func registerResourceTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerMemoryTools(reg) // memory works in both agent and workflow modes
 	registerHTTPTool(ctx, reg)
 	registerSearchLocalTool(ctx, reg)
-	registerTranscribeTool(ctx, reg)
 	registerLoaderTool(ctx, reg)
 	registerEmbeddingTools(ctx, reg)
 }
@@ -95,40 +93,6 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			return trackCodeCall(query, func() (string, error) {
 				return executeSearchLocal(exec, args)
 			})
-		},
-	}))
-}
-
-// registerTranscribeTool registers an audio transcription tool (transcribe_audio).
-func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
-	exec := execTranscribe.NewExecutor()
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "transcribe_audio",
-		Execute: func(args map[string]any) (string, error) {
-			config := &domain.TranscribeConfig{}
-			if v, ok := args["file"].(string); ok {
-				config.File = v
-				if err := ValidateRootPath(v); err != nil {
-					return "", fmt.Errorf("transcribe_audio: %w", err)
-				}
-			}
-			if v, ok := args[toolParamModel].(string); ok {
-				config.Model = v
-			}
-			if v, ok := args["backend"].(string); ok {
-				config.Backend = v
-			}
-			if v, ok := args["modelPath"].(string); ok {
-				config.ModelPath = v
-			}
-
-			result, err := exec.Execute(nil, config)
-			if err != nil {
-				return "", err
-			}
-			out, _ := json.MarshalIndent(result, "", "  ")
-			return string(out), nil
 		},
 	}))
 }

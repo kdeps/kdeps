@@ -104,7 +104,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `loader` | Load PDF, HTML, CSV, text, or a directory into text chunks | [Loader](/workflow/resources/loader) |
 | `embedding` | Local SQLite keyword store: index / search / upsert / delete | [Embedding](/workflow/resources/embedding) |
 | `vectorStore` | External vector DB: Qdrant, Chroma, Pinecone, pgvector, ... | [Vector store](/workflow/resources/vector-store) |
-| `transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) | [Transcribe](/workflow/resources/transcribe) |
+| `component: transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) - a kdeps component, YAML only | [Transcribe](/workflow/resources/transcribe) |
 | `component: ocr` | Text from an image via tesseract - local, no API key (a kdeps component, YAML only) | [OCR](/workflow/resources/ocr) |
 
 ## Web

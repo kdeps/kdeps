@@ -7,7 +7,7 @@ Works in workflow and agent mode.
 
 | Resource | Extracts text from | Reference |
 | :--- | :--- | :--- |
-| `transcribe:` | Audio (speech to text via Whisper) | [Transcribe](/workflow/resources/transcribe) |
+| `component: transcribe` | Audio (speech to text via Whisper) | [Transcribe](/workflow/resources/transcribe) |
 | `component: ocr` | Images (printed or handwritten text via tesseract) | [OCR](/workflow/resources/ocr) |
 
 ## See also

@@ -21,6 +21,8 @@ package expression_test
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -1713,6 +1715,27 @@ func TestEvaluator_EnvFallback(t *testing.T) {
 		"env('SET', 'fallback')":   "real",
 		"env('UNSET', 'fallback')": "fallback",
 		"env('UNSET')":             "",
+	} {
+		got, err := evaluator.Evaluate(
+			&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect},
+			map[string]interface{}{},
+		)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
+	}
+}
+
+func TestEvaluator_FileExists(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "model.bin")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	for raw, want := range map[string]interface{}{
+		"fileExists('" + filepath.ToSlash(file) + "')":            true,
+		"fileExists('" + filepath.ToSlash(dir) + "')":             true,
+		"fileExists('" + filepath.ToSlash(dir) + "/missing.bin')": false,
+		"fileExists('')": false,
+		"!fileExists('" + filepath.ToSlash(dir) + "/missing.bin')": true,
 	} {
 		got, err := evaluator.Evaluate(
 			&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect},

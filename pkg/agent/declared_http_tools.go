@@ -19,15 +19,18 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"text/template"
@@ -42,12 +45,21 @@ import (
 type httpToolSpec struct {
 	// Env maps a name templates use (.env.NAME) to the environment variables
 	// that may hold it; the first non-empty one wins. The tool is registered
-	// only when every entry resolves, and templates see no other variable.
+	// only when every entry resolves; an entry whose list ends with "" is
+	// optional and may resolve to "". Templates see no other variable.
 	Env     map[string][]string `yaml:"env,omitempty"`
 	Method  string              `yaml:"method"`
 	URL     string              `yaml:"url"`
 	Headers map[string]string   `yaml:"headers,omitempty"`
 	Body    string              `yaml:"body,omitempty"`
+	// Files sends a multipart/form-data body: each key is a form field, each
+	// value a template rendering the path of the file to upload. Form holds
+	// the text fields (templates; an empty one is left out). Body is unused.
+	Files map[string]string `yaml:"files,omitempty"`
+	Form  map[string]string `yaml:"form,omitempty"`
+	// Paths names the parameters that hold file paths; each is checked
+	// against the workspace boundary before the call.
+	Paths []string `yaml:"paths,omitempty"`
 	// Cache reuses an earlier answer for the same arguments within the run
 	// (the web-tool convergence cache).
 	Cache bool `yaml:"cache,omitempty"`
@@ -121,6 +133,12 @@ func (s *httpToolSpec) validate() error {
 	for k, v := range s.Headers {
 		srcs["header "+k] = v
 	}
+	for k, v := range s.Files {
+		srcs["file "+k] = v
+	}
+	for k, v := range s.Form {
+		srcs["form "+k] = v
+	}
 	for name, src := range srcs {
 		if _, err := parseDeclaredTemplate(name, src); err != nil {
 			return fmt.Errorf("http: %w", err)
@@ -134,12 +152,15 @@ func (s *httpToolSpec) resolveEnv() (map[string]string, bool) {
 	out := make(map[string]string, len(s.Env))
 	for name, vars := range s.Env {
 		for _, v := range vars {
+			if v == "" {
+				break // optional: may stay empty
+			}
 			if val := os.Getenv(v); val != "" {
 				out[name] = val
 				break
 			}
 		}
-		if out[name] == "" {
+		if out[name] == "" && (len(vars) == 0 || vars[len(vars)-1] != "") {
 			return nil, false
 		}
 	}
@@ -162,9 +183,13 @@ func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache 
 				Execute: declaredHTTPExecute(ctx, id, d, env, cache),
 			}))
 		case d.Exec != nil:
+			env, ok := d.Exec.resolveEnv()
+			if !ok {
+				continue
+			}
 			reg.Register(definedAs(id, &kdepstools.Tool{
 				Name:    id,
-				Execute: declaredExecExecute(ctx, id, d),
+				Execute: declaredExecExecute(ctx, id, d, env),
 			}))
 		}
 	}
@@ -179,14 +204,16 @@ func declaredName(id string, d toolDefinition) string {
 }
 
 // declaredExecExecute builds the Execute func of a declared exec tool.
-func declaredExecExecute(ctx context.Context, id string, d toolDefinition) func(map[string]any) (string, error) {
+func declaredExecExecute(
+	ctx context.Context, id string, d toolDefinition, env map[string]string,
+) func(map[string]any) (string, error) {
 	name := declaredName(id, d)
 	return func(args map[string]any) (string, error) {
 		full, err := withParamDefaults(name, d, args)
 		if err != nil {
 			return "", err
 		}
-		return callDeclaredExecTool(ctx, name, d.Exec, full)
+		return callDeclaredExecTool(ctx, name, d.Exec, full, env)
 	}
 }
 
@@ -244,7 +271,9 @@ func (r declaredRenderer) render(part, src string) (string, error) {
 	if err = tmpl.Execute(&sb, r.data); err != nil {
 		return "", fmt.Errorf("%s: %s: %w", r.name, part, err)
 	}
-	return sb.String(), nil
+	// text/template prints a missing map key as "<no value>"; an absent
+	// argument renders as nothing instead.
+	return strings.ReplaceAll(sb.String(), "<no value>", ""), nil
 }
 
 // newRequest renders the block's url, body and headers into a request.
@@ -254,7 +283,15 @@ func (s *httpToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*htt
 		return nil, err
 	}
 	var body io.Reader
-	if s.Body != "" {
+	contentType := ""
+	switch {
+	case len(s.Files) > 0:
+		mb, ct, mErr := s.multipartBody(r)
+		if mErr != nil {
+			return nil, mErr
+		}
+		body, contentType = mb, ct
+	case s.Body != "":
 		b, bErr := r.render("body", s.Body)
 		if bErr != nil {
 			return nil, bErr
@@ -270,7 +307,12 @@ func (s *httpToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*htt
 		if hErr != nil {
 			return nil, hErr
 		}
-		req.Header.Set(k, v)
+		if v = strings.TrimSpace(v); v != "" {
+			req.Header.Set(k, v)
+		}
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	return req, nil
 }
@@ -288,6 +330,13 @@ func (s *httpToolSpec) timeout() time.Duration {
 func callDeclaredHTTPTool(
 	ctx context.Context, name string, s *httpToolSpec, args map[string]any, env map[string]string,
 ) (string, error) {
+	for _, p := range s.Paths {
+		if v, _ := args[p].(string); v != "" {
+			if err := ValidateRootPath(v); err != nil {
+				return "", fmt.Errorf("%s: %w", name, err)
+			}
+		}
+	}
 	r := declaredRenderer{name: name, data: map[string]any{"args": args, "env": env}}
 	reqCtx, cancel := context.WithTimeout(ctx, s.timeout())
 	defer cancel()
@@ -353,4 +402,46 @@ func isEmptyValue(v any) bool {
 		return len(x) == 0
 	}
 	return false
+}
+
+// multipartBody renders Files and Form into a multipart/form-data body.
+func (s *httpToolSpec) multipartBody(r declaredRenderer) (io.Reader, string, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for _, k := range slices.Sorted(maps.Keys(s.Form)) {
+		v, err := r.render("form "+k, s.Form[k])
+		if err != nil {
+			return nil, "", err
+		}
+		if v = strings.TrimSpace(v); v != "" {
+			_ = mw.WriteField(k, v)
+		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(s.Files)) {
+		p, err := r.render("file "+k, s.Files[k])
+		if err != nil {
+			return nil, "", err
+		}
+		if err = addFilePart(mw, k, strings.TrimSpace(p)); err != nil {
+			return nil, "", fmt.Errorf("%s: %w", r.name, err)
+		}
+	}
+	if err := mw.Close(); err != nil {
+		return nil, "", err
+	}
+	return &buf, mw.FormDataContentType(), nil
+}
+
+func addFilePart(mw *multipart.Writer, field, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	part, err := mw.CreateFormFile(field, filepath.Base(path))
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(part, f)
+	return err
 }
