@@ -19,12 +19,14 @@
 package executor_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -257,4 +259,86 @@ settings: {}
 	assert.Equal(t, srv.URL, whole["url"])
 
 	assert.Equal(t, "Integration", run("    selector: h1.title\n")["content"])
+}
+
+// The searchWeb component normalizes each provider's response to
+// [{title, url, snippet}] (DDG HTML, Bing JSON, Tavily POST JSON), reading
+// a paid provider's key from search_connections in config.yaml.
+func TestSearchWebComponent_Providers(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	var tavilyBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/html/"):
+			_, _ = w.Write([]byte(`<a class="result__a" href="https://d.example">Duck</a>`))
+		case r.URL.Path == "/v7.0/search":
+			assert.Equal(t, "bing-key", r.Header.Get("Ocp-Apim-Subscription-Key"))
+			_, _ = w.Write([]byte(`{"webPages":{"value":[{"name":"Bing hit","url":"https://b","snippet":"bs"}]}}`))
+		case r.URL.Path == "/search":
+			_ = json.NewDecoder(r.Body).Decode(&tavilyBody)
+			_, _ = w.Write([]byte(`{"results":[{"title":"Tav","url":"https://t","content":"tc"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("KDEPS_DDG_URL", srv.URL)
+	t.Setenv("KDEPS_BING_URL", srv.URL)
+	t.Setenv("KDEPS_TAVILY_URL", srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(cfgPath,
+		[]byte("search_connections:\n  b:\n    apiKey: bing-key\n  t:\n    apiKey: tav-key\n"), 0o600))
+	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
+
+	run := func(with string) map[string]interface{} {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: search-web-component
+  version: "1.0.0"
+  targetActionId: s
+settings: {}
+`), 0o600))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(dir, "resources", "s.yaml"),
+			[]byte(
+				"actionId: s\nname: S\ncomponent:\n  name: searchWeb\n  with:\n    query: \"go test\"\n"+with,
+			),
+			0o600,
+		))
+		sv, err := validator.NewSchemaValidator()
+		require.NoError(t, err)
+		wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+		require.NoError(t, err)
+		result, err := newExecEngine().Execute(wf, nil)
+		require.NoError(t, err)
+		out, ok := result.(map[string]interface{})
+		require.True(t, ok, "%T", result)
+		return out
+	}
+	first := func(out map[string]interface{}) map[string]interface{} {
+		results, ok := out["results"].([]interface{})
+		require.True(t, ok, "%T", out["results"])
+		require.Len(t, results, 1)
+		m, ok := results[0].(map[string]interface{})
+		require.True(t, ok)
+		return m
+	}
+
+	ddg := run("")
+	assert.Equal(t, "ddg", ddg["provider"])
+	assert.Equal(t, map[string]interface{}{"title": "Duck", "url": "https://d.example", "snippet": ""}, first(ddg))
+
+	bing := run("    provider: bing\n    connectionName: b\n")
+	assert.Equal(t, map[string]interface{}{"title": "Bing hit", "url": "https://b", "snippet": "bs"}, first(bing))
+	assert.EqualValues(t, 1, bing["count"])
+
+	tav := run("    provider: tavily\n    connectionName: t\n    maxResults: 3\n")
+	assert.Equal(t, map[string]interface{}{"title": "Tav", "url": "https://t", "snippet": "tc"}, first(tav))
+	assert.Equal(t, "tav-key", tavilyBody["api_key"])
+	assert.Equal(t, "go test", tavilyBody["query"])
+	assert.EqualValues(t, 3, tavilyBody["max_results"])
 }

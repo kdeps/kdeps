@@ -1,13 +1,13 @@
 # Search resources
 
-Two search executors, compiled into the binary. Each has its own reference page.
+Two ways to search: the `searchLocal` resource and the `searchWeb` component. Each has its own reference page.
 
 Works in workflow and agent mode.
 
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
 | `searchLocal:` | Walk a directory by filename glob and content keyword. Optional TF-IDF index for ranked results. | [searchLocal](/workflow/resources/search-local) |
-| `searchWeb:` | Query the web. DuckDuckGo needs no key. Brave, Bing, and Tavily need a named connection. | [searchWeb](/workflow/resources/search-web) |
+| `component: searchWeb` | Query the web. DuckDuckGo needs no key. Brave, Bing, and Tavily need a named connection. | [searchWeb](/workflow/resources/search-web) |
 
 ## See also
 

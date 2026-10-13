@@ -41,7 +41,7 @@ mode and agent mode.
 | scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
 | `scraper` | A kdeps component (`component: scraper`) that fetches a page and returns its text, optionally narrowed by a CSS selector. | [Scraper](/workflow/resources/scraper) |
 | `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/workflow/resources/search-local) |
-| `searchWeb` | A resource action type for web search via configured search APIs. | [searchWeb](/workflow/resources/search-web) |
+| `searchWeb` | A kdeps component (`component: searchWeb`) for web search: DuckDuckGo, Brave, Bing, Tavily. | [searchWeb](/workflow/resources/search-web) |
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/workflow/data-access) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/workflow/validation) |

@@ -52,9 +52,9 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
-7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [scraper](/workflow/resources/scraper)); one is loaded only when a workflow calls it and does not provide a component of that name itself
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [scraper](/workflow/resources/scraper), [searchWeb](/workflow/resources/search-web)); one is loaded only when a workflow calls it and does not provide a component of that name itself
 
-A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs:
+A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs, and `validations.check` fails the call with its `error.message` when a condition is false:
 
 ```yaml
 # components/fetch/component.yaml (resources, abridged)
@@ -69,6 +69,18 @@ resources:
       skip:
         - "get('fetch.mode') != 'cli'"
     exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
+```
+
+An input whose value names a connection in `~/.kdeps/config.yaml` declares its kind with `connection:` (`search`, `sql`, `smtp`, `imap`, `http`). `kdeps run` then asks for a missing connection before the workflow starts, as it does for a resource's `connectionName`:
+
+```yaml
+# components/searchWeb/component.yaml (interface, abridged)
+interface:
+  inputs:
+    - name: connectionName
+      type: string
+      default: ""
+      connection: search   # with: {connectionName: brave} -> search_connections.brave must exist
 ```
 
 The component's output is the last resource that ran, unless `interface.output` shapes it. `output` is evaluated after the resources run: strings are expressions, maps and lists are walked, so the caller gets fixed field names whatever the steps returned:

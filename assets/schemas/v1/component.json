@@ -56,7 +56,12 @@
               "description": {
                 "type": "string"
               },
-              "default": {}
+              "default": {},
+              "connection": {
+                "type": "string",
+                "enum": ["search", "sql", "smtp", "imap", "http"],
+                "description": "The input names a connection of this kind in ~/.kdeps/config.yaml; kdeps run prompts for a missing one."
+              }
             },
             "additionalProperties": false
           }

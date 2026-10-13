@@ -114,4 +114,9 @@ type ComponentInput struct {
 	Required    bool   `yaml:"required"`
 	Description string `yaml:"description,omitempty"`
 	Default     any    `yaml:"default,omitempty"`
+	// Connection marks an input whose value names a connection in
+	// ~/.kdeps/config.yaml (search, sql, smtp, imap, http): kdeps run asks
+	// for a missing one before the workflow starts, as it does for
+	// resource-level connectionName fields.
+	Connection string `yaml:"connection,omitempty"`
 }

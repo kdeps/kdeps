@@ -124,9 +124,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorSearchLocal: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineSearchLocal(inline.SearchLocal, ctx)
 		},
-		ExecutorSearchWeb: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineSearchWeb(inline.SearchWeb, ctx)
-		},
 		ExecutorTelephony: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineTelephony(inline.Telephony, ctx)
 		},

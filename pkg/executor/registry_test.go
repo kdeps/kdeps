@@ -42,7 +42,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetExecExecutor())
 	assert.Nil(t, registry.GetEmbeddingExecutor())
 	assert.Nil(t, registry.GetSearchLocalExecutor())
-	assert.Nil(t, registry.GetSearchWebExecutor())
 	assert.Nil(t, registry.GetTelephonyExecutor())
 	assert.Nil(t, registry.GetBrowserExecutor())
 	assert.Nil(t, registry.GetBotReplyExecutor())
@@ -60,7 +59,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockExec := &mockExecutor{}
 	mockEmbedding := &mockExecutor{}
 	mockSearchLocal := &mockExecutor{}
-	mockSearchWeb := &mockExecutor{}
 	mockTelephony := &mockExecutor{}
 	mockBrowser := &mockExecutor{}
 	mockBotReply := &mockExecutor{}
@@ -74,7 +72,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetExecExecutor(mockExec)
 	registry.SetEmbeddingExecutor(mockEmbedding)
 	registry.SetSearchLocalExecutor(mockSearchLocal)
-	registry.SetSearchWebExecutor(mockSearchWeb)
 	registry.SetTelephonyExecutor(mockTelephony)
 	registry.SetBrowserExecutor(mockBrowser)
 	registry.SetBotReplyExecutor(mockBotReply)
@@ -88,7 +85,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
 	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())
 	assert.Equal(t, mockSearchLocal, registry.GetSearchLocalExecutor())
-	assert.Equal(t, mockSearchWeb, registry.GetSearchWebExecutor())
 	assert.Equal(t, mockTelephony, registry.GetTelephonyExecutor())
 	assert.Equal(t, mockBrowser, registry.GetBrowserExecutor())
 	assert.Equal(t, mockBotReply, registry.GetBotReplyExecutor())

@@ -154,6 +154,18 @@ htmlText(output('fetchPage').body, 'h1.title')    # "Integration Test"
 htmlText(output('fetchPage').body, '')            # the whole body
 ```
 
+### htmlFind(html, selector)
+Returns one map per element matching a CSS selector: its trimmed text under `text`, plus each attribute (`href`, `class`, `data-*`). The [searchWeb component](/workflow/resources/search-web) maps DuckDuckGo's result links with it.
+
+- **html**: An HTML document or fragment.
+- **selector**: A CSS selector.
+
+**Examples:**
+```yaml
+htmlFind(output('page').body, 'a.result')            # [{text: "Go", href: "https://go.dev", class: "result"}]
+map(htmlFind(output('page').body, 'a'), #.href)      # every link target
+```
+
 ## Iteration functions
 
 Available inside `items:` blocks to access the state of the current loop iteration.

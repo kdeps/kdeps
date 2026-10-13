@@ -44,9 +44,6 @@ func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorSearchLocal)
 }
 
-func (r *Registry) SetSearchWebExecutor(exec ResourceExecutor) { r.Register(ExecutorSearchWeb, exec) }
-func (r *Registry) GetSearchWebExecutor() ResourceExecutor     { return r.getExecutor(ExecutorSearchWeb) }
-
 func (r *Registry) SetTelephonyExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorTelephony, exec)
 }

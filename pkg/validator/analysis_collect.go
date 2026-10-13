@@ -153,9 +153,6 @@ func collectExecTypeStrings(r *domain.Resource) []string {
 	if r.SearchLocal != nil {
 		out = append(out, r.SearchLocal.Query)
 	}
-	if r.SearchWeb != nil {
-		out = append(out, r.SearchWeb.Query)
-	}
 	if r.Browser != nil {
 		out = append(out, r.Browser.URL)
 		out = append(out, r.Browser.WaitFor)

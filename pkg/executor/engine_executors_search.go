@@ -22,22 +22,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// executeSearchWeb executes a searchWeb resource.
-func (e *Engine) executeSearchWeb(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "searchWeb", resource.SearchWeb,
-		e.registry.GetSearchWebExecutor, "searchWeb", "executeSearchWeb", ctx,
-	)
-}
-
-// executeInlineSearchWeb executes an inline searchWeb resource.
-func (e *Engine) executeInlineSearchWeb(
-	config *domain.SearchWebConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered("executeInlineSearchWeb", e.registry.GetSearchWebExecutor, "searchWeb", ctx, config)
-}
-
 // executeTelephony executes a telephony action resource.
 func (e *Engine) executeTelephony(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

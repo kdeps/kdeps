@@ -137,12 +137,3 @@ type SearchLocalConfig struct {
 	// The graph db is graph.db in the same data dir, separate from IndexDBPath.
 	GraphBoost bool `yaml:"graphBoost,omitempty"`
 }
-
-// SearchWebConfig represents web search configuration.
-type SearchWebConfig struct {
-	Query          string `yaml:"query"`
-	Provider       string `yaml:"provider,omitempty"`       // ddg (default) | brave | bing | tavily
-	ConnectionName string `yaml:"connectionName,omitempty"` // named connection from settings.searchConnections
-	MaxResults     int    `yaml:"maxResults,omitempty"`     // default 5
-	Timeout        int    `yaml:"timeout,omitempty"`        // seconds, default 15
-}

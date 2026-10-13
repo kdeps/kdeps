@@ -52,7 +52,6 @@ type ExecutorDefaults struct {
 	Python    PythonExecutorDefaults `yaml:"python"`
 	Exec      ExecExecutorDefaults   `yaml:"exec"`
 	SQL       SQLExecutorDefaults    `yaml:"sql"`
-	SearchWeb SearchWebDefaults      `yaml:"search_web"`
 	Embedding EmbeddingDefaults      `yaml:"embedding"`
 }
 
@@ -86,12 +85,6 @@ type SQLExecutorDefaults struct {
 	MaxOpenConns    int    `yaml:"max_open_conns"`
 	MaxIdleConns    int    `yaml:"max_idle_conns"`
 	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
-}
-
-// SearchWebDefaults holds default values for web search execution.
-type SearchWebDefaults struct {
-	Timeout    int `yaml:"timeout"`
-	MaxResults int `yaml:"max_results"`
 }
 
 // EmbeddingDefaults holds default values for embedding execution.

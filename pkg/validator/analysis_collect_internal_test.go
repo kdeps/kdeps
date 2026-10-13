@@ -80,13 +80,6 @@ func TestCollectExecTypeStrings_HTTP(t *testing.T) {
 	assert.Contains(t, got, "body")
 }
 
-func TestCollectExecTypeStrings_SearchWeb(t *testing.T) {
-	t.Parallel()
-	r := &domain.Resource{SearchWeb: &domain.SearchWebConfig{Query: "golang test"}}
-	got := collectExecTypeStrings(r)
-	assert.Contains(t, got, "golang test")
-}
-
 func TestCollectInlineStrings_WithAll(t *testing.T) {
 	t.Parallel()
 	ac := &domain.ActionConfig{
