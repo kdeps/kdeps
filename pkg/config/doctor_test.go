@@ -340,10 +340,12 @@ func TestProviderYAMLKey(t *testing.T) {
 }
 
 func TestCloudProviderEnvVars(t *testing.T) {
-	for _, p := range cloudProvidersList {
-		assert.Equal(t, p.envVar, cloudProviders[p.name].envVar, p.name)
+	for _, p := range cloudProviderList() {
+		got, ok := providerByName(p.name)
+		require.True(t, ok, p.name)
+		assert.Equal(t, p.envVar, got.envVar, p.name)
 	}
-	_, ok := cloudProviders["unknown"]
+	_, ok := providerByName("unknown")
 	assert.False(t, ok)
 }
 

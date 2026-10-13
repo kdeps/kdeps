@@ -49,6 +49,7 @@ import (
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	lcwatsonx "github.com/tmc/langchaingo/llms/watsonx"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -74,19 +75,31 @@ var simpleTokenProviders = map[string]func(token, model string) (llms.Model, err
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
 var langchainBaseURLs = map[string]string{
-	backendOpenAI: "https://api.openai.com/v1",
-	"xai":         "https://api.x.ai/v1",
-	"groq":        "https://api.groq.com/openai/v1",
-	"mistral":     "https://api.mistral.ai/v1",
-	"deepseek":    "https://api.deepseek.com/v1",
-	"openrouter":  "https://openrouter.ai/api/v1",
-	"together":    "https://api.together.xyz/v1",
-	"perplexity":  "https://api.perplexity.ai",
 	"cohere":      "https://api.cohere.com/compatibility/v1",
 	"file":        "http://127.0.0.1:8080/v1",
 	"gguf":        "http://127.0.0.1:8081/v1",
 	"local":       "http://localhost:8080/v1",
 	backendOllama: "http://localhost:11434/v1",
+}
+
+// openAIBaseURL is OpenAI's own base URL, used when the providers asset set
+// has no openai entry.
+const openAIBaseURL = "https://api.openai.com/v1"
+
+// langchainBaseURL is backend's OpenAI SDK base URL: a local server, cohere's
+// compatibility endpoint, or an OpenAI-compatible provider from the providers
+// asset set.
+func langchainBaseURL(backend string) (string, bool) {
+	if u, ok := langchainBaseURLs[backend]; ok {
+		return u, true
+	}
+	if p, ok := kdepsconfig.LookupProvider(backend); ok && p.BaseURL() != "" {
+		return p.BaseURL(), true
+	}
+	if backend == backendOpenAI {
+		return openAIBaseURL, true
+	}
+	return "", false
 }
 
 // buildLangchainLLM constructs a langchaingo LLM from cfg, optionally wrapped
@@ -167,10 +180,10 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
-		if url, ok := langchainBaseURLs[backend]; ok {
+		if url, ok := langchainBaseURL(backend); ok {
 			baseURL = url
 		} else {
-			baseURL = langchainBaseURLs[backendOpenAI]
+			baseURL, _ = langchainBaseURL(backendOpenAI)
 		}
 	}
 
@@ -477,7 +490,7 @@ func cosineSimilarity(a, b []float32) float64 {
 func buildFewShotEmbedder(_ context.Context, model, backend, baseURL string) (lcemb.Embedder, error) {
 	actualBaseURL := baseURL
 	if actualBaseURL == "" {
-		if u, ok := langchainBaseURLs[backend]; ok {
+		if u, ok := langchainBaseURL(backend); ok {
 			actualBaseURL = u
 		}
 	}

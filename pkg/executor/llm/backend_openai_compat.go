@@ -23,6 +23,7 @@ import (
 	stdhttp "net/http"
 	"strings"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -105,38 +106,21 @@ func (b *openAICompatBackend) APIKeyEnvVar() string {
 	return b.cfg.envVar
 }
 
-//nolint:gochecknoglobals // shared backend instances for OpenAI-compatible providers
-var (
-	defaultOpenAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: backendOpenAI, defaultURL: "https://api.openai.com",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar(backendOpenAI), apiName: "OpenAI",
-	})
-	defaultMistralBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "mistral", defaultURL: "https://api.mistral.ai",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("mistral"), apiName: "mistral",
-	})
-	defaultTogetherBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "together", defaultURL: "https://api.together.xyz",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("together"), apiName: "together",
-	})
-	defaultPerplexityBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "perplexity", defaultURL: "https://api.perplexity.ai",
-		endpointFmt: "%s/chat/completions", envVar: providerAPIKeyEnvVar("perplexity"), apiName: "perplexity",
-	})
-	defaultGroqBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "groq", defaultURL: "https://api.groq.com",
-		endpointFmt: "%s/openai/v1/chat/completions", envVar: providerAPIKeyEnvVar("groq"), apiName: "groq",
-	})
-	defaultDeepSeekBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "deepseek", defaultURL: "https://api.deepseek.com",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("deepseek"), apiName: "DeepSeek",
-	})
-	defaultOpenRouterBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "openrouter", defaultURL: "https://openrouter.ai",
-		endpointFmt: "%s/api/v1/chat/completions", envVar: providerAPIKeyEnvVar("openrouter"), apiName: "OpenRouter",
-	})
-	defaultXAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "xai", defaultURL: "https://api.x.ai",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("xai"), apiName: "xAI",
-	})
-)
+// providerBackends builds a chat backend for every OpenAI-compatible
+// provider in the providers asset set.
+func providerBackends() []Backend {
+	var out []Backend
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if !p.OpenAICompatible() {
+			continue
+		}
+		label := p.Label
+		if label == "" {
+			label = p.Name
+		}
+		out = append(out, newOpenAICompatBackend(openAICompatBackendConfig{
+			name: p.Name, defaultURL: p.URL, endpointFmt: "%s" + p.ChatPath, envVar: p.EnvVar, apiName: label,
+		}))
+	}
+	return out
+}

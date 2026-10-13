@@ -430,7 +430,7 @@ func TestProviderEnvKey_OpenRouter(t *testing.T) {
 
 func TestProviderEnvKey_Together(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "TOGETHERAI_API_KEY", providerEnvKey("together"))
+	assert.Equal(t, "TOGETHER_API_KEY", providerEnvKey("together"))
 }
 
 // --- openAICompatBaseURL missing backend tests ---

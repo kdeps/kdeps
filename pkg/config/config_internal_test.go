@@ -112,7 +112,7 @@ func TestKnownConfigEnvVars_NotEmpty(t *testing.T) {
 	assert.Contains(t, vars, "OLLAMA_HOST")
 	assert.Contains(t, vars, "KDEPS_CHAT_TIMEOUT")
 	assert.Contains(t, vars, "KDEPS_API_AUTH_TOKEN")
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Contains(t, vars, p.envVar, p.name)
 	}
 }
@@ -269,7 +269,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 			ModelsDir:  "/custom/models",
 		},
 	}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		p.setLLMKey(&src.LLM, p.name+"-key")
 	}
 	mergeConfig(dst, src)
@@ -279,7 +279,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 	assert.Equal(t, "round_robin", dst.LLM.Strategy)
 	assert.Len(t, dst.LLM.Models, 2)
 	assert.Equal(t, "/custom/models", dst.LLM.ModelsDir)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Equal(t, p.name+"-key", p.getKey(dst.LLM), p.name)
 	}
 }
@@ -983,7 +983,7 @@ func TestLoad_ParseError(t *testing.T) {
 }
 
 func TestConfigEnvVar_APIKeys(t *testing.T) {
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		env, ok := configEnvVar("llm." + p.yamlKey)
 		require.True(t, ok, "backend %s", p.name)
 		assert.Equal(t, p.envVar, env)

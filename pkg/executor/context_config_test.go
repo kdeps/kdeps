@@ -43,7 +43,7 @@ func newConfigTestCtx(t *testing.T) *executor.ExecutionContext {
 	ctx.Config = &config.Config{
 		LLM: config.LLMKeys{
 			OllamaHost: "http://localhost:11434",
-			OpenAI:     "sk-test",
+			Keys:       map[string]string{"openai_api_key": "sk-test"},
 		},
 		Defaults: config.Defaults{
 			Timezone: "UTC",
@@ -135,7 +135,7 @@ func TestSetConfigField_Config(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	t.Setenv("OPENAI_API_KEY", "")
 	require.NoError(t, ctx.SetConfigField("config.llm.openai_api_key", "sk-new"))
-	assert.Equal(t, "sk-new", ctx.Config.LLM.OpenAI)
+	assert.Equal(t, "sk-new", ctx.Config.LLM.Keys["openai_api_key"])
 }
 
 func TestSetConfigField_Workflow(t *testing.T) {
@@ -320,7 +320,7 @@ func TestSetConfigField_ConfigNilAutoInit(t *testing.T) {
 	ctx.Config = nil
 	require.NoError(t, ctx.SetConfigField("config.llm.openai_api_key", "sk-init"))
 	require.NotNil(t, ctx.Config)
-	assert.Equal(t, "sk-init", ctx.Config.LLM.OpenAI)
+	assert.Equal(t, "sk-init", ctx.Config.LLM.Keys["openai_api_key"])
 }
 
 func TestSetConfigField_WorkflowNil(t *testing.T) {

@@ -1,0 +1,11 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.cloudflare_api_token in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: cloudflare
+label: Cloudflare
+order: 130                # position in provider lists and the setup prompt
+configKey: cloudflare_api_token
+envVar: CLOUDFLARE_API_TOKEN
+url: "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai"
+chatPath: /v1/chat/completions
+hosts: [cloudflare.com]

@@ -18,7 +18,10 @@
 
 package llm
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import (
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
 
 // BackendRegistry manages available backends.
 type BackendRegistry struct {
@@ -30,21 +33,9 @@ var defaultRegistryBackends = []Backend{
 	&OllamaBackend{},
 	&FileBackend{},
 	&GGUFBackend{},
-	defaultOpenAIBackend,
 	&AnthropicBackend{},
 	&GoogleBackend{},
 	&CohereBackend{},
-	defaultMistralBackend,
-	defaultTogetherBackend,
-	defaultPerplexityBackend,
-	defaultGroqBackend,
-	defaultDeepSeekBackend,
-	defaultOpenRouterBackend,
-	defaultXAIBackend,
-	&HuggingFaceBackend{},
-	&CloudflareBackend{},
-	&MaritacaBackend{},
-	&ErnieBackend{},
 	&BedrockBackend{},
 	&WatsonXBackend{},
 	&M365Backend{},
@@ -52,11 +43,48 @@ var defaultRegistryBackends = []Backend{
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.
 func DefaultRegistryBackendNames() []string {
-	names := make([]string, len(defaultRegistryBackends))
-	for i, b := range defaultRegistryBackends {
+	all := registryBackends()
+	names := make([]string, len(all))
+	for i, b := range all {
 		names[i] = b.Name()
 	}
 	return names
+}
+
+// registryBackends is the local backends, then every cloud provider in
+// config order (a built-in backend, or an OpenAI-compatible one from the
+// providers asset set), then the remaining built-ins (m365).
+func registryBackends() []Backend {
+	builtin := make(map[string]Backend, len(defaultRegistryBackends))
+	for _, b := range defaultRegistryBackends {
+		builtin[b.Name()] = b
+	}
+	compat := map[string]Backend{}
+	for _, b := range providerBackends() {
+		compat[b.Name()] = b
+	}
+	out := make([]Backend, 0, len(builtin)+len(compat))
+	placed := map[string]bool{}
+	add := func(b Backend) {
+		if b != nil && !placed[b.Name()] {
+			out = append(out, b)
+			placed[b.Name()] = true
+		}
+	}
+	for _, name := range []string{backendOllama, BackendFile, BackendGGUF} {
+		add(builtin[name])
+	}
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if b, ok := builtin[p.Name]; ok {
+			add(b)
+		} else {
+			add(compat[p.Name])
+		}
+	}
+	for _, b := range defaultRegistryBackends {
+		add(b)
+	}
+	return out
 }
 
 // NewBackendRegistry creates a new backend registry.
@@ -66,7 +94,7 @@ func NewBackendRegistry() *BackendRegistry {
 		backends: make(map[string]Backend, len(defaultRegistryBackends)),
 	}
 
-	for _, backend := range defaultRegistryBackends {
+	for _, backend := range registryBackends() {
 		registry.Register(backend)
 	}
 

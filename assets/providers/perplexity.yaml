@@ -1,0 +1,13 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.perplexity_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: perplexity
+label: Perplexity
+order: 70                # position in provider lists and the setup prompt
+configKey: perplexity_api_key
+envVar: PERPLEXITY_API_KEY
+defaultModel: llama-3.1-sonar-large-128k-online
+url: https://api.perplexity.ai
+chatPath: /chat/completions
+embeddings: true          # also serves OpenAI-compatible /embeddings
+hosts: [perplexity.ai]

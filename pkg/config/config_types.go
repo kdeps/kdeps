@@ -183,24 +183,10 @@ type LLMKeys struct {
 	// or aria2c not installed. Default: "-c -x 16 -s 16 --console-log-level=warn"
 	Aria2cFlags string `yaml:"aria2c_flags,omitempty"`
 
-	// Online provider API keys.
-	OpenAI      string `yaml:"openai_api_key"`
-	Anthropic   string `yaml:"anthropic_api_key"`
-	Google      string `yaml:"google_api_key"`
-	Cohere      string `yaml:"cohere_api_key"`
-	Mistral     string `yaml:"mistral_api_key"`
-	Together    string `yaml:"together_api_key"`
-	Perplexity  string `yaml:"perplexity_api_key"`
-	Groq        string `yaml:"groq_api_key"`
-	DeepSeek    string `yaml:"deepseek_api_key"`
-	OpenRouter  string `yaml:"openrouter_api_key"`
-	XAI         string `yaml:"xai_api_key"`
-	HuggingFace string `yaml:"huggingface_api_key"`
-	Cloudflare  string `yaml:"cloudflare_api_token"`
-	Maritaca    string `yaml:"maritaca_api_key"`
-	Ernie       string `yaml:"ernie_api_key"`
-	Bedrock     string `yaml:"bedrock_api_key"`
-	WatsonX     string `yaml:"watsonx_api_key"`
+	// Keys holds every cloud provider's API key, keyed by the provider's
+	// config key (openai_api_key, groq_api_key, ...): the built-in providers
+	// and the providers asset set. Written as llm.<configKey> in config.yaml.
+	Keys map[string]string `yaml:",inline"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.

@@ -77,7 +77,7 @@ func validateUnknownKeys(data []byte) []string {
 	}
 
 	// Check sub-keys of each known section.
-	warnings = append(warnings, subKeyWarnings(root, "llm", knownLLMKeys,
+	warnings = append(warnings, subKeyWarnings(root, "llm", knownLLMKeys(),
 		"unknown llm key %q — check for typos in API key or field name")...)
 	warnings = append(warnings, subKeyWarnings(root, "defaults", knownDefaultsKeys,
 		"unknown defaults key %q — valid keys: timezone, python_version, offline_mode")...)

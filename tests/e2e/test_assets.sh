@@ -32,6 +32,32 @@ as_run() {
     HOME="$home" KDEPS_ASSETS_SRC='' KDEPS_ASSETS_DIR="$home/store" "$@" 2>&1 </dev/null
 }
 
+# A workflow with pinned package versions: --show-dockerfile then makes no
+# GitHub "latest release" lookups (rate-limited on shared CI runners).
+AS_PINNED="$AS_DIR/pinned"
+mkdir -p "$AS_PINNED/resources"
+cat > "$AS_PINNED/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: assets-pinned
+  version: "1.0.0"
+  targetActionId: main
+settings:
+  agentSettings:
+    versions:
+      kdeps: v2.0.0
+      ollama: 0.5.4
+      uv: 0.6.3
+YAML
+cat > "$AS_PINNED/resources/main.yaml" <<'YAML'
+actionId: main
+name: Main
+apiResponse:
+  success: true
+  response: ok
+YAML
+
 # --- asset-free commands work offline with nothing installed -----------------
 AF_HOME="$AS_DIR/free"
 mkdir -p "$AF_HOME"
@@ -163,7 +189,7 @@ for f in schemas/v1.yaml defaults/executors.yaml docker/image.yaml k8s/manifests
 done
 OUT=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
 output_grep "Schema validation passed" "$OUT" || fl_ok=0
-DF=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" bundle build "$PROJECT_ROOT/examples/chatbot" --show-dockerfile)
+DF=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" bundle build "$AS_PINNED" --show-dockerfile)
 output_grep_fixed "COPY kdeps-assets/ /app/.kdeps/assets/" "$DF" || fl_ok=0
 if [ "$fl_ok" = 1 ]; then
     test_passed "assets - downloaded schemas and Docker templates work offline"
@@ -260,7 +286,7 @@ else
 fi
 
 # --- Docker images get the build host's assets -------------------------------
-OUT=$("$KDEPS_BIN" bundle build "$PROJECT_ROOT/examples/chatbot" --show-dockerfile 2>&1 </dev/null)
+OUT=$("$KDEPS_BIN" bundle build "$AS_PINNED" --show-dockerfile 2>&1 </dev/null)
 if output_grep_fixed "COPY kdeps-assets/ /app/.kdeps/assets/" "$OUT" && output_grep "KDEPS_ASSETS_DIR=/app/\.kdeps/assets" "$OUT"; then
     test_passed "assets - Dockerfile copies kdeps-assets into the image store"
 else

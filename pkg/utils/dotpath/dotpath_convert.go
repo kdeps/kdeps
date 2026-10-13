@@ -38,6 +38,20 @@ func findField(v reflect.Value, seg string) reflect.Value {
 	return reflect.Value{}
 }
 
+// inlineMap returns the struct's `yaml:",inline"` string-keyed map field,
+// which holds the keys the struct has no field for.
+func inlineMap(v reflect.Value) (reflect.Value, bool) {
+	t := v.Type()
+	for i := range t.NumField() {
+		sf := t.Field(i)
+		_, opts, _ := strings.Cut(sf.Tag.Get("yaml"), ",")
+		if opts == "inline" && sf.Type.Kind() == reflect.Map && sf.Type.Key().Kind() == reflect.String {
+			return v.Field(i), true
+		}
+	}
+	return reflect.Value{}, false
+}
+
 // yamlTagName extracts the first comma-separated segment of the yaml struct tag.
 func yamlTagName(sf reflect.StructField) string {
 	tag := sf.Tag.Get("yaml")
@@ -137,6 +151,14 @@ func structToMap(v reflect.Value) map[string]any {
 	for i := range t.NumField() {
 		sf := t.Field(i)
 		name := yamlTagName(sf)
+		if _, opts, _ := strings.Cut(sf.Tag.Get("yaml"), ","); opts == "inline" &&
+			sf.Type.Kind() == reflect.Map && sf.Type.Key().Kind() == reflect.String {
+			fv := v.Field(i)
+			for _, k := range fv.MapKeys() {
+				m[k.String()] = fv.MapIndex(k).Interface()
+			}
+			continue
+		}
 		if name == "" || name == "-" {
 			continue
 		}

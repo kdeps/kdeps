@@ -182,7 +182,7 @@ func (r *doctorRunner) backendKey(cfg *Config) {
 
 	key := getLLMAPIKey(cfg.LLM, backend)
 	if key == "" {
-		if p, ok := cloudProviders[backend]; ok {
+		if p, ok := providerByName(backend); ok {
 			key = osGetenv(p.envVar)
 		}
 	}
@@ -238,7 +238,7 @@ func (r *doctorRunner) agents(cfg *Config) {
 
 func doctorSpotCheckEnvVars() []string {
 	vars := make([]string, 0)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		if p.doctorSpotCheck {
 			vars = append(vars, p.envVar)
 		}

@@ -56,6 +56,7 @@ var setTypes = map[string]string{
 	"schemas":    "schema",
 	"defaults":   "defaults",
 	"components": "kdeps-component",
+	"providers":  "provider",
 }
 
 // PackageType is the registry package type of set's items ("" if set is not

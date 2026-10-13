@@ -9,12 +9,12 @@ import (
 
 func TestCloudLLMProviders_MatchesRegistry(t *testing.T) {
 	providers := CloudLLMProviders()
-	require.Len(t, providers, len(cloudProvidersList))
+	require.Len(t, providers, len(cloudProviderList()))
 	for i, p := range providers {
-		assert.Equal(t, cloudProvidersList[i].name, p.Name)
-		assert.Equal(t, cloudProvidersList[i].yamlKey, p.YAMLKey)
-		assert.Equal(t, cloudProvidersList[i].envVar, p.EnvVar)
-		assert.Equal(t, cloudProvidersList[i].defaultModel, p.DefaultModel)
+		assert.Equal(t, cloudProviderList()[i].name, p.Name)
+		assert.Equal(t, cloudProviderList()[i].yamlKey, p.YAMLKey)
+		assert.Equal(t, cloudProviderList()[i].envVar, p.EnvVar)
+		assert.Equal(t, cloudProviderList()[i].defaultModel, p.DefaultModel)
 	}
 }
 

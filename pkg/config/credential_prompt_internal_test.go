@@ -39,7 +39,7 @@ func TestIsCloudBackend(t *testing.T) {
 
 func TestHasLLMKey(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	cfg := &Config{LLM: LLMKeys{OpenAI: "sk-openai"}}
+	cfg := &Config{LLM: LLMKeys{Keys: map[string]string{"openai_api_key": "sk-openai"}}}
 
 	assert.True(t, HasLLMKey(cfg, "openai"))    // in config
 	assert.False(t, HasLLMKey(cfg, "deepseek")) // absent, env empty
@@ -69,7 +69,7 @@ func TestHasAPIToken(t *testing.T) {
 
 func TestLLMKeySource(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	cfg := &Config{LLM: LLMKeys{OpenAI: "sk-openai"}}
+	cfg := &Config{LLM: LLMKeys{Keys: map[string]string{"openai_api_key": "sk-openai"}}}
 
 	src, envVar := LLMKeySource(cfg, "openai")
 	assert.Equal(t, SourceConfig, src)
@@ -119,7 +119,7 @@ func TestPromptAndSaveLLMKey(t *testing.T) {
 	assert.True(t, saved)
 
 	cfg := readConfigFile(t, path)
-	assert.Equal(t, "sk-deepseek-123", cfg.LLM.DeepSeek)
+	assert.Equal(t, "sk-deepseek-123", cfg.LLM.Keys["deepseek_api_key"])
 	assert.Equal(t, "sk-deepseek-123", os.Getenv("DEEPSEEK_API_KEY"))
 }
 
@@ -222,7 +222,7 @@ func TestInjectScalars_PreserveExisting(t *testing.T) {
 
 	cfg := readConfigFile(t, path)
 	assert.Equal(t, "ollama", cfg.LLM.Backend)
-	assert.Equal(t, "sk-x", cfg.LLM.DeepSeek)
+	assert.Equal(t, "sk-x", cfg.LLM.Keys["deepseek_api_key"])
 	assert.Equal(t, "tok-y", cfg.APIAuthToken)
 	assert.Equal(t, "UTC", cfg.Defaults.Timezone)
 }

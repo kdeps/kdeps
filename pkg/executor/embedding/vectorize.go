@@ -35,6 +35,7 @@ import (
 	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -222,52 +223,25 @@ func buildVoyageAIEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) 
 	return lchemb_voyage.NewVoyageAI(opts...)
 }
 
+// openAICompatBaseURL is the OpenAI-compatible embeddings base URL of
+// backend: local Ollama, cohere's compatibility endpoint, or a provider from
+// the providers asset set that serves embeddings.
 func openAICompatBaseURL(backend string) string {
-	urls := map[string]string{
-		embeddingOpenAI:    "https://api.openai.com/v1",
-		backendOllamaLocal: "http://localhost:11434/v1",
-		"groq":             "https://api.groq.com/openai/v1",
-		"mistral":          "https://api.mistral.ai/v1",
-		"deepseek":         "https://api.deepseek.com/v1",
-		"openrouter":       "https://openrouter.ai/api/v1",
-		"together":         "https://api.together.xyz/v1",
-		embeddingCohere:    "https://api.cohere.com/compatibility/v1",
-		"xai":              "https://api.x.ai/v1",
-		"perplexity":       "https://api.perplexity.ai",
+	switch backend {
+	case backendOllamaLocal:
+		return "http://localhost:11434/v1"
+	case embeddingCohere:
+		return "https://api.cohere.com/compatibility/v1"
 	}
-	if u, ok := urls[backend]; ok {
-		return u
-	}
-	return ""
+	return kdepsconfig.EmbeddingBaseURL(backend)
 }
 
+// providerEnvKey is the API key environment variable of a cloud provider.
 func providerEnvKey(backend string) string {
-	switch backend {
-	case embeddingOpenAI:
-		return "OPENAI_API_KEY"
-	case backendGoogle:
-		return "GOOGLE_API_KEY"
-	case "groq":
-		return "GROQ_API_KEY"
-	case "mistral":
-		return "MISTRAL_API_KEY"
-	case "deepseek":
-		return "DEEPSEEK_API_KEY"
-	case "openrouter":
-		return "OPENROUTER_API_KEY"
-	case "together":
-		return "TOGETHERAI_API_KEY"
-	case embeddingCohere:
-		return "COHERE_API_KEY"
-	case "xai":
-		return "XAI_API_KEY"
-	case "perplexity":
-		return "PERPLEXITY_API_KEY"
-	case backendOllamaLocal, backendFileLocal, backendGGUFLocal:
-		return ""
-	default:
-		return ""
+	if p, ok := kdepsconfig.LookupProvider(backend); ok {
+		return p.EnvVar
 	}
+	return ""
 }
 
 func isLocalBackend(backend string) bool {

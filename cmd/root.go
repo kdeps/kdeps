@@ -93,8 +93,14 @@ func createRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.MaximumNArgs(1),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			initRootLogging(cmd)
+			// Assets first: config loading reads the providers asset set to
+			// export each provider's API key from config.yaml.
+			if err := ensureAssets(cmd); err != nil {
+				return err
+			}
 			runRootPersistentPreRun(cmd)
-			return ensureAssets(cmd)
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if up, _ := cmd.Flags().GetBool("upgrade"); up {

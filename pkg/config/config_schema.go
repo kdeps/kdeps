@@ -79,9 +79,13 @@ func collectSettings(v reflect.Value, prefix string, out *[]SettingField) {
 	t := v.Type()
 	for i := range t.NumField() {
 		sf := t.Field(i)
-		name, _, _ := strings.Cut(sf.Tag.Get("yaml"), ",")
+		name, opts, _ := strings.Cut(sf.Tag.Get("yaml"), ",")
 		path := prefix + name
 		fv := v.Field(i)
+		if opts == "inline" && sf.Type == reflect.TypeFor[map[string]string]() {
+			collectProviderKeys(fv, prefix, out)
+			continue
+		}
 		if sf.Type.Kind() == reflect.Struct {
 			collectSettings(fv, path+".", out)
 			continue
@@ -98,6 +102,29 @@ func collectSettings(v reflect.Value, prefix string, out *[]SettingField) {
 			Secret: isSecretSetting(path),
 		}
 		fillSettingValue(&field, fv)
+		applySettingMeta(&field)
+		*out = append(*out, field)
+	}
+}
+
+// collectProviderKeys lists one secret string setting per cloud provider
+// (built-in and from the providers asset set) for the llm key map keys.
+func collectProviderKeys(keys reflect.Value, prefix string, out *[]SettingField) {
+	for _, p := range cloudProviderList() {
+		field := SettingField{
+			Path:   prefix + p.yamlKey,
+			Group:  strings.TrimSuffix(prefix, "."),
+			Label:  p.yamlKey,
+			Type:   SettingString,
+			Secret: isSecretSetting(prefix + p.yamlKey),
+		}
+		v := ""
+		if !keys.IsNil() {
+			if mv := keys.MapIndex(reflect.ValueOf(p.yamlKey)); mv.IsValid() {
+				v = mv.String()
+			}
+		}
+		fillSettingValue(&field, reflect.ValueOf(v))
 		applySettingMeta(&field)
 		*out = append(*out, field)
 	}

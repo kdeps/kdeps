@@ -37,6 +37,7 @@ ocr_workflow() {
     local pkg_dir
     pkg_dir=$(mktemp -d)
     mkdir -p "$pkg_dir/resources"
+    # Pinned versions: --show-dockerfile makes no GitHub "latest" lookups.
     cat > "$pkg_dir/workflow.yaml" <<'YAML'
 apiVersion: kdeps.io/v1
 kind: Workflow
@@ -44,7 +45,12 @@ metadata:
   name: ocr-test
   version: "1.0.0"
   targetActionId: extract
-settings: {}
+settings:
+  agentSettings:
+    versions:
+      kdeps: v2.0.0
+      ollama: 0.5.4
+      uv: 0.6.3
 YAML
     printf '%s\n' "$1" > "$pkg_dir/resources/extract.yaml"
     echo "$pkg_dir"

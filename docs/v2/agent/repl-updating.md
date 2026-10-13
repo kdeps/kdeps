@@ -52,6 +52,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `docker` | The Dockerfile, entrypoint and supervisord templates `kdeps build` renders (all five files) | `docker/image` |
 | `k8s` | The Deployment, Service and NetworkPolicy templates `kdeps export k8s` renders (all three files) | `k8s/manifests` |
 | `components` | A kdeps component (YAML, no Go code) a workflow calls with `component:`, e.g. [ocr](/workflow/resources/ocr) | `components/ocr` |
+| `providers` | An [OpenAI-compatible LLM provider](/workflow/resources/llm-backends#openai-compatible-providers): chat endpoint, key variable and config key | `providers/groq` |
 
 ```d2
 direction: right

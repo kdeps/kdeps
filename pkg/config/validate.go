@@ -18,6 +18,8 @@
 
 package config
 
+import "sort"
+
 const (
 	strategyTokenThreshold = "token_threshold"
 	strategyFallback       = "fallback"
@@ -66,91 +68,27 @@ var (
 		strategyRoundRobin:     true,
 	}
 
-	cloudProvidersList = []cloudProvider{
-		{
-			name: providerOpenAI, yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
-			doctorSpotCheck: true, defaultModel: "gpt-4o",
-			field: func(k *LLMKeys) *string { return &k.OpenAI },
-		},
+	// builtinProviders are the providers with their own Go backend; the
+	// OpenAI-compatible ones come from the providers asset set. order places
+	// them among the asset providers (openai is 10, xai 110, ...).
+	//
+	//nolint:mnd // provider order positions
+	builtinProviders = []cloudProvider{
 		{
 			name: "anthropic", yamlKey: "anthropic_api_key", envVar: "ANTHROPIC_API_KEY",
-			doctorSpotCheck: true, defaultModel: "claude-sonnet-4-6",
-			field: func(k *LLMKeys) *string { return &k.Anthropic },
+			doctorSpotCheck: true, defaultModel: "claude-sonnet-4-6", order: 20,
 		},
 		{
 			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
-			defaultModel: "gemini-2.5-flash",
-			field:        func(k *LLMKeys) *string { return &k.Google },
+			defaultModel: "gemini-2.5-flash", order: 30,
 		},
 		{
 			name: "cohere", yamlKey: "cohere_api_key", envVar: "COHERE_API_KEY",
-			defaultModel: "command-r-plus",
-			field:        func(k *LLMKeys) *string { return &k.Cohere },
+			defaultModel: "command-r-plus", order: 40,
 		},
-		{
-			name: "mistral", yamlKey: "mistral_api_key", envVar: "MISTRAL_API_KEY",
-			defaultModel: "mistral-large-latest",
-			field:        func(k *LLMKeys) *string { return &k.Mistral },
-		},
-		{
-			name: "together", yamlKey: "together_api_key", envVar: "TOGETHER_API_KEY",
-			defaultModel: "meta-llama/Llama-3-70b-chat-hf",
-			field:        func(k *LLMKeys) *string { return &k.Together },
-		},
-		{
-			name: "perplexity", yamlKey: "perplexity_api_key", envVar: "PERPLEXITY_API_KEY",
-			defaultModel: "llama-3.1-sonar-large-128k-online",
-			field:        func(k *LLMKeys) *string { return &k.Perplexity },
-		},
-		{
-			name: "groq", yamlKey: "groq_api_key", envVar: "GROQ_API_KEY",
-			defaultModel: "llama-3.3-70b-versatile",
-			field:        func(k *LLMKeys) *string { return &k.Groq },
-		},
-		{
-			name: "deepseek", yamlKey: "deepseek_api_key", envVar: "DEEPSEEK_API_KEY",
-			defaultModel: "deepseek-v4-flash",
-			field:        func(k *LLMKeys) *string { return &k.DeepSeek },
-		},
-		{
-			name: "openrouter", yamlKey: "openrouter_api_key", envVar: "OPENROUTER_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.OpenRouter },
-		},
-		{
-			name: "xai", yamlKey: "xai_api_key", envVar: "XAI_API_KEY",
-			defaultModel: "grok-3",
-			field:        func(k *LLMKeys) *string { return &k.XAI },
-		},
-		{
-			name: "huggingface", yamlKey: "huggingface_api_key", envVar: "HF_TOKEN",
-			field: func(k *LLMKeys) *string { return &k.HuggingFace },
-		},
-		{
-			name: "cloudflare", yamlKey: "cloudflare_api_token", envVar: "CLOUDFLARE_API_TOKEN",
-			field: func(k *LLMKeys) *string { return &k.Cloudflare },
-		},
-		{
-			name: "maritaca", yamlKey: "maritaca_api_key", envVar: "MARITACA_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Maritaca },
-		},
-		{
-			name: "ernie", yamlKey: "ernie_api_key", envVar: "ERNIE_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Ernie },
-		},
-		{
-			name: "bedrock", yamlKey: "bedrock_api_key", envVar: "BEDROCK_API_KEY",
-			doctorSpotCheck: false,
-			field:           func(k *LLMKeys) *string { return &k.Bedrock },
-		},
-		{
-			name: "watsonx", yamlKey: "watsonx_api_key", envVar: "WATSONX_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.WatsonX },
-		},
+		{name: "bedrock", yamlKey: "bedrock_api_key", envVar: "BEDROCK_API_KEY", order: 160},
+		{name: "watsonx", yamlKey: "watsonx_api_key", envVar: "WATSONX_API_KEY", order: 170},
 	}
-
-	cloudProviders   = buildCloudProviderMap(cloudProvidersList)
-	knownLLMKeys     = buildKnownLLMKeys(cloudProvidersList)
-	allProviderNames = buildAllProviderNames(cloudProvidersList)
 )
 
 type cloudProvider struct {
@@ -161,32 +99,71 @@ type cloudProvider struct {
 	// defaultModel is a representative model id for this provider (e.g.
 	// "gpt-4o" for openai), used only as auto-router's last-resort cloud
 	// pick when no local model is installed. Empty for providers that host
-	// many models with no single canonical default (e.g. bedrock, watsonx)
-	// -- those simply don't participate in that fallback, same as they
-	// already don't in pkg/agent's own cloud model catalog.
+	// many models with no single canonical default (e.g. bedrock, watsonx).
 	defaultModel string
-	// field returns a pointer to this provider's key inside an LLMKeys.
-	field func(*LLMKeys) *string
+	order        int
+	// The rest is set for OpenAI-compatible providers (the asset set).
+	label      string
+	url        string
+	chatPath   string
+	embeddings bool
+	hosts      []string
 }
 
-func (p cloudProvider) getKey(k LLMKeys) string { return *p.field(&k) }
+// cloudProviderList is every cloud provider, built-in and from the
+// providers asset set, in setup-prompt order.
+func cloudProviderList() []cloudProvider {
+	specs := assetProviders()
+	list := make([]cloudProvider, 0, len(builtinProviders)+len(specs))
+	list = append(list, builtinProviders...)
+	for _, s := range specs {
+		list = append(list, cloudProvider{
+			name: s.Name, yamlKey: s.ConfigKey, envVar: s.EnvVar, doctorSpotCheck: s.DoctorCheck,
+			defaultModel: s.DefaultModel, order: s.Order, label: s.Label, url: s.URL,
+			chatPath: s.ChatPath, embeddings: s.Embeddings, hosts: s.Hosts,
+		})
+	}
+	sort.SliceStable(list, func(i, j int) bool { return list[i].order < list[j].order })
+	return list
+}
 
-func (p cloudProvider) setLLMKey(llm *LLMKeys, v string) { *p.field(llm) = v }
+// providerByName returns the cloud provider called name.
+func providerByName(name string) (cloudProvider, bool) {
+	for _, p := range cloudProviderList() {
+		if p.name == name {
+			return p, true
+		}
+	}
+	return cloudProvider{}, false
+}
+
+func (p cloudProvider) getKey(k LLMKeys) string { return k.Keys[p.yamlKey] }
+
+func (p cloudProvider) setLLMKey(llm *LLMKeys, v string) {
+	if llm.Keys == nil {
+		llm.Keys = map[string]string{}
+	}
+	llm.Keys[p.yamlKey] = v
+}
 
 func (p cloudProvider) setOnConfig(c *Config, v string) {
 	p.setLLMKey(&c.LLM, v)
 }
 
 func mergeCloudProviderKeys(dst, src *LLMKeys) {
-	for _, p := range cloudProvidersList {
-		if v := p.getKey(*src); v != "" {
-			p.setLLMKey(dst, v)
+	for k, v := range src.Keys {
+		if v == "" {
+			continue
 		}
+		if dst.Keys == nil {
+			dst.Keys = map[string]string{}
+		}
+		dst.Keys[k] = v
 	}
 }
 
 func hasCloudProviderKey(llm LLMKeys) bool {
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		if p.getKey(llm) != "" {
 			return true
 		}
@@ -194,26 +171,17 @@ func hasCloudProviderKey(llm LLMKeys) bool {
 	return false
 }
 
-func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
-	m := make(map[string]cloudProvider, len(list))
-	for _, p := range list {
-		m[p.name] = p
-	}
-	return m
-}
-
-func buildAllProviderNames(list []cloudProvider) []string {
+func allProviderNames() []string {
+	list := cloudProviderList()
 	names := make([]string, 0, len(list)+3) //nolint:mnd // file + ollama + m365 prepended
-	names = append(names, fileBackendStr)
-	names = append(names, ollamaBackendStr)
-	names = append(names, m365BackendStr)
+	names = append(names, fileBackendStr, ollamaBackendStr, m365BackendStr)
 	for _, p := range list {
 		names = append(names, p.name)
 	}
 	return names
 }
 
-func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
+func knownLLMKeys() map[string]bool {
 	m := map[string]bool{
 		"ollama_host": true,
 		"backend":     true,
@@ -223,7 +191,7 @@ func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
 		"models_dir":  true,
 		"ctx_size":    true,
 	}
-	for _, p := range list {
+	for _, p := range cloudProviderList() {
 		m[p.yamlKey] = true
 	}
 	return m
@@ -235,7 +203,7 @@ func isLocalBackend(backend string) bool {
 
 // getLLMAPIKey returns the value of the API key field for a given backend.
 func getLLMAPIKey(llm LLMKeys, backend string) string {
-	if p, ok := cloudProviders[backend]; ok {
+	if p, ok := providerByName(backend); ok {
 		return p.getKey(llm)
 	}
 	return ""
@@ -243,7 +211,7 @@ func getLLMAPIKey(llm LLMKeys, backend string) string {
 
 // providerYAMLKey returns the config yaml field name for a backend's API key.
 func providerYAMLKey(backend string) string {
-	if p, ok := cloudProviders[backend]; ok {
+	if p, ok := providerByName(backend); ok {
 		return p.yamlKey
 	}
 	return backend + "_api_key"

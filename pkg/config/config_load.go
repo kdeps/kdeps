@@ -97,7 +97,7 @@ func Scaffold() error {
 	if mkdirErr := AppFS.MkdirAll(filepath.Dir(path), configDirPerm); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
-	return afero.WriteFile(AppFS, path, []byte(defaultConfigTemplate), configFilePerm)
+	return afero.WriteFile(AppFS, path, []byte(defaultConfigTemplate()), configFilePerm)
 }
 
 // LoadWithAgent loads config.yaml and applies the named agent profile on top.
@@ -153,7 +153,7 @@ func knownConfigEnvVars() []string {
 		"KDEPS_LLM_ROUTER",
 		"KDEPS_API_AUTH_TOKEN",
 	}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		vars = append(vars, p.envVar)
 	}
 	return vars
