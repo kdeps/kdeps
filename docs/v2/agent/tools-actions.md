@@ -1,6 +1,6 @@
 # Action tools
 
-`http_request`, `search_local`, `transcribe_audio`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when their credentials are set. Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
+`http_request`, `search_local`, `transcribe_audio`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when their credentials are set (the Zapier tools are [declared HTTP tools](/agent/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Git commit attribution
 

@@ -38,6 +38,60 @@ Optional fields: `constraints` (limits and gotchas, shown inline), `outputFormat
 differs from the file name: goal mode's `goal_task_complete.yaml` registers as
 `task_complete`).
 
+## Declared HTTP tools
+
+A tool whose definition has an `http:` block needs no Go code: kdeps registers it when the block's `env` resolves and runs it as one HTTP call. `exa_search`, `wolfram_alpha`, `zapier_*`, the three rerankers and `retrieve_context` ship this way, and a new HTTP-backed tool is one YAML file published to the `tools` set (or dropped into `$KDEPS_ASSETS_SRC/tools/` while developing).
+
+```text
+model calls tool -> args + parameter defaults -> render url/headers/body -> HTTP call -> render result -> model
+```
+
+```yaml
+# tools/wolfram_alpha.yaml (shipped)
+version: 1.1.0
+description: Query Wolfram Alpha for factual computations ... Requires WOLFRAM_APP_ID.
+parameters:
+  query:
+    type: string
+    required: true           # a missing required argument fails with "wolfram_alpha: query is required"
+http:
+  env:
+    APP_ID: [WOLFRAM_APP_ID]  # .env.APP_ID; first non-empty variable wins; unset -> tool not offered
+  method: GET
+  url: "https://api.wolframalpha.com/v1/result?i={{urlquery .args.query}}&appid={{urlquery .env.APP_ID}}"
+  cache: true                 # repeat calls with the same arguments reuse the answer for the run
+```
+
+```yaml
+# tools/cohere_rerank.yaml (shipped, abridged): JSON body and a templated result
+parameters:
+  documents: {type: string, required: true}   # a JSON array, decoded with fromJSON
+  model: {type: string, default: rerank-v3.5} # defaults fill missing arguments before rendering
+  top_n: {type: number, default: 5}
+http:
+  env:
+    API_KEY: [COHERE_API_KEY]
+  method: POST
+  url: https://api.cohere.com/v2/rerank
+  headers:
+    Authorization: "Bearer {{.env.API_KEY}}"
+  body: '{"model": {{json .args.model}}, "query": {{json .args.query}}, "documents": {{json (fromJSON .args.documents)}}, "top_n": {{int .args.top_n}}}'
+  result: |-                  # rendered over .response (the parsed JSON body)
+    {{range $i, $r := .response.results}}{{$r.index}}: {{$r.relevance_score}}
+    {{end}}
+```
+
+| Field | Meaning |
+|---|---|
+| `env` | Names templates read as `.env.NAME`, each mapped to the variables that may hold it. Templates see no other environment variable. |
+| `method` | `GET`, `POST`, `PUT`, `PATCH` or `DELETE` |
+| `url`, `headers`, `body` | Go templates over `.args` (arguments plus parameter `default`s) and `.env` |
+| `result` | Template over `.args`, `.env` and `.response`. Empty, or a body that is not JSON: the body is returned as is. |
+| `cache` | Reuse the answer for identical arguments within the run |
+| `timeout` | Per-call limit (Go duration, default `30s`) |
+
+Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
+
 ## Parameter-name synonyms
 
 A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. This is scoped to parameter names only: kdeps does not maintain a separate table of alternate *tool* names (e.g. routing a call to `grep` as if it were `search_local`) - the tool list already tells the model the real name to call, and a second, silently-redirecting name for the same tool added maintenance cost without fixing the cases where a model loses track of what tools it has.

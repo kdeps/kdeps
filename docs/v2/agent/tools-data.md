@@ -1,6 +1,6 @@
 # Data tools
 
-`calculator` and the local embedding store are always on. SQL tools register when a database path is set. Wolfram, remote RAG, and the rerankers register only when their key or URL is set. `sql_query` text is HTML-unescaped before it runs, same as [`bash_exec`](/agent/shell).
+`calculator` and the local embedding store are always on. SQL tools register when a database path is set. Wolfram, remote RAG, and the rerankers register only when their key or URL is set; they are [declared HTTP tools](/agent/tools#declared-http-tools), defined entirely in their tool asset. `sql_query` text is HTML-unescaped before it runs, same as [`bash_exec`](/agent/shell).
 
 Permission modes stay on [Built-in tools](/agent/tools).
 
