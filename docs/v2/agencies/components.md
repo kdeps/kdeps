@@ -108,6 +108,15 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
+A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)):
+
+```yaml
+# components/searchWeb/template.yaml (as shipped)
+version: 1.0.1
+requires:
+  schemas/v1: ">=1.0.3"   # the schema that accepts connection: on an input
+```
+
 Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 
 ## Calling a component

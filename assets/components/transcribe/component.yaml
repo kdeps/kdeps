@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: transcribe
   description: Transcribe audio or video to text with a Whisper API or offline with whisper.cpp
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file

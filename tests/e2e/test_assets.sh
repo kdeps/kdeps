@@ -221,6 +221,20 @@ elif output_grep "run kdeps update" "$OUT" && output_grep "themes/" "$OUT"; then
 else
     test_failed "assets - first run missing item message" "$OUT"
 fi
+
+# --- installing one item installs what it requires first ---------------------
+serve plain
+RQ_HOME="$AS_DIR/requires"
+mkdir -p "$RQ_HOME"
+OUT=$(as_run "$RQ_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" update components/searchWeb)
+if output_grep "schemas/v1 +install .*\(required by components/searchWeb\)" "$OUT" &&
+    output_grep "components/searchWeb +install" "$OUT" &&
+    [ "$(echo "$OUT" | grep -n 'schemas/v1' | cut -d: -f1)" -lt "$(echo "$OUT" | grep -n 'components/searchWeb +install' -E | cut -d: -f1)" ] &&
+    [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/themes" ]; then
+    test_passed "assets - kdeps update <item> installs its requires first, nothing else"
+else
+    test_failed "assets - update installs requires" "$OUT"
+fi
 kill "$AS_SRV" 2>/dev/null
 wait "$AS_SRV" 2>/dev/null
 AS_SRV=""

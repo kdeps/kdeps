@@ -1,4 +1,7 @@
-version: 1.0.1
+version: 1.0.2
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
 name: memory-chain-max
 # This event has no "on:" trigger block -- "items" below is a plain count
 # that always applies, unlike a trigger which fires only once crossed. An

@@ -1,4 +1,37 @@
-version: 1.0.0
+version: 1.0.1
+# kdeps update installs these with this preset: the events it tunes and the actions they run
+requires:
+  actions/block: ""
+  actions/cap: ""
+  actions/compact: ""
+  actions/drop_oldest: ""
+  actions/truncate: ""
+  events/auto-compact: ""
+  events/bash-call-budget: ""
+  events/code-call-budget: ""
+  events/efficiency: ""
+  events/efficiency-actions: ""
+  events/efficiency-bash: ""
+  events/efficiency-code: ""
+  events/efficiency-failures: ""
+  events/efficiency-file: ""
+  events/efficiency-reads: ""
+  events/efficiency-stops: ""
+  events/efficiency-tighten: ""
+  events/efficiency-verbose: ""
+  events/efficiency-web: ""
+  events/file-call-budget: ""
+  events/fold: ""
+  events/force-answer-digest: ""
+  events/history-window-trim: ""
+  events/memory-chain-max: ""
+  events/memory-focus-max: ""
+  events/memory-keys-limit: ""
+  events/memory-prompt-limit: ""
+  events/rel-memory-limit: ""
+  events/tool-error-truncate: ""
+  events/tool-result-truncate: ""
+  events/web-call-budget: ""
 name: thorough
 description: >-
   Maximizes context retention: compacts and folds much less often, injects

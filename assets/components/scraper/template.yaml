@@ -1,1 +1,4 @@
-version: 1.0.0
+version: 1.0.1
+# kdeps update installs these with this component: the schema that accepts its component.yaml
+requires:
+  schemas/v1: ">=1.0.2"

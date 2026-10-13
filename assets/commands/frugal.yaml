@@ -1,4 +1,8 @@
-version: 1.0.0
+version: 1.0.1
+# kdeps update installs these with this command: what its run steps use
+requires:
+  commands/efficiency: ""
+  presets/frugal: ""
 name: frugal
 order: 500
 # A declared command: kdeps runs the steps under run: in order. A step is

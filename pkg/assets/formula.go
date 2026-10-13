@@ -92,6 +92,9 @@ type Formula struct {
 	Description string   `yaml:"description,omitempty"`
 	Tags        []string `yaml:"tags,omitempty"`
 	License     string   `yaml:"license,omitempty"`
+	// Dependencies maps each package the item requires to the versions it
+	// accepts (see Header.Requires); kdeps update installs them with it.
+	Dependencies map[string]string `yaml:"dependencies,omitempty"`
 }
 
 // WriteFormulas writes one formula per index item into dir, each describing
@@ -132,16 +135,24 @@ func formulaFor(id string, it IndexItem, assetsDir, fileBase string) (Formula, e
 		return Formula{}, fmt.Errorf("assets: %s: latest version %q not in index", id, it.Latest)
 	}
 	rel := PublishedPath(id, v.Version)
+	var deps map[string]string
+	for req, rng := range v.Requires {
+		if deps == nil {
+			deps = map[string]string{}
+		}
+		deps[PackageName(req)] = rng
+	}
 	return Formula{
-		Name:        PackageName(id),
-		Version:     v.Version,
-		Type:        typ,
-		GitHub:      PackagesRepo,
-		Tarball:     strings.TrimRight(fileBase, "/") + "/" + rel,
-		SHA256:      v.SHA256,
-		Description: describe(filepath.Join(assetsDir, filepath.FromSlash(rel)), typ, name),
-		Tags:        []string{"kdeps", typ},
-		License:     "Apache-2.0",
+		Name:         PackageName(id),
+		Version:      v.Version,
+		Type:         typ,
+		GitHub:       PackagesRepo,
+		Tarball:      strings.TrimRight(fileBase, "/") + "/" + rel,
+		SHA256:       v.SHA256,
+		Description:  describe(filepath.Join(assetsDir, filepath.FromSlash(rel)), typ, name),
+		Tags:         []string{"kdeps", typ},
+		License:      "Apache-2.0",
+		Dependencies: deps,
 	}, nil
 }
 
