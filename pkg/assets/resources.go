@@ -59,7 +59,6 @@ var ResourceDocs = map[string]string{
 	"searchLocal":      "workflow/resources/search-local.md",
 	"telephony":        "workflow/resources/telephony.md",
 	"browser":          "workflow/resources/browser.md",
-	"botReply":         "workflow/resources/bot-reply.md",
 	"email":            "workflow/resources/email.md",
 	"codeIntelligence": "workflow/resources/code-intelligence.md",
 	"loader":           "workflow/resources/loader.md",

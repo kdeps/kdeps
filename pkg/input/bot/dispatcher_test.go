@@ -156,36 +156,51 @@ func TestBuildBotRunners_NewError(t *testing.T) {
 	assert.Contains(t, err.Error(), "create runner for discord")
 }
 
-func TestHandleMessage_BotSendError(t *testing.T) {
-	// slackRunner with nil client — Reply returns "client not started"
-	failRunner := &slackRunner{}
-
-	calledBotSend := false
+// The workflow result is the reply: an apiResponse sends its data to the chat
+// the message came from.
+func TestHandleMessage_RepliesWithResult(t *testing.T) {
+	runner := &chanRunner{}
 	engine := executor.NewEngine(slog.Default())
-	engine.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
-		reqCtx := req.(*executor.RequestContext)
-		// Invoke BotSend — runner.Reply will fail because client is nil.
-		err := reqCtx.BotSend(context.Background(), "reply text")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "client not started")
-		calledBotSend = true
-		return "ok", nil
+	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return map[string]interface{}{"success": true, "data": "pong"}, nil
 	})
-
 	d := &Dispatcher{
 		workflow: &domain.Workflow{},
 		engine:   engine,
-		runners:  map[string]Runner{"slack": failRunner},
+		runners:  map[string]Runner{"mock": runner},
 		logger:   slog.Default(),
 	}
+	d.handleMessage(context.Background(), Message{Platform: "mock", ChatID: "C1", Text: "ping"})
+	assert.Equal(t, []string{"C1: pong"}, runner.replies)
+}
 
-	d.handleMessage(context.Background(), Message{
-		Platform: "slack",
-		ChatID:   "C1",
-		UserID:   "U1",
-		Text:     "test",
+// No reply is sent when the workflow fails or returns nothing; a failing
+// Reply is logged, not fatal.
+func TestHandleMessage_NoReplyOrReplyError(t *testing.T) {
+	runner := &chanRunner{}
+	results := []interface{}{nil}
+	errs := []error{errors.New("boom"), nil}
+	engine := executor.NewEngine(slog.Default())
+	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		err := errs[0]
+		errs = errs[1:]
+		return results[0], err
 	})
-	assert.True(t, calledBotSend, "BotSend should have been called by the engine")
+	d := &Dispatcher{
+		workflow: &domain.Workflow{},
+		engine:   engine,
+		runners:  map[string]Runner{"mock": runner, "slack": &slackRunner{}},
+		logger:   slog.Default(),
+	}
+	d.handleMessage(context.Background(), Message{Platform: "mock", ChatID: "C1"})
+	d.handleMessage(context.Background(), Message{Platform: "mock", ChatID: "C1"})
+	assert.Empty(t, runner.replies)
+
+	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	// slackRunner with a nil client: Reply fails with "client not started".
+	d.handleMessage(context.Background(), Message{Platform: "slack", ChatID: "C1"})
 }
 
 func TestDispatcher_Run_MessageFromRunner(t *testing.T) {

@@ -136,15 +136,6 @@ func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) 
 	)
 }
 
-// executeBotReply executes a botReply resource, sending the reply text to the
-// originating bot platform via the BotSend function set on the execution context.
-func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "botReply", resource.BotReply,
-		e.registry.GetBotReplyExecutor, "botReply", "executeBotReply", ctx,
-	)
-}
-
 // executeCodeIntelligence executes a codeIntelligence resource.
 func (e *Engine) executeCodeIntelligence(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

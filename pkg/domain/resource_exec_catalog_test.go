@@ -40,7 +40,7 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 	wantInline := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "botReply", "email",
+		"telephony", "browser", "email",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	if len(inlineNames) != len(wantInline) {
@@ -51,22 +51,4 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 			t.Fatalf("inline[%d] = %q, want %q", i, inlineNames[i], name)
 		}
 	}
-}
-
-func TestResourceExecCatalog_BotReplyInline(t *testing.T) {
-	t.Parallel()
-
-	for _, entry := range resourceExecCatalog {
-		if entry.Name != "botReply" {
-			continue
-		}
-		if entry.PrimaryOnly {
-			t.Fatal("botReply must support inline actions")
-		}
-		if entry.PresentAction == nil {
-			t.Fatal("botReply must have inline presence check")
-		}
-		return
-	}
-	t.Fatal("botReply missing from catalog")
 }

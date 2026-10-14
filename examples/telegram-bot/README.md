@@ -55,24 +55,13 @@ Open Telegram, find your bot by its username, and send it a message. It will rep
 
 ```
 telegram-bot/
-├── workflow.yaml              # Bot source config, Telegram credentials, LLM model
-├── components/
-│   └── botreply/
-│       └── component.yaml     # .komponent: sends reply through the bot session
+├── workflow.yaml              # Bot source config, Telegram credentials; targetActionId: reply
 └── resources/
-    └── llm.yaml               # LLM chat resource — receives input('message'), applies persona
+    ├── llm.yaml               # LLM chat resource - receives input('message'), applies persona
+    └── reply.yaml             # apiResponse - its response is sent back to the chat
 ```
 
-The `botreply` component encapsulates the `run.botReply` executor and is auto-loaded from the
-`components/` directory when the workflow is parsed. This makes the component independently
-distributable — install it once with `kdeps component install botreply` and reuse it across
-multiple Telegram bot workflows.
-
-To package the component as a shareable `.komponent` archive:
-
-```bash
-kdeps bundle package components/botreply --output components/
-```
+kdeps sends the workflow's result (the `reply` resource's `apiResponse` response) to the chat the message came from.
 
 ## Key Expressions
 
@@ -82,7 +71,7 @@ kdeps bundle package components/botreply --output components/
 | `input('chatId')` | Telegram chat ID (for targeted replies) |
 | `input('userId')` | Telegram user ID |
 | `input('platform')` | Always `"telegram"` for this bot |
-| `get('llm')` | The LLM-generated reply text |
+| `get('llm').message.content` | The LLM-generated reply text |
 
 ## Customization
 

@@ -283,5 +283,44 @@ test_bot_valid "Bot - WhatsApp empty block is valid" \
       executionType: polling
       whatsApp: {}'
 
+# ---------------------------------------------------------------------------
+# Stateless: the workflow result is the reply, printed on stdout
+# ---------------------------------------------------------------------------
+SB_DIR=$(mktemp -d)
+mkdir -p "$SB_DIR/resources"
+cat > "$SB_DIR/workflow.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: bot-reply
+  version: "1.0.0"
+  targetActionId: reply
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: stateless
+EOF
+cat > "$SB_DIR/resources/reply.yaml" <<'EOF'
+actionId: reply
+name: Reply
+apiResponse:
+  success: true
+  response: "echo: {{ input('message') }}"
+EOF
+SB_OUT=$(echo '{"message":"ping","platform":"cli"}' | timeout 60 "$KDEPS_BIN" run "$SB_DIR/workflow.yaml" 2>/dev/null | tail -1)
+if [ "$SB_OUT" = "echo: ping" ]; then
+    test_passed "Bot - stateless prints the workflow result as the reply"
+else
+    test_failed "Bot - stateless reply" "got: $SB_OUT"
+fi
+printf 'actionId: reply\nname: Reply\nbotReply:\n  text: hi\n' > "$SB_DIR/resources/reply.yaml"
+if SB_OUT=$("$KDEPS_BIN" validate "$SB_DIR/workflow.yaml" 2>&1); then
+    test_failed "Bot - the botReply: key is gone" "validate accepted it: $SB_OUT"
+else
+    test_passed "Bot - the botReply: resource key is gone (the result is the reply)"
+fi
+rm -rf "$SB_DIR"
+
 echo ""
 echo "Bot Input Sources tests complete."

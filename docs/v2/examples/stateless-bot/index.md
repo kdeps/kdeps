@@ -54,8 +54,9 @@ name: Reply
 requires:
   - llm
 
-botReply:
-  text: "{{ get('llm') }}"
+apiResponse:                 # in bot mode the workflow result is the reply
+  success: true
+  response: "{{ get('llm').message.content }}"   # sent as the reply text
 ```
 
 ## Running

@@ -37,15 +37,6 @@ type AgentCallConfig struct {
 	Params map[string]interface{} `yaml:"params,omitempty"`
 }
 
-// BotReplyConfig sends a text reply back to the bot platform that delivered
-// the current message (Discord, Slack, Telegram, WhatsApp, or stdout in
-// stateless mode).
-type BotReplyConfig struct {
-	// Text is the message to send. Expression evaluation is supported,
-	// e.g. "{{ get('llm') }}".
-	Text string `yaml:"text" json:"text"`
-}
-
 // EmailAction identifies the operation performed by an email resource.
 type EmailAction = string
 

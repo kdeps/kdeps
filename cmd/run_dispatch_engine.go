@@ -30,7 +30,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
 	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorCodeIntelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
@@ -116,7 +115,6 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
-	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())

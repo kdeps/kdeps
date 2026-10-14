@@ -102,8 +102,8 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 		t.Fatal("apiResponse should be recognized")
 	}
 
-	if !domain.IsRecognizedResourceActionKey("botReply") {
-		t.Fatal("botReply should be recognized")
+	if domain.IsRecognizedResourceActionKey("botReply") {
+		t.Fatal("botReply is gone: a bot sends the workflow result")
 	}
 	if domain.IsRecognizedResourceActionKey("unknownAction") {
 		t.Fatal("unknownAction should not be recognized")
@@ -133,7 +133,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
 		{"telephony", &domain.Resource{Telephony: &domain.TelephonyActionConfig{}}, "telephony"},
 		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
-		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
 		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
 		{
 			"apiResponse only",
@@ -170,7 +169,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	expectedTypes := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "botReply", "email",
+		"telephony", "browser", "email",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	for _, et := range expectedTypes {
@@ -186,7 +185,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "botReply", "email",
+		"telephony", "browser", "email",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()

@@ -114,55 +114,6 @@ func TestExecuteEmail_ExecutorError(t *testing.T) {
 	assert.Contains(t, err.Error(), "SMTP connection refused")
 }
 
-func TestExecuteBotReply_Success(t *testing.T) {
-	e := newTestEngine()
-	reg := NewRegistry()
-	mock := &dispatchMockExecutor{
-		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
-			cfg, ok := config.(*domain.BotReplyConfig)
-			assert.True(t, ok)
-			assert.NotNil(t, cfg)
-			return "reply sent", nil
-		},
-	}
-	reg.SetBotReplyExecutor(mock)
-	e.SetRegistry(reg)
-
-	resource := &domain.Resource{ActionID: "test-botreply", BotReply: &domain.BotReplyConfig{}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	result, err := e.executeBotReply(resource, ctx)
-	require.NoError(t, err)
-	assert.Equal(t, "reply sent", result)
-}
-
-func TestExecuteBotReply_NilConfig(t *testing.T) {
-	e := newTestEngine()
-	reg := NewRegistry()
-	reg.SetBotReplyExecutor(&dispatchMockExecutor{
-		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
-			return nil, nil
-		},
-	})
-	e.SetRegistry(reg)
-
-	resource := &domain.Resource{ActionID: "test-botreply", BotReply: nil}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeBotReply(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no botReply configuration")
-}
-
-func TestExecuteBotReply_NoExecutor(t *testing.T) {
-	e := newTestEngine()
-	e.SetRegistry(NewRegistry())
-
-	resource := &domain.Resource{ActionID: "test-botreply", BotReply: &domain.BotReplyConfig{}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeBotReply(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "botReply executor not available")
-}
-
 func TestExecuteBrowser_Success(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()

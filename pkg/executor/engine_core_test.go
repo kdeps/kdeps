@@ -19,7 +19,6 @@
 package executor_test
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -1297,45 +1296,6 @@ func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
 	result, err := engine.Execute(workflow, reqCtx)
 	require.NoError(t, err)
 	assert.Equal(t, "ok", result)
-}
-
-func TestEngine_Execute_BotSendPropagation(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mockLLM := &mockLLMExecutor{result: "ok"}
-	registry.SetLLMExecutor(mockLLM)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "bot-wf",
-			Version:        "1.0.0",
-			TargetActionID: "llm",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "llm",
-				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
-			},
-		},
-	}
-
-	called := false
-	reqCtx := &executor.RequestContext{
-		Method: "POST",
-		BotSend: func(_ context.Context, _ string) error {
-			called = true
-			return nil
-		},
-	}
-
-	result, err := engine.Execute(workflow, reqCtx)
-	require.NoError(t, err)
-	assert.Equal(t, "ok", result)
-	// BotSend is propagated to context; just verify no panic
-	_ = called
 }
 
 func TestEngine_Execute_FileInputPropagation(t *testing.T) {

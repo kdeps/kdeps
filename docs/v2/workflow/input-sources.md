@@ -61,7 +61,7 @@ settings:
 Execution types:
 
 - `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
-- `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the reply to stdout, then exits.
+- `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the result (the reply) to stdout, then exits.
 
 ## File source
 

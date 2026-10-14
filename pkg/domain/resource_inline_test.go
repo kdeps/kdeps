@@ -37,9 +37,6 @@ func TestHasInlineResourceType(t *testing.T) {
 	if !HasInlineResourceType(&ActionConfig{Email: &EmailConfig{}}) {
 		t.Fatal("email inline should be recognized")
 	}
-	if !HasInlineResourceType(&ActionConfig{BotReply: &BotReplyConfig{}}) {
-		t.Fatal("botReply inline should be recognized")
-	}
 	if !HasInlineResourceType(&ActionConfig{APIResponse: &APIResponseConfig{}}) {
 		t.Fatal("apiResponse inline should be recognized")
 	}
@@ -51,7 +48,7 @@ func TestInlineResourceTypeNames_MatchesRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "botReply", "email",
+		"telephony", "browser", "email",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	got := InlineResourceTypeNames()
