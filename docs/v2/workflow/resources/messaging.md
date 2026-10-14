@@ -1,12 +1,12 @@
 # Messaging resources
 
-Two resources and the bot reply for reaching a person. Each has its own reference page.
+The email component, the telephony resource and the bot reply for reaching a person. Each has its own reference page.
 
 Works in workflow and agent mode.
 
 | Resource | Channel | Reference |
 | :--- | :--- | :--- |
-| `email:` | SMTP send, IMAP read / search / modify | [Email](/workflow/resources/email) |
+| `component: email` | SMTP send, IMAP read / search / modify | [Email](/workflow/resources/email) |
 | `telephony:` | Voice calls - say, ask, menu, dial, record | [Telephony](/workflow/resources/telephony) |
 | `apiResponse:` (bot mode) | The workflow result is sent to the chat that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 

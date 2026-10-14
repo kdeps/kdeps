@@ -24,6 +24,9 @@ python:
     - "--input"
     - "{{ get('input_file') }}"
 
+  env:                       # extra environment variables for the script; values are expressions
+    API_TOKEN: "{{ env('API_TOKEN') }}"   # secrets go here, not args (args show in ps)
+
   venvName: "my-project-env" # isolated venv -- resources sharing the same name share packages
   timeout: 60s               # hard stop; non-zero exit code also counts as failure
 ```
@@ -181,7 +184,23 @@ apiResponse:
 
 ## Environment variables
 
-Access environment variables in scripts:
+`env:` on the resource sets variables for that script only; values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
+
+<div v-pre>
+
+```yaml
+# resources/fetch.yaml
+python:
+  env:
+    DB_PASSWORD: "{{ env('DB_PASSWORD') }}"
+  script: |
+    import os
+    print(len(os.environ["DB_PASSWORD"]) > 0)
+```
+
+</div>
+
+Workflow-wide variables come from `agentSettings.env`:
 
 ```yaml
 # In workflow.yaml

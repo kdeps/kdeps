@@ -92,12 +92,15 @@ func (e *Executor) buildExecutionResult(
 // executeScript runs the Python script and returns the result.
 func (e *Executor) executeScript(
 	pythonPath, venvPath, workDir, scriptContent, scriptFile string,
-	args []string, timeout time.Duration, maxOutputBytes int64,
+	args []string, env map[string]string, timeout time.Duration, maxOutputBytes int64,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScript")
 	var stdout, stderr bytes.Buffer
 	cmd := e.buildPythonCommand(pythonPath, scriptContent, scriptFile, args)
 	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
 	cmd.Dir = workDir
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

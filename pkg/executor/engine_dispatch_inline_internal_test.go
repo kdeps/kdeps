@@ -45,19 +45,6 @@ func TestInlineResourceDispatch_MatchesDomainRegistry(t *testing.T) {
 	require.Len(t, entries, len(domain.InlineResourceTypeNames()))
 }
 
-func TestExecuteSingleInlineResource_Email(t *testing.T) {
-	e := covTestEngine()
-	reg := NewRegistry()
-	reg.SetEmailExecutor(&covMockExecutor{result: "sent"})
-	e.SetRegistry(reg)
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-
-	_, err := e.executeSingleInlineResource(domain.InlineResource{
-		Email: &domain.EmailConfig{Action: "send"},
-	}, 2, ctx)
-	require.NoError(t, err)
-}
-
 func TestExecuteSingleInlineResource_APIResponse(t *testing.T) {
 	e := covTestEngine()
 	ctx, err := NewExecutionContext(&domain.Workflow{})

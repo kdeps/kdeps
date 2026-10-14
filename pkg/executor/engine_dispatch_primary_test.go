@@ -26,16 +26,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestDispatchPrimaryResource_BrowserEmail(t *testing.T) {
+func TestDispatchPrimaryResource_Browser(t *testing.T) {
 	e := covTestEngine()
 	reg := NewRegistry()
 	reg.SetBrowserExecutor(&covMockExecutor{result: "b"})
-	reg.SetEmailExecutor(&covMockExecutor{result: "e"})
 	e.SetRegistry(reg)
 	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
 
 	_, err := e.dispatchPrimaryResource(&domain.Resource{Browser: &domain.BrowserConfig{}}, ctx)
-	require.NoError(t, err)
-	_, err = e.dispatchPrimaryResource(&domain.Resource{Email: &domain.EmailConfig{}}, ctx)
 	require.NoError(t, err)
 }

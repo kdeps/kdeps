@@ -133,7 +133,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
 		{"telephony", &domain.Resource{Telephony: &domain.TelephonyActionConfig{}}, "telephony"},
 		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
-		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
 		{
 			"apiResponse only",
 			&domain.Resource{APIResponse: &domain.APIResponseConfig{}},
@@ -169,7 +168,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	expectedTypes := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "email",
+		"telephony", "browser",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	for _, et := range expectedTypes {
@@ -185,7 +184,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
-		"telephony", "browser", "email",
+		"telephony", "browser",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()

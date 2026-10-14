@@ -32,8 +32,8 @@ func TestReferencedConnections(t *testing.T) {
 	wf := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{ActionID: "q", SQL: &domain.SQLConfig{ConnectionName: "db"}},
-			{ActionID: "mail", Email: &domain.EmailConfig{
-				SMTPConnection: "out", IMAPConnection: "in",
+			{ActionID: "mail", Component: &domain.ComponentCallConfig{
+				Name: "email", With: map[string]interface{}{"smtpConnection": "out", "imapConnection": "in"},
 			}},
 			{ActionID: "api", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "svc"}},
 			{ActionID: "web", Component: &domain.ComponentCallConfig{
@@ -50,8 +50,12 @@ func TestReferencedConnections(t *testing.T) {
 		},
 		Components: map[string]*domain.Component{
 			"comp": {Resources: []*domain.Resource{
-				{ActionID: "cmail", Email: &domain.EmailConfig{SMTPConnection: "comp-smtp"}},
+				{ActionID: "chttp", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "comp-http"}},
 			}},
+			"email": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
+				{Name: "smtpConnection", Type: "string", Connection: config.ConnKindSMTP},
+				{Name: "imapConnection", Type: "string", Connection: config.ConnKindIMAP},
+			}}},
 			"searchWeb": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
 				{Name: "query", Type: "string"},
 				{Name: "connectionName", Type: "string", Connection: config.ConnKindSearch},
@@ -72,7 +76,7 @@ func TestReferencedConnections(t *testing.T) {
 	// an expression value is only known at run time and is not prompted for.
 	assert.Contains(t, refs, connRef{config.ConnKindSearch, "brave"})
 	assert.NotContains(t, refs, connRef{config.ConnKindSearch, "{{ get('conn') }}"})
-	assert.Contains(t, refs, connRef{config.ConnKindSMTP, "comp-smtp"})
+	assert.Contains(t, refs, connRef{config.ConnKindHTTP, "comp-http"})
 
 	// "db" appears twice but must be deduplicated.
 	dbCount := 0

@@ -21,7 +21,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +31,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorCodeIntelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
-	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -84,7 +82,7 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	logger := logging.NewLogger(debugMode)
 	engine := executor.NewEngine(logger)
 	engine.SetDebugMode(debugMode)
-	engine.SetRegistry(newExecutorRegistry(logger))
+	engine.SetRegistry(newExecutorRegistry())
 	return engine
 }
 
@@ -104,7 +102,7 @@ func setupEngineWithMemory(eng *executor.Engine, _ *domain.Workflow, debugMode b
 
 // newExecutorRegistry creates an executor registry with all adapters wired up.
 // Lives here (not in pkg/executor) to avoid import cycles with sub-packages.
-func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
+func newExecutorRegistry() *executor.Registry {
 	kdeps_debug.Log("enter: newExecutorRegistry")
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
@@ -115,7 +113,6 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
-	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())

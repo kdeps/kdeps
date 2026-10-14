@@ -44,7 +44,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetSearchLocalExecutor())
 	assert.Nil(t, registry.GetTelephonyExecutor())
 	assert.Nil(t, registry.GetBrowserExecutor())
-	assert.Nil(t, registry.GetEmailExecutor())
 }
 
 func TestExecutorRegistry_Setters(t *testing.T) {
@@ -60,7 +59,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockSearchLocal := &mockExecutor{}
 	mockTelephony := &mockExecutor{}
 	mockBrowser := &mockExecutor{}
-	mockEmail := &mockExecutor{}
 
 	// Set executors
 	registry.SetLLMExecutor(mockLLM)
@@ -72,7 +70,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetSearchLocalExecutor(mockSearchLocal)
 	registry.SetTelephonyExecutor(mockTelephony)
 	registry.SetBrowserExecutor(mockBrowser)
-	registry.SetEmailExecutor(mockEmail)
 
 	// Verify getters return the set values
 	assert.Equal(t, mockLLM, registry.GetLLMExecutor())
@@ -84,7 +81,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockSearchLocal, registry.GetSearchLocalExecutor())
 	assert.Equal(t, mockTelephony, registry.GetTelephonyExecutor())
 	assert.Equal(t, mockBrowser, registry.GetBrowserExecutor())
-	assert.Equal(t, mockEmail, registry.GetEmailExecutor())
 }
 
 // mockExecutor is a simple mock implementation for testing.

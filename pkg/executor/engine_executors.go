@@ -128,14 +128,6 @@ func (e *Engine) executeExec(resource *domain.Resource, ctx *ExecutionContext) (
 	)
 }
 
-// executeEmail executes an email resource.
-func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "email", resource.Email,
-		e.registry.GetEmailExecutor, "email", "executeEmail", ctx,
-	)
-}
-
 // executeCodeIntelligence executes a codeIntelligence resource.
 func (e *Engine) executeCodeIntelligence(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

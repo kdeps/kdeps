@@ -32,7 +32,7 @@ Set the backend, base URL, and model via flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
-Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `browser`, `codeIntelligence`, and `apiResponse` (and the `git`, `file` and `scraper` components) do not require an LLM. You can build pure data pipelines with no AI at all.
+Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `browser`, `codeIntelligence`, and `apiResponse` (and the `git`, `file`, `email` and `scraper` components) do not require an LLM. You can build pure data pipelines with no AI at all.
 
 ## How is this different from writing a Python script?
 

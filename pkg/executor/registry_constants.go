@@ -39,7 +39,6 @@ const (
 
 	// httpMethodPost is the HTTP POST method string.
 	httpMethodPost      = "POST"
-	ExecutorEmail       = "email"
 	ExecutorCodeIntel   = "codeIntelligence"
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"

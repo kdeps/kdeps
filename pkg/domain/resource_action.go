@@ -37,7 +37,6 @@ type ActionConfig struct {
 	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
 	Telephony        *TelephonyActionConfig  `yaml:"telephony,omitempty"`
 	Browser          *BrowserConfig          `yaml:"browser,omitempty"`
-	Email            *EmailConfig            `yaml:"email,omitempty"`
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`

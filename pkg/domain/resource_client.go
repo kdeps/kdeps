@@ -110,6 +110,9 @@ type PythonConfig struct {
 	Args       []string `yaml:"args,omitempty"`
 	Timeout    string   `yaml:"timeout,omitempty"`
 	VenvName   string   `yaml:"venvName,omitempty"` // Custom virtual environment name for isolation
+	// Env adds environment variables to the script's process; values are
+	// expressions. Use it for secrets, which args would expose in ps.
+	Env map[string]string `yaml:"env,omitempty"`
 }
 
 // ExecConfig represents shell execution configuration.

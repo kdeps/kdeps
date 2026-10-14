@@ -95,9 +95,45 @@ func (e *Engine) injectComponentInputs(
 	_ = e.ensureResponseEvaluator(ctx)
 	env := e.buildEvaluationEnvironment(ctx)
 	for key, val := range injected {
-		strVal := e.resolveComponentInput(fmt.Sprintf("%v", val), env)
-		_ = ctx.Set(callerID+"."+key, strVal)
-		_ = ctx.Set(componentName+"."+key, strVal)
+		resolved := e.resolveComponentValue(val, env)
+		_ = ctx.Set(callerID+"."+key, resolved)
+		_ = ctx.Set(componentName+"."+key, resolved)
+	}
+}
+
+// resolveComponentValue resolves a with: value. Lists and maps keep their
+// structure (type: array and type: object inputs): strings inside are
+// interpolated and other values stay as they are. A top-level scalar is
+// resolved to a string.
+func (e *Engine) resolveComponentValue(val interface{}, env map[string]interface{}) interface{} {
+	switch v := val.(type) {
+	case []interface{}, map[string]interface{}:
+		return e.resolveNested(v, env)
+	case string:
+		return e.resolveComponentInput(v, env)
+	default:
+		return e.resolveComponentInput(fmt.Sprintf("%v", v), env)
+	}
+}
+
+func (e *Engine) resolveNested(val interface{}, env map[string]interface{}) interface{} {
+	switch v := val.(type) {
+	case []interface{}:
+		out := make([]interface{}, len(v))
+		for i, item := range v {
+			out[i] = e.resolveNested(item, env)
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(v))
+		for k, item := range v {
+			out[k] = e.resolveNested(item, env)
+		}
+		return out
+	case string:
+		return e.resolveComponentInput(v, env)
+	default:
+		return v
 	}
 }
 
