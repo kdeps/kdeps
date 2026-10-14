@@ -1330,20 +1330,6 @@ func TestWorkflowValidator_ValidateResource_ComponentExecType(t *testing.T) {
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_BrowserExecType tests Browser execution type.
-func TestWorkflowValidator_ValidateResource_BrowserExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "br-test",
-		Name:     "Br Test",
-		Browser:  &domain.BrowserConfig{},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Browser execution type: %v", err)
-	}
-}
-
 func TestWorkflowValidator_ValidateResource_EmbeddingExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{

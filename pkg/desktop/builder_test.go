@@ -49,7 +49,7 @@ func fieldByName(k *desktop.ResourceKind, name string) *desktop.FieldSpec {
 func TestResourceKinds(t *testing.T) {
 	h := newProjectHarness(t, false)
 	ks := h.svc.ResourceKinds()
-	for _, key := range []string{"chat", "httpClient", "sql", "python", "exec", "apiResponse", "browser", "component"} {
+	for _, key := range []string{"chat", "httpClient", "sql", "python", "exec", "apiResponse", "component"} {
 		assert.NotNil(t, kindByKey(ks, key), key)
 	}
 	for _, key := range []string{"validations", "loop", "onError"} {

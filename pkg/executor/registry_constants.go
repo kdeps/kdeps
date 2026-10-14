@@ -26,7 +26,6 @@ const (
 	ExecutorExec        = "exec"
 	ExecutorEmbedding   = "embedding"
 	ExecutorSearchLocal = "searchLocal"
-	ExecutorBrowser     = "browser"
 	ExecutorAgent       = "agent"
 	ExecutorChat        = "chat"
 	ExecutorComponent   = "component"

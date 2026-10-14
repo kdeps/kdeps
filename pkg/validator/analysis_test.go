@@ -653,36 +653,6 @@ func TestAnalyzeWorkflow_ExpressionInSQLParams(t *testing.T) {
 	assert.Contains(t, errs[0].Message, `"ghost"`)
 }
 
-// TestAnalyzeWorkflow_ExpressionInBrowser tests Browser fields are scanned.
-func TestAnalyzeWorkflow_ExpressionInBrowser(t *testing.T) {
-	r := mkResource("target")
-	r.Browser = &domain.BrowserConfig{
-		URL:     "http://{{ gone.host }}",
-		WaitFor: "output('ghost')",
-		Actions: []domain.BrowserAction{
-			{URL: "{{ gone.url }}", Selector: "output('sel')", Value: "output('val')", Script: "output('scr')"},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.GreaterOrEqual(t, len(errs), 1)
-	// At least one of the bad refs should be detected
-	assert.Condition(t, func() bool {
-		for _, e := range errs {
-			if e.Message == `expression references unknown actionId "gone"` ||
-				e.Message == `expression references unknown actionId "ghost"` ||
-				e.Message == `expression references unknown actionId "sel"` ||
-				e.Message == `expression references unknown actionId "val"` ||
-				e.Message == `expression references unknown actionId "scr"` {
-				return true
-			}
-		}
-		return false
-	})
-}
-
 // TestAnalyzeWorkflow_ExpressionInInlineChat tests inline Before action with Chat.
 func TestAnalyzeWorkflow_ExpressionInInlineChat(t *testing.T) {
 	r := mkResource("target")

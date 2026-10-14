@@ -11,7 +11,7 @@ mode and agent mode.
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
-| `browser` | A resource action type for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/workflow/resources/browser) |
+| `browser` | A kdeps component (`component: browser`) for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/workflow/resources/browser) |
 | `chat` | A resource action type for LLM chat completion. Sends a prompt and returns the response. The most common action type. | [LLM (chat)](/workflow/resources/llm) |
 | <a id="check"></a>`check` | A list of boolean expressions in `validations.check`. All must be true or the resource fails and the workflow stops. | [Validation and control flow](/workflow/validation) |
 | `codeIntelligence` | A resource action type for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics. | [Code intelligence](/workflow/resources/code-navigation) |

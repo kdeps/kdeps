@@ -1,6 +1,6 @@
 # Browser action types reference
 
-Complete reference for all action types available in the `actions:` list of a [`browser:` resource](/workflow/resources/browser).
+Complete reference for all action types in the `actions` input of the [`browser` component](/workflow/resources/browser).
 
 Works in workflow and agent mode.
 

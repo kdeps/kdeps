@@ -1,12 +1,14 @@
-# Browser automation resource
+# Browser component
 
-The `browser:` resource drives a real browser (Chromium, Firefox, or WebKit) via [Playwright](https://playwright.dev/). Use it to navigate pages, fill forms, run JavaScript, capture screenshots, and maintain authenticated sessions across resources.
+The `browser` component drives a real browser (Chromium, Firefox, or WebKit) with [Playwright](https://playwright.dev/): navigate pages, fill forms, run JavaScript, capture screenshots, and keep a logged-in session between calls. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. A `components/browser/` of your own, or an installed registry component named `browser`, takes its place.
 
-Native `browser:` is compiled in. A registry component of the same name (`kdeps registry install browser`) adds stealth, persistent sessions, and file upload. They are not the same thing.
+## Requirements
+
+Python through uv like any [python resource](/workflow/resources/python). The component declares `playwright` under `setup.pythonPackages`; the first launch of an engine downloads its browser (`chromium` about 150 MB) and later runs reuse it. On Linux, Chromium needs system libraries - Playwright's error names the install command (`playwright install-deps chromium`).
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
 
 ## Basic usage
 
@@ -14,16 +16,18 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it 
 # resources/browse.yaml
 actionId: captureTitle
 name: Capture Page Title
-browser:
-  engine: chromium
-  url: "https://example.com"
-  actions:
-    - action: evaluate
-      script: "document.title"
+component:
+  name: browser
+  with:
+    engine: chromium
+    url: "https://example.com"
+    actions:
+      - action: evaluate
+        script: "document.title"
 apiResponse:
   success: true
   response:
-    title: "{{ get('captureTitle') }}"
+    title: "{{ output('captureTitle').actionResults[0].result }}"
 ```
 
 ## Configuration options
@@ -57,15 +61,17 @@ Enable `stealthMode: true` to evade bot detection on websites like LinkedIn that
 
 ```yaml
 # resources/example.yaml
-browser:
-  engine: chromium
-  headless: true
-  stealthMode: true
-  url: "https://www.linkedin.com/login"
-  actions:
-    - action: fill
-      selector: "#username"
-      value: "{{ get('email') }}"
+component:
+  name: browser
+  with:
+    engine: chromium
+    headless: true
+    stealthMode: true
+    url: "https://www.linkedin.com/login"
+    actions:
+      - action: fill
+        selector: "#username"
+        value: "{{ get('email') }}"
 ```
 
 For sites with sophisticated bot detection, also consider:
@@ -75,35 +81,39 @@ For sites with sophisticated bot detection, also consider:
 
 ## Persistent sessions
 
-By default each resource runs in a fresh, ephemeral browser context. Set `sessionId` to share a browser context across multiple resources or API calls - cookies, local storage, and page state are preserved.
+By default each call runs in a fresh browser. Set `sessionId` to keep the session between calls: cookies and local storage are saved to `~/.kdeps/browser-sessions/<sessionId>.json` and the current page's URL beside it. The next call with that `sessionId` starts from the saved storage and, when it sets no `url`, reopens the last page. Each call starts its own browser, so unsaved form input and in-page JavaScript state do not carry over - only what the site stores in cookies or local storage.
 
 <div v-pre>
 
 ```yaml
 # Resource 1 - log in and save the session
-browser:
-  engine: chromium
-  url: "https://app.example.com/login"
-  sessionId: "user-session"
-  actions:
-    - action: fill
-      selector: "#username"
-      value: "{{ get('username') }}"
-    - action: fill
-      selector: "#password"
-      value: "{{ get('password') }}"
-    - action: click
-      selector: "#login-button"
+component:
+  name: browser
+  with:
+    engine: chromium
+    url: "https://app.example.com/login"
+    sessionId: "user-session"
+    actions:
+      - action: fill
+        selector: "#username"
+        value: "{{ get('username') }}"
+      - action: fill
+        selector: "#password"
+        value: "{{ get('password') }}"
+      - action: click
+        selector: "#login-button"
 
 # Resource 2 - reuse the authenticated session
-browser:
-  engine: chromium
-  sessionId: "user-session"
-  actions:
-    - action: navigate
-      url: "https://app.example.com/dashboard"
-    - action: evaluate
-      script: "document.querySelector('.user-greeting').textContent"
+component:
+  name: browser
+  with:
+    engine: chromium
+    sessionId: "user-session"
+    actions:
+      - action: navigate
+        url: "https://app.example.com/dashboard"
+      - action: evaluate
+        script: "document.querySelector('.user-greeting').textContent"
 ```
 
 </div>
@@ -117,24 +127,26 @@ For websites that block headless browsers, enable `stealthMode` and consider usi
 ```yaml
 # resources/linkedin-login.yaml
 actionId: linkedinLogin
-browser:
-    engine: chromium
-    headless: true
-    stealthMode: true
-    sessionId: "linkedin-session"
-    url: "https://www.linkedin.com/login"
-    waitFor: "#username"
-    actions:
-      - action: fill
-        selector: "#username"
-        value: "{{ get('linkedin_email') }}"
-      - action: fill
-        selector: "#password"
-        value: "{{ get('linkedin_password') }}"
-      - action: click
-        selector: "button[type='submit']"
-      - action: wait
-        wait: "3000ms"
+component:
+  name: browser
+  with:
+      engine: chromium
+      headless: true
+      stealthMode: true
+      sessionId: "linkedin-session"
+      url: "https://www.linkedin.com/login"
+      waitFor: "#username"
+      actions:
+        - action: fill
+          selector: "#username"
+          value: "{{ get('linkedin_email') }}"
+        - action: fill
+          selector: "#password"
+          value: "{{ get('linkedin_password') }}"
+        - action: click
+          selector: "button[type='submit']"
+        - action: wait
+          wait: "3000ms"
 ```
 
 ## Form fill and submit
@@ -144,30 +156,32 @@ browser:
 ```yaml
 # resources/submit-form.yaml
 actionId: submitForm
-browser:
-    engine: chromium
-    url: "https://forms.example.com/contact"
-    waitFor: "#name"
-    actions:
-      - action: fill
-        selector: "#name"
-        value: "{{ get('contact_name') }}"
-      - action: fill
-        selector: "#email"
-        value: "{{ get('contact_email') }}"
-      - action: fill
-        selector: "#message"
-        value: "{{ get('message') }}"
-      - action: click
-        selector: "#submit"
-      - action: wait
-        selector: ".confirmation-message"
-      - action: evaluate
-        script: "document.querySelector('.confirmation-message').textContent"
-  apiResponse:
-    success: true
-    response:
-      confirmation: "{{ get('submitForm') }}"
+component:
+  name: browser
+  with:
+      engine: chromium
+      url: "https://forms.example.com/contact"
+      waitFor: "#name"
+      actions:
+        - action: fill
+          selector: "#name"
+          value: "{{ get('contact_name') }}"
+        - action: fill
+          selector: "#email"
+          value: "{{ get('contact_email') }}"
+        - action: fill
+          selector: "#message"
+          value: "{{ get('message') }}"
+        - action: click
+          selector: "#submit"
+        - action: wait
+          selector: ".confirmation-message"
+        - action: evaluate
+          script: "document.querySelector('.confirmation-message').textContent"
+    apiResponse:
+      success: true
+      response:
+        confirmation: "{{ get('submitForm') }}"
 ```
 
 </div>
@@ -177,22 +191,24 @@ browser:
 ```yaml
 # resources/dashboard-shot.yaml
 actionId: dashboardShot
-browser:
-    engine: chromium
-    url: "https://dashboard.example.com"
-    viewport:
-      width: 1920
-      height: 1080
-    actions:
-      - action: wait
-        selector: ".chart-loaded"
-      - action: screenshot
-        outputFile: /tmp/dashboard.png
-        fullPage: true
-  apiResponse:
-    success: true
-    response:
-      screenshot: "/tmp/dashboard.png"
+component:
+  name: browser
+  with:
+      engine: chromium
+      url: "https://dashboard.example.com"
+      viewport:
+        width: 1920
+        height: 1080
+      actions:
+        - action: wait
+          selector: ".chart-loaded"
+        - action: screenshot
+          outputFile: /tmp/dashboard.png
+          fullPage: true
+    apiResponse:
+      success: true
+      response:
+        screenshot: "/tmp/dashboard.png"
 ```
 
 ## Extract JavaScript-rendered data
@@ -200,21 +216,23 @@ browser:
 ```yaml
 # resources/extract-data.yaml
 actionId: extractData
-browser:
-    engine: chromium
-    url: "https://spa.example.com/products"
-    waitFor: ".product-list"
-    actions:
-      - action: evaluate
-        script: |
-          Array.from(document.querySelectorAll('.product-item')).map(el => ({
-            name: el.querySelector('.name').textContent.trim(),
-            price: el.querySelector('.price').textContent.trim()
-          }))
-  apiResponse:
-    success: true
-    response:
-      products: "{{ get('extractData') }}"
+component:
+  name: browser
+  with:
+      engine: chromium
+      url: "https://spa.example.com/products"
+      waitFor: ".product-list"
+      actions:
+        - action: evaluate
+          script: |
+            Array.from(document.querySelectorAll('.product-item')).map(el => ({
+              name: el.querySelector('.name').textContent.trim(),
+              price: el.querySelector('.price').textContent.trim()
+            }))
+    apiResponse:
+      success: true
+      response:
+        products: "{{ get('extractData') }}"
 ```
 
 ## Multi-step login with persistent session
@@ -224,27 +242,29 @@ browser:
 ```yaml
 # resources/login-step.yaml
 actionId: loginStep
-browser:
-    engine: firefox
-    url: "https://secure.example.com/login"
-    sessionId: "{{ get('session_id') }}"
-    actions:
-      - action: fill
-        selector: "[name=username]"
-        value: "{{ get('user') }}"
-      - action: fill
-        selector: "[name=password]"
-        value: "{{ get('pass') }}"
-      - action: click
-        selector: "[type=submit]"
-      - action: wait
-        selector: ".dashboard"
-      - action: evaluate
-        script: "document.cookie"
-  apiResponse:
-    success: true
-    response:
-      cookies: "{{ get('loginStep') }}"
+component:
+  name: browser
+  with:
+      engine: firefox
+      url: "https://secure.example.com/login"
+      sessionId: "{{ get('session_id') }}"
+      actions:
+        - action: fill
+          selector: "[name=username]"
+          value: "{{ get('user') }}"
+        - action: fill
+          selector: "[name=password]"
+          value: "{{ get('pass') }}"
+        - action: click
+          selector: "[type=submit]"
+        - action: wait
+          selector: ".dashboard"
+        - action: evaluate
+          script: "document.cookie"
+    apiResponse:
+      success: true
+      response:
+        cookies: "{{ get('loginStep') }}"
 ```
 
 </div>
@@ -254,39 +274,41 @@ browser:
 ```yaml
 # resources/upload-document.yaml
 actionId: uploadDocument
-browser:
-    engine: chromium
-    url: "https://docs.example.com/upload"
-    actions:
-      - action: upload
-        selector: "#document-input"
-        files:
-          - /tmp/document.pdf
-      - action: click
-        selector: "#upload-button"
-      - action: wait
-        selector: ".upload-success"
-  apiResponse:
-    success: true
-    response:
-      status: "uploaded"
+component:
+  name: browser
+  with:
+      engine: chromium
+      url: "https://docs.example.com/upload"
+      actions:
+        - action: upload
+          selector: "#document-input"
+          files:
+            - /tmp/document.pdf
+        - action: click
+          selector: "#upload-button"
+        - action: wait
+          selector: ".upload-success"
+    apiResponse:
+      success: true
+      response:
+        status: "uploaded"
 ```
 
 ## Output
 
-After execution the resource output contains the result of the last `evaluate` action (or the final page URL when no evaluate action is present).
-Access it with `get('actionId')`.
-
-```yaml
-# Capture and use document.title
-actions:
-  - action: evaluate
-    script: "document.title"
-
-# In a subsequent resource before block:
-before:
-  - "set('title', get('captureTitle'))"
+```json
+{
+  "success": true,
+  "url": "https://example.com/",
+  "title": "Example Domain",
+  "sessionId": "",
+  "actionResults": [
+    {"action": "evaluate", "result": "Example Domain", "success": true}
+  ]
+}
 ```
+
+Each action result carries what it did: `value` (fill, type, select), `key` (press), `result` (evaluate), `file` (screenshot), `files` (upload), `waited` (wait), `url` (navigate). Read one with `output('captureTitle').actionResults[0].result`. A failing action fails the call with `browser: action[N] 'click' failed: ...`; add `onError:` to the calling resource to continue. With a `sessionId`, the session is saved either way.
 
 ## Supported engines
 
@@ -296,15 +318,13 @@ before:
 | `firefox` | Gecko-based. Good for Firefox-specific testing. |
 | `webkit` | WebKit-based. Useful for Safari compatibility testing. |
 
-## Installation
+## How it is built
 
-Playwright browsers must be installed on the host running kdeps:
+One python resource that runs the steps with Playwright's sync API and prints the result as JSON. Copy `components/browser/` into your project to add an action or change launch settings.
 
-```bash
-npx playwright install chromium
-# or install all browsers:
-npx playwright install
-```
+## How it is built
+
+One python resource that runs the steps with Playwright's sync API and prints the result as JSON. Copy `components/browser/` into your project to add an action or change launch settings.
 
 ## See also
 

@@ -29,7 +29,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorCodeIntelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
@@ -110,7 +109,6 @@ func newExecutorRegistry() *executor.Registry {
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
-	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())
