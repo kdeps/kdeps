@@ -36,7 +36,6 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 	executors := map[string]func(*Engine, *domain.Resource, *ExecutionContext) (interface{}, error){
 		"chat":              (*Engine).executeLLM,
 		ExecutorHTTP:        (*Engine).executeHTTP,
-		ExecutorSQL:         (*Engine).executeSQL,
 		ExecutorPython:      (*Engine).executePython,
 		ExecutorExec:        (*Engine).executeExec,
 		ExecutorAgent:       (*Engine).executeAgent,

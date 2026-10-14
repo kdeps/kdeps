@@ -24,13 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSQLResultFormats(t *testing.T) {
-	t.Parallel()
-	assert.True(t, IsValidSQLResultFormat(SQLResultFormatJSON))
-	assert.False(t, IsValidSQLResultFormat("xml"))
-	assert.Len(t, SQLResultFormatsEnum(), 3)
-}
-
 func TestWorkflowInputSources(t *testing.T) {
 	t.Parallel()
 	assert.True(t, IsValidWorkflowInputSource(InputSourceAPI))

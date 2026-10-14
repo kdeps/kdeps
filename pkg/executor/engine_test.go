@@ -111,13 +111,11 @@ func TestEngine_Execute_SingleResource(t *testing.T) {
 	// Set up mock executors
 	mockLLM := &mockLLMExecutor{result: "llm result"}
 	mockHTTP := &mockHTTPExecutor{result: "http result"}
-	mockSQL := &mockSQLExecutor{result: "sql result"}
 	mockPython := &mockPythonExecutor{result: "python result"}
 	mockExec := &mockExecExecutor{result: "exec result"}
 
 	registry.SetLLMExecutor(mockLLM)
 	registry.SetHTTPExecutor(mockHTTP)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
 
@@ -225,7 +223,7 @@ func TestEngine_Execute_WithDependencies(t *testing.T) {
 	mockSQL := &mockSQLExecutor{result: []map[string]interface{}{{"id": 1, "name": "data"}}}
 	mockPython := &mockPythonExecutor{result: "processed data"}
 
-	registry.SetSQLExecutor(mockSQL)
+	registry.SetExecExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 
 	engine.SetRegistry(registry)
@@ -249,11 +247,7 @@ func TestEngine_Execute_WithDependencies(t *testing.T) {
 				ActionID: "fetch-data",
 				Name:     "Fetch Data",
 
-				SQL: &domain.SQLConfig{
-					ConnectionName: "testdb",
-					Query:          "SELECT * FROM data",
-					Format:         "json",
-				},
+				Exec: &domain.ExecConfig{Command: "echo sql"},
 			},
 			{
 
@@ -501,13 +495,11 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 	// Set up all mock executors
 	mockLLM := &mockLLMExecutor{result: "llm executed"}
 	mockHTTP := &mockHTTPExecutor{result: "http executed"}
-	mockSQL := &mockSQLExecutor{result: "sql executed"}
 	mockPython := &mockPythonExecutor{result: "python executed"}
 	mockExec := &mockExecExecutor{result: "exec executed"}
 
 	registry.SetLLMExecutor(mockLLM)
 	registry.SetHTTPExecutor(mockHTTP)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
 
@@ -553,10 +545,7 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 				ActionID: "sql-task",
 				Name:     "SQL Task",
 
-				SQL: &domain.SQLConfig{
-					ConnectionName: "testdb",
-					Query:          "SELECT * FROM users",
-				},
+				Exec: &domain.ExecConfig{Command: "echo sql"},
 			},
 			{
 
@@ -604,7 +593,6 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 	// Verify that all executors were called (due to dependency chain)
 	assert.True(t, mockLLM.executed, "LLM executor should have been called")
 	assert.True(t, mockHTTP.executed, "HTTP executor should have been called")
-	assert.True(t, mockSQL.executed, "SQL executor should have been called")
 	assert.True(t, mockPython.executed, "Python executor should have been called")
 	assert.True(t, mockExec.executed, "Exec executor should have been called")
 }
@@ -2748,52 +2736,6 @@ func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
 	assert.Contains(t, err.Error(), "HTTP executor not available")
 }
 
-// TestEngine_executeSQL_ErrorCases tests error paths in executeSQL function.
-func TestEngine_executeSQL_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:    "test-workflow",
-			Version: "1.0.0",
-		},
-	}
-
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	// Test with nil SQL config
-	resource1 := &domain.Resource{
-
-		ActionID: "test-resource",
-		Name:     "Test Resource",
-
-		SQL: nil, // This should cause error
-	}
-
-	_, err = engine.ExecuteResource(resource1, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown resource type")
-
-	// Test with no SQL executor available
-	resource2 := &domain.Resource{
-
-		ActionID: "test-resource",
-		Name:     "Test Resource",
-
-		SQL: &domain.SQLConfig{
-			ConnectionName: "testdb",
-			Query:          "SELECT * FROM test",
-		},
-	}
-
-	_, err = engine.ExecuteResource(resource2, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "SQL executor not available")
-}
-
 // TestEngine_executePython_ErrorCases tests error paths in executePython function.
 func TestEngine_executePython_ErrorCases(t *testing.T) {
 	engine := executor.NewEngine(slog.Default())
@@ -4752,13 +4694,11 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 	// Set up all mock executors
 	mockLLM := &mockLLMExecutor{result: "llm executed"}
 	mockHTTP := &mockHTTPExecutor{result: "http executed"}
-	mockSQL := &mockSQLExecutor{result: "sql executed"}
 	mockPython := &mockPythonExecutor{result: "python executed"}
 	mockExec := &mockExecExecutor{result: "exec executed"}
 
 	registry.SetLLMExecutor(mockLLM)
 	registry.SetHTTPExecutor(mockHTTP)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
 

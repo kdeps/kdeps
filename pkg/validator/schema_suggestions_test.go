@@ -478,12 +478,6 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
-				name:           "format in nested sql",
-				field:          "sql.deeply.nested.format",
-				schemaType:     "resource",
-				expectedResult: []interface{}{"json", "csv", "table"},
-			},
-			{
 				name:           "validations.methods direct",
 				field:          "validations.methods",
 				schemaType:     "resource",
@@ -546,12 +540,6 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				field:          "chat.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
-			},
-			{
-				name:           "format partial match in sql",
-				field:          "sql.format",
-				schemaType:     "resource",
-				expectedResult: []interface{}{"json", "csv", "table"},
 			},
 			{
 				name:           "methods in apiServer routes",
@@ -646,12 +634,6 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				field:          "contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
-			},
-			{
-				name:           "format field context-aware lookup",
-				field:          "format",
-				schemaType:     "resource",
-				expectedResult: []interface{}{"json", "csv", "table"},
 			},
 			{
 				name:           "methods field in workflow context",

@@ -27,13 +27,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	llmexecutor "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	pythonexecutor "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	sqlexecutor "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 )
 
 func TestEngine_FieldEvaluation(t *testing.T) {
@@ -189,44 +187,6 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 	assert.Equal(t, "custom-key", factory.CapturedConfig.Cache.Key)
 	assert.Equal(t, "5s", factory.CapturedConfig.Retry.Backoff)
 	assert.Equal(t, "/path/to/cert", factory.CapturedConfig.TLS.CertFile)
-}
-
-func TestSQLExecutor_AllFieldsEvaluation(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	e := sqlexecutor.NewExecutor()
-
-	workflow := &domain.Workflow{}
-	ctx, _ := executor.NewExecutionContext(workflow)
-	ctx.Config = &kdepsconfig.Config{
-		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
-			"mem": {Connection: "sqlite3::memory:"},
-		},
-	}
-	ctx.API.Set("format", "json")
-	ctx.API.Set("timeout", "10s")
-	ctx.API.Set("idle", "5m")
-	ctx.API.Set("queryName", "GetUsers")
-
-	config := &domain.SQLConfig{
-		ConnectionName: "mem",
-		Query:          "SELECT 1",
-		Format:         "{{get('format')}}",
-		Timeout:        "{{get('timeout')}}",
-		Pool: &domain.PoolConfig{
-			MaxIdleTime: "{{get('idle')}}",
-		},
-		Transaction: true,
-		Queries: []domain.QueryItem{
-			{
-				Name:  "{{get('queryName')}}",
-				Query: "SELECT 1",
-			},
-		},
-	}
-
-	// Execute will verify that ParseDuration doesn't fail on template strings
-	_, err := e.Execute(ctx, config)
-	assert.NoError(t, err)
 }
 
 func TestLLMExecutor_AllFieldsEvaluation(t *testing.T) {

@@ -25,16 +25,18 @@ chat:
 
 # Inline resources to run AFTER the main resource
 after:
-  - sql:
-      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
-      query: "INSERT INTO logs VALUES (?)"
+  - component:
+      name: sql
+      with:
+        connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
+        query: "INSERT INTO logs VALUES (?)"
   - python:
       script: "print('Post-processing complete')"
 ```
 
 ## Supported resource types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `embedding`, `searchLocal`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `python`, `exec`, `agent`, `component`, `embedding`, `searchLocal`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 
@@ -80,10 +82,12 @@ chat:
   prompt: "{{get('prompt')}}"
 
 after:
-  - sql:
-      connectionName: logs_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.logs_db.connection
-      query: "INSERT INTO audit_log (action, timestamp) VALUES (?, NOW())"
-      params: ["chat_completion"]
+  - component:
+      name: sql
+      with:
+        connectionName: logs_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.logs_db.connection
+        query: "INSERT INTO audit_log (action, timestamp) VALUES (?, NOW())"
+        params: ["chat_completion"]
 ```
 
 ### 3. Notifications
@@ -134,10 +138,12 @@ chat:
   prompt: "{{get('query')}}"
 
 after:
-  - sql:
-      connectionName: cache_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.cache_db.connection
-      query: "INSERT INTO response_cache (query_hash, response) VALUES (?, ?) ON CONFLICT (query_hash) DO UPDATE SET response = excluded.response"
-      params: ["{{get('query_hash')}}", "{{get('_output')}}"]
+  - component:
+      name: sql
+      with:
+        connectionName: cache_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.cache_db.connection
+        query: "INSERT INTO response_cache (query_hash, response) VALUES (?, ?) ON CONFLICT (query_hash) DO UPDATE SET response = excluded.response"
+        params: ["{{get('query_hash')}}", "{{get('_output')}}"]
 ```
 
 ## Multiple inline resources
@@ -160,9 +166,11 @@ chat:
   prompt: "{{get('prompt')}}"
 
 after:
-  - sql:
-      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
-      query: "INSERT INTO results VALUES (?)"
+  - component:
+      name: sql
+      with:
+        connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
+        query: "INSERT INTO results VALUES (?)"
   - python:
       script: "send_metrics.py"
   - httpClient:
@@ -182,9 +190,11 @@ before:
       url: "https://api.example.com/data"
 
 after:
-  - sql:
-      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
-      query: "INSERT INTO cache VALUES (?)"
+  - component:
+      name: sql
+      with:
+        connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
+        query: "INSERT INTO cache VALUES (?)"
 ```
 
 This is useful for orchestration tasks where you need to coordinate multiple operations.
@@ -259,12 +269,14 @@ Each inline resource supports the same configuration options as the standalone r
 ### SQL
 ```yaml
 # resources/example.yaml
-- sql:
-    connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
-    query: "SELECT * FROM users WHERE id = ?"
-    params:
-      - "{{get('user_id')}}"
-    timeout: 5s
+- component:
+    name: sql
+    with:
+      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
+      query: "SELECT * FROM users WHERE id = ?"
+      params:
+        - "{{get('user_id')}}"
+      timeout: 5s
 ```
 
 ### Python
@@ -328,7 +340,7 @@ before:
   - exec: { ... }        # Prepare env
 chat: { ... }            # Main processing
 after:
-  - sql: { ... }         # Store results
+  - component: { name: sql, with: { ... } }   # Store results
   - httpClient: { ... }  # Send notification
 ```
 
@@ -375,9 +387,11 @@ chat:
   prompt: "Process {{item.current()}}"
 
 after:
-  - sql:
-      query: "INSERT INTO results VALUES (?)"
-      params: ["{{item.current()}}"]
+  - component:
+      name: sql
+      with:
+        query: "INSERT INTO results VALUES (?)"
+        params: ["{{item.current()}}"]
 ```
 
 ## See also

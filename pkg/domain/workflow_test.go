@@ -272,39 +272,6 @@ env:
 	}
 }
 
-func TestSQLConfigPoolYAML(t *testing.T) {
-	yamlData := `
-connectionName: main
-pool:
-  maxConnections: 10
-  minConnections: 2
-  maxIdleTime: 5m
-  connectionTimeout: 10s
-`
-
-	var conn domain.SQLConfig
-	err := yaml.Unmarshal([]byte(yamlData), &conn)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal YAML: %v", err)
-	}
-
-	if conn.Pool == nil {
-		t.Fatal("Pool is nil")
-	}
-
-	if conn.Pool.MaxConnections != 10 {
-		t.Errorf("MaxConnections = %v, want %v", conn.Pool.MaxConnections, 10)
-	}
-
-	if conn.Pool.MinConnections != 2 {
-		t.Errorf("MinConnections = %v, want %v", conn.Pool.MinConnections, 2)
-	}
-
-	if conn.Pool.MaxIdleTime != "5m" {
-		t.Errorf("MaxIdleTime = %v, want %v", conn.Pool.MaxIdleTime, "5m")
-	}
-}
-
 func TestWebServerConfigYAML(t *testing.T) {
 	yamlData := `
 hostIp: "0.0.0.0"

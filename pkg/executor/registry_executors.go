@@ -24,13 +24,11 @@ package executor
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
 func (r *Registry) SetHTTPExecutor(exec ResourceExecutor)   { r.Register(ExecutorHTTP, exec) }
-func (r *Registry) SetSQLExecutor(exec ResourceExecutor)    { r.Register(ExecutorSQL, exec) }
 func (r *Registry) SetPythonExecutor(exec ResourceExecutor) { r.Register(ExecutorPython, exec) }
 func (r *Registry) SetExecExecutor(exec ResourceExecutor)   { r.Register(ExecutorExec, exec) }
 
 func (r *Registry) GetLLMExecutor() ResourceExecutor    { return r.getExecutor(ExecutorLLM) }
 func (r *Registry) GetHTTPExecutor() ResourceExecutor   { return r.getExecutor(ExecutorHTTP) }
-func (r *Registry) GetSQLExecutor() ResourceExecutor    { return r.getExecutor(ExecutorSQL) }
 func (r *Registry) GetPythonExecutor() ResourceExecutor { return r.getExecutor(ExecutorPython) }
 func (r *Registry) GetExecExecutor() ResourceExecutor   { return r.getExecutor(ExecutorExec) }
 

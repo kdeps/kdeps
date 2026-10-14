@@ -33,7 +33,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor/http"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/python"
-	"github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -47,7 +46,6 @@ func setupExecutor() *executor.Engine {
 	// Initialize executor registry
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
-	registry.SetSQLExecutor(sql.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
 	registry.SetExecExecutor(exec.NewAdapter())
 
@@ -67,7 +65,6 @@ func setupExecutorWithMockLLM() *executor.Engine {
 	// Initialize executor registry
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
-	registry.SetSQLExecutor(sql.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
 	registry.SetExecExecutor(exec.NewAdapter())
 
@@ -503,158 +500,6 @@ func TestShellExecExample_POST(t *testing.T) {
 
 	// Verify result is not nil
 	assert.NotNil(t, result, "Result should not be nil")
-}
-
-// TestSQLAdvancedExample_GET tests GET endpoint as described in README.
-func TestSQLAdvancedExample_GET(t *testing.T) {
-	workflowPath := "../../../examples/sql-advanced/workflow.yaml"
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		t.Skip("SQL advanced example not available")
-		return
-	}
-
-	// Parse workflow
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	workflow, err := yamlParser.ParseWorkflow(workflowPath)
-	require.NoError(t, err)
-	// Note: ParseWorkflow already loads resources from resources/ directory
-
-	// Setup executor
-	engine := setupExecutor()
-
-	// Create request context for GET /api/v1/sql-demo
-	// As described in README: curl http://localhost:16395/api/v1/sql-demo
-	reqCtx := &executor.RequestContext{
-		Method:  "GET",
-		Path:    "/api/v1/sql-demo",
-		Headers: map[string]string{},
-		Query: map[string]string{
-			"start_date": "2024-01-01",
-			"end_date":   "2024-12-31",
-		},
-	}
-
-	// Execute workflow
-	// Note: This requires a database connection, so we'll skip if it fails
-	result, err := engine.Execute(workflow, reqCtx)
-	if err != nil {
-		// If database is not available, skip the test
-		if contains(err.Error(), "connection") || contains(err.Error(), "database") ||
-			contains(err.Error(), "sql") || contains(err.Error(), "dial tcp") {
-			t.Skip("Database not available, skipping SQL test")
-			return
-		}
-		// Check for unimplemented features
-		// Note: info('current_time') is implemented, so don't skip on that
-		require.NoError(t, err)
-	}
-
-	// Verify result structure
-	// As described in README, should return CSV format:
-	// date,total_users,unique_emails,avg_age
-	// 2024-01-15,1250,1180,28.5
-	resultMap, okMap := result.(map[string]interface{})
-	//nolint:nestif // nested assertions are acceptable in integration test
-	if okMap {
-		// Verify analytics field exists
-		if analyticsVal, analyticsOk := resultMap["analytics"]; analyticsOk {
-			analyticsStr, strOk := analyticsVal.(string)
-			if strOk {
-				// If it's an error message, the database wasn't available - that's expected
-				if strings.Contains(analyticsStr, "error") ||
-					strings.Contains(analyticsStr, "connection") ||
-					strings.Contains(analyticsStr, "database") {
-					t.Skip("Database not available, skipping CSV format verification")
-					return
-				}
-				// Verify it's CSV format (contains comma-separated values)
-				assert.Contains(t, analyticsStr, ",", "Analytics should be in CSV format")
-			}
-		}
-	}
-}
-
-// TestSQLAdvancedExample_POST tests POST endpoint as described in README.
-func TestSQLAdvancedExample_POST(t *testing.T) {
-	workflowPath := "../../../examples/sql-advanced/workflow.yaml"
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		t.Skip("SQL advanced example not available")
-		return
-	}
-
-	// Parse workflow
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	workflow, err := yamlParser.ParseWorkflow(workflowPath)
-	require.NoError(t, err)
-	// Note: ParseWorkflow already loads resources from resources/ directory
-
-	// Setup executor
-	engine := setupExecutor()
-
-	// Create request context for POST /api/v1/sql-demo
-	// As described in README:
-	// curl -X POST http://localhost:16395/api/v1/sql-demo \
-	//   -H "Content-Type: application/json" \
-	//   -d '{"user_updates": [["active", 1], ["inactive", 2]]}'
-	reqCtx := &executor.RequestContext{
-		Method: "POST",
-		Path:   "/api/v1/sql-demo",
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
-		Body: map[string]interface{}{
-			"user_updates": []interface{}{
-				[]interface{}{"active", 1},
-				[]interface{}{"inactive", 2},
-			},
-		},
-	}
-
-	// Execute workflow
-	result, err := engine.Execute(workflow, reqCtx)
-	if err != nil {
-		// If database is not available, skip the test
-		if contains(err.Error(), "connection") || contains(err.Error(), "database") ||
-			contains(err.Error(), "sql") || contains(err.Error(), "dial tcp") {
-			t.Skip("Database not available, skipping SQL test")
-			return
-		}
-		// Check for unimplemented features (check both the function name and error message)
-		// Note: info('current_time') is implemented, so only skip on unknown field issues
-		if contains(err.Error(), "unknown info field") && !contains(err.Error(), "current_time") {
-			t.Skip("Example uses unimplemented info field")
-			return
-		}
-		require.NoError(t, err)
-	}
-
-	// Verify result structure
-	// As described in README:
-	// {
-	//   "success": true,
-	//   "data": {
-	//     "analytics": "date,total_users,unique_emails,avg_age\n...",
-	//     "batch_results": [[{"rows_affected": 1}], ...],
-	//     "timestamp": "2024-01-15T10:30:00Z"
-	//   }
-	// }
-	resultMap, okMap := result.(map[string]interface{})
-	if okMap {
-		// Verify batch_results field exists
-		if batchResultsVal, batchOk := resultMap["batch_results"]; batchOk {
-			assert.NotNil(t, batchResultsVal, "Batch results should not be nil")
-		}
-	}
 }
 
 // TestChatbotExample_MockedLLM tests the chatbot example with mocked LLM service for faster testing.
@@ -1244,7 +1089,6 @@ func setupEngineWithMockClient(mockClient *llm.MockHTTPClient) *executor.Engine 
 	engine := executor.NewEngine(logger)
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
-	registry.SetSQLExecutor(sql.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
 	registry.SetExecExecutor(exec.NewAdapter())
 	// Use file-backend URL but inject the mock HTTP client so no real binary is needed.

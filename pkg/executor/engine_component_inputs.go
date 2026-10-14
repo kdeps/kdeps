@@ -131,10 +131,33 @@ func (e *Engine) resolveNested(val interface{}, env map[string]interface{}) inte
 		}
 		return out
 	case string:
+		if raw, ok := e.resolveSingleExpression(v, env); ok {
+			return raw
+		}
 		return e.resolveComponentInput(v, env)
 	default:
 		return v
 	}
+}
+
+// resolveSingleExpression evaluates a value that is exactly one {{ expr }}
+// and returns its result with its type (a number stays a number, a list a
+// list), so with: params: ["{{ get('limit') }}"] passes 10, not "10".
+func (e *Engine) resolveSingleExpression(s string, env map[string]interface{}) (interface{}, bool) {
+	t := strings.TrimSpace(s)
+	if e.evaluator == nil || !strings.HasPrefix(t, "{{") || !strings.HasSuffix(t, "}}") ||
+		strings.Count(t, "{{") != 1 {
+		return nil, false
+	}
+	expr, err := expression.NewParser().Parse(t)
+	if err != nil {
+		return nil, false
+	}
+	val, evalErr := e.evaluator.Evaluate(expr, env)
+	if evalErr != nil {
+		return nil, false
+	}
+	return val, true
 }
 
 // resolveComponentInput evaluates a with: value's {{ }} expressions, returning

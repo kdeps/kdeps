@@ -506,7 +506,7 @@ func TestBuilder_GenerateDockerfile_WithDatabase(t *testing.T) {
 			},
 		},
 		Resources: []*domain.Resource{
-			{SQL: &domain.SQLConfig{ConnectionName: "primary", Query: "SELECT 1"}},
+			{Python: &domain.PythonConfig{Script: "print(1)"}},
 		},
 	}
 

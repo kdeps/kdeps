@@ -104,14 +104,6 @@ func (e *Engine) executeHTTP(resource *domain.Resource, ctx *ExecutionContext) (
 	)
 }
 
-// executeSQL executes a SQL resource.
-func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "SQL", resource.SQL,
-		e.registry.GetSQLExecutor, "SQL", "executeSQL", ctx,
-	)
-}
-
 // executePython executes a Python resource.
 func (e *Engine) executePython(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

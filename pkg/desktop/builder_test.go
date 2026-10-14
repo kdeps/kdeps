@@ -49,7 +49,7 @@ func fieldByName(k *desktop.ResourceKind, name string) *desktop.FieldSpec {
 func TestResourceKinds(t *testing.T) {
 	h := newProjectHarness(t, false)
 	ks := h.svc.ResourceKinds()
-	for _, key := range []string{"chat", "httpClient", "sql", "python", "exec", "apiResponse", "component"} {
+	for _, key := range []string{"chat", "httpClient", "python", "exec", "apiResponse", "component"} {
 		assert.NotNil(t, kindByKey(ks, key), key)
 	}
 	for _, key := range []string{"validations", "loop", "onError"} {
@@ -65,11 +65,9 @@ func TestResourceKinds(t *testing.T) {
 	assert.Equal(t, desktop.FieldYAML, fieldByName(chat, "tools").Type)
 	assert.Nil(t, fieldByName(chat, "baseURL"), "runtime-only fields are hidden")
 
-	sql := kindByKey(ks, "sql")
-	format := fieldByName(sql, "format")
-	assert.Equal(t, desktop.FieldEnum, format.Type)
-	assert.Equal(t, []string{"json", "csv", "table"}, format.Enum)
-	assert.Equal(t, desktop.FieldInteger, fieldByName(sql, "maxRows").Type)
+	http := kindByKey(ks, "httpClient")
+	assert.Equal(t, desktop.FieldString, fieldByName(http, "url").Type)
+	assert.Nil(t, kindByKey(ks, "sql"), "sql is a component, not a resource kind")
 }
 
 func TestOpenBuilder_Workflow(t *testing.T) {
@@ -216,18 +214,20 @@ func TestSaveResource_NumberFields(t *testing.T) {
 	h := newProjectHarness(t, false)
 	hello := h.addHello(t)
 	_, err := h.svc.SaveResource(hello, desktop.ResourceForm{
-		ActionID: "q", Kind: "sql", Action: map[string]any{"maxRows": "lots"},
+		ActionID: "q", Kind: "chat", Action: map[string]any{"contextLength": "lots"},
 	})
-	assert.ErrorContains(t, err, "sql.maxRows: must be a whole number")
+	assert.ErrorContains(t, err, "chat.contextLength: must be a whole number")
 	_, err = h.svc.SaveResource(hello, desktop.ResourceForm{
 		ActionID: "q", Kind: "chat", Action: map[string]any{"temperature": "warm"},
 	})
 	assert.ErrorContains(t, err, "chat.temperature: must be a number")
 	res, err := h.svc.SaveResource(hello, desktop.ResourceForm{
-		ActionID: "q", Kind: "sql", Action: map[string]any{"maxRows": float64(5), "query": "select 1"},
+		ActionID: "q", Kind: "chat", Action: map[string]any{
+			"contextLength": float64(8192), "model": "m", "prompt": "p",
+		},
 	})
 	require.NoError(t, err, "numbers from JSON arrive as float64")
-	assert.Equal(t, 5, res.Resource.Action["maxRows"])
+	assert.Equal(t, 8192, res.Resource.Action["contextLength"])
 }
 
 func TestSaveResource_Errors(t *testing.T) {
@@ -255,7 +255,11 @@ func TestSaveResource_Errors(t *testing.T) {
 			"set by the form",
 		},
 		"schema": {
-			desktop.ResourceForm{ActionID: "x", Kind: "sql", Action: map[string]any{"format": "xml"}},
+			desktop.ResourceForm{
+				ActionID: "x",
+				Kind:     "httpClient",
+				Action:   map[string]any{"method": "FETCH", "url": "u"},
+			},
 			"resource validation failed",
 		},
 		"bad id": {func() desktop.ResourceForm { f := ok; f.ID = "weird"; return f }(), "bad resource id"},

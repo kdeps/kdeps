@@ -45,7 +45,7 @@ mode and agent mode.
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/workflow/data-access) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/workflow/validation) |
-| `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
+| `sql` | A kdeps component (`component: sql`) for SQL against PostgreSQL, MySQL, SQLite, SQL Server or Oracle. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
 | <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl-themes#themes) |

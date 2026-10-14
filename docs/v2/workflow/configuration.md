@@ -187,7 +187,7 @@ Model selection goes in `chat.model` inside each resource file. Backend and API 
 
 ## SQL connections
 
-The connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed). Pool settings go on the `sql:` resource that uses the connection.
+The connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed). The [`sql` component](/workflow/resources/sql) names it with `connectionName`.
 
 `~/.kdeps/config.yaml` - DSN (credentials stay here):
 
@@ -199,21 +199,9 @@ sql_connections:
     connection: "sqlite:///path/to/cache.db"   # absolute path; sqlite://./cache.db is relative to where kdeps runs
 ```
 
-Pool settings, on the resource (no credentials here):
+The [`sql` component](/workflow/resources/sql) references a connection by name: `connectionName: analytics`. The name must match the key in `sql_connections` in `~/.kdeps/config.yaml`.
 
-```yaml
-# resources/report.yaml
-sql:
-  connectionName: analytics
-  pool:
-    maxConnections: 10    # max open connections in the pool
-    minConnections: 2     # min idle connections kept alive
-  query: "SELECT count(*) FROM events"
-```
-
-Resources reference a connection by name: `connectionName: analytics`. The name must match the key in `sql_connections` in `~/.kdeps/config.yaml`.
-
-Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` driver.
+Supported: PostgreSQL, MySQL/MariaDB, SQLite, SQL Server and Oracle.
 
 ## Session
 

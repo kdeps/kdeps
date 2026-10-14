@@ -4,7 +4,7 @@ Build an API with two endpoints over a SQLite database:
 `GET /report` runs an analytics query and returns CSV; `POST /update` applies a
 batch of updates in a transaction.
 
-The `sql:` resource runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
+The [`sql` component](/workflow/resources/sql) runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
 or Oracle. Parameters use `$1`, `$2`, ... placeholders - never string
 interpolation - so input cannot break out of the query. This example uses
 SQLite so it runs with no database server.
@@ -77,20 +77,22 @@ name: User report
 validations:
   methods: [GET]
   routes: [/report]
-sql:
-  connectionName: demo
-  query: |
-    SELECT status,
-           COUNT(*)        AS total,
-           ROUND(AVG(age)) AS avg_age
-    FROM users
-    WHERE created_at >= $1
-    GROUP BY status
-  params:
-    - get('since', '2024-01-01')     # ?since=... or default
-  format: csv                        # csv, json, or table
-  maxRows: 100
-  timeout: 30s
+component:
+  name: sql
+  with:
+    connectionName: demo
+    query: |
+      SELECT status,
+             COUNT(*)        AS total,
+             ROUND(AVG(age)) AS avg_age
+      FROM users
+      WHERE created_at >= $1
+      GROUP BY status
+    params:
+      - "{{ get('since', '2024-01-01') }}"     # ?since=... or default
+    format: csv                        # csv, json, or table
+    maxRows: 100
+    timeout: 30s
 ```
 
 </div>
@@ -108,12 +110,14 @@ name: Batch status update
 validations:
   methods: [POST]
   routes: [/update]
-sql:
-  connectionName: demo
-  transaction: true                  # all or nothing
-  queries:
-    - query: "UPDATE users SET status = $1 WHERE id = $2"
-      paramsBatch: "{{ get('changes') }}"   # a list of [status, id] pairs
+component:
+  name: sql
+  with:
+    connectionName: demo
+    transaction: true                  # all or nothing
+    queries:
+      - query: "UPDATE users SET status = $1 WHERE id = $2"
+        paramsBatch: "{{ get('changes') }}"   # a list of [status, id] pairs
 ```
 
 </div>

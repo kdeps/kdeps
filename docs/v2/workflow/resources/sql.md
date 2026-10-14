@@ -1,308 +1,140 @@
-# SQL resource
+# SQL component
 
-The `sql:` resource runs SQL queries against a named connection and returns the result set as the resource's output. Use it to read, write, or transact against any supported database.
+The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+
+## Requirements
+
+Python through uv like any [python resource](/workflow/resources/python). SQLite needs nothing else; the first call to another database installs its driver into the workflow's venv (`psycopg`, `pymysql`, `pymssql`, `oracledb`). Each call opens its own connection - there is no pool between calls.
 
 ## Basic usage
 
 <div v-pre>
 
 ```yaml
-# resources/sql.yaml
-
-actionId: sqlResource
-name: Database Query
-sql:
-  connectionName: main
-  query: "SELECT * FROM users WHERE id = $1"
-  params:
-    - get('user_id')
-  timeout: 30s
+# resources/user.yaml
+actionId: user
+name: Load User
+component:
+  name: sql
+  with:
+    connectionName: main                       # sql_connections.main in ~/.kdeps/config.yaml
+    query: "SELECT id, name, email FROM users WHERE id = $1"
+    params:
+      - "{{ get('user_id') }}"                 # a lone {{ }} keeps its type: a number stays a number
 ```
 
 </div>
 
-## Supported databases
+```json
+{"id": 7, "name": "Ann", "email": "ann@example.com"}
+```
 
-| Database | Connection String Format |
-|----------|-------------------------|
-| PostgreSQL | `postgres://user:pass@host:5432/db` |
-| MySQL | `mysql://user:pass@host:3306/db` |
-| SQLite | `sqlite:///path/to/file.db` or `sqlite:///:memory:` |
-| SQL Server | `sqlserver://user:pass@host:1433/db` |
-| Oracle | `oracle://user:pass@host:1521/service` |
+## Connections
 
-## Connection configuration
-
-Connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives on the `sql:` resource.
-
-`~/.kdeps/config.yaml` - credentials:
+Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`; the component reads them through `env:`, so the password is not on any command line.
 
 ```yaml
+# ~/.kdeps/config.yaml
 sql_connections:
   main:
     connection: "postgres://user:pass@localhost:5432/myapp"
-  analytics:
-    connection: "postgres://user:pass@analytics-db:5432/analytics"
+  local:
+    connection: "sqlite:///var/data/app.db"
 ```
 
-If `connectionName` refers to a connection missing from `config.yaml`, `kdeps run` prompts for the DSN at startup and saves it (interactive terminals only; skipped in CI/pipes, where the "connection not found" error surfaces instead). See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
+| Database | Connection string |
+|---|---|
+| PostgreSQL | `postgres://user:pass@host:5432/db` |
+| MySQL / MariaDB | `mysql://user:pass@host:3306/db` |
+| SQLite | `sqlite:///path/to/file.db`, `sqlite://:memory:` |
+| SQL Server | `sqlserver://user:pass@host:1433?database=db` |
+| Oracle | `oracle://user:pass@host:1521/service` |
 
-Use in resources:
+A connection missing from `config.yaml` is prompted for by `kdeps run` (interactive terminals only), or supplied with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
 
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main  # must match key in sql_connections in ~/.kdeps/config.yaml
-  query: "SELECT * FROM users"
-```
+## Placeholders
 
-## Query types
+Write placeholders the way you know them - `$1`, `?`, `@p1` or `:1` - and pass the values in `params`, in order. The component rewrites them into the driver's own style, skipping text inside quotes and comments and Postgres `::` casts. `$N`, `@pN` and `:N` refer to the Nth param; each bare `?` takes the next one.
 
-### Simple query
+## Results
 
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: "SELECT name, email FROM users WHERE active = true"
-  format: json
-  maxRows: 100
-  timeout: 30s
-```
+| Statement | Result |
+|---|---|
+| `SELECT` returning one row | That row: `{column: value}` |
+| `SELECT` returning 0 or several rows | `{rowsAffected: n, data: [rows], columns: [sorted names]}` |
+| `SELECT` with `format: json` | The rows as a JSON string |
+| `SELECT` with `format: csv` | CSV text, header first (columns sorted) |
+| `INSERT` / `UPDATE` / `DELETE` | `{rowsAffected, lastInsertID, success: true}` |
+| `transaction: true` | A list: each statement's rows, or its `{rowsAffected, lastInsertID}` |
 
-### Parameterized query
+Dates come back as ISO 8601 strings and decimals as strings. A connection that cannot be opened returns `{error: "failed to get database connection: ..."}`; a failing statement fails the call with `sql: query execution failed: ...` and rolls back.
+
+## Transactions and batches
 
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: |
-    SELECT * FROM orders
-    WHERE customer_id = $1
-      AND created_at >= $2
-      AND status = $3
-    ORDER BY created_at DESC
-    LIMIT $4
-  params:
-    - get('customer_id')
-    - get('start_date')
-    - get('status', 'active')  # With default
-    - get('limit', '100')
-  format: json
+# resources/transfer.yaml
+actionId: transfer
+name: Transfer Funds
+component:
+  name: sql
+  with:
+    connectionName: main
+    transaction: true                  # all statements commit together, or none do
+    queries:
+      - query: "UPDATE accounts SET balance = balance - $1 WHERE id = $2"
+        params: ["{{ get('amount') }}", "{{ get('from') }}"]
+      - query: "UPDATE accounts SET balance = balance + $1 WHERE id = $2"
+        params: ["{{ get('amount') }}", "{{ get('to') }}"]
+      - query: "INSERT INTO audit (note) VALUES ($1)"
+        paramsBatch: "{{ get('notes') }}"   # a list of param lists: the statement runs once per entry
 ```
 
 </div>
 
-### Insert / update / delete
+## Inputs
 
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: |
-    INSERT INTO users (name, email, created_at)
-    VALUES ($1, $2, NOW())
-    RETURNING id
-  params:
-    - get('name')
-    - get('email')
-```
+| Input | Default | Description |
+|---|---|---|
+| `connectionName` | - | Name under `sql_connections` (required) |
+| `query` | | The statement |
+| `params` | `[]` | Placeholder values, in order |
+| `transaction` | `false` | Run `queries` in one transaction |
+| `queries` | `[]` | `[{query, params}]` or `[{query, paramsBatch}]` |
+| `format` | `''` | `''`/`table` (rows), `json`, `csv` |
+| `timeout` | `KDEPS_SQL_TIMEOUT`, else `30s` | Statement timeout |
+| `maxRows` | `KDEPS_SQL_MAX_ROWS`, else `1000` | Rows a `SELECT` returns at most |
 
-## Transactions
+`config.yaml` `resource_defaults.sql.timeout` and `max_rows` set the two environment variables.
 
-Execute multiple queries in a transaction:
+## Security
 
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  transaction: true
-  queries:
-    - query: "UPDATE accounts SET balance = balance - $1 WHERE id = $2"
-      params:
-        - get('amount')
-        - get('from_account')
-
-    - query: "UPDATE accounts SET balance = balance + $1 WHERE id = $2"
-      params:
-        - get('amount')
-        - get('to_account')
-
-    - query: |
-        INSERT INTO transactions (from_id, to_id, amount, created_at)
-        VALUES ($1, $2, $3, NOW())
-      params:
-        - get('from_account')
-        - get('to_account')
-        - get('amount')
-```
-
-If any query fails, the entire transaction is rolled back.
-
-## Batch operations
-
-Process multiple records efficiently:
+Pass user input in `params`, never inside the query text:
 
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  transaction: true
-  queries:
-    - query: |
-        INSERT INTO products (name, price, category)
-        VALUES ($1, $2, $3)
-      paramsBatch: "{{ get('products') }}"
+query: "SELECT * FROM users WHERE id = $1"     # good: the value never touches the SQL
+params: ["{{ get('user_id') }}"]
+```
+
+```yaml
+query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"   # bad: SQL injection
 ```
 
 </div>
 
-Where `products` is an array of parameter arrays:
-```json
-[
-  ["Product A", 19.99, "electronics"],
-  ["Product B", 29.99, "electronics"],
-  ["Product C", 9.99, "accessories"]
-]
-```
+## How it is built
 
-## Result formats
-
-### JSON (default)
-
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: "SELECT id, name, email FROM users"
-  format: json
-```
-
-Output:
-```json
-[
-  {"id": 1, "name": "Alice", "email": "alice@example.com"},
-  {"id": 2, "name": "Bob", "email": "bob@example.com"}
-]
-```
-
-### CSV
-
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: "SELECT id, name, email FROM users"
-  format: csv
-```
-
-Output:
-```csv
-id,name,email
-1,Alice,alice@example.com
-2,Bob,bob@example.com
-```
-
-### Table
-
-```yaml
-# resources/example.yaml
-sql:
-  connectionName: main
-  query: "SELECT id, name, email FROM users"
-  format: table
-```
-
-Output:
-```
-+----+-------+-------------------+
-| id | name  | email             |
-+----+-------+-------------------+
-| 1  | Alice | alice@example.com |
-| 2  | Bob   | bob@example.com   |
-+----+-------+-------------------+
-```
-
-## Connection pooling
-
-Set the pool on the `sql:` resource. The DSN still comes from `sql_connections`
-in `~/.kdeps/config.yaml` (see [Connection Configuration](#connection-configuration)
-above).
-
-```yaml
-# resources/users.yaml
-sql:
-  connectionName: main
-  pool:
-    maxConnections: 20      # maximum pool size
-    minConnections: 5       # minimum idle connections
-    maxIdleTime: "30s"      # close idle connections after
-    connectionTimeout: "5s" # timeout for acquiring a connection
-  query: "SELECT * FROM users"
-```
-
-## Accessing results
-
-```yaml
-# In another resource
-requires: [sqlResource]
-apiResponse:
-  response:
-    # Full result set
-    users: get('sqlResource')
-
-    # First row
-    first_user: get('sqlResource')[0]
-
-    # Specific field from first row
-    first_name: get('sqlResource')[0].name
-```
-
-## Best practices
-
-1. **Use named connections** - Easier to manage and configure pooling
-2. **Always use parameterized queries** - Prevent SQL injection
-3. **Set appropriate maxRows** - Prevent memory issues
-4. **Use transactions for multi-step operations** - Ensure data consistency
-5. **Configure connection pooling** - Improve performance under load
-6. **Use appropriate timeouts** - Prevent long-running queries from blocking
-
-## Security notes
-
-- Never interpolate user input directly into queries
-- Always use parameterized queries (`$1`, `$2`, etc.)
-- Store database credentials in environment variables
-- Use connection strings from environment in production
-
-```yaml
-# Good -- parameterized; user input never touches the query string
-query: "SELECT * FROM users WHERE id = $1"
-params:
-  - get('user_id')
-```
-
-**Bad - SQL injection risk**
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
-```
-
-</div>
+One python resource: it reads the connection string from `config.yaml` through `env:`, runs the statements with the database's DB-API driver and prints the result. Copy `components/sql/` into your project to change a result shape or add a database.
 
 ## See also
 
-- [SQL examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
+- [SQL examples](/reference/sql-examples) - user lookup, analytics, multi-database sync, LLM-enhanced search
 - [Python resource](/workflow/resources/python) - data processing scripts
-- [HTTP client](/workflow/resources/http-client) - external API calls
-- [Workflow configuration](/workflow/configuration) - connection settings
+- [Components](/agencies/components) - how shipped components load

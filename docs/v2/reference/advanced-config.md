@@ -60,18 +60,20 @@ validations:
 
 ```yaml
 # resources/example.yaml
-sql:
-  connectionName: logs
-  queries:
-    - query: |
-        INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
-        VALUES (?, ?, ?, ?, ?, NOW())
-      params:
-        - "{{ request.ID }}"
-        - "{{ request.method }}"
-        - "{{ request.path }}"
-        - "{{ request.IP }}"
-        - "{{ info('sessionId') }}"
+component:
+  name: sql
+  with:
+    connectionName: logs
+    queries:
+      - query: |
+          INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
+          VALUES (?, ?, ?, ?, ?, NOW())
+        params:
+          - "{{ request.ID }}"
+          - "{{ request.method }}"
+          - "{{ request.path }}"
+          - "{{ request.IP }}"
+          - "{{ info('sessionId') }}"
 ```
 
 </div>
@@ -158,7 +160,7 @@ settings:
 
 ## SQL connections
 
-SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
+SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled.
 
 ### Configuration
 
@@ -174,30 +176,7 @@ sql_connections:
     connection: "sqlite://./cache.db"
 ```
 
-Pool settings go on the `sql:` resource (no credentials):
-
-```yaml
-# resources/orders.yaml
-sql:
-  connectionName: primary
-  pool:
-    maxConnections: 25
-    minConnections: 5
-    maxIdleTime: "30m"
-    connectionTimeout: "10s"
-  query: "SELECT * FROM orders"
-```
-
-### Pool configuration
-
-| Field | Default (when `pool:` is omitted entirely) | Description |
-|-------|---------|-------------|
-| `maxConnections` | 10 | Maximum pool size |
-| `minConnections` | 2 | Minimum idle connections |
-| `maxIdleTime` | 5m | Max time before idle connection is closed |
-| `connectionTimeout` | (none - no connection lifetime limit) | Connection acquisition timeout |
-
-These defaults (the `defaults/executors` asset, updated with `kdeps update`) apply only when `pool:` is left out of the `sql:` resource entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is not backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
+The [`sql` component](/workflow/resources/sql) opens one connection per call; there is no pool to configure.
 
 ### Using named connections
 
@@ -205,12 +184,14 @@ These defaults (the `defaults/executors` asset, updated with `kdeps update`) app
 
 ```yaml
 # resources/example.yaml
-sql:
-  connectionName: primary  # Reference by name -- must match key in sql_connections in ~/.kdeps/config.yaml
-  queries:
-    - query: "SELECT * FROM users WHERE id = ?"
-      params:
-        - "{{ get('userId') }}"
+component:
+  name: sql
+  with:
+    connectionName: primary  # Reference by name -- must match key in sql_connections in ~/.kdeps/config.yaml
+    queries:
+      - query: "SELECT * FROM users WHERE id = ?"
+        params:
+          - "{{ get('userId') }}"
 ```
 
 </div>

@@ -170,6 +170,30 @@ settings:
 	return out, nil
 }
 
+// runComponentValue runs one call of the named shipped component and returns
+// its result whatever its type (a map, a list or a string).
+func runComponentValue(t *testing.T, name, with string) (interface{}, error) {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: component-call
+  version: "1.0.0"
+  targetActionId: c
+settings:
+  agentSettings: {}
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "c.yaml"),
+		[]byte("actionId: c\nname: C\ncomponent:\n  name: "+name+"\n  with:\n"+with), 0o600))
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+	require.NoError(t, err)
+	return newExecEngine().Execute(wf, nil)
+}
+
 // runGitComponent runs one git component call and returns its structured result.
 func runGitComponent(t *testing.T, with string) map[string]interface{} {
 	t.Helper()

@@ -51,7 +51,6 @@ func schemaEnumMap() map[string][]interface{} {
 		enumKeyContextLength: {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		enumKeySQLFormat:                    domain.SQLResultFormatsEnum(),
 		"run.validations.methods":           httpMethods,
 		"settings.apiServer.routes.methods": httpMethods,
 		"routes.methods":                    httpMethods,
@@ -83,7 +82,6 @@ func lookupResourceSchemaEnums(field string, enumMap map[string][]interface{}) [
 		"backend":       enumKeyChatBackend,
 		"method":        enumKeyHTTPMethod,
 		"contextLength": enumKeyContextLength,
-		"format":        enumKeySQLFormat,
 	}
 	if key, ok := shortFieldEnums[field]; ok {
 		return enumMap[key]
@@ -116,7 +114,6 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 		{"backend", resourceTypeChat, enumKeyChatBackend},
 		{"method", "httpClient", enumKeyHTTPMethod},
 		{"contextLength", resourceTypeChat, enumKeyContextLength},
-		{"format", "sql", enumKeySQLFormat},
 	}
 	for _, rule := range rules {
 		if lastPart == rule.part && strings.Contains(normalizedField, rule.context) {

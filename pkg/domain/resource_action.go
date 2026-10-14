@@ -28,7 +28,6 @@ type ActionConfig struct {
 
 	Chat             *ChatConfig             `yaml:"chat,omitempty"`
 	HTTPClient       *HTTPClientConfig       `yaml:"httpClient,omitempty"`
-	SQL              *SQLConfig              `yaml:"sql,omitempty"`
 	Python           *PythonConfig           `yaml:"python,omitempty"`
 	Exec             *ExecConfig             `yaml:"exec,omitempty"`
 	Agent            *AgentCallConfig        `yaml:"agent,omitempty"`

@@ -17,7 +17,7 @@ closest to what you are building.
 | [Shell command API](/examples/shell-command-api) | `exec:` with a timeout, method scoping, `info()` |
 | [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
 | [Image analysis](/examples/vision) | Multipart upload, `files:` on a chat prompt, Ollama vision |
-| [SQL-backed API](/examples/sql-api) | `sql:` parameterized queries, CSV output, batch transactions |
+| [SQL-backed API](/examples/sql-api) | `sql` component: parameterized queries, CSV output, batch transactions |
 | [Chat web app](/examples/chat-web-app) | API + static frontend together, `public` routes, `scenario:` |
 | [File upload](/examples/file-upload) | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
 | [Conditionals and lists](/examples/control-flow) | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
@@ -209,7 +209,7 @@ Best for:
 
 ## Inline resources
 
-Attach `exec:`, `python:`, and `sql:` actions directly to one resource's
+Attach `exec:`, `python:` and `component:` actions directly to one resource's
 `before:` and `after:` blocks instead of creating a file for each.
 
 Best for:

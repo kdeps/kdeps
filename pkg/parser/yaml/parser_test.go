@@ -322,22 +322,6 @@ httpClient:
 			validateFunc: validateHTTPResource,
 		},
 		{
-			name: "valid SQL resource",
-			yamlContent: `
-actionID: sql-action
-name: SQL Resource
-sql:
-  connectionName: primary
-  query: SELECT * FROM users
-  params:
-    - 123
-  timeout: 5s
-`,
-			validator:    &mockSchemaValidator{},
-			wantErr:      false,
-			validateFunc: validateSQLResource,
-		},
-		{
 			name: "resource with dependencies",
 			yamlContent: `
 actionID: dependent-action
@@ -491,14 +475,6 @@ func validateHTTPResource(t *testing.T, resource *domain.Resource) {
 	require.NotNil(t, resource.HTTPClient)
 	assert.Equal(t, http.MethodPost, resource.HTTPClient.Method)
 	assert.Equal(t, "https://api.example.com", resource.HTTPClient.URL)
-}
-
-// validateSQLResource validates a SQL resource.
-func validateSQLResource(t *testing.T, resource *domain.Resource) {
-	t.Helper()
-	require.NotNil(t, resource.SQL)
-	assert.Equal(t, "primary", resource.SQL.ConnectionName)
-	assert.Equal(t, "SELECT * FROM users", resource.SQL.Query)
 }
 
 // validateDependentResource validates a resource with dependencies.

@@ -38,7 +38,7 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 	}
 
 	wantInline := []string{
-		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
+		"chat", "httpClient", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}

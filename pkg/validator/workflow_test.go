@@ -378,20 +378,6 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid SQL resource",
-			resource: &domain.Resource{
-
-				ActionID: "sql-test",
-				Name:     "SQL Resource",
-
-				SQL: &domain.SQLConfig{
-					ConnectionName: "primary",
-					Query:          "SELECT * FROM users",
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "valid Python resource",
 			resource: &domain.Resource{
 
@@ -510,19 +496,6 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "SQL config validation error",
-			resource: &domain.Resource{
-
-				ActionID: "test",
-				Name:     "Test Resource",
-
-				SQL: &domain.SQLConfig{
-					// Missing connection and query - should fail validation
-				},
-			},
-			wantErr: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -565,84 +538,6 @@ func TestWorkflowValidator_ValidateChatConfig(t *testing.T) {
 			err := validator.ValidateChatConfig(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateChatConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
-	validator := validator.NewWorkflowValidator(nil)
-
-	tests := []struct {
-		name     string
-		config   *domain.SQLConfig
-		workflow *domain.Workflow
-		wantErr  bool
-	}{
-		{
-			name: "valid config with connectionName",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "valid config with connectionName and format",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-				Format:         "json",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "missing connectionName",
-			config: &domain.SQLConfig{
-				Query: "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-		{
-			name: "missing query",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-		{
-			name: "valid config with queries array",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Queries: []domain.QueryItem{
-					{Query: "SELECT * FROM users"},
-					{Query: "SELECT * FROM products"},
-				},
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "invalid format",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-				Format:         "invalid",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateSQLConfig(tt.config, tt.workflow)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateSQLConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

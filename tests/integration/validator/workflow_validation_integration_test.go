@@ -67,10 +67,12 @@ httpClient:
 	sqlResource := `actionId: store-data
 name: Store Data
 requires: ["fetch-data"]
-sql:
-  connectionName: "default"
-  query: "INSERT INTO data (content) VALUES (?)"
-  params: ["{{fetch-data.response}}"]
+component:
+  name: sql
+  with:
+    connectionName: "default"
+    query: "INSERT INTO data (content) VALUES (?)"
+    params: ["{{fetch-data.response}}"]
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "store-data.yaml"), []byte(sqlResource), 0644)
@@ -175,7 +177,7 @@ settings:
 	require.True(t, exists)
 	assert.Equal(t, "Store Data", sqlRes.Name)
 	assert.Contains(t, sqlRes.Requires, "fetch-data")
-	assert.NotNil(t, sqlRes.SQL)
+	assert.NotNil(t, sqlRes.Component)
 
 	// Verify Python resource
 	pythonRes, exists := resourceMap["process-data"]
@@ -325,11 +327,13 @@ httpClient:
 
 		"sql-resource.yaml": `actionId: sql-test
 name: SQL Test
-sql:
-  connectionName: "testdb"
-  query: "SELECT * FROM users WHERE id = ?"
-  params: ["123"]
-  format: "json"
+component:
+  name: sql
+  with:
+    connectionName: "testdb"
+    query: "SELECT * FROM users WHERE id = ?"
+    params: ["123"]
+    format: "json"
 `,
 
 		"python-resource.yaml": `actionId: python-test
@@ -396,7 +400,7 @@ settings:
 
 	// Verify each resource type
 	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
-	assert.NotNil(t, resourceMap["sql-test"].SQL)
+	assert.Equal(t, "sql", resourceMap["sql-test"].Component.Name)
 	assert.NotNil(t, resourceMap["python-test"].Python)
 	assert.NotNil(t, resourceMap["exec-test"].Exec)
 	assert.NotNil(t, resourceMap["response-test"].APIResponse)
@@ -409,8 +413,8 @@ settings:
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
-	assert.Contains(t, sqlRes.SQL.Query, "SELECT")
-	assert.Contains(t, sqlRes.SQL.Params, "123")
+	assert.Contains(t, sqlRes.Component.With["query"], "SELECT")
+	assert.Equal(t, []interface{}{"123"}, sqlRes.Component.With["params"])
 
 	// Verify Python resource has script
 	pythonRes := resourceMap["python-test"]

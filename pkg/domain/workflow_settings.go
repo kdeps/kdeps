@@ -282,11 +282,3 @@ type PackageVersions struct {
 	Ollama string `yaml:"ollama,omitempty"` // default: latest GitHub release at bundle build time
 	UV     string `yaml:"uv,omitempty"`     // default: latest GitHub release at bundle build time
 }
-
-// PoolConfig represents connection pool configuration.
-type PoolConfig struct {
-	MaxConnections    int    `yaml:"maxConnections"`
-	MinConnections    int    `yaml:"minConnections"`
-	MaxIdleTime       string `yaml:"maxIdleTime"`
-	ConnectionTimeout string `yaml:"connectionTimeout"`
-}

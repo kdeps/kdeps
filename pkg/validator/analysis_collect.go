@@ -19,8 +19,6 @@
 package validator
 
 import (
-	"fmt"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -139,14 +137,6 @@ func collectExecTypeStrings(r *domain.Resource) []string {
 			out = append(out, s)
 		}
 	}
-	if r.SQL != nil {
-		for _, q := range r.SQL.Queries {
-			out = append(out, q.Query)
-			for _, p := range q.Params {
-				out = append(out, fmt.Sprintf("%v", p))
-			}
-		}
-	}
 	if r.Embedding != nil {
 		out = append(out, r.Embedding.Text)
 	}
@@ -183,11 +173,6 @@ func collectInlineStrings(ac *domain.ActionConfig) []string {
 		out = append(out, ac.HTTPClient.URL)
 		if s, ok := ac.HTTPClient.Data.(string); ok {
 			out = append(out, s)
-		}
-	}
-	if ac.SQL != nil {
-		for _, q := range ac.SQL.Queries {
-			out = append(out, q.Query)
 		}
 	}
 	return out

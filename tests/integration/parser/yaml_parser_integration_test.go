@@ -203,26 +203,6 @@ httpClient:
 			},
 		},
 		{
-			filename: "sql-resource.yaml",
-			resourceYAML: `actionId: db-query
-name: Database Query
-sql:
-  connectionName: "primary"
-  query: "SELECT id, name FROM users WHERE active = ?"
-  params:
-    - true
-  format: "json"
-`,
-			checkFunc: func(t *testing.T, res interface{}) {
-				resource := res.(*domain.Resource)
-				assert.Equal(t, "db-query", resource.ActionID)
-				assert.NotNil(t, resource.SQL)
-				assert.Equal(t, "primary", resource.SQL.ConnectionName)
-				assert.Contains(t, resource.SQL.Query, "SELECT")
-				assert.Equal(t, "json", resource.SQL.Format)
-			},
-		},
-		{
 			filename: "python-resource.yaml",
 			resourceYAML: `actionId: data-processor
 name: Data Processor

@@ -31,9 +31,6 @@ var primaryResourceConfigValidators = map[string]primaryResourceConfigValidator{
 	resourceTypeChat: func(v *WorkflowValidator, resource *domain.Resource, _ *domain.Workflow) error {
 		return v.ValidateChatConfig(resource.Chat)
 	},
-	"sql": func(v *WorkflowValidator, resource *domain.Resource, workflow *domain.Workflow) error {
-		return v.ValidateSQLConfig(resource.SQL, workflow)
-	},
 	"httpClient": func(v *WorkflowValidator, resource *domain.Resource, _ *domain.Workflow) error {
 		return v.ValidateHTTPConfig(resource.HTTPClient)
 	},

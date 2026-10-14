@@ -51,7 +51,6 @@ type ExecutorDefaults struct {
 	HTTP      HTTPExecutorDefaults   `yaml:"http"`
 	Python    PythonExecutorDefaults `yaml:"python"`
 	Exec      ExecExecutorDefaults   `yaml:"exec"`
-	SQL       SQLExecutorDefaults    `yaml:"sql"`
 	Embedding EmbeddingDefaults      `yaml:"embedding"`
 }
 
@@ -76,15 +75,6 @@ type PythonExecutorDefaults struct {
 // ExecExecutorDefaults holds default values for shell command execution.
 type ExecExecutorDefaults struct {
 	Timeout string `yaml:"timeout"`
-}
-
-// SQLExecutorDefaults holds default values for SQL query execution.
-type SQLExecutorDefaults struct {
-	Timeout         string `yaml:"timeout"`
-	MaxRows         int    `yaml:"max_rows"`
-	MaxOpenConns    int    `yaml:"max_open_conns"`
-	MaxIdleConns    int    `yaml:"max_idle_conns"`
-	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
 }
 
 // EmbeddingDefaults holds default values for embedding execution.
@@ -148,14 +138,4 @@ func (p *PythonExecutorDefaults) TimeoutDuration() time.Duration {
 // TimeoutDuration parses the Exec timeout string into a time.Duration.
 func (e *ExecExecutorDefaults) TimeoutDuration() time.Duration {
 	return parseDurationOrDefault(e.Timeout, 30*time.Second) //nolint:mnd // fallback
-}
-
-// TimeoutDuration parses the SQL timeout string into a time.Duration.
-func (s *SQLExecutorDefaults) TimeoutDuration() time.Duration {
-	return parseDurationOrDefault(s.Timeout, 30*time.Second) //nolint:mnd // fallback
-}
-
-// ConnMaxIdleTimeDuration parses the SQL connection max idle time.
-func (s *SQLExecutorDefaults) ConnMaxIdleTimeDuration() time.Duration {
-	return parseDurationOrDefault(s.ConnMaxIdleTime, 5*time.Minute) //nolint:mnd // fallback
 }

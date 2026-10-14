@@ -56,7 +56,6 @@ actionId: myResource        # required: unique ID -- used by requires: and get()
 # on the same resource to format the HTTP response):
 chat: { ... }        # send a prompt to an LLM; reply text at .message.content
 httpClient: { ... }  # make an HTTP request; output is the parsed response body
-sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
 exec: { ... }        # run a shell command; output is its stdout
 codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
@@ -116,7 +115,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 | YAML key | Description | Page |
 |---|---|---|
-| `sql` | Database queries and transactions | [SQL](/workflow/resources/sql) |
+| `component: sql` | Database queries and transactions - a kdeps component, YAML only | [SQL](/workflow/resources/sql) |
 | `component: file` | Read, write, patch, list, delete, copy, move files - a kdeps component, YAML only | [File](/workflow/resources/file) |
 | `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `python` | Run a Python script, stdout parsed as JSON | [Python](/workflow/resources/python) |

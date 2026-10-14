@@ -60,7 +60,6 @@ func (e *Engine) executeInlineResources(
 			"index", i,
 			"hasChat", inline.Chat != nil,
 			"hasHTTPClient", inline.HTTPClient != nil,
-			"hasSQL", inline.SQL != nil,
 			"hasPython", inline.Python != nil,
 			"hasExec", inline.Exec != nil,
 			"hasAgent", inline.Agent != nil,
@@ -102,9 +101,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		},
 		ExecutorHTTP: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineHTTP(inline.HTTPClient, ctx)
-		},
-		ExecutorSQL: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineSQL(inline.SQL, ctx)
 		},
 		ExecutorPython: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlinePython(inline.Python, ctx)

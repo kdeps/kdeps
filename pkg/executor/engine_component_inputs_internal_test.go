@@ -58,8 +58,10 @@ func TestInjectComponentInputs_KeepsListsAndMaps(t *testing.T) {
 	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	require.NoError(t, ctx.Set("who", "bob@example.com"))
+	require.NoError(t, ctx.Set("n", 10))
 
 	e.injectComponentInputs(map[string]interface{}{
+		"params": []interface{}{"{{ get('n') }}", "x {{ get('n') }}"},
 		"to":     []interface{}{"{{ get('who') }}", "ann@example.com", 3},
 		"search": map[string]interface{}{"subject": "{{ get('who') }}", "unseen": true},
 		"limit":  10,
@@ -72,6 +74,9 @@ func TestInjectComponentInputs_KeepsListsAndMaps(t *testing.T) {
 	search, err := ctx.Get("comp.search")
 	require.NoError(t, err)
 	require.Equal(t, map[string]interface{}{"subject": "bob@example.com", "unseen": true}, search)
+	params, err := ctx.Get("comp.params")
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{float64(10), "x 10"}, params, "a lone expression keeps its type")
 	limit, err := ctx.Get("comp.limit")
 	require.NoError(t, err)
 	require.Equal(t, "10", limit)

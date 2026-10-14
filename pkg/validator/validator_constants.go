@@ -25,7 +25,6 @@ const (
 	resourceTypeChat       = "chat"
 	enumKeyChatBackend     = "run.chat.backend"
 	enumKeyHTTPMethod      = "run.httpClient.method"
-	enumKeySQLFormat       = "run.sql.format"
 	enumKeyContextLength   = "run.chat.contextLength"
 	routePatternSuggestion = "Must start with '/'. Example: '/api/users'"
 )
