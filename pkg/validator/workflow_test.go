@@ -1368,20 +1368,6 @@ func TestWorkflowValidator_ValidateResource_BrowserExecType(t *testing.T) {
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_BotReplyExecType tests BotReply execution type.
-func TestWorkflowValidator_ValidateResource_BotReplyExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "brp-test",
-		Name:     "Brp Test",
-		BotReply: &domain.BotReplyConfig{Text: "hello"},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for BotReply execution type: %v", err)
-	}
-}
-
 // TestWorkflowValidator_ValidateResource_EmailExecType tests Email execution type.
 func TestWorkflowValidator_ValidateResource_EmailExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)

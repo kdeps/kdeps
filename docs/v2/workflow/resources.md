@@ -61,9 +61,6 @@ python: { ... }      # run a Python script; output is its stdout (parsed as JSON
 exec: { ... }        # run a shell command; output is its stdout
 email: { ... }       # send SMTP email or read/search/modify IMAP messages
 telephony: { ... }   # in-call action (say, ask, menu, ...); output is TwiML
-botReply: { ... }    # reply to the bot platform that delivered the message
-file: { ... }       # filesystem operations: read, write, patch, list, delete
-git: { ... }        # version control: status, diff, log, commit, push, pull
 codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
@@ -134,7 +131,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 |---|---|---|
 | `email` | SMTP send, IMAP read / search / modify | [Email](/workflow/resources/email) |
 | `telephony` | Voice call handling (say, ask, menu, dial, record) | [Telephony](/workflow/resources/telephony) |
-| `botReply` | Reply to the chat platform that delivered the message | [Bot reply](/workflow/resources/bot-reply) |
+| `apiResponse` (bot mode) | The workflow result is sent to the chat platform that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 
 ## Orchestration
 

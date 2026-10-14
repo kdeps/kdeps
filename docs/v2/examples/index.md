@@ -278,7 +278,7 @@ echo "What is 2+2?" | kdeps run workflow.yaml
 
 ## Telegram bot
 
-A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` sends the answer back via the Telegram API.
+A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` returns the answer and kdeps sends it back via the Telegram API.
 
 Best for:
 - Chatbot interfaces over existing workflow resources

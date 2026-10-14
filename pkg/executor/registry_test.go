@@ -44,7 +44,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetSearchLocalExecutor())
 	assert.Nil(t, registry.GetTelephonyExecutor())
 	assert.Nil(t, registry.GetBrowserExecutor())
-	assert.Nil(t, registry.GetBotReplyExecutor())
 	assert.Nil(t, registry.GetEmailExecutor())
 }
 
@@ -61,7 +60,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockSearchLocal := &mockExecutor{}
 	mockTelephony := &mockExecutor{}
 	mockBrowser := &mockExecutor{}
-	mockBotReply := &mockExecutor{}
 	mockEmail := &mockExecutor{}
 
 	// Set executors
@@ -74,7 +72,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetSearchLocalExecutor(mockSearchLocal)
 	registry.SetTelephonyExecutor(mockTelephony)
 	registry.SetBrowserExecutor(mockBrowser)
-	registry.SetBotReplyExecutor(mockBotReply)
 	registry.SetEmailExecutor(mockEmail)
 
 	// Verify getters return the set values
@@ -87,7 +84,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockSearchLocal, registry.GetSearchLocalExecutor())
 	assert.Equal(t, mockTelephony, registry.GetTelephonyExecutor())
 	assert.Equal(t, mockBrowser, registry.GetBrowserExecutor())
-	assert.Equal(t, mockBotReply, registry.GetBotReplyExecutor())
 	assert.Equal(t, mockEmail, registry.GetEmailExecutor())
 }
 

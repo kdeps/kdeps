@@ -62,7 +62,7 @@ stateless-bot/
 ├── workflow.yaml          # Stateless bot source config
 └── resources/
     ├── llm.yaml           # LLM chat — processes input('message')
-    └── reply.yaml         # Writes LLM reply to stdout
+    └── reply.yaml         # apiResponse - its response is printed as the reply
 ```
 
 ## See Also

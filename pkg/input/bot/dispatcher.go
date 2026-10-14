@@ -149,7 +149,7 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 	}
 }
 
-func (d *Dispatcher) buildRequestContext(msg Message, runner Runner) *executor.RequestContext {
+func (d *Dispatcher) buildRequestContext(msg Message) *executor.RequestContext {
 	return &executor.RequestContext{
 		Method: "POST",
 		Path:   "/bot/" + msg.Platform,
@@ -159,15 +159,12 @@ func (d *Dispatcher) buildRequestContext(msg Message, runner Runner) *executor.R
 			"userId":   msg.UserID,
 			"platform": msg.Platform,
 		},
-		BotSend: func(sendCtx context.Context, text string) error {
-			return runner.Reply(sendCtx, msg.ChatID, text)
-		},
 	}
 }
 
 // handleMessage executes the workflow for one inbound message.
-// The botReply resource within the workflow is responsible for sending the
-// reply back to the platform via req.BotSend. After this function returns
+// The workflow's result (its target resource's output, see ReplyText) is sent
+// back to the chat the message came from. After this function returns
 // the dispatcher loop immediately waits for the next message (polling restart).
 func (d *Dispatcher) handleMessage(ctx context.Context, msg Message) {
 	kdeps_debug.Log("enter: handleMessage")
@@ -177,15 +174,17 @@ func (d *Dispatcher) handleMessage(ctx context.Context, msg Message) {
 		return
 	}
 
-	req := d.buildRequestContext(msg, runner)
-	if _, err := d.engine.Execute(d.workflow, req); err != nil {
-		d.logger.ErrorContext(
-			ctx,
-			"bot: workflow execution failed",
-			"platform",
-			msg.Platform,
-			"err",
-			err,
-		)
+	result, err := d.engine.Execute(d.workflow, d.buildRequestContext(msg))
+	if err != nil {
+		d.logger.ErrorContext(ctx, "bot: workflow execution failed", "platform", msg.Platform, "err", err)
+		return
+	}
+	text := ReplyText(result)
+	if text == "" {
+		d.logger.WarnContext(ctx, "bot: workflow returned no reply text", "platform", msg.Platform)
+		return
+	}
+	if replyErr := runner.Reply(ctx, msg.ChatID, text); replyErr != nil {
+		d.logger.ErrorContext(ctx, "bot: reply failed", "platform", msg.Platform, "err", replyErr)
 	}
 }

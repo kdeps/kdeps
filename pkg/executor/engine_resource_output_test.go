@@ -26,7 +26,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestResourceTypeName_BotReplyEmail(t *testing.T) {
-	assert.Equal(t, ExecutorBotReply, resourceTypeName(&domain.Resource{BotReply: &domain.BotReplyConfig{}}))
+func TestResourceTypeName_Email(t *testing.T) {
 	assert.Equal(t, ExecutorEmail, resourceTypeName(&domain.Resource{Email: &domain.EmailConfig{}}))
 }

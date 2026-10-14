@@ -1,6 +1,6 @@
 # Example: Telegram LLM bot
 
-This workflow runs in workflow mode (`kdeps run`) as a Telegram bot - it polls for messages and replies with a local LLM response (llamafile, no server install). Two resources: `llm` calls the model, `reply` sends the answer back.
+This workflow runs in workflow mode (`kdeps run`) as a Telegram bot - it polls for messages and replies with a local LLM response (llamafile, no server install). Two resources: `llm` calls the model, `reply` returns the answer, which kdeps sends back to the chat.
 
 ## Files
 
@@ -56,8 +56,9 @@ name: Reply
 requires:
   - llm
 
-botReply:
-  text: "{{ get('llm') }}"
+apiResponse:                 # in bot mode the workflow result is the reply
+  success: true
+  response: "{{ get('llm').message.content }}"   # sent as the reply text
 ```
 
 ## Running

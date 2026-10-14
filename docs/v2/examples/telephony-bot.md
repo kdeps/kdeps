@@ -194,4 +194,4 @@ For a live call, point your provider's voice webhook at
 - [Telephony resource](/workflow/resources/telephony) - all actions, voices, providers
 - [Transcribe component](/workflow/resources/transcribe) - speech to text on your own audio
 - [Validation and control flow](/workflow/validation) - route scoping
-- [Bot reply resource](/workflow/resources/bot-reply) - chat-platform bots
+- [Bot replies](/workflow/resources/bot-reply) - chat-platform bots

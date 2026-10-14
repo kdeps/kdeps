@@ -142,9 +142,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorVectorStore: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineVectorStore(inline.VectorStore, ctx)
 		},
-		ExecutorBotReply: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
-		},
 		ExecutorAPIResponse: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
 		},
@@ -179,7 +176,6 @@ func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.R
 		ActionID:    fmt.Sprintf("_inline_%d", index),
 		Component:   inline.Component,
 		Email:       inline.Email,
-		BotReply:    inline.BotReply,
 		APIResponse: inline.APIResponse,
 	}
 }

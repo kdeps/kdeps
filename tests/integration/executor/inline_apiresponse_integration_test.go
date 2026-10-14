@@ -23,42 +23,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-type inlineBotReplyMock struct{}
-
-func (inlineBotReplyMock) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
-	return "bot reply sent", nil
-}
-
-func TestInlineBotReply_Integration(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	reg := executor.NewRegistry()
-	reg.SetBotReplyExecutor(inlineBotReplyMock{})
-	engine.SetRegistry(reg)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "inline-botreply",
-			Version:        "1.0.0",
-			TargetActionID: "main",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "main",
-				Name:     "Main",
-				Before: []domain.InlineResource{
-					{BotReply: &domain.BotReplyConfig{Text: "preamble"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
 func TestInlineAPIResponse_Integration(t *testing.T) {
 	engine := executor.NewEngine(nil)
 

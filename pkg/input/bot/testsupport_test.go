@@ -31,7 +31,8 @@ import (
 // chanRunner is a mock Runner that sends one message to the dispatcher channel
 // when Start is called, then blocks until ctx is cancelled.
 type chanRunner struct {
-	msg Message
+	msg     Message
+	replies []string // chatID + ": " + text of every Reply
 }
 
 func (r *chanRunner) Start(ctx context.Context, ch chan<- Message) error {
@@ -43,7 +44,8 @@ func (r *chanRunner) Start(ctx context.Context, ch chan<- Message) error {
 	return nil
 }
 
-func (r *chanRunner) Reply(_ context.Context, _, _ string) error {
+func (r *chanRunner) Reply(_ context.Context, chatID, text string) error {
+	r.replies = append(r.replies, chatID+": "+text)
 	return nil
 }
 

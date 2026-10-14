@@ -3,8 +3,7 @@ name: Reply
 requires:
     - llm
 
-exec:
-  command: sh
-  args:
-    - "-c"
-    - "printf '%s' '{{ get('llm').message.content }}'"
+# A bot sends the workflow's result: apiResponse's response is the reply text.
+apiResponse:
+  success: true
+  response: "{{ get('llm').message.content }}"
