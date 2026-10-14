@@ -1,0 +1,46 @@
+# {{ name }}
+
+{{ description }}
+
+A WhatsApp bot as a plain kdeps workflow: Meta's webhook calls `/webhook`, the
+`llm` resource answers the message, `reply` sends the answer with the WhatsApp
+Cloud API, and `respond` acknowledges the webhook.
+
+```text
+WhatsApp -> POST /webhook -> llm -> reply (Graph API /messages) -> 200 ok
+Meta     -> GET  /webhook -> respond (hub.challenge when the verify token matches)
+```
+
+## Quick Start
+
+1. Set the credentials from your Meta app (WhatsApp > API Setup):
+   ```bash
+   export WHATSAPP_PHONE_NUMBER_ID=1234567890     # the sending number's ID
+   export WHATSAPP_ACCESS_TOKEN=EAAG...           # system user or temporary token
+   export WHATSAPP_VERIFY_TOKEN=pick-any-string   # also entered in Meta's webhook form
+   export WHATSAPP_APP_SECRET=abc123...           # App settings > Basic; signs each POST
+   export KDEPS_API_AUTH_TOKEN=dev-token          # /webhook is public; other routes need it
+   ```
+
+2. Run it and expose port {{ port }} over HTTPS (Meta only calls HTTPS URLs):
+   ```bash
+   kdeps run workflow.yaml
+   # e.g. cloudflared tunnel --url http://localhost:{{ port }}
+   ```
+
+3. In Meta's webhook settings, set the callback URL to `https://<host>/webhook`
+   and the verify token to `WHATSAPP_VERIFY_TOKEN`, then subscribe to `messages`.
+
+## How it works
+
+- `GET /webhook` returns `hub.challenge` as plain text only when
+  `hub.verify_token` equals `WHATSAPP_VERIFY_TOKEN` (403 otherwise).
+- `POST /webhook` is checked against `X-Hub-Signature-256`
+  (`hmacSHA256(WHATSAPP_APP_SECRET, request.rawBody)`); a forged POST gets 403
+  before any model call. Leave `WHATSAPP_APP_SECRET` unset only for local tests.
+- Status callbacks (sent, delivered, read) have no text message: `llm` and
+  `reply` are skipped and the webhook gets `ok`.
+- The first text message of each notification is answered.
+
+Change the model or persona in `resources/llm.yaml`. `WHATSAPP_API_URL`
+overrides the Graph API base (default `https://graph.facebook.com/v19.0`).

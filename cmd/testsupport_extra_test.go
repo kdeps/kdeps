@@ -504,20 +504,6 @@ func TestPrintBotRequirements_Telegram(t *testing.T) {
 	assert.Contains(t, out, "BotFather")
 }
 
-func TestPrintBotRequirements_WhatsApp(t *testing.T) {
-	input := &domain.InputConfig{
-		Sources: []string{"bot"},
-		Bot: &domain.BotConfig{
-			WhatsApp: &domain.WhatsAppConfig{},
-		},
-	}
-	out := captureStdout(t, func() {
-		cmd.PrintBotRequirements(input)
-	})
-	assert.Contains(t, out, "WhatsApp")
-	assert.Contains(t, out, "Phone Number ID")
-}
-
 func TestPrintBotRequirements_NoBotSource(t *testing.T) {
 	// Input without a bot source should produce no output.
 	input := &domain.InputConfig{

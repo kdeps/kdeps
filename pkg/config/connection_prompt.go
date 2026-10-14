@@ -87,7 +87,7 @@ func CanPromptForConnections() bool {
 }
 
 // hasBotConnection reports whether the named platform has a BotConnectionConfig
-// entry. Valid platform names: discord, slack, telegram, whatsapp.
+// entry. Valid platform names: discord, slack, telegram.
 func hasBotConnection(cfg *Config, platform string) bool {
 	if cfg == nil || cfg.BotConnections == nil {
 		return false
@@ -99,8 +99,6 @@ func hasBotConnection(cfg *Config, platform string) bool {
 		return cfg.BotConnections.Slack != nil
 	case "telegram":
 		return cfg.BotConnections.Telegram != nil
-	case "whatsapp":
-		return cfg.BotConnections.WhatsApp != nil
 	default:
 		return false
 	}
@@ -223,7 +221,7 @@ func promptBotConnection(
 	w *fmtWriter, out io.StringWriter, in *bufio.Reader,
 ) (any, error) {
 	platform := strings.ToLower(promptLine(out, in,
-		"  Platform [discord/slack/telegram/whatsapp]: ", ""))
+		"  Platform [discord/slack/telegram]: ", ""))
 
 	switch platform {
 	case "discord":
@@ -253,18 +251,6 @@ func promptBotConnection(
 			slack.SigningSecret = signingSecret
 		}
 		return BotConnectionConfig{Slack: slack}, nil
-	case "whatsapp":
-		phoneNumberID := promptLine(out, in, "  WhatsApp Phone Number ID: ", "")
-		accessToken, err := promptSecret(w, in, "  WhatsApp Access Token")
-		if err != nil {
-			return nil, err
-		}
-		webhookSecret, _ := promptSecret(w, in, "  WhatsApp Webhook Secret (optional)")
-		wa := &WhatsAppConnectionConfig{PhoneNumberID: phoneNumberID, AccessToken: accessToken}
-		if webhookSecret != "" {
-			wa.WebhookSecret = webhookSecret
-		}
-		return BotConnectionConfig{WhatsApp: wa}, nil
 	default:
 		return nil, fmt.Errorf("unknown bot platform %q", platform)
 	}

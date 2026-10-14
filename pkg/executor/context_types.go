@@ -133,6 +133,7 @@ type RequestContext struct {
 	Headers   map[string]string
 	Query     map[string]string
 	Body      map[string]interface{}
+	RawBody   string       // the body as received; request.rawBody in expressions
 	Files     []FileUpload // Uploaded files
 	IP        string       // Client IP address
 	ID        string       // Request ID

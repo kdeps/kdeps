@@ -61,6 +61,7 @@ func extractActionIDRefs(s string) []string {
 		// path values inside those calls (e.g. '/tmp/output.pdf') would otherwise
 		// be mis-parsed as actionId references.
 		stripped := reStripFuncCalls.ReplaceAllString(block[1], "")
+		stripped = reStringLiteral.ReplaceAllString(stripped, "''")
 		for _, m := range reDotIdent.FindAllStringSubmatch(stripped, -1) {
 			if !builtinTemplateVars[m[1]] {
 				refs = append(refs, m[1])

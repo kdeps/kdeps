@@ -104,7 +104,6 @@ func TestReferencedConnections_BotPlatforms(t *testing.T) {
 				Bot: &domain.BotConfig{
 					Discord:  &domain.DiscordConfig{GuildID: "123"},
 					Telegram: &domain.TelegramConfig{PollIntervalSeconds: 1},
-					WhatsApp: &domain.WhatsAppConfig{WebhookPort: 16396},
 					// Slack deliberately omitted.
 				},
 			},
@@ -115,7 +114,6 @@ func TestReferencedConnections_BotPlatforms(t *testing.T) {
 
 	assert.Contains(t, refs, connRef{config.ConnKindBot, "discord"})
 	assert.Contains(t, refs, connRef{config.ConnKindBot, "telegram"})
-	assert.Contains(t, refs, connRef{config.ConnKindBot, "whatsapp"})
 	assert.NotContains(t, refs, connRef{config.ConnKindBot, "slack"})
 }
 

@@ -113,6 +113,21 @@ apiResponse:
 
 </div>
 
+A non-JSON `Content-Type` writes `response` as-is instead of the `{success, data, meta}` envelope - for a webhook that must echo plain text, or XML/HTML:
+
+<div v-pre>
+
+```yaml
+# resources/verify.yaml - echo a challenge as text/plain
+apiResponse:
+  success: true
+  headers:
+    Content-Type: text/plain; charset=utf-8
+  response: "{{ request.query['hub.challenge'] }}"
+```
+
+</div>
+
 ## Adding metadata
 
 Include model and backend information in responses:

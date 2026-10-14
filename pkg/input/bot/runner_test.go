@@ -18,10 +18,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -120,28 +118,6 @@ func TestNew_Telegram_WithCreds(t *testing.T) {
 	assert.Equal(t, 5, tr.pollIntervalSeconds)
 }
 
-func TestNew_WhatsApp_WithCreds(t *testing.T) {
-	creds := &kdepsconfig.BotConnectionConfig{
-		WhatsApp: &kdepsconfig.WhatsAppConnectionConfig{
-			AccessToken:   "wa-token",
-			PhoneNumberID: "wa-phone",
-			WebhookSecret: "wa-secret",
-		},
-	}
-	r, err := New(
-		"whatsapp",
-		&domain.BotConfig{WhatsApp: &domain.WhatsAppConfig{WebhookPort: 9999}},
-		creds,
-		nil,
-	)
-	require.NoError(t, err)
-	wr := r.(*whatsAppRunner)
-	assert.Equal(t, "wa-token", wr.accessToken)
-	assert.Equal(t, "wa-phone", wr.phoneNumberID)
-	assert.Equal(t, "wa-secret", wr.webhookSecret)
-	assert.Equal(t, 9999, wr.webhookPort)
-}
-
 func TestHandleMessage_EngineExecuteError(_ *testing.T) {
 	engine := executor.NewEngine(slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
@@ -226,28 +202,6 @@ func TestTelegramReply_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodPost, capturedMethod)
 	assert.Contains(t, capturedPath, "sendMessage")
-}
-
-func TestWhatsAppStart_ListenAndServeError(t *testing.T) {
-	port, err := getFreePortDynamic()
-	require.NoError(t, err)
-
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	require.NoError(t, err)
-	defer l.Close()
-
-	r := newWhatsAppRunner(
-		&domain.WhatsAppConfig{WebhookPort: port},
-		&kdepsconfig.WhatsAppConnectionConfig{},
-		slog.Default(),
-	)
-	ch := make(chan Message, 10)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	err = r.Start(ctx, ch)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "whatsapp: webhook server")
 }
 
 // TestTelegramRunner_Reply_InvalidChatID exercises the strconv.ParseInt failure path.
@@ -780,139 +734,4 @@ func TestTelegramHandler_ValidMessage(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("expected a valid message on the channel")
 	}
-}
-
-func TestWhatsAppStart_GET_ValidVerify(t *testing.T) {
-	port, err := getFreePortDynamic()
-	require.NoError(t, err)
-
-	r := newWhatsAppRunner(
-		&domain.WhatsAppConfig{WebhookPort: port},
-		&kdepsconfig.WhatsAppConnectionConfig{WebhookSecret: "mysecret"},
-		slog.Default(),
-	)
-	ch := make(chan Message, 10)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() { done <- r.Start(ctx, ch) }()
-
-	require.NoError(t, waitForPort(port))
-
-	resp, err := http.Get(
-		fmt.Sprintf(
-			"http://localhost:%d/webhook?hub.mode=subscribe&hub.verify_token=mysecret&hub.challenge=12345",
-			port,
-		),
-	)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	body, _ := io.ReadAll(resp.Body)
-	assert.Equal(t, "12345", string(body))
-
-	cancel()
-	<-done
-}
-
-func TestWhatsAppStart_GET_InvalidVerifyToken(t *testing.T) {
-	port, err := getFreePortDynamic()
-	require.NoError(t, err)
-
-	r := newWhatsAppRunner(
-		&domain.WhatsAppConfig{WebhookPort: port},
-		&kdepsconfig.WhatsAppConnectionConfig{WebhookSecret: "mysecret"},
-		slog.Default(),
-	)
-	ch := make(chan Message, 10)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() { done <- r.Start(ctx, ch) }()
-
-	require.NoError(t, waitForPort(port))
-
-	resp, err := http.Get(
-		fmt.Sprintf(
-			"http://localhost:%d/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=12345",
-			port,
-		),
-	)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
-	body, _ := io.ReadAll(resp.Body)
-	assert.Contains(t, string(body), "forbidden")
-
-	cancel()
-	<-done
-}
-
-func TestWhatsAppStart_GET_NonNumericChallenge(t *testing.T) {
-	port, err := getFreePortDynamic()
-	require.NoError(t, err)
-
-	r := newWhatsAppRunner(
-		&domain.WhatsAppConfig{WebhookPort: port},
-		&kdepsconfig.WhatsAppConnectionConfig{WebhookSecret: "mysecret"},
-		slog.Default(),
-	)
-	ch := make(chan Message, 10)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() { done <- r.Start(ctx, ch) }()
-
-	require.NoError(t, waitForPort(port))
-
-	resp, err := http.Get(
-		fmt.Sprintf(
-			"http://localhost:%d/webhook?hub.mode=subscribe&hub.verify_token=mysecret&hub.challenge=abc",
-			port,
-		),
-	)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-
-	cancel()
-	<-done
-}
-
-func TestWhatsAppStart_OtherMethod(t *testing.T) {
-	port, err := getFreePortDynamic()
-	require.NoError(t, err)
-
-	r := newWhatsAppRunner(
-		&domain.WhatsAppConfig{WebhookPort: port},
-		&kdepsconfig.WhatsAppConnectionConfig{},
-		slog.Default(),
-	)
-	ch := make(chan Message, 10)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() { done <- r.Start(ctx, ch) }()
-
-	require.NoError(t, waitForPort(port))
-
-	req, err := http.NewRequest(http.MethodPut,
-		fmt.Sprintf("http://localhost:%d/webhook", port), nil)
-	require.NoError(t, err)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
-
-	cancel()
-	<-done
 }

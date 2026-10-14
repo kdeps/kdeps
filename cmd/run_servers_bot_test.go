@@ -148,10 +148,9 @@ func TestBotPlatformsFromInput(t *testing.T) {
 			Discord:  &domain.DiscordConfig{},
 			Slack:    &domain.SlackConfig{},
 			Telegram: &domain.TelegramConfig{},
-			WhatsApp: &domain.WhatsAppConfig{},
 		},
 	}
-	assert.Equal(t, []string{"discord", "slack", "telegram", "whatsapp"}, botPlatformsFromInput(input))
+	assert.Equal(t, []string{"discord", "slack", "telegram"}, botPlatformsFromInput(input))
 }
 
 func TestLoadBotCredentials(t *testing.T) {

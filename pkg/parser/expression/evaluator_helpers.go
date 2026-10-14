@@ -19,6 +19,9 @@
 package expression
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -129,6 +132,13 @@ func (e *Evaluator) addSerializationHelpers(evalEnv map[string]interface{}) {
 		return url.QueryEscape(fmt.Sprintf("%v", s))
 	}
 	evalEnv["toJSON"] = evalEnv["json"]
+	// hmacSHA256(key, data) returns the hex HMAC-SHA256 of data, for webhook
+	// signatures: 'sha256=' + hmacSHA256(secret, request.rawBody).
+	evalEnv["hmacSHA256"] = func(key, data interface{}) interface{} {
+		mac := hmac.New(sha256.New, []byte(fmt.Sprintf("%v", key)))
+		fmt.Fprintf(mac, "%v", data)
+		return hex.EncodeToString(mac.Sum(nil))
+	}
 	// htmlText(html, selector) returns the text of every element matching a
 	// CSS selector, one per line; an empty selector returns html unchanged.
 	evalEnv["htmlText"] = htmlText

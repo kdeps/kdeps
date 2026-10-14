@@ -132,6 +132,7 @@ func addBasicRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 		"headers":        req.Headers,
 		"query":          req.Query,
 		contextFieldBody: req.Body,
+		"rawBody":        req.RawBody,
 	}
 }
 
@@ -190,6 +191,7 @@ func addRichRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 		"headers":        req.Headers,
 		"query":          req.Query,
 		contextFieldBody: req.Body,
+		"rawBody":        req.RawBody,
 		"IP":             req.IP,
 		"ID":             req.ID,
 		"file": func(name string) interface{} {

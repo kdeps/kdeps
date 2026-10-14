@@ -1282,6 +1282,17 @@ func TestWhere_FiltersArrayByNumericKey(t *testing.T) {
 	assert.Equal(t, float64(72), arr[1].(map[string]interface{})["match_score"])
 }
 
+// hmacSHA256 returns the hex HMAC used by webhook signatures (RFC 4231 case 2).
+func TestEvaluator_HMACSHA256(t *testing.T) {
+	evaluator := expression.NewEvaluator(createMockAPI())
+	got, err := evaluator.Evaluate(&domain.Expression{
+		Raw:  "hmacSHA256('Jefe', 'what do ya want for nothing?')",
+		Type: domain.ExprTypeDirect,
+	}, map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Equal(t, "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843", got)
+}
+
 func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
 	api := createMockAPI()
 	evaluator := expression.NewEvaluator(api)

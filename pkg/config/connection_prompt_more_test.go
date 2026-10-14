@@ -36,9 +36,8 @@ func TestHasBotConnection(t *testing.T) {
 		Discord:  &DiscordConnectionConfig{BotToken: "d"},
 		Slack:    &SlackConnectionConfig{BotToken: "s"},
 		Telegram: &TelegramConnectionConfig{BotToken: "t"},
-		WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "p", AccessToken: "a"},
 	}
-	for _, p := range []string{"discord", "slack", "telegram", "whatsapp"} {
+	for _, p := range []string{"discord", "slack", "telegram"} {
 		if !hasBotConnection(cfg, p) {
 			t.Fatalf("expected %s", p)
 		}

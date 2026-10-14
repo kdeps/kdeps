@@ -17,11 +17,8 @@ package bot
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	telegrambot "github.com/go-telegram/bot"
@@ -68,32 +65,6 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
-}
-
-// getFreePort returns a port that is available at the moment of the call.
-func getFreePortDynamic() (int, error) {
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return port, nil
-}
-
-// waitForPort polls the given port until it accepts a TCP connection.
-func waitForPort(port int) error {
-	deadline := time.Now().Add(3 * time.Second)
-	addr := fmt.Sprintf("localhost:%d", port)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			return nil
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	return fmt.Errorf("port %d not reachable within %v", port, 3*time.Second)
 }
 
 // discordHandlerLogic replicates the handler closure logic from Start

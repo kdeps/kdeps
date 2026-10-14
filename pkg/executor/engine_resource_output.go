@@ -39,7 +39,7 @@ func (e *Engine) finalizeWorkflowOutput(
 	}
 
 	if resultMap, okMap := output.(map[string]interface{}); okMap {
-		if _, hasSuccess := resultMap["success"]; hasSuccess {
+		if _, hasSuccess := resultMap["success"]; hasSuccess && !hasResponseHeaders(resultMap) {
 			if data, hasData := resultMap[contextFieldData]; hasData {
 				e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 				return data, nil
@@ -49,6 +49,18 @@ func (e *Engine) finalizeWorkflowOutput(
 
 	e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 	return output, nil
+}
+
+// hasResponseHeaders reports whether an apiResponse set headers: the envelope
+// then reaches the HTTP layer whole, which applies them (a non-JSON
+// Content-Type writes the data raw).
+func hasResponseHeaders(resultMap map[string]interface{}) bool {
+	meta, ok := resultMap["_meta"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	_, has := meta["headers"]
+	return has
 }
 
 // resourceTypeName returns a short string identifying the primary resource type.

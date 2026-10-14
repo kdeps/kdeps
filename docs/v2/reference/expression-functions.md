@@ -166,6 +166,20 @@ htmlFind(output('page').body, 'a.result')            # [{text: "Go", href: "http
 map(htmlFind(output('page').body, 'a'), #.href)      # every link target
 ```
 
+### hmacSHA256(key, data)
+Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way; compare against their signature header in a `validations.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
+
+- **key**: The shared secret.
+- **data**: The signed text, usually `request.rawBody`.
+
+**Examples:**
+```yaml
+validations:
+  check:
+    - "request.headers['X-Hub-Signature-256'] == 'sha256=' + hmacSHA256(env('APP_SECRET'), request.rawBody)"
+  error: {code: 403, message: invalid signature}
+```
+
 ## Iteration functions
 
 Available inside `items:` blocks to access the state of the current loop iteration.

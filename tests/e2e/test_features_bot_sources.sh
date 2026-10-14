@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for bot input sources (Discord, Slack, Telegram, WhatsApp)
+# E2E tests for bot input sources (Discord, Slack, Telegram); WhatsApp is the whatsapp-bot template
 
 set -uo pipefail
 
@@ -149,24 +149,6 @@ test_bot_valid "Bot - Slack polling" \
       slack:
         mode: socket'
 
-# Test 5: WhatsApp polling bot
-test_bot_valid "Bot - WhatsApp polling" \
-'  input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      whatsApp:
-        webhookPort: 16396'
-
-# Test 6: WhatsApp with webhookPort only
-test_bot_valid "Bot - WhatsApp polling with webhookPort" \
-'  input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      whatsApp:
-        webhookPort: 16396'
-
 # Test 7: Stateless mode - no platform required
 test_bot_valid "Bot - Stateless mode without platforms" \
 '  input:
@@ -202,8 +184,8 @@ test_bot_valid "Bot - Multi-platform Telegram + Discord" \
       discord:
         guildId: "123456789"'
 
-# Test 11: Multi-platform (all four)
-test_bot_valid "Bot - All four platforms" \
+# Test 11: Multi-platform (all three)
+test_bot_valid "Bot - All three platforms" \
 '  input:
     sources: [bot]
     bot:
@@ -211,8 +193,7 @@ test_bot_valid "Bot - All four platforms" \
       telegram:
         pollIntervalSeconds: 1
       discord: {}
-      slack: {}
-      whatsApp: {}'
+      slack: {}'
 
 # ---------------------------------------------------------------------------
 # Invalid configurations
@@ -231,6 +212,13 @@ test_bot_invalid "Bot - Polling without platforms rejected" \
       executionType: polling'
 
 # Test 14: Invalid executionType
+test_bot_invalid "Bot - whatsApp is not a bot platform (use the whatsapp-bot template)" \
+'  input:
+    sources: [bot]
+    bot:
+      executionType: polling
+      whatsApp: {}'
+
 test_bot_invalid "Bot - Invalid executionType rejected" \
 '  input:
     sources: [bot]
@@ -265,23 +253,6 @@ test_bot_valid "Bot - Slack with mode only is valid" \
       executionType: polling
       slack:
         mode: socket'
-
-# Test 18: WhatsApp with webhookPort only is valid (credentials in config.yaml)
-test_bot_valid "Bot - WhatsApp with webhookPort only is valid" \
-'  input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      whatsApp:
-        webhookPort: 16396'
-
-# Test 19: WhatsApp empty block is valid (all config in config.yaml)
-test_bot_valid "Bot - WhatsApp empty block is valid" \
-'  input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      whatsApp: {}'
 
 # ---------------------------------------------------------------------------
 # Stateless: the workflow result is the reply, printed on stdout
