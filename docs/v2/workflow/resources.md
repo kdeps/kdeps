@@ -59,7 +59,6 @@ httpClient: { ... }  # make an HTTP request; output is the parsed response body
 sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
 exec: { ... }        # run a shell command; output is its stdout
-telephony: { ... }   # in-call action (say, ask, menu, ...); output is TwiML
 codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
@@ -129,7 +128,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | YAML key | Description | Page |
 |---|---|---|
 | `component: email` | SMTP send, IMAP read / search / modify - a kdeps component, YAML only | [Email](/workflow/resources/email) |
-| `telephony` | Voice call handling (say, ask, menu, dial, record) | [Telephony](/workflow/resources/telephony) |
+| `component: twiml` | Voice call TwiML (say, gather, dial, record) - a kdeps component, YAML only | [Telephony](/workflow/resources/telephony) |
 | `apiResponse` (bot mode) | The workflow result is sent to the chat platform that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 
 ## Orchestration

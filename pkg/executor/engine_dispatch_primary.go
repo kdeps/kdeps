@@ -43,7 +43,6 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		ExecutorComponent:   (*Engine).executeComponentCall,
 		ExecutorEmbedding:   (*Engine).executeEmbedding,
 		ExecutorSearchLocal: (*Engine).executeSearchLocal,
-		ExecutorTelephony:   (*Engine).executeTelephony,
 		ExecutorBrowser:     (*Engine).executeBrowser,
 		ExecutorCodeIntel:   (*Engine).executeCodeIntelligence,
 		ExecutorLoader:      (*Engine).executeLoader,

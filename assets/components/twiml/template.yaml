@@ -1,0 +1,5 @@
+version: 1.0.0
+# kdeps update installs these with this component: the schema that accepts its
+# component.yaml (array inputs)
+requires:
+  schemas/v1: ">=1.0.4"

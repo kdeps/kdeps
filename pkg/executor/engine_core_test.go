@@ -979,11 +979,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			executor.ExecutorSearchLocal,
 		},
 		{
-			"telephony",
-			&domain.Resource{Telephony: &domain.TelephonyActionConfig{}},
-			executor.ExecutorTelephony,
-		},
-		{
 			"browser",
 			&domain.Resource{Browser: &domain.BrowserConfig{}},
 			executor.ExecutorBrowser,
@@ -1150,27 +1145,6 @@ func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
 	assert.Contains(t, err.Error(), "searchLocal executor not available")
 }
 
-func TestEngine_executeTelephony_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID:  "r1",
-		Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "telephony executor not available")
-}
-
 func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	engine.SetRegistry(executor.NewRegistry())
@@ -1238,32 +1212,6 @@ func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "searchLocal executor not available")
-}
-
-func TestEngine_executeInlineTelephony_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{
-						Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-					},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "telephony executor not available")
 }
 
 func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
@@ -1986,33 +1934,6 @@ func TestEngine_executeSearchLocal_Success(t *testing.T) {
 	assert.Equal(t, "found", result)
 }
 
-func TestEngine_executeTelephony_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetTelephonyExecutor(&mockGenericExecutor{result: "telephony ok"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "tel-wf",
-			Version:        "1.0.0",
-			TargetActionID: "res",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "res",
-				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "telephony ok", result)
-}
-
 func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2053,31 +1974,6 @@ func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
 				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
-func TestEngine_executeInlineTelephony_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetTelephonyExecutor(&mockGenericExecutor{result: "inline telephony ok"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
 				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
@@ -2919,31 +2815,6 @@ func TestEngine_executeSearchLocal_WithMock(t *testing.T) {
 	_ = result
 }
 
-func TestEngine_executeTelephony_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "answered"}
-	registry.SetTelephonyExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "r",
-				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "answered", result)
-	assert.True(t, mock.executed)
-}
-
 func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2987,33 +2858,6 @@ func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
 				ActionID: "r",
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.True(t, mock.executed)
-}
-
-func TestEngine_executeInlineTelephony_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "inline-answered"}
-	registry.SetTelephonyExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				Before: []domain.InlineResource{
-					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
 				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},

@@ -17,458 +17,72 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for the run.telephony resource executor.
-#
-# Simulates Twilio webhook POST requests and verifies TwiML responses
-# for say, ask, menu (match/nomatch), dial, record, hangup, and reject.
+# E2E tests for phone webhooks with the twiml component: the telephony-bot
+# example answers Twilio-style form POSTs with TwiML (text/xml); the
+# telephony: resource key is gone.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
-cd "$SCRIPT_DIR"
 
-echo "Testing Telephony Resource Feature..."
+echo "Testing telephony (twiml component)..."
 
-if ! command -v python3 &> /dev/null; then
-    test_skipped "Telephony - python3 not available (needed for port selection)"
-    echo ""
-    return 0 2>/dev/null || return 0
-fi
+for tool in uv python3 curl; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        test_skipped "telephony - needs $tool"
+        return 0 2>/dev/null || exit 0
+    fi
+done
 
-# -- Pick a free port ----------------------------------------------------------
+TEL_DIR=$(mktemp -d)
+TEL_PID=""
+trap '[ -n "$TEL_PID" ] && kill "$TEL_PID" 2>/dev/null; rm -rf "$TEL_DIR"' EXIT
+cp -R "$PROJECT_ROOT/examples/telephony-bot/." "$TEL_DIR/"
+PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+sed -i.bak "s/portNum: .*/portNum: $PORT/" "$TEL_DIR/workflow.yaml"
+"$KDEPS_BIN" run "$TEL_DIR/workflow.yaml" > "$TEL_DIR/run.log" 2>&1 & TEL_PID=$!
+URL="http://127.0.0.1:$PORT/twilio"
+for _ in $(seq 1 120); do command curl -s -o /dev/null -X POST "$URL/voice" && break; sleep 0.5; done
 
-API_PORT=$(python3 - <<'PY'
-import socket
-s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()
-PY
-)
+# Twilio posts application/x-www-form-urlencoded with no bearer token.
+post() { command curl -s -D "$TEL_DIR/h" -X POST -H 'Content-Type: application/x-www-form-urlencoded' "$@"; }
 
-# -- Temp workspace ------------------------------------------------------------
-
-TEST_DIR=$(mktemp -d)
-mkdir -p "$TEST_DIR/resources"
-LOG_FILE=$(mktemp)
-
-trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
-
-# -- Workflow ------------------------------------------------------------------
-
-cat > "$TEST_DIR/workflow.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: telephony-e2e-test
-  version: "1.0.0"
-  targetActionId: twimlResponse
-settings:
-  apiServer:
-    hostIp: "0.0.0.0"
-    portNum: ${API_PORT}
-    routes:
-      - path: /twilio/say
-        methods: [POST]
-      - path: /twilio/ask
-        methods: [POST]
-      - path: /twilio/menu
-        methods: [POST]
-      - path: /twilio/dial
-        methods: [POST]
-      - path: /twilio/record
-        methods: [POST]
-      - path: /twilio/hangup
-        methods: [POST]
-      - path: /twilio/reject
-        methods: [POST]
-  input:
-    sources: [api]
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-# -- Resource: say -------------------------------------------------------------
-
-cat > "$TEST_DIR/resources/say.yaml" <<'EOF'
-actionId: sayHello
-name: Say Hello
-validations:
-  routes: [/twilio/say]
-  methods: [POST]
-telephony:
-  action: say
-  say: "Hello from kdeps telephony."
-  voice: alice
-EOF
-
-# -- Resource: ask -------------------------------------------------------------
-
-cat > "$TEST_DIR/resources/ask.yaml" <<'EOF'
-actionId: askPin
-name: Ask PIN
-validations:
-  routes: [/twilio/ask]
-  methods: [POST]
-telephony:
-  action: ask
-  say: "Please enter your 4-digit PIN."
-  limit: 4
-  timeout: 10s
-  terminator: "#"
-EOF
-
-# -- Resource: menu ------------------------------------------------------------
-
-cat > "$TEST_DIR/resources/menu.yaml" <<'EOF'
-actionId: mainMenu
-name: Main Menu
-validations:
-  routes: [/twilio/menu]
-  methods: [POST]
-telephony:
-  action: menu
-  say: "Press 1 for sales. Press 2 for support."
-  timeout: 8s
-  matches:
-    - keys: ["1"]
-      invoke: salesFlow
-    - keys: ["2"]
-      invoke: supportFlow
-  onNoMatch: repeatMenu
-EOF
-
-# -- Resource: dial ------------------------------------------------------------
-
-cat > "$TEST_DIR/resources/dial.yaml" <<'EOF'
-actionId: dialAgent
-name: Dial Agent
-validations:
-  routes: [/twilio/dial]
-  methods: [POST]
-telephony:
-  action: dial
-  to:
-    - sip:agent@pbx.example.com
-    - "+15005550001"
-  for: 30s
-EOF
-
-# -- Resource: record ----------------------------------------------------------
-
-cat > "$TEST_DIR/resources/record.yaml" <<'EOF'
-actionId: recordMsg
-name: Record Message
-validations:
-  routes: [/twilio/record]
-  methods: [POST]
-telephony:
-  action: record
-  say: "Leave a message after the beep."
-  maxDuration: 60s
-  interruptible: true
-EOF
-
-# -- Resource: hangup ----------------------------------------------------------
-
-cat > "$TEST_DIR/resources/hangup.yaml" <<'EOF'
-actionId: hangupCall
-name: Hangup
-validations:
-  routes: [/twilio/hangup]
-  methods: [POST]
-telephony:
-  action: hangup
-EOF
-
-# -- Resource: reject ----------------------------------------------------------
-
-cat > "$TEST_DIR/resources/reject.yaml" <<'EOF'
-actionId: rejectCall
-name: Reject Busy
-validations:
-  routes: [/twilio/reject]
-  methods: [POST]
-telephony:
-  action: reject
-  reason: busy
-EOF
-
-# -- Resource: aggregated response ---------------------------------------------
-
-cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-actionId: twimlResponse
-name: TwiML Response
-requires:
-  - sayHello
-  - askPin
-  - mainMenu
-  - dialAgent
-  - recordMsg
-  - hangupCall
-  - rejectCall
-apiResponse:
-  success: true
-  response:
-    say:    "{{ output('sayHello') }}"
-    ask:    "{{ output('askPin') }}"
-    menu:   "{{ output('mainMenu') }}"
-    dial:   "{{ output('dialAgent') }}"
-    record: "{{ output('recordMsg') }}"
-    hangup: "{{ output('hangupCall') }}"
-    reject: "{{ output('rejectCall') }}"
-EOF
-
-# -- Start KDeps ---------------------------------------------------------------
-
-"$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
-KDEPS_PID=$!
-
-if wait_for_kdeps_port "$API_PORT" 20; then KDEPS_STARTED=true; else KDEPS_STARTED=false; fi
-
-if [ "$KDEPS_STARTED" = false ]; then
-    fail_server_startup "Telephony - Server startup" "$LOG_FILE"
-    echo ""
-    return 0 2>/dev/null || return 0
-fi
-
-test_passed "Telephony - Server startup"
-
-# Helper: extract twiml field from response JSON via stdin pipe.
-extract_twiml() {
-    local json="$1"
-    local field="$2"
-    echo "$json" | python3 -c "
-import sys, json as j
-try:
-    d = j.load(sys.stdin)
-    data = d.get('data', d)
-    block = data.get('$field', {})
-    if isinstance(block, dict):
-        print(block.get('twiml', ''))
-    else:
-        print('')
-except Exception:
-    print('')
-" 2>/dev/null || echo ""
-}
-
-# -- Test 1: say ---------------------------------------------------------------
-
-SAY_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/say" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_SAY_001","From":"+14155551234","To":"+18005559999"}' 2>&1)
-
-SAY_TWIML=$(extract_twiml "$SAY_RESP" "say")
-
-if output_grep_fixed "<Say" "$SAY_TWIML"; then
-    test_passed "Telephony - say action TwiML"
+OUT=$(post -d CallSid=CA1 "$URL/voice")
+if echo "$OUT" | grep -q '<Response><Gather action="/twilio/menu" input="dtmf" numDigits="1" timeout="8"><Say>Welcome' \
+    && grep -qi "content-type: text/xml" "$TEL_DIR/h"; then
+    test_passed "telephony - welcome menu is a TwiML Gather served as text/xml"
 else
-    test_failed "Telephony - say action TwiML" "twiml='$SAY_TWIML' resp='$SAY_RESP'"
+    test_failed "telephony - welcome menu" "$OUT / $(tail -5 "$TEL_DIR/run.log")"
 fi
 
-if echo "$SAY_TWIML" | grep -q 'voice="alice"'; then
-    test_passed "Telephony - say voice attribute"
+M1=$(post -d Digits=1 "$URL/menu"); M2=$(post -d Digits=2 "$URL/menu"); M9=$(post -d Digits=9 "$URL/menu")
+if echo "$M1" | grep -q "<Redirect>/twilio/hours</Redirect>" && echo "$M2" | grep -q "<Redirect>/twilio/ask</Redirect>" \
+    && echo "$M9" | grep -q "<Redirect>/twilio/voice</Redirect>"; then
+    test_passed "telephony - the pressed key (Digits) picks the next step"
 else
-    test_failed "Telephony - say voice attribute" "twiml='$SAY_TWIML'"
+    test_failed "telephony - menu routing" "$M1 / $M2 / $M9"
 fi
 
-if output_grep_fixed "Hello from kdeps telephony" "$SAY_TWIML"; then
-    test_passed "Telephony - say text content"
+H=$(post -d CallSid=CA1 "$URL/hours"); A=$(post -d CallSid=CA1 "$URL/ask")
+if echo "$H" | grep -q '<Say voice="alice">We are open' && echo "$H" | grep -q "<Hangup />" \
+    && echo "$A" | grep -q '<Gather action="/twilio/answer" input="speech" speechTimeout="auto">'; then
+    test_passed "telephony - say + hangup and a speech gather"
 else
-    test_failed "Telephony - say text content" "twiml='$SAY_TWIML'"
+    test_failed "telephony - hours/ask" "$H / $A"
 fi
 
-# -- Test 2: ask ---------------------------------------------------------------
-
-ASK_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/ask" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_ASK_001","From":"+14155551234","To":"+18005559999"}' 2>&1)
-
-ASK_TWIML=$(extract_twiml "$ASK_RESP" "ask")
-
-if output_grep_fixed "<Gather" "$ASK_TWIML"; then
-    test_passed "Telephony - ask action Gather"
+D=$(mktemp -d "$TEL_DIR/old.XXXX")
+mkdir -p "$D/resources"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: x\nsettings: {}\n' > "$D/workflow.yaml"
+printf 'actionId: x\nname: X\ntelephony:\n  action: hangup\n' > "$D/resources/x.yaml"
+if OUT=$("$KDEPS_BIN" validate "$D/workflow.yaml" 2>&1); then
+    test_failed "telephony - the telephony: key is gone" "validate accepted it: $OUT"
 else
-    test_failed "Telephony - ask action Gather" "twiml='$ASK_TWIML'"
+    test_passed "telephony - the telephony: resource key is gone (use component: twiml)"
 fi
 
-if echo "$ASK_TWIML" | grep -q 'numDigits="4"'; then
-    test_passed "Telephony - ask numDigits"
-else
-    test_failed "Telephony - ask numDigits" "twiml='$ASK_TWIML'"
-fi
-
-if echo "$ASK_TWIML" | grep -q 'finishOnKey="#"'; then
-    test_passed "Telephony - ask finishOnKey"
-else
-    test_failed "Telephony - ask finishOnKey" "twiml='$ASK_TWIML'"
-fi
-
-# -- Test 3: menu - no digit sent (noinput) ------------------------------------
-
-MENU_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/menu" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_MENU_001","From":"+14155551234"}' 2>&1)
-
-MENU_TWIML=$(extract_twiml "$MENU_RESP" "menu")
-
-if output_grep_fixed "<Gather" "$MENU_TWIML"; then
-    test_passed "Telephony - menu Gather node"
-else
-    test_failed "Telephony - menu Gather node" "twiml='$MENU_TWIML'"
-fi
-
-if output_grep_fixed "Press 1 for sales" "$MENU_TWIML"; then
-    test_passed "Telephony - menu say text"
-else
-    test_failed "Telephony - menu say text" "twiml='$MENU_TWIML'"
-fi
-
-# -- Test 4: menu - digit "1" (match) ------------------------------------------
-
-MENU_MATCH_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/menu" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_MENU_002","From":"+14155551234","Digits":"1"}' 2>&1)
-
-MENU_STATUS=$(echo "$MENU_MATCH_RESP" | python3 -c "
-import sys, json as j
-try:
-    d = j.load(sys.stdin)
-    data = d.get('data', d)
-    block = data.get('menu', {})
-    if isinstance(block, dict):
-        result = block.get('result', {})
-        if isinstance(result, dict):
-            print(result.get('status', ''))
-        else:
-            print('')
-    else:
-        print('')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
-
-if [ "$MENU_STATUS" = "match" ]; then
-    test_passed "Telephony - menu match status"
-else
-    test_failed "Telephony - menu match status" "status='$MENU_STATUS'"
-fi
-
-MENU_INTERP=$(echo "$MENU_MATCH_RESP" | python3 -c "
-import sys, json as j
-try:
-    d = j.load(sys.stdin)
-    data = d.get('data', d)
-    block = data.get('menu', {})
-    if isinstance(block, dict):
-        result = block.get('result', {})
-        if isinstance(result, dict):
-            print(result.get('interpretation', ''))
-        else:
-            print('')
-    else:
-        print('')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
-
-if [ "$MENU_INTERP" = "1" ]; then
-    test_passed "Telephony - menu match interpretation"
-else
-    test_failed "Telephony - menu match interpretation" "interpretation='$MENU_INTERP'"
-fi
-
-# -- Test 5: dial --------------------------------------------------------------
-
-DIAL_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/dial" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_DIAL_001"}' 2>&1)
-
-DIAL_TWIML=$(extract_twiml "$DIAL_RESP" "dial")
-
-if output_grep_fixed "<Dial" "$DIAL_TWIML"; then
-    test_passed "Telephony - dial Dial node"
-else
-    test_failed "Telephony - dial Dial node" "twiml='$DIAL_TWIML'"
-fi
-
-if output_grep_fixed "agent@pbx.example.com" "$DIAL_TWIML"; then
-    test_passed "Telephony - dial SIP target"
-else
-    test_failed "Telephony - dial SIP target" "twiml='$DIAL_TWIML'"
-fi
-
-if output_grep_fixed "+15005550001" "$DIAL_TWIML"; then
-    test_passed "Telephony - dial PSTN target"
-else
-    test_failed "Telephony - dial PSTN target" "twiml='$DIAL_TWIML'"
-fi
-
-if echo "$DIAL_TWIML" | grep -q 'timeout="30"'; then
-    test_passed "Telephony - dial timeout"
-else
-    test_failed "Telephony - dial timeout" "twiml='$DIAL_TWIML'"
-fi
-
-# -- Test 6: record ------------------------------------------------------------
-
-REC_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/record" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_REC_001"}' 2>&1)
-
-REC_TWIML=$(extract_twiml "$REC_RESP" "record")
-
-if output_grep_fixed "<Record" "$REC_TWIML"; then
-    test_passed "Telephony - record Record node"
-else
-    test_failed "Telephony - record Record node" "twiml='$REC_TWIML'"
-fi
-
-if echo "$REC_TWIML" | grep -q 'maxLength="60"'; then
-    test_passed "Telephony - record maxLength"
-else
-    test_failed "Telephony - record maxLength" "twiml='$REC_TWIML'"
-fi
-
-# -- Test 7: hangup ------------------------------------------------------------
-
-HUP_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/hangup" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_HUP_001"}' 2>&1)
-
-HUP_TWIML=$(extract_twiml "$HUP_RESP" "hangup")
-
-if output_grep_fixed "<Hangup" "$HUP_TWIML"; then
-    test_passed "Telephony - hangup Hangup node"
-else
-    test_failed "Telephony - hangup Hangup node" "twiml='$HUP_TWIML'"
-fi
-
-# -- Test 8: reject ------------------------------------------------------------
-
-REJ_RESP=$(curl -sf --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/twilio/reject" \
-    -H "Content-Type: application/json" \
-    -d '{"CallSid":"CA_REJ_001"}' 2>&1)
-
-REJ_TWIML=$(extract_twiml "$REJ_RESP" "reject")
-
-if output_grep_fixed "<Reject" "$REJ_TWIML"; then
-    test_passed "Telephony - reject Reject node"
-else
-    test_failed "Telephony - reject Reject node" "twiml='$REJ_TWIML'"
-fi
-
-if echo "$REJ_TWIML" | grep -q 'reason="busy"'; then
-    test_passed "Telephony - reject reason"
-else
-    test_failed "Telephony - reject reason" "twiml='$REJ_TWIML'"
-fi
-
+kill "$TEL_PID" 2>/dev/null; TEL_PID=""
+rm -rf "$TEL_DIR"
+trap - EXIT
 echo ""

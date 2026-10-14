@@ -170,7 +170,6 @@ func addCoreResourceAccessors(env map[string]interface{}, ctx *ExecutionContext)
 func addExtendedResourceAccessors(env map[string]interface{}, ctx *ExecutionContext) {
 	addCoreResourceAccessors(env, ctx)
 	env["http"] = buildHTTPAccessorEnv(ctx)
-	env["telephony"] = buildTelephonyAccessorEnv(ctx)
 }
 
 func addEngineInputEnv(env map[string]interface{}, ctx *ExecutionContext) {

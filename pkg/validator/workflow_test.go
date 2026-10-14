@@ -1330,20 +1330,6 @@ func TestWorkflowValidator_ValidateResource_ComponentExecType(t *testing.T) {
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_TelephonyExecType tests Telephony execution type.
-func TestWorkflowValidator_ValidateResource_TelephonyExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID:  "tel-test",
-		Name:      "Tel Test",
-		Telephony: &domain.TelephonyActionConfig{Action: "hangup"},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Telephony execution type: %v", err)
-	}
-}
-
 // TestWorkflowValidator_ValidateResource_BrowserExecType tests Browser execution type.
 func TestWorkflowValidator_ValidateResource_BrowserExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)

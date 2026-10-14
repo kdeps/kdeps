@@ -22,22 +22,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// executeTelephony executes a telephony action resource.
-func (e *Engine) executeTelephony(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "telephony", resource.Telephony,
-		e.registry.GetTelephonyExecutor, "telephony", "executeTelephony", ctx,
-	)
-}
-
-// executeInlineTelephony executes an inline telephony action.
-func (e *Engine) executeInlineTelephony(
-	config *domain.TelephonyActionConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered("executeInlineTelephony", e.registry.GetTelephonyExecutor, "telephony", ctx, config)
-}
-
 // executeBrowser executes a browser automation resource.
 func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

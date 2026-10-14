@@ -24,7 +24,7 @@ closest to what you are building.
 | [Authenticated API call](/examples/http-auth) | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
-| [Phone assistant (IVR)](/examples/telephony-bot) | `telephony:` menu / say / ask, spoken input to LLM |
+| [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
 | [Local file search](/examples/local-file-search) | `searchLocal:` glob + content search |
 | [Python data processing](/examples/python-processing) | `python:` resource, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
@@ -221,7 +221,7 @@ Best for:
 ## Phone assistant (IVR)
 
 A voice menu: the caller presses a key or speaks, and the workflow reads a
-static answer or has an LLM answer the spoken question. Uses `telephony:` with
+static answer or has an LLM answer the spoken question. Uses the `twiml` component with
 a provider like Twilio.
 
 Best for:

@@ -39,7 +39,6 @@ import (
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
-	executorTelephony "github.com/kdeps/kdeps/v2/pkg/executor/telephony"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
@@ -111,7 +110,6 @@ func newExecutorRegistry() *executor.Registry {
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
-	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())

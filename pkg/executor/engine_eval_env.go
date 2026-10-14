@@ -112,11 +112,3 @@ func buildHTTPAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
 		},
 	}
 }
-
-// buildTelephonyAccessorEnv returns telephony session accessors from context.
-func buildTelephonyAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
-	if s, ok := ctx.Items[telephonySessionKey].(TelephonyEnvAccessor); ok && s != nil {
-		return s.ToEnvMap()
-	}
-	return emptyTelephonyEnv()
-}

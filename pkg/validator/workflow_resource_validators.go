@@ -37,9 +37,6 @@ var primaryResourceConfigValidators = map[string]primaryResourceConfigValidator{
 	"httpClient": func(v *WorkflowValidator, resource *domain.Resource, _ *domain.Workflow) error {
 		return v.ValidateHTTPConfig(resource.HTTPClient)
 	},
-	"telephony": func(v *WorkflowValidator, resource *domain.Resource, _ *domain.Workflow) error {
-		return v.ValidateTelephonyActionConfig(resource.Telephony)
-	},
 }
 
 func (v *WorkflowValidator) validateResourceExecutionTypes(

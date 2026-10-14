@@ -2,10 +2,12 @@ actionId: askQuestion
 name: Ask Question
 validations:
   routes: [/twilio/ask]
-  methods: [POST]
-telephony:
-  action: ask
-  say: "What would you like to know? Please speak after the tone."
-  mode: both         # accept speech or keypad input
-  limit: 32          # max keypad digits; speech length is governed by timeout
-  timeout: 10s
+component:
+  name: twiml
+  with:
+    verbs:
+      - gather:
+          input: speech
+          speechTimeout: auto
+          action: /twilio/answer    # Twilio posts the transcript here as SpeechResult
+          say: "What would you like to know?"

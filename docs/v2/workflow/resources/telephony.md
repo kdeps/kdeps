@@ -1,213 +1,128 @@
-# Telephony resource
+# Telephony (twiml component)
 
-The `telephony:` resource models in-call actions (answer, say, ask, menu, dial, record, hangup, and more) for Twilio-compatible telephony providers. The provider POSTs its call webhook to your kdeps API route; the resource reads the webhook fields from the request body and builds a TwiML response that is returned via the standard `apiResponse` mechanism.
+The `twiml` component builds a TwiML voice response - the XML a phone provider such as Twilio executes on a call - from a list of verbs. A phone workflow is an ordinary API workflow: the provider POSTs each call step to a route, a resource builds the TwiML with `component: twiml`, and an `apiResponse` returns it as `text/xml`. It is a kdeps component (YAML, no Go code) from the `components` asset set.
 
-## Where it runs
+This is workflow mode: the API server answers the provider's webhooks.
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
-
-## How it works
-
-```text
-provider webhook POST -> telephony: resource -> apiResponse with TwiML
+```d2
+direction: right
+call: "Caller" {shape: oval}
+twilio: "Twilio"
+route: "POST /twilio/voice\n(CallSid, From, Digits, SpeechResult)"
+twiml: "component: twiml\nverbs -> <Response>"
+resp: "apiResponse\nContent-Type: text/xml"
+call -> twilio
+twilio -> route
+route -> twiml
+twiml -> resp
+resp -> twilio: TwiML
 ```
-
-The provider (e.g. Twilio) sends fields like `CallSid`, `From`, `To`, `CallStatus`, `Digits`, `SpeechResult`, and `Confidence` in the webhook body. kdeps populates the call session from them, executes the action, and the resource output contains the TwiML to return. Call state is shared across all telephony resources within the same workflow run.
 
 ## Basic usage
 
+<div v-pre>
+
 ```yaml
-# resources/say.yaml
-actionId: sayHello
-name: Say Hello
-validations:
-  routes: [/twilio/voice]
-  methods: [POST]
-telephony:
-  action: say
-  say: "Hello from kdeps telephony."
-  voice: alice
+# workflow.yaml (abridged)
+settings:
+  apiServer:
+    routes:
+      - path: /twilio/voice
+        methods: [POST]
+        public: true            # Twilio sends no bearer token
 ```
 
 ```yaml
-# resources/respond.yaml
+# resources/greet.yaml
+actionId: greet
+name: Greet
+component:
+  name: twiml
+  with:
+    verbs:
+      - say: {text: "Hello, {{ get('From') }}.", voice: alice}   # Twilio's form fields via get()
+      - gather:
+          input: dtmf              # dtmf | speech | "dtmf speech"
+          numDigits: 1
+          action: /twilio/menu     # Twilio posts the key here as Digits
+          say: "Press 1 for sales."
+      - hangup: true
+```
+
+```yaml
+# resources/respond.yaml - the workflow's targetActionId
 actionId: respond
 name: TwiML Response
-requires: [sayHello]
+requires: [greet]
 apiResponse:
   success: true
-  response: "{{ output('sayHello') }}"
+  headers:
+    Content-Type: text/xml        # the body is written as-is, not wrapped in JSON
+  response: "{{ output('greet').twiml }}"
 ```
 
-## Actions
+</div>
 
-| Action | What it does |
+The response:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">Hello, +15551234.</Say><Gather action="/twilio/menu" input="dtmf" numDigits="1"><Say>Press 1 for sales.</Say></Gather><Hangup /></Response>
+```
+
+Text is XML-escaped, so a caller's speech or an LLM answer can go straight into `say`.
+
+## Verbs
+
+Each item of `verbs` is a map with one key, the verb. A verb's value is a map of TwiML attributes (written as given), or the shorthand shown.
+
+| Verb | Shorthand | Map form |
+|---|---|---|
+| `say` | `say: Hello` | `{text, voice, language, loop}` |
+| `play` | `play: https://.../a.mp3` | `{url, loop}` |
+| `pause` | `pause: 2` | `{length}` |
+| `gather` | - | `{input, numDigits, timeout, speechTimeout, finishOnKey, action, method, hints, language, say, play}`; `say`/`play` nest inside the gather |
+| `dial` | `dial: "+15551234"` | `{to, callerId, timeout, record, action}`; `to` is one target or a list; `sip:` targets become `<Sip>`, others `<Number>` |
+| `record` | - | `{maxLength, playBeep, finishOnKey, action, transcribe, recordingStatusCallback}` |
+| `hangup` | `hangup: true` | - |
+| `reject` | `reject: busy` | `{reason}` |
+| `redirect` | `redirect: /twilio/voice` | `{url, method}` |
+
+## Call input
+
+Twilio posts each step as a form: read the fields with `get()`.
+
+| Field | Meaning |
 |---|---|
-| `answer` | Answer the inbound call |
-| `say` | Speak TTS text (or play `audio:`) |
-| `ask` | Collect DTMF digits or speech input |
-| `menu` | Prompt + match input against options, branch on the result |
-| `dial` | Connect the call to SIP URIs or phone numbers |
-| `record` | Record the caller |
-| `mute` / `unmute` | Mute or unmute the call |
-| `hangup` | End the call |
-| `reject` | Reject the call (with optional `reason:`) |
-| `redirect` | Redirect call control elsewhere |
+| `get('CallSid')` | The call's ID |
+| `get('From')`, `get('To')` | Caller and dialed numbers |
+| `get('Digits')` | Keys pressed in the last `gather` |
+| `get('SpeechResult')` | Transcript of the last speech `gather` |
 
-`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` - validation fails otherwise.
-
-## Complete reference
+A menu is a `gather` whose `action` route picks the next step from `Digits`:
 
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-telephony:
-  action: menu            # answer, say, ask, menu, dial, record,
-                          # mute, unmute, hangup, reject, redirect
-
-  # --- Output (say / prompt) ---
-  say: "Press 1 for sales, press 2 for support."   # TTS text to speak
-  voice: alice            # TTS voice name
-  audio: "https://example.com/prompt.mp3"          # audio URL/path instead of TTS
-
-  # --- Input collection (ask / menu) ---
-  mode: dtmf              # dtmf (default), speech, both
-  grammar: ""             # inline GRXML grammar
-  grammarUrl: ""          # external grammar URL
-  limit: 4                # max digits to collect
-  terminator: "#"         # digit that ends input
-  timeout: 5s             # no-input timeout
-  interDigitTimeout: 2s   # between-digit timeout
-
-  # --- Menu ---
-  matches:                # input -> interpretation mapping; a matching key sets
-    - keys: ["1"]         #   result.status: match and result.interpretation
-    - keys: ["2"]         # DTMF digits or speech phrases to match
-  # tries, onNoMatch, onNoInput, onFailure, and matches[].invoke/expr are
-  # accepted by the schema but not yet evaluated by the executor. Branch on
-  # the menu result with downstream resources (validations.skip) and retry
-  # with loop.while instead.
-
-  # --- Dial ---
-  to:                     # SIP URIs or tel: numbers
-    - sip:agent@pbx.example.com
-    - "+15005550001"
-  from: "+18005550000"    # caller ID override
-  for: 30s                # dial timeout
-
-  # --- Record ---
-  maxDuration: 60s        # recording cap
-  interruptible: true     # allow keypress to stop recording
-  format: wav             # wav (default) or mp3
-
-  # --- Hangup / Reject ---
-  reason: busy            # e.g. busy, decline
-  headers:                # SIP headers
-    X-Custom: value
+# resources/menu.yaml - route /twilio/menu
+component:
+  name: twiml
+  with:
+    verbs:
+      - redirect: "{{ get('Digits') == '1' ? '/twilio/sales' : '/twilio/voice' }}"
 ```
 
 </div>
-
-Content fields are template-interpolated: <span v-pre>`say: "{{ get('answerLLM') }}"`</span> speaks the resolved output of a prior resource (also works in `voice`, `audio`, `grammar`, `grammarUrl`, `to`, `from`, `reason`, and `headers` values). Menu handler expressions (`onNoMatch`, `onNoInput`, `onFailure`, `matches[].expr`) are match-time expressions, not templates.
-
-## IVR menu example
-
-<div v-pre>
-
-```yaml
-# resources/menu.yaml
-actionId: mainMenu
-name: Main Menu
-validations:
-  routes: [/twilio/menu]
-  methods: [POST]
-telephony:
-  action: menu
-  say: "Press 1 for sales. Press 2 for support."
-  timeout: 8s
-  matches:
-    - keys: ["1"]
-    - keys: ["2"]
-```
-
-```yaml
-# resources/sales.yaml -- runs only when the caller pressed 1
-actionId: salesFlow
-name: Sales Flow
-requires: [mainMenu]
-validations:
-  routes: [/twilio/menu]
-  methods: [POST]
-  skip:
-    - output('mainMenu').result.interpretation != '1'
-telephony:
-  action: say
-  say: "Connecting you to sales."
-```
-
-</div>
-
-When the provider posts `Digits: "1"`, the menu resolves to `status: match` with `interpretation: "1"`; downstream resources branch on that via `validations.skip`. With no digits, the resource returns a TwiML `<Gather>` prompt so the provider collects input.
 
 ## Output
 
-The resource output contains the accumulated TwiML and, for `ask`/`menu`, a result object:
+`{twiml: "<?xml ...><Response>...</Response>"}`. An unknown verb fails the call with `twiml: unknown verb 'x'`.
 
-| Key | Type | Description |
-|---|---|---|
-| `twiml` | string | TwiML XML to return to the provider |
-| `result.status` | string | `match`, `nomatch`, `noinput`, `hangup`, or `stop` |
-| `result.mode` | string | `dtmf` or `speech` |
-| `result.utterance` | string | Normalised input (digits or speech text) |
-| `result.interpretation` | string | Semantic value extracted from the grammar |
-| `result.confidence` | number | Speech confidence 0.0-1.0 (1.0 for DTMF) |
-| `result.match` | bool | True when status is `match` |
+## How it is built
 
-## Expression accessors
-
-Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first - bare `telephony.` references inside templates fail static analysis:
-
-<div v-pre>
-
-```yaml
-before:
-  - set('question', telephony.speech())
-chat:
-  prompt: "Caller asked: {{ get('question') }}"
-```
-
-</div>
-
-```yaml
-telephony.callId()      # unique call identifier
-telephony.from()        # caller number
-telephony.to()          # dialed number
-telephony.status()      # match | nomatch | noinput | hangup | stop
-telephony.utterance()   # DTMF digits or speech text from last ask/menu
-telephony.digits()      # raw DTMF string from last gather
-telephony.speech()      # speech recognition text from last gather
-telephony.confidence()  # speech confidence (0.0-1.0)
-telephony.twiml()       # accumulated TwiML XML response
-telephony.match()       # true when last ask/menu matched
-```
-
-## Webhook fields
-
-Recognised fields in the inbound webhook body (Twilio format; unknown fields are ignored):
-
-| Field | Maps to |
-|---|---|
-| `CallSid` | `telephony.callId()` |
-| `From` | `telephony.from()` |
-| `To` | `telephony.to()` |
-| `CallStatus` | call status |
-| `Digits` | `telephony.digits()` |
-| `SpeechResult` | `telephony.speech()` |
-| `Confidence` | `telephony.confidence()` |
+One python resource that renders the verbs with `xml.etree` and prints the result as JSON. Copy `components/twiml/` into your project to support more verbs or another provider's XML dialect.
 
 ## See also
 
-- [LLM resource](/workflow/resources/llm) - generate spoken responses with an LLM
-- [API response](/workflow/resources/api-response) - how the TwiML reaches the provider
-- [Components](/agencies/components) - `invoke:` targets for menu matches
+- [Phone assistant tutorial](/examples/telephony-bot) - a menu, a static answer and an LLM answer
+- [API response](/workflow/resources/api-response) - raw `text/xml` bodies
+- [Input sources](/workflow/input-sources) - the API server routes
