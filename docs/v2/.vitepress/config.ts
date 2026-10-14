@@ -297,7 +297,7 @@ export default defineConfig({
           items: [
             { text: 'Messaging', link: '/workflow/resources/messaging' },
             { text: 'Email', link: '/workflow/resources/email' },
-            { text: 'Telephony', link: '/workflow/resources/telephony' },
+            { text: 'Telephony (twiml)', link: '/workflow/resources/telephony' },
             { text: 'Bot replies', link: '/workflow/resources/bot-reply' },
             { text: 'API response', link: '/workflow/resources/api-response' },
           ]

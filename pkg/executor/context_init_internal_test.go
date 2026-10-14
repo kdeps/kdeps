@@ -371,9 +371,6 @@ func TestBuildEvaluationEnvironment_AccessorErrors(t *testing.T) {
 	assert.Equal(t, "", httpEnv["responseBody"].(func(string) interface{})("x"))
 	assert.Nil(t, httpEnv["responseHeader"].(func(string, string) interface{})("x", "h"))
 
-	telephonyEnv := env["telephony"].(map[string]interface{})
-	assert.NotNil(t, telephonyEnv)
-
 	reqEnv := env["request"].(map[string]interface{})
 	assert.Nil(t, reqEnv["file"].(func(string) interface{})("missing"))
 	assert.Nil(t, reqEnv["filepath"].(func(string) interface{})("missing"))

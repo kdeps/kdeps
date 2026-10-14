@@ -97,10 +97,9 @@ cd vision && kdeps run workflow.yaml --dev
 ```
 
 ### 📞 [Telephony Bot](./telephony-bot/)
-AI phone IVR using the native `telephony:` resource (TwiML for Twilio-compatible providers).
-- Keypad menu with match results (`result.status`, `result.interpretation`)
-- Static opening-hours line, speech-question gather
-- LLM answers the spoken question as text for provider-side TTS
+AI phone IVR: Twilio webhooks answered with TwiML from the `twiml` component.
+- Keypad menu routed by `Digits`, static opening-hours line
+- Speech `gather`; a local LLM answers the question out loud
 
 **Prerequisites**: `ollama pull llama3.2:1b` (for the answer route)
 

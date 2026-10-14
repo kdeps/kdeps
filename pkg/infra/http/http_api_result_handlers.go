@@ -92,6 +92,12 @@ func (s *Server) writeRawAPIResponse(
 		setResponseContentType(w, contentType)
 		respContentType = contentType
 	}
+	// The apiResponse chose this Content-Type itself (TwiML, an HTML page):
+	// write the body as authored, not through the XSS escape for reflected
+	// browser content.
+	if wrapper, ok := w.(*ResponseWriterWrapper); ok {
+		wrapper.DisableHTMLEscape()
+	}
 
 	s.logWritingRawAPIResponse(r, len(rawBytes), respContentType)
 	s.writeRawSuccessResponseBytes(w, r, rawBytes, "failed to write raw API response")

@@ -95,12 +95,6 @@ func (m *covLLMWithOffline) SetToolExecutor(_ interface {
 
 func (m *covLLMWithOffline) SetOfflineMode(v bool) { m.offline = v }
 
-type telephonyAccessor struct{}
-
-func (telephonyAccessor) ToEnvMap() map[string]interface{} {
-	return map[string]interface{}{"ok": true}
-}
-
 type failDotEnvWriter struct{}
 
 func (failDotEnvWriter) WriteString(_ string) (int, error) { return 0, errors.New("write fail") }

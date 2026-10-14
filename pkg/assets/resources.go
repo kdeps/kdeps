@@ -57,7 +57,6 @@ var ResourceDocs = map[string]string{
 	"component":        "agencies/component-resource.md",
 	"embedding":        "workflow/resources/embedding.md",
 	"searchLocal":      "workflow/resources/search-local.md",
-	"telephony":        "workflow/resources/telephony.md",
 	"browser":          "workflow/resources/browser.md",
 	"codeIntelligence": "workflow/resources/code-intelligence.md",
 	"loader":           "workflow/resources/loader.md",

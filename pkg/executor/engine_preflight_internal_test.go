@@ -69,7 +69,6 @@ func TestExecuteExecutors_NilConfigBranches(t *testing.T) {
 	reg.SetExecExecutor(&covMockExecutor{})
 	reg.SetEmbeddingExecutor(&covMockExecutor{})
 	reg.SetSearchLocalExecutor(&covMockExecutor{})
-	reg.SetTelephonyExecutor(&covMockExecutor{})
 	e.SetRegistry(reg)
 	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
 	r := &domain.Resource{ActionID: "r"}
@@ -85,8 +84,6 @@ func TestExecuteExecutors_NilConfigBranches(t *testing.T) {
 	_, err = e.executeEmbedding(r, ctx)
 	require.Error(t, err)
 	_, err = e.executeSearchLocal(r, ctx)
-	require.Error(t, err)
-	_, err = e.executeTelephony(r, ctx)
 	require.Error(t, err)
 }
 

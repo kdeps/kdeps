@@ -274,7 +274,7 @@ else
         test_failed "telephony-bot - workflow validation" "kdeps validate failed for $TELE_WF"
     fi
 
-    # Test 32: native telephony IVR routes are declared
+    # Test 32: the /twilio IVR routes are declared
     if grep -q "/twilio/voice" "$TELE_WF" 2>/dev/null && grep -q "/twilio/answer" "$TELE_WF" 2>/dev/null; then
         test_passed "telephony-bot - declares /twilio IVR routes"
     else
@@ -298,12 +298,13 @@ else
         test_failed "telephony-bot - answer.yaml reads SpeechResult" "SpeechResult not found in answer.yaml"
     fi
 
-    # Test 35: respond.yaml aggregates the IVR actions
+    # Test 35: respond.yaml returns the twiml output as text/xml
     RESPOND_RES="$_TELE_DIR/resources/respond.yaml"
-    if grep -q "answerLLM" "$RESPOND_RES" 2>/dev/null; then
-        test_passed "telephony-bot - respond.yaml requires answerLLM"
+    if grep -q "speakAnswer" "$RESPOND_RES" 2>/dev/null && grep -q "text/xml" "$RESPOND_RES" 2>/dev/null \
+        && grep -q "name: twiml" "$_TELE_DIR/resources/speak.yaml" 2>/dev/null; then
+        test_passed "telephony-bot - respond.yaml returns the twiml component's TwiML as text/xml"
     else
-        test_failed "telephony-bot - respond.yaml requires answerLLM" "answerLLM not found in $RESPOND_RES"
+        test_failed "telephony-bot - respond.yaml TwiML" "speakAnswer/text/xml/twiml not found"
     fi
 fi
 

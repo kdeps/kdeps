@@ -46,18 +46,6 @@ func TestDispatchPrimaryResource_UnknownType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestExecuteSingleInlineResource_Telephony(t *testing.T) {
-	e := covTestEngine()
-	reg := NewRegistry()
-	reg.SetTelephonyExecutor(&covMockExecutor{result: "tel"})
-	e.SetRegistry(reg)
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeSingleInlineResource(domain.InlineResource{
-		Telephony: &domain.TelephonyActionConfig{},
-	}, 0, ctx)
-	require.NoError(t, err)
-}
-
 func TestAddRequestEnv_FileSuccess(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
@@ -159,12 +147,6 @@ func TestApplyResourceValidationFilters_WithFilters(_ *testing.T) {
 			Params:  []string{"allowed"},
 		},
 	}, ctx)
-}
-
-func TestBuildTelephonyAccessorEnv_Impl(t *testing.T) {
-	ctx := &ExecutionContext{Items: map[string]interface{}{telephonySessionKey: telephonyAccessor{}}}
-	env := buildTelephonyAccessorEnv(ctx)
-	assert.True(t, env["ok"].(bool))
 }
 
 func TestUploadedFileByIndex_InvalidSyntax(t *testing.T) {

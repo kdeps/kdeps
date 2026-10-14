@@ -214,7 +214,6 @@ func TestBuildEvalEnv_EngineProfile(t *testing.T) {
 
 	env := BuildEvalEnv(ctx, EvalEnvEngine)
 	assert.Contains(t, env, "http")
-	assert.Contains(t, env, "telephony")
 	assert.Equal(t, "hi", env["input"].(func(string, ...string) interface{})("q"))
 	assert.Equal(t, "/tmp/input.txt", env["inputFilePath"])
 	req, ok := env["request"].(map[string]interface{})
