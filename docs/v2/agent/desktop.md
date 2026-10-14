@@ -240,7 +240,7 @@ chat -> engine: "when the agent calls it"
 | Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` inside the project folder with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output, plus an **Open** button that opens the web interface in your browser when the project has a `webServer`; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
 | Build | The manifest form (name, description, version, target, and the `settings` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`validations`, `onError`, `loop`, `before`, `after`, `items`). |
 
-**New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`), the same templates as `kdeps new`, and opens it in Build.
+**New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`, `whatsapp-bot`), the same templates as `kdeps new`, and opens it in Build.
 
 ### How the builder writes YAML
 

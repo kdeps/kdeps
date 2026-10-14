@@ -269,6 +269,7 @@ func TestServer_ParseRequest_POST_JSON(t *testing.T) {
 	assert.Equal(t, "john", ctx.Body["user"])
 	assert.Equal(t, "login", ctx.Body["action"])
 	assert.InDelta(t, float64(42), ctx.Body["count"], 0.001)
+	assert.Equal(t, requestBody, ctx.RawBody, "the body as received, for signature checks")
 }
 
 func TestServer_ParseRequest_POST_FormData(t *testing.T) {
@@ -283,6 +284,7 @@ func TestServer_ParseRequest_POST_FormData(t *testing.T) {
 
 	assert.Equal(t, stdhttp.MethodPost, ctx.Method)
 	assert.Equal(t, "/api/login", ctx.Path)
+	assert.Equal(t, formData, ctx.RawBody)
 	// Form data parsing may not work as expected, check if it was parsed at all
 	if len(ctx.Body) > 0 {
 		assert.Equal(t, "john", ctx.Body["username"])

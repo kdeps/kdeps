@@ -164,10 +164,6 @@ defaults:
 #     signingSecret: "${SLACK_SIGNING_SECRET}"
 #   telegram:
 #     botToken: "${TELEGRAM_BOT_TOKEN}"
-#   whatsapp:
-#     phoneNumberId: "${WHATSAPP_PHONE_NUMBER_ID}"
-#     accessToken: "${WHATSAPP_ACCESS_TOKEN}"
-#     webhookSecret: "${WHATSAPP_WEBHOOK_SECRET}"
 
 # ── Named SQL connections — DSNs for sql resources ───────────────────────────
 # Resources reference connections by name via sql.connectionName.

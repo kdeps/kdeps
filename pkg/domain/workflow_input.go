@@ -62,7 +62,6 @@ type BotConfig struct {
 	Discord       *DiscordConfig  `yaml:"discord,omitempty"       json:"discord,omitempty"`
 	Slack         *SlackConfig    `yaml:"slack,omitempty"         json:"slack,omitempty"`
 	Telegram      *TelegramConfig `yaml:"telegram,omitempty"      json:"telegram,omitempty"`
-	WhatsApp      *WhatsAppConfig `yaml:"whatsApp,omitempty"      json:"whatsApp,omitempty"`
 }
 
 // DiscordConfig contains Discord bot workflow settings.
@@ -82,13 +81,6 @@ type SlackConfig struct {
 // Credentials (botToken) belong in ~/.kdeps/config.yaml bot_connections.telegram.
 type TelegramConfig struct {
 	PollIntervalSeconds int `yaml:"pollIntervalSeconds,omitempty" json:"pollIntervalSeconds,omitempty"` // default 1
-}
-
-// WhatsAppConfig contains WhatsApp Cloud API workflow settings.
-// Credentials (phoneNumberId, accessToken, webhookSecret) belong in ~/.kdeps/config.yaml bot_connections.whatsapp.
-// An embedded HTTP webhook server is started (on WebhookPort) since Meta has no polling API.
-type WhatsAppConfig struct {
-	WebhookPort int `yaml:"webhookPort,omitempty" json:"webhookPort,omitempty"` // default 16396
 }
 
 // FileConfig contains configuration for file input.

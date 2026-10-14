@@ -9,7 +9,7 @@ This controls how a running workflow is fed. Agent mode does not use these sourc
 | Source | Use Case |
 |--------|----------|
 | `api` | HTTP REST server (default) |
-| `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
+| `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 
 The default source is `api`. If no input config is specified, the workflow starts an HTTP API server on port 16395.
@@ -35,7 +35,7 @@ Use `validations.methods` and `validations.routes` in individual resources to sc
 
 ## Bot source
 
-The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
+The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram. WhatsApp has no long-lived connection - Meta calls a webhook - so a WhatsApp bot is an ordinary API workflow: `kdeps new my-bot --template whatsapp-bot`.
 
 Bot credentials belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. The workflow only declares which platforms to enable.
 
@@ -116,7 +116,7 @@ This opens a terminal REPL where you can send prompts and invoke tools interacti
 
 - Serve a workflow as an HTTP JSON API for a frontend or another service
   (`api`).
-- Run a workflow as a chat bot on Discord, Slack, Telegram, or WhatsApp
+- Run a workflow as a chat bot on Discord, Slack or Telegram (WhatsApp: the `whatsapp-bot` template)
   (`bot`).
 - Process one file per invocation from a pipeline, cron job, or CI step
   (`file`).

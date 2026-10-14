@@ -1,0 +1,23 @@
+actionId: llm
+name: Generate Reply
+
+validations:
+  methods: [POST]
+  routes: [/webhook]
+  # Status callbacks (sent, delivered, read) carry no text message: nothing to answer.
+  skip:
+    - "{% raw %}(request.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body ?? '') == ''{% endraw %}"
+  # Reject a forged POST before spending a model call: Meta signs the body with the app secret.
+  check:
+    - "{% raw %}env('WHATSAPP_APP_SECRET', '') == '' || request.headers['X-Hub-Signature-256'] == 'sha256=' + hmacSHA256(env('WHATSAPP_APP_SECRET'), request.rawBody){% endraw %}"
+  error:
+    code: 403
+    message: "invalid signature"
+
+chat:
+  model: llama3.2:1b  # llamafile alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
+  scenario:
+    - role: assistant
+      prompt: Answer in a few short sentences, in the language of the message.
+  prompt: "{% raw %}{{ request.body.entry[0].changes[0].value.messages[0].text.body }}{% endraw %}"
+  timeout: 60s

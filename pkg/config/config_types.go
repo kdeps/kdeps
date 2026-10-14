@@ -247,19 +247,11 @@ type TelegramConnectionConfig struct {
 	BotToken string `yaml:"botToken"`
 }
 
-// WhatsAppConnectionConfig holds WhatsApp Cloud API credentials.
-type WhatsAppConnectionConfig struct {
-	PhoneNumberID string `yaml:"phoneNumberId"`
-	AccessToken   string `yaml:"accessToken"`
-	WebhookSecret string `yaml:"webhookSecret,omitempty"` // for HMAC verification
-}
-
 // BotConnectionConfig holds credentials for all configured bot platforms.
 type BotConnectionConfig struct {
 	Discord  *DiscordConnectionConfig  `yaml:"discord,omitempty"`
 	Slack    *SlackConnectionConfig    `yaml:"slack,omitempty"`
 	Telegram *TelegramConnectionConfig `yaml:"telegram,omitempty"`
-	WhatsApp *WhatsAppConnectionConfig `yaml:"whatsapp,omitempty"`
 }
 
 // SQLConnectionConfig holds a database connection string for a named SQL connection.

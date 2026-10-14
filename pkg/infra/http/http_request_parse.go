@@ -19,7 +19,9 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	stdhttp "net/http"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -36,20 +38,34 @@ func requestContentType(r *stdhttp.Request) string {
 	return requestContentTypeHeader(r)
 }
 
-func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
+// parseRequestBody returns the parsed body and, except for multipart uploads,
+// the raw bytes as received (for signature checks such as HMAC webhooks).
+func parseRequestBody(r *stdhttp.Request) (map[string]interface{}, string) {
 	contentType := requestContentType(r)
 	isFormData := isFormURLEncodedContentType(contentType)
+	isMultipart := isMultipartContentType(contentType)
 
+	var raw []byte
+	if r.Body != nil && !isMultipart {
+		var err error
+		if raw, err = io.ReadAll(r.Body); err != nil {
+			return nil, ""
+		}
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+	}
 	var body map[string]interface{}
 	if r.Body != nil && !isFormData {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			body = emptyRequestBodyMap()
 		}
 	}
-	if isFormData || isMultipartContentType(contentType) {
+	if isFormData || isMultipart {
+		if raw != nil {
+			r.Body = io.NopCloser(bytes.NewReader(raw))
+		}
 		body = parseFormData(r, body)
 	}
-	return body
+	return body, string(raw)
 }
 
 func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUpload {

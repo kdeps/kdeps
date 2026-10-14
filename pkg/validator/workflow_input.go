@@ -102,13 +102,12 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 		)
 	}
 
-	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil &&
-		cfg.WhatsApp == nil
+	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil
 	if executionType == domain.BotExecutionTypePolling && noPlatforms {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"input.bot must configure at least one platform"+
-				" (discord, slack, telegram, or whatsApp) when executionType is polling",
+				" (discord, slack, or telegram) when executionType is polling",
 			nil,
 		)
 	}

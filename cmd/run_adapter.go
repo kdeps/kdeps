@@ -53,6 +53,7 @@ func toExecutorRequestContext(httpReq *http.RequestContext) *executor.RequestCon
 		Headers:   httpReq.Headers,
 		Query:     httpReq.Query,
 		Body:      httpReq.Body,
+		RawBody:   httpReq.RawBody,
 		Files:     executorFiles,
 		IP:        httpReq.IP,
 		ID:        httpReq.ID,

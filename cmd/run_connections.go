@@ -343,9 +343,6 @@ func (c *connCollector) scanBotConfig(botCfg *domain.BotConfig) {
 	if botCfg.Telegram != nil {
 		c.add(config.ConnKindBot, "telegram")
 	}
-	if botCfg.WhatsApp != nil {
-		c.add(config.ConnKindBot, "whatsapp")
-	}
 }
 
 // scanAction registers the connection names and cloud model backend carried by

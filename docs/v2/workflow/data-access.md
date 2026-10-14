@@ -127,6 +127,7 @@ chat:
 | `request.headers`  | object | All request headers           |
 | `request.query`    | object | Query parameters              |
 | `request.body`     | object | Request body (same as `input`)|
+| `request.rawBody`  | string | The body exactly as received (not for multipart uploads); sign-check webhooks with `hmacSHA256()` |
 
 File and lookup methods:
 

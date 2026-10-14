@@ -1,0 +1,20 @@
+actionId: respond
+name: Webhook Response
+requires:
+  - reply
+
+validations:
+  routes: [/webhook]
+  # GET is Meta's verification handshake: echo hub.challenge (digits only)
+  # when hub.verify_token matches.
+  check:
+    - "{% raw %}request.method != 'GET' || (request.query['hub.mode'] == 'subscribe' && request.query['hub.verify_token'] == env('WHATSAPP_VERIFY_TOKEN', '') && env('WHATSAPP_VERIFY_TOKEN', '') != '' && request.query['hub.challenge'] matches '^[0-9]+$'){% endraw %}"
+  error:
+    code: 403
+    message: "forbidden"
+
+apiResponse:
+  success: true
+  headers:
+    Content-Type: text/plain; charset=utf-8
+  response: "{% raw %}{{ request.method == 'GET' ? request.query['hub.challenge'] : 'ok' }}{% endraw %}"

@@ -487,6 +487,19 @@ func TestExtractActionIDRefs_OutputFunc(t *testing.T) {
 	assert.Empty(t, wa.Errors())
 }
 
+// A dotted string literal inside a template (a URL default) is not a reference;
+// a bare id.field next to it still is.
+func TestExtractActionIDRefs_StringLiteralIgnored(t *testing.T) {
+	r := mkResource("target")
+	r.Chat = &domain.ChatConfig{
+		Prompt: "{{ env('API', 'https://graph.facebook.com/v19.0') }} {{ env(\"X\", \"a.b\") }}",
+	}
+	assert.Empty(t, validator.AnalyzeWorkflow(mkWorkflow("target", r)).Errors())
+
+	r.Chat.Prompt = "{{ env('API', 'x.y') + missing.field }}"
+	assert.NotEmpty(t, validator.AnalyzeWorkflow(mkWorkflow("target", r)).Errors())
+}
+
 func TestExtractActionIDRefs_TemplatePattern(t *testing.T) {
 	r := mkResource("target")
 	r.Chat = &domain.ChatConfig{Prompt: "value: {{ dep.result }}"}

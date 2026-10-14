@@ -293,7 +293,7 @@ func TestValidateProject(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	h := newProjectHarness(t, false)
-	assert.Equal(t, []string{"api-service", "sql-agent", "agency"}, h.svc.ProjectTemplates())
+	assert.Equal(t, []string{"api-service", "sql-agent", "agency", "whatsapp-bot"}, h.svc.ProjectTemplates())
 
 	p, err := h.svc.CreateProject("api-service", " my-api ")
 	require.NoError(t, err)

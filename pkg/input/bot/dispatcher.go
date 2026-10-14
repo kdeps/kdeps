@@ -71,7 +71,6 @@ func buildBotRunners(
 		{discordPlatform, botCfg.Discord != nil},
 		{slackPlatform, botCfg.Slack != nil},
 		{"telegram", botCfg.Telegram != nil},
-		{whatsAppPlatform, botCfg.WhatsApp != nil},
 	}
 
 	for _, p := range platforms {
@@ -87,7 +86,7 @@ func buildBotRunners(
 
 	if len(runners) == 0 {
 		return nil, errors.New(
-			"bot dispatcher: no bot platforms configured (discord, slack, telegram, or whatsapp sub-config required)",
+			"bot dispatcher: no bot platforms configured (discord, slack, or telegram sub-config required)",
 		)
 	}
 	return runners, nil

@@ -93,6 +93,10 @@ var reDotIdent = regexp.MustCompile(`(?:^|[^\w.-])([A-Za-z0-9_][A-Za-z0-9_-]*)\.
 // inside those calls would otherwise be mis-parsed as actionId refs.
 var reStripFuncCalls = regexp.MustCompile(`(?:get|output)\s*\([^)]*\)`)
 
+// reStringLiteral matches a quoted string inside an expression; its text (a
+// URL default such as 'https://graph.facebook.com') is data, not a reference.
+var reStringLiteral = regexp.MustCompile(`'[^']*'|"[^"]*"`)
+
 // AnalyzeWorkflow performs deep static analysis on a workflow beyond basic validation.
 // It detects unreachable resources, expression references to unknown actionIds, and
 // missing required component inputs.

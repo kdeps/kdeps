@@ -1116,16 +1116,6 @@ func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "valid polling with whatsapp",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					WhatsApp:      &domain.WhatsAppConfig{WebhookPort: 16396},
-				},
-			},
-		},
-		{
 			name: "valid stateless no platforms required",
 			input: &domain.InputConfig{
 				Sources: []string{domain.InputSourceBot},

@@ -40,7 +40,6 @@ func TestHasConnection(t *testing.T) {
 			Discord:  &DiscordConnectionConfig{BotToken: "dt"},
 			Slack:    &SlackConnectionConfig{BotToken: "st", AppToken: "at"},
 			Telegram: &TelegramConnectionConfig{BotToken: "tt"},
-			WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "id", AccessToken: "tok"},
 		},
 	}
 	assert.True(t, HasConnection(cfg, ConnKindSMTP, "mail"))
@@ -51,7 +50,7 @@ func TestHasConnection(t *testing.T) {
 	assert.True(t, HasConnection(cfg, ConnKindBot, "discord"))
 	assert.True(t, HasConnection(cfg, ConnKindBot, "slack"))
 	assert.True(t, HasConnection(cfg, ConnKindBot, "telegram"))
-	assert.True(t, HasConnection(cfg, ConnKindBot, "whatsapp"))
+	assert.False(t, HasConnection(cfg, ConnKindBot, "whatsapp"), "no longer a bot platform")
 
 	assert.False(t, HasConnection(cfg, ConnKindSMTP, "missing"))
 	assert.False(t, HasConnection(cfg, "unknown", "mail"))

@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: "{{ version }}"
+  targetActionId: respond       # its result is the webhook's HTTP response
+
+settings:
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{ port }}
+    routes:
+      - path: /webhook
+        methods: [GET, POST]    # GET: Meta's verification handshake; POST: messages
+        public: true            # Meta sends no bearer token; the POST signature is checked instead

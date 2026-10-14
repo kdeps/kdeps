@@ -102,7 +102,7 @@ var skippedScanDirs = map[string]bool{
 
 // ProjectTemplates lists the templates CreateProject accepts.
 func (s *Service) ProjectTemplates() []string {
-	return []string{"api-service", "sql-agent", "agency"}
+	return []string{"api-service", "sql-agent", "agency", "whatsapp-bot"}
 }
 
 // Projects lists the workflows, agencies and components in the workspace,

@@ -29,7 +29,7 @@ const (
 
 	// InputSourceAPI is the input source for API (HTTP) requests (default).
 	InputSourceAPI = "api"
-	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram, WhatsApp).
+	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram).
 	InputSourceBot = "bot"
 	// InputSourceFile is the input source for file content read from stdin or a file path.
 	InputSourceFile = "file"
