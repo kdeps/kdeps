@@ -15,22 +15,6 @@ func (m *mockResourceExec) Execute(_ *ExecutionContext, _ interface{}) (interfac
 	return nil, nil
 }
 
-type mockFileExecutor struct{}
-
-func (m *mockFileExecutor) Execute(_ *ExecutionContext, _ interface{}) (interface{}, error) {
-	return nil, nil
-}
-
-func TestSetGetFileExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockFileExecutor{}
-	reg.SetFileExecutor(exec)
-	got := reg.GetFileExecutor()
-	if got == nil {
-		t.Fatal("expected non-nil executor")
-	}
-}
-
 func TestSetGetCodeIntelligenceExecutor(t *testing.T) {
 	reg := NewRegistry()
 	exec := &mockResourceExec{}

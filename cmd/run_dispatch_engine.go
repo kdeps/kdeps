@@ -36,7 +36,6 @@ import (
 	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
-	executorFile "github.com/kdeps/kdeps/v2/pkg/executor/file"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
@@ -119,7 +118,6 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
-	registry.SetFileExecutor(executorFile.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())

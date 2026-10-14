@@ -122,7 +122,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | YAML key | Description | Page |
 |---|---|---|
 | `sql` | Database queries and transactions | [SQL](/workflow/resources/sql) |
-| `file` | Read, write, patch, list, delete, copy, move files | [File](/workflow/resources/file) |
+| `component: file` | Read, write, patch, list, delete, copy, move files - a kdeps component, YAML only | [File](/workflow/resources/file) |
 | `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `python` | Run a Python script, stdout parsed as JSON | [Python](/workflow/resources/python) |
 | `exec` | Run a shell command, stdout captured | [Exec](/workflow/resources/exec) |

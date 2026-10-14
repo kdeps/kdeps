@@ -47,7 +47,6 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		ExecutorBrowser:     (*Engine).executeBrowser,
 		ExecutorBotReply:    (*Engine).executeBotReply,
 		ExecutorEmail:       (*Engine).executeEmail,
-		ExecutorFile:        (*Engine).executeFile,
 		ExecutorCodeIntel:   (*Engine).executeCodeIntelligence,
 		ExecutorLoader:      (*Engine).executeLoader,
 		ExecutorVectorStore: (*Engine).executeVectorStore,

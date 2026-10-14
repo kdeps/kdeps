@@ -41,7 +41,6 @@ const (
 	httpMethodPost      = "POST"
 	ExecutorBotReply    = "botReply"
 	ExecutorEmail       = "email"
-	ExecutorFile        = "file"
 	ExecutorCodeIntel   = "codeIntelligence"
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"

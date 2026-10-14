@@ -140,31 +140,41 @@ component:
 	assert.Equal(t, "speech.wav", gotFile)
 }
 
-// runGitComponent runs one git component call (with: lines) through the
-// parser and engine and returns its structured result.
-func runGitComponent(t *testing.T, with string) map[string]interface{} {
+// runComponentCall runs one call of the named shipped component (with:
+// lines) through the parser and engine and returns its result.
+func runComponentCall(t *testing.T, name, with string) (map[string]interface{}, error) {
 	t.Helper()
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
-  name: git-component
+  name: component-call
   version: "1.0.0"
-  targetActionId: g
+  targetActionId: c
 settings:
   agentSettings: {}
 `), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "g.yaml"),
-		[]byte("actionId: g\nname: G\ncomponent:\n  name: git\n  with:\n"+with), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "c.yaml"),
+		[]byte("actionId: c\nname: C\ncomponent:\n  name: "+name+"\n  with:\n"+with), 0o600))
 	sv, err := validator.NewSchemaValidator()
 	require.NoError(t, err)
 	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
 	require.NoError(t, err)
 	result, err := newExecEngine().Execute(wf, nil)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 	out, ok := result.(map[string]interface{})
 	require.True(t, ok, "%T", result)
+	return out, nil
+}
+
+// runGitComponent runs one git component call and returns its structured result.
+func runGitComponent(t *testing.T, with string) map[string]interface{} {
+	t.Helper()
+	out, err := runComponentCall(t, "git", with)
+	require.NoError(t, err)
 	return out
 }
 

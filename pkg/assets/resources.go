@@ -61,7 +61,6 @@ var ResourceDocs = map[string]string{
 	"browser":          "workflow/resources/browser.md",
 	"botReply":         "workflow/resources/bot-reply.md",
 	"email":            "workflow/resources/email.md",
-	"file":             "workflow/resources/file.md",
 	"codeIntelligence": "workflow/resources/code-intelligence.md",
 	"loader":           "workflow/resources/loader.md",
 	"vectorStore":      "workflow/resources/vector-store.md",
