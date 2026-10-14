@@ -57,13 +57,6 @@ func TestExecuteVectorStore_NoExecutor(t *testing.T) {
 	assert.Contains(t, err.Error(), "vectorStore executor not available")
 }
 
-func TestExecuteInlineFile_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	_, err := eng.executeInlineFile(&domain.FileResourceConfig{}, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "file executor not available")
-}
-
 func TestExecuteInlineCodeIntelligence_NoExecutor(t *testing.T) {
 	eng := newTestEngineInternal()
 	_, err := eng.executeInlineCodeIntelligence(&domain.CodeIntelligenceConfig{}, &ExecutionContext{})

@@ -39,29 +39,12 @@ func newTestEngineInternal() *Engine {
 	return NewEngine(nil)
 }
 
-func TestExecuteFile_NilConfig(t *testing.T) {
-	eng := newTestEngineInternal()
-	res := &domain.Resource{ActionID: "test", File: nil}
-	_, err := eng.executeFile(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "file")
-}
-
 func TestExecuteCodeIntelligence_NilConfig(t *testing.T) {
 	eng := newTestEngineInternal()
 	res := &domain.Resource{ActionID: "test", CodeIntelligence: nil}
 	_, err := eng.executeCodeIntelligence(res, &ExecutionContext{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "codeIntelligence")
-}
-
-func TestExecuteFile_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	cfg := &domain.FileResourceConfig{}
-	res := &domain.Resource{ActionID: "test", File: cfg}
-	_, err := eng.executeFile(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "file executor not available")
 }
 
 func TestExecuteCodeIntelligence_NoExecutor(t *testing.T) {

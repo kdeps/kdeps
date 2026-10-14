@@ -1,313 +1,154 @@
-# File resource
+# File component
 
-The `file:` resource provides structured filesystem operations for reading, writing, patching, listing, deleting, copying, moving, and appending files and directories. It replaces ad-hoc shell commands (`exec cat`, `exec sed -i`, etc.) with type-safe, composable DAG operations that return structured output.
+The `file` component runs one filesystem operation - read, write, patch, list, delete, exists, mkdir, copy, move, append - and returns a structured result (content and lines, entry lists, flags) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+
+## Requirements
+
+Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource that does the operation with the standard library and prints the result.
 
 ## Basic usage
 
+<div v-pre>
+
 ```yaml
 # resources/read.yaml
-actionId: readFile
+actionId: readConfig
 name: Read Configuration
-file:
-  operation: read
-  path: /etc/config.json
+component:
+  name: file                   # from the components asset set; a components/file/ of your own wins
+  with:
+    operation: read
+    path: config.json          # relative paths resolve against the workflow directory
 ```
 
 ```yaml
 # resources/write.yaml
-actionId: writeFile
-name: Write Output
-file:
-  operation: write
-  path: /tmp/output.txt
-  content: "Hello, World!"
+actionId: writeReport
+name: Write Report
+requires: [readConfig]
+component:
+  name: file
+  with:
+    operation: write
+    path: out/report.txt       # parent directories are created
+    content: "{{ output('readConfig').content }}"
+    backup: true               # an existing out/report.txt is copied to out/report.txt.bak first
 ```
 
-## Operations
+</div>
 
-| Operation | Description |
-|-----------|-------------|
-| `read` | Read file contents (text or base64) |
-| `write` | Write content to a file, creating parent directories |
-| `patch` | Apply a unified diff patch to a file |
-| `list` | List directory entries, optionally with glob filter |
-| `delete` | Delete a file or directory |
-| `exists` | Check if a file or directory exists |
-| `mkdir` | Create a directory (including parents) |
-| `copy` | Copy a file or directory |
-| `move` | Move/rename a file or directory |
-| `append` | Append content to a file |
+## Inputs
 
-## Configuration options
+| Input | Operation | Description |
+|---|---|---|
+| `operation` | all | `read`, `write`, `patch`, `list`, `delete`, `exists`, `mkdir`, `copy`, `move`, `append` (required) |
+| `path` | all | Target file or directory; the destination for `copy` and `move` |
+| `source` | copy, move | Source path |
+| `content` | write, append | Text to write or append |
+| `patch` | patch | Unified diff to apply |
+| `encoding` | read | `text` (default) or `base64` |
+| `pattern` | list | Glob on entry names, e.g. `*.go` (case-sensitive) |
+| `recursive` | list | Walk subdirectories |
+| `backup` | write, patch | Copy the existing file to `<path>.bak` first |
+| `dryRun` | write, patch, delete, mkdir, copy, move, append | Report what would happen, change nothing |
+| `mode` | write, mkdir | Octal permissions; default `0644` (write), `0755` (mkdir) |
+| `appendNewline` | write, append | End the content with a newline |
 
-| Option | Operation | Description |
-|--------|-----------|-------------|
-| `operation` | all | The file operation to perform (required) |
-| `path` | all | Target file or directory path (required except `patch`) |
-| `source` | copy, move | Source path for the operation |
-| `content` | write, append | Content to write or append |
-| `patch` | patch | Unified diff string to apply |
-| `encoding` | read | Output encoding: `"text"` (default) or `"base64"` |
-| `pattern` | list | Glob pattern to filter results (e.g. `"*.go"`) |
-| `recursive` | list | Recurse into subdirectories |
-| `backup` | write, patch | Create a `.bak` copy before overwriting |
-| `dryRun` | write, patch, delete, mkdir, copy, move, append | Preview without modifying |
-| `mode` | write, mkdir | File mode (e.g. `"0644"`, `"0755"`) |
-| `appendNewline` | write, append | Ensure content ends with a trailing newline |
+## Output
 
-## Operation details
+Every result has `success` plus the operation's fields. A failing operation (missing file, patch that does not apply, missing required input) fails the resource with a `file: ...` error. Two operations report instead of failing: `delete` of a missing path returns `deleted: false, reason: not_found`, and `exists` returns `success: false` when the path is missing.
 
-## Read
+| Operation | Fields |
+|---|---|
+| `read` | `content`, `encoding`, `path`, `exists`, `size` (bytes), `lines` |
+| `write` | `path`, `size`, `written`, `mode`, `exists` (before the write), `backup`, `backupPath` |
+| `patch` | `path`, `patched`, `patchLines` |
+| `list` | `path`, `entries` (`name`, `path`, `isDir`, `size`, `mode`, `modTime`), `count` |
+| `delete` | `path`, `deleted` |
+| `exists` | `exists`, `path`, and when it exists `isDir`, `size`, `mode`, `modTime` |
+| `mkdir` | `path`, `created`, `mode` |
+| `copy` | `source`, `dest`, `copied` |
+| `move` | `source`, `dest`, `moved` |
+| `append` | `path`, `appended`, `size` |
 
-Reads a file and returns its content. By default returns UTF-8 text. Set `encoding: base64` for binary files.
+A dry run returns `dryRun: true` and the flag (`written`, `patched`, `deleted`, ...) as `false`.
 
-```yaml
-# resources/read.yaml
-file:
-  operation: read
-  path: /path/to/file.txt
-  encoding: text
-```
-
-**Output:**
 ```json
 {
   "success": true,
-  "content": "file contents...",
+  "content": "line1\nline2\n",
   "encoding": "text",
-  "path": "/path/to/file.txt",
+  "path": "notes.txt",
   "exists": true,
-  "size": 1234,
-  "lines": ["line1", "line2"]
+  "size": 12,
+  "lines": ["line1", "line2", ""]
 }
 ```
 
-## Write
-
-Writes content to a file. Creates parent directories automatically. Optionally creates a `.bak` backup if the file already exists.
-
-```yaml
-# resources/write.yaml
-file:
-  operation: write
-  path: /tmp/output.txt
-  content: "Hello, World!"
-  backup: true
-  mode: "0644"
-```
+`modTime` is ISO 8601 with the local offset, e.g. `2026-10-14T10:00:00+02:00`.
 
 ## Patch
 
-Applies a [unified diff](https://en.wikipedia.org/wiki/Diff#Unified_format) to a file. Supports standard `@@ -N,M +N,M @@` hunk headers, context lines, additions, and removals.
+`patch` applies a unified diff: `@@ -N,M +N,M @@` hunk headers, context lines (` `), removals (`-`), additions (`+`). A context or removed line that does not match the file fails the resource and leaves the file unchanged.
+
+<div v-pre>
 
 ```yaml
-# resources/patch.yaml
-file:
-  operation: patch
-  path: /path/to/file.txt
-  patch: |
-    @@ -1,3 +1,3 @@
-     line1
-    -line2
-    +modified2
-     line3
-  backup: true
-  dryRun: false
+# resources/fix.yaml
+actionId: applyFix
+name: Apply the fix
+requires: [suggestFix]
+component:
+  name: file
+  with:
+    operation: patch
+    path: main.go
+    patch: "{{ output('suggestFix').patch }}"   # the diff an LLM step produced
+    backup: true                                # main.go.bak keeps the original
+    dryRun: false                               # true: check the patch applies, write nothing
 ```
 
-**Tip:** Use `dryRun: true` to verify the patch applies cleanly before modifying the file.
+</div>
 
 ## List
 
-Lists entries in a directory, or returns single-file info. Supports glob filtering and recursive traversal.
-
 ```yaml
 # resources/list.yaml
-file:
-  operation: list
-  path: /path/to/dir
-  pattern: "*.go"
-  recursive: false
+actionId: goFiles
+name: List Go files
+component:
+  name: file
+  with:
+    operation: list
+    path: src
+    pattern: "*.go"            # matched against entry names, not full paths
+    recursive: true            # entries from every subdirectory, sorted by path
 ```
 
-## Delete
+Listing a file (not a directory) returns one entry for it.
 
-Removes a file or directory. Returns success (not an error) if the path does not exist.
+## Errors
 
-```yaml
-# resources/delete.yaml
-file:
-  operation: delete
-  path: /path/to/file.txt
-  dryRun: false
-```
+| Error | Cause |
+|---|---|
+| `file: path is required for read operation` (and the other operations) | `path` is empty |
+| `file: source is required for copy operation` | `source` is empty for copy or move |
+| `file: patch failed: patch context mismatch: ...` | The diff does not match the file |
+| `file: cannot access path: ...` | `list` on a path that does not exist |
+| `file: source does not exist: ...` | `move` from a missing path |
+| `file: unsupported operation 'x'` | `operation` is not one of the ten |
 
-## Exists
+## How it is built
 
-Checks whether a path exists and returns metadata if it does.
-
-```yaml
-# resources/exists.yaml
-file:
-  operation: exists
-  path: /path/to/file.txt
-```
-
-**Output:**
-```json
-{
-  "success": true,
-  "exists": true,
-  "path": "/path/to/file.txt",
-  "isDir": false,
-  "size": 1234,
-  "mode": "-rw-r--r--",
-  "modTime": "2026-06-13 10:00:00 +0000 UTC"
-}
-```
-
-## Mkdir
-
-Creates a directory, including all parent directories. Succeeds silently if the directory already exists.
-
-```yaml
-# resources/mkdir.yaml
-file:
-  operation: mkdir
-  path: /tmp/nested/dir/structure
-  mode: "0755"
-```
-
-## Copy
-
-Copies a file or directory to a destination path. Directories are copied recursively.
-
-```yaml
-# resources/copy.yaml
-file:
-  operation: copy
-  source: /path/to/source.txt
-  path: /path/to/dest.txt
-```
-
-## Move
-
-Moves or renames a file or directory. Works across filesystems on supported platforms.
-
-```yaml
-# resources/move.yaml
-file:
-  operation: move
-  source: /path/to/source.txt
-  path: /path/to/dest.txt
-```
-
-## Append
-
-Appends content to the end of a file, creating it if it does not exist.
-
-```yaml
-# resources/append.yaml
-file:
-  operation: append
-  path: /tmp/log.txt
-  content: "new log entry"
-  appendNewline: true
-```
-
-## Coding agent example
-
-The `file:` resource is designed for coding agent workflows. A typical edit cycle:
-
-```yaml
-# resources/coding-agent.yaml
-# Step 1: Read the file
-- actionId: readFile
-  name: Read source
-  file:
-    operation: read
-    path: /project/main.go
-
-# Step 2: LLM generates a fix
-- actionId: analyzeCode
-  name: Analyze and suggest fix
-  requires: [readFile]
-  chat:
-    model: claude-sonnet-4-6
-    prompt: "Review this code and suggest a fix: {{ get('readFile').content }}"
-
-# Step 3: Apply the fix as a patch
-- actionId: applyFix
-  name: Apply the fix
-  requires: [analyzeCode]
-  file:
-    operation: patch
-    path: /project/main.go
-    patch: "{{ get('analyzeCode').patch }}"
-    backup: true
-```
-
-## Expressions with file output
-
-The `file:` resource output is a map, so you access fields by key:
-
-```yaml
-# Access read content
-- set('content', get('readFile').content)
-- set('fileSize', get('readFile').size)
-- set('lineCount', len(get('readFile').lines))
-
-# Check operation result
-- set('writeSucceeded', get('writeFile').success)
-- set('wasDryRun', get('writeFile').dryRun)
-```
-
-## Dry run mode
-
-Every mutating operation (`write`, `patch`, `delete`, `mkdir`, `copy`, `move`, `append`) supports `dryRun: true` to preview what would happen without modifying the filesystem. Use it for safety checks before applying changes:
-
-```yaml
-# resources/dry-run-example.yaml
-file:
-  operation: write
-  path: /sensitive/file.txt
-  content: "new content"
-  dryRun: true
-  # Output: { "success": true, "dryRun": true, "written": false }
-```
-
-## Backup safety
-
-Enable `backup: true` on `write` and `patch` operations to automatically create a `.bak` copy before overwriting:
-
-```yaml
-# resources/backup-example.yaml
-file:
-  operation: write
-  path: /config/settings.yaml
-  content: "new: config"
-  backup: true
-```
-
-If `/config/settings.yaml` exists, the original is saved to `/config/settings.yaml.bak` before the write.
-
-## Best practices
-
-1. **Use `file:` instead of `exec cat`/`exec sed`** - structured output, error handling, and DAG composability
-2. **Enable backups** on critical files (`backup: true`)
-3. **Dry-run before destructive operations** to verify paths and content
-4. **Use `patch` for surgical edits** instead of rewriting entire files
-5. **Check `exists` before delete** or rely on the idempotent delete behavior
-6. **Handle the `success` field** in downstream resources to detect failures
+One python resource whose script does each operation with Python's standard library (`shutil`, `os`, `fnmatch`) and prints the result as JSON. Copy `components/file/` into your project to add an operation or change a result.
 
 ## See also
 
-- [Exec resource](/workflow/resources/exec) - shell commands (use for CLI tools that lack a native resource)
+- [Exec resource](/workflow/resources/exec) - shell commands
 - [Python resource](/workflow/resources/python) - complex data processing
 - [Git component](/workflow/resources/git) - version control operations
 - [Code intelligence resource](/workflow/resources/code-navigation) - code navigation and search
-- [Workflow configuration](/workflow/configuration)

@@ -22,7 +22,7 @@ mode and agent mode.
 | `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/workflow/resources/exec) |
 | expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/workflow/expressions) |
 | `file()` | An expression function that reads uploaded or local files. Takes a glob pattern and an optional selector (`first`, `last`, `count`, `all`, `mime:<type>`). | [Unified API](/workflow/data-access) |
-| `file` (resource) | A resource action type for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/workflow/resources/file) |
+| `file` | A kdeps component (`component: file`) for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/workflow/resources/file) |
 | `get()` | The primary data access function. Reads from query params, headers, body, session, memory, environment, or resource outputs, with auto-detection. | [Unified API](/workflow/data-access) |
 | `git` | A kdeps component (`component: git`) for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
 | `httpClient` | A resource action type for HTTP requests. Supports all methods, headers, query params, body, retry, and caching. | [HTTP client](/workflow/resources/http-client) |

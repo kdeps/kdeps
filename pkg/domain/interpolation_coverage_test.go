@@ -47,7 +47,7 @@ func excluded(reason string) interpolationFieldStatus {
 // interpolationManifest is the hard list: one entry per resource action
 // config struct fixed for interpolation coverage in this pass (see
 // pkg/executor/{scraper,embedding,loader,vectorstore,searchlocal,searchweb,
-// codeintelligence,file}/executor_eval.go), naming every
+// codeintelligence}/executor_eval.go), naming every
 // string/[]string field and classifying it interpolatable or excluded.
 //
 // TestInterpolationManifest_MatchesStructFields below reflects over each
@@ -124,17 +124,6 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Extensions":  interpolatable(),
 		"GraphDBPath": interpolatable(),
 	},
-
-	"FileResourceConfig": {
-		"Operation": interpolatable(), // named type FileResourceOperation, cast to/from string
-		"Path":      interpolatable(),
-		"Source":    interpolatable(),
-		"Content":   interpolatable(),
-		"Patch":     interpolatable(),
-		"Encoding":  interpolatable(),
-		"Pattern":   interpolatable(),
-		"Mode":      interpolatable(),
-	},
 }
 
 // interpolationCoveredTypes lists the Go values whose struct fields are
@@ -150,7 +139,6 @@ func interpolationCoveredTypes() map[string]any {
 		"VectorStoreDocument":    VectorStoreDocument{},
 		"SearchLocalConfig":      SearchLocalConfig{},
 		"CodeIntelligenceConfig": CodeIntelligenceConfig{},
-		"FileResourceConfig":     FileResourceConfig{},
 	}
 }
 
