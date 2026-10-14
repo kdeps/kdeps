@@ -70,18 +70,6 @@ func TestApplyLLMMetadataToResponse_ExistingMeta(t *testing.T) {
 	assert.Equal(t, "m", meta["model"])
 }
 
-func TestExecuteSingleInlineResource_Browser(t *testing.T) {
-	e := covTestEngine()
-	reg := NewRegistry()
-	reg.SetBrowserExecutor(&covMockExecutor{result: "browser"})
-	e.SetRegistry(reg)
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeSingleInlineResource(domain.InlineResource{
-		Browser: &domain.BrowserConfig{},
-	}, 0, ctx)
-	require.NoError(t, err)
-}
-
 func TestApplyLLMMetadataToResponse_EmptyFields(t *testing.T) {
 	resp := map[string]interface{}{"success": true}
 	ctx := &ExecutionContext{LLMMetadata: &LLMMetadata{}}

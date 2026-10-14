@@ -44,9 +44,6 @@ func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorSearchLocal)
 }
 
-func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
-func (r *Registry) GetBrowserExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBrowser) }
-
 func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorCodeIntel, exec)
 }

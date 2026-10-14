@@ -35,7 +35,6 @@ type ActionConfig struct {
 	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
 	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
 	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
-	Browser          *BrowserConfig          `yaml:"browser,omitempty"`
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`

@@ -108,7 +108,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 |---|---|---|
 | `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
-| `browser` | Playwright browser - navigation, forms, JS, screenshots | [Browser](/workflow/resources/browser) |
+| `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | [Browser](/workflow/resources/browser) |
 | `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
 | `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | [searchWeb](/workflow/resources/search-web) |
 
@@ -141,7 +141,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 ## Registry components (installable via `kdeps registry install`)
 
-Some install names (`browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
+Some install names (`embedding`) also exist as native YAML keys; the registry component is a separate package. An installed `browser` registry component takes the place of the shipped `browser` component.
 
 | Install name | Description |
 |-------------|-------------|

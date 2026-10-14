@@ -979,11 +979,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			executor.ExecutorSearchLocal,
 		},
 		{
-			"browser",
-			&domain.Resource{Browser: &domain.BrowserConfig{}},
-			executor.ExecutorBrowser,
-		},
-		{
 			"component",
 			&domain.Resource{Component: &domain.ComponentCallConfig{}},
 			"component",

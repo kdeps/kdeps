@@ -52,7 +52,7 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
-7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [email](/workflow/resources/email), [scraper](/workflow/resources/scraper), [searchWeb](/workflow/resources/search-web)); one is loaded only when a workflow calls it and does not provide a component of that name itself
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [email](/workflow/resources/email), [browser](/workflow/resources/browser), [twiml](/workflow/resources/telephony), [scraper](/workflow/resources/scraper), [searchWeb](/workflow/resources/search-web)); one is loaded only when a workflow calls it and does not provide a component of that name itself
 
 A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs, and `validations.check` fails the call with its `error.message` when a condition is false:
 

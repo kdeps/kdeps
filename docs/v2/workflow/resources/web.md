@@ -8,7 +8,7 @@ Works in workflow and agent mode.
 | :--- | :--- | :--- |
 | `httpClient:` | Call a JSON API, webhook, or REST endpoint | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Get the readable text of a static page | [Scraper](/workflow/resources/scraper) |
-| `browser:` | A page that needs JavaScript, a login, or form interaction | [Browser](/workflow/resources/browser) |
+| `component: browser` | A page that needs JavaScript, a login, or form interaction | [Browser](/workflow/resources/browser) |
 
 ## Which one
 
@@ -16,7 +16,7 @@ Works in workflow and agent mode.
 - **Text from a page** - the `scraper` component. No browser, optional CSS
   selector.
 - **The page only works with JavaScript, or you need to click and type** -
-  `browser:`. Real Chromium/Firefox/WebKit via Playwright.
+  the `browser` component. Real Chromium/Firefox/WebKit via Playwright.
 
 ## See also
 

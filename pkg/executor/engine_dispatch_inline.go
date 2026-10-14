@@ -124,9 +124,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorSearchLocal: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineSearchLocal(inline.SearchLocal, ctx)
 		},
-		ExecutorBrowser: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineBrowser(inline.Browser, ctx)
-		},
 		ExecutorCodeIntel: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
 		},
