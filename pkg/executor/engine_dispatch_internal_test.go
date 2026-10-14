@@ -19,7 +19,6 @@
 package executor
 
 import (
-	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -45,73 +44,6 @@ func newTestEngine() *Engine {
 		panic("NewEngine returned nil")
 	}
 	return e
-}
-
-func TestExecuteEmail_Success(t *testing.T) {
-	e := newTestEngine()
-	reg := NewRegistry()
-	mock := &dispatchMockExecutor{
-		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
-			cfg, ok := config.(*domain.EmailConfig)
-			assert.True(t, ok)
-			assert.NotNil(t, cfg)
-			return "email sent", nil
-		},
-	}
-	reg.SetEmailExecutor(mock)
-	e.SetRegistry(reg)
-
-	resource := &domain.Resource{ActionID: "test-email", Email: &domain.EmailConfig{}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	result, err := e.executeEmail(resource, ctx)
-	require.NoError(t, err)
-	assert.Equal(t, "email sent", result)
-}
-
-func TestExecuteEmail_NilConfig(t *testing.T) {
-	e := newTestEngine()
-	reg := NewRegistry()
-	reg.SetEmailExecutor(&dispatchMockExecutor{
-		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
-			return nil, nil
-		},
-	})
-	e.SetRegistry(reg)
-
-	resource := &domain.Resource{ActionID: "test-email", Email: nil}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeEmail(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no email configuration")
-}
-
-func TestExecuteEmail_NoExecutor(t *testing.T) {
-	e := newTestEngine()
-	e.SetRegistry(NewRegistry())
-
-	resource := &domain.Resource{ActionID: "test-email", Email: &domain.EmailConfig{}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeEmail(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "email executor not available")
-}
-
-func TestExecuteEmail_ExecutorError(t *testing.T) {
-	e := newTestEngine()
-	reg := NewRegistry()
-	mock := &dispatchMockExecutor{
-		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
-			return nil, errors.New("SMTP connection refused")
-		},
-	}
-	reg.SetEmailExecutor(mock)
-	e.SetRegistry(reg)
-
-	resource := &domain.Resource{ActionID: "test-email", Email: &domain.EmailConfig{}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeEmail(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "SMTP connection refused")
 }
 
 func TestExecuteBrowser_Success(t *testing.T) {

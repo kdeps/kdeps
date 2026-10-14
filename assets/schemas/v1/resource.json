@@ -615,6 +615,13 @@
         "venvName": {
           "type": "string",
           "description": "Custom virtual environment name for Python environment isolation"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables for the script (values are expressions); use for secrets instead of args"
         }
       }
     },

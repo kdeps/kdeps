@@ -1368,20 +1368,6 @@ func TestWorkflowValidator_ValidateResource_BrowserExecType(t *testing.T) {
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_EmailExecType tests Email execution type.
-func TestWorkflowValidator_ValidateResource_EmailExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "email-test",
-		Name:     "Email Test",
-		Email:    &domain.EmailConfig{},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Email execution type: %v", err)
-	}
-}
-
 func TestWorkflowValidator_ValidateResource_EmbeddingExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{

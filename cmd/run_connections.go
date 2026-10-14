@@ -319,14 +319,14 @@ func (c *connCollector) scanList(resources []*domain.Resource) {
 		if res == nil {
 			continue
 		}
-		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.Email, res.Component)
+		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.Component)
 		for i := range res.Before {
 			a := res.Before[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Component)
 		}
 		for i := range res.After {
 			a := res.After[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Component)
 		}
 	}
 }
@@ -354,7 +354,6 @@ func (c *connCollector) scanAction(
 	chat *domain.ChatConfig,
 	http *domain.HTTPClientConfig,
 	sql *domain.SQLConfig,
-	email *domain.EmailConfig,
 	component *domain.ComponentCallConfig,
 ) {
 	if chat != nil {
@@ -365,10 +364,6 @@ func (c *connCollector) scanAction(
 	}
 	if sql != nil {
 		c.add(config.ConnKindSQL, sql.ConnectionName)
-	}
-	if email != nil {
-		c.add(config.ConnKindSMTP, email.SMTPConnection)
-		c.add(config.ConnKindIMAP, email.IMAPConnection)
 	}
 	if component != nil {
 		c.used[component.Name] = true

@@ -385,7 +385,7 @@ agents:
 Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They are used in three places:
 
 - **Git commits.** In agent mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
-- **Outbound email.** An [`email:` resource](/workflow/resources/email) with no `from:` set defaults to `identity.email`.
+- **Outbound email.** The [`email` component](/workflow/resources/email) with no `from` input defaults to `identity.email`.
 - **`identity_get` tool.** Agent mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
 
 `accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.

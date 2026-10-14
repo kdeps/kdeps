@@ -52,9 +52,6 @@ func (r *Registry) GetTelephonyExecutor() ResourceExecutor { return r.getExecuto
 func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
 func (r *Registry) GetBrowserExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBrowser) }
 
-func (r *Registry) SetEmailExecutor(exec ResourceExecutor) { r.Register(ExecutorEmail, exec) }
-func (r *Registry) GetEmailExecutor() ResourceExecutor     { return r.getExecutor(ExecutorEmail) }
-
 func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorCodeIntel, exec)
 }

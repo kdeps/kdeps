@@ -18,7 +18,7 @@ metadata:
 interface:
   inputs:
     - name: message            # Required: input parameter name
-      type: string             # Required: string, integer, number, boolean
+      type: string             # Required: string, integer, number, boolean, array, object
       required: true           # Optional (default: false)
       description: "Message to greet with"
       default: "Hello"         # Optional: default value if not required
@@ -43,7 +43,7 @@ resources:
 | `setup.commands` | `[]string` | no | Shell commands run after package installs |
 | `teardown.commands` | `[]string` | no | Shell commands run after every component invocation |
 | `interface.inputs[].name` | string | yes | Input parameter name |
-| `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean` |
+| `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean`, `array`, `object`. A `with:` list or map reaches the component as a list or map (strings inside are interpolated); other values arrive as strings |
 | `interface.inputs[].required` | bool | no | Whether input is required (default: false) |
 | `interface.inputs[].description` | string | no | Human-readable description |
 | `interface.inputs[].default` | any | no | Default value (only meaningful when required=false) |

@@ -1,0 +1,404 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: email
+  description: Send email over SMTP and read, search, modify, list or delete IMAP mailboxes
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: action
+      type: string
+      default: send
+      description: send, read, search, modify, list or delete
+    - name: smtpConnection
+      type: string
+      default: ""
+      connection: smtp
+      description: Name under smtp_connections in ~/.kdeps/config.yaml (send)
+    - name: imapConnection
+      type: string
+      default: ""
+      connection: imap
+      description: Name under imap_connections in ~/.kdeps/config.yaml (read, search, modify, list, delete)
+    - name: from
+      type: string
+      default: ""
+      description: Sender address (send); defaults to identity.email in ~/.kdeps/config.yaml
+    - name: to
+      type: array
+      default: []
+      description: Recipients (send); a list, or one comma-separated string
+    - name: cc
+      type: array
+      default: []
+      description: Cc recipients (send)
+    - name: bcc
+      type: array
+      default: []
+      description: Bcc recipients (send); not written to the headers
+    - name: subject
+      type: string
+      default: ""
+      description: Subject (send)
+    - name: body
+      type: string
+      default: ""
+      description: Message body (send)
+    - name: html
+      type: boolean
+      default: false
+      description: Send the body as text/html
+    - name: attachments
+      type: array
+      default: []
+      description: File paths to attach (send); relative paths resolve against the workflow directory
+    - name: mailbox
+      type: string
+      default: ""
+      description: Mailbox (default INBOX); required for delete
+    - name: limit
+      type: integer
+      default: 10
+      description: Messages to return at most (read, search)
+    - name: markRead
+      type: boolean
+      default: false
+      description: Mark returned messages as seen (read, search)
+    - name: uids
+      type: array
+      default: []
+      description: Message UIDs to modify; empty means every message the search criteria match
+    - name: search
+      type: object
+      default: {}
+      description: "Criteria for search and modify: from, subject, body, since, before (YYYY-MM-DD), unseen"
+    - name: modify
+      type: object
+      default: {}
+      description: "Changes for modify: markSeen, markFlagged, markDeleted (true/false), moveTo, expunge"
+    - name: timeout
+      type: string
+      default: 30s
+      description: Connection timeout as a duration
+resources:
+  - actionId: emailOperation
+    name: Email
+    python:
+      timeout: 300s
+      env:
+        # Connection details (with passwords) go through env, never argv.
+        KDEPS_EMAIL_SMTP: "{{ get('email.smtpConnection') == '' ? '' : json(get('config.smtp_connections.' + get('email.smtpConnection'), '')) }}"
+        KDEPS_EMAIL_IMAP: "{{ get('email.imapConnection') == '' ? '' : json(get('config.imap_connections.' + get('email.imapConnection'), '')) }}"
+        KDEPS_EMAIL_IDENTITY: "{{ get('config.identity.email', '') }}"
+      args:
+        - "{{ get('email.action') }}"
+        - "{{ get('email.smtpConnection') }}"
+        - "{{ get('email.imapConnection') }}"
+        - "{{ get('email.from') }}"
+        - "{{ json(get('email.to')) }}"
+        - "{{ json(get('email.cc')) }}"
+        - "{{ json(get('email.bcc')) }}"
+        - "{{ get('email.subject') }}"
+        - "{{ get('email.body') }}"
+        - "{{ get('email.html') }}"
+        - "{{ json(get('email.attachments')) }}"
+        - "{{ get('email.mailbox') }}"
+        - "{{ get('email.limit') }}"
+        - "{{ get('email.markRead') }}"
+        - "{{ json(get('email.uids')) }}"
+        - "{{ json(get('email.search')) }}"
+        - "{{ json(get('email.modify')) }}"
+        - "{{ get('email.timeout') }}"
+      script: |
+        # Runs one email action and prints its structured result as JSON.
+        import base64, datetime, email, email.header, email.utils, imaplib, json, mimetypes
+        import os, re, smtplib, ssl, sys
+        from email.message import EmailMessage
+
+        (action, smtp_name, imap_name, sender, to, cc, bcc, subject, body, html, attachments,
+         mailbox, limit, mark_read, uids, search, modify, timeout) = sys.argv[1:19]
+        action = (action or "send").strip()
+        html, mark_read = html.lower() == "true", mark_read.lower() == "true"
+
+        def done(**fields):
+            print(json.dumps(dict(fields, success=True)))
+            sys.exit(0)
+
+        def fail(msg):
+            sys.exit("email: " + msg)
+
+        def addresses(raw):
+            v = json.loads(raw or "null")
+            if isinstance(v, str):
+                v = v.split(",")
+            return [str(a).strip() for a in (v or []) if str(a).strip()]
+
+        def obj(raw):
+            v = json.loads(raw or "null")
+            return v if isinstance(v, dict) else {}
+
+        def seconds(d):
+            m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)(ms|s|m|h)?\s*", d or "")
+            if not m:
+                return 30.0
+            return float(m.group(1)) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600, None: 1}[m.group(2)]
+
+        def connection(kind, name, env):
+            if not name:
+                fail("%sConnection is required for %s - define a named connection in "
+                     "~/.kdeps/config.yaml %s_connections" % (kind, action, kind))
+            raw = os.environ.get(env, "")
+            loaded = json.loads(raw) if raw else {}
+            conn = {k.lower(): v for k, v in loaded.items()} if isinstance(loaded, dict) else {}
+            if not conn.get("host"):
+                fail("%sConnection %r not found in ~/.kdeps/config.yaml %s_connections" % (kind, name, kind))
+            return conn
+
+        def context(conn):
+            ctx = ssl.create_default_context()
+            if conn.get("insecureskipverify"):
+                ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+            return ctx
+
+        wait = seconds(timeout)
+
+        if action == "send":
+            conn = connection("smtp", smtp_name, "KDEPS_EMAIL_SMTP")
+            sender = sender or os.environ.get("KDEPS_EMAIL_IDENTITY", "")
+            to, cc, bcc = addresses(to), addresses(cc), addresses(bcc)
+            files = [p for p in addresses(attachments)]
+            if not sender:
+                fail("from is required for send")
+            if not to:
+                fail("at least one recipient in 'to' is required")
+            if not subject:
+                fail("subject is required for send")
+            for field, value in [("From", sender), ("Subject", subject)] + [("To", a) for a in to + cc + bcc]:
+                if "\r" in value or "\n" in value:
+                    fail("header %s contains CR or LF (header injection)" % field)
+            msg = EmailMessage()
+            msg["From"], msg["To"], msg["Subject"] = sender, ", ".join(to), subject
+            if cc:
+                msg["Cc"] = ", ".join(cc)
+            msg.set_content(body, subtype="html" if html else "plain")
+            for path in files:
+                try:
+                    with open(path, "rb") as f:
+                        data = f.read()
+                except OSError as e:
+                    fail("read attachment %r: %s" % (path, e))
+                kind = (mimetypes.guess_type(path)[0] or "application/octet-stream").split("/", 1)
+                msg.add_attachment(data, maintype=kind[0], subtype=kind[1], filename=os.path.basename(path))
+            port = int(conn.get("port") or (465 if conn.get("tls") else 587))
+            try:
+                if conn.get("tls"):
+                    server = smtplib.SMTP_SSL(conn["host"], port, timeout=wait, context=context(conn))
+                else:
+                    server = smtplib.SMTP(conn["host"], port, timeout=wait)
+                    server.ehlo()
+                    if server.has_extn("starttls"):
+                        server.starttls(context=context(conn))
+                        server.ehlo()
+                with server:
+                    if conn.get("username"):
+                        server.login(conn["username"], conn.get("password") or "")
+                    server.send_message(msg, from_addr=sender, to_addrs=to + cc + bcc)
+            except (OSError, smtplib.SMTPException) as e:
+                fail("send: %s" % e)
+            done(action="send", **{"from": sender}, to=to, cc=cc, subject=subject, attachments=len(files))
+
+        if action not in ("read", "search", "modify", "list", "delete"):
+            fail("unknown action %r (must be send, read, search, modify, list, or delete)" % action)
+
+        conn = connection("imap", imap_name, "KDEPS_EMAIL_IMAP")
+        port = int(conn.get("port") or (993 if conn.get("tls") else 143))
+        try:
+            if conn.get("tls"):
+                imap = imaplib.IMAP4_SSL(conn["host"], port, ssl_context=context(conn), timeout=wait)
+            else:
+                imap = imaplib.IMAP4(conn["host"], port, timeout=wait)
+            if conn.get("username"):
+                imap.login(conn["username"], conn.get("password") or "")
+        except (OSError, imaplib.IMAP4.error) as e:
+            fail("imap connect %s:%d: %s" % (conn["host"], port, e))
+
+        def check(typ, data, what):
+            if typ != "OK":
+                raise imaplib.IMAP4.error("%s: %s" % (what, b" ".join(d for d in data if isinstance(d, bytes)).decode(errors="replace")))
+            return data
+
+        def quote(name):
+            return '"%s"' % name.replace("\\", "\\\\").replace('"', '\\"')
+
+        def folders():
+            out = []
+            for line in check(*imap.list(), "list"):
+                if not isinstance(line, bytes):
+                    continue
+                m = re.match(rb'\((?P<flags>[^)]*)\) (?:"[^"]*"|NIL) (?P<name>.+)$', line)
+                if not m or b"\\noselect" in m.group("flags").lower():
+                    continue
+                name = m.group("name").decode(errors="replace")
+                out.append(name[1:-1].replace('\\"', '"').replace("\\\\", "\\") if name.startswith('"') else name)
+            return out
+
+        def criteria(s):
+            c = []
+            def date(v):
+                for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ"):
+                    try:
+                        return datetime.datetime.strptime(v, fmt).strftime("%d-%b-%Y")
+                    except ValueError:
+                        pass
+                return None
+            for key, imap_key in (("from", "FROM"), ("subject", "SUBJECT"), ("body", "BODY")):
+                if s.get(key):
+                    c += [imap_key, quote(str(s[key]))]
+            if s.get("unseen"):
+                c.append("UNSEEN")
+            if s.get("flagged"):
+                c.append("FLAGGED")
+            for key, imap_key in (("since", "SINCE"), ("before", "BEFORE")):
+                if s.get(key) and date(str(s[key])):
+                    c += [imap_key, date(str(s[key]))]
+            return c or ["ALL"]
+
+        def text(v):
+            return str(email.header.make_header(email.header.decode_header(v or ""))) if v else ""
+
+        def unsubscribe(headers, m):
+            lu = headers.get("List-Unsubscribe")
+            if not lu:
+                return
+            m["listUnsubscribe"] = str(lu)
+            for entry in [e.strip().strip("<>").strip() for e in str(lu).split(",")]:
+                if entry.lower().startswith("http") and "unsubscribeUrl" not in m:
+                    m["unsubscribeUrl"] = entry
+                elif entry.lower().startswith("mailto:") and "unsubscribeMailto" not in m:
+                    m["unsubscribeMailto"] = entry
+            if "one-click" in str(headers.get("List-Unsubscribe-Post", "")).lower():
+                m["unsubscribeOneClick"] = True
+
+        def fetch(uid_list):
+            if not uid_list:
+                return []
+            data = check(*imap.uid("FETCH", ",".join(uid_list), "(UID FLAGS BODY.PEEK[HEADER] BODY.PEEK[TEXT])"), "fetch")
+            # A response is "<seq> (" ... tuples (meta, literal) ... closing bytes; group by message.
+            entries = []
+            for item in data:
+                meta = (item[0] if isinstance(item, tuple) else item or b"").decode(errors="replace")
+                if re.match(r"\d+ \(", meta):
+                    entries.append({"meta": "", "header": b"", "text": b""})
+                if not entries:
+                    continue
+                e = entries[-1]
+                e["meta"] += meta
+                if isinstance(item, tuple):
+                    section = re.search(r"BODY\[(HEADER|TEXT)\][^{]*\{\d+\}$", meta)
+                    if section:
+                        e["header" if section.group(1) == "HEADER" else "text"] = item[1]
+            msgs = []
+            for e in entries:
+                uid = re.search(r"UID (\d+)", e["meta"])
+                if not uid:
+                    continue
+                h = email.message_from_bytes(e["header"])
+                m = {"uid": int(uid.group(1)), "seen": "\\Seen" in e["meta"]}
+                for field, name in (("messageId", "Message-ID"), ("from", "From"), ("to", "To"), ("subject", "Subject")):
+                    if h.get(name):
+                        m[field] = text(h.get(name)).strip()
+                if h.get("Date"):
+                    try:
+                        m["date"] = email.utils.parsedate_to_datetime(h.get("Date")).astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    except (TypeError, ValueError):
+                        pass
+                body_text = e["text"].decode(errors="replace").strip()
+                if body_text:
+                    m["body"] = body_text
+                unsubscribe(h, m)
+                msgs.append(m)
+            msgs.sort(key=lambda m: m["uid"])
+            if mark_read:
+                for m in msgs:
+                    if not m["seen"]:
+                        imap.uid("STORE", str(m["uid"]), "+FLAGS.SILENT", "(\\Seen)")
+            return msgs
+
+        def nonexistent(data):
+            return any(isinstance(d, bytes) and b"NONEXISTENT" in d.upper() for d in data)
+
+        try:
+            box = mailbox.strip() or "INBOX"
+            n = int(limit) if str(limit).lstrip("-").isdigit() and int(limit) > 0 else 10
+            if action == "list":
+                names = folders()
+                done(action="list", count=len(names), folders=names)
+            if action == "delete":
+                if not mailbox.strip():
+                    fail("delete: mailbox is required")
+                if box.upper() == "INBOX" or box.startswith("[Gmail]"):
+                    fail("delete: refusing to delete protected mailbox %r" % box)
+                typ, data = imap.delete(quote(box))
+                if typ != "OK" and not nonexistent(data):
+                    check(typ, data, "delete %r" % box)
+                done(action="delete", mailbox=box)
+            if action in ("read", "search"):
+                typ, data = imap.select(quote(box), readonly=not mark_read)
+                count = int(check(typ, data, "select %r" % box)[0] or 0)
+                if count == 0:
+                    done(action=action, mailbox=box, count=0, messages=[])
+                if action == "read":
+                    found = check(*imap.uid("SEARCH", None, "ALL"), "uid search")[0].split()
+                else:
+                    found = check(*imap.uid("SEARCH", None, *criteria(obj(search))), "uid search")[0].split()
+                found = [u.decode() for u in found][-n:]
+                msgs = fetch(found)
+                done(action=action, mailbox=box, count=len(msgs), messages=msgs)
+            # modify
+            typ, data = imap.select(quote(box))
+            if typ != "OK":
+                if nonexistent(data):
+                    done(action="modify", mailbox=box, count=0, uids=[])
+                check(typ, data, "select %r" % box)
+            explicit = [str(u).strip() for u in json.loads(uids or "[]") if str(u).strip()]
+            if explicit:
+                targets = [u for u in explicit if u.isdigit() and int(u) > 0]
+                if not targets:
+                    fail("modify: no valid UIDs resolved")
+            else:
+                targets = [u.decode() for u in check(*imap.uid("SEARCH", None, *criteria(obj(search))), "uid search")[0].split()]
+            if not targets:
+                done(action="modify", mailbox=box, count=0, uids=[])
+            changes, uid_set = obj(modify), ",".join(targets)
+            for key, flag in (("markSeen", "\\Seen"), ("markFlagged", "\\Flagged"), ("markDeleted", "\\Deleted")):
+                if key in changes and changes[key] is not None:
+                    imap.uid("STORE", uid_set, "+FLAGS.SILENT" if changes[key] else "-FLAGS.SILENT", "(%s)" % flag)
+            move_to = str(changes.get("moveTo") or "").strip()
+            if move_to:
+                def move(target):
+                    typ, _ = imap.uid("MOVE", uid_set, quote(target))
+                    if typ == "OK":
+                        return True
+                    typ, _ = imap.uid("COPY", uid_set, quote(target))
+                    if typ != "OK":
+                        return False
+                    imap.uid("STORE", uid_set, "+FLAGS.SILENT", "(\\Deleted)")
+                    imap.expunge()
+                    return True
+                if not move(move_to):
+                    existing = [f for f in folders() if f.lower() == move_to.lower()]
+                    target = existing[0] if existing else move_to
+                    if not existing:
+                        imap.create(quote(move_to))
+                    if not move(target):
+                        fail("modify: move to %r failed" % move_to)
+            elif changes.get("expunge"):
+                check(*imap.expunge(), "expunge")
+            done(action="modify", mailbox=box, count=len(targets), uids=[int(u) for u in targets])
+        except imaplib.IMAP4.error as e:
+            fail("%s: %s" % (action, e))
+        finally:
+            try:
+                imap.logout()
+            except Exception:
+                pass

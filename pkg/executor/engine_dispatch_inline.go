@@ -130,9 +130,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorBrowser: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineBrowser(inline.Browser, ctx)
 		},
-		ExecutorEmail: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeEmail(inlineSyntheticResource(inline, index), ctx)
-		},
 		ExecutorCodeIntel: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
 		},
@@ -175,7 +172,6 @@ func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.R
 	return &domain.Resource{
 		ActionID:    fmt.Sprintf("_inline_%d", index),
 		Component:   inline.Component,
-		Email:       inline.Email,
 		APIResponse: inline.APIResponse,
 	}
 }

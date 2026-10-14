@@ -71,6 +71,17 @@ func (e *Executor) resolveConfig(
 		resolvedConfig.Args = evaluatedArgs
 	}
 
+	if len(config.Env) > 0 {
+		resolvedConfig.Env = make(map[string]string, len(config.Env))
+		for k, v := range config.Env {
+			value, evalErr := e.EvaluateStringOrLiteral(evaluator, ctx, v)
+			if evalErr != nil {
+				return nil, fmt.Errorf("failed to evaluate env %s: %w", k, evalErr)
+			}
+			resolvedConfig.Env[k] = value
+		}
+	}
+
 	return &resolvedConfig, nil
 }
 

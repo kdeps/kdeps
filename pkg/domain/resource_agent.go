@@ -36,15 +36,3 @@ type AgentCallConfig struct {
 	// The target agent accesses them via get('key').
 	Params map[string]interface{} `yaml:"params,omitempty"`
 }
-
-// EmailAction identifies the operation performed by an email resource.
-type EmailAction = string
-
-const (
-	EmailActionSend   EmailAction = "send"
-	EmailActionRead   EmailAction = "read"
-	EmailActionSearch EmailAction = "search"
-	EmailActionModify EmailAction = "modify"
-	EmailActionList   EmailAction = "list"
-	EmailActionDelete EmailAction = "delete"
-)

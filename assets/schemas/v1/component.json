@@ -48,7 +48,7 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["string", "integer", "number", "boolean"]
+                "enum": ["string", "integer", "number", "boolean", "array", "object"]
               },
               "required": {
                 "type": "boolean"

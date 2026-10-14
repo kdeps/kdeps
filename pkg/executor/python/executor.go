@@ -137,6 +137,7 @@ func (e *Executor) Execute(
 		scriptContent,
 		scriptFile,
 		resolvedConfig.Args,
+		resolvedConfig.Env,
 		e.parseTimeout(resolvedConfig),
 		maxOutputBytesFromEnv(),
 	)
