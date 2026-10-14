@@ -120,7 +120,10 @@ resources:
             from urllib.parse import urlparse, unquote, parse_qs
             if kind == "sqlite":
                 import sqlite3
-                path = re.sub(r"^(sqlite3://|sqlite://|file://|file:)", "", dsn, flags=re.I)
+                if lower.startswith("file:") and not lower.startswith("file://"):
+                    # An SQLite URI (file::memory:?cache=shared, file:app.db?mode=ro).
+                    return sqlite3.connect(dsn, timeout=wait, uri=True)
+                path = re.sub(r"^(sqlite3://|sqlite://|file://)", "", dsn, flags=re.I)
                 return sqlite3.connect(path, timeout=wait)
             if kind == "postgres":
                 psycopg = module("psycopg", "psycopg[binary]")

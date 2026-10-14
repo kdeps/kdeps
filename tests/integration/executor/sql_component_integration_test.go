@@ -41,7 +41,8 @@ func TestSQLComponent_SQLite(t *testing.T) {
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(
 		t,
-		os.WriteFile(cfgPath, []byte("sql_connections:\n  main:\n    connection: \"sqlite://"+db+"\"\n"), 0o600),
+		os.WriteFile(cfgPath, []byte("sql_connections:\n  main:\n    connection: \"sqlite://"+db+
+			"\"\n  mem:\n    connection: \"file::memory:?cache=shared\"\n"), 0o600),
 	)
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
 	call := func(with string) (interface{}, error) {
@@ -87,7 +88,11 @@ func TestSQLComponent_SQLite(t *testing.T) {
 	asCSV := run("    query: \"SELECT id, name FROM users WHERE id < 3 ORDER BY id\"\n    format: csv\n")
 	assert.Equal(t, "id,name\n1,ann\n2,bob\n", asCSV)
 
-	_, err := call("    query: \"SELECT * FROM missing\"\n")
+	mem, err := runComponentValue(t, "sql", "    connectionName: mem\n    query: \"SELECT 1 AS one\"\n")
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, mem.(map[string]interface{})["one"], "file: URIs are SQLite URIs, not file names")
+
+	_, err = call("    query: \"SELECT * FROM missing\"\n")
 	require.ErrorContains(t, err, "query execution failed")
 	_, err = runComponentValue(t, "sql", "    connectionName: nope\n    query: SELECT 1\n")
 	require.ErrorContains(t, err, "sql connection 'nope' not found")
