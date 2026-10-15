@@ -23,13 +23,17 @@ printf 'module example.com/app\n\ngo 1.26\n' > "$KN_REPO/go.mod"
 printf 'package main\n\nimport _ "example.com/app/store"\n\nfunc main() {}\n' > "$KN_REPO/main.go"
 printf 'package store\n' > "$KN_REPO/store/store.go"
 
-# kn runs kdeps with its own config, data dir and home.
+# native turns an MSYS path into one the Windows binary can open.
+native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
+
+# kn runs kdeps with its own config, data dir and home (USERPROFILE on Windows).
 kn() {
-    HOME="$KN_DIR" KDEPS_CONFIG_PATH="$KN_DIR/config.yaml" KDEPS_DATA_DIR="$KN_DIR/data" "$KDEPS_BIN" knowledge "$@" 2>&1 </dev/null
+    HOME="$KN_DIR" USERPROFILE="$(native "$KN_DIR")" KDEPS_CONFIG_PATH="$KN_DIR/config.yaml" \
+        KDEPS_DATA_DIR="$KN_DIR/data" "$KDEPS_BIN" knowledge "$@" 2>&1 </dev/null
 }
 
 OUT=$(kn init "$KN_VAULT")
-if output_grep "created .*/schema.md" "$OUT" && output_grep "Set knowledge.vault" "$OUT" &&
+if output_grep "created .*schema.md" "$OUT" && output_grep "Set knowledge.vault" "$OUT" &&
     [ "$(cat "$KN_VAULT/KDEPS.md")" = "mine" ] && [ -d "$KN_VAULT/records/projects" ] &&
     [ ! -d "$KN_VAULT/Projects" ] && grep -q "$KN_VAULT" "$KN_DIR/config.yaml"; then
     test_passed "knowledge - init scaffolds without touching existing files, reuses 01 Projects"
@@ -46,7 +50,7 @@ updated: 2026-10-15
 ---
 | Source | Path |
 |---|---|
-| repo | $KN_REPO |
+| repo | $(native "$KN_REPO") |
 | vault | 01 Projects/app |
 CARD
 cat > "$KN_VAULT/01 Projects/app/Database choice.md" <<'NOTE'
@@ -106,7 +110,8 @@ fi
 # Default vault: no config, no folder argument -> ~/.kdeps/notes.
 KD_HOME="$KN_DIR/default-home"
 mkdir -p "$KD_HOME"
-OUT=$(HOME="$KD_HOME" KDEPS_CONFIG_PATH="$KD_HOME/config.yaml" KDEPS_DATA_DIR="$KD_HOME/data" "$KDEPS_BIN" knowledge init 2>&1 </dev/null)
+OUT=$(HOME="$KD_HOME" USERPROFILE="$(native "$KD_HOME")" KDEPS_CONFIG_PATH="$KD_HOME/config.yaml" \
+    KDEPS_DATA_DIR="$KD_HOME/data" "$KDEPS_BIN" knowledge init 2>&1 </dev/null)
 if [ -f "$KD_HOME/.kdeps/notes/KDEPS.md" ] && [ -d "$KD_HOME/.kdeps/notes/records/projects" ] &&
     ! output_grep "Set knowledge.vault" "$OUT"; then
     test_passed "knowledge - init without a folder sets up the default vault ~/.kdeps/notes"
@@ -116,7 +121,8 @@ fi
 
 # --extract with an unreachable model: each note fails and is retried later;
 # the build still finishes.
-OUT=$(HOME="$KN_DIR" KDEPS_CONFIG_PATH="$KN_DIR/config.yaml" KDEPS_DATA_DIR="$KN_DIR/data" OLLAMA_HOST=http://127.0.0.1:1 \
+OUT=$(HOME="$KN_DIR" USERPROFILE="$(native "$KN_DIR")" KDEPS_CONFIG_PATH="$KN_DIR/config.yaml" \
+    KDEPS_DATA_DIR="$KN_DIR/data" OLLAMA_HOST=http://127.0.0.1:1 \
     "$KDEPS_BIN" knowledge build --extract --model e2e-missing --limit 2 2>&1 </dev/null)
 if output_grep "Reading changed notes with e2e-missing" "$OUT" && output_grep "2 notes read \(2 failed\)" "$OUT" &&
     output_grep "notes \([0-9]+ changed\)" "$OUT"; then
