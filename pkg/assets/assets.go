@@ -108,6 +108,11 @@ type LockEntry struct {
 // Lock is the parsed lock file, keyed by item id ("<set>/<name>").
 type Lock struct {
 	Items map[string]LockEntry `json:"items"`
+	// Profile is the install profile chosen (see Profiles), "custom" for a
+	// hand-picked selection; Selection is what it installs. A bare kdeps
+	// update keeps these and the items already installed current.
+	Profile   string   `json:"profile,omitempty"`
+	Selection []string `json:"selection,omitempty"`
 }
 
 // SourceEnv names a directory laid out like the repo's assets/ (one
@@ -325,7 +330,7 @@ func overlay(set string, base fs.FS, root string) ReadFS {
 			continue
 		}
 		if e.Removed {
-			if !required(set, name) {
+			if !Required(set, name) {
 				dropItem(out, set, dir, name)
 			}
 			continue

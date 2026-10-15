@@ -177,7 +177,7 @@ run:                      # steps run in order; the first failing step stops the
 
 - `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
 - A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
-- Built-in command files cannot be removed. Declared ones can, with `kdeps update --remove commands/<name>`, and `kdeps update commands/<name>` restores them.
+- Built-in command files cannot be removed. Declared ones can, with `kdeps uninstall commands/<name>`, and `kdeps update commands/<name>` restores them.
 
 | Shipped declared command | Runs |
 |---|---|

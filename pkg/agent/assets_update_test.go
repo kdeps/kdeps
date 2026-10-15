@@ -19,12 +19,15 @@
 package agent
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -100,22 +103,178 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	assert.ErrorContains(t, err, "unknown asset set")
 }
 
-func TestEnsureAssets_FirstRunThenNoop(t *testing.T) {
+func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 	// A release binary: no source directory, nothing installed.
 	t.Setenv(assets.SourceEnv, t.TempDir())
-	serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	t.Setenv(ProfileEnv, "")
+	root := serveAssets(t, map[string]string{
+		"tools/md5_file@1.1.0": newerMD5Def,
+		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
+	})
 	var out bytes.Buffer
-	err := EnsureAssets(context.Background(), &out)
-	assert.Contains(t, out.String(), "Downloading kdeps assets")
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
+	assert.Contains(t, out.String(), "Installing tools")
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description, "reloaded")
-	require.ErrorContains(t, err, "harness", "sets with nothing published stay missing")
-	assert.NotContains(t, err.Error(), "tools,")
+	assert.Equal(t, []string{"themes"}, assets.MissingOf([]string{"tools", "themes"}), "only the needed set")
+	assert.True(t, assets.Initialized(root))
 
-	// With every set present there is nothing to do.
-	t.Setenv(assets.SourceEnv, "")
 	out.Reset()
-	require.NoError(t, EnsureAssets(context.Background(), &out))
-	assert.Empty(t, out.String())
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
+	assert.Empty(t, out.String(), "present: nothing to do")
+
+	err := EnsureSets(context.Background(), &out, nil, []string{"harness"})
+	require.ErrorContains(t, err, "kdeps update harness", "nothing published")
+}
+
+func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	root := serveAssets(t, map[string]string{
+		"tools/md5_file@1.1.0": newerMD5Def,
+		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
+	})
+	t.Setenv(ProfileEnv, "themes")
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
+	assert.Contains(t, out.String(), "Installing the custom profile")
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, "custom", lock.Profile)
+	assert.Contains(t, lock.Selection, "themes")
+	assert.Contains(t, lock.Selection, "schemas", "base sets always")
+	assert.Empty(t, assets.MissingOf([]string{"tools", "themes"}))
+}
+
+func TestEnsureSets_FirstRunPicker(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv(ProfileEnv, "")
+	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	var out bytes.Buffer
+	in := strings.NewReader("x\n1\n")
+	require.NoError(t, EnsureSets(context.Background(), &out, in, []string{"tools"}))
+	assert.Contains(t, out.String(), "What will you use kdeps for?")
+	assert.Contains(t, out.String(), "pick a number from the list")
+	assert.Contains(t, out.String(), "Installing the minimum profile")
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, "minimum", lock.Profile)
+	assert.Empty(t, assets.MissingOf([]string{"tools"}), "needed set added after the profile")
+}
+
+func TestResolveProfileChoice(t *testing.T) {
+	idx := assets.Index{Items: map[string]assets.IndexItem{}}
+	name, targets, err := resolveProfileChoice("workflows", idx)
+	require.NoError(t, err)
+	assert.Equal(t, "workflows", name)
+	assert.Contains(t, targets, "components")
+
+	name, targets, err = resolveProfileChoice("recipes, themes", idx)
+	require.NoError(t, err)
+	assert.Equal(t, customProfile, name)
+	assert.Equal(t, append(append([]string{}, assets.BaseSets...), "recipes", "themes"), targets)
+
+	name, targets, err = resolveProfileChoice("tools/bash_exec,recipes", idx)
+	require.NoError(t, err)
+	assert.Equal(t, customProfile, name)
+	assert.Contains(t, targets, "tools/bash_exec", "single items too")
+
+	_, _, err = resolveProfileChoice("recipes,nope", idx)
+	assert.ErrorContains(t, err, "unknown profile")
+}
+
+func TestPickSets_SetsAndItems(t *testing.T) {
+	idx := assets.Index{Items: map[string]assets.IndexItem{
+		"recipes/vllm": {}, "recipes/tgi": {},
+		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "tools/read_file": {},
+		"schemas/v1": {}, "providers/groq": {}, "providers/openai": {},
+	}}
+	sets := assets.Registered()
+	num := func(set string) string { return strconv.Itoa(slices.Index(sets, set) + 1) }
+	// Tick recipes whole; open tools and tick bash_exec (its required control
+	// tool comes along); open providers and keep only openai; try to untick
+	// the schemas base set.
+	in := strings.Join([]string{
+		num("recipes") + " " + num("schemas") + " 99 x",
+		"o" + num("tools"),
+		"1", // bash_exec (sorted: bash_exec, goal_task_complete, read_file)
+		"",
+		"o" + num("providers"),
+		"n",
+		"2", // openai
+		"1", // groq unticked: openai stays
+		"",
+		"",
+	}, "\n") + "\n"
+	var out bytes.Buffer
+	got := pickSets(&out, bufio.NewReader(strings.NewReader(in)), idx)
+	assert.Contains(t, got, "recipes", "a whole set by name")
+	assert.Contains(t, got, "tools/bash_exec")
+	assert.Contains(t, got, "tools/goal_task_complete", "required item follows any ticked item")
+	assert.NotContains(t, got, "tools/read_file")
+	assert.NotContains(t, got, "tools")
+	assert.Contains(t, got, "providers/openai")
+	assert.NotContains(t, got, "providers/groq")
+	assert.Contains(t, got, "schemas", "a base set cannot be emptied")
+	assert.Contains(t, out.String(), "(base)")
+	assert.Contains(t, out.String(), "goal_task_complete *")
+	assert.Regexp(t, `\[-\] tools\s+2/3`, out.String())
+	assert.Regexp(t, `\[x\] recipes\s+2/2`, out.String())
+}
+
+func TestChecklist_RequiredAndBaseRules(t *testing.T) {
+	idx := assets.Index{Items: map[string]assets.IndexItem{
+		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "schemas/v1": {},
+	}}
+	c := newChecklist(idx)
+	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "goal_task_complete") // required while bash_exec is ticked
+	assert.True(t, c.ticked["tools/goal_task_complete"])
+	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "goal_task_complete") // alone now: can be unticked
+	assert.Zero(t, c.count("tools"))
+	c.toggle("schemas", "v1") // the base set's only item
+	assert.True(t, c.ticked["schemas/v1"])
+	c.setAll("schemas", false)
+	assert.Equal(t, 1, c.count("schemas"))
+	assert.Equal(t, []string{"schemas"}, c.targets())
+}
+
+func TestParseNumbers(t *testing.T) {
+	assert.Equal(t, []int{3}, parseNumbers("3", 9))
+	assert.Equal(t, []int{2, 3, 4}, parseNumbers("2-4", 9))
+	assert.Equal(t, []int{8, 9}, parseNumbers("8-20", 9))
+	assert.Nil(t, parseNumbers("10", 9))
+	assert.Nil(t, parseNumbers("x", 9))
+	assert.Nil(t, parseNumbers("2-x", 9))
+}
+
+func TestSelectProfile(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	root := serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
+	var out bytes.Buffer
+	require.NoError(t, SelectProfile(context.Background(), &out, nil, "themes"))
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, customProfile, lock.Profile)
+
+	require.ErrorContains(t, SelectProfile(context.Background(), &out, nil, ""), "needs a terminal")
+	require.ErrorContains(t, SelectProfile(context.Background(), &out, nil, "nope"), "unknown profile")
+
+	require.NoError(t, SelectProfile(context.Background(), &out, strings.NewReader("\n"), customProfile))
+	require.NoError(t, SelectProfile(context.Background(), &out, strings.NewReader("1\n"), ""))
+	lock, err = assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, "minimum", lock.Profile)
+}
+
+func TestInstallComponentOnDemand(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
+	var out bytes.Buffer
+	install := InstallComponentOnDemand(context.Background(), &out)
+	assert.True(t, install("themes/normal"))
+	assert.Contains(t, out.String(), "Installed themes/normal 1.0.0 (first use)")
+	assert.False(t, install("themes/normal"), "already installed")
+	assert.False(t, install("nope/x"))
 }
 
 func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
@@ -125,7 +284,8 @@ func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
 	t.Cleanup(down.Close)
 	t.Setenv("KDEPS_ASSETS_URL", down.URL)
 	var out bytes.Buffer
-	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "connect to the internet and run kdeps update")
+	require.ErrorContains(t, EnsureAssets(context.Background(), &out),
+		"connect to the internet and run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
 	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "KDEPS_ASSETS_URL=off")

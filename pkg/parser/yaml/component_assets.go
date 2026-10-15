@@ -39,7 +39,7 @@ const (
 
 //nolint:gochecknoinits // registers kdeps's components as a versioned asset set
 func init() {
-	assets.Register(componentsSet, assets.Spec{Validate: validateComponentBundle})
+	assets.Register(componentsSet, assets.Spec{Validate: validateComponentBundle, Context: componentContext})
 }
 
 // validateComponentBundle checks a downloaded component bundle: it must
@@ -57,6 +57,24 @@ func validateComponentBundle(data []byte, name string) error {
 		return fmt.Errorf("component.yaml names %q, not %q", c.Metadata.Name, name)
 	}
 	return nil
+}
+
+// componentContext is what a component sends the model when it is an agent
+// tool: its name, description and input schema.
+func componentContext(data []byte, _ string) string {
+	b, err := assets.ValidateBundle(data, componentsFile)
+	if err != nil {
+		return ""
+	}
+	c, err := decodeComponent([]byte(b.Files[componentsFile]))
+	if err != nil {
+		return ""
+	}
+	var inputs []byte
+	if c.Interface != nil {
+		inputs, _ = yaml.Marshal(c.Interface.Inputs)
+	}
+	return c.Metadata.Name + "\n" + c.Metadata.Description + "\n" + string(inputs)
 }
 
 func decodeComponent(data []byte) (*domain.Component, error) {
@@ -83,7 +101,11 @@ func (p *Parser) loadAssetComponents(workflow *domain.Workflow) error {
 		if _, ok := workflow.Components[name]; ok {
 			continue
 		}
-		data, err := assets.Open(componentsSet).ReadFile(path.Join(componentsSet, name, componentsFile))
+		file := path.Join(componentsSet, name, componentsFile)
+		data, err := assets.Open(componentsSet).ReadFile(file)
+		if err != nil && assets.InstallOnDemand(assets.ID(componentsSet, name)) {
+			data, err = assets.Open(componentsSet).ReadFile(file)
+		}
 		if err != nil {
 			continue // not a kdeps component: the call reports it as not found
 		}

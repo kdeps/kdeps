@@ -60,7 +60,7 @@ main: "kdeps repo, main\nassets/<set>/" {shape: oval}
 branch: "kdeps/packages assets/\n<set>/<name>/<version>.yaml\n+ index.json"
 formulas: "kdeps/registry\nformulas/kdeps-<set>-<name>.yaml"
 site: "kdeps.io\none catalog: packages,\nresource types, assets"
-update: "kdeps update\n(first run: automatic, required)"
+update: "kdeps update\n(first run: the chosen profile)"
 store: "~/.kdeps/assets/\nfiles + lock.json"
 loader: "loaders\n(user overrides on top)" {shape: oval}
 main -> branch: "publish on merge"
@@ -71,14 +71,68 @@ update -> store
 store -> loader
 ```
 
-The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. On the first run (and after an upgrade that adds a set), any command that needs them downloads the newest version of every item first:
+The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. The first run asks what you will use kdeps for and installs that profile:
 
 ```text
 $ kdeps
-Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...
+What will you use kdeps for? (change it later with kdeps profile)
+  1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
+  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, browser, email, ...)
+  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
+  5) full       ~19.4k tok   every asset set
+  6) custom                 tick the asset sets, or single items, yourself
+  (~tok: what the profile adds to the LLM context - prompts and tool definitions)
+Choice [5]:
 ```
 
-Offline with nothing installed, kdeps stops and tells you to connect and run `kdeps update` (`kdeps update` and `kdeps registry` run without assets; `kdeps validate` needs the `schemas` set). Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+| Profile | Sets it installs |
+|---|---|
+| `minimum` | `schemas`, `defaults`, `models`, `providers` (the base: every other profile includes it) |
+| `workflows` | base + `templates`, `components` |
+| `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, the loop's required tools and the file, shell, web and memory tools |
+| `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
+| `full` | every set |
+| `custom` | a checklist of every set and item: tick whole sets, or open a set to tick single items |
+
+```text
+Asset sets ([x] all, [-] some; the base sets are always installed):
+   1) [ ] harness        0/43  items
+   ...
+   6) [-] tools          6/78  items  ~1.0k tok
+   8) [x] recipes       10/10  items
+   9) [x] models         3/3   items (base)
+LLM context of this selection: about 1.0k tokens (prompts, tool definitions).
+Toggle sets (e.g. 5 7), o<N> to pick items in set N (e.g. o6), Enter to install: o6
+
+tools (6/78 ticked; * required):
+    1) [ ] approval_grant
+    5) [x] bash_exec  ~159 tok
+   ...
+   29) [x] goal_task_complete *  ~172 tok
+Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
+```
+
+Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
+
+```text
+$ kdeps install tools/bash_exec
+  tools/bash_exec                      install   - -> 1.0.0  ~159 tok
+LLM context: these added about 159 tokens (prompts, tool definitions) when loaded.
+```
+
+A set number toggles the whole set; `o<N>` opens it. Inside, numbers and ranges toggle items, `a` ticks all and `n` none. An item marked `*` is one its set's loader needs: it stays ticked while anything else in the set is. A base set keeps at least its required items (or one item). A fully ticked set is recorded by name, so items published to it later are installed by `kdeps update`; a partly ticked one is recorded item by item.
+
+Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a list of sets and items such as `KDEPS_PROFILE=docker,k8s,tools/bash_exec`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
+
+Whatever the profile, a command installs a set it loads the first time it needs it (`kdeps export` installs `docker` and `k8s`), and a workflow that calls a component not installed downloads it on that call:
+
+```text
+$ kdeps run workflow.yaml
+Installed components/sql 1.0.2 (first use).
+```
+
+Offline, a missing set stops the command and names the update to run (`kdeps assets docker are not installed; connect to the internet and run kdeps update docker`). `kdeps update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
 
 After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
 
@@ -89,13 +143,15 @@ After that, a startup notice appears when updates are published (checked once a 
 The desktop app shows the same as an **Updates available** button in the top bar.
 
 ```bash
-kdeps update                          # every item to its newest version (skips pinned and removed items)
+kdeps update                          # the profile and everything installed since, to their newest versions (skips pinned and removed items)
+kdeps profile agent          # install a profile (or sets and items: docker,tools/bash_exec) and keep it current
+kdeps profile                 # choose the profile again, or tick sets and items (custom)
 kdeps update tools                    # every item in one set
 kdeps update harness/safety           # newest version of one item; unpins and restores it
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
 kdeps update --check                  # what would change
-kdeps update --list                   # every item: version, downloaded | pinned | removed
-kdeps update --remove themes/vim,presets/frugal   # remove items
+kdeps list --assets                   # every item: version, downloaded | pinned | removed, ~context tokens; total at the end
+kdeps uninstall themes/vim,presets/frugal   # remove items
 ```
 
 `/update`, `/update check`, `/update list` and `/update remove <item>...` do the same inside the REPL and apply right away; changed tool descriptions reach the model from the next start.

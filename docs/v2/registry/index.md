@@ -11,9 +11,9 @@ publish your own for others to reuse. Building, running, and deploying your own
 agent never touches the registry - it is purely a way to share work by name.
 
 ```bash
-kdeps registry search scraper            # find packages
-kdeps registry install scraper           # add one to the current project
-kdeps registry submit --tag v1.2.0       # generate a formula to publish yours via PR
+kdeps search scraper            # find packages
+kdeps install scraper           # add one to the current project
+kdeps submit --tag v1.2.0       # generate a formula to publish yours via PR
 ```
 
 **Not this?** To build the agent you want to publish, start with
@@ -24,5 +24,5 @@ instead of the registry, see [kdeps deploy](/deploy/docker).
 
 | Topic | Page |
 |-------|------|
-| Every `kdeps registry` subcommand and flag | [Registry commands](/registry/cli) |
+| Every registry command and flag | [Registry commands](/registry/cli) |
 | The formula file format a published package uses | [Formula spec](/registry/formula-spec) |

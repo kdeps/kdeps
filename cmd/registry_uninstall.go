@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
@@ -33,17 +34,30 @@ import (
 func newRegistryUninstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryUninstallCmd")
 	return &cobra.Command{
-		Use:   "uninstall <package>",
-		Short: "Uninstall an agent or component installed from the registry.",
-		Long: `Remove a package that was installed via "kdeps registry install".
+		Use:   "uninstall <asset | package>...",
+		Short: "Remove kdeps assets, or an agent or component installed from the registry.",
+		Long: `Remove kdeps assets, or a package that was installed via "kdeps install".
 
+An asset (<set>/<name>) is hidden from kdeps until it is installed by name
+again; items a loader requires cannot be removed.
 For agents/workflows/agencies, removes ~/.kdeps/agents/<name>/.
 For components, removes the component from ./components/<name>/ (if in a kdeps
 project) or ~/.kdeps/components/<name>/ (global install).`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryUninstallCmd.RunE")
-			return doRegistryUninstall(cmd, args[0])
+			assetRefs, pkgRefs := splitRefs(args)
+			if len(assetRefs) > 0 {
+				if err := runAssets(cmd, agent.UpdateOptions{Remove: assetRefs}); err != nil {
+					return err
+				}
+			}
+			for _, ref := range pkgRefs {
+				if err := doRegistryUninstall(cmd, ref); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }

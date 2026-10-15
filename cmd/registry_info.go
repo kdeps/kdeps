@@ -45,9 +45,9 @@ Reference formats:
   <owner>/<repo>:<subdir>   README inside a subdirectory of a GitHub repository
 
 Examples:
-  kdeps registry info scraper
-  kdeps registry info jjuliano/my-ai-agent
-  kdeps registry info jjuliano/my-ai-agent:my-scraper`,
+  kdeps info scraper
+  kdeps info jjuliano/my-ai-agent
+  kdeps info jjuliano/my-ai-agent:my-scraper`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInfoCmd.RunE")

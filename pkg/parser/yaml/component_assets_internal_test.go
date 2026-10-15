@@ -85,3 +85,22 @@ func TestLoadAssetComponents_BrokenAssetFails(t *testing.T) {
 	}
 	require.ErrorContains(t, NewParser(nil, nil).loadAssetComponents(wf), "kdeps component ocr")
 }
+
+func TestComponentContext(t *testing.T) {
+	got := componentContext(componentBundle(t, `apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: sql
+  description: Runs SQL.
+interface:
+  inputs:
+    - name: query
+      type: string
+      description: The statement.
+`), "sql")
+	require.Contains(t, got, "Runs SQL.")
+	require.Contains(t, got, "The statement.")
+	require.Empty(t, componentContext([]byte("not: a bundle"), "x"))
+	require.Empty(t, componentContext(componentBundle(t, "kind: Workflow\n"), "x"))
+	require.True(t, assets.InContext("components"))
+}

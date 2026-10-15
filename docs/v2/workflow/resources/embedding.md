@@ -115,7 +115,7 @@ embedding:
 
 > **Note**: This uses keyword (LIKE) matching, not vector similarity. For OpenAI vector embeddings, install the component:
 > ```bash
-> kdeps registry install embedding
+> kdeps install embedding
 > ```
 
 ## See also

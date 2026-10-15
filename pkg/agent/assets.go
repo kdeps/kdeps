@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -44,6 +45,7 @@ func init() {
 			return err
 		},
 		Required: func(name string) bool { return slices.Contains(requiredHarness, name) },
+		Context:  harnessContext,
 	})
 	assets.Register("events", assets.Spec{Validate: func(data []byte, name string) error {
 		_, err := parseYAMLEvent(data, name)
@@ -67,6 +69,7 @@ func init() {
 	assets.Register("tools", assets.Spec{
 		Validate: validateToolDefinition,
 		Required: func(name string) bool { return slices.Contains(requiredTools, name) },
+		Context:  toolContext,
 	})
 	assets.Register("commands", assets.Spec{
 		Validate: func(data []byte, name string) error {
@@ -105,6 +108,30 @@ var requiredHarness = []string{
 //
 //nolint:gochecknoglobals // fixed list
 var requiredTools = []string{"goal_task_complete", "goal_task_fail", "judge_verdict", "session_handshake"}
+
+// harnessContext is a harness entry's model-facing text: its body, unless
+// disabled.
+func harnessContext(data []byte, name string) string {
+	ye, err := parseYAMLHarnessEntry(data, name)
+	if err != nil || ye.Disabled {
+		return ""
+	}
+	return ye.Body
+}
+
+// toolContext is what a tool definition sends the model: its name, texts
+// and parameter schema.
+func toolContext(data []byte, name string) string {
+	var d toolDefinition
+	if yaml.Unmarshal(data, &d) != nil {
+		return ""
+	}
+	if d.Name != "" {
+		name = d.Name
+	}
+	params, _ := yaml.Marshal(d.Parameters)
+	return strings.Join([]string{name, d.Description, d.Constraints, d.OutputFormat, d.SeeAlso, string(params)}, "\n")
+}
 
 // validateToolDefinition checks a downloaded tools/<name>.yaml file.
 func validateToolDefinition(data []byte, _ string) error {

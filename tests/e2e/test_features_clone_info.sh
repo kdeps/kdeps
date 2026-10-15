@@ -18,8 +18,8 @@
 # license notices and attribution when redistributing derived code.
 
 # E2E tests for:
-#   kdeps registry install <owner/repo[:subdir]>
-#   kdeps registry info <ref>
+#   kdeps install <owner/repo[:subdir]>
+#   kdeps info <ref>
 #
 # All tests that require network are skipped when offline (curl HEAD fails).
 # All tests that require a built binary check for its presence.
@@ -78,7 +78,7 @@ MD
     rm -rf "$tmp"
 }
 
-# ── Test 1: kdeps registry info for a local component ─────────────────────────
+# ── Test 1: kdeps info for a local component ─────────────────────────
 
 TMPDIR_INFO=$(mktemp -d)
 LOCAL_COMP_DIR="$TMPDIR_INFO/.kdeps/components/memory"
@@ -89,11 +89,11 @@ Persistent key-value store.
 MD
 
 (cd "$TMPDIR_INFO" && KDEPS_COMPONENT_DIR="$TMPDIR_INFO/.kdeps/components" HOME="$TMPDIR_INFO" \
-    "$KDEPS_BIN" registry info memory 2>&1) | grep -q "Memory Component" \
-    && test_passed "kdeps registry info - local component README displayed" \
-    || test_failed "kdeps registry info - local component README displayed" "Memory README not found"
+    "$KDEPS_BIN" info memory 2>&1) | grep -q "Memory Component" \
+    && test_passed "kdeps info - local component README displayed" \
+    || test_failed "kdeps info - local component README displayed" "Memory README not found"
 
-# ── Test 2: kdeps registry info for a local agent ─────────────────────────────
+# ── Test 2: kdeps info for a local agent ─────────────────────────────
 
 TMPDIR_AGENT=$(mktemp -d)
 AGENT_DIR="$TMPDIR_AGENT/agents/my-scraper"
@@ -103,11 +103,11 @@ cat > "$AGENT_DIR/README.md" << 'MD'
 Scrapes web pages.
 MD
 
-(cd "$TMPDIR_AGENT" && "$KDEPS_BIN" registry info my-scraper 2>&1) | grep -q "My Scraper Agent" \
-    && test_passed "kdeps registry info - local agent README displayed" \
-    || test_failed "kdeps registry info - local agent README displayed" "Agent README not found"
+(cd "$TMPDIR_AGENT" && "$KDEPS_BIN" info my-scraper 2>&1) | grep -q "My Scraper Agent" \
+    && test_passed "kdeps info - local agent README displayed" \
+    || test_failed "kdeps info - local agent README displayed" "Agent README not found"
 
-# ── Test 3: kdeps registry info for a local agency ────────────────────────────
+# ── Test 3: kdeps info for a local agency ────────────────────────────
 
 TMPDIR_AGENCY=$(mktemp -d)
 AGENCY_DIR="$TMPDIR_AGENCY/agencies/my-pipeline"
@@ -117,36 +117,36 @@ cat > "$AGENCY_DIR/README.md" << 'MD'
 Orchestrates multiple agents.
 MD
 
-(cd "$TMPDIR_AGENCY" && "$KDEPS_BIN" registry info my-pipeline 2>&1) | grep -q "My Pipeline Agency" \
-    && test_passed "kdeps registry info - local agency README displayed" \
-    || test_failed "kdeps registry info - local agency README displayed" "Agency README not found"
+(cd "$TMPDIR_AGENCY" && "$KDEPS_BIN" info my-pipeline 2>&1) | grep -q "My Pipeline Agency" \
+    && test_passed "kdeps info - local agency README displayed" \
+    || test_failed "kdeps info - local agency README displayed" "Agency README not found"
 
-# ── Test 4: kdeps registry info - minimal fallback for unknown ref ────────────
+# ── Test 4: kdeps info - minimal fallback for unknown ref ────────────
 
 TMPDIR_UNK=$(mktemp -d)
-OUTPUT=$((cd "$TMPDIR_UNK" && HOME="$TMPDIR_UNK" "$KDEPS_BIN" registry info totally-unknown-ghost-component 2>&1) || true)
+OUTPUT=$((cd "$TMPDIR_UNK" && HOME="$TMPDIR_UNK" "$KDEPS_BIN" info totally-unknown-ghost-component 2>&1) || true)
 if [ -n "$OUTPUT" ]; then
-    test_passed "kdeps registry info - minimal fallback returned for unknown local ref"
+    test_passed "kdeps info - minimal fallback returned for unknown local ref"
 else
-    test_failed "kdeps registry info - minimal fallback returned for unknown local ref" "Empty output"
+    test_failed "kdeps info - minimal fallback returned for unknown local ref" "Empty output"
 fi
 
-# ── Test 5: kdeps registry install --help works ───────────────────────────────
+# ── Test 5: kdeps install --help works ───────────────────────────────
 
-HELP_OUTPUT=$("$KDEPS_BIN" registry install --help 2>&1 || true)
+HELP_OUTPUT=$("$KDEPS_BIN" install --help 2>&1 || true)
 if output_grep_i "owner/repo|registry|local" "$HELP_OUTPUT"; then
-    test_passed "kdeps registry install - --help shows usage"
+    test_passed "kdeps install - --help shows usage"
 else
-    test_failed "kdeps registry install - --help shows usage" "Help text missing expected content"
+    test_failed "kdeps install - --help shows usage" "Help text missing expected content"
 fi
 
-# ── Test 6: kdeps registry info --help works ──────────────────────────────────
+# ── Test 6: kdeps info --help works ──────────────────────────────────
 
-HELP_INFO=$("$KDEPS_BIN" registry info --help 2>&1 || true)
+HELP_INFO=$("$KDEPS_BIN" info --help 2>&1 || true)
 if output_grep_i "readme|component|agent|ref|owner" "$HELP_INFO"; then
-    test_passed "kdeps registry info - --help shows usage"
+    test_passed "kdeps info - --help shows usage"
 else
-    test_failed "kdeps registry info - --help shows usage" "Help text missing expected content"
+    test_failed "kdeps info - --help shows usage" "Help text missing expected content"
 fi
 
 # ── Test 7: workflow with run.component: validates ────────────────────────────
@@ -216,7 +216,7 @@ else
         "$("$KDEPS_BIN" validate "$TMPDIR_BEFORE/workflow.yaml" 2>&1 | head -3)"
 fi
 
-# ── Test 9: kdeps registry install from a local .komponent archive ────────────
+# ── Test 9: kdeps install from a local .komponent archive ────────────
 
 TMPDIR_LOCAL_INSTALL=$(mktemp -d)
 COMP_FILE="$TMPDIR_LOCAL_INSTALL/mycomp-1.0.0.komponent"
@@ -225,12 +225,12 @@ make_komponent_with_readme "mycomp" "$COMP_FILE"
 INSTALL_COMP_DIR="$TMPDIR_LOCAL_INSTALL/comps"
 mkdir -p "$INSTALL_COMP_DIR"
 
-OUTPUT=$("$KDEPS_BIN" registry install "$COMP_FILE" \
+OUTPUT=$("$KDEPS_BIN" install "$COMP_FILE" \
     2>&1) || true
 if output_grep_i "Installing|installed|mycomp" "$OUTPUT"; then
-    test_passed "kdeps registry install - installs from local .komponent archive"
+    test_passed "kdeps install - installs from local .komponent archive"
 else
-    test_failed "kdeps registry install - installs from local .komponent archive" "Output: $OUTPUT"
+    test_failed "kdeps install - installs from local .komponent archive" "Output: $OUTPUT"
 fi
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────

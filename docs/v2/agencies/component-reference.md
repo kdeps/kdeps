@@ -215,20 +215,20 @@ At parse time, kdeps scans for `components/<name>/component.yaml` files in the s
 ## Installing from the registry
 
 ```bash
-kdeps registry install scraper
-kdeps registry install search
-kdeps registry install embedding
-kdeps registry install browser
-kdeps registry install calculator       # evaluate arithmetic expressions
-kdeps registry install weather-converter # convert temperatures (C/F/K)
+kdeps install scraper
+kdeps install search
+kdeps install embedding
+kdeps install browser
+kdeps install calculator       # evaluate arithmetic expressions
+kdeps install weather-converter # convert temperatures (C/F/K)
 # ... and more
 ```
 
 Installed components are placed in `components/` and auto-discovered.
 
 ```bash
-kdeps registry list              # List installed components
-kdeps registry uninstall scraper # Uninstall a component
+kdeps list              # List installed components
+kdeps uninstall scraper # Uninstall a component
 ```
 
 ## Components as LLM tools

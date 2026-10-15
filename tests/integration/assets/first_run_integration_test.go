@@ -44,7 +44,7 @@ import (
 // has -- no source directory and an empty store -- publishes the repo's
 // assets to a local server, and checks that EnsureAssets fills every set and
 // the loaders see it.
-func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
+func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 	published := t.TempDir()
 	_, err := assets.Publish(assets.Source(), published, "test", time.Now())
 	require.NoError(t, err)
@@ -66,6 +66,7 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	require.ErrorContains(t, agent.EnsureAssets(t.Context(), io.Discard), "run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
+	t.Setenv(agent.ProfileEnv, "full")
 	require.NoError(t, agent.EnsureAssets(t.Context(), io.Discard))
 	assert.Empty(t, assets.Missing())
 	assert.Contains(t, agent.PresetNames(), "frugal")
@@ -131,4 +132,62 @@ func TestInstall_NamedItemBringsItsRequires(t *testing.T) {
 	assert.Equal(t, "commands/frugal", got[len(got)-1], "the command installs after what it requires")
 	assert.Less(t, slices.Index(got, "actions/compact"), slices.Index(got, "events/auto-compact"))
 	assert.Less(t, slices.Index(got, "events/auto-compact"), slices.Index(got, "presets/frugal"))
+}
+
+func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
+	published := t.TempDir()
+	_, err := assets.Publish(assets.Source(), published, "test", time.Now())
+	require.NoError(t, err)
+	srv := httptest.NewServer(http.FileServer(http.Dir(published)))
+	t.Cleanup(srv.Close)
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
+	root := t.TempDir()
+	t.Setenv("KDEPS_ASSETS_DIR", root)
+	t.Setenv(agent.ProfileEnv, "minimum")
+	t.Cleanup(agent.ReloadAssets)
+	t.Cleanup(func() { assets.SetOnDemand(nil) })
+
+	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.BaseSets))
+	assert.Empty(t, assets.MissingOf(assets.BaseSets))
+	assert.ElementsMatch(t, []string{"templates", "components", "docker", "k8s", "recipes"},
+		assets.MissingOf([]string{"templates", "components", "docker", "k8s", "recipes"}), "not in minimum")
+	_, err = validator.NewSchemaValidator()
+	require.NoError(t, err, "kdeps run and validate work")
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, "minimum", lock.Profile)
+
+	// A component a workflow calls is installed on first use, with its requires.
+	assets.SetOnDemand(agent.InstallComponentOnDemand(t.Context(), io.Discard))
+	assert.True(t, assets.InstallOnDemand("components/searchWeb"))
+	_, err = assets.Open("components").ReadFile("components/searchWeb/component.yaml")
+	require.NoError(t, err)
+
+	// A later command needing more sets installs just those.
+	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, []string{"docker"}))
+	assert.Empty(t, assets.MissingOf([]string{"docker"}))
+	assert.NotEmpty(t, assets.MissingOf([]string{"k8s"}))
+
+	// A bare update keeps the selection plus what was added, nothing else.
+	changes, err := assets.Update(t.Context(), root, assets.NewClient(), nil, true)
+	require.NoError(t, err)
+	for _, c := range changes {
+		set, _, _ := assets.SplitID(c.ID)
+		assert.NotEqual(t, "k8s", set, c.ID)
+		assert.NotEqual(t, "harness", set, c.ID)
+	}
+}
+
+func TestPublish_IndexCarriesContextTokens(t *testing.T) {
+	published := t.TempDir()
+	_, err := assets.Publish(assets.Source(), published, "test", time.Now())
+	require.NoError(t, err)
+	idx, err := assets.ReadIndex(published)
+	require.NoError(t, err)
+	assert.Positive(t, idx.Tokens("tools/bash_exec"), "a tool definition reaches the model")
+	assert.Positive(t, idx.Tokens("harness/safety"), "a prompt section reaches the model")
+	assert.Positive(t, idx.Tokens("components/searchWeb"), "a component is an agent tool")
+	assert.Zero(t, idx.Tokens("themes/normal"), "themes never reach the model")
+	assert.Zero(t, idx.Tokens("schemas/v1"))
 }

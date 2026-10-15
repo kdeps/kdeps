@@ -47,7 +47,7 @@ func newRegistrySubmitCmd() *cobra.Command {
 
 To publish a package:
   1. Tag a release in your GitHub repo (e.g. git tag v1.2.0 && git push --tags)
-  2. Run kdeps registry submit --tag v1.2.0
+  2. Run kdeps submit --tag v1.2.0
   3. Open a PR to https://github.com/kdeps/registry adding the printed formula
      under formulas/<your-package-name>.yaml`,
 		Args: cobra.MaximumNArgs(1),

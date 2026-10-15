@@ -64,7 +64,7 @@ var setTypes = map[string]string{
 func PackageType(set string) string { return setTypes[set] }
 
 // IsPackageType reports whether t is an asset package type: installed with
-// `kdeps update`, not `kdeps registry install`.
+// `kdeps update`, not `kdeps install`.
 func IsPackageType(t string) bool {
 	for _, v := range setTypes {
 		if v == t {
@@ -80,7 +80,7 @@ func PackageName(id string) string {
 }
 
 // Formula is a kdeps/registry formula (formulas/<name>.yaml), the same
-// shape `kdeps registry submit` prints for user packages. For an asset the
+// shape `kdeps submit` prints for user packages. For an asset the
 // tarball is the published YAML file itself.
 type Formula struct {
 	Name        string   `yaml:"name"`
@@ -95,6 +95,8 @@ type Formula struct {
 	// Dependencies maps each package the item requires to the versions it
 	// accepts (see Header.Requires); kdeps update installs them with it.
 	Dependencies map[string]string `yaml:"dependencies,omitempty"`
+	// Tokens estimates what the item adds to the LLM context when installed.
+	Tokens int `yaml:"tokens,omitempty"`
 }
 
 // WriteFormulas writes one formula per index item into dir, each describing
@@ -153,6 +155,7 @@ func formulaFor(id string, it IndexItem, assetsDir, fileBase string) (Formula, e
 		Tags:         []string{"kdeps", typ},
 		License:      "Apache-2.0",
 		Dependencies: deps,
+		Tokens:       v.Tokens,
 	}, nil
 }
 

@@ -22,6 +22,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,21 +62,11 @@ func ReloadAssets() {
 	kdepsconfig.ReloadProviders()
 }
 
-// EnsureAssets installs kdeps's assets when a set has none -- on first run,
-// or when this kdeps added a set -- and reloads them. kdeps ships no assets
-// of its own, so it returns an error when they cannot be downloaded.
+// EnsureAssets makes what the desktop app loads available without asking
+// (it has no terminal): the base and agent sets and the project templates.
+// Its build and run actions start the CLI, which installs what they need.
 func EnsureAssets(ctx context.Context, w io.Writer) error {
-	if len(assets.Missing()) == 0 {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout)
-	defer cancel()
-	fmt.Fprintln(w, "Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...")
-	downloaded, err := assets.Ensure(ctx, assets.Root(), assets.NewClient())
-	if downloaded {
-		ReloadAssets()
-	}
-	return err
+	return EnsureSets(ctx, w, nil, append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates"))
 }
 
 // AssetUpdateNotice returns a one-line notice when published asset updates
@@ -99,7 +91,8 @@ func AssetUpdateNotice(ctx context.Context) string {
 		}
 		names = append(names, u.ID+" "+u.To)
 	}
-	return fmt.Sprintf("%d asset updates available (%s). Run kdeps update.", len(ups), strings.Join(names, ", "))
+	return fmt.Sprintf("%d asset updates available (%s). Run kdeps update.",
+		len(ups), strings.Join(names, ", "))
 }
 
 // UpdateOptions selects what RunAssetUpdate does.
@@ -144,31 +137,65 @@ func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error 
 }
 
 func printChanges(w io.Writer, changes []assets.Change, check bool) {
-	shown := 0
+	shown, tokens := 0, 0
 	for _, ch := range changes {
 		if ch.Action == assets.ActionCurrent {
 			continue
 		}
 		shown++
-		verb := ch.Action
-		if check && ch.Pending() {
-			verb = "available"
+		fmt.Fprintln(w, changeLine(ch, check))
+		if ch.Tokens > 0 && (ch.Action == assets.ActionInstall || ch.Action == assets.ActionPin) {
+			tokens += ch.Tokens
 		}
-		line := fmt.Sprintf("  %-36s %-9s", ch.ID, verb)
-		if ch.To != "" {
-			line += fmt.Sprintf(" %s -> %s", orDash(ch.From), ch.To)
-		}
-		if ch.Note != "" {
-			line += "  (" + ch.Note + ")"
-		}
-		fmt.Fprintln(w, line)
 	}
 	if shown == 0 {
 		fmt.Fprintln(w, "All assets are up to date.")
 	}
+	if tokens > 0 {
+		verb := "add"
+		if !check {
+			verb = "added"
+		}
+		fmt.Fprintf(w, "LLM context: these %s about %s tokens (prompts, tool definitions) when loaded.\n",
+			verb, formatTokens(tokens))
+	}
+}
+
+// changeLine is one change: id, action, versions, context tokens and note.
+func changeLine(ch assets.Change, check bool) string {
+	verb := ch.Action
+	if check && ch.Pending() {
+		verb = "available"
+	}
+	line := fmt.Sprintf("  %-36s %-9s", ch.ID, verb)
+	if ch.To != "" {
+		line += fmt.Sprintf(" %s -> %s", orDash(ch.From), ch.To)
+	}
+	if ch.Tokens > 0 && ch.Action != assets.ActionFailed {
+		line += "  " + tokenLabel(ch.Tokens)
+	}
+	if ch.Note != "" {
+		line += "  (" + ch.Note + ")"
+	}
+	return line
+}
+
+// tokenLabel is an item's context-token estimate, e.g. "~1.2k tok".
+func tokenLabel(n int) string {
+	return "~" + formatTokens(n) + " tok"
+}
+
+func formatTokens(n int) string {
+	const k = 1000
+	if n < k {
+		return strconv.Itoa(n)
+	}
+	return strconv.FormatFloat(float64(n)/k, 'f', 1, 64) + "k"
 }
 
 func listAssets(w io.Writer, root string) error {
+	tokens := assets.LocalTokens()
+	total := 0
 	for _, set := range assets.Registered() {
 		items, err := assets.Items(set, root)
 		if err != nil {
@@ -185,8 +212,17 @@ func listAssets(w io.Writer, root string) error {
 			case it.Downloaded:
 				state = "downloaded"
 			}
-			fmt.Fprintf(w, "  %-36s %-10s %s\n", it.ID, orDash(it.Version), state)
+			line := fmt.Sprintf("  %-36s %-10s %-10s", it.ID, orDash(it.Version), state)
+			if n := tokens[it.ID]; n > 0 && !it.Removed {
+				line += " " + tokenLabel(n)
+				total += n
+			}
+			fmt.Fprintln(w, strings.TrimRight(line, " "))
 		}
+	}
+	if total > 0 {
+		fmt.Fprintf(w, "LLM context: installed prompts and tool definitions total about %s tokens.\n",
+			formatTokens(total))
 	}
 	return nil
 }

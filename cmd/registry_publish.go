@@ -67,7 +67,7 @@ func printVerifyFindings(w io.Writer, findings []verify.Finding) {
 func verifyErrorsResult(findings []verify.Finding) error {
 	errCount := countBySeverity(findings, verify.SeverityError)
 	return fmt.Errorf(
-		"found %d error(s) — fix them before submitting (see 'kdeps registry submit --help')",
+		"found %d error(s) — fix them before submitting (see 'kdeps submit --help')",
 		errCount,
 	)
 }

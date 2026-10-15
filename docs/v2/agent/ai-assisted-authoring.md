@@ -42,10 +42,10 @@ Projects the skill creates are distributable by default:
 
 ```bash
 kdeps validate .
-kdeps registry verify .
+kdeps verify .
 kdeps bundle package .
 git tag v1.0.0 && git push --tags
-kdeps registry submit --tag v1.0.0
+kdeps submit --tag v1.0.0
 # Open a PR to https://github.com/kdeps/registry with the printed formula
 ```
 
@@ -57,7 +57,7 @@ for the full publish checklist.
 | | **kdeps skill** | **Your kdeps project** |
 |---|---|---|
 | What it is | Instructions for coding agents | Runnable workflow / component / agency |
-| Install | `npx skills add https://github.com/kdeps/skill --skill kdeps` | `kdeps registry install <name>` |
+| Install | `npx skills add https://github.com/kdeps/skill --skill kdeps` | `kdeps install <name>` |
 | Manifest | `skills/kdeps/SKILL.md` | `kdeps.pkg.yaml` |
 
 The skill teaches agents how to write YAML that installs from

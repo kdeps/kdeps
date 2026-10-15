@@ -354,8 +354,8 @@ the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
 Expose installed components as LLM function-calling tools:
 
 ```bash
-kdeps registry install scraper
-kdeps registry install search
+kdeps install scraper
+kdeps install search
 ```
 
 ```yaml

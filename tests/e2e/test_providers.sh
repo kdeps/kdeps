@@ -92,7 +92,7 @@ else
 fi
 
 OUT=$(HOME="$PV_HOME" KDEPS_CONFIG_PATH="$PV_HOME/.kdeps/config.yaml" KDEPS_ASSETS_SRC="$PV_SRC" \
-    KDEPS_ASSETS_DIR="$PV_HOME/store" KDEPS_ASSETS_URL=off "$KDEPS_BIN" update --list 2>&1 </dev/null)
+    KDEPS_ASSETS_DIR="$PV_HOME/store" KDEPS_ASSETS_URL=off "$KDEPS_BIN" list --assets 2>&1 </dev/null)
 if output_grep "providers/e2eprov +1\.0\.0 +source" "$OUT" && output_grep "providers/groq" "$OUT"; then
     test_passed "providers - providers are an updatable asset set"
 else

@@ -41,6 +41,10 @@ type Spec struct {
 	Validate func(data []byte, name string) error
 	// Required reports whether an item cannot be removed (the loader needs it).
 	Required func(name string) bool
+	// Context returns the text of an item (its file, or bundle) that reaches
+	// the LLM's context - a prompt, a tool definition. Nil for a set the
+	// model never sees.
+	Context func(data []byte, name string) string
 }
 
 //nolint:gochecknoglobals // specs are registered once from each owning package's init
@@ -81,8 +85,8 @@ func Registered() []string {
 	return out
 }
 
-// required reports whether set/name is an item its loader cannot do without.
-func required(set, name string) bool {
+// Required reports whether set/name is an item its loader cannot do without.
+func Required(set, name string) bool {
 	s, err := specFor(set)
 	return err == nil && s.Required != nil && s.Required(name)
 }
@@ -183,7 +187,7 @@ func Remove(root, id string) error {
 	if name == "" {
 		return fmt.Errorf("assets: remove needs an item, not the whole set %q", set)
 	}
-	if required(set, name) {
+	if Required(set, name) {
 		return fmt.Errorf("assets: %s is required and cannot be removed (update or reset it instead)", id)
 	}
 	lock, err := ReadLock(root)
@@ -191,7 +195,7 @@ func Remove(root, id string) error {
 		return err
 	}
 	if !known(set, name, root, lock) {
-		return fmt.Errorf("assets: no such item %s (see kdeps update --list)", id)
+		return fmt.Errorf("assets: no such item %s (see kdeps list --assets)", id)
 	}
 	if rmErr := os.Remove(FilePath(root, set, name)); rmErr != nil && !os.IsNotExist(rmErr) {
 		return fmt.Errorf("assets: remove %s: %w", id, rmErr)

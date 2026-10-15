@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -46,14 +47,19 @@ const (
 func newRegistryInstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryInstallCmd")
 	return &cobra.Command{
-		Use:   "install <package[@version] | owner/repo[:subdir] | /path/to/file.kdeps>",
-		Short: "Install a workflow, agency, or component from the registry, GitHub, or a local file.",
-		Long: `Install a package from the kdeps registry, a GitHub repository, or a local archive.
+		Use:   "install <asset | package[@version] | owner/repo[:subdir] | /path/to/file.kdeps>...",
+		Short: "Install kdeps assets, or a workflow, agency, or component from the registry, GitHub, or a local file.",
+		Long: `Install kdeps assets, or a package from the kdeps registry, a GitHub repository,
+or a local archive.
 
 Source is auto-detected from the ref format:
 
+  Asset        <set>[/<name>][@version], set one of kdeps's asset sets
+               (tools, harness, themes, ...); installs what it requires first,
+               and a version pins it
   Local file   Path starting with ./ ../ / ~ or ending with .kdeps .kagency .komponent
-  GitHub       owner/repo[:subdir]  (contains "/" after ruling out local path)
+  GitHub       owner/repo[:subdir]  (contains "/", owner not an asset set;
+               github:owner/repo forces GitHub for an owner named like a set)
   Registry     package[@version]    (everything else)
 
 Behavior depends on package type:
@@ -65,11 +71,22 @@ Behavior depends on package type:
   component:
     Installs to the project components/ dir if run inside a kdeps project,
     otherwise installs globally to ~/.kdeps/components/.
-    Run "kdeps registry info <name>" to read the component README.`,
-		Args: cobra.ExactArgs(1),
+    Run "kdeps info <name>" to read the component README.`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInstallCmd.RunE")
-			return doRegistryInstall(cmd, args[0], registryURL(cmd))
+			assetRefs, pkgRefs := splitRefs(args)
+			if len(assetRefs) > 0 {
+				if err := runAssets(cmd, agent.UpdateOptions{Items: assetRefs}); err != nil {
+					return err
+				}
+			}
+			for _, ref := range pkgRefs {
+				if err := doRegistryInstall(cmd, ref, registryURL(cmd)); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }

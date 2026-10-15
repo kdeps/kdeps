@@ -48,7 +48,15 @@ for _ in $(seq 1 50); do
     sleep 0.1
 done
 
-upd() { KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" update "$@" 2>&1; }
+# upd runs the kdeps asset command for: --list (list --assets), --remove (uninstall), else update.
+upd() {
+    local sub=(update)
+    case "${1:-}" in
+    --list) sub=(list --assets); shift ;;
+    --remove) sub=(uninstall); shift ;;
+    esac
+    KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" "${sub[@]}" "$@" 2>&1
+}
 
 OUT=$(upd --check)
 if output_grep "tools/md5_file +available +1\.0\.0 -> 1\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
@@ -143,15 +151,55 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
         test_failed "first run offline message" "$OUT"
     fi
 
-    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" llamafile list)
-    if output_grep "Downloading kdeps assets" "$OUT" && output_grep "GGUF" "$OUT" && [ -f "$FR_DIR/store/themes/normal.yaml" ]; then
-        test_passed "first run downloads every asset"
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" KDEPS_PROFILE= "$KDEPS_BIN" llamafile list)
+    if output_grep "Installing models" "$OUT" && output_grep "GGUF" "$OUT" && [ ! -e "$FR_DIR/store/themes" ]; then
+        test_passed "first run without a terminal installs only what the command needs"
     else
         test_failed "first run download" "$OUT"
     fi
 
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" profile agent)
+    if [ -f "$FR_DIR/store/themes/normal.yaml" ] && [ -f "$FR_DIR/store/tools/bash_exec.yaml" ] &&
+        [ ! -e "$FR_DIR/store/tools/zapier_run_action.yaml" ] && [ ! -e "$FR_DIR/store/docker" ] &&
+        grep -q '"profile": "agent"' "$FR_DIR/store/lock.json"; then
+        test_passed "registry profile agent installs the agent profile and records it"
+    else
+        test_failed "registry profile agent" "$OUT"
+    fi
+
+    if OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" profile); then
+        test_failed "registry profile without a terminal fails" "$OUT"
+    elif output_grep "needs a terminal" "$OUT"; then
+        test_passed "registry profile without a terminal asks for a profile name"
+    else
+        test_failed "registry profile message" "$OUT"
+    fi
+
+    MIN_HOME="$FR_DIR/min"
+    mkdir -p "$MIN_HOME"
+    OUT=$(HOME="$MIN_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$MIN_HOME/store" KDEPS_PROFILE=minimum \
+        KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
+    if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
+        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ ! -e "$MIN_HOME/store/harness" ] && [ ! -e "$MIN_HOME/store/components" ]; then
+        test_passed "KDEPS_PROFILE=minimum installs only the base sets; validate works"
+    else
+        test_failed "KDEPS_PROFILE=minimum first run" "$OUT"
+    fi
+
+    ITEM_HOME="$FR_DIR/items"
+    mkdir -p "$ITEM_HOME"
+    OUT=$(HOME="$ITEM_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$ITEM_HOME/store" KDEPS_PROFILE=tools/bash_exec,themes/normal \
+        KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
+    if output_grep "Installing the custom profile" "$OUT" && [ -f "$ITEM_HOME/store/tools/bash_exec.yaml" ] &&
+        [ -f "$ITEM_HOME/store/themes/normal.yaml" ] && [ ! -e "$ITEM_HOME/store/tools/read_file.yaml" ] &&
+        [ ! -e "$ITEM_HOME/store/themes/vim.yaml" ] && [ -f "$ITEM_HOME/store/schemas/v1.yaml" ]; then
+        test_passed "KDEPS_PROFILE item list installs those items and the base, nothing else"
+    else
+        test_failed "KDEPS_PROFILE item list" "$OUT"
+    fi
+
     OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list)
-    if ! output_grep "Downloading" "$OUT" && output_grep "GGUF" "$OUT"; then
+    if ! output_grep "Installing" "$OUT" && output_grep "GGUF" "$OUT"; then
         test_passed "installed assets work offline"
     else
         test_failed "installed assets offline" "$OUT"

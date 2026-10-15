@@ -59,7 +59,10 @@ type IndexVersion struct {
 	// Requires is the version's header requires: (see Header).
 	Requires map[string]string `json:"requires,omitempty"`
 	Commit   string            `json:"commit,omitempty"`
-	Date     time.Time         `json:"date"`
+	// Tokens estimates what this version adds to the LLM context (0 for an
+	// item the model never sees).
+	Tokens int       `json:"tokens,omitempty"`
+	Date   time.Time `json:"date"`
 }
 
 // PublishedPath is where version of id lives under the published assets root.
@@ -223,6 +226,8 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	}
 	sum := Sum(data)
 	it := idx.Items[id]
+	set, name, _ := SplitID(id)
+	tokens := ContextTokens(set, name, data)
 	if v, ok := it.Find(h.Version); ok {
 		if v.SHA256 != sum {
 			return "", fmt.Errorf(
@@ -231,6 +236,13 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 				h.Version,
 			)
 		}
+		// Versions published before token estimates get theirs now.
+		for i := range it.Versions {
+			if it.Versions[i].Version == h.Version {
+				it.Versions[i].Tokens = tokens
+			}
+		}
+		idx.Items[id] = it
 		return "", nil
 	}
 	dst := filepath.Join(out, filepath.FromSlash(PublishedPath(id, h.Version)))
@@ -242,6 +254,7 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	}
 	it.Versions = append(it.Versions, IndexVersion{
 		Version: h.Version, SHA256: sum, Kdeps: h.Kdeps, Requires: h.Requires, Commit: commit, Date: now.UTC(),
+		Tokens: tokens,
 	})
 	sort.Slice(it.Versions, func(i, j int) bool { return Newer(it.Versions[j].Version, it.Versions[i].Version) })
 	it.Latest = it.Versions[len(it.Versions)-1].Version
