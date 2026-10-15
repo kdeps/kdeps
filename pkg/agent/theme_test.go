@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
@@ -430,4 +432,11 @@ func TestRenderStealthSample(t *testing.T) {
 	if !strings.Contains(got, "\n") {
 		t.Fatal("RenderStealthSample() must join multiple styled lines")
 	}
+}
+
+func TestInstalledThemeOrder(t *testing.T) {
+	loaded := map[string]*theme{"vim": {}, "normal": {}, "zeta": {}, "alpha": {}}
+	assert.Equal(t, []string{"normal", "vim", "alpha", "zeta"}, installedThemeOrder(loaded),
+		"the shipped themes that are installed, in order, then the others published, sorted")
+	assert.Empty(t, installedThemeOrder(map[string]*theme{}))
 }

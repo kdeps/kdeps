@@ -19,6 +19,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -61,8 +62,22 @@ func TestRunWithReader_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	wf := minimalWorkflow()
 
+	var out bytes.Buffer
+	orig := resultOut
+	resultOut = &out
+	t.Cleanup(func() { resultOut = orig })
 	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader("hello world"), "")
 	require.NoError(t, err)
+	assert.Contains(t, out.String(), `"ok": true`, "the result is printed as JSON")
+}
+
+func TestWriteResult(t *testing.T) {
+	var out bytes.Buffer
+	require.NoError(t, writeResult(&out, nil))
+	assert.Empty(t, out.String(), "no result, nothing printed")
+	require.NoError(t, writeResult(&out, map[string]any{"a": 1}))
+	assert.Equal(t, "{\n  \"a\": 1\n}\n", out.String())
+	require.Error(t, writeResult(&out, map[string]any{"f": func() {}}), "an unencodable result is an error")
 }
 
 // TestRunWithReader_ReadInputError tests that readFileInput errors propagate correctly.

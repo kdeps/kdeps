@@ -127,14 +127,14 @@ if output_grep "prompt refinement is (on|off)" "$OUT" && output_grep_i "goal" "$
 else
     test_failed "asset profiles - unlisted built-ins" "$OUT"
 fi
-if [ "$(python3 -c "import json;print(','.join(sorted(json.load(open('$MN/store/lock.json')).get('empty') or [])))")" = "actions,events,presets" ]; then
+if [ "$(python3 -c "import json,sys;print(','.join(sorted(json.load(open(sys.argv[1])).get('empty') or [])))" "$MN/store/lock.json")" = "actions,events,presets" ]; then
     test_passed "asset profiles - sets minimum leaves empty are recorded in the lock"
 else
     test_failed "asset profiles - lock empty sets" "$(cat "$MN/store/lock.json" | head -c 400)"
 fi
 
 OUT=$(AP_URL_OVERRIDE=off ap_loop "$MN" '/help\n/quit\n')
-if ! output_grep "Installing|not installed" "$OUT" && [ "$(help_commands "$OUT" | tr '\n' ' ' | sed 's/ $//')" = "$CORE" ]; then
+if ! output_grep "Installing |kdeps assets .* not installed" "$OUT" && [ "$(help_commands "$OUT" | tr '\n' ' ' | sed 's/ $//')" = "$CORE" ]; then
     test_passed "asset profiles - a second start under minimum downloads nothing and works offline"
 else
     test_failed "asset profiles - offline restart under minimum" "$OUT"

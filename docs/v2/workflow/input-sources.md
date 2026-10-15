@@ -82,6 +82,18 @@ Override the path at runtime:
 kdeps run workflow.yaml --file /path/to/document.txt
 ```
 
+The workflow runs once and prints its result (the target resource's output) as JSON on stdout, after the progress lines:
+
+```text
+✓ Running workflow with file input...
+{
+  "data": {
+    "summary": "..."
+  },
+  "success": true
+}
+```
+
 **Size limit.** The whole file is read into memory as `fileContent` - fine for
 documents, but a workflow that ingests bulk data (a large CSV, say) can spike
 memory well past the raw file size once a resource copies that content again
