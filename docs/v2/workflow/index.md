@@ -110,7 +110,7 @@ When enabled, four expression functions become available in resource YAML:
 | `memory_list()` | List all memory keys |
 | `memory_delete(key)` | Delete a memory entry by key |
 
-Memory persists across workflow runs in `~/.kdeps/memory/`. Use it to carry state between invocations:
+Memory persists across workflow runs as notes in the knowledge vault's `Memory/` folder (default `~/.kdeps/notes/Memory/`). Use it to carry state between invocations:
 
 <div v-pre>
 

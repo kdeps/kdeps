@@ -3,7 +3,7 @@
 #   - init scaffolds an existing folder without touching its files and
 #     records the vault in config.yaml
 #   - build reads notes, wikilinks, frontmatter links and the Go code behind
-#     a card's repo link; a second build re-reads nothing
+#     a card's repo link into <vault>/.index; a second build re-reads nothing
 #   - recall names the related notes for a request, within a token budget
 #   - check reports facts with more than one home and dangling links
 set -uo pipefail
@@ -70,8 +70,8 @@ NOTE
 OUT=$(kn build)
 OUT2=$(kn build)
 if output_grep "notes \([0-9]+ changed\), 2 code files" "$OUT" && output_grep "\(0 changed\)" "$OUT2" &&
-    [ -f "$KN_DIR/data/notes-"*/knowledge/graph.json ] && [ ! -e "$KN_VAULT/graph.json" ]; then
-    test_passed "knowledge - build reads notes and code, keeps the graph outside the vault, reuses its cache"
+    [ -f "$KN_VAULT/.index/graph.json" ] && [ ! -e "$KN_VAULT/graph.json" ]; then
+    test_passed "knowledge - build reads notes and code, keeps the index in the vault's .index, reuses its cache"
 else
     test_failed "knowledge - build" "$OUT $OUT2"
 fi
@@ -97,7 +97,7 @@ fi
 OUT=$(kn report)
 if output_grep "# Knowledge graph report" "$OUT" && output_grep "## God nodes" "$OUT" &&
     output_grep "## Communities" "$OUT" && output_grep "## Surprising connections" "$OUT" &&
-    output_grep "\[\[Nowhere\]\]" "$OUT" && [ -f "$KN_DIR/data/notes-"*/knowledge/graph.html ]; then
+    output_grep "\[\[Nowhere\]\]" "$OUT" && [ -f "$KN_VAULT/.index/graph.html" ]; then
     test_passed "knowledge - report lists god nodes, Louvain communities, surprising links; graph.html written"
 else
     test_failed "knowledge - report" "$OUT"

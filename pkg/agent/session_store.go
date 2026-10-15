@@ -191,6 +191,10 @@ func (s *SessionStore) withDB(fn func(*bolt.DB) error) error {
 	return fn(db)
 }
 
+// dbOpenTimeout bounds bbolt's exclusive-lock acquisition so an accidental
+// concurrent open on the same file fails fast instead of hanging forever.
+const dbOpenTimeout = 5 * time.Second
+
 func encodeCwd(cwd string) string {
 	clean := strings.TrimLeft(cwd, "/\\")
 	clean = strings.NewReplacer("/", "-", "\\", "-", ":", "-").Replace(clean)

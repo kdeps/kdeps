@@ -64,23 +64,15 @@ story in a note, the connections in the graph (kept under ~/.kdeps).`,
 
 // knowledgeTarget resolves the vault and workspace from --vault or config.
 func knowledgeTarget(cmd *cobra.Command) (knowledge.Vault, knowledge.Workspace, *config.KnowledgeConfig, error) {
-	kc := &config.KnowledgeConfig{}
-	if cfg, err := config.LoadStruct(); err == nil && cfg.Knowledge != nil {
-		kc = cfg.Knowledge
+	vault, workspace, kc := knowledge.Configured()
+	if flag, _ := cmd.Flags().GetString("vault"); flag != "" {
+		home, _ := os.UserHomeDir()
+		vault = knowledge.ExpandPath(flag, home)
+		if kc.Workspace == "" {
+			workspace = vault
+		}
 	}
-	vault, _ := cmd.Flags().GetString("vault")
-	if vault == "" {
-		vault = kc.Vault
-	}
-	home, _ := os.UserHomeDir()
-	v := knowledge.Vault{Root: knowledge.DefaultVault()}
-	if vault != "" {
-		v.Root = knowledge.ExpandPath(vault, home)
-	}
-	ws := knowledge.Workspace(v)
-	if kc.Workspace != "" {
-		ws.Root = knowledge.ExpandPath(kc.Workspace, home)
-	}
+	v, ws := knowledge.Vault{Root: vault}, knowledge.Workspace{Root: workspace}
 	if info, err := os.Stat(v.Root); err != nil || !info.IsDir() {
 		return v, ws, kc, fmt.Errorf("vault %s is not a folder (run kdeps knowledge init)", v.Root)
 	}

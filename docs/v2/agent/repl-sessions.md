@@ -4,9 +4,10 @@ Each directory you launch `kdeps` from has its own conversation history. Nothing
 
 ## Where sessions are stored
 
-Conversations and the agent's memory are stored in `~/.kdeps/`, **partitioned by
-the directory you launch `kdeps` from** - `~/.kdeps/sessions/` and
-`~/.kdeps/memory/` each hold a subfolder per working directory. `cd` into a
+Conversations and the agent's memory are **partitioned by the directory you
+launch `kdeps` from**: conversations in `~/.kdeps/sessions/<folder>/`, memory as
+notes in the knowledge vault's `Memory/<project>/` (see
+[Persistent memory](/agent/memory)). `cd` into a
 project and `kdeps` sees that folder's history; a different folder starts clean.
 Nothing is written into the project directory itself.
 

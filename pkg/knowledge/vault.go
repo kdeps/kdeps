@@ -41,7 +41,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 const (
@@ -315,18 +315,36 @@ func DefaultVault() string {
 	return filepath.Join(home, ".kdeps", "notes")
 }
 
+// IndexFolder is the hidden vault folder holding the generated graph,
+// caches and report (never read as notes).
+const IndexFolder = ".index"
+
 // GraphDir is where kdeps keeps a vault's generated graph, report and
-// cache: the vault's data folder under ~/.kdeps, never the vault itself
-// (under go test, a temp folder unless KDEPS_DATA_DIR is set).
+// caches: <vault>/.index, so the index travels with the vault.
 func GraphDir(vault string) string {
-	if testing.Testing() && os.Getenv("KDEPS_DATA_DIR") == "" {
-		return filepath.Join(
-			os.TempDir(),
-			fmt.Sprintf("kdeps-test-knowledge-%d", os.Getpid()),
-			hashBytes([]byte(vault)),
-		)
+	return filepath.Join(vault, IndexFolder)
+}
+
+// Configured is the vault and workspace ~/.kdeps/config.yaml names (the
+// default vault when it names none), and whether recall is enabled.
+func Configured() (string, string, *config.KnowledgeConfig) {
+	kc := &config.KnowledgeConfig{}
+	// Tests read a config only when they point at one, never the real file.
+	if !testing.Testing() || os.Getenv("KDEPS_CONFIG_PATH") != "" {
+		if cfg, err := config.LoadStruct(); err == nil && cfg != nil && cfg.Knowledge != nil {
+			kc = cfg.Knowledge
+		}
 	}
-	return datadir.File(vault, "knowledge")
+	home, _ := os.UserHomeDir()
+	vault := DefaultVault()
+	if strings.TrimSpace(kc.Vault) != "" {
+		vault = ExpandPath(kc.Vault, home)
+	}
+	workspace := vault
+	if strings.TrimSpace(kc.Workspace) != "" {
+		workspace = ExpandPath(kc.Workspace, home)
+	}
+	return vault, workspace, kc
 }
 
 // ExpandPath resolves a leading "~/" and makes a path absolute against base.
