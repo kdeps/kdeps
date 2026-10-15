@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -186,9 +187,18 @@ func ProjectName(dir string) (string, string, string) {
 	return safeName(filepath.Base(dir)), filepath.Clean(dir), SourceFolder
 }
 
-// gitRoot is the nearest folder at or above dir holding .git, or "".
+// gitRoot is the nearest folder at or above dir holding .git, or "". Like
+// git, it does not look into GIT_CEILING_DIRECTORIES; it also stops below
+// the home folder, so a home kept in git (dotfiles) does not swallow every
+// folder under it.
 func gitRoot(dir string) string {
-	for d := filepath.Clean(dir); ; {
+	stops := filepath.SplitList(os.Getenv("GIT_CEILING_DIRECTORIES"))
+	home, _ := os.UserHomeDir()
+	start := filepath.Clean(dir)
+	for d := start; ; {
+		if d != start && (d == home || slices.Contains(stops, d)) {
+			return ""
+		}
 		if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {
 			return d
 		}
@@ -251,11 +261,29 @@ func (v Vault) moveProject(c *Card, top string) (*Card, error) {
 	if err := os.MkdirAll(filepath.Dir(dst), dirPerm); err != nil {
 		return nil, err
 	}
-	if err := os.Rename(c.Dir(), dst); err != nil {
+	if err := renameRetry(c.Dir(), dst); err != nil {
 		return nil, err
 	}
 	return ReadCard(filepath.Join(dst, c.Name+mdExt))
 }
+
+// renameRetry renames, retrying briefly: on Windows a folder cannot be
+// renamed while a file in it is open (an indexer, a virus scanner).
+func renameRetry(from, to string) error {
+	var err error
+	for range renameAttempts {
+		if err = os.Rename(from, to); err == nil {
+			return nil
+		}
+		time.Sleep(renameBackoff)
+	}
+	return err
+}
+
+const (
+	renameAttempts = 10
+	renameBackoff  = 100 * time.Millisecond
+)
 
 // SetStatus updates the card and moves the project to archive/ when its
 // status becomes archived, or back to projects/ when it stops being.

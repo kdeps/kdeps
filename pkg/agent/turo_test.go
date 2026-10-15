@@ -40,6 +40,9 @@ func TestMain(m *testing.M) {
 		os.Setenv("HOME", home)
 	}
 	os.Setenv("KDEPS_TURO", "off")
+	// CI keeps temp folders inside the checkout: never name a test project
+	// after the kdeps repository.
+	os.Setenv("GIT_CEILING_DIRECTORIES", os.TempDir())
 	SetConvergenceLimits(1_000_000, 1_000_000, 1_000_000, 1_000_000)
 	code := m.Run()
 	if home != "" {

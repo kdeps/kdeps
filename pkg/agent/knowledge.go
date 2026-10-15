@@ -518,6 +518,7 @@ func (l *Loop) registerKnowledgeTools() {
 			if status == "" && next == "" {
 				return "", errors.New("knowledge_card_update: give status and/or next")
 			}
+			k.waitBuilds() // archiving moves the folder; a build walking it would block that on Windows
 			innerErr := k.vault.SetStatus(c, strings.TrimSpace(status), strings.TrimSpace(next), time.Now())
 			k.notifyMoved()
 			if innerErr != nil {
@@ -867,6 +868,7 @@ func (l *Loop) turnStateBlock(focus string) string {
 		// the turn's status, memory and notes all have a home; a turn in an
 		// archived project reopens it.
 		if c, err := l.knowledge.project(); err == nil && c.Archived() {
+			l.knowledge.waitBuilds() // a build walking the vault would block the move on Windows
 			_ = l.knowledge.vault.Reopen(c, time.Now())
 			l.knowledge.notifyMoved()
 		}

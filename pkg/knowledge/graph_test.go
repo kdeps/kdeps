@@ -454,3 +454,20 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 		assert.Equal(t, want, stem(in), in)
 	}
 }
+
+func TestGitRoot_Ceilings(t *testing.T) {
+	outer := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(outer, ".git"), 0o750))
+	inner := filepath.Join(outer, "a", "b")
+	require.NoError(t, os.MkdirAll(inner, 0o750))
+	t.Setenv("GIT_CEILING_DIRECTORIES", "")
+	assert.Equal(t, outer, gitRoot(inner))
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Join(outer, "a"))
+	assert.Empty(t, gitRoot(inner), "git does not look into a ceiling directory")
+	assert.Equal(t, outer, gitRoot(outer), "the start folder itself is always checked")
+	t.Setenv("GIT_CEILING_DIRECTORIES", "")
+	t.Setenv("HOME", outer)
+	t.Setenv("USERPROFILE", outer)
+	assert.Empty(t, gitRoot(inner), "a home kept in git does not name the folders under it")
+	assert.Equal(t, outer, gitRoot(outer), "working in the home folder itself still finds it")
+}
