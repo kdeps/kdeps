@@ -391,3 +391,16 @@ func TestExtractKnowledge(t *testing.T) {
 	outStr := captureStdout(t, func() { r.cmdKnowledge([]string{"extract"}) })
 	assert.Contains(t, outStr, "Reading changed notes")
 }
+
+func TestWriteSessionNoteOnExit_OnlyInATerminal(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	l.session.Append("hi", "hello")
+	require.True(t, l.SessionNoteDue())
+	orig := stdinIsTerminal
+	t.Cleanup(func() { stdinIsTerminal = orig })
+	stdinIsTerminal = func() bool { return false }
+	r := &REPL{loop: l, loopCtx: t.Context()}
+	out := captureStdout(t, r.writeSessionNoteOnExit)
+	assert.Empty(t, out, "a piped session exits without model calls")
+	assert.True(t, l.SessionNoteDue())
+}
