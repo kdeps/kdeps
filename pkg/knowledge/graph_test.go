@@ -471,3 +471,13 @@ func TestGitRoot_Ceilings(t *testing.T) {
 	assert.Empty(t, gitRoot(inner), "a home kept in git does not name the folders under it")
 	assert.Equal(t, outer, gitRoot(outer), "working in the home folder itself still finds it")
 }
+
+func TestCopyTree(t *testing.T) {
+	from := writeVault(t, map[string]string{"a.md": "A", "sub/b.md": "B"})
+	to := filepath.Join(t.TempDir(), "copy")
+	require.NoError(t, copyTree(from, to))
+	data, err := os.ReadFile(filepath.Join(to, "sub", "b.md"))
+	require.NoError(t, err)
+	assert.Equal(t, "B", string(data))
+	require.Error(t, copyTree(filepath.Join(from, "missing"), to))
+}

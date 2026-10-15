@@ -869,7 +869,9 @@ func (l *Loop) turnStateBlock(focus string) string {
 		// archived project reopens it.
 		if c, err := l.knowledge.project(); err == nil && c.Archived() {
 			l.knowledge.waitBuilds() // a build walking the vault would block the move on Windows
-			_ = l.knowledge.vault.Reopen(c, time.Now())
+			if err = l.knowledge.vault.Reopen(c, time.Now()); err != nil {
+				fmt.Fprintf(os.Stderr, "knowledge: project %s not reopened: %v\n", c.Name, err)
+			}
 			l.knowledge.notifyMoved()
 		}
 		if o := l.knowledge.overview(); o != "" {

@@ -16,12 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-// Package knowledge keeps a long-term knowledge base the agent can use
-// without reading it: a markdown vault (the story), short routing cards (the
-// status), and a graph of the vault's links (the connections). Before each
-// turn, recall walks the graph from the words of the request and names the
-// few notes worth reading. One home per fact: status lives in a card, the
-// story in a note, connections in the graph.
 package knowledge
 
 import (

@@ -444,7 +444,7 @@ func TestUpdateSessionNote_EveryTurn(t *testing.T) {
 	sess := l.session.(*Session)
 
 	l.UpdateSessionNote() // no turns yet: nothing
-	matches, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	matches, _ := filepath.Glob(filepath.Join(vault, "projects", "app", "sessions", "*.md"))
 	assert.Empty(t, matches)
 
 	sess.Append("switch billing to monthly", "done")
@@ -454,7 +454,7 @@ func TestUpdateSessionNote_EveryTurn(t *testing.T) {
 	require.NoError(t, l.memoryStore.Set("decision:billing", "Bill monthly"))
 	l.UpdateSessionNote()
 
-	matches, _ = filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	matches, _ = filepath.Glob(filepath.Join(vault, "projects", "app", "sessions", "*.md"))
 	require.Len(t, matches, 1, "the note exists after the first turn, not only at exit")
 	data, _ := os.ReadFile(matches[0])
 	note := string(data)
@@ -467,7 +467,7 @@ func TestUpdateSessionNote_EveryTurn(t *testing.T) {
 	l.writeSessionNote("## Goal\nShip monthly billing\n## Wins\n- tests green\n", nil)
 	sess.Append("now add invoices", "ok")
 	l.UpdateSessionNote()
-	again, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	again, _ := filepath.Glob(filepath.Join(vault, "projects", "app", "sessions", "*.md"))
 	require.Len(t, again, 1, "one note per session, rewritten in place")
 	data, _ = os.ReadFile(again[0])
 	note = string(data)

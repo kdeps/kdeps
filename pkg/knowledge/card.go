@@ -21,12 +21,15 @@ package knowledge
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/spf13/fileflow"
 )
 
 // Card fields every card carries in its frontmatter.
@@ -272,8 +275,11 @@ func (v Vault) moveProject(c *Card, top string) (*Card, error) {
 	return ReadCard(filepath.Join(dst, c.Name+mdExt))
 }
 
-// renameRetry renames, retrying briefly: on Windows a folder cannot be
-// renamed while a file in it is open (an indexer, a virus scanner).
+// renameRetry moves a folder: a rename, retried for a few seconds (on
+// Windows a folder cannot be renamed while a file in it is open - an
+// indexer, a virus scanner), then a copy of every file and a removal of
+// the original. When the original cannot be removed either, the copy is
+// removed and the folder stays where it was.
 func renameRetry(from, to string) error {
 	var err error
 	for range renameAttempts {
@@ -282,12 +288,36 @@ func renameRetry(from, to string) error {
 		}
 		time.Sleep(renameBackoff)
 	}
-	return err
+	if copyErr := copyTree(from, to); copyErr != nil {
+		_ = os.RemoveAll(to)
+		return fmt.Errorf("move %s: %w (copy: %w)", from, err, copyErr)
+	}
+	if rmErr := os.RemoveAll(from); rmErr != nil {
+		_ = os.RemoveAll(to)
+		return fmt.Errorf("move %s: %w (remove: %w)", from, err, rmErr)
+	}
+	return nil
+}
+
+// copyTree copies every file under from to the same place under to.
+func copyTree(from, to string) error {
+	return filepath.WalkDir(from, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(from, p)
+		dst := filepath.Join(to, rel)
+		if d.IsDir() {
+			return os.MkdirAll(dst, dirPerm)
+		}
+		_, copyErr := fileflow.Copy(p, dst)
+		return copyErr
+	})
 }
 
 const (
-	renameAttempts = 10
-	renameBackoff  = 100 * time.Millisecond
+	renameAttempts = 20
+	renameBackoff  = 250 * time.Millisecond
 )
 
 // SetStatus updates the card and moves the project to archive/ when its
