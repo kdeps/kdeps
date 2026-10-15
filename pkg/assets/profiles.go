@@ -115,7 +115,7 @@ func ProfileByName(name string) (Profile, error) {
 	return Profile{}, fmt.Errorf("unknown profile %q (profiles: %s, custom)", name, strings.Join(ProfileNames(), ", "))
 }
 
-// Targets lists what the profile installs as kdeps update arguments: sets,
+// Targets lists what the profile installs as kdeps registry update arguments: sets,
 // then the published items required by the RequiredOf sets, then Items.
 func (p Profile) Targets(idx Index) []string {
 	if p.All {
@@ -125,7 +125,7 @@ func (p Profile) Targets(idx Index) []string {
 	for _, set := range p.RequiredOf {
 		var ids []string
 		for id := range idx.Items {
-			if s, n, err := SplitID(id); err == nil && s == set && required(s, n) {
+			if s, n, err := SplitID(id); err == nil && s == set && Required(s, n) {
 				ids = append(ids, id)
 			}
 		}
@@ -136,7 +136,7 @@ func (p Profile) Targets(idx Index) []string {
 }
 
 // Select installs targets and records them in the lock as the selection a
-// bare kdeps update keeps current.
+// bare kdeps registry update keeps current.
 func Select(ctx context.Context, root string, c *Client, profile string, targets []string) ([]Change, error) {
 	changes, err := Update(ctx, root, c, targets, false)
 	if err != nil {

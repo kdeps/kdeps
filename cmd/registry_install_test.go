@@ -669,7 +669,7 @@ func TestResolvePackageInfo_AssetType(t *testing.T) {
 
 	_, err := resolvePackageInfo("kdeps-harness-safety", srv.URL)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kdeps update")
+	assert.Contains(t, err.Error(), "kdeps registry update")
 }
 
 func TestResolvePackageInfo_ResourceType(t *testing.T) {

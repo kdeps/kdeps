@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
@@ -33,23 +34,46 @@ import (
 // newRegistryUpdateCmd creates the registry update subcommand.
 func newRegistryUpdateCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryUpdateCmd")
-	return &cobra.Command{
-		Use:   "update <package[@version]>",
-		Short: "Update an installed agent or component to a newer version.",
-		Long: `Download and reinstall a package from the registry.
+	var check bool
+	c := &cobra.Command{
+		Use:   "update [asset | package[@version]]...",
+		Short: "Update kdeps assets, or an installed agent or component, to a newer version.",
+		Long: `Update kdeps assets, or download and reinstall a package from the registry.
 
-Equivalent to: uninstall, then install the requested (or latest) version.
-Existing installation is removed before the new version is extracted.
+Without arguments, every installed asset and the asset profile (see
+kdeps registry profile) move to their newest versions; pinned and removed
+items are skipped. An asset ref installs or updates that set or item, and a
+version pins it. A package is uninstalled, then the requested (or latest)
+version installed.
 
 Examples:
-  kdeps registry update invoice-extractor          # upgrade to latest
-  kdeps registry update invoice-extractor@2.0.0   # pin to specific version`,
-		Args: cobra.ExactArgs(1),
+  kdeps registry update                            # assets to their newest versions
+  kdeps registry update --check                    # list asset updates, change nothing
+  kdeps registry update tools                      # every item in one set
+  kdeps registry update harness/safety@1.2.0       # exactly that version, pinned
+  kdeps registry update invoice-extractor          # a package, to latest
+  kdeps registry update invoice-extractor@2.0.0    # a package, pinned`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryUpdateCmd.RunE")
-			return doRegistryUpdate(cmd, args[0], registryURL(cmd))
+			assetRefs, pkgRefs := splitRefs(args)
+			if check && len(pkgRefs) > 0 {
+				return errCheckPackages
+			}
+			if len(args) == 0 || len(assetRefs) > 0 {
+				if err := runAssets(cmd, agent.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
+					return err
+				}
+			}
+			for _, ref := range pkgRefs {
+				if err := doRegistryUpdate(cmd, ref, registryURL(cmd)); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
+	c.Flags().BoolVar(&check, "check", false, "list available asset updates without installing them")
+	return c
 }
 
 func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {

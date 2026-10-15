@@ -40,7 +40,7 @@ func newLlamafileCmd() *cobra.Command {
 
 Llamafiles are self-contained executable LLM binaries; GGUF files are
 quantized model weights run via llama.cpp. Both serve an OpenAI-compatible
-endpoint with no cloud dependencies. ` + "`kdeps update models`" + ` refreshes the registry.`,
+endpoint with no cloud dependencies. ` + "`kdeps registry update models`" + ` refreshes the registry.`,
 	}
 
 	cmd.AddCommand(newLlamafileListCmd())

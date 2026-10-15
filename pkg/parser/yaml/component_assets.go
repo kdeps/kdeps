@@ -30,7 +30,7 @@ import (
 )
 
 // The components asset set holds kdeps's own components (ocr, ...): one
-// directory per component with its component.yaml, installed by kdeps update
+// directory per component with its component.yaml, installed by kdeps registry update
 // like any asset. A workflow calls them with component: {name: ...}.
 const (
 	componentsSet  = "components"

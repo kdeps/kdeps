@@ -74,7 +74,7 @@ func TestReadModelRegistry_Missing(t *testing.T) {
 	assert.Empty(t, ListGGUFMappings())
 }
 
-// A newer downloaded registry (`kdeps update models/gguf`) replaces the
+// A newer downloaded registry (`kdeps registry update models/gguf`) replaces the
 // source one; the user's local entries still merge on top.
 func TestModelRegistry_DownloadedVersionWins(t *testing.T) {
 	root := t.TempDir()
@@ -118,7 +118,7 @@ func TestCloudCatalog_Validate(t *testing.T) {
 	require.Error(t, validateModelRegistry([]byte("models: [\n"), cloudRegistryItem))
 }
 
-// A newer downloaded catalog (`kdeps update models/cloud`) replaces the
+// A newer downloaded catalog (`kdeps registry update models/cloud`) replaces the
 // source one on reload.
 func TestCloudCatalog_DownloadedVersionWins(t *testing.T) {
 	root := t.TempDir()

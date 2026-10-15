@@ -36,7 +36,7 @@ const (
 	ggufRegistryItem      = "gguf"
 )
 
-// modelsFSFunc returns the registries as loaders see them (`kdeps update
+// modelsFSFunc returns the registries as loaders see them (`kdeps registry update
 // models` installs them). Tests override it.
 //
 //nolint:gochecknoglobals // test hook

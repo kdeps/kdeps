@@ -220,31 +220,29 @@ kdeps --upgrade --target-version 2.35.0
 
 ---
 
-## `kdeps update`
+## `kdeps registry` (assets)
 
-Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+`kdeps registry` installs, updates and removes kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas and components - as well as registry packages. An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
 
 ```bash
-kdeps update                          # the chosen profile and everything installed since, to their newest versions
-kdeps update --profile agent          # install a profile: minimum, workflows, agent, deploy, full (or a set list: docker,k8s)
-kdeps update --select                 # choose the profile again, or tick sets yourself (custom); needs a terminal
-kdeps update harness                  # every item in one set
-kdeps update harness/safety           # one item to its newest version (unpins it)
-kdeps update harness/safety@1.2.0     # exactly that version, pinned (older = downgrade)
-kdeps update --check                  # list available updates, change nothing
-kdeps update --list                   # every item, its version and state
-kdeps update --remove themes/vim      # remove items (restore with: kdeps update themes/vim)
+kdeps registry update                          # the chosen profile and everything installed since, to their newest versions
+kdeps registry update --check                  # list available updates, change nothing
+kdeps registry update harness                  # every item in one set
+kdeps registry install harness/safety          # one item at its newest version (unpins it), with what it requires
+kdeps registry install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
+kdeps registry uninstall themes/vim themes/linux   # remove items (restore with: kdeps registry install themes/vim)
+kdeps registry list --assets                   # every item, its version and state
+kdeps registry profile agent                   # install a profile: minimum, workflows, agent, deploy, full (or sets and items: docker,tools/bash_exec)
+kdeps registry profile                         # choose the profile again, or tick sets and single items yourself (custom); needs a terminal
 ```
 
-**Flags:**
-
-| Flag | Description | Default |
-|---|---|---|
-| `--check` | List available updates without installing them | `false` |
-| `--list` | List every asset with its version and state (`built-in`, `downloaded`, `pinned`, `removed`) | `false` |
-| `--remove` | Remove assets (`set/name`, comma-separated or repeated) | `[]` |
-| `--profile` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`) or a comma-separated set list, and record it as what `kdeps update` keeps current | `""` |
-| `--select` | Show the first-run profile picker again (with the `custom` set checklist) | `false` |
+| Subcommand | Assets |
+|---|---|
+| `install <ref>...` | Install sets or items (`@version` pins), and what they require |
+| `update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
+| `uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
+| `list --assets` | Every asset with its version and state (`source`, `downloaded`, `pinned`, `removed`) |
+| `profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
 
 The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).
 
@@ -292,10 +290,10 @@ When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
-kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
+kdeps registry update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps registry update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output.
 
 ---
 

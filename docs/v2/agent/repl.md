@@ -124,7 +124,7 @@ When extended reasoning is enabled (`/thinking`), the streamed reasoning is rend
 
 ## Custom harness
 
-Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are installed by `kdeps update` (see [Updating assets](/agent/repl-updating#updating-assets)), and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are installed by `kdeps registry update` (see [Updating assets](/agent/repl-updating#updating-assets)), and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml

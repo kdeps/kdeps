@@ -54,11 +54,11 @@ func TestDockerTemplates_NoAssets(t *testing.T) {
 	t.Setenv(assets.SourceEnv, t.TempDir())
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	_, err := resolveDockerfileTemplate(baseOSAlpine)
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps registry update")
 	_, err = (&Builder{BaseOS: baseOSAlpine}).renderBackendInstall(false)
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps registry update")
 	_, err = (&Builder{BaseOS: baseOSAlpine}).generateEntrypoint(&domain.Workflow{})
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps registry update")
 }
 
 func TestRenderWorkflowTemplate_BuildTemplateDataError(t *testing.T) {

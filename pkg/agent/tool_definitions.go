@@ -92,7 +92,7 @@ func defined(t *kdepstools.Tool) *kdepstools.Tool {
 
 // definedAs fills t's model-facing fields from the definition with the given
 // id. It returns nil when there is no definition (the user removed it with
-// kdeps update), and Registry.Register ignores nil, so the tool is not offered.
+// kdeps registry update), and Registry.Register ignores nil, so the tool is not offered.
 func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	d, ok := toolDefinitions[id]
 	if !ok {

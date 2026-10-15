@@ -4,7 +4,7 @@ Per-provider configuration for all backends supported by kdeps. Backend and API 
 
 Works in workflow and agent mode.
 
-The OpenAI-compatible providers on this page (OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie) are files in the `providers` asset set rather than code: `kdeps update providers` refreshes their endpoints, and a new one is a YAML file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
+The OpenAI-compatible providers on this page (OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie) are files in the `providers` asset set rather than code: `kdeps registry update providers` refreshes their endpoints, and a new one is a YAML file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
 
 Every model listed here - OpenAI, Anthropic (Claude), Google (Gemini), Groq, Ollama, local llamafile / GGUF, and the rest - is probabilistic: the same prompt can return different text on each call. Determinism in kdeps comes from [workflow mode](/workflow/) wrapping the model, not from the model itself. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 

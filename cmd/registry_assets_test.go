@@ -33,7 +33,20 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
-func TestUpdateCmd(t *testing.T) {
+func TestIsAssetRefAndSplitRefs(t *testing.T) {
+	assert.True(t, isAssetRef("tools"))
+	assert.True(t, isAssetRef("tools/bash_exec"))
+	assert.True(t, isAssetRef("harness/safety@1.2.0"))
+	assert.False(t, isAssetRef("invoice-extractor"))
+	assert.False(t, isAssetRef("owner/repo"))
+	assert.False(t, isAssetRef("./tools/x.kdeps"))
+
+	a, p := splitRefs([]string{"themes/vim,themes/linux", "agent-x", "owner/repo:sub", "tools"})
+	assert.Equal(t, []string{"themes/vim", "themes/linux", "tools"}, a)
+	assert.Equal(t, []string{"agent-x", "owner/repo:sub"}, p)
+}
+
+func TestRegistryAssetCommands(t *testing.T) {
 	// Before the Setenv calls: reload once they are undone.
 	t.Cleanup(agent.ReloadAssets)
 	dir := t.TempDir()
@@ -53,32 +66,47 @@ func TestUpdateCmd(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 
 	run := func(args ...string) (string, error) {
-		c := newUpdateCmd()
+		c := newRegistryCmd()
 		var out bytes.Buffer
 		c.SetOut(&out)
 		c.SetErr(&out)
+		c.SetIn(bytes.NewReader(nil))
 		c.SetArgs(args)
 		err := c.Execute()
 		return out.String(), err
 	}
 
-	out, err := run("--check")
+	out, err := run("update", "--check")
 	require.NoError(t, err)
 	assert.Contains(t, out, "tools/tail_file")
 	assert.Contains(t, out, "available")
 
-	out, err = run("tools/tail_file@1.1.0")
+	_, err = run("update", "--check", "some-package")
+	require.ErrorIs(t, err, errCheckPackages)
+
+	out, err = run("install", "tools/tail_file@1.1.0")
 	require.NoError(t, err)
 	assert.Contains(t, out, "pin")
 
-	out, err = run("--list")
+	out, err = run("list", "--assets")
 	require.NoError(t, err)
 	assert.Regexp(t, `tools/tail_file\s+1\.1\.0\s+pinned`, out)
 
-	out, err = run("--remove", "themes/vim,themes/linux")
+	out, err = run("uninstall", "themes/vim,themes/linux")
 	require.NoError(t, err)
 	assert.Contains(t, out, "themes/linux")
 
-	_, err = run("--remove", "themes/normal")
-	require.Error(t, err)
+	out, err = run("update", "tools/tail_file")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "failed")
+
+	_, err = run("uninstall", "themes/normal")
+	require.ErrorContains(t, err, "required")
+
+	_, err = run("profile", "nope")
+	require.ErrorContains(t, err, "unknown profile")
+	_, err = run("profile")
+	require.ErrorContains(t, err, "needs a terminal")
+	_, err = run("profile", "themes")
+	require.NoError(t, err)
 }

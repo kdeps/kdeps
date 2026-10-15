@@ -123,7 +123,7 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 	assert.Empty(t, out.String(), "present: nothing to do")
 
 	err := EnsureSets(context.Background(), &out, nil, []string{"harness"})
-	require.ErrorContains(t, err, "kdeps update harness", "nothing published")
+	require.ErrorContains(t, err, "kdeps registry update harness", "nothing published")
 }
 
 func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
@@ -172,22 +172,79 @@ func TestResolveProfileChoice(t *testing.T) {
 	assert.Equal(t, customProfile, name)
 	assert.Equal(t, append(append([]string{}, assets.BaseSets...), "recipes", "themes"), targets)
 
+	name, targets, err = resolveProfileChoice("tools/bash_exec,recipes", idx)
+	require.NoError(t, err)
+	assert.Equal(t, customProfile, name)
+	assert.Contains(t, targets, "tools/bash_exec", "single items too")
+
 	_, _, err = resolveProfileChoice("recipes,nope", idx)
 	assert.ErrorContains(t, err, "unknown profile")
 }
 
-func TestPickSets_TogglesAndKeepsBase(t *testing.T) {
-	idx := assets.Index{Items: map[string]assets.IndexItem{"recipes/vllm": {}}}
+func TestPickSets_SetsAndItems(t *testing.T) {
+	idx := assets.Index{Items: map[string]assets.IndexItem{
+		"recipes/vllm": {}, "recipes/tgi": {},
+		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "tools/read_file": {},
+		"schemas/v1": {}, "providers/groq": {}, "providers/openai": {},
+	}}
 	sets := assets.Registered()
-	recipesN := strconv.Itoa(slices.Index(sets, "recipes") + 1)
-	schemasN := strconv.Itoa(slices.Index(sets, "schemas") + 1)
+	num := func(set string) string { return strconv.Itoa(slices.Index(sets, set) + 1) }
+	// Tick recipes whole; open tools and tick bash_exec (its required control
+	// tool comes along); open providers and keep only openai; try to untick
+	// the schemas base set.
+	in := strings.Join([]string{
+		num("recipes") + " " + num("schemas") + " 99 x",
+		"o" + num("tools"),
+		"1", // bash_exec (sorted: bash_exec, goal_task_complete, read_file)
+		"",
+		"o" + num("providers"),
+		"n",
+		"2", // openai
+		"1", // groq unticked: openai stays
+		"",
+		"",
+	}, "\n") + "\n"
 	var out bytes.Buffer
-	r := bufio.NewReader(strings.NewReader(recipesN + " " + schemasN + " 99 x\n\n"))
-	got := pickSets(&out, r, idx)
-	assert.Contains(t, got, "recipes")
-	assert.Contains(t, got, "schemas", "base cannot be toggled off")
+	got := pickSets(&out, bufio.NewReader(strings.NewReader(in)), idx)
+	assert.Contains(t, got, "recipes", "a whole set by name")
+	assert.Contains(t, got, "tools/bash_exec")
+	assert.Contains(t, got, "tools/goal_task_complete", "required item follows any ticked item")
+	assert.NotContains(t, got, "tools/read_file")
+	assert.NotContains(t, got, "tools")
+	assert.Contains(t, got, "providers/openai")
+	assert.NotContains(t, got, "providers/groq")
+	assert.Contains(t, got, "schemas", "a base set cannot be emptied")
 	assert.Contains(t, out.String(), "(base)")
-	assert.Regexp(t, `recipes\s+1 items`, out.String())
+	assert.Contains(t, out.String(), "goal_task_complete *")
+	assert.Regexp(t, `\[-\] tools\s+2/3`, out.String())
+	assert.Regexp(t, `\[x\] recipes\s+2/2`, out.String())
+}
+
+func TestChecklist_RequiredAndBaseRules(t *testing.T) {
+	idx := assets.Index{Items: map[string]assets.IndexItem{
+		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "schemas/v1": {},
+	}}
+	c := newChecklist(idx)
+	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "goal_task_complete") // required while bash_exec is ticked
+	assert.True(t, c.ticked["tools/goal_task_complete"])
+	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "goal_task_complete") // alone now: can be unticked
+	assert.Zero(t, c.count("tools"))
+	c.toggle("schemas", "v1") // the base set's only item
+	assert.True(t, c.ticked["schemas/v1"])
+	c.setAll("schemas", false)
+	assert.Equal(t, 1, c.count("schemas"))
+	assert.Equal(t, []string{"schemas"}, c.targets())
+}
+
+func TestParseNumbers(t *testing.T) {
+	assert.Equal(t, []int{3}, parseNumbers("3", 9))
+	assert.Equal(t, []int{2, 3, 4}, parseNumbers("2-4", 9))
+	assert.Equal(t, []int{8, 9}, parseNumbers("8-20", 9))
+	assert.Nil(t, parseNumbers("10", 9))
+	assert.Nil(t, parseNumbers("x", 9))
+	assert.Nil(t, parseNumbers("2-x", 9))
 }
 
 func TestSelectProfile(t *testing.T) {
@@ -227,7 +284,8 @@ func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
 	t.Cleanup(down.Close)
 	t.Setenv("KDEPS_ASSETS_URL", down.URL)
 	var out bytes.Buffer
-	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "connect to the internet and run kdeps update")
+	require.ErrorContains(t, EnsureAssets(context.Background(), &out),
+		"connect to the internet and run kdeps registry update")
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
 	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "KDEPS_ASSETS_URL=off")
@@ -244,7 +302,7 @@ func TestAssetUpdateNotice(t *testing.T) {
 	require.NoError(t, assets.MarkInitialized(root))
 	n := AssetUpdateNotice(context.Background())
 	assert.Contains(t, n, "4 asset updates available (")
-	assert.Contains(t, n, ", ...). Run kdeps update.")
+	assert.Contains(t, n, ", ...). Run kdeps registry update.")
 }
 
 func TestReloadAssets_KeepsTheme(t *testing.T) {

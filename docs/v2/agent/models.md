@@ -16,7 +16,7 @@ The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded
 
 ## Cloud model catalog
 
-The cloud models `/model list` offers, and the context window, output limit and thinking/image support kdeps assumes for each, come from the `models/cloud` asset - not from the binary. A provider renaming or adding a model is a `kdeps update models/cloud` away.
+The cloud models `/model list` offers, and the context window, output limit and thinking/image support kdeps assumes for each, come from the `models/cloud` asset - not from the binary. A provider renaming or adding a model is a `kdeps registry update models/cloud` away.
 
 ```yaml
 # models/cloud (as shipped, one entry)

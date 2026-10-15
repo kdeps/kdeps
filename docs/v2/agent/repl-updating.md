@@ -1,6 +1,6 @@
 # Updating kdeps
 
-`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, slash commands, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
+`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps registry update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, slash commands, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
 
 kdeps checks GitHub for a newer stable release at startup (throttled to once every 24 hours, cached at `~/.kdeps/update-check.json`, bounded to 3 seconds) and, if one exists, prints a one-line notice under the banner:
 
@@ -60,7 +60,7 @@ main: "kdeps repo, main\nassets/<set>/" {shape: oval}
 branch: "kdeps/packages assets/\n<set>/<name>/<version>.yaml\n+ index.json"
 formulas: "kdeps/registry\nformulas/kdeps-<set>-<name>.yaml"
 site: "kdeps.io\none catalog: packages,\nresource types, assets"
-update: "kdeps update\n(first run: the chosen profile)"
+update: "kdeps registry update\n(first run: the chosen profile)"
 store: "~/.kdeps/assets/\nfiles + lock.json"
 loader: "loaders\n(user overrides on top)" {shape: oval}
 main -> branch: "publish on merge"
@@ -75,13 +75,13 @@ The `kdeps` binary contains none of these files: kdeps loads them only from `~/.
 
 ```text
 $ kdeps
-What will you use kdeps for? (change it later with kdeps update --select)
+What will you use kdeps for? (change it later with kdeps registry profile)
   1) minimum    kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  minimum, kdeps new templates and the components (sql, browser, email, ...)
   3) agent      minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
   4) deploy     workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       every asset set
-  6) custom     pick the asset sets yourself
+  6) custom     tick the asset sets, or single items, yourself
 Choice [5]:
 ```
 
@@ -92,18 +92,28 @@ Choice [5]:
 | `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, the loop's required tools and the file, shell, web and memory tools |
 | `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
 | `full` | every set |
-| `custom` | the base plus the sets you tick in a checklist: type set numbers to toggle them, Enter to install |
+| `custom` | a checklist of every set and item: tick whole sets, or open a set to tick single items |
 
 ```text
-Asset sets ([x] installs; the base sets are always installed):
-   1) [ ] harness      43 items
+Asset sets ([x] all, [-] some; the base sets are always installed):
+   1) [ ] harness        0/43  items
    ...
-   8) [x] recipes      10 items
-   9) [x] models        3 items (base)
-Toggle numbers (e.g. 5 7), Enter to install:
+   6) [-] tools          6/78  items
+   8) [x] recipes       10/10  items
+   9) [x] models         3/3   items (base)
+Toggle sets (e.g. 5 7), o<N> to pick items in set N (e.g. o6), Enter to install: o6
+
+tools (6/78 ticked; * required):
+    1) [ ] approval_grant
+    5) [x] bash_exec
+   ...
+   29) [x] goal_task_complete *
+Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
 ```
 
-Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a set list such as `KDEPS_PROFILE=docker,k8s`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
+A set number toggles the whole set; `o<N>` opens it. Inside, numbers and ranges toggle items, `a` ticks all and `n` none. An item marked `*` is one its set's loader needs: it stays ticked while anything else in the set is. A base set keeps at least its required items (or one item). A fully ticked set is recorded by name, so items published to it later are installed by `kdeps registry update`; a partly ticked one is recorded item by item.
+
+Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a list of sets and items such as `KDEPS_PROFILE=docker,k8s,tools/bash_exec`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
 
 Whatever the profile, a command installs a set it loads the first time it needs it (`kdeps export` installs `docker` and `k8s`), and a workflow that calls a component not installed downloads it on that call:
 
@@ -112,26 +122,26 @@ $ kdeps run workflow.yaml
 Installed components/sql 1.0.2 (first use).
 ```
 
-Offline, a missing set stops the command and names the update to run (`kdeps assets docker are not installed; connect to the internet and run kdeps update docker`). `kdeps update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+Offline, a missing set stops the command and names the update to run (`kdeps assets docker are not installed; connect to the internet and run kdeps registry update docker`). `kdeps registry update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
 
 After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
 
 ```text
-2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps update.
+2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps registry update.
 ```
 
 The desktop app shows the same as an **Updates available** button in the top bar.
 
 ```bash
-kdeps update                          # the profile and everything installed since, to their newest versions (skips pinned and removed items)
-kdeps update --profile agent          # install a profile (or a set list: --profile docker,k8s) and keep it current
-kdeps update --select                 # choose the profile again, or tick sets (custom)
-kdeps update tools                    # every item in one set
-kdeps update harness/safety           # newest version of one item; unpins and restores it
-kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
-kdeps update --check                  # what would change
-kdeps update --list                   # every item: version, downloaded | pinned | removed
-kdeps update --remove themes/vim,presets/frugal   # remove items
+kdeps registry update                          # the profile and everything installed since, to their newest versions (skips pinned and removed items)
+kdeps registry profile agent          # install a profile (or sets and items: docker,tools/bash_exec) and keep it current
+kdeps registry profile                 # choose the profile again, or tick sets and items (custom)
+kdeps registry update tools                    # every item in one set
+kdeps registry update harness/safety           # newest version of one item; unpins and restores it
+kdeps registry update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
+kdeps registry update --check                  # what would change
+kdeps registry list --assets                   # every item: version, downloaded | pinned | removed
+kdeps registry uninstall themes/vim,presets/frugal   # remove items
 ```
 
 `/update`, `/update check`, `/update list` and `/update remove <item>...` do the same inside the REPL and apply right away; changed tool descriptions reach the model from the next start.
@@ -149,14 +159,14 @@ How a version is chosen:
   ```
 
   ```text
-  $ kdeps update components/searchWeb
+  $ kdeps registry update components/searchWeb
     schemas/v1                           install   - -> 1.0.3  (required by components/searchWeb)
     components/searchWeb                 install   - -> 1.0.1
   ```
 
   An item whose requirement is not published for your kdeps, or is pinned to a version outside the range, fails instead of installing; update the pinned item by name to unpin it. Events require the action they run, presets the events and actions they tune, the `/frugal` and `/thorough` commands their preset, components the schema version their `component.yaml` needs. Publishing rejects a requirement no published version satisfies.
-- Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
-- A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
+- Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps registry update <item>` restores it.
+- A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps registry update` can always fix it.
 
 Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) the loop's control tools (`goal_task_complete`, `goal_task_fail`, `judge_verdict`, `session_handshake`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
 

@@ -17,7 +17,7 @@ Permission modes and lean mode stay on this page. The calling rules are their ow
 ## Tool definitions
 
 Each built-in tool's model-facing text is a YAML definition in the `tools`
-asset set, installed by `kdeps update`: the description, category, usage
+asset set, installed by `kdeps registry update`: the description, category, usage
 notes and parameter schema the model sees. The tool's code only supplies its
 name and what it runs.
 
@@ -108,7 +108,7 @@ http:
   paths: [file]
 ```
 
-Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
+Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps registry update`, so a broken download never replaces a working tool.
 
 ## Declared exec tools
 

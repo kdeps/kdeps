@@ -1,6 +1,6 @@
 # Registry commands
 
-Search, install, and publish packages from the kdeps registry.
+Search, install, and publish packages from the kdeps registry, and install, update and remove kdeps assets (harness prompts, tool definitions, commands, themes, templates, schemas, model registries). An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package.
 
 ## `kdeps registry`
 
@@ -14,12 +14,13 @@ kdeps registry <subcommand> [flags]
 |---|---|
 | `search` | Search for packages in the kdeps registry |
 | `info` | Show metadata and README for a package, component, agent, or GitHub repo |
-| `install` | Install from the registry, a GitHub repo (`owner/repo`), or a local archive (`.kdeps` `.kagency` `.komponent`) |
-| `uninstall` | Uninstall an agent or component installed from the registry |
-| `update` | Update an installed agent or component to a newer version |
-| `list` | List installed and local components |
+| `install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from the registry, a GitHub repo (`owner/repo`), or a local archive (`.kdeps` `.kagency` `.komponent`) |
+| `uninstall` | Remove assets, or an agent or component installed from the registry |
+| `update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
+| `list` | List installed and local components; `--assets` lists every asset, its version and state |
 | `submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
 | `verify` | Run LLM-agnostic verification on a package directory |
+| `profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker |
 
 ## Examples
 
@@ -35,6 +36,14 @@ kdeps registry uninstall scraper
 kdeps registry update scraper
 kdeps registry submit --tag v1.2.0
 kdeps registry verify .
+
+# kdeps assets
+kdeps registry install tools/bash_exec      # one asset, with what it requires
+kdeps registry update                       # every installed asset to its newest version
+kdeps registry update --check               # what would change
+kdeps registry uninstall themes/vim
+kdeps registry list --assets
+kdeps registry profile agent                # install the agent profile
 ```
 
 ## Publishing a package

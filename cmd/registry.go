@@ -35,8 +35,23 @@ func newRegistryCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryCmd")
 	cmd := &cobra.Command{
 		Use:   "registry",
-		Short: "Interact with the kdeps package registry.",
-		Long:  `Search, install, and publish AI agent packages on the kdeps registry.`,
+		Short: "Install, update and remove packages and kdeps assets; search and publish packages",
+		Long: `Packages (workflows, agencies, components) and kdeps assets (harness prompts,
+tool definitions, commands, themes, templates, schemas, model registries, ...)
+come from one catalog on kdeps.io. An asset is named <set> or <set>/<name>;
+anything else is a package.
+
+  kdeps registry install agent-x            a package
+  kdeps registry install tools/bash_exec    an asset (and what it requires)
+  kdeps registry update                     the asset profile and installed assets
+  kdeps registry update --check             list available asset updates
+  kdeps registry uninstall themes/vim       remove an asset (or a package)
+  kdeps registry list --assets              every asset, its version and state
+  kdeps registry profile                    choose what kdeps installs
+
+Sets: harness, events, actions, presets, themes, tools, commands, recipes, models,
+templates, docker, k8s, schemas, defaults, components, providers.
+The kdeps binary itself is updated with kdeps --upgrade.`,
 	}
 	cmd.PersistentFlags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
 	attachRegistrySubcommands(cmd)
@@ -54,6 +69,7 @@ func attachRegistrySubcommands(cmd *cobra.Command) {
 	cmd.AddCommand(newRegistrySubmitCmd())
 	cmd.AddCommand(newRegistryListCmd())
 	cmd.AddCommand(newRegistryVerifyCmd())
+	cmd.AddCommand(newRegistryProfileCmd())
 }
 
 // registryURL returns the effective registry base URL for the command.

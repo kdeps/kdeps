@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
@@ -31,14 +32,21 @@ import (
 // newRegistryListCmd creates the registry list subcommand.
 func newRegistryListCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryListCmd")
-	return &cobra.Command{
+	var listAssets bool
+	c := &cobra.Command{
 		Use:   "list",
-		Short: "List installed components and agents",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Short: "List installed components and agents, or kdeps assets with --assets",
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			kdeps_debug.Log("enter: registry list RunE")
+			if listAssets {
+				return runAssets(cmd, agent.UpdateOptions{List: true})
+			}
 			return registryListRunE()
 		},
 	}
+	c.Flags().BoolVar(&listAssets, "assets", false,
+		"list every kdeps asset, its version and whether it is from source, downloaded, pinned or removed")
+	return c
 }
 
 // registryListRunE implements the registry list command logic.

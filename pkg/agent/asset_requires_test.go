@@ -46,7 +46,7 @@ func eachAsset(t *testing.T, set string, fn func(name string, data []byte, requi
 }
 
 // TestAssetRequires_CoverReferences checks that every asset requires what it
-// names, so kdeps update installs it alongside.
+// names, so kdeps registry update installs it alongside.
 func TestAssetRequires_CoverReferences(t *testing.T) {
 	eachAsset(t, "events", func(name string, data []byte, req map[string]string) {
 		ev, err := parseYAMLEvent(data, name)
