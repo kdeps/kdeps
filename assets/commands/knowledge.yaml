@@ -1,0 +1,13 @@
+version: 1.0.0
+name: knowledge
+order: 71
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Show whether the knowledge vault is on, and where it is
+  - args: "on"
+    help: Turn on per-turn recall, session notes and the knowledge tools (remembered)
+  - args: "off"
+    help: Turn them off for this and later sessions

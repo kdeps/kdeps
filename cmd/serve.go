@@ -334,21 +334,30 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// ~/.kdeps/config.yaml agents.<name> profile. Non-fatal: an unconfigured or
 	// unreadable config.yaml just means no identity, not a startup failure.
 	var identity *config.IdentityConfig
+	var knowledgeCfg *config.KnowledgeConfig
 	if identityCfg, identityErr := config.LoadStructWithAgent(hostWorkflow.Metadata.Name); identityErr == nil {
 		identity = identityCfg.Identity
+		knowledgeCfg = identityCfg.Knowledge
+	}
+	if knowledgeCfg == nil {
+		// The knowledge vault is on by default for agent sessions.
+		knowledgeCfg = &config.KnowledgeConfig{}
 	}
 
 	cfg := agent.Config{
-		Model:        startModel,
-		Backend:      startBackend,
-		BaseURL:      flags.BaseURL,
-		SystemPrompt: flags.SystemPrompt,
-		SkillPaths:   skillPaths,
-		Streamer:     llmAdapter,
-		ModelService: llm.NewModelService(nil),
-		Store:        store,
-		MemoryStore:  memStore,
-		Identity:     identity,
+		Model:           startModel,
+		Backend:         startBackend,
+		BaseURL:         flags.BaseURL,
+		SystemPrompt:    flags.SystemPrompt,
+		SkillPaths:      skillPaths,
+		Streamer:        llmAdapter,
+		ModelService:    llm.NewModelService(nil),
+		Store:           store,
+		MemoryStore:     memStore,
+		Identity:        identity,
+		Knowledge:       knowledgeCfg,
+		KnowledgeCtx:    rootCtx,
+		KnowledgeEngine: func() *executor.Engine { return setupEngine(nil, false) },
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields

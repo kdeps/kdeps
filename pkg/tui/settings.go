@@ -91,6 +91,7 @@ type AgentLoopTuning struct {
 	RefineOff            bool     `yaml:"refine_off,omitempty"`
 	RefineConfigured     bool     `yaml:"refine_configured,omitempty"`
 	HandshakeOn          bool     `yaml:"handshake_on,omitempty"`
+	KnowledgeOff         bool     `yaml:"knowledge_off,omitempty"`
 	FoldThreshold        int      `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int      `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool     `yaml:"fold_auto,omitempty"`

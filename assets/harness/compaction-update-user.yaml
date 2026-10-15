@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.0.1
 name: compaction-update-user
 kind: standalone
 body: |-
@@ -32,6 +32,12 @@ body: |-
 
   ## Key Decisions
   - **[Decision]**: [Brief rationale] (preserve all previous, add new)
+
+  ## Mistakes
+  - [What went wrong and what it taught (preserve previous, add new), or "(none)"]
+
+  ## Wins
+  - [What worked well and is worth repeating (preserve previous, add new), or "(none)"]
 
   ## Next Steps
   1. [Update based on current state]

@@ -6,6 +6,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 |---|---|---|
 | Files | `read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, `tail_file` | [File tools](/agent/tools-files). [Edit file](/agent/tools-edit) |
 | Memory and identity | `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `identity_get` | [Memory and identity](/agent/tools-memory) |
+| Knowledge vault | `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` (while the vault is on: the default) | [Knowledge vault](/agent/knowledge#tools) |
 | Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` | [Shell execution](/agent/shell) |
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | [Web and search](/agent/tools-web) |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |

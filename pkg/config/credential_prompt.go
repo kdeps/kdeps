@@ -195,3 +195,12 @@ func randomToken() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
+
+// SaveKnowledgeVault persists knowledge.vault in config.yaml.
+func SaveKnowledgeVault(vault string) error {
+	path, err := Path()
+	if err != nil {
+		return err
+	}
+	return injectNestedScalar(path, "knowledge", "vault", vault)
+}

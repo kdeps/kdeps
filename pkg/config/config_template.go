@@ -182,6 +182,25 @@ defaults:
 # Required when apiServer is enabled. Set here or via KDEPS_API_AUTH_TOKEN env var.
 # api_auth_token: "${API_AUTH_TOKEN}"
 
+# ── Knowledge vault — long-term memory the agent recalls without reading it ──
+# On by default for agent sessions, in ~/.kdeps/notes (created on first use).
+# Each turn, kdeps walks the vault's link graph from the words of the request
+# and names the few notes worth reading; each session writes its own note.
+# Turn it off here or with /knowledge off.
+# knowledge:
+#   enabled: true                # false turns recall, session notes and the knowledge tools off
+#   vault: ~/.kdeps/notes        # any folder of markdown notes works as is
+#   workspace: ~/notes           # KDEPS.md routing table + records/ cards (default: vault)
+#   session_notes: true          # write a note per session (default true)
+#   recall:
+#     hops: 2                    # how far from the matched notes to walk
+#     budget_tokens: 1500        # most tokens of recalled paths and summaries per turn
+#   extract:                     # local-model pass: what each note is about (inferred edges)
+#     enabled: true
+#     model: ""                  # empty: the session's model when it is local, else skipped
+#     workers: 2                 # parallel model calls
+#     per_session: 20            # changed notes read at each session end
+
 # ── Agent identity — who the agent is, for attribution and authenticated tools ──
 # Used for git commit trailers, outbound email "from", and the identity_get
 # tool in agent-loop mode (name/email/address only — accounts are never

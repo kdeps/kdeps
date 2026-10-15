@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge graph</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --dim: #8b949e; --line: rgba(255,255,255,0.08); --accent: #00e5ff; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px system-ui, sans-serif; }
+  #bar { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 12px; align-items: center; z-index: 2; }
+  #bar input { flex: 0 1 320px; background: #161b22; color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; }
+  #bar input:focus { outline: 1px solid var(--accent); }
+  #stats { color: var(--dim); }
+  #tip { position: fixed; pointer-events: none; background: #161b22; border: 1px solid var(--line); border-radius: 2px;
+         padding: 6px 8px; max-width: 360px; display: none; z-index: 3; }
+  #tip b { color: var(--fg); } #tip div { color: var(--dim); margin-top: 2px; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+</style>
+</head>
+<body>
+<div id="bar"><input id="q" placeholder="Find a note..." aria-label="Find a note"><span id="stats"></span></div>
+<div id="tip"></div>
+<canvas id="c"></canvas>
+<script>
+const G = "__GRAPH_DATA__";
+const MAX = 1500;
+const deg = {};
+for (const e of G.edges) { deg[e.from] = (deg[e.from] || 0) + 1; deg[e.to] = (deg[e.to] || 0) + 1; }
+let nodes = G.nodes.slice().sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0)).slice(0, MAX);
+const byId = {};
+nodes.forEach((n, i) => { n.x = Math.cos(i) * (50 + i); n.y = Math.sin(i) * (50 + i); n.vx = 0; n.vy = 0; byId[n.id] = n; });
+const edges = G.edges.filter(e => byId[e.from] && byId[e.to]);
+document.getElementById('stats').textContent =
+  `${G.nodes.length} nodes, ${G.edges.length} edges, ${G.communities} communities` + (G.nodes.length > MAX ? ` (showing the ${MAX} most linked)` : '');
+const color = c => `hsl(${(c * 137.508) % 360}, 65%, 60%)`;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, scale = 1, ox = 0, oy = 0, query = '', hover = null;
+function resize() { W = cv.width = innerWidth * devicePixelRatio; H = cv.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', resize); resize();
+function step() {
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j], dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy + 0.01;
+      if (d2 > 90000) continue;
+      const f = 80 / d2; a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
+    }
+  }
+  for (const e of edges) {
+    const a = byId[e.from], b = byId[e.to], dx = b.x - a.x, dy = b.y - a.y;
+    const k = (a.community === b.community ? 0.02 : 0.005) * (e.provenance === 'extracted' ? 1 : 0.5);
+    a.vx += dx * k; a.vy += dy * k; b.vx -= dx * k; b.vy -= dy * k;
+  }
+  for (const n of nodes) { n.vx *= 0.85; n.vy *= 0.85; n.vx -= n.x * 0.0005; n.vy -= n.y * 0.0005; n.x += n.vx; n.y += n.vy; }
+}
+function radius(n) { return 2 + Math.sqrt(deg[n.id] || 0) * 1.5; }
+function toScreen(n) { return [W / 2 + (n.x + ox) * scale * devicePixelRatio, H / 2 + (n.y + oy) * scale * devicePixelRatio]; }
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineWidth = devicePixelRatio * 0.6;
+  for (const e of edges) {
+    const [x1, y1] = toScreen(byId[e.from]), [x2, y2] = toScreen(byId[e.to]);
+    ctx.strokeStyle = e.provenance === 'extracted' ? 'rgba(255,255,255,0.10)' : 'rgba(255,214,10,0.25)';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  for (const n of nodes) {
+    const [x, y] = toScreen(n), match = query && n.label.toLowerCase().includes(query);
+    ctx.fillStyle = query && !match ? 'rgba(139,148,158,0.25)' : color(n.community);
+    ctx.beginPath(); ctx.arc(x, y, radius(n) * devicePixelRatio * (match ? 1.8 : 1), 0, 7); ctx.fill();
+    if (match || n === hover || (deg[n.id] || 0) > 12) {
+      ctx.fillStyle = '#c9d1d9'; ctx.font = `${11 * devicePixelRatio}px system-ui`;
+      ctx.fillText(n.label, x + 6 * devicePixelRatio, y - 6 * devicePixelRatio);
+    }
+  }
+}
+let ticks = 0;
+(function loop() { if (ticks++ < 400) step(); draw(); requestAnimationFrame(loop); })();
+const tip = document.getElementById('tip');
+let drag = null;
+cv.addEventListener('mousedown', e => { drag = [e.clientX, e.clientY, ox, oy]; });
+addEventListener('mouseup', () => { drag = null; });
+cv.addEventListener('mousemove', e => {
+  if (drag) { ox = drag[2] + (e.clientX - drag[0]) / scale; oy = drag[3] + (e.clientY - drag[1]) / scale; return; }
+  hover = null;
+  for (const n of nodes) {
+    const [x, y] = toScreen(n), dx = x / devicePixelRatio - e.clientX, dy = y / devicePixelRatio - e.clientY;
+    if (dx * dx + dy * dy < 64) { hover = n; break; }
+  }
+  if (!hover) { tip.style.display = 'none'; return; }
+  tip.style.display = 'block'; tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY + 12) + 'px';
+  tip.innerHTML = '';
+  const b = document.createElement('b'); b.textContent = hover.label; tip.appendChild(b);
+  const d = document.createElement('div');
+  d.textContent = [hover.kind, 'community ' + hover.community, hover.note || '', hover.summary || ''].filter(Boolean).join(' - ');
+  tip.appendChild(d);
+});
+cv.addEventListener('wheel', e => { e.preventDefault(); scale *= e.deltaY < 0 ? 1.1 : 0.9; }, { passive: false });
+document.getElementById('q').addEventListener('input', e => { query = e.target.value.trim().toLowerCase(); });
+</script>
+</body>
+</html>

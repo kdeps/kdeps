@@ -340,6 +340,26 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing
 API keys, invalid durations, and agent profiles under `agents:` that do not
 match any installed workflow's `metadata.name`.
 
+## Knowledge vault
+
+```yaml
+# ~/.kdeps/config.yaml
+knowledge:
+  enabled: true               # on by default for agent sessions; false turns it off
+  vault: ~/.kdeps/notes       # folder of markdown notes the agent recalls from each turn (default)
+  workspace: ~/.kdeps/notes   # KDEPS.md routing table + records/ cards (default: the vault)
+  session_notes: true         # write a note per session into the project's sessions/ folder
+  recall:
+    hops: 2                   # how far from the matched notes to walk the link graph
+    budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
+  extract:                    # local-model pass over changed notes at session end
+    model: llama3.2:3b        # empty: the session's model when local, else skipped
+    workers: 2
+    per_session: 20
+```
+
+See [Knowledge vault](/agent/knowledge).
+
 ## Agent identity
 
 An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.

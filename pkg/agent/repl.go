@@ -1608,6 +1608,7 @@ func historyPath() string {
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.loopCancel()
+	defer r.writeSessionNoteOnExit()
 	defer r.autoSaveOnExit()
 	defer resetTerminal()
 
@@ -2545,6 +2546,12 @@ func (r *REPL) dispatchCommand(cmd string) error {
 // complexity under the lint limit. handled is false when command is none of them.
 func (r *REPL) dispatchControlCommand(command string, args []string) (bool, error) {
 	switch command {
+	case "/recall":
+		r.cmdRecall(args)
+		return true, nil
+	case "/knowledge":
+		r.cmdKnowledge(args)
+		return true, nil
 	case "/turo":
 		return true, r.cmdTuro(args)
 	case "/goal":
@@ -4560,6 +4567,33 @@ func (r *REPL) autoSaveOnExit() {
 	fmt.Fprintf(os.Stdout, "\n%s\n",
 		styleReplDim.Render("Session saved. It will be offered when you next run kdeps here (--resume "+id+")."))
 }
+
+// writeSessionNoteOnExit writes the knowledge vault's note for the turns
+// since the last one. The loop context may already be cancelled by /exit;
+// the note is still written, bounded by its own timeout.
+//
+// Only an interactive terminal session pays for it: a piped or scripted
+// session exits at once (its compactions still write notes, which cost no
+// extra model call).
+func (r *REPL) writeSessionNoteOnExit() {
+	if !r.loop.SessionNoteDue() || !stdinIsTerminal() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
+	defer cancel()
+	fmt.Fprintln(os.Stdout, styleReplDim.Render("Writing the session note to the knowledge vault..."))
+	r.loop.WriteSessionNoteNow(ctx, os.Stdout)
+	r.loop.ExtractKnowledge(ctx, os.Stdout, false)
+}
+
+// stdinIsTerminal reports whether the session reads a real terminal
+// (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// sessionNoteTimeout bounds the session-end note and extraction together.
+const sessionNoteTimeout = 2 * time.Minute
 
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
 func (r *REPL) cmdSession(args []string) error {

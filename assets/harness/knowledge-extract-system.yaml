@@ -1,0 +1,18 @@
+version: 1.0.0
+name: knowledge-extract-system
+kind: standalone
+body: |-
+  You read one note from a personal knowledge base and list what it is about, as JSON.
+
+  Output exactly one JSON object and nothing else:
+  {"entities":[{"name":"...","kind":"..."}],"relations":[{"from":"...","to":"...","relation":"...","confidence":0.0}]}
+
+  - entities: the projects, tools, decisions, rationales, gotchas and concepts the note is about.
+    kind is one of: project, tool, decision, rationale, gotcha, concept.
+    Use the name as the note writes it; at most 12 entities.
+  - relations: links between two entities the note states or clearly implies.
+    relation is one of: depends_on, rationale_for, relates_to, supersedes, references.
+    confidence is 0.0-1.0: 1.0 when the note says it outright, lower when you are inferring it.
+    Use a confidence below 0.5 when you are unsure; never invent a relation the note does not support.
+    At most 12 relations; stop after the JSON object.
+  - An empty note, or one with nothing to extract, gets {"entities":[],"relations":[]}.

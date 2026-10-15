@@ -278,6 +278,16 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
+	// Knowledge is the knowledge vault (config.yaml knowledge:). Nil means
+	// none: no recall, no session notes, no knowledge tools.
+	Knowledge *config.KnowledgeConfig
+	// KnowledgeCtx is the parent context of the vault's background graph
+	// builds; the vault stays off without it.
+	KnowledgeCtx context.Context
+	// KnowledgeEngine makes an engine for one knowledge extraction call (a
+	// fresh one each, so calls run in parallel without touching the loop's
+	// engine). Nil: no model extraction.
+	KnowledgeEngine func() *executor.Engine
 	// Observer, when set, receives typed events (tool start/end, narration)
 	// for a graphical front end. It runs on the loop goroutine: never block.
 	Observer func(LoopEvent)
@@ -300,6 +310,9 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
+	knowledge     *knowledgeState // nil when no vault is configured
+	knowledgeOff  bool            // /knowledge off
+	noteID        string          // session note id before the session is saved
 	engine        *executor.Engine
 	registry      *tools.Registry
 	workflow      *domain.Workflow
@@ -487,6 +500,10 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	l.registerSkillLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
+	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
+		l.registerKnowledgeTools()
+		l.knowledge.buildAsync()
+	}
 
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
@@ -3102,9 +3119,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// Only loaded in agent loop mode (when a tool registry is present); skipped
 	// for synthetic/internal LLM calls like compaction and command injection.
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		if instructions := discoverInstructions(""); instructions != "" {
-			parts = append(parts, instructions)
-		}
+		parts = append(parts, l.instructionParts()...)
 		parts = append(parts, l.commitTrailerPreamble())
 		// dateAndWDPreamble is appended fresh by cachedSystemPreamble on every
 		// call, not here, so it never goes stale after a mid-session cd.
@@ -3418,6 +3433,12 @@ func (l *Loop) buildChatConfig(
 			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}
 
+	// Knowledge recall goes on every turn, never into the cached preamble:
+	// it depends on this request.
+	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
+		chatCfg.Scenario = append(chatCfg.Scenario, *item)
+	}
+
 	return chatCfg
 }
 
@@ -3486,6 +3507,10 @@ func (l *Loop) buildSyntheticWorkflow(
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
+	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
+	// its internal calls (compaction, refine, goals) must get none.
+	off := false
+	chatCfg.Knowledge = &off
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
@@ -3691,8 +3716,48 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	if allOps := l.session.FileOps(); cutIdx/sessionMsgsPer <= len(allOps) {
 		fileOps = allOps[:cutIdx/sessionMsgsPer]
 	}
-	conversationText := serializeConversation(toSummarize, fileOps)
+	summary, err := l.summarizeConversation(ctx, serializeConversation(toSummarize, fileOps))
+	if err != nil {
+		// Fall back to truncation so the user isn't left with nothing.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
+		return "", fmt.Errorf("compaction LLM call failed: %w", err)
+	}
+	if summary == "" {
+		// LLM returned empty or unusable response — fall back to truncation.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
+		return "", errors.New("compaction produced empty summary")
+	}
 
+	l.session.CompactWith(summary, toKeep, compactedTurns)
+	// Mandatory session-integrity handshake: the rewritten context (fold or
+	// full compaction, both funnel through here) leaves the model's
+	// tool-calling path against it unproven until it makes one real call.
+	l.RequireHandshake()
+
+	// Auto-capture structured sections into persistent memory so the LLM
+	// retains key decisions and critical context across compaction cycles.
+	if l.memoryStore != nil {
+		l.memoryStore.AutoCapture(summary)
+	}
+	l.writeSessionNote(summary, l.config.ProgressWriter)
+
+	// The cumulative sent/generated totals still describe the conversation
+	// that was just folded away. Replace them with the context that remains.
+	l.resetCountersToCurrentContext()
+
+	return summary, nil
+}
+
+// summarizeConversation runs the compaction summary call over a serialized
+// conversation (updating the previous summary when there is one) and
+// returns the normalized summary.
+func (l *Loop) summarizeConversation(ctx context.Context, conversationText string) (string, error) {
 	// Use iterative UPDATE prompt when a previous summary exists (pi parity:
 	// prepareCompaction passes previousSummary to generateSummary).
 	userPrompt := harnessText("compaction-user")
@@ -3726,41 +3791,9 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {
-		// Fall back to truncation so the user isn't left with nothing.
-		fallback := l.session.Compact()
-		if fallback != "" {
-			return fallback, nil
-		}
-		return "", fmt.Errorf("compaction LLM call failed: %w", err)
+		return "", err
 	}
-
-	summary := normalizeCompactionSummary(formatLoopResult(result))
-	if summary == "" {
-		// LLM returned empty or unusable response — fall back to truncation.
-		fallback := l.session.Compact()
-		if fallback != "" {
-			return fallback, nil
-		}
-		return "", errors.New("compaction produced empty summary")
-	}
-
-	l.session.CompactWith(summary, toKeep, compactedTurns)
-	// Mandatory session-integrity handshake: the rewritten context (fold or
-	// full compaction, both funnel through here) leaves the model's
-	// tool-calling path against it unproven until it makes one real call.
-	l.RequireHandshake()
-
-	// Auto-capture structured sections into persistent memory so the LLM
-	// retains key decisions and critical context across compaction cycles.
-	if l.memoryStore != nil {
-		l.memoryStore.AutoCapture(summary)
-	}
-
-	// The cumulative sent/generated totals still describe the conversation
-	// that was just folded away. Replace them with the context that remains.
-	l.resetCountersToCurrentContext()
-
-	return summary, nil
+	return normalizeCompactionSummary(formatLoopResult(result)), nil
 }
 
 // resetCountersToCurrentContext rebuilds the context-path line from the

@@ -372,6 +372,10 @@
         "timeout": {
           "type": "string"
         },
+        "knowledge": {
+          "type": "boolean",
+          "description": "Add the knowledge vault notes related to this prompt (default true when the vault has a graph); false skips recall for this call"
+        },
         "thinking": {
           "type": "object",
           "properties": {

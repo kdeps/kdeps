@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.0.1
 name: compaction-user
 kind: standalone
 body: |-
@@ -25,6 +25,12 @@ body: |-
 
   ## Key Decisions
   - **[Decision]**: [Brief rationale]
+
+  ## Mistakes
+  - [What went wrong and what it taught, or "(none)"]
+
+  ## Wins
+  - [What worked well and is worth repeating, or "(none)"]
 
   ## Next Steps
   1. [Ordered list of what should happen next]
