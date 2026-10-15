@@ -41,32 +41,113 @@ const customProfile = "custom"
 
 // EnsureSets makes the sets a command needs available. On first run it asks
 // which profile to install (in reads the answers; nil means no terminal,
-// then $KDEPS_PROFILE or just the needed sets); afterwards a missing set is
-// installed on its own. Without a network it fails naming the update to run.
+// then $KDEPS_PROFILE or just the needed sets). Once a profile is chosen it
+// is respected: a needed set only gets the items its loader requires, and a
+// set with none stays empty. Without a network it fails naming the update
+// to run. A command whose needs are met makes no network call.
 func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) error {
-	if len(assets.MissingOf(need)) == 0 {
+	root := assets.Root()
+	if len(unmet(need)) == 0 && len(profileRequired(root, need)) == 0 {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout*5) //nolint:mnd // picker + download
 	defer cancel()
-	root, c := assets.Root(), assets.NewClient()
-	if !assets.Initialized(root) {
+	c := assets.NewClient()
+	if !assets.Initialized(root) && len(unmet(need)) > 0 {
 		if err := firstRunSelect(ctx, w, in, root, c); err != nil {
 			return err
 		}
 	}
-	if missing := assets.MissingOf(need); len(missing) > 0 {
-		fmt.Fprintf(w, "Installing %s (needed by this command)...\n", strings.Join(missing, ", "))
-		if _, err := assets.Update(ctx, root, c, missing, false); err != nil {
-			return notInstalled(missing, err)
-		}
-		_ = assets.MarkInitialized(root)
+	targets, empty, err := ensureTargets(ctx, root, c, need)
+	if err != nil {
+		return notInstalled(need, err)
 	}
+	if len(targets) > 0 {
+		fmt.Fprintf(w, "Installing %s (needed by this command)...\n", strings.Join(targets, ", "))
+		if _, err = assets.Update(ctx, root, c, targets, false); err != nil {
+			return notInstalled(need, err)
+		}
+	}
+	if err = recordEmpty(root, empty); err != nil {
+		return err
+	}
+	_ = assets.MarkInitialized(root)
 	ReloadAssets()
-	if missing := assets.MissingOf(need); len(missing) > 0 {
-		return notInstalled(missing, nil)
+	if still := unmet(need); len(still) > 0 {
+		return notInstalled(still, nil)
 	}
 	return nil
+}
+
+// profileRequired is, once a profile is chosen, the required items of need
+// that are not installed (read locally, no network).
+func profileRequired(root string, need []string) []string {
+	if lock, err := assets.ReadLock(root); err != nil || lock.Profile == "" {
+		return nil
+	}
+	return assets.MissingRequired(need)
+}
+
+// ensureTargets is what to install for need, and the sets to leave empty.
+// Without a chosen profile: the whole sets that have no items. With one:
+// the required items that are missing and published; a needed set with no
+// required items and no items is left empty.
+func ensureTargets(ctx context.Context, root string, c *assets.Client, need []string) ([]string, []string, error) {
+	missing := unmet(need)
+	want := profileRequired(root, need)
+	if lock, err := assets.ReadLock(root); err != nil || lock.Profile == "" {
+		return missing, nil, nil //nolint:nilerr // no readable choice: install the sets
+	}
+	var empty []string
+	for _, set := range missing {
+		if len(assets.RequiredItems(set)) == 0 {
+			empty = append(empty, set)
+		}
+	}
+	if len(want) == 0 {
+		return nil, empty, nil
+	}
+	idx, err := c.Index(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	var targets []string
+	for _, id := range want {
+		if _, ok := idx.Items[id]; ok {
+			targets = append(targets, id)
+		}
+	}
+	return targets, empty, nil
+}
+
+// unmet is the sets of need with no items, except those the profile
+// leaves empty on purpose.
+func unmet(need []string) []string {
+	lock, _ := assets.ReadLock(assets.Root())
+	var out []string
+	for _, set := range assets.MissingOf(need) {
+		if !slices.Contains(lock.Empty, set) {
+			out = append(out, set)
+		}
+	}
+	return out
+}
+
+// recordEmpty adds sets to the lock's Empty list.
+func recordEmpty(root string, sets []string) error {
+	if len(sets) == 0 {
+		return nil
+	}
+	lock, err := assets.ReadLock(root)
+	if err != nil {
+		return err
+	}
+	for _, s := range sets {
+		if !slices.Contains(lock.Empty, s) {
+			lock.Empty = append(lock.Empty, s)
+		}
+	}
+	return assets.WriteLock(root, lock)
 }
 
 func notInstalled(sets []string, cause error) error {

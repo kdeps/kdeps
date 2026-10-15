@@ -48,9 +48,7 @@ func init() {
 		Validate: validateModelRegistry,
 		// Default models and aliases resolve through these; they can be
 		// updated but not removed.
-		Required: func(name string) bool {
-			return name == llamafileRegistryItem || name == ggufRegistryItem || name == cloudRegistryItem
-		},
+		Required: []string{llamafileRegistryItem, ggufRegistryItem, cloudRegistryItem},
 	})
 }
 

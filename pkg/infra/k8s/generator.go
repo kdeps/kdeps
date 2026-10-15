@@ -46,7 +46,7 @@ func init() {
 			_, err := assets.ValidateBundle(data, deployment+templateExt, service+templateExt, networkPol+templateExt)
 			return err
 		},
-		Required: func(name string) bool { return name == k8sItem },
+		Required: []string{k8sItem},
 	})
 }
 

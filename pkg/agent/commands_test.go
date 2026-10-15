@@ -57,11 +57,17 @@ func TestCommands_EveryGoCommandHasAnAsset(t *testing.T) {
 	assert.Len(t, slashCommands, len(entries), "every shipped command file must load")
 }
 
-func TestCommands_BuiltinItemsAreRequired(t *testing.T) {
-	assert.True(t, builtinCommandItem("model"))
-	assert.True(t, builtinCommandItem("instruct-now"))
-	assert.False(t, builtinCommandItem("review"), "declared commands can be removed")
-	assert.False(t, builtinCommandItem("nope"))
+func TestCommands_CoreItemsAreRequired(t *testing.T) {
+	for _, name := range requiredCommands {
+		assert.True(t, assets.Required("commands", name), name)
+		data, err := os.ReadFile(filepath.Join(assets.Source(), "commands", name+".yaml"))
+		require.NoError(t, err, "every required command ships a file")
+		c, err := parseYAMLCommand(data, name+".yaml")
+		require.NoError(t, err)
+		assert.True(t, c.Builtin, "%s is handled in Go", name)
+	}
+	assert.False(t, assets.Required("commands", "instruct-now"), "other built-ins run without their file")
+	assert.False(t, assets.Required("commands", "review"), "declared commands can be removed")
 	require.Error(t, assets.Remove(t.TempDir(), "commands/model"))
 }
 

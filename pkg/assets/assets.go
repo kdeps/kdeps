@@ -113,6 +113,9 @@ type Lock struct {
 	// update keeps these and the items already installed current.
 	Profile   string   `json:"profile,omitempty"`
 	Selection []string `json:"selection,omitempty"`
+	// Empty are the sets the profile leaves empty on purpose: a command that
+	// loads one does not count it missing. A new profile clears it.
+	Empty []string `json:"empty,omitempty"`
 }
 
 // SourceEnv names a directory laid out like the repo's assets/ (one

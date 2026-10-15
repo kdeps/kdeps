@@ -60,7 +60,7 @@ func registerTestSets(t *testing.T) {
 	t.Helper()
 	writeSource(t, sourceFiles())
 	Register("harness", Spec{
-		Required: func(name string) bool { return name == "core" },
+		Required: []string{"core"},
 		Validate: func(data []byte, _ string) error {
 			h, err := ParseHeader(data)
 			if err == nil && h.Version == "9.9.9" {

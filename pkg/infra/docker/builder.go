@@ -72,7 +72,7 @@ func init() {
 				alpineTemplate, ubuntuTemplate, backendInstallTemplate, entrypointTemplate, supervisordTemplate)
 			return err
 		},
-		Required: func(name string) bool { return name == dockerItem },
+		Required: []string{dockerItem},
 	})
 }
 

@@ -21,6 +21,7 @@ package assets
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -137,7 +138,8 @@ func (p Profile) Targets(idx Index) []string {
 }
 
 // Select installs targets and records them in the lock as the selection a
-// bare kdeps update keeps current.
+// bare kdeps update keeps current. Downloaded items the selection does not
+// cover are dropped (required ones stay), so a smaller profile loads less.
 func Select(ctx context.Context, root string, c *Client, profile string, targets []string) ([]Change, error) {
 	changes, err := Update(ctx, root, c, targets, false)
 	if err != nil {
@@ -147,8 +149,58 @@ func Select(ctx context.Context, root string, c *Client, profile string, targets
 	if err != nil {
 		return changes, err
 	}
-	lock.Profile, lock.Selection = profile, targets
+	changes = append(changes, prune(root, &lock, targets)...)
+	lock.Profile, lock.Selection, lock.Empty = profile, targets, nil
 	return changes, WriteLock(root, lock)
+}
+
+// selectsSet reports whether targets name set or one of its items.
+func selectsSet(targets []string, set string) bool {
+	for _, t := range targets {
+		if s, _, _ := strings.Cut(t, "/"); s == set {
+			return true
+		}
+	}
+	return false
+}
+
+// Covered reports whether targets (sets and set/name items) select id.
+func Covered(targets []string, id string) bool {
+	set, _, _ := strings.Cut(id, "/")
+	return slices.Contains(targets, id) || slices.Contains(targets, set)
+}
+
+// prune deletes the downloaded items targets leave out and forgets them in
+// lock. Required items stay for the sets targets select, the base sets and
+// the agent loop's sets (kdeps with no command is the agent loop); a set
+// left out entirely loses its required items too.
+func prune(root string, lock *Lock, targets []string) []Change {
+	ids := make([]string, 0, len(lock.Items))
+	for id := range lock.Items {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	var out []Change
+	for _, id := range ids {
+		set, name, err := SplitID(id)
+		if err != nil || name == "" || Covered(targets, id) {
+			continue
+		}
+		if Required(set, name) && (selectsSet(targets, set) || slices.Contains(BaseSets, set) ||
+			slices.Contains(AgentSets, set)) {
+			continue
+		}
+		e := lock.Items[id]
+		if rmErr := os.Remove(FilePath(root, set, name)); rmErr != nil && !os.IsNotExist(rmErr) {
+			out = append(out, Change{ID: id, From: e.Version, Action: ActionFailed, Note: rmErr.Error()})
+			continue
+		}
+		delete(lock.Items, id)
+		if !e.Removed {
+			out = append(out, Change{ID: id, From: e.Version, Action: ActionRemove, Note: "not in the profile"})
+		}
+	}
+	return out
 }
 
 // MissingOf lists the sets of want that have no items, as Open sees them.

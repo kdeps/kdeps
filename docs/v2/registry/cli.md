@@ -16,7 +16,7 @@ Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`
 | `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset, its version, state and context tokens |
 | `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
 | `kdeps verify` | Run LLM-agnostic verification on a package directory |
-| `kdeps profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker |
+| `kdeps profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker. Items the new profile leaves out are removed |
 
 ## LLM context tokens
 
