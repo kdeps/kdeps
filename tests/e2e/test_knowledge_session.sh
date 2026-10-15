@@ -170,12 +170,14 @@ ks_session() {
 
 # ks_req prints the Nth logged request whose last user message contains $1.
 ks_req() {
-    python3 - "$KS_LOG" "$1" <<'PY'
+    # UTF-8 output: Windows defaults Python's stdout to a code page that
+    # cannot print the arrows and dashes in the system prompt.
+    PYTHONIOENCODING=utf-8 python3 - "$KS_LOG" "$1" <<'PY'
 import json, sys
 def text(m):
     c = m.get("content", "")
     return " ".join(p.get("text", "") for p in c if isinstance(p, dict)) if isinstance(c, list) else (c or "")
-for line in open(sys.argv[1]):
+for line in open(sys.argv[1], encoding="utf-8"):
     body = json.loads(line)
     msgs = body.get("messages", [])
     if not msgs or sys.argv[2] not in text(msgs[-1]):
