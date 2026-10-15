@@ -261,7 +261,7 @@ func printFindings(w io.Writer, root string, findings []knowledge.Finding) {
 		if err != nil || strings.HasPrefix(rel, "..") {
 			rel = f.File
 		}
-		fmt.Fprintf(w, "  %s: %s\n", rel, f.Problem)
+		fmt.Fprintf(w, "  %s: %s\n", filepath.ToSlash(rel), f.Problem)
 	}
 }
 

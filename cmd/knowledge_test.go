@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
@@ -60,8 +61,10 @@ func TestKnowledgeCmd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "created "+filepath.Join(vault, "KDEPS.md"))
 	assert.Contains(t, out, "Set knowledge.vault")
-	data, _ := os.ReadFile(cfgPath)
-	assert.Contains(t, string(data), vault)
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Knowledge)
+	assert.Equal(t, vault, cfg.Knowledge.Vault)
 
 	out, err = runKnowledge(t, "init", vault)
 	require.NoError(t, err)
