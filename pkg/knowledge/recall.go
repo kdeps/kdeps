@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -42,6 +43,9 @@ const (
 	labelMatchBoost    = 2.0
 	fullLabelBoost     = 3.0
 	minQueryWordLength = 3
+	minStemLength      = 3
+	sessionNoteWeight  = 0.4
+	memoryNoteWeight   = 0.6
 	bytesPerToken      = 4
 )
 
@@ -118,10 +122,25 @@ func words(s string) []string {
 	var out []string
 	for _, w := range wordRe.FindAllString(strings.ToLower(splitCamel(s)), -1) {
 		if len(w) >= minQueryWordLength && !stopWords[w] {
-			out = append(out, w)
+			out = append(out, stem(w))
 		}
 	}
 	return out
+}
+
+// stem trims a plural or verb ending so word forms meet: billing and bill,
+// invoices and invoice, deployed and deploy. A double s (process) stays.
+func stem(w string) string {
+	for _, suffix := range []string{"ing", "ed", "s"} {
+		if !strings.HasSuffix(w, suffix) || len(w)-len(suffix) < minStemLength {
+			continue
+		}
+		if suffix == "s" && strings.HasSuffix(w, "ss") {
+			return w
+		}
+		return strings.TrimSuffix(w, suffix)
+	}
+	return w
 }
 
 // splitCamel separates camelCase and snake_case words.
@@ -154,7 +173,10 @@ func set(ws []string) map[string]bool {
 // words, walks up to hops edges from the best ones (extracted edges count
 // fully, guesses by their confidence, each hop halves), and keeps the best
 // notes within budget tokens. No model is involved.
-func (ix *Index) Recall(text string, hops, budget int) Recall {
+//
+// Notes in exclude (vault-relative) are never recalled - the agent's own
+// current session note, which only echoes the conversation.
+func (ix *Index) Recall(text string, hops, budget int, exclude ...string) Recall {
 	if hops <= 0 {
 		hops = DefaultHops
 	}
@@ -178,6 +200,9 @@ func (ix *Index) Recall(text string, hops, budget int) Recall {
 		return hits[i].Note < hits[j].Note
 	})
 	for _, h := range hits {
+		if slices.Contains(exclude, h.Note) {
+			continue
+		}
 		cost := (len(h.Note) + len(h.Summary) + len(h.Via) + 16 + bytesPerToken - 1) / bytesPerToken
 		if len(r.Hits) >= maxHits || r.Tokens+cost > budget {
 			break
@@ -233,7 +258,20 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 	if s > 0 && len(label) > minQueryWordLength && strings.Contains(lowerText, label) {
 		s *= fullLabelBoost
 	}
-	return s
+	return s * sourceWeight(ix.byID[id])
+}
+
+// sourceWeight ranks notes kdeps writes itself below the ones people curate:
+// a session note is titled with its prompts and a memory entry is short, so
+// both would otherwise out-match a decision or gotcha on the same words.
+func sourceWeight(n *Node) float64 {
+	switch {
+	case n.Kind == "session":
+		return sessionNoteWeight
+	case strings.HasPrefix(n.Note, MemoryFolder+"/"):
+		return memoryNoteWeight
+	}
+	return 1
 }
 
 // walk spreads score from a seed breadth-first, keeping each note's best.

@@ -62,6 +62,7 @@ type knowledgeState struct {
 	notedTurns int
 	summary    string
 	summaryAt  time.Time // when summary was written (or the session started)
+	noteFile   string    // this session's note, never recalled into the session
 }
 
 // newKnowledgeState returns nil without a parent context or knowledge
@@ -143,7 +144,16 @@ func (k *knowledgeState) recall(text string) knowledge.Recall {
 	if ix == nil {
 		return knowledge.Recall{}
 	}
-	r := ix.Recall(text, k.cfg.Recall.Hops, k.cfg.Recall.BudgetTokens)
+	var exclude []string
+	k.mu.Lock()
+	own := k.noteFile
+	k.mu.Unlock()
+	if own != "" {
+		if rel, err := filepath.Rel(k.vault.Root, own); err == nil {
+			exclude = append(exclude, filepath.ToSlash(rel))
+		}
+	}
+	r := ix.Recall(text, k.cfg.Recall.Hops, k.cfg.Recall.BudgetTokens, exclude...)
 	k.mu.Lock()
 	k.last = r
 	k.mu.Unlock()
@@ -275,6 +285,9 @@ func (l *Loop) saveSessionNote(summary string, w io.Writer) bool {
 		}
 		return false
 	}
+	k.mu.Lock()
+	k.noteFile = sn.File
+	k.mu.Unlock()
 	if w != nil {
 		fmt.Fprintf(w, "knowledge: session note %s\n", sn.File)
 	}

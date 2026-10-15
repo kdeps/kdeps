@@ -203,7 +203,7 @@ Inside an agent session, kdeps rebuilds the graph in the background when the ses
 ## Recall
 
 Before each model call, kdeps:
-1. Scores graph nodes on the request's words. Rarer words count more, and a word that is part of a note's title counts double.
+1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks up to `hops` edges from the best matches. Extracted edges count fully, and each hop halves the score.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`.
 
