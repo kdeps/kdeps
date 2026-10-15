@@ -26,11 +26,11 @@ Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, o
 
 Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/Memory/global/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
 
-The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
+The memory store is injected into every turn automatically as a single graph-ordered `<memory>` block, rebuilt each turn and focused on that turn's request (it is not part of the cached system prompt, so memory saved mid-session reaches the next turn). Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
 ## Built-in memory tools
 
-The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
+The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in each turn's context; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
 
 | Tool | Description |
 |------|-------------|

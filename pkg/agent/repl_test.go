@@ -2904,7 +2904,7 @@ func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
 	loop.config.AutoCompactThreshold = 20000
 	// Should not panic; with no skills/prompt/tools the only content is the
 	// always-present date line.
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Contains(t, preamble, "Today's date is")
 	assert.Empty(t, preambleBeyondDate(preamble))
 }
@@ -2922,7 +2922,7 @@ func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
 	// Both zero: final fallback to 40000
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 0
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Empty(t, preambleBeyondDate(preamble)) // no skills/prompt/tools set
 }
 
@@ -2934,7 +2934,7 @@ func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
 	loop.config.SystemPrompt = "you are a helpful assistant"
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Skills should be stripped when context window is tiny
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
@@ -2947,7 +2947,7 @@ func TestBuildSystemPreamble_NormalContext_IncludesSkills(t *testing.T) {
 	loop.skills = "MY SKILL CONTENT"
 	loop.config.CompactTokenBudget = 40000
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.Contains(t, preamble, "MY SKILL CONTENT")
 }
@@ -2958,7 +2958,7 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096
 	loop.config.SystemPrompt = ""
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Only tool guidance when no system prompt and small context
 	assert.NotContains(t, preamble, "SKILL")
@@ -2970,7 +2970,7 @@ func TestBuildSystemPreamble_MemoryRulesSurviveVerbatim(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.memoryStore = NewMemoryStore(t.TempDir())
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Byte-for-byte: turoReduce must never see this text, so mechanical
 	// rewriting (filler removal, synonym substitution) cannot have touched it.
@@ -2986,7 +2986,7 @@ func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
 	loop.skills = "LARGE SKILL BLOCK"
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192): skills get stripped
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	// Memory rules are not "non-essential" content — they must still be sent
@@ -2997,7 +2997,7 @@ func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
 
 func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
 	loop := makeTestLoop(nil) // memoryStore left nil
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.NotContains(t, preamble, "MEMORY RULE")
 }
 
@@ -3016,7 +3016,7 @@ func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 		require.NoError(t, store.Set(fmt.Sprintf("key-%04d", i), "value"))
 	}
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.memoryTurnBlock("")
 
 	// Scope the count to the <memory-keys> block itself — FormatForPrompt's
 	// own recent-entries summary also mentions keys and would otherwise

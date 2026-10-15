@@ -277,7 +277,7 @@ func TestWriteSession_NewHubAndVaultLink(t *testing.T) {
 }
 
 func TestSummaryHelpers(t *testing.T) {
-	sec := summarySections("## Goal\nA\n## Progress\nmade progress\n## Wins\n(none)\n")
+	sec := SummarySections("## Goal\nA\n## Progress\nmade progress\n## Wins\n(none)\n")
 	assert.Equal(t, "made progress", sec["progress"])
 	assert.Empty(t, sec["wins"])
 	assert.Equal(t, "Fix the bug", oneLine("\n- [ ] **Fix the bug**\n"))

@@ -72,7 +72,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 	defer func() { _ = os.Chdir(oldWD) }()
 
 	require.NoError(t, os.Chdir(dirA))
-	first := l.cachedSystemPreamble("focus")
+	first := l.cachedSystemPreamble()
 	if !strings.Contains(first, "Working directory: "+dirA) {
 		t.Errorf("first call missing working directory %q:\n%s", dirA, first)
 	}
@@ -80,7 +80,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 	// The rest of the preamble is cached (buildSystemPreamble runs once), but
 	// the working directory line must still update on a later call.
 	require.NoError(t, os.Chdir(dirB))
-	second := l.cachedSystemPreamble("focus")
+	second := l.cachedSystemPreamble()
 	if strings.Contains(second, "Working directory: "+dirA) {
 		t.Errorf("second call still reports the stale directory %q:\n%s", dirA, second)
 	}
@@ -96,7 +96,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 	l := loopWithRegisteredTool(t)
 
-	_ = l.cachedSystemPreamble("focus")
+	_ = l.cachedSystemPreamble()
 	if !l.systemPreambleBuilt {
 		t.Fatal("first call should mark the static preamble built")
 	}
@@ -107,7 +107,7 @@ func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWD) }()
 	require.NoError(t, os.Chdir(t.TempDir()))
 
-	_ = l.cachedSystemPreamble("focus")
+	_ = l.cachedSystemPreamble()
 	if l.systemPreamble != cachedStatic {
 		t.Errorf(
 			"static portion changed on a later call, want it cached:\nold=%q\nnew=%q",
@@ -122,7 +122,7 @@ func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 // buildSystemPreamble's existing gate on l.registry being non-empty.
 func TestCachedSystemPreamble_NoRegistryNoWorkingDirectory(t *testing.T) {
 	l := &Loop{}
-	out := l.cachedSystemPreamble("focus")
+	out := l.cachedSystemPreamble()
 	if strings.Contains(out, "Working directory:") {
 		t.Errorf("a loop with no tool registry must not get a working directory line: %q", out)
 	}
@@ -139,7 +139,7 @@ func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 
 	// Every backend gets the fenced-tools-first guidance.
 	otherLoop := &Loop{registry: reg, config: Config{Backend: "openai"}}
-	out := otherLoop.cachedSystemPreamble("focus")
+	out := otherLoop.cachedSystemPreamble()
 	if !strings.Contains(out, "<use-kdeps-tools>") {
 		t.Errorf("every backend should get the fenced-tools guidance:\n%s", out)
 	}
@@ -149,7 +149,7 @@ func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 
 	// M365 gets that plus its own reinforcement.
 	m365Loop := &Loop{registry: reg, config: Config{Backend: backendM365}}
-	out = m365Loop.cachedSystemPreamble("focus")
+	out = m365Loop.cachedSystemPreamble()
 	if !strings.Contains(out, "<use-kdeps-tools>") || !strings.Contains(out, "different, empty machine") {
 		t.Errorf("m365 backend should get both the general and m365-specific guidance:\n%s", out)
 	}
@@ -270,7 +270,7 @@ func TestCachedSystemPreamble_IncludesLiveEnvFactsEveryCall(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWD) }()
 	require.NoError(t, os.Chdir(dir))
 
-	assert.Contains(t, l.cachedSystemPreamble("focus"), "0 entries in the working directory")
+	assert.Contains(t, l.cachedSystemPreamble(), "0 entries in the working directory")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.txt"), []byte("x"), 0o600))
-	assert.Contains(t, l.cachedSystemPreamble("focus"), "1 entries in the working directory (1 files, 0 dirs)")
+	assert.Contains(t, l.cachedSystemPreamble(), "1 entries in the working directory (1 files, 0 dirs)")
 }

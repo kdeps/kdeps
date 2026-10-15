@@ -88,7 +88,7 @@ updated: 2026-10-15
 | skills | skills/my-app          |
 ```
 
-Every session sees a status overview built from the cards when it loads; the overview is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Every turn carries a status overview read from the cards at that moment (`<knowledge-status>`); the overview is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -112,7 +112,7 @@ We moved to monthly billing because ...
 
 ## Session notes
 
-When a session compacts and when it ends, kdeps writes one note per session into the project's `sessions/` folder (the inbox when no card covers the folder). It rewrites that note in place as the session goes on, and links it from the project's hub note:
+After every turn, kdeps writes (and rewrites in place) one note per session into the project's `sessions/` folder (the inbox when no card covers the folder). It rewrites that note in place as the session goes on, and links it from the project's hub note:
 
 ```markdown
 ---
@@ -128,7 +128,7 @@ summary: Ship knowledge recall for my-app
 ## Wins
 ```
 
-The note comes from the compaction summary, so writing it at compaction costs no extra model call. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
+After each turn the note is updated without a model call: your prompts, the files written or edited, decisions saved to memory and tools that failed. At compaction the model's summary replaces it with a written one (no extra model call: compaction makes that summary anyway), and later turns are added on top. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
 
 ## The graph
 

@@ -634,7 +634,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
 	})
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	// The preamble must carry the same trailer commitTrailer() produces, model
 	// and all — otherwise the agent is told to write a different one.
 	assert.Contains(t, preamble,
@@ -662,7 +662,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 		Streamer: &mockStreamer{},
 	})
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Exact phrases from toolUseGuidance's operating rules.
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")
@@ -696,7 +696,7 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 	})
 	loop.session.Append("first", "done")
 
-	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble(""))
+	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble())
 	require.NotEmpty(t, cfg.Tools)
 	// New() also registers identity_get. Tool order follows map iteration,
 	// so match by name instead of position.
@@ -805,7 +805,7 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 		Streamer: &mockStreamer{},
 	})
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Contains(t, preamble, "after 7 distinct web calls")
 	assert.NotContains(t, preamble, "{{.WebCallLimit}}", "the placeholder must not leak through unrendered")
 }
@@ -831,7 +831,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
 	loop.skills = "LARGE SKILL BLOCK"
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")

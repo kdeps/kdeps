@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -56,8 +57,11 @@ type knowledgeState struct {
 	last     knowledge.Recall
 	building atomic.Bool
 	builds   sync.WaitGroup // background builds in flight
-	// notedTurns is the session turn count the last session note covered.
+	// notedTurns is the session turn count the last model-written session
+	// note covered; summary is that note's summary (the live note's base).
 	notedTurns int
+	summary    string
+	summaryAt  time.Time // when summary was written (or the session started)
 }
 
 // newKnowledgeState returns nil without a parent context or knowledge
@@ -77,11 +81,12 @@ func newKnowledgeState(ctx context.Context, cfg *config.KnowledgeConfig) *knowle
 		ws = knowledge.ExpandPath(cfg.Workspace, home)
 	}
 	k := &knowledgeState{
-		ctx:   ctx,
-		cfg:   *cfg,
-		vault: knowledge.Vault{Root: vault},
-		ws:    knowledge.Workspace{Root: ws},
-		dir:   knowledge.GraphDir(vault),
+		summaryAt: time.Now(),
+		ctx:       ctx,
+		cfg:       *cfg,
+		vault:     knowledge.Vault{Root: vault},
+		ws:        knowledge.Workspace{Root: ws},
+		dir:       knowledge.GraphDir(vault),
 	}
 	if _, err := os.Stat(vault); errors.Is(err, os.ErrNotExist) {
 		// First session: create the folders, KDEPS.md and schema.md. A
@@ -175,14 +180,11 @@ func (l *Loop) knowledgePreamble() string {
 		return ""
 	}
 	k := l.knowledge
-	s := fmt.Sprintf("<knowledge-vault>\nThe knowledge vault is %s; its routing table and cards are in %s. "+
-		"Each turn may include a <knowledge-recall> list of the notes related to the request: read only those you need. "+
-		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea).\n",
-		k.vault.Root, k.ws.Root)
-	if o := k.overview(); o != "" {
-		s += "\n" + o
-	}
-	return s + "</knowledge-vault>"
+	return fmt.Sprintf("<knowledge-vault>\nThe knowledge vault is %s; its routing table and cards are in %s. "+
+		"Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes "+
+		"related to the request: read only those you need. "+
+		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea).\n"+
+		"</knowledge-vault>", k.vault.Root, k.ws.Root)
 }
 
 // instructionParts are the discovered instruction files (with the
@@ -238,32 +240,164 @@ func (l *Loop) writeSessionNote(summary string, w io.Writer) {
 	if !l.knowledgeOn() || !k.sessionNotes() || strings.TrimSpace(summary) == "" {
 		return
 	}
-	wd, _ := os.Getwd()
-	id := l.sessionID
-	if id == "" {
-		id = l.sessionNoteID()
+	if !l.saveSessionNote(summary, w) {
+		return
 	}
-	sn, err := knowledge.WriteSession(k.vault, k.ws, wd, id, summary, time.Now())
+	k.summary, k.summaryAt = summary, time.Now()
+	if l.session != nil {
+		k.notedTurns = l.session.TurnCount()
+	}
+}
+
+// UpdateSessionNote rewrites this session's note after a turn, without a
+// model: the last model summary with what happened since (prompts, files
+// changed, decisions saved, tools that failed). The model summary at
+// compaction and session end replaces it with a written one.
+func (l *Loop) UpdateSessionNote() {
+	k := l.knowledge
+	if !l.knowledgeOn() || !k.sessionNotes() || l.session == nil || l.session.TurnCount() == 0 {
+		return
+	}
+	if live := l.liveSessionSummary(); live != "" {
+		l.saveSessionNote(live, nil)
+	}
+}
+
+// saveSessionNote writes the note from a summary and refreshes the graph,
+// reporting on w (when set); it returns whether the note was written.
+func (l *Loop) saveSessionNote(summary string, w io.Writer) bool {
+	k := l.knowledge
+	wd, _ := os.Getwd()
+	sn, err := knowledge.WriteSession(k.vault, k.ws, wd, l.sessionNoteID(), summary, time.Now())
 	if err != nil {
 		if w != nil {
 			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)
 		}
-		return
-	}
-	if l.session != nil {
-		k.notedTurns = l.session.TurnCount()
+		return false
 	}
 	if w != nil {
 		fmt.Fprintf(w, "knowledge: session note %s\n", sn.File)
 	}
-	k.buildAsync()
+	if !k.building.Load() {
+		k.buildAsync()
+	}
+	return true
 }
 
-// sessionNoteID names a session not saved to the store yet, stable for the
-// loop's lifetime.
+// Live session note caps.
+const (
+	liveNotePrompts   = 8
+	liveNoteItems     = 15
+	liveNoteLineChars = 160
+)
+
+// liveSessionSummary is the session so far in the compaction summary's
+// format, built without a model: the last model summary's sections, with
+// the prompts since (the session keeps only those after a compaction), the
+// files modified, decisions saved to memory and tools that failed since.
+func (l *Loop) liveSessionSummary() string {
+	k := l.knowledge
+	base := knowledge.SummarySections(k.summary)
+	var prompts []string
+	for _, m := range l.session.RawMessages() {
+		if m.Role == RoleUser && strings.TrimSpace(m.Content) != "" {
+			prompts = append(prompts, liveLine(m.Content))
+		}
+	}
+	if len(prompts) == 0 && base["goal"] == "" {
+		return ""
+	}
+	if len(prompts) > liveNotePrompts {
+		prompts = append(prompts[:1], prompts[len(prompts)-liveNotePrompts+1:]...)
+	}
+	files, failed := l.liveToolFacts(k.summaryAt.UnixMilli())
+	var decisions []string
+	if l.memoryStore != nil {
+		for _, e := range l.memoryStore.List() {
+			if e.Type == memTypeDecision && e.UpdatedAt >= k.summaryAt.UnixMilli() && len(decisions) < liveNoteItems {
+				decisions = append(decisions, "- "+liveLine(e.Value))
+			}
+		}
+	}
+	goalLines := []string{base["goal"]}
+	for _, p := range prompts {
+		goalLines = append(goalLines, "- "+p)
+	}
+	goal := strings.Join(goalLines, "\n")
+	section := func(title, from string, extra []string) string {
+		body := strings.TrimSpace(strings.Join(append([]string{base[from]}, extra...), "\n"))
+		if body == "" {
+			body = "(none)"
+		}
+		return "## " + title + "\n" + body + "\n"
+	}
+	return "## Goal\n" + strings.TrimSpace(goal) + "\n" +
+		"## Progress\n### Done\n" + strings.TrimSpace(strings.Join(append([]string{base["done"]}, files...), "\n")) + "\n" +
+		section("Key Decisions", "key decisions", decisions) +
+		section("Mistakes", "mistakes", failed) +
+		section("Wins", "wins", nil) +
+		section("Next Steps", "next steps", nil)
+}
+
+// liveToolFacts lists, from the tool calls since sinceMs, the files written
+// or edited and the calls that failed.
+func (l *Loop) liveToolFacts(sinceMs int64) ([]string, []string) {
+	var files, failed []string
+	seen := map[string]bool{}
+	for _, rec := range l.toolCallLog {
+		if rec.Timestamp < sinceMs {
+			continue
+		}
+		if isToolErrorResult(rec.Result) {
+			if len(failed) < liveNoteItems {
+				failed = append(failed, "- "+rec.Name+" failed: "+liveLine(rec.Result))
+			}
+			continue
+		}
+		if rec.Name != "write_file" && rec.Name != "edit_file" {
+			continue
+		}
+		var args struct {
+			Path     string `json:"path"`
+			FilePath string `json:"file_path"`
+		}
+		_ = json.Unmarshal([]byte(rec.Args), &args)
+		f := firstNonEmptyString(args.Path, args.FilePath)
+		if f != "" && !seen[f] && len(files) < liveNoteItems {
+			seen[f] = true
+			files = append(files, "- modified "+f)
+		}
+	}
+	return files, failed
+}
+
+func firstNonEmptyString(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// liveLine is text as one capped line for the live note.
+func liveLine(s string) string {
+	line := strings.Join(strings.Fields(s), " ")
+	if r := []rune(line); len(r) > liveNoteLineChars {
+		line = string(r[:liveNoteLineChars-3]) + "..."
+	}
+	return line
+}
+
+// sessionNoteID names this session's note, fixed for the loop's lifetime
+// (a session saved to the store mid-way keeps the note it started with):
+// the resumed session's id, else one from the start time.
 func (l *Loop) sessionNoteID() string {
 	if l.noteID == "" {
-		l.noteID = "unsaved-" + time.Now().Format("20060102-150405")
+		l.noteID = l.sessionID
+		if l.noteID == "" {
+			l.noteID = "session-" + time.Now().Format("20060102-150405")
+		}
 	}
 	return l.noteID
 }
@@ -682,3 +816,45 @@ func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 // HarnessText returns a standalone harness prompt by name (for callers
 // outside the loop, such as kdeps knowledge build --extract).
 func HarnessText(name string) string { return harnessText(name) }
+
+// turnStateBlock is what the agent knows as of this turn: the cards' status
+// (when the vault is on) and the memory graph focused on this request, with
+// the recent keys. Rebuilt every turn, so memory saved and cards changed
+// mid-session are seen on the next turn.
+func (l *Loop) turnStateBlock(focus string) string {
+	var parts []string
+	if l.knowledgeOn() {
+		if o := l.knowledge.overview(); o != "" {
+			parts = append(parts, "<knowledge-status>\n"+o+"</knowledge-status>")
+		}
+	}
+	if mem := l.memoryTurnBlock(focus); mem != "" {
+		parts = append(parts, mem)
+	}
+	block := strings.Join(parts, "\n\n")
+	l.memorySegmentTokens = EstimateTokenCountFromStrings(block)
+	recordContextSegmentTokens("memory", l.memorySegmentTokens)
+	return block
+}
+
+// memoryTurnBlock is the memory graph focused on focus and the most recent
+// keys (capped: memory_query finds the rest).
+func (l *Loop) memoryTurnBlock(focus string) string {
+	if l.memoryStore == nil {
+		return ""
+	}
+	var parts []string
+	if memPrompt := l.memoryStore.FormatForPromptCapped(
+		memoryPromptLimit(), focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars,
+	); memPrompt != "" {
+		parts = append(parts, memPrompt)
+	}
+	if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
+		block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
+		if total > len(keyNames) {
+			block += fmt.Sprintf("\n... and %d more (use memory_query to find older entries)", total-len(keyNames))
+		}
+		parts = append(parts, block+"\n</memory-keys>")
+	}
+	return strings.Join(parts, "\n\n")
+}

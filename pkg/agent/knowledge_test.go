@@ -104,8 +104,11 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 
 	pre := l.knowledgePreamble()
 	assert.Contains(t, pre, "<knowledge-vault>")
-	assert.Contains(t, pre, "| app | project | active | ship | 2026-10-01 |")
-	assert.Contains(t, pre, `belongs to card "app"`)
+	assert.NotContains(t, pre, "| app |", "card status changes; it rides on the turn")
+	state := l.turnStateBlock("anything")
+	assert.Contains(t, state, "<knowledge-status>")
+	assert.Contains(t, state, "| app | project | active | ship | 2026-10-01 |")
+	assert.Contains(t, state, `belongs to card "app"`)
 	assert.Empty(t, (&Loop{}).knowledgePreamble())
 	assert.Nil(t, (&Loop{}).knowledgeRecallItem("x", nil))
 	_, _, ok = (&Loop{}).LastRecall()
@@ -195,7 +198,7 @@ func TestKnowledgeSessionNotes(t *testing.T) {
 	matches, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
 	require.Len(t, matches, 1)
 	data, _ := os.ReadFile(matches[0])
-	assert.Contains(t, string(data), "session: unsaved-")
+	assert.Contains(t, string(data), "session: session-")
 	card, _ := l.knowledge.ws.Card("app")
 	assert.Equal(t, "docs", card.Next)
 
@@ -403,4 +406,68 @@ func TestWriteSessionNoteOnExit_OnlyInATerminal(t *testing.T) {
 	out := captureStdout(t, r.writeSessionNoteOnExit)
 	assert.Empty(t, out, "a piped session exits without model calls")
 	assert.True(t, l.SessionNoteDue())
+}
+
+func TestUpdateSessionNote_EveryTurn(t *testing.T) {
+	l, vault := knowledgeLoop(t)
+	l.memoryStore = NewMemoryStore(t.TempDir())
+	l.memoryStore.SetCwd(t.TempDir())
+	sess := l.session.(*Session)
+
+	l.UpdateSessionNote() // no turns yet: nothing
+	matches, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	assert.Empty(t, matches)
+
+	sess.Append("switch billing to monthly", "done")
+	l.recordToolCall("edit_file", `{"path":"pkg/billing.go"}`, "edited")
+	l.recordToolCall("write_file", `{"file_path":"pkg/billing.go"}`, "written")
+	l.recordToolCall("bash_exec", "{}", `{"error":"exit status 1"}`)
+	require.NoError(t, l.memoryStore.Set("decision:billing", "Bill monthly"))
+	l.UpdateSessionNote()
+
+	matches, _ = filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	require.Len(t, matches, 1, "the note exists after the first turn, not only at exit")
+	data, _ := os.ReadFile(matches[0])
+	note := string(data)
+	assert.Contains(t, note, "- switch billing to monthly")
+	assert.Contains(t, note, "- modified pkg/billing.go")
+	assert.Contains(t, note, `- bash_exec failed: {"error":"exit status 1"}`)
+	assert.Contains(t, note, "- Bill monthly")
+	assert.True(t, l.SessionNoteDue(), "a live note does not stand in for the session-end summary")
+
+	l.writeSessionNote("## Goal\nShip monthly billing\n## Wins\n- tests green\n", nil)
+	sess.Append("now add invoices", "ok")
+	l.UpdateSessionNote()
+	again, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	require.Len(t, again, 1, "one note per session, rewritten in place")
+	data, _ = os.ReadFile(again[0])
+	note = string(data)
+	assert.Contains(t, note, "Ship monthly billing", "the model summary is the base")
+	assert.Contains(t, note, "- tests green")
+	assert.Contains(t, note, "- now add invoices", "turns since are added")
+
+	l.SetKnowledge(false)
+	l.UpdateSessionNote()
+	assert.Equal(t, liveLine("a\n  b"), "a b")
+	assert.Len(t, []rune(liveLine(strings.Repeat("x", 400))), liveNoteLineChars)
+}
+
+func TestMemoryRidesOnEachTurn(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	l.memoryStore = NewMemoryStore(t.TempDir())
+	l.memoryStore.SetCwd(t.TempDir())
+	scenario := func(input string) string {
+		var all []string
+		for _, it := range l.buildChatConfig(t.Context(), input, l.cachedSystemPreamble()).Scenario {
+			all = append(all, it.Prompt)
+		}
+		return strings.Join(all, "\n")
+	}
+	first := scenario("start")
+	assert.NotContains(t, first, "invoices go out on the 1st")
+	require.NoError(t, l.memoryStore.Set("fact:invoices", "invoices go out on the 1st"))
+	second := scenario("when do invoices go out?")
+	assert.Contains(t, second, "invoices go out on the 1st", "memory saved mid-session reaches the next turn")
+	assert.Contains(t, second, "<knowledge-status>")
+	assert.NotContains(t, l.cachedSystemPreamble(), "invoices go out", "the cached preamble holds no memory entries")
 }
