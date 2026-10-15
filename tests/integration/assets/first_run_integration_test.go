@@ -178,3 +178,16 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 		assert.NotEqual(t, "harness", set, c.ID)
 	}
 }
+
+func TestPublish_IndexCarriesContextTokens(t *testing.T) {
+	published := t.TempDir()
+	_, err := assets.Publish(assets.Source(), published, "test", time.Now())
+	require.NoError(t, err)
+	idx, err := assets.ReadIndex(published)
+	require.NoError(t, err)
+	assert.Positive(t, idx.Tokens("tools/bash_exec"), "a tool definition reaches the model")
+	assert.Positive(t, idx.Tokens("harness/safety"), "a prompt section reaches the model")
+	assert.Positive(t, idx.Tokens("components/searchWeb"), "a component is an agent tool")
+	assert.Zero(t, idx.Tokens("themes/normal"), "themes never reach the model")
+	assert.Zero(t, idx.Tokens("schemas/v1"))
+}

@@ -49,6 +49,9 @@ type Change struct {
 	To     string `json:"to,omitempty"`
 	Action string `json:"action"`
 	Note   string `json:"note,omitempty"`
+	// Tokens estimates what the version To adds to the LLM context (0 for
+	// an item the model never sees).
+	Tokens int `json:"tokens,omitempty"`
 }
 
 // Pending reports whether the change installs or resets something.
@@ -113,6 +116,11 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 		}
 	}
 	changes = withRequires(changes, local, idx)
+	for i, ch := range changes {
+		if v, ok := idx.Items[ch.ID].Find(ch.To); ok {
+			changes[i].Tokens = v.Tokens
+		}
+	}
 	if !check {
 		applyAll(ctx, root, c, changes, idx)
 	}
@@ -294,18 +302,26 @@ func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx
 				err = fmt.Errorf("required %s failed", req)
 			}
 		}
-		switch {
-		case err != nil:
-		case ch.Action == ActionReset:
-			err = Reset(root, ch.ID)
-		default:
-			err = Install(root, ch.ID, data[i], ch.Action == ActionPin)
+		if err == nil {
+			err = apply(root, &changes[i], data[i])
 		}
 		if err != nil {
 			changes[i].Action, changes[i].Note = ActionFailed, err.Error()
 			failed[ch.ID] = true
 		}
 	}
+}
+
+// apply resets or installs one change, recording an install's context tokens.
+func apply(root string, ch *Change, data []byte) error {
+	if ch.Action == ActionReset {
+		return Reset(root, ch.ID)
+	}
+	if err := Install(root, ch.ID, data, ch.Action == ActionPin); err != nil {
+		return err
+	}
+	ch.Tokens = itemTokens(ch.ID, data)
+	return nil
 }
 
 // scope lists the item ids a target covers.

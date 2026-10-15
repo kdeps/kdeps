@@ -41,6 +41,10 @@ type Spec struct {
 	Validate func(data []byte, name string) error
 	// Required reports whether an item cannot be removed (the loader needs it).
 	Required func(name string) bool
+	// Context returns the text of an item (its file, or bundle) that reaches
+	// the LLM's context - a prompt, a tool definition. Nil for a set the
+	// model never sees.
+	Context func(data []byte, name string) string
 }
 
 //nolint:gochecknoglobals // specs are registered once from each owning package's init

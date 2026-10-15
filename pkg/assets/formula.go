@@ -95,6 +95,8 @@ type Formula struct {
 	// Dependencies maps each package the item requires to the versions it
 	// accepts (see Header.Requires); kdeps update installs them with it.
 	Dependencies map[string]string `yaml:"dependencies,omitempty"`
+	// Tokens estimates what the item adds to the LLM context when installed.
+	Tokens int `yaml:"tokens,omitempty"`
 }
 
 // WriteFormulas writes one formula per index item into dir, each describing
@@ -153,6 +155,7 @@ func formulaFor(id string, it IndexItem, assetsDir, fileBase string) (Formula, e
 		Tags:         []string{"kdeps", typ},
 		License:      "Apache-2.0",
 		Dependencies: deps,
+		Tokens:       v.Tokens,
 	}, nil
 }
 

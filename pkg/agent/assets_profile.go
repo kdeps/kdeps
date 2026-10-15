@@ -134,6 +134,39 @@ func resolveProfileChoice(preset string, idx assets.Index) (string, []string, er
 	return customProfile, withBase(sets), nil
 }
 
+// selectionTokens estimates the context tokens of install targets (sets and
+// set/name items), from the index.
+func selectionTokens(targets []string, idx assets.Index) int {
+	seen := map[string]bool{}
+	total := 0
+	add := func(id string) {
+		if !seen[id] {
+			seen[id] = true
+			total += idx.Tokens(id)
+		}
+	}
+	for _, t := range targets {
+		if strings.Contains(t, "/") {
+			add(t)
+			continue
+		}
+		for id := range idx.Items {
+			if s, _, err := assets.SplitID(id); err == nil && s == t {
+				add(id)
+			}
+		}
+	}
+	return total
+}
+
+// contextLabel is a token estimate for a list column, blank for none.
+func contextLabel(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return tokenLabel(n)
+}
+
 // withBase puts the base sets first, once.
 func withBase(sets []string) []string {
 	out := slices.Clone(assets.BaseSets)
@@ -150,10 +183,12 @@ func withBase(sets []string) []string {
 func pickProfile(w io.Writer, r *bufio.Reader, idx assets.Index) (string, []string, error) {
 	fmt.Fprintln(w, "\nWhat will you use kdeps for? (change it later with kdeps profile)")
 	for i, p := range assets.Profiles {
-		fmt.Fprintf(w, "  %d) %-10s %s\n", i+1, p.Name, p.Description)
+		tokens := contextLabel(selectionTokens(p.Targets(idx), idx))
+		fmt.Fprintf(w, "  %d) %-10s %-11s %s\n", i+1, p.Name, tokens, p.Description)
 	}
-	fmt.Fprintf(w, "  %d) %-10s %s\n",
-		len(assets.Profiles)+1, customProfile, "tick the asset sets, or single items, yourself")
+	fmt.Fprintf(w, "  %d) %-10s %-11s %s\n",
+		len(assets.Profiles)+1, customProfile, "", "tick the asset sets, or single items, yourself")
+	fmt.Fprintln(w, "  (~tok: what the profile adds to the LLM context - prompts and tool definitions)")
 	def := slices.Index(assets.ProfileNames(), "full") + 1
 	for {
 		answer := readLine(w, r, fmt.Sprintf("Choice [%d]: ", def))
@@ -180,10 +215,11 @@ type checklist struct {
 	sets   []string
 	items  map[string][]string // set -> item names, sorted
 	ticked map[string]bool     // item id
+	idx    assets.Index        // token estimates
 }
 
 func newChecklist(idx assets.Index) *checklist {
-	c := &checklist{sets: assets.Registered(), items: map[string][]string{}, ticked: map[string]bool{}}
+	c := &checklist{sets: assets.Registered(), items: map[string][]string{}, ticked: map[string]bool{}, idx: idx}
 	for id := range idx.Items {
 		if s, n, err := assets.SplitID(id); err == nil && slices.Contains(c.sets, s) {
 			c.items[s] = append(c.items[s], n)
@@ -196,6 +232,17 @@ func newChecklist(idx assets.Index) *checklist {
 		c.setAll(s, true)
 	}
 	return c
+}
+
+// tokens is the context-token estimate of set's ticked items.
+func (c *checklist) tokens(set string) int {
+	n := 0
+	for _, name := range c.items[set] {
+		if id := assets.ID(set, name); c.ticked[id] {
+			n += c.idx.Tokens(id)
+		}
+	}
+	return n
 }
 
 func (c *checklist) count(set string) int {
@@ -301,6 +348,9 @@ func (c *checklist) pickItems(w io.Writer, r *bufio.Reader, set string) {
 			if assets.Required(set, name) {
 				note = " *"
 			}
+			if n := c.idx.Tokens(assets.ID(set, name)); n > 0 {
+				note += "  " + tokenLabel(n)
+			}
 			fmt.Fprintf(w, "  %3d) %s %s%s\n", i+1, mark, name, note)
 		}
 		answer := readLine(w, r, "Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back: ")
@@ -333,8 +383,16 @@ func (c *checklist) printSets(w io.Writer) {
 		if slices.Contains(assets.BaseSets, s) {
 			note = " (base)"
 		}
+		if t := c.tokens(s); t > 0 {
+			note += "  " + tokenLabel(t)
+		}
 		fmt.Fprintf(w, "  %2d) %s %-11s %3d/%-3d items%s\n", i+1, mark, s, n, total, note)
 	}
+	sum := 0
+	for _, s := range c.sets {
+		sum += c.tokens(s)
+	}
+	fmt.Fprintf(w, "LLM context of this selection: about %s tokens (prompts, tool definitions).\n", formatTokens(sum))
 }
 
 // parseNumbers reads "7" or "3-9" as list positions within 1..limit.

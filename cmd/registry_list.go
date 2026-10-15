@@ -56,8 +56,8 @@ func registryListRunE() error {
 		return err
 	}
 
-	printSection("Global components:", listLocalComponents(globalDir))
-	printSection("Local components (./components/):", listLocalComponents("components"))
+	printSection("Global components:", globalDir, listLocalComponents(globalDir))
+	printSection("Local components (./components/):", "components", listLocalComponents("components"))
 	printInstalledAgentSections()
 
 	return nil
@@ -67,18 +67,23 @@ func registryListRunE() error {
 func printInstalledAgentSections() {
 	agentsDir, err := kdepsAgentsDir()
 	if err == nil {
-		printSection("Installed agents (~/.kdeps/agents/):", listInstalledAgents(agentsDir))
+		printSection("Installed agents (~/.kdeps/agents/):", agentsDir, listInstalledAgents(agentsDir))
 	}
-	printSection("Local agents (./agents/):", listInstalledAgents("agents"))
+	printSection("Local agents (./agents/):", "agents", listInstalledAgents("agents"))
 }
 
-// printSection prints a labelled section of names when the slice is non-empty.
-func printSection(label string, names []string) {
+// printSection prints a labelled section of the packages named in dir when
+// there are any, each with what it adds to the LLM context as an agent tool.
+func printSection(label, dir string, names []string) {
 	if len(names) == 0 {
 		return
 	}
 	fmt.Fprintln(os.Stdout, label)
 	for _, n := range names {
+		if t := packageContextTokens(filepath.Join(dir, n)); t > 0 {
+			fmt.Fprintf(os.Stdout, "  %-30s ~%d tok\n", n, t)
+			continue
+		}
 		fmt.Fprintf(os.Stdout, "  %s\n", n)
 	}
 }

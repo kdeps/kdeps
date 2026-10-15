@@ -13,10 +13,21 @@ Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`
 | `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from the registry, a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
 | `kdeps uninstall` | Remove assets, or an agent or component installed from the registry |
 | `kdeps update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
-| `kdeps list` | List installed and local components; `--assets` lists every asset, its version and state |
+| `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset, its version, state and context tokens |
 | `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
 | `kdeps verify` | Run LLM-agnostic verification on a package directory |
 | `kdeps profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker |
+
+## LLM context tokens
+
+`kdeps install`, `kdeps update` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool in agent mode, so its name, description and input schema count:
+
+```text
+$ kdeps install scraper
+✓ Component scraper @1.0.0 installed to ./components/scraper
+  Extracts text from web pages and documents.
+  LLM context: about 96 tokens as an agent-mode tool (its tool definition)
+```
 
 ## Examples
 
@@ -34,7 +45,7 @@ kdeps submit --tag v1.2.0
 kdeps verify .
 
 # kdeps assets
-kdeps install tools/bash_exec      # one asset, with what it requires
+kdeps install tools/bash_exec      # one asset, with what it requires; prints ~tokens it adds to the LLM context
 kdeps update                       # every installed asset to its newest version
 kdeps update --check               # what would change
 kdeps uninstall themes/vim

@@ -76,12 +76,13 @@ The `kdeps` binary contains none of these files: kdeps loads them only from `~/.
 ```text
 $ kdeps
 What will you use kdeps for? (change it later with kdeps profile)
-  1) minimum    kdeps run and validate: chat, httpClient, python, exec, apiResponse
-  2) workflows  minimum, kdeps new templates and the components (sql, browser, email, ...)
-  3) agent      minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
-  4) deploy     workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
-  5) full       every asset set
-  6) custom     tick the asset sets, or single items, yourself
+  1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
+  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, browser, email, ...)
+  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
+  5) full       ~19.4k tok   every asset set
+  6) custom                 tick the asset sets, or single items, yourself
+  (~tok: what the profile adds to the LLM context - prompts and tool definitions)
 Choice [5]:
 ```
 
@@ -98,17 +99,26 @@ Choice [5]:
 Asset sets ([x] all, [-] some; the base sets are always installed):
    1) [ ] harness        0/43  items
    ...
-   6) [-] tools          6/78  items
+   6) [-] tools          6/78  items  ~1.0k tok
    8) [x] recipes       10/10  items
    9) [x] models         3/3   items (base)
+LLM context of this selection: about 1.0k tokens (prompts, tool definitions).
 Toggle sets (e.g. 5 7), o<N> to pick items in set N (e.g. o6), Enter to install: o6
 
 tools (6/78 ticked; * required):
     1) [ ] approval_grant
-    5) [x] bash_exec
+    5) [x] bash_exec  ~159 tok
    ...
-   29) [x] goal_task_complete *
+   29) [x] goal_task_complete *  ~172 tok
 Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
+```
+
+Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
+
+```text
+$ kdeps install tools/bash_exec
+  tools/bash_exec                      install   - -> 1.0.0  ~159 tok
+LLM context: these added about 159 tokens (prompts, tool definitions) when loaded.
 ```
 
 A set number toggles the whole set; `o<N>` opens it. Inside, numbers and ranges toggle items, `a` ticks all and `n` none. An item marked `*` is one its set's loader needs: it stays ticked while anything else in the set is. A base set keeps at least its required items (or one item). A fully ticked set is recorded by name, so items published to it later are installed by `kdeps update`; a partly ticked one is recorded item by item.
@@ -140,7 +150,7 @@ kdeps update tools                    # every item in one set
 kdeps update harness/safety           # newest version of one item; unpins and restores it
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
 kdeps update --check                  # what would change
-kdeps list --assets                   # every item: version, downloaded | pinned | removed
+kdeps list --assets                   # every item: version, downloaded | pinned | removed, ~context tokens; total at the end
 kdeps uninstall themes/vim,presets/frugal   # remove items
 ```
 

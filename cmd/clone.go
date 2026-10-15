@@ -159,6 +159,7 @@ func cloneAsComponent(name, sourceDir string) error {
 		return fmt.Errorf("copy component directory: %w", copyErr)
 	}
 	fmt.Fprintf(os.Stdout, "Installed component (unpacked): %s -> %s\n", name, destDir)
+	printPackageTokens(os.Stdout, destDir)
 	return nil
 }
 
@@ -173,6 +174,7 @@ func cloneAsWorkdir(name, sourceDir, baseDir, manifestName string) error {
 		return fmt.Errorf("clone to %s: %w", destDir, err)
 	}
 	fmt.Fprintf(os.Stdout, "Cloned %s (%s) -> %s\n", name, manifestName, destDir)
+	printPackageTokens(os.Stdout, destDir)
 	return nil
 }
 

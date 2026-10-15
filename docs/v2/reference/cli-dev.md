@@ -231,17 +231,17 @@ kdeps update harness                  # every item in one set
 kdeps install harness/safety          # one item at its newest version (unpins it), with what it requires
 kdeps install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
 kdeps uninstall themes/vim themes/linux   # remove items (restore with: kdeps install themes/vim)
-kdeps list --assets                   # every item, its version and state
+kdeps list --assets                   # every item, its version, state and ~context tokens
 kdeps profile agent                   # install a profile: minimum, workflows, agent, deploy, full (or sets and items: docker,tools/bash_exec)
 kdeps profile                         # choose the profile again, or tick sets and single items yourself (custom); needs a terminal
 ```
 
 | Command | Assets |
 |---|---|
-| `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require |
+| `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
 | `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
 | `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
-| `kdeps list --assets` | Every asset with its version and state (`source`, `downloaded`, `pinned`, `removed`) |
+| `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`) and estimated LLM context tokens, with the installed total |
 | `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
 
 The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).

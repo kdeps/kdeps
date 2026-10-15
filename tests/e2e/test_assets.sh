@@ -235,6 +235,17 @@ if output_grep "schemas/v1 +install .*\(required by components/searchWeb\)" "$OU
 else
     test_failed "assets - update installs requires" "$OUT"
 fi
+
+# The install says what the item adds to the LLM context; a schema adds none.
+if output_grep "components/searchWeb +install .* ~[0-9.]+k? tok" "$OUT" &&
+    ! output_grep "schemas/v1 +install .* tok" "$OUT" &&
+    output_grep "LLM context: these added about [0-9.]+k? tokens" "$OUT" &&
+    output_grep "LLM context: installed prompts and tool definitions total about" \
+        "$(as_run "$RQ_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" list --assets)"; then
+    test_passed "assets - install and list --assets show LLM context tokens"
+else
+    test_failed "assets - context tokens" "$OUT"
+fi
 kill "$AS_SRV" 2>/dev/null
 wait "$AS_SRV" 2>/dev/null
 AS_SRV=""
