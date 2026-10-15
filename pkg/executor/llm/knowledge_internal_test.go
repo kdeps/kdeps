@@ -47,12 +47,9 @@ func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 	_, _, err := knowledge.Build(t.Context(), knowledge.Vault{Root: vault}, knowledge.Workspace{Root: vault},
 		knowledge.GraphDir(vault), time.Now())
 	require.NoError(t, err)
-	if kc != nil {
-		kc.Vault = vault
-	}
-	orig := loadKnowledgeConfig
-	t.Cleanup(func() { loadKnowledgeConfig = orig })
-	loadKnowledgeConfig = func() *config.KnowledgeConfig { return kc }
+	orig := configuredVault
+	t.Cleanup(func() { configuredVault = orig })
+	configuredVault = func() (string, *config.KnowledgeConfig) { return vault, kc }
 	return vault
 }
 
@@ -66,11 +63,13 @@ func TestKnowledgeRecall_Workflow(t *testing.T) {
 	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "  "))
 	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "unrelated zzz"))
 
-	loadKnowledgeConfig = func() *config.KnowledgeConfig { return &config.KnowledgeConfig{Enabled: &off, Vault: vault} }
+	configuredVault = func() (string, *config.KnowledgeConfig) {
+		return vault, &config.KnowledgeConfig{Enabled: &off}
+	}
 	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "how do we bill?"), "turned off in config")
 
-	loadKnowledgeConfig = func() *config.KnowledgeConfig { return nil }
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "how do we bill?"), "the default vault has no graph")
+	configuredVault = func() (string, *config.KnowledgeConfig) { return t.TempDir(), &config.KnowledgeConfig{} }
+	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "how do we bill?"), "a vault with no graph")
 }
 
 func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {

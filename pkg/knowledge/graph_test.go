@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -277,7 +278,7 @@ func TestWriteSession_NewHubAndVaultLink(t *testing.T) {
 }
 
 func TestSummaryHelpers(t *testing.T) {
-	sec := summarySections("## Goal\nA\n## Progress\nmade progress\n## Wins\n(none)\n")
+	sec := SummarySections("## Goal\nA\n## Progress\nmade progress\n## Wins\n(none)\n")
 	assert.Equal(t, "made progress", sec["progress"])
 	assert.Empty(t, sec["wins"])
 	assert.Equal(t, "Fix the bug", oneLine("\n- [ ] **Fix the bug**\n"))
@@ -314,4 +315,47 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 	assert.ElementsMatch(t, []string{"main.go", "lib/lib.go"}, rel, "ignored and vendored files are skipped")
 	assert.Empty(t, gitGoFiles(t.Context(), t.TempDir()), "not a git work tree, or ignored by an enclosing one")
 	assert.Len(t, walkGoFiles(repo), 3, "without git: everything outside vendor")
+}
+
+func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
+	g := &Graph{Nodes: []*Node{
+		{
+			ID: "note:Projects/app/sessions/s1.md", Label: "why do we bill monthly",
+			Kind: "session", Note: "Projects/app/sessions/s1.md",
+		},
+		{
+			ID: "note:Memory/app/fact-billing.md", Label: "fact-billing",
+			Kind: "fact", Note: "Memory/app/fact-billing.md", Summary: "bill monthly",
+		},
+		{
+			ID: "note:Projects/app/Billing decision.md", Label: "Billing decision",
+			Kind: "decision", Note: "Projects/app/Billing decision.md", Summary: "Bill monthly, not per call",
+		},
+	}}
+	ix := NewIndex(g)
+	r := ix.Recall("why do we bill monthly", 1, 0)
+	var notes []string
+	for _, h := range r.Hits {
+		notes = append(notes, h.Note)
+	}
+	require.Contains(t, notes, "Projects/app/Billing decision.md", "the curated decision is recalled with the session")
+	assert.Less(
+		t,
+		slices.Index(notes, "Projects/app/Billing decision.md"),
+		slices.Index(notes, "Memory/app/fact-billing.md"),
+		"a curated note outranks a memory entry on the same words",
+	)
+
+	r = ix.Recall("why do we bill monthly", 1, 0, "Projects/app/sessions/s1.md")
+	for _, h := range r.Hits {
+		assert.NotEqual(t, "Projects/app/sessions/s1.md", h.Note, "excluded notes are never recalled")
+	}
+	assert.InDelta(t, 1.0, sourceWeight(&Node{Kind: "decision", Note: "x.md"}), 1e-9)
+	assert.InDelta(t, sessionNoteWeight, sourceWeight(&Node{Kind: "session"}), 1e-9)
+	assert.InDelta(t, memoryNoteWeight, sourceWeight(&Node{Note: "Memory/app/x.md"}), 1e-9)
+	for in, want := range map[string]string{
+		"billing": "bill", "invoices": "invoice", "deployed": "deploy", "bus": "bus", "process": "process", "notes": "note",
+	} {
+		assert.Equal(t, want, stem(in), in)
+	}
 }

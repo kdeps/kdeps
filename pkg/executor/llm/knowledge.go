@@ -19,28 +19,20 @@
 package llm
 
 import (
-	"os"
 	"strings"
-	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
-// loadKnowledgeConfig reads the knowledge: block of ~/.kdeps/config.yaml
+// configuredVault is the configured vault and knowledge settings
 // (test-replaceable).
 //
 //nolint:gochecknoglobals // test-replaceable
-var loadKnowledgeConfig = func() *config.KnowledgeConfig {
-	if testing.Testing() {
-		return nil // tests never recall from the real vault
-	}
-	cfg, err := config.LoadStruct()
-	if err != nil || cfg == nil {
-		return nil
-	}
-	return cfg.Knowledge
+var configuredVault = func() (string, *config.KnowledgeConfig) {
+	vault, _, kc := knowledge.Configured()
+	return vault, kc
 }
 
 // knowledgeRecall is the knowledge vault's notes related to prompt, as a
@@ -51,17 +43,9 @@ func knowledgeRecall(cfg *domain.ChatConfig, prompt string) string {
 	if (cfg.Knowledge != nil && !*cfg.Knowledge) || strings.TrimSpace(prompt) == "" {
 		return ""
 	}
-	kc := loadKnowledgeConfig()
-	if kc == nil {
-		kc = &config.KnowledgeConfig{}
-	}
+	vault, kc := configuredVault()
 	if kc.Enabled != nil && !*kc.Enabled {
 		return ""
-	}
-	vault := knowledge.DefaultVault()
-	if strings.TrimSpace(kc.Vault) != "" {
-		home, _ := os.UserHomeDir()
-		vault = knowledge.ExpandPath(kc.Vault, home)
 	}
 	ix := knowledge.SharedIndex(knowledge.GraphDir(vault))
 	if ix == nil {

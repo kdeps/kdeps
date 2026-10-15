@@ -25,7 +25,8 @@ A vault of 2,000 notes holds about a million words. That's more than any model c
 |---|---|
 | Status, next step, where things live | the project's card: `records/projects/<name>.md` |
 | What happened: focus, what was built, mistakes, decisions, wins | a note in the vault |
-| How notes connect | the link graph, kept under `~/.kdeps`, never in the vault |
+| How notes connect | the link graph, in the vault's hidden `.index/` |
+| What the agent remembers | memory notes in `Memory/<project>/` (see [Persistent memory](/agent/memory)) |
 | The current session's scratch facts | [persistent memory](/agent/memory) |
 
 A fact written in two places goes stale in one of them. `kdeps knowledge check` finds those.
@@ -51,6 +52,8 @@ Nothing to set up: the vault is on by default for agent sessions, in `~/.kdeps/n
     clients/            # one card per client
     sessions/  decisions/
   references/
+  Memory/<project>/    # agent memory, one note per entry
+  .index/              # graph, caches, GRAPH_REPORT.md, graph.html
   Inbox/  Projects/  Areas/  Resources/  Archives/   # reused if the folder has them (any number prefix: "1-Projects")
 ```
 
@@ -85,7 +88,7 @@ updated: 2026-10-15
 | skills | skills/my-app          |
 ```
 
-Every session sees a status overview built from the cards when it loads; the overview is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Every turn carries a status overview read from the cards at that moment (`<knowledge-status>`); the overview is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -109,7 +112,7 @@ We moved to monthly billing because ...
 
 ## Session notes
 
-When a session compacts and when it ends, kdeps writes one note per session into the project's `sessions/` folder (the inbox when no card covers the folder). It rewrites that note in place as the session goes on, and links it from the project's hub note:
+After every turn, kdeps writes (and rewrites in place) one note per session into the project's `sessions/` folder (the inbox when no card covers the folder). It rewrites that note in place as the session goes on, and links it from the project's hub note:
 
 ```markdown
 ---
@@ -125,7 +128,7 @@ summary: Ship knowledge recall for my-app
 ## Wins
 ```
 
-The note comes from the compaction summary, so writing it at compaction costs no extra model call. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
+After each turn the note is updated without a model call: your prompts, the files written or edited, decisions saved to memory and tools that failed. At compaction the model's summary replaces it with a written one (no extra model call: compaction makes that summary anyway), and later turns are added on top. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
 
 ## The graph
 
@@ -143,7 +146,7 @@ $ kdeps knowledge build
 
 Code files are the ones git tracks or would track, so `.gitignore`d folders stay out; without git, every `.go` file outside `vendor/`, `testdata/` and hidden folders.
 
-The graph lives in `~/.kdeps/projects/<vault>-<hash>/knowledge/graph.json`, outside the vault. A rebuild re-reads only changed files.
+The graph lives in the vault's hidden `.index/` folder (`graph.json`, caches, `GRAPH_REPORT.md`, `graph.html`), so it travels with the vault and is never read as a note. A rebuild re-reads only changed files.
 
 ## Model extraction
 
@@ -175,7 +178,7 @@ knowledge:
 
 ## Communities and the report
 
-Each build groups the graph into communities with the Louvain method: notes and packages that link mostly among themselves. Each node gets a `community` number in `graph.json`; 0 is the largest. Next to the graph, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph (search, zoom, hover for a note's summary; colors are communities).
+Each build groups the graph into communities with the Louvain method: notes and packages that link mostly among themselves. Each node gets a `community` number in `graph.json`; 0 is the largest. Next to the graph in `.index/`, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph (search, zoom, hover for a note's summary; colors are communities).
 
 ```bash
 kdeps knowledge report
@@ -200,7 +203,7 @@ Inside an agent session, kdeps rebuilds the graph in the background when the ses
 ## Recall
 
 Before each model call, kdeps:
-1. Scores graph nodes on the request's words. Rarer words count more, and a word that is part of a note's title counts double.
+1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks up to `hops` edges from the best matches. Extracted edges count fully, and each hop halves the score.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`.
 

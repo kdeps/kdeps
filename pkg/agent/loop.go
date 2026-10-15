@@ -335,14 +335,13 @@ type Loop struct {
 	// as a [kdeps] system message. The human sees them on the terminal; the
 	// model must see them too so it can adjust. Reset per turn in runToolRounds.
 	modelNotes []string
-	// cachedSystemPromptSegmentTokens/cachedMemorySegmentTokens are the size
-	// of buildSystemPreamble's two halves (everything except memory, and
-	// memory alone), captured when the cached preamble is built so
-	// buildChatConfig can re-add them as context-path segments (see
-	// context_path.go) every turn without recomputing or re-splitting the
-	// already-cached preamble string.
+	// cachedSystemPromptSegmentTokens is the size of the cached preamble,
+	// captured when it is built so buildChatConfig can re-add it as a
+	// context-path segment (see context_path.go) every turn without
+	// recomputing it; memorySegmentTokens is the size of the last turn's
+	// memory and status block (turnStateBlock), rebuilt every turn.
 	cachedSystemPromptSegmentTokens int
-	cachedMemorySegmentTokens       int
+	memorySegmentTokens             int
 	// lastWorkFailure records the most recent work tool (not task_complete /
 	// task_fail) whose result was an error and has not since succeeded. Nil once
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
@@ -976,7 +975,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Build system prompt preamble: skills + instructions + user system prompt.
 	// Built once on the first turn, then reused verbatim so the system prefix
 	// stays cache-hittable on subsequent turns.
-	systemPreamble := l.cachedSystemPreamble(input)
+	systemPreamble := l.cachedSystemPreamble()
 
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 	l.captureCallOutputs(chatCfg)
@@ -1014,6 +1013,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	// Preserve conversation history
 	l.session.Append(input, response)
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -1081,7 +1081,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// goal plan, judge roster, session history).
 	input = l.applyPromptRefine(ctx, input, w)
 
-	systemPreamble := l.cachedSystemPreamble(input)
+	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
 	// Goal-directed execution: decompose the prompt (or resume the stored plan)
@@ -1134,6 +1134,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	response = sanitizeLoopArtifacts(response)
 
 	l.session.Append(input, response)
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -1281,7 +1282,7 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 		)
 	}
 
-	preamble := l.cachedSystemPreamble(input)
+	preamble := l.cachedSystemPreamble()
 	cfg := l.buildChatConfig(ctx, input, preamble)
 	return l.runToolRounds(ctx, cfg, w)
 }
@@ -3018,9 +3019,9 @@ func (l *Loop) InvalidateSystemPreamble() {
 // first turn and reusing the identical string thereafter. Re-sending a stable
 // system prefix every turn is what lets provider prompt caches hit it instead
 // of re-billing skills, instructions, and memory rules on each turn.
-func (l *Loop) cachedSystemPreamble(focus string) string {
+func (l *Loop) cachedSystemPreamble() string {
 	if !l.systemPreambleBuilt {
-		l.systemPreamble = l.buildSystemPreamble(focus)
+		l.systemPreamble = l.buildSystemPreamble()
 		l.systemPreambleBuilt = true
 	}
 	// dateAndWDPreamble is deliberately NOT part of the cached preamble above:
@@ -3044,7 +3045,7 @@ func (l *Loop) cachedSystemPreamble(focus string) string {
 // leave room for the actual conversation.
 //
 //nolint:gocognit
-func (l *Loop) buildSystemPreamble(focus string) string {
+func (l *Loop) buildSystemPreamble() string {
 	limit := l.preambleLimit()
 	var parts []string
 
@@ -3058,29 +3059,11 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// once per session (cachedSystemPreamble), so keeping it unreduced costs
 	// nothing extra in steady state — it is the single most token-efficient
 	// way to send it: once, verbatim, never recomputed.
+	// The memory graph itself changes every turn, so it rides on the turn
+	// (memoryTurnBlock), not this cached preamble; only the rules live here.
 	var memoryParts []string
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
-		memPrompt := l.memoryStore.FormatForPromptCapped(
-			memoryPromptLimit(), focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars)
-		if memPrompt != "" {
-			memoryParts = append(memoryParts, memPrompt)
-		}
-		// Recent keys, so the model can see what is stored without a list tool.
-		// Capped
-		// and recency-ordered — with thousands of entries the full list alone
-		// could be tens of thousands of tokens; memory_query covers the rest.
-		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
-			block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
-			if total > len(keyNames) {
-				block += fmt.Sprintf(
-					"\n... and %d more (use memory_query to find older entries)",
-					total-len(keyNames),
-				)
-			}
-			block += "\n</memory-keys>"
-			memoryParts = append(memoryParts, block)
-		}
 	}
 
 	// Tool guidance (toolUseGuidance) and the tool catalog (ToolPrompt) are also
@@ -3153,15 +3136,14 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// Cached here (not recomputed per turn) for the context-path status line
 	// (contextPathStatus): everything except memory -- skills, instructions,
 	// harness rules, the tool catalog -- read as one "system prompt" segment.
-	l.cachedSystemPromptSegmentTokens = EstimateTokenCountFromStrings(preamble)
 	if memorySection := strings.Join(memoryParts, "\n\n"); memorySection != "" {
-		l.cachedMemorySegmentTokens = EstimateTokenCountFromStrings(memorySection)
 		if preamble != "" {
 			preamble = memorySection + "\n\n" + preamble
 		} else {
 			preamble = memorySection
 		}
 	}
+	l.cachedSystemPromptSegmentTokens = EstimateTokenCountFromStrings(preamble)
 	// Prepend the current date verbatim (after reduction, so it is never
 	// mangled) so the model can reason about "today", recent events, and
 	// relative dates. Captured when the preamble is first built for the session.
@@ -3399,7 +3381,6 @@ func (l *Loop) buildChatConfig(
 		}
 		chatCfg.Scenario = []domain.ScenarioItem{item}
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
-		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
 
 	// After the first turn, re-state the fenced-tools rule in one line and
@@ -3433,8 +3414,12 @@ func (l *Loop) buildChatConfig(
 			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}
 
-	// Knowledge recall goes on every turn, never into the cached preamble:
-	// it depends on this request.
+	// Memory, the cards' status and knowledge recall go on every turn, never
+	// into the cached preamble: they change during the session and depend on
+	// this request.
+	if state := l.turnStateBlock(input); state != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: state})
+	}
 	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
 		chatCfg.Scenario = append(chatCfg.Scenario, *item)
 	}
@@ -3804,8 +3789,8 @@ func (l *Loop) resetCountersToCurrentContext() {
 	resetContextSegments(l.config.Model, l.config.Backend)
 	if l.systemPreambleBuilt {
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
-		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
+	recordContextSegmentTokens("memory", l.memorySegmentTokens)
 	var hist, wrote strings.Builder
 	if l.session != nil {
 		for _, m := range l.session.RawMessages() {

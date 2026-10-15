@@ -31,6 +31,19 @@ type Finding struct {
 	Problem string `json:"problem"`
 }
 
+// MemoryFolder is the vault folder agent memory lives in.
+const MemoryFolder = "Memory"
+
+func danglingLinks(abs string, n *Note, resolve *resolver) []Finding {
+	var out []Finding
+	for _, l := range append(append([]string{}, n.Links...), n.MetaLinks...) {
+		if resolve.wiki(l, n.Path) == "" {
+			out = append(out, Finding{abs, "links to [[" + l + "]], which has no note"})
+		}
+	}
+	return out
+}
+
 // maxCardBody is how many prose lines a card may hold before it counts as
 // telling the story.
 const maxCardBody = 3
@@ -99,16 +112,16 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		if _, ok := n.Meta[CardNext]; ok {
 			out = append(out, Finding{abs, "has a next step; it belongs in the project card (one home per fact)"})
 		}
+		if strings.HasPrefix(n.Path, MemoryFolder+"/") {
+			out = append(out, danglingLinks(abs, n, resolve)...)
+			continue // agent memory: entries may share a first line
+		}
 		if s := strings.ToLower(n.Summary); s != "" {
 			summaries[s] = append(summaries[s], abs)
 		} else if top, _, _ := strings.Cut(n.Path, "/"); needsSummary[top] && strings.Contains(n.Path, "/") {
 			out = append(out, Finding{abs, "has no summary; recall shows the summary before anyone opens a note"})
 		}
-		for _, l := range append(append([]string{}, n.Links...), n.MetaLinks...) {
-			if resolve.wiki(l, n.Path) == "" {
-				out = append(out, Finding{abs, "links to [[" + l + "]], which has no note"})
-			}
-		}
+		out = append(out, danglingLinks(abs, n, resolve)...)
 	}
 	for _, files := range summaries {
 		if len(files) > 1 {

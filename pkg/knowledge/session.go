@@ -61,7 +61,7 @@ type SessionNote struct {
 // covers cwd, else the inbox. The note is linked from the project's hub,
 // and the summary's first next step becomes the card's next (its only home).
 func WriteSession(v Vault, w Workspace, cwd, id, summary string, now time.Time) (*SessionNote, error) {
-	sec := summarySections(summary)
+	sec := SummarySections(summary)
 	focus := firstNonEmpty(sec["goal"], sec["focus"])
 	if strings.TrimSpace(focus) == "" {
 		return nil, errors.New("summary has no goal")
@@ -151,9 +151,9 @@ func sessionBody(id, project, hub, summary string, sec map[string]string, now ti
 	return b.String()
 }
 
-// summarySections splits a compaction summary into its "##" and "###"
+// SummarySections splits a compaction summary into its "##" and "###"
 // sections, keyed by lowercase heading.
-func summarySections(summary string) map[string]string {
+func SummarySections(summary string) map[string]string {
 	out := map[string]string{}
 	var cur []string
 	key := ""

@@ -20,7 +20,6 @@ package agent
 
 import (
 	"cmp"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,8 +31,6 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
-
-	bolt "go.etcd.io/bbolt"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
@@ -121,164 +118,101 @@ const (
 	memTypeNote       = "note"
 )
 
-//nolint:gochecknoglobals // bbolt bucket name
-var memoryStoreBucket = []byte("agent_memory")
-
-// dbOpenTimeout bounds bbolt's exclusive-lock acquisition so an accidental
-// concurrent open on the same file fails fast instead of hanging forever.
-const dbOpenTimeout = 5 * time.Second
-
-// MemoryStore persists per-project memory using bbolt.
-// Entries are cached in memory for fast access and written through on mutation.
+// MemoryStore persists per-project memory as markdown notes in the
+// knowledge vault (see memory_notes.go). Entries are cached in memory and
+// written through on mutation; only changed notes are rewritten.
 type MemoryStore struct {
 	mu       sync.RWMutex
-	dbMu     sync.Mutex             // guards db open/close, held independently of mu
-	basePath string                 // root directory for memory files
-	path     string                 // resolved path (empty until SetCwd)
-	dbPath   string                 // bbolt database path
+	saveMu   sync.Mutex             // serializes note writes, held independently of mu
+	basePath string                 // the vault's Memory folder (or a test root)
+	path     string                 // this project's folder (empty until SetCwd)
+	migrate  bool                   // move the old database in once (default root only)
+	legacy   string                 // that database ("" when none)
 	entries  map[string]MemoryEntry // key -> entry (in-memory cache)
+	files    map[string]string      // key -> its note file
+	written  map[string]string      // key -> hash of the note as last written
 }
 
-// NewMemoryStore creates a memory store rooted at basePath.
-// If basePath is empty, uses ~/.kdeps/memory/.
+// NewMemoryStore creates a memory store rooted at basePath. If basePath is
+// empty, uses <vault>/Memory of the configured knowledge vault.
 func NewMemoryStore(basePath string) *MemoryStore {
-	if basePath == "" {
-		home, _ := os.UserHomeDir()
-		if home != "" {
-			basePath = filepath.Join(home, memoryDir)
-		}
+	defaulted := basePath == ""
+	if defaulted {
+		basePath = defaultMemoryRoot()
 	}
 	return &MemoryStore{
 		basePath: basePath,
+		migrate:  defaulted,
 		entries:  make(map[string]MemoryEntry),
+		files:    make(map[string]string),
+		written:  make(map[string]string),
 	}
 }
 
-// SetCwd configures per-directory memory isolation. When set, memory is stored
-// under basePath/<encoded-cwd>/memory.bolt. Call with os.Getwd() at startup.
+// SetCwd configures per-directory memory isolation: memory is stored under
+// basePath/<project>/ (the knowledge card's name for the folder, else the
+// folder's name and a short hash). Call with os.Getwd() at startup.
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.path = filepath.Join(m.basePath, encodeCwd(cwd))
-	m.dbPath = filepath.Join(m.path, "memory.bolt")
+	m.path = filepath.Join(m.basePath, memoryProjectFolder(cwd))
+	if m.migrate {
+		m.legacy = legacyMemoryPath(encodeCwd(cwd))
+	}
 }
 
 // SetGlobal configures memory to be shared across every project/session
 // instead of isolated per working directory (see SetCwd) -- stored under
-// basePath/global/memory.bolt. Call instead of SetCwd, never both.
+// basePath/global/. Call instead of SetCwd, never both.
 func (m *MemoryStore) SetGlobal() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.path = filepath.Join(m.basePath, "global")
-	m.dbPath = filepath.Join(m.path, "memory.bolt")
+	m.path = filepath.Join(m.basePath, memoryGlobalName)
+	if m.migrate {
+		m.legacy = legacyMemoryPath(memoryGlobalName)
+	}
 }
 
-// openDB opens a fresh bbolt handle for the current dbPath with the bucket
-// ensured. bbolt takes an exclusive file lock; the Timeout turns an accidental
-// concurrent open on the same path into a fast error instead of an unbounded
-// hang. Callers must Close the returned handle.
-func (m *MemoryStore) openDB() (*bolt.DB, error) {
-	if m.dbPath == "" {
-		return nil, nil //nolint:nilnil // path not set yet
-	}
-	dir := filepath.Dir(m.dbPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
-		return nil, fmt.Errorf("memory store: mkdir: %w", err)
-	}
-	db, err := bolt.Open(m.dbPath, 0600, &bolt.Options{Timeout: dbOpenTimeout}) //nolint:mnd // DB file permissions
-	if err != nil {
-		return nil, fmt.Errorf("memory store: open db: %w", err)
-	}
-	if bucketErr := db.Update(func(tx *bolt.Tx) error {
-		_, e := tx.CreateBucketIfNotExists(memoryStoreBucket)
-		return e
-	}); bucketErr != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("memory store: init bucket: %w", bucketErr)
-	}
-	return db, nil
-}
-
-// withDB opens the database, runs fn, then closes it — serialized by dbMu so
-// concurrent callers never race two exclusive opens on the same file (the source
-// of the earlier deadlock). No handle is held between operations, so a second
-// MemoryStore on the same path (a reload) can always open it. dbMu is separate
-// from mu so a caller already holding mu (Load) does not self-deadlock.
-func (m *MemoryStore) withDB(fn func(*bolt.DB) error) error {
-	m.dbMu.Lock()
-	defer m.dbMu.Unlock()
-	db, err := m.openDB()
-	if err != nil || db == nil {
-		return err
-	}
-	defer func() { _ = db.Close() }()
-	return fn(db)
-}
-
-// Load reads memory entries from bbolt and populates the in-memory cache.
-// Returns nil if the database does not exist (empty memory is not an error).
+// Load reads the project's notes into the in-memory cache, moving the old
+// database's entries in first when it still exists. A missing folder is
+// empty memory, not an error.
 func (m *MemoryStore) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	if m.path == "" {
 		return nil
 	}
-
-	return m.withDB(func(db *bolt.DB) error {
-		return db.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket(memoryStoreBucket)
-			if b == nil {
-				return nil
-			}
-			c := b.Cursor()
-			for k, v := c.First(); k != nil; k, v = c.Next() {
-				var entry MemoryEntry
-				if json.Unmarshal(v, &entry) != nil {
-					continue
-				}
-				if entry.Key == "" {
-					continue
-				}
-				m.entries[entry.Key] = entry
-			}
-			return nil
-		})
-	})
+	m.saveMu.Lock()
+	defer m.saveMu.Unlock()
+	if err := m.loadNotes(); err != nil {
+		return err
+	}
+	if err := m.migrateLegacy(); err != nil {
+		return err
+	}
+	m.migrate, m.legacy = false, ""
+	return nil
 }
 
-// Save persists all entries from the in-memory cache to bbolt.
+// Save persists the in-memory cache: changed notes are rewritten, deleted
+// entries' notes removed.
 func (m *MemoryStore) Save() error {
 	m.mu.RLock()
+	if m.path == "" {
+		m.mu.RUnlock()
+		return nil
+	}
 	entries := make([]MemoryEntry, 0, len(m.entries))
 	for _, e := range m.entries {
 		entries = append(entries, e)
 	}
 	m.mu.RUnlock()
-
-	if len(entries) == 0 {
-		return nil
-	}
-
-	return m.withDB(func(db *bolt.DB) error {
-		return db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket(memoryStoreBucket)
-			for _, entry := range entries {
-				data, jsonErr := json.Marshal(entry)
-				if jsonErr != nil {
-					return jsonErr
-				}
-				if putErr := b.Put([]byte(entry.Key), data); putErr != nil {
-					return putErr
-				}
-			}
-			return nil
-		})
-	})
+	m.saveMu.Lock()
+	defer m.saveMu.Unlock()
+	return m.saveNotes(entries)
 }
 
-// Close is retained for API compatibility. No bbolt handle is held between
-// operations (withDB opens and closes per call), so there is nothing to release.
+// Close is retained for API compatibility: nothing is held open.
 func (m *MemoryStore) Close() error {
 	return nil
 }

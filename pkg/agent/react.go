@@ -123,6 +123,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 	}
 
 	l.session.Append(input, finalAnswer)
+	l.UpdateSessionNote()
 
 	// Auto-extract facts from the turn into persistent memory.
 	if l.memoryStore != nil {
@@ -146,7 +147,7 @@ func (l *Loop) buildReactSystemPreamble() string {
 
 	base := turoReduce(context.Background(), fmt.Sprintf(reactSystemTemplate, descs.String(), names.String()))
 
-	extra := l.buildSystemPreamble("")
+	extra := l.buildSystemPreamble()
 	if extra != "" {
 		return extra + "\n\n" + base
 	}

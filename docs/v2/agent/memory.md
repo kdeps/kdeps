@@ -6,15 +6,31 @@ Persistent memory is primarily an agent mode concept, but the memory tools also 
 
 ## How it works
 
-Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+```markdown
+<!-- ~/.kdeps/notes/Memory/kdeps/decision-louvain.md -->
+---
+key: decision:louvain
+type: decision
+created: 2026-10-15T09:12:03Z
+updated: 2026-10-15T09:12:03Z
+summary: Louvain first, Leiden later.
+references: ["fact:vault"]       # memory keys this entry depends on
+links: ["[[fact-vault]]"]          # the same, as links the knowledge graph follows
+---
+Louvain first, Leiden later.
+```
 
-Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored at `~/.kdeps/memory/global/memory.bolt` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Memory written before this layout (in `~/.kdeps/memory/`) is moved into the vault the first time each folder's memory loads; the old database is renamed `memory.bolt.moved`.
 
-The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
+Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, one per entry, in `<vault>/Memory/<project>/` (the project is the name of the knowledge card covering the folder, else the folder's name and a short hash). Thinking and tool-result captures go in a hidden `.auto/` subfolder, so they stay out of the link graph. A note you write in that folder by hand is a memory entry too, keyed by its title. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+
+Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/Memory/global/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+
+The memory store is injected into every turn automatically as a single graph-ordered `<memory>` block, rebuilt each turn and focused on that turn's request (it is not part of the cached system prompt, so memory saved mid-session reaches the next turn). Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
 ## Built-in memory tools
 
-The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
+The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in each turn's context; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
 
 | Tool | Description |
 |------|-------------|
@@ -135,7 +151,7 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` where `<encoded-cwd>` is a sanitized version of the current working directory path.
+Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store lives in `<vault>/Memory/<project>/` (default vault: `~/.kdeps/notes`).
 
 ## See also
 
