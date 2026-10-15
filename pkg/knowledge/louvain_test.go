@@ -123,9 +123,9 @@ func TestReport(t *testing.T) {
 }
 
 func TestBuild_WritesReportAndExplorer(t *testing.T) {
-	v, w, _ := sampleVault(t)
+	v, _ := sampleVault(t)
 	dir := t.TempDir()
-	g, st, err := Build(t.Context(), v, w, dir, buildNow())
+	g, st, err := Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.Positive(t, st.Communities)
 	assert.Equal(t, st.Communities, g.Communities)

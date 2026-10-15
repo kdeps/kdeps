@@ -22,19 +22,19 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	sessionsFolder = "sessions"
-	maxSummary     = 120
-	maxSlug        = 60
-	hubSection     = "## Sessions"
-	noneText       = "(none)"
+	maxSummary    = 120
+	maxSlug       = 60
+	noneText      = "(none)"
+	titleWords    = 8
+	boldTitleMark = "**"
 )
 
 // SessionSections are a session note's headings, in order.
@@ -51,74 +51,106 @@ var (
 // SessionNote is what WriteSession wrote.
 type SessionNote struct {
 	File string // absolute path of the session note
-	Hub  string // absolute path of the project's hub note ("" for the inbox)
-	Card *Card  // the project's card, nil when the folder has none
+	Card *Card  // the project's card
 	New  bool
 }
 
-// WriteSession writes (or rewrites) the note for session id from a
-// compaction summary: into the sessions folder of the project whose card
-// covers cwd, else the inbox. The note is linked from the project's hub,
-// and the summary's first next step becomes the card's next (its only home).
-func WriteSession(v Vault, w Workspace, cwd, id, summary string, now time.Time) (*SessionNote, error) {
+// WriteSession writes (or rewrites) the note for session id from a summary
+// into the project's sessions/ folder, linked to the project's card. The
+// summary's first next step becomes the card's next (its only home).
+func WriteSession(card *Card, id, summary string, now time.Time) (*SessionNote, error) {
 	sec := SummarySections(summary)
 	focus := firstNonEmpty(sec["goal"], sec["focus"])
 	if strings.TrimSpace(focus) == "" {
 		return nil, errors.New("summary has no goal")
 	}
-	card := w.CardForDir(cwd)
-	folder, project := v.Folder(RoleInbox), ""
-	if card != nil {
-		project = card.Name
-		folder = projectFolder(v, w, card)
-	}
-	dir := folder
-	if card != nil {
-		dir = path.Join(folder, sessionsFolder)
-	}
-	if err := os.MkdirAll(filepath.Join(v.Root, filepath.FromSlash(dir)), dirPerm); err != nil {
+	dir := filepath.Join(card.Dir(), SessionsFolder)
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, err
 	}
 	line := oneLine(focus)
 	sn := &SessionNote{Card: card}
-	rel := findSession(v, dir, id)
-	if rel == "" {
+	sn.File = findSession(dir, id)
+	if sn.File == "" {
 		sn.New = true
-		rel = path.Join(dir, now.Format("2006-01-02 1504")+" "+slug(line)+mdExt)
+		sn.File = filepath.Join(dir, now.Format("2006-01-02 1504")+" "+slug(line)+mdExt)
 	}
-	title := strings.TrimSuffix(path.Base(rel), mdExt)
-	var hubTitle string
-	if card != nil {
-		hub, hubErr := ensureHub(v, folder, project)
-		if hubErr != nil {
-			return nil, hubErr
-		}
-		sn.Hub = filepath.Join(v.Root, filepath.FromSlash(hub))
-		hubTitle = strings.TrimSuffix(path.Base(hub), mdExt)
-	}
-	sn.File = filepath.Join(v.Root, filepath.FromSlash(rel))
-	if err := os.WriteFile(sn.File, []byte(sessionBody(id, project, hubTitle, line, sec, now)), filePerm); err != nil {
+	if err := os.WriteFile(sn.File, []byte(sessionBody(id, card.Name, line, sec, now)), filePerm); err != nil {
 		return nil, err
 	}
-	if card != nil {
-		if err := appendHub(sn.Hub, title, line); err != nil {
+	if next := firstItem(sec["next steps"]); next != "" {
+		if err := card.Update("", next, now); err != nil {
 			return nil, err
-		}
-		if next := firstItem(sec["next steps"]); next != "" {
-			if err := card.Update("", next, now); err != nil {
-				return nil, err
-			}
 		}
 	}
 	return sn, nil
 }
 
-func sessionBody(id, project, hub, summary string, sec map[string]string, now time.Time) string {
+// WriteDecisions writes one note per item of a summary's Key Decisions into
+// the project's decisions/ folder, linked to the session note and the card.
+// A decision whose title already has a note is left alone (one home per
+// fact). It returns the notes it wrote.
+func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]string, error) {
+	items := listItems(SummarySections(summary)["key decisions"])
+	if len(items) == 0 {
+		return nil, nil
+	}
+	dir := filepath.Join(card.Dir(), DecisionsFolder)
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
+		return nil, err
+	}
+	session := strings.TrimSuffix(filepath.Base(sessionFile), mdExt)
+	var written []string
+	for _, item := range items {
+		title := decisionTitle(item)
+		file := filepath.Join(dir, slug(title)+mdExt)
+		if _, err := os.Stat(file); err == nil {
+			continue
+		}
+		summaryLine := strings.ReplaceAll(item, boldTitleMark, "")
+		body := fmt.Sprintf("%s\ntype: decision\nstatus: done\nproject: %s\ncreated: %s\nsummary: %s\n"+
+			"links: [%q, %q]\n%s\n\n# %s\n\n%s\n",
+			frontDelim, yamlScalar(card.Name), now.Format(time.DateOnly), yamlScalar(oneLine(summaryLine)),
+			"[["+session+"]]", "[["+card.Name+"]]", frontDelim, title, summaryLine)
+		if err := os.WriteFile(file, []byte(body), filePerm); err != nil {
+			return written, err
+		}
+		written = append(written, file)
+	}
+	return written, nil
+}
+
+// listItems is text's list items without their markers, skipping "(none)".
+func listItems(text string) []string {
+	var out []string
+	for _, l := range strings.Split(text, "\n") {
+		l = strings.TrimSpace(listMarkerRe.ReplaceAllString(l, ""))
+		if l != "" && l != noneText {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// decisionTitle is a decision's bold lead ("**Monthly**: ...") or its
+// first few words.
+func decisionTitle(item string) string {
+	if rest, ok := strings.CutPrefix(item, boldTitleMark); ok {
+		if t, _, found := strings.Cut(rest, boldTitleMark); found && strings.TrimSpace(t) != "" {
+			return slug(t)
+		}
+	}
+	words := strings.Fields(strings.ReplaceAll(item, boldTitleMark, ""))
+	if len(words) > titleWords {
+		words = words[:titleWords]
+	}
+	return slug(strings.TrimRight(strings.Join(words, " "), ":;,."))
+}
+
+func sessionBody(id, project, summary string, sec map[string]string, now time.Time) string {
 	var b strings.Builder
 	b.WriteString(frontDelim + "\ntype: session\nstatus: done\n")
-	if project != "" {
-		fmt.Fprintf(&b, "project: %s\n", yamlScalar(project))
-	}
+	fmt.Fprintf(&b, "project: %s\n", yamlScalar(project))
 	fmt.Fprintf(
 		&b,
 		"session: %s\ncreated: %s\nsummary: %s\ntags: [session",
@@ -126,13 +158,7 @@ func sessionBody(id, project, hub, summary string, sec map[string]string, now ti
 		now.Format(time.DateOnly),
 		yamlScalar(summary),
 	)
-	if project != "" {
-		fmt.Fprintf(&b, ", %s", yamlScalar(project))
-	}
-	b.WriteString("]\n")
-	if hub != "" {
-		fmt.Fprintf(&b, "links: [%q]\n", "[["+hub+"]]")
-	}
+	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", yamlScalar(project), "[["+project+"]]")
 	b.WriteString(frontDelim + "\n")
 	body := map[string]string{
 		"Focus":          sec["goal"],
@@ -239,25 +265,9 @@ func slug(s string) string {
 	return s
 }
 
-// projectFolder is the vault folder of a card's project: its "vault" link
-// (vault-relative, or absolute inside the vault), else Projects/<name>.
-func projectFolder(v Vault, w Workspace, c *Card) string {
-	if l := c.Link("vault"); l != "" {
-		p := l
-		if filepath.IsAbs(p) || strings.HasPrefix(p, "~/") {
-			if rel, err := filepath.Rel(v.Root, ExpandPath(p, w.Root)); err == nil && !strings.HasPrefix(rel, "..") {
-				return filepath.ToSlash(rel)
-			}
-		} else {
-			return path.Clean(filepath.ToSlash(p))
-		}
-	}
-	return path.Join(v.Folder(RoleProjects), c.Name)
-}
-
-// findSession is the vault-relative note of session id in dir, or "".
-func findSession(v Vault, dir, id string) string {
-	entries, err := os.ReadDir(filepath.Join(v.Root, filepath.FromSlash(dir)))
+// findSession is the note of session id in dir, or "".
+func findSession(dir, id string) string {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
 	}
@@ -265,66 +275,46 @@ func findSession(v Vault, dir, id string) string {
 		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), mdExt) {
 			continue
 		}
-		data, readErr := os.ReadFile(filepath.Join(v.Root, filepath.FromSlash(dir), e.Name()))
+		data, readErr := os.ReadFile(filepath.Join(dir, e.Name()))
 		if readErr != nil {
 			continue
 		}
 		if meta, _ := SplitFrontmatter(data); metaString(meta, "session") == id {
-			return path.Join(dir, e.Name())
+			return filepath.Join(dir, e.Name())
 		}
 	}
 	return ""
 }
 
-// ensureHub returns the project folder's hub note (type: hub, or a file
-// named like "* HUB.md"), creating "<project> HUB.md" when there is none.
-func ensureHub(v Vault, folder, project string) (string, error) {
-	abs := filepath.Join(v.Root, filepath.FromSlash(folder))
-	if err := os.MkdirAll(abs, dirPerm); err != nil {
+// runLog serializes AppendRun: a workflow's resources may run in parallel.
+//
+//nolint:gochecknoglobals // process-wide lock for one file per day
+var runLog sync.Mutex
+
+// AppendRun adds one workflow chat call to the project's run note for the
+// day, sessions/<date> <project> runs.md, creating it on first use.
+func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) {
+	runLog.Lock()
+	defer runLog.Unlock()
+	dir := filepath.Join(card.Dir(), SessionsFolder)
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return "", err
 	}
-	entries, _ := os.ReadDir(abs)
-	for _, e := range entries {
-		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), mdExt) {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(abs, e.Name()))
-		if err != nil {
-			continue
-		}
-		meta, _ := SplitFrontmatter(data)
-		if strings.EqualFold(metaString(meta, "type"), "hub") || strings.Contains(strings.ToLower(e.Name()), "hub") {
-			return path.Join(folder, e.Name()), nil
-		}
+	file := filepath.Join(dir, now.Format(time.DateOnly)+" "+card.Name+" runs"+mdExt)
+	entry := fmt.Sprintf("- %s %s -> %s\n", now.Format("15:04:05"), oneLine(prompt), oneLine(reply))
+	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
+		head := fmt.Sprintf("%s\ntype: session\nstatus: done\nproject: %s\nsession: %s\ncreated: %s\nsummary: %s\n"+
+			"tags: [session, workflow, %s]\nlinks: [%q]\n%s\n\n## Runs\n\n",
+			frontDelim, yamlScalar(card.Name), yamlScalar("runs-"+now.Format(time.DateOnly)),
+			now.Format(time.DateOnly), yamlScalar(card.Name+" workflow runs on "+now.Format(time.DateOnly)),
+			yamlScalar(card.Name), "[["+card.Name+"]]", frontDelim)
+		return file, os.WriteFile(file, []byte(head+entry), filePerm)
 	}
-	name := path.Join(folder, project+" HUB"+mdExt)
-	body := fmt.Sprintf(
-		"%s\ntype: hub\nstatus: evergreen\nproject: %s\nsummary: %s\ntags: [hub, %s]\n%s\n\n# %s\n\n%s\n",
-		frontDelim,
-		yamlScalar(project),
-		yamlScalar("Hub for "+project+": its sessions and key notes"),
-		yamlScalar(project),
-		frontDelim,
-		project,
-		hubSection,
-	)
-	return name, os.WriteFile(filepath.Join(v.Root, filepath.FromSlash(name)), []byte(body), filePerm)
-}
-
-// appendHub links a session from the hub once.
-func appendHub(hub, title, summary string) error {
-	data, err := os.ReadFile(hub)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, filePerm)
 	if err != nil {
-		return err
+		return "", err
 	}
-	link := "[[" + title + "]]"
-	if strings.Contains(string(data), link) {
-		return nil
-	}
-	text := strings.TrimRight(string(data), "\n")
-	if !strings.Contains(text, hubSection) {
-		text += "\n\n" + hubSection
-	}
-	text += "\n- " + link + " - " + summary + "\n"
-	return os.WriteFile(hub, []byte(text), filePerm)
+	defer f.Close()
+	_, err = f.WriteString(entry)
+	return file, err
 }

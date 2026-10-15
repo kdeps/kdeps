@@ -19,10 +19,13 @@
 package llm
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
@@ -30,10 +33,7 @@ import (
 // (test-replaceable).
 //
 //nolint:gochecknoglobals // test-replaceable
-var configuredVault = func() (string, *config.KnowledgeConfig) {
-	vault, _, kc := knowledge.Configured()
-	return vault, kc
-}
+var configuredVault = knowledge.Configured
 
 // knowledgeRecall is the knowledge vault's notes related to prompt, as a
 // system message, or "": every chat call recalls by default, unless the
@@ -52,4 +52,57 @@ func knowledgeRecall(cfg *domain.ChatConfig, prompt string) string {
 		return ""
 	}
 	return ix.Recall(prompt, kc.Recall.Hops, kc.Recall.BudgetTokens).Format(vault)
+}
+
+// logWorkflowRun adds a chat call to its workflow's run note for the day
+// when knowledge.workflow_notes is on: projects/<workflow name>/sessions/,
+// in the project kdeps creates for the workflow on its first logged run.
+// Errors never fail the call.
+func logWorkflowRun(ctx *executor.ExecutionContext, cfg *domain.ChatConfig, prompt string, result any) {
+	if (cfg.Knowledge != nil && !*cfg.Knowledge) || ctx == nil || ctx.Workflow == nil {
+		return
+	}
+	vault, kc := configuredVault()
+	if (kc.Enabled != nil && !*kc.Enabled) || kc.WorkflowNotes == nil || !*kc.WorkflowNotes {
+		return
+	}
+	v, now := knowledge.Vault{Root: vault}, time.Now()
+	place, err := filepath.Abs(ctx.FSRoot)
+	if err != nil {
+		return
+	}
+	name := strings.TrimSpace(ctx.Workflow.Metadata.Name)
+	if name == "" {
+		name, _, _ = knowledge.ProjectName(place)
+	}
+	// A workflow's project is keyed by its name: the same workflow run from
+	// different folders logs to one project.
+	card, err := v.Card(name)
+	if err != nil {
+		if card, _, err = v.CreateProject(name, knowledge.SourceWorkflow, place, now); err != nil {
+			return
+		}
+	}
+	_, _ = knowledge.AppendRun(card, prompt, replyText(result), now)
+}
+
+// replyText is a chat result's reply: the message content of a full
+// response, its text, or the value as printed.
+func replyText(result any) string {
+	switch r := result.(type) {
+	case string:
+		return r
+	case map[string]any:
+		if msg, ok := r["message"].(map[string]any); ok {
+			if c, isStr := msg["content"].(string); isStr {
+				return c
+			}
+		}
+		for _, k := range []string{"response", "content", "text"} {
+			if c, ok := r[k].(string); ok {
+				return c
+			}
+		}
+	}
+	return fmt.Sprint(result)
 }

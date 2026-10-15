@@ -7,7 +7,7 @@ Persistent memory is primarily an agent mode concept, but the memory tools also 
 ## How it works
 
 ```markdown
-<!-- ~/.kdeps/notes/Memory/kdeps/decision-louvain.md -->
+<!-- ~/.kdeps/notes/projects/kdeps/memory/decision-louvain.md -->
 ---
 key: decision:louvain
 type: decision
@@ -22,9 +22,9 @@ Louvain first, Leiden later.
 
 Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Memory written before this layout (in `~/.kdeps/memory/`) is moved into the vault the first time each folder's memory loads; the old database is renamed `memory.bolt.moved`.
 
-Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, one per entry, in `<vault>/Memory/<project>/` (the project is the name of the knowledge card covering the folder, else the folder's name and a short hash). Thinking and tool-result captures go in a hidden `.auto/` subfolder, so they stay out of the link graph. A note you write in that folder by hand is a memory entry too, keyed by its title. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, one per entry, in the project's `memory/` folder: `<vault>/projects/<project>/memory/` (the project whose card covers the folder, else the one kdeps creates for it, named after the git repository root or the folder). Thinking and tool-result captures go in a hidden `memory/.auto/` folder, so they stay out of the link graph. A note you write in that folder by hand is a memory entry too, keyed by its title. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
-Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/Memory/global/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/shared/memory/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
 
 The memory store is injected into every turn automatically as a single graph-ordered `<memory>` block, rebuilt each turn and focused on that turn's request (it is not part of the cached system prompt, so memory saved mid-session reaches the next turn). Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
@@ -151,7 +151,7 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store lives in `<vault>/Memory/<project>/` (default vault: `~/.kdeps/notes`).
+Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store lives in `<vault>/projects/<project>/memory/` (default vault: `~/.kdeps/notes`).
 
 ## See also
 

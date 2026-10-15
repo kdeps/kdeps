@@ -288,12 +288,13 @@ type KnowledgeConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty"`
 	// Vault is the notes folder; empty means ~/.kdeps/notes.
 	Vault string `yaml:"vault,omitempty"`
-	// Workspace holds KDEPS.md and the records/ cards; empty means the vault.
-	Workspace string `yaml:"workspace,omitempty"`
-	// SessionNotes writes a note per session; nil means on.
-	SessionNotes *bool                  `yaml:"session_notes,omitempty"`
-	Recall       KnowledgeRecallConfig  `yaml:"recall,omitempty"`
-	Extract      KnowledgeExtractConfig `yaml:"extract,omitempty"`
+	// SessionNotes writes a note per agent session; nil means on.
+	SessionNotes *bool `yaml:"session_notes,omitempty"`
+	// WorkflowNotes logs each workflow chat call to its project's run note
+	// for the day; nil means off (workflows only recall).
+	WorkflowNotes *bool                  `yaml:"workflow_notes,omitempty"`
+	Recall        KnowledgeRecallConfig  `yaml:"recall,omitempty"`
+	Extract       KnowledgeExtractConfig `yaml:"extract,omitempty"`
 }
 
 // KnowledgeExtractConfig tunes the model pass that finds what notes are

@@ -46,12 +46,12 @@ func TestMemoryLivesInTheVault(t *testing.T) {
 	require.NoError(t, ms.Load())
 	require.NoError(t, ms.Set("decision:billing", "Bill monthly because per-call billing doubled churn"))
 
-	matches, err := filepath.Glob(filepath.Join(vault, "Memory", "*", "decision-billing.md"))
+	matches, err := filepath.Glob(filepath.Join(vault, "projects", "*", "memory", "decision-billing.md"))
 	require.NoError(t, err)
 	require.Len(t, matches, 1, "the memory entry is a note in the vault")
 
 	v := knowledge.Vault{Root: vault}
-	_, _, err = knowledge.Build(t.Context(), v, knowledge.Workspace{Root: vault}, knowledge.GraphDir(vault), time.Now())
+	_, _, err = knowledge.Build(t.Context(), v, knowledge.GraphDir(vault), time.Now())
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(vault, ".index", "graph.json"), "the index is in the vault")
 

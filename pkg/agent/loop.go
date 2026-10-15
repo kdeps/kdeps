@@ -500,6 +500,12 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
 	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
+		// A project folder that moves (archived, or back) takes its memory along.
+		l.knowledge.moved = func() {
+			if l.memoryStore != nil {
+				l.memoryStore.Rebase()
+			}
+		}
 		l.registerKnowledgeTools()
 		l.knowledge.buildAsync()
 	}

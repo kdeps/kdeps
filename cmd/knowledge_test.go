@@ -71,9 +71,9 @@ func TestKnowledgeCmd(t *testing.T) {
 	assert.Contains(t, out, "already has everything")
 	assert.NotContains(t, out, "Set knowledge.vault", "an existing vault setting is kept")
 
-	require.NoError(t, os.WriteFile(filepath.Join(vault, "Resources", "Graph recall.md"),
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "Graph recall.md"),
 		[]byte("---\nsummary: Walk the link graph.\n---\n[[One home]] [[Gone]]\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(vault, "Resources", "One home.md"),
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
 		[]byte("---\nsummary: One home per fact.\n---\n"), 0o600))
 
 	_, err = runKnowledge(t, "recall", "graph")
@@ -86,7 +86,7 @@ func TestKnowledgeCmd(t *testing.T) {
 
 	out, err = runKnowledge(t, "recall", "link", "graph")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Resources/Graph recall.md")
+	assert.Contains(t, out, "shared/Graph recall.md")
 	assert.Contains(t, out, "One home.md")
 	out, err = runKnowledge(t, "recall", "zzz")
 	require.NoError(t, err)
@@ -94,10 +94,10 @@ func TestKnowledgeCmd(t *testing.T) {
 
 	out, err = runKnowledge(t, "check")
 	require.ErrorContains(t, err, "1 findings")
-	assert.Contains(t, out, "Resources/Graph recall.md: links to [[Gone]]")
+	assert.Contains(t, out, "shared/Graph recall.md: links to [[Gone]]")
 	require.NoError(
 		t,
-		os.WriteFile(filepath.Join(vault, "Resources", "Gone.md"), []byte("---\nsummary: Back.\n---\n"), 0o600),
+		os.WriteFile(filepath.Join(vault, "shared", "Gone.md"), []byte("---\nsummary: Back.\n---\n"), 0o600),
 	)
 	out, err = runKnowledge(t, "check")
 	require.NoError(t, err)

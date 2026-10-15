@@ -190,8 +190,8 @@ defaults:
 # knowledge:
 #   enabled: true                # false turns recall, session notes and the knowledge tools off
 #   vault: ~/.kdeps/notes        # any folder of markdown notes works as is
-#   workspace: ~/notes           # KDEPS.md routing table + records/ cards (default: vault)
-#   session_notes: true          # write a note per session (default true)
+#   session_notes: true          # agent sessions write a note per session (default true)
+#   workflow_notes: false        # workflow chat calls log to projects/<workflow>/sessions/ (default false)
 #   recall:
 #     hops: 2                    # how far from the matched notes to walk
 #     budget_tokens: 1500        # most tokens of recalled paths and summaries per turn

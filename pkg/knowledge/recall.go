@@ -268,7 +268,7 @@ func sourceWeight(n *Node) float64 {
 	switch {
 	case n.Kind == "session":
 		return sessionNoteWeight
-	case strings.HasPrefix(n.Note, MemoryFolder+"/"):
+	case isMemoryNote(n.Note):
 		return memoryNoteWeight
 	}
 	return 1

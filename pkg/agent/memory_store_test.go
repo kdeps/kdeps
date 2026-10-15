@@ -42,8 +42,8 @@ import (
 func TestNewMemoryStore_Defaults(t *testing.T) {
 	store := NewMemoryStore("")
 	require.NotNil(t, store)
-	// basePath is the knowledge vault's Memory folder.
-	assert.Equal(t, filepath.Join(knowledge.DefaultVault(), "Memory"), store.basePath)
+	// basePath is the knowledge vault; each project keeps its memory/ folder.
+	assert.Equal(t, knowledge.DefaultVault(), store.basePath)
 	assert.True(t, store.migrate, "the default root moves the old database in once")
 
 	// empty basePath with no home
@@ -63,15 +63,14 @@ func TestMemoryStore_SetCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
-	assert.Equal(t, dir, filepath.Dir(store.path))
-	assert.Regexp(t, `^foo-[0-9a-f]{6}$`, filepath.Base(store.path), "folder name + short hash")
+	assert.Equal(t, filepath.Join(dir, "projects", "foo", "memory"), store.path, "the folder's project memory/")
 }
 
 func TestMemoryStore_SetGlobal(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
 	store.SetGlobal()
-	assert.Equal(t, filepath.Join(dir, "global"), store.path)
+	assert.Equal(t, filepath.Join(dir, "shared", "memory"), store.path, "global memory is shared knowledge")
 }
 
 // Two stores rooted at the same basePath and both set to global must resolve

@@ -46,14 +46,16 @@ request and names the few notes worth reading. It is on by default for agent
 sessions, in ~/.kdeps/notes (set up on first use); turn it off with
 knowledge.enabled: false in config.yaml, or /knowledge off in a session.
 
-  kdeps knowledge init [folder]     scaffold KDEPS.md, records/ and the PARA folders (default ~/.kdeps/notes)
+  kdeps knowledge init [folder]     scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
   kdeps knowledge build             (re)build the link graph, changed notes only
   kdeps knowledge check             one home per fact: duplicates, dangling links, missing summaries
   kdeps knowledge recall "query"    show what recall would give the agent
   kdeps knowledge report            print GRAPH_REPORT.md: god nodes, communities, surprising connections
 
-One home per fact: status lives in a card (records/projects/<name>.md), the
-story in a note, the connections in the graph (kept under ~/.kdeps).`,
+Every place kdeps runs is a project with one folder, filled in by kdeps:
+projects/<name>/<name>.md (the card: status, next step), sessions/, memory/,
+decisions/ and notes/. One home per fact: status lives in the card, the
+story in notes, the connections in the graph (<vault>/.index).`,
 	}
 	c.PersistentFlags().
 		String("vault", "", "vault folder (default: knowledge.vault in ~/.kdeps/config.yaml, else ~/.kdeps/notes)")
@@ -62,33 +64,29 @@ story in a note, the connections in the graph (kept under ~/.kdeps).`,
 	return c
 }
 
-// knowledgeTarget resolves the vault and workspace from --vault or config.
-func knowledgeTarget(cmd *cobra.Command) (knowledge.Vault, knowledge.Workspace, *config.KnowledgeConfig, error) {
-	vault, workspace, kc := knowledge.Configured()
+// knowledgeTarget resolves the vault from --vault or config.
+func knowledgeTarget(cmd *cobra.Command) (knowledge.Vault, *config.KnowledgeConfig, error) {
+	vault, kc := knowledge.Configured()
 	if flag, _ := cmd.Flags().GetString("vault"); flag != "" {
 		home, _ := os.UserHomeDir()
 		vault = knowledge.ExpandPath(flag, home)
-		if kc.Workspace == "" {
-			workspace = vault
-		}
 	}
-	v, ws := knowledge.Vault{Root: vault}, knowledge.Workspace{Root: workspace}
+	v := knowledge.Vault{Root: vault}
 	if info, err := os.Stat(v.Root); err != nil || !info.IsDir() {
-		return v, ws, kc, fmt.Errorf("vault %s is not a folder (run kdeps knowledge init)", v.Root)
+		return v, kc, fmt.Errorf("vault %s is not a folder (run kdeps knowledge init)", v.Root)
 	}
-	return v, ws, kc, nil
+	return v, kc, nil
 }
 
 func newKnowledgeInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init [folder]",
-		Short: "Scaffold a knowledge workspace in a vault folder (default ~/.kdeps/notes)",
-		Long: `Creates what the folder lacks - the PARA folders (Inbox, Projects, Areas,
-Resources, Archives; existing ones with any number prefix are reused),
-records/projects, records/clients, references/, KDEPS.md and schema.md - and
-sets knowledge.vault in ~/.kdeps/config.yaml when a folder other than the
-default is given and none is set. Existing files are never changed, so an
-existing notes folder works as is.`,
+		Short: "Scaffold a knowledge vault (default ~/.kdeps/notes)",
+		Long: `Creates what the folder lacks - projects/, shared/, inbox/, archive/,
+KDEPS.md and schema.md - and sets knowledge.vault in ~/.kdeps/config.yaml
+when a folder other than the default is given and none is set. Existing
+files are never changed. Project folders are created by kdeps the first
+time it runs in a place; nothing needs to be added by hand.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root := knowledge.DefaultVault()
@@ -99,8 +97,7 @@ existing notes folder works as is.`,
 				return err
 			}
 			v := knowledge.Vault{Root: root}
-			ws := knowledge.Workspace(v)
-			created, err := knowledge.Init(v, ws)
+			created, err := knowledge.Init(v)
 			out := cmd.OutOrStdout()
 			for _, p := range created {
 				fmt.Fprintf(out, "  created %s\n", p)
@@ -120,7 +117,7 @@ existing notes folder works as is.`,
 			}
 			fmt.Fprintln(
 				out,
-				"Next: add a card per project under records/projects (see schema.md), then kdeps knowledge build.",
+				"Next: run kdeps in a project folder; it creates projects/<name>/ and fills it in.",
 			)
 			return nil
 		},
@@ -146,7 +143,7 @@ With --extract, a local model first reads every note that changed since its
 last extraction and lists what it is about; its findings join the graph as
 inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, ws, kc, err := knowledgeTarget(cmd)
+			v, kc, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}
@@ -158,7 +155,7 @@ inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 				}
 			}
 			start := time.Now()
-			g, st, err := knowledge.Build(cmd.Context(), v, ws, dir, time.Now())
+			g, st, err := knowledge.Build(cmd.Context(), v, dir, time.Now())
 			if err != nil {
 				return err
 			}
@@ -226,11 +223,11 @@ func newKnowledgeCheckCmd() *cobra.Command {
 		Use:   "check",
 		Short: "Report facts with more than one home, dangling links and notes recall cannot use",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, ws, _, err := knowledgeTarget(cmd)
+			v, _, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}
-			findings, err := knowledge.Check(v, ws)
+			findings, err := knowledge.Check(v)
 			if err != nil {
 				return err
 			}
@@ -263,7 +260,7 @@ func newKnowledgeRecallCmd() *cobra.Command {
 		Short: "Show the notes recall would give the agent for a request",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v, _, kc, err := knowledgeTarget(cmd)
+			v, kc, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}
@@ -304,7 +301,7 @@ otherwise never touch (surprising connections) and links to missing notes.
 The report and graph.html (an explorer page) live next to graph.json under
 ~/.kdeps, never in the vault.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, _, _, err := knowledgeTarget(cmd)
+			v, _, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}

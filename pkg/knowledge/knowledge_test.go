@@ -70,23 +70,17 @@ func TestParseNote(t *testing.T) {
 	assert.Contains(t, num.Summary, "a")
 }
 
-func TestVaultFolderAndWalk(t *testing.T) {
+func TestVaultWalk(t *testing.T) {
 	root := writeVault(t, map[string]string{
-		"0-Inbox/a.md":           "a",
-		"1. Projects/x/b.md":     "b",
-		"Archive/c.md":           "c",
-		".obsidian/hidden.md":    "h",
-		"3_Resources/d.MD":       "d",
-		"notes.txt":              "not a note",
-		"Resources-but-not/e.md": "e",
-		"3_Resources/.hidden.md": "h",
+		"inbox/a.md":                  "a",
+		"projects/x/notes/b.md":       "b",
+		"archive/c.md":                "c",
+		".index/hidden.md":            "h",
+		"shared/d.MD":                 "d",
+		"notes.txt":                   "not a note",
+		"projects/x/.auto/thought.md": "h",
 	})
 	v := Vault{Root: root}
-	assert.Equal(t, "0-Inbox", v.Folder(RoleInbox))
-	assert.Equal(t, "1. Projects", v.Folder(RoleProjects))
-	assert.Equal(t, "Archive", v.Folder(RoleArchives))
-	assert.Equal(t, "3_Resources", v.Folder(RoleResources))
-	assert.Equal(t, "Areas", v.Folder(RoleAreas), "default when missing")
 	notes, err := v.Walk()
 	require.NoError(t, err)
 	var paths []string
@@ -95,7 +89,7 @@ func TestVaultFolderAndWalk(t *testing.T) {
 	}
 	assert.Equal(
 		t,
-		[]string{"0-Inbox/a.md", "1. Projects/x/b.md", "3_Resources/d.MD", "Archive/c.md", "Resources-but-not/e.md"},
+		[]string{"archive/c.md", "inbox/a.md", "projects/x/notes/b.md", "shared/d.MD"},
 		paths,
 	)
 	_, err = Vault{Root: filepath.Join(root, "missing")}.Walk()
@@ -120,17 +114,18 @@ owner: me
 | Source | Path |
 |---|---|
 | repo | ` + "`REPO`" + ` |
-| vault | Projects/kdeps |
+| docs | https://example.com |
 `
 
 func TestCards(t *testing.T) {
 	repo := t.TempDir()
 	root := writeVault(t, map[string]string{
-		"records/projects/kdeps.md":  strings.Replace(cardText, "REPO", repo, 1),
-		"records/clients/acme.md":    "---\ntype: client\n---\nA story line.\nAnother.\nThird.\nFourth.\n| x |\n",
-		"records/projects/notes.txt": "skip",
+		"projects/kdeps/kdeps.md":   strings.Replace(cardText, "REPO", repo, 1),
+		"archive/acme/acme.md":      "---\ntype: client\n---\nA story line.\nAnother.\nThird.\nFourth.\n| x |\n",
+		"projects/loose/notes.md":   "a folder without a card",
+		"projects/kdeps/notes/x.md": "not a card",
 	})
-	w := Workspace{Root: root}
+	w := Vault{Root: root}
 	cards, err := w.Cards()
 	require.NoError(t, err)
 	require.Len(t, cards, 2)
@@ -138,11 +133,13 @@ func TestCards(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "project", c.Type)
 	assert.Equal(t, "ship it", c.Next)
-	assert.Equal(t, []Link{{"repo", repo}, {"vault", "Projects/kdeps"}}, c.Links)
-	assert.Equal(t, "Projects/kdeps", c.Link("Vault"))
+	assert.Equal(t, []Link{{"repo", repo}, {"docs", "https://example.com"}}, c.Links)
+	assert.Equal(t, "https://example.com", c.Link("Docs"))
+	assert.False(t, c.Archived())
 	assert.Empty(t, c.Link("nope"))
 	acme, _ := w.Card("acme")
 	assert.Equal(t, 4, acme.BodyLines)
+	assert.True(t, acme.Archived(), "archived projects keep their card")
 	_, err = w.Card("nope")
 	require.ErrorIs(t, err, ErrNoCard)
 
@@ -157,21 +154,21 @@ func TestCards(t *testing.T) {
 	assert.Equal(t, "2026-10-15", c.Updated)
 	data, _ := os.ReadFile(c.File)
 	assert.Contains(t, string(data), "owner: me", "other fields are kept")
-	assert.Contains(t, string(data), "| vault | Projects/kdeps |", "the body is kept")
+	assert.Contains(t, string(data), "| docs | https://example.com |", "the body is kept")
 	require.NoError(t, c.Update("", "", now))
 	assert.Equal(t, "paused", c.Status, "empty keeps the value")
 
 	require.NoError(t, acme.Update("active", "", now))
 	assert.Equal(t, "active", acme.Status, "a missing field is added")
 
-	bare := filepath.Join(root, "records/clients/bare.md")
+	bare := filepath.Join(root, "projects/loose/bare.md")
 	require.NoError(t, os.WriteFile(bare, []byte("no frontmatter\n"), 0o600))
 	b, err := ReadCard(bare)
 	require.NoError(t, err)
 	require.NoError(t, b.Update("new", "first", now))
 	assert.Equal(t, "new", b.Status)
 
-	broken := filepath.Join(root, "records/clients/broken.md")
+	broken := filepath.Join(root, "projects/loose/broken.md")
 	require.NoError(t, os.WriteFile(broken, []byte("---\ntype: x\nnever closed\n"), 0o600))
 	bc, err := ReadCard(broken)
 	require.NoError(t, err)
@@ -186,14 +183,18 @@ func TestCards(t *testing.T) {
 
 func TestCheck(t *testing.T) {
 	root := writeVault(t, map[string]string{
-		"records/projects/kdeps.md": "---\ntype: project\nstatus: active\n---\n| repo | x |\n",
-		"Projects/kdeps/a.md":       "---\nsummary: Same fact.\nnext: do it\n---\n[[Missing]] [[b]]",
-		"Projects/kdeps/b.md":       "---\nsummary: same fact.\n---\n",
-		"Resources/no summary.md":   "body",
-		"Inbox/quick.md":            "no summary needed in the inbox",
-		"top.md":                    "no summary needed at the root",
+		"projects/kdeps/kdeps.md":       "---\ntype: project\nstatus: active\n---\n| repo | x |\n",
+		"projects/kdeps/notes/a.md":     "---\nsummary: Same fact.\nnext: do it\n---\n[[Missing]] [[b]]",
+		"projects/kdeps/notes/b.md":     "---\nsummary: same fact.\n---\n",
+		"projects/kdeps/decisions/c.md": "a decision without a summary",
+		"projects/kdeps/memory/m1.md":   "---\nsummary: same line\n---\n",
+		"projects/kdeps/memory/m2.md":   "---\nsummary: same line\n---\n",
+		"projects/kdeps/sessions/s.md":  "a session",
+		"shared/no summary.md":          "body",
+		"inbox/quick.md":                "no summary needed in the inbox",
+		"top.md":                        "no summary needed at the root",
 	})
-	findings, err := Check(Vault{Root: root}, Workspace{Root: root})
+	findings, err := Check(Vault{Root: root})
 	require.NoError(t, err)
 	var got []string
 	for _, f := range findings {
@@ -201,15 +202,18 @@ func TestCheck(t *testing.T) {
 		got = append(got, filepath.ToSlash(rel)+": "+f.Problem)
 	}
 	joined := strings.Join(got, "\n")
-	assert.Contains(t, joined, "records/projects/kdeps.md: card has no next")
-	assert.Contains(t, joined, "records/projects/kdeps.md: card has no updated")
-	assert.Contains(t, joined, "Projects/kdeps/a.md: has a next step; it belongs in the project card")
-	assert.Contains(t, joined, "Projects/kdeps/a.md: links to [[Missing]]")
+	assert.Contains(t, joined, "projects/kdeps/kdeps.md: card has no next")
+	assert.Contains(t, joined, "projects/kdeps/kdeps.md: card has no updated")
+	assert.Contains(t, joined, "projects/kdeps/notes/a.md: has a next step; it belongs in the project card")
+	assert.Contains(t, joined, "projects/kdeps/notes/a.md: links to [[Missing]]")
 	assert.Contains(t, joined, "has the same summary as")
-	assert.Contains(t, joined, "Resources/no summary.md: has no summary")
-	assert.NotContains(t, joined, "Inbox/quick.md")
+	assert.Contains(t, joined, "projects/kdeps/decisions/c.md: has no summary")
+	assert.Contains(t, joined, "shared/no summary.md: has no summary")
+	assert.NotContains(t, joined, "memory/m1.md", "memory entries may share a first line")
+	assert.NotContains(t, joined, "sessions/s.md")
+	assert.NotContains(t, joined, "inbox/quick.md")
 	assert.NotContains(t, joined, "top.md")
 
-	_, err = Check(Vault{Root: filepath.Join(root, "missing")}, Workspace{Root: filepath.Join(root, "missing")})
+	_, err = Check(Vault{Root: filepath.Join(root, "missing")})
 	require.Error(t, err)
 }

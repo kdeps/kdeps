@@ -40,12 +40,10 @@ import (
 )
 
 // Memory lives in the knowledge vault as markdown notes, one per entry:
-// <vault>/Memory/<project>/<key>.md. High-churn auto-captures (thinking,
-// tool results) go in a hidden .auto/ subfolder: in the vault, out of the
-// link graph.
+// <vault>/projects/<project>/memory/<key>.md. High-churn auto-captures
+// (thinking, tool results) go in memory/.auto/, hidden: in the
+// vault, out of the link graph.
 const (
-	memoryVaultFolder = knowledge.MemoryFolder
-	memoryAutoFolder  = ".auto"
 	memoryGlobalName  = "global"
 	memorySummaryLen  = 120
 	memoryHashLen     = 6
@@ -69,10 +67,10 @@ type memoryNote struct {
 	Links      []string `yaml:"links,omitempty"`
 }
 
-// defaultMemoryRoot is <vault>/Memory for the configured vault.
+// defaultMemoryRoot is the configured vault.
 func defaultMemoryRoot() string {
-	vault, _, _ := knowledge.Configured()
-	return filepath.Join(vault, memoryVaultFolder)
+	vault, _ := knowledge.Configured()
+	return vault
 }
 
 // legacyMemoryPath is where the old store kept folder name's database
@@ -85,20 +83,16 @@ func legacyMemoryPath(name string) string {
 	return filepath.Join(home, memoryDir, name, legacyMemoryFile)
 }
 
-// memoryProjectFolder names a working directory's memory folder: the name
-// of the knowledge card covering it, else the folder name and a short hash
-// of its path.
-func memoryProjectFolder(cwd string) string {
-	_, ws, _ := knowledge.Configured()
-	if c := (knowledge.Workspace{Root: ws}).CardForDir(cwd); c != nil {
-		return c.Name
+// projectMemoryDir is a working directory's memory folder in the vault at root:
+// the memory/ folder of the project whose card covers cwd, else of the
+// project kdeps creates for cwd on its first turn.
+func projectMemoryDir(root, cwd string) string {
+	v := knowledge.Vault{Root: root}
+	if c := v.CardForDir(cwd); c != nil {
+		return filepath.Join(c.Dir(), knowledge.MemoryFolder)
 	}
-	sum := sha256.Sum256([]byte(cwd))
-	name := memorySlugRe.ReplaceAllString(filepath.Base(cwd), "-")
-	if name == "" || name == "." || name == "-" {
-		name = "root"
-	}
-	return name + "-" + hex.EncodeToString(sum[:])[:memoryHashLen]
+	name, _, _ := knowledge.ProjectName(cwd)
+	return filepath.Join(root, knowledge.ProjectsFolder, name, knowledge.MemoryFolder)
 }
 
 // memorySlug turns a key into a file name.
@@ -120,7 +114,7 @@ func (m *MemoryStore) noteFile(e MemoryEntry) string {
 	}
 	dir := m.path
 	if e.Type == memTypeThinking || e.Type == memTypeToolResult {
-		dir = filepath.Join(m.path, memoryAutoFolder)
+		dir = filepath.Join(m.path, knowledge.AutoFolder)
 	}
 	f := filepath.Join(dir, memorySlug(e.Key)+".md")
 	for other, of := range m.files {

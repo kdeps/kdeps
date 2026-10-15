@@ -3,19 +3,23 @@
 # against a mock LLM that records every request it receives.
 #
 #   - a session sets up the vault, builds its graph in <vault>/.index
+#   - a place no card covers gets projects/<name>/ and its card on the first
+#     turn (named after the git repository root); archiving moves it to
+#     archive/, working there again moves it back
 #   - each turn's request carries <knowledge-recall> (the related notes),
 #     <knowledge-status> (the cards) and the routing table; the terminal
 #     shows "recall: N notes"; /recall and /knowledge report it
-#   - memory saved in a turn is a note in <vault>/Memory/<card>/ and
+#   - memory saved in a turn is a note in projects/<name>/memory/ and
 #     reaches the very next turn's request
 #   - the session note is written after every turn (one note, all prompts)
 #   - a piped session exits without a summary call
 #   - /compact writes the model's summary into the note; its next step
-#     goes to the card
+#     goes to the card, each Key Decision to decisions/
 #   - /knowledge off stops recall and is remembered by the next session;
 #     knowledge.enabled: false turns everything off
 #   - an old ~/.kdeps/memory database moves into the vault once
-#   - a workflow chat call gets recall; chat.knowledge: false does not
+#   - a workflow chat call gets recall; chat.knowledge: false does not;
+#     knowledge.workflow_notes: true logs each call to the workflow's project
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,6 +77,8 @@ class H(h.BaseHTTPRequestHandler):
                      '<parameter name="summary">Invoices use UTC dates.</parameter>\n'
                      '<parameter name="body">All invoice dates are UTC. See [[Billing decision]].</parameter>\n'
                      '<parameter name="type">gotcha</parameter>\n</invoke>')
+        elif "archive the project" in last.lower():
+            reply = ('<invoke name="knowledge_card_update">\n<parameter name="status">archived</parameter>\n</invoke>')
         elif "pause the project" in last.lower():
             reply = ('<invoke name="knowledge_card_update">\n<parameter name="status">paused</parameter>\n'
                      '<parameter name="next">wait for review</parameter>\n</invoke>')
@@ -126,8 +132,8 @@ YAML
 KS_HOME="$KS_DIR/home"
 KS_VAULT="$KS_DIR/vault"
 KS_PROJ="$KS_DIR/app"
-mkdir -p "$KS_HOME/.kdeps" "$KS_PROJ" "$KS_VAULT/records/projects" "$KS_VAULT/Projects/app" "$KS_VAULT/Resources"
-cat > "$KS_VAULT/records/projects/app.md" <<CARD
+mkdir -p "$KS_HOME/.kdeps" "$KS_PROJ" "$KS_VAULT/projects/app/decisions" "$KS_VAULT/shared"
+cat > "$KS_VAULT/projects/app/app.md" <<CARD
 ---
 type: project
 status: active
@@ -136,17 +142,16 @@ updated: 2026-10-01
 ---
 | Source | Path |
 |---|---|
-| repo | $(native "$KS_PROJ") |
-| vault | Projects/app |
+| folder | $(native "$KS_PROJ") |
 CARD
-cat > "$KS_VAULT/Projects/app/Billing decision.md" <<'NOTE'
+cat > "$KS_VAULT/projects/app/decisions/Billing decision.md" <<'NOTE'
 ---
 type: decision
 summary: Bill monthly, not per call - per-call billing doubled churn.
 ---
 See [[Stripe gotcha]].
 NOTE
-cat > "$KS_VAULT/Resources/Stripe gotcha.md" <<'NOTE'
+cat > "$KS_VAULT/shared/Stripe gotcha.md" <<'NOTE'
 ---
 type: gotcha
 summary: Stripe retries webhooks for 3 days; handlers must be idempotent.
@@ -160,9 +165,11 @@ ks_config() { # $1: extra knowledge lines
 }
 ks_config ""
 
-# ks_session runs one piped agent session in the project folder.
-ks_session() {
-    (cd "$KS_PROJ" && printf '%b' "$1" | HOME="$KS_HOME" USERPROFILE="$(native "$KS_HOME")" \
+# ks_session runs one piped agent session in the project folder;
+# ks_session_in runs one in folder $1.
+ks_session() { ks_session_in "$KS_PROJ" "$1"; }
+ks_session_in() {
+    (cd "$1" && printf '%b' "$2" | HOME="$KS_HOME" USERPROFILE="$(native "$KS_HOME")" \
         KDEPS_CONFIG_PATH="$KS_HOME/.kdeps/config.yaml" KDEPS_ASSETS_SRC="$KS_SRC" \
         KDEPS_ASSETS_DIR="$KS_HOME/store" KDEPS_ASSETS_URL=off \
         timeout 180 "$KDEPS_BIN" --new --backend mockllm --model fake 2>&1) || true
@@ -243,11 +250,11 @@ else
     test_failed "knowledge session - /recall" "$OUT"
 fi
 
-MEM_NOTE="$KS_VAULT/Memory/app/fact-invoices.md"
+MEM_NOTE="$KS_VAULT/projects/app/memory/fact-invoices.md"
 if [ -f "$MEM_NOTE" ] && grep -q "invoices go out on the 1st" "$MEM_NOTE" && grep -q "key: fact:invoices" "$MEM_NOTE"; then
-    test_passed "knowledge session - memory saved in a turn is a note in <vault>/Memory/<card>/"
+    test_passed "knowledge session - memory saved in a turn is a note in projects/<name>/memory/"
 else
-    test_failed "knowledge session - memory note" "$(find "$KS_VAULT/Memory" -type f 2>&1)"
+    test_failed "knowledge session - memory note" "$(find "$KS_VAULT/projects" -type f 2>&1)"
 fi
 REQ3=$(ks_req "when do invoices go out")
 if output_grep_fixed "invoices go out on the 1st" "$REQ3"; then
@@ -255,24 +262,19 @@ if output_grep_fixed "invoices go out on the 1st" "$REQ3"; then
 else
     test_failed "knowledge session - memory not in the next request" "$REQ3"
 fi
-if [ -f "$KS_VAULT/Memory/app/turn-last.md" ]; then
+if [ -f "$KS_VAULT/projects/app/memory/turn-last.md" ]; then
     test_passed "knowledge session - the turn log is a memory note too"
 else
-    test_failed "knowledge session - turn:last note" "$(find "$KS_VAULT/Memory" -type f 2>&1)"
+    test_failed "knowledge session - turn:last note" "$(find "$KS_VAULT/projects" -type f 2>&1)"
 fi
 
-NOTES=$(find "$KS_VAULT/Projects/app/sessions" -name '*.md' 2>/dev/null)
+NOTES=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' 2>/dev/null)
 NOTE_COUNT=$(printf '%s\n' "$NOTES" | grep -c '\.md$')
 if [ "$NOTE_COUNT" = "1" ] && grep -q "why do we bill monthly" "$NOTES" && grep -q "when do invoices go out" "$NOTES" &&
-    grep -q "## Focus" "$NOTES" && grep -q "\[\[app HUB\]\]" "$NOTES"; then
-    test_passed "knowledge session - one session note, updated every turn, linked from the hub"
+    grep -q "## Focus" "$NOTES" && grep -q '"\[\[app\]\]"' "$NOTES"; then
+    test_passed "knowledge session - one session note in projects/<name>/sessions/, updated every turn, linked to the card"
 else
     test_failed "knowledge session - live session note" "count=$NOTE_COUNT $(cat $NOTES 2>&1)"
-fi
-if grep -q "\[\[$(basename "$NOTES" .md)\]\]" "$KS_VAULT/Projects/app/app HUB.md" 2>/dev/null; then
-    test_passed "knowledge session - the hub note links the session"
-else
-    test_failed "knowledge session - hub link" "$(cat "$KS_VAULT/Projects/app/app HUB.md" 2>&1)"
 fi
 if ! grep -q "<conversation>" "$KS_LOG"; then
     test_passed "knowledge session - a piped session exits without a summary call"
@@ -281,11 +283,11 @@ else
 fi
 
 if [ -n "$OLD_DB" ]; then
-    MOVED="$KS_VAULT/Memory/app/fact-legacy.md"
+    MOVED="$KS_VAULT/projects/app/memory/fact-legacy.md"
     if [ -f "$MOVED" ] && grep -q "migrated from the old store" "$MOVED" && [ -f "$OLD_DB.moved" ] && [ ! -e "$OLD_DB" ]; then
         test_passed "knowledge session - the old memory database moved into the vault once"
     else
-        test_failed "knowledge session - old memory move" "$(ls "$(dirname "$OLD_DB")" 2>&1) $(find "$KS_VAULT/Memory" -type f 2>&1)"
+        test_failed "knowledge session - old memory move" "$(ls "$(dirname "$OLD_DB")" 2>&1) $(find "$KS_VAULT/projects" -type f 2>&1)"
     fi
 else
     test_skipped "knowledge session - old memory move (go not available)"
@@ -294,32 +296,39 @@ fi
 # --- session 2: /compact writes the model summary; next step to the card ---------
 : > "$KS_LOG"
 OUT=$(ks_session 'first billing question\nsecond billing question\nthird billing question\nfourth billing question\nfifth billing question\nsixth billing question\n/compact\nlast billing question\n/quit\n')
-LATEST=$(ls -t "$KS_VAULT/Projects/app/sessions/"*.md 2>/dev/null | head -1)
+LATEST=$(ls -t "$KS_VAULT/projects/app/sessions/"*.md 2>/dev/null | head -1)
 if grep -q "<conversation>" "$KS_LOG" && grep -q "Ship monthly billing" "$LATEST" && grep -q "forgot webhook retries" "$LATEST" &&
     grep -q "tests green" "$LATEST" && grep -q "last billing question" "$LATEST"; then
     test_passed "knowledge session - /compact writes the model summary; later turns are added on top"
 else
     test_failed "knowledge session - compaction note" "$OUT $(cat "$LATEST" 2>&1)"
 fi
-if grep -q "^next: write the invoice job" "$KS_VAULT/records/projects/app.md"; then
+if grep -q "^next: write the invoice job" "$KS_VAULT/projects/app/app.md"; then
     test_passed "knowledge session - the summary's next step moves to the card (its only home)"
 else
-    test_failed "knowledge session - card next step" "$(cat "$KS_VAULT/records/projects/app.md")"
+    test_failed "knowledge session - card next step" "$(cat "$KS_VAULT/projects/app/app.md")"
+fi
+DECISION="$KS_VAULT/projects/app/decisions/Monthly.md"
+if [ -f "$DECISION" ] && grep -q "type: decision" "$DECISION" && grep -q "per-call doubled churn" "$DECISION" &&
+    grep -q '\[\[app\]\]' "$DECISION"; then
+    test_passed "knowledge session - each Key Decision of the summary becomes a note in decisions/"
+else
+    test_failed "knowledge session - decision note" "$(ls "$KS_VAULT/projects/app/decisions" 2>&1)"
 fi
 
 # --- session: the model uses the knowledge tools ---------------------------------
 : > "$KS_LOG"
 OUT=$(ks_session 'save a gotcha about invoices\npause the project\nhow is the project going\n/quit\n')
-GOTCHA="$KS_VAULT/Resources/Invoice timezone.md"
+GOTCHA="$KS_VAULT/projects/app/notes/Invoice timezone.md"
 if [ -f "$GOTCHA" ] && grep -q "summary: \"Invoices use UTC dates.\"" "$GOTCHA" && grep -q "type: gotcha" "$GOTCHA"; then
-    test_passed "knowledge session - the model saves a note with knowledge_note_save"
+    test_passed "knowledge session - the model saves a note into the project's notes/ with knowledge_note_save"
 else
-    test_failed "knowledge session - knowledge_note_save" "$OUT $(ls "$KS_VAULT/Resources")"
+    test_failed "knowledge session - knowledge_note_save" "$OUT $(find "$KS_VAULT/projects/app" -type f)"
 fi
-if grep -q "^status: paused" "$KS_VAULT/records/projects/app.md" && grep -q "^next: wait for review" "$KS_VAULT/records/projects/app.md"; then
+if grep -q "^status: paused" "$KS_VAULT/projects/app/app.md" && grep -q "^next: wait for review" "$KS_VAULT/projects/app/app.md"; then
     test_passed "knowledge session - the model updates the working directory's card"
 else
-    test_failed "knowledge session - knowledge_card_update" "$OUT $(cat "$KS_VAULT/records/projects/app.md")"
+    test_failed "knowledge session - knowledge_card_update" "$OUT $(cat "$KS_VAULT/projects/app/app.md")"
 fi
 REQ=$(ks_req "how is the project going")
 if output_grep "\| app \| project \| paused \| wait for review" "$REQ"; then
@@ -344,7 +353,7 @@ else
 fi
 
 # --- a memory note written by hand reaches the model ----------------------------
-printf 'Always deploy on Tuesdays.\n' > "$KS_VAULT/Memory/app/Deploy day.md"
+printf 'Always deploy on Tuesdays.\n' > "$KS_VAULT/projects/app/memory/Deploy day.md"
 : > "$KS_LOG"
 OUT=$(ks_session 'when do we deploy\n/quit\n')
 REQ=$(ks_req "when do we deploy")
@@ -362,10 +371,11 @@ ks_config '  recall:
 OUT=$(ks_session 'why do we bill monthly budget\n/quit\n')
 REQ=$(ks_req "why do we bill monthly budget")
 RECALLED=$(printf '%s\n' "$REQ" | sed -n '/<knowledge-recall>/,/<\/knowledge-recall>/p' | grep -c '^- ')
-if output_grep "recall: 1 notes" "$OUT" && [ "$RECALLED" = "1" ]; then
+SHOWN=$(printf '%s\n' "$OUT" | sed -n 's/.*recall: \([0-9]*\) notes (~\([0-9]*\) tok).*/\1 \2/p' | head -1)
+if [ -n "$SHOWN" ] && [ "${SHOWN% *}" = "$RECALLED" ] && [ "${SHOWN#* }" -le 40 ] && [ "$RECALLED" -le 2 ]; then
     test_passed "knowledge session - recall.budget_tokens caps what a turn carries"
 else
-    test_failed "knowledge session - recall budget" "recalled=$RECALLED $OUT"
+    test_failed "knowledge session - recall budget" "recalled=$RECALLED shown=$SHOWN $OUT"
 fi
 ks_config ""
 
@@ -377,6 +387,43 @@ if [ "$CHECK_OK" = 1 ] && output_grep "every fact has one home" "$OUT"; then
     test_passed "knowledge session - notes, memory and cards written by sessions pass kdeps knowledge check"
 else
     test_failed "knowledge session - check after sessions" "$OUT"
+fi
+
+# --- a new place gets its own project; archiving moves it and back ------------
+KS_SIDE="$KS_DIR/side"
+mkdir -p "$KS_SIDE/.git" "$KS_SIDE/web/src"
+: > "$KS_LOG"
+OUT=$(ks_session_in "$KS_SIDE/web/src" 'what is in this repo\nremember invoices\n/quit\n')
+SIDE_CARD="$KS_VAULT/projects/side/side.md"
+if [ -f "$SIDE_CARD" ] && grep -q "^status: active" "$SIDE_CARD" && grep -q "| repo | " "$SIDE_CARD" &&
+    [ -n "$(find "$KS_VAULT/projects/side/sessions" -name '*.md' 2>/dev/null)" ] &&
+    [ -f "$KS_VAULT/projects/side/memory/fact-invoices.md" ]; then
+    test_passed "knowledge session - a place without a card gets projects/<repo name>/ with card, sessions/ and memory/"
+else
+    test_failed "knowledge session - auto project" "$OUT $(find "$KS_VAULT/projects/side" 2>&1)"
+fi
+REQ=$(ks_req "what is in this repo")
+if output_grep "\| app \| project \|" "$REQ" && output_grep "\| side \| project \| active" "$REQ"; then
+    test_passed "knowledge session - the status overview lists every active project, the new one included"
+else
+    test_failed "knowledge session - overview with the new project" "$REQ"
+fi
+: > "$KS_LOG"
+OUT=$(ks_session_in "$KS_SIDE" 'archive the project\n/quit\n')
+if [ -f "$KS_VAULT/archive/side/side.md" ] && [ ! -d "$KS_VAULT/projects/side" ] &&
+    grep -q "^status: archived" "$KS_VAULT/archive/side/side.md"; then
+    test_passed "knowledge session - status archived moves the whole project folder to archive/"
+else
+    test_failed "knowledge session - archive" "$OUT $(find "$KS_VAULT/archive" "$KS_VAULT/projects" -maxdepth 2 2>&1)"
+fi
+: > "$KS_LOG"
+OUT=$(ks_session_in "$KS_SIDE" 'back to work\n/quit\n')
+if [ -f "$KS_VAULT/projects/side/side.md" ] && [ ! -d "$KS_VAULT/archive/side" ] &&
+    grep -q "^status: active" "$KS_VAULT/projects/side/side.md" &&
+    [ "$(find "$KS_VAULT/projects/side/sessions" -name '*.md' | wc -l | tr -d ' ')" -ge 3 ]; then
+    test_passed "knowledge session - working in an archived project moves it back, history intact"
+else
+    test_failed "knowledge session - unarchive" "$OUT $(find "$KS_VAULT/archive" "$KS_VAULT/projects/side" 2>&1)"
 fi
 
 # --- sessions 3-4: /knowledge off is remembered ----------------------------------
@@ -401,10 +448,10 @@ fi
 ks_config '  enabled: false
 '
 : > "$KS_LOG"
-BEFORE=$(find "$KS_VAULT/Projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
+BEFORE=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
 OUT=$(ks_session 'why do we bill monthly disabled\n/quit\n')
 REQ=$(ks_req "why do we bill monthly disabled")
-AFTER=$(find "$KS_VAULT/Projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
+AFTER=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
 if [ -n "$REQ" ] && ! output_grep_fixed "<knowledge-recall>" "$REQ" && ! output_grep "vault.KDEPS.md" "$REQ" &&
     [ "$BEFORE" = "$AFTER" ]; then
     test_passed "knowledge session - knowledge.enabled: false: no recall, no routing table, no session note"
@@ -471,6 +518,25 @@ if [ -n "$REQ" ] && ! output_grep_fixed "<knowledge-recall>" "$REQ"; then
 else
     test_failed "knowledge workflow - knowledge: false" "$OUT | $REQ"
 fi
+if [ ! -d "$KS_VAULT/projects/ks-wf" ]; then
+    test_passed "knowledge workflow - workflow runs write nothing by default"
+else
+    test_failed "knowledge workflow - wrote without workflow_notes" "$(find "$KS_VAULT/projects/ks-wf")"
+fi
+ks_config '  workflow_notes: true
+'
+ks_wf_resources ""
+OUT=$(ks_run)
+OUT=$(ks_run)
+WF_CARD="$KS_VAULT/projects/ks-wf/ks-wf.md"
+WF_RUNS=$(find "$KS_VAULT/projects/ks-wf/sessions" -name '* ks-wf runs.md' 2>/dev/null)
+if [ -f "$WF_CARD" ] && grep -q "| workflow | " "$WF_CARD" && [ -n "$WF_RUNS" ] &&
+    [ "$(grep -c "workflow question: why do we bill monthly -> MOCK REPLY" "$WF_RUNS")" = "2" ]; then
+    test_passed "knowledge workflow - workflow_notes: true logs each chat call to projects/<workflow>/sessions/"
+else
+    test_failed "knowledge workflow - workflow notes" "$OUT $(find "$KS_VAULT/projects/ks-wf" 2>&1) $(cat "$WF_RUNS" 2>&1)"
+fi
+ks_config ""
 
 kill "$KS_SRV" 2>/dev/null
 wait "$KS_SRV" 2>/dev/null

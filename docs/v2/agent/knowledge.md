@@ -6,7 +6,7 @@ The knowledge vault gives the agent loop a long-term knowledge base it can use w
 direction: down
 q: "your request" {shape: oval}
 route: "KDEPS.md routing table\n(where everything lives)"
-card: "project card\nstatus, next step, links"
+card: "project card\nstatus, next step, places"
 recall: "graph recall (no model)\nwords -> matching notes -> 2 hops"
 notes: "3-8 notes named\npath + summary"
 model: "model reads only\nthe notes it needs" {shape: oval}
@@ -23,47 +23,80 @@ A vault of 2,000 notes holds about a million words. That's more than any model c
 
 | Fact | Its only home |
 |---|---|
-| Status, next step, where things live | the project's card: `records/projects/<name>.md` |
-| What happened: focus, what was built, mistakes, decisions, wins | a note in the vault |
+| Status, next step, places on disk | the project's card: `projects/<name>/<name>.md` |
+| What happened: focus, what was built, mistakes, decisions, wins | the session note: `projects/<name>/sessions/` |
+| Why something was decided | one decision note: `projects/<name>/decisions/` |
+| What the agent remembers | memory notes: `projects/<name>/memory/` (see [Persistent memory](/agent/memory)) |
+| An idea, gotcha or concept | one note: `projects/<name>/notes/`, or `shared/` when it spans projects |
 | How notes connect | the link graph, in the vault's hidden `.index/` |
-| What the agent remembers | memory notes in `Memory/<project>/` (see [Persistent memory](/agent/memory)) |
-| The current session's scratch facts | [persistent memory](/agent/memory) |
 
 A fact written in two places goes stale in one of them. `kdeps knowledge check` finds those.
 
+## Projects
+
+Every place kdeps runs is a project, and each project has one folder that holds all of it. kdeps creates the folder and its card the first time it runs in a place, then fills it in as you work. Nothing is set up by hand.
+
+```d2
+direction: down
+place: "kdeps runs in a folder" {shape: oval}
+known: "a card's repo/folder/workflow\nrow covers it?" {shape: diamond}
+use: "use that project"
+name: "name it: git repository root,\nelse the folder; workflow: its name"
+create: "create projects/<name>/\nand its card"
+turn: "every turn fills\nsessions/ memory/ decisions/ notes/" {shape: oval}
+place -> known
+known -> use: yes
+known -> name: no
+name -> create -> turn
+use -> turn
+```
+
+```text
+~/.kdeps/notes/                       # the vault (knowledge.vault)
+  KDEPS.md                            # routing table + rules; loaded into every session
+  schema.md                           # how cards and notes are written
+  projects/
+    my-app/                           # created on the first prompt in ~/code/my-app
+      my-app.md                       # the card: status, next step, places on disk
+      sessions/                       # one note per session, updated every turn
+      memory/                         # one note per [MEMORY: key]; .auto/ holds thinking and tool captures
+      decisions/                      # one note per decision from a session summary
+      notes/                          # notes the model saves, and your own
+  shared/                             # knowledge across projects; shared/memory/ with KDEPS_MEMORY_GLOBAL=1
+  inbox/                              # notes dropped by hand, not yet filed
+  archive/                            # projects whose card says status: archived
+  .index/                             # graph, caches, GRAPH_REPORT.md, graph.html
+```
+
+The layout is the same for every use: a code repository, a folder of documents, a workflow, a bot, a research topic. What kind of project it is goes in the card's `type`, not in the folder names.
+
+| Event | What kdeps writes |
+|---|---|
+| First prompt in a place no card covers | `projects/<name>/<name>.md` (`status: active`) |
+| Every turn | `sessions/<date> <topic>.md`, rewritten in place |
+| `[MEMORY: key] value` | `memory/<key>.md` |
+| Compaction, or the end of a terminal session | the session note from the model's summary; one `decisions/` note per Key Decision; the first next step on the card |
+| `knowledge_note_save` | `notes/` (`decisions/` for type decision), or `shared/`, `inbox/` |
+| `knowledge_card_update` with `status: archived` | moves `projects/<name>/` to `archive/<name>/`; the next turn there moves it back |
+| A workflow chat call, with `workflow_notes: true` | `sessions/<date> <workflow> runs.md`, one line per call |
+
 ## Set up
 
-Nothing to set up: the vault is on by default for agent sessions, in `~/.kdeps/notes`. The first session creates it, every session rebuilds its graph in the background and writes its own note.
+Nothing to set up: the vault is on by default, in `~/.kdeps/notes`. The first session creates it, and every session rebuilds its graph in the background.
 
 | Turn it | How |
 |---|---|
 | off for good | `knowledge.enabled: false` in `~/.kdeps/config.yaml` |
 | off or on, remembered across sessions | `/knowledge off`, `/knowledge on` |
-| to another folder | `knowledge.vault` in config.yaml, or `kdeps knowledge init <folder>` (an existing notes folder works as is) |
-
-`init` creates only what the folder lacks (and records a non-default folder in `~/.kdeps/config.yaml`):
-
-```text
-~/.kdeps/notes/
-  KDEPS.md              # routing table + rules; loaded into every session
-  schema.md             # how to write cards and notes
-  records/
-    projects/           # one card per project
-    clients/            # one card per client
-    sessions/  decisions/
-  references/
-  Memory/<project>/    # agent memory, one note per entry
-  .index/              # graph, caches, GRAPH_REPORT.md, graph.html
-  Inbox/  Projects/  Areas/  Resources/  Archives/   # reused if the folder has them (any number prefix: "1-Projects")
-```
+| to another folder | `knowledge.vault` in config.yaml, or `kdeps knowledge init <folder>` |
 
 ```yaml
 # ~/.kdeps/config.yaml
 knowledge:
-  enabled: true               # false: no recall, no session notes, no knowledge tools
+  enabled: true               # false: no recall, no notes, no knowledge tools
   vault: ~/.kdeps/notes       # the default
-  workspace: ~/.kdeps/notes   # where KDEPS.md + records/ live; default: the vault
-  session_notes: true         # write a note per session (default true)
+  session_notes: true         # agent sessions write a note per session (default true)
+  workflow_notes: false       # workflow chat calls log to their project's sessions/ (default false)
   recall:
     hops: 2                   # how far from the matched notes to walk
     budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
@@ -71,24 +104,21 @@ knowledge:
 
 ## Cards
 
-A card is short on purpose. It points; it never tells the story.
+A card is short on purpose. It points; it never tells the story. kdeps writes this one the first time it runs in `~/code/my-app`:
 
 ```markdown
 ---
-type: project          # project | client
-status: active         # the only place status lives
-next: wire recall into the desktop app
+type: project          # any word: project, client, area, research, bot
+status: active         # the only place status lives; archived moves the folder to archive/
+next: (none)           # the one next step; session summaries fill it in
 updated: 2026-10-15
 ---
 | Source | Path |
 |---|---|
-| repo | ~/code/my-app            |   <- kdeps finds this card when it runs in this folder
-| vault | Projects/my-app         |   <- where the project's notes and sessions go
-| memory | kdeps memory (repo folder) |
-| skills | skills/my-app          |
+| repo | /home/me/code/my-app |   <- runs in this folder (or below it) use this project
 ```
 
-Every turn carries a status overview read from the cards at that moment (`<knowledge-status>`); the overview is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -96,7 +126,7 @@ Every note is plain markdown with frontmatter. `summary` is what recall shows be
 
 ```markdown
 ---
-type: decision          # session | decision | hub | concept | gotcha | tool | note
+type: decision          # session | decision | concept | gotcha | tool | note
 status: evergreen
 tags: [billing]
 created: 2026-10-15
@@ -108,11 +138,11 @@ We moved to monthly billing because ...
 
 - Link notes with `[[Note title]]`. A link resolves by path, by title anywhere in the vault (the closest one wins when two share a title) or by `aliases:`.
 - Links inside code blocks are examples, not links.
-- One idea per note in `Resources/`. The model saves new ones with `knowledge_note_save`, which refuses a title that already has a note.
+- One idea per note. The model saves new ones with `knowledge_note_save` into the project's `notes/` (or `decisions/`, `shared/`, `inbox/`); it refuses a title that already has a note anywhere in the vault.
 
 ## Session notes
 
-After every turn, kdeps writes (and rewrites in place) one note per session into the project's `sessions/` folder (the inbox when no card covers the folder). It rewrites that note in place as the session goes on, and links it from the project's hub note:
+After every turn, kdeps writes one note per session into the project's `sessions/` folder and rewrites it in place as the session goes on. It links the project's card, so the card's backlinks list every session:
 
 ```markdown
 ---
@@ -120,6 +150,7 @@ type: session
 project: my-app
 session: 7f3c...
 summary: Ship knowledge recall for my-app
+links: ["[[my-app]]"]
 ---
 ## Focus
 ## What was built
@@ -128,12 +159,24 @@ summary: Ship knowledge recall for my-app
 ## Wins
 ```
 
-After each turn the note is updated without a model call: your prompts, the files written or edited, decisions saved to memory and tools that failed. At compaction the model's summary replaces it with a written one (no extra model call: compaction makes that summary anyway), and later turns are added on top. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
+After each turn the note is updated without a model call: your prompts, the files written or edited, decisions saved to memory and tools that failed. At compaction the model's summary replaces it with a written one (no extra model call: compaction makes that summary anyway), and later turns are added on top. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note, and each of its Key Decisions becomes a note in `decisions/`, titled by its bold lead (`- **Monthly billing**: per-call doubled churn` becomes `decisions/Monthly billing.md`). A decision that already has a note is left alone.
+
+## Workflow mode
+
+A workflow [`chat`](/workflow/resources/llm#knowledge-recall) call recalls from the vault by default. Writing is off: a workflow can run thousands of times. Turn it on to keep a log per workflow:
+
+```yaml
+# ~/.kdeps/config.yaml
+knowledge:
+  workflow_notes: true     # each chat call adds one line to its workflow's run note for the day
+```
+
+A workflow's project is keyed by its `metadata.name`: the first logged run creates `projects/<name>/`, with a card whose `workflow` row is the folder it ran from; the same workflow run from anywhere else logs to the same project. Each chat call adds `- 14:02:11 <prompt> -> <reply>` to `sessions/<date> <name> runs.md`. A resource with `knowledge: false` neither recalls nor writes. Run notes join the graph on its next build (any agent session, or `kdeps knowledge build`).
 
 ## The graph
 
 `kdeps knowledge build` turns the vault into a graph:
-- **Nodes:** each note, each tag, and each Go package of every card's `repo`.
+- **Nodes:** each note, each tag, and each Go package of every card's `repo` row.
 - **Edges:** wikilinks (`references`), frontmatter links (`relates_to`), tags (`tagged`) and Go imports (`depends_on`).
 - **Provenance:** every edge records how it was found. Edges from links and imports are `extracted`; code goes through the Go parser, never a model. A local model can add `inferred` edges (see [Model extraction](#model-extraction)).
 
@@ -192,7 +235,7 @@ kdeps knowledge report
 ## God nodes            the most connected notes and packages: changing them touches the most
 ## Communities          each group with its best-connected members and the summary of its top note
 ## Surprising connections
-- [[Projects/app/Billing decision]] (community 3, 40 nodes) -[references, extracted]-> [[Resources/Kubernetes probes]] (community 9, 25 nodes)
+- [[projects/app/decisions/Billing decision]] (community 3, 40 nodes) -[references, extracted]-> [[shared/Kubernetes probes]] (community 9, 25 nodes)
 ## Links to notes that do not exist
 ```
 
@@ -210,8 +253,8 @@ Before each model call, kdeps:
 ```text
 <knowledge-recall>
 Notes in the knowledge vault related to this request, from its link graph (best first). ...
-- /home/me/notes/Projects/my-app/Billing decision.md - Bill monthly, not per call. ...
-- /home/me/notes/Resources/Stripe webhook retries.md - Webhooks retry for 3 days. (linked from Billing decision)
+- /home/me/notes/projects/my-app/decisions/Billing decision.md - Bill monthly, not per call. ...
+- /home/me/notes/shared/Stripe webhook retries.md - Webhooks retry for 3 days. (linked from Billing decision)
 </knowledge-recall>
 ```
 
@@ -234,10 +277,10 @@ kdeps knowledge check
 ```
 
 ```text
-  Projects/my-app/old status.md: has a next step; it belongs in the project card (one home per fact)
-  Resources/Graph recall.md: links to [[Louvain]], which has no note
-  Resources/Pricing.md: has the same summary as Resources/Tiers.md; keep the fact in one note and link it
-  records/projects/web.md: card holds 9 lines of prose; move the story to a vault note and link it
+  projects/my-app/notes/old status.md: has a next step; it belongs in the project card (one home per fact)
+  shared/Graph recall.md: links to [[Louvain]], which has no note
+  shared/Pricing.md: has the same summary as shared/Tiers.md; keep the fact in one note and link it
+  projects/web/web.md: card holds 9 lines of prose; move the story to a vault note and link it
 ```
 
 It exits non-zero when it finds something, so it can run in CI.
@@ -247,8 +290,8 @@ It exits non-zero when it finds something, so it can run in CI.
 | Tool | Does |
 |---|---|
 | `knowledge_recall` | Recall notes for other words than the request |
-| `knowledge_card_get` | Read a card (default: the working directory's) |
-| `knowledge_card_update` | Set `status` and/or `next`; stamps `updated` |
-| `knowledge_note_save` | Save a new one-idea note with frontmatter |
+| `knowledge_card_get` | Read a card (default: the working directory's project, created on first use) |
+| `knowledge_card_update` | Set `status` and/or `next`; stamps `updated`; `archived` moves the project to `archive/` |
+| `knowledge_note_save` | Save a new one-idea note; `scope`: `project` (default), `shared` or `inbox` |
 
 They are offered in agent sessions while the vault is on (the default), refuse while `/knowledge off`, and ship with the `agent` asset profile.

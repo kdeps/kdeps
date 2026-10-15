@@ -107,7 +107,7 @@ No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can 
 | Data | Where |
 |------|-------|
 | Agent chat history | `~/.kdeps/sessions/<folder>/` |
-| Agent memory | `<vault>/Memory/<project>/` (markdown notes; default vault `~/.kdeps/notes`) |
+| Agent memory | `<vault>/projects/<project>/memory/` (markdown notes; default vault `~/.kdeps/notes`) |
 | Knowledge graph, caches, report | `<vault>/.index/` |
 | `searchLocal` index and graph, `codeIntelligence` graph | `~/.kdeps/projects/<folder name>-<hash>/index.db`, `graph.db` |
 | HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |

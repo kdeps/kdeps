@@ -31,29 +31,19 @@ import (
 // workspaceTemplate is the templates bundle Init copies.
 const workspaceTemplate = "templates/knowledge"
 
-// workspaceDirs are the record folders Init creates.
+// vaultDirs are the top-level folders Init creates.
 //
 //nolint:gochecknoglobals // fixed list
-var workspaceDirs = []string{
-	"records/projects",
-	"records/clients",
-	"records/sessions",
-	"records/decisions",
-	"references",
-}
+var vaultDirs = []string{ProjectsFolder, SharedFolder, InboxFolder, ArchiveFolder}
 
-// Init prepares a vault and workspace: the PARA folders the vault lacks,
-// the record folders, and KDEPS.md and schema.md from the templates asset.
-// Existing files and folders are never changed. It returns what it created.
-func Init(v Vault, w Workspace) ([]string, error) {
+// Init prepares a vault: its top-level folders, and KDEPS.md and schema.md
+// from the templates asset. Existing files and folders are never changed.
+// Project folders are created by kdeps the first time it runs in a place.
+// It returns what it created.
+func Init(v Vault) ([]string, error) {
 	var created []string
-	for _, role := range Roles {
-		if err := mkdirNew(v.Root, v.Folder(role), &created); err != nil {
-			return created, err
-		}
-	}
-	for _, d := range workspaceDirs {
-		if err := mkdirNew(w.Root, d, &created); err != nil {
+	for _, d := range vaultDirs {
+		if err := mkdirNew(v.Root, d, &created); err != nil {
 			return created, err
 		}
 	}
@@ -66,7 +56,7 @@ func Init(v Vault, w Workspace) ([]string, error) {
 		if e.IsDir() || e.Name() == assets.ManifestFile {
 			continue
 		}
-		dst := filepath.Join(w.Root, e.Name())
+		dst := filepath.Join(v.Root, e.Name())
 		if _, statErr := os.Stat(dst); statErr == nil {
 			continue
 		} else if !errors.Is(statErr, fs.ErrNotExist) {

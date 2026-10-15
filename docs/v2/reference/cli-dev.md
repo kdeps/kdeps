@@ -302,7 +302,7 @@ kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps
 Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown notes the agent recalls from each turn without reading them. It is on by default in `~/.kdeps/notes` and set up by the first agent session.
 
 ```bash
-kdeps knowledge init [folder]       # scaffold KDEPS.md, schema.md, records/, PARA folders (default ~/.kdeps/notes)
+kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
 kdeps knowledge build               # build the link graph (only changed notes and code files are re-read)
 kdeps knowledge build --extract     # a local model reads changed notes first: inferred edges with confidence
 kdeps knowledge check               # one home per fact: next steps outside cards, duplicate summaries, dangling links
