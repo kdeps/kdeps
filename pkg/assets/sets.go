@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -39,8 +40,9 @@ type Spec struct {
 	// Validate is the set's own parser. Install runs it on a downloaded file,
 	// so a file the loader would reject never replaces a working one.
 	Validate func(data []byte, name string) error
-	// Required reports whether an item cannot be removed (the loader needs it).
-	Required func(name string) bool
+	// Required are the items the loader cannot do without: they cannot be
+	// removed, and a command that loads the set installs them.
+	Required []string
 	// Context returns the text of an item (its file, or bundle) that reaches
 	// the LLM's context - a prompt, a tool definition. Nil for a set the
 	// model never sees.
@@ -85,10 +87,38 @@ func Registered() []string {
 	return out
 }
 
+// RequiredItems lists the items set's loader cannot do without.
+func RequiredItems(set string) []string {
+	s, err := specFor(set)
+	if err != nil {
+		return nil
+	}
+	return slices.Clone(s.Required)
+}
+
+// MissingRequired lists the required items of sets that Open does not
+// find, as set/name ids.
+func MissingRequired(sets []string) []string {
+	var out []string
+	for _, set := range sets {
+		fsys := Open(set)
+		for _, name := range RequiredItems(set) {
+			file := set + "/" + name + yamlExt
+			if IsBundle(set) {
+				file = set + "/" + name + "/" + ManifestFile
+			}
+			if _, err := fsys.ReadFile(file); err != nil {
+				out = append(out, ID(set, name))
+			}
+		}
+	}
+	return out
+}
+
 // Required reports whether set/name is an item its loader cannot do without.
 func Required(set, name string) bool {
 	s, err := specFor(set)
-	return err == nil && s.Required != nil && s.Required(name)
+	return err == nil && slices.Contains(s.Required, name)
 }
 
 // Open returns set's files as its loader reads them (see overlay), from

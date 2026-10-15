@@ -164,10 +164,30 @@ func runWithReader(
 		},
 	}
 
-	if _, err = engine.Execute(workflow, req); err != nil {
+	result, err := engine.Execute(workflow, req)
+	if err != nil {
 		return fmt.Errorf("file input: workflow execution failed: %w", err)
 	}
-	return nil
+	return writeResult(resultOut, result)
+}
+
+// resultOut is where a single-shot run prints its result (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var resultOut io.Writer = os.Stdout
+
+// writeResult prints the workflow's result as indented JSON: the run's
+// answer, after the progress lines.
+func writeResult(w io.Writer, result interface{}) error {
+	if result == nil {
+		return nil
+	}
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("file input: encode result: %w", err)
+	}
+	_, err = fmt.Fprintln(w, string(data))
+	return err
 }
 
 func resolveFilePath(argPath string, cfg *domain.InputConfig) string {

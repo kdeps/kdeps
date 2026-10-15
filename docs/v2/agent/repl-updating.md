@@ -125,7 +125,17 @@ A set number toggles the whole set; `o<N>` opens it. Inside, numbers and ranges 
 
 Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a list of sets and items such as `KDEPS_PROFILE=docker,k8s,tools/bash_exec`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
 
-Whatever the profile, a command installs a set it loads the first time it needs it (`kdeps export` installs `docker` and `k8s`), and a workflow that calls a component not installed downloads it on that call:
+The profile is respected afterwards. A command that loads a set the profile leaves out installs only the items that set's loader requires, never the whole set: `kdeps` (the agent loop) under `minimum` adds 8 core commands (`help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`), the `normal` theme and the loop's required tools and harness, so `/help` lists those 8. Sets with nothing required (`events`, `actions`, `presets`) stay empty and are recorded as empty on purpose in `lock.json`, so the next start makes no network call. Every built-in command runs without its file; `kdeps install commands/goal` lists `/goal` in `/help`, `kdeps install commands` lists them all. A required item cannot be uninstalled.
+
+```text
+$ KDEPS_PROFILE=minimum kdeps
+Installing the minimum profile...
+Installing harness/compaction-system, ..., tools/goal_task_complete, ..., commands/help, ..., themes/normal (needed by this command)...
+```
+
+Switching to a smaller profile prunes: `kdeps profile minimum` after `agent` or `full` deletes every downloaded item the new profile does not cover (`commands/goal  remove  not in the profile`), and a set it leaves out entirely loses its required items too, except the base sets and the agent loop's. An item you install by name later is kept by `kdeps update`.
+
+Without a chosen profile (no terminal and no `KDEPS_PROFILE`), a command installs each set it loads whole the first time it needs it (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a component not installed downloads it on that call:
 
 ```text
 $ kdeps run workflow.yaml

@@ -34,7 +34,7 @@ const (
 func init() {
 	assets.Register(defaultsSet, assets.Spec{
 		Validate: func(data []byte, _ string) error { return yaml.Unmarshal(data, &ExecutorDefaults{}) },
-		Required: func(name string) bool { return name == defaultsItem },
+		Required: []string{defaultsItem},
 	})
 }
 

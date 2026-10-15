@@ -38,7 +38,7 @@ func TestProfiles_NamesAndLookup(t *testing.T) {
 
 func TestProfile_Targets(t *testing.T) {
 	withSource(t, nil)
-	Register("tools", Spec{Required: func(n string) bool { return n == "keep" }})
+	Register("tools", Spec{Required: []string{"keep"}})
 	idx := Index{Items: map[string]IndexItem{"tools/keep": {}, "tools/other": {}, "harness/x": {}}}
 
 	full, _ := ProfileByName("full")
@@ -100,4 +100,83 @@ func TestInstallOnDemand(t *testing.T) {
 	SetOnDemand(func(id string) bool { got = id; return true })
 	assert.True(t, InstallOnDemand("components/sql"))
 	assert.Equal(t, "components/sql", got)
+}
+
+func TestSelect_PrunesWhatTheNewProfileLeavesOut(t *testing.T) {
+	withSource(t, nil)
+	t.Setenv(SourceEnv, t.TempDir())
+	c := publishedServer(t, map[string]map[string]string{
+		"harness/safety": {"1.0.0": "version: 1.0.0\nbody: a\n"},
+		"themes/vim":     {"1.0.0": "version: 1.0.0\nbody: v\n"},
+		"events/ping":    {"1.0.0": "version: 1.0.0\nbody: p\n"},
+	}, nil)
+	root := t.TempDir()
+	ctx := context.Background()
+	_, err := Select(ctx, root, c, "full", []string{"harness", "themes", "events"})
+	require.NoError(t, err)
+	assert.FileExists(t, FilePath(root, "themes", "vim"))
+
+	changes, err := Select(ctx, root, c, "custom", []string{"harness", "events/ping"})
+	require.NoError(t, err)
+	got := byID(changes)
+	assert.Equal(t, ActionRemove, got["themes/vim"].Action, "a set the new profile leaves out is dropped")
+	assert.Equal(t, "not in the profile", got["themes/vim"].Note)
+	assert.Equal(t, ActionCurrent, got["harness/safety"].Action)
+	assert.Equal(t, ActionCurrent, got["events/ping"].Action, "a selected item stays")
+	assert.NoFileExists(t, FilePath(root, "themes", "vim"))
+	assert.FileExists(t, FilePath(root, "events", "ping"))
+	lock, err := ReadLock(root)
+	require.NoError(t, err)
+	assert.NotContains(t, lock.Items, "themes/vim", "forgotten: installing the set again brings it back")
+
+	assert.True(t, Covered([]string{"themes"}, "themes/vim"))
+	assert.True(t, Covered([]string{"themes/vim"}, "themes/vim"))
+	assert.False(t, Covered([]string{"themes/normal"}, "themes/vim"))
+}
+
+func TestMissingRequired(t *testing.T) {
+	withSource(t, fstest.MapFS{
+		"harness/core.yaml":              {Data: []byte("version: 1.0.0\n")},
+		"templates/web/" + ManifestFile:  {Data: []byte("version: 1.0.0\n")},
+		"templates/web/workflow.yaml.j2": {Data: []byte("x")},
+		"harness/extra.yaml":             {Data: []byte("version: 1.0.0\n")},
+	})
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
+	Register("harness", Spec{Required: []string{"core", "gone"}})
+	Register(templatesSet, Spec{Required: []string{"web", "absent"}})
+	t.Cleanup(func() {
+		Register("harness", Spec{})
+		Register(templatesSet, Spec{})
+	})
+	assert.Equal(t, []string{"core", "gone"}, RequiredItems("harness"))
+	assert.Nil(t, RequiredItems("nope"))
+	assert.Equal(t, []string{"harness/gone", "templates/absent"}, MissingRequired([]string{"harness", templatesSet}),
+		"files and bundles are both found by their layout")
+}
+
+func TestSelect_KeepsRequiredOnlyForKeptSets(t *testing.T) {
+	withSource(t, nil)
+	t.Setenv(SourceEnv, t.TempDir())
+	Register("docker", Spec{Required: []string{"image"}})
+	Register("tools", Spec{Required: []string{"keep"}})
+	t.Cleanup(func() {
+		Register("docker", Spec{})
+		Register("tools", Spec{})
+	})
+	c := publishedServer(t, map[string]map[string]string{
+		"docker/image": {"1.0.0": "version: 1.0.0\nbody: d\n"},
+		"tools/keep":   {"1.0.0": "version: 1.0.0\nbody: k\n"},
+		"tools/extra":  {"1.0.0": "version: 1.0.0\nbody: e\n"},
+	}, nil)
+	root := t.TempDir()
+	ctx := context.Background()
+	_, err := Select(ctx, root, c, "full", []string{"docker", "tools"})
+	require.NoError(t, err)
+	changes, err := Select(ctx, root, c, "minimum", BaseSets)
+	require.NoError(t, err)
+	got := byID(changes)
+	assert.Equal(t, ActionRemove, got["docker/image"].Action, "a set left out loses its required items too")
+	assert.Equal(t, ActionRemove, got["tools/extra"].Action)
+	assert.NotContains(t, got, "tools/keep", "the agent loop's required items stay")
+	assert.FileExists(t, FilePath(root, "tools", "keep"))
 }

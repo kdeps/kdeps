@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -44,7 +43,7 @@ func init() {
 			_, err := parseYAMLHarnessEntry(data, name)
 			return err
 		},
-		Required: func(name string) bool { return slices.Contains(requiredHarness, name) },
+		Required: requiredHarness,
 		Context:  harnessContext,
 	})
 	assets.Register("events", assets.Spec{Validate: func(data []byte, name string) error {
@@ -64,11 +63,11 @@ func init() {
 			_, err := parseYAMLTheme(data, name)
 			return err
 		},
-		Required: func(name string) bool { return name == "normal" },
+		Required: []string{"normal"},
 	})
 	assets.Register("tools", assets.Spec{
 		Validate: validateToolDefinition,
-		Required: func(name string) bool { return slices.Contains(requiredTools, name) },
+		Required: requiredTools,
 		Context:  toolContext,
 	})
 	assets.Register("commands", assets.Spec{
@@ -76,21 +75,17 @@ func init() {
 			_, err := parseYAMLCommand(data, name)
 			return err
 		},
-		Required: builtinCommandItem,
+		Required: requiredCommands,
 	})
 }
 
-// builtinCommandItem reports whether item is the file of a command kdeps
-// handles in Go: it can be updated, not removed, so /help and completion
-// keep the command.
-func builtinCommandItem(item string) bool {
-	for _, c := range slashCommands {
-		if c.item == item {
-			return c.Builtin
-		}
-	}
-	return false
-}
+// requiredCommands are the command files every agent loop keeps: the
+// commands to get help, switch model, manage the session and install more.
+// Every other built-in command still runs without its file; installing the
+// file lists it in /help and completion.
+//
+//nolint:gochecknoglobals // fixed list
+var requiredCommands = []string{"help", "exit", "clear", "model", "compact", "session", "settings", "update"}
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,
 // prompt refinement and the session handshake are built on. They can be

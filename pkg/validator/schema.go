@@ -42,9 +42,7 @@ var schemaNames = []string{"workflow", "resource", "agency", "component"}
 
 //nolint:gochecknoinits // registers the JSON schemas as a versioned asset set
 func init() {
-	assets.Register(schemasSet, assets.Spec{Validate: validateSchemaBundle, Required: func(name string) bool {
-		return name == schemasItem
-	}})
+	assets.Register(schemasSet, assets.Spec{Validate: validateSchemaBundle, Required: []string{schemasItem}})
 }
 
 // validateSchemaBundle checks that a downloaded schemas bundle holds every

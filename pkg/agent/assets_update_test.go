@@ -134,14 +134,19 @@ func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
 	})
 	t.Setenv(ProfileEnv, "themes")
 	var out bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
+	err := EnsureSets(context.Background(), &out, nil, []string{"tools"})
+	require.ErrorContains(t, err, "kdeps update tools",
+		"the profile leaves tools out and its required items are not published here")
 	assert.Contains(t, out.String(), "Installing the custom profile")
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
 	assert.Equal(t, "custom", lock.Profile)
+	assert.NotContains(t, lock.Items, "tools/md5_file", "not required: not installed")
 	assert.Contains(t, lock.Selection, "themes")
 	assert.Contains(t, lock.Selection, "schemas", "base sets always")
-	assert.Empty(t, assets.MissingOf([]string{"tools", "themes"}))
+	assert.Empty(t, assets.MissingOf([]string{"themes"}))
+	assert.Equal(t, []string{"tools"}, assets.MissingOf([]string{"tools"}),
+		"the chosen profile is respected: a set it leaves out gets only required items (none published here)")
 }
 
 func TestEnsureSets_FirstRunPicker(t *testing.T) {
@@ -150,14 +155,39 @@ func TestEnsureSets_FirstRunPicker(t *testing.T) {
 	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
 	var out bytes.Buffer
 	in := strings.NewReader("x\n1\n")
-	require.NoError(t, EnsureSets(context.Background(), &out, in, []string{"tools"}))
+	require.ErrorContains(t, EnsureSets(context.Background(), &out, in, []string{"tools"}), "kdeps update tools")
 	assert.Contains(t, out.String(), "What will you use kdeps for?")
 	assert.Contains(t, out.String(), "pick a number from the list")
 	assert.Contains(t, out.String(), "Installing the minimum profile")
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
 	assert.Equal(t, "minimum", lock.Profile)
-	assert.Empty(t, assets.MissingOf([]string{"tools"}), "needed set added after the profile")
+	assert.Equal(t, []string{"tools"}, assets.MissingOf([]string{"tools"}), "minimum leaves tools out")
+	assert.NotContains(t, out.String(), "Installing tools")
+}
+
+func TestEnsureSets_ProfileGetsOnlyRequiredItems(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv(ProfileEnv, "minimum")
+	root := serveAssets(t, map[string]string{
+		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+		"themes/vim@1.0.0":    "version: 1.0.0\nname: vim\n",
+	})
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"themes", "events"}))
+	assert.Contains(t, out.String(), "Installing themes/normal (needed by this command)")
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Contains(t, lock.Items, "themes/normal", "the required theme")
+	assert.NotContains(t, lock.Items, "themes/vim", "not the rest of the set")
+	assert.Equal(t, []string{"events"}, assets.MissingOf([]string{"events"}), "a set with nothing required stays empty")
+	assert.Equal(t, []string{"events"}, lock.Empty, "recorded as empty on purpose")
+
+	t.Setenv("KDEPS_ASSETS_URL", "off")
+	out.Reset()
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"themes", "events"}),
+		"offline: an empty-on-purpose set is not missing")
+	assert.Empty(t, out.String())
 }
 
 func TestResolveProfileChoice(t *testing.T) {

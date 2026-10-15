@@ -118,7 +118,7 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
-Anything a later command needs is installed the first time it is used, so a small profile never blocks you. In CI or Docker there is no prompt: set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads. Details: [Updating assets](/agent/repl-updating#updating-assets).
+A later command that needs more installs only the items its loader requires, so a small profile stays small and never blocks you: under `minimum`, the agent loop adds just 8 core commands and the tools it cannot run without. `kdeps install <set>` adds a set, and `kdeps profile <name>` switches profile, pruning what the new one leaves out. In CI or Docker there is no prompt: set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads. Details: [Updating assets](/agent/repl-updating#updating-assets).
 
 ## Docker (optional)
 
