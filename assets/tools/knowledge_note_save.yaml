@@ -1,6 +1,6 @@
-version: 1.0.0
+version: 2.0.0
 category: memory
-description: 'Save a new note in the knowledge vault: one idea per note, with frontmatter (type, status, created, summary, tags, links). Refuses a title that already has a note - one home per fact, so edit that note instead. Use for a decision, a gotcha, a concept or a tool worth remembering beyond this session; status and next steps go to the card instead.'
+description: 'Save a new note in the knowledge vault: one idea per note, with frontmatter (type, status, created, summary, tags, links). Refuses a title that already has a note - one home per fact, so edit that note instead. Use for a decision, a gotcha, a concept or a tool worth remembering beyond this session; it goes in the project''s folder unless scope says otherwise. Status and next steps go to the card instead.'
 parameters:
   title:
     type: string
@@ -17,9 +17,9 @@ parameters:
   type:
     type: string
     description: 'decision, gotcha, concept, tool or note (default note)'
-  folder:
+  scope:
     type: string
-    description: 'inbox, projects, areas, resources (default) or archives, or a vault-relative folder'
+    description: 'project (default: the working directory''s project - notes/, or decisions/ for type decision), shared (knowledge across projects) or inbox'
   tags:
     type: string
     description: Comma-separated tags

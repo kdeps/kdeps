@@ -84,7 +84,7 @@ func validateUnknownKeys(data []byte) []string {
 	warnings = append(warnings, subKeyWarnings(root, "resource_defaults", knownResourceDefaultsKeys,
 		"unknown resource_defaults key %q — valid keys: chat, http, python, exec, sql, onError")...)
 	warnings = append(warnings, subKeyWarnings(root, "knowledge", knownKnowledgeKeys,
-		"unknown knowledge key %q — valid keys: enabled, vault, workspace, session_notes, recall, extract")...)
+		"unknown knowledge key %q — valid keys: enabled, vault, session_notes, workflow_notes, recall, extract")...)
 
 	return warnings
 }

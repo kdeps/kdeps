@@ -142,7 +142,7 @@ func (b *builder) link(from, to, rel string) {
 
 // Build parses the vault (and the Go code behind cards' repo links),
 // reusing cached parses of unchanged files, and writes graph.json to dir.
-func Build(ctx context.Context, v Vault, w Workspace, dir string, now time.Time) (*Graph, BuildStats, error) {
+func Build(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, BuildStats, error) {
 	var st BuildStats
 	next := buildCache{Version: parserVersion, Files: map[string]cacheEntry{}}
 	b := &builder{
@@ -158,7 +158,7 @@ func Build(ctx context.Context, v Vault, w Workspace, dir string, now time.Time)
 		b.addNote(n, resolve)
 	}
 	b.addExtracted(dir, notes, resolve)
-	b.addCode(ctx, w, v)
+	b.addCode(ctx, v)
 	g := &Graph{Vault: v.Root, Built: now.UTC()}
 	for _, n := range b.nodes {
 		g.Nodes = append(g.Nodes, n)

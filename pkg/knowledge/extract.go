@@ -107,7 +107,7 @@ var (
 // skipExtract reports notes that hold no story: cards, the routing table,
 // the schema.
 func skipExtract(n *Note) bool {
-	return strings.HasPrefix(n.Path, "records/") || n.Path == RoutingFile || n.Path == "schema.md"
+	return IsCardPath(n.Path) || n.Path == RoutingFile || n.Path == "schema.md"
 }
 
 // Extract asks a model what each changed note is about, a few notes at a

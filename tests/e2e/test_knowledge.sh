@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # E2E: the knowledge vault - kdeps knowledge init, build, recall and check.
-#   - init scaffolds an existing folder without touching its files and
-#     records the vault in config.yaml
+#   - init scaffolds projects/, shared/, inbox/, archive/ in an existing
+#     folder without touching its files and records the vault in config.yaml
 #   - build reads notes, wikilinks, frontmatter links and the Go code behind
 #     a card's repo link into <vault>/.index; a second build re-reads nothing
 #   - recall names the related notes for a request, within a token budget
@@ -17,7 +17,7 @@ KN_DIR=$(mktemp -d)
 trap 'rm -rf "$KN_DIR"' EXIT
 KN_VAULT="$KN_DIR/notes"
 KN_REPO="$KN_DIR/repo"
-mkdir -p "$KN_VAULT/01 Projects/app" "$KN_REPO/store"
+mkdir -p "$KN_VAULT" "$KN_REPO/store"
 printf 'mine\n' > "$KN_VAULT/KDEPS.md"
 printf 'module example.com/app\n\ngo 1.26\n' > "$KN_REPO/go.mod"
 printf 'package main\n\nimport _ "example.com/app/store"\n\nfunc main() {}\n' > "$KN_REPO/main.go"
@@ -34,14 +34,15 @@ kn() {
 
 OUT=$(kn init "$KN_VAULT")
 if output_grep "created .*schema.md" "$OUT" && output_grep "Set knowledge.vault" "$OUT" &&
-    [ "$(cat "$KN_VAULT/KDEPS.md")" = "mine" ] && [ -d "$KN_VAULT/records/projects" ] &&
-    [ ! -d "$KN_VAULT/Projects" ] && grep -q "vault:.*notes" "$KN_DIR/config.yaml"; then
-    test_passed "knowledge - init scaffolds without touching existing files, reuses 01 Projects"
+    [ "$(cat "$KN_VAULT/KDEPS.md")" = "mine" ] && [ -d "$KN_VAULT/projects" ] && [ -d "$KN_VAULT/shared" ] &&
+    [ -d "$KN_VAULT/inbox" ] && [ -d "$KN_VAULT/archive" ] && grep -q "vault:.*notes" "$KN_DIR/config.yaml"; then
+    test_passed "knowledge - init scaffolds projects/ shared/ inbox/ archive/ without touching existing files"
 else
     test_failed "knowledge - init" "$OUT"
 fi
 
-cat > "$KN_VAULT/records/projects/app.md" <<CARD
+mkdir -p "$KN_VAULT/projects/app/decisions"
+cat > "$KN_VAULT/projects/app/app.md" <<CARD
 ---
 type: project
 status: active
@@ -51,9 +52,8 @@ updated: 2026-10-15
 | Source | Path |
 |---|---|
 | repo | $(native "$KN_REPO") |
-| vault | 01 Projects/app |
 CARD
-cat > "$KN_VAULT/01 Projects/app/Database choice.md" <<'NOTE'
+cat > "$KN_VAULT/projects/app/decisions/Database choice.md" <<'NOTE'
 ---
 type: decision
 summary: Postgres over MongoDB for joins and transactions.
@@ -62,8 +62,7 @@ links: ["[[Webhook retries]]"]
 ---
 We picked Postgres.
 NOTE
-mkdir -p "$KN_VAULT/Resources"
-cat > "$KN_VAULT/Resources/Webhook retries.md" <<'NOTE'
+cat > "$KN_VAULT/shared/Webhook retries.md" <<'NOTE'
 ---
 type: gotcha
 summary: Webhooks retry for 3 days; handlers must be idempotent.
@@ -81,14 +80,14 @@ else
 fi
 
 OUT=$(kn recall "why postgres")
-if output_grep "01 Projects/app/Database choice.md" "$OUT" && output_grep "Resources/Webhook retries.md" "$OUT" &&
+if output_grep "projects/app/decisions/Database choice.md" "$OUT" && output_grep "shared/Webhook retries.md" "$OUT" &&
     output_grep "[0-9]+ notes, ~[0-9]+ tokens" "$OUT"; then
     test_passed "knowledge - recall names the decision and the gotcha it links"
 else
     test_failed "knowledge - recall" "$OUT"
 fi
 
-printf -- '---\nsummary: x\nnext: do it\n---\n' > "$KN_VAULT/Resources/Stray status.md"
+printf -- '---\nsummary: x\nnext: do it\n---\n' > "$KN_VAULT/shared/Stray status.md"
 if OUT=$(kn check); then
     test_failed "knowledge - check fails on findings" "$OUT"
 elif output_grep "Stray status.md: has a next step; it belongs in the project card" "$OUT" &&
@@ -112,7 +111,7 @@ KD_HOME="$KN_DIR/default-home"
 mkdir -p "$KD_HOME"
 OUT=$(HOME="$KD_HOME" USERPROFILE="$(native "$KD_HOME")" KDEPS_CONFIG_PATH="$KD_HOME/config.yaml" \
     KDEPS_DATA_DIR="$KD_HOME/data" "$KDEPS_BIN" knowledge init 2>&1 </dev/null)
-if [ -f "$KD_HOME/.kdeps/notes/KDEPS.md" ] && [ -d "$KD_HOME/.kdeps/notes/records/projects" ] &&
+if [ -f "$KD_HOME/.kdeps/notes/KDEPS.md" ] && [ -d "$KD_HOME/.kdeps/notes/projects" ] &&
     ! output_grep "Set knowledge.vault" "$OUT"; then
     test_passed "knowledge - init without a folder sets up the default vault ~/.kdeps/notes"
 else

@@ -347,8 +347,8 @@ match any installed workflow's `metadata.name`.
 knowledge:
   enabled: true               # on by default for agent sessions; false turns it off
   vault: ~/.kdeps/notes       # folder of markdown notes the agent recalls from each turn (default)
-  workspace: ~/.kdeps/notes   # KDEPS.md routing table + records/ cards (default: the vault)
   session_notes: true         # write a note per session into the project's sessions/ folder
+  workflow_notes: false       # workflow chat calls log to projects/<workflow>/sessions/ (default false)
   recall:
     hops: 2                   # how far from the matched notes to walk the link graph
     budget_tokens: 1500       # most tokens of recalled paths and summaries per turn

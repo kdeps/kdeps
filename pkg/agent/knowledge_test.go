@@ -47,10 +47,10 @@ func knowledgeLoop(t *testing.T) (*Loop, string) {
 	wd := t.TempDir()
 	t.Chdir(wd)
 	files := map[string]string{
-		"records/projects/app.md":          "---\ntype: project\nstatus: active\nnext: ship\nupdated: 2026-10-01\n---\n| Source | Path |\n|---|---|\n| repo | " + wd + " |\n",
-		"Projects/app/Billing decision.md": "---\ntype: decision\nsummary: Bill monthly.\n---\nSee [[Stripe gotcha]].\n",
-		"Resources/Stripe gotcha.md":       "---\ntype: gotcha\nsummary: Webhooks retry for 3 days.\n---\n",
-		"KDEPS.md":                         "# Workspace routing\n",
+		"projects/app/app.md":                        "---\ntype: project\nstatus: active\nnext: ship\nupdated: 2026-10-01\n---\n| Source | Path |\n|---|---|\n| repo | " + wd + " |\n",
+		"projects/app/decisions/Billing decision.md": "---\ntype: decision\nsummary: Bill monthly.\n---\nSee [[Stripe gotcha]].\n",
+		"shared/Stripe gotcha.md":                    "---\ntype: gotcha\nsummary: Webhooks retry for 3 days.\n---\n",
+		"KDEPS.md":                                   "# Workspace routing\n",
 	}
 	for p, c := range files {
 		abs := filepath.Join(vault, filepath.FromSlash(p))
@@ -74,13 +74,13 @@ func TestNewKnowledgeState(t *testing.T) {
 	def := newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: "  "})
 	require.NotNil(t, def)
 	assert.Equal(t, knowledge.DefaultVault(), def.vault.Root, "blank means the default vault")
-	assert.DirExists(t, filepath.Join(def.vault.Root, "records", "projects"), "a new vault is set up")
+	assert.DirExists(t, filepath.Join(def.vault.Root, "projects"), "a new vault is set up")
+	assert.DirExists(t, filepath.Join(def.vault.Root, "shared"))
 	assert.FileExists(t, filepath.Join(def.vault.Root, "KDEPS.md"))
 	t.Cleanup(func() { _ = os.RemoveAll(def.vault.Root) })
-	v, w := t.TempDir(), t.TempDir()
-	k := newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: v, Workspace: w, SessionNotes: &off})
+	v := t.TempDir()
+	k := newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: v, SessionNotes: &off})
 	assert.Equal(t, v, k.vault.Root)
-	assert.Equal(t, w, k.ws.Root)
 	assert.False(t, k.sessionNotes())
 	assert.True(t, newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: v}).sessionNotes())
 	assert.Nil(t, k.idx(), "no graph yet")
@@ -93,7 +93,7 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 	item := l.knowledgeRecallItem("why do we bill monthly", &out)
 	require.NotNil(t, item)
 	assert.Equal(t, "system", item.Role)
-	assert.Contains(t, item.Prompt, filepath.Join(vault, "Projects", "app", "Billing decision.md"))
+	assert.Contains(t, item.Prompt, filepath.Join(vault, "projects", "app", "decisions", "Billing decision.md"))
 	assert.Regexp(t, `recall: \d notes \(~\d+ tok\)`, out.String())
 	assert.Nil(t, l.knowledgeRecallItem("  ", nil))
 	assert.Nil(t, l.knowledgeRecallItem("zzzunrelated", nil))
@@ -108,7 +108,7 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 	state := l.turnStateBlock("anything")
 	assert.Contains(t, state, "<knowledge-status>")
 	assert.Contains(t, state, "| app | project | active | ship | 2026-10-01 |")
-	assert.Contains(t, state, `belongs to card "app"`)
+	assert.Contains(t, state, `is project "app"`)
 	assert.Empty(t, (&Loop{}).knowledgePreamble())
 	assert.Nil(t, (&Loop{}).knowledgeRecallItem("x", nil))
 	_, _, ok = (&Loop{}).LastRecall()
@@ -157,30 +157,57 @@ func TestKnowledgeTools(t *testing.T) {
 	require.Error(t, err)
 	_, err = call("knowledge_note_save", map[string]any{"title": "Stripe gotcha", "summary": "s", "body": "b"})
 	require.ErrorContains(t, err, "one home per fact")
-	_, err = call("knowledge_note_save", map[string]any{"title": "x", "summary": "s", "body": "b", "folder": "../out"})
-	require.ErrorContains(t, err, "outside the vault")
+	_, err = call("knowledge_note_save", map[string]any{"title": "x", "summary": "s", "body": "b", "scope": "../out"})
+	require.ErrorContains(t, err, "scope is project, shared or inbox")
 	out, err = call("knowledge_note_save", map[string]any{
 		"title": "Retry budget", "summary": "Retries stop after 3.", "body": "See [[Stripe gotcha]].",
-		"type": "gotcha", "tags": "billing, #ops", "links": "Stripe gotcha", "folder": "areas",
+		"type": "gotcha", "tags": "billing, #ops", "links": "Stripe gotcha", "scope": "shared",
 	})
 	require.NoError(t, err)
-	file := filepath.Join(vault, "Areas", "Retry budget.md")
+	file := filepath.Join(vault, "shared", "Retry budget.md")
 	assert.Contains(t, out, file)
 	data, _ := os.ReadFile(file)
-	note := knowledge.ParseNote("Areas/Retry budget.md", data)
+	note := knowledge.ParseNote("shared/Retry budget.md", data)
 	assert.Equal(t, "gotcha", note.Type)
 	assert.Equal(t, []string{"billing", "ops"}, note.Tags)
 	assert.Equal(t, []string{"Stripe gotcha"}, note.MetaLinks)
+	_, err = call("knowledge_note_save", map[string]any{"title": "Plain", "summary": "s", "body": "b"})
+	require.NoError(t, err)
+	assert.FileExists(
+		t,
+		filepath.Join(vault, "projects", "app", "notes", "Plain.md"),
+		"the project's notes/ by default",
+	)
 	_, err = call(
 		"knowledge_note_save",
-		map[string]any{"title": "Plain", "summary": "s", "body": "b", "folder": "Sub/Dir"},
+		map[string]any{"title": "Use UTC", "summary": "s2", "body": "b", "type": "decision"},
 	)
 	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(vault, "Sub", "Dir", "Plain.md"))
+	assert.FileExists(t, filepath.Join(vault, "projects", "app", "decisions", "Use UTC.md"))
+	_, err = call(
+		"knowledge_note_save",
+		map[string]any{"title": "Later", "summary": "s3", "body": "b", "scope": "inbox"},
+	)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(vault, "inbox", "Later.md"))
 
-	t.Chdir(t.TempDir())
-	_, err = call("knowledge_card_get", map[string]any{})
-	require.ErrorContains(t, err, "no card covers")
+	out, err = call("knowledge_card_update", map[string]any{"name": "app", "status": "archived"})
+	require.NoError(t, err)
+	assert.Contains(t, out, filepath.Join(vault, "archive", "app", "app.md"), "archiving moves the project")
+	assert.NoDirExists(t, filepath.Join(vault, "projects", "app"))
+	moved := 0
+	l.knowledge.moved = func() { moved++ }
+	assert.Contains(t, l.turnStateBlock("x"), "| app | project | active", "a turn in an archived project reopens it")
+	assert.FileExists(t, filepath.Join(vault, "projects", "app", "app.md"))
+	assert.Positive(t, moved, "the loop hears the project moved")
+
+	fresh := filepath.Join(t.TempDir(), "fresh")
+	require.NoError(t, os.MkdirAll(fresh, 0o750))
+	t.Chdir(fresh)
+	out, err = call("knowledge_card_get", map[string]any{})
+	require.NoError(t, err)
+	assert.Contains(t, out, "card: fresh", "a new place gets its project on first use")
+	assert.FileExists(t, filepath.Join(vault, "projects", "fresh", "fresh.md"))
 
 	(&Loop{}).registerKnowledgeTools() // no registry, no vault: nothing to do
 }
@@ -192,14 +219,16 @@ func TestKnowledgeSessionNotes(t *testing.T) {
 	assert.True(t, l.SessionNoteDue())
 
 	var out bytes.Buffer
-	l.writeSessionNote("## Goal\nShip recall\n## Next Steps\n1. docs\n", &out)
+	l.writeSessionNote("## Goal\nShip recall\n## Key Decisions\n- **Monthly**: churn\n## Next Steps\n1. docs\n", &out)
 	assert.Contains(t, out.String(), "knowledge: session note")
+	assert.Contains(t, out.String(), "knowledge: 1 decision notes")
+	assert.FileExists(t, filepath.Join(vault, "projects", "app", "decisions", "Monthly.md"))
 	assert.False(t, l.SessionNoteDue(), "the note covers the turns so far")
-	matches, _ := filepath.Glob(filepath.Join(vault, "Projects", "app", "sessions", "*.md"))
+	matches, _ := filepath.Glob(filepath.Join(vault, "projects", "app", "sessions", "*.md"))
 	require.Len(t, matches, 1)
 	data, _ := os.ReadFile(matches[0])
 	assert.Contains(t, string(data), "session: session-")
-	card, _ := l.knowledge.ws.Card("app")
+	card, _ := l.knowledge.vault.Card("app")
 	assert.Equal(t, "docs", card.Next)
 
 	out.Reset()

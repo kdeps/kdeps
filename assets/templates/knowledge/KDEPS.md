@@ -1,25 +1,31 @@
-# Workspace routing
+# Vault routing
 
-This folder is the instructions. Read this table first, then the one card it
-points to, then only the notes the knowledge recall names. Never read the
+This vault is the long-term memory. Read this table first, then the
+project card, then only the notes the knowledge recall names. Never read the
 whole vault.
 
 ## Where everything lives
 
-| What | Home | Notes |
+Every place kdeps runs is a project with one folder, created and filled in by
+kdeps. Nothing here needs to be set up by hand.
+
+| What | Home | Written by |
 |---|---|---|
-| Project status, next step, links | `records/projects/<name>.md` (one card per project) | the only place status lives |
-| Client status, contacts, links | `records/clients/<name>.md` (one card per client) | |
-| Session history (focus, built, mistakes, decisions, wins) | the project's vault folder, `sessions/` | written by kdeps after each session |
-| Decisions and their rationale | session notes, and one note per decision in the vault | the card links, never repeats |
-| One idea per note (zettelkasten) | `Resources/` in the vault | |
-| Connections between notes | the knowledge graph (`kdeps knowledge build`) | kept outside the vault |
+| Project status and next step | `projects/<name>/<name>.md` (the card) | kdeps on first run; `knowledge_card_update` |
+| Session history (focus, built, mistakes, decisions, wins) | `projects/<name>/sessions/` | kdeps, every turn |
+| Saved facts (`[MEMORY: key] value`) | `projects/<name>/memory/` | kdeps, one note per key |
+| Decisions and their rationale | `projects/<name>/decisions/` | kdeps from session summaries; `knowledge_note_save` with type decision |
+| Ideas, gotchas, concepts for one project | `projects/<name>/notes/` | `knowledge_note_save`, or by hand |
+| Knowledge across projects | `shared/` | `knowledge_note_save` with scope shared, or by hand |
+| Unsorted notes | `inbox/` | by hand |
+| Finished projects | `archive/<name>/` | kdeps moves the folder when the card says `status: archived` |
+| Connections between notes | `.index/` (the link graph) | kdeps |
 | How to write cards and notes | `schema.md` | |
 
 ## Rules
 
-- One home per fact. Status lives in a card, the story in a note, connections
-  in the graph. A fact written in two places goes stale in one of them.
+- One home per fact. Status lives in the card, the story in notes, the
+  connections in the graph. A fact written in two places goes stale in one.
 - Cards stay short: frontmatter and a links table. They point; they do not
   tell the story.
 - Update a card with `knowledge_card_update`, never by copying status into a
@@ -29,5 +35,5 @@ whole vault.
 
 ## Status overview
 
-kdeps lists every card's status and next step here when it loads this file,
-read from the cards themselves. Do not copy status into this file.
+kdeps lists every active project's status and next step on each turn, read
+from the cards themselves. Do not copy status into this file.

@@ -53,32 +53,9 @@ const (
 	maxNoteSize = 2 << 20 // notes larger than 2 MiB are skipped
 )
 
-// PARA roles, in folder order.
-const (
-	RoleInbox     = "inbox"
-	RoleProjects  = "projects"
-	RoleAreas     = "areas"
-	RoleResources = "resources"
-	RoleArchives  = "archives"
-)
-
-// Roles lists the PARA roles in order.
-//
-//nolint:gochecknoglobals // fixed list
-var Roles = []string{RoleInbox, RoleProjects, RoleAreas, RoleResources, RoleArchives}
-
-// defaultFolders names a PARA folder kdeps creates when the vault has none.
-//
-//nolint:gochecknoglobals // fixed table
-var defaultFolders = map[string]string{
-	RoleInbox: "Inbox", RoleProjects: "Projects", RoleAreas: "Areas",
-	RoleResources: "Resources", RoleArchives: "Archives",
-}
-
 var (
 	wikiLinkRe   = regexp.MustCompile(`\[\[([^\]|#^]+)(?:[#^][^\]|]*)?(?:\|[^\]]*)?\]\]`)
 	mdLinkRe     = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+?\.md)(?:#[^)]*)?\)`)
-	paraNameRe   = regexp.MustCompile(`^[0-9]*[\s._-]*`)
 	inlineCodeRe = regexp.MustCompile("`[^`]*`")
 )
 
@@ -103,36 +80,6 @@ type Note struct {
 // Vault is a folder of markdown notes.
 type Vault struct {
 	Root string
-}
-
-// Folder returns the vault-relative folder for a PARA role: an existing
-// top-level folder whose name, without a number prefix, is the role
-// (case-insensitive; "archive" counts), else the default name.
-func (v Vault) Folder(role string) string {
-	entries, err := os.ReadDir(v.Root)
-	if err == nil {
-		for _, e := range entries {
-			if e.IsDir() && paraRole(e.Name()) == role {
-				return e.Name()
-			}
-		}
-	}
-	return defaultFolders[role]
-}
-
-// paraRole maps a folder name to its PARA role, or "".
-func paraRole(name string) string {
-	n := strings.ToLower(paraNameRe.ReplaceAllString(name, ""))
-	n = strings.TrimSpace(n)
-	if n == "archive" {
-		return RoleArchives
-	}
-	for _, r := range Roles {
-		if n == r {
-			return r
-		}
-	}
-	return ""
 }
 
 // Walk returns every note of the vault, sorted by path. Hidden folders and
@@ -325,9 +272,9 @@ func GraphDir(vault string) string {
 	return filepath.Join(vault, IndexFolder)
 }
 
-// Configured is the vault and workspace ~/.kdeps/config.yaml names (the
-// default vault when it names none), and whether recall is enabled.
-func Configured() (string, string, *config.KnowledgeConfig) {
+// Configured is the vault ~/.kdeps/config.yaml names (the default vault
+// when it names none) and the knowledge settings.
+func Configured() (string, *config.KnowledgeConfig) {
 	kc := &config.KnowledgeConfig{}
 	// Tests read a config only when they point at one, never the real file.
 	if !testing.Testing() || os.Getenv("KDEPS_CONFIG_PATH") != "" {
@@ -335,16 +282,12 @@ func Configured() (string, string, *config.KnowledgeConfig) {
 			kc = cfg.Knowledge
 		}
 	}
-	home, _ := os.UserHomeDir()
 	vault := DefaultVault()
 	if strings.TrimSpace(kc.Vault) != "" {
+		home, _ := os.UserHomeDir()
 		vault = ExpandPath(kc.Vault, home)
 	}
-	workspace := vault
-	if strings.TrimSpace(kc.Workspace) != "" {
-		workspace = ExpandPath(kc.Workspace, home)
-	}
-	return vault, workspace, kc
+	return vault, kc
 }
 
 // ExpandPath resolves a leading "~/" and makes a path absolute against base.

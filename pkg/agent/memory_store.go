@@ -33,6 +33,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
 )
 
@@ -124,8 +125,9 @@ const (
 type MemoryStore struct {
 	mu       sync.RWMutex
 	saveMu   sync.Mutex             // serializes note writes, held independently of mu
-	basePath string                 // the vault's Memory folder (or a test root)
-	path     string                 // this project's folder (empty until SetCwd)
+	basePath string                 // the vault (or a test root)
+	path     string                 // this project's memory folder (empty until SetCwd)
+	cwd      string                 // the working directory SetCwd was given ("" when global)
 	migrate  bool                   // move the old database in once (default root only)
 	legacy   string                 // that database ("" when none)
 	entries  map[string]MemoryEntry // key -> entry (in-memory cache)
@@ -149,13 +151,14 @@ func NewMemoryStore(basePath string) *MemoryStore {
 	}
 }
 
-// SetCwd configures per-directory memory isolation: memory is stored under
-// basePath/<project>/ (the knowledge card's name for the folder, else the
-// folder's name and a short hash). Call with os.Getwd() at startup.
+// SetCwd configures per-directory memory isolation: memory is stored in
+// the memory/ folder of cwd's project in the vault at basePath. Call with
+// os.Getwd() at startup.
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.path = filepath.Join(m.basePath, memoryProjectFolder(cwd))
+	m.cwd = cwd
+	m.path = projectMemoryDir(m.basePath, cwd)
 	if m.migrate {
 		m.legacy = legacyMemoryPath(encodeCwd(cwd))
 	}
@@ -163,13 +166,37 @@ func (m *MemoryStore) SetCwd(cwd string) {
 
 // SetGlobal configures memory to be shared across every project/session
 // instead of isolated per working directory (see SetCwd) -- stored under
-// basePath/global/. Call instead of SetCwd, never both.
+// <vault>/shared/memory/. Call instead of SetCwd, never both.
 func (m *MemoryStore) SetGlobal() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.path = filepath.Join(m.basePath, memoryGlobalName)
+	m.cwd = ""
+	m.path = filepath.Join(m.basePath, knowledge.SharedFolder, knowledge.MemoryFolder)
 	if m.migrate {
 		m.legacy = legacyMemoryPath(memoryGlobalName)
+	}
+}
+
+// Rebase points the store at its project's memory folder again after the
+// project folder moved (archived, or back from the archive), keeping every
+// entry and the notes it already wrote.
+func (m *MemoryStore) Rebase() {
+	m.mu.Lock() // the order Load takes them in
+	defer m.mu.Unlock()
+	m.saveMu.Lock()
+	defer m.saveMu.Unlock()
+	if m.cwd == "" {
+		return
+	}
+	old := m.path
+	m.path = projectMemoryDir(m.basePath, m.cwd)
+	if old == m.path {
+		return
+	}
+	for key, f := range m.files {
+		if rel, err := filepath.Rel(old, f); err == nil && !strings.HasPrefix(rel, "..") {
+			m.files[key] = filepath.Join(m.path, rel)
+		}
 	}
 }
 

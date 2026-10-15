@@ -107,7 +107,13 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	assert.Len(t, []rune(firstLineCapped(strings.Repeat("x", 300))), memorySummaryLen)
 	assert.Empty(t, formatMillis(0))
 	assert.Zero(t, parseMillis("nope"))
-	assert.Regexp(t, `^root-[0-9a-f]{6}$`, memoryProjectFolder(string(filepath.Separator)))
+	root := t.TempDir()
+	plain := filepath.Join(t.TempDir(), "plain")
+	assert.Equal(t, filepath.Join(root, "projects", "plain", "memory"), projectMemoryDir(root, plain),
+		"a place without a card: the project kdeps creates for it")
+	card, _, err := knowledge.Vault{Root: root}.CreateProject("named", knowledge.SourceFolder, plain, time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(card.Dir(), "memory"), projectMemoryDir(root, filepath.Join(plain, "sub")))
 	assert.Empty(t, legacyMemoryPath("x"), "tests never touch the real old store")
 
 	s := NewMemoryStore(t.TempDir())
@@ -117,4 +123,31 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	require.NoError(t, s.migrateLegacy(), "no old database: nothing to move")
 	require.NoError(t, os.WriteFile(s.legacy, []byte("not bolt"), 0o600))
 	require.Error(t, s.migrateLegacy())
+}
+
+func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
+	root := t.TempDir()
+	cwd := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(cwd, 0o750))
+	v := knowledge.Vault{Root: root}
+	card, _, err := v.EnsureProject(cwd, time.Now())
+	require.NoError(t, err)
+	s := NewMemoryStore(root)
+	s.SetCwd(cwd)
+	require.NoError(t, s.Load())
+	require.NoError(t, s.Set("fact:a", "one"))
+	require.NoError(t, v.SetStatus(card, knowledge.StatusArchived, "", time.Now()))
+
+	s.Rebase()
+	assert.Equal(t, filepath.Join(root, "archive", "proj", "memory"), s.path)
+	require.NoError(t, s.Set("fact:b", "two"))
+	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-a.md"))
+	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-b.md"))
+	assert.NoDirExists(t, filepath.Join(root, "projects", "proj"), "nothing is written to the old place")
+	s.Rebase() // unchanged: nothing to do
+
+	g := NewMemoryStore(root)
+	g.SetGlobal()
+	g.Rebase()
+	assert.Equal(t, filepath.Join(root, "shared", "memory"), g.path, "global memory never moves")
 }

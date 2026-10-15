@@ -33,7 +33,7 @@ import (
 
 func buildNow() time.Time { return time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC) }
 
-func sampleVault(t *testing.T) (Vault, Workspace, string) {
+func sampleVault(t *testing.T) (Vault, string) {
 	t.Helper()
 	repo := t.TempDir()
 	require.NoError(
@@ -56,21 +56,21 @@ func sampleVault(t *testing.T) (Vault, Workspace, string) {
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "vendor", "x", "x.go"), []byte("package x\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "broken.go"), []byte("not go"), 0o600))
 	root := writeVault(t, map[string]string{
-		"records/projects/app.md": "---\ntype: project\nstatus: active\nnext: x\nupdated: 2026-10-01\n---\n| Source | Path |\n|---|---|\n| repo | " + repo + " |\n",
-		"Projects/app/app HUB.md": "---\ntype: hub\nsummary: Hub for app\n---\n[[Billing decision]]\n",
-		"Projects/app/Billing decision.md": "---\ntype: decision\nsummary: Bill monthly, not per call.\n" +
-			"tags: [billing]\nlinks: [\"[[Stripe gotcha]]\"]\n---\nWhy: churn. See [notes](../../Resources/Pricing.md).\n",
-		"Resources/Stripe gotcha.md":   "---\ntype: gotcha\nsummary: Webhooks retry for 3 days.\ntags: [billing]\n---\n",
-		"Resources/Pricing.md":         "---\nsummary: Pricing tiers.\naliases: [tiers]\n---\n[[Nowhere]]\n",
-		"Archives/Billing decision.md": "---\nsummary: Old copy, far away.\n---\n",
+		"projects/app/app.md":            "---\ntype: project\nstatus: active\nnext: x\nupdated: 2026-10-01\n---\n| Source | Path |\n|---|---|\n| repo | " + repo + " |\n",
+		"projects/app/notes/Overview.md": "---\ntype: note\nsummary: Overview of app\n---\n[[Billing decision]]\n",
+		"projects/app/decisions/Billing decision.md": "---\ntype: decision\nsummary: Bill monthly, not per call.\n" +
+			"tags: [billing]\nlinks: [\"[[Stripe gotcha]]\"]\n---\nWhy: churn. See [notes](../../../shared/Pricing.md).\n",
+		"shared/Stripe gotcha.md":               "---\ntype: gotcha\nsummary: Webhooks retry for 3 days.\ntags: [billing]\n---\n",
+		"shared/Pricing.md":                     "---\nsummary: Pricing tiers.\naliases: [tiers]\n---\n[[Nowhere]]\n",
+		"archive/old/notes/Billing decision.md": "---\nsummary: Old copy, far away.\n---\n",
 	})
-	return Vault{Root: root}, Workspace{Root: root}, repo
+	return Vault{Root: root}, repo
 }
 
 func TestBuild_GraphAndCache(t *testing.T) {
-	v, w, _ := sampleVault(t)
+	v, _ := sampleVault(t)
 	dir := t.TempDir()
-	g, st, err := Build(t.Context(), v, w, dir, buildNow())
+	g, st, err := Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.Equal(t, 6, st.Notes)
 	assert.Equal(t, 6, st.Changed)
@@ -80,13 +80,21 @@ func TestBuild_GraphAndCache(t *testing.T) {
 		edges[e.From+" -> "+e.To] = e.Relation
 		assert.Equal(t, ProvExtracted, e.Provenance)
 	}
-	assert.Equal(t, RelReferences, edges["note:Projects/app/app HUB.md -> note:Projects/app/Billing decision.md"],
-		"the closest of two same-titled notes wins")
-	assert.Equal(t, RelRelatesTo, edges["note:Projects/app/Billing decision.md -> note:Resources/Stripe gotcha.md"])
-	assert.Equal(t, RelReferences, edges["note:Projects/app/Billing decision.md -> note:Resources/Pricing.md"])
-	assert.Equal(t, RelTagged, edges["note:Resources/Stripe gotcha.md -> tag:billing"])
+	assert.Equal(
+		t,
+		RelReferences,
+		edges["note:projects/app/notes/Overview.md -> note:projects/app/decisions/Billing decision.md"],
+		"the closest of two same-titled notes wins",
+	)
+	assert.Equal(
+		t,
+		RelRelatesTo,
+		edges["note:projects/app/decisions/Billing decision.md -> note:shared/Stripe gotcha.md"],
+	)
+	assert.Equal(t, RelReferences, edges["note:projects/app/decisions/Billing decision.md -> note:shared/Pricing.md"])
+	assert.Equal(t, RelTagged, edges["note:shared/Stripe gotcha.md -> tag:billing"])
 	assert.Equal(t, RelDependsOn, edges["code:example.com/app -> code:example.com/app/store"])
-	assert.Equal(t, RelReferences, edges["note:records/projects/app.md -> code:example.com/app"])
+	assert.Equal(t, RelReferences, edges["note:projects/app/app.md -> code:example.com/app"])
 	assert.Equal(t, []string{"Nowhere"}, g.Missing)
 
 	loaded, err := Load(dir)
@@ -94,20 +102,20 @@ func TestBuild_GraphAndCache(t *testing.T) {
 	assert.Len(t, loaded.Nodes, len(g.Nodes))
 	assert.FileExists(t, GraphPath(dir))
 
-	_, st, err = Build(t.Context(), v, w, dir, buildNow())
+	_, st, err = Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.Zero(t, st.Changed, "unchanged notes come from the cache")
 	require.NoError(
 		t,
-		os.WriteFile(filepath.Join(v.Root, "Resources/Pricing.md"), []byte("---\nsummary: New tiers.\n---\n"), 0o600),
+		os.WriteFile(filepath.Join(v.Root, "shared/Pricing.md"), []byte("---\nsummary: New tiers.\n---\n"), 0o600),
 	)
-	_, st, err = Build(t.Context(), v, w, dir, buildNow())
+	_, st, err = Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.Equal(t, 1, st.Changed)
 
 	_, err = Load(t.TempDir())
 	require.Error(t, err)
-	_, _, err = Build(t.Context(), Vault{Root: filepath.Join(v.Root, "missing")}, w, dir, buildNow())
+	_, _, err = Build(t.Context(), Vault{Root: filepath.Join(v.Root, "missing")}, dir, buildNow())
 	require.Error(t, err)
 }
 
@@ -129,24 +137,24 @@ func TestResolver(t *testing.T) {
 }
 
 func TestRecall(t *testing.T) {
-	v, w, _ := sampleVault(t)
-	g, _, err := Build(t.Context(), v, w, t.TempDir(), buildNow())
+	v, _ := sampleVault(t)
+	g, _, err := Build(t.Context(), v, t.TempDir(), buildNow())
 	require.NoError(t, err)
 	ix := NewIndex(g)
 
 	r := ix.Recall("why do we bill monthly?", 0, 0)
 	require.NotEmpty(t, r.Hits)
-	assert.Equal(t, "Projects/app/Billing decision.md", r.Hits[0].Note, "the decision itself first")
+	assert.Equal(t, "projects/app/decisions/Billing decision.md", r.Hits[0].Note, "the decision itself first")
 	var notes []string
 	for _, h := range r.Hits {
 		notes = append(notes, h.Note)
 	}
-	assert.Contains(t, notes, "Resources/Stripe gotcha.md", "a linked gotcha comes along")
+	assert.Contains(t, notes, "shared/Stripe gotcha.md", "a linked gotcha comes along")
 	assert.Positive(t, r.Tokens)
 
 	text := r.Format(v.Root)
 	assert.True(t, strings.HasPrefix(text, "<knowledge-recall>"))
-	assert.Contains(t, text, filepath.Join(v.Root, "Projects", "app", "Billing decision.md"))
+	assert.Contains(t, text, filepath.Join(v.Root, "projects", "app", "decisions", "Billing decision.md"))
 	assert.Contains(t, text, "Bill monthly, not per call.")
 	assert.Contains(t, text, "(linked from")
 
@@ -170,18 +178,20 @@ func TestRecall_EdgeWeights(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	root := writeVault(t, map[string]string{"01 Projects/keep.md": "x", "KDEPS.md": "mine"})
-	created, err := Init(Vault{Root: root}, Workspace{Root: root})
+	root := writeVault(t, map[string]string{"projects/keep.md": "x", "KDEPS.md": "mine"})
+	created, err := Init(Vault{Root: root})
 	require.NoError(t, err)
-	assert.DirExists(t, filepath.Join(root, "Inbox"))
-	assert.NoDirExists(t, filepath.Join(root, "Projects"), "the existing 01 Projects is reused")
-	assert.DirExists(t, filepath.Join(root, "records", "projects"))
+	for _, d := range []string{"shared", "inbox", "archive"} {
+		assert.DirExists(t, filepath.Join(root, d))
+		assert.Contains(t, created, filepath.Join(root, d))
+	}
+	assert.NotContains(t, created, filepath.Join(root, "projects"), "existing folders are kept")
 	assert.FileExists(t, filepath.Join(root, "schema.md"))
 	data, _ := os.ReadFile(filepath.Join(root, "KDEPS.md"))
 	assert.Equal(t, "mine", string(data), "existing files are never changed")
 	assert.NotContains(t, created, filepath.Join(root, "KDEPS.md"))
 
-	again, err := Init(Vault{Root: root}, Workspace{Root: root})
+	again, err := Init(Vault{Root: root})
 	require.NoError(t, err)
 	assert.Empty(t, again)
 }
@@ -216,33 +226,32 @@ const summaryText = `## Goal
 `
 
 func TestWriteSession(t *testing.T) {
-	v, w, repo := sampleVault(t)
-	sn, err := WriteSession(v, w, filepath.Join(repo, "store"), "s1", summaryText, buildNow())
+	v, repo := sampleVault(t)
+	card := v.CardForDir(filepath.Join(repo, "store"))
+	require.NotNil(t, card)
+	sn, err := WriteSession(card, "s1", summaryText, buildNow())
 	require.NoError(t, err)
 	assert.True(t, sn.New)
 	assert.Equal(t, "app", sn.Card.Name)
-	assert.Equal(t, filepath.Join(v.Root, "Projects", "app", "app HUB.md"), sn.Hub, "the existing hub is used")
+	assert.Equal(t, filepath.Join(v.Root, "projects", "app", "sessions"), filepath.Dir(sn.File))
 	data, err := os.ReadFile(sn.File)
 	require.NoError(t, err)
 	note := string(data)
 	assert.Contains(t, note, "type: session")
 	assert.Contains(t, note, "session: s1")
+	assert.Contains(t, note, "project: app")
+	assert.Contains(t, note, `links: ["[[app]]"]`, "the session links its project card")
 	assert.Contains(t, note, "summary: Ship knowledge recall for kdeps")
 	assert.Contains(t, note, "## What was built\n\n- [x] graph build")
 	assert.Contains(t, note, "## Mistakes\n\n- cache kept stale parses")
 	assert.Contains(t, note, "## Decisions\n\n- **Louvain first**")
 	assert.Contains(t, note, "## Wins\n\n(none)")
 	assert.NotContains(t, note, "write the docs", "the next step lives in the card")
-	card, _ := w.Card("app")
-	assert.Equal(t, "write the docs", card.Next)
-	hub, _ := os.ReadFile(sn.Hub)
-	title := strings.TrimSuffix(filepath.Base(sn.File), ".md")
-	assert.Contains(t, string(hub), "- [["+title+"]] - Ship knowledge recall for kdeps")
+	got, _ := v.Card("app")
+	assert.Equal(t, "write the docs", got.Next)
 
 	again, err := WriteSession(
-		v,
-		w,
-		repo,
+		card,
 		"s1",
 		strings.Replace(summaryText, "graph build", "graph build v2", 1),
 		buildNow().Add(time.Hour),
@@ -250,31 +259,112 @@ func TestWriteSession(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, again.New)
 	assert.Equal(t, sn.File, again.File, "one note per session, rewritten in place")
-	hub, _ = os.ReadFile(sn.Hub)
-	assert.Equal(t, 1, strings.Count(string(hub), "[["+title+"]]"))
 
-	inbox, err := WriteSession(v, w, t.TempDir(), "s2", summaryText, buildNow())
-	require.NoError(t, err)
-	assert.Nil(t, inbox.Card)
-	assert.Equal(t, filepath.Join(v.Root, "Inbox"), filepath.Dir(inbox.File))
-
-	_, err = WriteSession(v, w, repo, "s3", "## Goal\n(none)\n", buildNow())
+	_, err = WriteSession(card, "s3", "## Goal\n(none)\n", buildNow())
 	require.Error(t, err)
 }
 
-func TestWriteSession_NewHubAndVaultLink(t *testing.T) {
-	repo := t.TempDir()
-	root := writeVault(t, map[string]string{
-		"records/projects/web.md": "---\ntype: project\nstatus: active\nnext: x\nupdated: 2026-10-01\n---\n| repo | " + repo + " |\n| vault | Work/web |\n",
-	})
-	v, w := Vault{Root: root}, Workspace{Root: root}
-	sn, err := WriteSession(v, w, repo, "s1", summaryText, buildNow())
+func TestWriteDecisions(t *testing.T) {
+	v, repo := sampleVault(t)
+	card := v.CardForDir(repo)
+	require.NotNil(t, card)
+	summary := "## Goal\nx\n\n## Key Decisions\n- **Louvain first**: simpler than Leiden\n" +
+		"- keep the cache per note hash because rebuilds were slow\n- (none)\n"
+	session := filepath.Join(card.Dir(), "sessions", "2026-10-15 0900 x.md")
+	written, err := WriteDecisions(card, session, summary, buildNow())
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(root, "Work", "web", "web HUB.md"), sn.Hub)
-	assert.Equal(t, filepath.Join(root, "Work", "web", "sessions"), filepath.Dir(sn.File))
-	hub, _ := os.ReadFile(sn.Hub)
-	assert.Contains(t, string(hub), "type: hub")
-	assert.Contains(t, string(hub), "## Sessions\n- [[")
+	require.Len(t, written, 2)
+	data, _ := os.ReadFile(filepath.Join(card.Dir(), "decisions", "Louvain first.md"))
+	note := string(data)
+	assert.Contains(t, note, "type: decision")
+	assert.Contains(t, note, `summary: "Louvain first: simpler than Leiden"`)
+	assert.Contains(t, note, `links: ["[[2026-10-15 0900 x]]", "[[app]]"]`)
+	assert.FileExists(t, filepath.Join(card.Dir(), "decisions", "keep the cache per note hash because rebuilds.md"),
+		"no bold lead: the first words")
+
+	again, err := WriteDecisions(card, "s.md", summary, buildNow())
+	require.NoError(t, err)
+	assert.Empty(t, again, "a decision with a note already is left alone (one home per fact)")
+	none, err := WriteDecisions(card, "s.md", "## Goal\nx\n", buildNow())
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}
+
+func TestEnsureProject(t *testing.T) {
+	v := Vault{Root: t.TempDir()}
+	plain := filepath.Join(t.TempDir(), "notes app")
+	require.NoError(t, os.MkdirAll(plain, 0o750))
+	c, created, err := v.EnsureProject(plain, buildNow())
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.Equal(t, "notes app", c.Name)
+	assert.Equal(t, filepath.Join(v.Root, "projects", "notes app", "notes app.md"), c.File)
+	assert.Equal(t, "project", c.Type)
+	assert.Equal(t, "active", c.Status)
+	assert.Equal(t, "(none)", c.Next)
+	assert.Equal(t, []Link{{SourceFolder, plain}}, c.Links)
+	findings, err := Check(v)
+	require.NoError(t, err)
+	assert.Empty(t, findings, "a created project passes the check")
+
+	same, created, err := v.EnsureProject(filepath.Join(plain, "sub"), buildNow())
+	require.NoError(t, err)
+	assert.False(t, created, "a subfolder belongs to its project")
+	assert.Equal(t, c.File, same.File)
+
+	repo := filepath.Join(t.TempDir(), "svc")
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, "cmd", "x"), 0o750))
+	r, _, err := v.EnsureProject(filepath.Join(repo, "cmd", "x"), buildNow())
+	require.NoError(t, err)
+	assert.Equal(t, "svc", r.Name, "a git repository is named by its root")
+	assert.Equal(t, []Link{{SourceRepo, repo}}, r.Links)
+
+	other := filepath.Join(t.TempDir(), "elsewhere", "svc")
+	require.NoError(t, os.MkdirAll(other, 0o750))
+	o, created, err := v.EnsureProject(other, buildNow())
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.Equal(t, "elsewhere-svc", o.Name, "a taken name gets the parent folder in front")
+
+	require.NoError(t, v.SetStatus(r, StatusArchived, "", buildNow()))
+	assert.True(t, r.Archived())
+	assert.Equal(t, filepath.Join(v.Root, "archive", "svc", "svc.md"), r.File)
+	assert.NoDirExists(t, filepath.Join(v.Root, "projects", "svc"))
+	back, created, err := v.EnsureProject(repo, buildNow())
+	require.NoError(t, err)
+	assert.False(t, created)
+	assert.True(t, back.Archived(), "an archived project is found where it is")
+	require.NoError(t, v.Reopen(back, buildNow()))
+	require.NoError(t, v.Reopen(back, buildNow()), "reopening an active project does nothing")
+	assert.False(t, back.Archived(), "reopening brings it back")
+	assert.Equal(t, "active", back.Status)
+	assert.FileExists(t, filepath.Join(v.Root, "projects", "svc", "svc.md"))
+
+	assert.True(t, IsCardPath("projects/svc/svc.md"))
+	assert.True(t, IsCardPath("archive/svc/svc.md"))
+	assert.False(t, IsCardPath("projects/svc/notes/svc.md"))
+	assert.Equal(t, "svc", ProjectOf("projects/svc/memory/x.md"))
+	assert.Empty(t, ProjectOf("shared/x.md"))
+	assert.Equal(t, "root", safeName("///"))
+}
+
+func TestAppendRun(t *testing.T) {
+	v := Vault{Root: t.TempDir()}
+	wf := t.TempDir()
+	card, _, err := v.CreateProject("invoices", SourceWorkflow, wf, buildNow())
+	require.NoError(t, err)
+	file, err := AppendRun(card, "summarize\nthe doc", "a summary", buildNow())
+	require.NoError(t, err)
+	_, err = AppendRun(card, "second", "map[answer:ok]", buildNow().Add(time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(card.Dir(), "sessions", "2026-10-15 invoices runs.md"), file)
+	data, _ := os.ReadFile(file)
+	note := string(data)
+	assert.Contains(t, note, "type: session")
+	assert.Contains(t, note, "- 09:00:00 summarize -> a summary\n")
+	assert.Contains(t, note, "- 09:01:00 second -> map[answer:ok]\n")
+	assert.Equal(t, card.File, v.CardForDir(wf).File, "the workflow folder maps to its project")
 }
 
 func TestSummaryHelpers(t *testing.T) {
@@ -320,16 +410,16 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 	g := &Graph{Nodes: []*Node{
 		{
-			ID: "note:Projects/app/sessions/s1.md", Label: "why do we bill monthly",
-			Kind: "session", Note: "Projects/app/sessions/s1.md",
+			ID: "note:projects/app/sessions/s1.md", Label: "why do we bill monthly",
+			Kind: "session", Note: "projects/app/sessions/s1.md",
 		},
 		{
-			ID: "note:Memory/app/fact-billing.md", Label: "fact-billing",
-			Kind: "fact", Note: "Memory/app/fact-billing.md", Summary: "bill monthly",
+			ID: "note:projects/app/memory/fact-billing.md", Label: "fact-billing",
+			Kind: "fact", Note: "projects/app/memory/fact-billing.md", Summary: "bill monthly",
 		},
 		{
-			ID: "note:Projects/app/Billing decision.md", Label: "Billing decision",
-			Kind: "decision", Note: "Projects/app/Billing decision.md", Summary: "Bill monthly, not per call",
+			ID: "note:projects/app/decisions/Billing decision.md", Label: "Billing decision",
+			Kind: "decision", Note: "projects/app/decisions/Billing decision.md", Summary: "Bill monthly, not per call",
 		},
 	}}
 	ix := NewIndex(g)
@@ -338,21 +428,26 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 	for _, h := range r.Hits {
 		notes = append(notes, h.Note)
 	}
-	require.Contains(t, notes, "Projects/app/Billing decision.md", "the curated decision is recalled with the session")
+	require.Contains(
+		t,
+		notes,
+		"projects/app/decisions/Billing decision.md",
+		"the curated decision is recalled with the session",
+	)
 	assert.Less(
 		t,
-		slices.Index(notes, "Projects/app/Billing decision.md"),
-		slices.Index(notes, "Memory/app/fact-billing.md"),
+		slices.Index(notes, "projects/app/decisions/Billing decision.md"),
+		slices.Index(notes, "projects/app/memory/fact-billing.md"),
 		"a curated note outranks a memory entry on the same words",
 	)
 
-	r = ix.Recall("why do we bill monthly", 1, 0, "Projects/app/sessions/s1.md")
+	r = ix.Recall("why do we bill monthly", 1, 0, "projects/app/sessions/s1.md")
 	for _, h := range r.Hits {
-		assert.NotEqual(t, "Projects/app/sessions/s1.md", h.Note, "excluded notes are never recalled")
+		assert.NotEqual(t, "projects/app/sessions/s1.md", h.Note, "excluded notes are never recalled")
 	}
 	assert.InDelta(t, 1.0, sourceWeight(&Node{Kind: "decision", Note: "x.md"}), 1e-9)
 	assert.InDelta(t, sessionNoteWeight, sourceWeight(&Node{Kind: "session"}), 1e-9)
-	assert.InDelta(t, memoryNoteWeight, sourceWeight(&Node{Note: "Memory/app/x.md"}), 1e-9)
+	assert.InDelta(t, memoryNoteWeight, sourceWeight(&Node{Note: "projects/app/memory/x.md"}), 1e-9)
 	for in, want := range map[string]string{
 		"billing": "bill", "invoices": "invoice", "deployed": "deploy", "bus": "bus", "process": "process", "notes": "note",
 	} {

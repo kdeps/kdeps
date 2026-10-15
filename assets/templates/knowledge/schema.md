@@ -1,30 +1,34 @@
 # Schema: cards and notes
 
-## Card (`records/projects/<name>.md`, `records/clients/<name>.md`)
+## Card (`projects/<name>/<name>.md`)
+
+kdeps writes this the first time it runs in a place: in a git repository the
+project is named after the repository's root folder, else after the folder;
+a workflow's project is named after the workflow (`metadata.name`) and shared by every place it runs from.
 
 ```markdown
 ---
-type: project          # project | client
-status: active         # active | paused | done | archived
+type: project          # project, client, area, research, bot - any word
+status: active         # active | paused | done | archived (archived moves the folder to archive/)
 next: the one next step
 updated: 2026-10-15
 ---
 | Source | Path |
 |---|---|
 | repo | ~/code/my-project |
-| vault | Projects/my-project |
-| memory | kdeps memory for the repo folder |
-| skills | skills/my-project |
+| folder | ~/Documents/my-project-notes |
+| workflow | ~/agents/invoices |
 ```
 
-A card has no prose. `repo` links the card to a code folder (kdeps finds the
-card for the folder it runs in); `vault` names the project's note folder.
+A card has no prose. A `repo`, `folder` or `workflow` row ties a place on
+disk to the project: kdeps runs in that place (or below it) use this project.
+Add rows to make several places one project.
 
-## Note (everything in the vault)
+## Note
 
 ```markdown
 ---
-type: session          # session | decision | hub | concept | gotcha | tool | note
+type: note             # session | decision | gotcha | concept | tool | note
 status: draft          # the note's own state: draft | evergreen | outdated
 tags: [kdeps, graph]
 created: 2026-10-15
@@ -33,13 +37,22 @@ links: ["[[Other note]]"]
 ---
 ```
 
-- One idea per note in `Resources/`.
+- One idea per note: `projects/<name>/notes/` for one project, `shared/` for
+  knowledge across projects.
 - `summary` is what the knowledge recall shows before anyone opens the note.
   Write it so the reader can decide whether to open it.
 - Link with `[[Note title]]`. Links written in a note are facts; the graph
-  marks them as extracted.
-- A project folder has one hub note (`type: hub`) that links its sessions.
+  marks them as extracted. Sessions and decisions link their card,
+  `[[<name>]]`.
 
-## Session note (written by kdeps)
+## Written by kdeps
 
-`## Focus`, `## What was built`, `## Mistakes`, `## Decisions`, `## Wins`.
+- Session note (`sessions/`): `## Focus`, `## What was built`, `## Mistakes`,
+  `## Decisions`, `## Wins`. Updated after every turn; rewritten from the
+  model's summary at compaction and session end.
+- Decision note (`decisions/`): one per item of a summary's Key Decisions,
+  titled by its bold lead.
+- Memory note (`memory/`): one per `[MEMORY: key]`; the frontmatter keeps the
+  key, type and dates.
+- Workflow run note (`sessions/<date> <name> runs.md`): one line per chat
+  call, when `knowledge.workflow_notes: true`.

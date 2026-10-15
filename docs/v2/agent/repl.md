@@ -28,7 +28,7 @@ stage -> model: "@paste:<id> expands\nback to the text"
 A **small** single-line paste is inserted as ordinary editable text on the input line.
 
 Any other paste is saved to memory under an id like `paste:3f9a1c2e` (in the
-folder's memory, a note in the knowledge vault's `Memory/` folder). A multi-line paste of up to 4 lines,
+folder's memory, a note in the project's `memory/` folder in the knowledge vault). A multi-line paste of up to 4 lines,
 20 words and 240 characters is shown verbatim on the edit line; a larger one is
 shown as `@paste:3f9a1c2e` so the prompt and your scrollback stay readable.
 Press Enter once to submit: the reference expands back to the pasted text, so

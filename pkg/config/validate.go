@@ -47,7 +47,7 @@ var (
 	}
 
 	knownKnowledgeKeys = map[string]bool{
-		"enabled": true, "vault": true, "workspace": true, "session_notes": true, "recall": true, "extract": true,
+		"enabled": true, "vault": true, "session_notes": true, "workflow_notes": true, "recall": true, "extract": true,
 	}
 
 	knownDefaultsKeys = map[string]bool{

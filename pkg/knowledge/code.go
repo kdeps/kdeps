@@ -38,8 +38,8 @@ const maxCodeFiles = 20000
 // addCode adds a node per Go package of each card's repo, with depends_on
 // edges for imports inside the module, and links the card's note to the
 // module root. Code goes through the Go parser only.
-func (b *builder) addCode(ctx context.Context, w Workspace, v Vault) {
-	cards, err := w.Cards()
+func (b *builder) addCode(ctx context.Context, v Vault) {
+	cards, err := v.Cards()
 	if err != nil {
 		return
 	}
@@ -48,7 +48,7 @@ func (b *builder) addCode(ctx context.Context, w Workspace, v Vault) {
 		if repo == "" {
 			continue
 		}
-		root := ExpandPath(repo, w.Root)
+		root := ExpandPath(repo, v.Root)
 		module := goModule(root)
 		if module == "" {
 			continue

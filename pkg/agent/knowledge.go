@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -51,7 +50,6 @@ type knowledgeState struct {
 	ctx      context.Context // parent of background builds (the session's root)
 	cfg      config.KnowledgeConfig
 	vault    knowledge.Vault
-	ws       knowledge.Workspace
 	dir      string // generated graph files, under ~/.kdeps
 	mu       sync.Mutex
 	last     knowledge.Recall
@@ -63,6 +61,7 @@ type knowledgeState struct {
 	summary    string
 	summaryAt  time.Time // when summary was written (or the session started)
 	noteFile   string    // this session's note, never recalled into the session
+	moved      func()    // called after the project folder may have moved
 }
 
 // newKnowledgeState returns nil without a parent context or knowledge
@@ -77,22 +76,17 @@ func newKnowledgeState(ctx context.Context, cfg *config.KnowledgeConfig) *knowle
 	if strings.TrimSpace(cfg.Vault) != "" {
 		vault = knowledge.ExpandPath(cfg.Vault, home)
 	}
-	ws := vault
-	if cfg.Workspace != "" {
-		ws = knowledge.ExpandPath(cfg.Workspace, home)
-	}
 	k := &knowledgeState{
 		summaryAt: time.Now(),
 		ctx:       ctx,
 		cfg:       *cfg,
 		vault:     knowledge.Vault{Root: vault},
-		ws:        knowledge.Workspace{Root: ws},
 		dir:       knowledge.GraphDir(vault),
 	}
 	if _, err := os.Stat(vault); errors.Is(err, os.ErrNotExist) {
 		// First session: create the folders, KDEPS.md and schema.md. A
 		// missing templates asset still leaves the folders.
-		_, _ = knowledge.Init(k.vault, k.ws)
+		_, _ = knowledge.Init(k.vault)
 	}
 	return k
 }
@@ -123,7 +117,7 @@ func (k *knowledgeState) build() error {
 		return errors.New("a knowledge build is already running")
 	}
 	defer k.building.Store(false)
-	_, _, err := knowledge.Build(k.ctx, k.vault, k.ws, k.dir, time.Now())
+	_, _, err := knowledge.Build(k.ctx, k.vault, k.dir, time.Now())
 	return err
 }
 
@@ -160,26 +154,50 @@ func (k *knowledgeState) recall(text string) knowledge.Recall {
 	return r
 }
 
-// overview lists every card's status and next step, read from the cards:
-// the routing table's status overview, never stored anywhere else.
+// overview lists every active project's status and next step, read from
+// the cards: the routing table's status overview, never stored anywhere
+// else.
 func (k *knowledgeState) overview() string {
-	cards, err := k.ws.Cards()
-	if err != nil || len(cards) == 0 {
+	cards, err := k.vault.Cards()
+	if err != nil {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(
-		"## Status overview (from the cards in " + k.ws.Root + "/records)\n\n| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n",
-	)
 	for _, c := range cards {
+		if c.Archived() {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("## Status overview (from the project cards in " +
+				filepath.Join(k.vault.Root, knowledge.ProjectsFolder) +
+				")\n\n| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n")
+		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", c.Name, c.Type, c.Status, c.Next, c.Updated)
 	}
 	if wd, innerErr := os.Getwd(); innerErr == nil {
-		if c := k.ws.CardForDir(wd); c != nil {
-			fmt.Fprintf(&b, "\nThe working directory belongs to card %q (%s).\n", c.Name, c.File)
+		if c := k.vault.CardForDir(wd); c != nil {
+			fmt.Fprintf(&b, "\nThe working directory is project %q (%s).\n", c.Name, c.File)
 		}
 	}
 	return b.String()
+}
+
+// project is the working directory's project, created on first use.
+func (k *knowledgeState) project() (*knowledge.Card, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	c, _, err := k.vault.EnsureProject(wd, time.Now())
+	k.notifyMoved()
+	return c, err
+}
+
+// notifyMoved tells the loop the project folder may have moved.
+func (k *knowledgeState) notifyMoved() {
+	if k.moved != nil {
+		k.moved()
+	}
 }
 
 // knowledgePreamble is the vault's part of the system preamble: where it is
@@ -190,11 +208,12 @@ func (l *Loop) knowledgePreamble() string {
 		return ""
 	}
 	k := l.knowledge
-	return fmt.Sprintf("<knowledge-vault>\nThe knowledge vault is %s; its routing table and cards are in %s. "+
+	return fmt.Sprintf("<knowledge-vault>\nThe knowledge vault is %s; each project has one folder in projects/ "+
+		"(card <name>.md, sessions/, memory/, decisions/, notes/), knowledge across projects is in shared/. "+
 		"Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes "+
 		"related to the request: read only those you need. "+
 		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea).\n"+
-		"</knowledge-vault>", k.vault.Root, k.ws.Root)
+		"</knowledge-vault>", k.vault.Root)
 }
 
 // instructionParts are the discovered instruction files (with the
@@ -202,7 +221,7 @@ func (l *Loop) knowledgePreamble() string {
 func (l *Loop) instructionParts() []string {
 	var extra []string
 	if l.knowledgeOn() {
-		extra = append(extra, l.knowledge.ws.Root)
+		extra = append(extra, l.knowledge.vault.Root)
 	}
 	var parts []string
 	if instructions := discoverInstructions("", extra...); instructions != "" {
@@ -253,6 +272,16 @@ func (l *Loop) writeSessionNote(summary string, w io.Writer) {
 	if !l.saveSessionNote(summary, w) {
 		return
 	}
+	k.mu.Lock()
+	file := k.noteFile
+	k.mu.Unlock()
+	if card, err := k.project(); err == nil {
+		if written, decErr := knowledge.WriteDecisions(card, file, summary, time.Now()); decErr != nil && w != nil {
+			fmt.Fprintf(w, "knowledge: decisions not written: %v\n", decErr)
+		} else if len(written) > 0 && w != nil {
+			fmt.Fprintf(w, "knowledge: %d decision notes\n", len(written))
+		}
+	}
 	k.summary, k.summaryAt = summary, time.Now()
 	if l.session != nil {
 		k.notedTurns = l.session.TurnCount()
@@ -277,8 +306,14 @@ func (l *Loop) UpdateSessionNote() {
 // reporting on w (when set); it returns whether the note was written.
 func (l *Loop) saveSessionNote(summary string, w io.Writer) bool {
 	k := l.knowledge
-	wd, _ := os.Getwd()
-	sn, err := knowledge.WriteSession(k.vault, k.ws, wd, l.sessionNoteID(), summary, time.Now())
+	card, err := k.project()
+	if err != nil {
+		if w != nil {
+			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)
+		}
+		return false
+	}
+	sn, err := knowledge.WriteSession(card, l.sessionNoteID(), summary, time.Now())
 	if err != nil {
 		if w != nil {
 			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)
@@ -483,7 +518,9 @@ func (l *Loop) registerKnowledgeTools() {
 			if status == "" && next == "" {
 				return "", errors.New("knowledge_card_update: give status and/or next")
 			}
-			if innerErr := c.Update(strings.TrimSpace(status), strings.TrimSpace(next), time.Now()); innerErr != nil {
+			innerErr := k.vault.SetStatus(c, strings.TrimSpace(status), strings.TrimSpace(next), time.Now())
+			k.notifyMoved()
+			if innerErr != nil {
 				return "", innerErr
 			}
 			l.InvalidateSystemPreamble()
@@ -516,13 +553,9 @@ func (l *Loop) whenKnowledgeOn(fn func(map[string]any) (string, error)) func(map
 // card resolves the card a tool call names, or the working directory's.
 func (k *knowledgeState) card(args map[string]any) (*knowledge.Card, error) {
 	if name, _ := args["name"].(string); strings.TrimSpace(name) != "" {
-		return k.ws.Card(strings.TrimSpace(name))
+		return k.vault.Card(strings.TrimSpace(name))
 	}
-	wd, _ := os.Getwd()
-	if c := k.ws.CardForDir(wd); c != nil {
-		return c, nil
-	}
-	return nil, errors.New("no card covers the working directory; pass name")
+	return k.project()
 }
 
 func formatCard(c *knowledge.Card) string {
@@ -554,12 +587,25 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 	if strings.ContainsAny(title, `/\:*?"<>|`) {
 		return "", errors.New("knowledge_note_save: title cannot contain / \\ : * ? \" < > |")
 	}
-	folder := k.vault.Folder(knowledge.RoleResources)
-	if f := str("folder"); f != "" {
-		folder = k.noteFolder(f)
-		if folder == "" {
-			return "", fmt.Errorf("knowledge_note_save: folder %q is outside the vault", f)
+	typ := str("type")
+	if typ == "" {
+		typ = "note"
+	}
+	var dir string
+	switch scope := strings.ToLower(str("scope")); scope {
+	case "", "project":
+		card, err := k.project()
+		if err != nil {
+			return "", err
 		}
+		dir = filepath.Join(card.Dir(), knowledge.NotesFolder)
+		if typ == "decision" {
+			dir = filepath.Join(card.Dir(), knowledge.DecisionsFolder)
+		}
+	case knowledge.SharedFolder, knowledge.InboxFolder:
+		dir = filepath.Join(k.vault.Root, scope)
+	default:
+		return "", fmt.Errorf("knowledge_note_save: scope is project, shared or inbox, not %q", scope)
 	}
 	notes, err := k.vault.Walk()
 	if err != nil {
@@ -570,10 +616,6 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 			return "", fmt.Errorf("knowledge_note_save: %s already exists (%s); edit it instead - one home per fact",
 				title, filepath.Join(k.vault.Root, filepath.FromSlash(n.Path)))
 		}
-	}
-	typ := str("type")
-	if typ == "" {
-		typ = "note"
 	}
 	var fm strings.Builder
 	fmt.Fprintf(
@@ -594,27 +636,11 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 		fmt.Fprintf(&fm, "links: [%s]\n", strings.Join(quoted, ", "))
 	}
 	fm.WriteString("---\n\n# " + title + "\n\n" + body + "\n")
-	dir := filepath.Join(k.vault.Root, filepath.FromSlash(folder))
 	if innerErr := os.MkdirAll(dir, 0o750); innerErr != nil {
 		return "", innerErr
 	}
 	file := filepath.Join(dir, title+".md")
 	return file, os.WriteFile(file, []byte(fm.String()), 0o600)
-}
-
-// noteFolder maps a PARA role or a vault-relative folder to a vault folder,
-// "" when it would leave the vault.
-func (k *knowledgeState) noteFolder(f string) string {
-	for _, role := range knowledge.Roles {
-		if strings.EqualFold(f, role) {
-			return k.vault.Folder(role)
-		}
-	}
-	clean := path.Clean(filepath.ToSlash(f))
-	if path.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") {
-		return ""
-	}
-	return clean
 }
 
 func splitList(s string) []string {
@@ -837,6 +863,13 @@ func HarnessText(name string) string { return harnessText(name) }
 func (l *Loop) turnStateBlock(focus string) string {
 	var parts []string
 	if l.knowledgeOn() {
+		// The working directory's project exists from its first turn on, so
+		// the turn's status, memory and notes all have a home; a turn in an
+		// archived project reopens it.
+		if c, err := l.knowledge.project(); err == nil && c.Archived() {
+			_ = l.knowledge.vault.Reopen(c, time.Now())
+			l.knowledge.notifyMoved()
+		}
 		if o := l.knowledge.overview(); o != "" {
 			parts = append(parts, "<knowledge-status>\n"+o+"</knowledge-status>")
 		}

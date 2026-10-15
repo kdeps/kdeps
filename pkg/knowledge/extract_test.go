@@ -54,7 +54,7 @@ func fakeModel(calls *atomic.Int32) ExtractFunc {
 }
 
 func TestExtractAndBuild(t *testing.T) {
-	v, w, _ := sampleVault(t)
+	v, _ := sampleVault(t)
 	dir := t.TempDir()
 	var calls atomic.Int32
 	opts := ExtractOptions{Model: "local", Workers: 3, System: "Reply with JSON"}
@@ -64,22 +64,22 @@ func TestExtractAndBuild(t *testing.T) {
 	assert.Equal(t, 4, st.Done)
 	assert.Equal(t, 1, st.Failed, "an unparsable reply is recorded, not fatal")
 
-	g, _, err := Build(t.Context(), v, w, dir, buildNow())
+	g, _, err := Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	edges := map[string]*Edge{}
 	for _, e := range g.Edges {
 		edges[e.From+" -> "+e.To+" "+e.Relation] = e
 	}
-	m := edges["note:Projects/app/Billing decision.md -> entity:stripe mentions"]
+	m := edges["note:projects/app/decisions/Billing decision.md -> entity:stripe mentions"]
 	require.NotNil(t, m)
 	assert.Equal(t, ProvInferred, m.Provenance)
 	d := edges["entity:monthly billing -> entity:stripe depends_on"]
 	require.NotNil(t, d)
 	assert.InDelta(t, 0.9, d.Confidence, 1e-9)
-	amb := edges["entity:monthly billing -> note:Resources/Stripe gotcha.md relates_to"]
+	amb := edges["entity:monthly billing -> note:shared/Stripe gotcha.md relates_to"]
 	require.NotNil(t, amb, "an entity named like a note is the note; an unknown relation is ambiguous")
 	assert.Equal(t, ProvAmbiguous, amb.Provenance)
-	assert.NotNil(t, edges["note:Resources/Stripe gotcha.md -> entity:stripe mentions"], "both notes share the entity")
+	assert.NotNil(t, edges["note:shared/Stripe gotcha.md -> entity:stripe mentions"], "both notes share the entity")
 	var kinds []string
 	for _, n := range g.Nodes {
 		if n.ID == "entity:stripe" {
@@ -100,18 +100,18 @@ func TestExtractAndBuild(t *testing.T) {
 	require.NoError(
 		t,
 		os.WriteFile(
-			filepath.Join(v.Root, "Resources", "Stripe gotcha.md"),
+			filepath.Join(v.Root, "shared", "Stripe gotcha.md"),
 			[]byte("---\nsummary: changed\n---\n"),
 			0o600,
 		),
 	)
-	require.NoError(t, os.Remove(filepath.Join(v.Root, "Archives", "Billing decision.md")))
+	require.NoError(t, os.Remove(filepath.Join(v.Root, "archive", "old", "notes", "Billing decision.md")))
 	st, err = Extract(t.Context(), v, dir, fakeModel(&calls), ExtractOptions{System: "JSON", Limit: 1})
 	require.NoError(t, err)
 	assert.Equal(t, 2, st.Pending)
 	assert.Equal(t, 1, st.Done+st.Failed, "limit")
 	cache := loadExtractCache(dir)
-	assert.NotContains(t, cache.Notes, "Archives/Billing decision.md", "removed notes leave the cache")
+	assert.NotContains(t, cache.Notes, "archive/old/notes/Billing decision.md", "removed notes leave the cache")
 
 	cancelled, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -162,7 +162,7 @@ func TestChunksAndParse(t *testing.T) {
 	assert.Equal(t, 1.0, ex.Relations[0].Confidence, "clamped")
 	assert.Equal(t, RelDependsOn, ex.Relations[0].Relation)
 
-	assert.True(t, skipExtract(&Note{Path: "records/projects/x.md"}))
+	assert.True(t, skipExtract(&Note{Path: "projects/x/x.md"}))
 	assert.True(t, skipExtract(&Note{Path: RoutingFile}))
-	assert.False(t, skipExtract(&Note{Path: "Resources/x.md"}))
+	assert.False(t, skipExtract(&Note{Path: "shared/x.md"}))
 }

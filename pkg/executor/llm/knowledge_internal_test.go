@@ -41,11 +41,10 @@ func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 	t.Helper()
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
 	vault := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(vault, "Resources"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(vault, "Resources", "Billing decision.md"),
+	require.NoError(t, os.MkdirAll(filepath.Join(vault, "shared"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "Billing decision.md"),
 		[]byte("---\nsummary: Bill monthly, not per call.\n---\n"), 0o600))
-	_, _, err := knowledge.Build(t.Context(), knowledge.Vault{Root: vault}, knowledge.Workspace{Root: vault},
-		knowledge.GraphDir(vault), time.Now())
+	_, _, err := knowledge.Build(t.Context(), knowledge.Vault{Root: vault}, knowledge.GraphDir(vault), time.Now())
 	require.NoError(t, err)
 	orig := configuredVault
 	t.Cleanup(func() { configuredVault = orig })
@@ -56,7 +55,7 @@ func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 func TestKnowledgeRecall_Workflow(t *testing.T) {
 	vault := withVault(t, &config.KnowledgeConfig{})
 	got := knowledgeRecall(&domain.ChatConfig{}, "how do we bill?")
-	assert.Contains(t, got, filepath.Join(vault, "Resources", "Billing decision.md"))
+	assert.Contains(t, got, filepath.Join(vault, "shared", "Billing decision.md"))
 
 	off := false
 	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{Knowledge: &off}, "how do we bill?"), "per resource")
@@ -97,4 +96,52 @@ func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {
 		strings.HasPrefix(msgs[0][jsonFieldContent].(string), "<knowledge-recall>"),
 		"first without a system prompt",
 	)
+}
+
+func TestLogWorkflowRun(t *testing.T) {
+	on, off := true, false
+	vault := withVault(t, &config.KnowledgeConfig{})
+	wfDir := t.TempDir()
+	ctx := &executor.ExecutionContext{
+		Workflow: &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "invoices"}},
+		FSRoot:   wfDir,
+	}
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "summarize", "done")
+	assert.NoDirExists(t, filepath.Join(vault, "projects"), "workflow notes are off by default")
+
+	configuredVault = func() (string, *config.KnowledgeConfig) {
+		return vault, &config.KnowledgeConfig{WorkflowNotes: &on}
+	}
+	logWorkflowRun(ctx, &domain.ChatConfig{Knowledge: &off}, "skipped", "x")
+	assert.NoDirExists(t, filepath.Join(vault, "projects"), "chat.knowledge: false writes nothing")
+	logWorkflowRun(nil, &domain.ChatConfig{}, "no context", "x")
+
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "summarize the doc", "a summary")
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "again", map[string]any{"answer": "ok"})
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "full", map[string]any{
+		"message": map[string]any{"role": "assistant", "content": "the reply"},
+	})
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "text", map[string]any{"response": "a response"})
+	card, err := knowledge.Vault{Root: vault}.Card("invoices")
+	require.NoError(t, err, "the workflow gets its project on the first logged run")
+	assert.Equal(t, []knowledge.Link{{Source: knowledge.SourceWorkflow, Path: wfDir}}, card.Links)
+	ctx.FSRoot = t.TempDir()
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "from elsewhere", "x")
+	again, err := knowledge.Vault{Root: vault}.Cards()
+	require.NoError(t, err)
+	assert.Len(t, again, 1, "the same workflow run from another folder keeps one project")
+	notes, _ := filepath.Glob(filepath.Join(card.Dir(), "sessions", "*invoices runs.md"))
+	require.Len(t, notes, 1, "one run note per day")
+	data, _ := os.ReadFile(notes[0])
+	assert.Contains(t, string(data), "summarize the doc -> a summary")
+	assert.Contains(t, string(data), "again -> map[answer:ok]")
+	assert.Contains(t, string(data), "full -> the reply", "the message content of a full response")
+	assert.Contains(t, string(data), "text -> a response")
+
+	configuredVault = func() (string, *config.KnowledgeConfig) {
+		return vault, &config.KnowledgeConfig{WorkflowNotes: &on, Enabled: &off}
+	}
+	logWorkflowRun(ctx, &domain.ChatConfig{}, "disabled vault", "x")
+	data, _ = os.ReadFile(notes[0])
+	assert.NotContains(t, string(data), "disabled vault")
 }

@@ -31,9 +31,6 @@ type Finding struct {
 	Problem string `json:"problem"`
 }
 
-// MemoryFolder is the vault folder agent memory lives in.
-const MemoryFolder = "Memory"
-
 func danglingLinks(abs string, n *Note, resolve *resolver) []Finding {
 	var out []Finding
 	for _, l := range append(append([]string{}, n.Links...), n.MetaLinks...) {
@@ -48,17 +45,29 @@ func danglingLinks(abs string, n *Note, resolve *resolver) []Finding {
 // telling the story.
 const maxCardBody = 3
 
-// summaryRoles are the PARA folders whose notes need a summary for recall.
-//
-//nolint:gochecknoglobals // fixed list
-var summaryRoles = []string{RoleProjects, RoleAreas, RoleResources}
+// needsSummary reports notes recall shows by summary: a project's notes
+// and decisions, and shared notes. Sessions and memory write their own;
+// the inbox is unsorted.
+func needsSummary(rel string) bool {
+	parts := strings.Split(rel, "/")
+	if parts[0] == SharedFolder {
+		return len(parts) > 1
+	}
+	return len(parts) > 3 && ProjectOf(rel) != "" && (parts[2] == NotesFolder || parts[2] == DecisionsFolder)
+}
+
+// isMemoryNote reports a note in a project's memory/ folder.
+func isMemoryNote(rel string) bool {
+	parts := strings.Split(rel, "/")
+	return len(parts) > 3 && ProjectOf(rel) != "" && parts[2] == MemoryFolder
+}
 
 // Check reports facts with more than one home and notes recall cannot use:
 // cards missing fields or holding prose, a next step outside a card, two
 // notes with the same summary, links to notes that do not exist, and notes
 // without a summary.
-func Check(v Vault, w Workspace) ([]Finding, error) {
-	cards, err := w.Cards()
+func Check(v Vault) ([]Finding, error) {
+	cards, err := v.Cards()
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +107,6 @@ func checkCards(cards []*Card) []Finding {
 // dangling links and notes without a summary.
 func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 	var out []Finding
-	needsSummary := map[string]bool{}
-	for _, role := range summaryRoles {
-		needsSummary[v.Folder(role)] = true
-	}
 	summaries := map[string][]string{}
 	resolve := newResolver(notes)
 	for _, n := range notes {
@@ -112,13 +117,13 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		if _, ok := n.Meta[CardNext]; ok {
 			out = append(out, Finding{abs, "has a next step; it belongs in the project card (one home per fact)"})
 		}
-		if strings.HasPrefix(n.Path, MemoryFolder+"/") {
+		if isMemoryNote(n.Path) {
 			out = append(out, danglingLinks(abs, n, resolve)...)
 			continue // agent memory: entries may share a first line
 		}
 		if s := strings.ToLower(n.Summary); s != "" {
 			summaries[s] = append(summaries[s], abs)
-		} else if top, _, _ := strings.Cut(n.Path, "/"); needsSummary[top] && strings.Contains(n.Path, "/") {
+		} else if needsSummary(n.Path) {
 			out = append(out, Finding{abs, "has no summary; recall shows the summary before anyone opens a note"})
 		}
 		out = append(out, danglingLinks(abs, n, resolve)...)
