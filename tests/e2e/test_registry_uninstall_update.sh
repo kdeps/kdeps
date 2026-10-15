@@ -17,15 +17,15 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for kdeps registry uninstall and update commands.
+# E2E tests for kdeps uninstall and update commands.
 #
 # Tests:
-#   - kdeps registry uninstall removes an installed agent
-#   - kdeps registry uninstall errors on unknown package
-#   - kdeps registry update errors when package not installed
-#   - kdeps registry update --help displays usage
-#   - kdeps registry uninstall --help displays usage
-#   - kdeps registry (sub-commands visible in help)
+#   - kdeps uninstall removes an installed agent
+#   - kdeps uninstall errors on unknown package
+#   - kdeps update errors when package not installed
+#   - kdeps update --help displays usage
+#   - kdeps uninstall --help displays usage
+#   - kdeps --help lists install, uninstall and update
 
 set -uo pipefail
 
@@ -33,10 +33,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 echo ""
-echo "Testing kdeps registry uninstall and update..."
+echo "Testing kdeps uninstall and update..."
 
 # --- Test: uninstall --help shows usage ---
-OUTPUT=$("$KDEPS_BIN" registry uninstall --help 2>&1) || true
+OUTPUT=$("$KDEPS_BIN" uninstall --help 2>&1) || true
 if output_grep_fixed "uninstall" "$OUTPUT"; then
     test_passed "registry uninstall --help shows usage"
 else
@@ -44,19 +44,19 @@ else
 fi
 
 # --- Test: update --help shows usage ---
-OUTPUT=$("$KDEPS_BIN" registry update --help 2>&1) || true
+OUTPUT=$("$KDEPS_BIN" update --help 2>&1) || true
 if output_grep_fixed "update" "$OUTPUT"; then
-    test_passed "registry update --help shows usage"
+    test_passed "update --help shows usage"
 else
-    test_failed "registry update --help shows usage" "output: $OUTPUT"
+    test_failed "update --help shows usage" "output: $OUTPUT"
 fi
 
-# --- Test: registry --help lists uninstall and update sub-commands ---
-OUTPUT=$("$KDEPS_BIN" registry --help 2>&1) || true
+# --- Test: kdeps --help lists the uninstall and update commands ---
+OUTPUT=$("$KDEPS_BIN" --help 2>&1) || true
 if output_grep_fixed "uninstall" "$OUTPUT" && output_grep_fixed "update" "$OUTPUT"; then
-    test_passed "registry --help lists uninstall and update"
+    test_passed "kdeps --help lists uninstall and update"
 else
-    test_failed "registry --help lists uninstall and update" "output: $OUTPUT"
+    test_failed "kdeps --help lists uninstall and update" "output: $OUTPUT"
 fi
 
 # --- Test: uninstall a locally installed agent ---
@@ -66,7 +66,7 @@ mkdir -p "$AGENTS_DIR/$AGENT_NAME"
 echo "kind: Workflow" > "$AGENTS_DIR/$AGENT_NAME/workflow.yaml"
 
 EXIT_CODE=0
-OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR" "$KDEPS_BIN" registry uninstall "$AGENT_NAME" 2>&1) || EXIT_CODE=$?
+OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR" "$KDEPS_BIN" uninstall "$AGENT_NAME" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ] && output_grep_i "uninstall" "$OUTPUT"; then
     test_passed "registry uninstall removes installed agent"
 else
@@ -83,7 +83,7 @@ rm -rf "$AGENTS_DIR"
 # --- Test: uninstall a non-existent package returns error ---
 AGENTS_DIR2=$(mktemp -d)
 EXIT_CODE=0
-OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR2" "HOME=$AGENTS_DIR2" "$KDEPS_BIN" registry uninstall "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
+OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR2" "HOME=$AGENTS_DIR2" "$KDEPS_BIN" uninstall "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "not installed|not found|error" "$OUTPUT"; then
     test_passed "registry uninstall - error on unknown package"
 else
@@ -94,7 +94,7 @@ rm -rf "$AGENTS_DIR2"
 # --- Test: update a non-existent package returns error ---
 AGENTS_DIR3=$(mktemp -d)
 EXIT_CODE=0
-OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR3" "HOME=$AGENTS_DIR3" "$KDEPS_BIN" registry update "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
+OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR3" "HOME=$AGENTS_DIR3" "$KDEPS_BIN" update "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "not installed|install|error" "$OUTPUT"; then
     test_passed "registry update - error when package not installed"
 else
@@ -109,7 +109,7 @@ mkdir -p "$AGENTS_DIR4/$AGENT4"
 
 EXIT_CODE=0
 OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR4" "HOME=$AGENTS_DIR4" \
-    "$KDEPS_BIN" registry update "${AGENT4}@9.9.9" --registry "http://127.0.0.1:19999" 2>&1) || EXIT_CODE=$?
+    "$KDEPS_BIN" update "${AGENT4}@9.9.9" --registry "http://127.0.0.1:19999" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "Removing existing|download|connect|error" "$OUTPUT"; then
     test_passed "registry update - version-pinned update removes existing before downloading"
 else

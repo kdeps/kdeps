@@ -33,7 +33,7 @@ part of the alias so you can trade size for quality:
 
 ```bash
 kdeps llamafile list      # all known aliases (the registry has 100+ models)
-kdeps registry update models       # newest registry (harvested nightly from HuggingFace)
+kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 The `chat.model` field also accepts a direct URL, an absolute/relative path to
@@ -114,7 +114,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 ## OpenAI-compatible providers
 
-OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps registry update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values.
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values.
 
 ```text
 providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath

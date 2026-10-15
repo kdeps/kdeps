@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for `kdeps registry verify`
+# E2E tests for `kdeps verify`
 #
 # Tests:
 #   - Clean directory passes verification
@@ -38,7 +38,7 @@ run_capturing() {
 }
 
 # --- Test: help flag ---
-run_capturing "$KDEPS_BIN" registry verify --help
+run_capturing "$KDEPS_BIN" verify --help
 if output_grep_i "verify|path|publish" "$OUTPUT"; then
     test_passed "registry verify - help flag works"
 else
@@ -51,7 +51,7 @@ cat > "$TMP_CLEAN/workflow.yaml" <<'YAML'
 name: my-agent
 version: 1.0.0
 YAML
-run_capturing "$KDEPS_BIN" registry verify "$TMP_CLEAN"
+run_capturing "$KDEPS_BIN" verify "$TMP_CLEAN"
 if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -qiE "ready|publish|ok|no issue"; then
     test_passed "registry verify - clean directory exits 0"
 else
@@ -66,7 +66,7 @@ run:
   chat:
     apiKey: "sk-supersecret1234567890"
 YAML
-run_capturing "$KDEPS_BIN" registry verify "$TMP_SECRET"
+run_capturing "$KDEPS_BIN" verify "$TMP_SECRET"
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "ERROR|error.*apiKey|hardcoded" "$OUTPUT"; then
     test_passed "registry verify - hardcoded apiKey exits non-zero"
 else
@@ -81,7 +81,7 @@ run:
   chat:
     apiKey: env("OPENAI_API_KEY")
 YAML
-run_capturing "$KDEPS_BIN" registry verify "$TMP_ENV"
+run_capturing "$KDEPS_BIN" verify "$TMP_ENV"
 if [ $EXIT_CODE -eq 0 ]; then
     test_passed "registry verify - env() expression allowed"
 else
@@ -94,7 +94,7 @@ TMP_MODEL=$(mktemp -d)
 cat > "$TMP_MODEL/resource.yaml" <<'YAML'
 model: gpt-4o
 YAML
-run_capturing "$KDEPS_BIN" registry verify "$TMP_MODEL"
+run_capturing "$KDEPS_BIN" verify "$TMP_MODEL"
 if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -qiE "WARN|warn"; then
     test_passed "registry verify - hardcoded model exits 0 with WARN"
 else
@@ -103,7 +103,7 @@ fi
 rm -rf "$TMP_MODEL"
 
 # --- Test: nonexistent path returns error ---
-run_capturing "$KDEPS_BIN" registry verify /nonexistent/path/abc123
+run_capturing "$KDEPS_BIN" verify /nonexistent/path/abc123
 if [ $EXIT_CODE -ne 0 ]; then
     test_passed "registry verify - nonexistent path returns error"
 else

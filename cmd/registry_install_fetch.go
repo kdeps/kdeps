@@ -76,7 +76,7 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 		return nil, fmt.Errorf("no version found for package %s", name)
 	}
 	if assets.IsPackageType(info.Type) {
-		return nil, fmt.Errorf("%s is a kdeps %s asset; install it with: kdeps registry update", name, info.Type)
+		return nil, fmt.Errorf("%s is a kdeps %s asset; install it with: kdeps update", name, info.Type)
 	}
 	if info.Type == assets.ResourcePackageType {
 		return nil, fmt.Errorf("%s is a built-in kdeps resource type; it needs no install", name)

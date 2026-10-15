@@ -58,7 +58,8 @@ Source is auto-detected from the ref format:
                (tools, harness, themes, ...); installs what it requires first,
                and a version pins it
   Local file   Path starting with ./ ../ / ~ or ending with .kdeps .kagency .komponent
-  GitHub       owner/repo[:subdir]  (contains "/", owner not an asset set)
+  GitHub       owner/repo[:subdir]  (contains "/", owner not an asset set;
+               github:owner/repo forces GitHub for an owner named like a set)
   Registry     package[@version]    (everything else)
 
 Behavior depends on package type:
@@ -70,7 +71,7 @@ Behavior depends on package type:
   component:
     Installs to the project components/ dir if run inside a kdeps project,
     otherwise installs globally to ~/.kdeps/components/.
-    Run "kdeps registry info <name>" to read the component README.`,
+    Run "kdeps info <name>" to read the component README.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInstallCmd.RunE")

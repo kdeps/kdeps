@@ -65,7 +65,7 @@ List everything the registry knows (and refresh it from HuggingFace):
 
 ```bash
 kdeps llamafile list
-kdeps registry update models
+kdeps update models
 ```
 
 ## Model field formats

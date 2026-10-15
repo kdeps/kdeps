@@ -34,7 +34,7 @@ import (
 )
 
 // Slash commands are declared by the commands asset set: one YAML file per
-// command under commands/, updated with `kdeps registry update` like any asset. A
+// command under commands/, updated with `kdeps update` like any asset. A
 // builtin command's file supplies the help, aliases and completion for a
 // command kdeps handles in Go; any other file defines the command entirely,
 // as a list of steps -- other slash commands and prompts sent to the model.
@@ -77,7 +77,7 @@ type slashCommand struct {
 	Aliases []string       `yaml:"aliases"`
 	Usage   []commandUsage `yaml:"usage"`
 	Run     []commandStep  `yaml:"run"`
-	// Requires is the asset header's requires: (read by kdeps registry update, not here).
+	// Requires is the asset header's requires: (read by kdeps update, not here).
 	Requires map[string]string `yaml:"requires"`
 }
 

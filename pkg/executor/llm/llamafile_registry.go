@@ -150,7 +150,7 @@ func WriteLocalRegistry(entries []LlamafileEntry) error {
 	return afero.WriteFile(AppFS, localPath, raw, 0600)
 }
 
-// ReloadRegistry re-reads the registry (after `kdeps registry update models` or a
+// ReloadRegistry re-reads the registry (after `kdeps update models` or a
 // local registration).
 func ReloadRegistry() {
 	llamafileRegistryLoaded = false

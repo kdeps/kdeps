@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # E2E: slash commands come from the commands asset set. A command published
-# only as an asset (installed with kdeps registry update) runs its steps in the REPL.
+# only as an asset (installed with kdeps update) runs its steps in the REPL.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

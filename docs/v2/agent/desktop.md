@@ -212,7 +212,7 @@ Saving a setting writes `config.yaml` (preserving comments and other keys) and a
 
 ## Projects: workflows, agencies and components
 
-The Projects window lists every workflow, agency and component in the workspace, plus the packages `kdeps registry install` put in `~/.kdeps/agents` and `~/.kdeps/components`. From there you build a project with forms, run it, or hand it to the chat agent as a tool. It is `kdeps new`, `kdeps run` and a YAML editor in one window. Open it with the Projects button at the bottom of the sidebar.
+The Projects window lists every workflow, agency and component in the workspace, plus the packages `kdeps install` put in `~/.kdeps/agents` and `~/.kdeps/components`. From there you build a project with forms, run it, or hand it to the chat agent as a tool. It is `kdeps new`, `kdeps run` and a YAML editor in one window. Open it with the Projects button at the bottom of the sidebar.
 
 This section covers both modes: you build and run workflow-mode projects, and "Use in chat" turns one into a tool for agent mode.
 

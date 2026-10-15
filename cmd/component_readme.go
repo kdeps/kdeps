@@ -69,7 +69,7 @@ func formatComponentReadme(name string, meta componentReadmeMeta) string {
 	if meta.Metadata.Version != "" {
 		out += fmt.Sprintf("Version: %s\n\n", meta.Metadata.Version)
 	}
-	out += fmt.Sprintf("Install with: kdeps registry install %s\n\n", name)
+	out += fmt.Sprintf("Install with: kdeps install %s\n\n", name)
 	out += fmt.Sprintf(
 		"Usage:\n```yaml\ncomponent:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
 		name,
@@ -106,7 +106,7 @@ func generateFallbackReadme(name string) (string, error) {
 	}
 
 	return fmt.Sprintf(
-		"# %s\n\nNo README.md found for component %q.\n\nInstall with: kdeps registry install %s\n",
+		"# %s\n\nNo README.md found for component %q.\n\nInstall with: kdeps install %s\n",
 		name,
 		name,
 		name,

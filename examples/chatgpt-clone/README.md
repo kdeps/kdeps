@@ -110,7 +110,7 @@ Model ids are llamafile registry aliases. List all known aliases (or install
 the newest registry):
 ```bash
 kdeps llamafile list
-kdeps registry update models
+kdeps update models
 ```
 
 To add more models, add their alias to `resources/models.yaml` and the model

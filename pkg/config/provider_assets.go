@@ -93,7 +93,7 @@ var (
 	providerLoaded  bool
 )
 
-// ReloadProviders re-reads the providers asset set (after kdeps registry update).
+// ReloadProviders re-reads the providers asset set (after kdeps update).
 func ReloadProviders() {
 	providerSpecsMu.Lock()
 	providerLoaded = false

@@ -186,11 +186,12 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 }
 
 // assetFreeCommands run without kdeps's assets, so they work offline before
-// the first download (registry is how the assets get installed).
+// the first download (install and update are how the assets get installed).
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"registry", "help", "completion", "__complete", "__completeNoDesc",
+	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify",
+	"help", "completion", "__complete", "__completeNoDesc",
 }
 
 // commandSets are the asset sets each top-level command loads; a command
@@ -323,7 +324,9 @@ func addPackageCommands(rootCmd *cobra.Command) {
 }
 
 func addDistributeCommands(rootCmd *cobra.Command) {
-	addCommandToGroup(rootCmd, groupDistribute, newRegistryCmd())
+	for _, c := range registryCommands() {
+		addCommandToGroup(rootCmd, groupDistribute, c)
+	}
 }
 
 func addDeployCommands(rootCmd *cobra.Command) {

@@ -107,7 +107,7 @@ kdeps version 2.21.0
 The binary ships no prompts, schemas, templates or tool definitions; the first command downloads them from kdeps.io (about 1.5 MB for everything). It asks how much:
 
 ```text
-What will you use kdeps for? (change it later with kdeps registry profile)
+What will you use kdeps for? (change it later with kdeps profile)
   1) minimum    kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  minimum, kdeps new templates and the components (sql, browser, email, ...)
   3) agent      minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
@@ -143,7 +143,7 @@ Default backend is llamafile: no server, no GPU, no API key. The alias
 
 ```bash
 kdeps llamafile list      # see all known model aliases
-kdeps registry update models       # newest registry (harvested nightly from HuggingFace)
+kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 ## First-run setup

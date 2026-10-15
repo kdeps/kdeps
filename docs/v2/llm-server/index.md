@@ -115,7 +115,7 @@ Chat resources in workflow mode and agent mode keep using `chat.model`. Only the
 
 ## Stock recipes
 
-Stock recipes are the `recipes` asset set, installed and updated by `kdeps registry update` (`kdeps llm list`):
+Stock recipes are the `recipes` asset set, installed and updated by `kdeps update` (`kdeps llm list`):
 
 | ID | Engine | Model strategy | GPU | Notes |
 |----|--------|----------------|-----|-------|

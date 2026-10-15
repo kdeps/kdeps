@@ -446,7 +446,7 @@ type checkCache struct {
 	Updates   []Change  `json:"updates"`
 }
 
-// AvailableUpdates returns what a bare kdeps registry update would install, from a
+// AvailableUpdates returns what a bare kdeps update would install, from a
 // cache under root younger than ttl, or a fresh check (cached on success).
 func AvailableUpdates(ctx context.Context, root string, c *Client, ttl time.Duration) ([]Change, error) {
 	path := filepath.Join(root, checkFileName)

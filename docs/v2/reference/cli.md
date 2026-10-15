@@ -42,11 +42,11 @@ kdeps run workflow.yaml
 | `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
 | `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
-| `kdeps registry install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#kdeps-registry-assets) | Install, update or remove harness, tool definitions, slash commands, themes, recipes, model registries and templates; `kdeps registry profile` picks what is installed |
+| `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, slash commands, themes, recipes, model registries and templates; `kdeps profile` picks what is installed |
 | `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps konfig export` | [Dev commands](/reference/cli-dev#kdeps-konfig-export) | Export the full agent-loop config to one YAML file |
-| `kdeps registry` | [Registry commands](/registry/cli) | Search, install, publish packages (and the assets above) |
+| `kdeps install/search/info/submit/verify` | [Registry commands](/registry/cli) | Search, install, publish packages (and the assets above) |
 | `kdeps bundle package` | [Packaging commands](/deploy/cli#kdeps-bundle-package) | Package for distribution |
 | `kdeps bundle build` | [Packaging commands](/deploy/cli#kdeps-bundle-build) | Build Docker image |
 | `kdeps export iso` | [Packaging commands](/deploy/cli#kdeps-export-iso) | Export bootable image |
@@ -142,7 +142,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_ON_ERROR_ACTION` | Default error action: `fail`, `continue`, `retry` |
 | `KDEPS_ON_ERROR_MAX_RETRIES` | Default max retries for `retry` action |
 | `KDEPS_ON_ERROR_RETRY_DELAY` | Default delay between retries |
-| `KDEPS_ASSETS_URL` | Where `kdeps registry update` downloads from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
+| `KDEPS_ASSETS_URL` | Where `kdeps update` downloads from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
 | `KDEPS_ASSETS_DIR` | Where downloaded assets and `lock.json` live (default `~/.kdeps/assets`) |
 | `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; for developing assets |
 | `KDEPS_PROFILE` | Install profile for a first run without a terminal: `minimum`, `workflows`, `agent`, `deploy`, `full`, or a comma-separated list of sets and `set/name` items; unset installs only the sets the command loads |

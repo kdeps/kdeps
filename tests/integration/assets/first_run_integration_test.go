@@ -63,7 +63,7 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 
 	// Offline: kdeps refuses to start without its assets.
 	t.Setenv("KDEPS_ASSETS_URL", "off")
-	require.ErrorContains(t, agent.EnsureAssets(t.Context(), io.Discard), "run kdeps registry update")
+	require.ErrorContains(t, agent.EnsureAssets(t.Context(), io.Discard), "run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
 	t.Setenv(agent.ProfileEnv, "full")

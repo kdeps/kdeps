@@ -1,6 +1,6 @@
 # Components
 
-A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps registry install`, and custom components you build yourself in a `components/` directory.
+A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps install`, and custom components you build yourself in a `components/` directory.
 
 Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, a component is registered as an LLM tool and runs only when the model calls it.
 
@@ -15,10 +15,10 @@ Components encapsulate resources, configuration, and dependencies into a single 
 Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow:
 
 ```bash
-kdeps registry install scraper     # web/doc text extraction
-kdeps registry install search      # web search
-kdeps registry install embedding   # vector embeddings
-kdeps registry install browser     # browser automation
+kdeps install scraper     # web/doc text extraction
+kdeps install search      # web search
+kdeps install embedding   # vector embeddings
+kdeps install browser     # browser automation
 ```
 
 Invoke with `component:`:
@@ -46,7 +46,7 @@ my-workflow/
 
 ## How components work
 
-1. Place a `component.yaml` in `components/<name>/` or install via `kdeps registry install`
+1. Place a `component.yaml` in `components/<name>/` or install via `kdeps install`
 2. At parse time, kdeps scans `components/` and loads all component manifests
 3. Component resources are merged with the workflow's own resources
 4. Resources invoke components via `component:` with typed inputs in `with:`
@@ -108,7 +108,7 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps registry update components/<name>` installs those first ([how requirements install](/agent/repl-updating)):
+A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)):
 
 ```yaml
 # components/searchWeb/template.yaml (as shipped)
@@ -152,7 +152,7 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 ## Use cases
 
 - Pull in a pre-built capability (web scraping, search, embeddings, browser
-  automation) with one `kdeps registry install` instead of writing it.
+  automation) with one `kdeps install` instead of writing it.
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
 - Give an LLM a bounded, typed capability by exposing a component as a tool

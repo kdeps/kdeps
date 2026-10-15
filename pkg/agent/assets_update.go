@@ -90,7 +90,7 @@ func AssetUpdateNotice(ctx context.Context) string {
 		}
 		names = append(names, u.ID+" "+u.To)
 	}
-	return fmt.Sprintf("%d asset updates available (%s). Run kdeps registry update.",
+	return fmt.Sprintf("%d asset updates available (%s). Run kdeps update.",
 		len(ups), strings.Join(names, ", "))
 }
 
@@ -102,7 +102,7 @@ type UpdateOptions struct {
 	Remove []string // items to remove
 }
 
-// RunAssetUpdate is kdeps registry update and /update: it updates, checks, lists or
+// RunAssetUpdate is kdeps update and /update: it updates, checks, lists or
 // removes assets, prints what changed to w, and reloads the asset sets.
 func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error {
 	root := assets.Root()

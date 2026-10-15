@@ -145,7 +145,7 @@ Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 
 ## Declared commands
 
-Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps registry update` keeps current. For a command kdeps runs itself, the file only supplies the `/help` text, aliases and tab completion. Any other file *is* the command: kdeps runs its `run:` steps in order, so a new command ships as an asset update, with no new binary.
+Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps update` keeps current. For a command kdeps runs itself, the file only supplies the `/help` text, aliases and tab completion. Any other file *is* the command: kdeps runs its `run:` steps in order, so a new command ships as an asset update, with no new binary.
 
 ```d2
 direction: right
@@ -161,8 +161,8 @@ step2 -> reply
 ```
 
 ```yaml
-# commands/review.yaml - shipped with kdeps; update with `kdeps registry update commands/review`
-version: 1.0.0            # bump on every change; kdeps registry update installs newer versions
+# commands/review.yaml - shipped with kdeps; update with `kdeps update commands/review`
+version: 1.0.0            # bump on every change; kdeps update installs newer versions
 name: review              # typed as /review
 order: 520                # position in /help (lower first)
 aliases: [rv]             # optional: /rv runs it too
@@ -177,7 +177,7 @@ run:                      # steps run in order; the first failing step stops the
 
 - `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
 - A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
-- Built-in command files cannot be removed. Declared ones can, with `kdeps registry uninstall commands/<name>`, and `kdeps registry update commands/<name>` restores them.
+- Built-in command files cannot be removed. Declared ones can, with `kdeps uninstall commands/<name>`, and `kdeps update commands/<name>` restores them.
 
 | Shipped declared command | Runs |
 |---|---|

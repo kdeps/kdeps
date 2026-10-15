@@ -191,7 +191,7 @@ func Remove(root, id string) error {
 		return err
 	}
 	if !known(set, name, root, lock) {
-		return fmt.Errorf("assets: no such item %s (see kdeps registry list --assets)", id)
+		return fmt.Errorf("assets: no such item %s (see kdeps list --assets)", id)
 	}
 	if rmErr := os.Remove(FilePath(root, set, name)); rmErr != nil && !os.IsNotExist(rmErr) {
 		return fmt.Errorf("assets: remove %s: %w", id, rmErr)
@@ -335,7 +335,7 @@ func exportItem(fsys ReadFS, set string, e fs.DirEntry) (string, []byte, bool, e
 func ReadBundleFile(set, name, file string) ([]byte, error) {
 	data, err := Open(set).ReadFile(path.Join(set, name, file))
 	if err != nil {
-		return nil, fmt.Errorf("assets: %s has no %s (run kdeps registry update): %w", ID(set, name), file, err)
+		return nil, fmt.Errorf("assets: %s has no %s (run kdeps update): %w", ID(set, name), file, err)
 	}
 	return data, nil
 }

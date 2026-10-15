@@ -27,7 +27,7 @@ import (
 // minRemoveArgs is "remove" plus at least one item.
 const minRemoveArgs = 2
 
-// cmdUpdate implements "/update": the same as kdeps registry update.
+// cmdUpdate implements "/update": the same as kdeps update.
 //
 //	/update                       every asset to its newest version
 //	/update harness/safety@1.2.0  one item (a version pins it)

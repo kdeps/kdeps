@@ -29,7 +29,7 @@ func TestNewLlamafileCmd(t *testing.T) {
 	c := newLlamafileCmd()
 	require.NotNil(t, c)
 	assert.Equal(t, "llamafile", c.Use)
-	assert.Len(t, c.Commands(), 1) // list; the registries update with kdeps registry update models
+	assert.Len(t, c.Commands(), 1) // list; the registries update with kdeps update models
 }
 
 func TestNewLlamafileListCmd(t *testing.T) {

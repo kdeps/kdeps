@@ -40,7 +40,7 @@ func newLLMModelsCmd() *cobra.Command {
 kdeps llamafile list). The wizard model step browses this list.
 
 Update the registries:
-  kdeps registry update models
+  kdeps update models
 
 Filter:
   kdeps llm models --type llamafile
@@ -75,7 +75,7 @@ func runLLMModels(kind string) error {
 	}
 
 	lfN, ggN := tui.HarvestCounts()
-	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps registry update models)\n\n", lfN, ggN)
+	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps update models)\n\n", lfN, ggN)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llmModelsPad, ' ', 0)
 	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS")

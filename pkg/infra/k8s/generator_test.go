@@ -344,7 +344,7 @@ func TestGenerateManifests_NoAssets(t *testing.T) {
 	t.Setenv(assets.SourceEnv, t.TempDir())
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	_, err := NewGenerator("test").GenerateManifests(&domain.Workflow{})
-	require.ErrorContains(t, err, "run kdeps registry update")
+	require.ErrorContains(t, err, "run kdeps update")
 }
 
 func TestRenderTemplate_Error(t *testing.T) {

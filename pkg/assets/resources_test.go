@@ -85,7 +85,7 @@ func TestWriteResources(t *testing.T) {
 	entries, err := os.ReadDir(formulas)
 	require.NoError(t, err)
 	assert.Len(t, entries, len(ResourceDocs))
-	assert.False(t, IsPackageType(ResourcePackageType), "resources are not `kdeps registry update` assets")
+	assert.False(t, IsPackageType(ResourcePackageType), "resources are not `kdeps update` assets")
 }
 
 func TestWriteResources_PrunesRemovedTypes(t *testing.T) {

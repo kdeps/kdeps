@@ -123,7 +123,7 @@ func (s *Service) Projects() []Project {
 	return out
 }
 
-// installDirs are where `kdeps registry install` puts agents and components.
+// installDirs are where `kdeps install` puts agents and components.
 func installDirs() []string {
 	home, _ := os.UserHomeDir()
 	agents := os.Getenv("KDEPS_AGENTS_DIR")

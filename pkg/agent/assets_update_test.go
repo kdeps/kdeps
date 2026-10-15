@@ -123,7 +123,7 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 	assert.Empty(t, out.String(), "present: nothing to do")
 
 	err := EnsureSets(context.Background(), &out, nil, []string{"harness"})
-	require.ErrorContains(t, err, "kdeps registry update harness", "nothing published")
+	require.ErrorContains(t, err, "kdeps update harness", "nothing published")
 }
 
 func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
@@ -285,7 +285,7 @@ func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_URL", down.URL)
 	var out bytes.Buffer
 	require.ErrorContains(t, EnsureAssets(context.Background(), &out),
-		"connect to the internet and run kdeps registry update")
+		"connect to the internet and run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
 	require.ErrorContains(t, EnsureAssets(context.Background(), &out), "KDEPS_ASSETS_URL=off")
@@ -302,7 +302,7 @@ func TestAssetUpdateNotice(t *testing.T) {
 	require.NoError(t, assets.MarkInitialized(root))
 	n := AssetUpdateNotice(context.Background())
 	assert.Contains(t, n, "4 asset updates available (")
-	assert.Contains(t, n, ", ...). Run kdeps registry update.")
+	assert.Contains(t, n, ", ...). Run kdeps update.")
 }
 
 func TestReloadAssets_KeepsTheme(t *testing.T) {

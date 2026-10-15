@@ -36,7 +36,7 @@ func newRegistryUninstallCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "uninstall <asset | package>...",
 		Short: "Remove kdeps assets, or an agent or component installed from the registry.",
-		Long: `Remove kdeps assets, or a package that was installed via "kdeps registry install".
+		Long: `Remove kdeps assets, or a package that was installed via "kdeps install".
 
 An asset (<set>/<name>) is hidden from kdeps until it is installed by name
 again; items a loader requires cannot be removed.

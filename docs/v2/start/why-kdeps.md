@@ -55,7 +55,7 @@ The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
   runtime and model pinned.
 - **Share, optionally.** [kdeps registry](/registry/) is a convenience layer for
   installing and publishing agents and components by name -
-  `kdeps registry install owner/repo` pulls straight from a GitHub repo, no
+  `kdeps install owner/repo` pulls straight from a GitHub repo, no
   registry entry required. You never need it to build or deploy your own agent.
 
 The [`git` component](/workflow/resources/git) also lets an agent read and write

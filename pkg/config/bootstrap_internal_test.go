@@ -523,7 +523,7 @@ func TestGetDefaults_ParseError(t *testing.T) {
 func TestGetDefaults_MissingIsZeroAndNotCached(t *testing.T) {
 	stubDefaults(t, nil, errors.New("no such file"))
 	d, err := GetDefaults()
-	require.ErrorContains(t, err, "run kdeps registry update")
+	require.ErrorContains(t, err, "run kdeps update")
 	require.NotNil(t, d)
 	assert.Equal(t, 60*time.Second, d.Chat.TimeoutDuration(), "accessors fall back")
 

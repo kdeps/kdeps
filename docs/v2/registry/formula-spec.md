@@ -1,6 +1,6 @@
 # Registry formula specification
 
-A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps registry install` where to download the package and how to verify it.
+A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps install` where to download the package and how to verify it.
 
 Works in workflow and agent mode.
 
@@ -17,7 +17,7 @@ version: 1.2.0                         # required - semantic version
 type: agent                            # required - component | workflow | agency
 github: owner/repo                     # required - GitHub owner/repo containing the release
 tarball: https://github.com/owner/repo/archive/refs/tags/v1.2.0.tar.gz  # required
-sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps registry submit
+sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps submit
 description: A one-line summary.       # required
 tags: [llm, chat]                      # optional - search keywords
 license: Apache-2.0                    # optional - SPDX identifier
@@ -32,7 +32,7 @@ license: Apache-2.0                    # optional - SPDX identifier
 | `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `theme`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
 | `github` | yes | `owner/repo` string. The repo containing the tagged release. |
 | `tarball` | yes | Full URL to the release tarball. Use GitHub's `/archive/refs/tags/v{version}.tar.gz` pattern. |
-| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps registry submit --tag`. |
+| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps submit --tag`. |
 | `description` | yes | One sentence describing what the package does. |
 | `tags` | no | List of search keywords. Use lowercase, no spaces. |
 | `license` | no | SPDX license identifier (`MIT`, `Apache-2.0`, etc.). |
@@ -71,7 +71,7 @@ Example: `cv-matcher`, `research-pipeline`
 
 ### kdeps assets
 
-kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, providers) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps registry update`, not `kdeps registry install`, which also installs what an item lists under `requires:` ([how](/agent/repl-updating)). The formula carries those as `dependencies`.
+kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, providers) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps install`, which also installs what an item lists under `requires:` ([how](/agent/repl-updating)). The formula carries those as `dependencies`.
 
 ```yaml
 # formulas/kdeps-components-searchWeb.yaml  (written by kdeps CI, not by hand)
@@ -119,11 +119,11 @@ The tag must match the `version` field in the formula.
 
 ### 2. Generate the formula
 
-Run `kdeps registry submit` from your package directory:
+Run `kdeps submit` from your package directory:
 
 ```bash
 cd my-package/
-kdeps registry submit --tag v1.2.0
+kdeps submit --tag v1.2.0
 ```
 
 This downloads the tarball, computes the SHA256, and prints the formula YAML.
@@ -142,7 +142,7 @@ Open a pull request to `github.com/kdeps/registry` adding the formula as `formul
 Once merged, anyone can install:
 
 ```bash
-kdeps registry install my-agent
+kdeps install my-agent
 ```
 
 ## Repository layout

@@ -144,22 +144,22 @@ done
 echo ""
 echo "-- Tier 1b: CLI discoverability --"
 
-LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" registry list 2>&1 || true)
+LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" list 2>&1 || true)
 for comp in "${ALL_COMPONENTS[@]}"; do
     if output_grep "  ${comp}\$" "$LIST_OUTPUT"; then
-        test_passed "$comp - appears in 'kdeps registry list'"
+        test_passed "$comp - appears in 'kdeps list'"
     else
-        test_failed "$comp - appears in 'kdeps registry list'" "Not found in: $LIST_OUTPUT"
+        test_failed "$comp - appears in 'kdeps list'" "Not found in: $LIST_OUTPUT"
     fi
 done
 
-# kdeps registry info for each example component
+# kdeps info for each example component
 for comp in "${ALL_COMPONENTS[@]}"; do
-    INFO_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" registry info "$comp" 2>&1 || true)
+    INFO_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" info "$comp" 2>&1 || true)
     if [ -n "$INFO_OUTPUT" ]; then
-        test_passed "$comp - 'kdeps registry info' returns content"
+        test_passed "$comp - 'kdeps info' returns content"
     else
-        test_failed "$comp - 'kdeps registry info' returns content" "Empty output"
+        test_failed "$comp - 'kdeps info' returns content" "Empty output"
     fi
 done
 

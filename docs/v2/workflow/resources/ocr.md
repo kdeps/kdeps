@@ -63,7 +63,7 @@ The `exec` result of the tesseract run:
 
 ## The component itself
 
-`kdeps registry update components/ocr` refreshes it. To change how it runs, copy it into your project's `components/ocr/component.yaml` - a local component with the same name wins:
+`kdeps update components/ocr` refreshes it. To change how it runs, copy it into your project's `components/ocr/component.yaml` - a local component with the same name wins:
 
 ```yaml
 # components/ocr/component.yaml (as shipped, abridged)

@@ -34,7 +34,7 @@ import (
 // isAssetRef reports whether ref names kdeps assets rather than a package:
 // a set ("tools") or an item ("tools/bash_exec", "harness/safety@1.2.0").
 func isAssetRef(ref string) bool {
-	if isLocalFilePath(ref) {
+	if isLocalFilePath(ref) || strings.HasPrefix(ref, githubPrefix) {
 		return false
 	}
 	name, _, _ := strings.Cut(ref, "@")
@@ -65,18 +65,18 @@ func runAssets(cmd *cobra.Command, opts agent.UpdateOptions) error {
 	return agent.RunAssetUpdate(cmd.Context(), cmd.OutOrStdout(), opts)
 }
 
-// newRegistryProfileCmd is "kdeps registry profile": choose what kdeps
+// newRegistryProfileCmd is "kdeps profile": choose what kdeps
 // installs (the first-run picker), or switch to a named profile.
 func newRegistryProfileCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "profile [minimum|workflows|agent|deploy|full|custom|sets-and-items]",
 		Short: "Choose the asset profile: what kdeps installs and keeps current",
-		Long: `Install an asset profile and record it as what kdeps registry update keeps current.
+		Long: `Install an asset profile and record it as what kdeps update keeps current.
 
-  kdeps registry profile                    the first-run picker (needs a terminal)
-  kdeps registry profile agent              minimum, workflows, agent, deploy or full
-  kdeps registry profile custom             tick sets, or single items, in a checklist
-  kdeps registry profile docker,tools/bash_exec   the base sets plus these sets and items`,
+  kdeps profile                    the first-run picker (needs a terminal)
+  kdeps profile agent              minimum, workflows, agent, deploy or full
+  kdeps profile custom             tick sets, or single items, in a checklist
+  kdeps profile docker,tools/bash_exec   the base sets plus these sets and items`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in io.Reader
@@ -91,6 +91,10 @@ func newRegistryProfileCmd() *cobra.Command {
 		},
 	}
 }
+
+// githubPrefix forces a GitHub ref ("github:tools/repo") whose owner shares
+// a name with an asset set.
+const githubPrefix = "github:"
 
 // errCheckPackages is returned for --check with a package ref.
 var errCheckPackages = errors.New("--check lists asset updates; it does not take packages")

@@ -41,18 +41,18 @@ func newRegistryUpdateCmd() *cobra.Command {
 		Long: `Update kdeps assets, or download and reinstall a package from the registry.
 
 Without arguments, every installed asset and the asset profile (see
-kdeps registry profile) move to their newest versions; pinned and removed
+kdeps profile) move to their newest versions; pinned and removed
 items are skipped. An asset ref installs or updates that set or item, and a
 version pins it. A package is uninstalled, then the requested (or latest)
 version installed.
 
 Examples:
-  kdeps registry update                            # assets to their newest versions
-  kdeps registry update --check                    # list asset updates, change nothing
-  kdeps registry update tools                      # every item in one set
-  kdeps registry update harness/safety@1.2.0       # exactly that version, pinned
-  kdeps registry update invoice-extractor          # a package, to latest
-  kdeps registry update invoice-extractor@2.0.0    # a package, pinned`,
+  kdeps update                            # assets to their newest versions
+  kdeps update --check                    # list asset updates, change nothing
+  kdeps update tools                      # every item in one set
+  kdeps update harness/safety@1.2.0       # exactly that version, pinned
+  kdeps update invoice-extractor          # a package, to latest
+  kdeps update invoice-extractor@2.0.0    # a package, pinned`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryUpdateCmd.RunE")
 			assetRefs, pkgRefs := splitRefs(args)
@@ -111,7 +111,7 @@ func requireInstalledPackage(name string) (string, error) {
 		return installDir, nil
 	}
 	return "", fmt.Errorf(
-		"package %q is not installed; use 'kdeps registry install %s' instead",
+		"package %q is not installed; use 'kdeps install %s' instead",
 		name, name,
 	)
 }

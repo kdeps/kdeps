@@ -70,7 +70,7 @@ func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) e
 }
 
 func notInstalled(sets []string, cause error) error {
-	msg := fmt.Sprintf("kdeps assets %s are not installed; connect to the internet and run kdeps registry update %s",
+	msg := fmt.Sprintf("kdeps assets %s are not installed; connect to the internet and run kdeps update %s",
 		strings.Join(sets, ", "), strings.Join(sets, " "))
 	if cause != nil {
 		return fmt.Errorf("%s (%w)", msg, cause)
@@ -91,7 +91,7 @@ func firstRunSelect(ctx context.Context, w io.Writer, in io.Reader, root string,
 	}
 	for _, ch := range changes {
 		if ch.Action == assets.ActionFailed {
-			return fmt.Errorf("could not download %s (%s); connect to the internet and run kdeps registry profile %s",
+			return fmt.Errorf("could not download %s (%s); connect to the internet and run kdeps profile %s",
 				ch.ID, ch.Note, name)
 		}
 	}
@@ -148,7 +148,7 @@ func withBase(sets []string) []string {
 // pickProfile shows the profiles and reads the choice; custom continues
 // with a set checklist.
 func pickProfile(w io.Writer, r *bufio.Reader, idx assets.Index) (string, []string, error) {
-	fmt.Fprintln(w, "\nWhat will you use kdeps for? (change it later with kdeps registry profile)")
+	fmt.Fprintln(w, "\nWhat will you use kdeps for? (change it later with kdeps profile)")
 	for i, p := range assets.Profiles {
 		fmt.Fprintf(w, "  %d) %-10s %s\n", i+1, p.Name, p.Description)
 	}
@@ -241,7 +241,7 @@ func (c *checklist) toggle(set, name string) {
 	}
 }
 
-// targets is the selection as kdeps registry update arguments: a fully ticked set by
+// targets is the selection as kdeps update arguments: a fully ticked set by
 // name (so items published later are included), else its ticked items.
 func (c *checklist) targets() []string {
 	var out []string
@@ -364,7 +364,7 @@ func readLine(w io.Writer, r *bufio.Reader, prompt string) string {
 }
 
 // SelectProfile installs a profile (or a custom selection when name is
-// "custom" or empty and in is a terminal) and records it: kdeps registry update
+// "custom" or empty and in is a terminal) and records it: kdeps update
 // profile [name].
 func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) error {
 	root, c := assets.Root(), assets.NewClient()
@@ -377,7 +377,7 @@ func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) 
 	switch name {
 	case "", customProfile:
 		if in == nil {
-			return errors.New("choosing a profile needs a terminal; name one: kdeps registry profile <name>")
+			return errors.New("choosing a profile needs a terminal; name one: kdeps profile <name>")
 		}
 		if name == customProfile {
 			profile, targets = customProfile, pickSets(w, bufio.NewReader(in), idx)

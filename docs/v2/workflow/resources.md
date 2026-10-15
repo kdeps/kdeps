@@ -138,7 +138,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component` | Call a reusable resource bundle | [Component](/agencies/component-resource) |
 | `apiResponse` | Return data to the HTTP caller | [API response](/workflow/resources/api-response) |
 
-## Registry components (installable via `kdeps registry install`)
+## Registry components (installable via `kdeps install`)
 
 Some install names (`embedding`) also exist as native YAML keys; the registry component is a separate package. An installed `browser` registry component takes the place of the shipped `browser` component.
 

@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# E2E: kdeps registry update against a local copy of the published assets/ in kdeps/packages.
+# E2E: kdeps update against a local copy of the published assets/ in kdeps/packages.
 #
 # Publishes one newer tool definition and one newer harness section, then
 # checks --check, a bare update, --list, a pinned downgrade, --remove (and the
@@ -9,7 +9,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing kdeps registry update..."
+echo "Testing kdeps update..."
 
 if ! command -v python3 >/dev/null 2>&1; then
     test_skipped "update - python3 not available for the local asset server"
@@ -48,14 +48,14 @@ for _ in $(seq 1 50); do
     sleep 0.1
 done
 
-# upd runs the kdeps registry asset subcommand for: --list, --remove, else update.
+# upd runs the kdeps asset command for: --list (list --assets), --remove (uninstall), else update.
 upd() {
     local sub=(update)
     case "${1:-}" in
     --list) sub=(list --assets); shift ;;
     --remove) sub=(uninstall); shift ;;
     esac
-    KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" registry "${sub[@]}" "$@" 2>&1
+    KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" "${sub[@]}" "$@" 2>&1
 }
 
 OUT=$(upd --check)
@@ -145,7 +145,7 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
 
     if OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list); then
         test_failed "first run offline refuses to start" "$OUT"
-    elif output_grep "run kdeps registry update" "$OUT"; then
+    elif output_grep "run kdeps update" "$OUT"; then
         test_passed "first run offline refuses to start"
     else
         test_failed "first run offline message" "$OUT"
@@ -158,7 +158,7 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
         test_failed "first run download" "$OUT"
     fi
 
-    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" registry profile agent)
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" profile agent)
     if [ -f "$FR_DIR/store/themes/normal.yaml" ] && [ -f "$FR_DIR/store/tools/bash_exec.yaml" ] &&
         [ ! -e "$FR_DIR/store/tools/zapier_run_action.yaml" ] && [ ! -e "$FR_DIR/store/docker" ] &&
         grep -q '"profile": "agent"' "$FR_DIR/store/lock.json"; then
@@ -167,7 +167,7 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
         test_failed "registry profile agent" "$OUT"
     fi
 
-    if OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" registry profile); then
+    if OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" profile); then
         test_failed "registry profile without a terminal fails" "$OUT"
     elif output_grep "needs a terminal" "$OUT"; then
         test_passed "registry profile without a terminal asks for a profile name"
@@ -214,4 +214,4 @@ fi
 rm -rf "$FR_DIR"
 
 echo ""
-echo "kdeps registry update E2E: done"
+echo "kdeps update E2E: done"

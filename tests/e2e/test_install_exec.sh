@@ -17,14 +17,14 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for `kdeps exec` and `kdeps registry install` (local path)
+# E2E tests for `kdeps exec` and `kdeps install` (local path)
 #
 # Tests:
 #   - kdeps exec --help works
 #   - kdeps exec on missing agent returns meaningful error
 #   - kdeps exec on manually installed agent does NOT error "not found"
-#   - kdeps registry install rejects bad registry target gracefully
-#   - kdeps registry install --help works
+#   - kdeps install rejects bad registry target gracefully
+#   - kdeps install --help works
 
 set -uo pipefail
 
@@ -82,7 +82,7 @@ fi
 rm -rf "$FAKE_AGENTS_DIR"
 
 # --- Test: registry install --help ---
-run_capturing "$KDEPS_BIN" registry install --help
+run_capturing "$KDEPS_BIN" install --help
 if output_grep_i "install|package|registry" "$OUTPUT"; then
     test_passed "registry install - help flag works"
 else
@@ -90,7 +90,7 @@ else
 fi
 
 # --- Test: registry install with bad/fake package name fails gracefully ---
-run_capturing "$KDEPS_BIN" registry install this-package-does-not-exist-xyz
+run_capturing "$KDEPS_BIN" install this-package-does-not-exist-xyz
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "404|not found|error|fail" "$OUTPUT"; then
     test_passed "registry install - nonexistent package fails gracefully"
 else
@@ -98,7 +98,7 @@ else
 fi
 
 # --- Test: registry install with bad registry URL fails gracefully ---
-run_capturing "$KDEPS_BIN" registry install some-agent --registry http://127.0.0.1:19999
+run_capturing "$KDEPS_BIN" install some-agent --registry http://127.0.0.1:19999
 if [ $EXIT_CODE -ne 0 ]; then
     test_passed "registry install - unreachable registry fails gracefully"
 else

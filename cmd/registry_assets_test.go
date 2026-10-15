@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -40,6 +41,7 @@ func TestIsAssetRefAndSplitRefs(t *testing.T) {
 	assert.False(t, isAssetRef("invoice-extractor"))
 	assert.False(t, isAssetRef("owner/repo"))
 	assert.False(t, isAssetRef("./tools/x.kdeps"))
+	assert.False(t, isAssetRef("github:tools/repo"), "github: forces a GitHub ref")
 
 	a, p := splitRefs([]string{"themes/vim,themes/linux", "agent-x", "owner/repo:sub", "tools"})
 	assert.Equal(t, []string{"themes/vim", "themes/linux", "tools"}, a)
@@ -66,7 +68,8 @@ func TestRegistryAssetCommands(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 
 	run := func(args ...string) (string, error) {
-		c := newRegistryCmd()
+		c := &cobra.Command{Use: "kdeps"}
+		c.AddCommand(registryCommands()...)
 		var out bytes.Buffer
 		c.SetOut(&out)
 		c.SetErr(&out)

@@ -53,7 +53,7 @@ type cloudCatalog struct {
 //nolint:gochecknoglobals // parsed from the asset set
 var KnownCloudModels = loadCloudModels()
 
-// ReloadCloudModels re-reads the catalog after kdeps registry update.
+// ReloadCloudModels re-reads the catalog after kdeps update.
 func ReloadCloudModels() { KnownCloudModels = loadCloudModels() }
 
 func loadCloudModels() []CloudModel {

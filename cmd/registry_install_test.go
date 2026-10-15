@@ -185,7 +185,7 @@ func TestRegistryInstall_ComponentGlobal(t *testing.T) {
 	err = doRegistryInstall(cmd, "scraper@1.0.0", srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "scraper")
-	assert.Contains(t, out.String(), "kdeps registry info scraper")
+	assert.Contains(t, out.String(), "kdeps info scraper")
 	_, statErr := os.Stat(filepath.Join(globalDir, "scraper", "component.yaml"))
 	assert.NoError(t, statErr)
 }
@@ -669,7 +669,7 @@ func TestResolvePackageInfo_AssetType(t *testing.T) {
 
 	_, err := resolvePackageInfo("kdeps-harness-safety", srv.URL)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kdeps registry update")
+	assert.Contains(t, err.Error(), "kdeps update")
 }
 
 func TestResolvePackageInfo_ResourceType(t *testing.T) {

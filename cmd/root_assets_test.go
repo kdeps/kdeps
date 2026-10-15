@@ -34,7 +34,7 @@ func TestSetsFor(t *testing.T) {
 		root.AddCommand(c)
 		return c
 	}
-	run, registry, doctor, export, other := sub("run"), sub("registry"), sub("doctor"), sub("export"), sub("other")
+	run, install, doctor, export, other := sub("run"), sub("install"), sub("doctor"), sub("export"), sub("other")
 	exportDocker := &cobra.Command{Use: "docker"}
 	export.AddCommand(exportDocker)
 
@@ -46,8 +46,8 @@ func TestSetsFor(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, assets.BaseSets, sets)
 
-	_, ok = setsFor(registry)
-	assert.False(t, ok, "registry installs the assets itself")
+	_, ok = setsFor(install)
+	assert.False(t, ok, "install installs the assets itself")
 	_, ok = setsFor(doctor)
 	assert.False(t, ok, "loads none")
 
