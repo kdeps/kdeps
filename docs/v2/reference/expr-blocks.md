@@ -126,13 +126,15 @@ after:
   - set('normalized_email', lower(trim(get('email'))))
   - set('normalized_name', trim(get('name')))
 
-sql:
-  query: |
-    INSERT INTO users (email, name) 
-    VALUES ($1, $2)
-  params:
-    - get('normalized_email')
-    - get('normalized_name')
+component:
+  name: sql
+  with:
+    query: |
+      INSERT INTO users (email, name) 
+      VALUES ($1, $2)
+    params:
+      - "{{ get('normalized_email') }}"
+      - "{{ get('normalized_name') }}"
 ```
 
 ### Pattern 2: Counter/State management

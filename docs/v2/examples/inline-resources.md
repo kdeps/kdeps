@@ -1,11 +1,11 @@
 # Run extra resources inline
 
-Attach `exec:`, `python:`, and `sql:` actions directly to
+Attach `exec:`, `python:` and `component:` actions directly to
 one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
 
 `before:` and `after:` usually hold bare expressions. They can also hold whole
-resource actions - `chat:`, `httpClient:`, `sql:`, `python:`, `exec:` - as list
+resource actions - `chat:`, `httpClient:`, `python:`, `exec:`, `component:` - as list
 items. Use inline actions for one-off setup or teardown that only this resource
 needs; use a separate resource when other resources also depend on the result.
 
@@ -85,11 +85,13 @@ chat:
 
 after:
   # persist the input
-  - sql:
-      connectionName: results
-      query: "INSERT INTO runs (data, at) VALUES ($1, datetime('now'))"
-      params:
-        - "{{ get('data') }}"
+  - component:
+      name: sql
+      with:
+        connectionName: results
+        query: "INSERT INTO runs (data, at) VALUES ($1, datetime('now'))"
+        params:
+          - "{{ get('data') }}"
   # post-process
   - python:
       script: |

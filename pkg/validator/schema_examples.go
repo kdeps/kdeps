@@ -47,11 +47,6 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		enumKeyHTTPMethod:        `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
 		"run.httpClient.timeout": `"10s"`,
 
-		// SQL fields
-		"run.sql.connection": `"postgresql://user:pass@localhost:5432/dbname"`,
-		"run.sql.query":      `"SELECT * FROM users WHERE id = $1"`,
-		enumKeySQLFormat:     `"json", "csv", or "table"`,
-
 		// Python fields
 		"run.python.script":     `"print('Hello, World!')"`,
 		"run.python.file":       `"script.py"`,

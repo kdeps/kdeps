@@ -44,7 +44,6 @@ import (
 	kdepsHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/python"
-	"github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -309,7 +308,6 @@ func setupTestExecutor() *executor.Engine {
 
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(kdepsHTTP.NewAdapter())
-	registry.SetSQLExecutor(sql.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
 	registry.SetExecExecutor(kdepsExec.NewAdapter())
 

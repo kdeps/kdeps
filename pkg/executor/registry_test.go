@@ -37,7 +37,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	// Test that getters return nil initially (lazy initialization)
 	assert.Nil(t, registry.GetLLMExecutor())
 	assert.Nil(t, registry.GetHTTPExecutor())
-	assert.Nil(t, registry.GetSQLExecutor())
 	assert.Nil(t, registry.GetPythonExecutor())
 	assert.Nil(t, registry.GetExecExecutor())
 	assert.Nil(t, registry.GetEmbeddingExecutor())
@@ -50,7 +49,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	// Create mock executors (just need non-nil values for testing)
 	mockLLM := &mockExecutor{}
 	mockHTTP := &mockExecutor{}
-	mockSQL := &mockExecutor{}
 	mockPython := &mockExecutor{}
 	mockExec := &mockExecutor{}
 	mockEmbedding := &mockExecutor{}
@@ -59,7 +57,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	// Set executors
 	registry.SetLLMExecutor(mockLLM)
 	registry.SetHTTPExecutor(mockHTTP)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
 	registry.SetEmbeddingExecutor(mockEmbedding)
@@ -68,7 +65,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	// Verify getters return the set values
 	assert.Equal(t, mockLLM, registry.GetLLMExecutor())
 	assert.Equal(t, mockHTTP, registry.GetHTTPExecutor())
-	assert.Equal(t, mockSQL, registry.GetSQLExecutor())
 	assert.Equal(t, mockPython, registry.GetPythonExecutor())
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
 	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())

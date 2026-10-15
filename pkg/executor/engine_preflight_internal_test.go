@@ -64,7 +64,6 @@ func TestExecuteExecutors_NilConfigBranches(t *testing.T) {
 	e := covTestEngine()
 	reg := NewRegistry()
 	reg.SetHTTPExecutor(&covMockExecutor{})
-	reg.SetSQLExecutor(&covMockExecutor{})
 	reg.SetPythonExecutor(&covMockExecutor{})
 	reg.SetExecExecutor(&covMockExecutor{})
 	reg.SetEmbeddingExecutor(&covMockExecutor{})
@@ -74,8 +73,6 @@ func TestExecuteExecutors_NilConfigBranches(t *testing.T) {
 	r := &domain.Resource{ActionID: "r"}
 
 	_, err := e.executeHTTP(r, ctx)
-	require.Error(t, err)
-	_, err = e.executeSQL(r, ctx)
 	require.Error(t, err)
 	_, err = e.executePython(r, ctx)
 	require.Error(t, err)

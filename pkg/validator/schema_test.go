@@ -260,20 +260,6 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid SQL resource",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "sql-action",
-				"name":       "SQL Resource",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "resource with dependencies",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
@@ -514,40 +500,6 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			},
 			expectedField:          "kind",
 			expectedOption:         "Resource",
-			expectAvailableOptions: true,
-		},
-		{
-			name: "invalid SQL format type - integer instead of string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"format":     123, // Wrong type
-				},
-			},
-			expectedField:          "sql.format",
-			expectedOption:         "json",
-			expectAvailableOptions: true,
-		},
-		{
-			name: "invalid SQL format value - not in enum",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"format":     "invalid-format",
-				},
-			},
-			expectedField:          "sql.format",
-			expectedOption:         "json",
 			expectAvailableOptions: true,
 		},
 	}
@@ -1803,12 +1755,6 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
 		{
-			name:       "sql format normalized",
-			field:      "sql.0.format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
-		},
-		{
 			name:       "unknown normalized field",
 			field:      "unknown.0.field",
 			schemaType: "resource",
@@ -1953,7 +1899,6 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 		"settings.apiServer.routes.1.methods.0", // Should normalize to routes.methods
 		"chat.0.contextLength",                  // Should normalize to chat.contextLength
 		"httpClient.0.method",                   // Should normalize to httpClient.method
-		"sql.0.format",                          // Should normalize to sql.format
 		"validations.methods",                   // Should match validations.methods enum
 	}
 
@@ -2232,11 +2177,6 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_EdgeCases(t *testing.T) {
 			expected: "This field is required. Example: \"llama3.2:latest\"",
 		},
 		{
-			name:     "field with partial match - sql.connection",
-			field:    "sql.connection",
-			expected: "This field is required. Example: \"postgresql://user:pass@localhost:5432/dbname\"",
-		},
-		{
 			name:     "unknown field - falls back to generic example",
 			field:    "completely.unknown.field",
 			expected: "This field is required",
@@ -2310,12 +2250,6 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
 		{
-			name:       "nested field matching - sql.format",
-			field:      "sql.format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
-		},
-		{
 			name:       "validations.methods field",
 			field:      "validations.methods",
 			schemaType: "resource",
@@ -2366,12 +2300,6 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
-		},
-		{
-			name:       "format field in sql context",
-			field:      "format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
 		},
 		{
 			name:       "methods field in routes context",
@@ -2828,52 +2756,6 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			expectedType:  "string",
 		},
 		{
-			name: "sql.connection wrong type - integer",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": 123,
-					"query":      "SELECT * FROM users",
-				},
-			},
-			expectedField: "sql.connection",
-			expectedType:  "string",
-		},
-		{
-			name: "sql.query wrong type - integer",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      123,
-				},
-			},
-			expectedField: "sql.query",
-			expectedType:  "string",
-		},
-		{
-			name: "sql.maxRows wrong type - string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"maxRows":    "100",
-				},
-			},
-			expectedField: "sql.maxRows",
-			expectedType:  "integer",
-		},
-		{
 			name: "python.script wrong type - integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
@@ -3085,19 +2967,6 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 				"httpClient": map[string]interface{}{
 					"method": "GET",
 					"url":    "https://api.example.com",
-				},
-			},
-		},
-		{
-			name: "valid sql resource",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
 				},
 			},
 		},

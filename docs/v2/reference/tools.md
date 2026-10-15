@@ -67,19 +67,21 @@ chat:
 ```yaml
 # Database search resource
 actionId: dbSearchTool
-sql:
-  connectionName: main
-  query: |
-    SELECT id, name, description, price, category
-    FROM products
-    WHERE (name ILIKE $1 OR description ILIKE $1)
-      AND ($2 = '' OR category = $2)
-    LIMIT $3
-  params:
-    - "'%' || get('query') || '%'"
-    - get('category', '')
-    - get('limit', '10')
-  format: json
+component:
+  name: sql
+  with:
+    connectionName: main
+    query: |
+      SELECT id, name, description, price, category
+      FROM products
+      WHERE (name ILIKE $1 OR description ILIKE $1)
+        AND ($2 = '' OR category = $2)
+      LIMIT $3
+    params:
+      - "%{{ get('query') }}%"
+      - "{{ get('category', '') }}"
+      - "{{ get('limit', '10') }}"
+    format: json
 
 ---
 # LLM with search

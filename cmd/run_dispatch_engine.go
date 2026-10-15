@@ -37,7 +37,6 @@ import (
 	executorLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
@@ -104,7 +103,6 @@ func newExecutorRegistry() *executor.Registry {
 	kdeps_debug.Log("enter: newExecutorRegistry")
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())

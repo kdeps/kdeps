@@ -121,7 +121,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"exec", &domain.Resource{Exec: &domain.ExecConfig{}}, "exec"},
 		{"python", &domain.Resource{Python: &domain.PythonConfig{}}, "python"},
 		{"chat maps to llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
-		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
 		{
 			"httpClient maps to http",
 			&domain.Resource{HTTPClient: &domain.HTTPClientConfig{}},
@@ -164,7 +163,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	got := domain.PrimaryResourceTypesList()
 	// Verify all expected resource types are present in the list.
 	expectedTypes := []string{
-		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
+		"chat", "httpClient", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
@@ -179,7 +178,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	t.Parallel()
 
 	want := []string{
-		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
+		"chat", "httpClient", "python", "exec", "agent", "component",
 		"embedding", "searchLocal",
 		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}

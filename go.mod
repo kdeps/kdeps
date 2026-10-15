@@ -16,7 +16,6 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/chzyer/readline v1.5.1
 	github.com/creack/pty v1.1.24
-	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
@@ -37,7 +36,6 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.29.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -127,8 +125,6 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocolly/colly v1.2.0 // indirect
-	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
-	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect

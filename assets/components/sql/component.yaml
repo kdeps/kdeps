@@ -1,0 +1,265 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: sql
+  description: Run SQL against PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - one query, or several in a transaction
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: connectionName
+      type: string
+      required: true
+      connection: sql
+      description: Name under sql_connections in ~/.kdeps/config.yaml (postgres://, mysql://, sqlite://, sqlserver://, oracle://)
+    - name: query
+      type: string
+      default: ""
+      description: The statement; placeholders $1, ?, @p1 or :1 all work with every database
+    - name: params
+      type: array
+      default: []
+      description: Values for the placeholders, in order
+    - name: transaction
+      type: boolean
+      default: false
+      description: Run queries in one transaction (all or nothing)
+    - name: queries
+      type: array
+      default: []
+      description: "Transaction statements: [{query, params}] or [{query, paramsBatch: [[...], [...]]}]"
+    - name: format
+      type: string
+      default: ""
+      description: "SELECT result shape: '' or table (rows), json (a JSON string), csv"
+    - name: timeout
+      type: string
+      default: ""
+      description: Statement timeout as a duration (default KDEPS_SQL_TIMEOUT, else 30s)
+    - name: maxRows
+      type: integer
+      default: 0
+      description: SELECT rows to return at most (default KDEPS_SQL_MAX_ROWS, else 1000)
+  # The script prints {"value": ...} (python steps return JSON objects); the
+  # call's result is the value: a row, {rowsAffected, data, columns}, a JSON
+  # or CSV string, a DML summary, or a transaction's list of results.
+  output: "{{ output('sqlRun').value }}"
+resources:
+  - actionId: sqlRun
+    name: SQL
+    python:
+      timeout: 600s
+      env:
+        # The connection string (with its password) goes through env, never argv.
+        KDEPS_SQL_CONNECTION: "{{ json(get('config.sql_connections.' + get('sql.connectionName'), '')) }}"
+      args:
+        - "{{ get('sql.connectionName') }}"
+        - "{{ get('sql.query') }}"
+        - "{{ json(get('sql.params')) }}"
+        - "{{ get('sql.transaction') }}"
+        - "{{ json(get('sql.queries')) }}"
+        - "{{ get('sql.format') }}"
+        - "{{ get('sql.timeout') }}"
+        - "{{ get('sql.maxRows') }}"
+      script: |
+        # Runs the statement(s) and prints the result as JSON.
+        import csv, datetime, decimal, io, json, os, re, subprocess, sys
+
+        (name, query, params, transaction, queries, fmt, timeout, max_rows) = sys.argv[1:9]
+        params = json.loads(params or "[]") or []
+        queries = json.loads(queries or "[]") or []
+        transaction = transaction.lower() == "true"
+        fmt = (fmt or "").lower()
+
+        def fail(msg):
+            sys.exit("sql: " + msg)
+
+        def seconds(d):
+            m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)(ms|s|m|h)?\s*", d or "")
+            if not m:
+                return None
+            return float(m.group(1)) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600, None: 1}[m.group(2)]
+
+        wait = seconds(timeout) or seconds(os.environ.get("KDEPS_SQL_TIMEOUT", "")) or 30.0
+        limit = int(max_rows) if str(max_rows).isdigit() and int(max_rows) > 0 else 0
+        if not limit:
+            env_rows = os.environ.get("KDEPS_SQL_MAX_ROWS", "")
+            limit = int(env_rows) if env_rows.isdigit() and int(env_rows) > 0 else 1000
+
+        raw = os.environ.get("KDEPS_SQL_CONNECTION", "")
+        conn_cfg = json.loads(raw) if raw else {}
+        conn_cfg = {k.lower(): v for k, v in conn_cfg.items()} if isinstance(conn_cfg, dict) else {}
+        dsn = conn_cfg.get("connection", "")
+        if not name:
+            fail("connectionName is required")
+        if not dsn:
+            fail("sql connection %r not found in config.yaml sql_connections" % name)
+
+        lower = dsn.lower()
+        if lower.startswith(("mysql", "mariadb")):
+            kind = "mysql"
+        elif lower.startswith(("sqlite", "file:")):
+            kind = "sqlite"
+        elif lower.startswith(("sqlserver", "mssql")):
+            kind = "sqlserver"
+        elif lower.startswith(("oracle", "oci8")):
+            kind = "oracle"
+        else:
+            kind = "postgres"
+
+        def module(mod, package):
+            try:
+                return __import__(mod)
+            except ImportError:
+                # First use of this database: install its driver into this venv.
+                sys.stderr.write("sql: installing %s (first use only)...\n" % package)
+                subprocess.run(["uv", "pip", "install", "--quiet", "--python", sys.executable, package],
+                               check=True, stdout=sys.stderr)
+                return __import__(mod)
+
+        def connect():
+            from urllib.parse import urlparse, unquote, parse_qs
+            if kind == "sqlite":
+                import sqlite3
+                if lower.startswith("file:") and not lower.startswith("file://"):
+                    # An SQLite URI (file::memory:?cache=shared, file:app.db?mode=ro).
+                    return sqlite3.connect(dsn, timeout=wait, uri=True)
+                path = re.sub(r"^(sqlite3://|sqlite://|file://)", "", dsn, flags=re.I)
+                return sqlite3.connect(path, timeout=wait)
+            if kind == "postgres":
+                psycopg = module("psycopg", "psycopg[binary]")
+                conn = psycopg.connect(dsn, connect_timeout=max(1, int(wait)))
+                conn.execute("SET statement_timeout = %d" % int(wait * 1000))
+                conn.commit()
+                return conn
+            u = urlparse(dsn)
+            user, password, host = unquote(u.username or ""), unquote(u.password or ""), u.hostname or "localhost"
+            db = u.path.lstrip("/")
+            if kind == "mysql":
+                pymysql = module("pymysql", "pymysql")
+                return pymysql.connect(host=host, port=u.port or 3306, user=user, password=password,
+                                       database=db or None, connect_timeout=max(1, int(wait)),
+                                       read_timeout=max(1, int(wait)), write_timeout=max(1, int(wait)))
+            if kind == "sqlserver":
+                pymssql = module("pymssql", "pymssql")
+                q = parse_qs(u.query)
+                return pymssql.connect(server=host, port=str(u.port or 1433), user=user, password=password,
+                                       database=(q.get("database") or [db])[0] or None,
+                                       login_timeout=max(1, int(wait)), timeout=max(1, int(wait)))
+            oracledb = module("oracledb", "oracledb")
+            conn = oracledb.connect(user=user, password=password, dsn="%s:%d/%s" % (host, u.port or 1521, db))
+            conn.call_timeout = int(wait * 1000)
+            return conn
+
+        PLACEHOLDER = re.compile(r"""('(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*|/\*.*?\*/|::)"""
+                                 r"""|(\$\d+|\?\d*|@p\d+|(?<![:\w]):\d+)""", re.S)
+
+        def bind(sql, values):
+            # Rewrites the placeholders into this driver's style, in order of use.
+            order, out, pos, seq = [], [], 0, 0
+            for m in PLACEHOLDER.finditer(sql):
+                out.append(sql[pos:m.start()])
+                pos = m.end()
+                if m.group(1):
+                    out.append(m.group(1))
+                    continue
+                token = m.group(2)
+                digits = re.sub(r"\D", "", token)
+                if digits:
+                    index = int(digits) - 1
+                else:
+                    index, seq = seq, seq + 1
+                order.append(index)
+                out.append({"sqlite": "?", "oracle": ":%d" % len(order)}.get(kind, "%s"))
+            out.append(sql[pos:])
+            text = "".join(out)
+            if kind in ("postgres", "mysql", "sqlserver") and order:
+                # pyformat drivers: a literal % must be doubled.
+                text = re.sub(r"%(?!s)", "%%", text)
+            try:
+                return text, [values[i] for i in order]
+            except IndexError:
+                fail("the query uses %d placeholder(s) but %d param(s) were given" % (max(order) + 1, len(values)))
+
+        def plain(v):
+            if isinstance(v, (bytes, bytearray, memoryview)):
+                return bytes(v).decode(errors="replace")
+            if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
+                return v.isoformat()
+            if isinstance(v, decimal.Decimal):
+                return str(v)
+            return v
+
+        def is_select(sql):
+            return sql.lstrip().upper().startswith("SELECT")
+
+        def run(cur, sql, values, cap):
+            text, args = bind(sql, values)
+            cur.execute(text, args)
+            if cur.description is None:
+                last = getattr(cur, "lastrowid", None) or 0
+                return None, {"rowsAffected": max(cur.rowcount, 0), "lastInsertID": last if isinstance(last, int) else 0}
+            cols = [d[0] for d in cur.description]
+            rows = cur.fetchmany(cap) if cap else cur.fetchall()
+            return [{c: plain(v) for c, v in zip(cols, r)} for r in rows], None
+
+        def shape(rows):
+            if fmt == "json":
+                return json.dumps(rows)
+            if fmt == "csv":
+                if not rows:
+                    return ""
+                cols = sorted(rows[0])
+                buf = io.StringIO()
+                w = csv.writer(buf, lineterminator="\n")
+                w.writerow(cols)
+                for r in rows:
+                    w.writerow(["" if r.get(c) is None else r.get(c) for c in cols])
+                return buf.getvalue()
+            if len(rows) == 1:
+                return rows[0]
+            return {"rowsAffected": len(rows), "data": rows, "columns": sorted(rows[0]) if rows else []}
+
+        try:
+            conn = connect()
+        except SystemExit:
+            raise
+        except Exception as e:
+            print(json.dumps({"value": {"error": "failed to get database connection: %s" % e}}))
+            sys.exit(0)
+
+        try:
+            cur = conn.cursor()
+            if transaction:
+                results = []
+                for item in queries:
+                    sql = str(item.get("query", ""))
+                    if item.get("paramsBatch") is not None:
+                        batch = item["paramsBatch"]
+                        if not isinstance(batch, list) or not all(isinstance(p, list) for p in batch):
+                            fail("paramsBatch must be an array of parameter arrays")
+                        out = []
+                        for p in batch:
+                            rows, _ = run(cur, sql, p, 0)
+                            out.append(rows or [])
+                        results.append(out)
+                        continue
+                    rows, dml = run(cur, sql, item.get("params") or [], 0)
+                    results.append(rows if rows is not None else dml)
+                conn.commit()
+                print(json.dumps({"value": results}))
+                sys.exit(0)
+            if not query:
+                fail("query is required")
+            rows, dml = run(cur, query, params, limit if is_select(query) else 0)
+            conn.commit()
+            print(json.dumps({"value": shape(rows) if rows is not None else dict(dml, success=True)}))
+        except SystemExit:
+            raise
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            fail("query execution failed: %s" % e)
+        finally:
+            conn.close()

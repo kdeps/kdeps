@@ -292,19 +292,6 @@ func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
-	r := mkResource("target")
-	r.SQL = &domain.SQLConfig{
-		Queries: []domain.QueryItem{
-			{Query: "SELECT * WHERE id = output('nope')"},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
 func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 	r := mkResource("target")
 	r.Embedding = &domain.EmbeddingConfig{Text: "{{ gone.text }}"}
@@ -637,22 +624,6 @@ func TestAnalyzeWorkflow_ExpressionInChatScenario(t *testing.T) {
 	assert.Contains(t, errs[0].Message, `"ghost"`)
 }
 
-// TestAnalyzeWorkflow_ExpressionInSQLParams tests that SQL query params are scanned.
-func TestAnalyzeWorkflow_ExpressionInSQLParams(t *testing.T) {
-	r := mkResource("target")
-	r.SQL = &domain.SQLConfig{
-		Queries: []domain.QueryItem{
-			{Query: "SELECT *", Params: []interface{}{"output('ghost')"}},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.Len(t, errs, 1)
-	assert.Contains(t, errs[0].Message, `"ghost"`)
-}
-
 // TestAnalyzeWorkflow_ExpressionInInlineChat tests inline Before action with Chat.
 func TestAnalyzeWorkflow_ExpressionInInlineChat(t *testing.T) {
 	r := mkResource("target")
@@ -675,24 +646,6 @@ func TestAnalyzeWorkflow_ExpressionInInlineHTTPData(t *testing.T) {
 		{HTTPClient: &domain.HTTPClientConfig{
 			URL:  "http://example.com",
 			Data: "output('ghost')",
-		}},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.Len(t, errs, 1)
-	assert.Contains(t, errs[0].Message, `"ghost"`)
-}
-
-// TestAnalyzeWorkflow_ExpressionInInlineSQL tests inline Before action with SQL query.
-func TestAnalyzeWorkflow_ExpressionInInlineSQL(t *testing.T) {
-	r := mkResource("target")
-	r.Before = []domain.ActionConfig{
-		{SQL: &domain.SQLConfig{
-			Queries: []domain.QueryItem{
-				{Query: "output('ghost')"},
-			},
 		}},
 	}
 	w := mkWorkflow("target", r)

@@ -82,27 +82,6 @@ type HTTPTLSConfig struct {
 	CAFile             string `yaml:"caFile,omitempty"`
 }
 
-// SQLConfig represents SQL query configuration.
-type SQLConfig struct {
-	ConnectionName string        `yaml:"connectionName,omitempty"`
-	Pool           *PoolConfig   `yaml:"pool,omitempty"`
-	Query          string        `yaml:"query,omitempty"`
-	Params         []interface{} `yaml:"params,omitempty"`
-	Transaction    bool          `yaml:"transaction,omitempty"`
-	Queries        []QueryItem   `yaml:"queries,omitempty"`
-	Format         string        `yaml:"format,omitempty"`
-	Timeout        string        `yaml:"timeout,omitempty"`
-	MaxRows        int           `yaml:"maxRows,omitempty"`
-}
-
-// QueryItem represents a query in a transaction.
-type QueryItem struct {
-	Name        string        `yaml:"name,omitempty"` // Optional name for the query result
-	Query       string        `yaml:"query"`
-	Params      []interface{} `yaml:"params,omitempty"`
-	ParamsBatch string        `yaml:"paramsBatch,omitempty"`
-}
-
 // PythonConfig represents Python execution configuration.
 type PythonConfig struct {
 	Script     string   `yaml:"script,omitempty"`

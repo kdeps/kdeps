@@ -37,12 +37,14 @@ chat:
 # Inline resources that run AFTER the main resource
 after:
   # Store result in database
-  - sql:
-      connection: "sqlite3://./results.db"
-      query: "INSERT INTO results (data, timestamp) VALUES (?, datetime('now'))"
-      params:
-        - "{{get('data')}}"
-      timeout: 5s
+  - component:
+      name: sql
+      with:
+        connectionName: "sqlite3://./results.db"
+        query: "INSERT INTO results (data, timestamp) VALUES (?, datetime('now'))"
+        params:
+          - "{{get('data')}}"
+        timeout: 5s
 
   # Run Python script for post-processing
   - python:

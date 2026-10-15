@@ -397,62 +397,6 @@ test_enhanced_error "$TEMP_DIR7/invalid-kind.yaml" \
     "Workflow"
 rm -rf "$TEMP_DIR7"
 
-# Test 8: Invalid SQL format type - using resource file
-TEMP_DIR8=$(mktemp -d)
-mkdir -p "$TEMP_DIR8/resources"
-cat > "$TEMP_DIR8/invalid-sql-format-type.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: test
-  targetActionId: test
-settings:
-  agentSettings:
-    timezone: UTC
-EOF
-cat > "$TEMP_DIR8/resources/test.yaml" << 'EOF'
-actionId: test
-name: test
-sql:
-  connection: postgresql://localhost:5432/db
-  query: SELECT * FROM users
-  format: 123
-EOF
-
-test_enhanced_error "$TEMP_DIR8/invalid-sql-format-type.yaml" \
-    "Enhanced error for invalid SQL format type" \
-    "sql.format" \
-    "json"
-rm -rf "$TEMP_DIR8"
-
-# Test 9: Invalid SQL format value - using resource file
-TEMP_DIR9=$(mktemp -d)
-mkdir -p "$TEMP_DIR9/resources"
-cat > "$TEMP_DIR9/invalid-sql-format-value.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: test
-  targetActionId: test
-settings:
-  agentSettings:
-    timezone: UTC
-EOF
-cat > "$TEMP_DIR9/resources/test.yaml" << 'EOF'
-actionId: test
-name: test
-sql:
-  connection: postgresql://localhost:5432/db
-  query: SELECT * FROM users
-  format: invalid-format
-EOF
-
-test_enhanced_error "$TEMP_DIR9/invalid-sql-format-value.yaml" \
-    "Enhanced error for invalid SQL format value" \
-    "sql.format" \
-    "json"
-rm -rf "$TEMP_DIR9"
-
 # Test 10: Invalid API server route method value
 TEMP_DIR10=$(mktemp -d)
 cat > "$TEMP_DIR10/invalid-route-method.yaml" << 'EOF'
@@ -599,32 +543,6 @@ test_validation_error "$TEMP_DIR15/workflow.yaml" \
     "Type error - httpClient.url as integer" \
     "httpClient.url"
 rm -rf "$TEMP_DIR15"
-
-# Test 16: Type error - sql.query as integer
-TEMP_DIR16=$(mktemp -d)
-mkdir -p "$TEMP_DIR16/resources"
-cat > "$TEMP_DIR16/workflow.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: test
-  targetActionId: test
-settings:
-  agentSettings:
-    timezone: UTC
-EOF
-cat > "$TEMP_DIR16/resources/test.yaml" << 'EOF'
-actionId: test
-name: test
-sql:
-  connection: postgresql://localhost:5432/db
-  query: 123
-EOF
-
-test_validation_error "$TEMP_DIR16/workflow.yaml" \
-    "Type error - sql.query as integer" \
-    "sql.query"
-rm -rf "$TEMP_DIR16"
 
 # Test 17: Type error - python.script as integer
 TEMP_DIR17=$(mktemp -d)

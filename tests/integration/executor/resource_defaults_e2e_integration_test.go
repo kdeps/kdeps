@@ -31,7 +31,6 @@ package executor_test
 // resources to avoid any network or external dependencies.
 
 import (
-	dbsql "database/sql"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -51,7 +50,6 @@ import (
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	sqlexec "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 )
 
 // loadConfigDefaults writes a config.yaml with resource_defaults, calls
@@ -89,7 +87,6 @@ func newExecEngine() *executor.Engine {
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetSQLExecutor(sqlexec.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter("http://localhost:11434"))
 	engine.SetRegistry(registry)
 	return engine
@@ -107,7 +104,6 @@ func newLLMEngine(ollamaURL string) *executor.Engine {
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetSQLExecutor(sqlexec.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
 	engine.SetRegistry(registry)
 	return engine
@@ -389,93 +385,6 @@ resource_defaults:
 }
 
 // --- SQL resource ---
-
-// TestE2E_ResourceDefaults_SQL_TimeoutAndMaxRowsFromConfig verifies that both
-// the SQL timeout and max_rows global defaults are applied from config.yaml.
-func TestE2E_ResourceDefaults_SQL_TimeoutAndMaxRowsFromConfig(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	loadConfigDefaults(t, `
-resource_defaults:
-  sql:
-    timeout: "30s"
-    max_rows: 50
-`)
-	assert.Equal(t, "30s", os.Getenv("KDEPS_SQL_TIMEOUT"))
-	assert.Equal(t, "50", os.Getenv("KDEPS_SQL_MAX_ROWS"))
-
-	db, err := dbsql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Skipf("SQLite not available: %v", err)
-	}
-	defer db.Close()
-	_, err = db.Exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)")
-	require.NoError(t, err)
-	for i := 1; i <= 10; i++ {
-		_, err = db.Exec("INSERT INTO items (name) VALUES (?)", "item")
-		require.NoError(t, err)
-	}
-
-	sqlE := sqlexec.NewExecutor()
-	sqlE.Pools["sqlite://:memory:"] = db
-
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "sql-defaults-test"},
-	})
-	require.NoError(t, err)
-	ctx.Config = &kdepsconfig.Config{
-		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
-			"mem": {Connection: "sqlite://:memory:"},
-		},
-	}
-
-	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
-		ConnectionName: "mem",
-		Query:          "SELECT * FROM items",
-		// No TimeoutDuration or MaxRows — global defaults apply
-	})
-	require.NoError(t, execErr)
-	assert.NotNil(t, result)
-}
-
-// TestE2E_ResourceDefaults_SQL_ResourceValuesOverrideConfig verifies that
-// per-resource SQL settings win over the global config defaults.
-func TestE2E_ResourceDefaults_SQL_ResourceValuesOverrideConfig(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	loadConfigDefaults(t, `
-resource_defaults:
-  sql:
-    timeout: "30s"
-    max_rows: 50
-`)
-
-	db, err := dbsql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Skipf("SQLite not available: %v", err)
-	}
-	defer db.Close()
-
-	sqlE := sqlexec.NewExecutor()
-	sqlE.Pools["sqlite://:memory:"] = db
-
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "sql-override-test"},
-	})
-	require.NoError(t, err)
-	ctx.Config = &kdepsconfig.Config{
-		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
-			"mem": {Connection: "sqlite://:memory:"},
-		},
-	}
-
-	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
-		ConnectionName: "mem",
-		Query:          "SELECT 1",
-		Timeout:        "10s",
-		MaxRows:        100, // resource value wins
-	})
-	require.NoError(t, execErr)
-	assert.NotNil(t, result)
-}
 
 // --- All defaults together ---
 

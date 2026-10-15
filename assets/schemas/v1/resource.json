@@ -560,37 +560,6 @@
         }
       }
     },
-    "sql": {
-      "type": "object",
-      "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "connectionName": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        },
-        "params": {
-          "type": "array"
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "json",
-            "csv",
-            "table"
-          ]
-        },
-        "maxRows": {
-          "type": "integer"
-        },
-        "timeout": {
-          "type": "string"
-        }
-      }
-    },
     "python": {
       "type": "object",
       "properties": {

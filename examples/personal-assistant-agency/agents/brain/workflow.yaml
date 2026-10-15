@@ -62,18 +62,20 @@ resources:
   - actionId: recall
     name: Recall Memory
     requires: [init-db]
-    sql:
-      connectionName: memory
-      query: |
-        SELECT role, content
-        FROM   conversations
-        WHERE  session_id = $1
-        ORDER  BY id DESC
-        LIMIT  20
-      params:
-        - "get('session_id', 'default')"
-      format: json
-      timeout: 10s
+    component:
+      name: sql
+      with:
+        connectionName: memory
+        query: |
+          SELECT role, content
+          FROM   conversations
+          WHERE  session_id = $1
+          ORDER  BY id DESC
+          LIMIT  20
+        params:
+          - "get('session_id', 'default')"
+        format: json
+        timeout: 10s
 
   # ────────────────────────────────────────────────────────────────────────────
   # TOOLS  (invoked by the LLM during ReAct reasoning — not in normal DAG flow)
@@ -421,31 +423,35 @@ resources:
   - actionId: save-user-turn
     name: Save User Turn
     requires: [extract-reply]
-    sql:
-      connectionName: memory
-      query: |
-        INSERT INTO conversations (session_id, role, content)
-        VALUES ($1, $2, $3)
-      params:
-        - "get('session_id', 'default')"
-        - "'user'"
-        - "get('message')"
-      timeout: 10s
+    component:
+      name: sql
+      with:
+        connectionName: memory
+        query: |
+          INSERT INTO conversations (session_id, role, content)
+          VALUES ($1, $2, $3)
+        params:
+          - "get('session_id', 'default')"
+          - "'user'"
+          - "get('message')"
+        timeout: 10s
 
   # ── Memory: persist assistant reply ─────────────────────────────────────────
   - actionId: save-assistant-turn
     name: Save Assistant Turn
     requires: [save-user-turn]
-    sql:
-      connectionName: memory
-      query: |
-        INSERT INTO conversations (session_id, role, content)
-        VALUES ($1, $2, $3)
-      params:
-        - "get('session_id', 'default')"
-        - "'assistant'"
-        - "get('reply')"
-      timeout: 10s
+    component:
+      name: sql
+      with:
+        connectionName: memory
+        query: |
+          INSERT INTO conversations (session_id, role, content)
+          VALUES ($1, $2, $3)
+        params:
+          - "get('session_id', 'default')"
+          - "'assistant'"
+          - "get('reply')"
+        timeout: 10s
 
   # ── Response ──────────────────────────────────────────────────────────────────
   - actionId: brain-response

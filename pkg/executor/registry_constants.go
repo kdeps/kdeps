@@ -21,7 +21,6 @@ package executor
 const (
 	ExecutorLLM         = "llm"
 	ExecutorHTTP        = "httpClient"
-	ExecutorSQL         = "sql"
 	ExecutorPython      = "python"
 	ExecutorExec        = "exec"
 	ExecutorEmbedding   = "embedding"

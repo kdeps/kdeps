@@ -56,9 +56,11 @@ settings:
 resources:
   - actionId: query
     name: Query
-    sql:
-      connectionName: missingdb
-      query: "SELECT 1"
+    component:
+      name: sql
+      with:
+        connectionName: missingdb
+        query: "SELECT 1"
 EOF
 
 # --- Test 1: non-interactive run with a MISSING connection -------------------

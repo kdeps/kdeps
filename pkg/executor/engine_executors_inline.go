@@ -29,14 +29,6 @@ func (e *Engine) executeInlineHTTP(
 	return e.executeRegistered("executeInlineHTTP", e.registry.GetHTTPExecutor, "HTTP", ctx, config)
 }
 
-// executeInlineSQL executes an inline SQL resource.
-func (e *Engine) executeInlineSQL(
-	config *domain.SQLConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered("executeInlineSQL", e.registry.GetSQLExecutor, "SQL", ctx, config)
-}
-
 // executeInlinePython executes an inline Python resource.
 func (e *Engine) executeInlinePython(
 	config *domain.PythonConfig,

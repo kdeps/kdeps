@@ -38,16 +38,6 @@ func newTestEngine() *Engine {
 	return e
 }
 
-func TestExecuteInlineSQL_NoExecutor(t *testing.T) {
-	e := newTestEngine()
-	e.SetRegistry(NewRegistry())
-	config := &domain.SQLConfig{Query: "SELECT 1"}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
-	_, err := e.executeInlineSQL(config, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "SQL executor not available")
-}
-
 func TestExecuteInlinePython_NoExecutor(t *testing.T) {
 	e := newTestEngine()
 	e.SetRegistry(NewRegistry())

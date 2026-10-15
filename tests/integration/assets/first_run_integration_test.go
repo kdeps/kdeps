@@ -87,7 +87,7 @@ func TestFirstRun_EnsureInstallsEveryAsset(t *testing.T) {
 	assert.Contains(t, df, "COPY kdeps-assets/")
 	d, err := config.GetDefaults()
 	require.NoError(t, err, "executor defaults")
-	assert.Positive(t, d.SQL.MaxRows)
+	assert.Positive(t, d.Chat.ContextLength)
 
 	// Once filled, a start makes no request.
 	srv.Close()

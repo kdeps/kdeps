@@ -227,7 +227,7 @@ LLM generates final response
 ## Use cases
 
 - Let the model do math, run code, or query a database mid-response instead of
-  guessing (`script:` pointing at a `python:`, `exec:`, or `sql:` resource).
+  guessing (`script:` pointing at a `python:` or `exec:` resource, or a component call).
 - Give the model read access to a filesystem, an API, or another service
   through an external MCP server (`mcp:`).
 - Chain capabilities: the model calls a search tool, then a scraper tool, then

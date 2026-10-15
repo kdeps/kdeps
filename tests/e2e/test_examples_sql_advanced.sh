@@ -87,6 +87,18 @@ settings:
 WFEOF
 STRICT_OUT=$("$KDEPS_BIN" validate "$STRICT_DIR" 2>&1 || true)
 rm -rf "$STRICT_DIR"
+
+# Test 3c: the sql: resource key is gone (use component: sql)
+OLD_DIR=$(mktemp -d)
+mkdir -p "$OLD_DIR/resources"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: q\nsettings: {}\n' > "$OLD_DIR/workflow.yaml"
+printf 'actionId: q\nname: Q\nsql:\n  connectionName: main\n  query: SELECT 1\n' > "$OLD_DIR/resources/q.yaml"
+if OLD_OUT=$("$KDEPS_BIN" validate "$OLD_DIR/workflow.yaml" 2>&1); then
+    test_failed "SQL Advanced - the sql: key is gone" "validate accepted it: $OLD_OUT"
+else
+    test_passed "SQL Advanced - the sql: resource key is gone (use component: sql)"
+fi
+rm -rf "$OLD_DIR"
 if echo "$STRICT_OUT" | grep -q "sqlConnections is not allowed"; then
     test_passed "SQL Advanced - settings.sqlConnections is rejected by validate"
 else
@@ -131,7 +143,7 @@ fi
 
 SERVER_LOG=$(mktemp)
 KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION="sqlite://$SQL_ADVANCED_DB" \
-    timeout 8 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+    timeout 120 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start

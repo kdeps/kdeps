@@ -952,7 +952,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			"python",
 		},
 		{"llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
-		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
 		{
 			"http",
 			&domain.Resource{HTTPClient: &domain.HTTPClientConfig{}},
@@ -2004,31 +2003,6 @@ func TestEngine_executeInlineLLM_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEngine_executeInlineSQL_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSQLExecutor(&mockSQLExecutor{result: "inline sql"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{SQL: &domain.SQLConfig{ConnectionName: "x", Query: "SELECT 1"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
 func TestEngine_executeInlinePython_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2997,50 +2971,6 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 	assert.True(t, mock.executed)
 }
 
-func TestEngine_executeSQL_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID: "r",
-		SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "SQL executor not available")
-}
-
-func TestEngine_executeSQL_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSQLExecutor(&mockSQLExecutor{result: "rows"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "rows", result)
-}
-
 func TestEngine_executePython_NoExecutor(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	engine.SetRegistry(executor.NewRegistry())
@@ -3564,7 +3494,7 @@ func TestEngine_InlineResources_After(t *testing.T) {
 	mockPython := &mockPythonExecutor{result: "python result"}
 	mockLLM := &mockLLMExecutor{result: "llm result"}
 
-	registry.SetSQLExecutor(mockSQL)
+	registry.SetExecExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetLLMExecutor(mockLLM)
 	engine.SetRegistry(registry)
@@ -3590,10 +3520,7 @@ func TestEngine_InlineResources_After(t *testing.T) {
 					Prompt: "test prompt",
 				},
 				After: []domain.InlineResource{
-					{SQL: &domain.SQLConfig{
-						ConnectionName: "test",
-						Query:          "SELECT 1",
-					}},
+					{Exec: &domain.ExecConfig{Command: "echo sql"}},
 					{Python: &domain.PythonConfig{
 						Script: "print('hello')",
 					}},
@@ -3621,13 +3548,11 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 	// Set up mock executors
 	mockHTTP := &mockHTTPExecutor{result: "http result"}
 	mockExec := &mockExecExecutor{result: "exec result"}
-	mockSQL := &mockSQLExecutor{result: "sql result"}
 	mockPython := &mockPythonExecutor{result: "python result"}
 	mockLLM := &mockLLMExecutor{result: "llm result"}
 
 	registry.SetHTTPExecutor(mockHTTP)
 	registry.SetExecExecutor(mockExec)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetLLMExecutor(mockLLM)
 	engine.SetRegistry(registry)

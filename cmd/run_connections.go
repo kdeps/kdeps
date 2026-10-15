@@ -319,14 +319,14 @@ func (c *connCollector) scanList(resources []*domain.Resource) {
 		if res == nil {
 			continue
 		}
-		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.Component)
+		c.scanAction(res.Chat, res.HTTPClient, res.Component)
 		for i := range res.Before {
 			a := res.Before[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.Component)
 		}
 		for i := range res.After {
 			a := res.After[i]
-			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.Component)
 		}
 	}
 }
@@ -350,7 +350,6 @@ func (c *connCollector) scanBotConfig(botCfg *domain.BotConfig) {
 func (c *connCollector) scanAction(
 	chat *domain.ChatConfig,
 	http *domain.HTTPClientConfig,
-	sql *domain.SQLConfig,
 	component *domain.ComponentCallConfig,
 ) {
 	if chat != nil {
@@ -358,9 +357,6 @@ func (c *connCollector) scanAction(
 	}
 	if http != nil {
 		c.add(config.ConnKindHTTP, http.ConnectionName)
-	}
-	if sql != nil {
-		c.add(config.ConnKindSQL, sql.ConnectionName)
 	}
 	if component != nil {
 		c.used[component.Name] = true
