@@ -125,7 +125,7 @@ summary: Ship knowledge recall for my-app
 ## Wins
 ```
 
-The note comes from the compaction summary, so writing it at compaction costs no extra model call. At exit, one summary call covers the turns since the last note. The summary's first next step goes to the card's `next`, not into the note.
+The note comes from the compaction summary, so writing it at compaction costs no extra model call. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note.
 
 ## The graph
 

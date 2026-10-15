@@ -4571,8 +4571,12 @@ func (r *REPL) autoSaveOnExit() {
 // writeSessionNoteOnExit writes the knowledge vault's note for the turns
 // since the last one. The loop context may already be cancelled by /exit;
 // the note is still written, bounded by its own timeout.
+//
+// Only an interactive terminal session pays for it: a piped or scripted
+// session exits at once (its compactions still write notes, which cost no
+// extra model call).
 func (r *REPL) writeSessionNoteOnExit() {
-	if !r.loop.SessionNoteDue() {
+	if !r.loop.SessionNoteDue() || !stdinIsTerminal() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
@@ -4582,7 +4586,13 @@ func (r *REPL) writeSessionNoteOnExit() {
 	r.loop.ExtractKnowledge(ctx, os.Stdout, false)
 }
 
-// sessionNoteTimeout bounds the summary call behind the session-end note.
+// stdinIsTerminal reports whether the session reads a real terminal
+// (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// sessionNoteTimeout bounds the session-end note and extraction together.
 const sessionNoteTimeout = 2 * time.Minute
 
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
