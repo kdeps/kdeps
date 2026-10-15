@@ -231,6 +231,8 @@ local/
 *.kdeps
 *.pkl
 *.html
+# Published asset templates (the knowledge graph explorer page) are source.
+!assets/templates/**/*.html
 !docs/v2/public/pitch-deck.html
 !examples/**/public/**/*.html
 !examples/**/data/**/*.html
