@@ -1,0 +1,7 @@
+version: 1.0.0
+category: memory
+description: 'Read a project or client card from the knowledge workspace: type, status, next step, updated date, and where everything lives (repo, vault folder, memory, skills). Cards are the only home of status. Without a name, returns the card that covers the working directory.'
+parameters:
+  name:
+    type: string
+    description: Card name (the file name under records/projects or records/clients, without .md). Omit for the working directory's card.

@@ -281,6 +281,26 @@ type IdentityConfig struct {
 	Accounts map[string]AccountConfig `yaml:"accounts,omitempty"`
 }
 
+// KnowledgeConfig points the agent loop at a knowledge vault: a folder of
+// markdown notes it recalls from each turn and writes session notes into.
+type KnowledgeConfig struct {
+	// Enabled turns the vault on for agent sessions; nil means on.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Vault is the notes folder; empty means ~/.kdeps/notes.
+	Vault string `yaml:"vault,omitempty"`
+	// Workspace holds KDEPS.md and the records/ cards; empty means the vault.
+	Workspace string `yaml:"workspace,omitempty"`
+	// SessionNotes writes a note per session; nil means on.
+	SessionNotes *bool                 `yaml:"session_notes,omitempty"`
+	Recall       KnowledgeRecallConfig `yaml:"recall,omitempty"`
+}
+
+// KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.
+type KnowledgeRecallConfig struct {
+	Hops         int `yaml:"hops,omitempty"`
+	BudgetTokens int `yaml:"budget_tokens,omitempty"`
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
 	LLM               LLMKeys                           `yaml:"llm"`
@@ -294,5 +314,6 @@ type Config struct {
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`
+	Knowledge         *KnowledgeConfig                  `yaml:"knowledge,omitempty"`
 	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }

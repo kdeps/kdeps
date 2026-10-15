@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -51,6 +52,8 @@ func allBuiltinTools(t *testing.T) ([]*kdepstools.Tool, map[string]bool) {
 	l.registerSkillLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
+	l.knowledge = newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: t.TempDir()})
+	l.registerKnowledgeTools()
 
 	used := map[string]bool{"goal_task_complete": true, "goal_task_fail": true, "judge_verdict": true}
 	var all []*kdepstools.Tool

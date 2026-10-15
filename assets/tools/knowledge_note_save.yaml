@@ -1,0 +1,28 @@
+version: 1.0.0
+category: memory
+description: 'Save a new note in the knowledge vault: one idea per note, with frontmatter (type, status, created, summary, tags, links). Refuses a title that already has a note - one home per fact, so edit that note instead. Use for a decision, a gotcha, a concept or a tool worth remembering beyond this session; status and next steps go to the card instead.'
+parameters:
+  title:
+    type: string
+    description: 'Note title (becomes the file name); no / \ : * ? " < > |'
+    required: true
+  summary:
+    type: string
+    description: One line saying what the note holds; recall shows it before anyone opens the note
+    required: true
+  body:
+    type: string
+    description: The note's markdown body; link other notes with [[Note title]]
+    required: true
+  type:
+    type: string
+    description: 'decision, gotcha, concept, tool or note (default note)'
+  folder:
+    type: string
+    description: 'inbox, projects, areas, resources (default) or archives, or a vault-relative folder'
+  tags:
+    type: string
+    description: Comma-separated tags
+  links:
+    type: string
+    description: Comma-separated titles of related notes, written as frontmatter links

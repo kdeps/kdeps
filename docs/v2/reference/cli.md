@@ -46,6 +46,7 @@ kdeps run workflow.yaml
 | `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps konfig export` | [Dev commands](/reference/cli-dev#kdeps-konfig-export) | Export the full agent-loop config to one YAML file |
+| `kdeps knowledge` | [Dev commands](/reference/cli-dev#kdeps-knowledge) | Knowledge vault: `init`, `build`, `check`, `recall`, `report` |
 | `kdeps install/search/info/submit/verify` | [Registry commands](/registry/cli) | Search, install, publish packages (and the assets above) |
 | `kdeps bundle package` | [Packaging commands](/deploy/cli#kdeps-bundle-package) | Package for distribution |
 | `kdeps bundle build` | [Packaging commands](/deploy/cli#kdeps-bundle-build) | Build Docker image |

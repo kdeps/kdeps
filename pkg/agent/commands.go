@@ -49,7 +49,7 @@ var goCommands = []string{
 	"settings", "thinking", "editor", "copy", "reload", "search", "context", "kartographer",
 	"permission", "permissions", "autocontext", "tools", "upgrade", "konfig", "login", "theme", "harness",
 	"exit", "quit", "turo", "goal", "refine", "efficiency", "handshake", "judges", "memory",
-	"instruct", "instruct!", "update",
+	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 
 // maxCommandDepth bounds declared commands running other declared commands.

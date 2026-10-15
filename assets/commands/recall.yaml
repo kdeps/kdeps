@@ -1,0 +1,11 @@
+version: 1.0.0
+name: recall
+order: 72
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Show the knowledge vault notes recalled for the last turn, and why
+  - args: "<query>"
+    help: Recall notes from the knowledge vault for a query

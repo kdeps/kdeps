@@ -213,6 +213,7 @@ var commandSets = map[string][]string{
 	"llamafile": {"models"},
 	"chat":      append(slices.Clone(assets.BaseSets), assets.AgentSets...),
 	"konfig":    append(slices.Clone(assets.BaseSets), assets.AgentSets...),
+	"knowledge": {"templates"},
 }
 
 // setsFor returns the sets cmd loads, and false for a command that loads none.
@@ -317,6 +318,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newKnowledgeCmd())
 }
 
 func addPackageCommands(rootCmd *cobra.Command) {

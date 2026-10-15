@@ -593,3 +593,23 @@ func TestIsEmptyAgentProfile(t *testing.T) {
 		Python: PythonDefaults{MaxOutputBytes: 512},
 	}}).IsEmptyAgentProfile())
 }
+
+func TestValidateUnknownKeys_Knowledge(t *testing.T) {
+	warnings := validateUnknownKeys([]byte("knowledge:\n  vault: ~/notes\n  recall:\n    hops: 2\n  vaul: x\n"))
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], `unknown knowledge key "vaul"`)
+
+	cfg := &Config{}
+	mergeConfig(cfg, &Config{Knowledge: &KnowledgeConfig{Vault: "/v"}})
+	assert.Equal(t, "/v", cfg.Knowledge.Vault)
+}
+
+func TestSaveKnowledgeVault(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", p)
+	require.NoError(t, SaveKnowledgeVault("/notes"))
+	cfg, err := LoadStruct()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Knowledge)
+	assert.Equal(t, "/notes", cfg.Knowledge.Vault)
+}

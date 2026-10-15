@@ -42,7 +42,12 @@ var (
 		"sql_connections":    true,
 		"api_auth_token":     true,
 		"identity":           true,
+		"knowledge":          true,
 		"agents":             true,
+	}
+
+	knownKnowledgeKeys = map[string]bool{
+		"enabled": true, "vault": true, "workspace": true, "session_notes": true, "recall": true,
 	}
 
 	knownDefaultsKeys = map[string]bool{

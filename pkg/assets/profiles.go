@@ -57,6 +57,7 @@ var agentTools = []string{
 	"bash_exec", "bash_job_list", "bash_job_wait", "read_file", "write_file", "edit_file",
 	"list_files", "tail_file", "web_search", "web_scraper", "http_request", "calculator",
 	"memory_save", "memory_query", "memory_search", "memory_delete", "load_skill",
+	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
 }
 
 // Profiles are the first-run choices, smallest first.
