@@ -241,6 +241,8 @@ func TestKnowledgeSessionNotes(t *testing.T) {
 
 	id := l.sessionNoteID()
 	assert.Equal(t, id, l.sessionNoteID(), "stable for the loop")
+	other := &Loop{}
+	assert.NotEqual(t, id, other.sessionNoteID(), "two sessions started in the same second keep separate notes")
 	l.knowledge.waitBuilds()
 }
 
