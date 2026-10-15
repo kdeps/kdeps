@@ -1,6 +1,6 @@
 # Why kdeps?
 
-Workflow mode runs an AI workload unattended in production, not as a chatbot you sit with. Agent mode uses the same file when the model should choose the steps. You pay for the hardware it runs on.
+Workflow mode runs an AI workload in production as an API, a chatbot or a background job. Agent mode uses the same file when the model should choose the steps. You pay for the hardware it runs on.
 
 ## The six products
 
