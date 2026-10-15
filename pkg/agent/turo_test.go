@@ -17,6 +17,7 @@ package agent
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -42,7 +43,7 @@ func TestMain(m *testing.M) {
 	os.Setenv("KDEPS_TURO", "off")
 	// CI keeps temp folders inside the checkout: never name a test project
 	// after the kdeps repository.
-	os.Setenv("GIT_CEILING_DIRECTORIES", os.TempDir())
+	os.Setenv("GIT_CEILING_DIRECTORIES", testCeilings())
 	SetConvergenceLimits(1_000_000, 1_000_000, 1_000_000, 1_000_000)
 	code := m.Run()
 	if home != "" {
@@ -202,4 +203,24 @@ func TestToolTuning_TuroPersistRoundTrip(t *testing.T) {
 	if !TuroStage("filler") {
 		t.Fatal("empty TuroLevel should leave turo defaults untouched")
 	}
+}
+
+// testCeilings stops project naming at the temp folder and at the module
+// root, wherever CI puts temp folders: no test project is named after the
+// kdeps repository.
+func testCeilings() string {
+	stops := []string{os.TempDir()}
+	if d, err := os.MkdirTemp("", "ceiling"); err == nil {
+		stops = append(stops, filepath.Dir(d))
+		os.Remove(d)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		for d := wd; filepath.Dir(d) != d; d = filepath.Dir(d) {
+			if _, statErr := os.Stat(filepath.Join(d, "go.mod")); statErr == nil {
+				stops = append(stops, d)
+				break
+			}
+		}
+	}
+	return strings.Join(stops, string(filepath.ListSeparator))
 }

@@ -26,12 +26,34 @@ package knowledge_test
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
 // TestMain keeps project naming inside the test's temp folders: CI keeps
 // them inside the checkout, whose .git would otherwise name every project.
 func TestMain(m *testing.M) {
-	os.Setenv("GIT_CEILING_DIRECTORIES", os.TempDir())
+	os.Setenv("GIT_CEILING_DIRECTORIES", testCeilings())
 	os.Exit(m.Run())
+}
+
+// testCeilings stops project naming at the temp folder and at the module
+// root, wherever CI puts temp folders: no test project is named after the
+// kdeps repository.
+func testCeilings() string {
+	stops := []string{os.TempDir()}
+	if d, err := os.MkdirTemp("", "ceiling"); err == nil {
+		stops = append(stops, filepath.Dir(d))
+		os.Remove(d)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		for d := wd; filepath.Dir(d) != d; d = filepath.Dir(d) {
+			if _, statErr := os.Stat(filepath.Join(d, "go.mod")); statErr == nil {
+				stops = append(stops, d)
+				break
+			}
+		}
+	}
+	return strings.Join(stops, string(filepath.ListSeparator))
 }

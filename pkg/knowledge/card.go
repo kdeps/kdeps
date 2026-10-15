@@ -192,7 +192,12 @@ func ProjectName(dir string) (string, string, string) {
 // the home folder, so a home kept in git (dotfiles) does not swallow every
 // folder under it.
 func gitRoot(dir string) string {
-	stops := filepath.SplitList(os.Getenv("GIT_CEILING_DIRECTORIES"))
+	var stops []string
+	for _, s := range filepath.SplitList(os.Getenv("GIT_CEILING_DIRECTORIES")) {
+		if s != "" {
+			stops = append(stops, filepath.Clean(s))
+		}
+	}
 	home, _ := os.UserHomeDir()
 	start := filepath.Clean(dir)
 	for d := start; ; {
