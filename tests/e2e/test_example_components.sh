@@ -146,7 +146,7 @@ echo "-- Tier 1b: CLI discoverability --"
 
 LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" list 2>&1 || true)
 for comp in "${ALL_COMPONENTS[@]}"; do
-    if output_grep "  ${comp}\$" "$LIST_OUTPUT"; then
+    if output_grep "  ${comp}( +~[0-9]+ tok)?\$" "$LIST_OUTPUT"; then
         test_passed "$comp - appears in 'kdeps list'"
     else
         test_failed "$comp - appears in 'kdeps list'" "Not found in: $LIST_OUTPUT"
