@@ -81,7 +81,8 @@ func (b *builder) addModule(ctx context.Context, root, module string) {
 }
 
 // gitGoFiles lists root's .go files that git tracks or would track, or nil
-// when root is not in a git work tree (or git is missing).
+// when root is not in a git work tree, git is missing, or git lists none
+// (root ignored by an enclosing repo): the caller then walks the folder.
 func gitGoFiles(ctx context.Context, root string) []string {
 	cmd := exec.CommandContext(
 		ctx,
@@ -100,7 +101,7 @@ func gitGoFiles(ctx context.Context, root string) []string {
 	if err != nil {
 		return nil
 	}
-	files := []string{}
+	var files []string
 	for _, f := range strings.Split(string(out), "\x00") {
 		if f == "" || strings.Contains("/"+f, "/vendor/") || strings.Contains("/"+f, "/testdata/") {
 			continue

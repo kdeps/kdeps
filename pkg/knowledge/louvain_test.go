@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // cliques builds two 5-node cliques joined by one edge, and a lone node.
@@ -131,10 +133,14 @@ func TestBuild_WritesReportAndExplorer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(md), "## God nodes")
 	page, err := os.ReadFile(HTMLPath(dir))
-	require.NoError(t, err)
-	assert.NotContains(t, string(page), htmlDataSlot, "the graph is embedded")
-	assert.Contains(t, string(page), `"communities":`)
-	assert.False(t, strings.Contains(string(page), "</script><"), "no early script close")
+	if _, tmplErr := assets.Open("templates").ReadFile(htmlTemplate); tmplErr != nil {
+		require.Error(t, err, "no template installed: no explorer page")
+	} else {
+		require.NoError(t, err)
+		assert.NotContains(t, string(page), htmlDataSlot, "the graph is embedded")
+		assert.Contains(t, string(page), `"communities":`)
+		assert.False(t, strings.Contains(string(page), "</script><"), "no early script close")
+	}
 
 	loaded, err := Load(dir)
 	require.NoError(t, err)

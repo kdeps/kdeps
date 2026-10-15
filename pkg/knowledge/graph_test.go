@@ -312,6 +312,6 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 		rel = append(rel, filepath.ToSlash(r))
 	}
 	assert.ElementsMatch(t, []string{"main.go", "lib/lib.go"}, rel, "ignored and vendored files are skipped")
-	assert.Nil(t, gitGoFiles(t.Context(), t.TempDir()), "not a git work tree")
+	assert.Empty(t, gitGoFiles(t.Context(), t.TempDir()), "not a git work tree, or ignored by an enclosing one")
 	assert.Len(t, walkGoFiles(repo), 3, "without git: everything outside vendor")
 }
