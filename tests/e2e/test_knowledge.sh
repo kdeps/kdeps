@@ -35,7 +35,7 @@ kn() {
 OUT=$(kn init "$KN_VAULT")
 if output_grep "created .*schema.md" "$OUT" && output_grep "Set knowledge.vault" "$OUT" &&
     [ "$(cat "$KN_VAULT/KDEPS.md")" = "mine" ] && [ -d "$KN_VAULT/records/projects" ] &&
-    [ ! -d "$KN_VAULT/Projects" ] && grep -q "$KN_VAULT" "$KN_DIR/config.yaml"; then
+    [ ! -d "$KN_VAULT/Projects" ] && grep -q "vault:.*notes" "$KN_DIR/config.yaml"; then
     test_passed "knowledge - init scaffolds without touching existing files, reuses 01 Projects"
 else
     test_failed "knowledge - init" "$OUT"
