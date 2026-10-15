@@ -105,8 +105,9 @@ func TestVaultFolderAndWalk(t *testing.T) {
 func TestExpandPath(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	assert.Equal(t, filepath.Join(home, "x"), ExpandPath("~/x", "/base"))
-	assert.Equal(t, filepath.Clean("/base/y"), ExpandPath("y", "/base"))
-	assert.Equal(t, filepath.Clean("/abs"), ExpandPath("/abs/", "/base"))
+	base, abs := t.TempDir(), t.TempDir()
+	assert.Equal(t, filepath.Join(base, "y"), ExpandPath("y", base))
+	assert.Equal(t, abs, ExpandPath(abs+string(filepath.Separator), base))
 }
 
 const cardText = `---
