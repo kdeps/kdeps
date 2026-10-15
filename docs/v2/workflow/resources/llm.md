@@ -226,6 +226,26 @@ chat:
   contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
 
+## Knowledge recall
+
+Every `chat` call adds the [knowledge vault](/agent/knowledge) notes related to its prompt by default: kdeps walks the vault's link graph from the prompt's words (no model involved) and puts the best few notes - their paths and one-line summaries, within the recall token budget - in a system message right after the system prompt. Nothing is added while the vault has no graph (a fresh install, or a container without one), so a deployed workflow behaves as before until a graph exists.
+
+<div v-pre>
+
+```yaml
+# resources/answer.yaml
+actionId: answer
+name: Answer
+chat:
+  model: llama3.2:1b
+  prompt: "{{ get('q') }}"
+  knowledge: false     # skip recall for this call; default true
+```
+
+</div>
+
+`knowledge.enabled: false` in `~/.kdeps/config.yaml` turns recall off for every call.
+
 ## Scenario (conversation history)
 
 Build multi-turn conversations:

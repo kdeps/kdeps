@@ -15,6 +15,8 @@ q -> recall -> notes -> model
 card -> model
 ```
 
+Recall is the default step of every prompt kdeps sends a model: each agent-loop turn (terminal and desktop app) and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. The agent loop's own internal calls (compaction, prompt refinement, goal planning) skip it.
+
 A vault of 2,000 notes holds about a million words. That's more than any model can read, and partial reads cost accuracy, time and money. With recall, a question typically reads a routing table, one card and a handful of notes.
 
 ## One home per fact
@@ -130,7 +132,7 @@ The note comes from the compaction summary, so writing it at compaction costs no
 `kdeps knowledge build` turns the vault into a graph:
 - **Nodes:** each note, each tag, and each Go package of every card's `repo`.
 - **Edges:** wikilinks (`references`), frontmatter links (`relates_to`), tags (`tagged`) and Go imports (`depends_on`).
-- **Provenance:** every edge records how it was found. All edges today are `extracted`: written in a note, or an import in code. Code goes through the Go parser, never a model.
+- **Provenance:** every edge records how it was found. Edges from links and imports are `extracted`; code goes through the Go parser, never a model. A local model can add `inferred` edges (see [Model extraction](#model-extraction)).
 
 ```text
 $ kdeps knowledge build
@@ -142,6 +144,34 @@ $ kdeps knowledge build
 Code files are the ones git tracks or would track, so `.gitignore`d folders stay out; without git, every `.go` file outside `vendor/`, `testdata/` and hidden folders.
 
 The graph lives in `~/.kdeps/projects/<vault>-<hash>/knowledge/graph.json`, outside the vault. A rebuild re-reads only changed files.
+
+## Model extraction
+
+Links written in notes become `extracted` edges. A local model can add what the notes do not link: it reads each changed note and lists the projects, tools, decisions, rationales, gotchas and concepts it is about, and how they relate. Its findings join the graph as `inferred` edges with the model's confidence (a note `mentions` an entity; entities `depends_on`, `rationale_for`, ... each other), or `ambiguous` ones below 0.5 confidence, listed under "Edges to review" in the report. An entity named like a note is that note, so two notes about the same tool meet at two hops.
+
+```d2
+direction: right
+changed: "changed notes" {shape: oval}
+first: "first note alone\n(loads the model)"
+rest: "the rest in parallel\n(workers)"
+cache: "extract.json\nby note hash"
+build: "graph build\ninferred / ambiguous edges"
+changed -> first -> rest -> cache -> build
+```
+
+- **In agent sessions** it runs at session end, after the session note: up to `per_session` changed notes, with the session's model when it is a local one (llamafile, GGUF, Ollama). With a cloud model it is skipped unless `knowledge.extract.model` names a local model. It never runs during your turns. `/knowledge extract` runs it now, over every changed note.
+- **From the shell:** `kdeps knowledge build --extract [--model <local model>] [--limit N]`.
+- A note is read again only when it changes; a failed note is retried on the next run.
+
+```yaml
+# ~/.kdeps/config.yaml
+knowledge:
+  extract:
+    enabled: true
+    model: llama3.2:3b        # a 3B+ local model finds far more than a 1B one
+    workers: 2                # parallel calls after the first
+    per_session: 20           # changed notes read at each session end
+```
 
 ## Communities and the report
 

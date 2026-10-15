@@ -31,9 +31,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"unicode/utf8"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -217,6 +219,8 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		PermissionMode: s.opts.Permission,
 		Observer:       s.observe,
 		Approver:       s.approve,
+		Knowledge:      desktopKnowledge(),
+		KnowledgeCtx:   s.ctx,
 	}
 	if resume != nil {
 		cfg.ResumeSession = resume
@@ -503,4 +507,16 @@ func (s *Service) SaveMemory(key, value string) error {
 // DeleteMemory removes an entry and persists the change.
 func (s *Service) DeleteMemory(key string) error {
 	return s.mem().Delete(key)
+}
+
+// desktopKnowledge is the knowledge vault config for the app's sessions:
+// config.yaml's knowledge: block, on by default like the CLI.
+func desktopKnowledge() *config.KnowledgeConfig {
+	if testing.Testing() {
+		return &config.KnowledgeConfig{} // tests use the temp default vault, never the real one
+	}
+	if cfg, err := config.LoadStruct(); err == nil && cfg.Knowledge != nil {
+		return cfg.Knowledge
+	}
+	return &config.KnowledgeConfig{}
 }

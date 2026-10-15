@@ -69,6 +69,16 @@ func (e *Executor) buildMessages(
 		}, messages...)
 	}
 
+	if recall := knowledgeRecall(config, promptStr); recall != "" {
+		at := 0
+		if systemPrompt != "" {
+			at = 1
+		}
+		messages = append(messages[:at], append([]map[string]interface{}{
+			{jsonFieldRole: roleSystem, jsonFieldContent: recall},
+		}, messages[at:]...)...)
+	}
+
 	beforeUser, afterUser, scenarioErr := e.buildScenarioMessages(evaluator, ctx, config.Scenario)
 	if scenarioErr != nil {
 		return nil, scenarioErr

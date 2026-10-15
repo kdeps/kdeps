@@ -291,8 +291,20 @@ type KnowledgeConfig struct {
 	// Workspace holds KDEPS.md and the records/ cards; empty means the vault.
 	Workspace string `yaml:"workspace,omitempty"`
 	// SessionNotes writes a note per session; nil means on.
-	SessionNotes *bool                 `yaml:"session_notes,omitempty"`
-	Recall       KnowledgeRecallConfig `yaml:"recall,omitempty"`
+	SessionNotes *bool                  `yaml:"session_notes,omitempty"`
+	Recall       KnowledgeRecallConfig  `yaml:"recall,omitempty"`
+	Extract      KnowledgeExtractConfig `yaml:"extract,omitempty"`
+}
+
+// KnowledgeExtractConfig tunes the model pass that finds what notes are
+// about. It runs with a local model: the session's when it is local, else
+// Model (empty: skipped in sessions).
+type KnowledgeExtractConfig struct {
+	Enabled    *bool  `yaml:"enabled,omitempty"` // nil means on
+	Model      string `yaml:"model,omitempty"`
+	Backend    string `yaml:"backend,omitempty"`
+	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
+	PerSession int    `yaml:"per_session,omitempty"` // notes per session end (default 20)
 }
 
 // KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.

@@ -345,18 +345,19 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	cfg := agent.Config{
-		Model:        startModel,
-		Backend:      startBackend,
-		BaseURL:      flags.BaseURL,
-		SystemPrompt: flags.SystemPrompt,
-		SkillPaths:   skillPaths,
-		Streamer:     llmAdapter,
-		ModelService: llm.NewModelService(nil),
-		Store:        store,
-		MemoryStore:  memStore,
-		Identity:     identity,
-		Knowledge:    knowledgeCfg,
-		KnowledgeCtx: rootCtx,
+		Model:           startModel,
+		Backend:         startBackend,
+		BaseURL:         flags.BaseURL,
+		SystemPrompt:    flags.SystemPrompt,
+		SkillPaths:      skillPaths,
+		Streamer:        llmAdapter,
+		ModelService:    llm.NewModelService(nil),
+		Store:           store,
+		MemoryStore:     memStore,
+		Identity:        identity,
+		Knowledge:       knowledgeCfg,
+		KnowledgeCtx:    rootCtx,
+		KnowledgeEngine: func() *executor.Engine { return setupEngine(nil, false) },
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields

@@ -304,6 +304,7 @@ Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown note
 ```bash
 kdeps knowledge init [folder]       # scaffold KDEPS.md, schema.md, records/, PARA folders (default ~/.kdeps/notes)
 kdeps knowledge build               # build the link graph (only changed notes and code files are re-read)
+kdeps knowledge build --extract     # a local model reads changed notes first: inferred edges with confidence
 kdeps knowledge check               # one home per fact: next steps outside cards, duplicate summaries, dangling links
 kdeps knowledge recall "why monthly billing"   # what recall would hand the agent
 kdeps knowledge report              # GRAPH_REPORT.md: god nodes, Louvain communities, surprising connections
@@ -312,6 +313,9 @@ kdeps knowledge report              # GRAPH_REPORT.md: god nodes, Louvain commun
 | Flag | Description | Default |
 |---|---|---|
 | `--vault` | Vault folder | `knowledge.vault` in `~/.kdeps/config.yaml`, else `~/.kdeps/notes` |
+| `--extract` (build) | Have a local model read changed notes first | `false` |
+| `--model` (build) | Model for `--extract` | `knowledge.extract.model`, else the detected local model |
+| `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
 
 `check` exits non-zero when it reports anything.
 

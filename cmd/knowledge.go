@@ -29,8 +29,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
@@ -140,21 +141,35 @@ func mustGetwd() string {
 }
 
 func newKnowledgeBuildCmd() *cobra.Command {
-	return &cobra.Command{
+	var extract bool
+	var model string
+	var limit int
+	c := &cobra.Command{
 		Use:   "build",
 		Short: "Build the vault's link graph (only changed notes and code files are re-read)",
+		Long: `Builds the vault's graph from what the notes and code write down (links,
+tags, imports), groups it into communities and writes the report.
+
+With --extract, a local model first reads every note that changed since its
+last extraction and lists what it is about; its findings join the graph as
+inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, ws, _, err := knowledgeTarget(cmd)
-			if err != nil {
-				return err
-			}
-			start := time.Now()
-			dir := datadir.File(v.Root, "knowledge")
-			g, st, err := knowledge.Build(cmd.Context(), v, ws, dir, time.Now())
+			v, ws, kc, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
+			dir := knowledge.GraphDir(v.Root)
+			if extract {
+				if extractErr := runKnowledgeExtract(cmd, v, dir, kc, model, limit); extractErr != nil {
+					return extractErr
+				}
+			}
+			start := time.Now()
+			g, st, err := knowledge.Build(cmd.Context(), v, ws, dir, time.Now())
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(out, "%d notes (%d changed), %d code files -> %d nodes, %d edges, %d communities in %s\n",
 				st.Notes, st.Changed, st.CodeFiles, st.Nodes, st.Edges, st.Communities,
 				time.Since(start).Round(time.Millisecond))
@@ -172,6 +187,46 @@ func newKnowledgeBuildCmd() *cobra.Command {
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&extract, "extract", false, "have a local model read changed notes first (inferred edges)")
+	c.Flags().
+		StringVar(&model, "model", "", "model for --extract (default: knowledge.extract.model, else the detected local model)")
+	c.Flags().IntVar(&limit, "limit", 0, "most notes --extract reads (0: all changed)")
+	return c
+}
+
+// runKnowledgeExtract runs the model pass with a fresh engine per call.
+func runKnowledgeExtract(
+	cmd *cobra.Command,
+	v knowledge.Vault,
+	dir string,
+	kc *config.KnowledgeConfig,
+	model string,
+	limit int,
+) error {
+	backend := ""
+	if model == "" {
+		model, backend = kc.Extract.Model, kc.Extract.Backend
+	}
+	if model == "" {
+		model, backend = agent.ResolveModelAndBackend("", "")
+	}
+	if model == "" {
+		return errors.New("no model for --extract: pass --model or set knowledge.extract.model")
+	}
+	if backend == "" {
+		backend = agent.BackendForModel(model)
+	}
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Reading changed notes with %s...\n", model)
+	ask := agent.KnowledgeAsk(func() *executor.Engine { return setupEngine(nil, false) }, model, backend, "")
+	st, err := knowledge.Extract(cmd.Context(), v, dir, ask, knowledge.ExtractOptions{
+		Model: model, Workers: kc.Extract.Workers, Limit: limit, System: agent.HarnessText("knowledge-extract-system"),
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "%d notes read (%d failed), %d were pending\n", st.Done+st.Failed, st.Failed, st.Pending)
+	return nil
 }
 
 func newKnowledgeCheckCmd() *cobra.Command {
@@ -220,7 +275,7 @@ func newKnowledgeRecallCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			g, err := knowledge.Load(datadir.File(v.Root, "knowledge"))
+			g, err := knowledge.Load(knowledge.GraphDir(v.Root))
 			if err != nil {
 				return errors.New("no graph yet: run kdeps knowledge build")
 			}
@@ -261,7 +316,7 @@ The report and graph.html (an explorer page) live next to graph.json under
 			if err != nil {
 				return err
 			}
-			dir := datadir.File(v.Root, "knowledge")
+			dir := knowledge.GraphDir(v.Root)
 			data, err := os.ReadFile(knowledge.ReportPath(dir))
 			if err != nil {
 				return errors.New("no report yet: run kdeps knowledge build")

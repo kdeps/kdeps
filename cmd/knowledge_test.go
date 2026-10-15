@@ -112,3 +112,16 @@ func TestPrintFindings_OutsideVault(t *testing.T) {
 	printFindings(&out, "/vault", []knowledge.Finding{{File: "/elsewhere/x.md", Problem: "p"}})
 	assert.Contains(t, out.String(), "/elsewhere/x.md: p")
 }
+
+func TestKnowledgeBuild_Extract(t *testing.T) {
+	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	t.Setenv("OLLAMA_HOST", "http://127.0.0.1:1")
+	vault := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "Note.md"), []byte("---\nsummary: s\n---\nbody\n"), 0o600))
+	out, err := runKnowledge(t, "build", "--vault", vault, "--extract", "--model", "nope-model", "--limit", "5")
+	require.NoError(t, err, out)
+	assert.Contains(t, out, "Reading changed notes with nope-model")
+	assert.Contains(t, out, "1 notes read (1 failed)", "an unreachable model fails the note, not the build")
+	assert.Contains(t, out, "1 notes (1 changed)")
+}

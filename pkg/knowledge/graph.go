@@ -157,6 +157,7 @@ func Build(ctx context.Context, v Vault, w Workspace, dir string, now time.Time)
 	for _, n := range notes {
 		b.addNote(n, resolve)
 	}
+	b.addExtracted(dir, notes, resolve)
 	b.addCode(ctx, w, v)
 	g := &Graph{Vault: v.Root, Built: now.UTC()}
 	for _, n := range b.nodes {

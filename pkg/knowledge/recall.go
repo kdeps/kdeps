@@ -21,10 +21,13 @@ package knowledge
 import (
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Recall defaults.
@@ -319,4 +322,36 @@ func (r Recall) Format(vault string) string {
 	}
 	b.WriteString("</knowledge-recall>")
 	return b.String()
+}
+
+//nolint:gochecknoglobals // process-wide cache of loaded graphs
+var shared = struct {
+	sync.Mutex
+	m map[string]sharedIndex
+}{m: map[string]sharedIndex{}}
+
+type sharedIndex struct {
+	ix  *Index
+	mod time.Time
+}
+
+// SharedIndex returns the recall index of the graph built in dir, loaded
+// once and reloaded when graph.json changes; nil when there is no graph.
+func SharedIndex(dir string) *Index {
+	info, err := os.Stat(GraphPath(dir))
+	if err != nil {
+		return nil
+	}
+	shared.Lock()
+	defer shared.Unlock()
+	if c, ok := shared.m[dir]; ok && !info.ModTime().After(c.mod) {
+		return c.ix
+	}
+	g, err := Load(dir)
+	if err != nil {
+		return shared.m[dir].ix
+	}
+	ix := NewIndex(g)
+	shared.m[dir] = sharedIndex{ix: ix, mod: info.ModTime()}
+	return ix
 }

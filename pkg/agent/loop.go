@@ -284,6 +284,10 @@ type Config struct {
 	// KnowledgeCtx is the parent context of the vault's background graph
 	// builds; the vault stays off without it.
 	KnowledgeCtx context.Context
+	// KnowledgeEngine makes an engine for one knowledge extraction call (a
+	// fresh one each, so calls run in parallel without touching the loop's
+	// engine). Nil: no model extraction.
+	KnowledgeEngine func() *executor.Engine
 	// Observer, when set, receives typed events (tool start/end, narration)
 	// for a graphical front end. It runs on the loop goroutine: never block.
 	Observer func(LoopEvent)
@@ -3503,6 +3507,10 @@ func (l *Loop) buildSyntheticWorkflow(
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
+	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
+	// its internal calls (compaction, refine, goals) must get none.
+	off := false
+	chatCfg.Knowledge = &off
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,

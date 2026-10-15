@@ -21,7 +21,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
-| `/knowledge [on\|off]` | Show whether the knowledge vault is on and where it is, or turn per-turn recall, session notes and the knowledge tools on or off (remembered across sessions). See [Knowledge vault](/agent/knowledge) |
+| `/knowledge [on\|off\|extract]` | Show whether the knowledge vault is on and where it is; `extract` has the local model read every changed note now; or turn per-turn recall, session notes and the knowledge tools on or off (remembered across sessions). See [Knowledge vault](/agent/knowledge) |
 | `/recall [words]` | Show the knowledge vault notes recalled for the last turn and why (score, hops, linked from); with words, recall for those instead. See [Knowledge vault](/agent/knowledge) |
 | `/compact` | Summarize older turns now, keeping the last few verbatim. Unlike auto-compaction it runs regardless of how large the session is; it only shrinks the saved conversation, not a single turn's own tool output |
 | `/history` | Show conversation history |

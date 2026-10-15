@@ -47,6 +47,7 @@ type Report struct {
 	Groups                                      []Group
 	Surprising                                  []Bridge
 	Missing                                     []string
+	Review                                      []*Edge // ambiguous edges, most confident first
 }
 
 // Ranked is a node with its degree.
@@ -89,9 +90,16 @@ func NewReport(g *Graph, modularity float64) Report {
 	for _, e := range g.Edges {
 		deg[e.From]++
 		deg[e.To]++
-		if e.Provenance == ProvExtracted {
+		switch e.Provenance {
+		case ProvExtracted:
 			r.Extracted++
+		case ProvAmbiguous:
+			r.Review = append(r.Review, e)
 		}
+	}
+	sort.SliceStable(r.Review, func(i, j int) bool { return r.Review[i].Confidence > r.Review[j].Confidence })
+	if len(r.Review) > missingTop {
+		r.Review = r.Review[:missingTop]
 	}
 	ranked := make([]Ranked, 0, len(g.Nodes))
 	for _, n := range g.Nodes {
@@ -240,6 +248,15 @@ func (r Report) Markdown(vault string) string {
 		fmt.Fprintf(&b, "- %s (community %d, %d nodes) -[%s, %s]-> %s (community %d, %d nodes)\n",
 			nodeRef(br.From), br.FromGroup, br.FromSize, br.Edge.Relation, br.Edge.Provenance,
 			nodeRef(br.To), br.ToGroup, br.ToSize)
+	}
+	b.WriteString(
+		"\n## Edges to review\n\nGuesses a model could not settle (confidence below 0.5): confirm with a [[link]] or ignore.\n\n",
+	)
+	if len(r.Review) == 0 {
+		b.WriteString("(none)\n")
+	}
+	for _, e := range r.Review {
+		fmt.Fprintf(&b, "- %s -[%s, %.2f]-> %s\n", e.From, e.Relation, e.Confidence, e.To)
 	}
 	b.WriteString("\n## Links to notes that do not exist\n\n")
 	if len(r.Missing) == 0 {

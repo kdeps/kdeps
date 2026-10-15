@@ -113,3 +113,14 @@ if [ -f "$KD_HOME/.kdeps/notes/KDEPS.md" ] && [ -d "$KD_HOME/.kdeps/notes/record
 else
     test_failed "knowledge - default vault" "$OUT"
 fi
+
+# --extract with an unreachable model: each note fails and is retried later;
+# the build still finishes.
+OUT=$(HOME="$KN_DIR" KDEPS_CONFIG_PATH="$KN_DIR/config.yaml" KDEPS_DATA_DIR="$KN_DIR/data" OLLAMA_HOST=http://127.0.0.1:1 \
+    "$KDEPS_BIN" knowledge build --extract --model e2e-missing --limit 2 2>&1 </dev/null)
+if output_grep "Reading changed notes with e2e-missing" "$OUT" && output_grep "2 notes read \(2 failed\)" "$OUT" &&
+    output_grep "notes \([0-9]+ changed\)" "$OUT"; then
+    test_passed "knowledge - build --extract records failures and still builds the graph"
+else
+    test_failed "knowledge - build --extract" "$OUT"
+fi

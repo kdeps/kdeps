@@ -40,6 +40,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 )
 
 const (
@@ -311,6 +313,20 @@ func DefaultVault() string {
 		return filepath.Join(os.TempDir(), "kdeps-notes")
 	}
 	return filepath.Join(home, ".kdeps", "notes")
+}
+
+// GraphDir is where kdeps keeps a vault's generated graph, report and
+// cache: the vault's data folder under ~/.kdeps, never the vault itself
+// (under go test, a temp folder unless KDEPS_DATA_DIR is set).
+func GraphDir(vault string) string {
+	if testing.Testing() && os.Getenv("KDEPS_DATA_DIR") == "" {
+		return filepath.Join(
+			os.TempDir(),
+			fmt.Sprintf("kdeps-test-knowledge-%d", os.Getpid()),
+			hashBytes([]byte(vault)),
+		)
+	}
+	return datadir.File(vault, "knowledge")
 }
 
 // ExpandPath resolves a leading "~/" and makes a path absolute against base.

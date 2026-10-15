@@ -21,15 +21,19 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -287,4 +291,102 @@ func TestCmdKnowledge(t *testing.T) {
 	r.applyToolTuning(ToolTuning{KnowledgeOff: true})
 	assert.False(t, l.KnowledgeEnabled(), "restored from the saved settings")
 	l.knowledge.waitBuilds()
+}
+
+// stubEngines returns an engine factory whose engines answer every chat
+// with reply, recording the prompts they saw.
+func stubEngines(reply string, seen *[]string) func() *executor.Engine {
+	var mu sync.Mutex
+	return func() *executor.Engine {
+		eng := executor.NewEngine(nil)
+		eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+			c := wf.Resources[0].Chat
+			mu.Lock()
+			*seen = append(*seen, c.Prompt)
+			mu.Unlock()
+			if c.Knowledge == nil || *c.Knowledge {
+				return nil, errors.New("extraction must not recall")
+			}
+			return reply, nil
+		})
+		return eng
+	}
+}
+
+func TestKnowledgeAsk(t *testing.T) {
+	var seen []string
+	ask := KnowledgeAsk(stubEngines(`{"entities":[]}`, &seen), "m", "ollama", "")
+	out, err := ask(t.Context(), "sys", "Note: x")
+	require.NoError(t, err)
+	assert.Contains(t, out, "entities")
+	assert.Equal(t, []string{"Note: x"}, seen)
+
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err = ask(cancelled, "sys", "x")
+	require.Error(t, err)
+
+	bad := func() *executor.Engine {
+		eng := executor.NewEngine(nil)
+		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) { return nil, errors.New("down") })
+		return eng
+	}
+	_, err = KnowledgeAsk(bad, "m", "ollama", "")(t.Context(), "s", "u")
+	require.Error(t, err)
+	assert.NotEmpty(t, HarnessText("knowledge-extract-system"))
+}
+
+func TestExtractKnowledge(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	var seen []string
+	reply := `{"entities":[{"name":"Stripe","kind":"tool"}],"relations":[]}`
+	var out bytes.Buffer
+
+	l.ExtractKnowledge(t.Context(), &out, true) // no engine factory: nothing
+	assert.Empty(t, out.String())
+
+	l.config.KnowledgeEngine = stubEngines(reply, &seen)
+	l.config.Backend, l.config.Model = "openai", "gpt"
+	l.ExtractKnowledge(t.Context(), &out, true)
+	assert.Contains(t, out.String(), "no local model", "a cloud session model is not used")
+	l.ExtractKnowledge(t.Context(), &out, false)
+
+	out.Reset()
+	l.config.Backend, l.config.Model, l.config.BaseURL = "file", "llama3.2:1b", "http://127.0.0.1:1"
+	l.ExtractKnowledge(t.Context(), &out, false)
+	assert.Contains(t, out.String(), "llama3.2:1b read 2 notes (0 failed, 0 still pending)")
+	assert.Len(t, seen, 2)
+	g, err := knowledge.Load(l.knowledge.dir)
+	require.NoError(t, err)
+	var found bool
+	for _, n := range g.Nodes {
+		found = found || n.ID == "entity:stripe"
+	}
+	assert.True(t, found, "the graph is rebuilt with the findings")
+
+	out.Reset()
+	l.ExtractKnowledge(t.Context(), &out, false)
+	assert.Empty(t, out.String(), "nothing changed: no model calls")
+
+	l.knowledge.cfg.Extract.Model, l.knowledge.cfg.Extract.Backend = "qwen", "ollama"
+	m, b, u := l.extractModel()
+	assert.Equal(t, []string{"qwen", "ollama", ""}, []string{m, b, u})
+	l.knowledge.cfg.Extract.Model = ""
+	l.config.Backend, l.config.BaseURL = "file", ""
+	m, _, _ = l.extractModel()
+	assert.Empty(t, m, "a local model not yet served is skipped")
+	l.config.Backend = "ollama"
+	m, _, _ = l.extractModel()
+	assert.Equal(t, "llama3.2:1b", m)
+
+	off := false
+	l.knowledge.cfg.Extract.Enabled = &off
+	seen = nil
+	l.ExtractKnowledge(t.Context(), &out, true)
+	assert.Empty(t, seen)
+
+	r := &REPL{loop: l, ctx: t.Context()}
+	l.knowledge.cfg.Extract.Enabled = nil
+	outStr := captureStdout(t, func() { r.cmdKnowledge([]string{"extract"}) })
+	assert.Contains(t, outStr, "Reading changed notes")
 }

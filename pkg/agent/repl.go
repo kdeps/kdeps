@@ -4579,6 +4579,7 @@ func (r *REPL) writeSessionNoteOnExit() {
 	defer cancel()
 	fmt.Fprintln(os.Stdout, styleReplDim.Render("Writing the session note to the knowledge vault..."))
 	r.loop.WriteSessionNoteNow(ctx, os.Stdout)
+	r.loop.ExtractKnowledge(ctx, os.Stdout, false)
 }
 
 // sessionNoteTimeout bounds the summary call behind the session-end note.

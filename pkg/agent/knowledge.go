@@ -32,8 +32,9 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -52,8 +53,6 @@ type knowledgeState struct {
 	ws       knowledge.Workspace
 	dir      string // generated graph files, under ~/.kdeps
 	mu       sync.Mutex
-	index    *knowledge.Index
-	loaded   time.Time // graph.json mtime behind index
 	last     knowledge.Recall
 	building atomic.Bool
 	builds   sync.WaitGroup // background builds in flight
@@ -82,7 +81,7 @@ func newKnowledgeState(ctx context.Context, cfg *config.KnowledgeConfig) *knowle
 		cfg:   *cfg,
 		vault: knowledge.Vault{Root: vault},
 		ws:    knowledge.Workspace{Root: ws},
-		dir:   datadir.File(vault, "knowledge"),
+		dir:   knowledge.GraphDir(vault),
 	}
 	if _, err := os.Stat(vault); errors.Is(err, os.ErrNotExist) {
 		// First session: create the folders, KDEPS.md and schema.md. A
@@ -130,23 +129,8 @@ func (k *knowledgeState) buildAsync() {
 // waitBuilds waits for background builds to finish.
 func (k *knowledgeState) waitBuilds() { k.builds.Wait() }
 
-// idx returns the recall index, reloading graph.json when it changed.
-func (k *knowledgeState) idx() *knowledge.Index {
-	info, err := os.Stat(knowledge.GraphPath(k.dir))
-	if err != nil {
-		return nil
-	}
-	k.mu.Lock()
-	defer k.mu.Unlock()
-	if k.index == nil || info.ModTime().After(k.loaded) {
-		g, loadErr := knowledge.Load(k.dir)
-		if loadErr != nil {
-			return k.index
-		}
-		k.index, k.loaded = knowledge.NewIndex(g), info.ModTime()
-	}
-	return k.index
-}
+// idx returns the recall index, reloaded when graph.json changes.
+func (k *knowledgeState) idx() *knowledge.Index { return knowledge.SharedIndex(k.dir) }
 
 // recall finds the notes related to text.
 func (k *knowledgeState) recall(text string) knowledge.Recall {
@@ -550,6 +534,9 @@ func (r *REPL) cmdKnowledge(args []string) {
 		return
 	}
 	switch args[0] {
+	case "extract":
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reading changed notes with the local model..."))
+		r.loop.ExtractKnowledge(r.ctx, os.Stdout, true)
 	case toggleOn, toggleOff:
 		on := args[0] == toggleOn
 		r.loop.SetKnowledge(on)
@@ -563,6 +550,135 @@ func (r *REPL) cmdKnowledge(args []string) {
 				"knowledge vault off - no recall, no session note, knowledge tools refuse"))
 		}
 	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /knowledge [on|off]"))
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /knowledge [on|off|extract]"))
 	}
 }
+
+// Extraction defaults.
+const (
+	knowledgeExtractActionID = "knowledge_extract"
+	defaultExtractPerSession = 20
+	knowledgeExtractTimeout  = 3 * time.Minute
+	// knowledgeExtractCallTimeout bounds one extraction call.
+	knowledgeExtractCallTimeout = "180s"
+	// knowledgeExtractMaxTokens caps one extraction reply.
+	knowledgeExtractMaxTokens = 1024
+)
+
+// KnowledgeAsk returns an ExtractFunc that asks a model one question
+// through engines from newEngine (one per call, so calls can run in
+// parallel), as a single-resource synthetic workflow with no tools and no
+// recall.
+func KnowledgeAsk(newEngine func() *executor.Engine, model, backend, baseURL string) knowledge.ExtractFunc {
+	return func(ctx context.Context, system, user string) (string, error) {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		off := false
+		chatCfg := &domain.ChatConfig{
+			Model: model, Backend: backend, BaseURL: baseURL,
+			Prompt:        user,
+			LiteralPrompt: true,
+			// A local model reading a long note, maybe while loading, needs
+			// more than the chat default.
+			Timeout:   knowledgeExtractCallTimeout,
+			Knowledge: &off,
+			Scenario:  []domain.ScenarioItem{{Role: "system", Prompt: system}},
+		}
+		// The reply is a small JSON object; a cap stops a small model that
+		// rambles from holding a local server for minutes.
+		maxTokens := knowledgeExtractMaxTokens
+		chatCfg.MaxTokens = &maxTokens
+		wf := &domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata: domain.WorkflowMetadata{
+				Name: "knowledge", Version: "0.0.0", TargetActionID: knowledgeExtractActionID,
+			},
+			Resources: []*domain.Resource{
+				{ActionID: knowledgeExtractActionID, Name: "knowledge_extract", Chat: chatCfg},
+			},
+		}
+		result, err := newEngine().Execute(wf, nil)
+		if err != nil {
+			return "", err
+		}
+		return formatLoopResult(result), nil
+	}
+}
+
+// extractModel is the model extraction uses: the session's when it is a
+// local model being served, else the configured one; "" skips extraction.
+func (l *Loop) extractModel() (string, string, string) {
+	k := l.knowledge
+	if k.cfg.Extract.Model != "" {
+		return k.cfg.Extract.Model, k.cfg.Extract.Backend, ""
+	}
+	switch l.config.Backend {
+	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
+		if l.config.Backend == "ollama" || l.config.BaseURL != "" {
+			return l.config.Model, l.config.Backend, l.config.BaseURL
+		}
+	}
+	return "", "", ""
+}
+
+// ExtractKnowledge runs the model pass over notes that changed since their
+// last extraction (at most per_session of them, unless all is set) and
+// rebuilds the graph with what it found. It reports on w.
+func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
+	k := l.knowledge
+	if !l.knowledgeOn() || (k.cfg.Extract.Enabled != nil && !*k.cfg.Extract.Enabled) ||
+		l.config.KnowledgeEngine == nil {
+		return
+	}
+	model, backend, baseURL := l.extractModel()
+	if model == "" {
+		if all && w != nil {
+			fmt.Fprintln(w, "knowledge: no local model for extraction (set knowledge.extract.model)")
+		}
+		return
+	}
+	limit := k.cfg.Extract.PerSession
+	if limit <= 0 {
+		limit = defaultExtractPerSession
+	}
+	if all {
+		limit = 0
+	}
+	ctx, cancel := context.WithTimeout(ctx, knowledgeExtractTimeout)
+	defer cancel()
+	k.waitBuilds()
+	st, err := knowledge.Extract(
+		ctx,
+		k.vault,
+		k.dir,
+		KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
+		knowledge.ExtractOptions{
+			Model:   model,
+			Workers: k.cfg.Extract.Workers,
+			Limit:   limit,
+			System:  harnessText("knowledge-extract-system"),
+		},
+	)
+	if err != nil {
+		if w != nil {
+			fmt.Fprintf(w, "knowledge: extraction failed: %v\n", err)
+		}
+		return
+	}
+	if st.Done+st.Failed == 0 {
+		return
+	}
+	if buildErr := k.build(); buildErr != nil && w != nil {
+		fmt.Fprintf(w, "knowledge: graph not rebuilt: %v\n", buildErr)
+	}
+	if w != nil {
+		fmt.Fprintf(w, "knowledge: %s read %d notes (%d failed, %d still pending)\n",
+			model, st.Done+st.Failed, st.Failed, st.Pending-st.Done-st.Failed)
+	}
+}
+
+// HarnessText returns a standalone harness prompt by name (for callers
+// outside the loop, such as kdeps knowledge build --extract).
+func HarnessText(name string) string { return harnessText(name) }

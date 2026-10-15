@@ -352,6 +352,10 @@ knowledge:
   recall:
     hops: 2                   # how far from the matched notes to walk the link graph
     budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
+  extract:                    # local-model pass over changed notes at session end
+    model: llama3.2:3b        # empty: the session's model when local, else skipped
+    workers: 2
+    per_session: 20
 ```
 
 See [Knowledge vault](/agent/knowledge).
