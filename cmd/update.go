@@ -19,9 +19,12 @@
 package cmd
 
 import (
+	"io"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 // newUpdateCmd is "kdeps update": update the versioned assets (harness,
@@ -29,6 +32,8 @@ import (
 // model registries, project templates). The kdeps binary itself is updated by --upgrade.
 func newUpdateCmd() *cobra.Command {
 	var opts agent.UpdateOptions
+	var profile string
+	var selectProfile bool
 	c := &cobra.Command{
 		Use:   "update [item[@version]...]",
 		Short: "Update harness, tool definitions, themes, recipes, model registries and templates",
@@ -41,6 +46,14 @@ func newUpdateCmd() *cobra.Command {
   kdeps update --check                  list available updates, change nothing
   kdeps update --list                   every item, its version and state
   kdeps update --remove themes/dracula  remove items (restore with kdeps update <item>)
+  kdeps update --profile agent          install a profile and keep it current
+  kdeps update --select                 choose a profile, or pick sets (custom)
+
+Profiles, smallest first: minimum (kdeps run and validate), workflows
+(+ templates, components), agent (+ the agent loop), deploy (+ Docker,
+Kubernetes, LLM server recipes), full (every set). A bare kdeps update keeps
+the chosen profile and anything installed since current; a set a command
+needs, or a component a workflow calls, is installed the first time.
 
 An item that lists others under requires: installs them with it, first:
 kdeps update components/searchWeb also installs schemas/v1 when it is missing
@@ -50,6 +63,13 @@ Sets: harness, events, actions, presets, themes, tools, commands, recipes, model
 templates, docker, k8s, schemas, defaults, components, providers.
 The kdeps binary itself is updated with kdeps --upgrade.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if profile != "" || selectProfile {
+				var in io.Reader
+				if config.CanPromptForConnections() {
+					in = cmd.InOrStdin()
+				}
+				return agent.SelectProfile(cmd.Context(), cmd.OutOrStdout(), in, profile)
+			}
 			opts.Items = args
 			return agent.RunAssetUpdate(cmd.Context(), cmd.OutOrStdout(), opts)
 		},
@@ -59,5 +79,8 @@ The kdeps binary itself is updated with kdeps --upgrade.`,
 		BoolVar(&opts.List, "list", false, "list every asset, its version and whether it is built-in, downloaded, pinned or removed")
 	c.Flags().
 		StringSliceVar(&opts.Remove, "remove", nil, "remove assets (set/name); restore one with kdeps update <set/name>")
+	c.Flags().StringVar(&profile, "profile", "",
+		"install a profile (minimum, workflows, agent, deploy, full, or a comma-separated set list) and keep it current")
+	c.Flags().BoolVar(&selectProfile, "select", false, "choose the profile, or pick sets yourself (custom)")
 	return c
 }

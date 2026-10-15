@@ -8,8 +8,8 @@
 #   - KDEPS_ASSETS_SRC serves a checkout's assets/ to a dev binary
 #   - the cloud model catalog (models/cloud) feeds /model list
 #   - published bundles leave hidden source files out
-#   - the first download retries a flaky server
-#   - a missing published item fails the first run and is named
+#   - the first download (KDEPS_PROFILE=full) retries a flaky server
+#   - a missing published item fails the profile install and is named
 #   - an installed file that fails its checksum is ignored
 #   - an asset that does not load is skipped with a warning
 #   - a prepackaged binary runs offline from the assets it bundles
@@ -65,7 +65,7 @@ af_ok=1
 af_out=""
 for args in "help" "completion bash" "update --list" "registry --help" "--version"; do
     # shellcheck disable=SC2086 # args is a word list
-    if ! OUT=$(as_run "$AF_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" $args) || output_grep "Downloading kdeps assets" "$OUT"; then
+    if ! OUT=$(as_run "$AF_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" $args) || output_grep "Installing" "$OUT"; then
         af_ok=0
         af_out="$af_out [$args] $OUT"
     fi
@@ -174,8 +174,8 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(H, dire
 serve flaky
 FL_HOME="$AS_DIR/flaky"
 mkdir -p "$FL_HOME"
-OUT=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" llamafile list)
-if output_grep "Downloading kdeps assets" "$OUT" && output_grep "GGUF +e2e-src-model" "$OUT" && [ -f "$FL_HOME/store/lock.json" ]; then
+OUT=$(as_run "$FL_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list)
+if output_grep "Installing the full profile" "$OUT" && output_grep "GGUF +e2e-src-model" "$OUT" && [ -f "$FL_HOME/store/lock.json" ]; then
     test_passed "assets - first run retries 503s and installs every asset"
 else
     test_failed "assets - first run against a flaky server" "$OUT"
@@ -214,7 +214,7 @@ fi
 serve "missing=themes/"
 MS_HOME="$AS_DIR/missing"
 mkdir -p "$MS_HOME"
-if OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" llamafile list); then
+if OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list); then
     test_failed "assets - first run with a missing item fails" "$OUT"
 elif output_grep "run kdeps update" "$OUT" && output_grep "themes/" "$OUT"; then
     test_passed "assets - first run names the item it could not download"

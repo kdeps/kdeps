@@ -225,7 +225,9 @@ kdeps --upgrade --target-version 2.35.0
 Update kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries and project templates - without a new kdeps release. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
 
 ```bash
-kdeps update                          # every item to its newest version
+kdeps update                          # the chosen profile and everything installed since, to their newest versions
+kdeps update --profile agent          # install a profile: minimum, workflows, agent, deploy, full (or a set list: docker,k8s)
+kdeps update --select                 # choose the profile again, or tick sets yourself (custom); needs a terminal
 kdeps update harness                  # every item in one set
 kdeps update harness/safety           # one item to its newest version (unpins it)
 kdeps update harness/safety@1.2.0     # exactly that version, pinned (older = downgrade)
@@ -241,6 +243,10 @@ kdeps update --remove themes/vim      # remove items (restore with: kdeps update
 | `--check` | List available updates without installing them | `false` |
 | `--list` | List every asset with its version and state (`built-in`, `downloaded`, `pinned`, `removed`) | `false` |
 | `--remove` | Remove assets (`set/name`, comma-separated or repeated) | `[]` |
+| `--profile` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`) or a comma-separated set list, and record it as what `kdeps update` keeps current | `""` |
+| `--select` | Show the first-run profile picker again (with the `custom` set checklist) | `false` |
+
+The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).
 
 ---
 

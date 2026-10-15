@@ -143,15 +143,43 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
         test_failed "first run offline message" "$OUT"
     fi
 
-    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" llamafile list)
-    if output_grep "Downloading kdeps assets" "$OUT" && output_grep "GGUF" "$OUT" && [ -f "$FR_DIR/store/themes/normal.yaml" ]; then
-        test_passed "first run downloads every asset"
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" KDEPS_PROFILE= "$KDEPS_BIN" llamafile list)
+    if output_grep "Installing models" "$OUT" && output_grep "GGUF" "$OUT" && [ ! -e "$FR_DIR/store/themes" ]; then
+        test_passed "first run without a terminal installs only what the command needs"
     else
         test_failed "first run download" "$OUT"
     fi
 
+    OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" update --profile agent)
+    if [ -f "$FR_DIR/store/themes/normal.yaml" ] && [ -f "$FR_DIR/store/tools/bash_exec.yaml" ] &&
+        [ ! -e "$FR_DIR/store/tools/zapier_run_action.yaml" ] && [ ! -e "$FR_DIR/store/docker" ] &&
+        grep -q '"profile": "agent"' "$FR_DIR/store/lock.json"; then
+        test_passed "update --profile agent installs the agent profile and records it"
+    else
+        test_failed "update --profile agent" "$OUT"
+    fi
+
+    if OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" update --select); then
+        test_failed "update --select without a terminal fails" "$OUT"
+    elif output_grep "needs a terminal" "$OUT"; then
+        test_passed "update --select without a terminal asks for --profile"
+    else
+        test_failed "update --select message" "$OUT"
+    fi
+
+    MIN_HOME="$FR_DIR/min"
+    mkdir -p "$MIN_HOME"
+    OUT=$(HOME="$MIN_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$MIN_HOME/store" KDEPS_PROFILE=minimum \
+        KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
+    if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
+        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ ! -e "$MIN_HOME/store/harness" ] && [ ! -e "$MIN_HOME/store/components" ]; then
+        test_passed "KDEPS_PROFILE=minimum installs only the base sets; validate works"
+    else
+        test_failed "KDEPS_PROFILE=minimum first run" "$OUT"
+    fi
+
     OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list)
-    if ! output_grep "Downloading" "$OUT" && output_grep "GGUF" "$OUT"; then
+    if ! output_grep "Installing" "$OUT" && output_grep "GGUF" "$OUT"; then
         test_passed "installed assets work offline"
     else
         test_failed "installed assets offline" "$OUT"

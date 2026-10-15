@@ -83,7 +83,11 @@ func (p *Parser) loadAssetComponents(workflow *domain.Workflow) error {
 		if _, ok := workflow.Components[name]; ok {
 			continue
 		}
-		data, err := assets.Open(componentsSet).ReadFile(path.Join(componentsSet, name, componentsFile))
+		file := path.Join(componentsSet, name, componentsFile)
+		data, err := assets.Open(componentsSet).ReadFile(file)
+		if err != nil && assets.InstallOnDemand(assets.ID(componentsSet, name)) {
+			data, err = assets.Open(componentsSet).ReadFile(file)
+		}
 		if err != nil {
 			continue // not a kdeps component: the call reports it as not found
 		}

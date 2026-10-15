@@ -22,10 +22,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"slices"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
@@ -191,18 +193,62 @@ var assetFreeCommands = []string{
 	"update", "registry", "help", "completion", "__complete", "__completeNoDesc",
 }
 
-// ensureAssets installs kdeps's assets before a command that loads them
-// (first run, or a set this kdeps added). kdeps ships none of its own.
+// commandSets are the asset sets each top-level command loads; a command
+// not listed loads every set, the agent loop (no command) loads the agent's.
+//
+//nolint:gochecknoglobals // fixed table
+var commandSets = map[string][]string{
+	"run":       assets.BaseSets,
+	"validate":  assets.BaseSets,
+	"exec":      assets.BaseSets,
+	"env":       assets.BaseSets,
+	"bundle":    assets.BaseSets,
+	"doctor":    nil,
+	"edit":      nil,
+	"m365":      nil,
+	"new":       append(slices.Clone(assets.BaseSets), "templates"),
+	"export":    append(slices.Clone(assets.BaseSets), "docker", "k8s"),
+	"llm":       append(slices.Clone(assets.BaseSets), "docker", "k8s", "recipes"),
+	"llamafile": {"models"},
+	"chat":      append(slices.Clone(assets.BaseSets), assets.AgentSets...),
+	"konfig":    append(slices.Clone(assets.BaseSets), assets.AgentSets...),
+}
+
+// setsFor returns the sets cmd loads, and false for a command that loads none.
+func setsFor(cmd *cobra.Command) ([]string, bool) {
+	top := cmd
+	for top.HasParent() && top.Parent().HasParent() {
+		top = top.Parent()
+	}
+	if !top.HasParent() {
+		return append(slices.Clone(assets.BaseSets), assets.AgentSets...), true
+	}
+	if slices.Contains(assetFreeCommands, top.Name()) {
+		return nil, false
+	}
+	if sets, ok := commandSets[top.Name()]; ok {
+		return sets, len(sets) > 0
+	}
+	return assets.Registered(), true
+}
+
+// ensureAssets installs the asset sets cmd loads that are missing: on first
+// run the profile picker (on a terminal), else only those sets. A component
+// a workflow calls is installed the first time it is needed.
 func ensureAssets(cmd *cobra.Command) error {
 	if up, _ := cmd.Flags().GetBool("upgrade"); up {
 		return nil
 	}
-	for c := cmd; c.HasParent(); c = c.Parent() {
-		if slices.Contains(assetFreeCommands, c.Name()) {
-			return nil
-		}
+	sets, ok := setsFor(cmd)
+	if !ok {
+		return nil
 	}
-	return agent.EnsureAssets(cmd.Context(), cmd.ErrOrStderr())
+	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
+	var in io.Reader
+	if config.CanPromptForConnections() {
+		in = cmd.InOrStdin()
+	}
+	return agent.EnsureSets(cmd.Context(), cmd.ErrOrStderr(), in, sets)
 }
 
 func initRootLogging(cmd *cobra.Command) {

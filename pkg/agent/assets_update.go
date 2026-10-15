@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,21 +61,11 @@ func ReloadAssets() {
 	kdepsconfig.ReloadProviders()
 }
 
-// EnsureAssets installs kdeps's assets when a set has none -- on first run,
-// or when this kdeps added a set -- and reloads them. kdeps ships no assets
-// of its own, so it returns an error when they cannot be downloaded.
+// EnsureAssets makes what the desktop app loads available without asking
+// (it has no terminal): the base and agent sets and the project templates.
+// Its build and run actions start the CLI, which installs what they need.
 func EnsureAssets(ctx context.Context, w io.Writer) error {
-	if len(assets.Missing()) == 0 {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout)
-	defer cancel()
-	fmt.Fprintln(w, "Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...")
-	downloaded, err := assets.Ensure(ctx, assets.Root(), assets.NewClient())
-	if downloaded {
-		ReloadAssets()
-	}
-	return err
+	return EnsureSets(ctx, w, nil, append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates"))
 }
 
 // AssetUpdateNotice returns a one-line notice when published asset updates

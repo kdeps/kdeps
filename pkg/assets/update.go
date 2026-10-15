@@ -98,9 +98,8 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 
 	var changes []Change
 	if len(targets) == 0 {
-		targets = make([]target, 0, len(Sets))
-		for _, s := range Registered() {
-			targets = append(targets, target{set: s})
+		if targets, err = defaultTargets(root, local); err != nil {
+			return nil, err
 		}
 	}
 	seen := map[string]bool{}
@@ -118,6 +117,36 @@ func Update(ctx context.Context, root string, c *Client, args []string, check bo
 		applyAll(ctx, root, c, changes, idx)
 	}
 	return changes, nil
+}
+
+// defaultTargets is what a bare update covers: the recorded selection plus
+// every item already installed; without a selection, the sets present.
+func defaultTargets(root string, local map[string]Item) ([]target, error) {
+	lock, err := ReadLock(root)
+	if err != nil {
+		return nil, err
+	}
+	if len(lock.Selection) == 0 {
+		// No profile recorded: the sets already present (every set on a
+		// fresh store), so an update never installs what was not chosen.
+		sets := Registered()
+		if missing := MissingOf(sets); len(missing) < len(sets) {
+			sets = slices.DeleteFunc(slices.Clone(sets), func(s string) bool { return slices.Contains(missing, s) })
+		}
+		out := make([]target, 0, len(sets))
+		for _, s := range sets {
+			out = append(out, target{set: s})
+		}
+		return out, nil
+	}
+	args := slices.Clone(lock.Selection)
+	for id, it := range local {
+		if it.Downloaded && !slices.Contains(args, id) && !slices.Contains(args, it.Set) {
+			args = append(args, id)
+		}
+	}
+	sort.Strings(args)
+	return parseTargets(args)
 }
 
 // requires is what the version a change installs needs (see Header.Requires).
@@ -392,47 +421,7 @@ func RemoveItems(root string, ids []string) []Change {
 }
 
 // Missing lists the registered sets that have no items, as Open sees them.
-// Every set kdeps loads has at least one published item, so a missing set
-// means the store was never filled (or a newer kdeps added the set).
-func Missing() []string {
-	var out []string
-	for _, set := range Registered() {
-		if entries, err := Open(set).ReadDir(set); err != nil || len(entries) == 0 {
-			out = append(out, set)
-		}
-	}
-	return out
-}
-
-// Ensure fills the store when a registered set has no items: it installs
-// the newest published version of every item. It returns whether it
-// downloaded anything, and an error when a set is still empty afterwards.
-func Ensure(ctx context.Context, root string, c *Client) (bool, error) {
-	if len(Missing()) == 0 {
-		return false, nil
-	}
-	changes, err := Update(ctx, root, c, nil, false)
-	if err != nil {
-		return false, fmt.Errorf("%w (%w)", errNotInstalled(Missing()), err)
-	}
-	_ = MarkInitialized(root)
-	if missing := Missing(); len(missing) > 0 {
-		for _, ch := range changes {
-			if ch.Action == ActionFailed {
-				return true, fmt.Errorf("%w (%s: %s)", errNotInstalled(missing), ch.ID, ch.Note)
-			}
-		}
-		return true, errNotInstalled(missing)
-	}
-	return true, nil
-}
-
-func errNotInstalled(sets []string) error {
-	return fmt.Errorf(
-		"kdeps assets are not installed (%s); connect to the internet and run kdeps update",
-		strings.Join(sets, ", "),
-	)
-}
+func Missing() []string { return MissingOf(Registered()) }
 
 // Initialized reports whether the asset store has been set up (lock written).
 func Initialized(root string) bool {

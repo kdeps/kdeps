@@ -102,6 +102,23 @@ You should see output like:
 kdeps version 2.21.0
 ```
 
+## First run: pick a profile
+
+The binary ships no prompts, schemas, templates or tool definitions; the first command downloads them from kdeps.io (about 1.5 MB for everything). It asks how much:
+
+```text
+What will you use kdeps for? (change it later with kdeps update --select)
+  1) minimum    kdeps run and validate: chat, httpClient, python, exec, apiResponse
+  2) workflows  minimum, kdeps new templates and the components (sql, browser, email, ...)
+  3) agent      minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  4) deploy     workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
+  5) full       every asset set
+  6) custom     pick the asset sets yourself
+Choice [5]:
+```
+
+Anything a later command needs is installed the first time it is used, so a small profile never blocks you. In CI or Docker there is no prompt: set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads. Details: [Updating assets](/agent/repl-updating#updating-assets).
+
 ## Docker (optional)
 
 Docker is only needed if you want to build container images for deployment. For local development and testing, kdeps runs natively without Docker.

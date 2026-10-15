@@ -315,19 +315,14 @@ func TestSourceAndRoot_UnderTest(t *testing.T) {
 	assert.Equal(t, "/x", Source())
 }
 
-func TestMissingAndEnsure(t *testing.T) {
+func TestMissing(t *testing.T) {
 	registerTestSets(t)
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	assert.NotContains(t, Missing(), "harness")
 
-	// An empty source and store: the set is missing, and with downloads off
-	// Ensure says how to install it.
+	// An empty source and store: the set is missing.
 	writeSource(t, fstest.MapFS{})
 	assert.Contains(t, Missing(), "harness")
-	t.Setenv("KDEPS_ASSETS_URL", "off")
-	downloaded, err := Ensure(t.Context(), Root(), NewClient())
-	assert.False(t, downloaded)
-	require.ErrorContains(t, err, "run kdeps update")
 }
 
 func TestExport_StoreOfWhatLoadersSee(t *testing.T) {

@@ -60,7 +60,7 @@ main: "kdeps repo, main\nassets/<set>/" {shape: oval}
 branch: "kdeps/packages assets/\n<set>/<name>/<version>.yaml\n+ index.json"
 formulas: "kdeps/registry\nformulas/kdeps-<set>-<name>.yaml"
 site: "kdeps.io\none catalog: packages,\nresource types, assets"
-update: "kdeps update\n(first run: automatic, required)"
+update: "kdeps update\n(first run: the chosen profile)"
 store: "~/.kdeps/assets/\nfiles + lock.json"
 loader: "loaders\n(user overrides on top)" {shape: oval}
 main -> branch: "publish on merge"
@@ -71,14 +71,48 @@ update -> store
 store -> loader
 ```
 
-The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. On the first run (and after an upgrade that adds a set), any command that needs them downloads the newest version of every item first:
+The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. The first run asks what you will use kdeps for and installs that profile:
 
 ```text
 $ kdeps
-Downloading kdeps assets (agent harness, tools, templates, schemas, models and more)...
+What will you use kdeps for? (change it later with kdeps update --select)
+  1) minimum    kdeps run and validate: chat, httpClient, python, exec, apiResponse
+  2) workflows  minimum, kdeps new templates and the components (sql, browser, email, ...)
+  3) agent      minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  4) deploy     workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
+  5) full       every asset set
+  6) custom     pick the asset sets yourself
+Choice [5]:
 ```
 
-Offline with nothing installed, kdeps stops and tells you to connect and run `kdeps update` (`kdeps update` and `kdeps registry` run without assets; `kdeps validate` needs the `schemas` set). Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+| Profile | Sets it installs |
+|---|---|
+| `minimum` | `schemas`, `defaults`, `models`, `providers` (the base: every other profile includes it) |
+| `workflows` | base + `templates`, `components` |
+| `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, the loop's required tools and the file, shell, web and memory tools |
+| `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
+| `full` | every set |
+| `custom` | the base plus the sets you tick in a checklist: type set numbers to toggle them, Enter to install |
+
+```text
+Asset sets ([x] installs; the base sets are always installed):
+   1) [ ] harness      43 items
+   ...
+   8) [x] recipes      10 items
+   9) [x] models        3 items (base)
+Toggle numbers (e.g. 5 7), Enter to install:
+```
+
+Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a set list such as `KDEPS_PROFILE=docker,k8s`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
+
+Whatever the profile, a command installs a set it loads the first time it needs it (`kdeps export` installs `docker` and `k8s`), and a workflow that calls a component not installed downloads it on that call:
+
+```text
+$ kdeps run workflow.yaml
+Installed components/sql 1.0.2 (first use).
+```
+
+Offline, a missing set stops the command and names the update to run (`kdeps assets docker are not installed; connect to the internet and run kdeps update docker`). `kdeps update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
 
 After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
 
@@ -89,7 +123,9 @@ After that, a startup notice appears when updates are published (checked once a 
 The desktop app shows the same as an **Updates available** button in the top bar.
 
 ```bash
-kdeps update                          # every item to its newest version (skips pinned and removed items)
+kdeps update                          # the profile and everything installed since, to their newest versions (skips pinned and removed items)
+kdeps update --profile agent          # install a profile (or a set list: --profile docker,k8s) and keep it current
+kdeps update --select                 # choose the profile again, or tick sets (custom)
 kdeps update tools                    # every item in one set
 kdeps update harness/safety           # newest version of one item; unpins and restores it
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
