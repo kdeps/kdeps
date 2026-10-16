@@ -444,7 +444,9 @@ func (l *Loop) sessionNoteID() string {
 	if l.noteID == "" {
 		l.noteID = l.sessionID
 		if l.noteID == "" {
-			l.noteID = "session-" + time.Now().Format("20060102-150405")
+			// Nanoseconds: two sessions started in the same second keep
+			// separate notes.
+			l.noteID = "session-" + time.Now().Format("20060102-150405.000000000")
 		}
 	}
 	return l.noteID
