@@ -540,3 +540,44 @@ func TestKnowledgeRecall_FilesFromTheSearchIndex(t *testing.T) {
 	assert.Contains(t, card.Links, knowledge.Link{Source: knowledge.SourceIndex, Path: searchlocal.IndexPath(wd)},
 		"the card says where the project's search index is")
 }
+
+func TestUpdateSessionNote_NewTopicGetsItsOwnNote(t *testing.T) {
+	l, vault := knowledgeLoop(t)
+	sess := l.session.(*Session)
+	notes := func() []string {
+		m, _ := filepath.Glob(filepath.Join(vault, "projects", "app", "sessions", "*.md"))
+		return m
+	}
+
+	sess.Append("switch billing to monthly invoices for stripe customers", "done")
+	l.UpdateSessionNote()
+	sess.Append("why are monthly invoices late for stripe customers", "because")
+	l.UpdateSessionNote()
+	sess.Append("yes do it", "ok")
+	l.UpdateSessionNote()
+	require.Len(t, notes(), 1, "related requests and follow-ups share the thread's note")
+	first := notes()[0]
+
+	sess.Append("configure kubernetes liveness probes for the api deployment", "done")
+	l.UpdateSessionNote()
+	all := notes()
+	require.Len(t, all, 2, "an unrelated request starts a new note")
+	var second string
+	for _, f := range all {
+		if f != first {
+			second = f
+		}
+	}
+	data, _ := os.ReadFile(second)
+	assert.Contains(t, string(data), "kubernetes liveness probes")
+	assert.NotContains(t, string(data), "monthly invoices", "the new note holds only its own thread")
+	assert.Contains(t, string(data), "session: "+l.sessionBaseNoteID()+"-2", "a thread id of its own")
+	old, _ := os.ReadFile(first)
+	assert.Contains(t, string(old), "monthly invoices", "the earlier thread's note is left as it was")
+	assert.NotContains(t, string(old), "kubernetes")
+
+	sess.Append("the probe timeout for kubernetes liveness", "ok")
+	l.UpdateSessionNote()
+	assert.Len(t, notes(), 2, "the new thread continues in its note")
+	l.knowledge.waitBuilds()
+}
