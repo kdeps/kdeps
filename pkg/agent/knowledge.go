@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -62,7 +63,14 @@ type knowledgeState struct {
 	summary    string
 	summaryAt  time.Time // when summary was written (or the session started)
 	noteFile   string    // this session's note, never recalled into the session
-	moved      func()    // called after the project folder may have moved
+	// The conversation thread the note covers: a request that is not related
+	// to it starts a new thread, with a note of its own.
+	topic          knowledge.Topic
+	thread         int      // 0 for the session's first thread
+	threadPrompts  []string // the thread's prompts since its last model summary
+	threadMsgStart int      // where the thread starts in the session's messages
+	lastNoteAt     time.Time
+	moved          func() // called after the project folder may have moved
 }
 
 // newKnowledgeState returns nil without a parent context or knowledge
@@ -364,6 +372,8 @@ func (l *Loop) writeSessionNote(summary string, w io.Writer) {
 		}
 	}
 	k.summary, k.summaryAt = summary, time.Now()
+	k.threadPrompts = nil // the summary covers them
+	k.threadMsgStart = 0
 	if l.session != nil {
 		k.notedTurns = l.session.TurnCount()
 	}
@@ -378,9 +388,45 @@ func (l *Loop) UpdateSessionNote() {
 	if !l.knowledgeOn() || !k.sessionNotes() || l.session == nil || l.session.TurnCount() == 0 {
 		return
 	}
+	msgs := l.session.RawMessages()
+	at := lastUserMessage(msgs)
+	if at < 0 {
+		return
+	}
+	prompt := msgs[at].Content
+	if !k.topic.Related(prompt) {
+		k.startThread(at)
+	}
+	k.topic.Add(prompt)
+	k.threadPrompts = append(k.threadPrompts, liveLine(prompt))
 	if live := l.liveSessionSummary(); live != "" {
 		l.saveSessionNote(live, nil)
 	}
+	k.lastNoteAt = time.Now()
+}
+
+// startThread starts a new conversation thread at message at: the previous
+// thread's note is left as it is, and the next note is a new one.
+func (k *knowledgeState) startThread(at int) {
+	k.thread++
+	k.topic = knowledge.Topic{}
+	k.threadPrompts = nil
+	k.threadMsgStart = at
+	k.summary = ""
+	k.summaryAt = k.lastNoteAt // this turn's tool calls belong to the new thread
+	k.mu.Lock()
+	k.noteFile = ""
+	k.mu.Unlock()
+}
+
+// lastUserMessage is the index of the last user message in msgs, or -1.
+func lastUserMessage(msgs []SessionMessage) int {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == RoleUser && strings.TrimSpace(msgs[i].Content) != "" {
+			return i
+		}
+	}
+	return -1
 }
 
 // saveSessionNote writes the note from a summary and refreshes the graph,
@@ -427,12 +473,7 @@ const (
 func (l *Loop) liveSessionSummary() string {
 	k := l.knowledge
 	base := knowledge.SummarySections(k.summary)
-	var prompts []string
-	for _, m := range l.session.RawMessages() {
-		if m.Role == RoleUser && strings.TrimSpace(m.Content) != "" {
-			prompts = append(prompts, liveLine(m.Content))
-		}
-	}
+	prompts := slices.Clone(k.threadPrompts)
 	if len(prompts) == 0 && base["goal"] == "" {
 		return ""
 	}
@@ -522,6 +563,15 @@ func liveLine(s string) string {
 // (a session saved to the store mid-way keeps the note it started with):
 // the resumed session's id, else one from the start time.
 func (l *Loop) sessionNoteID() string {
+	base := l.sessionBaseNoteID()
+	if l.knowledge != nil && l.knowledge.thread > 0 {
+		return fmt.Sprintf("%s-%d", base, l.knowledge.thread+1) // each later thread has a note of its own
+	}
+	return base
+}
+
+// sessionBaseNoteID is the session's own note id, fixed for the loop.
+func (l *Loop) sessionBaseNoteID() string {
 	if l.noteID == "" {
 		l.noteID = l.sessionID
 		if l.noteID == "" {
@@ -544,7 +594,11 @@ func (l *Loop) WriteSessionNoteNow(ctx context.Context, w io.Writer) {
 	if l.session != nil {
 		fileOps = l.session.FileOps()
 	}
-	summary, err := l.summarizeConversation(ctx, serializeConversation(l.session.RawMessages(), fileOps))
+	msgs := l.session.RawMessages()
+	if start := l.knowledge.threadMsgStart; start > 0 && start < len(msgs) {
+		msgs = msgs[start:] // only this thread: earlier topics have notes of their own
+	}
+	summary, err := l.summarizeConversation(ctx, serializeConversation(msgs, fileOps))
 	if err != nil {
 		if w != nil {
 			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)

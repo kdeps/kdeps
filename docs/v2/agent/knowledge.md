@@ -145,7 +145,16 @@ We moved to monthly billing because ...
 
 ## Session notes
 
-After every turn, kdeps writes one note per session into the project's `sessions/` folder and rewrites it in place as the session goes on. It links the project's card, so the card's backlinks list every session:
+After every turn, kdeps writes the session's note into the project's `sessions/` folder and rewrites it in place as the conversation goes on. A note covers one thread: when a request is unrelated to the thread so far, the next note starts, so a session that moves from billing to Kubernetes leaves two notes. Each note links the project's card, so the card's backlinks list every session.
+
+```text
+switch billing to monthly invoices      -> 2026-10-16 0900 switch billing to monthly invoices.md
+why are monthly invoices late           -> same note (shares the thread's words)
+yes do it                               -> same note (a short follow-up)
+configure kubernetes liveness probes    -> 2026-10-16 0912 configure kubernetes liveness probes.md
+```
+
+Telling them apart needs no model: a request continues the thread when it shares at least a fifth of its content words with the thread (stemmed, without stopwords or task verbs like fix, add, make), or has fewer than three content words. The model's summary at compaction and session end goes to the current thread's note, written from that thread's messages only.
 
 ```markdown
 ---

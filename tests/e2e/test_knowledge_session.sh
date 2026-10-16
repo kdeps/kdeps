@@ -389,6 +389,17 @@ else
     test_failed "knowledge session - check after sessions" "$OUT"
 fi
 
+# --- a new topic in the same session gets a note of its own ---------------------
+BEFORE=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
+OUT=$(ks_session 'switch billing to monthly invoices for stripe customers\nyes do it\nconfigure kubernetes liveness probes for the api deployment\n/quit\n')
+AFTER=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' | wc -l | tr -d ' ')
+KUBE=$(grep -l "kubernetes liveness probes" "$KS_VAULT/projects/app/sessions/"*.md 2>/dev/null | head -1)
+if [ "$((AFTER - BEFORE))" = "2" ] && [ -n "$KUBE" ] && ! grep -q "monthly invoices for stripe" "$KUBE"; then
+    test_passed "knowledge session - an unrelated request starts its own session note; a follow-up does not"
+else
+    test_failed "knowledge session - topic notes" "before=$BEFORE after=$AFTER kube=$KUBE $(cat "$KUBE" 2>&1)"
+fi
+
 # --- the project's search index: recalled files and a card row ----------------
 printf 'package billing\n// monthly invoices go out on the first day\n' > "$KS_PROJ/invoices.go"
 : > "$KS_LOG"

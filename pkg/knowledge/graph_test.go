@@ -518,3 +518,17 @@ func TestFullPathLinksAndCardRows(t *testing.T) {
 		"a moved project's links resolve by title",
 	)
 }
+
+func TestTopic(t *testing.T) {
+	var tp Topic
+	assert.True(t, tp.Empty())
+	assert.True(t, tp.Related("set up kubernetes liveness probes"), "anything continues an empty thread")
+	tp.Add("switch billing to monthly invoices for stripe customers")
+	assert.False(t, tp.Empty())
+	assert.True(t, tp.Related("why are monthly invoices late for some customers"), "shares the thread's words")
+	assert.True(t, tp.Related("yes, do it"), "a short follow-up")
+	assert.True(t, tp.Related("fix that now please"), "task words alone are a follow-up")
+	assert.False(t, tp.Related("configure kubernetes liveness probes for the api deployment"), "a new topic")
+	assert.True(t, tp.Related("the billing invoices again"), "word forms meet (invoice, invoices)")
+	assert.Equal(t, []string{"kubernete", "liveness", "probe"}, topicWords("make the Kubernetes liveness probes"))
+}
