@@ -172,6 +172,9 @@ inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 			fmt.Fprintf(out, "Graph:  %s\nReport: %s\n", knowledge.GraphPath(dir), knowledge.ReportPath(dir))
 			if _, statErr := os.Stat(knowledge.HTMLPath(dir)); statErr == nil {
 				fmt.Fprintf(out, "Explore: %s\n", knowledge.HTMLPath(dir))
+			} else {
+				fmt.Fprintln(out,
+					"Explore: graph.html not written - its template is missing (kdeps install templates/knowledge)")
 			}
 			return nil
 		},

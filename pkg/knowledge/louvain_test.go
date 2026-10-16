@@ -21,6 +21,7 @@ package knowledge
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -145,4 +146,36 @@ func TestBuild_WritesReportAndExplorer(t *testing.T) {
 	loaded, err := Load(dir)
 	require.NoError(t, err)
 	assert.Equal(t, g.Modularity, loaded.Modularity)
+}
+
+func TestWriteReport_InstallsTheTemplateOnFirstUse(t *testing.T) {
+	g := &Graph{Vault: "/v", Nodes: []*Node{{ID: "a", Label: "a"}}}
+	dir := t.TempDir()
+	t.Setenv(assets.SourceEnv, t.TempDir()) // a release binary: nothing local
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
+	require.NoError(t, os.WriteFile(HTMLPath(dir), []byte("stale"), 0o600))
+
+	var asked []string
+	assets.SetOnDemand(func(id string) bool { asked = append(asked, id); return false })
+	t.Cleanup(func() { assets.SetOnDemand(nil) })
+	require.NoError(t, writeReport(g, 0, dir), "no template is not an error: the report is enough")
+	assert.Equal(t, []string{"templates/knowledge"}, asked, "the missing template is installed on first use")
+	assert.NoFileExists(t, HTMLPath(dir), "a stale page is never left behind")
+	assert.FileExists(t, ReportPath(dir))
+
+	src := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "templates", "knowledge", "report"), 0o750))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(src, "templates", "knowledge", "template.yaml"), []byte("version: 1.0.0\n"), 0o600),
+	)
+	assets.SetOnDemand(func(string) bool {
+		_ = os.WriteFile(filepath.Join(src, filepath.FromSlash(htmlTemplate)), []byte("<p>"+htmlDataSlot+"</p>"), 0o600)
+		t.Setenv(assets.SourceEnv, src)
+		return true
+	})
+	require.NoError(t, writeReport(g, 0, dir))
+	page, err := os.ReadFile(HTMLPath(dir))
+	require.NoError(t, err, "installed on demand, the page is written")
+	assert.Contains(t, string(page), `"vault":"/v"`)
 }
