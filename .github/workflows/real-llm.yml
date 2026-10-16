@@ -1,0 +1,80 @@
+name: Real LLM
+
+# Pull requests test every chat call against a mock LLM (see build-test.yml).
+# This job tests what a mock cannot: downloading, starting and serving real
+# local models (llamafile, ollama) and kdeps's default file backend with a
+# real 1B model. Not a required check: a slow or broken model download never
+# blocks a pull request.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  real-llm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install ollama
+        run: |
+          curl -fsSL -o /tmp/ollama.tar.zst https://github.com/ollama/ollama/releases/download/v0.30.7/ollama-linux-amd64.tar.zst
+          echo "88c110a6c9a9130e5ed0aa90f47e8ddb013cb638d834e11ddf1517615704d34c  /tmp/ollama.tar.zst" | sha256sum -c
+          sudo tar --zstd -xf /tmp/ollama.tar.zst -C /usr/local
+          ollama --version
+
+      # The committed llamafile registry (assets/models/llamafile.yaml) keys the cache.
+      - name: Cache llamafile models
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.kdeps/models
+          key: llamafiles-${{ hashFiles('assets/models/llamafile.yaml') }}
+
+      - name: Pre-download default llamafile
+        run: |
+          mkdir -p ~/.kdeps/models
+          FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          if [ ! -f "$FILE" ]; then
+            curl -fL --retry 3 -o "$FILE" \
+              https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          fi
+          chmod +x "$FILE"
+
+      - name: Build
+        run: make build
+
+      - name: Start ollama
+        run: |
+          ollama serve &
+          sleep 5
+          ollama pull tinydolphin
+
+      - name: Go tests against a live ollama
+        run: go test -count=1 -timeout=20m ./tests/integration/examples/... ./tests/e2e/...
+
+      - name: Real-model E2E
+        env:
+          KDEPS_E2E_REAL_LLM: "1"
+          KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
+        run: |
+          set -uo pipefail
+          cd tests/e2e
+          bash -c 'source ./common.sh
+            for s in test_llamafile_e2e.sh test_ollama_e2e.sh test_local_ollama_e2e.sh \
+                     test_examples_llamafile_chat.sh test_examples_stateless_bot.sh; do
+              source "./$s"
+            done
+            echo "passed=$PASSED failed=$FAILED skipped=$SKIPPED"
+            [ "$FAILED" -eq 0 ]'

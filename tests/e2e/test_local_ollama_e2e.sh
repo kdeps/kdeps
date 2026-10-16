@@ -26,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Local Ollama E2E..."
+require_real_llm "Local Ollama E2E" || { return 0 2>/dev/null || exit 0; }
 echo ""
 
 # Check if Ollama CLI is installed

@@ -31,6 +31,27 @@ echo "=========================================="
 echo -e "${GREEN}Using kdeps binary: $KDEPS_BIN${NC}"
 echo ""
 
+# Every workflow run here merges the Python packages of the example
+# components (KDEPS_COMPONENT_DIR) into one shared venv. Build it once, up
+# front and without a test's short timeout: a build killed half-way by a
+# server test's timeout is rebuilt by the next run, which a slow runner
+# (Windows) can then also kill, and so on.
+_warm=$(mktemp -d)
+mkdir -p "$_warm/resources"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: venv-warmup\n  version: "1.0.0"\n  targetActionId: hi\nsettings:\n  agentSettings:\n    pythonVersion: "3.12"\n' \
+    > "$_warm/workflow.yaml"
+printf 'actionId: hi\nname: Hi\nexec:\n  command: echo hi\n' > "$_warm/resources/hi.yaml"
+echo "Building the shared Python environment once (up to 15 minutes)..."
+if timeout 900 "$KDEPS_BIN" run "$_warm/workflow.yaml" >"$_warm/out.log" 2>&1; then
+    grep -E "Python venv|Packages" "$_warm/out.log" || true
+else
+    echo "  (warm-up did not finish; runs build the environment as they need it)"
+    tail -5 "$_warm/out.log"
+fi
+rm -rf "$_warm"
+unset _warm
+echo ""
+
 # Run all test scenarios (source them so counters persist)
 source "$SCRIPT_DIR/test_e2e_helpers.sh"
 source "$SCRIPT_DIR/test_validation.sh"

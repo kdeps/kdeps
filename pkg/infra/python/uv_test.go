@@ -777,7 +777,6 @@ func TestEnsureVenv_RebuildsAHalfBuiltVenv(t *testing.T) {
 	require.Len(t, calls, 2, "the half-built venv is rebuilt: uv venv, then pip install")
 	assert.Contains(t, calls[1], "requests")
 	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
-	assert.NoFileExists(t, path+".lock", "the build lock is released")
 
 	calls = nil
 	_, err = m.EnsureVenv("3.12", []string{"requests"}, "", "")

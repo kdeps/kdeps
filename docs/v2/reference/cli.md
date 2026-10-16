@@ -130,6 +130,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_EDITOR` | Editor for `kdeps edit` (overrides `VISUAL`/`EDITOR`) |
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
+| `KDEPS_LLM_OVERRIDE_URL` | An OpenAI-compatible endpoint that takes every chat call, whatever backend and model a resource names; no local model is downloaded or started. For testing workflows and agents against a stub or mock server (CI, offline) |
 | `KDEPS_LEAN_MODE` | Set `1`, `true`, or `yes` to restrict tool surface (no bash, no network) |
 | `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` - combines lean mode with permission mode |
 | `KDEPS_PERMISSION_MODE` | `read-only`, `workspace-write`, or `danger-full-access` |

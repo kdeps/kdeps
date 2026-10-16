@@ -247,13 +247,6 @@ jobs:
     - name: Install npm deps for browser e2e tests
       run: npm ci
 
-    - name: Install ollama
-      run: |
-        curl -fsSL -o /tmp/ollama.tar.zst https://github.com/ollama/ollama/releases/download/v0.30.7/ollama-linux-amd64.tar.zst
-        echo "88c110a6c9a9130e5ed0aa90f47e8ddb013cb638d834e11ddf1517615704d34c  /tmp/ollama.tar.zst" | sha256sum -c
-        sudo tar --zstd -xf /tmp/ollama.tar.zst -C /usr/local
-        ollama --version
-
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
     - name: Install golangci-lint
       run: |
@@ -271,23 +264,19 @@ jobs:
         done
         exit 1
 
-    # Tests run against the committed llamafile registry
-    # (assets/models/llamafile.yaml); the registry is refreshed
-    # and committed by the nightly workflow, never harvested live here.
-    - name: Cache llamafile models
+    # No real model here: E2E sends every chat call to a mock LLM
+    # (tests/e2e/helpers/mock_llm.py via KDEPS_LLM_OVERRIDE_URL), and Go tests
+    # use httptest servers or skip without ollama. Real model servers are
+    # tested nightly (real-llm.yml).
+    # This cache holds only the whisper.cpp model the transcribe tests use.
+    - name: Cache local models
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.kdeps/models
-        key: llamafiles-${{ hashFiles('assets/models/llamafile.yaml') }}
+        key: local-models-whisper-ggml-base.en-v1
 
     - name: Build
       run: make build
-
-    - name: Start Ollama
-      run: |
-        ollama serve &
-        sleep 5
-        ollama pull tinydolphin
 
     - name: Test Unit
       run: make test-unit
@@ -316,21 +305,7 @@ jobs:
         files: coverage.out,coverage-integration.out
         fail_ci_if_error: false
 
-    # Populate the llamafile cache (no-op on cache hit) so the llamafile e2e
-    # exercises the default file backend with a real model.
-    - name: Pre-download default llamafile
-      run: |
-        mkdir -p ~/.kdeps/models
-        FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
-        if [ ! -f "$FILE" ]; then
-          curl -fL --retry 3 -o "$FILE" \
-            https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
-        fi
-        chmod +x "$FILE"
-
-    # Same idea for the transcribe: whisper-cpp backend's default model --
-    # shares the ~/.kdeps/models cache step above (path: ~/.kdeps/models),
-    # so this is a no-op on cache hit.
+    # The transcribe: whisper-cpp backend's default model (cached above).
     - name: Pre-download default whisper.cpp model
       run: |
         mkdir -p ~/.kdeps/models
@@ -343,8 +318,6 @@ jobs:
     - name: Test E2E
       run: make test-e2e
       timeout-minutes: 25
-      env:
-        KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
 
   test-windows:
     needs: changes
@@ -415,35 +388,14 @@ jobs:
         # several test binaries at once exceeds the runner's page-file commit limit).
         run: go test -p 1 -parallel 1 -count=1 -timeout=20m ./tests/integration/...
 
-      - name: Cache llamafile models
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.kdeps/models
-          key: llamafiles-windows-${{ hashFiles('assets/models/llamafile.yaml') }}
-
       - name: Build kdeps binary for e2e
         shell: bash
         run: go build -o kdeps .
-
-      # Populate the llamafile cache (no-op on cache hit) so the llamafile e2e
-      # scripts exercise the default file backend with a real model, mirroring
-      # the Linux `test` job's step.
-      - name: Pre-download default llamafile
-        shell: bash
-        run: |
-          mkdir -p ~/.kdeps/models
-          FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
-          if [ ! -f "$FILE" ]; then
-            curl -fL --retry 3 -o "$FILE" \
-              https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
-          fi
-          chmod +x "$FILE"
 
       - name: Test E2E
         shell: bash
         timeout-minutes: 45
         env:
-          KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
           KDEPS_MEMORY_DB_PATH: ":memory:"
         run: bash tests/e2e/e2e.sh
 
