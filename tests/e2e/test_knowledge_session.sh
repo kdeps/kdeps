@@ -399,6 +399,13 @@ if output_grep_fixed "<knowledge-files>" "$REQ" && output_grep "invoices.go" "$R
 else
     test_failed "knowledge session - files from the search index" "$OUT | $REQ"
 fi
+# The prompt's prose is reduced by turo; identifiers (paths, tool names) are kept.
+if output_grep "app \(search index .*index\.db\)" "$REQ" &&
+    [ "$(printf '%s' "$REQ" | grep -o "search_local" | wc -l | tr -d ' ')" -ge 2 ]; then
+    test_passed "knowledge session - the model is told the index path and to search further with search_local"
+else
+    test_failed "knowledge session - search index guidance" "$REQ"
+fi
 if grep -q "^| index | " "$KS_VAULT/projects/app/app.md"; then
     test_passed "knowledge session - the card records where the project's search index lives"
 else

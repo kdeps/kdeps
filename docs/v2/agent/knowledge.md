@@ -250,7 +250,15 @@ Before each model call, kdeps:
 1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks up to `hops` edges from the best matches. Extracted edges count fully, and each hop halves the score.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`.
-4. When the project's places have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per place, in a `<knowledge-files>` list. The index is only read, never built or changed, and a busy index is skipped.
+4. When the project's places have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per place, in a `<knowledge-files>` list headed by the folder and its index path. The model is told to open them with `read_file` or search the folder further with `search_local`. The index is only read, never built or changed, and a busy index is skipped.
+
+```text
+<knowledge-files>
+Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder.
+Folder /home/me/code/my-app (search index /home/me/.kdeps/projects/.../index.db):
+- /home/me/code/my-app/billing/invoices.go - monthly invoices go out on the first day
+</knowledge-files>
+```
 
 ```text
 <knowledge-recall>

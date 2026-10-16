@@ -213,7 +213,10 @@ func (l *Loop) knowledgePreamble() string {
 		"(card <name>.md, sessions/, memory/, decisions/, notes/), knowledge across projects is in shared/. "+
 		"Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes "+
 		"related to the request: read only those you need. "+
-		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea).\n"+
+		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea). "+
+		"A <knowledge-files> list names files from the project's search index (built by /search index; the card's "+
+		"index rows give its path): open them with read_file, or search the project further with search_local, "+
+		"path set to the project's folder.\n"+
 		"</knowledge-vault>", k.vault.Root)
 }
 
@@ -272,7 +275,12 @@ func (k *knowledgeState) recallFiles(text string) string {
 	}
 	var b strings.Builder
 	for _, place := range card.Places() {
-		for _, h := range searchlocal.QueryIndex(place, text, recallFileLimit) {
+		hits := searchlocal.QueryIndex(place, text, recallFileLimit)
+		if len(hits) == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "\nFolder %s (search index %s):", place, searchlocal.IndexPath(place))
+		for _, h := range hits {
 			fmt.Fprintf(&b, "\n- %s", h.Path)
 			if p := strings.Join(strings.Fields(h.Preview), " "); p != "" {
 				fmt.Fprintf(&b, " - %s", liveLine(p))
@@ -283,7 +291,8 @@ func (k *knowledgeState) recallFiles(text string) string {
 		return ""
 	}
 	return "<knowledge-files>\nFiles in this project's search index that match the request (best first). " +
-		"Open the ones you need with read_file." + b.String() + "\n</knowledge-files>"
+		"Open the ones you need with read_file; search further with search_local, path set to the folder." +
+		b.String() + "\n</knowledge-files>"
 }
 
 // recallFileLimit is how many files each search index adds to recall.

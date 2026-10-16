@@ -528,6 +528,10 @@ func TestKnowledgeRecall_FilesFromTheSearchIndex(t *testing.T) {
 	require.NotNil(t, item)
 	assert.Contains(t, item.Prompt, "<knowledge-files>")
 	assert.Contains(t, item.Prompt, filepath.Join(wd, "billing.go"))
+	assert.Contains(t, item.Prompt, "Folder "+wd+" (search index "+searchlocal.IndexPath(wd)+"):",
+		"the folder and its index path come with the files")
+	assert.Contains(t, item.Prompt, "search further with search_local, path set to the folder")
+	assert.Contains(t, l.knowledgePreamble(), "search_local", "the instructions say how to search the index further")
 	assert.Regexp(t, `recall: \d+ notes \(~\d+ tok\), 1 files`, out.String())
 
 	l.turnStateBlock("x")
