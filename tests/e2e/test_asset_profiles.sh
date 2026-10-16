@@ -144,7 +144,7 @@ fi
 OUT=$(ap "$MN" "$KDEPS_BIN" knowledge init "$MN/vault")
 OUT="$OUT $(ap "$MN" "$KDEPS_BIN" knowledge build --vault "$MN/vault")"
 if [ -f "$MN/store/templates/knowledge.yaml" ] && [ "$(set_count "$MN" templates)" = "1" ] &&
-    output_grep "Explore: .*graph.html" "$OUT" && grep -q 'id="legend"' "$MN/vault/.index/graph.html" 2>/dev/null; then
+    output_grep "Explore: .*graph.html" "$OUT" && grep -q 'id="legend"' "$MN/vault/graph.html" 2>/dev/null; then
     test_passed "asset profiles - under minimum, only templates/knowledge is installed and graph.html is written"
 else
     test_failed "asset profiles - graph page under minimum" "$OUT $(ls "$MN/store/templates" 2>&1)"

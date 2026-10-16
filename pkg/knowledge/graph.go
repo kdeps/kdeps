@@ -179,7 +179,11 @@ func Build(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, Bui
 	if innerErr := saveJSON(filepath.Join(dir, graphFile), g); innerErr != nil {
 		return nil, st, innerErr
 	}
-	return g, st, writeReport(g, g.Modularity, dir)
+	// The report and the page sit at the vault root, where they are seen; a
+	// copy left in the index folder by an older build is removed.
+	_ = os.Remove(filepath.Join(dir, reportFile))
+	_ = os.Remove(filepath.Join(dir, htmlFile))
+	return g, st, writeReport(g, g.Modularity, v.Root)
 }
 
 // readNotes walks the vault, reusing the cached parse of unchanged notes.

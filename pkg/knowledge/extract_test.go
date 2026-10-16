@@ -87,7 +87,7 @@ func TestExtractAndBuild(t *testing.T) {
 		}
 	}
 	assert.Equal(t, []string{"tool"}, kinds)
-	md, _ := os.ReadFile(ReportPath(dir))
+	md, _ := os.ReadFile(ReportPath(v.Root))
 	assert.Contains(t, string(md), "## Edges to review")
 	assert.Contains(t, string(md), "-[relates_to, 0.49]->")
 

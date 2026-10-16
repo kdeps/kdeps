@@ -275,7 +275,7 @@ func nodeRef(n *Node) string {
 	return "`" + n.Label + "`"
 }
 
-// writeReport writes GRAPH_REPORT.md and graph.html into dir. The page's
+// writeReport writes GRAPH_REPORT.md and graph.html into the vault root dir. The page's
 // template is installed the first time it is needed (a small profile leaves
 // the templates set out); offline without it, only the report is written.
 func writeReport(g *Graph, modularity float64, dir string) error {
@@ -307,8 +307,12 @@ func knowledgeTemplateFile(name string) ([]byte, error) {
 	return data, err
 }
 
-// ReportPath and HTMLPath are the report files of dir.
-func ReportPath(dir string) string { return filepath.Join(dir, reportFile) }
+// ReportFile is the graph report's file name, at the vault root. It is
+// generated, so the vault is never read for it as a note.
+const ReportFile = reportFile
 
-// HTMLPath is the graph explorer page of dir.
-func HTMLPath(dir string) string { return filepath.Join(dir, htmlFile) }
+// ReportPath is the graph report of the vault at root.
+func ReportPath(root string) string { return filepath.Join(root, reportFile) }
+
+// HTMLPath is the graph explorer page of the vault at root.
+func HTMLPath(root string) string { return filepath.Join(root, htmlFile) }
