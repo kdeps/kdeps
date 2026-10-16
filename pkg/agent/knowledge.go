@@ -35,6 +35,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -242,14 +243,85 @@ func (l *Loop) knowledgeRecallItem(input string, w io.Writer) *domain.ScenarioIt
 	k := l.knowledge
 	r := k.recall(input)
 	text := r.Format(k.vault.Root)
-	if text == "" {
+	files := k.recallFiles(input)
+	if text == "" && files == "" {
 		return nil
 	}
+	text = strings.TrimSpace(text + "\n" + files)
 	recordContextSegment("knowledge", text)
 	if w != nil {
-		fmt.Fprintf(w, "recall: %d notes (~%d tok)\n", len(r.Hits), r.Tokens)
+		fmt.Fprintf(w, "recall: %d notes (~%d tok)", len(r.Hits), r.Tokens)
+		if n := strings.Count(files, "\n- "); n > 0 {
+			fmt.Fprintf(w, ", %d files", n)
+		}
+		fmt.Fprintln(w)
 	}
 	return &domain.ScenarioItem{Role: "system", Prompt: text}
+}
+
+// recallFiles lists the files of the working project's search indexes that
+// match text (the indexes /search builds, under ~/.kdeps), or "".
+func (k *knowledgeState) recallFiles(text string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	card := k.vault.CardForDir(wd)
+	if card == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, place := range card.Places() {
+		for _, h := range searchlocal.QueryIndex(place, text, recallFileLimit) {
+			fmt.Fprintf(&b, "\n- %s", h.Path)
+			if p := strings.Join(strings.Fields(h.Preview), " "); p != "" {
+				fmt.Fprintf(&b, " - %s", liveLine(p))
+			}
+		}
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "<knowledge-files>\nFiles in this project's search index that match the request (best first). " +
+		"Open the ones you need with read_file." + b.String() + "\n</knowledge-files>"
+}
+
+// recallFileLimit is how many files each search index adds to recall.
+const recallFileLimit = 3
+
+// prepareProject makes sure the working directory's project exists before
+// the turn, so the turn's status, memory and notes all have a home: it is
+// created on first use, records its search indexes, and a turn in an
+// archived project reopens it.
+func (k *knowledgeState) prepareProject() {
+	c, err := k.project()
+	if err != nil {
+		return
+	}
+	recordIndexes(c)
+	if !c.Archived() {
+		return
+	}
+	k.waitBuilds() // a build walking the vault would block the move on Windows
+	if err = k.vault.Reopen(c, time.Now()); err != nil {
+		fmt.Fprintf(os.Stderr, "knowledge: project %s not reopened: %v\n", c.Name, err)
+	}
+	k.notifyMoved()
+}
+
+// recordIndexes adds an index row to the card for each of its places that
+// has a search index, so the card says where everything about it lives.
+func recordIndexes(card *knowledge.Card) {
+	for _, place := range card.Places() {
+		if p := searchlocal.IndexPath(place); fileExistsAt(p) {
+			_ = card.AddLink(knowledge.SourceIndex, p)
+		}
+	}
+}
+
+func fileExistsAt(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }
 
 // LastRecall is the most recent recall, for /recall.
@@ -634,7 +706,7 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 	if links := splitList(str("links")); len(links) > 0 {
 		quoted := make([]string, len(links))
 		for i, l := range links {
-			quoted[i] = fmt.Sprintf("%q", "[["+strings.Trim(l, "[]")+"]]")
+			quoted[i] = fmt.Sprintf("%q", k.fullLink(notes, strings.Trim(l, "[]")))
 		}
 		fmt.Fprintf(&fm, "links: [%s]\n", strings.Join(quoted, ", "))
 	}
@@ -644,6 +716,18 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 	}
 	file := filepath.Join(dir, title+".md")
 	return file, os.WriteFile(file, []byte(fm.String()), 0o600)
+}
+
+// fullLink links a note named by title (or path) with its full vault path
+// when it exists, else as given.
+func (k *knowledgeState) fullLink(notes []*knowledge.Note, name string) string {
+	want := strings.TrimSuffix(filepath.ToSlash(name), ".md")
+	for _, n := range notes {
+		if strings.EqualFold(n.Title, want) || strings.EqualFold(strings.TrimSuffix(n.Path, ".md"), want) {
+			return knowledge.WikiLink(k.vault.Root, filepath.Join(k.vault.Root, filepath.FromSlash(n.Path)))
+		}
+	}
+	return "[[" + want + "]]"
 }
 
 func splitList(s string) []string {
@@ -866,16 +950,7 @@ func HarnessText(name string) string { return harnessText(name) }
 func (l *Loop) turnStateBlock(focus string) string {
 	var parts []string
 	if l.knowledgeOn() {
-		// The working directory's project exists from its first turn on, so
-		// the turn's status, memory and notes all have a home; a turn in an
-		// archived project reopens it.
-		if c, err := l.knowledge.project(); err == nil && c.Archived() {
-			l.knowledge.waitBuilds() // a build walking the vault would block the move on Windows
-			if err = l.knowledge.vault.Reopen(c, time.Now()); err != nil {
-				fmt.Fprintf(os.Stderr, "knowledge: project %s not reopened: %v\n", c.Name, err)
-			}
-			l.knowledge.notifyMoved()
-		}
+		l.knowledge.prepareProject()
 		if o := l.knowledge.overview(); o != "" {
 			parts = append(parts, "<knowledge-status>\n"+o+"</knowledge-status>")
 		}

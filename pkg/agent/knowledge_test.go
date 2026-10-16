@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -170,7 +172,7 @@ func TestKnowledgeTools(t *testing.T) {
 	note := knowledge.ParseNote("shared/Retry budget.md", data)
 	assert.Equal(t, "gotcha", note.Type)
 	assert.Equal(t, []string{"billing", "ops"}, note.Tags)
-	assert.Equal(t, []string{"Stripe gotcha"}, note.MetaLinks)
+	assert.Equal(t, []string{"shared/Stripe gotcha"}, note.MetaLinks, "links to existing notes use full vault paths")
 	_, err = call("knowledge_note_save", map[string]any{"title": "Plain", "summary": "s", "body": "b"})
 	require.NoError(t, err)
 	assert.FileExists(
@@ -501,4 +503,36 @@ func TestMemoryRidesOnEachTurn(t *testing.T) {
 	assert.Contains(t, second, "invoices go out on the 1st", "memory saved mid-session reaches the next turn")
 	assert.Contains(t, second, "<knowledge-status>")
 	assert.NotContains(t, l.cachedSystemPreamble(), "invoices go out", "the cached preamble holds no memory entries")
+}
+
+func TestKnowledgeRecall_FilesFromTheSearchIndex(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(wd, "billing.go"),
+		[]byte("package billing\n// monthly invoices are sent on the first day\n"), 0o600))
+
+	var out bytes.Buffer
+	item := l.knowledgeRecallItem("monthly invoices", &out)
+	if item != nil {
+		assert.NotContains(t, item.Prompt, "<knowledge-files>", "no search index yet: no files")
+	}
+
+	old := searchlocal.ProgressWriter
+	searchlocal.ProgressWriter = io.Discard
+	t.Cleanup(func() { searchlocal.ProgressWriter = old })
+	require.Positive(t, searchlocal.NewExecutor().StartIndex(wd))
+
+	out.Reset()
+	item = l.knowledgeRecallItem("monthly invoices", &out)
+	require.NotNil(t, item)
+	assert.Contains(t, item.Prompt, "<knowledge-files>")
+	assert.Contains(t, item.Prompt, filepath.Join(wd, "billing.go"))
+	assert.Regexp(t, `recall: \d+ notes \(~\d+ tok\), 1 files`, out.String())
+
+	l.turnStateBlock("x")
+	card, err := l.knowledge.vault.Card("app")
+	require.NoError(t, err)
+	assert.Contains(t, card.Links, knowledge.Link{Source: knowledge.SourceIndex, Path: searchlocal.IndexPath(wd)},
+		"the card says where the project's search index is")
 }

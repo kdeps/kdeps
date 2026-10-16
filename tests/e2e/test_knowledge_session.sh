@@ -271,8 +271,8 @@ fi
 NOTES=$(find "$KS_VAULT/projects/app/sessions" -name '*.md' 2>/dev/null)
 NOTE_COUNT=$(printf '%s\n' "$NOTES" | grep -c '\.md$')
 if [ "$NOTE_COUNT" = "1" ] && grep -q "why do we bill monthly" "$NOTES" && grep -q "when do invoices go out" "$NOTES" &&
-    grep -q "## Focus" "$NOTES" && grep -q '"\[\[app\]\]"' "$NOTES"; then
-    test_passed "knowledge session - one session note in projects/<name>/sessions/, updated every turn, linked to the card"
+    grep -q "## Focus" "$NOTES" && grep -q '"\[\[projects/app/app\]\]"' "$NOTES"; then
+    test_passed "knowledge session - one session note in projects/<name>/sessions/, updated every turn, linked to the card by full path"
 else
     test_failed "knowledge session - live session note" "count=$NOTE_COUNT $(cat $NOTES 2>&1)"
 fi
@@ -310,7 +310,7 @@ else
 fi
 DECISION="$KS_VAULT/projects/app/decisions/Monthly.md"
 if [ -f "$DECISION" ] && grep -q "type: decision" "$DECISION" && grep -q "per-call doubled churn" "$DECISION" &&
-    grep -q '\[\[app\]\]' "$DECISION"; then
+    grep -q '\[\[projects/app/app\]\]' "$DECISION" && grep -q '\[\[projects/app/sessions/' "$DECISION"; then
     test_passed "knowledge session - each Key Decision of the summary becomes a note in decisions/"
 else
     test_failed "knowledge session - decision note" "$(ls "$KS_VAULT/projects/app/decisions" 2>&1)"
@@ -387,6 +387,22 @@ if [ "$CHECK_OK" = 1 ] && output_grep "every fact has one home" "$OUT"; then
     test_passed "knowledge session - notes, memory and cards written by sessions pass kdeps knowledge check"
 else
     test_failed "knowledge session - check after sessions" "$OUT"
+fi
+
+# --- the project's search index: recalled files and a card row ----------------
+printf 'package billing\n// monthly invoices go out on the first day\n' > "$KS_PROJ/invoices.go"
+: > "$KS_LOG"
+OUT=$(ks_session '/search index\nwhen do monthly invoices go out\n/quit\n')
+REQ=$(ks_req "when do monthly invoices go out")
+if output_grep_fixed "<knowledge-files>" "$REQ" && output_grep "invoices.go" "$REQ" && output_grep "recall: [0-9]+ notes .*, [0-9]+ files" "$OUT"; then
+    test_passed "knowledge session - recall also names the project's files from its search index"
+else
+    test_failed "knowledge session - files from the search index" "$OUT | $REQ"
+fi
+if grep -q "^| index | " "$KS_VAULT/projects/app/app.md"; then
+    test_passed "knowledge session - the card records where the project's search index lives"
+else
+    test_failed "knowledge session - index row on the card" "$(cat "$KS_VAULT/projects/app/app.md")"
 fi
 
 # --- a new place gets its own project; archiving moves it and back ------------

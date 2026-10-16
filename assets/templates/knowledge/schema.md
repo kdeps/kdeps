@@ -22,7 +22,7 @@ updated: 2026-10-15
 
 A card has no prose. A `repo`, `folder` or `workflow` row ties a place on
 disk to the project: kdeps runs in that place (or below it) use this project.
-Add rows to make several places one project.
+Add rows to make several places one project. kdeps adds an `index` row for a place's search index.
 
 ## Note
 
@@ -41,9 +41,10 @@ links: ["[[Other note]]"]
   knowledge across projects.
 - `summary` is what the knowledge recall shows before anyone opens the note.
   Write it so the reader can decide whether to open it.
-- Link with `[[Note title]]`. Links written in a note are facts; the graph
-  marks them as extracted. Sessions and decisions link their card,
-  `[[<name>]]`.
+- Link with `[[Note title]]`, or the full path `[[projects/app/notes/Title]]`.
+  Links written in a note are facts; the graph marks them as extracted.
+  kdeps writes every link with its full vault path: sessions and decisions
+  link their card as `[[projects/<name>/<name>]]`.
 
 ## Written by kdeps
 

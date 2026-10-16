@@ -75,7 +75,8 @@ func WriteSession(card *Card, id, summary string, now time.Time) (*SessionNote, 
 		sn.New = true
 		sn.File = filepath.Join(dir, now.Format("2006-01-02 1504")+" "+slug(line)+mdExt)
 	}
-	if err := os.WriteFile(sn.File, []byte(sessionBody(id, card.Name, line, sec, now)), filePerm); err != nil {
+	body := sessionBody(id, card.Name, card.SelfLink(), line, sec, now)
+	if err := os.WriteFile(sn.File, []byte(body), filePerm); err != nil {
 		return nil, err
 	}
 	if next := firstItem(sec["next steps"]); next != "" {
@@ -99,7 +100,7 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, err
 	}
-	session := strings.TrimSuffix(filepath.Base(sessionFile), mdExt)
+	sessionLink := WikiLink(card.VaultRoot(), sessionFile)
 	var written []string
 	for _, item := range items {
 		title := decisionTitle(item)
@@ -111,7 +112,7 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 		body := fmt.Sprintf("%s\ntype: decision\nstatus: done\nproject: %s\ncreated: %s\nsummary: %s\n"+
 			"links: [%q, %q]\n%s\n\n# %s\n\n%s\n",
 			frontDelim, yamlScalar(card.Name), now.Format(time.DateOnly), yamlScalar(oneLine(summaryLine)),
-			"[["+session+"]]", "[["+card.Name+"]]", frontDelim, title, summaryLine)
+			sessionLink, card.SelfLink(), frontDelim, title, summaryLine)
 		if err := os.WriteFile(file, []byte(body), filePerm); err != nil {
 			return written, err
 		}
@@ -147,7 +148,7 @@ func decisionTitle(item string) string {
 	return slug(strings.TrimRight(strings.Join(words, " "), ":;,."))
 }
 
-func sessionBody(id, project, summary string, sec map[string]string, now time.Time) string {
+func sessionBody(id, project, cardLink, summary string, sec map[string]string, now time.Time) string {
 	var b strings.Builder
 	b.WriteString(frontDelim + "\ntype: session\nstatus: done\n")
 	fmt.Fprintf(&b, "project: %s\n", yamlScalar(project))
@@ -158,7 +159,7 @@ func sessionBody(id, project, summary string, sec map[string]string, now time.Ti
 		now.Format(time.DateOnly),
 		yamlScalar(summary),
 	)
-	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", yamlScalar(project), "[["+project+"]]")
+	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", yamlScalar(project), cardLink)
 	b.WriteString(frontDelim + "\n")
 	body := map[string]string{
 		"Focus":          sec["goal"],
@@ -307,7 +308,7 @@ func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) 
 			"tags: [session, workflow, %s]\nlinks: [%q]\n%s\n\n## Runs\n\n",
 			frontDelim, yamlScalar(card.Name), yamlScalar("runs-"+now.Format(time.DateOnly)),
 			now.Format(time.DateOnly), yamlScalar(card.Name+" workflow runs on "+now.Format(time.DateOnly)),
-			yamlScalar(card.Name), "[["+card.Name+"]]", frontDelim)
+			yamlScalar(card.Name), card.SelfLink(), frontDelim)
 		return file, os.WriteFile(file, []byte(head+entry), filePerm)
 	}
 	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, filePerm)

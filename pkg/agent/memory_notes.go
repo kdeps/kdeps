@@ -95,6 +95,10 @@ func projectMemoryDir(root, cwd string) string {
 	return filepath.Join(root, knowledge.ProjectsFolder, name, knowledge.MemoryFolder)
 }
 
+// vaultRoot is the vault the store writes into: its base path, unless the
+// store is global or rooted elsewhere.
+func (m *MemoryStore) vaultRoot() string { return m.basePath }
+
 // memorySlug turns a key into a file name.
 func memorySlug(key string) string {
 	s := strings.Trim(memorySlugRe.ReplaceAllString(key, "-"), "-.")
@@ -136,7 +140,7 @@ func (m *MemoryStore) renderNote(e MemoryEntry) string {
 	}
 	for _, ref := range e.References {
 		if f, ok := m.files[ref]; ok {
-			n.Links = append(n.Links, "[["+strings.TrimSuffix(filepath.Base(f), ".md")+"]]")
+			n.Links = append(n.Links, knowledge.WikiLink(m.vaultRoot(), f))
 		}
 	}
 	head, _ := yaml.Marshal(n)
