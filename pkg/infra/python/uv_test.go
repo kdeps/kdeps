@@ -63,14 +63,16 @@ func TestManager_GetVenvName_WithRequirements(t *testing.T) {
 	manager := python.NewManager("/tmp")
 
 	name := manager.GetVenvName("3.10", []string{}, "requirements.txt")
-	assert.Equal(t, "venv-3.10-requirements.txt", name)
+	assert.Regexp(t, `^venv-3\.10-requirements\.txt-[0-9a-f]{8}$`, name)
 }
 
 func TestManager_GetVenvName_WithRequirementsFullPath(t *testing.T) {
 	manager := python.NewManager("/tmp")
 
 	name := manager.GetVenvName("3.9", []string{}, "/path/to/requirements.txt")
-	assert.Equal(t, "venv-3.9-requirements.txt", name)
+	assert.Regexp(t, `^venv-3\.9-requirements\.txt-[0-9a-f]{8}$`, name)
+	assert.NotEqual(t, name, manager.GetVenvName("3.9", []string{}, "/other/requirements.txt"),
+		"two requirements files are two environments")
 }
 
 func TestManager_GetVenvName_PackageLimit(t *testing.T) {
@@ -78,8 +80,14 @@ func TestManager_GetVenvName_PackageLimit(t *testing.T) {
 
 	packages := []string{"pkg1", "pkg2", "pkg3", "pkg4", "pkg5"}
 	name := manager.GetVenvName("3.12", packages, "")
-	// Should only include first 3 packages
-	assert.Equal(t, "venv-3.12-pkg1-pkg2-pkg3", name)
+	// The first 3 packages, and a hash of the whole set.
+	assert.Regexp(t, `^venv-3\.12-pkg1-pkg2-pkg3-[0-9a-f]{8}$`, name)
+	assert.NotEqual(t, name, manager.GetVenvName("3.12", []string{"pkg1", "pkg2", "pkg3", "other"}, ""),
+		"sets that start alike get separate environments")
+	assert.Equal(t, name, manager.GetVenvName("3.12", []string{"pkg1", "pkg2", "pkg3", "pkg5", "pkg4"}, ""),
+		"the same set in another order is the same environment")
+	assert.Equal(t, "venv-3.12-a-b-c", manager.GetVenvName("3.12", []string{"a", "b", "c"}, ""),
+		"a set the name shows in full carries no hash")
 }
 
 func TestManager_GetVenvName_SinglePackage(t *testing.T) {
@@ -272,21 +280,15 @@ func TestManager_getVenvName_VeryLongPackageList(t *testing.T) {
 	}
 
 	name := manager.GetVenvName("3.12", packages, "")
-	// Should still only include first 3 packages despite length
-	assert.Equal(
+	// Still only the first 3 packages despite length, then the set's hash.
+	assert.True(
 		t,
-		"venv-3.12-"+strings.Repeat(
-			"a",
-			50,
-		)+"-"+strings.Repeat(
-			"a",
-			50,
-		)+"-"+strings.Repeat(
-			"a",
-			50,
+		strings.HasPrefix(
+			name,
+			"venv-3.12-"+strings.Repeat("a", 50)+"-"+strings.Repeat("a", 50)+"-"+strings.Repeat("a", 50)+"-",
 		),
-		name,
 	)
+	assert.Regexp(t, `-[0-9a-f]{8}$`, name)
 }
 
 func TestNewManager_EmptyBaseDir(t *testing.T) {
@@ -314,14 +316,14 @@ func TestManager_GetVenvName_PackagesAndRequirements(t *testing.T) {
 
 	// When both packages and requirements are provided, requirements take precedence
 	name := manager.GetVenvName("3.12", []string{"requests"}, "req.txt")
-	assert.Equal(t, "venv-3.12-req.txt", name)
+	assert.Regexp(t, `^venv-3\.12-req\.txt-[0-9a-f]{8}$`, name)
 }
 
 func TestManager_GetVenvName_RequirementsWithPath(t *testing.T) {
 	manager := python.NewManager("/tmp")
 
 	name := manager.GetVenvName("3.12", []string{}, "/full/path/to/requirements-dev.txt")
-	assert.Equal(t, "venv-3.12-requirements-dev.txt", name)
+	assert.Regexp(t, `^venv-3\.12-requirements-dev\.txt-[0-9a-f]{8}$`, name)
 }
 
 func TestManager_GetPythonPath_BothPathsExist(t *testing.T) {

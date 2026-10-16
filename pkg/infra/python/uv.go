@@ -21,10 +21,13 @@ package python
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -181,13 +184,31 @@ func (m *Manager) GetVenvName(
 ) string {
 	kdeps_debug.Log("enter: GetVenvName")
 	parts := []string{uvCmdVenv, pythonVersion}
-	if requirementsFile != "" {
-		parts = append(parts, filepath.Base(requirementsFile))
-	} else if len(packages) > 0 {
+	switch {
+	case requirementsFile != "":
+		// Two requirements.txt files are two environments.
+		parts = append(parts, filepath.Base(requirementsFile), shortHash(requirementsFile))
+	case len(packages) > 0:
 		parts = append(parts, strings.Join(packages[:min(MaxPackagesInVenvName, len(packages))], "-"))
+		if len(packages) > MaxPackagesInVenvName {
+			// The name shows only the first packages: the hash of the whole
+			// set keeps two sets that start alike in separate environments.
+			sorted := slices.Clone(packages)
+			slices.Sort(sorted)
+			parts = append(parts, shortHash(strings.Join(sorted, "\n")))
+		}
 	}
 	return strings.Join(parts, "-")
 }
+
+// shortHash is the first 8 hex digits of s's SHA-256.
+func shortHash(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])[:venvHashLen]
+}
+
+// venvHashLen is how many hex digits of a hash a venv name carries.
+const venvHashLen = 8
 
 // InstallPackages installs packages using uv pip install.
 // extraArgs are appended after the package names (e.g. "--no-build-isolation").
