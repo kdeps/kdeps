@@ -118,7 +118,7 @@ updated: 2026-10-15
 | repo | /home/me/code/my-app |   <- runs in this folder (or below it) use this project
 ```
 
-Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. kdeps adds an `index` row for each place that has a search index (built by `/search index`, kept under `~/.kdeps`), so the card says where everything about the project lives. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -136,7 +136,8 @@ links: ["[[Stripe webhook retries]]"]
 We moved to monthly billing because ...
 ```
 
-- Link notes with `[[Note title]]`. A link resolves by path, by title anywhere in the vault (the closest one wins when two share a title) or by `aliases:`.
+- Link notes with `[[Note title]]` or `[[folder/Note title]]`. A link resolves by path, by title anywhere in the vault (the closest one wins when two share a title) or by `aliases:`.
+- Every link kdeps writes uses the full vault path - `[[projects/app/app]]`, `[[projects/app/sessions/2026-10-15 0900 billing]]`, `[[shared/Stripe gotcha]]` - so it can never point at the wrong note. A link to a project that was archived later still resolves, by its title.
 - Links inside code blocks are examples, not links.
 - One idea per note. The model saves new ones with `knowledge_note_save` into the project's `notes/` (or `decisions/`, `shared/`, `inbox/`); it refuses a title that already has a note anywhere in the vault.
 
@@ -249,6 +250,7 @@ Before each model call, kdeps:
 1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks up to `hops` edges from the best matches. Extracted edges count fully, and each hop halves the score.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`.
+4. When the project's places have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per place, in a `<knowledge-files>` list. The index is only read, never built or changed, and a busy index is skipped.
 
 ```text
 <knowledge-recall>
@@ -261,7 +263,7 @@ Notes in the knowledge vault related to this request, from its link graph (best 
 Recall is added to the turn, not to the cached system prompt, so each request gets its own. The terminal shows what it cost:
 
 ```text
-recall: 4 notes (~180 tok)
+recall: 4 notes (~180 tok), 2 files
 ```
 
 `/recall` shows the last turn's recall and why each note was chosen; `/recall <words>` recalls for other words; `/knowledge` shows whether the vault is on and where it is. From the shell:

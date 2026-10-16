@@ -49,7 +49,9 @@ func TestMemoryNotes_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	note := knowledge.ParseNote("decision-louvain.md", data)
 	assert.Equal(t, "Louvain first.", note.Summary, "the summary is the first line")
-	assert.Equal(t, []string{"fact-vault"}, note.MetaLinks, "references are wikilinks the graph follows")
+	require.Len(t, note.MetaLinks, 1)
+	assert.True(t, strings.HasSuffix(note.MetaLinks[0], "/memory/fact-vault"),
+		"references are full-path wikilinks the graph follows: %v", note.MetaLinks)
 	assert.Contains(t, string(data), "key: decision:louvain")
 
 	again := NewMemoryStore(filepath.Dir(s.path))

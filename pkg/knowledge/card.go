@@ -72,6 +72,7 @@ const (
 	SourceRepo     = "repo"
 	SourceFolder   = "folder"
 	SourceWorkflow = "workflow"
+	SourceIndex    = "index" // a search index of one of the places (under ~/.kdeps)
 )
 
 // linkCells is how many cells a links-table row needs: source and path.
@@ -358,6 +359,23 @@ func IsCardPath(rel string) bool {
 		parts[2] == parts[1]+mdExt
 }
 
+// WikiLink is a link to file written with its full vault path, as kdeps
+// writes every link: [[projects/app/sessions/2026-10-15 0900 x]]. A path that
+// later moves (an archived project) still resolves by its title.
+func WikiLink(vaultRoot, file string) string {
+	rel, err := filepath.Rel(vaultRoot, file)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		rel = filepath.Base(file)
+	}
+	return "[[" + strings.TrimSuffix(filepath.ToSlash(rel), mdExt) + "]]"
+}
+
+// VaultRoot is the vault a card lives in.
+func (c *Card) VaultRoot() string { return filepath.Dir(filepath.Dir(c.Dir())) }
+
+// SelfLink is the full-path link to the card.
+func (c *Card) SelfLink() string { return WikiLink(c.VaultRoot(), c.File) }
+
 // ProjectOf is the project a vault-relative note belongs to, or "".
 func ProjectOf(rel string) string {
 	parts := strings.Split(rel, "/")
@@ -412,6 +430,46 @@ func ReadCard(file string) (*Card, error) {
 		}
 	}
 	return c, nil
+}
+
+// AddLink adds a "| source | path |" row to the card's links table unless
+// the card has that row already, and re-reads the card.
+func (c *Card) AddLink(source, place string) error {
+	for _, l := range c.Links {
+		if strings.EqualFold(l.Source, source) && l.Path == place {
+			return nil
+		}
+	}
+	data, err := os.ReadFile(c.File)
+	if err != nil {
+		return err
+	}
+	text := strings.TrimRight(string(data), "\n")
+	if len(c.Links) == 0 {
+		text += "\n| Source | Path |\n|---|---|"
+	}
+	text += "\n| " + source + " | " + place + " |\n"
+	if err = os.WriteFile(c.File, []byte(text), filePerm); err != nil {
+		return err
+	}
+	updated, err := ReadCard(c.File)
+	if err != nil {
+		return err
+	}
+	*c = *updated
+	return nil
+}
+
+// Places are the card's places on disk: its repo, folder and workflow rows.
+func (c *Card) Places() []string {
+	var out []string
+	for _, l := range c.Links {
+		switch strings.ToLower(l.Source) {
+		case SourceRepo, SourceFolder, SourceWorkflow:
+			out = append(out, l.Path)
+		}
+	}
+	return out
 }
 
 // Update sets the card's status and/or next step (empty keeps the current

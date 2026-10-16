@@ -240,7 +240,7 @@ func TestWriteSession(t *testing.T) {
 	assert.Contains(t, note, "type: session")
 	assert.Contains(t, note, "session: s1")
 	assert.Contains(t, note, "project: app")
-	assert.Contains(t, note, `links: ["[[app]]"]`, "the session links its project card")
+	assert.Contains(t, note, `links: ["[[projects/app/app]]"]`, "the session links its card by full path")
 	assert.Contains(t, note, "summary: Ship knowledge recall for kdeps")
 	assert.Contains(t, note, "## What was built\n\n- [x] graph build")
 	assert.Contains(t, note, "## Mistakes\n\n- cache kept stale parses")
@@ -278,7 +278,8 @@ func TestWriteDecisions(t *testing.T) {
 	note := string(data)
 	assert.Contains(t, note, "type: decision")
 	assert.Contains(t, note, `summary: "Louvain first: simpler than Leiden"`)
-	assert.Contains(t, note, `links: ["[[2026-10-15 0900 x]]", "[[app]]"]`)
+	assert.Contains(t, note, `links: ["[[projects/app/sessions/2026-10-15 0900 x]]", "[[projects/app/app]]"]`,
+		"links use full vault paths")
 	assert.FileExists(t, filepath.Join(card.Dir(), "decisions", "keep the cache per note hash because rebuilds.md"),
 		"no bold lead: the first words")
 
@@ -480,4 +481,40 @@ func TestCopyTree(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "B", string(data))
 	require.Error(t, copyTree(filepath.Join(from, "missing"), to))
+}
+
+func TestFullPathLinksAndCardRows(t *testing.T) {
+	v := Vault{Root: t.TempDir()}
+	place := t.TempDir()
+	card, _, err := v.CreateProject("svc", SourceFolder, place, buildNow())
+	require.NoError(t, err)
+	assert.Equal(t, "[[projects/svc/svc]]", card.SelfLink())
+	assert.Equal(t, v.Root, card.VaultRoot())
+	assert.Equal(t, "[[shared/x]]", WikiLink(v.Root, filepath.Join(v.Root, "shared", "x.md")))
+	assert.Equal(t, "[[y]]", WikiLink(v.Root, filepath.Join(t.TempDir(), "y.md")), "outside the vault: the title")
+	assert.Equal(t, []string{place}, card.Places())
+
+	require.NoError(t, card.AddLink(SourceIndex, "/data/index.db"))
+	require.NoError(t, card.AddLink(SourceIndex, "/data/index.db"), "a row is added once")
+	assert.Equal(t, []Link{{SourceFolder, place}, {SourceIndex, "/data/index.db"}}, card.Links)
+	assert.Equal(t, []string{place}, card.Places(), "an index row is not a place")
+	findings, err := Check(v)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
+
+	bare := filepath.Join(v.Root, "projects", "bare", "bare.md")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bare), 0o750))
+	require.NoError(t, os.WriteFile(bare, []byte("---\ntype: project\n---\n"), 0o600))
+	b, err := ReadCard(bare)
+	require.NoError(t, err)
+	require.NoError(t, b.AddLink(SourceRepo, "/r"))
+	assert.Equal(t, []Link{{SourceRepo, "/r"}}, b.Links, "a card without a table gets one")
+
+	r := newResolver([]*Note{{Path: "archive/svc/svc.md", Title: "svc"}})
+	assert.Equal(
+		t,
+		"archive/svc/svc.md",
+		r.wiki("projects/svc/svc", "x.md"),
+		"a moved project's links resolve by title",
+	)
 }
