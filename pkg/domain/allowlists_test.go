@@ -24,20 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTelephonyActions(t *testing.T) {
-	t.Parallel()
-	assert.True(t, IsValidTelephonyAction(TelephonyActionAnswer))
-	assert.False(t, IsValidTelephonyAction("invalid"))
-	assert.Contains(t, TelephonyActionsDisplay(), TelephonyActionDial)
-}
-
-func TestSQLResultFormats(t *testing.T) {
-	t.Parallel()
-	assert.True(t, IsValidSQLResultFormat(SQLResultFormatJSON))
-	assert.False(t, IsValidSQLResultFormat("xml"))
-	assert.Len(t, SQLResultFormatsEnum(), 3)
-}
-
 func TestWorkflowInputSources(t *testing.T) {
 	t.Parallel()
 	assert.True(t, IsValidWorkflowInputSource(InputSourceAPI))

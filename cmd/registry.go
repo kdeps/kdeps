@@ -31,32 +31,29 @@ import (
 var registryBaseURL = "https://registry.kdeps.io" //nolint:gochecknoglobals // overridable in tests
 
 // newRegistryCmd creates the registry subcommand.
-func newRegistryCmd() *cobra.Command {
-	kdeps_debug.Log("enter: newRegistryCmd")
-	cmd := &cobra.Command{
-		Use:   "registry",
-		Short: "Interact with the kdeps package registry.",
-		Long:  `Search, install, and publish AI agent packages on the kdeps registry.`,
+// registryCommands are the package and asset commands: install, update,
+// uninstall, list, profile, search, info, submit, verify. Packages
+// (workflows, agencies, components) and kdeps assets come from one catalog
+// on kdeps.io; an argument naming an asset set or set/name item is an asset.
+func registryCommands() []*cobra.Command {
+	kdeps_debug.Log("enter: registryCommands")
+	cmds := []*cobra.Command{
+		newRegistryInstallCmd(),
+		newRegistryUpdateCmd(),
+		newRegistryUninstallCmd(),
+		newRegistryListCmd(),
+		newRegistryProfileCmd(),
+		newRegistrySearchCmd(),
+		newRegistryInfoCmd(),
+		newRegistrySubmitCmd(),
+		newRegistryVerifyCmd(),
 	}
-	cmd.PersistentFlags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
-	attachRegistrySubcommands(cmd)
-	return cmd
+	for _, c := range cmds {
+		c.Flags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
+	}
+	return cmds
 }
 
-// attachRegistrySubcommands registers all registry subcommands on cmd.
-func attachRegistrySubcommands(cmd *cobra.Command) {
-	kdeps_debug.Log("enter: attachRegistrySubcommands")
-	cmd.AddCommand(newRegistrySearchCmd())
-	cmd.AddCommand(newRegistryInfoCmd())
-	cmd.AddCommand(newRegistryInstallCmd())
-	cmd.AddCommand(newRegistryUninstallCmd())
-	cmd.AddCommand(newRegistryUpdateCmd())
-	cmd.AddCommand(newRegistrySubmitCmd())
-	cmd.AddCommand(newRegistryListCmd())
-	cmd.AddCommand(newRegistryVerifyCmd())
-}
-
-// registryURL returns the effective registry base URL for the command.
 func registryURL(cmd *cobra.Command) string {
 	kdeps_debug.Log("enter: registryURL")
 	if u := resolveRegistryFlagURL(cmd); u != "" {

@@ -2,7 +2,7 @@
 
 Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
 
-*Applies to workflow mode (and when that workflow is called as a tool in agent mode).* This page is HTTP session storage. Agent mode conversation history is a different store: JSONL under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
+This page is HTTP session storage. Agent mode conversation history is a different store: JSONL under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|
@@ -16,7 +16,7 @@ Sessions let resources persist values across multiple HTTP requests from the sam
 settings:
   session:
     type: sqlite                    # "sqlite" or "memory"
-    path: ".kdeps/sessions.db"      # SQLite file path
+    path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
     ttl: "30m"                      # Session expiration
     cleanupInterval: "5m"           # Cleanup frequency
 ```
@@ -263,7 +263,7 @@ For multiple containers sharing sessions:
 2. **Set appropriate TTL** - Balance security and convenience
 3. **Store minimal data** - Session storage is not a database
 4. **Handle missing sessions** - Always provide defaults
-5. **Secure sensitive data** - Don't store passwords in sessions
+5. **Secure sensitive data** - Do not store passwords in sessions
 
 ## Security notes
 

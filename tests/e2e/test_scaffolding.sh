@@ -163,6 +163,19 @@ else
     test_failed "kdeps new - generated workflow.yaml passes validate" "validation failed for $WF"
 fi
 
+# --- every template generates a project that validates ---
+TPL_DIR=$(mktemp -d)
+for tpl in api-service sql-agent agency; do
+    if ( cd "$TPL_DIR" && "$KDEPS_BIN" new "tpl-$tpl" --template "$tpl" >/dev/null 2>&1 ) \
+        && "$KDEPS_BIN" validate "$TPL_DIR/tpl-$tpl" >/dev/null 2>&1; then
+        test_passed "kdeps new --template $tpl - generated project validates"
+    else
+        test_failed "kdeps new --template $tpl - generated project validates" \
+            "$("$KDEPS_BIN" validate "$TPL_DIR/tpl-$tpl" 2>&1 | grep -m1 error)"
+    fi
+done
+rm -rf "$TPL_DIR"
+
 # --- --force overwrites existing project ---
 if "$KDEPS_BIN" new "$AGENT" --force >/dev/null 2>&1; then
     test_passed "kdeps new --force - overwrites existing project"

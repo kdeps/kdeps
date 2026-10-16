@@ -44,7 +44,7 @@ chat:
 
 If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and - when no default backend is set - points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
 
-### Model resolution order
+## Model resolution order
 
 `model:` is optional. When omitted, kdeps resolves it in this order:
 
@@ -54,8 +54,8 @@ resource model:  ->  config router (llm.models + strategy)  ->  first llm.models
 ```
 
 - A resource with an explicit `model:` always wins - unless it is the literal `system`, which resolves down this same list.
-- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
-- A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve - set `model:` on the resource or `llm.models` in `config.yaml`.
+- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` is not installed or nothing is downloaded yet.
+- A cloud/gguf/ollama backend with no model and no `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve - set `model:` on the resource or `llm.models` in `config.yaml`.
 
 ## Basic usage
 
@@ -90,7 +90,17 @@ chat:
   topP: 0.9             # nucleus sampling threshold (0.0 to 1.0)
   frequencyPenalty: 0.0 # penalises tokens that have appeared frequently (-2.0 to 2.0)
   presencePenalty: 0.0  # penalises any token that has appeared at all (-2.0 to 2.0)
+```
 
+</div>
+
+## History, tools, and files
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
   # pre-fill the conversation history before the prompt
   scenario:
     - role: system
@@ -111,7 +121,15 @@ chat:
   # attach files for vision-capable models
   files:
     - "{{ get('file', 'filepath') }}"
+```
 
+</div>
+
+## JSON shape, timeout, and streaming
+
+```yaml
+# resources/example.yaml
+chat:
   jsonResponse: true         # ask the model to return valid JSON
   jsonResponseKeys:          # keys to extract from the JSON response
     - answer
@@ -132,7 +150,13 @@ chat:
 
   timeout: 60s               # hard stop -- returns error, does not retry
   streaming: true            # Ollama only: stream NDJSON; kdeps accumulates before returning
+```
 
+## Reasoning, few-shot, and extra sampling
+
+```yaml
+# resources/example.yaml
+chat:
   # chain-of-thought / few-shot
   chainOfThought: false      # inject step-by-step reasoning prefix into system prompt
   fewShotEmbeddingModel: ""  # embedding model for semantic few-shot selection (requires fewShotSelectK)
@@ -143,7 +167,13 @@ chat:
   n: 1                       # alias for candidateCount (OpenAI style)
   minLength: 0               # minimum response length in tokens
   maxLength: 0               # maximum response length in tokens (alias for maxTokens)
+```
 
+## Provider fields
+
+```yaml
+# resources/example.yaml
+chat:
   # anthropic-specific
   promptCaching: false           # add prompt-caching beta header; Anthropic only
   anthropicExtendedOutput: false # enable 128K output; adds interleaved-thinking beta header
@@ -164,8 +194,6 @@ chat:
   ollamaPullModel: false     # auto-pull model if not present
   ollamaPullTimeout: ""      # timeout for model pull (e.g. "10m")
 ```
-
-</div>
 
 ## Advanced parameters
 
@@ -197,6 +225,26 @@ Control the context window:
 chat:
   contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
+
+## Knowledge recall
+
+Every `chat` call adds the [knowledge vault](/agent/knowledge) notes related to its prompt by default: kdeps walks the vault's link graph from the prompt's words (no model involved) and puts the best few notes - their paths and one-line summaries, within the recall token budget - in a system message right after the system prompt. Nothing is added while the vault has no graph (a fresh install, or a container without one), so a deployed workflow behaves as before until a graph exists. Calls write nothing to the vault unless `knowledge.workflow_notes: true`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
+
+<div v-pre>
+
+```yaml
+# resources/answer.yaml
+actionId: answer
+name: Answer
+chat:
+  model: llama3.2:1b
+  prompt: "{{ get('q') }}"
+  knowledge: false     # skip recall for this call; default true
+```
+
+</div>
+
+`knowledge.enabled: false` in `~/.kdeps/config.yaml` turns recall off for every call.
 
 ## Scenario (conversation history)
 
@@ -274,7 +322,7 @@ chat:
 
 </div>
 
-## Tools (function calling)
+## Function calling
 
 Enable LLMs to call other resources:
 
@@ -326,8 +374,8 @@ the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
 Expose installed components as LLM function-calling tools:
 
 ```bash
-kdeps registry install scraper
-kdeps registry install search
+kdeps install scraper
+kdeps install search
 ```
 
 ```yaml
@@ -404,7 +452,7 @@ chat:
 
 ## Few-shot prompting
 
-Inject example user/assistant pairs before the conversation to demonstrate the expected output format. Like calling a function with example inputs and outputs - the model learns the pattern from the examples.
+Inject example user/assistant pairs before the conversation to demonstrate the expected output format. The model follows the pattern in the examples.
 
 <div v-pre>
 
@@ -619,5 +667,5 @@ to retry or substitute a fallback.
 ## See also
 
 - [LLM backends](/workflow/resources/llm-backends) - Configure model, backend, API keys, and routing
-- [Tools](/workflow/tools) - LLM function calling
+- [Function calling](/workflow/tools) - LLM function calling
 - [Docker deployment](/deploy/docker) - Deploying with local models

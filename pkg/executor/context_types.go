@@ -85,11 +85,6 @@ type ExecutionContext struct {
 	// Resources can read this value via input("filePath").
 	InputFilePath string
 
-	// BotSend delivers a reply to the originating bot platform.
-	// Set by the bot dispatcher (polling) or stateless runner before engine.Execute().
-	// Nil for non-bot executions.
-	BotSend BotSendFunc
-
 	// AgentPaths maps agent name (metadata.name) → workflow file path.
 	// Populated when running in an agency context so that the `agent` resource
 	// type can locate sibling agents by name.
@@ -131,13 +126,6 @@ type LLMMetadata struct {
 	Backend string
 }
 
-// BotSendFunc delivers a reply text to the originating bot platform.
-// In polling mode it calls the platform's Reply API; in stateless mode it
-// writes to stdout. The function signature is:
-//
-//	func(ctx context.Context, text string) error
-type BotSendFunc func(ctx context.Context, text string) error
-
 // RequestContext holds HTTP request data.
 type RequestContext struct {
 	Method    string
@@ -145,15 +133,11 @@ type RequestContext struct {
 	Headers   map[string]string
 	Query     map[string]string
 	Body      map[string]interface{}
+	RawBody   string       // the body as received; request.rawBody in expressions
 	Files     []FileUpload // Uploaded files
 	IP        string       // Client IP address
 	ID        string       // Request ID
 	SessionID string       // Session ID from cookie (if available)
-
-	// BotSend is set by the bot dispatcher/stateless runner so that the
-	// botReply resource executor can deliver the reply without knowing
-	// the platform or chat ID.  It is nil for non-bot executions.
-	BotSend BotSendFunc
 }
 
 // FileUpload represents an uploaded file.

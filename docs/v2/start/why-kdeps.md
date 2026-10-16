@@ -1,28 +1,18 @@
 # Why kdeps?
 
-kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each. New to kdeps? Read [What is kdeps?](/start/) first.
-
-## The problem
-
-There is no streamlined way to build **AI agents and custom APIs - not chatbots** - on open-source, self-hosted LLMs. Every project re-implements the same glue: retrieval, deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and a way to deploy the result anywhere.
-
-kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop. Everything a retrieval-augmented agent needs ships in one Dockerized image.
-
-Because it runs open-source models by default (llamafile, Ollama, any HuggingFace GGUF), the built appliance has **no per-token cost and no AI subscription** - it is free to run forever, on or off the cloud. Cloud providers work too when you want them; the backend is one line of config, not baked into the workflow.
+Workflow mode runs an AI workload in production as an API, a chatbot or a background job. Agent mode uses the same file when the model should choose the steps. You pay for the hardware it runs on.
 
 ## The six products
 
-kdeps is a small number of bounded pieces - agent, workflow, agencies, LLM
+kdeps is a small number of bounded pieces - workflow, agent, agencies, LLM
 server, deploy, and the optional registry. Most people need one or two. The
 [Which product do you need?](/start/#which-product-do-you-need) table matches
 each to a task.
 
-You don't need Docker or even a YAML file to start: run `kdeps` and you have an
-agent REPL against a local model. Add a `workflow.yaml` when you want a
-deterministic pipeline you can deploy; reach for the rest as the work grows. The
-registry is optional - it is a way to share agents by name, not a step in
-building or running your own. The [two modes](#two-modes-one-workflow-file) below
-apply to whichever you use.
+A `workflow.yaml` is the pipeline you deploy. `kdeps` with no path is the REPL
+against a local model, and it needs no YAML and no Docker. The registry is
+optional - it shares agents by name, not a step in building or running your own.
+The [two modes](#two-modes-one-workflow-file) below apply to whichever you use.
 
 ---
 
@@ -54,6 +44,8 @@ specific model is not.
 The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
 `kdeps run` or `kdeps bundle build`. Everything below builds on that.
 
+## Review, version, build, share
+
 - **Review** an agent change the way you review code - a diff of resources,
   validations, and prompts in a pull request.
 - **Version** with a git tag. A tag is a release; `kdeps validate` and
@@ -63,10 +55,10 @@ The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
   runtime and model pinned.
 - **Share, optionally.** [kdeps registry](/registry/) is a convenience layer for
   installing and publishing agents and components by name -
-  `kdeps registry install owner/repo` pulls straight from a GitHub repo, no
+  `kdeps install owner/repo` pulls straight from a GitHub repo, no
   registry entry required. You never need it to build or deploy your own agent.
 
-The [`git:` resource](/workflow/resources/git) also lets an agent read and write
+The [`git` component](/workflow/resources/git) also lets an agent read and write
 repository state as part of its pipeline - status, diff, log, commit, branch.
 
 ## Two modes, one workflow file
@@ -84,17 +76,17 @@ A -> C
 
 Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which workflows to call and in what order, with each workflow running as a complete pipeline.
 
-The same `workflow.yaml` works in both. You do not need to rewrite anything to switch.
+Same `workflow.yaml`, no rewrites, no re-config.
 
 ## Agencies
 
-Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output - every step is version-controlled, testable, and independently deployable.
+kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output - every step is version-controlled, testable, and independently deployable.
 
 ## Built to last
 
-Most AI tooling has a short half-life. A workflow written against a popular AI SDK in 2023 is unlikely to run without modification today. Model APIs deprecate. SDK interfaces churn. Libraries get abandoned.
+Model APIs deprecate and SDK interfaces change. kdeps reduces how many of those moving parts can break a running workload. The thing you archive is the built appliance - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Redeploying that image later runs the same runtime and model, with no live dependency on a vendor API.
 
-kdeps reduces how many moving parts can break on you. The thing you archive is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Hand that image to a new engineer years later and it runs exactly as it did the day you built it.
+## What stays stable
 
 What stays stable:
 
@@ -102,13 +94,15 @@ What stays stable:
 - **The backend is decoupled from the workflow.** Cloud model names live in `~/.kdeps/config.yaml`, not in `workflow.yaml`. When a model is deprecated, you change one line in config; the workflow is untouched.
 - **Your logic is code you own.** SQL, LLM prompts, Python, exec, email, inter-agent calls - these change when you change them.
 
+## What you should expect to maintain
+
 What you should expect to maintain:
 
 | Thing | Why it moves | What to do |
 |---|---|---|
 | The `workflow.yaml` schema | kdeps does not carry legacy schema shims - a newer `kdeps` binary may reject an older file. `apiVersion: kdeps.io/v1` marks the current schema, not a frozen one. | Keep the source YAML with the image; re-validate with `kdeps validate` before upgrading the runtime, or just keep running the built image. |
 | `httpClient:` targets | External APIs change schema, auth, endpoints | Target a versioned path (`/v2/users`, not `/users`) |
-| `browser:` selectors | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
+| `browser` component selectors | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
 
 The guarantee is not that your YAML runs forever on any future kdeps. It is that the appliance you ship is a self-contained unit you can freeze, archive, and redeploy without a live dependency on any vendor.
 
@@ -120,15 +114,16 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 | Operations teams | Automate repetitive work: log analysis, PR reviews, triage, ticket creation, incident messaging |
 | SMEs without an AI hire | Add AI to existing business processes and APIs with near-zero code and no recurring AI bill |
 | Marketing and growth | Content pipelines, SEO automation, campaign reporting |
+| Regulated and public-sector teams | Meet data-residency rules - self-hosted LLM and coding agent in the region you choose |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 Concretely: log-file analysis, automated code reviews, JIRA ticket creation from an alert, an incident summary posted to MS Teams - each is a workflow that calls a model and one or two external APIs, deployed as one image.
 
 ## The name
 
-kdeps is short for **knowledge dependencies**. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
+kdeps is short for knowledge dependencies. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
 
-## Innovation technology
+## Built on
 
 kdeps is built on two small open-source projects developed alongside it. Both are standalone Go tools you can use on their own.
 
@@ -139,8 +134,9 @@ kdeps is built on two small open-source projects developed alongside it. Both ar
 
 ## See also
 
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
+- [Data sovereignty](/start/data-sovereignty) - your prompts stay on your servers
 - [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
 - [Workflow mode](/workflow/) - deterministic DAG pipelines
 - [Agent mode](/agent/) - autonomous LLM loop

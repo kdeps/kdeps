@@ -1,0 +1,10 @@
+version: 1.0.0
+description: Index the current working directory into a persistent graph database, tracking markdown/wikilink references between files and topics/tags declared in YAML frontmatter. Always indexes the CWD -- cannot be pointed at another directory. Run this once before code_graph_file, code_graph_topic, or code_graph_all.
+parameters:
+  extensions:
+    type: array
+    description: File extensions to index, e.g. [".md", ".yaml"]. Defaults to .md/.markdown/.txt/.yaml/.yml.
+    itemsType: string
+  graphDBPath:
+    type: string
+    description: Graph index db path. Defaults to graph.db in the working folder's data dir under ~/.kdeps/projects.

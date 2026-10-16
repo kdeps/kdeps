@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: example-agent
+  description: Example agent in {{ name }}
+  version: "{{ version }}"
+  targetActionId: response
+
+settings:
+  agentSettings:
+    timezone: "UTC"
+
+resources:
+  # Entry-point resource: runs when the agency enters this agent.
+  # To call another agent in the agency, add a resource like this and
+  # list it under `requires:` below:
+  #
+  #   - actionId: askHelper
+  #     name: Ask helper
+  #     agent:
+  #       name: helper-agent        # metadata.name of the target agent
+  #       params:
+  #         greeting: "{% raw %}{{ get('q') }}{% endraw %}"
+  - actionId: response
+    name: Response
+    apiResponse:
+      success: true
+      response: "Hello from example-agent!"

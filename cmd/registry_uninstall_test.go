@@ -240,13 +240,13 @@ func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	regCmd := newRegistryCmd()
-	regCmd.AddCommand(newRegistryUpdateCmd())
+	regCmd := &cobra.Command{Use: "kdeps"}
+	regCmd.AddCommand(registryCommands()...)
 
 	var out bytes.Buffer
 	regCmd.SetOut(&out)
 	regCmd.SetErr(&out)
-	regCmd.SetArgs([]string{"--registry", srv.URL, "update", "cobra-agent2"})
+	regCmd.SetArgs([]string{"update", "--registry", srv.URL, "cobra-agent2"})
 
 	require.NoError(t, regCmd.Execute())
 	assert.Contains(t, out.String(), "Removing existing installation")

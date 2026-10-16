@@ -1,0 +1,174 @@
+name: Release Desktop
+
+# Builds the desktop app natively per OS and attaches it to a GitHub release.
+# Runs when goreleaser (release.yml) publishes a release, or by hand for an
+# existing tag: gh workflow run release-desktop.yml -f tag=v2.53.0
+# The publish job then refreshes the Homebrew cask, Scoop manifest and (when the
+# AUR_KEY secret exists) the AUR package.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the desktop builds to (e.g. v2.53.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    name: desktop (${{ matrix.os }}-${{ matrix.goarch }})
+    if: "!contains(github.event.release.tag_name || inputs.tag, '-nightly')"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            goarch: arm64
+            tags: desktop,production
+            ldflags: -s -w
+            cgo_ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
+          # Intel Mac: cross-compiled on the arm64 runner (clang targets x86_64).
+          - os: macos-latest
+            goarch: amd64
+            tags: desktop,production
+            ldflags: -s -w
+            cgo_ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
+          - os: ubuntu-latest
+            goarch: amd64
+            tags: desktop,production,webkit2_41
+            ldflags: -s -w
+          - os: windows-latest
+            goarch: amd64
+            tags: desktop,production
+            ldflags: -s -w -H windowsgui
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      VERSION: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+      - name: Install Linux WebView dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Build and package
+        env:
+          CGO_LDFLAGS: ${{ matrix.cgo_ldflags }}
+          CGO_ENABLED: ${{ runner.os == 'macOS' && '1' || '' }}
+          GOARCH: ${{ matrix.goarch }}
+          # Match LSMinimumSystemVersion; the runner's SDK default (26.x) makes the app unlaunchable on older macOS.
+          CGO_CFLAGS: ${{ runner.os == 'macOS' && '-O2 -g -mmacosx-version-min=11.0' || '' }}
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          mkdir -p dist/desktop
+          ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
+          (cd desktop && go build -tags "${{ matrix.tags }}" -ldflags "${{ matrix.ldflags }}" \
+            -o "../dist/desktop/kdeps-desktop${ext}" .)
+          case "$RUNNER_OS" in
+            macOS)
+              desktop/packaging/macos/package.sh dist/desktop/kdeps-desktop "$v" dist/desktop "${{ matrix.goarch }}" ;;
+            Linux)
+              cp desktop/packaging/linux/kdeps-desktop.desktop desktop/packaging/linux/kdeps.png dist/desktop/
+              tar -C dist/desktop -czf "dist/desktop/kdeps-desktop_${v}_linux_amd64.tar.gz" kdeps-desktop kdeps-desktop.desktop kdeps.png
+              go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
+              cp desktop/packaging/linux/nfpm.yaml dist/desktop/
+              (cd dist/desktop
+               VERSION="$v" nfpm package -f nfpm.yaml -p deb -t "kdeps-desktop_${v}_linux_amd64.deb"
+               VERSION="$v" nfpm package -f nfpm.yaml -p rpm -t "kdeps-desktop_${v}_linux_amd64.rpm"
+               VERSION="$v" nfpm package -f nfpm.yaml -p archlinux -t "kdeps-desktop_${v}_linux_amd64.pkg.tar.zst") ;;
+            Windows)
+              (cd dist/desktop && 7z a -tzip "kdeps-desktop_${v}_windows_amd64.zip" kdeps-desktop.exe) ;;
+          esac
+      - name: Upload to the release
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cd dist/desktop
+          files=(kdeps-desktop_*.dmg kdeps-desktop_*.tar.gz kdeps-desktop_*.zip kdeps-desktop_*.deb kdeps-desktop_*.rpm kdeps-desktop_*.pkg.tar.zst)
+          [ "${#files[@]}" -gt 0 ] || { echo "no desktop package produced" >&2; exit 1; }
+          assets=()
+          for f in "${files[@]}"; do
+            if command -v sha256sum >/dev/null; then sha256sum "$f" > "$f.sha256"; else shasum -a 256 "$f" > "$f.sha256"; fi
+            assets+=("$f" "$f.sha256")
+          done
+          gh release upload "$VERSION" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+  publish:
+    name: publish to package managers
+    needs: desktop
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      VERSION: ${{ github.event.release.tag_name || inputs.tag }}
+      AUR_KEY: ${{ secrets.AUR_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Resolve checksums
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          sha() { gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern "kdeps-desktop_${v}_$1.sha256" -O - | cut -d' ' -f1; }
+          {
+            echo "ARM_SHA=$(sha darwin_arm64.dmg)"
+            echo "INTEL_SHA=$(sha darwin_amd64.dmg)"
+            echo "LINUX_SHA=$(sha linux_amd64.tar.gz)"
+            echo "WIN_SHA=$(sha windows_amd64.zip)"
+          } >> "$GITHUB_ENV"
+      - name: Homebrew cask (kdeps/homebrew-tap)
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/kdeps/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          desktop/packaging/macos/make-cask.sh "$v" "$ARM_SHA" "$INTEL_SHA" > tap/Casks/kdeps-desktop.rb
+          cd tap
+          git config user.name "kdeps-release"; git config user.email "noreply@kdeps.com"
+          git add Casks/kdeps-desktop.rb
+          git diff --cached --quiet && exit 0
+          git commit -m "kdeps-desktop ${v}"
+          git push origin HEAD:main
+      - name: Scoop manifest (kdeps/scoop-bucket)
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/kdeps/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          desktop/packaging/windows/make-scoop.sh "$v" "$WIN_SHA" > bucket/bucket/kdeps-desktop.json
+          cd bucket
+          git config user.name "kdeps-release"; git config user.email "noreply@kdeps.com"
+          git add bucket/kdeps-desktop.json
+          git diff --cached --quiet && exit 0
+          git commit -m "kdeps-desktop ${v}"
+          git push origin HEAD:main
+      - name: AUR kdeps-desktop-bin
+        if: env.AUR_KEY != ''
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$AUR_KEY" > ~/.ssh/aur && chmod 600 ~/.ssh/aur
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/kdeps-desktop-bin.git aur
+          desktop/packaging/linux/make-aur.sh "$v" "$LINUX_SHA" aur
+          cd aur
+          git config user.name "Joel Bryan Juliano"; git config user.email "joelbryan.juliano@gmail.com"
+          git add PKGBUILD .SRCINFO
+          git diff --cached --quiet && exit 0
+          git commit -m "kdeps-desktop-bin ${v}"
+          git push origin HEAD:master

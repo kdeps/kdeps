@@ -1,0 +1,8 @@
+version: 1.0.0
+category: memory
+description: 'Find the notes in the knowledge vault related to a query, by walking the vault''s link graph from the words of the query (no model involved). Returns note paths with their one-line summaries, best first, within a small token budget. Each turn already carries a recall for the user''s request; call this to look up something else (a project, a decision, an error). Then read only the notes you need with read_file.'
+parameters:
+  query:
+    type: string
+    description: Words to recall notes for, e.g. a project name, a decision, an error message
+    required: true

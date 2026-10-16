@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: "{{ version }}"
+  targetActionId: formatResponse
+
+settings:
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{ port }}
+    routes:
+      - path: /api/query
+        methods: [POST]
+  # The `main` connection string is machine-local, never in this file:
+  # ~/.kdeps/config.yaml sql_connections.main.connection
+  # or export KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION="postgres://..."

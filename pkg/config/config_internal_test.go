@@ -112,7 +112,7 @@ func TestKnownConfigEnvVars_NotEmpty(t *testing.T) {
 	assert.Contains(t, vars, "OLLAMA_HOST")
 	assert.Contains(t, vars, "KDEPS_CHAT_TIMEOUT")
 	assert.Contains(t, vars, "KDEPS_API_AUTH_TOKEN")
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Contains(t, vars, p.envVar, p.name)
 	}
 }
@@ -127,9 +127,7 @@ func TestGetDefaults_ReturnsValues(t *testing.T) {
 	assert.Equal(t, "30s", d.HTTP.Timeout)
 	assert.Equal(t, "60s", d.Python.Timeout)
 	assert.Equal(t, "30s", d.Exec.Timeout)
-	assert.Equal(t, "30s", d.SQL.Timeout)
 	assert.Equal(t, 4096, d.Chat.ContextLength)
-	assert.Equal(t, 1000, d.SQL.MaxRows)
 }
 
 func TestGetDefaults_SyncOnce(t *testing.T) {
@@ -202,36 +200,6 @@ func TestExecTimeoutDuration_Empty(t *testing.T) {
 	assert.Equal(t, 30*time.Second, d)
 }
 
-func TestSQLTimeoutDuration_Valid(t *testing.T) {
-	d := (&SQLExecutorDefaults{Timeout: "20s"}).TimeoutDuration()
-	assert.Equal(t, 20*time.Second, d)
-}
-
-func TestSQLTimeoutDuration_Invalid(t *testing.T) {
-	d := (&SQLExecutorDefaults{Timeout: "bad"}).TimeoutDuration()
-	assert.Equal(t, 30*time.Second, d)
-}
-
-func TestSQLTimeoutDuration_Empty(t *testing.T) {
-	d := (&SQLExecutorDefaults{}).TimeoutDuration()
-	assert.Equal(t, 30*time.Second, d)
-}
-
-func TestConnMaxIdleTimeDuration_Valid(t *testing.T) {
-	d := (&SQLExecutorDefaults{ConnMaxIdleTime: "10m"}).ConnMaxIdleTimeDuration()
-	assert.Equal(t, 10*time.Minute, d)
-}
-
-func TestConnMaxIdleTimeDuration_Invalid(t *testing.T) {
-	d := (&SQLExecutorDefaults{ConnMaxIdleTime: "bad"}).ConnMaxIdleTimeDuration()
-	assert.Equal(t, 5*time.Minute, d)
-}
-
-func TestConnMaxIdleTimeDuration_Empty(t *testing.T) {
-	d := (&SQLExecutorDefaults{}).ConnMaxIdleTimeDuration()
-	assert.Equal(t, 5*time.Minute, d)
-}
-
 // --- setIfUnset ---
 
 func TestSetIfUnset_SetsEnv(t *testing.T) {
@@ -269,7 +237,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 			ModelsDir:  "/custom/models",
 		},
 	}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		p.setLLMKey(&src.LLM, p.name+"-key")
 	}
 	mergeConfig(dst, src)
@@ -279,7 +247,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 	assert.Equal(t, "round_robin", dst.LLM.Strategy)
 	assert.Len(t, dst.LLM.Models, 2)
 	assert.Equal(t, "/custom/models", dst.LLM.ModelsDir)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Equal(t, p.name+"-key", p.getKey(dst.LLM), p.name)
 	}
 }
@@ -357,22 +325,6 @@ func TestMergeConfig_HTTPDefaults(t *testing.T) {
 	assert.Equal(t, "1s", dst.ResourceDefaults.HTTP.RetryBackoff)
 	assert.Equal(t, "30s", dst.ResourceDefaults.HTTP.RetryMaxBackoff)
 	assert.Equal(t, "429,503", dst.ResourceDefaults.HTTP.RetryOn)
-}
-
-func TestMergeConfig_PythonExecSQLDefaults(t *testing.T) {
-	dst := &Config{}
-	src := &Config{
-		ResourceDefaults: ResourceDefaults{
-			Python: PythonDefaults{Timeout: "120s"},
-			Exec:   ExecDefaults{Timeout: "15s"},
-			SQL:    SQLDefaults{Timeout: "20s", MaxRows: 500},
-		},
-	}
-	mergeConfig(dst, src)
-	assert.Equal(t, "120s", dst.ResourceDefaults.Python.Timeout)
-	assert.Equal(t, "15s", dst.ResourceDefaults.Exec.Timeout)
-	assert.Equal(t, "20s", dst.ResourceDefaults.SQL.Timeout)
-	assert.Equal(t, 500, dst.ResourceDefaults.SQL.MaxRows)
 }
 
 func TestMergeConfig_OnError(t *testing.T) {
@@ -983,7 +935,7 @@ func TestLoad_ParseError(t *testing.T) {
 }
 
 func TestConfigEnvVar_APIKeys(t *testing.T) {
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		env, ok := configEnvVar("llm." + p.yamlKey)
 		require.True(t, ok, "backend %s", p.name)
 		assert.Equal(t, p.envVar, env)
@@ -1022,4 +974,20 @@ func TestRunAgentsCheck_AgentsDirError(t *testing.T) {
 	r.agents(&Config{})
 	require.NotEmpty(t, r.checks)
 	assert.Equal(t, HealthWarn, r.checks[0].Status)
+}
+
+func TestMergeConfig_PythonExecSQLDefaults(t *testing.T) {
+	dst := &Config{}
+	src := &Config{
+		ResourceDefaults: ResourceDefaults{
+			Python: PythonDefaults{Timeout: "120s"},
+			Exec:   ExecDefaults{Timeout: "15s"},
+			SQL:    SQLDefaults{Timeout: "20s", MaxRows: 500},
+		},
+	}
+	mergeConfig(dst, src)
+	assert.Equal(t, "120s", dst.ResourceDefaults.Python.Timeout)
+	assert.Equal(t, "15s", dst.ResourceDefaults.Exec.Timeout)
+	assert.Equal(t, "20s", dst.ResourceDefaults.SQL.Timeout)
+	assert.Equal(t, 500, dst.ResourceDefaults.SQL.MaxRows)
 }

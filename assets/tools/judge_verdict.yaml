@@ -1,0 +1,10 @@
+version: 1.0.0
+description: Settle your review of the candidate output. Must be called exactly once, when your review is complete.
+parameters:
+  approved:
+    type: boolean
+    description: true if the output meets your criteria
+    required: true
+  feedback:
+    type: string
+    description: 'Required when approved is false: what specifically to fix'

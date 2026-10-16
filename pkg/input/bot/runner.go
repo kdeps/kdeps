@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-// Package bot provides long-running bot runners for Discord, Slack, Telegram, and WhatsApp.
+// Package bot provides long-running bot runners for Discord, Slack and Telegram.
 // Each runner connects to the platform and forwards inbound messages to the Dispatcher,
 // which executes the workflow and sends the reply back.
 package bot
@@ -35,7 +35,7 @@ import (
 
 // Message is an inbound message received from a bot platform.
 type Message struct {
-	// Platform is the source platform (discord, slack, telegram, whatsapp).
+	// Platform is the source platform (discord, slack, telegram).
 	Platform string
 	// ChatID is the channel / conversation identifier on the platform.
 	ChatID string
@@ -57,7 +57,7 @@ type Runner interface {
 }
 
 // New creates a Runner for the given platform name using cfg and creds.
-// platform is one of "discord", "slack", "telegram", "whatsapp".
+// platform is one of "discord", "slack", "telegram".
 // creds provides the platform credentials from ~/.kdeps/config.yaml bot_connections.
 // Returns an error if the platform is unsupported or the required config is missing.
 func New(
@@ -75,8 +75,6 @@ func New(
 		return newSlackRunnerFromConfig(cfg, creds, logger)
 	case "telegram":
 		return newTelegramRunnerFromConfig(cfg, creds, logger)
-	case whatsAppPlatform:
-		return newWhatsAppRunnerFromConfig(cfg, creds, logger)
 	default:
 		return nil, fmt.Errorf("bot: unsupported platform: %s", platform)
 	}
@@ -132,19 +130,4 @@ func newTelegramRunnerFromConfig(
 		telegramCreds = creds.Telegram
 	}
 	return newTelegramRunner(cfg.Telegram, telegramCreds, logger), nil
-}
-
-func newWhatsAppRunnerFromConfig(
-	cfg *domain.BotConfig,
-	creds *kdepsconfig.BotConnectionConfig,
-	logger *slog.Logger,
-) (Runner, error) {
-	if cfg.WhatsApp == nil {
-		return nil, errors.New("bot: whatsapp config is required")
-	}
-	var whatsAppCreds *kdepsconfig.WhatsAppConnectionConfig
-	if creds != nil {
-		whatsAppCreds = creds.WhatsApp
-	}
-	return newWhatsAppRunner(cfg.WhatsApp, whatsAppCreds, logger), nil
 }

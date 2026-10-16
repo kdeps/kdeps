@@ -113,15 +113,10 @@ func TestReadStatelessInput_WhitespaceOnly(t *testing.T) {
 	_ = msg
 }
 
-func TestRunStateless_BotSendTriggered(t *testing.T) {
+func TestRunStateless_WritesResultAsReply(t *testing.T) {
 	engine := executor.NewEngine(slog.Default())
-	var capturedText string
-	engine.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
-		reqCtx := req.(*executor.RequestContext)
-		// Invoke BotSend to exercise the stdout-writing closure.
-		err := reqCtx.BotSend(context.Background(), "stdout reply")
-		require.NoError(t, err)
-		return "ok", nil
+	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return map[string]interface{}{"success": true, "data": "stdout reply"}, nil
 	})
 
 	workflow := &domain.Workflow{}
@@ -153,8 +148,7 @@ func TestRunStateless_BotSendTriggered(t *testing.T) {
 	outW.Close()
 	out, readErr := io.ReadAll(outR)
 	require.NoError(t, readErr)
-	assert.Contains(t, string(out), "stdout reply")
-	_ = capturedText
+	assert.Equal(t, "stdout reply\n", string(out))
 }
 
 func TestReadStatelessInput_ReadError(t *testing.T) {
@@ -241,5 +235,4 @@ func TestRunStateless_Success(t *testing.T) {
 	assert.Equal(t, "chat-1", reqCtx.Body["chatId"])
 	assert.Equal(t, "user-1", reqCtx.Body["userId"])
 	assert.Equal(t, "slack", reqCtx.Body["platform"])
-	assert.NotNil(t, reqCtx.BotSend)
 }

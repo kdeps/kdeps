@@ -23,6 +23,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 
 	"golang.org/x/term"
@@ -65,6 +66,7 @@ func resetContextSegments(model, backend string) {
 	contextSegmentsMu.Lock()
 	defer contextSegmentsMu.Unlock()
 	contextSegments = nil
+	executorLLM.ResetLastCallInput()
 	contextPathModel = model
 	contextPathBackend = backend
 }
@@ -150,6 +152,7 @@ func contextPathStatus() string {
 		return ""
 	}
 
+	segs = reconcileSegments(segs, executorLLM.LastCallInputTokens())
 	var current int
 	order := make([]string, 0, len(segs))
 	totals := make(map[string]int, len(segs))
@@ -178,6 +181,39 @@ func contextPathStatus() string {
 	return styleReplDim.Render("[") +
 		styleReplMeta.Render(strings.Join(parts, " | ")) +
 		styleReplDim.Render("] ")
+}
+
+// reconcileSegments makes the breakdown add up to the measured prompt size of
+// the latest call. The segments are estimates taken before the call; the
+// measurement is what the model actually received, including the user message,
+// tool schemas and framing no segment covers. A shortfall becomes an "other"
+// segment; an overshoot scales the estimates down. measured <= 0 (no call yet
+// this turn) leaves the estimates as they are.
+func reconcileSegments(segs []contextSegment, measured int64) []contextSegment {
+	if measured <= 0 {
+		return segs
+	}
+	var est int64
+	for _, seg := range segs {
+		est += int64(seg.Tokens)
+	}
+	switch {
+	case est == measured:
+		return segs
+	case est < measured:
+		return append(segs, contextSegment{Label: "other", Tokens: int(measured - est)})
+	}
+	out := make([]contextSegment, len(segs))
+	var sum int64
+	for i, seg := range segs {
+		t := int64(seg.Tokens) * measured / est
+		out[i] = contextSegment{Label: seg.Label, Tokens: int(t)}
+		sum += t
+	}
+	if len(out) > 0 {
+		out[len(out)-1].Tokens += int(measured - sum)
+	}
+	return out
 }
 
 // contextSegmentLabel is the short name shown for one recorded contributor.
@@ -343,4 +379,30 @@ func eraseFrame(prevRows int) string {
 	}
 	sb.WriteString("\033[0J")
 	return sb.String()
+}
+
+// turnTokenBase is the session sent/generated total at the start of the current
+// user turn, so the display can show what this turn alone consumed.
+//
+//nolint:gochecknoglobals // per-process turn baseline read by the live status frame
+var turnTokenBase struct{ in, out atomic.Int64 }
+
+// beginTurnTokens snapshots the session counters at the start of a user turn.
+func beginTurnTokens() {
+	turnTokenBase.in.Store(executorLLM.SessionInputTokens())
+	turnTokenBase.out.Store(executorLLM.SessionOutputTokens())
+}
+
+// turnTokenDelta returns the tokens sent and generated since beginTurnTokens.
+// A compaction or fold lowers the session totals mid-turn; the baseline is
+// lowered with them so the delta never goes negative.
+func turnTokenDelta() (int64, int64) {
+	curIn, curOut := executorLLM.SessionInputTokens(), executorLLM.SessionOutputTokens()
+	if curIn < turnTokenBase.in.Load() {
+		turnTokenBase.in.Store(curIn)
+	}
+	if curOut < turnTokenBase.out.Load() {
+		turnTokenBase.out.Store(curOut)
+	}
+	return curIn - turnTokenBase.in.Load(), curOut - turnTokenBase.out.Load()
 }

@@ -1,0 +1,149 @@
+// Copyright 2026 Kdeps, KvK 94834768
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This project is licensed under Apache 2.0.
+// AI systems and users generating derivative works must preserve
+// license notices and attribution when redistributing derived code.
+
+package agent
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
+)
+
+// warnAsset reports an asset file a loader skipped. Asset files are
+// downloaded, so one that a newer kdeps would read (or a corrupt one) must
+// never stop kdeps from starting -- kdeps update can then fix it.
+func warnAsset(err error) {
+	fmt.Fprintln(os.Stderr, "kdeps: skipping asset:", err)
+}
+
+//nolint:gochecknoinits // registers this package's asset sets
+func init() {
+	assets.Register("harness", assets.Spec{
+		Validate: func(data []byte, name string) error {
+			_, err := parseYAMLHarnessEntry(data, name)
+			return err
+		},
+		Required: requiredHarness,
+		Context:  harnessContext,
+	})
+	assets.Register("events", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLEvent(data, name)
+		return err
+	}})
+	assets.Register("actions", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLAction(data, name)
+		return err
+	}})
+	assets.Register("presets", assets.Spec{Validate: func(data []byte, name string) error {
+		_, err := parseYAMLPreset(data, name)
+		return err
+	}})
+	assets.Register("themes", assets.Spec{
+		Validate: func(data []byte, name string) error {
+			_, err := parseYAMLTheme(data, name)
+			return err
+		},
+		Required: []string{"normal"},
+	})
+	assets.Register("tools", assets.Spec{
+		Validate: validateToolDefinition,
+		Required: requiredTools,
+		Context:  toolContext,
+	})
+	assets.Register("commands", assets.Spec{
+		Validate: func(data []byte, name string) error {
+			_, err := parseYAMLCommand(data, name)
+			return err
+		},
+		Required: requiredCommands,
+	})
+}
+
+// requiredCommands are the command files every agent loop keeps: the
+// commands to get help, switch model, manage the session and install more.
+// Every other built-in command still runs without its file; installing the
+// file lists it in /help and completion.
+//
+//nolint:gochecknoglobals // fixed list
+var requiredCommands = []string{"help", "exit", "clear", "model", "compact", "session", "settings", "update"}
+
+// requiredHarness are the standalone prompts that compaction, goals, judges,
+// prompt refinement and the session handshake are built on. They can be
+// updated or disabled (/harness disable), not removed.
+//
+//nolint:gochecknoglobals // fixed list
+var requiredHarness = []string{
+	"compaction-system", "compaction-user", "compaction-update-user", "branch-summary",
+	"goal-plan-system", "goal-confirm-system", "judge-roster-system", "judge-system",
+	"refine-system", "handshake", "handshake-ack",
+}
+
+// requiredTools are the loop's own control tools; without them goal mode,
+// judges and the handshake cannot finish.
+//
+//nolint:gochecknoglobals // fixed list
+var requiredTools = []string{"goal_task_complete", "goal_task_fail", "judge_verdict", "session_handshake"}
+
+// harnessContext is a harness entry's model-facing text: its body, unless
+// disabled.
+func harnessContext(data []byte, name string) string {
+	ye, err := parseYAMLHarnessEntry(data, name)
+	if err != nil || ye.Disabled {
+		return ""
+	}
+	return ye.Body
+}
+
+// toolContext is what a tool definition sends the model: its name, texts
+// and parameter schema.
+func toolContext(data []byte, name string) string {
+	var d toolDefinition
+	if yaml.Unmarshal(data, &d) != nil {
+		return ""
+	}
+	if d.Name != "" {
+		name = d.Name
+	}
+	params, _ := yaml.Marshal(d.Parameters)
+	return strings.Join([]string{name, d.Description, d.Constraints, d.OutputFormat, d.SeeAlso, string(params)}, "\n")
+}
+
+// validateToolDefinition checks a downloaded tools/<name>.yaml file.
+func validateToolDefinition(data []byte, _ string) error {
+	var d toolDefinition
+	if err := yaml.Unmarshal(data, &d); err != nil {
+		return err
+	}
+	if d.Description == "" {
+		return errors.New("description is required")
+	}
+	switch {
+	case d.HTTP != nil && d.Exec != nil:
+		return errors.New("a tool declares http: or exec:, not both")
+	case d.HTTP != nil:
+		return d.HTTP.validate()
+	case d.Exec != nil:
+		return d.Exec.validate()
+	}
+	return nil
+}

@@ -22,6 +22,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,14 +109,6 @@ const (
 	modelTypeOllama    = "ollama"
 )
 
-//nolint:gochecknoglobals // command list must be package-level for completer
-var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model", "/context",
-	"/skills", "/prompts", "/prompt", "/compact", "/fold", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/konfig",
-	"/login", "/theme", "/refine", "/handshake", "/harness", "/instruct", "/instruct!", "/exit", "/quit",
-}
-
 // REPL output styles. Package vars, not constants, so the active theme
 // (theme.go) can swap them at runtime. All (re)built by applyReplStyles from
 // the active palette - once from theme.go's init, again on every /theme switch.
@@ -169,12 +163,6 @@ const historyFileName = "repl_history"
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
-// pasteRefRe matches the large-paste marker "[pasted N lines @path]" left in the
-// input on submit. It is expanded to the staged file's contents before the
-// generic @ref pass, which would otherwise swallow the trailing "]" into the
-// path and fail the read.
-var pasteRefRe = regexp.MustCompile(`\[pasted \d+ lines @([^\]\s]+)\]`)
-
 //nolint:gochecknoglobals // test-replaceable network function hooks
 var (
 	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
@@ -220,6 +208,7 @@ type REPL struct {
 	ctx                context.Context    // per-turn; SIGINT or Ctrl+C cancels this
 	cancel             context.CancelFunc // cancels per-turn ctx
 	history            []string
+	commandDepth       int                                 // declared commands currently running (runDeclaredCommand)
 	modelNames         []string                            // suggestions for /model <tab>
 	downloadedModels   map[string]bool                     // set of already-downloaded model aliases
 	modelTypes         map[string]string                   // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
@@ -255,9 +244,9 @@ type REPL struct {
 	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
 	// line, so it can be navigated and edited like any other character before it
 	// submits as one prompt. A small single-line paste bypasses this entirely
-	// (raw text into readline); a large paste is staged to pasteTmpDir.
+	// (raw text into readline); any other paste is saved to memory and submits
+	// as its "@paste:<id>" reference.
 	pendingPastes []pendingPaste // one entry per staged paste, in edit-line order
-	pasteTmpDir   string         // temp dir holding large-paste files; created lazily, removed on exit
 	tokenCounter  *TokenCounter  // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
@@ -286,6 +275,8 @@ type REPL struct {
 	// restored session starts local model servers at the same --ctx-size.
 	// 0 means never explicitly set.
 	contextSize int
+	// headless is set when a GUI drives the REPL: no spinner or cursor control.
+	headless bool
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -527,8 +518,7 @@ func (r *REPL) modeline() string {
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("sent:"+formatCompactCount(llm.SessionInputTokens())))
-		parts = append(parts, meta("generated:"+formatCompactCount(llm.SessionOutputTokens())))
+		parts = append(parts, meta("session:"+formatCompactCount(llm.SessionInputTokens()+llm.SessionOutputTokens())))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -548,35 +538,27 @@ func (r *REPL) modeline() string {
 		}
 		parts = append(parts, styleReplSuccess.Render(label))
 	}
+	// "reminder:" only appears while at least one /harness reminders <name> on
+	// is active, and disappears the moment the last one is turned off -- same
+	// on-only-when-active convention as mem:.
+	if names := r.loop.reminderNames(); len(names) > 0 {
+		parts = append(parts, styleReplSuccess.Render("reminder:"+strings.Join(names, ",")))
+	}
 	return strings.Join(parts, dim(" · "))
 }
 
 // contextUsageStr returns a "used/total" token display string (e.g. "293k/512k").
 // Returns "" when there is no meaningful usage to show.
 func (r *REPL) contextUsageStr() string {
-	used := r.loop.Session().TotalTokens()
+	used := llm.LastCallInputTokens()
+	if used <= 0 {
+		used = int64(r.loop.Session().TotalTokens())
+	}
 	if used <= 0 {
 		return ""
 	}
 	total := r.contextLimitForModel(r.loop.config.Model)
-	return fmt.Sprintf("%s/%s", formatTokenCount(used), formatTokenCount(total))
-}
-
-// formatTokenCount renders a token count as a compact string:
-// values >= 1M use "Nm" (e.g. "1m"), >= 1K use "Nk" (e.g. "32k"), else plain digits.
-func formatTokenCount(n int) string {
-	const (
-		kibi = 1024
-		mebi = 1024 * kibi
-	)
-	switch {
-	case n >= mebi:
-		return fmt.Sprintf("%dm", n/mebi)
-	case n >= kibi:
-		return fmt.Sprintf("%dk", n/kibi)
-	default:
-		return strconv.Itoa(n)
-	}
+	return fmt.Sprintf("%s/%s", formatCompactCount(used), formatCompactCount(int64(total)))
 }
 
 // buildCompleter returns a custom AutoCompleter with fuzzy command matching
@@ -642,8 +624,10 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	tokenLen := len([]rune(token))
 
 	// @file: fuzzy file completion; uses fd for deep search when available.
+	// Memory ids complete alongside, since @<memory-id> expands like a file.
 	if strings.HasPrefix(token, "@") {
-		return doAtFileCompletion(c.repl.loopCtx, token[1:])
+		results, n := doAtFileCompletion(c.repl.loopCtx, token[1:])
+		return append(results, c.repl.memoryKeyCompletions(token[1:])...), n
 	}
 
 	// /command (no space typed yet): fuzzy command name completion.
@@ -1119,8 +1103,7 @@ func modelTag(r *REPL, name string) string {
 
 // allCommandNames returns all slash command names including loaded skills and prompt templates.
 func (r *REPL) allCommandNames() []string {
-	names := make([]string, 0, len(builtinCmds)+len(r.loop.skillList)+len(r.loop.prompts))
-	names = append(names, builtinCmds...)
+	names := commandNames()
 	for _, sk := range r.loop.skillList {
 		names = append(names, "/"+sk.Name)
 	}
@@ -1314,26 +1297,13 @@ var imageExts = map[string]bool{
 	".pdf": true, ".mp3": true, ".mp4": true, ".wav": true,
 }
 
-// expandFileRefs replaces @path tokens that refer to text files with their contents.
-// Image and binary file references are extracted and returned in the files slice
-// so the caller can attach them as multimodal content. Unresolvable refs are kept as-is.
-func expandFileRefs(input string) (string, []string) {
+// expandFileRefs replaces @path tokens that refer to text files with their contents,
+// and @<memory-id> tokens (when memory is non-nil and no such file exists) with
+// that memory entry's value. Image and binary file references are extracted and
+// returned in the files slice so the caller can attach them as multimodal
+// content. Unresolvable refs are kept as-is.
+func expandFileRefs(input string, memory func(key string) (string, bool)) (string, []string) {
 	var files []string
-
-	// Large-paste markers first: expand "[pasted N lines @path]" to the staged
-	// body so the model sees the full paste. Left untouched on a read error.
-	input = pasteRefRe.ReplaceAllStringFunc(input, func(match string) string {
-		m := pasteRefRe.FindStringSubmatch(match)
-		if m == nil {
-			return match
-		}
-		path := m[1]
-		data, err := afero.ReadFile(AppFS, path)
-		if err != nil {
-			return match
-		}
-		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
-	})
 
 	text := atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
 		path := match[1:]
@@ -1352,6 +1322,9 @@ func expandFileRefs(input string) (string, []string) {
 		}
 		data, err := afero.ReadFile(AppFS, path)
 		if err != nil {
+			if value, ok := lookupMemory(memory, path); ok {
+				return fmt.Sprintf("\n\n--- %s ---\n%s", match, strings.TrimRight(value, "\n"))
+			}
 			return match
 		}
 		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
@@ -1359,10 +1332,18 @@ func expandFileRefs(input string) (string, []string) {
 	return strings.TrimSpace(text), files
 }
 
+// lookupMemory resolves key through memory, which may be nil.
+func lookupMemory(memory func(key string) (string, bool), key string) (string, bool) {
+	if memory == nil {
+		return "", false
+	}
+	return memory(key)
+}
+
 // expandFileRefsMonitored runs expandFileRefs under a quiet status line, so
 // reading large @file refs shows liveness ("@file refs running (3s)")
 // instead of a silent pause. Inputs without @ skip the monitor entirely.
-func expandFileRefsMonitored(input string) (string, []string) {
+func expandFileRefsMonitored(input string, memory func(key string) (string, bool)) (string, []string) {
 	if !strings.Contains(input, "@") {
 		return input, nil
 	}
@@ -1375,7 +1356,7 @@ func expandFileRefsMonitored(input string) (string, []string) {
 		defer wg.Done()
 		runQuietMonitor(mw, "@file refs", start, stop)
 	}()
-	expanded, files := expandFileRefs(input)
+	expanded, files := expandFileRefs(input, memory)
 	close(stop)
 	wg.Wait()
 	return expanded, files
@@ -1573,6 +1554,11 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 		r.syncTokenCounter()
 		return res.resp, res.err
 	case <-timer.C:
+		if r.headless {
+			res := <-ch
+			r.syncTokenCounter()
+			return res.resp, res.err
+		}
 		// Animated spinner while waiting for LLM response. No descriptive
 		// word alongside it, same as drawSpinnerFrames -- see its doc comment.
 		spinFrames := strings.Split(spinnerGlyphs, "")
@@ -1622,6 +1608,7 @@ func historyPath() string {
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.loopCancel()
+	defer r.writeSessionNoteOnExit()
 	defer r.autoSaveOnExit()
 	defer resetTerminal()
 
@@ -1682,7 +1669,6 @@ func (r *REPL) Run() error {
 		if r.readlineInst != nil {
 			_ = r.readlineInst.Close()
 		}
-		r.cleanupPasteTmp()
 	}()
 
 	r.readlineInst = rl
@@ -1780,7 +1766,6 @@ func (r *REPL) restoreTerminalAndExit(sig os.Signal) {
 	// hanging around.
 	go func() {
 		fmt.Fprint(os.Stdout, ansiDisableBracketedPaste+"\r\n")
-		r.cleanupPasteTmp()
 		llm.ShutdownLocalServers()
 	}()
 	code := signalExitBase + int(syscall.SIGTERM)
@@ -1860,6 +1845,9 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		if input == "" {
 			continue
 		}
+		// History is saved here, not by readline, so it keeps the "@paste:<id>"
+		// reference instead of the paste sentinel rune.
+		_ = rl.SaveHistory(input)
 		if procErr := r.processInput(input); procErr != nil {
 			if !errors.Is(procErr, context.Canceled) {
 				fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
@@ -1932,6 +1920,7 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
+	beginTurnTokens()
 	// Reset convergence counters and apply configured limits per user request.
 	ResetConvergence()
 	SetConvergenceLimits(
@@ -1974,7 +1963,7 @@ func (r *REPL) processInput(input string) error {
 		}
 	}
 
-	expanded, imgFiles := expandFileRefsMonitored(input)
+	expanded, imgFiles := expandFileRefsMonitored(input, r.memoryValue)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
 		// An image-only message ("@shot.png") leaves the prompt empty and
@@ -2042,74 +2031,94 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
-// pendingPaste is one staged paste: a small multi-line body shown inline
-// verbatim, or a large body written to a temp file and shown as a marker.
+// pendingPaste is one staged paste: a multi-line or large body saved to memory
+// under key, shown on the edit line as the body (small) or "@key" (large).
 type pendingPaste struct {
-	body    string
-	lines   int
-	large   bool
-	tmpPath string // set only when large
+	body  string
+	lines int
+	large bool
+	key   string // memory id; empty when memory is unavailable
 }
 
-// marker renders the large-paste placeholder that stands in for the body on the
-// edit line and in REPL history. Its "@path" token is expanded back to the file
-// contents at turn time (see pasteRefRe / expandFileRefs).
-func (p pendingPaste) marker() string {
-	return fmt.Sprintf("[pasted %d lines @%s]", p.lines, p.tmpPath)
+// pasteKeyPrefix names the memory entries that hold pasted text.
+const pasteKeyPrefix = "paste:"
+
+// pasteIDBytes is the random part of a paste memory id (hex-encoded).
+const pasteIDBytes = 4
+
+// ref is the "@<memory-id>" reference that stands in for the paste in the
+// submitted line and in REPL history. expandFileRefs resolves it back to the
+// body at turn time, in this session or a later one.
+func (p pendingPaste) ref() string {
+	return "@" + p.key
 }
 
 // onPasteContent stages a completed paste that is not a small single-line one
-// (those are handed to readline as raw text upstream). Large pastes are written
-// to a temp file so the edit line and history stay compact; the model still
-// receives the full body via marker expansion on submit.
+// (those are handed to readline as raw text upstream) and saves its body to
+// memory, so the line and history carry a short "@paste:<id>" reference.
 func (r *REPL) onPasteContent(content string, large bool, lines int) {
-	p := pendingPaste{body: content, lines: lines, large: large}
-	if large {
-		p.tmpPath = r.stagePasteFile(content)
-	}
-	r.pendingPastes = append(r.pendingPastes, p)
+	r.pendingPastes = append(r.pendingPastes, pendingPaste{
+		body: content, lines: lines, large: large, key: r.savePaste(content),
+	})
 }
 
-// stagePasteFile writes a large paste body to a file in the session's paste
-// temp dir (created on first use) and returns the path, or "" on any error.
-func (r *REPL) stagePasteFile(content string) string {
-	if r.pasteTmpDir == "" {
-		dir, err := os.MkdirTemp("", "kdeps-paste-")
-		if err != nil {
-			return ""
-		}
-		r.pasteTmpDir = dir
-	}
-	path := filepath.Join(r.pasteTmpDir, fmt.Sprintf("paste-%d.txt", len(r.pendingPastes)+1))
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+// savePaste stores a paste body in memory and returns its key, or "" when
+// memory is unavailable or the save fails.
+func (r *REPL) savePaste(content string) string {
+	if r.loop == nil || r.loop.memoryStore == nil {
 		return ""
 	}
-	return path
+	id := make([]byte, pasteIDBytes)
+	if _, err := rand.Read(id); err != nil {
+		return ""
+	}
+	key := pasteKeyPrefix + hex.EncodeToString(id)
+	if err := r.loop.memoryStore.Set(key, content); err != nil {
+		return ""
+	}
+	if _, ok := r.loop.memoryStore.Get(key); !ok {
+		return "" // store has no folder set: Set was a no-op
+	}
+	return key
+}
+
+// memoryKeyCompletions returns the untyped suffixes of memory ids starting
+// with prefix. An empty prefix completes files only.
+func (r *REPL) memoryKeyCompletions(prefix string) [][]rune {
+	if prefix == "" || r.loop == nil || r.loop.memoryStore == nil {
+		return nil
+	}
+	var out [][]rune
+	for _, e := range r.loop.memoryStore.List() {
+		if rest, ok := strings.CutPrefix(e.Key, prefix); ok && rest != "" {
+			out = append(out, []rune(rest))
+		}
+	}
+	return out
+}
+
+// memoryValue resolves an @<memory-id> reference for expandFileRefs.
+func (r *REPL) memoryValue(key string) (string, bool) {
+	if r.loop == nil || r.loop.memoryStore == nil {
+		return "", false
+	}
+	e, ok := r.loop.memoryStore.Get(key)
+	return e.Value, ok
 }
 
 // expandPasteSentinels replaces each paste sentinel in a submitted line, in
-// order, with its staged paste's verbatim body (small) or its
-// "[pasted N lines @path]" marker (large). The marker is expanded back to the
-// file contents for the model in expandFileRefs; REPL history keeps it compact.
-// Pending pastes are cleared afterwards.
+// order, with its "@<memory-id>" reference, or with the verbatim body when it
+// could not be saved to memory. Pending pastes are cleared afterwards.
 func (r *REPL) expandPasteSentinels(line string) string {
 	for _, p := range r.pendingPastes {
 		sub := p.body
-		if p.large && p.tmpPath != "" {
-			sub = p.marker()
+		if p.key != "" {
+			sub = p.ref()
 		}
 		line = strings.Replace(line, string(pasteSentinel), sub, 1)
 	}
 	r.pendingPastes = nil
 	return line
-}
-
-// cleanupPasteTmp removes the large-paste temp dir. Safe to call more than once.
-func (r *REPL) cleanupPasteTmp() {
-	if r.pasteTmpDir != "" {
-		_ = os.RemoveAll(r.pasteTmpDir)
-		r.pasteTmpDir = ""
-	}
 }
 
 // pasteMarker is the fallback glyph shown for a sentinel with no matching
@@ -2118,14 +2127,14 @@ const pasteMarker = '▧'
 
 // pastePainter returns a readline Painter that expands each paste sentinel to
 // what the user should see: a small paste's real text, or a large paste's
-// "[pasted N lines @path]" marker.
+// "@<memory-id>" reference.
 func (r *REPL) pastePainter() readline.Painter {
 	return pastePainter{repl: r}
 }
 
 // pastePainter implements readline.Painter. It walks the edit line and replaces
 // the k-th paste sentinel with the k-th pending paste's rendered form (body for
-// small, marker for large), leaving everything the user typed around it intact.
+// small, reference for large), leaving everything the user typed around it intact.
 // The render is no longer the same length as the buffer — showing the real
 // content is worth the imperfect cursor tracking around a multi-row paste.
 type pastePainter struct{ repl *REPL }
@@ -2140,8 +2149,8 @@ func (p pastePainter) Paint(line []rune, _ int) []rune {
 		}
 		if p.repl != nil && seen < len(p.repl.pendingPastes) {
 			pp := p.repl.pendingPastes[seen]
-			if pp.large && pp.tmpPath != "" {
-				out = append(out, []rune(pp.marker())...)
+			if pp.large && pp.key != "" {
+				out = append(out, []rune(pp.ref())...)
 			} else {
 				out = append(out, []rune(pp.body)...)
 			}
@@ -2158,17 +2167,18 @@ func (p pastePainter) Paint(line []rune, _ int) []rune {
 // tears readline down for a child process.
 func (r *REPL) newReadline() (*readline.Instance, error) {
 	return readline.NewEx(&readline.Config{
-		Prompt:              r.dynamicPrompt(),
-		HistoryLimit:        replHistoryMax,
-		HistoryFile:         r.historyPath,
-		HistorySearchFold:   true,
-		AutoComplete:        r.buildCompleter(),
-		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
-		EOFPrompt:           "exit",
-		Stdin:               newBracketedPasteReader(os.Stdin, nil, r.onPasteContent),
-		Stdout:              os.Stdout,
-		FuncFilterInputRune: r.filterToolInterrupt,
-		Painter:             r.pastePainter(),
+		Prompt:                 r.dynamicPrompt(),
+		HistoryLimit:           replHistoryMax,
+		HistoryFile:            r.historyPath,
+		DisableAutoSaveHistory: true, // runLoop saves the line after paste expansion
+		HistorySearchFold:      true,
+		AutoComplete:           r.buildCompleter(),
+		InterruptPrompt:        "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:              "exit",
+		Stdin:                  newBracketedPasteReader(os.Stdin, nil, r.onPasteContent),
+		Stdout:                 os.Stdout,
+		FuncFilterInputRune:    r.filterToolInterrupt,
+		Painter:                r.pastePainter(),
 	})
 }
 
@@ -2536,12 +2546,21 @@ func (r *REPL) dispatchCommand(cmd string) error {
 // complexity under the lint limit. handled is false when command is none of them.
 func (r *REPL) dispatchControlCommand(command string, args []string) (bool, error) {
 	switch command {
+	case "/recall":
+		r.cmdRecall(args)
+		return true, nil
+	case "/knowledge":
+		r.cmdKnowledge(args)
+		return true, nil
 	case "/turo":
 		return true, r.cmdTuro(args)
 	case "/goal":
 		return true, r.cmdGoal(args)
 	case "/refine":
 		r.cmdRefine(args)
+		return true, nil
+	case "/efficiency":
+		r.cmdEfficiency(args)
 		return true, nil
 	case "/handshake":
 		r.cmdHandshake(args)
@@ -2555,14 +2574,21 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, r.cmdInstruct(false, args)
 	case "/instruct!":
 		return true, r.cmdInstruct(true, args)
+	case "/update":
+		r.cmdUpdate(args)
+		return true, nil
 	}
 	return false, nil
 }
 
 // dispatchUnknownCommand handles a slash command that is not a REPL built-in: it
-// tries a matching skill, then a prompt, and finally reports it as unknown.
+// tries a declared command (commands asset set), a matching skill, then a
+// prompt, and finally reports it as unknown.
 func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 	name := strings.TrimPrefix(command, "/")
+	if c := declaredCommand(name); c != nil {
+		return r.runDeclaredCommand(c, args)
+	}
 	if sk := r.loop.SkillByName(name); sk != nil {
 		return r.cmdInvokeSkill(sk, args)
 	}
@@ -2576,73 +2602,13 @@ func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	dim := styleReplDim.Render
-	lines := []string{
-		heading("Available commands:"),
-		"  /help                              Show this help message",
-		"  /settings                          Open the tool/skill selector and save selections",
-		"  /clear                             Clear the conversation history",
-		"  /model [name]                      Show or set the LLM model",
-		"  /model default [name]              Show or save the default startup model",
-		"  /model list                        List all available models with provider status",
-		"  /model ps                          List running local model servers (llamafile/gguf)",
-		"  /model ps kill <model>             Kill a running local model server",
-		"  /model ps switch <model>           Switch to a running local model server",
-		"  /model hff search <query>          Search HuggingFace for GGUF models",
-		"  /model hff info <repo>             List GGUF files available in a HuggingFace repo",
-		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
-		"  /model <url>                       Register a .gguf/.llamafile URL or OpenAI-compatible endpoint",
-		"  /model favorite <name>             Star a model (shown first in /model, persists); unfavorite to remove",
-		"  /model name [show|hide|abbreviate|auto]  Show or set how the modeline displays the model name",
-		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
-		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
-		"  /skills                            List loaded skills",
-		"  /prompts                           List loaded prompt templates",
-		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
-		"  /compact                           Compact conversation history (keep recent turns)",
-		"  /fold [now|auto [off]|threshold <n>|items <n>|preset <name>]  Lighter, more frequent checkpoint-only summarize+archive (default: auto on, 2000 tokens, 5 items)",
-		"  /history                           Show recent conversation turns",
-		"  /prompt                            Show the exact messages+tools sent to the LLM on the last call, with token estimates",
-		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
-		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
-		"  /autocontext [on|off]              Show or toggle auto-detecting command/file mentions in chat input",
-		"  /tools [full|lean]                 Show or toggle the lean/full tool set for this session",
-		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
-		"  /editor                            Open $EDITOR to compose a long prompt",
-		"  /copy                              Copy the last assistant response to the system clipboard",
-		"  /reload                            Reload skills, prompt templates, and instructions from disk",
-		"  /theme [name|list]                 Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom",
-		"  /harness [list]                    List harness sections (system-prompt text) with their enabled/disabled state",
-		"  /harness enable|disable <name>     Toggle a harness section, persisted to ~/.kdeps/harness/<name>.yaml",
-		"  /harness events [list]             List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state",
-		"  /harness events enable|disable <name>  Toggle an event, persisted to ~/.kdeps/events/<name>.yaml",
-		"  /context                           Show current context window size",
-		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
-		"  /goal                              Show the active goal's task list and progress",
-		"  /goal new <text>                   Replace the active goal with a new plan",
-		"  /goal skip                         Abandon the active task and move to the next",
-		"  /goal clear                        Drop the active goal (stops task enforcement)",
-		"  /refine [on|off]                   Show or toggle pre-turn prompt refinement (on by default)",
-		"  /instruct [topic]                  Brief the model on kdeps (tools, calling, memory, modes); primes the next prompt",
-		"  /instruct! [topic]                 Same briefing, sent as a turn now - the model reads and acknowledges it on the spot",
-		"  /instruct list                     Show the briefing topics",
-		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
-		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
-		"  /judges remove <name>              Remove a judge from the explicit roster",
-		"  /judges auto [on|off]              Show or toggle a per-turn auto-generated roster",
-		"  /judges clear                      Disable the judge panel entirely",
-		"  /memory                            Show memory store overview (entry count, most recent entries)",
-		"  /memory list                       List all stored memory entries",
-		"  /memory search <query>             Search memory keys/values for a substring",
-		"  /memory show <key>                 Show one entry's full value, type, and related keys",
-		"  /upgrade                           Check for and install the latest stable kdeps release",
-		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
-		"  /upgrade <version>                 Install an exact version (older = downgrade), e.g. /upgrade 2.35.0",
-		"  /handshake [on|off]                Show or toggle the mandatory session-integrity tool-call check (off by default)",
-		"  /konfig export [path]              Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)",
+	lines := append([]string{heading("Available commands:")}, commandHelpLines()...)
+	lines = append(
+		lines,
+		"  /<skill-name> [..]                 Invoke a loaded skill or prompt template by name",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
-	}
+	)
 	for _, l := range lines {
 		fmt.Fprintln(os.Stdout, l)
 	}
@@ -3035,6 +3001,21 @@ func parseOnOff(v string) (bool, bool) {
 	}
 }
 
+// unlimitedCallLimit is the Config *Limit value meaning "no cap" (negative,
+// since 0 means "use the event default"; see SetConvergenceLimits).
+const unlimitedCallLimit = -1
+
+func callLimitLabel(n int) string {
+	switch {
+	case n < 0:
+		return "unlimited"
+	case n == 0:
+		return "default"
+	default:
+		return strconv.Itoa(n)
+	}
+}
+
 // printToolSettings prints every tunable with its current value.
 func (r *REPL) printToolSettings() {
 	cfg := &r.loop.config
@@ -3049,10 +3030,14 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 20)", cfg.WebLimit)},
-		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 50)", cfg.BashLimit)},
-		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 80)", cfg.FileLimit)},
-		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 30)", cfg.CodeLimit)},
+		{"web-limit", fmt.Sprintf(
+			"%s  (max web_search/web_scraper per request, 0=unlimited)", callLimitLabel(cfg.WebLimit))},
+		{"bash-limit", fmt.Sprintf(
+			"%s  (max bash_exec per request, 0=unlimited)", callLimitLabel(cfg.BashLimit))},
+		{"file-limit", fmt.Sprintf(
+			"%s  (max read_file/list_files per request, 0=unlimited)", callLimitLabel(cfg.FileLimit))},
+		{"code-limit", fmt.Sprintf(
+			"%s  (max search_local/code_search per request, 0=unlimited)", callLimitLabel(cfg.CodeLimit))},
 		{"leaf-nodes", fmt.Sprintf(
 			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
 		{"leaf-chars", fmt.Sprintf(
@@ -3147,6 +3132,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		if err != nil || n < 0 {
 			return "", "web-limit must be a non-negative integer (0=unlimited)"
 		}
+		if n == 0 {
+			cfg.WebLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Web call limit removed (unlimited per request)", ""
+		}
 		cfg.WebLimit = n
 		return fmt.Sprintf("Web call limit set to %d per request", n), ""
 	},
@@ -3154,6 +3143,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return "", "bash-limit must be a non-negative integer (0=unlimited)"
+		}
+		if n == 0 {
+			cfg.BashLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Bash call limit removed (unlimited per request)", ""
 		}
 		cfg.BashLimit = n
 		return fmt.Sprintf("Bash call limit set to %d per request", n), ""
@@ -3163,6 +3156,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		if err != nil || n < 0 {
 			return "", "file-limit must be a non-negative integer (0=unlimited)"
 		}
+		if n == 0 {
+			cfg.FileLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "File read limit removed (unlimited per request)", ""
+		}
 		cfg.FileLimit = n
 		return fmt.Sprintf("File read limit set to %d per request", n), ""
 	},
@@ -3170,6 +3167,10 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return "", "code-limit must be a non-negative integer (0=unlimited)"
+		}
+		if n == 0 {
+			cfg.CodeLimit = unlimitedCallLimit // 0 would re-apply the event default
+			return "Code search limit removed (unlimited per request)", ""
 		}
 		cfg.CodeLimit = n
 		return fmt.Sprintf("Code search limit set to %d per request", n), ""
@@ -4567,6 +4568,33 @@ func (r *REPL) autoSaveOnExit() {
 		styleReplDim.Render("Session saved. It will be offered when you next run kdeps here (--resume "+id+")."))
 }
 
+// writeSessionNoteOnExit writes the knowledge vault's note for the turns
+// since the last one. The loop context may already be cancelled by /exit;
+// the note is still written, bounded by its own timeout.
+//
+// Only an interactive terminal session pays for it: a piped or scripted
+// session exits at once (its compactions still write notes, which cost no
+// extra model call).
+func (r *REPL) writeSessionNoteOnExit() {
+	if !r.loop.SessionNoteDue() || !stdinIsTerminal() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
+	defer cancel()
+	fmt.Fprintln(os.Stdout, styleReplDim.Render("Writing the session note to the knowledge vault..."))
+	r.loop.WriteSessionNoteNow(ctx, os.Stdout)
+	r.loop.ExtractKnowledge(ctx, os.Stdout, false)
+}
+
+// stdinIsTerminal reports whether the session reads a real terminal
+// (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// sessionNoteTimeout bounds the session-end note and extraction together.
+const sessionNoteTimeout = 2 * time.Minute
+
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
 func (r *REPL) cmdSession(args []string) error {
 	store := r.loop.Store()
@@ -4962,7 +4990,8 @@ func copyToClipboard(ctx context.Context, text string) error {
 }
 
 // cmdReload reloads skills, prompt templates, and instructions from disk.
-// Picks up changes to .kdeps/skills/ and .kdeps/prompts/ without restarting.
+// Picks up changes to skills and prompt templates (global, the project's
+// .kdeps folder, and --skill paths) without restarting.
 func (r *REPL) cmdReload() error {
 	r.loop.Reload()
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reloaded skills and prompt templates from disk."))
@@ -5021,7 +5050,8 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [sent %s | generated %s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
+	fmt.Fprintf(os.Stdout, "  %s [session sent %s | generated %s | total %s]\n\n",
+		end, formatCompactCount(in), formatCompactCount(out), formatCompactCount(in+out))
 
 	// Convergence pipelines
 	wc, wm := WebConvergenceCalls()
@@ -5051,7 +5081,7 @@ func (r *REPL) cmdKartographer() error {
 
 	// Memory bridge
 	fmt.Fprintln(os.Stdout, meta("memory"))
-	fmt.Fprintf(os.Stdout, "  %s memory_search before every action\n", tee)
+	fmt.Fprintf(os.Stdout, "  %s memory_query when memory can help (not before every action)\n", tee)
 	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)

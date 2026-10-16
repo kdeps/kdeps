@@ -1,0 +1,171 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: git
+  description: Structured git operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull)
+  version: "1.0.1"
+interface:
+  inputs:
+    - name: operation
+      type: string
+      required: true
+      description: status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push or pull
+    - name: workingDir
+      type: string
+      default: ""
+      description: Repository directory (clone - the target directory); default the current directory
+    - name: paths
+      type: string
+      default: ""
+      description: Space-separated paths for add, checkout, diff, log (add defaults to .)
+    - name: message
+      type: string
+      default: ""
+      description: Commit message (commit)
+    - name: branch
+      type: string
+      default: ""
+      description: Branch for checkout, push, pull
+    - name: url
+      type: string
+      default: ""
+      description: Repository URL (clone)
+    - name: remote
+      type: string
+      default: origin
+      description: Remote for push and pull
+    - name: args
+      type: string
+      default: ""
+      description: Extra space-separated git arguments (show)
+    - name: maxCount
+      type: integer
+      default: 10
+      description: Commits to list (log)
+    - name: dryRun
+      type: boolean
+      default: false
+      description: Report what a write operation would do without doing it
+resources:
+  - actionId: gitOperation
+    name: Git
+    python:
+      timeout: 300s
+      args:
+        - "{{ get('git.operation') }}"
+        - "{{ get('git.workingDir') }}"
+        - "{{ get('git.paths') }}"
+        - "{{ get('git.message') }}"
+        - "{{ get('git.branch') }}"
+        - "{{ get('git.url') }}"
+        - "{{ get('git.remote') }}"
+        - "{{ get('git.args') }}"
+        - "{{ get('git.maxCount') }}"
+        - "{{ get('git.dryRun') }}"
+      script: |
+        # Runs one git operation and prints its structured result as JSON.
+        import json, os, shlex, subprocess, sys
+
+        op, wd, paths, message, branch, url, remote, extra, max_count, dry = sys.argv[1:11]
+        paths, extra = shlex.split(paths), shlex.split(extra)
+        remote = remote or "origin"
+        dry = dry.lower() == "true"
+        env = dict(os.environ, GIT_PAGER="cat", GIT_TERMINAL_PROMPT="0")
+
+        def git(*args, cwd=wd or None):
+            p = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True)
+            if p.returncode != 0:
+                sys.stderr.write(p.stderr)
+                sys.exit("git %s failed: exit status %d" % (args[0], p.returncode))
+            return p.stdout
+
+        def done(**fields):
+            print(json.dumps(dict(fields, success=True)))
+            sys.exit(0)
+
+        if op == "status":
+            out = git("status", "--porcelain", "-b")
+            branch_name, staged, unstaged, untracked, conflicts = "", [], [], [], []
+            for line in out.splitlines():
+                if line.startswith("##"):
+                    branch_name = line[2:].split("...", 1)[0].strip()
+                    continue
+                if len(line) < 4:
+                    continue
+                xy, f = line[:2], line[3:].strip()
+                if xy == "??":
+                    untracked.append(f)
+                elif "U" in xy:
+                    conflicts.append(f)
+                elif xy[0] not in " ?":
+                    staged.append(f)
+                elif xy[1] != " ":
+                    unstaged.append(f)
+            done(branch=branch_name, staged=staged, unstaged=unstaged, untracked=untracked, conflicts=conflicts)
+        if op == "diff":
+            out = git("diff", "--no-color", *(["--", *paths] if paths else []))
+            add = out.count("\n+") - out.count("\n+++")
+            dele = out.count("\n-") - out.count("\n---")
+            done(diff=out, additions=add, deletions=dele)
+        if op == "log":
+            n = int(max_count or 0) if (max_count or "0").isdigit() else 0
+            out = git("log", "--max-count=%d" % (n if n > 0 else 10), "--format=%H|%an|%ae|%ai|%s",
+                      *(["--", *paths] if paths else []))
+            commits = [dict(zip(["hash", "author", "email", "date", "message"], l.split("|", 4)))
+                       for l in out.splitlines() if l.count("|") >= 4]
+            done(commits=commits, count=len(commits))
+        if op == "show":
+            done(output=git("show", "--no-color", "--format=fuller", *extra))
+        if op == "branch":
+            branches, current = [], ""
+            for line in git("branch", "-a").splitlines():
+                if len(line) < 2:
+                    continue
+                is_current, name = line[0] == "*", line[1:].strip()
+                is_remote = name.startswith("remotes/")
+                name = name[len("remotes/"):] if is_remote else name
+                current = name if is_current else current
+                branches.append({"name": name, "current": is_current, "remote": is_remote})
+            done(branches=branches, current=current, count=len(branches))
+        if op == "remote":
+            remotes, seen = [], set()
+            for line in git("remote", "-v").splitlines():
+                p = line.split()
+                if len(p) >= 3 and (p[0], p[1]) not in seen:
+                    seen.add((p[0], p[1]))
+                    remotes.append({"name": p[0], "url": p[1], "type": p[2]})
+            done(remotes=remotes, count=len(remotes))
+        if op == "add":
+            if dry:
+                done(dryRun=True, staged=False)
+            git("add", *(paths or ["."]))
+            done(staged=True)
+        if op == "commit":
+            if not message:
+                sys.exit("git: commit message is required")
+            if dry:
+                done(dryRun=True, message=message, committed=False)
+            git("commit", "-m", message)
+            done(message=message, committed=True)
+        if op == "checkout":
+            if dry:
+                done(dryRun=True, branch=branch, paths=paths, switched=False)
+            git("checkout", *([branch] if branch else []), *(["--", *paths] if paths else []))
+            done(branch=branch, paths=paths, switched=True)
+        if op == "init":
+            if dry:
+                done(dryRun=True, initialized=False)
+            git("init")
+            done(path=wd or os.getcwd(), initialized=True)
+        if op == "clone":
+            if dry:
+                done(dryRun=True, url=url, cloned=False)
+            git("clone", url, *([wd] if wd else []), cwd=None)
+            done(url=url, cloned=True)
+        if op in ("push", "pull"):
+            key = op + "ed"
+            if dry:
+                done(dryRun=True, remote=remote, branch=branch, **{key: False})
+            git(op, remote, *([branch] if branch else []))
+            done(remote=remote, branch=branch, **{key: True})
+        sys.exit("git: unsupported operation %r" % op)

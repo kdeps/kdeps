@@ -32,7 +32,7 @@ func (s *Server) ParseRequest(
 	query := firstValuesFromMultiMap(r.URL.Query())
 	headers := firstValuesFromMultiMap(r.Header)
 
-	body := parseRequestBody(r)
+	body, rawBody := parseRequestBody(r)
 
 	trustedProxies := trustedProxiesForWorkflow(s.Workflow)
 	clientIP := extractClientIP(r, trustedProxies)
@@ -46,6 +46,7 @@ func (s *Server) ParseRequest(
 		Headers:   headers,
 		Query:     query,
 		Body:      body,
+		RawBody:   rawBody,
 		Files:     files,
 		IP:        clientIP,
 		ID:        requestID,

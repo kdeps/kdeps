@@ -1,6 +1,6 @@
 # Code intelligence resource
 
-The `codeIntelligence:` resource provides structured code navigation using **LSP** (Language Server Protocol) for semantic accuracy, with automatic fallback to [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) when no LSP server is available. Supports Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, and Java. Works in both modes: a DAG step in workflow mode, a built-in tool in agent mode.
+The `codeIntelligence:` resource provides structured code navigation using LSP (Language Server Protocol) for semantic accuracy, with automatic fallback to [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) when no LSP server is available. Supports Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, and Java. Works in both modes: a DAG step in workflow mode, a built-in tool in agent mode.
 
 ## How it works
 
@@ -47,13 +47,13 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, it is
 | `recursive` | all | Search subdirectories (rg fallback only) |
 | `topic` | graphTopic | Topic/tag to graph, as declared in a file's frontmatter |
 | `extensions` | indexFolder | File extensions to index, e.g. `[".md", ".yaml"]`. Defaults to `.md`/`.markdown`/`.txt`/`.yaml`/`.yml`. |
-| `graphDBPath` | indexFolder, graphFile, graphTopic, graphAll | Graph index db path. Defaults to `"<path>/.kdeps/graph.db"`, or `"<CWD>/.kdeps/graph.db"` for indexFolder/graphFile (which ignore `path`) and whenever `path` is also omitted. |
+| `graphDBPath` | indexFolder, graphFile, graphTopic, graphAll | Graph index db path. Defaults to `~/.kdeps/projects/<folder>-<hash>/graph.db` for `path`, or for the working folder with indexFolder/graphFile (which ignore `path`) and whenever `path` is also omitted. Nothing is written into the indexed folder. |
 
-> **`path` is ignored for `indexFolder`.** It always indexes the process's current working directory - there is no way to point it at an arbitrary filesystem location, by design (an LLM or workflow can't be tricked into indexing something outside the project it's running in).
+> `path` is ignored for `indexFolder`. It always indexes the process's current working directory - there is no way to point it at an arbitrary filesystem location, by design (an LLM or workflow cannot be tricked into indexing something outside the project it is running in).
 
 ## Requirements
 
-LSP servers are **optional but recommended** for semantic accuracy:
+LSP servers are optional but recommended for semantic accuracy:
 
 | Language | LSP Server | Install |
 |----------|-----------|---------|
@@ -73,7 +73,7 @@ sudo apt install ripgrep   # Ubuntu/Debian
 
 ## Operations
 
-### Symbol search
+## Symbol search
 
 Searches for a symbol or pattern across files. Uses LSP `workspace/symbol` for semantic search, or `rg` regex as fallback.
 
@@ -97,7 +97,7 @@ codeIntelligence:
 }
 ```
 
-### Definition
+## Definition
 
 Finds the definition of a symbol. Uses LSP `textDocument/definition` for semantic precision (no false positives on comments or similar names).
 
@@ -108,7 +108,7 @@ codeIntelligence:
   path: /path/to/project/main.go
 ```
 
-### References
+## References
 
 Finds all references to a symbol across the codebase. LSP returns cross-file results with type-level accuracy.
 
@@ -120,7 +120,7 @@ codeIntelligence:
   pattern: "*.go"
 ```
 
-### Document symbols
+## Document symbols
 
 Lists all symbols in a file with nesting (methods inside classes, etc.). LSP returns structured `DocumentSymbol[]` with children.
 
@@ -143,7 +143,7 @@ codeIntelligence:
 }
 ```
 
-### Hover
+## Hover
 
 Retrieves documentation and type information for a symbol. LSP returns real doc comments and type signatures.
 
@@ -154,7 +154,7 @@ codeIntelligence:
   path: /path/to/project/main.go
 ```
 
-### Diagnostics
+## Diagnostics
 
 Runs compiler/linter diagnostics on a file. LSP returns errors and warnings from the language server (e.g., `gopls` for Go, `pyright` for Python). Falls back to `go vet` for Go files when no LSP server is available.
 
@@ -175,7 +175,7 @@ codeIntelligence:
 }
 ```
 
-### Graphing an indexed folder
+## Graphing an indexed folder
 
 `indexFolder`/`graphFile`/`graphTopic`/`graphAll` are different from the LSP/rg operations above: instead of searching live files, they build and query a small persistent graph database of the current working directory, tracking which files link to which and which share a topic (from `topics:`/`tags:` frontmatter).
 
@@ -191,6 +191,6 @@ See [Graphing an Indexed Folder](/workflow/resources/code-graph) for the full re
 ## See also
 
 - [Agent mode](/agent/) - built-in `code_*` tools
-- [Git resource](/workflow/resources/git) - version control operations
+- [Git component](/workflow/resources/git) - version control operations
 - [Exec resource](/workflow/resources/exec) - shell commands
 - [searchLocal resource](/workflow/resources/search) - local file search

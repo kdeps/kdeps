@@ -37,17 +37,10 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	// Test that getters return nil initially (lazy initialization)
 	assert.Nil(t, registry.GetLLMExecutor())
 	assert.Nil(t, registry.GetHTTPExecutor())
-	assert.Nil(t, registry.GetSQLExecutor())
 	assert.Nil(t, registry.GetPythonExecutor())
 	assert.Nil(t, registry.GetExecExecutor())
-	assert.Nil(t, registry.GetScraperExecutor())
 	assert.Nil(t, registry.GetEmbeddingExecutor())
 	assert.Nil(t, registry.GetSearchLocalExecutor())
-	assert.Nil(t, registry.GetSearchWebExecutor())
-	assert.Nil(t, registry.GetTelephonyExecutor())
-	assert.Nil(t, registry.GetBrowserExecutor())
-	assert.Nil(t, registry.GetBotReplyExecutor())
-	assert.Nil(t, registry.GetEmailExecutor())
 }
 
 func TestExecutorRegistry_Setters(t *testing.T) {
@@ -56,47 +49,26 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	// Create mock executors (just need non-nil values for testing)
 	mockLLM := &mockExecutor{}
 	mockHTTP := &mockExecutor{}
-	mockSQL := &mockExecutor{}
 	mockPython := &mockExecutor{}
 	mockExec := &mockExecutor{}
-	mockScraper := &mockExecutor{}
 	mockEmbedding := &mockExecutor{}
 	mockSearchLocal := &mockExecutor{}
-	mockSearchWeb := &mockExecutor{}
-	mockTelephony := &mockExecutor{}
-	mockBrowser := &mockExecutor{}
-	mockBotReply := &mockExecutor{}
-	mockEmail := &mockExecutor{}
 
 	// Set executors
 	registry.SetLLMExecutor(mockLLM)
 	registry.SetHTTPExecutor(mockHTTP)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
-	registry.SetScraperExecutor(mockScraper)
 	registry.SetEmbeddingExecutor(mockEmbedding)
 	registry.SetSearchLocalExecutor(mockSearchLocal)
-	registry.SetSearchWebExecutor(mockSearchWeb)
-	registry.SetTelephonyExecutor(mockTelephony)
-	registry.SetBrowserExecutor(mockBrowser)
-	registry.SetBotReplyExecutor(mockBotReply)
-	registry.SetEmailExecutor(mockEmail)
 
 	// Verify getters return the set values
 	assert.Equal(t, mockLLM, registry.GetLLMExecutor())
 	assert.Equal(t, mockHTTP, registry.GetHTTPExecutor())
-	assert.Equal(t, mockSQL, registry.GetSQLExecutor())
 	assert.Equal(t, mockPython, registry.GetPythonExecutor())
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
-	assert.Equal(t, mockScraper, registry.GetScraperExecutor())
 	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())
 	assert.Equal(t, mockSearchLocal, registry.GetSearchLocalExecutor())
-	assert.Equal(t, mockSearchWeb, registry.GetSearchWebExecutor())
-	assert.Equal(t, mockTelephony, registry.GetTelephonyExecutor())
-	assert.Equal(t, mockBrowser, registry.GetBrowserExecutor())
-	assert.Equal(t, mockBotReply, registry.GetBotReplyExecutor())
-	assert.Equal(t, mockEmail, registry.GetEmailExecutor())
 }
 
 // mockExecutor is a simple mock implementation for testing.

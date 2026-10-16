@@ -127,22 +127,22 @@ else
 fi
 
 # ── Test 12: security and quality agents are non-server (internal) ────────────
-SECURITY_SERVER=$(grep -E "apiServerMode:\s*true" "$SECURITY_WF" 2>/dev/null || echo "")
-QUALITY_SERVER=$(grep -E "apiServerMode:\s*true" "$QUALITY_WF" 2>/dev/null || echo "")
+SECURITY_SERVER=$(grep -E "^  apiServer:" "$SECURITY_WF" 2>/dev/null || echo "")
+QUALITY_SERVER=$(grep -E "^  apiServer:" "$QUALITY_WF" 2>/dev/null || echo "")
 if [ -z "$SECURITY_SERVER" ] && [ -z "$QUALITY_SERVER" ]; then
-    test_passed "Codeguard Agency - security and quality agents are internal (apiServerMode: false)"
+    test_passed "Codeguard Agency - security and quality agents are internal (no apiServer block)"
 else
     test_failed "Codeguard Agency - security and quality agents are internal" \
-        "One or both agents have apiServerMode: true (should be internal only)"
+        "One or both agents declare an apiServer block (should be internal only)"
 fi
 
 # ── Test 13: report agent is non-server (internal) ───────────────────────────
-REPORT_SERVER=$(grep -E "apiServerMode:\s*true" "$REPORT_WF" 2>/dev/null || echo "")
+REPORT_SERVER=$(grep -E "^  apiServer:" "$REPORT_WF" 2>/dev/null || echo "")
 if [ -z "$REPORT_SERVER" ]; then
-    test_passed "Codeguard Agency - report agent is internal (apiServerMode: false)"
+    test_passed "Codeguard Agency - report agent is internal (no apiServer block)"
 else
     test_failed "Codeguard Agency - report agent is internal" \
-        "Report agent has apiServerMode: true (should be internal only)"
+        "Report agent declares an apiServer block (should be internal only)"
 fi
 
 # ── Test 14: input validation present in intake ───────────────────────────────

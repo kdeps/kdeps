@@ -14,6 +14,8 @@
 
 package config
 
+import "strings"
+
 // LLMProvider describes a supported cloud LLM provider.
 type LLMProvider struct {
 	Name    string // backend name, e.g. "openai"
@@ -24,15 +26,62 @@ type LLMProvider struct {
 	// Used only as a last-resort cloud pick when no local model is found --
 	// see pkg/executor/llm.AutoRouterPick.
 	DefaultModel string
+	// The rest is set for OpenAI-compatible providers (the providers asset set).
+	Label      string   // display name, e.g. "Groq"
+	URL        string   // default API host, ${VAR}s expanded, e.g. https://api.groq.com
+	ChatPath   string   // chat completions path under URL, e.g. /openai/v1/chat/completions
+	Embeddings bool     // also serves OpenAI-compatible /embeddings
+	Hosts      []string // URL substrings that identify the provider, e.g. groq.com
 }
 
-// CloudLLMProviders returns supported cloud LLM providers in registry order.
+// OpenAICompatible reports whether the provider comes from the providers
+// asset set (an OpenAI-compatible chat endpoint).
+func (p LLMProvider) OpenAICompatible() bool { return p.ChatPath != "" }
+
+// BaseURL is the OpenAI SDK base URL (URL plus ChatPath without
+// /chat/completions), or "" when ChatPath is not OpenAI-shaped.
+func (p LLMProvider) BaseURL() string {
+	base, ok := strings.CutSuffix(p.ChatPath, "/chat/completions")
+	if !ok || p.URL == "" {
+		return ""
+	}
+	return p.URL + base
+}
+
+// CloudLLMProviders returns supported cloud LLM providers in provider order:
+// the built-in ones and the providers asset set.
 func CloudLLMProviders() []LLMProvider {
-	providers := make([]LLMProvider, len(cloudProvidersList))
-	for i, p := range cloudProvidersList {
-		providers[i] = LLMProvider{
-			Name: p.name, YAMLKey: p.yamlKey, EnvVar: p.envVar, DefaultModel: p.defaultModel,
-		}
+	list := cloudProviderList()
+	providers := make([]LLMProvider, len(list))
+	for i, p := range list {
+		providers[i] = p.public()
 	}
 	return providers
+}
+
+// LookupProvider returns the cloud provider called name.
+func LookupProvider(name string) (LLMProvider, bool) {
+	p, ok := providerByName(name)
+	return p.public(), ok
+}
+
+func (p cloudProvider) public() LLMProvider {
+	u := p.url
+	if u != "" {
+		u = expandProviderURL(u)
+	}
+	return LLMProvider{
+		Name: p.name, YAMLKey: p.yamlKey, EnvVar: p.envVar, DefaultModel: p.defaultModel,
+		Label: p.label, URL: u, ChatPath: p.chatPath, Embeddings: p.embeddings, Hosts: p.hosts,
+	}
+}
+
+// EmbeddingBaseURL is the OpenAI-compatible embeddings base URL of the
+// provider called name, or "" when it does not serve embeddings.
+func EmbeddingBaseURL(name string) string {
+	p, ok := LookupProvider(name)
+	if !ok || !p.Embeddings {
+		return ""
+	}
+	return p.BaseURL()
 }

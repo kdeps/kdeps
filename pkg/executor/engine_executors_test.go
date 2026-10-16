@@ -39,46 +39,12 @@ func newTestEngineInternal() *Engine {
 	return NewEngine(nil)
 }
 
-func TestExecuteFile_NilConfig(t *testing.T) {
-	eng := newTestEngineInternal()
-	res := &domain.Resource{ActionID: "test", File: nil}
-	_, err := eng.executeFile(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "file")
-}
-
-func TestExecuteGit_NilConfig(t *testing.T) {
-	eng := newTestEngineInternal()
-	res := &domain.Resource{ActionID: "test", Git: nil}
-	_, err := eng.executeGit(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "git")
-}
-
 func TestExecuteCodeIntelligence_NilConfig(t *testing.T) {
 	eng := newTestEngineInternal()
 	res := &domain.Resource{ActionID: "test", CodeIntelligence: nil}
 	_, err := eng.executeCodeIntelligence(res, &ExecutionContext{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "codeIntelligence")
-}
-
-func TestExecuteFile_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	cfg := &domain.FileResourceConfig{}
-	res := &domain.Resource{ActionID: "test", File: cfg}
-	_, err := eng.executeFile(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "file executor not available")
-}
-
-func TestExecuteGit_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	cfg := &domain.GitResourceConfig{}
-	res := &domain.Resource{ActionID: "test", Git: cfg}
-	_, err := eng.executeGit(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "git executor not available")
 }
 
 func TestExecuteCodeIntelligence_NoExecutor(t *testing.T) {

@@ -27,10 +27,12 @@ jinja2-expressions/
 
 ```yaml
 # workflow.yaml
+settings:
+  apiServer:
 {% if env.PORT %}
-  portNum: {{ env.PORT | int }}
+    portNum: {{ env.PORT | int }}
 {% else %}
-  portNum: 16395
+    portNum: 16395
 {% endif %}
 ```
 

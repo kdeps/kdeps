@@ -1,0 +1,11 @@
+version: 1.0.0
+description: 'Find the definition of a symbol using semantic analysis (LSP). Returns file and line. Requires: symbol, path.'
+parameters:
+  path:
+    type: string
+    description: File containing the symbol reference (absolute path)
+    required: true
+  symbol:
+    type: string
+    description: Symbol name to find the definition of
+    required: true

@@ -185,7 +185,7 @@ func TestRegistryInstall_ComponentGlobal(t *testing.T) {
 	err = doRegistryInstall(cmd, "scraper@1.0.0", srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "scraper")
-	assert.Contains(t, out.String(), "kdeps registry info scraper")
+	assert.Contains(t, out.String(), "kdeps info scraper")
 	_, statErr := os.Stat(filepath.Join(globalDir, "scraper", "component.yaml"))
 	assert.NoError(t, statErr)
 }
@@ -658,6 +658,30 @@ func TestResolvePackageInfo_EmptyVersion(t *testing.T) {
 	_, err := resolvePackageInfo("pkg", srv.URL)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no version found")
+}
+
+func TestResolvePackageInfo_AssetType(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		body, _ := json.Marshal(map[string]string{"latestVersion": "1.0.0", "type": "harness"})
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	_, err := resolvePackageInfo("kdeps-harness-safety", srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps update")
+}
+
+func TestResolvePackageInfo_ResourceType(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		body, _ := json.Marshal(map[string]string{"latestVersion": "2.58.2", "type": "resource"})
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	_, err := resolvePackageInfo("kdeps-resource-scraper", srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "built-in kdeps resource type")
 }
 
 // ---------------------------------------------------------------------------

@@ -48,21 +48,21 @@ func TestCountPrimaryResourceTypes(t *testing.T) {
 			count: 1,
 		},
 		{
-			name: "scraper only",
+			name: "embedding only",
 			res: &domain.Resource{
-				ActionID: "a",
-				Name:     "n",
-				Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+				ActionID:  "a",
+				Name:      "n",
+				Embedding: &domain.EmbeddingConfig{Text: "t"},
 			},
 			count: 1,
 		},
 		{
-			name: "chat and scraper",
+			name: "chat and embedding",
 			res: &domain.Resource{
-				ActionID: "a",
-				Name:     "n",
-				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
-				Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+				ActionID:  "a",
+				Name:      "n",
+				Chat:      &domain.ChatConfig{Model: "m", Prompt: "p"},
+				Embedding: &domain.EmbeddingConfig{Text: "t"},
 			},
 			count: 2,
 		},
@@ -102,8 +102,8 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 		t.Fatal("apiResponse should be recognized")
 	}
 
-	if !domain.IsRecognizedResourceActionKey("botReply") {
-		t.Fatal("botReply should be recognized")
+	if domain.IsRecognizedResourceActionKey("botReply") {
+		t.Fatal("botReply is gone: a bot sends the workflow result")
 	}
 	if domain.IsRecognizedResourceActionKey("unknownAction") {
 		t.Fatal("unknownAction should not be recognized")
@@ -121,7 +121,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"exec", &domain.Resource{Exec: &domain.ExecConfig{}}, "exec"},
 		{"python", &domain.Resource{Python: &domain.PythonConfig{}}, "python"},
 		{"chat maps to llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
-		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
 		{
 			"httpClient maps to http",
 			&domain.Resource{HTTPClient: &domain.HTTPClientConfig{}},
@@ -129,14 +128,8 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		},
 		{"agent", &domain.Resource{Agent: &domain.AgentCallConfig{}}, "agent"},
 		{"component", &domain.Resource{Component: &domain.ComponentCallConfig{}}, "component"},
-		{"scraper", &domain.Resource{Scraper: &domain.ScraperConfig{}}, "scraper"},
 		{"embedding", &domain.Resource{Embedding: &domain.EmbeddingConfig{}}, "embedding"},
 		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
-		{"searchWeb", &domain.Resource{SearchWeb: &domain.SearchWebConfig{}}, "searchWeb"},
-		{"telephony", &domain.Resource{Telephony: &domain.TelephonyActionConfig{}}, "telephony"},
-		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
-		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
-		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
 		{
 			"apiResponse only",
 			&domain.Resource{APIResponse: &domain.APIResponseConfig{}},
@@ -170,10 +163,9 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	got := domain.PrimaryResourceTypesList()
 	// Verify all expected resource types are present in the list.
 	expectedTypes := []string{
-		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "file", "git",
-		"codeIntelligence", "loader", "vectorStore", "transcribe", "ocr", "apiResponse",
+		"chat", "httpClient", "python", "exec", "agent", "component",
+		"embedding", "searchLocal",
+		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	for _, et := range expectedTypes {
 		if !strings.Contains(got, et) {
@@ -186,10 +178,9 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	t.Parallel()
 
 	want := []string{
-		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
-		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "file", "git",
-		"codeIntelligence", "loader", "vectorStore", "transcribe", "ocr", "apiResponse",
+		"chat", "httpClient", "python", "exec", "agent", "component",
+		"embedding", "searchLocal",
+		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {

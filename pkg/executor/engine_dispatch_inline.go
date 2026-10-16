@@ -60,7 +60,6 @@ func (e *Engine) executeInlineResources(
 			"index", i,
 			"hasChat", inline.Chat != nil,
 			"hasHTTPClient", inline.HTTPClient != nil,
-			"hasSQL", inline.SQL != nil,
 			"hasPython", inline.Python != nil,
 			"hasExec", inline.Exec != nil,
 			"hasAgent", inline.Agent != nil,
@@ -103,9 +102,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorHTTP: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineHTTP(inline.HTTPClient, ctx)
 		},
-		ExecutorSQL: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineSQL(inline.SQL, ctx)
-		},
 		ExecutorPython: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlinePython(inline.Python, ctx)
 		},
@@ -118,32 +114,11 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorComponent: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeComponentCall(inlineSyntheticResource(inline, index), ctx)
 		},
-		ExecutorScraper: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineScraper(inline.Scraper, ctx)
-		},
 		ExecutorEmbedding: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineEmbedding(inline.Embedding, ctx)
 		},
 		ExecutorSearchLocal: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineSearchLocal(inline.SearchLocal, ctx)
-		},
-		ExecutorSearchWeb: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineSearchWeb(inline.SearchWeb, ctx)
-		},
-		ExecutorTelephony: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineTelephony(inline.Telephony, ctx)
-		},
-		ExecutorBrowser: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineBrowser(inline.Browser, ctx)
-		},
-		ExecutorEmail: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeEmail(inlineSyntheticResource(inline, index), ctx)
-		},
-		ExecutorFile: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineFile(inline.File, ctx)
-		},
-		ExecutorGit: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineGit(inline.Git, ctx)
 		},
 		ExecutorCodeIntel: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
@@ -153,15 +128,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		},
 		ExecutorVectorStore: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineVectorStore(inline.VectorStore, ctx)
-		},
-		ExecutorTranscribe: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineTranscribe(inline.Transcribe, ctx)
-		},
-		ExecutorOCR: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineOCR(inline.OCR, ctx)
-		},
-		ExecutorBotReply: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},
 		ExecutorAPIResponse: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
@@ -196,8 +162,6 @@ func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.R
 	return &domain.Resource{
 		ActionID:    fmt.Sprintf("_inline_%d", index),
 		Component:   inline.Component,
-		Email:       inline.Email,
-		BotReply:    inline.BotReply,
 		APIResponse: inline.APIResponse,
 	}
 }

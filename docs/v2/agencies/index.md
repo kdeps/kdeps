@@ -12,16 +12,12 @@ kdeps ./my-agency/         # register the agency as one LLM tool in the REPL
 
 **Not this?** For a single deterministic pipeline, use [kdeps workflow](/workflow/).
 For an autonomous agent that decides what to do next, [kdeps agent](/agent/). To
-reuse one bundle of resources across projects, that's a
+reuse one bundle of resources across projects, that is a
 [component](/agencies/components), not an agency.
 
 ---
 
-An AI agency is a collection of kdeps agents that cooperate on a task. Agencies work in both modes: `kdeps run my-agency/` runs the entry-point pipeline; `kdeps ./my-agency/` registers the agency as one LLM tool and runs that pipeline only when the model calls it.
-
 ## Use cases
-
-Agencies are the natural evolution from single agents. Where a single agent handles one workflow, an agency coordinates many specialized agents - each one a reproducible, repeatable process - into a unified system that tackles multi-step problems.
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|
@@ -29,7 +25,6 @@ Agencies are the natural evolution from single agents. Where a single agent hand
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
 | No inter-agent delegation | Agents delegate work to each other via `agent:` resource |
-| Limited scope | Self-governing system handles complex end-to-end tasks autonomously |
 
 ## Directory structure
 
@@ -71,12 +66,12 @@ agents:
 
 ### Agent discovery
 
-When the `agents:` list is **omitted**, kdeps auto-discovers agents in two ways:
+When the `agents:` list is omitted, kdeps auto-discovers agents in two ways:
 
 1. **Directory-based** - any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...) is loaded.
 2. **Packed archives** - any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
 
-When the `agents:` list is **provided**, only the listed entries are loaded (directories
+When the `agents:` list is provided, only the listed entries are loaded (directories
 or `.kdeps` archives). All listed paths are resolved relative to the agency directory.
 
 ## Running an agency
@@ -91,7 +86,7 @@ kdeps run my-agency/agency.yaml
 
 ## Inter-agent calls (agent:)
 
-The `agent:` resource type is like calling a function where the function is an entire workflow. kdeps runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
+The `agent:` resource runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
 
 ```d2
 direction: right
@@ -118,7 +113,7 @@ agent:
 ## Packaging an agency (.kagency)
 
 An entire agency - `agency.yaml` plus all `agents/` sub-trees - can be packed into a
-single portable **`.kagency`** archive (a gzip-compressed tar).
+single portable `.kagency` archive (a gzip-compressed tar).
 
 ```bash
 # Pack the agency → produces my-agency-1.0.0.kagency
@@ -165,7 +160,7 @@ containerised service.
 ## Creating a self-contained binary
 
 A `.kagency` archive (or a plain `.kdeps` workflow archive) can be embedded directly
-into the kdeps binary, producing a **zero-dependency single binary**:
+into the kdeps binary, producing a zero-dependency single binary:
 
 ```bash
 kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/

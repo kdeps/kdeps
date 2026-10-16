@@ -21,14 +21,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
+	"time"
 
 	"errors"
 
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // --- writeConfig ---
@@ -334,20 +336,20 @@ func TestDirOf_Root(t *testing.T) {
 
 func TestProviderNames_NonEmpty(t *testing.T) {
 	names := providerNames()
-	assert.Equal(t, len(allProviderNames), len(names))
+	assert.Equal(t, len(allProviderNames()), len(names))
 	assert.Equal(t, "file", names[0])
 	assert.Equal(t, ollamaBackendStr, names[1])
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Contains(t, names, p.name)
 	}
 }
 
 func TestCloudProvidersList_UniqueNames(t *testing.T) {
-	seen := make(map[string]bool, len(cloudProvidersList))
-	for _, p := range cloudProvidersList {
+	seen := make(map[string]bool, len(cloudProviderList()))
+	for _, p := range cloudProviderList() {
 		assert.False(t, seen[p.name], "duplicate provider %s", p.name)
 		seen[p.name] = true
-		mapped, ok := cloudProviders[p.name]
+		mapped, ok := providerByName(p.name)
 		require.True(t, ok)
 		assert.Equal(t, p.name, mapped.name)
 		assert.Equal(t, p.yamlKey, mapped.yamlKey)
@@ -356,13 +358,13 @@ func TestCloudProvidersList_UniqueNames(t *testing.T) {
 }
 
 func TestKnownLLMKeys_IncludesCloudProviderFields(t *testing.T) {
-	for _, p := range cloudProvidersList {
-		assert.True(t, knownLLMKeys[p.yamlKey], "missing %s", p.yamlKey)
+	for _, p := range cloudProviderList() {
+		assert.True(t, knownLLMKeys()[p.yamlKey], "missing %s", p.yamlKey)
 	}
 }
 
 func TestCloudProviders_SetOnConfigWorks(t *testing.T) {
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		cfg := &Config{}
 		p.setOnConfig(cfg, "test-key")
 		assert.Equal(t, "test-key", p.getKey(cfg.LLM), "backend %s", p.name)
@@ -371,8 +373,8 @@ func TestCloudProviders_SetOnConfigWorks(t *testing.T) {
 
 func TestBuildRoutingExamplesSection_UsesCloudProviders(t *testing.T) {
 	section := buildRoutingExamplesSection()
-	require.GreaterOrEqual(t, len(cloudProvidersList), 2)
-	for _, p := range cloudProvidersList[:2] {
+	require.GreaterOrEqual(t, len(cloudProviderList()), 2)
+	for _, p := range cloudProviderList()[:2] {
 		assert.Contains(t, section, p.name)
 	}
 	assert.Contains(t, section, ollamaBackendStr)
@@ -380,8 +382,8 @@ func TestBuildRoutingExamplesSection_UsesCloudProviders(t *testing.T) {
 
 func TestBuildAgentsExampleSection_UsesCloudProviders(t *testing.T) {
 	section := buildAgentsExampleSection()
-	require.GreaterOrEqual(t, len(cloudProvidersList), 2)
-	for _, p := range cloudProvidersList[:2] {
+	require.GreaterOrEqual(t, len(cloudProviderList()), 2)
+	for _, p := range cloudProviderList()[:2] {
 		assert.Contains(t, section, p.name)
 		assert.Contains(t, section, p.yamlKey)
 	}
@@ -399,7 +401,7 @@ func TestBootstrap_WritesAllProviders(t *testing.T) {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	content := string(data)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Contains(t, content, p.yamlKey, "missing %s in template", p.yamlKey)
 	}
 	for _, name := range providerNames() {
@@ -410,7 +412,7 @@ func TestBootstrap_WritesAllProviders(t *testing.T) {
 func TestDoctorSpotCheckEnvVars_FromProviders(t *testing.T) {
 	spotCheck := doctorSpotCheckEnvVars()
 	require.NotEmpty(t, spotCheck)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		if p.doctorSpotCheck {
 			assert.Contains(t, spotCheck, p.envVar, p.name)
 		} else {
@@ -499,25 +501,46 @@ func TestBootstrap_InteractivePath(t *testing.T) {
 
 // --- GetDefaults YAML parse error ---
 
-func TestGetDefaults_ParseError(t *testing.T) {
-	origYAML := make([]byte, len(defaultsYAML))
-	copy(origYAML, defaultsYAML)
-
-	defaultsYAML = []byte("invalid: {{")
-	parseDefaultsOnce = sync.Once{}
+// stubDefaults makes GetDefaults read data (or fail with err) until the test ends.
+func stubDefaults(t *testing.T, data []byte, err error) {
+	t.Helper()
+	orig := readDefaults
+	readDefaults = func() ([]byte, error) { return data, err }
 	parsedDefaults = nil
-	errDefaultsParse = nil
-
 	t.Cleanup(func() {
-		defaultsYAML = origYAML
-		parseDefaultsOnce = sync.Once{}
+		readDefaults = orig
 		parsedDefaults = nil
-		errDefaultsParse = nil
 	})
+}
 
-	_, err := GetDefaults()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parse embedded defaults.yml")
+func TestGetDefaults_ParseError(t *testing.T) {
+	stubDefaults(t, []byte("invalid: {{"), nil)
+	d, err := GetDefaults()
+	require.ErrorContains(t, err, "parse executor defaults")
+	require.NotNil(t, d, "callers dereference the result without checking")
+}
+
+func TestGetDefaults_MissingIsZeroAndNotCached(t *testing.T) {
+	stubDefaults(t, nil, errors.New("no such file"))
+	d, err := GetDefaults()
+	require.ErrorContains(t, err, "run kdeps update")
+	require.NotNil(t, d)
+	assert.Equal(t, 60*time.Second, d.Chat.TimeoutDuration(), "accessors fall back")
+
+	readDefaults = func() ([]byte, error) { return []byte("version: 1.0.0\nchat:\n  timeout: 5s\n"), nil }
+	d, err = GetDefaults()
+	require.NoError(t, err)
+	assert.Equal(t, 5*time.Second, d.Chat.TimeoutDuration(), "a later install is picked up")
+}
+
+func TestGetDefaults_FromAssets(t *testing.T) {
+	parsedDefaults = nil
+	t.Cleanup(func() { parsedDefaults = nil })
+	d, err := GetDefaults()
+	require.NoError(t, err)
+	assert.Equal(t, 4096, d.Chat.ContextLength)
+	require.Error(t, assets.Install(t.TempDir(), "defaults/executors", []byte("version: 2.0.0\nchat: [\n"), false))
+	require.Error(t, assets.Remove(t.TempDir(), "defaults/executors"), "required")
 }
 
 func TestConfigureBackendChoice_InvalidIsNoop(t *testing.T) {

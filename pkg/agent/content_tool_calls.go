@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/jsonutil"
+	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 )
 
 // Some models emit a tool call as text instead of through the backend's
@@ -116,9 +116,6 @@ func restoreFencedCodeBlocks(content string, blocks []string) string {
 	return content
 }
 
-// toolCallArgKeys are the field names models use for a tool call's arguments.
-func toolCallArgKeys() []string { return []string{"arguments", "parameters", "args", "input"} }
-
 // salvageContentToolCalls recovers tool calls a model wrote into its text and
 // reports whether the text also contains a hallucinated tool result. The
 // returned calls are empty when none parse; cleaned is content with all
@@ -151,7 +148,7 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {
 		for _, m := range dsmlBlockRe.FindAllString(cleaned, -1) {
-			if c := parseToolCallJSON(m); c != nil {
+			if c := toolcall.ParseJSON(m); c != nil {
 				calls = append(calls, *c)
 			}
 		}
@@ -172,7 +169,7 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	cleaned = functionCallsWrapRe.ReplaceAllString(cleaned, "")
 
 	for _, m := range functionAttrRe.FindAllStringSubmatch(cleaned, -1) {
-		args := extractFirstJSONObject(m[2])
+		args := toolcall.FirstJSONObject(m[2])
 		if args == "" {
 			args = "{}"
 		}
@@ -181,8 +178,8 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	cleaned = functionAttrRe.ReplaceAllString(cleaned, "")
 
 	if len(calls) == 0 {
-		if c := parseWholeContentToolCall(cleaned); c != nil {
-			calls = append(calls, *c)
+		if whole := toolcall.ParseWholeContent(cleaned); len(whole) > 0 {
+			calls = append(calls, whole...)
 			cleaned = ""
 		}
 	}
@@ -226,40 +223,11 @@ func collectTagCalls(
 	calls []domain.StreamedToolCall, text string, re *regexp.Regexp,
 ) ([]domain.StreamedToolCall, string) {
 	for _, m := range re.FindAllStringSubmatch(text, -1) {
-		if c := parseToolCallJSON(m[1]); c != nil {
+		if c := toolcall.ParseJSON(m[1]); c != nil {
 			calls = append(calls, *c)
 		}
 	}
 	return calls, re.ReplaceAllString(text, "")
-}
-
-// parseToolCallJSON reads the first balanced JSON object in body as a tool call
-// ({"name": "...", "arguments"|"parameters"|"args"|"input": {...}}). Returns nil
-// when there is no object or no name.
-func parseToolCallJSON(body string) *domain.StreamedToolCall {
-	obj := extractFirstJSONObject(body)
-	if obj == "" {
-		return nil
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(obj), &m); err != nil {
-		return nil
-	}
-	var name string
-	if raw, ok := m["name"]; ok {
-		_ = json.Unmarshal(raw, &name)
-	}
-	if strings.TrimSpace(name) == "" {
-		return nil
-	}
-	args := "{}"
-	for _, k := range toolCallArgKeys() {
-		if raw, ok := m[k]; ok {
-			args = argsToJSON(raw)
-			break
-		}
-	}
-	return &domain.StreamedToolCall{Name: name, Arguments: args}
 }
 
 // parametersToJSON turns the body of an <invoke> element -- a run of
@@ -310,61 +278,4 @@ func isJSONScalar(s string) bool {
 	default:
 		return true
 	}
-}
-
-// argsToJSON normalises an arguments value to a JSON object string: a JSON
-// object is passed through; a JSON string is used as-is if it parses as an
-// object, otherwise wrapped.
-func argsToJSON(raw json.RawMessage) string {
-	trimmed := strings.TrimSpace(string(raw))
-	if strings.HasPrefix(trimmed, "{") {
-		return trimmed
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		if strings.HasPrefix(strings.TrimSpace(s), "{") {
-			return s
-		}
-	}
-	return "{}"
-}
-
-// extractFirstJSONObject returns the first balanced {...} span in s, or "".
-func extractFirstJSONObject(s string) string {
-	start := strings.Index(s, "{")
-	if start < 0 {
-		return ""
-	}
-	end, ok := jsonutil.ScanBalancedObject(s, start)
-	if !ok {
-		return ""
-	}
-	return s[start:end]
-}
-
-// parseWholeContentToolCall treats content that is *entirely* a single JSON
-// object as a tool call, but only when it clearly is one (a name plus an
-// arguments-shaped key) so a JSON answer is never mistaken for a call.
-func parseWholeContentToolCall(content string) *domain.StreamedToolCall {
-	trimmed := strings.TrimSpace(content)
-	if !strings.HasPrefix(trimmed, "{") {
-		return nil
-	}
-	end, ok := jsonutil.ScanBalancedObject(trimmed, 0)
-	if !ok || strings.TrimSpace(trimmed[end:]) != "" {
-		return nil
-	}
-	var m map[string]json.RawMessage
-	if json.Unmarshal([]byte(trimmed), &m) != nil {
-		return nil
-	}
-	if _, hasName := m["name"]; !hasName {
-		return nil
-	}
-	for _, k := range toolCallArgKeys() {
-		if _, hasArgs := m[k]; hasArgs {
-			return parseToolCallJSON(trimmed)
-		}
-	}
-	return nil
 }

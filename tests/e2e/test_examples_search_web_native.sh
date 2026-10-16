@@ -49,11 +49,11 @@ else
     test_failed "search-web-native - README.md exists" "File not found"
 fi
 
-# search.yaml uses searchWeb executor
-if grep -q "searchWeb:" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
-    test_passed "search-web-native - search.yaml uses run.searchWeb"
+# search.yaml calls the searchWeb component
+if grep -q "name: searchWeb" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
+    test_passed "search-web-native - search.yaml calls the searchWeb component"
 else
-    test_failed "search-web-native - search.yaml uses run.searchWeb" "searchWeb: key not found"
+    test_failed "search-web-native - search.yaml calls the searchWeb component" "component name: searchWeb not found"
 fi
 
 # search.yaml reads query via get()
@@ -152,10 +152,12 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
 actionId: search
 name: Web Search
-searchWeb:
-  query: "{{ get('query', 'Go language') }}"
-  provider: ddg
-  maxResults: 3
+component:
+  name: searchWeb
+  with:
+    query: "{{ get('query', 'Go language') }}"
+    provider: ddg
+    maxResults: 3
 EOF
 
 # Run kdeps with KDEPS_DDG_URL pointing to mock server

@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
 )
@@ -109,7 +110,7 @@ func TestWalkEntry_InfoOK(t *testing.T) {
 
 func TestOpenOrCreateIndex_New(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	idx, existed, err := openOrCreateIndex(dbPath)
 	require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestOpenOrCreateIndex_New(t *testing.T) {
 
 func TestOpenOrCreateIndex_Existing(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	// Create the index first
 	idx1, existed1, err := openOrCreateIndex(dbPath)
@@ -141,7 +142,7 @@ func TestOpenOrCreateIndex_Existing(t *testing.T) {
 
 func TestOpenOrCreateIndex_CorruptDB(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	// Write a non-bbolt file (e.g. old gob-format index).
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0750))
@@ -185,7 +186,7 @@ func TestStartIndex_Progress(t *testing.T) {
 
 func TestStartIndex_ExistingIndex(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 	for i := range 2 {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(dir, fmt.Sprintf("file%d.txt", i)),
@@ -227,7 +228,7 @@ func TestStartIndex_CorruptIndexRebuilds(t *testing.T) {
 	// StartIndex handles this by opening a new empty DB.
 	// Since bbolt rejects invalid files, we test that StartIndex succeeds
 	// even when the DB file needs to be recreated from scratch.
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0750))
 	require.NoError(t, os.WriteFile(dbPath, []byte("corrupt"), 0600))
 
@@ -366,7 +367,7 @@ func TestStartIndex_BinariesSkipped(t *testing.T) {
 
 func TestIndexPersistsAcrossSessions(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	// Create files and build index
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello world"), 0600))
@@ -397,7 +398,7 @@ func TestIndexPersistsAcrossSessions(t *testing.T) {
 
 func TestIndexSearchResultsPersisted(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	// Create files
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hello world"), 0600))
@@ -430,7 +431,7 @@ func TestIndexSearchResultsPersisted(t *testing.T) {
 
 func TestWalkIndex_IncrementalSkipsUnchanged(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
@@ -462,7 +463,7 @@ func TestWalkIndex_IncrementalSkipsUnchanged(t *testing.T) {
 
 func TestWalkIndex_IncrementalDetectsModified(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 
@@ -495,7 +496,7 @@ func TestWalkIndex_IncrementalDetectsModified(t *testing.T) {
 
 func TestWalkIndex_IncrementalCleansUpDeleted(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+	dbPath := datadir.File(dir, "index.db")
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
@@ -758,4 +759,22 @@ func TestGenerateSnippet(t *testing.T) {
 	if !strings.HasPrefix(got, "...") || !strings.HasSuffix(got, "...") {
 		t.Errorf("a match with content on both sides must be bracketed by ...: %q", got)
 	}
+}
+
+// Indexing a folder must not write anything into it: the folder may be a git
+// repository, and index data could end up committed.
+func TestExecuteIndexed_WritesNothingIntoTheFolder(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "note.txt"), []byte("kept out of the repo"), 0o600))
+	_, err := NewExecutor().Execute(nil, &domain.SearchLocalConfig{Path: dir, Query: "repo", Index: true})
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	assert.Equal(t, []string{"note.txt"}, names, "no .kdeps folder or db file appears in the searched folder")
+	assert.FileExists(t, datadir.File(dir, "index.db"), "the index lives in the global data dir")
 }

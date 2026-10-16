@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Delete a cron job. Marked as deleted in the registry.
+parameters:
+  cron_id:
+    type: string
+    description: Cron ID to delete
+    required: true

@@ -87,7 +87,7 @@ func CanPromptForConnections() bool {
 }
 
 // hasBotConnection reports whether the named platform has a BotConnectionConfig
-// entry. Valid platform names: discord, slack, telegram, whatsapp.
+// entry. Valid platform names: discord, slack, telegram.
 func hasBotConnection(cfg *Config, platform string) bool {
 	if cfg == nil || cfg.BotConnections == nil {
 		return false
@@ -99,8 +99,6 @@ func hasBotConnection(cfg *Config, platform string) bool {
 		return cfg.BotConnections.Slack != nil
 	case "telegram":
 		return cfg.BotConnections.Telegram != nil
-	case "whatsapp":
-		return cfg.BotConnections.WhatsApp != nil
 	default:
 		return false
 	}
@@ -120,7 +118,7 @@ func PromptAndSaveConnection(kind, name string, out io.StringWriter, in *bufio.R
 	w.printf("  Connection %q (%s) is referenced but not configured.\n", name, kind)
 	w.println("  Enter its details to save them to ~/.kdeps/config.yaml.")
 
-	value, err := promptConnectionValue(kind, name, w, out, in)
+	value, err := promptConnectionValue(kind, w, out, in)
 	if err != nil {
 		return err
 	}
@@ -139,7 +137,7 @@ func PromptAndSaveConnection(kind, name string, out io.StringWriter, in *bufio.R
 // promptConnectionValue asks for the fields specific to a connection kind and
 // returns a value whose YAML marshaling matches the connection's config struct.
 func promptConnectionValue(
-	kind, name string, w *fmtWriter, out io.StringWriter, in *bufio.Reader,
+	kind string, w *fmtWriter, out io.StringWriter, in *bufio.Reader,
 ) (any, error) {
 	switch kind {
 	case ConnKindSMTP:
@@ -158,7 +156,7 @@ func promptConnectionValue(
 	case ConnKindHTTP:
 		return promptHTTPConnection(w, out, in)
 	case ConnKindBot:
-		return promptBotConnection(w, out, in, name) // name is the platform: discord/slack/telegram/whatsapp
+		return promptBotConnection(w, out, in)
 	default:
 		return nil, fmt.Errorf("unknown connection kind %q", kind)
 	}
@@ -217,30 +215,27 @@ func promptHTTPConnection(
 	return cfg, nil
 }
 
-// promptBotConnection interactively collects the fields for one bot platform.
-// platform (the caller-supplied connection name -- "discord", "slack",
-// "telegram", or "whatsapp") picks which fields to ask for, and the returned
-// value is the platform's own config struct (e.g. *DiscordConnectionConfig),
-// not the BotConnectionConfig wrapper: injectConnection writes it at
-// bot_connections.<platform>, which is exactly where BotConnectionConfig's
-// yaml tags expect that struct to live -- wrapping it again here would nest
-// it one level too deep and silently drop every field.
+// promptBotConnection interactively collects the fields for a bot platform,
+// returning a BotConnectionConfig that wraps the platform's config struct.
 func promptBotConnection(
-	w *fmtWriter, out io.StringWriter, in *bufio.Reader, platform string,
+	w *fmtWriter, out io.StringWriter, in *bufio.Reader,
 ) (any, error) {
-	switch strings.ToLower(platform) {
+	platform := strings.ToLower(promptLine(out, in,
+		"  Platform [discord/slack/telegram]: ", ""))
+
+	switch platform {
 	case "discord":
 		token, err := promptSecret(w, in, "  Discord bot token")
 		if err != nil {
 			return nil, err
 		}
-		return &DiscordConnectionConfig{BotToken: token}, nil
+		return BotConnectionConfig{Discord: &DiscordConnectionConfig{BotToken: token}}, nil
 	case "telegram":
 		token, err := promptSecret(w, in, "  Telegram bot token")
 		if err != nil {
 			return nil, err
 		}
-		return &TelegramConnectionConfig{BotToken: token}, nil
+		return BotConnectionConfig{Telegram: &TelegramConnectionConfig{BotToken: token}}, nil
 	case "slack":
 		token, err := promptSecret(w, in, "  Slack bot token (xoxb-)")
 		if err != nil {
@@ -255,19 +250,7 @@ func promptBotConnection(
 		if signingSecret != "" {
 			slack.SigningSecret = signingSecret
 		}
-		return slack, nil
-	case "whatsapp":
-		phoneNumberID := promptLine(out, in, "  WhatsApp Phone Number ID: ", "")
-		accessToken, err := promptSecret(w, in, "  WhatsApp Access Token")
-		if err != nil {
-			return nil, err
-		}
-		webhookSecret, _ := promptSecret(w, in, "  WhatsApp Webhook Secret (optional)")
-		wa := &WhatsAppConnectionConfig{PhoneNumberID: phoneNumberID, AccessToken: accessToken}
-		if webhookSecret != "" {
-			wa.WebhookSecret = webhookSecret
-		}
-		return wa, nil
+		return BotConnectionConfig{Slack: slack}, nil
 	default:
 		return nil, fmt.Errorf("unknown bot platform %q", platform)
 	}

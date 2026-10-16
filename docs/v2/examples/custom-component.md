@@ -1,37 +1,13 @@
 # Build a reusable component
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build a custom component - a bundle of resources with a
+Build a custom component - a bundle of resources with a
 typed input interface - and call it from a workflow. Components are how you
 package reusable logic and share it across projects.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart) and read
-[Components](/agencies/components). It assumes you know:
-
-- Basic YAML
-
-By the end you will be able to:
-
-- Write a `component.yaml` with an `interface.inputs` schema
-- Auto-discover a component from a `components/` directory
-- Call it with `component:` and pass typed inputs with `with:`
-- Read a component's output with `output()`
-
-## Background
 
 A component is a `component.yaml` plus its resources. Drop it in a
 `components/<name>/` directory and kdeps loads it automatically - no change to
 `workflow.yaml`. A resource invokes it with `component:`, passing inputs under
 `with:`; those are validated against `interface.inputs`.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the structure
 
@@ -162,15 +138,6 @@ Response:
 ```json
 { "success": true, "data": { "greeting": "HELLO, ADA!" } }
 ```
-
-## Summary
-
-You built and used a component that:
-
-- Declares typed inputs in `interface.inputs`
-- Is auto-discovered from `components/formatter/`
-- Is called with `component:` + `with:`
-- Returns a value read with `output('greet').text`
 
 ## Next steps
 

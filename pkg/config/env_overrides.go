@@ -161,18 +161,6 @@ func botEnvFields(
 			mk("APP_TOKEN", "", true, appToken),
 			mk("SIGNING_SECRET", "", true, signingSecret),
 		}
-	case "whatsapp":
-		var phoneNumberID, accessToken, webhookSecret string
-		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.WhatsApp != nil {
-			phoneNumberID = cfg.BotConnections.WhatsApp.PhoneNumberID
-			accessToken = cfg.BotConnections.WhatsApp.AccessToken
-			webhookSecret = cfg.BotConnections.WhatsApp.WebhookSecret
-		}
-		return []ConnEnvField{
-			mk("PHONE_NUMBER_ID", "", false, phoneNumberID),
-			mk("ACCESS_TOKEN", "", true, accessToken),
-			mk("WEBHOOK_SECRET", "", true, webhookSecret),
-		}
 	default:
 		return nil
 	}
@@ -402,12 +390,6 @@ func overlayBot(cfg *Config, rest, val string) {
 		ensureSlack(cfg).AppToken = val
 	case "SLACK_SIGNING_SECRET":
 		ensureSlack(cfg).SigningSecret = val
-	case "WHATSAPP_PHONE_NUMBER_ID":
-		ensureWhatsApp(cfg).PhoneNumberID = val
-	case "WHATSAPP_ACCESS_TOKEN":
-		ensureWhatsApp(cfg).AccessToken = val
-	case "WHATSAPP_WEBHOOK_SECRET":
-		ensureWhatsApp(cfg).WebhookSecret = val
 	}
 }
 
@@ -430,13 +412,6 @@ func ensureSlack(cfg *Config) *SlackConnectionConfig {
 		cfg.BotConnections.Slack = &SlackConnectionConfig{}
 	}
 	return cfg.BotConnections.Slack
-}
-
-func ensureWhatsApp(cfg *Config) *WhatsAppConnectionConfig {
-	if cfg.BotConnections.WhatsApp == nil {
-		cfg.BotConnections.WhatsApp = &WhatsAppConnectionConfig{}
-	}
-	return cfg.BotConnections.WhatsApp
 }
 
 // parseBoolEnv treats the common truthy spellings as true.

@@ -1,0 +1,9 @@
+version: 1.0.0
+name: settings
+order: 20
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Open the tool/skill selector and save selections

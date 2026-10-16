@@ -1,38 +1,13 @@
 # Compose two agents into an agency
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an agency: two agents in one project, where the
+Build an agency: two agents in one project, where the
 entry-point agent calls the other and returns the combined result. Each agent
 is its own `workflow.yaml`; an `agency.yaml` manifest ties them together.
 
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart) and read
-[AI agencies](/agencies/). It assumes you know:
-
-- Basic YAML
-- How a single kdeps workflow runs
-
-By the end you will be able to:
-
-- Write an `agency.yaml` manifest with a `targetAgentId`
-- Have one agent call another with the `agent:` resource
-- Forward data to a sub-agent with `params:` and read it with `get()`
-
-## Background
-
-An agency is like calling functions across modules. Each agent is a full
-workflow - its own resources, routes, and settings. The `agent:` resource runs
+Each agent has its own resources, routes, and settings. The `agent:` resource runs
 another agent's entire pipeline and returns its `apiResponse`. Only the
 entry-point agent (`targetAgentId`) serves HTTP; the others are called
 internally.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the structure
 
@@ -164,15 +139,6 @@ kdeps bundle package .            # -> greeter-agency-1.0.0.kagency
 kdeps run greeter-agency-1.0.0.kagency
 kdeps bundle build greeter-agency-1.0.0.kagency   # Docker image
 ```
-
-## Summary
-
-You built an agency that:
-
-- Declares two agents and an entry point in `agency.yaml`
-- Calls one agent from another with the `agent:` resource
-- Forwards a value with `params:` and reads it with `get()`
-- Returns the sub-agent's output with `output()`
 
 ## Next steps
 

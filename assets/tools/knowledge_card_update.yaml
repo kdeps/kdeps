@@ -1,0 +1,13 @@
+version: 1.1.0
+category: memory
+description: 'Set a card''s status and/or next step and stamp its updated date. This is the only place status and the next step are written: never put them in a note. Without a name, updates the working directory''s project card (created on first use). Status archived moves the project folder to archive/.'
+parameters:
+  name:
+    type: string
+    description: Card name; omit for the working directory's card
+  status:
+    type: string
+    description: 'New status, e.g. active, paused, done, archived'
+  next:
+    type: string
+    description: The one next step

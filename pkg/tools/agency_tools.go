@@ -55,14 +55,15 @@ func buildAgentTool(name, desc string, workflow *domain.Workflow, eng *executor.
 	return &Tool{
 		Name:        name,
 		Description: desc,
-		Parameters:  agentToolParameters(),
+		Parameters:  AgentToolParameters(),
 		Execute: func(args map[string]interface{}) (string, error) {
 			return executeAgentTool(eng, workflow, args)
 		},
 	}
 }
 
-func agentToolParameters() map[string]domain.ToolParam {
+// AgentToolParameters is the input schema an agent or workflow tool takes.
+func AgentToolParameters() map[string]domain.ToolParam {
 	return map[string]domain.ToolParam{
 		toolsFieldInput: {
 			Type:        "string",

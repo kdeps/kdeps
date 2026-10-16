@@ -47,7 +47,7 @@ func excluded(reason string) interpolationFieldStatus {
 // interpolationManifest is the hard list: one entry per resource action
 // config struct fixed for interpolation coverage in this pass (see
 // pkg/executor/{scraper,embedding,loader,vectorstore,searchlocal,searchweb,
-// transcribe,codeintelligence,git,file}/executor_eval.go), naming every
+// codeintelligence}/executor_eval.go), naming every
 // string/[]string field and classifying it interpolatable or excluded.
 //
 // TestInterpolationManifest_MatchesStructFields below reflects over each
@@ -63,11 +63,6 @@ func excluded(reason string) interpolationFieldStatus {
 //
 //nolint:gochecknoglobals // hard-coded manifest, maintained by hand on purpose
 var interpolationManifest = map[string]map[string]interpolationFieldStatus{
-	"ScraperConfig": {
-		"URL":      interpolatable(),
-		"Selector": interpolatable(),
-		"Timeout":  interpolatable(),
-	},
 	"EmbeddingConfig": {
 		"Operation":       interpolatable(),
 		"Text":            interpolatable(),
@@ -114,22 +109,7 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Glob":        interpolatable(),
 		"IndexDBPath": interpolatable(),
 	},
-	"SearchWebConfig": {
-		"Query":          interpolatable(),
-		"Provider":       interpolatable(),
-		"ConnectionName": interpolatable(),
-	},
-	"TranscribeConfig": {
-		"File":                   interpolatable(),
-		"Model":                  interpolatable(),
-		"Backend":                interpolatable(),
-		"BaseURL":                interpolatable(),
-		"ModelPath":              interpolatable(),
-		"Language":               interpolatable(),
-		"Prompt":                 interpolatable(),
-		"ResponseFormat":         interpolatable(),
-		"TimestampGranularities": interpolatable(),
-	},
+
 	"CodeIntelligenceConfig": {
 		"Operation":   interpolatable(), // named type CodeIntelligenceOperation, cast to/from string
 		"Path":        interpolatable(),
@@ -144,27 +124,6 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Extensions":  interpolatable(),
 		"GraphDBPath": interpolatable(),
 	},
-	"GitResourceConfig": {
-		"Operation":  interpolatable(), // named type GitOperation, cast to/from string
-		"WorkingDir": interpolatable(),
-		"Message":    interpolatable(),
-		"Branch":     interpolatable(),
-		"URL":        interpolatable(),
-		"Remote":     interpolatable(),
-		"Format":     interpolatable(),
-		"Paths":      interpolatable(),
-		"Args":       interpolatable(),
-	},
-	"FileResourceConfig": {
-		"Operation": interpolatable(), // named type FileResourceOperation, cast to/from string
-		"Path":      interpolatable(),
-		"Source":    interpolatable(),
-		"Content":   interpolatable(),
-		"Patch":     interpolatable(),
-		"Encoding":  interpolatable(),
-		"Pattern":   interpolatable(),
-		"Mode":      interpolatable(),
-	},
 }
 
 // interpolationCoveredTypes lists the Go values whose struct fields are
@@ -174,17 +133,12 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 // classified or the test below fails.
 func interpolationCoveredTypes() map[string]any {
 	return map[string]any{
-		"ScraperConfig":          ScraperConfig{},
 		"EmbeddingConfig":        EmbeddingConfig{},
 		"LoaderConfig":           LoaderConfig{},
 		"VectorStoreConfig":      VectorStoreConfig{},
 		"VectorStoreDocument":    VectorStoreDocument{},
 		"SearchLocalConfig":      SearchLocalConfig{},
-		"SearchWebConfig":        SearchWebConfig{},
-		"TranscribeConfig":       TranscribeConfig{},
 		"CodeIntelligenceConfig": CodeIntelligenceConfig{},
-		"GitResourceConfig":      GitResourceConfig{},
-		"FileResourceConfig":     FileResourceConfig{},
 	}
 }
 

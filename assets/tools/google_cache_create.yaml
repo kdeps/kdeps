@@ -1,0 +1,14 @@
+version: 1.0.0
+description: 'Create a Google AI server-side cached content entry from a text system prompt. Returns the cache name (e.g. ''cachedContents/xyz123'') for use in chat: googleCachedContent. Only available when GOOGLE_API_KEY is set.'
+parameters:
+  content:
+    type: string
+    description: Text to cache as a system prompt (must be >= 32K tokens for caching benefit)
+    required: true
+  model:
+    type: string
+    description: Gemini model name (e.g. 'gemini-2.0-flash')
+    required: true
+  ttl:
+    type: string
+    description: 'Cache TTL as a Go duration string (e.g. ''1h'', ''30m''). Default: ''1h'''

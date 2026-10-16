@@ -2,14 +2,14 @@
 
 kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`.
 
-*Applies to workflow mode.* This controls how a running workflow is fed. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
+This controls how a running workflow is fed. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
 ## Overview
 
 | Source | Use Case |
 |--------|----------|
 | `api` | HTTP REST server (default) |
-| `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
+| `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 
 The default source is `api`. If no input config is specified, the workflow starts an HTTP API server on port 16395.
@@ -35,7 +35,7 @@ Use `validations.methods` and `validations.routes` in individual resources to sc
 
 ## Bot source
 
-The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
+The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram. WhatsApp has no long-lived connection - Meta calls a webhook - so a WhatsApp bot is an ordinary API workflow: `kdeps new my-bot --template whatsapp-bot`.
 
 Bot credentials belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. The workflow only declares which platforms to enable.
 
@@ -61,7 +61,7 @@ settings:
 Execution types:
 
 - `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
-- `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the reply to stdout, then exits.
+- `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the result (the reply) to stdout, then exits.
 
 ## File source
 
@@ -82,13 +82,25 @@ Override the path at runtime:
 kdeps run workflow.yaml --file /path/to/document.txt
 ```
 
+The workflow runs once and prints its result (the target resource's output) as JSON on stdout, after the progress lines:
+
+```text
+✓ Running workflow with file input...
+{
+  "data": {
+    "summary": "..."
+  },
+  "success": true
+}
+```
+
 **Size limit.** The whole file is read into memory as `fileContent` - fine for
 documents, but a workflow that ingests bulk data (a large CSV, say) can spike
 memory well past the raw file size once a resource copies that content again
 (e.g. interpolating it into a `python:`/`exec:` argument, or a script that
 builds an in-memory row list). Past a certain size that risks an OOM kill from
 the OS - which, being a `SIGKILL`, leaves no error and no core dump, just a
-vanished process. `--file`/stdin input is capped at **256 MiB** by default;
+vanished process. `--file`/stdin input is capped at 256 MiB by default;
 `kdeps run` fails fast with a clear error instead of reading a file over that.
 Raise or lower it with `KDEPS_FILE_INPUT_MAX_BYTES` (bytes; `0` disables the
 check):
@@ -116,7 +128,7 @@ This opens a terminal REPL where you can send prompts and invoke tools interacti
 
 - Serve a workflow as an HTTP JSON API for a frontend or another service
   (`api`).
-- Run a workflow as a chat bot on Discord, Slack, Telegram, or WhatsApp
+- Run a workflow as a chat bot on Discord, Slack or Telegram (WhatsApp: the `whatsapp-bot` template)
   (`bot`).
 - Process one file per invocation from a pipeline, cron job, or CI step
   (`file`).

@@ -1,35 +1,14 @@
 # Handle a file upload
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this short tutorial you build an endpoint that accepts one or more file
+Build an endpoint that accepts one or more file
 uploads and returns their metadata: count, names, MIME types, and the path of
 the first file on disk.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to send a multipart upload with `curl`
-
-By the end you will be able to:
-
-- Accept `multipart/form-data` on a route
-- Read upload metadata with `info('filecount')`, `info('files')`, `info('filetypes')`
-- Get an uploaded file's path and type with `get(field, 'filepath')` and `get(field, 'filetype')`
-
-## Background
 
 When a request is `multipart/form-data`, kdeps writes each uploaded file to a
 temporary path and exposes it. A resource can then read the file, pass its path
 to an `exec:` or `python:` step, or attach it to an LLM prompt.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory and a couple of files to upload.
+**Needs:** A couple of files to upload.
 
 ## Step 1: create the project
 
@@ -122,14 +101,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built an endpoint that:
-
-- Accepts `multipart/form-data`
-- Reads upload metadata with `info('filecount')`, `info('files')`, `info('filetypes')`
-- Gets a file's path and type with `get(field, 'filepath')` / `get(field, 'filetype')`
 
 ## Next steps
 

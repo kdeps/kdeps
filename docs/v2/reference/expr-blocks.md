@@ -1,8 +1,8 @@
 # Inline resource blocks (before / after)
 
-`before:` and `after:` are expression lists that run around a resource's main action - `before:` prepares data before the action runs, `after:` processes output after it completes. Think of them like setup/teardown blocks around a function call.
+`before:` and `after:` are expression lists that run around a resource's main action - `before:` prepares data before the action runs, `after:` processes output after it completes.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 - `before:` runs before the main action (chat, httpClient, sql, file, etc.)
 - `after:` runs after the main action
@@ -126,13 +126,15 @@ after:
   - set('normalized_email', lower(trim(get('email'))))
   - set('normalized_name', trim(get('name')))
 
-sql:
-  query: |
-    INSERT INTO users (email, name) 
-    VALUES ($1, $2)
-  params:
-    - get('normalized_email')
-    - get('normalized_name')
+component:
+  name: sql
+  with:
+    query: |
+      INSERT INTO users (email, name) 
+      VALUES ($1, $2)
+    params:
+      - "{{ get('normalized_email') }}"
+      - "{{ get('normalized_name') }}"
 ```
 
 ### Pattern 2: Counter/State management
@@ -259,7 +261,7 @@ after:
 
 ## Limitations
 
-- **No return values**: Expressions don't return values (use `set()` to store results)
+- **No return values**: Expressions do not return values (use `set()` to store results)
 - **Sequential execution**: Expressions run one after another
 - **Error handling**: If an expression fails, the resource fails
 - **Complex logic**: For complex operations, use Python resources

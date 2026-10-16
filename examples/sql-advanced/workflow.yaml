@@ -21,15 +21,5 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-
-  sqlConnections:
-    analytics:
-      connection: "postgres://user:pass@localhost:5432/analytics"
-      pool:
-        maxConnections: 10
-        minConnections: 2
-    inventory:
-      connection: "mysql://user:pass@localhost:3306/inventory"
-      pool:
-        maxConnections: 5
-        minConnections: 1
+  # Connection strings for `analytics` and `inventory` live in
+  # ~/.kdeps/config.yaml sql_connections (see README), never in the workflow.

@@ -40,10 +40,10 @@ type ToolTuning struct {
 	CompactTokenBudget   int
 	MaxTurns             int
 	MaxHistoryTokens     int
-	WebLimit             int // max web_search/web_scraper calls per request (0=default 20)
-	BashLimit            int // max bash_exec calls per request (0=default 50)
-	FileLimit            int // max read_file/list_files calls per request (0=default 80)
-	CodeLimit            int // max search_local/code_search calls per request (0=default 30)
+	WebLimit             int // max web_search/web_scraper calls per request (0=event default 20, <0=unlimited)
+	BashLimit            int // max bash_exec calls per request (0=event default 50, <0=unlimited)
+	FileLimit            int // max read_file/list_files calls per request (0=event default 80, <0=unlimited)
+	CodeLimit            int // max search_local/code_search calls per request (0=event default 30, <0=unlimited)
 	// turo reducer state (empty TuroLevel means turo was never configured).
 	TuroLevel    string
 	TuroOff      bool
@@ -96,6 +96,9 @@ type ToolTuning struct {
 	// snapshot from before this field existed (unmarshals to false) already
 	// restores the correct default.
 	HandshakeOn bool
+	// KnowledgeOff persists /knowledge off (default on; off is not the zero
+	// value, so an older snapshot restores on).
+	KnowledgeOff bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -117,6 +120,9 @@ type ToolTuning struct {
 	// MaxLeafChars persists the per-leaf character truncation cap
 	// (0 = unlimited). See Config.MaxLeafChars.
 	MaxLeafChars int
+	// InstructReminders persists the /instruct topics forced onto every
+	// prompt and tool result via /harness reminders instruct:<topic> on.
+	InstructReminders []string
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -162,12 +168,14 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		RefineOff:            !c.PromptRefine,
 		RefineConfigured:     true,
 		HandshakeOn:          c.HandshakeEnabled,
+		KnowledgeOff:         r.loop.knowledgeOff,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
 		FoldConfigured:       true,
 		MaxLeafNodes:         c.MaxLeafNodes,
 		MaxLeafChars:         c.MaxLeafChars,
+		InstructReminders:    append([]string(nil), c.InstructReminders...),
 	}
 }
 
@@ -253,6 +261,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		r.loop.SetPromptRefine(!t.RefineOff)
 	}
 	r.loop.SetHandshakeEnabled(t.HandshakeOn)
+	r.loop.knowledgeOff = t.KnowledgeOff
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}
@@ -268,6 +277,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if t.MaxLeafChars > 0 {
 		c.MaxLeafChars = t.MaxLeafChars
 	}
+	c.InstructReminders = validInstructReminders(t.InstructReminders)
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
 	// built-in default for it), so no extra sentinel is needed here.

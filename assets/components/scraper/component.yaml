@@ -1,0 +1,34 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: scraper
+  description: Fetch a web page and return its text, optionally only the elements matching a CSS selector
+  version: "1.0.1"
+  targetActionId: scraperFetch
+interface:
+  inputs:
+    - name: url
+      type: string
+      required: true
+      description: Page to fetch (GET)
+    - name: selector
+      type: string
+      default: ""
+      description: CSS selector; when set, content is the text of each matching element, one per line
+    - name: timeout
+      type: string
+      default: 30s
+      description: Request timeout as a duration (30s, 2m)
+  # The result: same fields whatever the page returned; a non-2xx status is
+  # reported in status, not raised.
+  output:
+    content: "{{ htmlText(output('scraperFetch').body, get('scraper.selector')) }}"
+    url: "{{ get('scraper.url') }}"
+    status: "{{ output('scraperFetch').statusCode }}"
+resources:
+  - actionId: scraperFetch
+    name: Fetch page
+    httpClient:
+      method: GET
+      url: "{{ get('scraper.url') }}"
+      timeout: "{{ get('scraper.timeout') }}"

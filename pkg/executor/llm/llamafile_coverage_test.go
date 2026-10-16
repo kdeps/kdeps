@@ -41,22 +41,22 @@ func TestLocalRegistryPath_NoHome(t *testing.T) {
 	assert.Empty(t, localRegistryPath())
 }
 
-func TestLoadOrSeedLocalRegistry_EmptyPath(t *testing.T) {
-	assert.Nil(t, loadOrSeedLocalRegistry(""))
+func TestLoadLocalRegistry_EmptyPath(t *testing.T) {
+	assert.Nil(t, loadLocalRegistry(""))
 }
 
-func TestLoadOrSeedLocalRegistry_UnreadableFile(t *testing.T) {
+func TestLoadLocalRegistry_UnreadableFile(t *testing.T) {
 	if runtime.GOOS == goosWindows {
 		t.Skip("file mode does not enforce POSIX permission bits on Windows")
 	}
 	path := filepath.Join(t.TempDir(), "registry.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("version: 1"), 0o000))
-	assert.Nil(t, loadOrSeedLocalRegistry(path))
+	assert.Nil(t, loadLocalRegistry(path))
 }
 
 func TestMergeLlamafileRegistries_NilEmbedded(t *testing.T) {
 	local := &llamafileVersions{
-		Version:    1,
+		Version:    "1.0.0",
 		Llamafiles: []LlamafileEntry{{Alias: "only-local", URL: "https://x/y.llamafile"}},
 	}
 	merged := mergeLlamafileRegistries(nil, local)
@@ -247,35 +247,6 @@ func TestFirstChoiceMessage_MalformedShapes(t *testing.T) {
 	assert.Nil(t, firstChoiceMessage(map[string]interface{}{
 		"choices": []interface{}{map[string]interface{}{"message": "not-a-map"}},
 	}))
-}
-
-func TestFetchURL_BadURL(t *testing.T) {
-	_, err := fetchURL("://invalid")
-	require.Error(t, err)
-}
-
-func TestRunHarvesterScript_NoScriptFound(t *testing.T) {
-	t.Setenv("KDEPS_LLAMAFILE_HARVESTER", "")
-	require.NoError(t, os.Unsetenv("KDEPS_LLAMAFILE_HARVESTER"))
-	// The test binary lives in a temp build dir: walking up never finds
-	// tools/llamafile-harvester/harvest.py.
-	assert.False(t, RunHarvesterScript())
-}
-
-func TestUpdateRegistryFromRemote_WriteError(t *testing.T) {
-	if runtime.GOOS == goosWindows {
-		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("version: 1\nllamafiles:\n  - alias: r\n    url: https://x/r.llamafile\n"))
-	}))
-	defer srv.Close()
-	t.Setenv("KDEPS_LLAMAFILE_SOURCE", srv.URL)
-	t.Setenv("HOME", "/dev/null")
-
-	_, err := UpdateRegistryFromRemote()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "writing merged registry")
 }
 
 func TestServeModel_UnsupportedBackend(t *testing.T) {

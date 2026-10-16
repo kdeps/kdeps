@@ -243,7 +243,8 @@ metadata:
   version: 2.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -393,7 +394,8 @@ metadata:
   version: 1.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -415,7 +417,8 @@ metadata:
   version: 2.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -463,7 +466,8 @@ metadata:
   version: 3.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -704,7 +708,8 @@ metadata:
   version: 7.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     timezone: UTC
 `

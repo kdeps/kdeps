@@ -19,7 +19,6 @@
 package executor_test
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -802,7 +801,7 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 		Name:     "LLM Resource",
 
 		Chat: &domain.ChatConfig{
-			Model:   "{{input.model_name}}", // Expression that should evaluate
+			Model:   "{{input('model_name')}}", // Expression that should evaluate
 			Prompt:  "test prompt",
 			Timeout: "30s",
 		},
@@ -953,7 +952,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			"python",
 		},
 		{"llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
-		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
 		{
 			"http",
 			&domain.Resource{HTTPClient: &domain.HTTPClientConfig{}},
@@ -970,11 +968,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			"apiResponse",
 		},
 		{
-			"scraper",
-			&domain.Resource{Scraper: &domain.ScraperConfig{}},
-			executor.ExecutorScraper,
-		},
-		{
 			"embedding",
 			&domain.Resource{Embedding: &domain.EmbeddingConfig{}},
 			executor.ExecutorEmbedding,
@@ -983,21 +976,6 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			"searchLocal",
 			&domain.Resource{SearchLocal: &domain.SearchLocalConfig{}},
 			executor.ExecutorSearchLocal,
-		},
-		{
-			"searchWeb",
-			&domain.Resource{SearchWeb: &domain.SearchWebConfig{}},
-			executor.ExecutorSearchWeb,
-		},
-		{
-			"telephony",
-			&domain.Resource{Telephony: &domain.TelephonyActionConfig{}},
-			executor.ExecutorTelephony,
-		},
-		{
-			"browser",
-			&domain.Resource{Browser: &domain.BrowserConfig{}},
-			executor.ExecutorBrowser,
 		},
 		{
 			"component",
@@ -1058,14 +1036,14 @@ func TestEngine_BuildEvaluationEnvironment(t *testing.T) {
 		Body:   map[string]interface{}{"key": "value"},
 	}
 	env = eng.BuildEvaluationEnvironment(ctx)
-	assert.Equal(t, map[string]interface{}{"key": "value"}, env["input"])
+	assert.Equal(t, "value", env["input"].(func(string, ...string) interface{})("key"))
 	reqObj, ok := env["request"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "POST", reqObj["method"])
 
 	ctx.Request = &executor.RequestContext{Method: "GET", Path: "/test"}
 	env = eng.BuildEvaluationEnvironment(ctx)
-	assert.Equal(t, map[string]interface{}{}, env["input"])
+	assert.Nil(t, env["input"].(func(string, ...string) interface{})("key"))
 
 	ctx.Items["item"] = map[string]interface{}{"field": "val"}
 	env = eng.BuildEvaluationEnvironment(ctx)
@@ -1119,27 +1097,6 @@ func TestEngine_SetExecuteFunc(t *testing.T) {
 	assert.Equal(t, "stub-result", execResult)
 }
 
-func TestEngine_executeScraper_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID: "r1",
-		Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "scraper executor not available")
-}
-
 func TestEngine_executeEmbedding_NoExecutor(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	engine.SetRegistry(executor.NewRegistry())
@@ -1182,48 +1139,6 @@ func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
 	assert.Contains(t, err.Error(), "searchLocal executor not available")
 }
 
-func TestEngine_executeSearchWeb_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID:  "r1",
-		SearchWeb: &domain.SearchWebConfig{Query: "test"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "searchWeb executor not available")
-}
-
-func TestEngine_executeTelephony_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID:  "r1",
-		Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "telephony executor not available")
-}
-
 func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	engine.SetRegistry(executor.NewRegistry())
@@ -1239,32 +1154,6 @@ func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 	_, err = engine.ExecuteInlineLLMForTesting(&domain.ChatConfig{Model: "m", Prompt: "p"}, ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "LLM executor not available")
-}
-
-func TestEngine_executeInlineScraper_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{
-						Scraper: &domain.ScraperConfig{URL: "http://example.com"},
-					},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "scraper executor not available")
 }
 
 func TestEngine_executeInlineEmbedding_NoExecutor(t *testing.T) {
@@ -1319,58 +1208,6 @@ func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
 	assert.Contains(t, err.Error(), "searchLocal executor not available")
 }
 
-func TestEngine_executeInlineSearchWeb_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{
-						SearchWeb: &domain.SearchWebConfig{Query: "test"},
-					},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "searchWeb executor not available")
-}
-
-func TestEngine_executeInlineTelephony_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{
-						Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-					},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "telephony executor not available")
-}
-
 func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	agentPaths := map[string]string{"agent1": "/path/to/agent1"}
@@ -1401,45 +1238,6 @@ func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
 	result, err := engine.Execute(workflow, reqCtx)
 	require.NoError(t, err)
 	assert.Equal(t, "ok", result)
-}
-
-func TestEngine_Execute_BotSendPropagation(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mockLLM := &mockLLMExecutor{result: "ok"}
-	registry.SetLLMExecutor(mockLLM)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "bot-wf",
-			Version:        "1.0.0",
-			TargetActionID: "llm",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "llm",
-				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
-			},
-		},
-	}
-
-	called := false
-	reqCtx := &executor.RequestContext{
-		Method: "POST",
-		BotSend: func(_ context.Context, _ string) error {
-			called = true
-			return nil
-		},
-	}
-
-	result, err := engine.Execute(workflow, reqCtx)
-	require.NoError(t, err)
-	assert.Equal(t, "ok", result)
-	// BotSend is propagated to context; just verify no panic
-	_ = called
 }
 
 func TestEngine_Execute_FileInputPropagation(t *testing.T) {
@@ -1557,22 +1355,6 @@ func TestEngine_MatchesRestrictions_RouteNoMatchShorterPath(t *testing.T) {
 	req := &executor.RequestContext{Path: "/api"}
 	result := engine.MatchesRestrictions(resource, req)
 	assert.False(t, result)
-}
-
-func TestEngine_ExecuteResource_ScraperNilConfig(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetScraperExecutor(&mockGenericExecutor{result: "ok"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	// Resource with Scraper set to non-nil but engine dispatches, so use ExprBefore to call
-	// the execute path. Actually the nil-config branch in executeScraper is unreachable via
-	// ExecuteResource (which checks != nil). Test via export.
-	_ = ctx
 }
 
 func TestEngine_executeResourceWithErrorHandling_DefaultAction(t *testing.T) {
@@ -2092,33 +1874,6 @@ func TestEngine_executeLLM_OfflineMode(t *testing.T) {
 	assert.Equal(t, "offline result", result)
 }
 
-func TestEngine_executeScraper_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetScraperExecutor(&mockGenericExecutor{result: "scraped"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "scraper-wf",
-			Version:        "1.0.0",
-			TargetActionID: "res",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "res",
-				Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "scraped", result)
-}
-
 func TestEngine_executeEmbedding_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2173,85 +1928,6 @@ func TestEngine_executeSearchLocal_Success(t *testing.T) {
 	assert.Equal(t, "found", result)
 }
 
-func TestEngine_executeSearchWeb_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSearchWebExecutor(&mockGenericExecutor{result: "web results"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "sw-wf",
-			Version:        "1.0.0",
-			TargetActionID: "res",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "res",
-				SearchWeb: &domain.SearchWebConfig{Query: "test"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "web results", result)
-}
-
-func TestEngine_executeTelephony_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetTelephonyExecutor(&mockGenericExecutor{result: "telephony ok"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata: domain.WorkflowMetadata{
-			Name:           "tel-wf",
-			Version:        "1.0.0",
-			TargetActionID: "res",
-		},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "res",
-				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "telephony ok", result)
-}
-
-func TestEngine_executeInlineScraper_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetScraperExecutor(&mockGenericExecutor{result: "inline scraped"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
 func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2302,56 +1978,6 @@ func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEngine_executeInlineSearchWeb_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSearchWebExecutor(&mockGenericExecutor{result: "inline web"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
-func TestEngine_executeInlineTelephony_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetTelephonyExecutor(&mockGenericExecutor{result: "inline telephony ok"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
 func TestEngine_executeInlineLLM_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -2367,31 +1993,6 @@ func TestEngine_executeInlineLLM_Success(t *testing.T) {
 				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-}
-
-func TestEngine_executeInlineSQL_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSQLExecutor(&mockSQLExecutor{result: "inline sql"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "parent",
-				Before: []domain.InlineResource{
-					{SQL: &domain.SQLConfig{ConnectionName: "x", Query: "SELECT 1"}},
 				},
 				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
@@ -3133,31 +2734,6 @@ func TestEngine_ExecuteResource_BeforeError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to parse expression")
 }
 
-func TestEngine_executeScraper_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "scraped"}
-	registry.SetScraperExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "scraped", result)
-	assert.True(t, mock.executed)
-}
-
 func TestEngine_executeEmbedding_WithMock(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
@@ -3206,83 +2782,6 @@ func TestEngine_executeSearchLocal_WithMock(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, mock.executed)
 	_ = result
-}
-
-func TestEngine_executeSearchWeb_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "web results"}
-	registry.SetSearchWebExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "r",
-				SearchWeb: &domain.SearchWebConfig{Query: "golang testing"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "web results", result)
-	assert.True(t, mock.executed)
-}
-
-func TestEngine_executeTelephony_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "answered"}
-	registry.SetTelephonyExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID:  "r",
-				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "answered", result)
-	assert.True(t, mock.executed)
-}
-
-func TestEngine_executeInlineScraper_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "inline-scraped"}
-	registry.SetScraperExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				Before: []domain.InlineResource{
-					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.True(t, mock.executed)
 }
 
 func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
@@ -3339,65 +2838,11 @@ func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
 	assert.True(t, mock.executed)
 }
 
-func TestEngine_executeInlineSearchWeb_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "inline-web"}
-	registry.SetSearchWebExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				Before: []domain.InlineResource{
-					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.True(t, mock.executed)
-}
-
-func TestEngine_executeInlineTelephony_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	mock := &mockGenericExecutor{result: "inline-answered"}
-	registry.SetTelephonyExecutor(mock)
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				Before: []domain.InlineResource{
-					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
-				},
-				After: []domain.ActionConfig{{Expr: "1+1"}},
-			},
-		},
-	}
-
-	_, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.True(t, mock.executed)
-}
-
 func TestEngine_prepareLoopSchedule_Every(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
-	registry.SetScraperExecutor(mock)
+	registry.SetExecExecutor(mock)
 	engine.SetRegistry(registry)
 
 	// MaxIterations=1 so we run once and stop; every=1ms so scheduler set but no real sleep
@@ -3412,7 +2857,7 @@ func TestEngine_prepareLoopSchedule_Every(t *testing.T) {
 					MaxIterations: 1,
 					Every:         "1ms",
 				},
-				Scraper: &domain.ScraperConfig{URL: "http://example.com"},
+				Exec: &domain.ExecConfig{Command: "true"},
 			},
 		},
 	}
@@ -3425,7 +2870,7 @@ func TestEngine_prepareLoopSchedule_At(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
-	registry.SetScraperExecutor(mock)
+	registry.SetExecExecutor(mock)
 	engine.SetRegistry(registry)
 
 	// Use a past time so sleepForIteration skips the sleep
@@ -3440,7 +2885,7 @@ func TestEngine_prepareLoopSchedule_At(t *testing.T) {
 					MaxIterations: 1,
 					At:            []string{"2000-01-01T00:00:00Z"},
 				},
-				Scraper: &domain.ScraperConfig{URL: "http://example.com"},
+				Exec: &domain.ExecConfig{Command: "true"},
 			},
 		},
 	}
@@ -3501,7 +2946,7 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
-	registry.SetScraperExecutor(mock)
+	registry.SetExecExecutor(mock)
 	engine.SetRegistry(registry)
 
 	// MaxIterations=2 with every=1ms: first iter no sleep, second iter sleeps 1ms
@@ -3516,7 +2961,7 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 					MaxIterations: 2,
 					Every:         "1ms",
 				},
-				Scraper: &domain.ScraperConfig{URL: "http://example.com"},
+				Exec: &domain.ExecConfig{Command: "true"},
 			},
 		},
 	}
@@ -3524,50 +2969,6 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 	_, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.True(t, mock.executed)
-}
-
-func TestEngine_executeSQL_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	engine.SetRegistry(executor.NewRegistry())
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
-	}
-	ctx, err := executor.NewExecutionContext(workflow)
-	require.NoError(t, err)
-
-	resource := &domain.Resource{
-		ActionID: "r",
-		SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
-	}
-	_, err = engine.ExecuteResource(resource, ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "SQL executor not available")
-}
-
-func TestEngine_executeSQL_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	registry := executor.NewRegistry()
-	registry.SetSQLExecutor(&mockSQLExecutor{result: "rows"})
-	engine.SetRegistry(registry)
-
-	workflow := &domain.Workflow{
-		APIVersion: "kdeps.io/v1",
-		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				ActionID: "r",
-				SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
-			},
-		},
-	}
-
-	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "rows", result)
 }
 
 func TestEngine_executePython_NoExecutor(t *testing.T) {
@@ -4093,7 +3494,7 @@ func TestEngine_InlineResources_After(t *testing.T) {
 	mockPython := &mockPythonExecutor{result: "python result"}
 	mockLLM := &mockLLMExecutor{result: "llm result"}
 
-	registry.SetSQLExecutor(mockSQL)
+	registry.SetExecExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetLLMExecutor(mockLLM)
 	engine.SetRegistry(registry)
@@ -4119,10 +3520,7 @@ func TestEngine_InlineResources_After(t *testing.T) {
 					Prompt: "test prompt",
 				},
 				After: []domain.InlineResource{
-					{SQL: &domain.SQLConfig{
-						ConnectionName: "test",
-						Query:          "SELECT 1",
-					}},
+					{Exec: &domain.ExecConfig{Command: "echo sql"}},
 					{Python: &domain.PythonConfig{
 						Script: "print('hello')",
 					}},
@@ -4150,13 +3548,11 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 	// Set up mock executors
 	mockHTTP := &mockHTTPExecutor{result: "http result"}
 	mockExec := &mockExecExecutor{result: "exec result"}
-	mockSQL := &mockSQLExecutor{result: "sql result"}
 	mockPython := &mockPythonExecutor{result: "python result"}
 	mockLLM := &mockLLMExecutor{result: "llm result"}
 
 	registry.SetHTTPExecutor(mockHTTP)
 	registry.SetExecExecutor(mockExec)
-	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetLLMExecutor(mockLLM)
 	engine.SetRegistry(registry)
@@ -4354,4 +3750,103 @@ func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP executor not available")
+}
+
+// interface.output shapes the component's result from its resources' outputs.
+func TestEngine_runComponentResources_InterfaceOutput(t *testing.T) {
+	engine := executor.NewEngine(nil)
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(&mockLLMExecutor{result: map[string]interface{}{"body": "<p>hi</p>", "code": 201}})
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "comp-out-wf", Version: "1.0.0", TargetActionID: "res"},
+		Components: map[string]*domain.Component{
+			"shaper": {
+				Interface: &domain.ComponentInterface{Output: map[string]interface{}{
+					"text":   "{{ htmlText(output('fetchStep').body, 'p') }}",
+					"status": "{{ output('fetchStep').code }}",
+					"fixed":  "literal",
+				}},
+				Resources: []*domain.Resource{
+					{ActionID: "fetchStep", Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
+				},
+			},
+		},
+		Resources: []*domain.Resource{
+			{ActionID: "res", Component: &domain.ComponentCallConfig{Name: "shaper"}},
+		},
+	}
+
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+	out, ok := result.(map[string]interface{})
+	require.True(t, ok, "%T", result)
+	assert.Equal(t, "hi", out["text"])
+	assert.EqualValues(t, 201, out["status"])
+	assert.Equal(t, "literal", out["fixed"])
+}
+
+func TestEngine_runComponentResources_InterfaceOutputError(t *testing.T) {
+	engine := executor.NewEngine(nil)
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(&mockLLMExecutor{result: "ok"})
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "comp-out-err", Version: "1.0.0", TargetActionID: "res"},
+		Components: map[string]*domain.Component{
+			"broken": {
+				Interface: &domain.ComponentInterface{Output: "{{ nosuchfunc( }}"},
+				Resources: []*domain.Resource{
+					{ActionID: "step", Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
+				},
+			},
+		},
+		Resources: []*domain.Resource{
+			{ActionID: "res", Component: &domain.ComponentCallConfig{Name: "broken"}},
+		},
+	}
+
+	_, err := engine.Execute(workflow, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `component "broken" output`)
+}
+
+// A component resource's validations.check fails the call with its error message.
+func TestEngine_runComponentResources_ValidationsCheck(t *testing.T) {
+	engine := executor.NewEngine(nil)
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(&mockLLMExecutor{result: "ok"})
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "comp-check", Version: "1.0.0", TargetActionID: "res"},
+		Components: map[string]*domain.Component{
+			"guarded": {
+				Resources: []*domain.Resource{{
+					ActionID: "step",
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{{Raw: "1 == 2"}},
+						Error: &domain.ErrorConfig{Code: 400, Message: "guarded: input missing"},
+					},
+					Chat: &domain.ChatConfig{Model: "m", Prompt: "p"},
+				}},
+			},
+		},
+		Resources: []*domain.Resource{
+			{ActionID: "res", Component: &domain.ComponentCallConfig{Name: "guarded"}},
+		},
+	}
+
+	_, err := engine.Execute(workflow, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "guarded: input missing")
+	assert.Contains(t, err.Error(), `component "guarded" resource "step"`)
 }

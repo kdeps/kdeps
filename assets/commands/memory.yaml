@@ -1,0 +1,15 @@
+version: 1.0.0
+name: memory
+order: 260
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: "Show memory store overview (entry count, most recent entries)"
+  - args: list
+    help: List all stored memory entries
+  - args: "search <query>"
+    help: Search memory keys/values for a substring
+  - args: "show <key>"
+    help: "Show one entry's full value, type, and related keys"

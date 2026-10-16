@@ -382,11 +382,15 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	}
 	ms := &mockStreamer{responses: responses}
 	loop := newStreamingLoop(ms, 0) // unlimited rounds — only the guard can stop it
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(false)) // legacy path: no brief, turn ends
+	resetConvergenceLimitsAfter(t)
+	SetConvergenceLimits(0, 5, 0, 0) // the bash tool limit is the repeat cap
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)
 	require.NoError(t, err)
-	want := effectiveRounds(eventIdenticalCalls)
+	want := identicalRepeatLimit("bash_exec")
 	if ms.callCount != want {
 		t.Fatalf(
 			"expected loop to break after %d identical calls, got %d",
@@ -397,6 +401,40 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	if !strings.Contains(result, "repeated the same") {
 		t.Fatalf("expected stuck-loop notice, got %q", result)
 	}
+}
+
+func TestRunStreaming_RepeatBriefsModelThenRetries(t *testing.T) {
+	// With efficiency on, a repeat stuck-loop is not a turn-ending human-visible
+	// notice: the model gets a hidden brief on its next call and may retry.
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(true))
+
+	toolCall := domain.StreamedToolCall{
+		ID: "1", Name: "noop", Arguments: "{}",
+	}
+	n := identicalRepeatLimit("noop")
+	responses := make([]mockStreamResponse, 0, n+1)
+	for range n {
+		responses = append(responses, mockStreamResponse{toolCalls: []domain.StreamedToolCall{toolCall}})
+	}
+	responses = append(responses, mockStreamResponse{content: "switched approach, done"})
+	rec := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := newStreamingLoop(rec, 0)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.Contains(t, result, "switched approach")
+	assert.NotContains(t, result, "repeated the same")
+	assert.NotContains(t, buf.String(), efficiencyMark, "humans must not see the brief")
+	assert.NotContains(t, buf.String(), "repeated the same")
+
+	require.Len(t, rec.cfgs, n+1)
+	last := rec.cfgs[n]
+	assert.Contains(t, last.Prompt, efficiencyMark)
+	assert.Contains(t, last.Prompt, "noop")
+	assert.Contains(t, last.Prompt, "same result")
+	assert.NotContains(t, rec.cfgs[0].Prompt, efficiencyMark)
 }
 
 // cfgRecordingStreamer wraps mockStreamer and snapshots the ChatConfig of
@@ -596,7 +634,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
 	})
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	// The preamble must carry the same trailer commitTrailer() produces, model
 	// and all — otherwise the agent is told to write a different one.
 	assert.Contains(t, preamble,
@@ -624,7 +662,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 		Streamer: &mockStreamer{},
 	})
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Exact phrases from toolUseGuidance's operating rules.
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")
@@ -658,7 +696,7 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 	})
 	loop.session.Append("first", "done")
 
-	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble(""))
+	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble())
 	require.NotEmpty(t, cfg.Tools)
 	// New() also registers identity_get. Tool order follows map iteration,
 	// so match by name instead of position.
@@ -678,6 +716,66 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 	assert.Contains(t, reminder, "<available_tools>")
 	assert.Contains(t, reminder, `<invoke name="noop">`)
 	assert.Contains(t, reminder, `<parameter name="target">`)
+}
+
+// TestBuildChatConfig_IncludesActiveHarnessReminder covers /harness
+// reminders <name> on: the named section's raw body must reach every
+// buildChatConfig call as its own scenario item, including the very FIRST
+// turn (unlike the tools-reminder, which only repeats after turn 0).
+func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
+	var found bool
+	for _, item := range cfg.Scenario {
+		if item.Prompt == harnessText("m365-sandbox") {
+			found = true
+		}
+	}
+	assert.True(t, found, "an active harness reminder must appear on the very first turn")
+}
+
+// TestBuildChatConfig_NoReminderScenarioWhenNoneActive ensures the reminder
+// wiring is a true no-op (no extra empty scenario item) when nothing is
+// active.
+func TestBuildChatConfig_NoReminderScenarioWhenNoneActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
+	for _, item := range cfg.Scenario {
+		assert.NotEmpty(t, strings.TrimSpace(item.Prompt), "no empty reminder scenario item should be added")
+	}
+}
+
+// TestToolResultMessage_AppendsActiveHarnessReminder covers the tool-call
+// side: an active reminder must be appended to every tool result, including
+// the task-state-tool short-circuit path.
+func TestToolResultMessage_AppendsActiveHarnessReminder(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:    "test",
+		Streamer: &mockStreamer{},
+	})
+
+	got := loop.toolResultMessage(context.Background(),
+		domain.StreamedToolCall{Name: "read_file"}, "file contents")
+	assert.Contains(t, got, harnessText("m365-sandbox"))
 }
 
 // TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the
@@ -707,7 +805,7 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 		Streamer: &mockStreamer{},
 	})
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Contains(t, preamble, "after 7 distinct web calls")
 	assert.NotContains(t, preamble, "{{.WebCallLimit}}", "the placeholder must not leak through unrendered")
 }
@@ -733,7 +831,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
 	loop.skills = "LARGE SKILL BLOCK"
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")
@@ -2362,9 +2460,10 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	assert.NotContains(t, result, "invoke")
 }
 
-// A failed work tool must be flagged to the model with a [TOOL FAILED] banner,
-// and the loop must not end the turn on a "done" claim right after it -- it
-// nudges once for a real success or an honest failure.
+// A failed work tool is soft-stopped: the error reaches the model on the hidden
+// efficiency channel (not as a [TOOL FAILED] banner in history), and the loop
+// must not end the turn on a "done" claim right after it -- it nudges once for
+// a real success or an honest failure.
 func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	calls := 0
 	eng := executor.NewEngine(nil)
@@ -2389,8 +2488,10 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 2)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]",
-		"the model must see the failed tool flagged")
+	assert.Contains(t, ms.cfgs[1].Prompt, efficiencyMark+" Soft stop (failure 1/",
+		"the model must be briefed on the failure")
+	assert.Contains(t, ms.cfgs[1].Prompt, "old_string not found in /a.go")
+	assert.NotContains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the brief replaces the history banner")
 	require.Len(t, ms.cfgs, 3, "a 'done' claim after a failed tool must draw one nudge")
 	assert.Contains(t, ms.cfgs[2].Prompt, "edit_file call failed")
 	assert.Contains(t, result, "edit failed")
@@ -2430,7 +2531,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 3)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the first failure must still be flagged")
+	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/", "the first failure must still be flagged")
 	assert.Contains(t, ms.cfgs[2].Messages, "[GOOD]", "the recovered success must carry praise")
 	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
 }
@@ -2796,4 +2897,25 @@ func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestRunStreaming_UnlimitedToolLimitDoesNotBreakRepeatLoop(t *testing.T) {
+	resetConvergenceLimitsAfter(t)
+	SetConvergenceLimits(0, -1, 0, 0)
+	toolCall := domain.StreamedToolCall{
+		ID: "1", Name: "bash_exec", Arguments: `{"command":"echo hello"}`,
+	}
+	responses := make([]mockStreamResponse, 0, 8)
+	for range 6 {
+		responses = append(responses, mockStreamResponse{toolCalls: []domain.StreamedToolCall{toolCall}})
+	}
+	responses = append(responses, mockStreamResponse{content: "Done."})
+	ms := &mockStreamer{responses: responses}
+	loop := newStreamingLoop(ms, 0)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.NotContains(t, result, "repeated the same")
+	assert.Equal(t, 7, ms.callCount)
 }

@@ -1,0 +1,141 @@
+version: 1.0.1
+# kdeps update installs these with this preset: the events it tunes and the actions they run
+requires:
+  actions/block: ""
+  actions/cap: ""
+  actions/compact: ""
+  actions/drop_oldest: ""
+  actions/truncate: ""
+  events/auto-compact: ""
+  events/bash-call-budget: ""
+  events/code-call-budget: ""
+  events/efficiency: ""
+  events/efficiency-actions: ""
+  events/efficiency-bash: ""
+  events/efficiency-code: ""
+  events/efficiency-failures: ""
+  events/efficiency-file: ""
+  events/efficiency-reads: ""
+  events/efficiency-stops: ""
+  events/efficiency-tighten: ""
+  events/efficiency-verbose: ""
+  events/efficiency-web: ""
+  events/file-call-budget: ""
+  events/fold: ""
+  events/force-answer-digest: ""
+  events/history-window-trim: ""
+  events/memory-chain-max: ""
+  events/memory-focus-max: ""
+  events/memory-keys-limit: ""
+  events/memory-prompt-limit: ""
+  events/rel-memory-limit: ""
+  events/tool-error-truncate: ""
+  events/tool-result-truncate: ""
+  events/web-call-budget: ""
+name: frugal
+description: >-
+  Minimizes token usage: compacts and folds history sooner, injects far
+  less memory context, truncates tool output harder, and caps tool-call
+  budgets tighter. Best for cost-sensitive sessions or a small-context-
+  window local model.
+events:
+  - name: auto-compact
+    on:
+      tokens: 8000
+      ctxWindowFraction: 0.5
+      minTurns: 2
+    run: compact
+  - name: fold
+    on:
+      tokensSinceCheckpoint: 500
+      minTurns: 2
+    items: 3
+    run: compact
+  - name: memory-prompt-limit
+    on:
+      tokens: 150
+    run: truncate
+  - name: memory-keys-limit
+    items: 20
+    run: cap
+  - name: memory-focus-max
+    items: 2
+    run: cap
+  - name: memory-chain-max
+    items: 3
+    run: cap
+  - name: rel-memory-limit
+    items: 100
+    run: cap
+  - name: tool-result-truncate
+    on:
+      bytes: 4096
+    run: truncate
+  - name: tool-error-truncate
+    on:
+      bytes: 200
+    run: truncate
+  - name: force-answer-digest
+    on:
+      bytes: 4096
+    run: truncate
+  - name: history-window-trim
+    on:
+      bytes: 8192
+    run: drop_oldest
+  - name: web-call-budget
+    on:
+      distinctCalls: 8
+    run: block
+  - name: bash-call-budget
+    on:
+      distinctCalls: 20
+    run: block
+  - name: file-call-budget
+    on:
+      distinctCalls: 30
+    run: block
+  - name: code-call-budget
+    on:
+      distinctCalls: 12
+    run: block
+  - name: efficiency
+    run: block
+  - name: efficiency-verbose
+    disabled: true
+    run: block
+  - name: efficiency-reads
+    on:
+      rounds: 4
+    run: block
+  - name: efficiency-actions
+    on:
+      rounds: 20
+    run: block
+  - name: efficiency-stops
+    on:
+      rounds: 2
+    run: block
+  - name: efficiency-failures
+    on:
+      rounds: 3
+    run: block
+  - name: efficiency-tighten
+    items: 1
+    run: block
+  - name: efficiency-web
+    on:
+      distinctCalls: 3
+    run: block
+  - name: efficiency-bash
+    on:
+      distinctCalls: 5
+    run: block
+  - name: efficiency-file
+    on:
+      distinctCalls: 6
+    run: block
+  - name: efficiency-code
+    on:
+      distinctCalls: 4
+    run: block

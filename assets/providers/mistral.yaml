@@ -1,0 +1,13 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.mistral_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: mistral
+label: Mistral
+order: 50                # position in provider lists and the setup prompt
+configKey: mistral_api_key
+envVar: MISTRAL_API_KEY
+defaultModel: mistral-large-latest
+url: https://api.mistral.ai
+chatPath: /v1/chat/completions
+embeddings: true          # also serves OpenAI-compatible /embeddings
+hosts: [mistral.ai]

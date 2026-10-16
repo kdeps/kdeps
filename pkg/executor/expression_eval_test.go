@@ -75,7 +75,7 @@ func TestBuildSubExecutorEnv_Options(t *testing.T) {
 	assert.False(t, hasInput)
 
 	withInput := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{IncludeInput: true})
-	assert.Equal(t, ctx.Request.Body, withInput["input"])
+	assert.Equal(t, 1, withInput["input"].(func(string, ...string) interface{})("id"))
 }
 
 func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
@@ -94,7 +94,7 @@ func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
 
 	env := executor.BuildRequestSubExecutorEnv(ctx)
 	assert.Equal(t, ctx.Outputs, env["outputs"])
-	assert.Equal(t, ctx.Request.Body, env["input"])
+	assert.Equal(t, 1, env["input"].(func(string, ...string) interface{})("id"))
 	assert.Equal(t, ctx.Items["item"], env["item"])
 	req, ok := env["request"].(map[string]interface{})
 	require.True(t, ok)

@@ -2,8 +2,6 @@
 
 The [agent loop](/agent/) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
 
-*Applies to agent mode.*
-
 ## TaskRegistry
 
 Tracks every task created by the agent loop. Each task has a unique ID (`task-N`), status (`created` -> `running` -> `completed`/`failed`/`stopped`), description, prompt, and an append-only output and message transcript. Tasks can be assigned to a team and carry a heartbeat for stall detection.
@@ -60,7 +58,7 @@ The LLM manages teams through these tools:
 
 ## CronRegistry
 
-Schedules recurring task creation from the agent loop process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** - the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
+Schedules recurring task creation from the agent loop process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. Cron jobs fire automatically - the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
 
 | CLI tool | Description |
 |----------|-------------|

@@ -1,28 +1,9 @@
 # Scope environment variables per component
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build two components that both read the same environment
+Build two components that both read the same environment
 variable name but can be given different values - one per component - without
 touching the global variable. You will also see the `.env` file kdeps
 scaffolds for each component on first run.
-
-This tutorial is for developers who have completed the
-[Reusable component](/examples/custom-component) tutorial. It assumes you know:
-
-- Basic YAML
-- How environment variables work
-
-By the end you will be able to:
-
-- Read an environment variable in a component with `env()`
-- Override it for one component with a `{COMPONENT}_{VAR}` prefix
-- Fall back to a component's `.env` file
-- Understand the auto-scaffolded `.env` and `README.md`
-
-## Background
 
 When a component runs, `env('API_KEY')` is resolved in this order:
 
@@ -32,11 +13,6 @@ When a component runs, `env('API_KEY')` is resolved in this order:
 
 So a `translator` component and a `summarizer` component can each get their own
 key while sharing one variable name in the YAML.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the structure
 
@@ -78,13 +54,44 @@ resources:
     apiResponse:
       success: true
       response:
-        out: "{{ get('translate') }}"
+        out: "{{ trim(get('translate').stdout) }}"   # the echoed line, not the whole exec result
 ```
 
 </div>
 
-Create `components/summarizer/component.yaml` - identical but with
-`name: summarizer` and `"summarizer using key: ..."` in the echo.
+Create `components/summarizer/component.yaml`, the same shape under its own name:
+
+<div v-pre>
+
+```yaml
+# components/summarizer/component.yaml
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: summarizer
+  version: "1.0.0"
+
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+
+resources:
+  - actionId: summarize
+    name: Summarize
+    exec:
+      command: "echo"
+      args:
+        - "summarizer using key: {{ env('API_KEY', 'none') }} -- text: {{ input('text') }}"
+    apiResponse:
+      success: true
+      response:
+        out: "{{ trim(get('summarize').stdout) }}"   # the echoed line, not the whole exec result
+```
+
+</div>
 
 ## Step 3: call both components
 
@@ -132,8 +139,8 @@ requires: [runTranslate, runSummarize]
 apiResponse:
   success: true
   response:
-    translator: "{{ output('runTranslate').out }}"
-    summarizer: "{{ output('runSummarize').out }}"
+    translator: "{{ output('runTranslate').data.out }}"   # a component call returns its apiResponse
+    summarizer: "{{ output('runSummarize').data.out }}"
 ```
 
 </div>
@@ -203,14 +210,6 @@ cat components/translator/README.md   # generated from component.yaml metadata
 
 Fill in `.env` to provide a lowest-priority fallback value when no process
 environment variable is set.
-
-## Summary
-
-You built two components that:
-
-- Read the same variable name with `env('API_KEY')`
-- Resolve it independently: `{COMPONENT}_API_KEY` -> `API_KEY` -> `.env`
-- Got an auto-scaffolded `.env` and `README.md` on first run
 
 ## Next steps
 

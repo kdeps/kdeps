@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,8 +41,6 @@ func TestRegisterResourceTools_AllRegistered(t *testing.T) {
 	expected := []string{
 		"http_request",
 		"search_local",
-		"transcribe_audio",
-		"ocr_image",
 		"load_document",
 		"embedding_search",
 		"embedding_vectorize",
@@ -189,174 +186,34 @@ func TestRegisterSearchLocalTool_Execute_WithGlob(t *testing.T) {
 	assert.Contains(t, result, "count")
 }
 
-func TestRegisterSearchLocalTool_Execute_ResultCarriesMatchID(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+func ocrImageTool(t *testing.T) *kdepstools.Tool {
+	t.Helper()
 	reg := kdepstools.NewRegistry()
-	registerSearchLocalTool(context.Background(), reg)
-	tool := reg.Get("search_local")
-	require.NotNil(t, tool)
-
-	dir := t.TempDir()
-	f := dir + "/target.go"
-	require.NoError(t, os.WriteFile(f, []byte("package x\n\nfunc FindMeHere() {}\n"), 0o600))
-
-	result, err := tool.Execute(map[string]any{"path": dir, "query": "FindMeHere"})
-	require.NoError(t, err)
-	assert.Contains(t, result, `"match_id"`)
-	assert.Contains(t, result, `"line": 3`)
-	assert.Contains(t, result, `"revision"`)
-}
-
-// --- registerTranscribeTool ---
-
-func TestRegisterTranscribeTool_Registered(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-	assert.Equal(t, "transcribe_audio", tool.Name)
-	assert.Contains(t, tool.Parameters, "file")
-	assert.True(t, tool.Parameters["file"].Required)
-	assert.Contains(t, tool.Parameters, toolParamModel)
-	assert.Contains(t, tool.Parameters, "backend")
-}
-
-func TestRegisterTranscribeTool_Execute_MissingFile(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-
-	// file is required; executor returns error before needing env vars
-	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-}
-
-func TestRegisterTranscribeTool_Execute_WithInvalidFile(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-
-	// Non-existent file: falls through to callTranscribeAPI which tries os.Open
-	_, err := tool.Execute(map[string]any{"file": "/nonexistent/audio.mp3"})
-	assert.Error(t, err)
-}
-
-func TestRegisterTranscribeTool_Execute_WithModelAndBackend(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-
-	_, err := tool.Execute(map[string]any{
-		"file":    "/nonexistent/audio.mp3",
-		"model":   "whisper-1",
-		"backend": "openai",
-	})
-	assert.Error(t, err)
-}
-
-func TestRegisterTranscribeTool_Registered_HasModelPathParam(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-	assert.Contains(t, tool.Parameters, "modelPath")
-}
-
-func TestRegisterTranscribeTool_Execute_WhisperCPP_InvalidModelPath(t *testing.T) {
-	// transcribeWhisperCPP checks the whisper-cli binary before modelPath,
-	// so this needs the same skip guard as the real-extraction test below
-	// to stay meaningful (and not just report "whisper-cli not found") in
-	// an environment without it installed.
-	if _, err := exec.LookPath("whisper-cli"); err != nil {
-		t.Skip("whisper-cli not found in PATH")
-	}
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-
-	// File itself doesn't need to exist for this assertion -- modelPath is
-	// resolved after the file check in transcribeWhisperCPP, and this repo
-	// module has no such audio fixture, so use a real path (a Go source
-	// file) purely to get past the file-exists check and reach the
-	// modelPath validation being tested here.
-	_, err := tool.Execute(map[string]any{
-		"file":      "builtin_resource_tools.go",
-		"backend":   "whisper-cpp",
-		"modelPath": "/nonexistent/model.bin",
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "modelPath")
-}
-
-func TestRegisterTranscribeTool_Execute_WhisperCPP_ExtractsText(t *testing.T) {
-	if _, err := exec.LookPath("whisper-cli"); err != nil {
-		t.Skip("whisper-cli not found in PATH")
-	}
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	registerTranscribeTool(context.Background(), reg)
-	tool := reg.Get("transcribe_audio")
-	require.NotNil(t, tool)
-
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	fixture := filepath.Join(wd, "..", "..", "tests", "e2e", "fixtures", "transcribe-sample.mp3")
-
-	out, err := tool.Execute(map[string]any{
-		"file":    fixture,
-		"backend": "whisper-cpp",
-	})
-	require.NoError(t, err)
-	assert.Contains(t, strings.ToLower(out), "transcription test")
-}
-
-// --- registerOCRTool ---
-
-func TestRegisterOCRTool_Registered(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
+	registerDeclaredTools(context.Background(), reg, nil)
 	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-	assert.Equal(t, "ocr_image", tool.Name)
+	require.NotNil(t, tool, "ocr_image is declared by its tool asset")
+	return tool
+}
+
+func TestOCRImageTool_Declared(t *testing.T) {
+	tool := ocrImageTool(t)
 	assert.Contains(t, tool.Parameters, "file")
 	assert.True(t, tool.Parameters["file"].Required)
-	assert.Contains(t, tool.Parameters, "language")
 	assert.False(t, tool.Parameters["language"].Required)
-}
-
-func TestRegisterOCRTool_Execute_MissingFile(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "file is required")
+	require.ErrorContains(t, err, "ocr_image: file is required")
 }
 
-func TestRegisterOCRTool_Execute_WithInvalidFile(t *testing.T) {
-	if _, err := exec.LookPath("tesseract"); err != nil {
-		t.Skip("tesseract not found in PATH")
-	}
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-
-	_, err := tool.Execute(map[string]any{"file": "/nonexistent/image.png"})
-	assert.Error(t, err)
+func TestOCRImageTool_MissingTesseract(t *testing.T) {
+	orig := lookExecTool
+	lookExecTool = func(string) (string, error) { return "", exec.ErrNotFound }
+	t.Cleanup(func() { lookExecTool = orig })
+	_, err := ocrImageTool(t).Execute(map[string]any{"file": t.TempDir() + "/a.png"})
+	require.ErrorContains(t, err, "ocr_image: tesseract not found in PATH (install tesseract-ocr)")
 }
 
-func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
+func TestOCRImageTool_ExtractsText(t *testing.T) {
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		t.Skip("tesseract not found in PATH")
 	}
@@ -367,21 +224,17 @@ func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
 			t.Skip("ImageMagick (magick/convert) not found in PATH")
 		}
 	}
+	imgPath := filepath.Join(t.TempDir(), "test.png")
+	require.NoError(t, exec.Command(imCmd, "-size", "300x80", "xc:white",
+		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath).Run())
 
-	dir := t.TempDir()
-	imgPath := filepath.Join(dir, "test.png")
-	cmd := exec.Command(imCmd, "-size", "300x80", "xc:white",
-		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath)
-	require.NoError(t, cmd.Run())
-
-	reg := kdepstools.NewRegistry()
-	registerOCRTool(context.Background(), reg)
-	tool := reg.Get("ocr_image")
-	require.NotNil(t, tool)
-
+	tool := ocrImageTool(t)
 	out, err := tool.Execute(map[string]any{"file": imgPath})
 	require.NoError(t, err)
 	assert.Contains(t, out, "TOOLTEST")
+
+	_, err = tool.Execute(map[string]any{"file": filepath.Join(t.TempDir(), "missing.png")})
+	require.ErrorContains(t, err, "ocr_image: tesseract:")
 }
 
 // --- registerLoaderTool ---
@@ -657,4 +510,22 @@ func TestMakeEmbeddingExecute_EmptyTextsForVectorize(t *testing.T) {
 	} else {
 		assert.Error(t, err)
 	}
+}
+
+func TestRegisterSearchLocalTool_Execute_ResultCarriesMatchID(t *testing.T) {
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	reg := kdepstools.NewRegistry()
+	registerSearchLocalTool(context.Background(), reg)
+	tool := reg.Get("search_local")
+	require.NotNil(t, tool)
+
+	dir := t.TempDir()
+	f := dir + "/target.go"
+	require.NoError(t, os.WriteFile(f, []byte("package x\n\nfunc FindMeHere() {}\n"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"path": dir, "query": "FindMeHere"})
+	require.NoError(t, err)
+	assert.Contains(t, result, `"match_id"`)
+	assert.Contains(t, result, `"line": 3`)
+	assert.Contains(t, result, `"revision"`)
 }

@@ -1,72 +1,48 @@
 # Telephony Bot Example
 
-An AI phone IVR built on the native `telephony:` resource. A Twilio-compatible provider POSTs its call webhooks to this workflow; the workflow answers with TwiML: a keypad menu, a static opening-hours line, and an LLM-powered question line where the caller speaks a question and the model answers it as text for the provider glue to speak.
+An AI phone IVR as a plain API workflow. Twilio POSTs each call step to a route; each route answers with TwiML built by the `twiml` component and returned as `text/xml`: a keypad menu, a static opening-hours line, and a question line where the caller speaks and a local LLM answers out loud.
 
 ## Call flow
 
 ```text
-inbound call -> POST /twilio/voice  -> menu: "Press 1 for hours, 2 for assistant"
-press 1     -> POST /twilio/hours  -> say: opening hours
-press 2     -> POST /twilio/ask    -> gather: spoken question
-speech done -> POST /twilio/answer -> chat: LLM answers as text
+inbound call -> POST /twilio/voice  -> gather 1 key: "Press 1 for hours, 2 for assistant"
+key pressed  -> POST /twilio/menu   -> redirect by Digits: 1 -> /hours, 2 -> /ask, else -> /voice
+             -> POST /twilio/hours  -> say opening hours, hang up
+             -> POST /twilio/ask    -> gather speech
+speech done  -> POST /twilio/answer -> LLM answers SpeechResult -> say it, hang up
 ```
 
-Each webhook is a separate request. The provider drives the flow: it posts the caller's input (`Digits`, `SpeechResult`) to the next route, and each response contains the TwiML for the next call step.
+Twilio drives the flow: it posts the caller's input (`Digits`, `SpeechResult`) to the route named in the last `gather` or `redirect`.
 
 ## Prerequisites
 
-- No LLM install needed - `llama3.2:1b` runs as a local llamafile (default
-  `file` backend), auto-downloaded on first run (~1.1 GB; used by the
-  `/twilio/answer` route)
-- A Twilio-compatible telephony provider pointing its voice webhook at this server
+- No LLM install needed - `llama3.2:1b` runs as a local llamafile, auto-downloaded on first run (~1.1 GB; used by `/twilio/answer`)
+- uv (the `twiml` component is a python resource)
+- For a live call: a Twilio number whose voice webhook is `https://<host>/twilio/voice`
 
 ## Run
 
 ```bash
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run workflow.yaml --dev
+export KDEPS_API_AUTH_TOKEN=dev-token   # the /twilio routes are public; other routes need it
+kdeps run workflow.yaml
 ```
 
-Simulate the provider with curl:
+Simulate Twilio with curl (form posts, no token):
 
 ```bash
-# Welcome menu (no input yet -- returns a <Gather> prompt)
-curl -sX POST http://localhost:16395/twilio/voice \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"CallSid":"CA001","From":"+14155551234","To":"+18005559999"}'
-
-# Caller pressed 1
-curl -sX POST http://localhost:16395/twilio/hours \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"CallSid":"CA001","Digits":"1"}'
-
-# Caller spoke a question (invokes the local LLM)
-curl -sX POST http://localhost:16395/twilio/answer \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"CallSid":"CA001","SpeechResult":"What are your opening hours?","Confidence":0.92}'
+curl -sX POST http://localhost:16395/twilio/voice -d CallSid=CA001 -d From=+14155551234
+curl -sX POST http://localhost:16395/twilio/menu -d Digits=1
+curl -sX POST http://localhost:16395/twilio/hours
+curl -sX POST http://localhost:16395/twilio/answer -d "SpeechResult=What are your opening hours?"
 ```
 
-Telephony responses contain the TwiML XML under the matching key, e.g.:
+Each returns TwiML, e.g. `/twilio/hours`:
 
-```json
-{
-  "success": true,
-  "data": {
-    "hours": {
-      "twiml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"alice\">We are open Monday to Friday, nine to five, Central European Time.</Say>\n</Response>"
-    }
-  }
-}
+```xml
+<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">We are open Monday to Friday, nine to five, Central European Time.</Say><Hangup /></Response>
 ```
-
-The `/twilio/answer` route returns the LLM answer as plain text under `data.answer` -- telephony `say:` fields are not template-interpolated, so the provider glue wraps the text in `<Say>` (or feeds it to TTS) itself.
-
-Your provider integration extracts the `twiml` (or `answer`) field and returns TwiML to the provider as `text/xml`.
 
 ## See Also
 
-- [Telephony Resource](../../docs/v2/resources/telephony.md) -- full action and field reference
-- [LLM Resource](../../docs/v2/resources/llm.md) — LLM / chat
+- [twiml component](https://kdeps.com/workflow/resources/telephony) - verbs and attributes
+- [Phone assistant tutorial](https://kdeps.com/examples/telephony-bot)

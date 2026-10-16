@@ -2,25 +2,48 @@
 
 Install the `kdeps` CLI to start building agents locally. Docker is optional - only needed if you want to build container images for deployment.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
-Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/quickstart).
+Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/quickstart).
 
 ## Installing the kdeps CLI
 
-### macOS (Homebrew)
+## macOS (Homebrew)
 
 ```bash
 brew install kdeps/tap/kdeps
 ```
 
-### Linux, macOS, and Windows (curl)
+Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows (Scoop, packages, or manual) install steps are in [Desktop app](../agent/desktop#install).
+
+## Windows (Scoop)
+
+```powershell
+scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
+scoop install kdeps           # CLI
+scoop install kdeps-desktop   # desktop app, standalone
+```
+
+## Linux packages (deb, rpm, apk, Arch)
+
+Each release attaches native CLI packages, so the package manager tracks the install. Pick the file for your distro from the [releases page](https://github.com/kdeps/kdeps/releases/latest):
+
+```bash
+sudo apt install ./kdeps_<version>_linux_amd64.deb            # Debian, Ubuntu
+sudo dnf install ./kdeps_<version>_linux_amd64.rpm            # Fedora, RHEL
+sudo pacman -U kdeps_<version>_linux_amd64.pkg.tar.zst        # Arch
+sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
+```
+
+Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you; see [Desktop app](../agent/desktop#install).
+
+## Linux, macOS, and Windows (curl)
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-### Windows (PowerShell)
+## Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
@@ -32,7 +55,7 @@ Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `P
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.21.0 -BinDir C:\tools\bin
 ```
 
-### Windows (wget in WSL or Git Bash)
+## Windows (wget in WSL or Git Bash)
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
@@ -40,7 +63,7 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
 > Note: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
 
-### From source
+## From source
 
 Recommended: `go install`
 
@@ -79,6 +102,24 @@ You should see output like:
 kdeps version 2.21.0
 ```
 
+## First run: pick a profile
+
+The binary ships no prompts, schemas, templates or tool definitions; the first command downloads them from kdeps.io (about 1.5 MB for everything). It asks how much:
+
+```text
+What will you use kdeps for? (change it later with kdeps profile)
+  1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
+  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, browser, email, ...)
+  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
+  5) full       ~19.4k tok   every asset set
+  6) custom                 tick the asset sets, or single items, yourself
+  (~tok: what the profile adds to the LLM context - prompts and tool definitions)
+Choice [5]:
+```
+
+A later command that needs more installs only the items its loader requires, so a small profile stays small and never blocks you: under `minimum`, the agent loop adds just 8 core commands and the tools it cannot run without. `kdeps install <set>` adds a set, and `kdeps profile <name>` switches profile, pruning what the new one leaves out. In CI or Docker there is no prompt: set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads. Details: [Updating assets](/agent/repl-updating#updating-assets).
+
 ## Docker (optional)
 
 Docker is only needed if you want to build container images for deployment. For local development and testing, kdeps runs natively without Docker.
@@ -103,7 +144,7 @@ Default backend is llamafile: no server, no GPU, no API key. The alias
 
 ```bash
 kdeps llamafile list      # see all known model aliases
-kdeps llamafile update    # refresh the registry from HuggingFace
+kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 ## First-run setup
@@ -189,8 +230,8 @@ sudo usermod -aG docker $USER
 
 ## See also
 
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [CLI reference](/reference/cli) - Complete command reference
 - [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

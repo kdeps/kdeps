@@ -183,24 +183,10 @@ type LLMKeys struct {
 	// or aria2c not installed. Default: "-c -x 16 -s 16 --console-log-level=warn"
 	Aria2cFlags string `yaml:"aria2c_flags,omitempty"`
 
-	// Online provider API keys.
-	OpenAI      string `yaml:"openai_api_key"`
-	Anthropic   string `yaml:"anthropic_api_key"`
-	Google      string `yaml:"google_api_key"`
-	Cohere      string `yaml:"cohere_api_key"`
-	Mistral     string `yaml:"mistral_api_key"`
-	Together    string `yaml:"together_api_key"`
-	Perplexity  string `yaml:"perplexity_api_key"`
-	Groq        string `yaml:"groq_api_key"`
-	DeepSeek    string `yaml:"deepseek_api_key"`
-	OpenRouter  string `yaml:"openrouter_api_key"`
-	XAI         string `yaml:"xai_api_key"`
-	HuggingFace string `yaml:"huggingface_api_key"`
-	Cloudflare  string `yaml:"cloudflare_api_token"`
-	Maritaca    string `yaml:"maritaca_api_key"`
-	Ernie       string `yaml:"ernie_api_key"`
-	Bedrock     string `yaml:"bedrock_api_key"`
-	WatsonX     string `yaml:"watsonx_api_key"`
+	// Keys holds every cloud provider's API key, keyed by the provider's
+	// config key (openai_api_key, groq_api_key, ...): the built-in providers
+	// and the providers asset set. Written as llm.<configKey> in config.yaml.
+	Keys map[string]string `yaml:",inline"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.
@@ -261,19 +247,11 @@ type TelegramConnectionConfig struct {
 	BotToken string `yaml:"botToken"`
 }
 
-// WhatsAppConnectionConfig holds WhatsApp Cloud API credentials.
-type WhatsAppConnectionConfig struct {
-	PhoneNumberID string `yaml:"phoneNumberId"`
-	AccessToken   string `yaml:"accessToken"`
-	WebhookSecret string `yaml:"webhookSecret,omitempty"` // for HMAC verification
-}
-
 // BotConnectionConfig holds credentials for all configured bot platforms.
 type BotConnectionConfig struct {
 	Discord  *DiscordConnectionConfig  `yaml:"discord,omitempty"`
 	Slack    *SlackConnectionConfig    `yaml:"slack,omitempty"`
 	Telegram *TelegramConnectionConfig `yaml:"telegram,omitempty"`
-	WhatsApp *WhatsAppConnectionConfig `yaml:"whatsapp,omitempty"`
 }
 
 // SQLConnectionConfig holds a database connection string for a named SQL connection.
@@ -303,6 +281,39 @@ type IdentityConfig struct {
 	Accounts map[string]AccountConfig `yaml:"accounts,omitempty"`
 }
 
+// KnowledgeConfig points the agent loop at a knowledge vault: a folder of
+// markdown notes it recalls from each turn and writes session notes into.
+type KnowledgeConfig struct {
+	// Enabled turns the vault on for agent sessions; nil means on.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Vault is the notes folder; empty means ~/.kdeps/notes.
+	Vault string `yaml:"vault,omitempty"`
+	// SessionNotes writes a note per agent session; nil means on.
+	SessionNotes *bool `yaml:"session_notes,omitempty"`
+	// WorkflowNotes logs each workflow chat call to its project's run note
+	// for the day; nil means off (workflows only recall).
+	WorkflowNotes *bool                  `yaml:"workflow_notes,omitempty"`
+	Recall        KnowledgeRecallConfig  `yaml:"recall,omitempty"`
+	Extract       KnowledgeExtractConfig `yaml:"extract,omitempty"`
+}
+
+// KnowledgeExtractConfig tunes the model pass that finds what notes are
+// about. It runs with a local model: the session's when it is local, else
+// Model (empty: skipped in sessions).
+type KnowledgeExtractConfig struct {
+	Enabled    *bool  `yaml:"enabled,omitempty"` // nil means on
+	Model      string `yaml:"model,omitempty"`
+	Backend    string `yaml:"backend,omitempty"`
+	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
+	PerSession int    `yaml:"per_session,omitempty"` // notes per session end (default 20)
+}
+
+// KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.
+type KnowledgeRecallConfig struct {
+	Hops         int `yaml:"hops,omitempty"`
+	BudgetTokens int `yaml:"budget_tokens,omitempty"`
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
 	LLM               LLMKeys                           `yaml:"llm"`
@@ -316,5 +327,6 @@ type Config struct {
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`
+	Knowledge         *KnowledgeConfig                  `yaml:"knowledge,omitempty"`
 	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }

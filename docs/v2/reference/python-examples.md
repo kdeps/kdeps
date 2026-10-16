@@ -2,11 +2,11 @@
 
 Examples, error handling, and debugging guidance for the [`python:` resource](/workflow/resources/python).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Examples
 
-### Data transformation
+## Data transformation
 
 <div v-pre>
 
@@ -40,7 +40,7 @@ python:
 
 </div>
 
-### ML inference
+## ML inference
 
 <div v-pre>
 
@@ -79,7 +79,7 @@ python:
 
 </div>
 
-### Text processing
+## Text processing
 
 <div v-pre>
 
@@ -113,7 +113,7 @@ python:
 
 </div>
 
-### Image processing
+## Image processing
 
 <div v-pre>
 
@@ -147,7 +147,7 @@ python:
 
 </div>
 
-### API integration
+## API integration
 
 <div v-pre>
 

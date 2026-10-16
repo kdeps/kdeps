@@ -8,7 +8,9 @@ validations:
   error:
     code: 400
     message: "url is required"
-scraper:
-  url: "{{ get('url') }}"
-  selector: "{{ get('selector', '') }}"
-  timeout: 30
+component:
+  name: scraper                          # YAML component from the components asset set
+  with:
+    url: "{{ get('url') }}"
+    selector: "{{ get('selector', '') }}"  # empty: the whole body
+    timeout: 30s

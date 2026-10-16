@@ -1,39 +1,16 @@
 # Use an MCP server as a tool
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you give an LLM tools that are backed by an external
+Give an LLM tools that are backed by an external
 [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server instead
 of your own resources. kdeps starts the server as a subprocess, performs the
 handshake, calls the tool, and shuts it down.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart) and read
-[Tools (function calling)](/workflow/tools). It assumes you know:
-
-- Basic YAML
-- What an MCP server is at a high level
-
-By the end you will be able to:
-
-- Define a tool with an `mcp:` block instead of `script:`
-- Point it at an MCP server started with `npx` or `uvx`
-- Restrict the server's filesystem access with its arguments
-
-## Background
 
 A workflow-mode tool normally runs one of your resources (`script:`). An `mcp:`
 tool runs a tool exposed by an MCP server. `mcp:` and `script:` are mutually
 exclusive. A fresh subprocess is started for each tool invocation and only
 `stdio` transport is supported.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- Node.js with `npx` on `PATH` (for the filesystem MCP server).
-- A working directory for the project.
+**Needs:** Node.js with `npx` on `PATH` (for the filesystem MCP server).
 
 ## Step 1: create the project
 
@@ -135,19 +112,23 @@ curl -X POST http://localhost:16395/chat \
 ```
 
 The model calls `read_file` with `path: "/tmp/note.txt"`, kdeps runs the MCP
-server, returns the contents, and the model answers.
+server, returns the contents (`hello from mcp`), and the model answers in
+text. With `llama3.2:1b` the reply was:
 
-## Summary
+```json
+{"success": true, "data": {"reply": {"message": {"role": "assistant", "content": "The contents of /tmp/note.txt are:"}}}}
+```
 
-You gave an LLM tools that:
-
-- Are backed by an external MCP server, not your own resources
-- Use an `mcp:` block with `server`, `args`, and `transport`
-- Are sandboxed to one directory by the server's arguments
+The wording comes from the model and varies. Small local models such as
+`llama3.2:1b` often write the tool call as JSON text instead of a structured
+call; kdeps recovers it, runs the tool, and stops a model that keeps
+re-issuing the same call by asking once more, without tools, for a plain
+answer. A 1B model's answer can be thin, as above; use a larger model
+for dependable tool use.
 
 ## Next steps
 
-- [Tools (function calling)](/workflow/tools) - `script:` tools, parameter types
-- [Tools reference](/reference/tools) - MCP details, debugging
+- [Function calling](/workflow/tools) - `script:` tools, parameter types
+- [Function calling](/reference/tools) - MCP details, debugging
 - [Function calling tutorial](/examples/function-calling) - tools backed by your own resources
 - [Agent loop built-in tools](/agent/tools) - MCP in agent mode

@@ -171,7 +171,7 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	}
 
 	if strings.Contains(pkg, "/") {
-		return cloneFromRemote(pkg)
+		return cloneFromRemote(strings.TrimPrefix(pkg, githubPrefix))
 	}
 
 	name, version := parseRegistryPackageRef(pkg)

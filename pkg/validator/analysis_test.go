@@ -292,28 +292,6 @@ func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
-	r := mkResource("target")
-	r.SQL = &domain.SQLConfig{
-		Queries: []domain.QueryItem{
-			{Query: "SELECT * WHERE id = output('nope')"},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
-func TestAnalyzeWorkflow_ExpressionInScraperURL(t *testing.T) {
-	r := mkResource("target")
-	r.Scraper = &domain.ScraperConfig{URL: "{{ gone.url }}"}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
 func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 	r := mkResource("target")
 	r.Embedding = &domain.EmbeddingConfig{Text: "{{ gone.text }}"}
@@ -326,15 +304,6 @@ func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 	r := mkResource("target")
 	r.SearchLocal = &domain.SearchLocalConfig{Query: "output('gone')"}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	assert.NotEmpty(t, wa.Errors())
-}
-
-func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
-	r := mkResource("target")
-	r.SearchWeb = &domain.SearchWebConfig{Query: "output('gone')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -505,6 +474,19 @@ func TestExtractActionIDRefs_OutputFunc(t *testing.T) {
 	assert.Empty(t, wa.Errors())
 }
 
+// A dotted string literal inside a template (a URL default) is not a reference;
+// a bare id.field next to it still is.
+func TestExtractActionIDRefs_StringLiteralIgnored(t *testing.T) {
+	r := mkResource("target")
+	r.Chat = &domain.ChatConfig{
+		Prompt: "{{ env('API', 'https://graph.facebook.com/v19.0') }} {{ env(\"X\", \"a.b\") }}",
+	}
+	assert.Empty(t, validator.AnalyzeWorkflow(mkWorkflow("target", r)).Errors())
+
+	r.Chat.Prompt = "{{ env('API', 'x.y') + missing.field }}"
+	assert.NotEmpty(t, validator.AnalyzeWorkflow(mkWorkflow("target", r)).Errors())
+}
+
 func TestExtractActionIDRefs_TemplatePattern(t *testing.T) {
 	r := mkResource("target")
 	r.Chat = &domain.ChatConfig{Prompt: "value: {{ dep.result }}"}
@@ -642,52 +624,6 @@ func TestAnalyzeWorkflow_ExpressionInChatScenario(t *testing.T) {
 	assert.Contains(t, errs[0].Message, `"ghost"`)
 }
 
-// TestAnalyzeWorkflow_ExpressionInSQLParams tests that SQL query params are scanned.
-func TestAnalyzeWorkflow_ExpressionInSQLParams(t *testing.T) {
-	r := mkResource("target")
-	r.SQL = &domain.SQLConfig{
-		Queries: []domain.QueryItem{
-			{Query: "SELECT *", Params: []interface{}{"output('ghost')"}},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.Len(t, errs, 1)
-	assert.Contains(t, errs[0].Message, `"ghost"`)
-}
-
-// TestAnalyzeWorkflow_ExpressionInBrowser tests Browser fields are scanned.
-func TestAnalyzeWorkflow_ExpressionInBrowser(t *testing.T) {
-	r := mkResource("target")
-	r.Browser = &domain.BrowserConfig{
-		URL:     "http://{{ gone.host }}",
-		WaitFor: "output('ghost')",
-		Actions: []domain.BrowserAction{
-			{URL: "{{ gone.url }}", Selector: "output('sel')", Value: "output('val')", Script: "output('scr')"},
-		},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.GreaterOrEqual(t, len(errs), 1)
-	// At least one of the bad refs should be detected
-	assert.Condition(t, func() bool {
-		for _, e := range errs {
-			if e.Message == `expression references unknown actionId "gone"` ||
-				e.Message == `expression references unknown actionId "ghost"` ||
-				e.Message == `expression references unknown actionId "sel"` ||
-				e.Message == `expression references unknown actionId "val"` ||
-				e.Message == `expression references unknown actionId "scr"` {
-				return true
-			}
-		}
-		return false
-	})
-}
-
 // TestAnalyzeWorkflow_ExpressionInInlineChat tests inline Before action with Chat.
 func TestAnalyzeWorkflow_ExpressionInInlineChat(t *testing.T) {
 	r := mkResource("target")
@@ -710,24 +646,6 @@ func TestAnalyzeWorkflow_ExpressionInInlineHTTPData(t *testing.T) {
 		{HTTPClient: &domain.HTTPClientConfig{
 			URL:  "http://example.com",
 			Data: "output('ghost')",
-		}},
-	}
-	w := mkWorkflow("target", r)
-
-	wa := validator.AnalyzeWorkflow(w)
-	errs := wa.Errors()
-	require.Len(t, errs, 1)
-	assert.Contains(t, errs[0].Message, `"ghost"`)
-}
-
-// TestAnalyzeWorkflow_ExpressionInInlineSQL tests inline Before action with SQL query.
-func TestAnalyzeWorkflow_ExpressionInInlineSQL(t *testing.T) {
-	r := mkResource("target")
-	r.Before = []domain.ActionConfig{
-		{SQL: &domain.SQLConfig{
-			Queries: []domain.QueryItem{
-				{Query: "output('ghost')"},
-			},
 		}},
 	}
 	w := mkWorkflow("target", r)

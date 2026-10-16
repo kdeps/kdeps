@@ -39,8 +39,9 @@ done
 # Stateless bot mode reads a JSON message from stdin and runs one-shot (no
 # HTTP server) -- the workflow's chat resource uses model: llama3.2:1b, the
 # same local llamafile CI already provisions for every other local-model
-# e2e test, so this needs no external service.
-RUN_OUT=$(echo '{"message": "Say hi"}' | timeout 60 "$KDEPS_BIN" run "$WORKFLOW_PATH" 2>&1 || true)
+# e2e test, so this needs no external service. 180s: a cold llamafile on a
+# shared CI runner can take over a minute to load and answer.
+RUN_OUT=$(echo '{"message": "Say hi"}' | timeout 180 "$KDEPS_BIN" run "$WORKFLOW_PATH" 2>&1 || true)
 if output_grep_i "fatal" "$RUN_OUT"; then
     test_failed "Stateless Bot - Server test" "$RUN_OUT"
 elif output_grep_i "Resource completed" "$RUN_OUT"; then

@@ -19,8 +19,6 @@
 package validator
 
 import (
-	"fmt"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -35,9 +33,8 @@ var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-
 	"data":              true, // HTTP/SQL response data field accessed via safe()
 	"r":                 true, // common loop variable in search result iteration
 	// Eval-env accessor namespaces (pkg/executor/eval_env_profile.go). Without
-	// these, expressions like {{ telephony.speech() }} fail validation with
+	// these, expressions like {{ http.responseBody(...) }} fail validation with
 	// "unknown actionId".
-	"telephony":       true, // telephony session accessors (speech(), digits(), ...)
 	"http":            true, // http accessor env
 	"outputs":         true, // raw outputs map
 	"inputTranscript": true, // transcribed input text
@@ -61,6 +58,7 @@ func extractActionIDRefs(s string) []string {
 		// path values inside those calls (e.g. '/tmp/output.pdf') would otherwise
 		// be mis-parsed as actionId references.
 		stripped := reStripFuncCalls.ReplaceAllString(block[1], "")
+		stripped = reStringLiteral.ReplaceAllString(stripped, "''")
 		for _, m := range reDotIdent.FindAllStringSubmatch(stripped, -1) {
 			if !builtinTemplateVars[m[1]] {
 				refs = append(refs, m[1])
@@ -139,32 +137,11 @@ func collectExecTypeStrings(r *domain.Resource) []string {
 			out = append(out, s)
 		}
 	}
-	if r.SQL != nil {
-		for _, q := range r.SQL.Queries {
-			out = append(out, q.Query)
-			for _, p := range q.Params {
-				out = append(out, fmt.Sprintf("%v", p))
-			}
-		}
-	}
-	if r.Scraper != nil {
-		out = append(out, r.Scraper.URL)
-	}
 	if r.Embedding != nil {
 		out = append(out, r.Embedding.Text)
 	}
 	if r.SearchLocal != nil {
 		out = append(out, r.SearchLocal.Query)
-	}
-	if r.SearchWeb != nil {
-		out = append(out, r.SearchWeb.Query)
-	}
-	if r.Browser != nil {
-		out = append(out, r.Browser.URL)
-		out = append(out, r.Browser.WaitFor)
-		for _, a := range r.Browser.Actions {
-			out = append(out, a.URL, a.Selector, a.Value, a.Script)
-		}
 	}
 	return out
 }
@@ -196,11 +173,6 @@ func collectInlineStrings(ac *domain.ActionConfig) []string {
 		out = append(out, ac.HTTPClient.URL)
 		if s, ok := ac.HTTPClient.Data.(string); ok {
 			out = append(out, s)
-		}
-	}
-	if ac.SQL != nil {
-		for _, q := range ac.SQL.Queries {
-			out = append(out, q.Query)
 		}
 	}
 	return out

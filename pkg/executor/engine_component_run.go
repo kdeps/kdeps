@@ -36,6 +36,19 @@ func (e *Engine) runComponentResources(
 
 	var lastResult interface{}
 	for _, compRes := range comp.Resources {
+		// A component resource's validations.skip picks which of its
+		// resources run, as it does for workflow resources.
+		skip, skipErr := e.ShouldSkipResource(compRes, ctx)
+		if skipErr != nil {
+			return nil, fmt.Errorf("component %q resource %q skip condition: %w",
+				componentName, compRes.ActionID, skipErr)
+		}
+		if skip {
+			continue
+		}
+		if checkErr := e.RunPreflightCheck(compRes, ctx); checkErr != nil {
+			return nil, fmt.Errorf("component %q resource %q: %w", componentName, compRes.ActionID, checkErr)
+		}
 		result, execErr := e.ExecuteResource(compRes, ctx)
 		if execErr != nil {
 			return nil, fmt.Errorf("component %q resource %q failed: %w",
@@ -47,8 +60,25 @@ func (e *Engine) runComponentResources(
 		}
 	}
 
+	if comp.Interface != nil && comp.Interface.Output != nil {
+		shaped, err := e.evaluateComponentOutput(comp.Interface.Output, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("component %q output: %w", componentName, err)
+		}
+		lastResult = shaped
+	}
+
 	if lastResult != nil {
 		ctx.SetOutput(callerID, lastResult)
 	}
 	return lastResult, nil
+}
+
+// evaluateComponentOutput resolves a component's interface.output against
+// the outputs its resources produced.
+func (e *Engine) evaluateComponentOutput(output any, ctx *ExecutionContext) (interface{}, error) {
+	if err := e.ensureResponseEvaluator(ctx); err != nil {
+		return nil, err
+	}
+	return e.evaluateResponseValue(output, e.buildEvaluationEnvironment(ctx))
 }

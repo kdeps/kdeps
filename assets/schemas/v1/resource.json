@@ -1,0 +1,746 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "responseBlock": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "response": {
+          "description": "Response data - can be any type: string, array, object, number, etc."
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers for the response"
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "HTTP status code for the response"
+        },
+        "model": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        }
+      }
+    },
+    "fieldRule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "array",
+            "object",
+            "email",
+            "url",
+            "uuid",
+            "date"
+          ]
+        },
+        "minLength": {
+          "type": "integer"
+        },
+        "maxLength": {
+          "type": "integer"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minItems": {
+          "type": "integer"
+        },
+        "maxItems": {
+          "type": "integer"
+        },
+        "enum": {
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "required": [
+    "actionId",
+    "name"
+  ],
+  "properties": {
+    "validations": {
+      "type": "object",
+      "description": "Consolidated validation configuration for the resource",
+      "properties": {
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "DELETE",
+              "PATCH"
+            ]
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          }
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skip": {
+          "type": "array",
+          "description": "OR logic: any true condition skips the resource"
+        },
+        "check": {
+          "type": "array",
+          "description": "AND logic: all must be true or error is returned"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error returned when check conditions fail",
+          "properties": {
+            "code": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of required field names"
+        },
+        "rules": {
+          "type": "array",
+          "description": "Field-specific validation rules",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "integer",
+                  "number",
+                  "boolean",
+                  "array",
+                  "object",
+                  "email",
+                  "url",
+                  "uuid",
+                  "date"
+                ]
+              },
+              "minLength": {
+                "type": "integer"
+              },
+              "maxLength": {
+                "type": "integer"
+              },
+              "pattern": {
+                "type": "string"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "minimum": {
+                "type": "number"
+              },
+              "maximum": {
+                "type": "number"
+              },
+              "minItems": {
+                "type": "integer"
+              },
+              "maxItems": {
+                "type": "integer"
+              },
+              "enum": {
+                "type": "array"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "properties": {
+          "type": "object",
+          "description": "Alias for rules: map of field name to rule config",
+          "additionalProperties": {
+            "$ref": "#/definitions/fieldRule"
+          }
+        },
+        "fields": {
+          "type": "object",
+          "description": "Alias for rules: map of field name to rule config",
+          "additionalProperties": {
+            "$ref": "#/definitions/fieldRule"
+          }
+        },
+        "expr": {
+          "type": "array",
+          "description": "Custom expression-based validation rules (bare scalar strings)",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "description": "Loop iteration config. Repeats the resource body while the optional 'while' expression is true (or indefinitely up to maxIterations when 'while' is omitted). Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
+      "properties": {
+        "while": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional boolean expression evaluated before each iteration. Loop continues while truthy. When omitted, the loop runs until maxIterations (default 1000) or until all 'at' entries are consumed."
+        },
+        "maxIterations": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Safety cap on the number of iterations (default: 1000)."
+        },
+        "every": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 0
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$"
+            }
+          ],
+          "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m', '1h'). Mutually exclusive with 'at'."
+        },
+        "at": {
+          "type": "array",
+          "description": "Array of specific dates/times to fire the loop body. Supported formats: RFC3339 ('2026-03-15T10:00:00Z'), time-of-day ('10:00' or '10:00:00'), or date ('2026-03-15'). Mutually exclusive with 'every'.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "chat": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model id, \"router\" / \"auto-router\" to delegate to the router, or \"system\" to follow the machine config (~/.kdeps/config.yaml). Empty behaves like \"system\"."
+        },
+        "backend": {
+          "type": "string",
+          "description": "LLM backend name (openai, anthropic, ollama, file, ...) or \"system\" to follow the machine config. Usually left unset."
+        },
+        "contextLength": {
+          "type": "integer",
+          "enum": [
+            4096,
+            8192,
+            16384,
+            32768,
+            65536,
+            131072,
+            262144
+          ]
+        },
+        "role": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "string"
+        },
+        "scenario": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "prompt": { "type": "string" },
+              "name": { "type": "string" },
+              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+            },
+            "required": ["role", "prompt"]
+          }
+        },
+        "fewShot": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "prompt": { "type": "string" },
+              "name": { "type": "string" },
+              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+            },
+            "required": ["role", "prompt"]
+          }
+        },
+        "fewShotSelectK": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fewShotMaxTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fewShotEmbeddingModel": {
+          "type": "string"
+        },
+        "fewShotEmbeddingBackend": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array"
+        },
+        "componentTools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jsonResponse": {
+          "type": "boolean"
+        },
+        "jsonResponseKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jsonSchema": {
+          "type": "object"
+        },
+        "streaming": {
+          "type": "boolean"
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "knowledge": {
+          "type": "boolean",
+          "description": "Add the knowledge vault notes related to this prompt (default true when the vault has a graph); false skips recall for this call"
+        },
+        "thinking": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "auto"]
+            },
+            "budgetTokens": { "type": "integer", "minimum": 0 },
+            "returnOutput": { "type": "boolean" },
+            "streamThinking": { "type": "boolean" },
+            "interleaveThinking": { "type": "boolean" }
+          }
+        },
+        "promptCaching": {
+          "type": "boolean"
+        },
+        "useCache": {
+          "type": "boolean"
+        },
+        "toolChoice": {
+          "type": "string"
+        },
+        "maxToolRounds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "promptVars": {
+          "type": "object"
+        },
+        "retrieverContext": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "retrieverContextTopK": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retrieverContextMaxTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "goTemplate": {
+          "type": "boolean"
+        },
+        "chainOfThought": {
+          "type": "boolean"
+        },
+        "outputParser": {
+          "type": "string"
+        },
+        "chunkSize": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunkOverlap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunkSplitter": {
+          "type": "string",
+          "enum": ["recursive", "token", "markdown"]
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "topP": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "frequencyPenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "presencePenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "repetitionPenalty": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stopWords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "candidateCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "googleCachedContent": {
+          "type": "string"
+        },
+        "googleHarmThreshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "googleCloudProject": {
+          "type": "string"
+        },
+        "googleCloudLocation": {
+          "type": "string"
+        },
+        "googleCredentialsJSON": {
+          "type": "string"
+        },
+        "googleCredentialsFile": {
+          "type": "string"
+        },
+        "anthropicExtendedOutput": {
+          "type": "boolean"
+        },
+        "anthropicBetaHeaders": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "openAILegacyMaxTokens": {
+          "type": "boolean"
+        },
+        "ollamaThink": {
+          "type": "boolean"
+        },
+        "ollamaKeepAlive": {
+          "type": "string"
+        },
+        "ollamaPullModel": {
+          "type": "boolean"
+        },
+        "ollamaPullTimeout": {
+          "type": "string"
+        }
+      }
+    },
+    "httpClient": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH"
+          ]
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "type": "object"
+        },
+        "accountName": {
+          "type": "string"
+        }
+      }
+    },
+    "python": {
+      "type": "object",
+      "properties": {
+        "script": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "scriptFile": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "venvName": {
+          "type": "string",
+          "description": "Custom virtual environment name for Python environment isolation"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables for the script (values are expressions); use for secrets instead of args"
+        }
+      }
+    },
+    "exec": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "workingDir": {
+          "type": "string",
+          "description": "Working directory for command execution"
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "apiResponse": {
+      "$ref": "#/definitions/responseBlock"
+    },
+    "agent": {
+      "type": "object",
+      "description": "Invoke another agent within the same agency",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name (metadata.name) of the target agent workflow within the agency"
+        },
+        "params": {
+          "type": "object",
+          "description": "Input parameters forwarded to the target agent (accessible via get('key'))"
+        }
+      }
+    },
+    "onError": {
+      "type": "object",
+      "description": "Error handling configuration for the resource",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "continue",
+            "fail",
+            "retry"
+          ],
+          "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
+        },
+        "maxRetries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of retry attempts (only for action: retry)"
+        },
+        "retryDelay": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m)$",
+          "description": "Delay between retry attempts (e.g., '1s', '500ms')"
+        },
+        "fallback": {
+          "description": "Fallback value to use when error occurs and action is 'continue'"
+        },
+        "expr": {
+          "type": "array",
+          "description": "Expressions to execute when an error occurs (has access to 'error' object)"
+        },
+        "when": {
+          "type": "array",
+          "description": "Conditions for when to apply this error handler (has access to 'error' object)"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the component to call"
+        },
+        "version": {
+          "type": "string",
+          "description": "Pin a specific component version for reproducible builds"
+        },
+        "with": {
+          "type": "object",
+          "description": "Input values scoped to the calling resource actionId",
+          "additionalProperties": true
+        }
+      }
+    },
+    "actionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "apiVersion": {
+      "type": "string",
+      "enum": [
+        "kdeps.io/v1"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Resource"
+      ]
+    }
+  }
+}

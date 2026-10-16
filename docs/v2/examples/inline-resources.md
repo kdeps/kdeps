@@ -1,36 +1,13 @@
 # Run extra resources inline
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you attach `exec:`, `python:`, and `sql:` actions directly to
+Attach `exec:`, `python:` and `component:` actions directly to
 one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
 
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python and SQL
-
-By the end you will be able to:
-
-- Run a full action inside `before:` (setup)
-- Run full actions inside `after:` (post-processing)
-- Decide when an inline action is clearer than a separate resource
-
-## Background
-
 `before:` and `after:` usually hold bare expressions. They can also hold whole
-resource actions - `chat:`, `httpClient:`, `sql:`, `python:`, `exec:` - as list
+resource actions - `chat:`, `httpClient:`, `python:`, `exec:`, `component:` - as list
 items. Use inline actions for one-off setup or teardown that only this resource
 needs; use a separate resource when other resources also depend on the result.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -64,9 +41,12 @@ settings:
         methods: [POST]
   agentSettings:
     pythonVersion: "3.12"
-  sqlConnections:
-    results:
-      connection: "sqlite:///./results.db"
+```
+
+The `results` database is named in the resources and defined machine-locally:
+
+```bash
+export KDEPS_SQL_CONNECTIONS_RESULTS_CONNECTION="sqlite://./results.db"   # or sql_connections.results in ~/.kdeps/config.yaml
 ```
 
 ## Step 3: the main resource with inline actions
@@ -105,11 +85,13 @@ chat:
 
 after:
   # persist the input
-  - sql:
-      connectionName: results
-      query: "INSERT INTO runs (data, at) VALUES ($1, datetime('now'))"
-      params:
-        - "{{ get('data') }}"
+  - component:
+      name: sql
+      with:
+        connectionName: results
+        query: "INSERT INTO runs (data, at) VALUES ($1, datetime('now'))"
+        params:
+          - "{{ get('data') }}"
   # post-process
   - python:
       script: |
@@ -134,6 +116,7 @@ apiResponse:
 ```bash
 kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
+export KDEPS_SQL_CONNECTIONS_RESULTS_CONNECTION="sqlite://./results.db"   # skip if set in config.yaml
 kdeps run .
 ```
 
@@ -145,15 +128,18 @@ curl -X POST http://localhost:16396/api/v1/process \
 ```
 
 The `before:` exec runs, then the chat, then the `after:` SQL insert and Python
-script - all within the `main` resource.
+script - all within the `main` resource. The model's wording varies:
 
-## Summary
+```json
+{"success": true, "data": {"formal": "Could you please send me the file you requested?"}}
+```
 
-You attached full actions to one resource:
+Confirm the `after:` insert landed:
 
-- `exec:` in `before:` for setup
-- `sql:` and `python:` in `after:` for persistence and post-processing
-- Kept them inline because nothing else depends on their output
+```bash
+sqlite3 results.db "SELECT * FROM runs"
+# hey can you send me that file|2026-10-06 03:09:40
+```
 
 ## Next steps
 

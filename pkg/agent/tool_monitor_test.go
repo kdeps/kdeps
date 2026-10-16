@@ -231,7 +231,7 @@ func TestRunQuietMonitor_DrawsOnSilenceAndYieldsToOutput(t *testing.T) {
 }
 
 func TestExpandFileRefsMonitored_PassthroughWithoutAt(t *testing.T) {
-	expanded, files := expandFileRefsMonitored("no refs here")
+	expanded, files := expandFileRefsMonitored("no refs here", nil)
 	assert.Equal(t, "no refs here", expanded)
 	assert.Empty(t, files)
 }

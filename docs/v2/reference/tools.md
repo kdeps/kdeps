@@ -1,10 +1,10 @@
-# Tools reference
+# Function calling
 
-Examples, best practices, and debugging guidance for the [`tools:` block](/workflow/tools) in `chat:` resources. This is a workflow mode feature; in agent mode, tools are whole workflows and components.
+Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. It is not the agent REPL [built-in tools](/agent/tools). In agent mode, tools are whole workflows and components. This page is the workflow examples: chaining, debugging, and the patterns below.
 
 ## Examples
 
-### Calculator tool
+## Calculator tool
 
 <div v-pre>
 
@@ -60,26 +60,28 @@ chat:
 
 </div>
 
-### Database search tool
+## Database search tool
 
 <div v-pre>
 
 ```yaml
 # Database search resource
 actionId: dbSearchTool
-sql:
-  connectionName: main
-  query: |
-    SELECT id, name, description, price, category
-    FROM products
-    WHERE (name ILIKE $1 OR description ILIKE $1)
-      AND ($2 = '' OR category = $2)
-    LIMIT $3
-  params:
-    - "'%' || get('query') || '%'"
-    - get('category', '')
-    - get('limit', '10')
-  format: json
+component:
+  name: sql
+  with:
+    connectionName: main
+    query: |
+      SELECT id, name, description, price, category
+      FROM products
+      WHERE (name ILIKE $1 OR description ILIKE $1)
+        AND ($2 = '' OR category = $2)
+      LIMIT $3
+    params:
+      - "%{{ get('query') }}%"
+      - "{{ get('category', '') }}"
+      - "{{ get('limit', '10') }}"
+    format: json
 
 ---
 # LLM with search
@@ -107,7 +109,7 @@ chat:
 
 </div>
 
-### Weather API tool
+## Weather API tool
 
 <div v-pre>
 
@@ -137,7 +139,7 @@ chat:
 
 </div>
 
-### Multi-tool agent
+## Multi-tool agent
 
 <div v-pre>
 
@@ -313,7 +315,7 @@ The cached content has a TTL set by Google AI (default 1 hour). Use `google_cach
 
 ## See also
 
-- [Tools (function calling)](/workflow/tools) - Core tool definition and syntax
+- [Function calling](/workflow/tools) - Core tool definition and syntax
 - [LLM resource](/workflow/resources/llm) - Full LLM configuration
 - [Python resource](/workflow/resources/python) - Building tool scripts
 - [Unified API](/workflow/data-access) - Data access in tools

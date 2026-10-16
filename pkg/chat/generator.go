@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -172,25 +174,29 @@ func (g *Generator) BackendLabel() string {
 	return g.model + " via " + backendName(g.baseURL) + " (" + g.baseURL + ")"
 }
 
-// backendHostMarkers maps URL substrings to backend names; first match wins.
-//
-//nolint:gochecknoglobals // static lookup table
-var backendHostMarkers = []struct {
+type hostMarkers struct {
 	name    string
 	markers []string
-}{
-	{"ollama", []string{"localhost", "127.0.0.1", "ollama"}},
-	{"openai", []string{"openai.com", "api.openai"}},
-	{"anthropic", []string{"anthropic.com"}},
-	{"google", []string{"googleapis.com", "generativelanguage"}},
-	{"groq", []string{"groq.com"}},
-	{"deepseek", []string{"deepseek.com"}},
-	{"openrouter", []string{"openrouter.ai"}},
-	{"xai", []string{"x.ai", "api.x.ai"}},
+}
+
+// backendHostMarkers maps URL substrings to backend names; first match wins.
+// OpenAI-compatible providers bring their own hosts (the providers asset set).
+func backendHostMarkers() []hostMarkers {
+	out := []hostMarkers{
+		{"ollama", []string{"localhost", "127.0.0.1", "ollama"}},
+		{"anthropic", []string{"anthropic.com"}},
+		{"google", []string{"googleapis.com", "generativelanguage"}},
+	}
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if len(p.Hosts) > 0 {
+			out = append(out, hostMarkers{p.Name, p.Hosts})
+		}
+	}
+	return out
 }
 
 func backendName(baseURL string) string {
-	for _, backend := range backendHostMarkers {
+	for _, backend := range backendHostMarkers() {
 		for _, marker := range backend.markers {
 			if strings.Contains(baseURL, marker) {
 				return backend.name

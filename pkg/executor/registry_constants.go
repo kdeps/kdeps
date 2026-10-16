@@ -21,15 +21,10 @@ package executor
 const (
 	ExecutorLLM         = "llm"
 	ExecutorHTTP        = "httpClient"
-	ExecutorSQL         = "sql"
 	ExecutorPython      = "python"
 	ExecutorExec        = "exec"
-	ExecutorScraper     = "scraper"
 	ExecutorEmbedding   = "embedding"
 	ExecutorSearchLocal = "searchLocal"
-	ExecutorSearchWeb   = "searchWeb"
-	ExecutorTelephony   = "telephony"
-	ExecutorBrowser     = "browser"
 	ExecutorAgent       = "agent"
 	ExecutorChat        = "chat"
 	ExecutorComponent   = "component"
@@ -41,14 +36,8 @@ const (
 
 	// httpMethodPost is the HTTP POST method string.
 	httpMethodPost      = "POST"
-	ExecutorBotReply    = "botReply"
-	ExecutorEmail       = "email"
-	ExecutorFile        = "file"
-	ExecutorGit         = "git"
 	ExecutorCodeIntel   = "codeIntelligence"
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"
-	ExecutorTranscribe  = "transcribe"
-	ExecutorOCR         = "ocr"
 	ExecutorAPIResponse = "apiResponse"
 )

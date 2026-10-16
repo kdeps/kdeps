@@ -29,11 +29,19 @@ import (
 
 // GetField retrieves a config value by dot-path (e.g. "llm.openai_api_key").
 func (c *Config) GetField(path string) (any, error) {
+	if key, ok := strings.CutPrefix(path, "llm."); ok && !strings.Contains(key, ".") && !knownLLMKeys()[key] {
+		return nil, fmt.Errorf("field %q not found", key)
+	}
 	return dotpath.Get(c, path)
 }
 
 // SetField updates a config field by dot-path and syncs the corresponding env var.
 func (c *Config) SetField(path string, value any) error {
+	// llm keys without a field land in LLMKeys.Keys; only a provider's
+	// configKey may go there.
+	if key, ok := strings.CutPrefix(path, "llm."); ok && !strings.Contains(key, ".") && !knownLLMKeys()[key] {
+		return fmt.Errorf("field %q not found", key)
+	}
 	if err := dotpath.Set(c, path, value); err != nil {
 		return err
 	}
@@ -93,7 +101,7 @@ func configEnvVar(path string) (string, bool) {
 		return v, true
 	}
 	if keyField, ok := strings.CutPrefix(path, "llm."); ok {
-		for _, p := range cloudProvidersList {
+		for _, p := range cloudProviderList() {
 			if p.yamlKey == keyField {
 				return p.envVar, true
 			}

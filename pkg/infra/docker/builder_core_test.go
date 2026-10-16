@@ -504,9 +504,9 @@ func TestBuilder_GenerateDockerfile_WithDatabase(t *testing.T) {
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
-			SQLConnections: map[string]domain.SQLConnection{
-				"primary": {},
-			},
+		},
+		Resources: []*domain.Resource{
+			{Python: &domain.PythonConfig{Script: "print(1)"}},
 		},
 	}
 
@@ -888,9 +888,6 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 				BaseOS:         "ubuntu",
 			},
 			APIServer: &domain.APIServerConfig{PortNum: 9000},
-			SQLConnections: map[string]domain.SQLConnection{
-				"main": {},
-			},
 		},
 		Resources: []*domain.Resource{
 			{

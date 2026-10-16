@@ -22,6 +22,7 @@ import (
 	"context"
 	"log/slog"
 	stdhttp "net/http"
+	"strings"
 )
 
 func (s *Server) logMarshalFailure(r *stdhttp.Request, label string, err error) {
@@ -90,7 +91,7 @@ func (s *Server) logWorkflowExecutionFailure(r *stdhttp.Request, err error) {
 	s.logger.ErrorContext(r.Context(),
 		"workflow execution failed",
 		logKeyError,
-		err,
+		redactCredentials(err.Error(), r.Header),
 		logKeyPath,
 		requestPath(r),
 		logKeyMethod,
@@ -124,4 +125,40 @@ func logWebSocketUnexpectedClose(logger *slog.Logger, srcLabel string, err error
 
 func logWebSocketWriteError(logger *slog.Logger, dstLabel string, err error) {
 	logger.Debug(dstLabel+" WebSocket write error", logKeyError, err)
+}
+
+// credentialHeaders carry secrets a workflow error could echo (a resource
+// that reads a header and fails with its value in the message).
+//
+//nolint:gochecknoglobals // static lookup table
+var credentialHeaders = []string{
+	"Authorization", "Proxy-Authorization", "Cookie", "X-Api-Key", "X-Auth-Token",
+}
+
+// redactCredentials replaces the request's credential header values, and the
+// token part of an "Authorization: <scheme> <token>" value, with [redacted]
+// so a logged error never carries them in the clear.
+func redactCredentials(msg string, h stdhttp.Header) string {
+	for _, name := range credentialHeaders {
+		for _, v := range h.Values(name) {
+			for _, secret := range []string{v, lastField(v)} {
+				if len(secret) >= minRedactLen {
+					msg = strings.ReplaceAll(msg, secret, "[redacted]")
+				}
+			}
+		}
+	}
+	return msg
+}
+
+// minRedactLen keeps very short values (a stray "1") from blanking out
+// unrelated text.
+const minRedactLen = 4
+
+func lastField(v string) string {
+	fields := strings.Fields(v)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[len(fields)-1]
 }

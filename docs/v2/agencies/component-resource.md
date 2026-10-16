@@ -1,6 +1,6 @@
 # Component resource
 
-The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps registry install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
+The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
 
 ## Where it runs
 
@@ -13,7 +13,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). See [Components](/ag
 actionId: scrape
 name: Extract Page Content
 component:
-  name: scraper                 # installed via `kdeps registry install scraper`
+  name: scraper                 # installed via `kdeps install scraper`
   with:
     url: "https://example.com"
     selector: ".article"

@@ -51,16 +51,15 @@ type PromptTemplate struct {
 	Source string
 }
 
-// defaultPromptDirs returns the global and project-level prompt directories.
+// defaultPromptDirs returns the global prompt directory and the project's
+// .kdeps/prompts (read-only: kdeps never writes into a project's .kdeps).
 func defaultPromptDirs() []string {
-	home, _ := os.UserHomeDir()
-	cwd, _ := os.Getwd()
 	var dirs []string
-	if home != "" {
+	if home, _ := os.UserHomeDir(); home != "" {
 		dirs = append(dirs, filepath.Join(home, ".kdeps", promptTemplateDirName))
 	}
-	if cwd != "" {
-		dirs = append(dirs, filepath.Join(cwd, ".kdeps", promptTemplateDirName))
+	if cwd, _ := os.Getwd(); cwd != "" {
+		dirs = append(dirs, filepath.Join(cwd, kdepsDirName, promptTemplateDirName))
 	}
 	return dirs
 }

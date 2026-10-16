@@ -1,0 +1,7 @@
+version: 1.0.0
+description: 'Search persistent memory for entries matching a query. Returns up to 20 matching key-value pairs (each value capped), best match first: a key hit outranks a value-only hit, more query words outrank fewer, and a newer update breaks a tie. Use to recall previously saved facts, preferences, or decisions. There is no memory_list tool; the memory graph is already in the system prompt.'
+parameters:
+  query:
+    type: string
+    description: Search query — matches against memory keys and values (case-insensitive substring)
+    required: true

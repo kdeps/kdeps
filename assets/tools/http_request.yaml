@@ -1,0 +1,19 @@
+version: 1.0.0
+description: 'Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout.'
+parameters:
+  data:
+    type: object
+    description: Request body as JSON (for POST/PUT/PATCH)
+  headers:
+    type: object
+    description: HTTP headers as key-value pairs
+  method:
+    type: string
+    description: 'HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET'
+  timeout:
+    type: string
+    description: 'Request timeout, e.g. ''30s''. Default: 30s'
+  url:
+    type: string
+    description: The URL to request
+    required: true

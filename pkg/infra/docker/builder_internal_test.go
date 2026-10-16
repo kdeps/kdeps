@@ -20,18 +20,49 @@ package docker
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// withDockerTemplate points the docker asset set at a copy of the source
+// build templates with file replaced by content.
+func withDockerTemplate(t *testing.T, file, content string) {
+	t.Helper()
+	src := t.TempDir()
+	dir := filepath.Join(src, dockerSet, dockerItem)
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	from := filepath.Join(assets.Source(), dockerSet, dockerItem)
+	entries, err := os.ReadDir(from)
+	require.NoError(t, err)
+	for _, e := range entries {
+		data, readErr := os.ReadFile(filepath.Join(from, e.Name()))
+		require.NoError(t, readErr)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, e.Name()), data, 0o600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600))
+	t.Setenv(assets.SourceEnv, src)
+}
+
+func TestDockerTemplates_NoAssets(t *testing.T) {
+	t.Setenv(assets.SourceEnv, t.TempDir())
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
+	_, err := resolveDockerfileTemplate(baseOSAlpine)
+	require.ErrorContains(t, err, "run kdeps update")
+	_, err = (&Builder{BaseOS: baseOSAlpine}).renderBackendInstall(false)
+	require.ErrorContains(t, err, "run kdeps update")
+	_, err = (&Builder{BaseOS: baseOSAlpine}).generateEntrypoint(&domain.Workflow{})
+	require.ErrorContains(t, err, "run kdeps update")
+}
+
 func TestRenderWorkflowTemplate_BuildTemplateDataError(t *testing.T) {
-	orig := backendInstallTemplate
-	t.Cleanup(func() { backendInstallTemplate = orig })
-	backendInstallTemplate = "{{call .InstallOllama}}"
+	withDockerTemplate(t, backendInstallTemplate, "{{call .InstallOllama}}")
 
 	builder := &Builder{BaseOS: "alpine"}
 	workflow := &domain.Workflow{
@@ -67,17 +98,14 @@ func TestDockerfileTemplate_PinnedInstallerRef(t *testing.T) {
 }
 
 func TestRenderBackendInstall_ParseAndExecuteErrors(t *testing.T) {
-	orig := backendInstallTemplate
-	t.Cleanup(func() { backendInstallTemplate = orig })
-
 	builder := &Builder{BaseOS: "alpine"}
 
-	backendInstallTemplate = "{{.Broken"
+	withDockerTemplate(t, backendInstallTemplate, "{{.Broken")
 	_, err := builder.renderBackendInstall(false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")
 
-	backendInstallTemplate = "{{call .InstallOllama}}"
+	withDockerTemplate(t, backendInstallTemplate, "{{call .InstallOllama}}")
 	_, err = builder.renderBackendInstall(false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")

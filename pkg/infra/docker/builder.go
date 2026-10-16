@@ -22,12 +22,12 @@ package docker
 import (
 	"archive/tar"
 	"context"
-	_ "embed"
 	"os"
 	"os/exec"
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -52,20 +52,35 @@ func isValidBaseOS(os string) bool {
 	}
 }
 
-//go:embed templates/alpine.Dockerfile.tmpl
-var alpineTemplate string
+// The Docker build templates are the "image" item of the "docker" asset set.
+const (
+	dockerSet  = "docker"
+	dockerItem = "image"
 
-//go:embed templates/ubuntu.Dockerfile.tmpl
-var ubuntuTemplate string
+	alpineTemplate         = "alpine.Dockerfile.tmpl"
+	ubuntuTemplate         = "ubuntu.Dockerfile.tmpl"
+	backendInstallTemplate = "backend_install.tmpl"
+	entrypointTemplate     = "entrypoint.sh.tmpl"
+	supervisordTemplate    = "supervisord.conf.tmpl"
+)
 
-//go:embed templates/backend_install.tmpl
-var backendInstallTemplate string
+//nolint:gochecknoinits // registers the Docker build templates as a versioned asset set
+func init() {
+	assets.Register(dockerSet, assets.Spec{
+		Validate: func(data []byte, _ string) error {
+			_, err := assets.ValidateBundle(data,
+				alpineTemplate, ubuntuTemplate, backendInstallTemplate, entrypointTemplate, supervisordTemplate)
+			return err
+		},
+		Required: []string{dockerItem},
+	})
+}
 
-//go:embed templates/entrypoint.sh.tmpl
-var entrypointTemplate string
-
-//go:embed templates/supervisord.conf.tmpl
-var supervisordTemplate string
+// dockerTemplate returns the build template file from the docker asset set.
+func dockerTemplate(file string) (string, error) {
+	data, err := assets.ReadBundleFile(dockerSet, dockerItem, file)
+	return string(data), err
+}
 
 // ReadContextFile is overridable in tests to inject read failures for the
 // build context file reading operations. Defaults to os.ReadFile.

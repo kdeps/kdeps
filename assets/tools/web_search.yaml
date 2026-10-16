@@ -1,0 +1,11 @@
+version: 1.0.0
+category: web
+description: Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.
+constraints: limit searches to 3 per topic; never repeat the same query; US-only results
+outputFormat: JSON with title, url, and snippet per result
+seeAlso: web_scraper, wikipedia
+parameters:
+  query:
+    type: string
+    description: The search query to look up
+    required: true

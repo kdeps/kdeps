@@ -203,7 +203,7 @@ func TestResolveChatRequestConfig_AnthropicBackend_NoExplicitContextLength(t *te
 func TestResolveChatRequestConfig_KnownModel_UsesCatalogMaxOutputTokens(t *testing.T) {
 	e := &Executor{}
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-opus-4-8"}, nil, backendAnthropic)
-	assert.Equal(t, outAnthropic128k, got.ContextLength)
+	assert.Equal(t, 128_000, got.ContextLength)
 }
 
 // TestResolveChatRequestConfig_KnownOpenAIModel_UsesCatalogMaxOutputTokens
@@ -214,7 +214,7 @@ func TestResolveChatRequestConfig_KnownModel_UsesCatalogMaxOutputTokens(t *testi
 func TestResolveChatRequestConfig_KnownOpenAIModel_UsesCatalogMaxOutputTokens(t *testing.T) {
 	e := &Executor{}
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "gpt-4o"}, nil, backendOpenAI)
-	assert.Equal(t, outOpenAI, got.ContextLength)
+	assert.Equal(t, 16_384, got.ContextLength)
 }
 
 // TestResolveChatRequestConfig_UnknownModel_FallsBackToBackendDefault
@@ -251,7 +251,7 @@ func TestBuildOpenAICompatRequest_MaxTokens_M365_NotOmitted(t *testing.T) {
 func TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens(t *testing.T) {
 	e := &Executor{}
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
-	assert.Equal(t, outAnthropic64k, got.ContextLength)
+	assert.Equal(t, 64_000, got.ContextLength)
 }
 
 // TestResolveChatRequestConfig_MaxTokensBeatsEnv verifies an explicit
@@ -303,7 +303,7 @@ func TestResolveChatRequestConfig_ZeroMaxTokensFallsThroughToCatalog(t *testing.
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{
 		Model: "claude-opus-4-8", MaxTokens: &n,
 	}, nil, backendAnthropic)
-	assert.Equal(t, outAnthropic128k, got.ContextLength)
+	assert.Equal(t, 128_000, got.ContextLength)
 }
 
 // The agent loop sets MaxTokens on synthetic calls and leaves ContextLength

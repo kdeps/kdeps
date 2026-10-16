@@ -23,7 +23,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 // Client wraps Docker client operations.
@@ -34,7 +34,7 @@ type Client struct {
 // NewClient creates a new Docker client.
 func NewClient() (*Client, error) {
 	kdeps_debug.Log("enter: NewClient")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}

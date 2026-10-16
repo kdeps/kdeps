@@ -1,0 +1,14 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.openai_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: openai
+label: OpenAI
+order: 10                # position in provider lists and the setup prompt
+configKey: openai_api_key
+envVar: OPENAI_API_KEY
+defaultModel: gpt-4o
+url: https://api.openai.com
+chatPath: /v1/chat/completions
+embeddings: true          # also serves OpenAI-compatible /embeddings
+doctorCheck: true         # kdeps doctor makes a live key check
+hosts: [openai.com, api.openai]

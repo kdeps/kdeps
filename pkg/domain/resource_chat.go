@@ -127,6 +127,10 @@ type ChatConfig struct {
 	// Thinking enables extended reasoning for models that support it
 	// (Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1).
 	Thinking *ThinkingConfig `yaml:"thinking,omitempty"`
+	// Knowledge adds the knowledge vault's notes related to the prompt (see
+	// ~/.kdeps/config.yaml knowledge:). Nil or true: on when the vault has a
+	// graph; false: skip recall for this call.
+	Knowledge *bool `yaml:"knowledge,omitempty"`
 	// PromptCaching caches the system prompt at the provider level to reduce cost.
 	// Currently only Anthropic honors this field.
 	PromptCaching bool `yaml:"promptCaching,omitempty"`

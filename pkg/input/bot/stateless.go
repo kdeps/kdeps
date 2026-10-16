@@ -51,8 +51,8 @@ type statelessInput struct {
 // Any field not present in the JSON falls back to the corresponding environment variable:
 // KDEPS_BOT_MESSAGE, KDEPS_BOT_CHAT_ID, KDEPS_BOT_USER_ID, KDEPS_BOT_PLATFORM.
 //
-// The botReply resource within the workflow is responsible for writing the reply to
-// stdout via req.BotSend.  RunStateless does not perform a polling loop — it executes
+// The workflow's result (see ReplyText) is written to stdout as the reply.
+// RunStateless does not perform a polling loop — it executes
 // the workflow exactly once and exits.
 func RunStateless(
 	_ context.Context,
@@ -67,8 +67,12 @@ func RunStateless(
 	}
 
 	req := buildStatelessRequestContext(msg)
-	if _, err = engine.Execute(workflow, req); err != nil {
+	result, err := engine.Execute(workflow, req)
+	if err != nil {
 		return fmt.Errorf("bot stateless: workflow execution failed: %w", err)
+	}
+	if text := ReplyText(result); text != "" {
+		fmt.Fprintln(os.Stdout, text)
 	}
 	return nil
 }
@@ -82,12 +86,6 @@ func buildStatelessRequestContext(msg statelessInput) *executor.RequestContext {
 			"chatId":   msg.ChatID,
 			"userId":   msg.UserID,
 			"platform": msg.Platform,
-		},
-		// BotSend writes the reply to stdout. The botReply resource calls this;
-		// RunStateless does not inspect the engine result itself.
-		BotSend: func(_ context.Context, text string) error {
-			fmt.Fprintln(os.Stdout, text)
-			return nil
 		},
 	}
 }

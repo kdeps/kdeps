@@ -1,0 +1,13 @@
+version: 1.0.0
+description: 'Convert text into vector embeddings using an embedding model. Returns the embedding vectors. Use for indexing documents into the local embedding database or computing semantic similarity. Requires: texts (list of strings to embed). Optional: model, backend.'
+parameters:
+  backend:
+    type: string
+    description: 'Backend: openai, ollama, google'
+  model:
+    type: string
+    description: Embedding model, e.g. text-embedding-3-small
+  texts:
+    type: array
+    description: List of text strings to convert to embeddings
+    required: true

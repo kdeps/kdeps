@@ -75,13 +75,6 @@ func printBotRequirements(input *domain.InputConfig) {
 			"Requires a Telegram bot token from @BotFather",
 		)
 	}
-	if b.WhatsApp != nil {
-		printBotPlatform(
-			"WhatsApp Cloud API (embedded webhook server):",
-			"Requires a Phone Number ID and Access Token from Meta for Developers",
-			"The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
-		)
-	}
 }
 
 // SetupEnvironment sets up the execution environment.

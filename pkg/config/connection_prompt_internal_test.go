@@ -40,7 +40,6 @@ func TestHasConnection(t *testing.T) {
 			Discord:  &DiscordConnectionConfig{BotToken: "dt"},
 			Slack:    &SlackConnectionConfig{BotToken: "st", AppToken: "at"},
 			Telegram: &TelegramConnectionConfig{BotToken: "tt"},
-			WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "id", AccessToken: "tok"},
 		},
 	}
 	assert.True(t, HasConnection(cfg, ConnKindSMTP, "mail"))
@@ -51,7 +50,7 @@ func TestHasConnection(t *testing.T) {
 	assert.True(t, HasConnection(cfg, ConnKindBot, "discord"))
 	assert.True(t, HasConnection(cfg, ConnKindBot, "slack"))
 	assert.True(t, HasConnection(cfg, ConnKindBot, "telegram"))
-	assert.True(t, HasConnection(cfg, ConnKindBot, "whatsapp"))
+	assert.False(t, HasConnection(cfg, ConnKindBot, "whatsapp"), "no longer a bot platform")
 
 	assert.False(t, HasConnection(cfg, ConnKindSMTP, "missing"))
 	assert.False(t, HasConnection(cfg, "unknown", "mail"))
@@ -105,7 +104,7 @@ smtp_connections:
 
 	cfg := readConfigFile(t, path)
 	assert.Equal(t, "openai", cfg.LLM.Backend)
-	assert.Equal(t, "sk-test", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-test", cfg.LLM.Keys["openai_api_key"])
 	assert.Equal(t, "keep.example.com", cfg.SMTPConnections["existing"].Host)
 	assert.Equal(t, "new.example.com", cfg.SMTPConnections["added"].Host)
 	assert.Equal(t, 465, cfg.SMTPConnections["added"].Port)
@@ -278,29 +277,6 @@ func TestPromptAndSaveConnection_BotSlackMinimal(t *testing.T) {
 	require.NotNil(t, cfg.BotConnections.Slack)
 	assert.Empty(t, cfg.BotConnections.Slack.AppToken)
 	assert.Empty(t, cfg.BotConnections.Slack.SigningSecret)
-}
-
-func TestPromptAndSaveConnection_BotWhatsApp(t *testing.T) {
-	origFS := AppFS
-	origTerm := isStdinTerminal
-	t.Cleanup(func() {
-		AppFS = origFS
-		isStdinTerminal = origTerm
-	})
-	AppFS = afero.NewMemMapFs()
-	isStdinTerminal = func() bool { return false }
-	path := "/cfg/config.yaml"
-	t.Setenv("KDEPS_CONFIG_PATH", path)
-
-	in := bufio.NewReader(strings.NewReader("12345\naccess-tok\nwebhook-secret\n"))
-	var out testWriter
-	require.NoError(t, PromptAndSaveConnection(ConnKindBot, "whatsapp", &out, in))
-
-	cfg := readConfigFile(t, path)
-	require.NotNil(t, cfg.BotConnections.WhatsApp)
-	assert.Equal(t, "12345", cfg.BotConnections.WhatsApp.PhoneNumberID)
-	assert.Equal(t, "access-tok", cfg.BotConnections.WhatsApp.AccessToken)
-	assert.Equal(t, "webhook-secret", cfg.BotConnections.WhatsApp.WebhookSecret)
 }
 
 func TestPromptAndSaveConnection_BotUnknownPlatform(t *testing.T) {

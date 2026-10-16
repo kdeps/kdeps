@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Delete (mark as deleted) a team.
+parameters:
+  team_id:
+    type: string
+    description: Team ID to delete
+    required: true

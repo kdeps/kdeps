@@ -49,7 +49,7 @@ func commentedProviderKey(b *strings.Builder, spacesAfterHash int, key, value st
 }
 
 // configOptionsReferenceBody is the static portion of the config.yaml options
-// reference. Provider-specific sections are generated from cloudProvidersList.
+// reference. Provider-specific sections are generated from cloudProviderList().
 func buildBackendOptionsSection() string {
 	names := providerNames()
 	parts := make([]string, len(names))
@@ -164,15 +164,11 @@ defaults:
 #     signingSecret: "${SLACK_SIGNING_SECRET}"
 #   telegram:
 #     botToken: "${TELEGRAM_BOT_TOKEN}"
-#   whatsapp:
-#     phoneNumberId: "${WHATSAPP_PHONE_NUMBER_ID}"
-#     accessToken: "${WHATSAPP_ACCESS_TOKEN}"
-#     webhookSecret: "${WHATSAPP_WEBHOOK_SECRET}"
 
 # ── Named SQL connections — DSNs for sql resources ───────────────────────────
 # Resources reference connections by name via sql.connectionName.
 # Pool config (maxConnections, minConnections, maxIdleTime, connectionTimeout)
-# stays in workflow.yaml under settings.sqlConnections.<name>.pool.
+# goes on the sql: resource as pool:.
 # sql_connections:
 #   default:
 #     connection: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
@@ -185,6 +181,25 @@ defaults:
 # Bearer token required on all requests to the agent HTTP server.
 # Required when apiServer is enabled. Set here or via KDEPS_API_AUTH_TOKEN env var.
 # api_auth_token: "${API_AUTH_TOKEN}"
+
+# ── Knowledge vault — long-term memory the agent recalls without reading it ──
+# On by default for agent sessions, in ~/.kdeps/notes (created on first use).
+# Each turn, kdeps walks the vault's link graph from the words of the request
+# and names the few notes worth reading; each session writes its own note.
+# Turn it off here or with /knowledge off.
+# knowledge:
+#   enabled: true                # false turns recall, session notes and the knowledge tools off
+#   vault: ~/.kdeps/notes        # any folder of markdown notes works as is
+#   session_notes: true          # agent sessions write a note per session (default true)
+#   workflow_notes: false        # workflow chat calls log to projects/<workflow>/sessions/ (default false)
+#   recall:
+#     hops: 2                    # how far from the matched notes to walk
+#     budget_tokens: 1500        # most tokens of recalled paths and summaries per turn
+#   extract:                     # local-model pass: what each note is about (inferred edges)
+#     enabled: true
+#     model: ""                  # empty: the session's model when it is local, else skipped
+#     workers: 2                 # parallel model calls
+#     per_session: 20            # changed notes read at each session end
 
 # ── Agent identity — who the agent is, for attribution and authenticated tools ──
 # Used for git commit trailers, outbound email "from", and the identity_get
@@ -205,8 +220,7 @@ defaults:
 `
 
 func buildRoutingExamplesSection() string {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary, secondary := templateProviders()
 	var b strings.Builder
 	b.WriteString(`# ── Routing strategy + unified models list ──────────────────────────────
 # Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
@@ -279,8 +293,7 @@ func buildRoutingExamplesSection() string {
 }
 
 func buildAgentsExampleSection() string {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary, secondary := templateProviders()
 	var b strings.Builder
 	b.WriteString(`# ── Per-agent config profiles ──────────────────────────────────────────────
 # Each key under agents: must match a workflow metadata.name value. When that
@@ -343,7 +356,7 @@ llm:
 
   # ── Online provider API keys (set only the ones you use) ───────────────────
 `)
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		fmt.Fprintf(&b, "  # %s: \"\"\n", p.yamlKey)
 	}
 	b.WriteString("\n")
@@ -363,8 +376,18 @@ func composeConfigTemplate(header, reference string) string {
 	return header + reference
 }
 
-// defaultConfigTemplate is the full scaffold template composed from generated
-// provider sections and the shared options reference body.
-//
-//nolint:gochecknoglobals // composed at init from generated + const sections
-var defaultConfigTemplate = composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference())
+// defaultConfigTemplate is the full scaffold template, composed when it is
+// written so the provider sections list the providers asset set as installed.
+func defaultConfigTemplate() string {
+	return composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference())
+}
+
+// templateProviders are the two providers the template's examples use: the
+// first two in provider order.
+func templateProviders() (cloudProvider, cloudProvider) {
+	list := cloudProviderList()
+	for len(list) < 2 {
+		list = append(list, builtinProviders...)
+	}
+	return list[0], list[1]
+}

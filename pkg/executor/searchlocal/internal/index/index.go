@@ -21,6 +21,7 @@ import (
 	"encoding/gob"
 	"math"
 	"sort"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 
@@ -77,6 +78,16 @@ func NewInvertedIndex(dbPath string) (*InvertedIndex, error) {
 	}); bucketErr != nil {
 		_ = db.Close()
 		return nil, bucketErr
+	}
+	return &InvertedIndex{db: db, dbPath: dbPath}, nil
+}
+
+// OpenReadOnly opens an existing index for reading, waiting at most
+// timeout for a writer (an index being built) to finish.
+func OpenReadOnly(dbPath string, timeout time.Duration) (*InvertedIndex, error) {
+	db, err := bolt.Open(dbPath, defaultDBMode, &bolt.Options{ReadOnly: true, Timeout: timeout})
+	if err != nil {
+		return nil, err
 	}
 	return &InvertedIndex{db: db, dbPath: dbPath}, nil
 }

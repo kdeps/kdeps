@@ -30,6 +30,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -40,10 +42,9 @@ import (
 func TestNewMemoryStore_Defaults(t *testing.T) {
 	store := NewMemoryStore("")
 	require.NotNil(t, store)
-	// basePath should be set to ~/.kdeps/memory. memoryDir is a "/"-joined
-	// literal; filepath.Join normalizes separators for the host OS, so
-	// compare against a Join'd form rather than the raw constant.
-	assert.Contains(t, store.basePath, filepath.Join(".kdeps", "memory"))
+	// basePath is the knowledge vault; each project keeps its memory/ folder.
+	assert.Equal(t, knowledge.DefaultVault(), store.basePath)
+	assert.True(t, store.migrate, "the default root moves the old database in once")
 
 	// empty basePath with no home
 	t.Setenv("HOME", "")
@@ -62,16 +63,14 @@ func TestMemoryStore_SetCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
-	assert.Contains(t, store.path, encodeCwd("/Users/test/Projects/foo"))
-	assert.Contains(t, store.dbPath, "memory.bolt")
+	assert.Equal(t, filepath.Join(dir, "projects", "foo", "memory"), store.path, "the folder's project memory/")
 }
 
 func TestMemoryStore_SetGlobal(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
 	store.SetGlobal()
-	assert.Contains(t, store.path, "global")
-	assert.Contains(t, store.dbPath, "memory.bolt")
+	assert.Equal(t, filepath.Join(dir, "shared", "memory"), store.path, "global memory is shared knowledge")
 }
 
 // Two stores rooted at the same basePath and both set to global must resolve
@@ -82,7 +81,7 @@ func TestMemoryStore_SetGlobal_SharedAcrossDirectories(t *testing.T) {
 	a.SetGlobal()
 	b := NewMemoryStore(dir)
 	b.SetGlobal()
-	assert.Equal(t, a.dbPath, b.dbPath, "global stores from any cwd must share one path")
+	assert.Equal(t, a.path, b.path, "global stores from any cwd must share one path")
 
 	// Regression guard: SetCwd from two different directories must still
 	// resolve to two different paths (the default, per-directory behavior).
@@ -90,7 +89,7 @@ func TestMemoryStore_SetGlobal_SharedAcrossDirectories(t *testing.T) {
 	c.SetCwd("/Users/test/Projects/foo")
 	d := NewMemoryStore(dir)
 	d.SetCwd("/Users/test/Projects/bar")
-	assert.NotEqual(t, c.dbPath, d.dbPath, "SetCwd must still isolate by directory")
+	assert.NotEqual(t, c.path, d.path, "SetCwd must still isolate by directory")
 }
 
 func TestResolveGlobalMemoryEnv(t *testing.T) {
@@ -242,17 +241,18 @@ func TestMemoryStore_Load_NonexistentFile(t *testing.T) {
 	assert.Equal(t, 0, store.Len())
 }
 
-func TestMemoryStore_Load_CorruptLines(t *testing.T) {
+func TestMemoryStore_Load_MovesOldDatabaseOnce(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/fake")
 
-	// Open bbolt DB directly and write corrupt+valid entries.
-	require.NoError(t, os.MkdirAll(store.path, 0750))
-	db, err := bolt.Open(store.dbPath, 0600, nil) //nolint:mnd
+	// The old store's database, with corrupt and valid rows.
+	old := filepath.Join(t.TempDir(), "memory.bolt")
+	store.migrate, store.legacy = true, old
+	db, err := bolt.Open(old, 0600, nil) //nolint:mnd
 	require.NoError(t, err)
 	_ = db.Update(func(tx *bolt.Tx) error {
-		b, _ := tx.CreateBucketIfNotExists(memoryStoreBucket)
+		b, _ := tx.CreateBucketIfNotExists([]byte("agent_memory"))
 		_ = b.Put([]byte("k1"), []byte(`{"key":"k1","value":"v1","createdAt":1,"updatedAt":1}`))
 		_ = b.Put([]byte("k2"), []byte("not valid json"))
 		_ = b.Put([]byte("k3"), []byte(`{"key":"k3","value":"v3","createdAt":3,"updatedAt":3}`))
@@ -261,7 +261,15 @@ func TestMemoryStore_Load_CorruptLines(t *testing.T) {
 	_ = db.Close()
 
 	require.NoError(t, store.Load())
-	assert.Equal(t, 2, store.Len())
+	assert.Equal(t, 2, store.Len(), "corrupt rows are skipped")
+	assert.FileExists(t, filepath.Join(store.path, "k1.md"), "entries become notes")
+	assert.FileExists(t, old+legacyMovedSuffix, "the old database is set aside")
+	assert.NoFileExists(t, old)
+
+	again := NewMemoryStore(dir)
+	again.SetCwd("/Users/test/fake")
+	require.NoError(t, again.Load())
+	assert.Equal(t, 2, again.Len(), "read back from the notes")
 }
 
 func TestMemoryStore_NoCwd_NoOps(t *testing.T) {

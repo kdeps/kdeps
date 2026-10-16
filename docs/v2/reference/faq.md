@@ -6,7 +6,7 @@ Common questions about kdeps installation, usage, and architecture.
 
 Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all resources are free to use.
 
-## What's the difference between workflow mode and agent mode?
+## What is the difference between workflow mode and agent mode?
 
 [Workflow mode](/workflow/) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
@@ -32,7 +32,7 @@ Set the backend, base URL, and model via flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
-Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `scraper`, `browser`, `file`, `git`, `codeIntelligence`, and `apiResponse` don't require an LLM. You can build pure data pipelines with no AI at all.
+Yes. Resources like `httpClient`, `python`, `exec`, `codeIntelligence`, and `apiResponse` (and the `sql`, `git`, `file`, `email`, `browser` and `scraper` components) do not require an LLM. You can build pure data pipelines with no AI at all.
 
 ## How is this different from writing a Python script?
 
@@ -43,7 +43,7 @@ kdeps separates orchestration (the DAG, dependencies, error handling) from imple
 - Session and memory management
 - Input validation
 
-You'd have to write all of that yourself in a script. kdeps gives it to you from a YAML file.
+You would have to write all of that yourself in a script. kdeps gives it to you from a YAML file.
 
 ## How is this different from LangChain?
 
@@ -82,9 +82,9 @@ httpClient:
 
 Never hardcode secrets in workflow YAML files.
 
-## What's the maximum workflow size?
+## What is the maximum workflow size?
 
-There's no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
+There is no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
 
 ## Can I use kdeps in CI/CD pipelines?
 
@@ -100,10 +100,29 @@ HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, 
 
 Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
+## Does kdeps write into my project folder?
+
+No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can end up in a project's git history. A project folder only holds files you write yourself.
+
+| Data | Where |
+|------|-------|
+| Agent chat history | `~/.kdeps/sessions/<folder>/` |
+| Agent memory | `<vault>/projects/<project>/memory/` (markdown notes; default vault `~/.kdeps/notes`) |
+| Knowledge graph, caches, report | `<vault>/.index/` |
+| `searchLocal` index and graph, `codeIntelligence` graph | `~/.kdeps/projects/<folder name>-<hash>/index.db`, `graph.db` |
+| HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |
+| Models, config, API keys, connections | `~/.kdeps/models/`, `~/.kdeps/config.yaml` |
+
+kdeps only reads files you write yourself: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...), a `.kdeps/` folder of Markdown instructions, skills and prompt templates, workflow files, and `.env` for the desktop Run tab. It never writes into a project's `.kdeps/`, so that folder is safe to commit.
+
+```bash
+export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (index and graph dbs) elsewhere
+```
+
 ## See also
 
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
 - [Execution flow](/workflow/execution-flow) - how the engine runs resources
 - [Troubleshooting](/reference/troubleshooting) - common errors and fixes

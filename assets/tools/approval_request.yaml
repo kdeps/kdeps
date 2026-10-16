@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Request a one-time permission exception from the user. Use when a tool call is blocked by permission mode and you need user approval. Returns a token ID.
+parameters:
+  action:
+    type: string
+    description: The specific action that was blocked
+    required: true
+  tool_name:
+    type: string
+    description: The tool name that needs the exception (e.g. 'bash_exec')
+    required: true

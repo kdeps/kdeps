@@ -30,7 +30,11 @@ package domain
 type ComponentSetup struct {
 	PythonPackages []string `yaml:"pythonPackages,omitempty"`
 	OsPackages     []string `yaml:"osPackages,omitempty"`
-	Commands       []string `yaml:"commands,omitempty"`
+	// Provides names the programs osPackages install (e.g. tesseract for
+	// tesseract-ocr). When every one is already on PATH the install is
+	// skipped, so a machine that has them never runs a package manager.
+	Provides []string `yaml:"provides,omitempty"`
+	Commands []string `yaml:"commands,omitempty"`
 }
 
 // ComponentTeardown declares commands that are run after the component's
@@ -96,6 +100,10 @@ type ComponentMetadata struct {
 // ComponentInterface declares the named inputs that the parent workflow must supply.
 type ComponentInterface struct {
 	Inputs []ComponentInput `yaml:"inputs,omitempty"`
+	// Output is the component's result, evaluated after its resources run
+	// (strings are expressions; maps and lists are walked). Nil keeps the
+	// last resource's output.
+	Output any `yaml:"output,omitempty"`
 }
 
 // ComponentInput describes a single named input parameter for the component.
@@ -106,4 +114,9 @@ type ComponentInput struct {
 	Required    bool   `yaml:"required"`
 	Description string `yaml:"description,omitempty"`
 	Default     any    `yaml:"default,omitempty"`
+	// Connection marks an input whose value names a connection in
+	// ~/.kdeps/config.yaml (search, sql, smtp, imap, http): kdeps run asks
+	// for a missing one before the workflow starts, as it does for
+	// resource-level connectionName fields.
+	Connection string `yaml:"connection,omitempty"`
 }

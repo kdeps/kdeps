@@ -20,18 +20,11 @@ package llm
 
 import kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 
-//nolint:gochecknoglobals // built once from config.CloudLLMProviders at init
-var cloudProviderEnvVars = buildCloudProviderEnvVars()
-
-func buildCloudProviderEnvVars() map[string]string {
-	providers := kdepsconfig.CloudLLMProviders()
-	m := make(map[string]string, len(providers))
-	for _, p := range providers {
-		m[p.Name] = p.EnvVar
-	}
-	return m
-}
-
+// providerAPIKeyEnvVar is the API key environment variable of the cloud
+// provider name (built-in or from the providers asset set), or "".
 func providerAPIKeyEnvVar(name string) string {
-	return cloudProviderEnvVars[name]
+	if p, ok := kdepsconfig.LookupProvider(name); ok {
+		return p.EnvVar
+	}
+	return ""
 }

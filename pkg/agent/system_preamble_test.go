@@ -23,9 +23,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -69,7 +72,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 	defer func() { _ = os.Chdir(oldWD) }()
 
 	require.NoError(t, os.Chdir(dirA))
-	first := l.cachedSystemPreamble("focus")
+	first := l.cachedSystemPreamble()
 	if !strings.Contains(first, "Working directory: "+dirA) {
 		t.Errorf("first call missing working directory %q:\n%s", dirA, first)
 	}
@@ -77,7 +80,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 	// The rest of the preamble is cached (buildSystemPreamble runs once), but
 	// the working directory line must still update on a later call.
 	require.NoError(t, os.Chdir(dirB))
-	second := l.cachedSystemPreamble("focus")
+	second := l.cachedSystemPreamble()
 	if strings.Contains(second, "Working directory: "+dirA) {
 		t.Errorf("second call still reports the stale directory %q:\n%s", dirA, second)
 	}
@@ -93,7 +96,7 @@ func TestCachedSystemPreamble_IncludesFreshWorkingDirectoryEveryCall(t *testing.
 func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 	l := loopWithRegisteredTool(t)
 
-	_ = l.cachedSystemPreamble("focus")
+	_ = l.cachedSystemPreamble()
 	if !l.systemPreambleBuilt {
 		t.Fatal("first call should mark the static preamble built")
 	}
@@ -104,7 +107,7 @@ func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWD) }()
 	require.NoError(t, os.Chdir(t.TempDir()))
 
-	_ = l.cachedSystemPreamble("focus")
+	_ = l.cachedSystemPreamble()
 	if l.systemPreamble != cachedStatic {
 		t.Errorf(
 			"static portion changed on a later call, want it cached:\nold=%q\nnew=%q",
@@ -119,7 +122,7 @@ func TestCachedSystemPreamble_StaticPortionCachedOnce(t *testing.T) {
 // buildSystemPreamble's existing gate on l.registry being non-empty.
 func TestCachedSystemPreamble_NoRegistryNoWorkingDirectory(t *testing.T) {
 	l := &Loop{}
-	out := l.cachedSystemPreamble("focus")
+	out := l.cachedSystemPreamble()
 	if strings.Contains(out, "Working directory:") {
 		t.Errorf("a loop with no tool registry must not get a working directory line: %q", out)
 	}
@@ -136,7 +139,7 @@ func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 
 	// Every backend gets the fenced-tools-first guidance.
 	otherLoop := &Loop{registry: reg, config: Config{Backend: "openai"}}
-	out := otherLoop.cachedSystemPreamble("focus")
+	out := otherLoop.cachedSystemPreamble()
 	if !strings.Contains(out, "<use-kdeps-tools>") {
 		t.Errorf("every backend should get the fenced-tools guidance:\n%s", out)
 	}
@@ -146,7 +149,7 @@ func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 
 	// M365 gets that plus its own reinforcement.
 	m365Loop := &Loop{registry: reg, config: Config{Backend: backendM365}}
-	out = m365Loop.cachedSystemPreamble("focus")
+	out = m365Loop.cachedSystemPreamble()
 	if !strings.Contains(out, "<use-kdeps-tools>") || !strings.Contains(out, "different, empty machine") {
 		t.Errorf("m365 backend should get both the general and m365-specific guidance:\n%s", out)
 	}
@@ -232,4 +235,42 @@ func TestBuildChatConfig_CacheControlOnlyForAnthropic(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLiveEnvFacts_ReportsMeasuredFacts(t *testing.T) {
+	dir := resolvedTempDir(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("x"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/feature/x\n"), 0o600))
+
+	now := time.Date(2026, 9, 30, 14, 3, 0, 0, time.UTC)
+	got := liveEnvFacts(dir, now)
+
+	assert.Contains(t, got, "2026-09-30 14:03 UTC")
+	assert.Contains(t, got, runtime.GOOS+"/"+runtime.GOARCH)
+	assert.Contains(t, got, "4 entries in the working directory (2 files, 2 dirs)")
+	assert.Contains(t, got, "git branch feature/x")
+	assert.Contains(t, got, "did not come from a kdeps tool")
+}
+
+func TestGitBranch_Detached(t *testing.T) {
+	dir := resolvedTempDir(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("0123abcd\n"), 0o600))
+	assert.Empty(t, gitBranch(dir))
+}
+
+func TestCachedSystemPreamble_IncludesLiveEnvFactsEveryCall(t *testing.T) {
+	l := loopWithRegisteredTool(t)
+	dir := resolvedTempDir(t)
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWD) }()
+	require.NoError(t, os.Chdir(dir))
+
+	assert.Contains(t, l.cachedSystemPreamble(), "0 entries in the working directory")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.txt"), []byte("x"), 0o600))
+	assert.Contains(t, l.cachedSystemPreamble(), "1 entries in the working directory (1 files, 0 dirs)")
 }

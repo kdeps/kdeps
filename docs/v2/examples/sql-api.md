@@ -1,38 +1,15 @@
 # Build a SQL-backed API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API with two endpoints over a SQLite database:
+Build an API with two endpoints over a SQLite database:
 `GET /report` runs an analytics query and returns CSV; `POST /update` applies a
 batch of updates in a transaction.
 
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic SQL
-
-By the end you will be able to:
-
-- Declare a database connection in `workflow.yaml`
-- Run a parameterized query with `sql:` and `params:`
-- Return results as CSV or JSON with `format:`
-- Apply a batch of writes in one transaction with `paramsBatch:`
-
-## Background
-
-The `sql:` resource runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
+The [`sql` component](/workflow/resources/sql) runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
 or Oracle. Parameters use `$1`, `$2`, ... placeholders - never string
-interpolation - so input cannot break out of the query. This tutorial uses
+interpolation - so input cannot break out of the query. This example uses
 SQLite so it runs with no database server.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- The `sqlite3` CLI (for creating the demo database).
-- A working directory for the project.
+**Needs:** The `sqlite3` CLI (for creating the demo database).
 
 ## Step 1: create the project and database
 
@@ -51,7 +28,7 @@ INSERT INTO users (email, age, status, created_at) VALUES
 SQL
 ```
 
-## Step 2: declare the connection and routes
+## Step 2: declare the routes and the connection
 
 Create `workflow.yaml`:
 
@@ -73,10 +50,19 @@ settings:
         methods: [GET]
       - path: /update
         methods: [POST]
-  sqlConnections:
-    demo:
-      connection: "sqlite:///./demo.db"   # relative to the workflow directory
 ```
+
+Resources refer to the database by name (`connectionName: demo`). The DSN is
+machine-local, so it lives in `~/.kdeps/config.yaml`, not in the workflow:
+
+```yaml
+# ~/.kdeps/config.yaml
+sql_connections:
+  demo:
+    connection: "sqlite://./demo.db"   # relative to the directory you run kdeps from
+```
+
+Or set it for one shell with `export KDEPS_SQL_CONNECTIONS_DEMO_CONNECTION="sqlite://./demo.db"`.
 
 ## Step 3: the analytics query
 
@@ -91,20 +77,22 @@ name: User report
 validations:
   methods: [GET]
   routes: [/report]
-sql:
-  connectionName: demo
-  query: |
-    SELECT status,
-           COUNT(*)        AS total,
-           ROUND(AVG(age)) AS avg_age
-    FROM users
-    WHERE created_at >= $1
-    GROUP BY status
-  params:
-    - get('since', '2024-01-01')     # ?since=... or default
-  format: csv                        # csv, json, or table
-  maxRows: 100
-  timeout: 30s
+component:
+  name: sql
+  with:
+    connectionName: demo
+    query: |
+      SELECT status,
+             COUNT(*)        AS total,
+             ROUND(AVG(age)) AS avg_age
+      FROM users
+      WHERE created_at >= $1
+      GROUP BY status
+    params:
+      - "{{ get('since', '2024-01-01') }}"     # ?since=... or default
+    format: csv                        # csv, json, or table
+    maxRows: 100
+    timeout: 30s
 ```
 
 </div>
@@ -122,12 +110,14 @@ name: Batch status update
 validations:
   methods: [POST]
   routes: [/update]
-sql:
-  connectionName: demo
-  transaction: true                  # all or nothing
-  queries:
-    - query: "UPDATE users SET status = $1 WHERE id = $2"
-      paramsBatch: "{{ get('changes') }}"   # a list of [status, id] pairs
+component:
+  name: sql
+  with:
+    connectionName: demo
+    transaction: true                  # all or nothing
+    queries:
+      - query: "UPDATE users SET status = $1 WHERE id = $2"
+        paramsBatch: "{{ get('changes') }}"   # a list of [status, id] pairs
 ```
 
 </div>
@@ -163,6 +153,7 @@ Only the resource matching the request's route runs; the other is skipped.
 ```bash
 kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
+export KDEPS_SQL_CONNECTIONS_DEMO_CONNECTION="sqlite://./demo.db"   # skip if set in config.yaml
 kdeps run .
 ```
 
@@ -171,6 +162,12 @@ Run the report:
 ```bash
 curl "http://localhost:16395/report?since=2024-03-01" \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
+```
+
+It returns the CSV inside the combined response:
+
+```json
+{"success": true, "data": {"report": "avg_age,status,total\n29,active,2\n44,inactive,1\n", "update": null, "at": "..."}}
 ```
 
 Apply updates:
@@ -182,14 +179,14 @@ curl -X POST http://localhost:16395/update \
   -d '{"changes": [["inactive", 1], ["active", 3]]}'
 ```
 
-## Summary
+Confirm the change landed:
 
-You built a SQL-backed API that:
-
-- Declares a SQLite connection in `sqlConnections`
-- Runs a parameterized analytics query returning CSV
-- Applies a batch of updates in one transaction with `paramsBatch:`
-- Routes `GET` and `POST` to different resources
+```bash
+sqlite3 demo.db "SELECT id, status FROM users"
+# 1|inactive
+# 2|active
+# 3|active
+```
 
 ## Next steps
 

@@ -95,10 +95,69 @@ func (e *Engine) injectComponentInputs(
 	_ = e.ensureResponseEvaluator(ctx)
 	env := e.buildEvaluationEnvironment(ctx)
 	for key, val := range injected {
-		strVal := e.resolveComponentInput(fmt.Sprintf("%v", val), env)
-		_ = ctx.Set(callerID+"."+key, strVal)
-		_ = ctx.Set(componentName+"."+key, strVal)
+		resolved := e.resolveComponentValue(val, env)
+		_ = ctx.Set(callerID+"."+key, resolved)
+		_ = ctx.Set(componentName+"."+key, resolved)
 	}
+}
+
+// resolveComponentValue resolves a with: value. Lists and maps keep their
+// structure (type: array and type: object inputs): strings inside are
+// interpolated and other values stay as they are. A top-level scalar is
+// resolved to a string.
+func (e *Engine) resolveComponentValue(val interface{}, env map[string]interface{}) interface{} {
+	switch v := val.(type) {
+	case []interface{}, map[string]interface{}:
+		return e.resolveNested(v, env)
+	case string:
+		return e.resolveComponentInput(v, env)
+	default:
+		return e.resolveComponentInput(fmt.Sprintf("%v", v), env)
+	}
+}
+
+func (e *Engine) resolveNested(val interface{}, env map[string]interface{}) interface{} {
+	switch v := val.(type) {
+	case []interface{}:
+		out := make([]interface{}, len(v))
+		for i, item := range v {
+			out[i] = e.resolveNested(item, env)
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(v))
+		for k, item := range v {
+			out[k] = e.resolveNested(item, env)
+		}
+		return out
+	case string:
+		if raw, ok := e.resolveSingleExpression(v, env); ok {
+			return raw
+		}
+		return e.resolveComponentInput(v, env)
+	default:
+		return v
+	}
+}
+
+// resolveSingleExpression evaluates a value that is exactly one {{ expr }}
+// and returns its result with its type (a number stays a number, a list a
+// list), so with: params: ["{{ get('limit') }}"] passes 10, not "10".
+func (e *Engine) resolveSingleExpression(s string, env map[string]interface{}) (interface{}, bool) {
+	t := strings.TrimSpace(s)
+	if e.evaluator == nil || !strings.HasPrefix(t, "{{") || !strings.HasSuffix(t, "}}") ||
+		strings.Count(t, "{{") != 1 {
+		return nil, false
+	}
+	expr, err := expression.NewParser().Parse(t)
+	if err != nil {
+		return nil, false
+	}
+	val, evalErr := e.evaluator.Evaluate(expr, env)
+	if evalErr != nil {
+		return nil, false
+	}
+	return val, true
 }
 
 // resolveComponentInput evaluates a with: value's {{ }} expressions, returning

@@ -856,8 +856,9 @@ func TestFuzzyFilter_NoMatch(t *testing.T) {
 
 // ---- builtin_tools.go: registerBashJobList ----
 
+// Not parallel: bashJobRegistry is global and parallel tests start jobs.
 func TestRegisterBashJobList_Empty(t *testing.T) {
-	t.Parallel()
+	bashJobRegistry.reset()
 	reg := kdepstools.NewRegistry()
 	registerBashJobList(reg)
 
@@ -1306,7 +1307,7 @@ func TestBuildSystemPreamble_Basic(t *testing.T) {
 	loop := &Loop{
 		config: Config{Model: "test-model"},
 	}
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	// Should not be empty even with no skills or instructions
 	_ = preamble
 }
@@ -1317,7 +1318,7 @@ func TestBuildSystemPreamble_IncludesSkills(t *testing.T) {
 		config: Config{Model: "test-model"},
 		skills: "custom skill content",
 	}
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Contains(t, preamble, "custom skill content")
 }
 
@@ -1421,7 +1422,6 @@ func TestRegisterResourceTools_AllToolsAccessible(t *testing.T) {
 	// Verify all resource tools are registered (without executing them)
 	assert.NotNil(t, reg.Get("http_request"))
 	assert.NotNil(t, reg.Get("search_local"))
-	assert.NotNil(t, reg.Get("transcribe_audio"))
 	assert.NotNil(t, reg.Get("load_document"))
 	assert.NotNil(t, reg.Get("embedding_search"))
 	assert.NotNil(t, reg.Get("embedding_vectorize"))
@@ -1484,40 +1484,4 @@ func TestTruncateBashOutput_CarriageReturns(t *testing.T) {
 	input := "line1\rline2\rline3"
 	result := truncateBashOutput(input)
 	assert.Contains(t, result, "\r")
-}
-
-// ---- builtin_tools.go: parseRerankArgs error paths ----
-
-func TestParseRerankArgs_EmptyQuery(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
-}
-
-func TestParseRerankArgs_EmptyDocuments(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{"query": "test"}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "documents")
-}
-
-func TestParseRerankArgs_InvalidJSON(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "test",
-		"documents": "not-valid-json",
-	}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "JSON array")
-}
-
-func TestParseRerankArgs_EmptyDocArray(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "test",
-		"documents": "[]",
-	}, "default-model")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "empty")
 }

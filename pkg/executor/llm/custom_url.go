@@ -96,7 +96,7 @@ func AliasFromModelFilename(filename string) string {
 // llamafile registry, preserving existing local entries.
 func registerLlamafileEntry(entry LlamafileEntry) error {
 	ensureRegistryLoaded()
-	local := loadOrSeedLocalRegistry(localRegistryPath())
+	local := loadLocalRegistry(localRegistryPath())
 	var entries []LlamafileEntry
 	if local != nil {
 		entries = local.Llamafiles

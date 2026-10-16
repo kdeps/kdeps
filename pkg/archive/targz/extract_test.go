@@ -421,3 +421,20 @@ func TestDefaultOptions_ZeroMaxFileSizeUsesDefault(t *testing.T) {
 	data := buildTarGz(t, map[string]string{"file.txt": "hello"})
 	require.NoError(t, targz.ExtractGzipTar(bytes.NewReader(data), t.TempDir(), opts))
 }
+
+// Any ".." in an entry name is refused, even when the path would stay inside
+// the destination ("sub/../ok.txt"); with SkipBadPaths the entry is skipped
+// and the rest is extracted.
+func TestExtractTar_DotDotNameRefused(t *testing.T) {
+	data := buildTarGz(t, map[string]string{"sub/../ok.txt": "x"})
+	err := targz.ExtractGzipTar(bytes.NewReader(data), t.TempDir(), targz.DefaultOptions())
+	require.ErrorContains(t, err, "invalid archive path")
+
+	dest := t.TempDir()
+	opts := targz.DefaultOptions()
+	opts.SkipBadPaths = true
+	data = buildTarGz(t, map[string]string{"sub/../ok.txt": "x", "keep.txt": "y"})
+	require.NoError(t, targz.ExtractGzipTar(bytes.NewReader(data), dest, opts))
+	assert.FileExists(t, filepath.Join(dest, "keep.txt"))
+	assert.NoFileExists(t, filepath.Join(dest, "ok.txt"))
+}

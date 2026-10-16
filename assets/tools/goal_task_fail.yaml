@@ -1,0 +1,12 @@
+version: 1.0.0
+name: task_fail
+description: Give up on the ACTIVE task and advance to the next one. Use this instead of retrying when the task cannot be completed, so the goal keeps moving. Pass the active task's id and the reason.
+parameters:
+  id:
+    type: integer
+    description: The id of the active task being abandoned
+    required: true
+  reason:
+    type: string
+    description: Why the task cannot be completed
+    required: true

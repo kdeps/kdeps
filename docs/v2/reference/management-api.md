@@ -2,7 +2,7 @@
 
 The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes.
 
-*Applies to workflow mode.*
+Workflow mode only.
 
 ## Endpoints
 
@@ -17,7 +17,7 @@ The built-in management API lets you update a running kdeps server's workflow wi
 
 ## Authentication
 
-All management endpoints require a **bearer token** separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
+All management endpoints require a bearer token separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=api-secret

@@ -18,13 +18,6 @@
 
 package domain
 
-// ScraperConfig represents web scraper configuration.
-type ScraperConfig struct {
-	URL      string `yaml:"url"`
-	Selector string `yaml:"selector,omitempty"`
-	Timeout  string `yaml:"timeout,omitempty"`
-}
-
 // EmbeddingConfig represents embedding/vector store configuration.
 type EmbeddingConfig struct {
 	// Operation controls the executor mode.
@@ -133,22 +126,14 @@ type SearchLocalConfig struct {
 	MaxDistance int  `yaml:"maxDistance,omitempty"`
 
 	// IndexDBPath is the path to the index database file.
-	// Defaults to "<path>/.kdeps/index.db" when Index is true.
+	// Defaults to index.db in the data dir of path under ~/.kdeps/projects
+	// (never inside the searched folder) when Index is true.
 	IndexDBPath string `yaml:"indexDBPath,omitempty"`
 
 	// GraphBoost re-ranks indexed results using the folder's kartographer
 	// reference/topic graph (markdown links + frontmatter "topics:"/"tags:"):
 	// results linked from, or sharing a topic with, a top TF-IDF match are
 	// boosted above equally-scored unconnected results. Requires Index: true.
-	// The graph db lives at "<path>/.kdeps/graph.db", separate from IndexDBPath.
+	// The graph db is graph.db in the same data dir, separate from IndexDBPath.
 	GraphBoost bool `yaml:"graphBoost,omitempty"`
-}
-
-// SearchWebConfig represents web search configuration.
-type SearchWebConfig struct {
-	Query          string `yaml:"query"`
-	Provider       string `yaml:"provider,omitempty"`       // ddg (default) | brave | bing | tavily
-	ConnectionName string `yaml:"connectionName,omitempty"` // named connection from settings.searchConnections
-	MaxResults     int    `yaml:"maxResults,omitempty"`     // default 5
-	Timeout        int    `yaml:"timeout,omitempty"`        // seconds, default 15
 }

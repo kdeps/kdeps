@@ -21,6 +21,8 @@ package expression_test
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -925,31 +927,31 @@ func TestEvaluator_buildEnvironment_EnvVariables(t *testing.T) {
 	assert.Equal(t, true, result3)
 }
 
-func TestEvaluator_buildEnvironment_InputAsObject(t *testing.T) {
+// input('name') stays callable even when the environment already binds input
+// to the request-body object.
+func TestEvaluator_buildEnvironment_InputIsAlwaysCallable(t *testing.T) {
 	api := &domain.UnifiedAPI{
-		Input: func(_ string, _ ...string) (interface{}, error) {
-			return "input value", nil
+		Input: func(name string, _ ...string) (interface{}, error) {
+			return "value of " + name, nil
 		},
 	}
 
 	evaluator := expression.NewEvaluator(api)
 
-	// Test that when input is already an object, it's preserved
 	env := map[string]interface{}{
 		"input": map[string]interface{}{
 			"items": []string{"a", "b"},
 		},
 	}
 
-	// Test accessing input as object
 	expr := &domain.Expression{
-		Raw:  "input.items",
+		Raw:  "input('items')",
 		Type: domain.ExprTypeDirect,
 	}
 
 	result, err := evaluator.Evaluate(expr, env)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b"}, result)
+	assert.Equal(t, "value of items", result)
 }
 
 func TestEvaluator_buildEnvironment_OutputFunction(t *testing.T) {
@@ -1278,6 +1280,17 @@ func TestWhere_FiltersArrayByNumericKey(t *testing.T) {
 	assert.Len(t, arr, 2)
 	assert.Equal(t, float64(85), arr[0].(map[string]interface{})["match_score"])
 	assert.Equal(t, float64(72), arr[1].(map[string]interface{})["match_score"])
+}
+
+// hmacSHA256 returns the hex HMAC used by webhook signatures (RFC 4231 case 2).
+func TestEvaluator_HMACSHA256(t *testing.T) {
+	evaluator := expression.NewEvaluator(createMockAPI())
+	got, err := evaluator.Evaluate(&domain.Expression{
+		Raw:  "hmacSHA256('Jefe', 'what do ya want for nothing?')",
+		Type: domain.ExprTypeDirect,
+	}, map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Equal(t, "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843", got)
 }
 
 func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
@@ -1695,5 +1708,90 @@ func TestInterpolationWithUnifiedAPI(t *testing.T) {
 	expected := "User: test_user, Count: 10"
 	if result != expected {
 		t.Errorf("Got %v, want %v", result, expected)
+	}
+}
+
+func TestEvaluator_EnvFallback(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Env: func(name string) (string, error) {
+			if name == "SET" {
+				return "real", nil
+			}
+			return "", nil
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	for raw, want := range map[string]interface{}{
+		"env('SET')":               "real",
+		"env('SET', 'fallback')":   "real",
+		"env('UNSET', 'fallback')": "fallback",
+		"env('UNSET')":             "",
+	} {
+		got, err := evaluator.Evaluate(
+			&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect},
+			map[string]interface{}{},
+		)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
+	}
+}
+
+func TestEvaluator_FileExists(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "model.bin")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	for raw, want := range map[string]interface{}{
+		"fileExists('" + filepath.ToSlash(file) + "')":            true,
+		"fileExists('" + filepath.ToSlash(dir) + "')":             true,
+		"fileExists('" + filepath.ToSlash(dir) + "/missing.bin')": false,
+		"fileExists('')": false,
+		"!fileExists('" + filepath.ToSlash(dir) + "/missing.bin')": true,
+	} {
+		got, err := evaluator.Evaluate(
+			&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect},
+			map[string]interface{}{},
+		)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
+	}
+}
+
+func TestEvaluator_HTMLText(t *testing.T) {
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	env := map[string]interface{}{
+		"page": `<html><body><p class="a">one</p><div><p class="a">two</p></div><p>skip</p></body></html>`,
+	}
+	for raw, want := range map[string]interface{}{
+		"htmlText(page, 'p.a')":      "one\ntwo",
+		"htmlText(page, 'h1')":       "",
+		"htmlText('plain text', '')": "plain text",
+	} {
+		got, err := evaluator.Evaluate(&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect}, env)
+		require.NoError(t, err, raw)
+		assert.Equal(t, want, got, raw)
+	}
+}
+
+func TestEvaluator_HTMLFind(t *testing.T) {
+	evaluator := expression.NewEvaluator(&domain.UnifiedAPI{})
+	env := map[string]interface{}{
+		"page": `<a class="r" href="/a" data-href="https://a"> Alpha </a><a class="r" href="/b">Beta</a><a href="/c">C</a>`,
+	}
+	got, err := evaluator.Evaluate(&domain.Expression{Raw: "htmlFind(page, 'a.r')", Type: domain.ExprTypeDirect}, env)
+	require.NoError(t, err)
+	assert.Equal(t, []interface{}{
+		map[string]interface{}{"text": "Alpha", "class": "r", "href": "/a", "data-href": "https://a"},
+		map[string]interface{}{"text": "Beta", "class": "r", "href": "/b"},
+	}, got)
+
+	for raw, want := range map[string]interface{}{
+		"len(htmlFind(page, 'h1'))":   0,
+		"len(htmlFind(page, ''))":     0,
+		"htmlFind(page, 'a')[2].text": "C",
+	} {
+		val, evalErr := evaluator.Evaluate(&domain.Expression{Raw: raw, Type: domain.ExprTypeDirect}, env)
+		require.NoError(t, evalErr, raw)
+		assert.Equal(t, want, val, raw)
 	}
 }

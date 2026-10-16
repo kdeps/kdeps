@@ -26,14 +26,18 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -116,6 +120,10 @@ type Config struct {
 	// so one oversized leaf can't crowd out everything else. 0 means
 	// unlimited (no truncation).
 	MaxLeafChars int
+	// InstructReminders lists the /instruct topic names forced onto every LLM
+	// prompt and tool result (see Loop.SetInstructReminder), alongside the
+	// harness-section reminders.
+	InstructReminders []string
 	// FoldOff disables automatic folding once FoldThreshold is crossed.
 	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
 	// the zero value is the enabled default, not a silently-forced override.
@@ -207,16 +215,16 @@ type Config struct {
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
 	// WebLimit caps web_search/web_scraper calls per user request (0=use the
-	// "web-call-budget" event's default, see events.go).
+	// "web-call-budget" event's default, see events.go; <0=unlimited).
 	WebLimit int
 	// BashLimit caps bash_exec calls per user request (0=use the
-	// "bash-call-budget" event's default).
+	// "bash-call-budget" event's default; <0=unlimited).
 	BashLimit int
 	// FileLimit caps read_file/list_files calls per user request (0=use the
-	// "file-call-budget" event's default).
+	// "file-call-budget" event's default; <0=unlimited).
 	FileLimit int
 	// CodeLimit caps search_local/code_search calls per user request (0=use
-	// the "code-call-budget" event's default).
+	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
 	// GoalEnforcement decomposes each prompt into a task list and drives the
 	// loop through it, refusing to revisit settled tasks and failing a task
@@ -270,6 +278,22 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
+	// Knowledge is the knowledge vault (config.yaml knowledge:). Nil means
+	// none: no recall, no session notes, no knowledge tools.
+	Knowledge *config.KnowledgeConfig
+	// KnowledgeCtx is the parent context of the vault's background graph
+	// builds; the vault stays off without it.
+	KnowledgeCtx context.Context
+	// KnowledgeEngine makes an engine for one knowledge extraction call (a
+	// fresh one each, so calls run in parallel without touching the loop's
+	// engine). Nil: no model extraction.
+	KnowledgeEngine func() *executor.Engine
+	// Observer, when set, receives typed events (tool start/end, narration)
+	// for a graphical front end. It runs on the loop goroutine: never block.
+	Observer func(LoopEvent)
+	// Approver, when set, answers tool and path approval prompts instead of the
+	// terminal's raw-keypress prompt, and works without InteractiveTTY.
+	Approver func(ApprovalRequest) ApprovalChoice
 }
 
 // activeLoop is set during Loop construction so the memory_query builtin
@@ -286,6 +310,9 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
+	knowledge     *knowledgeState // nil when no vault is configured
+	knowledgeOff  bool            // /knowledge off
+	noteID        string          // session note id before the session is saved
 	engine        *executor.Engine
 	registry      *tools.Registry
 	workflow      *domain.Workflow
@@ -308,19 +335,28 @@ type Loop struct {
 	// as a [kdeps] system message. The human sees them on the terminal; the
 	// model must see them too so it can adjust. Reset per turn in runToolRounds.
 	modelNotes []string
-	// cachedSystemPromptSegmentTokens/cachedMemorySegmentTokens are the size
-	// of buildSystemPreamble's two halves (everything except memory, and
-	// memory alone), captured when the cached preamble is built so
-	// buildChatConfig can re-add them as context-path segments (see
-	// context_path.go) every turn without recomputing or re-splitting the
-	// already-cached preamble string.
+	// cachedSystemPromptSegmentTokens is the size of the cached preamble,
+	// captured when it is built so buildChatConfig can re-add it as a
+	// context-path segment (see context_path.go) every turn without
+	// recomputing it; memorySegmentTokens is the size of the last turn's
+	// memory and status block (turnStateBlock), rebuilt every turn.
 	cachedSystemPromptSegmentTokens int
-	cachedMemorySegmentTokens       int
+	memorySegmentTokens             int
 	// lastWorkFailure records the most recent work tool (not task_complete /
 	// task_fail) whose result was an error and has not since succeeded. Nil once
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// pendingEdit is the latest mutating edit_file call that left its file's md5
+	// unchanged; cleared when a later edit changes the file. The turn cannot end
+	// on it without a bounded push-back (nudge-edit-unchanged).
+	pendingEdit *pendingEdit
+	// editedFiles, statusKeys and statusSeq are the persistent tool-status
+	// ledger (tool_status.go): files edited with their kdeps-recorded md5,
+	// and the memory keys of the status entries written for tool calls.
+	editedFiles []editedFile
+	statusKeys  []string
+	statusSeq   int64
 	// successfulWorkToolCalls counts every successful (non-error, non-task-
 	// state) work tool result for the life of the session. Never reset --
 	// drives harness "tool-call-early-praise"'s maxOccurrences: the first few real tool calls a
@@ -357,6 +393,8 @@ type Loop struct {
 	// (e.g. folding system-role messages for chat templates that reject
 	// them). Read by the REPL's /prompt command; overwritten on every call.
 	lastSentMessages []map[string]interface{}
+	// eff is the efficiency-enforcement ledger (efficiency.go).
+	eff effLedger
 	// lastSentTools holds the exact tool definitions included in the most
 	// recent outgoing LLM request. Tools are a separate top-level request
 	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
@@ -461,6 +499,16 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	l.registerSkillLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
+	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
+		// A project folder that moves (archived, or back) takes its memory along.
+		l.knowledge.moved = func() {
+			if l.memoryStore != nil {
+				l.memoryStore.Rebase()
+			}
+		}
+		l.registerKnowledgeTools()
+		l.knowledge.buildAsync()
+	}
 
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
@@ -500,20 +548,8 @@ func (l *Loop) registerSkillLoader() {
 	if !hasVisible {
 		return
 	}
-	l.registry.Register(&tools.Tool{
+	l.registry.Register(defined(&tools.Tool{
 		Name: "load_skill",
-		Description: "Load the full instructions for a named skill. Call this when the " +
-			"user's task matches one of the skills listed in <available_skills>. Returns " +
-			"the skill's complete instructions to follow.",
-		Category:     "agent",
-		OutputFormat: "the skill's full instruction text",
-		Parameters: map[string]domain.ToolParam{
-			"name": {
-				Type:        "string",
-				Description: "The exact skill name from <available_skills>",
-				Required:    true,
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			name, _ := args["name"].(string)
 			if name == "" {
@@ -532,7 +568,7 @@ func (l *Loop) registerSkillLoader() {
 			}
 			return content, nil
 		},
-	})
+	}))
 }
 
 // registerIdentityTool registers identity_get so the LLM can answer "who are
@@ -545,13 +581,8 @@ func (l *Loop) registerIdentityTool() {
 	if l.registry == nil {
 		return
 	}
-	l.registry.Register(&tools.Tool{
+	l.registry.Register(defined(&tools.Tool{
 		Name: "identity_get",
-		Description: "Return this agent's configured identity: name, email, and " +
-			"mailing address. Use this to answer questions about who you are, or to " +
-			"sign outputs (commits, emails) as this agent. Never returns credentials.",
-		Category:     "agent",
-		OutputFormat: "plain text",
 		Execute: func(map[string]any) (string, error) {
 			id := l.config.Identity
 			if id == nil || (id.Name == "" && id.Email == "" && id.Address == "") {
@@ -569,7 +600,7 @@ func (l *Loop) registerIdentityTool() {
 			}
 			return strings.TrimSpace(b.String()), nil
 		},
-	})
+	}))
 }
 
 // Store returns the session store, or nil if none was configured.
@@ -950,7 +981,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Build system prompt preamble: skills + instructions + user system prompt.
 	// Built once on the first turn, then reused verbatim so the system prefix
 	// stays cache-hittable on subsequent turns.
-	systemPreamble := l.cachedSystemPreamble(input)
+	systemPreamble := l.cachedSystemPreamble()
 
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 	l.captureCallOutputs(chatCfg)
@@ -988,6 +1019,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	// Preserve conversation history
 	l.session.Append(input, response)
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -1055,7 +1087,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// goal plan, judge roster, session history).
 	input = l.applyPromptRefine(ctx, input, w)
 
-	systemPreamble := l.cachedSystemPreamble(input)
+	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
 	// Goal-directed execution: decompose the prompt (or resume the stored plan)
@@ -1108,6 +1140,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	response = sanitizeLoopArtifacts(response)
 
 	l.session.Append(input, response)
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -1255,14 +1288,14 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 		)
 	}
 
-	preamble := l.cachedSystemPreamble(input)
+	preamble := l.cachedSystemPreamble()
 	cfg := l.buildChatConfig(ctx, input, preamble)
 	return l.runToolRounds(ctx, cfg, w)
 }
 
 // runToolRounds drives the tool-call loop, returning the final content string.
 //
-//nolint:gocognit
+//nolint:gocognit,funlen // efficiency gate adds statements to an already-orchestrating loop
 func (l *Loop) runToolRounds(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -1274,7 +1307,9 @@ func (l *Loop) runToolRounds(
 	l.captureCallOutputs(chatCfg)
 	l.modelNotes = nil
 	l.lastWorkFailure = nil
+	l.pendingEdit = nil
 	l.turnStartWorkToolCalls = l.successfulWorkToolCalls
+	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1288,6 +1323,9 @@ func (l *Loop) runToolRounds(
 	identicalRepeats := 0
 	convergenceBlocks := 0
 	forcedFinal := false
+	// llmErr is the last soft-stopped LLM-call error; if the rounds run out
+	// before a call succeeds, the turn reports it instead of ending silently.
+	var llmErr error
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -1299,10 +1337,17 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
 		if err != nil {
+			// A failed call the model may be able to avoid is soft-stopped: the
+			// error goes to the model on the hidden channel and the round reruns.
+			if ctx.Err() == nil && l.efficiencyLLMErrorStop(err) {
+				llmErr = err
+				continue
+			}
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
+		llmErr = nil
 		// A model that copies the goal directive back instead of answering it
 		// leaves the turn with no reply at all. Drop the directive, stop
 		// enforcing, and redo the round as a plain one.
@@ -1325,12 +1370,17 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
-		// Detect a model stuck re-issuing the same tool call. The loop
-		// dispatches toolCalls[0], so track that signature.
-		identicalRepeats, lastToolSig = trackRepeat(toolCalls[0], lastToolSig, identicalRepeats)
-		if identicalRepeats >= effectiveRounds(eventIdenticalCalls) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
+		// Efficiency governor: a refused call is discarded before it runs, so it
+		// leaves nothing in history, events or the terminal.
+		switch l.efficiencyAdmit(toolCalls[0]) {
+		case effDrop:
+			continue
+		case effEnd:
+			chatCfg = forceAnswerConfig(chatCfg)
+			continue
+		case effAbort:
+			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
+		case effAdmit:
 		}
 
 		if l.config.OnRoundComplete != nil {
@@ -1338,14 +1388,34 @@ func (l *Loop) runToolRounds(
 		}
 
 		var outcome roundOutcome
+		workBefore := l.successfulWorkToolCalls
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
 		}
+		// Detect a model stuck re-issuing the same tool call AND getting the
+		// same result back. The loop dispatches toolCalls[0], so track that
+		// call. Repeating a call whose result keeps changing (polling a log,
+		// re-running tests after an edit) is progress, not a stuck loop.
+		identicalRepeats, lastToolSig = trackRepeat(
+			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
+		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
+			// The efficiency manager briefs the model (hidden channel) and lets it
+			// retry while it has soft stops left; only then does the turn end.
+			if !l.efficiencyRepeatStop(toolCalls[0], outcome.result, identicalRepeats) {
+				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+				break
+			}
+			identicalRepeats, lastToolSig = 0, ""
+		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
+	}
+	if llmErr != nil {
+		return "", fmt.Errorf("agent loop stream: %w", llmErr)
 	}
 	return l.ensureNonSilentFinal(finalContent, capped, w), nil
 }
@@ -1492,6 +1562,20 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domai
 func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
 	nudgeCfg := *cfg
 	note := harnessRender("nudge-unresolved-failure", struct{ Tool, Msg string }{f.tool, f.msg})
+	if repeat {
+		note += " " + harnessText("repeat-offense-note")
+	}
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// nudgeEditUnchangedConfig fires when the turn is about to end while the last
+// mutating edit_file call left its file's md5 unchanged: the edit did not
+// happen, so the model must re-read and retry until the md5 differs.
+// repeat is true on the second and later strikes within this turn.
+func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat bool) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := harnessRender("nudge-edit-unchanged", struct{ Path, MD5 string }{p.path, shortMD5(p.md5)})
 	if repeat {
 		note += " " + harnessText("repeat-offense-note")
 	}
@@ -1833,6 +1917,9 @@ func summarizeToolArgs(raw string) string {
 	// Prefer file_path, then query, then url, then expression, then first string value.
 	for _, key := range []string{toolParamFilePath, toolParamQuery, toolParamURL, toolParamExpression, toolParamCommand} {
 		if v, ok := m[key].(string); ok && v != "" {
+			if key == toolParamCommand || key == toolParamQuery {
+				v = html.UnescapeString(v) // some backends emit &amp;&amp; for &&
+			}
 			return truncateEllipsis(v, toolArgMaxDisplay)
 		}
 	}
@@ -1855,10 +1942,29 @@ func isConvergenceBlocked(result string) bool {
 	return strings.Contains(result, "convergence (") && strings.Contains(result, "calls)")
 }
 
-// trackRepeat updates the consecutive-identical-tool-call counter. It returns
-// the new repeat count and the signature of the current call.
-func trackRepeat(tc domain.StreamedToolCall, lastSig string, repeats int) (int, string) {
-	sig := tc.Name + "\x00" + tc.Arguments
+// identicalRepeatLimit is how many identical call+result rounds in a row end
+// the turn. A tool with a category limit (web/bash/file/code) uses its
+// allocated budget as it stands now (including adaptive changes), never a
+// fixed value: identical repeats are served from the cache for free, so the
+// tool limit is the one cap the user set, and an unlimited limit means no stop
+// at all. Uncategorized tools use the identical-tool-calls event threshold.
+func identicalRepeatLimit(toolName string) int {
+	if cache := cacheForCategory(categoryForTool(toolName)); cache != nil {
+		_, limit := cache.count()
+		return limit
+	}
+	return effectiveRounds(eventIdenticalCalls)
+}
+
+// trackRepeat updates the consecutive-identical-tool-call counter. A round
+// only counts as a repeat when both the call and its result match the previous
+// round's. It returns the new repeat count and the current round's signature.
+func trackRepeat(
+	tc domain.StreamedToolCall,
+	resultSig, lastSig string,
+	repeats int,
+) (int, string) {
+	sig := tc.Name + "\x00" + tc.Arguments + "\x00" + resultSig
 	if sig == lastSig {
 		return repeats + 1, sig
 	}
@@ -1931,7 +2037,10 @@ func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
 // most recent call, or nil if no call has completed yet. Used by the REPL's
 // /prompt command.
 func (l *Loop) LastSentMessages() []map[string]interface{} {
-	return l.lastSentMessages
+	if EfficiencyVerbose() {
+		return l.lastSentMessages
+	}
+	return scrubEfficiency(l.lastSentMessages)
 }
 
 // LastSentTools returns the exact tool definitions sent to the LLM on the
@@ -1987,6 +2096,7 @@ type turnNudges struct {
 	sandbox       int // prose describing a failed sandbox/code-interpreter session
 	workFailure   int // turn ending while the last work tool is still failing
 	giveUp        int // reply reads as declining to continue despite real progress this turn
+	editUnchanged int // turn ending while the last edit_file left the file's md5 unchanged
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -2115,6 +2225,16 @@ func (l *Loop) resolveEmptyToolRound(
 	// same as before this was bounded to more than one nudge. Otherwise a
 	// model that answers honestly on its second attempt would draw a second
 	// nudge anyway, punishing the exact behavior being asked for.
+	if l.pendingEdit != nil {
+		if harnessOccurrenceAllowed("nudge-edit-unchanged", nudges.editUnchanged) {
+			repeat := nudges.editUnchanged > 0
+			nudges.editUnchanged++
+			return nil, res.content, nudgeEditUnchangedConfig(res.chatCfg, l.pendingEdit, repeat), false
+		}
+		notice := editUnchangedNotice(l.pendingEdit)
+		_, _ = io.WriteString(w, notice)
+		return nil, notice + res.content, res.chatCfg, true
+	}
 	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
 		if harnessOccurrenceAllowed("nudge-unresolved-failure", nudges.workFailure) {
 			repeat := nudges.workFailure > 0
@@ -2181,6 +2301,13 @@ type roundOutcome struct {
 	productive bool
 	// advanced is true when the task state machine moved (task_complete/fail).
 	advanced bool
+	// resultSig fingerprints the last executed call's raw result, so the
+	// stuck-loop guard can tell a repeated call that keeps returning the same
+	// thing from one whose output is changing.
+	resultSig string
+	// result is the last executed call's raw result, kept so the efficiency
+	// manager can quote it back to a model that is stuck repeating the call.
+	result string
 }
 
 func (l *Loop) appendToolRoundTrip(
@@ -2285,10 +2412,24 @@ func (l *Loop) executeToolCalls(
 	var outcome roundOutcome
 	msgs := make([]map[string]any, 0, len(toolCalls))
 	for _, tc := range toolCalls {
+		tc.Arguments = unescapeExecutableArgs(tc.Name, tc.Arguments)
+		started := time.Now()
+		l.emit(LoopEvent{
+			Type: LoopEventToolStart, CallID: tc.ID, Tool: tc.Name,
+			Args: tc.Arguments, Summary: summarizeToolArgs(tc.Arguments),
+		})
 		result := `{"error":"interrupted by user"}`
+		editPath, isEdit := mutatingEditTarget(tc.Name, tc.Arguments)
+		md5Before := ""
+		if isEdit {
+			md5Before = fileMD5(editPath)
+		}
 		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
 			result = l.dispatchOrRefuse(tc, w)
 		}
+		sum := sha256.Sum256([]byte(result))
+		outcome.resultSig = hex.EncodeToString(sum[:8])
+		outcome.result = result
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
 		}
@@ -2298,11 +2439,29 @@ func (l *Loop) executeToolCalls(
 		if isTaskStateTool(tc.Name) && !isToolErrorResult(result) {
 			outcome.advanced = true
 		}
+		content := l.toolResultMessage(ctx, tc, result)
+		briefed := l.takeBriefedFailure()
+		note := ""
+		if ctx.Err() == nil {
+			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			if briefed {
+				// Soft-stopped failure: the status note rides the hidden brief.
+				l.attachToFailureBrief(note)
+				note = ""
+			}
+			content += note
+		}
+		l.emit(LoopEvent{
+			Type: LoopEventToolEnd, CallID: tc.ID, Tool: tc.Name,
+			Args: tc.Arguments, Summary: summarizeToolArgs(tc.Arguments),
+			Result: capToolResult(result), Error: isToolErrorResult(result),
+			Status: strings.TrimSpace(note), Duration: time.Since(started),
+		})
 		msgs = append(msgs, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
 			"name":           tc.Name,
-			toolParamContent: l.toolResultMessage(ctx, tc, result),
+			toolParamContent: content,
 		})
 		l.recordToolCall(tc.Name, tc.Arguments, result)
 	}
@@ -2324,6 +2483,18 @@ func (l *Loop) toolResultMessage(
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
+	return l.appendReminders(l.buildToolResultMessage(ctx, tc, result))
+}
+
+// buildToolResultMessage is toolResultMessage's original body, factored out
+// so every return path -- including the task-state-tool short-circuit --
+// passes through the single appendReminders call in toolResultMessage
+// rather than needing its own.
+func (l *Loop) buildToolResultMessage(
+	ctx context.Context,
+	tc domain.StreamedToolCall,
+	result string,
+) string {
 	if isTaskStateTool(tc.Name) {
 		return turoReduce(ctx, capToolResult(result))
 	}
@@ -2331,6 +2502,11 @@ func (l *Loop) toolResultMessage(
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
+		// Soft stop: the error and the context to fix it reach the model on the
+		// hidden channel, so history keeps only the raw error.
+		if ctx.Err() == nil && l.efficiencyFailureStop(tc, result) {
+			return capToolResult(result)
+		}
 		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed -- do NOT report it as done."
@@ -2400,6 +2576,7 @@ func (l *Loop) emitNarration(w io.Writer, content string) {
 	if text == "" {
 		return
 	}
+	l.emit(LoopEvent{Type: LoopEventNarration, Text: text})
 	if pw := l.progressWriter(w); pw != nil {
 		fmt.Fprintf(pw, "\n%s\n", text)
 	}
@@ -2518,14 +2695,20 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 	if tok := GlobalApprovalTokenRegistry.FindMatchingGranted(canonical, "", time.Now()); tok != nil {
 		return "", false, true
 	}
-	if !l.config.InteractiveTTY {
-		return "", false, false
+	decision, viaApprover := l.approverDecision(ApprovalRequest{
+		Kind: "tool", Tool: canonical, Args: rawArgs, Summary: summarizeToolArgs(rawArgs),
+	})
+	if !viaApprover {
+		if !l.config.InteractiveTTY {
+			return "", false, false
+		}
+		w := l.config.ToolOutputWriter
+		if w == nil {
+			w = os.Stdout
+		}
+		decision = l.promptToolApproval(w, canonical, rawArgs)
 	}
-	w := l.config.ToolOutputWriter
-	if w == nil {
-		w = os.Stdout
-	}
-	switch l.promptToolApproval(w, canonical, rawArgs) {
+	switch decision {
 	case approveOnce:
 		return "", false, true
 	case approveAlways:
@@ -2842,9 +3025,9 @@ func (l *Loop) InvalidateSystemPreamble() {
 // first turn and reusing the identical string thereafter. Re-sending a stable
 // system prefix every turn is what lets provider prompt caches hit it instead
 // of re-billing skills, instructions, and memory rules on each turn.
-func (l *Loop) cachedSystemPreamble(focus string) string {
+func (l *Loop) cachedSystemPreamble() string {
 	if !l.systemPreambleBuilt {
-		l.systemPreamble = l.buildSystemPreamble(focus)
+		l.systemPreamble = l.buildSystemPreamble()
 		l.systemPreambleBuilt = true
 	}
 	// dateAndWDPreamble is deliberately NOT part of the cached preamble above:
@@ -2868,43 +3051,25 @@ func (l *Loop) cachedSystemPreamble(focus string) string {
 // leave room for the actual conversation.
 //
 //nolint:gocognit
-func (l *Loop) buildSystemPreamble(focus string) string {
+func (l *Loop) buildSystemPreamble() string {
 	limit := l.preambleLimit()
 	var parts []string
 
-	// MANDATORY MEMORY RULES are built separately from the rest of the
+	// MEMORY RULES are built separately from the rest of the
 	// preamble and never passed through turoReduce below: turo's lexical
 	// rewriting (filler removal, synonym substitution) can mangle directive
-	// language like "MANDATORY RULE" or "IS A BUG", and this text is the core
+	// language like "MEMORY RULE", and this text is the core
 	// multi-model reliability mechanism, so it must survive byte-for-byte.
 	// It is also excluded from the small-context truncation further down, so
 	// it is always sent regardless of context budget. The preamble is cached
 	// once per session (cachedSystemPreamble), so keeping it unreduced costs
 	// nothing extra in steady state — it is the single most token-efficient
 	// way to send it: once, verbatim, never recomputed.
+	// The memory graph itself changes every turn, so it rides on the turn
+	// (memoryTurnBlock), not this cached preamble; only the rules live here.
 	var memoryParts []string
 	if l.memoryStore != nil {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
-		memPrompt := l.memoryStore.FormatForPromptCapped(
-			memoryPromptLimit(), focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars)
-		if memPrompt != "" {
-			memoryParts = append(memoryParts, memPrompt)
-		}
-		// Recent keys, so the model can see what is stored without a list tool.
-		// Capped
-		// and recency-ordered — with thousands of entries the full list alone
-		// could be tens of thousands of tokens; memory_search covers the rest.
-		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
-			block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
-			if total > len(keyNames) {
-				block += fmt.Sprintf(
-					"\n... and %d more (use memory_search to find older entries)",
-					total-len(keyNames),
-				)
-			}
-			block += "\n</memory-keys>"
-			memoryParts = append(memoryParts, block)
-		}
 	}
 
 	// Tool guidance (toolUseGuidance) and the tool catalog (ToolPrompt) are also
@@ -2920,8 +3085,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		// limit models actually hit (globalWebCache, builtin_tool_cache.go),
 		// not a hardcoded number that would silently go stale the next time
 		// that limit changes.
-		_, webCallLimit := WebConvergenceCalls()
-		toolParts = append(toolParts, renderAssembledPreamble(harnessPreambleData{WebCallLimit: webCallLimit}))
+		toolParts = append(toolParts, renderAssembledPreamble(currentPreambleData()))
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}
@@ -2944,9 +3108,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// Only loaded in agent loop mode (when a tool registry is present); skipped
 	// for synthetic/internal LLM calls like compaction and command injection.
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		if instructions := discoverInstructions(""); instructions != "" {
-			parts = append(parts, instructions)
-		}
+		parts = append(parts, l.instructionParts()...)
 		parts = append(parts, l.commitTrailerPreamble())
 		// dateAndWDPreamble is appended fresh by cachedSystemPreamble on every
 		// call, not here, so it never goes stale after a mid-session cd.
@@ -2980,15 +3142,14 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// Cached here (not recomputed per turn) for the context-path status line
 	// (contextPathStatus): everything except memory -- skills, instructions,
 	// harness rules, the tool catalog -- read as one "system prompt" segment.
-	l.cachedSystemPromptSegmentTokens = EstimateTokenCountFromStrings(preamble)
 	if memorySection := strings.Join(memoryParts, "\n\n"); memorySection != "" {
-		l.cachedMemorySegmentTokens = EstimateTokenCountFromStrings(memorySection)
 		if preamble != "" {
 			preamble = memorySection + "\n\n" + preamble
 		} else {
 			preamble = memorySection
 		}
 	}
+	l.cachedSystemPromptSegmentTokens = EstimateTokenCountFromStrings(preamble)
 	// Prepend the current date verbatim (after reduction, so it is never
 	// mangled) so the model can reason about "today", recent events, and
 	// relative dates. Captured when the preamble is first built for the session.
@@ -3024,47 +3185,83 @@ func (l *Loop) dateAndWDPreamble() string {
 		now.Day(),
 	)
 	if wd, err := os.Getwd(); err == nil && wd != "" {
-		return dateStr + "\nWorking directory: " + wd + "\n"
+		return dateStr + "\nWorking directory: " + wd + "\n" + liveEnvFacts(wd, now) + "\n"
 	}
 	return dateStr
 }
 
+// liveEnvFacts returns facts kdeps measured itself, just now, in the real
+// executing environment. A model that suspects it is in a sandbox can check its
+// kdeps tools against them: a list_files/bash_exec result that disagrees, or
+// looks empty, came from somewhere else.
+func liveEnvFacts(wd string, now time.Time) string {
+	facts := []string{now.Format("2006-01-02 15:04 MST"), runtime.GOOS + "/" + runtime.GOARCH}
+	if entries, err := os.ReadDir(wd); err == nil {
+		dirs := 0
+		for _, e := range entries {
+			if e.IsDir() {
+				dirs++
+			}
+		}
+		facts = append(facts, fmt.Sprintf("%d entries in the working directory (%d files, %d dirs)",
+			len(entries), len(entries)-dirs, dirs))
+	}
+	if branch := gitBranch(wd); branch != "" {
+		facts = append(facts, "git branch "+branch)
+	}
+	return "Live environment, measured by kdeps just now: " + strings.Join(facts, ", ") +
+		". Your kdeps tools run here; a tool result that disagrees means it did not come from a kdeps tool."
+}
+
+// gitBranch reads the checked-out branch from the nearest .git/HEAD at or above
+// dir, or "" when there is none (or HEAD is detached, or .git is a worktree file).
+func gitBranch(dir string) string {
+	for {
+		if b, err := os.ReadFile(filepath.Join(dir, ".git", "HEAD")); err == nil {
+			ref := strings.TrimSpace(string(b))
+			if name, ok := strings.CutPrefix(ref, "ref: refs/heads/"); ok {
+				return name
+			}
+			return ""
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 // memoryRulesPreamble returns the memory-related system prompt rules.
-// These are mandatory directives, not suggestions. The LLM MUST follow them.
+// Directives, not suggestions, but scoped to when memory actually helps.
 func (l *Loop) memoryRulesPreamble() []string {
 	return []string{
-		"MANDATORY RULE #1 — Check memory before every action. " +
-			"Before taking ANY action, call memory_search to see " +
-			"what is already known about the task. Memory contains persistent facts, " +
-			"previous tool call results, and past actions. Every tool call automatically " +
-			"creates a memory entry — use them to avoid redundant work. " +
-			"FAILURE TO CHECK MEMORY FIRST IS A BUG. " +
+		"MEMORY RULE #1 — Check memory when it can help. " +
+			"The memory graph and recent keys are already in this prompt. Call " +
+			"memory_query (prefer it: a precise relational lookup over memory entries, " +
+			"tool-call history and tasks, e.g. filter(memory, .type == \"decision\")) " +
+			"when the task refers to earlier work, when you need a fact that is not in " +
+			"the prompt, or on your first turn after a model switch, resume or " +
+			"compaction. Use memory_search only for a fuzzy text match when you do not " +
+			"know the key or type. Do not query before every action: if the answer " +
+			"is already in the prompt or this conversation, a lookup only wastes a round. " +
 			"To persist a fact, write [MEMORY: key] value on its own line. " +
 			"WHY THIS EXISTS: kdeps is a multi-model system. When the orchestrator " +
 			"switches from one LLM to another (e.g. Sonnet -> Haiku -> Gemini), the " +
 			"conversation context is DESTROYED. The new model starts with ZERO knowledge " +
 			"of what happened before. Memory is the ONLY mechanism that survives a " +
-			"model switch. If you skip the memory check, the new model is flying blind — " +
-			"it will repeat work, overwrite state, and break the pipeline. " +
-			"This is not a suggestion. It is the single most important reliability " +
-			"mechanism in the system. Treat it like a parachute: check before every jump.",
-		"MANDATORY RULE #2 — Save memory after every turn. " +
-			"After every LLM response, save important facts, decisions, and progress " +
-			"using memory_save or [MEMORY: key] value. " +
-			"Ask: what will be useful to remember next session? " +
+			"model switch, so the first turn after one must read it.",
+		"MEMORY RULE #2 — Save what a future model would need. " +
+			"When you finish a task, make a decision, or learn something the user " +
+			"corrected, record it with [MEMORY: key] value (no extra tool call) or " +
+			"memory_save. Skip turns where nothing changed. " +
 			"Save goals as 'prompt:*', decisions as 'decision:*', progress as " +
 			"'progress:*', and results as 'result:*'. " +
-			"FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG. " +
 			"Entries auto-link into a graph showing the workflow chain " +
 			"from prompt -> tool calls -> results -> status. " +
-			"WHY THIS EXISTS: Every turn could be the LAST turn before a model switch. " +
-			"You do not know when the orchestrator will rotate models. If you haven't " +
-			"saved your state, that work is GONE — the next model will have no record " +
-			"of what you did, what you decided, or what comes next. " +
-			"Save after every turn, every time, without exception. " +
-			"The cost of one extra save is negligible. The cost of a lost turn is " +
-			"a corrupted pipeline and hours of debugging.",
-		"MANDATORY RULE #3 — Memory is history, not a current capability check. " +
+			"WHY THIS EXISTS: any turn could be the last before a model switch, and " +
+			"unsaved decisions and progress are gone once it happens.",
+		"MEMORY RULE #3 — Memory is history, not a current capability check. " +
 			"A memory entry recording that a tool call failed, was unavailable, or " +
 			"could not be completed in a PAST turn or session is NOT evidence that the " +
 			"same tool is unavailable NOW. Never refuse or skip a tool call because " +
@@ -3190,7 +3387,6 @@ func (l *Loop) buildChatConfig(
 		}
 		chatCfg.Scenario = []domain.ScenarioItem{item}
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
-		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
 
 	// After the first turn, re-state the fenced-tools rule in one line and
@@ -3210,6 +3406,28 @@ func (l *Loop) buildChatConfig(
 		}
 		chatCfg.Scenario = append(chatCfg.Scenario,
 			domain.ScenarioItem{Role: "system", Prompt: reminder})
+	}
+
+	// Any harness section forced on via "/harness reminders <name> on" goes
+	// onto every prompt, from the very first turn -- unlike the tools-reminder
+	// above (which only repeats existing preamble content after turn 0), this
+	// is a general-purpose override that can force even a normally
+	// special-cased standalone entry (a nudge, a sandbox warning, ...) into
+	// view regardless of whether its own trigger condition ever fires. See
+	// appendReminders.
+	if reminders := l.remindersBlock(); reminders != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario,
+			domain.ScenarioItem{Role: "system", Prompt: reminders})
+	}
+
+	// Memory, the cards' status and knowledge recall go on every turn, never
+	// into the cached preamble: they change during the session and depend on
+	// this request.
+	if state := l.turnStateBlock(input); state != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: state})
+	}
+	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
+		chatCfg.Scenario = append(chatCfg.Scenario, *item)
 	}
 
 	return chatCfg
@@ -3280,6 +3498,10 @@ func (l *Loop) buildSyntheticWorkflow(
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
+	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
+	// its internal calls (compaction, refine, goals) must get none.
+	off := false
+	chatCfg.Knowledge = &off
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
@@ -3485,8 +3707,48 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	if allOps := l.session.FileOps(); cutIdx/sessionMsgsPer <= len(allOps) {
 		fileOps = allOps[:cutIdx/sessionMsgsPer]
 	}
-	conversationText := serializeConversation(toSummarize, fileOps)
+	summary, err := l.summarizeConversation(ctx, serializeConversation(toSummarize, fileOps))
+	if err != nil {
+		// Fall back to truncation so the user isn't left with nothing.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
+		return "", fmt.Errorf("compaction LLM call failed: %w", err)
+	}
+	if summary == "" {
+		// LLM returned empty or unusable response — fall back to truncation.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
+		return "", errors.New("compaction produced empty summary")
+	}
 
+	l.session.CompactWith(summary, toKeep, compactedTurns)
+	// Mandatory session-integrity handshake: the rewritten context (fold or
+	// full compaction, both funnel through here) leaves the model's
+	// tool-calling path against it unproven until it makes one real call.
+	l.RequireHandshake()
+
+	// Auto-capture structured sections into persistent memory so the LLM
+	// retains key decisions and critical context across compaction cycles.
+	if l.memoryStore != nil {
+		l.memoryStore.AutoCapture(summary)
+	}
+	l.writeSessionNote(summary, l.config.ProgressWriter)
+
+	// The cumulative sent/generated totals still describe the conversation
+	// that was just folded away. Replace them with the context that remains.
+	l.resetCountersToCurrentContext()
+
+	return summary, nil
+}
+
+// summarizeConversation runs the compaction summary call over a serialized
+// conversation (updating the previous summary when there is one) and
+// returns the normalized summary.
+func (l *Loop) summarizeConversation(ctx context.Context, conversationText string) (string, error) {
 	// Use iterative UPDATE prompt when a previous summary exists (pi parity:
 	// prepareCompaction passes previousSummary to generateSummary).
 	userPrompt := harnessText("compaction-user")
@@ -3520,41 +3782,9 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {
-		// Fall back to truncation so the user isn't left with nothing.
-		fallback := l.session.Compact()
-		if fallback != "" {
-			return fallback, nil
-		}
-		return "", fmt.Errorf("compaction LLM call failed: %w", err)
+		return "", err
 	}
-
-	summary := normalizeCompactionSummary(formatLoopResult(result))
-	if summary == "" {
-		// LLM returned empty or unusable response — fall back to truncation.
-		fallback := l.session.Compact()
-		if fallback != "" {
-			return fallback, nil
-		}
-		return "", errors.New("compaction produced empty summary")
-	}
-
-	l.session.CompactWith(summary, toKeep, compactedTurns)
-	// Mandatory session-integrity handshake: the rewritten context (fold or
-	// full compaction, both funnel through here) leaves the model's
-	// tool-calling path against it unproven until it makes one real call.
-	l.RequireHandshake()
-
-	// Auto-capture structured sections into persistent memory so the LLM
-	// retains key decisions and critical context across compaction cycles.
-	if l.memoryStore != nil {
-		l.memoryStore.AutoCapture(summary)
-	}
-
-	// The cumulative sent/generated totals still describe the conversation
-	// that was just folded away. Replace them with the context that remains.
-	l.resetCountersToCurrentContext()
-
-	return summary, nil
+	return normalizeCompactionSummary(formatLoopResult(result)), nil
 }
 
 // resetCountersToCurrentContext rebuilds the context-path line from the
@@ -3565,8 +3795,8 @@ func (l *Loop) resetCountersToCurrentContext() {
 	resetContextSegments(l.config.Model, l.config.Backend)
 	if l.systemPreambleBuilt {
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
-		recordContextSegmentTokens("memory", l.cachedMemorySegmentTokens)
 	}
+	recordContextSegmentTokens("memory", l.memorySegmentTokens)
 	var hist, wrote strings.Builder
 	if l.session != nil {
 		for _, m := range l.session.RawMessages() {

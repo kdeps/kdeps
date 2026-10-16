@@ -19,8 +19,6 @@
 package cmd
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -58,15 +56,6 @@ func TestLlamafileListCmd_RunE(t *testing.T) {
 	require.NoError(t, cmd.RunE(cmd, nil))
 }
 
-func TestLlamafileUpdateCmd_RunE_FetchError(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("KDEPS_LLAMAFILE_SOURCE", "http://127.0.0.1:1")
-
-	cmd := newLlamafileUpdateCmd()
-	require.Error(t, cmd.RunE(cmd, nil))
-}
-
 func TestRunLlamafileList_QuantAndParamsFallbacks(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -88,34 +77,6 @@ llamafiles:
 	t.Cleanup(llm.ReloadRegistry)
 
 	require.NoError(t, runLlamafileList())
-}
-
-func TestRunLlamafileUpdate_HarvesterScriptSuccess(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	script := filepath.Join(home, "harvest.py")
-	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0o755))
-	// RunHarvesterScript executes python3 <script>; a no-op python script
-	// makes the first-try branch succeed.
-	require.NoError(t, os.WriteFile(script, []byte("import sys\nsys.exit(0)\n"), 0o755))
-	t.Setenv("KDEPS_LLAMAFILE_HARVESTER", script)
-
-	require.NoError(t, runLlamafileUpdate())
-}
-
-func TestRunLlamafileUpdate_RemoteSuccess(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(
-			"version: 1\nllamafiles:\n  - alias: remote-m\n    url: https://x/m.llamafile\n    size_bytes: 5\n"))
-	}))
-	t.Cleanup(srv.Close)
-	t.Setenv("KDEPS_LLAMAFILE_SOURCE", srv.URL)
-
-	require.NoError(t, runLlamafileUpdate())
 }
 
 func TestEnsureLLMBackendStep_NoChatSkipsLLM(t *testing.T) {

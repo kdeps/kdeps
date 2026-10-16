@@ -23,6 +23,7 @@ import (
 	"os"
 	execpkg "os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1626,4 +1627,45 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 	result, err := pyExec.Execute(ctx, &domain.PythonConfig{Script: "print('hi')"})
 	require.NoError(t, err)
 	assert.NotNil(t, result)
+}
+
+// TestExecutor_Env passes evaluated env: values to the script's process, not
+// its argv.
+func TestExecutor_Env(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Outputs["secret"] = "s3cret"
+
+	pythonBin, lookErr := execpkg.LookPath("python3")
+	if lookErr != nil {
+		t.Skip("python3 not available in test environment")
+	}
+	if verifyErr := execpkg.Command(pythonBin, "--version").Run(); verifyErr != nil {
+		t.Skip("python on PATH is not a working interpreter")
+	}
+	var argv []string
+	exec.SetExecCommandForTesting(func(name string, arg ...string) *execpkg.Cmd {
+		argv = arg
+		if name == "/mock/venv/bin/python" {
+			return execpkg.Command(pythonBin, arg...)
+		}
+		return execpkg.Command(name, arg...)
+	})
+
+	result, err := exec.Execute(ctx, &domain.PythonConfig{
+		Script: `import json, os; print(json.dumps({"pw": os.environ["KDEPS_PW"]}))`,
+		Env:    map[string]string{"KDEPS_PW": "{{ get('secret') }}"},
+	})
+	require.NoError(t, err)
+	out, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "s3cret", out["pw"])
+	assert.NotContains(t, strings.Join(argv, " "), "s3cret")
+
+	_, err = exec.Execute(ctx, &domain.PythonConfig{
+		Script: "print(1)",
+		Env:    map[string]string{"BAD": "{{invalid_expr(}}"},
+	})
+	require.ErrorContains(t, err, "failed to evaluate env BAD")
 }

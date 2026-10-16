@@ -114,8 +114,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Build kdeps binary
@@ -123,6 +123,9 @@ jobs:
       - name: Build sample Docker image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This PR's assets/, not the published ones: a set the PR adds is
+          # published only after merge.
+          KDEPS_ASSETS_SRC: ${{ github.workspace }}/assets
         run: ./kdeps bundle build examples/webserver-static --tag kdeps-ci-scan:local
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -139,9 +142,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          fetch-depth: 0 # asset version check diffs against the PR base
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
+      - name: Asset versions bumped
+        if: github.event_name == 'pull_request'
+        run: scripts/check-asset-versions.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
       - name: Install golangci-lint
         run: |
           set -euo pipefail
@@ -185,7 +193,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Set up Go
-      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: 'go.mod'
 
@@ -264,13 +272,13 @@ jobs:
         exit 1
 
     # Tests run against the committed llamafile registry
-    # (pkg/executor/llm/llamafile_versions_data.go); the registry is refreshed
+    # (assets/models/llamafile.yaml); the registry is refreshed
     # and committed by the nightly workflow, never harvested live here.
     - name: Cache llamafile models
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.kdeps/models
-        key: llamafiles-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+        key: llamafiles-${{ hashFiles('assets/models/llamafile.yaml') }}
 
     - name: Build
       run: make build
@@ -290,7 +298,7 @@ jobs:
       timeout-minutes: 35
 
     - name: Upload unit coverage artifact
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: coverage-out
         path: coverage.out
@@ -301,7 +309,7 @@ jobs:
       timeout-minutes: 15
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: kdeps/kdeps
@@ -357,7 +365,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
 
@@ -411,7 +419,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.kdeps/models
-          key: llamafiles-windows-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+          key: llamafiles-windows-${{ hashFiles('assets/models/llamafile.yaml') }}
 
       - name: Build kdeps binary for e2e
         shell: bash
@@ -458,7 +466,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.RELEASE_TOKEN }}
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Unit coverage

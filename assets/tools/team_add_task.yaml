@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Assign an existing task to a team.
+parameters:
+  task_id:
+    type: string
+    description: Task ID to add
+    required: true
+  team_id:
+    type: string
+    description: Team ID
+    required: true

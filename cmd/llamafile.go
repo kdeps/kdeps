@@ -40,11 +40,10 @@ func newLlamafileCmd() *cobra.Command {
 
 Llamafiles are self-contained executable LLM binaries; GGUF files are
 quantized model weights run via llama.cpp. Both serve an OpenAI-compatible
-endpoint with no cloud dependencies. List, download, and update models.`,
+endpoint with no cloud dependencies. ` + "`kdeps update models`" + ` refreshes the registry.`,
 	}
 
 	cmd.AddCommand(newLlamafileListCmd())
-	cmd.AddCommand(newLlamafileUpdateCmd())
 
 	return cmd
 }
@@ -62,29 +61,6 @@ and approximate file size. Use the alias in workflow chat resource
 model: fields or /model in the agent loop.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runLlamafileList()
-		},
-	}
-
-	return cmd
-}
-
-func newLlamafileUpdateCmd() *cobra.Command {
-	kdeps_debug.Log("enter: newLlamafileUpdateCmd")
-
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update model registry from HuggingFace (llamafile + GGUF)",
-		Long: `Update the local model registries from the latest HuggingFace harvest.
-
-Two sources are tried in order:
-  1. Python harvester script (tools/llamafile-harvester/harvest.py) if available.
-     Requires pip install huggingface_hub.
-  2. GitHub-hosted YAMLs from the kdeps repository (always available).
-
-Local-only entries (user-added aliases) survive the merge.
-Updates both llamafile_versions.yaml and gguf_versions.yaml.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runLlamafileUpdate()
 		},
 	}
 
@@ -159,31 +135,6 @@ func printModelRow(
 		params = pipelineTag
 	}
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", kind, alias, params, quant, size, dl, url)
-}
-
-func runLlamafileUpdate() error {
-	kdeps_debug.Log("enter: runLlamafileUpdate")
-
-	// First try: invoke Python harvester script.
-	if llm.RunHarvesterScript() {
-		llamafiles := llm.ListLlamafileMappings()
-		ggufs := llm.ListGGUFMappings()
-		fmt.Fprintf(
-			os.Stdout,
-			"Harvested %d llamafile + %d GGUF entries from HuggingFace.\n",
-			len(llamafiles),
-			len(ggufs),
-		)
-		return nil
-	}
-
-	// Second try: fetch from GitHub-hosted registry.
-	count, err := llm.UpdateRegistryFromRemote()
-	if err != nil {
-		return fmt.Errorf("update failed: %w", err)
-	}
-	fmt.Fprintf(os.Stdout, "Merged %d llamafile entries from remote source.\n", count)
-	return nil
 }
 
 // extractQuantFromFilename attempts to extract a quantization label from a filename.

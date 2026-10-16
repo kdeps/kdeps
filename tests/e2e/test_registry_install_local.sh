@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for local file install via kdeps registry install <path>
+# E2E tests for local file install via kdeps install <path>
 # Covers .kdeps, .kagency, and .komponent archives.
 
 set -uo pipefail
@@ -66,7 +66,7 @@ metadata:
   version: \"1.0.0\"
 "
 
-OUTPUT=$(KDEPS_AGENTS_DIR="$AGENTS_DIR" "$KDEPS_BIN" registry install "$ARCHIVE" 2>&1)
+OUTPUT=$(KDEPS_AGENTS_DIR="$AGENTS_DIR" "$KDEPS_BIN" install "$ARCHIVE" 2>&1)
 if output_grep_i "Installing|Installed|my-workflow" "$OUTPUT"; then
     test_passed "registry install - installs local .kdeps workflow archive"
 else
@@ -93,7 +93,7 @@ metadata:
   version: \"1.0.0\"
 "
 
-OUTPUT2=$(KDEPS_AGENTS_DIR="$AGENTS_DIR2" "$KDEPS_BIN" registry install "$ARCHIVE2" 2>&1)
+OUTPUT2=$(KDEPS_AGENTS_DIR="$AGENTS_DIR2" "$KDEPS_BIN" install "$ARCHIVE2" 2>&1)
 if output_grep_i "Installing|Installed|my-agency" "$OUTPUT2"; then
     test_passed "registry install - installs local .kagency archive"
 else
@@ -120,7 +120,7 @@ metadata:
   version: \"1.0.0\"
 "
 
-OUTPUT3=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry install "$ARCHIVE3" 2>&1)
+OUTPUT3=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" install "$ARCHIVE3" 2>&1)
 if output_grep_i "Installing|installed|my-comp" "$OUTPUT3"; then
     test_passed "registry install - installs local .komponent archive"
 else
@@ -143,7 +143,7 @@ metadata:
 "
 
 cd "$TMPDIR4"
-OUTPUT4=$(KDEPS_AGENTS_DIR="$AGENTS_DIR4" "$KDEPS_BIN" registry install "./rel-workflow-1.0.0.kdeps" 2>&1)
+OUTPUT4=$(KDEPS_AGENTS_DIR="$AGENTS_DIR4" "$KDEPS_BIN" install "./rel-workflow-1.0.0.kdeps" 2>&1)
 cd "$SCRIPT_DIR"
 if output_grep_i "Installing|Installed|rel-workflow" "$OUTPUT4"; then
     test_passed "registry install - installs using relative path ./"
@@ -153,7 +153,7 @@ fi
 
 # ── Test 5: install a non-existent local file returns error ───────────────────
 
-ERR_OUTPUT=$("$KDEPS_BIN" registry install "/nonexistent/path/archive.kdeps" 2>&1 || true)
+ERR_OUTPUT=$("$KDEPS_BIN" install "/nonexistent/path/archive.kdeps" 2>&1 || true)
 if output_grep_i "no such file|not found|error|local file" "$ERR_OUTPUT"; then
     test_passed "registry install - non-existent local file returns error"
 else

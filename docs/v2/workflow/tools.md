@@ -1,8 +1,8 @@
-# Tools (function calling)
+# Function calling
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
 
-*Applies to workflow mode.* This page covers `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent mode](/agent/) and [Built-in tools](/agent/tools).
+This page covers `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent mode](/agent/) and [Built-in tools](/agent/tools).
 
 ```d2
 direction: down
@@ -55,7 +55,7 @@ tools:
 
 ## Tool types
 
-### Resource-based tools
+## Resource-based tools
 
 Tools that reference other kdeps resources:
 
@@ -90,7 +90,7 @@ chat:
 
 </div>
 
-### External MCP tools
+## External MCP tools
 
 Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
@@ -144,7 +144,7 @@ chat:
 
 </div>
 
-### Multiple tools
+## Multiple tools
 
 Define multiple tools for different capabilities:
 
@@ -227,7 +227,7 @@ LLM generates final response
 ## Use cases
 
 - Let the model do math, run code, or query a database mid-response instead of
-  guessing (`script:` pointing at a `python:`, `exec:`, or `sql:` resource).
+  guessing (`script:` pointing at a `python:` or `exec:` resource, or a component call).
 - Give the model read access to a filesystem, an API, or another service
   through an external MCP server (`mcp:`).
 - Chain capabilities: the model calls a search tool, then a scraper tool, then
@@ -235,7 +235,7 @@ LLM generates final response
 
 ## See also
 
-- [Tools reference](/reference/tools) - examples, tool chaining, best practices, debugging
+- [Function calling](/reference/tools) - examples, tool chaining, best practices, debugging
 - [LLM resource](/workflow/resources/llm) - Full LLM configuration
 - [LLM backends](/workflow/resources/llm-backends) - Streaming and backend options
 - [Python resource](/workflow/resources/python) - Building tool scripts

@@ -2,8 +2,6 @@
 
 `kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed - kdeps generates one from your `workflow.yaml`.
 
-*Applies to workflow mode.*
-
 ## Overview
 
 ```bash
@@ -27,7 +25,7 @@ kdeps bundle package path/to/workflow.yaml
 
 This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
 
-### What's included
+### What is included
 
 ```
 myagent-1.0.0.kdeps
@@ -96,8 +94,8 @@ docker run --device=/dev/kfd --device=/dev/dri myregistry/myagent:latest
 
 kdeps automatically selects the base OS based on GPU requirements:
 
-- **No `--gpu` flag** → **Alpine** (CPU-only, smallest images ~300MB)
-- **`--gpu` specified** → **Ubuntu** (GPU support, glibc-based)
+- **No `--gpu` flag** → Alpine (CPU-only, smallest images ~300MB)
+- **`--gpu` specified** → Ubuntu (GPU support, glibc-based)
 
 The OS is automatically chosen to ensure compatibility:
 
@@ -187,7 +185,7 @@ Build with models included:
 kdeps bundle build myagent-1.0.0.kdeps
 ```
 
-The resulting image contains all models and doesn't require internet access.
+The resulting image contains all models and does not require internet access.
 
 ## Python dependencies
 
@@ -336,6 +334,8 @@ docker-compose up -d
 
 kdeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
 
+The Dockerfile, entrypoint and supervisord config are rendered from the `docker/image` asset (`kdeps update docker` refreshes them; `kdeps build --show-dockerfile` prints the result). `kdeps export k8s` renders the `k8s/manifests` asset the same way.
+
 ```dockerfile
 # Example of generated Dockerfile logic
 FROM alpine:3.18
@@ -347,6 +347,12 @@ RUN apk upgrade --no-cache && \
 # Install kdeps via official install script. Released CLIs pin both the
 # script ref and the binary tag to their own version; dev builds use main.
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/v2.1.0/install.sh | sh -s -- -b /usr/local/bin v2.1.0
+
+# kdeps assets (harness, tool definitions, model registries, ...) from the
+# machine running kdeps build: the binary ships none, so the container needs
+# no download at start
+ENV KDEPS_ASSETS_DIR=/app/.kdeps/assets
+COPY kdeps-assets/ /app/.kdeps/assets/
 
 # Copy agent files
 COPY workflow.yaml /app/workflow.yaml
@@ -429,7 +435,7 @@ See the [Kubernetes deployment guide](kubernetes) for the full reference.
 
 ## LLM server appliance (not an agent image)
 
-This page packages **agents** (`workflow.yaml` + kdeps). For a **standalone** OpenAI-compatible model server:
+This page packages agents (`workflow.yaml` + kdeps). For a standalone OpenAI-compatible model server:
 
 ```bash
 kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
@@ -440,7 +446,7 @@ See [LLM server appliance](/llm-server/).
 
 ## HTTPS / custom domain
 
-For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports **80** and **443**. Persist the certificate cache:
+For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports 80 and 443. Persist the certificate cache:
 
 ```bash
 docker run -p 80:80 -p 443:443 \

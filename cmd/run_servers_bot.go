@@ -50,9 +50,6 @@ func botPlatformsFromInput(input *domain.InputConfig) []string {
 	if b.Telegram != nil {
 		platforms = append(platforms, "telegram")
 	}
-	if b.WhatsApp != nil {
-		platforms = append(platforms, "whatsapp")
-	}
 	return platforms
 }
 

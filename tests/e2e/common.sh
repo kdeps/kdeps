@@ -101,8 +101,21 @@ export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/tests/e2e/examples/components"
 # Prevent Bootstrap from blocking on stdin when tests override HOME to a
 # temp directory that has no ~/.kdeps/config.yaml.
 export KDEPS_SKIP_BOOTSTRAP=1
+# kdeps ships no assets: load this checkout's assets/ (the source of what
+# gets published) instead of downloading them. test_update.sh serves its own.
+export KDEPS_ASSETS_SRC="${KDEPS_ASSETS_SRC:-$PROJECT_ROOT/assets}"
+export KDEPS_ASSETS_URL="${KDEPS_ASSETS_URL:-off}"
 
-# apiServer requires a token; provide a default for E2E runs without ~/.kdeps/config.yaml.
+# Run against an empty config, as CI does. config.yaml values take precedence
+# over the environment, so a developer's ~/.kdeps/config.yaml (api_auth_token,
+# backends, connections) would otherwise change what these tests see.
+if [ -z "${KDEPS_CONFIG_PATH:-}" ]; then
+    KDEPS_E2E_CONFIG_DIR="$(mktemp -d)"
+    export KDEPS_CONFIG_PATH="$KDEPS_E2E_CONFIG_DIR/config.yaml"
+    : > "$KDEPS_CONFIG_PATH"
+fi
+
+# apiServer requires a token; provide a default for E2E runs.
 export KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN:-e2e-test-auth-token}"
 
 _kdeps_curl_find_url() {
@@ -166,15 +179,28 @@ s.close()
     # macOS mktemp does not support suffixes after the X placeholders — omit .py
     _MOCK_SCRIPT=$(mktemp /tmp/mock_registry_XXXXXX)
     cat > "$_MOCK_SCRIPT" << 'PYEOF'
-import http.server, sys, os, signal
+import http.server, sys, os, signal, threading, time
 signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
+# A script that sets its own EXIT trap replaces the kill below; exit when the
+# shell that started us is gone instead of outliving the run.
+parent = int(sys.argv[2])
+def watch():
+    while True:
+        time.sleep(1)
+        try:
+            os.kill(parent, 0)
+        except OSError:
+            os._exit(0)
+threading.Thread(target=watch, daemon=True).start()
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self): self.send_response(404); self.end_headers()
     def do_POST(self): self.send_response(404); self.end_headers()
     def log_message(self, *a): pass
 http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PYEOF
-    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" &
+    # No inherited stdout/stderr: a leftover server must not hold open the
+    # pipe a caller reads the e2e output through.
+    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$$" >/dev/null 2>&1 </dev/null &
     _MOCK_PID=$!
     sleep 0.2
     trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
@@ -226,12 +252,16 @@ export -f llm_server_crashed skip_or_fail_llm
 # when GNU timeout is missing.
 _kdeps_timeout_shim() {
     local secs="$1"; shift
-    "$@" &
+    # An async job gets /dev/null as stdin when job control is off; keep the pipe.
+    "$@" <&0 &
     local pid=$!
+    # The watchdog must not inherit stdout/stderr: inside $(...) or a pipeline the
+    # capture stays open until `sleep $secs` exits, so every call took the full
+    # timeout on Windows (killing the subshell does not kill its sleep).
     (
         sleep "$secs"
         kill "$pid" 2>/dev/null || true
-    ) &
+    ) >/dev/null 2>&1 </dev/null &
     local wdog=$!
     trap 'kill "$pid" "$wdog" 2>/dev/null || true' EXIT TERM INT
     wait "$pid"
@@ -250,7 +280,15 @@ case "$(uname -s)" in
         ;;
     Darwin)
         if command -v gtimeout >/dev/null 2>&1; then
-            timeout() { gtimeout "$@"; }
+            # A backgrounded function runs in a subshell. exec replaces that
+            # subshell so `kill $!` signals gtimeout, which then stops kdeps.
+            # In the current shell, exec would replace the test runner.
+            timeout() {
+                if [[ ${BASH_SUBSHELL:-0} -gt 0 ]]; then
+                    exec gtimeout "$@"
+                fi
+                gtimeout "$@"
+            }
             export -f timeout
         elif ! command -v timeout >/dev/null 2>&1; then
             timeout() { _kdeps_timeout_shim "$@"; }

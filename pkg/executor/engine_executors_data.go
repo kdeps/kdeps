@@ -22,14 +22,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// executeScraper executes a scraper resource.
-func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "scraper", resource.Scraper,
-		e.registry.GetScraperExecutor, "scraper", "executeScraper", ctx,
-	)
-}
-
 // executeEmbedding executes an embedding resource.
 func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(
@@ -46,11 +38,6 @@ func (e *Engine) executeSearchLocal(resource *domain.Resource, ctx *ExecutionCon
 	)
 }
 
-// executeInlineScraper executes an inline scraper resource.
-func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegistered("executeInlineScraper", e.registry.GetScraperExecutor, "scraper", ctx, config)
-}
-
 // executeInlineEmbedding executes an inline embedding resource.
 func (e *Engine) executeInlineEmbedding(config *domain.EmbeddingConfig, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegistered("executeInlineEmbedding", e.registry.GetEmbeddingExecutor, "embedding", ctx, config)
@@ -65,34 +52,6 @@ func (e *Engine) executeInlineSearchLocal(
 		"executeInlineSearchLocal",
 		e.registry.GetSearchLocalExecutor,
 		"searchLocal",
-		ctx,
-		config,
-	)
-}
-
-// executeInlineFile executes an inline file resource.
-func (e *Engine) executeInlineFile(
-	config *domain.FileResourceConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineFile",
-		e.registry.GetFileExecutor,
-		"file",
-		ctx,
-		config,
-	)
-}
-
-// executeInlineGit executes an inline git resource.
-func (e *Engine) executeInlineGit(
-	config *domain.GitResourceConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineGit",
-		e.registry.GetGitExecutor,
-		"git",
 		ctx,
 		config,
 	)
@@ -139,39 +98,5 @@ func (e *Engine) executeInlineVectorStore(
 ) (interface{}, error) {
 	return e.executeRegistered(
 		"executeInlineVectorStore", e.registry.GetVectorStoreExecutor, "vectorStore", ctx, config,
-	)
-}
-
-// executeTranscribe executes a transcribe resource.
-func (e *Engine) executeTranscribe(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "transcribe", resource.Transcribe,
-		e.registry.GetTranscribeExecutor, "transcribe", "executeTranscribe", ctx,
-	)
-}
-
-// executeInlineTranscribe executes an inline transcribe resource.
-func (e *Engine) executeInlineTranscribe(
-	config *domain.TranscribeConfig, ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineTranscribe", e.registry.GetTranscribeExecutor, "transcribe", ctx, config,
-	)
-}
-
-// executeOCR executes an ocr resource.
-func (e *Engine) executeOCR(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "ocr", resource.OCR,
-		e.registry.GetOCRExecutor, "ocr", "executeOCR", ctx,
-	)
-}
-
-// executeInlineOCR executes an inline ocr resource.
-func (e *Engine) executeInlineOCR(
-	config *domain.OCRConfig, ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineOCR", e.registry.GetOCRExecutor, "ocr", ctx, config,
 	)
 }

@@ -34,6 +34,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/ledongthuc/pdf"
@@ -41,6 +42,7 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -63,15 +65,58 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-// indexDBPath returns the default index database path for a directory.
+// IndexPath is where the search index of dir lives (under ~/.kdeps).
+func IndexPath(dir string) string { return indexDBPath(dir) }
+
+// Hit is one file a search index matched.
+type Hit struct {
+	Path    string
+	Preview string
+}
+
+// queryWait bounds how long QueryIndex waits for an index being built.
+const queryWait = 200 * time.Millisecond
+
+// QueryIndex returns up to limit files of dir's search index that match
+// query, best first; nil when dir has no index, it is busy being built, or
+// nothing matches. It never builds or changes an index.
+func QueryIndex(dir, query string, limit int) []Hit {
+	dbPath := indexDBPath(dir)
+	if !fileExists(dbPath) || limit <= 0 {
+		return nil
+	}
+	terms := tokenizer.NewTokenizer().TokenizeToStrings(query)
+	if len(terms) == 0 {
+		return nil
+	}
+	idx, err := index.OpenReadOnly(dbPath, queryWait)
+	if err != nil {
+		return nil
+	}
+	defer idx.Close()
+	var out []Hit
+	for _, r := range idx.Search(terms) {
+		if r.Document == nil || r.MatchCount < (len(terms)+1)/2 {
+			continue // most of the request's words must appear
+		}
+		out = append(out, Hit{Path: r.Document.Path, Preview: r.Document.Preview})
+		if len(out) == limit {
+			break
+		}
+	}
+	return out
+}
+
+// indexDBPath returns the default index database path for a directory. It
+// lives in the folder's data dir under ~/.kdeps, never in the folder itself.
 func indexDBPath(dir string) string {
-	return filepath.Join(dir, ".kdeps", "index.db")
+	return datadir.File(dir, "index.db")
 }
 
 // graphDBPath returns the default kartographer graph database path for a
 // directory -- deliberately separate from indexDBPath's TF-IDF index.db.
 func graphDBPath(dir string) string {
-	return filepath.Join(dir, ".kdeps", "graph.db")
+	return datadir.File(dir, "graph.db")
 }
 
 const (

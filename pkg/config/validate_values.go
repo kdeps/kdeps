@@ -40,7 +40,7 @@ func (c *Config) validateValues() []string {
 
 	// Backend set but no corresponding API key.
 	if !isLocalBackend(c.LLM.Backend) {
-		if p, ok := cloudProviders[c.LLM.Backend]; ok {
+		if p, ok := providerByName(c.LLM.Backend); ok {
 			if getLLMAPIKey(c.LLM, c.LLM.Backend) == "" {
 				warnings = append(warnings, fmt.Sprintf(
 					"llm.backend is %q but llm.%s is not set",

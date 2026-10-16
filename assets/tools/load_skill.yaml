@@ -1,0 +1,9 @@
+version: 1.0.0
+category: agent
+description: Load the full instructions for a named skill. Call this when the user's task matches one of the skills listed in <available_skills>. Returns the skill's complete instructions to follow.
+outputFormat: the skill's full instruction text
+parameters:
+  name:
+    type: string
+    description: The exact skill name from <available_skills>
+    required: true

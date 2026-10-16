@@ -1,30 +1,46 @@
 # Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
+Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is project-scoped - facts saved in one REPL session are available in later sessions for the same project.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals).
+Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts; the long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
 
 ## How it works
 
-Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+```markdown
+<!-- ~/.kdeps/notes/projects/kdeps/memory/decision-louvain.md -->
+---
+key: decision:louvain
+type: decision
+created: 2026-10-15T09:12:03Z
+updated: 2026-10-15T09:12:03Z
+summary: Louvain first, Leiden later.
+references: ["fact:vault"]       # memory keys this entry depends on
+links: ["[[fact-vault]]"]          # the same, as links the knowledge graph follows
+---
+Louvain first, Leiden later.
+```
 
-Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it's stored at `~/.kdeps/memory/global/memory.bolt` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Memory written before this layout (in `~/.kdeps/memory/`) is moved into the vault the first time each folder's memory loads; the old database is renamed `memory.bolt.moved`.
 
-The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
+Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, one per entry, in the project's `memory/` folder: `<vault>/projects/<project>/memory/` (the project whose card covers the folder, else the one kdeps creates for it, named after the git repository root or the folder). Thinking and tool-result captures go in a hidden `memory/.auto/` folder, so they stay out of the link graph. A note you write in that folder by hand is a memory entry too, keyed by its title. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+
+Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/shared/memory/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+
+The memory store is injected into every turn automatically as a single graph-ordered `<memory>` block, rebuilt each turn and focused on that turn's request (it is not part of the cached system prompt, so memory saved mid-session reaches the next turn). Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
 ## Built-in memory tools
 
-The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in the system prompt; look a fact up with `memory_search`.
+The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in each turn's context; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
 
 | Tool | Description |
 |------|-------------|
 | `memory_save` | Save a fact with a key and value. Keys should be short and descriptive. |
-| `memory_search` | Search entries by key or value. Returns at most 20 matches, best first; each value is cut at 500 characters. |
+| `memory_search` | Fuzzy text search of entries by key or value. Returns at most 20 matches, best first; each value is cut at 500 characters. |
 | `memory_delete` | Remove an entry by key. |
 
 Another tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational query](#relational-query-memory-query) below.
 
-### memory_save
+## memory_save
 
 Creates or updates a memory entry. The entry is persisted immediately to disk.
 
@@ -38,7 +54,7 @@ Creates or updates a memory entry. The entry is persisted immediately to disk.
 }
 ```
 
-### memory_search
+## memory_search
 
 Finds entries where a query word appears in the key or value (case-insensitive). A key hit ranks above a value-only hit. More words matched ranks above fewer. A newer update breaks a tie.
 
@@ -67,7 +83,7 @@ Found 25 memory entries (showing 20):
 
 No memory hits falls through to a local file search of the working directory, also capped at 20 matches. The file-search JSON is cut if it exceeds the tool-result byte cap.
 
-### memory_delete
+## memory_delete
 
 Removes a single entry by key.
 
@@ -105,7 +121,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent mode only** - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is agent mode only - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
 
 ## Memory entry types
 
@@ -135,7 +151,7 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` where `<encoded-cwd>` is a sanitized version of the current working directory path.
+Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store lives in `<vault>/projects/<project>/memory/` (default vault: `~/.kdeps/notes`).
 
 ## See also
 

@@ -4,7 +4,7 @@ kdeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (vi
 
 ## YAML preprocessing
 
-Every workflow and resource YAML file is preprocessed through Jinja2 **before** YAML parsing. This lets you:
+Every workflow and resource YAML file is preprocessed through Jinja2 before YAML parsing. This lets you:
 
 - Conditionally include or exclude sections based on environment variables
 - Inject environment values directly into YAML at parse time
@@ -19,16 +19,17 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
+  apiServer:
 {% if env.PORT %}
-  portNum: {{ env.PORT | int }}
+    portNum: {{ env.PORT | int }}
 {% else %}
-  portNum: 8080
+    portNum: 8080
 {% endif %}
 ```
 
 ### Auto-protection of runtime API calls
 
-kdeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
+kdeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You do not need to add raw blocks manually.
 
 Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated normally because they do not start with a kdeps API function name.
 
@@ -80,8 +81,8 @@ Use `-` to trim surrounding whitespace:
 
 ```jinja
 settings:
-{%- if env.TLS_ENABLED == 'true' %}
-  tls: true
+{%- if env.CERT_FILE %}
+  certFile: {{ env.CERT_FILE }}
 {%- endif %}
 ```
 

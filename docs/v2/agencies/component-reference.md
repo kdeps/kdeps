@@ -2,7 +2,7 @@
 
 Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/agencies/components).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## component.yaml reference
 
@@ -18,7 +18,7 @@ metadata:
 interface:
   inputs:
     - name: message            # Required: input parameter name
-      type: string             # Required: string, integer, number, boolean
+      type: string             # Required: string, integer, number, boolean, array, object
       required: true           # Optional (default: false)
       description: "Message to greet with"
       default: "Hello"         # Optional: default value if not required
@@ -43,7 +43,7 @@ resources:
 | `setup.commands` | `[]string` | no | Shell commands run after package installs |
 | `teardown.commands` | `[]string` | no | Shell commands run after every component invocation |
 | `interface.inputs[].name` | string | yes | Input parameter name |
-| `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean` |
+| `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean`, `array`, `object`. A `with:` list or map reaches the component as a list or map (strings inside are interpolated); other values arrive as strings |
 | `interface.inputs[].required` | bool | no | Whether input is required (default: false) |
 | `interface.inputs[].description` | string | no | Human-readable description |
 | `interface.inputs[].default` | any | no | Default value (only meaningful when required=false) |
@@ -66,7 +66,7 @@ setup:
 ```
 
 **Behaviour:**
-- `setup` runs **once per component per engine lifetime** (cached - subsequent calls are no-ops).
+- `setup` runs once per component per engine lifetime (cached - subsequent calls are no-ops).
 - `pythonPackages` are installed via `uv pip install`. Already-present packages are skipped.
 - `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If no supported package manager is found, a warning is logged and execution continues.
 - `commands` run in order after package installs. A non-zero exit terminates setup with an error.
@@ -81,7 +81,7 @@ teardown:
 ```
 
 **Behaviour:**
-- `teardown.commands` run after **every invocation** of the component (not cached).
+- `teardown.commands` run after every invocation of the component (not cached).
 - Errors in teardown commands are logged as warnings but do not propagate - teardown is best-effort.
 
 ### Deprecated: top-level `pythonPackages`
@@ -128,7 +128,7 @@ When a resource calls a component, kdeps validates `with:` against the interface
 
 ## Input scoping
 
-Inputs from `with:` are injected under **two** scoped keys, so the same component can be called twice with different inputs:
+Inputs from `with:` are injected under two scoped keys, so the same component can be called twice with different inputs:
 
 | Key pattern | Example |
 |---|---|
@@ -215,20 +215,20 @@ At parse time, kdeps scans for `components/<name>/component.yaml` files in the s
 ## Installing from the registry
 
 ```bash
-kdeps registry install scraper
-kdeps registry install search
-kdeps registry install embedding
-kdeps registry install browser
-kdeps registry install calculator       # evaluate arithmetic expressions
-kdeps registry install weather-converter # convert temperatures (C/F/K)
+kdeps install scraper
+kdeps install search
+kdeps install embedding
+kdeps install browser
+kdeps install calculator       # evaluate arithmetic expressions
+kdeps install weather-converter # convert temperatures (C/F/K)
 # ... and more
 ```
 
 Installed components are placed in `components/` and auto-discovered.
 
 ```bash
-kdeps registry list              # List installed components
-kdeps registry uninstall scraper # Uninstall a component
+kdeps list              # List installed components
+kdeps uninstall scraper # Uninstall a component
 ```
 
 ## Components as LLM tools
@@ -306,25 +306,7 @@ OPENAI_API_KEY=sk-my-key
 SCRAPER_TIMEOUT=30
 ```
 
-### Auto-scaffolded files
-
-When a component runs for the first time, kdeps auto-creates these files if absent:
-- **`.env`** - template listing all `env()` variables found in resources, with empty values
-- **`README.md`** - generated from `component.yaml` metadata
-
-Existing files are never overwritten.
-
-### `kdeps registry update`
-
-Scaffold or merge `.env` and `README.md` without running the component:
-
-```bash
-kdeps registry update ./components/scraper
-```
-
-- If `.env` does not exist: full template created with all detected `env()` vars.
-- If `.env` already exists: only missing vars appended. Existing values preserved.
-- `README.md` is created from metadata only when absent.
+kdeps only reads a component's `.env`; it never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).
 
 ## Complete example: scraper component
 

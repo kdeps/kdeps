@@ -157,6 +157,12 @@ func resolveModelsToFiles(models []string) (map[string]string, error) {
 // writeAugmentedArchive copies every entry of the source tar.gz archive into
 // dst and appends the resolved llamafiles under BundledModelsDir.
 func writeAugmentedArchive(srcPath string, dst io.Writer, models map[string]string) error {
+	return writeArchiveWith(srcPath, dst, func(tw *tar.Writer) error { return appendModelEntries(tw, models) })
+}
+
+// writeArchiveWith copies every entry of the source tar.gz archive into dst,
+// then lets add append more entries.
+func writeArchiveWith(srcPath string, dst io.Writer, add func(*tar.Writer) error) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
 		return fmt.Errorf("failed to open package %s: %w", srcPath, err)
@@ -175,7 +181,7 @@ func writeAugmentedArchive(srcPath string, dst io.Writer, models map[string]stri
 	if copyErr := copyTarEntries(tar.NewReader(gzReader), tarWriter); copyErr != nil {
 		return copyErr
 	}
-	if appendErr := appendModelEntries(tarWriter, models); appendErr != nil {
+	if appendErr := add(tarWriter); appendErr != nil {
 		return appendErr
 	}
 

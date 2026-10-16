@@ -29,18 +29,17 @@ import (
 )
 
 // resolveLLMTimeout parses the chat timeout string with embedded defaults as fallback.
+// The order matches the LLM executor's: the resource's timeout, else
+// KDEPS_CHAT_TIMEOUT, else the executor defaults asset.
 func (e *Engine) resolveLLMTimeout(chat *domain.ChatConfig) (time.Duration, string) {
-	timeoutDurationStr := chat.Timeout
-	if timeoutDurationStr == "" {
-		timeoutDurationStr = "60s"
+	for _, s := range []string{chat.Timeout, os.Getenv("KDEPS_CHAT_TIMEOUT")} {
+		if d, err := time.ParseDuration(s); err == nil {
+			return d, d.String()
+		}
 	}
-	timeoutDuration, err := time.ParseDuration(timeoutDurationStr)
-	if err != nil {
-		defaults, _ := kdepsconfig.GetDefaults()
-		timeoutDuration = defaults.Chat.TimeoutDuration()
-		timeoutDurationStr = "60s"
-	}
-	return timeoutDuration, timeoutDurationStr
+	defaults, _ := kdepsconfig.GetDefaults()
+	d := defaults.Chat.TimeoutDuration()
+	return d, d.String()
 }
 
 // resolveLLMBackend returns the configured backend name.

@@ -1,35 +1,14 @@
 # Search local files
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this short tutorial you build an API that searches a directory on disk by
+Build an API that searches a directory on disk by
 filename pattern and content keyword, using the built-in `searchLocal:`
 resource - no index, no external service.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Glob patterns
-
-By the end you will be able to:
-
-- Search a directory with `searchLocal:`
-- Combine a filename `glob` with a content `query`
-- Read the result shape (`results`, `count`)
-
-## Background
 
 `searchLocal:` walks a directory and returns matching files. With both a
 `query` and a `glob` set, a file must match both. For ranked results over a
 large folder, add `index: true` (see the resource reference).
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A directory with some text files to search.
+**Needs:** A directory with some text files to search.
 
 ## Step 1: create the project
 
@@ -136,14 +115,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built a search API that:
-
-- Walks a directory with `searchLocal:`
-- Requires both a `glob` and a `query` match when both are set
-- Returns `results` and `count`
 
 ## Next steps
 

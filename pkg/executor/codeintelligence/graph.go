@@ -8,13 +8,12 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/kartographer/graph"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-const (
-	defaultGraphDBDir  = ".kdeps"
-	defaultGraphDBFile = "graph.db"
-)
+// defaultGraphDBFile is the graph index file in a folder's data dir.
+const defaultGraphDBFile = "graph.db"
 
 // getCwd resolves the current working directory. It's a package-level var so
 // tests can point indexFolder at a fixture directory without changing the
@@ -37,8 +36,8 @@ func isGraphOperation(op domain.CodeIntelligenceOperation) bool {
 }
 
 // graphDBPath resolves the bbolt graph index path: config.GraphDBPath when
-// set, otherwise "<path>/.kdeps/graph.db" using config.Path when given, or
-// the current working directory otherwise. indexFolder always indexes the
+// set, otherwise graph.db in the data dir (under ~/.kdeps) of config.Path
+// when given, or of the current working directory otherwise. indexFolder always indexes the
 // CWD (see graphIndexFolder), so its db location ignores Path too -- the db
 // must land next to whatever was actually indexed. graphFile's Path is a
 // single target file, never a sensible db-root, so it's excluded the same way.
@@ -57,7 +56,7 @@ func graphDBPath(config *domain.CodeIntelligenceConfig) (string, error) {
 		}
 		root = cwd
 	}
-	return filepath.Join(root, defaultGraphDBDir, defaultGraphDBFile), nil
+	return datadir.File(root, defaultGraphDBFile), nil
 }
 
 // executeGraph dispatches indexFolder/graphFile/graphTopic/graphAll against a

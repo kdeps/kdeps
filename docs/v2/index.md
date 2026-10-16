@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: Build git-native AI appliances
-  tagline: "Your agent is YAML in your repo - reviewed as a pull request, versioned by tag. kdeps ships it with the open-source model as one deployment: cloud, on-prem, edge, or air-gapped."
+  tagline: "Your agent is YAML in your repo - reviewed as a pull request, versioned by tag. kdeps ships it with the open-source model as one deployment: cloud, on-prem, edge, or air-gapped. Run your own LLM and coding agent on servers you control - your data stays there."
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /agent/ai-assisted-authoring
   actions:
@@ -12,21 +12,21 @@ hero:
       text: What is kdeps?
       link: /start/
     - theme: alt
-      text: Run locally
-      link: /agent/quickstart
-    - theme: alt
       text: Build a workflow
       link: /workflow/quickstart
+    - theme: alt
+      text: Run locally
+      link: /agent/quickstart
 
 features:
-  - title: kdeps agent
-    details: Run `kdeps` and you are in an AI REPL - an autonomous agent with tool use and memory that works fully offline against a local model.
-    link: /agent/
-    linkText: Explore the agent
   - title: kdeps workflow
     details: A deterministic YAML pipeline. Each resource declares its dependencies and runs in a fixed DAG order - same input, same path, safe to run unattended.
     link: /workflow/
     linkText: Build a workflow
+  - title: kdeps agent
+    details: Run `kdeps` and you are in an AI REPL - an autonomous agent with tool use and memory. It runs offline against a local model, or against an LLM server you host.
+    link: /agent/
+    linkText: Explore the agent
   - title: kdeps agencies
     details: One agent calls another declaratively via the agent resource type. Compose agents like functions - each runs independently, results flow back.
     link: /agencies/
@@ -36,7 +36,7 @@ features:
     link: /llm-server/
     linkText: Run the appliance
   - title: kdeps deploy
-    details: Export the workflow you tested locally as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. Same file, no rewrites, no re-config.
+    details: Export the workflow you tested locally as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. Same workflow.yaml, no rewrites, no re-config.
     link: /deploy/
     linkText: Ship it
   - title: kdeps registry

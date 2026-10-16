@@ -21,6 +21,7 @@ package agent
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -131,7 +132,7 @@ func CurrentThemeName() string { return currentThemeKey }
 func ThemeNames() []string { return themeOrder }
 
 // BuiltinThemeNames lists the shipped themes only, in display order.
-func BuiltinThemeNames() []string { return builtinThemeOrder }
+func BuiltinThemeNames() []string { return installedThemeNames }
 
 // CustomThemeNames lists the themes loaded from ~/.kdeps/themes/*.yaml, in
 // sorted order. Empty when no user theme files exist. A user file that
@@ -191,7 +192,10 @@ func SetTheme(name string) bool {
 // applyActiveTheme recomputes activePalette/activePromptText/activeInputTint
 // from currentThemeKey, then rebuilds every derived style.
 func applyActiveTheme() {
-	t := themes[currentThemeKey]
+	t, ok := themes[currentThemeKey]
+	if !ok { // no themes installed yet (first run, before EnsureAssets): plain colors
+		t = &theme{palette: &palette{}}
+	}
 	activePalette = t.palette
 	activePromptText = t.promptText
 	activeInputTint = hexToSGRForeground(activePalette.thinking)
@@ -314,6 +318,31 @@ func syncPickerColors() {
 	})
 }
 
+// installedThemeNames are the themes the themes asset set provides: the
+// shipped ones that are installed, in display order, then any others it
+// publishes, sorted.
+//
+//nolint:gochecknoglobals // set by initThemes
+var installedThemeNames []string
+
+// installedThemeOrder orders the loaded asset themes for display.
+func installedThemeOrder(loaded map[string]*theme) []string {
+	out := make([]string, 0, len(loaded))
+	for _, n := range builtinThemeOrder {
+		if _, ok := loaded[n]; ok {
+			out = append(out, n)
+		}
+	}
+	var extra []string
+	for n := range loaded {
+		if !slices.Contains(builtinThemeOrder, n) {
+			extra = append(extra, n)
+		}
+	}
+	sort.Strings(extra)
+	return append(out, extra...)
+}
+
 // initThemes loads the built-in themes, layers any user themes on top, and
 // applies the default ("normal") theme. Exported as a function (called from
 // init(), and re-callable from tests that need a clean registry) rather than
@@ -322,7 +351,8 @@ func syncPickerColors() {
 // startup.
 func initThemes() {
 	themes = loadBuiltinThemes()
-	themeOrder = append([]string{}, builtinThemeOrder...)
+	installedThemeNames = installedThemeOrder(themes)
+	themeOrder = append([]string{}, installedThemeNames...)
 	userThemes, loadErrs := loadUserThemes()
 	for _, e := range loadErrs {
 		fmt.Fprintf(os.Stderr, "theme: %v\n", e)

@@ -37,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -604,19 +605,6 @@ func TestWolframAlpha_MissingQuery(t *testing.T) {
 	assert.Contains(t, err.Error(), "query is required")
 }
 
-func TestWolframAlpha_HTTPError(_ *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "not found", http.StatusNotFound)
-	}))
-	defer srv.Close()
-
-	// Call the helper directly to verify error handling without real API.
-	ctx := context.Background()
-	_, err := callWolframAlpha(ctx, "test-key", "2+2")
-	// Real API unreachable in CI; we only verify the function does not panic.
-	_ = err
-}
-
 func TestWolframAlpha_HasRequiredParams(t *testing.T) {
 	t.Setenv("WOLFRAM_APP_ID", "test-app-id")
 	reg := kdepstools.NewRegistry()
@@ -640,54 +628,6 @@ func TestRegisterBuiltinTools_CohereRerankRegisteredWithKey(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	assert.NotNil(t, reg.Get("cohere_rerank"))
-}
-
-func TestParseRerankArgs_MissingQuery(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{}, "rerank-v3.5")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
-}
-
-func TestParseRerankArgs_MissingDocuments(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{"query": "hello"}, "rerank-v3.5")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "documents")
-}
-
-func TestParseRerankArgs_InvalidDocumentsJSON(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "hello",
-		"documents": "not-json",
-	}, "rerank-v3.5")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "JSON array")
-}
-
-func TestParseRerankArgs_ValidArgs(t *testing.T) {
-	t.Parallel()
-	p, err := parseRerankArgs(map[string]any{
-		"query":     "what is AI?",
-		"documents": `["doc1","doc2"]`,
-		"model":     "custom-model",
-		"top_n":     float64(3),
-	}, "default-model")
-	require.NoError(t, err)
-	assert.Equal(t, "what is AI?", p.query)
-	assert.Len(t, p.documents, 2)
-	assert.Equal(t, "custom-model", p.model)
-	assert.Equal(t, 3, p.topN)
-}
-
-func TestRerankResultsToJSON(t *testing.T) {
-	t.Parallel()
-	results := []rerankResult{{Index: 0, Text: "hello", Score: 0.9}}
-	out, err := rerankResultsToJSON(results)
-	require.NoError(t, err)
-	assert.Contains(t, out, "hello")
-	assert.Contains(t, out, "0.9")
 }
 
 func TestRegisterBuiltinTools_VoyageAIRerankNotRegisteredWithoutKey(t *testing.T) {
@@ -789,379 +729,6 @@ func TestWebScraper_Success(t *testing.T) {
 	assert.Contains(t, result, "hello world")
 }
 
-func TestCallExaSearch_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"title":"Test","url":"http://example.com","text":"hello"}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	result, err := callExaSearch(context.Background(), "test-key", "query")
-	require.NoError(t, err)
-	assert.Contains(t, result, "Test")
-}
-
-func TestCallExaSearch_APIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-	}))
-	defer srv.Close()
-
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	_, err := callExaSearch(context.Background(), "bad-key", "query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 401")
-}
-
-func TestCallExaSearch_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	result, err := callExaSearch(context.Background(), "test-key", "query")
-	require.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallZapierListActions_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"id":"abc123","description":"Send email"}]}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	result, err := callZapierListActions(context.Background(), "test-key")
-	require.NoError(t, err)
-	assert.Contains(t, result, "abc123")
-}
-
-func TestCallZapierListActions_APIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	_, err := callZapierListActions(context.Background(), "bad-key")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 403")
-}
-
-func TestCallZapierListActions_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	result, err := callZapierListActions(context.Background(), "test-key")
-	require.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallZapierRunAction_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"success","result":"done"}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	result, err := callZapierRunAction(context.Background(), "test-key", "action-id", "do it")
-	require.NoError(t, err)
-	assert.Contains(t, result, "success")
-}
-
-func TestCallZapierRunAction_APIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"bad request"}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	_, err := callZapierRunAction(context.Background(), "test-key", "action-id", "do it")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 400")
-}
-
-func TestCallZapierRunAction_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	result, err := callZapierRunAction(context.Background(), "test-key", "action-id", "do it")
-	require.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallCohereFormatReranker_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"index":0,"relevance_score":0.95,"document":{"text":"doc1"}}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"doc1", "doc2"},
-		model:     "rerank-v3.5",
-		topN:      1,
-	}
-	result, err := callCohereFormatReranker(
-		context.Background(),
-		"test-key",
-		srv.URL,
-		"cohere_rerank",
-		p,
-	)
-	require.NoError(t, err)
-	assert.Contains(t, result, "doc1")
-}
-
-func TestCallCohereFormatReranker_APIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-	}))
-	defer srv.Close()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
-	_, err := callCohereFormatReranker(context.Background(), "bad-key", srv.URL, "cohere_rerank", p)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 401")
-}
-
-func TestCallCohereFormatReranker_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
-	result, err := callCohereFormatReranker(
-		context.Background(),
-		"key",
-		srv.URL,
-		"cohere_rerank",
-		p,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallCohereFormatReranker_NilDocument(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9}]}`))
-	}))
-	defer srv.Close()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"fallback doc"},
-		model:     "rerank-v3.5",
-		topN:      1,
-	}
-	result, err := callCohereFormatReranker(
-		context.Background(),
-		"key",
-		srv.URL,
-		"cohere_rerank",
-		p,
-	)
-	require.NoError(t, err)
-	assert.Contains(t, result, "fallback doc")
-}
-
-func TestCallCohereRerank_UsesOverriddenURL(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	old := cohereRerankURL
-	cohereRerankURL = srv.URL
-	defer func() { cohereRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
-	result, err := callCohereRerank(context.Background(), "test-key", p)
-	require.NoError(t, err)
-	assert.Contains(t, result, "doc1")
-}
-
-func TestCallVoyageRerank_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"index":0,"relevance_score":0.95,"document":"doc1"}]}`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	result, err := callVoyageRerank(context.Background(), "test-key", p)
-	require.NoError(t, err)
-	assert.NotEmpty(t, result)
-}
-
-func TestCallVoyageRerank_APIError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	_, err := callVoyageRerank(context.Background(), "bad-key", p)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 401")
-}
-
-func TestCallVoyageRerank_InvalidJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	result, err := callVoyageRerank(context.Background(), "key", p)
-	require.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallVoyageRerank_NilDocument(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"index":0,"relevance_score":0.9}]}`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"fallback doc"},
-		model:     "rerank-2",
-		topN:      1,
-	}
-	result, err := callVoyageRerank(context.Background(), "key", p)
-	require.NoError(t, err)
-	assert.Contains(t, result, "fallback doc")
-}
-
-func TestCallJinaRerank_UsesOverriddenURL(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	old := jinaRerankURL
-	jinaRerankURL = srv.URL
-	defer func() { jinaRerankURL = old }()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"doc1"},
-		model:     "jina-reranker-v2-base-multilingual",
-		topN:      1,
-	}
-	result, err := callJinaRerank(context.Background(), "test-key", p)
-	require.NoError(t, err)
-	assert.Contains(t, result, "doc1")
-}
-
-func TestCallWolframAlpha_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("42"))
-	}))
-	defer srv.Close()
-
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	result, err := callWolframAlpha(context.Background(), "test-app-id", "2+2")
-	require.NoError(t, err)
-	assert.Equal(t, "42", result)
-}
-
-func TestCallWolframAlpha_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("not found"))
-	}))
-	defer srv.Close()
-
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	_, err := callWolframAlpha(context.Background(), "test-app-id", "query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API error")
-}
-
 func TestRegisterBuiltinTools_VoyageAIRerankRegisteredWithKey(t *testing.T) {
 	t.Setenv("VOYAGEAI_API_KEY", "test-key")
 	reg := kdepstools.NewRegistry()
@@ -1175,9 +742,9 @@ func TestVoyageAIRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("voyageai_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
+	_, err := tool.Execute(map[string]any{"documents": `["a"]`})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
+	assert.Contains(t, err.Error(), "voyageai_rerank: query is required")
 }
 
 func TestJinaRerank_MissingQuery(t *testing.T) {
@@ -1186,9 +753,9 @@ func TestJinaRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("jina_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
+	_, err := tool.Execute(map[string]any{"documents": `["a"]`})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
+	assert.Contains(t, err.Error(), "jina_rerank: query is required")
 }
 
 func TestCohereRerank_MissingQuery(t *testing.T) {
@@ -1197,101 +764,9 @@ func TestCohereRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("cohere_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
+	_, err := tool.Execute(map[string]any{"documents": `["a"]`})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "query is required")
-}
-
-func TestCohereRerankExecute_CallsRerank(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	old := cohereRerankURL
-	cohereRerankURL = srv.URL
-	defer func() { cohereRerankURL = old }()
-
-	t.Setenv("COHERE_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("cohere_rerank")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{
-		"query":     "test",
-		"documents": `["doc1", "doc2"]`,
-	})
-	require.NoError(t, err)
-	assert.NotEmpty(t, result)
-}
-
-func TestVoyageAIRerankExecute_CallsRerank(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"index":0,"relevance_score":0.95,"document":"doc1"}]}`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	t.Setenv("VOYAGEAI_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("voyageai_rerank")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{
-		"query":     "test",
-		"documents": `["doc1"]`,
-	})
-	require.NoError(t, err)
-	assert.NotEmpty(t, result)
-}
-
-func TestJinaRerankExecute_CallsRerank(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(
-			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
-		)
-	}))
-	defer srv.Close()
-
-	old := jinaRerankURL
-	jinaRerankURL = srv.URL
-	defer func() { jinaRerankURL = old }()
-
-	t.Setenv("JINA_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("jina_rerank")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{
-		"query":     "test",
-		"documents": `["doc1"]`,
-	})
-	require.NoError(t, err)
-	assert.NotEmpty(t, result)
-}
-
-func TestCallVoyageRerank_RequestError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("{}"))
-	}))
-	// Close before calling — triggers connection refused
-	srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	_, err := callVoyageRerank(context.Background(), "key", p)
-	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cohere_rerank: query is required")
 }
 
 func TestWebSearch_Execute_NonEmptyQuery(t *testing.T) {
@@ -1540,107 +1015,6 @@ func TestSQLExecQuery_BadSQL(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestExaSearch_RequestError(t *testing.T) {
-	// Covers lines 510-512: HTTP request fails (server closed).
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close() // close immediately to trigger connection error
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	_, err := callExaSearch(context.Background(), "key", "test query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exa_search")
-}
-
-func TestExaSearch_NonOKStatus(t *testing.T) {
-	// Covers lines 519-521: HTTP 4xx response.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte("unauthorized"))
-	}))
-	defer srv.Close()
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	_, err := callExaSearch(context.Background(), "bad-key", "query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "401")
-}
-
-func TestZapierListActions_RequestError(t *testing.T) {
-	// Covers lines 597-599: HTTP request fails.
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close()
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	_, err := callZapierListActions(context.Background(), "key")
-	require.Error(t, err)
-}
-
-func TestZapierListActions_NonOKStatus(t *testing.T) {
-	// Covers lines 606-612: HTTP 4xx response.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte("forbidden"))
-	}))
-	defer srv.Close()
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	_, err := callZapierListActions(context.Background(), "key")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "403")
-}
-
-func TestWolframAlpha_RequestError(t *testing.T) {
-	// Covers lines 786-788: HTTP request fails.
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close()
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	_, err := callWolframAlpha(context.Background(), "app-id", "query")
-	require.Error(t, err)
-}
-
-func TestWolframAlpha_NonOKStatus(t *testing.T) {
-	// Covers lines 795-797: HTTP 4xx response.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = w.Write([]byte("rate limited"))
-	}))
-	defer srv.Close()
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	_, err := callWolframAlpha(context.Background(), "app-id", "query")
-	require.Error(t, err)
-}
-
-func TestVoyageRerank_NonOKStatus(t *testing.T) {
-	// Covers lines 980-982: HTTP 4xx response from voyage rerank.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte("unauthorized"))
-	}))
-	defer srv.Close()
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	_, err := callVoyageRerank(context.Background(), "key", p)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "401")
-}
-
 func TestSQLListTables_NoDB(t *testing.T) {
 	// Covers sqlListTables db open error path.
 	_, err := sqlListTables(context.Background(), "")
@@ -1651,26 +1025,6 @@ func TestSQLDescribeTable_NoDB(t *testing.T) {
 	// sqlDescribeTable fails with invalid db path.
 	_, err := sqlDescribeTable(context.Background(), "", "test_table")
 	require.Error(t, err)
-}
-
-func TestWolframAlpha_Execute_WithMockServer(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("42"))
-	}))
-	defer srv.Close()
-
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	t.Setenv("WOLFRAM_APP_ID", "test-id")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("wolfram_alpha")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{"query": "2+2"})
-	require.NoError(t, err)
-	assert.Equal(t, "42", result)
 }
 
 func TestTruncateBashOutput_NoTruncation(t *testing.T) {
@@ -1751,91 +1105,6 @@ func TestSQLExecQuery_OpenError(t *testing.T) {
 
 // --- HTTP build-request error paths (malformed URL) ---
 
-func TestCallExaSearch_BuildRequestError(t *testing.T) {
-	old := exaSearchURL
-	exaSearchURL = "://invalid"
-	defer func() { exaSearchURL = old }()
-	_, err := callExaSearch(context.Background(), "key", "query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallZapierListActions_BuildRequestError(t *testing.T) {
-	old := zapierNLABaseURL
-	zapierNLABaseURL = "://invalid"
-	defer func() { zapierNLABaseURL = old }()
-	_, err := callZapierListActions(context.Background(), "key")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallZapierRunAction_BuildRequestError(t *testing.T) {
-	old := zapierNLABaseURL
-	zapierNLABaseURL = "://invalid"
-	defer func() { zapierNLABaseURL = old }()
-	_, err := callZapierRunAction(context.Background(), "key", "act-id", "do it")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallZapierRunAction_DoRequestError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close()
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-	_, err := callZapierRunAction(context.Background(), "key", "act-id", "do it")
-	require.Error(t, err)
-}
-
-func TestCallWolframAlpha_BuildRequestError(t *testing.T) {
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = "://invalid"
-	defer func() { wolframAlphaBaseURL = old }()
-	_, err := callWolframAlpha(context.Background(), "app-id", "query")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallVoyageRerank_BuildRequestError(t *testing.T) {
-	old := voyageRerankURL
-	voyageRerankURL = "://invalid"
-	defer func() { voyageRerankURL = old }()
-	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
-	_, err := callVoyageRerank(context.Background(), "key", p)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallCohereFormatReranker_BuildRequestError(t *testing.T) {
-	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
-	_, err := callCohereFormatReranker(context.Background(), "key", "://invalid", "tool_name", p)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallCohereFormatReranker_DoRequestError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close()
-	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
-	_, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "tool_name", p)
-	require.Error(t, err)
-}
-
-// --- parseRerankArgs empty docs array ---
-
-func TestParseRerankArgs_EmptyDocsArray(t *testing.T) {
-	t.Parallel()
-	_, err := parseRerankArgs(map[string]any{
-		"query":     "hello",
-		"documents": "[]",
-	}, "model")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must not be empty")
-}
-
-// --- sanitizeBashOutput Unicode interlinear annotation ---
-
 func TestSanitizeBashOutput_InterlinearAnnotation(t *testing.T) {
 	// Runes U+FFF9..U+FFFB (interlinear annotation, unicodeInterlinearStart..End) are stripped.
 	input := "hello\ufff9world\ufffafoo\ufffbbar"
@@ -1844,71 +1113,6 @@ func TestSanitizeBashOutput_InterlinearAnnotation(t *testing.T) {
 }
 
 // --- Execute closures via tool.Execute (covers the return callXxx lines) ---
-
-func TestExaSearch_ViaToolExecute(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"title":"Test","url":"http://x.com","text":"body"}]}`))
-	}))
-	defer srv.Close()
-
-	old := exaSearchURL
-	exaSearchURL = srv.URL
-	defer func() { exaSearchURL = old }()
-
-	t.Setenv("EXA_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("exa_search")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{"query": "test"})
-	require.NoError(t, err)
-	assert.Contains(t, result, "Test")
-}
-
-func TestZapierListActions_ViaToolExecute(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"id":"abc","description":"Send email"}]}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	t.Setenv("ZAPIER_NLA_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("zapier_list_actions")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{})
-	require.NoError(t, err)
-	assert.Contains(t, result, "abc")
-}
-
-func TestZapierRunAction_ViaToolExecute(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	}))
-	defer srv.Close()
-
-	old := zapierNLABaseURL
-	zapierNLABaseURL = srv.URL
-	defer func() { zapierNLABaseURL = old }()
-
-	t.Setenv("ZAPIER_NLA_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("zapier_run_action")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{"action_id": "act-id", "instructions": "do it"})
-	require.NoError(t, err)
-	assert.Contains(t, result, "ok")
-}
-
-// --- read_file tool tests ---
 
 func TestReadFile_Registered(t *testing.T) {
 	reg := kdepstools.NewRegistry()
@@ -2528,19 +1732,6 @@ func TestIsBinaryContent(t *testing.T) {
 	}
 }
 
-func TestRerankResultsToJSON_Empty(t *testing.T) {
-	t.Parallel()
-	got, err := rerankResultsToJSON(nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "null" {
-		t.Errorf("expected 'null', got %s", got)
-	}
-}
-
-// --- registerEditFile execute closure ---
-
 func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "w.txt")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
@@ -2599,65 +1790,6 @@ func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
 	require.NoError(t, err, "a relative path must resolve against the working directory")
 	assert.Contains(t, out, "builtin_tools_test.go")
 }
-
-func TestRegisterListFiles_Execute_Success(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0600))
-	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
-	tool := reg.Get("list_files")
-	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]any{"path": dir})
-	assert.NoError(t, err)
-	assert.Contains(t, result, "a.txt")
-	assert.Contains(t, result, "b.txt")
-}
-
-// --- callRetrieveContext ---
-
-func TestCallRetrieveContext_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"results": [
-				{"text": "result text", "score": 0.95, "source": "doc1"}
-			]
-		}`))
-	}))
-	defer srv.Close()
-
-	result, err := callRetrieveContext(context.Background(), srv.URL, "test query", 5)
-	assert.NoError(t, err)
-	assert.Contains(t, result, "result text")
-	assert.Contains(t, result, "doc1")
-}
-
-func TestCallRetrieveContext_NonOKStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("internal error"))
-	}))
-	defer srv.Close()
-
-	_, err := callRetrieveContext(context.Background(), srv.URL, "test query", 5)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "API error")
-}
-
-func TestCallRetrieveContext_EmptyQuery(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"results": []}`))
-	}))
-	defer srv.Close()
-
-	result, err := callRetrieveContext(context.Background(), srv.URL, "", 5)
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-// --- registerRetrieveContext ---
 
 func TestRegisterRetrieveContext_NotRegisteredWithoutEnv(t *testing.T) {
 	t.Setenv("KDEPS_RAG_BASE_URL", "")
@@ -2759,98 +1891,6 @@ func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
 	assert.NoError(t, os.WriteFile(subFile, []byte("x"), 0o600))
 	assert.NoError(t, validateWorkspaceBoundary(subFile))
 }
-
-func TestValidateWorkspaceBoundary_NonExistentPathInRoot(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	// Create the file so EvalSymlinks succeeds
-	nestedFile := filepath.Join(dir, "nonexistent", "file.txt")
-	assert.NoError(t, os.MkdirAll(filepath.Dir(nestedFile), 0o700))
-	assert.NoError(t, os.WriteFile(nestedFile, []byte("x"), 0o600))
-	err := validateWorkspaceBoundary(nestedFile)
-	assert.NoError(t, err)
-
-	// Non-existent path outside root should fail
-	err = validateWorkspaceBoundary("/nonexistent/path/outside")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "escapes workspace root")
-}
-
-// --- callRetrieveContext additional paths ---
-
-func TestCallRetrieveContext_BuildRequestError(t *testing.T) {
-	_, err := callRetrieveContext(context.Background(), "://invalid", "query", 5)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "build request")
-}
-
-func TestCallRetrieveContext_DoRequestError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
-	srv.Close()
-	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
-	assert.Error(t, err)
-}
-
-func TestCallRetrieveContext_InvalidJSONResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer srv.Close()
-
-	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
-	assert.NoError(t, err)
-	assert.Equal(t, "not-json", result)
-}
-
-func TestCallRetrieveContext_NonOKResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`server error`))
-	}))
-	defer srv.Close()
-
-	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "API error 500")
-}
-
-func TestCallRetrieveContext_ReadError(t *testing.T) {
-	// A server that closes connection without sending a response body
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		// Hijack and close to trigger read error
-		conn, _, _ := w.(http.Hijacker).Hijack()
-		conn.Close()
-	}))
-	defer srv.Close()
-
-	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
-	assert.Error(t, err)
-}
-
-// --- registerRetrieveContext top_k clamping ---
-
-func TestRegisterRetrieveContext_TopKClamping(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	defer srv.Close()
-
-	t.Setenv("KDEPS_RAG_BASE_URL", srv.URL)
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("retrieve_context")
-	require.NotNil(t, tool)
-
-	// top_k > ragMaxTopK should be clamped to ragMaxTopK
-	result, err := tool.Execute(map[string]any{"query": "test", "top_k": float64(100)})
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-}
-
-// --- registerCodeIntelligenceTools ---
 
 func TestRegisterCodeIntelligenceTools_AllRegistered(t *testing.T) {
 	reg := kdepstools.NewRegistry()
@@ -2959,7 +1999,7 @@ func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2978,7 +2018,7 @@ func TestRegisterCodeIntelligenceTools_IndexFolder_IgnoresPath(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2998,7 +2038,7 @@ func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3022,7 +2062,7 @@ func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3046,7 +2086,7 @@ func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
 	t.Chdir(root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	dbPath := datadir.File(root, "graph.db")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -3081,7 +2121,7 @@ func TestRegisterCodeIntelligenceTools_GraphAll_DefaultsToCWD(t *testing.T) {
 	out, err := tool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, out, "roots")
-	_, statErr := os.Stat(filepath.Join(root, ".kdeps", "graph.db"))
+	_, statErr := os.Stat(datadir.File(root, "graph.db"))
 	require.NoError(t, statErr, "expected graph.db under the CWD")
 }
 
@@ -3338,65 +2378,6 @@ func TestIsBinaryContent_NULatFirstByteLarge(t *testing.T) {
 	assert.True(t, isBinaryContent(data))
 }
 
-func TestIsBinaryContent_EmptySlice(t *testing.T) {
-	t.Parallel()
-	assert.False(t, isBinaryContent([]byte{}))
-}
-
-// --- rerankResultsToJSON additional edge cases ---
-
-func TestRerankResultsToJSON_NilSlice(t *testing.T) {
-	t.Parallel()
-	got, err := rerankResultsToJSON(nil)
-	require.NoError(t, err)
-	assert.Equal(t, "null", got)
-}
-
-func TestRerankResultsToJSON_EmptySlice(t *testing.T) {
-	t.Parallel()
-	got, err := rerankResultsToJSON([]rerankResult{})
-	require.NoError(t, err)
-	assert.Equal(t, "[]", got)
-}
-
-func TestRerankResultsToJSON_MultipleResults(t *testing.T) {
-	t.Parallel()
-	results := []rerankResult{
-		{Index: 0, Text: "first", Score: 0.95},
-		{Index: 1, Text: "second", Score: 0.85},
-		{Index: 2, Text: "third", Score: 0.75},
-	}
-	got, err := rerankResultsToJSON(results)
-	require.NoError(t, err)
-	assert.Contains(t, got, "first")
-	assert.Contains(t, got, "second")
-	assert.Contains(t, got, "third")
-	assert.Contains(t, got, "0.95")
-	assert.Contains(t, got, "0.85")
-	assert.Contains(t, got, "0.75")
-}
-
-func TestRerankResultsToJSON_ZeroScore(t *testing.T) {
-	t.Parallel()
-	results := []rerankResult{{Index: 0, Text: "zero score", Score: 0}}
-	got, err := rerankResultsToJSON(results)
-	require.NoError(t, err)
-	assert.Contains(t, got, "zero score")
-	assert.Contains(t, got, "0")
-}
-
-func TestRerankResultsToJSON_SingleResult(t *testing.T) {
-	t.Parallel()
-	results := []rerankResult{{Index: 42, Text: "single", Score: 0.5}}
-	got, err := rerankResultsToJSON(results)
-	require.NoError(t, err)
-	assert.Contains(t, got, "single")
-	assert.Contains(t, got, "42")
-	assert.Contains(t, got, "0.5")
-}
-
-// --- coloredDiff additional edge cases ---
-
 func TestColoredDiff_NewLongerThanOld(t *testing.T) {
 	t.Parallel()
 	got := coloredDiff("line1\n", "line1\nline2\n", "f.txt")
@@ -3493,171 +2474,6 @@ func TestValidateWorkspaceBoundary_RootNoTrailingSlash(t *testing.T) {
 	err := validateWorkspaceBoundary(subFile)
 	assert.NoError(t, err)
 }
-
-func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	err := validateWorkspaceBoundary("/any/path")
-	assert.NoError(t, err, "no workspace root means no boundary check")
-}
-
-// --- callWolframAlpha io.ReadAll error path ---
-
-func TestCallWolframAlpha_ReadError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		conn, _, _ := w.(http.Hijacker).Hijack()
-		conn.Close()
-	}))
-	defer srv.Close()
-
-	old := wolframAlphaBaseURL
-	wolframAlphaBaseURL = srv.URL
-	defer func() { wolframAlphaBaseURL = old }()
-
-	_, err := callWolframAlpha(context.Background(), "app-id", "query")
-	assert.Error(t, err)
-}
-
-// --- callVoyageRerank io.ReadAll error path ---
-
-func TestCallVoyageRerank_ReadError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		conn, _, _ := w.(http.Hijacker).Hijack()
-		conn.Close()
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
-	_, err := callVoyageRerank(context.Background(), "key", p)
-	assert.Error(t, err)
-}
-
-// --- callCohereFormatReranker io.ReadAll error path ---
-
-func TestCallCohereFormatReranker_ReadError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		conn, _, _ := w.(http.Hijacker).Hijack()
-		conn.Close()
-	}))
-	defer srv.Close()
-
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
-	_, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
-	assert.Error(t, err)
-}
-
-// --- callVoyageRerank with multiple results (exercises rerankResultsToJSON with larger data) ---
-
-func TestCallVoyageRerank_MultipleResults(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"data": [
-				{"index": 1, "relevance_score": 0.95, "document": "doc2"},
-				{"index": 0, "relevance_score": 0.85, "document": "doc1"},
-				{"index": 2, "relevance_score": 0.75, "document": "doc3"}
-			]
-		}`))
-	}))
-	defer srv.Close()
-
-	old := voyageRerankURL
-	voyageRerankURL = srv.URL
-	defer func() { voyageRerankURL = old }()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"doc1", "doc2", "doc3"},
-		model:     "rerank-2",
-		topN:      3,
-	}
-	result, err := callVoyageRerank(context.Background(), "test-key", p)
-	require.NoError(t, err)
-	assert.Contains(t, result, "doc1")
-	assert.Contains(t, result, "doc2")
-	assert.Contains(t, result, "doc3")
-	assert.Contains(t, result, "0.95")
-	assert.Contains(t, result, "0.85")
-	assert.Contains(t, result, "0.75")
-}
-
-// --- callCohereFormatReranker with nil document and out-of-range index ---
-
-func TestCallCohereFormatReranker_NilDocumentIndexOutOfRange(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"results": [
-				{"index": 99, "relevance_score": 0.9}
-			]
-		}`))
-	}))
-	defer srv.Close()
-
-	p := rerankParams{
-		query:     "test",
-		documents: []string{"only doc"},
-		model:     "rerank-v3.5",
-		topN:      1,
-	}
-	result, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
-	require.NoError(t, err)
-	// When document is nil and index is out of range, text should be empty string
-	assert.Contains(t, result, `"text": ""`)
-}
-
-// --- callRetrieveContext top_k edge cases ---
-
-func TestCallRetrieveContext_WithTopKInRange(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"text":"doc","score":1.0,"source":"test"}]}`))
-	}))
-	defer srv.Close()
-
-	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 3)
-	assert.NoError(t, err)
-	assert.Contains(t, result, "doc")
-}
-
-func TestCallRetrieveContext_ZeroTopK(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	defer srv.Close()
-
-	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 0)
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-// --- rerankResultsToJSON edge cases ---
-
-func TestRerankResultsToJSON_AllFields(t *testing.T) {
-	t.Parallel()
-	results := []rerankResult{
-		{Index: 0, Text: "zero score", Score: 0},
-		{Index: 1, Text: "negative score", Score: -0.5},
-		{Index: 2, Text: "high score", Score: 1.0},
-	}
-	got, err := rerankResultsToJSON(results)
-	require.NoError(t, err)
-	assert.Contains(t, got, "zero score")
-	assert.Contains(t, got, "negative score")
-	assert.Contains(t, got, "high score")
-	assert.Contains(t, got, "0")
-	assert.Contains(t, got, "-0.5")
-	assert.Contains(t, got, "1")
-}
-
-// --- googleCacheCreateTool execute closure arg validation ---
 
 func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
 	t.Setenv("GOOGLE_API_KEY", "test-key")
@@ -4059,4 +2875,45 @@ func TestListFiles_ExplicitPathUnchanged(t *testing.T) {
 	result, err := tool.Execute(map[string]any{"path": tmpDir})
 	require.NoError(t, err)
 	assert.Contains(t, result, "marker.txt")
+}
+
+func TestRegisterListFiles_Execute_Success(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerListFiles(reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]any{"path": dir})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "a.txt")
+	assert.Contains(t, result, "b.txt")
+}
+
+func TestValidateWorkspaceBoundary_NonExistentPathInRoot(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	// Create the file so EvalSymlinks succeeds
+	nestedFile := filepath.Join(dir, "nonexistent", "file.txt")
+	assert.NoError(t, os.MkdirAll(filepath.Dir(nestedFile), 0o700))
+	assert.NoError(t, os.WriteFile(nestedFile, []byte("x"), 0o600))
+	err := validateWorkspaceBoundary(nestedFile)
+	assert.NoError(t, err)
+
+	// Non-existent path outside root should fail
+	err = validateWorkspaceBoundary("/nonexistent/path/outside")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+func TestIsBinaryContent_EmptySlice(t *testing.T) {
+	t.Parallel()
+	assert.False(t, isBinaryContent([]byte{}))
+}
+
+func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	err := validateWorkspaceBoundary("/any/path")
+	assert.NoError(t, err, "no workspace root means no boundary check")
 }

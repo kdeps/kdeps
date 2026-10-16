@@ -2,8 +2,6 @@
 
 When a tool call is denied by the [permission mode](/agent/tools#permission-modes), the agent can request a one-time exception via an approval token. Tokens let you grant scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
 
-*Applies to agent mode.*
-
 ## How it works in practice
 
 1. You run with `KDEPS_PERMISSION_MODE=read-only`

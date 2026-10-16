@@ -451,6 +451,21 @@ func TestExtractSiblingFiles_Zip(t *testing.T) {
 	assert.Equal(t, "sibling", string(data))
 }
 
+func TestArchiveEntryPath_RejectsParentSegment(t *testing.T) {
+	dest := t.TempDir()
+	_, ok := archiveEntryPath(dest, "..", "")
+	assert.False(t, ok)
+	_, ok = archiveEntryPath(dest, "foo/..", "")
+	assert.False(t, ok)
+
+	got, ok := archiveEntryPath(dest, "foo/../../etc/passwd", "")
+	assert.True(t, ok)
+	assert.Equal(t, filepath.Join(dest, "passwd"), got)
+
+	_, ok = archiveEntryPath(dest, "llama-server", "llama-server")
+	assert.False(t, ok)
+}
+
 func TestExtractSiblingFiles_TarGz(t *testing.T) {
 	tarGzPath := writeTestTarGz(t, map[string]string{
 		"build/bin/llama-server":      "main",

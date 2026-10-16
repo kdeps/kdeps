@@ -2,7 +2,7 @@
 
 All comparison and logical operators available in `validations.check`, `validations.skip`, and any boolean expression context.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Comparison operators
 

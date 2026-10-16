@@ -19,6 +19,7 @@
 package validator_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -254,20 +255,6 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"method":          "POST",
 					"url":             "https://api.example.com",
 					"timeoutDuration": "10s",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid SQL resource",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "sql-action",
-				"name":       "SQL Resource",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
 				},
 			},
 			wantErr: false,
@@ -513,40 +500,6 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			},
 			expectedField:          "kind",
 			expectedOption:         "Resource",
-			expectAvailableOptions: true,
-		},
-		{
-			name: "invalid SQL format type - integer instead of string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"format":     123, // Wrong type
-				},
-			},
-			expectedField:          "sql.format",
-			expectedOption:         "json",
-			expectAvailableOptions: true,
-		},
-		{
-			name: "invalid SQL format value - not in enum",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"format":     "invalid-format",
-				},
-			},
-			expectedField:          "sql.format",
-			expectedOption:         "json",
 			expectAvailableOptions: true,
 		},
 	}
@@ -1802,12 +1755,6 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
 		{
-			name:       "sql format normalized",
-			field:      "sql.0.format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
-		},
-		{
 			name:       "unknown normalized field",
 			field:      "unknown.0.field",
 			schemaType: "resource",
@@ -1952,7 +1899,6 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 		"settings.apiServer.routes.1.methods.0", // Should normalize to routes.methods
 		"chat.0.contextLength",                  // Should normalize to chat.contextLength
 		"httpClient.0.method",                   // Should normalize to httpClient.method
-		"sql.0.format",                          // Should normalize to sql.format
 		"validations.methods",                   // Should match validations.methods enum
 	}
 
@@ -2231,11 +2177,6 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_EdgeCases(t *testing.T) {
 			expected: "This field is required. Example: \"llama3.2:latest\"",
 		},
 		{
-			name:     "field with partial match - sql.connection",
-			field:    "sql.connection",
-			expected: "This field is required. Example: \"postgresql://user:pass@localhost:5432/dbname\"",
-		},
-		{
 			name:     "unknown field - falls back to generic example",
 			field:    "completely.unknown.field",
 			expected: "This field is required",
@@ -2279,23 +2220,9 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "chat.backend",
 			schemaType: "resource",
 			expected: []interface{}{
-				"file",
-				"gguf",
-				"ollama",
-				"openai",
-				"anthropic",
-				"google",
-				"cohere",
-				"mistral",
-				"together",
-				"perplexity",
-				"groq",
-				"deepseek",
-				"openrouter",
-				"xai",
-				"bedrock",
-				"watsonx",
-				"m365",
+				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "cohere", "mistral",
+				"together", "perplexity", "groq", "deepseek", "openrouter", "xai", "huggingface",
+				"cloudflare", "maritaca", "ernie", "bedrock", "watsonx",
 			},
 		},
 		{
@@ -2321,12 +2248,6 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "chat.contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
-		},
-		{
-			name:       "nested field matching - sql.format",
-			field:      "sql.format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
 		},
 		{
 			name:       "validations.methods field",
@@ -2363,23 +2284,9 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "backend",
 			schemaType: "resource",
 			expected: []interface{}{
-				"file",
-				"gguf",
-				"ollama",
-				"openai",
-				"anthropic",
-				"google",
-				"cohere",
-				"mistral",
-				"together",
-				"perplexity",
-				"groq",
-				"deepseek",
-				"openrouter",
-				"xai",
-				"bedrock",
-				"watsonx",
-				"m365",
+				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "cohere", "mistral",
+				"together", "perplexity", "groq", "deepseek", "openrouter", "xai", "huggingface",
+				"cloudflare", "maritaca", "ernie", "bedrock", "watsonx",
 			},
 		},
 		{
@@ -2393,12 +2300,6 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
-		},
-		{
-			name:       "format field in sql context",
-			field:      "format",
-			schemaType: "resource",
-			expected:   []interface{}{"json", "csv", "table"},
 		},
 		{
 			name:       "methods field in routes context",
@@ -2855,52 +2756,6 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			expectedType:  "string",
 		},
 		{
-			name: "sql.connection wrong type - integer",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": 123,
-					"query":      "SELECT * FROM users",
-				},
-			},
-			expectedField: "sql.connection",
-			expectedType:  "string",
-		},
-		{
-			name: "sql.query wrong type - integer",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      123,
-				},
-			},
-			expectedField: "sql.query",
-			expectedType:  "string",
-		},
-		{
-			name: "sql.maxRows wrong type - string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-					"maxRows":    "100",
-				},
-			},
-			expectedField: "sql.maxRows",
-			expectedType:  "integer",
-		},
-		{
 			name: "python.script wrong type - integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
@@ -3116,19 +2971,6 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "valid sql resource",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "test",
-				"name":       "Test",
-				"sql": map[string]interface{}{
-					"connection": "postgresql://localhost:5432/db",
-					"query":      "SELECT * FROM users",
-				},
-			},
-		},
-		{
 			name: "valid python resource",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
@@ -3326,5 +3168,44 @@ func TestGetTypeSuggestion_OuterSwitchCases(t *testing.T) {
 				t.Errorf("GetTypeSuggestion(%q, %q) = %q, want %q", tt.field, tt.descStr, got, tt.expected)
 			}
 		})
+	}
+}
+
+// settings is a closed set: every real key validates, and a removed or
+// misspelled one (sqlConnections, apiServerMode) fails instead of being ignored.
+func TestSchemaValidator_WorkflowSettingsAreStrict(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+	workflow := func(settings map[string]interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"apiVersion": "kdeps.io/v1",
+			"kind":       "Workflow",
+			"metadata": map[string]interface{}{
+				"name": "strict", "version": "1.0.0", "targetActionId": "main",
+			},
+			"settings": settings,
+		}
+	}
+	valid := map[string]interface{}{
+		"certFile":      "cert.pem",
+		"keyFile":       "key.pem",
+		"letsEncrypt":   map[string]interface{}{},
+		"apiServer":     map[string]interface{}{"portNum": 16395},
+		"webServer":     map[string]interface{}{},
+		"agentSettings": map[string]interface{}{"timezone": "UTC"},
+		"session":       map[string]interface{}{},
+		"input":         map[string]interface{}{"sources": []interface{}{"api"}},
+		"llm":           map[string]interface{}{},
+	}
+	if validErr := v.ValidateWorkflow(workflow(valid)); validErr != nil {
+		t.Fatalf("every real settings key must validate: %v", validErr)
+	}
+	for _, key := range []string{"sqlConnections", "apiServerMode", "apiservr"} {
+		keyErr := v.ValidateWorkflow(workflow(map[string]interface{}{key: map[string]interface{}{}}))
+		if keyErr == nil || !strings.Contains(keyErr.Error(), key) {
+			t.Errorf("settings.%s must be rejected by name, got %v", key, keyErr)
+		}
 	}
 }

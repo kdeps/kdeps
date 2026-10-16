@@ -1,0 +1,10 @@
+version: 1.0.0
+name: permission
+order: 340
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+aliases: [permissions]
+usage:
+  - args: "[read-only|workspace-write|danger-full-access|ask]"
+    help: Show or set the tool permission mode for this session

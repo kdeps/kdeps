@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	dockclient "github.com/docker/docker/api/types/image"
+	dockclient "github.com/moby/moby/api/types/image"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

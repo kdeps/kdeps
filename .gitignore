@@ -210,6 +210,7 @@ docs/.vitepress/cache/
 
 # DS Store
 .DS_Store
+._*
 
 # The build folder
 build/
@@ -222,11 +223,6 @@ dist/
 coverage.html
 pkg/**/**/*.txt
 pkg/**/**/*.yaml
-!pkg/agent/themes/*.yaml
-!pkg/agent/harness/*.yaml
-!pkg/agent/events/*.yaml
-!pkg/agent/actions/*.yaml
-!pkg/agent/presets/*.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov
@@ -235,6 +231,8 @@ local/
 *.kdeps
 *.pkl
 *.html
+# Published asset templates (the knowledge graph explorer page) are source.
+!assets/templates/**/*.html
 !docs/v2/public/pitch-deck.html
 !examples/**/public/**/*.html
 !examples/**/data/**/*.html
@@ -309,3 +307,8 @@ ai-email-client
 # (cwd-relative bolt DBs). Do not ignore directories named memory (e.g. e2e components).
 memory
 !**/memory/
+
+# desktop shell binaries
+/desktop/kdeps-desktop*
+!/desktop/frontend/dist/
+!/desktop/frontend/dist/*.html

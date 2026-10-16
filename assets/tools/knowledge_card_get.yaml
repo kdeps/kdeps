@@ -1,0 +1,7 @@
+version: 1.1.0
+category: memory
+description: 'Read a project card from the knowledge vault: type, status, next step, updated date, and the places on disk it covers (repo, folder, workflow). Cards are the only home of status. Without a name, returns the working directory''s project card (created on first use).'
+parameters:
+  name:
+    type: string
+    description: Project name (its folder under projects/ or archive/). Omit for the working directory's project.

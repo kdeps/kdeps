@@ -30,7 +30,7 @@ func loadCfg(t *testing.T) *Config {
 
 func allCloudProviderKeysYAML() string {
 	var b strings.Builder
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		fmt.Fprintf(&b, "  %s: sk-%s\n", p.yamlKey, p.name)
 	}
 	return b.String()
@@ -415,10 +415,10 @@ func TestHasCloudProviderKey(t *testing.T) {
 
 func TestGetLLMAPIKey_AllBackends(t *testing.T) {
 	cfg := &Config{}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		p.setLLMKey(&cfg.LLM, "sk-"+p.name)
 	}
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		assert.Equal(t, "sk-"+p.name, getLLMAPIKey(cfg.LLM, p.name))
 	}
 	assert.Equal(t, "", getLLMAPIKey(cfg.LLM, "unknown"))
@@ -533,7 +533,7 @@ agents:
 }
 
 func TestValidate_BackendAllProvidersAPIKeyCheck(t *testing.T) {
-	for _, p := range cloudProvidersList {
+	for _, p := range cloudProviderList() {
 		dir := t.TempDir()
 		writeTempConfig(t, dir, "llm:\n  backend: "+p.name+"\n")
 		cfg := loadCfg(t)
@@ -592,4 +592,24 @@ func TestIsEmptyAgentProfile(t *testing.T) {
 	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
 		Python: PythonDefaults{MaxOutputBytes: 512},
 	}}).IsEmptyAgentProfile())
+}
+
+func TestValidateUnknownKeys_Knowledge(t *testing.T) {
+	warnings := validateUnknownKeys([]byte("knowledge:\n  vault: ~/notes\n  recall:\n    hops: 2\n  vaul: x\n"))
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], `unknown knowledge key "vaul"`)
+
+	cfg := &Config{}
+	mergeConfig(cfg, &Config{Knowledge: &KnowledgeConfig{Vault: "/v"}})
+	assert.Equal(t, "/v", cfg.Knowledge.Vault)
+}
+
+func TestSaveKnowledgeVault(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", p)
+	require.NoError(t, SaveKnowledgeVault("/notes"))
+	cfg, err := LoadStruct()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Knowledge)
+	assert.Equal(t, "/notes", cfg.Knowledge.Vault)
 }

@@ -63,9 +63,6 @@ func (e *Engine) setupExecutionContext(
 	reqCtx *RequestContext,
 ) {
 	ctx.Request = reqCtx
-	if reqCtx != nil && reqCtx.BotSend != nil {
-		ctx.BotSend = reqCtx.BotSend
-	}
 	if reqCtx != nil && ctx.Session != nil {
 		reqCtx.SessionID = ctx.Session.SessionID
 	}

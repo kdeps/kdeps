@@ -1,8 +1,9 @@
 # kdeps agent
 
-**An autonomous LLM REPL you run locally.** Tool use, persistent memory, multi-step
-reasoning, skills, goals, and a judge panel - against a local model, no API key,
-fully offline. Whole workflows and components register as callable tools; the
+**An autonomous LLM REPL you run on your machine.** Tool use, persistent memory, multi-step
+reasoning, skills, goals, and a judge panel. The default model is local, with no API key,
+fully offline. Point `llm.base_url` at an [LLM server](/llm-server/) you run and the same
+REPL sends prompts there. Whole workflows and components register as callable tools; the
 model decides what to invoke.
 
 ```bash
@@ -10,29 +11,24 @@ kdeps            # bare REPL - built-in tools only
 kdeps ./my-agent # also load that agent's workflows/components as tools
 ```
 
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1   # your LLM server, your network
+  models:
+    - llama3.2                            # one model, or several
+```
+
+The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
+
 **Not this?** If you want a deterministic request→response pipeline (same input,
-same execution path, safe to run unattended), that's [kdeps workflow](/workflow/).
+same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).
 To orchestrate several agents as one system, [kdeps agencies](/agencies/).
 
 ---
 
-Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows and agencies as tools.
-
-## Starting the agent loop
-
-```bash
-kdeps                              # runs the agent loop REPL
-kdeps --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
-kdeps --skill ~/.kdeps/skills/     # load skill files
-kdeps --resume <session-id>        # continue a saved session
-```
-
 ## Single workflow vs folder
-
-```bash
-kdeps ./my-agent/     # registers the workflow as an LLM-callable tool (named after metadata.name)
-kdeps ./agents/       # registers every workflow and agency in the folder as a separate tool
-```
 
 When you point at a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest - not the filename.
 
@@ -128,7 +124,7 @@ kdeps --resume abc123def456                      # resume a session
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
-| Per-folder session history and the startup resume picker | [Sessions](/agent/repl#sessions) |
+| Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
 | Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## Differences from workflow mode

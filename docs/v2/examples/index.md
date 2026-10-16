@@ -1,17 +1,9 @@
 # Examples
 
-Complete, runnable projects that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
-
-## Overview
+Complete, runnable projects. Copy the files on the page and run the command there. A local model needs no API key. Add a key only when that example calls a cloud provider.
 
 Examples are grouped by the [product](/start/) they belong to. Pick the one
-closest to what you're building.
-
-### kdeps agent
-
-| Example | What it demonstrates |
-|---|---|
-| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
+closest to what you are building.
 
 ### kdeps workflow
 
@@ -20,25 +12,32 @@ closest to what you're building.
 | [Document summarizer](/examples/file-processor) | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | `embedding:` upsert and search, two routes in one workflow |
-| [Web scraper](/examples/web-scraper) | `scraper:` fetch, LLM summary, `jsonResponse` |
+| [Web scraper](/examples/web-scraper) | `component: scraper` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
 | [Shell command API](/examples/shell-command-api) | `exec:` with a timeout, method scoping, `info()` |
 | [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
 | [Image analysis](/examples/vision) | Multipart upload, `files:` on a chat prompt, Ollama vision |
-| [SQL-backed API](/examples/sql-api) | `sql:` parameterized queries, CSV output, batch transactions |
+| [SQL-backed API](/examples/sql-api) | `sql` component: parameterized queries, CSV output, batch transactions |
 | [Chat web app](/examples/chat-web-app) | API + static frontend together, `public` routes, `scenario:` |
 | [File upload](/examples/file-upload) | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
 | [Conditionals and lists](/examples/control-flow) | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
 | [Authenticated API call](/examples/http-auth) | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
-| [Phone assistant (IVR)](/examples/telephony-bot) | `telephony:` menu / say / ask, spoken input to LLM |
+| [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
 | [Local file search](/examples/local-file-search) | `searchLocal:` glob + content search |
 | [Python data processing](/examples/python-processing) | `python:` resource, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
+
+### kdeps agent
+
+| Example | What it demonstrates |
+|---|---|
+| [Read a file in the REPL](/examples/agent-repl) | `kdeps` with no YAML and no API key: `read_file`, then `write_file` |
+| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
 
 ### kdeps agencies
 
@@ -47,18 +46,6 @@ closest to what you're building.
 | [Two-agent agency](/examples/agency) | `kind: Agency`, `agent:` resource, `params:` |
 | [Reusable component](/examples/custom-component) | `component.yaml`, `interface.inputs`, `component:` + `with:` |
 | [Per-component env vars](/examples/component-env) | `env()` scoping, `{COMPONENT}_{VAR}` override, `.env` files |
-
-## Load a workflow as a tool
-
-The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
-started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
-`metadata.name`; kdeps runs the full DAG.
-
-Best for:
-- Turning an API you already wrote into a REPL tool
-- Seeing agent mode without a new YAML kind
-
-[Build it step by step](/workflow/as-a-tool)
 
 ## Document summarizer
 
@@ -100,8 +87,8 @@ Best for:
 
 ## Web scraper
 
-An API that takes a URL, fetches the page with the built-in `scraper:`
-resource, and returns an LLM summary as JSON.
+An API that takes a URL, fetches the page with the `scraper` component,
+and returns an LLM summary as JSON.
 
 Best for:
 - Turning a page into structured data
@@ -209,18 +196,6 @@ Best for:
 
 [Build it step by step](/examples/http-auth)
 
-## Two-agent agency
-
-Two agents in one project: the entry-point agent calls the other with the
-`agent:` resource and returns the combined result. Introduces `kind: Agency`
-and the `agency.yaml` manifest.
-
-Best for:
-- Splitting a large workflow into independently testable agents
-- Learning multi-agent orchestration
-
-[Build it step by step](/examples/agency)
-
 ## MCP server tools
 
 Give an LLM tools backed by an external Model Context Protocol server. kdeps
@@ -234,7 +209,7 @@ Best for:
 
 ## Inline resources
 
-Attach `exec:`, `python:`, and `sql:` actions directly to one resource's
+Attach `exec:`, `python:` and `component:` actions directly to one resource's
 `before:` and `after:` blocks instead of creating a file for each.
 
 Best for:
@@ -246,7 +221,7 @@ Best for:
 ## Phone assistant (IVR)
 
 A voice menu: the caller presses a key or speaks, and the workflow reads a
-static answer or has an LLM answer the spoken question. Uses `telephony:` with
+static answer or has an LLM answer the spoken question. Uses the `twiml` component with
 a provider like Twilio.
 
 Best for:
@@ -266,17 +241,6 @@ Best for:
 
 [Build it step by step](/examples/local-file-search)
 
-## Reusable component
-
-Build a component - a bundle of resources with a typed input interface - and
-call it from a workflow with `component:`.
-
-Best for:
-- Packaging logic you reuse across projects
-- Learning the `interface.inputs` schema and auto-discovery
-
-[Build it step by step](/examples/custom-component)
-
 ## Python data processing
 
 An API that runs a Python script to validate and convert data formats. Shows
@@ -287,18 +251,6 @@ Best for:
 - Learning `input()` templating and `packages:`
 
 [Build it step by step](/examples/python-processing)
-
-## Per-component env vars
-
-Two components that read the same variable name but can each be given a
-different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
-scaffolds per component.
-
-Best for:
-- Giving each component its own API key without changing shared YAML
-- Understanding component env resolution order
-
-[Build it step by step](/examples/component-env)
 
 ## Static site
 
@@ -326,7 +278,7 @@ echo "What is 2+2?" | kdeps run workflow.yaml
 
 ## Telegram bot
 
-A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` sends the answer back via the Telegram API.
+A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` returns the answer and kdeps sends it back via the Telegram API.
 
 Best for:
 - Chatbot interfaces over existing workflow resources
@@ -345,6 +297,63 @@ Best for:
 - Seeing how complex agents fit in ~20 lines of YAML
 - Learning the `POST /api/v1/run` pattern
 - Adapting a pattern to your own data
+
+## Read a file in the REPL
+
+A folder with one text file. `kdeps` reads it and writes the answer next to it. No workflow YAML. No API key.
+
+Best for:
+- Seeing the agent REPL before you write a workflow
+- Checking that `read_file` and `write_file` run on your machine
+
+[Build it step by step](/examples/agent-repl)
+
+## Load a workflow as a tool
+
+The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
+started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
+`metadata.name`; kdeps runs the full DAG.
+
+Best for:
+- Turning an API you already wrote into a REPL tool
+- Seeing agent mode without a new YAML kind
+
+[Build it step by step](/workflow/as-a-tool)
+
+## Two-agent agency
+
+Two agents in one project: the entry-point agent calls the other with the
+`agent:` resource and returns the combined result. Introduces `kind: Agency`
+and the `agency.yaml` manifest.
+
+Best for:
+- Splitting a large workflow into independently testable agents
+- Learning multi-agent orchestration
+
+[Build it step by step](/examples/agency)
+
+## Reusable component
+
+Build a component - a bundle of resources with a typed input interface - and
+call it from a workflow with `component:`.
+
+Best for:
+- Packaging logic you reuse across projects
+- Learning the `interface.inputs` schema and auto-discovery
+
+[Build it step by step](/examples/custom-component)
+
+## Per-component env vars
+
+Two components that read the same variable name but can each be given a
+different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
+scaffolds per component.
+
+Best for:
+- Giving each component its own API key without changing shared YAML
+- Understanding component env resolution order
+
+[Build it step by step](/examples/component-env)
 
 ## See also
 

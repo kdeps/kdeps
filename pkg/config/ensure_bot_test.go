@@ -36,7 +36,4 @@ func TestEnsureBotConnections(t *testing.T) {
 	if ensureSlack(cfg) == nil || cfg.BotConnections.Slack == nil {
 		t.Fatal("slack")
 	}
-	if ensureWhatsApp(cfg) == nil || cfg.BotConnections.WhatsApp == nil {
-		t.Fatal("whatsapp")
-	}
 }

@@ -27,13 +27,12 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/afero"
@@ -61,37 +60,20 @@ import (
 const (
 	builtinDDGMaxResults    = 5
 	builtinUserAgent        = "kdeps/agent"
-	defaultCohereRerank     = "rerank-v3.5"
-	defaultVoyageRerank     = "rerank-2"
-	defaultJinaRerank       = "jina-reranker-v2-base-multilingual"
-	defaultRerankTopN       = 5
 	bashOutputMaxLines      = 2000      // pi truncate.ts DEFAULT_MAX_LINES
 	bashOutputMaxBytes      = 50 * 1024 // pi truncate.ts DEFAULT_MAX_BYTES (50 KB)
 	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
 	unicodeInterlinearStart = 0xFFF9    // Unicode interlinear annotation (start)
 	unicodeInterlinearEnd   = 0xFFFB    // Unicode interlinear annotation (end)
 
-	ragDefaultTopK    = 5   // default number of RAG results
-	ragMaxTopK        = 32  // absolute cap on RAG top_k
-	ragTimeoutSeconds = 30  // RAG query timeout in seconds
-	binaryCheckBytes  = 512 // bytes to scan for binary detection
-)
-
-// URL variables (not consts) so tests can override them with httptest servers.
-//
-//nolint:gochecknoglobals // test-facing URL overrides
-var (
-	wolframAlphaBaseURL = "https://api.wolframalpha.com/v1/result"
-	cohereRerankURL     = "https://api.cohere.com/v2/rerank"
-	voyageRerankURL     = "https://api.voyageai.com/v1/rerank"
-	jinaRerankURL       = "https://api.jina.ai/v1/rerank"
+	binaryCheckBytes = 512 // bytes to scan for binary detection
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
-// calculator and optional API-key tools: serpapi_search, perplexity_search, exa_search,
-// zapier_list_actions, zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank,
-// jina_rerank, retrieve_context) to the registry. API-key tools are registered only when the
-// corresponding env var is set.
+// calculator and optional API-key tools: serpapi_search, perplexity_search, google_cache_*)
+// plus every tool asset that declares an http: block (exa_search, wolfram_alpha, zapier_*,
+// the rerankers, retrieve_context, ...) to the registry. API-key tools are registered only
+// when the corresponding env var is set.
 //
 //nolint:gochecknoglobals // shared web convergence cache bound at registration time
 var webCache *webToolCache
@@ -114,14 +96,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerEditFile(reg)
 	registerSerpAPI(ctx, reg, webCache)
 	registerPerplexity(ctx, reg, webCache)
-	registerExa(ctx, reg, webCache)
-	registerZapierNLA(ctx, reg)
-	registerWolframAlpha(ctx, reg, webCache)
-	registerCohereRerank(ctx, reg)
-	registerVoyageAIRerank(ctx, reg)
-	registerJinaRerank(ctx, reg)
 	registerGoogleCacheTools(ctx, reg)
-	registerRetrieveContext(ctx, reg)
+	registerDeclaredTools(ctx, reg, webCache)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
@@ -132,16 +108,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 // No API key required. Accepts any valid Starlark numeric expression.
 func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 	calc := lctools.Calculator{}
-	reg.Register(&kdepstools.Tool{
-		Name:        toolNameCalculator,
-		Description: "Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.",
-		Parameters: map[string]domain.ToolParam{
-			"expression": {
-				Type:        toolParamString,
-				Description: "The mathematical expression to evaluate",
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: toolNameCalculator,
 		Execute: func(args map[string]any) (string, error) {
 			expr, _ := args["expression"].(string)
 			if expr == "" {
@@ -149,7 +117,7 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 			}
 			return calc.Call(toolCallCtx(ctx, args), expr)
 		},
-	})
+	}))
 }
 
 // maxFileReadBytes returns the "file-read-limit" event's byte cap on any
@@ -239,40 +207,8 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 // workflow-mode resource action and the load_document tool use. Accepts
 // absolute paths only. No API key required.
 func registerReadFile(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. IMPORTANT: ^I, ^X, and the trailing $ are a display convention this tool adds - the real file does NOT contain those literal characters. When quoting text back into edit_file's old_str, write the real tab/control character (or match a whole line via view_range/anchor instead), never the literal caret sequence - copying \"^I\" as text will not match a real tab byte. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.",
-		Category:     "file",
-		OutputFormat: "text with a 1-based line number on each line; tabs shown as ^I, control chars as ^X, $ marks true end of line (display only - not literal file content)",
-		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
-		SeeAlso:      "list_files, search_local, edit_file, load_document",
-		Parameters: map[string]domain.ToolParam{
-			toolParamFilePath: {
-				Type:        toolParamString,
-				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit), or use match_id instead.",
-			},
-			"offset": {
-				Type:        "number",
-				Description: "Line number to start reading from (1-based). Optional; reads from beginning if omitted.",
-			},
-			"limit": {
-				Type:        "number",
-				Description: "Maximum number of lines to read. Optional; reads entire file up to the size limit if omitted.",
-			},
-			"match_id": {
-				Type: toolParamString,
-				Description: "A match_id from a search_local result, instead of file_path. Reads the " +
-					"region around that hit (context_before/context_after lines, default 20 each).",
-			},
-			"context_before": {
-				Type:        "number",
-				Description: "Only with match_id: lines of context before the match (default 20)",
-			},
-			"context_after": {
-				Type:        "number",
-				Description: "Only with match_id: lines of context after the match (default 20)",
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: toolNameReadFile,
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("read_file", args)
 			if err != nil {
@@ -283,7 +219,7 @@ func registerReadFile(reg *kdepstools.Registry) {
 				return readLocalFile(filePath, args)
 			})
 		},
-	})
+	}))
 }
 
 // readFileDocDispatchTypes are the loader types read_file dispatches to --
@@ -324,7 +260,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		if docErr != nil {
 			return "", fmt.Errorf("read_file: %w", docErr)
 		}
-		go execSearch.NewExecutor().IndexFile(filePath)
+		indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
 		return formatFileLines(content, args), nil
 	}
 
@@ -337,7 +273,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	}
 
 	// Lazily index every file that's read into the search index.
-	go execSearch.NewExecutor().IndexFile(filePath)
+	indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
 
 	return formatFileLines(string(data), args), nil
 }
@@ -451,20 +387,8 @@ const defaultTailLines = 20
 // Call once before and once after a change to prove whether the file's
 // contents actually changed. No API key required.
 func registerMD5File(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
+	reg.Register(defined(&kdepstools.Tool{
 		Name: "md5_file",
-		Description: "Compute the MD5 checksum of a file. Call once before " +
-			"and once after a change to prove whether the file's contents " +
-			"actually changed -- pair both hashes as evidence for " +
-			"task_complete rather than asserting the change happened.",
-		Category: "file",
-		SeeAlso:  "read_file, tail_file, list_files",
-		Parameters: map[string]domain.ToolParam{
-			toolParamFilePath: {
-				Type:        toolParamString,
-				Description: "Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.",
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("md5_file", args)
 			if err != nil {
@@ -478,7 +402,7 @@ func registerMD5File(reg *kdepstools.Registry) {
 			// would silently defeat that.
 			return md5File(filePath)
 		},
-	})
+	}))
 }
 
 func md5File(filePath string) (string, error) {
@@ -511,24 +435,8 @@ func md5File(filePath string) (string, error) {
 // where to start), tail_file answers "how does this log/output end" in one
 // call. No API key required.
 func registerTailFile(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
+	reg.Register(defined(&kdepstools.Tool{
 		Name: "tail_file",
-		Description: "Read the last N lines of a file (default 20) -- for " +
-			"checking the end of a log or output file without knowing its " +
-			"total length upfront. Use as evidence that a command's output " +
-			"or a log ends the way a task claims it does.",
-		Category: "file",
-		SeeAlso:  "read_file, md5_file, list_files",
-		Parameters: map[string]domain.ToolParam{
-			toolParamFilePath: {
-				Type:        toolParamString,
-				Description: "Absolute (or cwd-relative) path to the file. Omit to tail the file most recently accessed this session.",
-			},
-			"lines": {
-				Type:        "number",
-				Description: "Number of lines from the end to return (default 20)",
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("tail_file", args)
 			if err != nil {
@@ -541,7 +449,7 @@ func registerTailFile(reg *kdepstools.Registry) {
 			// cached snapshot from an earlier call in the same task.
 			return tailLocalFile(filePath, args)
 		},
-	})
+	}))
 }
 
 func tailLocalFile(filePath string, args map[string]any) (string, error) {
@@ -626,25 +534,11 @@ func writeFileVerified(path string, data []byte) error {
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
 func registerWriteFile(reg *kdepstools.Registry) {
-	tool := &kdepstools.Tool{
-		Name:         toolNameWriteFile,
-		Description:  "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
-		Category:     "file",
-		OutputFormat: "confirmation message with bytes written",
-		Constraints:  "overwrites entire file — use edit_file for targeted changes; must use absolute path",
-		SeeAlso:      "edit_file, read_file",
-		Parameters: map[string]domain.ToolParam{
-			toolParamFilePath: {
-				Type:        toolParamString,
-				Description: "Absolute path to the file to write",
-				Required:    true,
-			},
-			toolParamContent: {
-				Type:        toolParamString,
-				Description: "Text content to write to the file",
-				Required:    true,
-			},
-		},
+	tool := defined(&kdepstools.Tool{
+		Name: toolNameWriteFile,
+	})
+	if tool == nil {
+		return
 	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		filePath, err := requireAbsFilePath("write_file", args)
@@ -778,16 +672,8 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 // registerListFiles registers a directory listing tool.
 // Lists files and directories at a given path. No API key required.
 func registerListFiles(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        toolNameListFiles,
-		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Omit path to list the current working directory.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamPath: {
-				Type:        toolParamString,
-				Description: "Absolute path to the directory to list. Omit to list the current working directory.",
-				Required:    false,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: toolNameListFiles,
 		Execute: func(args map[string]any) (string, error) {
 			dirPath, err := resolveListFilesDirPath(args)
 			if err != nil {
@@ -801,7 +687,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 				return renderFileList(dirPath, entries), nil
 			})
 		},
-	})
+	}))
 }
 
 // resolveListFilesDirPath resolves list_files's path argument: empty
@@ -858,23 +744,10 @@ func registerCachedQueryTool(
 	reg *kdepstools.Registry,
 	cache *webToolCache,
 	tool queryCaller,
-	name, description, paramDesc string,
-	outputFormat, constraints, seeAlso string,
+	name string,
 ) {
-	reg.Register(&kdepstools.Tool{
-		Name:         name,
-		Description:  description,
-		Category:     "web",
-		OutputFormat: outputFormat,
-		Constraints:  constraints,
-		SeeAlso:      seeAlso,
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: paramDesc,
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: name,
 		Execute: func(args map[string]any) (string, error) {
 			query, _ := args[toolParamQuery].(string)
 			if query == "" {
@@ -886,7 +759,7 @@ func registerCachedQueryTool(
 				return tool.Call(callCtx, query)
 			})
 		},
-	})
+	}))
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
@@ -894,34 +767,12 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *we
 	if err != nil {
 		return
 	}
-	registerCachedQueryTool(
-		ctx,
-		reg,
-		cache,
-		ddg,
-		"web_search",
-		"Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
-		"The search query to look up",
-		"JSON with title, url, and snippet per result",
-		"limit searches to 3 per topic; never repeat the same query; US-only results",
-		"web_scraper, wikipedia",
-	)
+	registerCachedQueryTool(ctx, reg, cache, ddg, "web_search")
 }
 
 func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	wiki := lcwikipedia.New(builtinUserAgent)
-	registerCachedQueryTool(
-		ctx,
-		reg,
-		cache,
-		wiki,
-		"wikipedia",
-		"Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
-		"The topic or question to look up on Wikipedia",
-		"plain text encyclopedia article",
-		"good for general knowledge; not for real-time/current information",
-		"web_search, web_scraper",
-	)
+	registerCachedQueryTool(ctx, reg, cache, wiki, "wikipedia")
 }
 
 // registerWebScraper registers a URL scraping tool using langchain-go's colly-based scraper.
@@ -931,20 +782,8 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 	if err != nil {
 		return
 	}
-	reg.Register(&kdepstools.Tool{
-		Name:         toolNameWebScraper,
-		Description:  "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
-		Category:     "web",
-		OutputFormat: "HTML page converted to markdown text",
-		Constraints:  "60s timeout; never scrape the same URL twice in a turn; fails on authenticated/private URLs; may be blocked by some sites",
-		SeeAlso:      "web_search, wikipedia, http_request",
-		Parameters: map[string]domain.ToolParam{
-			"url": {
-				Type:        toolParamString,
-				Description: "The full URL (including https://) to fetch and extract text from",
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: toolNameWebScraper,
 		Execute: func(args map[string]any) (string, error) {
 			u, _ := args["url"].(string)
 			if u == "" {
@@ -956,7 +795,7 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 				return scraper.Call(callCtx, u)
 			})
 		},
-	})
+	}))
 }
 
 // registerSQLTools registers three tools for interacting with a SQLite database:
@@ -966,35 +805,16 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 //
 // The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
 func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
-	dbPathParam := domain.ToolParam{
-		Type:        toolParamString,
-		Description: "Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.",
-		Required:    false,
-	}
-
-	reg.Register(&kdepstools.Tool{
-		Name:        "sql_list_tables",
-		Description: "List all tables in a SQLite database. Use this to discover available data before querying. Returns a newline-separated list of table names.",
-		Parameters: map[string]domain.ToolParam{
-			"db_path": dbPathParam,
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "sql_list_tables",
 		Execute: func(args map[string]any) (string, error) {
 			dbPath := sqlDBPath(args)
 			return sqlListTables(toolCallCtx(ctx, args), dbPath)
 		},
-	})
+	}))
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "sql_describe_table",
-		Description: "Return the schema (column names and types) for a table in a SQLite database. Use before writing queries to know the exact column names.",
-		Parameters: map[string]domain.ToolParam{
-			"table": {
-				Type:        toolParamString,
-				Description: "Name of the table to describe",
-				Required:    true,
-			},
-			"db_path": dbPathParam,
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "sql_describe_table",
 		Execute: func(args map[string]any) (string, error) {
 			table, _ := args["table"].(string)
 			if table == "" {
@@ -1003,19 +823,10 @@ func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
 			dbPath := sqlDBPath(args)
 			return sqlDescribeTable(toolCallCtx(ctx, args), dbPath, table)
 		},
-	})
+	}))
 
-	reg.Register(&kdepstools.Tool{
-		Name:        "sql_query",
-		Description: "Execute a SQL query against a SQLite database and return the results as formatted text. Use SELECT statements to retrieve data. Non-SELECT statements are rejected for safety.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The SQL SELECT statement to execute",
-				Required:    true,
-			},
-			"db_path": dbPathParam,
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "sql_query",
 		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
@@ -1032,7 +843,7 @@ func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
 			dbPath := sqlDBPath(args)
 			return sqlExecQuery(toolCallCtx(ctx, args), dbPath, query)
 		},
-	})
+	}))
 }
 
 func sqlDBPath(args map[string]any) string {
@@ -1124,241 +935,7 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webTo
 	if err != nil {
 		return
 	}
-	registerCachedQueryTool(
-		ctx,
-		reg,
-		cache,
-		tool,
-		"serpapi_search",
-		"Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
-		"The search query to look up on Google",
-		"JSON search results with title, url, snippet",
-		"requires SERPAPI_API_KEY; use only when web_search results are stale",
-		"web_search, web_scraper",
-	)
-}
-
-const (
-	exaDefaultNumResults = 5
-)
-
-//nolint:gochecknoglobals // test-facing URL override
-var (
-	exaSearchURL     = "https://api.exa.ai/search"
-	zapierNLABaseURL = "https://nla.zapier.com/api/v1/dynamic/exposed"
-)
-
-// registerExa registers the Exa (formerly Metaphor) neural search tool when EXA_API_KEY is set.
-// Exa finds the most relevant URLs for a search query using link-prediction neural search.
-func registerExa(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	apiKey := os.Getenv("EXA_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("METAPHOR_API_KEY")
-	}
-	if apiKey == "" {
-		return
-	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "exa_search",
-		Description: "Search the web using Exa (formerly Metaphor) neural search. Finds highly relevant URLs and content using AI-powered link prediction. Best for research, finding authoritative sources, and content discovery. Requires EXA_API_KEY.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The search query or prompt to find relevant links for",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("exa_search: query is required")
-			}
-			return cache.call("exa_search:"+query, func() (string, error) {
-				return callExaSearch(ctx, apiKey, query)
-			})
-		},
-	})
-}
-
-func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
-	body, _ := json.Marshal(map[string]any{
-		toolParamQuery: query,
-		"numResults":   exaDefaultNumResults,
-	})
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		exaSearchURL,
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		return "", fmt.Errorf("exa_search: build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Api-Key", apiKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("exa_search: request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("exa_search: read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("exa_search: API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result struct {
-		Results []struct {
-			Title string `json:"title"`
-			URL   string `json:"url"`
-			Text  string `json:"text"`
-		} `json:"results"`
-	}
-	if parseErr := json.Unmarshal(respBody, &result); parseErr != nil {
-		return string(respBody), nil
-	}
-
-	var sb strings.Builder
-	for i, r := range result.Results {
-		fmt.Fprintf(&sb, "%d. %s\n   %s\n", i+1, r.Title, r.URL)
-		if r.Text != "" {
-			fmt.Fprintf(&sb, "   %s\n", r.Text)
-		}
-	}
-	return strings.TrimSpace(sb.String()), nil
-}
-
-// registerZapierNLA registers zapier_list_actions and zapier_run_action when ZAPIER_NLA_API_KEY is set.
-func registerZapierNLA(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("ZAPIER_NLA_API_KEY")
-	if apiKey == "" {
-		return
-	}
-
-	reg.Register(&kdepstools.Tool{
-		Name:        "zapier_list_actions",
-		Description: "List all available Zapier NLA actions configured in your Zapier account. Returns action IDs, names, and descriptions. Use this to discover what actions you can run with zapier_run_action. Requires ZAPIER_NLA_API_KEY.",
-		Parameters:  map[string]domain.ToolParam{},
-		Execute: func(_ map[string]any) (string, error) {
-			return callZapierListActions(ctx, apiKey)
-		},
-	})
-
-	reg.Register(&kdepstools.Tool{
-		Name:        "zapier_run_action",
-		Description: "Execute a Zapier NLA action by action ID with natural language instructions. First use zapier_list_actions to find available action IDs. Requires ZAPIER_NLA_API_KEY.",
-		Parameters: map[string]domain.ToolParam{
-			"action_id": {
-				Type:        toolParamString,
-				Description: "The Zapier NLA action ID to execute (from zapier_list_actions)",
-				Required:    true,
-			},
-			"instructions": {
-				Type:        toolParamString,
-				Description: "Natural language instructions describing what to do with this action",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			actionID, _ := args["action_id"].(string)
-			instructions, _ := args["instructions"].(string)
-			if actionID == "" {
-				return "", errors.New("zapier_run_action: action_id is required")
-			}
-			if instructions == "" {
-				return "", errors.New("zapier_run_action: instructions is required")
-			}
-			return callZapierRunAction(ctx, apiKey, actionID, instructions)
-		},
-	})
-}
-
-func callZapierListActions(ctx context.Context, apiKey string) (string, error) {
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, zapierNLABaseURL+"/", nil)
-	if reqErr != nil {
-		return "", fmt.Errorf("zapier_list_actions: build request: %w", reqErr)
-	}
-	req.Header.Set("X-Api-Key", apiKey)
-
-	resp, doErr := http.DefaultClient.Do(req)
-	if doErr != nil {
-		return "", fmt.Errorf("zapier_list_actions: request: %w", doErr)
-	}
-	defer resp.Body.Close()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", fmt.Errorf("zapier_list_actions: read response: %w", readErr)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf(
-			"zapier_list_actions: API error %d: %s",
-			resp.StatusCode,
-			string(body),
-		)
-	}
-
-	var result struct {
-		Results []struct {
-			ID          string `json:"id"`
-			Description string `json:"description"`
-		} `json:"results"`
-	}
-	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
-		return string(body), nil
-	}
-
-	var sb strings.Builder
-	for i, r := range result.Results {
-		fmt.Fprintf(&sb, "%d. [%s] %s\n", i+1, r.ID, r.Description)
-	}
-	return strings.TrimSpace(sb.String()), nil
-}
-
-func callZapierRunAction(
-	ctx context.Context,
-	apiKey, actionID, instructions string,
-) (string, error) {
-	payload, marshalErr := json.Marshal(map[string]string{"instructions": instructions})
-	if marshalErr != nil {
-		return "", fmt.Errorf("zapier_run_action: marshal payload: %w", marshalErr)
-	}
-
-	url := zapierNLABaseURL + "/" + actionID + "/execute/"
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if reqErr != nil {
-		return "", fmt.Errorf("zapier_run_action: build request: %w", reqErr)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Api-Key", apiKey)
-
-	resp, doErr := http.DefaultClient.Do(req)
-	if doErr != nil {
-		return "", fmt.Errorf("zapier_run_action: request: %w", doErr)
-	}
-	defer resp.Body.Close()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", fmt.Errorf("zapier_run_action: read response: %w", readErr)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("zapier_run_action: API error %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result map[string]any
-	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
-		return string(body), nil
-	}
-	out, marshalErr2 := json.MarshalIndent(result, "", "  ")
-	if marshalErr2 != nil {
-		return string(body), nil
-	}
-	return string(out), nil
+	registerCachedQueryTool(ctx, reg, cache, tool, "serpapi_search")
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.
@@ -1370,18 +947,7 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *we
 	if err != nil {
 		return
 	}
-	registerCachedQueryTool(
-		ctx,
-		reg,
-		cache,
-		tool,
-		"perplexity_search",
-		"Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
-		"The search query or question to answer using Perplexity AI",
-		"AI-generated answer with citations",
-		"requires PERPLEXITY_API_KEY; slower and more expensive than web_search; use sparingly",
-		"web_search, web_scraper",
-	)
+	registerCachedQueryTool(ctx, reg, cache, tool, "perplexity_search")
 }
 
 // Network tool timeouts: a hung remote endpoint must not stall the agent
@@ -1455,20 +1021,11 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
-	tool := &kdepstools.Tool{
-		Name:         toolNameBashExec,
-		Description:  "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
-		Category:     "shell",
-		OutputFormat: "plain text (stdout + optional stderr), truncated to 2000 lines",
-		Constraints:  "prefer dedicated tools over bash for file reads, searches, and edits; long-running commands show a progress spinner; cwd persists between calls",
-		SeeAlso:      "read_file, search_local, edit_file, write_file",
-		Parameters: map[string]domain.ToolParam{
-			toolParamCommand: {
-				Type:        toolParamString,
-				Description: "The bash command to execute",
-				Required:    true,
-			},
-		},
+	tool := defined(&kdepstools.Tool{
+		Name: toolNameBashExec,
+	})
+	if tool == nil {
+		return
 	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		command, _ := args["command"].(string)
@@ -1648,9 +1205,8 @@ func runBashExec(ctx context.Context, tool *kdepstools.Tool, command string, arg
 // registerBashJobList registers the bash_job_list tool.
 // Lists background jobs started by bash_exec that were backgrounded via Ctrl+Z.
 func registerBashJobList(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "bash_job_list",
-		Description: "List background bash jobs started with bash_exec and backgrounded via Ctrl+Z. Shows job ID, status (running/done/failed), command, and elapsed time.",
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "bash_job_list",
 		Execute: func(_ map[string]any) (string, error) {
 			jobs := bashJobRegistry.listAll()
 			if len(jobs) == 0 {
@@ -1662,22 +1218,14 @@ func registerBashJobList(reg *kdepstools.Registry) {
 			}
 			return strings.TrimSpace(sb.String()), nil
 		},
-	})
+	}))
 }
 
 // registerBashJobWait registers the bash_job_wait tool.
 // Blocks until the background job completes, then returns its output.
 func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "bash_job_wait",
-		Description: "Wait for a background bash job (from bash_exec backgrounded via Ctrl+Z) to complete and return its full output. Use the job_id from the bash_exec backgrounded result.",
-		Parameters: map[string]domain.ToolParam{
-			"job_id": {
-				Type:        "number",
-				Description: "Job ID returned by bash_exec when backgrounded",
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "bash_job_wait",
 		Execute: func(args map[string]any) (string, error) {
 			idF, ok := args["job_id"].(float64)
 			if !ok {
@@ -1700,386 +1248,7 @@ func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 			}
 			return job.output, nil
 		},
-	})
-}
-
-// registerWolframAlpha registers the Wolfram Alpha short-answer API tool
-// when WOLFRAM_APP_ID is set.
-func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	appID := os.Getenv("WOLFRAM_APP_ID")
-	if appID == "" {
-		return
-	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "wolfram_alpha",
-		Description: "Query Wolfram Alpha for factual computations, math, science, unit conversions, and data lookups. Returns a concise plain-text answer. Requires WOLFRAM_APP_ID.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The question or computation to evaluate (e.g. 'integral of x^2', 'population of France', '42 miles in km')",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("wolfram_alpha: query is required")
-			}
-			return cache.call("wolfram_alpha:"+query, func() (string, error) {
-				return callWolframAlpha(ctx, appID, query)
-			})
-		},
-	})
-}
-
-func callWolframAlpha(ctx context.Context, appID, query string) (string, error) {
-	reqURL := wolframAlphaBaseURL + "?i=" + url.QueryEscape(
-		query,
-	) + "&appid=" + url.QueryEscape(
-		appID,
-	)
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if reqErr != nil {
-		return "", fmt.Errorf("wolfram_alpha: build request: %w", reqErr)
-	}
-
-	resp, doErr := http.DefaultClient.Do(req)
-	if doErr != nil {
-		return "", fmt.Errorf("wolfram_alpha: request: %w", doErr)
-	}
-	defer resp.Body.Close()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", fmt.Errorf("wolfram_alpha: read response: %w", readErr)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("wolfram_alpha: API error %d: %s", resp.StatusCode, string(body))
-	}
-	return strings.TrimSpace(string(body)), nil
-}
-
-// rerankParams holds shared parameters for all reranker tools.
-type rerankParams struct {
-	query     string
-	documents []string
-	model     string
-	topN      int
-}
-
-func parseRerankArgs(args map[string]any, defaultModel string) (rerankParams, error) {
-	query, _ := args["query"].(string)
-	if query == "" {
-		return rerankParams{}, errors.New("rerank: query is required")
-	}
-
-	rawDocs, _ := args["documents"].(string)
-	if rawDocs == "" {
-		return rerankParams{}, errors.New("rerank: documents (JSON array of strings) is required")
-	}
-
-	var docs []string
-	if parseErr := json.Unmarshal([]byte(rawDocs), &docs); parseErr != nil {
-		return rerankParams{}, fmt.Errorf(
-			"rerank: documents must be a JSON array of strings: %w",
-			parseErr,
-		)
-	}
-	if len(docs) == 0 {
-		return rerankParams{}, errors.New("rerank: documents array must not be empty")
-	}
-
-	model, _ := args["model"].(string)
-	if model == "" {
-		model = defaultModel
-	}
-
-	topN := defaultRerankTopN
-	if v, ok := args["top_n"].(float64); ok && int(v) > 0 {
-		topN = int(v)
-	}
-
-	return rerankParams{query: query, documents: docs, model: model, topN: topN}, nil
-}
-
-// rerankResult is the normalized output of a reranker call.
-type rerankResult struct {
-	Index int     `json:"index"`
-	Text  string  `json:"text"`
-	Score float64 `json:"score"`
-}
-
-func rerankResultsToJSON(results []rerankResult) (string, error) {
-	out, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("rerank: marshal results: %w", err)
-	}
-	return string(out), nil
-}
-
-// registerCohereRerank registers the Cohere reranking tool when COHERE_API_KEY is set.
-func registerCohereRerank(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("COHERE_API_KEY")
-	if apiKey == "" {
-		return
-	}
-	rerankParams := map[string]domain.ToolParam{
-		toolParamQuery: {
-			Type:        toolParamString,
-			Description: "The search query to rank documents against",
-			Required:    true,
-		},
-		"documents": {
-			Type:        toolParamString,
-			Description: `JSON array of document texts to rerank, e.g. ["doc1", "doc2"]`,
-			Required:    true,
-		},
-		"model": {
-			Type:        toolParamString,
-			Description: fmt.Sprintf("Cohere rerank model (default: %s)", defaultCohereRerank),
-		},
-		"top_n": {
-			Type: "number",
-			Description: fmt.Sprintf(
-				"Number of top results to return (default: %d)",
-				defaultRerankTopN,
-			),
-		},
-	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "cohere_rerank",
-		Description: "Rerank a list of documents by relevance to a query using Cohere's reranking API. Returns documents sorted by relevance score. Requires COHERE_API_KEY.",
-		Parameters:  rerankParams,
-		Execute: func(args map[string]any) (string, error) {
-			p, parseErr := parseRerankArgs(args, defaultCohereRerank)
-			if parseErr != nil {
-				return "", parseErr
-			}
-			return callCohereRerank(ctx, apiKey, p)
-		},
-	})
-}
-
-func callCohereRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
-	return callCohereFormatReranker(ctx, apiKey, cohereRerankURL, "cohere_rerank", p)
-}
-
-// registerVoyageAIRerank registers the VoyageAI reranking tool when VOYAGEAI_API_KEY is set.
-func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("VOYAGEAI_API_KEY")
-	if apiKey == "" {
-		return
-	}
-	rerankParams := map[string]domain.ToolParam{
-		toolParamQuery: {
-			Type:        toolParamString,
-			Description: "The search query to rank documents against",
-			Required:    true,
-		},
-		"documents": {
-			Type:        toolParamString,
-			Description: `JSON array of document texts to rerank`,
-			Required:    true,
-		},
-		"model": {
-			Type:        toolParamString,
-			Description: fmt.Sprintf("VoyageAI rerank model (default: %s)", defaultVoyageRerank),
-		},
-		"top_n": {
-			Type: "number",
-			Description: fmt.Sprintf(
-				"Number of top results to return (default: %d)",
-				defaultRerankTopN,
-			),
-		},
-	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "voyageai_rerank",
-		Description: "Rerank a list of documents by relevance to a query using VoyageAI's reranking API. Requires VOYAGEAI_API_KEY.",
-		Parameters:  rerankParams,
-		Execute: func(args map[string]any) (string, error) {
-			p, parseErr := parseRerankArgs(args, defaultVoyageRerank)
-			if parseErr != nil {
-				return "", parseErr
-			}
-			return callVoyageRerank(ctx, apiKey, p)
-		},
-	})
-}
-
-func callVoyageRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
-	payload, _ := json.Marshal(map[string]any{
-		"model":            p.model,
-		toolParamQuery:     p.query,
-		"documents":        p.documents,
-		"top_k":            p.topN,
-		"return_documents": true,
-	})
-
-	req, reqErr := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		voyageRerankURL,
-		bytes.NewReader(payload),
-	)
-	if reqErr != nil {
-		return "", fmt.Errorf("voyageai_rerank: build request: %w", reqErr)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, doErr := http.DefaultClient.Do(req)
-	if doErr != nil {
-		return "", fmt.Errorf("voyageai_rerank: request: %w", doErr)
-	}
-	defer resp.Body.Close()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", fmt.Errorf("voyageai_rerank: read response: %w", readErr)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("voyageai_rerank: API error %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Data []struct {
-			Index    int     `json:"index"`
-			Score    float64 `json:"relevance_score"`
-			Document *string `json:"document"`
-		} `json:"data"`
-	}
-	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
-		return string(body), nil
-	}
-
-	out := make([]rerankResult, len(result.Data))
-	for i, r := range result.Data {
-		text := ""
-		if r.Document != nil {
-			text = *r.Document
-		}
-		if text == "" && r.Index < len(p.documents) {
-			text = p.documents[r.Index]
-		}
-		out[i] = rerankResult{Index: r.Index, Text: text, Score: r.Score}
-	}
-	return rerankResultsToJSON(out)
-}
-
-// registerJinaRerank registers the Jina reranking tool when JINA_API_KEY is set.
-func registerJinaRerank(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("JINA_API_KEY")
-	if apiKey == "" {
-		return
-	}
-	rerankParams := map[string]domain.ToolParam{
-		toolParamQuery: {
-			Type:        toolParamString,
-			Description: "The search query to rank documents against",
-			Required:    true,
-		},
-		"documents": {
-			Type:        toolParamString,
-			Description: `JSON array of document texts to rerank`,
-			Required:    true,
-		},
-		"model": {
-			Type:        toolParamString,
-			Description: fmt.Sprintf("Jina rerank model (default: %s)", defaultJinaRerank),
-		},
-		"top_n": {
-			Type: "number",
-			Description: fmt.Sprintf(
-				"Number of top results to return (default: %d)",
-				defaultRerankTopN,
-			),
-		},
-	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "jina_rerank",
-		Description: "Rerank a list of documents by relevance to a query using Jina AI's reranking API. Requires JINA_API_KEY.",
-		Parameters:  rerankParams,
-		Execute: func(args map[string]any) (string, error) {
-			p, parseErr := parseRerankArgs(args, defaultJinaRerank)
-			if parseErr != nil {
-				return "", parseErr
-			}
-			return callJinaRerank(ctx, apiKey, p)
-		},
-	})
-}
-
-func callJinaRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
-	return callCohereFormatReranker(ctx, apiKey, jinaRerankURL, "jina_rerank", p)
-}
-
-// callCohereFormatReranker handles Cohere-format reranker APIs (Cohere + Jina share the same
-// request/response schema: top_n, results[].index, results[].relevance_score, results[].document.text).
-func callCohereFormatReranker(
-	ctx context.Context,
-	apiKey, endpoint, toolName string,
-	p rerankParams,
-) (string, error) {
-	payload, _ := json.Marshal(map[string]any{
-		"model":            p.model,
-		toolParamQuery:     p.query,
-		"documents":        p.documents,
-		"top_n":            p.topN,
-		"return_documents": true,
-	})
-
-	req, reqErr := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		endpoint,
-		bytes.NewReader(payload),
-	)
-	if reqErr != nil {
-		return "", fmt.Errorf("%s: build request: %w", toolName, reqErr)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, doErr := http.DefaultClient.Do(req)
-	if doErr != nil {
-		return "", fmt.Errorf("%s: request: %w", toolName, doErr)
-	}
-	defer resp.Body.Close()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", fmt.Errorf("%s: read response: %w", toolName, readErr)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("%s: API error %d: %s", toolName, resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Results []struct {
-			Index    int     `json:"index"`
-			Score    float64 `json:"relevance_score"`
-			Document *struct {
-				Text string `json:"text"`
-			} `json:"document"`
-		} `json:"results"`
-	}
-	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
-		return string(body), nil
-	}
-
-	out := make([]rerankResult, len(result.Results))
-	for i, r := range result.Results {
-		text := ""
-		if r.Document != nil {
-			text = r.Document.Text
-		}
-		if text == "" && r.Index < len(p.documents) {
-			text = p.documents[r.Index]
-		}
-		out[i] = rerankResult{Index: r.Index, Text: text, Score: r.Score}
-	}
-	return rerankResultsToJSON(out)
+	}))
 }
 
 // sanitizeBashOutput removes non-printable control characters from bash output,
@@ -2141,26 +1310,8 @@ func registerGoogleCacheTools(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return &kdepstools.Tool{
-		Name:        "google_cache_create",
-		Description: "Create a Google AI server-side cached content entry from a text system prompt. Returns the cache name (e.g. 'cachedContents/xyz123') for use in chat: googleCachedContent. Only available when GOOGLE_API_KEY is set.",
-		Parameters: map[string]domain.ToolParam{
-			"model": {
-				Type:        toolParamString,
-				Description: "Gemini model name (e.g. 'gemini-2.0-flash')",
-				Required:    true,
-			},
-			toolParamContent: {
-				Type:        toolParamString,
-				Description: "Text to cache as a system prompt (must be >= 32K tokens for caching benefit)",
-				Required:    true,
-			},
-			"ttl": {
-				Type:        toolParamString,
-				Description: "Cache TTL as a Go duration string (e.g. '1h', '30m'). Default: '1h'",
-				Required:    false,
-			},
-		},
+	return defined(&kdepstools.Tool{
+		Name: "google_cache_create",
 		Execute: func(args map[string]any) (string, error) {
 			model, _ := args["model"].(string)
 			if model == "" {
@@ -2194,20 +1345,12 @@ func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool 
 			}
 			return cached.Name, nil
 		},
-	}
+	})
 }
 
 func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return &kdepstools.Tool{
-		Name:        "google_cache_delete",
-		Description: "Delete a Google AI cached content entry by name. Only available when GOOGLE_API_KEY is set.",
-		Parameters: map[string]domain.ToolParam{
-			"name": {
-				Type:        toolParamString,
-				Description: "The cached content name returned by google_cache_create (e.g. 'cachedContents/xyz123')",
-				Required:    true,
-			},
-		},
+	return defined(&kdepstools.Tool{
+		Name: "google_cache_delete",
 		Execute: func(args map[string]any) (string, error) {
 			name, _ := args["name"].(string)
 			if name == "" {
@@ -2222,14 +1365,12 @@ func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool 
 			}
 			return "deleted", nil
 		},
-	}
+	})
 }
 
 func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return &kdepstools.Tool{
-		Name:        "google_cache_list",
-		Description: "List all Google AI cached content entries. Returns a JSON array of cache names. Only available when GOOGLE_API_KEY is set.",
-		Parameters:  map[string]domain.ToolParam{},
+	return defined(&kdepstools.Tool{
+		Name: "google_cache_list",
 		Execute: func(_ map[string]any) (string, error) {
 			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
 			if helperErr != nil {
@@ -2247,105 +1388,7 @@ func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
 			out, _ := json.Marshal(names)
 			return string(out), nil //nolint:nilerr // iterator.Done is not propagated by design
 		},
-	}
-}
-
-// registerRetrieveContext registers a semantic RAG retrieval tool when KDEPS_RAG_BASE_URL is set.
-// Posts {query, top_k} to <base_url>/v1/query and returns ranked text chunks.
-func registerRetrieveContext(ctx context.Context, reg *kdepstools.Registry) {
-	baseURL := os.Getenv("KDEPS_RAG_BASE_URL")
-	if baseURL == "" {
-		return
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
-	reg.Register(&kdepstools.Tool{
-		Name: "retrieve_context",
-		Description: "Retrieve semantically relevant text chunks from the configured RAG index. " +
-			"Use for finding code, documentation, or notes related to a query before implementing or answering. " +
-			"Requires KDEPS_RAG_BASE_URL pointing to a compatible RAG service.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The search query to find relevant context for",
-				Required:    true,
-			},
-			"top_k": {
-				Type: "number",
-				Description: fmt.Sprintf(
-					"Number of results to return (default: %d, max: %d)",
-					ragDefaultTopK, ragMaxTopK,
-				),
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("retrieve_context: query is required")
-			}
-			topK := ragDefaultTopK
-			if v, ok := args["top_k"].(float64); ok && int(v) > 0 {
-				topK = int(v)
-			}
-			if topK > ragMaxTopK {
-				topK = ragMaxTopK
-			}
-			return callRetrieveContext(ctx, baseURL, query, topK)
-		},
 	})
-}
-
-func callRetrieveContext(ctx context.Context, baseURL, query string, topK int) (string, error) {
-	body, _ := json.Marshal(map[string]any{toolParamQuery: query, "top_k": topK})
-	reqCtx, cancel := context.WithTimeout(ctx, ragTimeoutSeconds*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(
-		reqCtx,
-		http.MethodPost,
-		baseURL+"/v1/query",
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		return "", fmt.Errorf("retrieve_context: build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("retrieve_context: request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("retrieve_context: read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf(
-			"retrieve_context: API error %d: %s",
-			resp.StatusCode,
-			string(respBody),
-		)
-	}
-
-	var result struct {
-		Results []struct {
-			Text   string  `json:"text"`
-			Score  float64 `json:"score"`
-			Source string  `json:"source"`
-		} `json:"results"`
-	}
-	if parseErr := json.Unmarshal(respBody, &result); parseErr != nil {
-		return string(respBody), nil
-	}
-
-	var sb strings.Builder
-	for i, r := range result.Results {
-		fmt.Fprintf(&sb, "[%d] score=%.3f source=%s\n%s\n", i+1, r.Score, r.Source, r.Text)
-		if i < len(result.Results)-1 {
-			sb.WriteString("---\n")
-		}
-	}
-	return strings.TrimSpace(sb.String()), nil
 }
 
 // isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.
@@ -2392,9 +1435,8 @@ func pathWithinRoot(path, root string) bool {
 }
 
 type codeToolDef struct {
-	name, desc string
-	op         domain.CodeIntelligenceOperation
-	params     map[string]domain.ToolParam
+	name string
+	op   domain.CodeIntelligenceOperation
 }
 
 func codeIntelligenceToolDefs() []codeToolDef {
@@ -2408,95 +1450,27 @@ func lspCodeToolDefs() []codeToolDef {
 	return []codeToolDef{
 		{
 			name: "code_search",
-			desc: "Search for a symbol or pattern across the codebase. Use this first to locate symbols before using code_definition or code_references. Requires: query, path.",
 			op:   domain.CodeIntOpSymbolSearch,
-			params: map[string]domain.ToolParam{
-				toolParamQuery: {
-					Type:        toolParamString,
-					Description: "Symbol name or search pattern",
-					Required:    true,
-				},
-				toolParamPath: {
-					Type:        toolParamString,
-					Description: "File or directory to search (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 		{
 			name: "code_definition",
-			desc: "Find the definition of a symbol using semantic analysis (LSP). Returns file and line. Requires: symbol, path.",
 			op:   domain.CodeIntOpDefinition,
-			params: map[string]domain.ToolParam{
-				"symbol": {
-					Type:        toolParamString,
-					Description: "Symbol name to find the definition of",
-					Required:    true,
-				},
-				"path": {
-					Type:        toolParamString,
-					Description: "File containing the symbol reference (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 		{
 			name: "code_references",
-			desc: "Find all references to a symbol across the codebase. Returns every file and line. Requires: symbol, path.",
 			op:   domain.CodeIntOpReferences,
-			params: map[string]domain.ToolParam{
-				"symbol": {
-					Type:        toolParamString,
-					Description: "Symbol name to find references for",
-					Required:    true,
-				},
-				"path": {
-					Type:        toolParamString,
-					Description: "File containing one reference (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 		{
 			name: "code_symbols",
-			desc: "List all symbols (functions, types, classes) in a file. Returns structured symbol info with nesting. Requires: path.",
 			op:   domain.CodeIntOpDocumentSymbols,
-			params: map[string]domain.ToolParam{
-				"path": {
-					Type:        toolParamString,
-					Description: "File to extract symbols from (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 		{
 			name: "code_hover",
-			desc: "Get documentation and type info for a symbol. Returns doc comments and type signatures. Requires: symbol, path.",
 			op:   domain.CodeIntOpHover,
-			params: map[string]domain.ToolParam{
-				"symbol": {
-					Type:        toolParamString,
-					Description: "Symbol name to get documentation for",
-					Required:    true,
-				},
-				"path": {
-					Type:        toolParamString,
-					Description: "File containing the symbol (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 		{
 			name: "code_diagnostics",
-			desc: "Get compiler/linter diagnostics for a file. Returns errors, warnings, hints. Requires: path.",
 			op:   domain.CodeIntOpDiagnostics,
-			params: map[string]domain.ToolParam{
-				"path": {
-					Type:        toolParamString,
-					Description: "File to check (absolute path)",
-					Required:    true,
-				},
-			},
 		},
 	}
 }
@@ -2507,70 +1481,19 @@ func graphCodeToolDefs() []codeToolDef {
 	return []codeToolDef{
 		{
 			name: "code_index_folder",
-			desc: "Index the current working directory into a persistent graph database, tracking markdown/wikilink references between files and topics/tags declared in YAML frontmatter. Always indexes the CWD -- cannot be pointed at another directory. Run this once before code_graph_file, code_graph_topic, or code_graph_all.",
 			op:   domain.CodeIntOpIndexFolder,
-			params: map[string]domain.ToolParam{
-				"extensions": {
-					Type:        "array",
-					ItemsType:   toolParamString,
-					Description: "File extensions to index, e.g. [\".md\", \".yaml\"]. Defaults to .md/.markdown/.txt/.yaml/.yml.",
-				},
-				"graphDBPath": {
-					Type:        toolParamString,
-					Description: "Graph index db path. Defaults to \"<CWD>/.kdeps/graph.db\".",
-				},
-			},
 		},
 		{
 			name: "code_graph_file",
-			desc: "Graph a single indexed file: its reference tree plus every other indexed file that shares a topic with it. Requires an index built with code_index_folder first. Requires: path.",
 			op:   domain.CodeIntOpGraphFile,
-			params: map[string]domain.ToolParam{
-				toolParamPath: {
-					Type:        toolParamString,
-					Description: "Indexed file to graph (absolute path)",
-					Required:    true,
-				},
-				"graphDBPath": {
-					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<CWD>/.kdeps/graph.db\".",
-				},
-			},
 		},
 		{
 			name: "code_graph_topic",
-			desc: "Graph every indexed file tagged with a topic, plus the full reference graph. Requires an index built with code_index_folder first. Requires: topic.",
 			op:   domain.CodeIntOpGraphTopic,
-			params: map[string]domain.ToolParam{
-				"topic": {
-					Type:        toolParamString,
-					Description: "Topic/tag to graph, as declared in a file's frontmatter",
-					Required:    true,
-				},
-				toolParamPath: {
-					Type:        toolParamString,
-					Description: "Indexed folder root, used to locate the default graph db path. Defaults to the CWD (where code_index_folder built the index).",
-				},
-				"graphDBPath": {
-					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\", or \"<CWD>/.kdeps/graph.db\" when path is also omitted.",
-				},
-			},
 		},
 		{
 			name: "code_graph_all",
-			desc: "Graph everything in the index: the full reference graph plus every root file (files nothing else references). Requires an index built with code_index_folder first.",
 			op:   domain.CodeIntOpGraphAll,
-			params: map[string]domain.ToolParam{
-				toolParamPath: {
-					Type:        toolParamString,
-					Description: "Indexed folder root, used to locate the default graph db path. Defaults to the CWD (where code_index_folder built the index).",
-				},
-				"graphDBPath": {
-					Type:        toolParamString,
-					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\", or \"<CWD>/.kdeps/graph.db\" when path is also omitted.",
-				},
-			},
 		},
 	}
 }
@@ -2615,10 +1538,8 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 	exec := codeintel.NewExecutor()
 
 	for _, ct := range codeIntelligenceToolDefs() {
-		reg.Register(&kdepstools.Tool{
-			Name:        ct.name,
-			Description: ct.desc,
-			Parameters:  ct.params,
+		reg.Register(defined(&kdepstools.Tool{
+			Name: ct.name,
 			Execute: func(args map[string]any) (string, error) {
 				config, err := codeIntelligenceConfigFromArgs(ct.name, ct.op, args)
 				if err != nil {
@@ -2635,7 +1556,7 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 				}
 				return string(out), nil
 			},
-		})
+		}))
 	}
 }
 
@@ -2648,21 +1569,8 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 }
 
 func registerMemorySaveTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "memory_save",
-		Description: "Save a fact to persistent memory. The memory is injected into every LLM call automatically. Use for project conventions, user preferences, key decisions, or any information that should persist across sessions. Keys should be short and descriptive.",
-		Parameters: map[string]domain.ToolParam{
-			"key": {
-				Type:        toolParamString,
-				Description: "Short, descriptive key for this memory entry",
-				Required:    true,
-			},
-			"value": {
-				Type:        toolParamString,
-				Description: "The fact or information to remember",
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "memory_save",
 		Execute: func(args map[string]any) (string, error) {
 			if memoryStoreInstance == nil {
 				return "", errors.New("memory_save: memory store is not configured")
@@ -2690,7 +1598,7 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 			}
 			return fmt.Sprintf("Saved memory entry %q (%d bytes)", key, len(value)), nil
 		},
-	})
+	}))
 }
 
 // memorySearchResultCap bounds how many matching entries memory_search shows.
@@ -2706,19 +1614,8 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 const memorySearchResultCap = 20
 
 func registerMemorySearchTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
+	reg.Register(defined(&kdepstools.Tool{
 		Name: "memory_search",
-		Description: fmt.Sprintf(
-			"Search persistent memory for entries matching a query. Returns up to %d matching key-value pairs (each value capped), best match first: a key hit outranks a value-only hit, more query words outrank fewer, and a newer update breaks a tie. Use to recall previously saved facts, preferences, or decisions. There is no memory_list tool; the memory graph is already in the system prompt.",
-			memorySearchResultCap,
-		),
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "Search query — matches against memory keys and values (case-insensitive substring)",
-				Required:    true,
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			if memoryStoreInstance == nil {
 				return "", errors.New("memory_search: memory store is not configured")
@@ -2732,7 +1629,7 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 			}
 			return memorySearchLocalFileFallback(query)
 		},
-	})
+	}))
 }
 
 // formatMemorySearchResults renders capped, per-value-truncated memory
@@ -2785,16 +1682,8 @@ func memorySearchLocalFileFallback(query string) (string, error) {
 }
 
 func registerMemoryDeleteTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name:        "memory_delete",
-		Description: "Delete a memory entry by key. Use to remove outdated or incorrect facts from persistent memory.",
-		Parameters: map[string]domain.ToolParam{
-			"key": {
-				Type:        toolParamString,
-				Description: "Key of the memory entry to delete",
-				Required:    true,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "memory_delete",
 		Execute: func(args map[string]any) (string, error) {
 			if memoryStoreInstance == nil {
 				return "", errors.New("memory_delete: memory store is not configured")
@@ -2808,5 +1697,16 @@ func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 			}
 			return fmt.Sprintf("Deleted memory entry %q.", key), nil
 		},
-	})
+	}))
 }
+
+var backgroundIndexing sync.WaitGroup //nolint:gochecknoglobals // tracks fire-and-forget index writes
+
+// indexInBackground runs a lazy index write without blocking the tool call.
+func indexInBackground(fn func()) {
+	backgroundIndexing.Go(fn)
+}
+
+// WaitForBackgroundIndexing blocks until pending lazy index writes finish, so
+// callers (tests) can remove the working directory the indexer writes into.
+func WaitForBackgroundIndexing() { backgroundIndexing.Wait() }

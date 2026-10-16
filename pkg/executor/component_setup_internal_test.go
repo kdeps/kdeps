@@ -172,7 +172,9 @@ func TestRunComponentSetup_CacheHit(t *testing.T) {
 	require.NoError(t, e.runComponentSetup(comp, ctx))
 }
 
-func TestRunComponentSetup_ScaffoldFiles(t *testing.T) {
+// Running a component never writes into its folder: no .env or README.md
+// appears unless `kdeps component update` is run.
+func TestRunComponentSetup_WritesNothingIntoComponentDir(t *testing.T) {
 	e := &Engine{}
 	e.logger = slog.Default()
 	tmpDir := t.TempDir()
@@ -182,6 +184,9 @@ func TestRunComponentSetup_ScaffoldFiles(t *testing.T) {
 		Setup:    &domain.ComponentSetup{Commands: []string{"true"}},
 	}
 	require.NoError(t, e.runComponentSetup(comp, &ExecutionContext{}))
+	entries, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries)
 }
 
 func TestRunCommand_Simple(t *testing.T) {
@@ -271,26 +276,6 @@ func TestInstallComponentPythonPackages_WithRequirements(t *testing.T) {
 		},
 	}
 	_ = e.installComponentPythonPackages([]string{"requests"}, ctx)
-}
-
-// ---------------------------------------------------------------------------
-// scaffoldComponentFilesIfNeeded error path
-// ---------------------------------------------------------------------------
-
-func TestScaffoldComponentFilesIfNeeded_ReadOnlyDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	roDir := filepath.Join(tmpDir, "readonly")
-	require.NoError(t, os.MkdirAll(roDir, 0755))
-	require.NoError(t, os.Chmod(roDir, 0o000))
-	t.Cleanup(func() { _ = os.Chmod(roDir, 0755) })
-
-	e := &Engine{logger: slog.Default()}
-	comp := &domain.Component{
-		Metadata: domain.ComponentMetadata{Name: "test-scaffold-ro"},
-		Dir:      roDir,
-	}
-	// Should log a warning but not panic.
-	e.scaffoldComponentFilesIfNeeded(comp)
 }
 
 // ---------------------------------------------------------------------------
@@ -528,4 +513,44 @@ func TestInstallOSPackages_WithBrewOverride(t *testing.T) {
 	t.Setenv("PATH", tmpDir)
 
 	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+}
+
+// setup.provides: when every listed program is on PATH, the OS package
+// manager is not run at all; otherwise it installs as before.
+func TestInstallComponentPackages_ProvidesSkipsInstall(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("package manager shim is a #!/bin/sh script")
+	}
+	bin := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "apk-called")
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "apk"), []byte("#!/bin/sh\n"+
+		"echo \"$@\" >> "+marker+"\n"+
+		"if [ \"$1\" = \"info\" ]; then exit 1; fi\nexit 0\n"), 0o755)) //nolint:gosec // test shim must be executable
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(bin, "fake-ocr-tool"), []byte("#!/bin/sh\n"), 0o755),
+	) //nolint:gosec // test shim
+	t.Setenv("PATH", bin)
+
+	e := &Engine{logger: slog.Default()}
+	comp := &domain.Component{Metadata: domain.ComponentMetadata{Name: "provides"}}
+	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+
+	e.installComponentPackages(comp, &domain.ComponentSetup{
+		OsPackages: []string{"fake-ocr-pkg"}, Provides: []string{"fake-ocr-tool"},
+	}, ctx)
+	assert.NoFileExists(t, marker, "the provided program is on PATH: no package manager runs")
+
+	e.installComponentPackages(comp, &domain.ComponentSetup{
+		OsPackages: []string{"fake-ocr-pkg"}, Provides: []string{"fake-ocr-tool", "not-installed-tool"},
+	}, ctx)
+	data, err := os.ReadFile(marker)
+	require.NoError(t, err, "a missing program still installs the packages")
+	assert.Contains(t, string(data), "add --no-cache fake-ocr-pkg")
+}
+
+func TestAllOnPath(t *testing.T) {
+	assert.True(t, allOnPath([]string{"go"}))
+	assert.False(t, allOnPath([]string{"go", "nonexistent_command_xyz_123"}))
+	assert.False(t, allOnPath(nil), "nothing listed means nothing is known to be installed")
 }

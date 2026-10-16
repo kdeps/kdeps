@@ -2,7 +2,7 @@
 
 `onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue.
 
-*Applies to workflow mode.* Set per resource. When agent mode calls this workflow as a tool, the same `onError` rules apply inside that run.
+Set per resource. When agent mode calls this workflow as a tool, the same `onError` rules apply inside that run.
 
 ## Complete reference
 
@@ -128,7 +128,7 @@ onError:
     - error.message contains 'deadline exceeded'
 ```
 
-If the error doesn't match any `when` condition, the error is NOT handled and propagates normally.
+If the error does not match any `when` condition, the error is NOT handled and propagates normally.
 
 ### Execute expressions on error (`expr`)
 
@@ -244,11 +244,13 @@ onError:
 ```yaml
 # resources/query-primary.yaml
 actionId: queryPrimary
-sql:
-  connectionName: primary
-  query: "SELECT * FROM users WHERE id = ?"
-  params:
-    - "{{ get('userId') }}"
+component:
+  name: sql
+  with:
+    connectionName: primary
+    query: "SELECT * FROM users WHERE id = ?"
+    params:
+      - "{{ get('userId') }}"
 
 onError:
   action: continue
@@ -264,11 +266,13 @@ validations:
   - get('queryPrimary') != null
   - safe(get('queryPrimary'), '_error') == nil
 
-sql:
-  connectionName: replica
-  query: "SELECT * FROM users WHERE id = ?"
-  params:
-    - "{{ get('userId') }}"
+component:
+  name: sql
+  with:
+    connectionName: replica
+    query: "SELECT * FROM users WHERE id = ?"
+    params:
+      - "{{ get('userId') }}"
 ```
 
 </div>

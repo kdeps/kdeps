@@ -15,14 +15,42 @@
 
 **Git-native AI Appliance Builder** - your agent is YAML in your repo; ship the workflow, tools, and model as one self-contained deployment that runs anywhere.
 
-kdeps packages an AI workload - agent or deterministic API, not a chatbot - into a unit you can run as a terminal REPL, an HTTP API, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. kdeps is a small number of bounded pieces - pick the one you need:
+kdeps packages an AI workload - a deterministic API, a chatbot or an agent - into a unit you can run as an HTTP API, a terminal REPL, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. That makes kdeps a data-sovereignty tool: run your own LLM and coding agent on servers you control, in the region you choose, and your prompts, code, and data never reach a third-party AI provider. kdeps is a small number of bounded pieces - pick the one you need:
 
-- **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
 - **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
+- **[kdeps agent](https://kdeps.com/agent/)** - coding CLI. Tool use and memory, offline against a local model, or pointed at an LLM server you run (`llm.base_url`).
 - **[kdeps agencies](https://kdeps.com/agencies/)** - coordinate several specialized agents as one system, delegating work through the `agent:` resource.
 - **[kdeps LLM server](https://kdeps.com/llm-server/)** - provision a standalone OpenAI-compatible inference appliance, no workflow path required.
-- **[kdeps deploy](https://kdeps.com/deploy/)** - ship a workflow unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
+- **[kdeps deploy](https://kdeps.com/deploy/)** - Docker image, Kubernetes manifests, a bootable ISO, or a single binary. Same workflow.yaml, no rewrites, no re-config.
 - **[kdeps registry](https://kdeps.com/registry/)** *(optional)* - find, install, and publish shared agents and components by name. Not needed to build or run your own.
+
+## Data sovereignty
+
+Run your own LLM and coding agent on servers you control, in the region you choose - no prompts, source code, or customer data sent to a third-party AI provider.
+
+```text
+desktop app and CLI (each machine) -- /v1 --> LLM server you run
+workflows (your server)              -- /v1 --> LLM server
+your data (files, DBs, repos) stays on those machines
+hosted API: off unless you configure it
+```
+
+```bash
+kdeps                 # coding CLI; local model by default
+kdeps llm wizard      # LLM server in your datacenter; point the desktop and the CLI at it
+kdeps bundle build    # pin the model inside an image for air-gapped networks
+```
+
+```yaml
+# ~/.kdeps/config.yaml on each desktop and CLI
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1   # your LLM server
+  models:
+    - llama3.2                            # one model, or several
+```
+
+Hosted backends are opt-in, never default. See [Data sovereignty](https://kdeps.com/start/data-sovereignty).
 
 ## Quickstart
 
@@ -78,7 +106,7 @@ curl -s -X POST localhost:16395/api/v1/chat \
 # {"success": true, "data": {"answer": "Entropy is a measure of disorder..."}}
 ```
 
-More examples: [kdeps.com/examples](https://kdeps.com/examples/) (25 walkthroughs, each a working project).
+More examples: [kdeps.com/examples](https://kdeps.com/examples/) (26 walkthroughs, each a working project).
 
 ## Install
 
@@ -96,6 +124,20 @@ Or with Homebrew (macOS and Linux):
 
 ```bash
 brew install kdeps/tap/kdeps
+```
+
+### Desktop app
+
+A chat window for the agent loop - the same slash commands, autocomplete and model picker (harvested llamafile/GGUF, Ollama and cloud models) as the terminal REPL, history and search for this folder or all folders, drag-and-drop files, a settings modal (harness, custom instructions, memories, all `config.yaml` settings, and the whole `config.yaml` as an editable file), and a Projects window to build workflows, agencies and components with forms, run them with one Run button (same as `kdeps run`, with the project `.env` and extra variables), or add them to chat as tools. One Go codebase for macOS, Linux and Windows; download it from the release page (macOS `.dmg` for Apple Silicon and Intel, Linux `.tar.gz`, Windows `.zip`) or build it with `make desktop-package`. It is standalone: the `kdeps` CLI does not need to be installed. [Docs](https://kdeps.com/agent/desktop)
+
+```bash
+brew install --cask kdeps/tap/kdeps-desktop   # macOS (Apple Silicon and Intel)
+```
+
+Windows: `scoop bucket add kdeps https://github.com/kdeps/scoop-bucket && scoop install kdeps-desktop`. Linux: `.deb`, `.rpm`, Arch package or `.tar.gz`. Full steps: [Desktop app docs](https://kdeps.com/agent/desktop#install).
+
+```bash
+make desktop-package   # macOS: dist/desktop/*.dmg | Linux: .tar.gz | Windows: .zip
 ```
 
 ## How it works
@@ -118,7 +160,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 ### Agent loop mode
 
-An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D). Each prompt is rewritten for clarity before the turn (`/refine off` to disable). Sessions and memory are kept per working directory under `~/.kdeps/`; `kdeps` in a folder with history offers a resume picker.
+An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D). Each prompt is rewritten for clarity before the turn (`/refine off` to disable), and a built-in governor soft-stops read-only exploration loops (`ls`/`read_file` over and over) and forces the model to produce output, and soft-stops every failed tool or model call so the model retries with the error and the surrounding file lines on a hidden channel (`/efficiency off` to disable). Sessions and memory are kept per working directory under `~/.kdeps/`; `kdeps` in a folder with history offers a resume picker.
 
 ```bash
 kdeps                            # bare agent loop REPL (resume picker if this folder has history)
@@ -164,13 +206,16 @@ Docs: [Deployment guide](https://kdeps.com/deploy/) · [TLS and HTTPS](https://k
 
 ## Reference
 
-- **Registry** - `kdeps registry search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io)
+- **Registry** - `kdeps search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io) lists them together with the built-in resource types and kdeps' own versioned assets.
 - **Agent skill** - `npx skills add https://github.com/kdeps/skill --skill kdeps` teaches Claude Code, Cursor, and other agents to scaffold kdeps projects. [Docs](https://kdeps.com/agent/ai-assisted-authoring)
 - **LLM server appliance** - `kdeps llm wizard` builds a standalone OpenAI-compatible inference server (`ollama`, `llamafile`, `gguf`, `vllm`, `tgi`, `sglang`, and more), no workflow path required. [Docs](https://kdeps.com/llm-server/) · [Commands](https://kdeps.com/llm-server/cli)
+- **YAML-only tools, components and providers** - an agent tool backed by an HTTP API or a CLI program is one YAML file (an `http:` or `exec:` block in its tool definition), kdeps's own components such as `ocr`, `transcribe`, `git`, `file`, `sql`, `email`, `browser`, `twiml`, `scraper` and `searchWeb` are YAML in the `components` asset set (a component's `interface.output` shapes its result), and every OpenAI-compatible LLM provider (OpenAI, Groq, Mistral, DeepSeek, ...) is a file in the `providers` asset set - no Go code. [Docs](https://kdeps.com/agent/tools#declared-http-tools)
+- **Knowledge vault** - the default step of every prompt (agent turns and workflow `chat` calls), on by default (`~/.kdeps/notes`, or any markdown folder via `knowledge.vault`; `/knowledge off` to opt out): the agent knows the notes without reading them: each turn kdeps walks the notes' link graph from the request's words (no model) and names the few notes worth reading. Every place kdeps runs gets one project folder it fills in itself (`projects/<name>/`: card, sessions, memory, decisions, notes), `kdeps knowledge check` keeps one home per fact, and `kdeps knowledge report` shows god nodes, Louvain communities and surprising connections. [Docs](https://kdeps.com/agent/knowledge)
+- **Updates** - `kdeps update` refreshes the harness, tool definitions, slash commands, themes, LLM server recipes, model registries (including the cloud model catalog), project templates, workflow schemas, executor defaults and the Docker/Kubernetes templates without a new release (the binary contains none of them; the first run asks for a profile - minimum, workflows, agent, deploy, full or a custom checklist of sets and items - and anything else installs on first use); `kdeps update <item>` also installs what the item lists under `requires:`; `kdeps uninstall <item>` drops ones you don't want; `kdeps profile [name]` changes the profile. Installs, `kdeps list` and the profile picker show the estimated tokens each item adds to the LLM context. Packages and assets share the command: `kdeps install` takes either. `kdeps --upgrade` updates the binary. [Docs](https://kdeps.com/agent/repl-updating#updating-assets)
 - **Global config** - machine-local settings (LLM backend, API keys, SQL/SMTP/IMAP connections) live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. `kdeps edit` to open it, `kdeps doctor` to check it. [Docs](https://kdeps.com/reference/advanced-config)
 - **Security** - when `apiServer` is set, requests require a bearer token (`KDEPS_API_AUTH_TOKEN`) and pass through rate-limit, body-size, and concurrency caps before reaching the DAG. [Docs](https://kdeps.com/reference/security)
 - **Logging** - structured JSON via `log/slog`. `KDEPS_LOG_FORMAT=json` for production; default level WARN; `--verbose` (INFO), `--debug` (DEBUG).
-- **Innovation technology** - two standalone Go tools built alongside kdeps: [kdeps/kartographer](https://github.com/kdeps/kartographer) (graph library for resolving dependent nodes - powers the `requires:` DAG and folder/skill graphs) and [kdeps/turo](https://github.com/kdeps/turo) (reduces prose to content words to cut LLM input tokens - the optional agent-mode [prompt reducer](https://kdeps.com/agent/turo)).
+- **Built on** - two standalone Go tools built alongside kdeps: [kdeps/kartographer](https://github.com/kdeps/kartographer) (graph library for resolving dependent nodes - powers the `requires:` DAG and folder/skill graphs) and [kdeps/turo](https://github.com/kdeps/turo) (reduces prose to content words to cut LLM input tokens - the optional agent-mode [prompt reducer](https://kdeps.com/agent/turo)).
 - **Book** - [*AI Appliances - Build & Deploy Autonomous AI Agents and Agencies in YAML*](https://leanpub.com/kdeps). Free (PDF, EPUB, web).
 
 ---

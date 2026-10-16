@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Create a new team for grouping related tasks. Returns the team ID.
+parameters:
+  name:
+    type: string
+    description: Human-readable team name
+    required: true

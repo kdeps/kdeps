@@ -77,8 +77,6 @@ func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_AUTH_TOKEN", "tok-123")
 	t.Setenv("KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN", "xoxb-1")
 	t.Setenv("KDEPS_BOT_CONNECTIONS_TELEGRAM_BOT_TOKEN", "123:abc")
-	t.Setenv("KDEPS_BOT_CONNECTIONS_WHATSAPP_PHONE_NUMBER_ID", "123456")
-	t.Setenv("KDEPS_BOT_CONNECTIONS_WHATSAPP_ACCESS_TOKEN", "wa-tok")
 
 	cfg := &Config{}
 	applyConnectionEnvOverrides(cfg)
@@ -95,10 +93,6 @@ func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
 	}
 	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.Telegram) {
 		assert.Equal(t, "123:abc", cfg.BotConnections.Telegram.BotToken)
-	}
-	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.WhatsApp) {
-		assert.Equal(t, "123456", cfg.BotConnections.WhatsApp.PhoneNumberID)
-		assert.Equal(t, "wa-tok", cfg.BotConnections.WhatsApp.AccessToken)
 	}
 }
 
@@ -231,21 +225,6 @@ func TestConnectionEnvFieldsBotTelegram(t *testing.T) {
 	assert.True(t, fields[0].Secret)
 }
 
-func TestConnectionEnvFieldsBotWhatsApp(t *testing.T) {
-	cfg := &Config{BotConnections: &BotConnectionConfig{
-		WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "pid", AccessToken: "at", WebhookSecret: "ws"},
-	}}
-	fields := ConnectionEnvFields(cfg, ConnKindBot, "whatsapp")
-	assert.Len(t, fields, 3)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_PHONE_NUMBER_ID", fields[0].Name)
-	assert.Equal(t, "pid", fields[0].Value)
-	assert.False(t, fields[0].Secret)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_ACCESS_TOKEN", fields[1].Name)
-	assert.Equal(t, "at", fields[1].Value)
-	assert.True(t, fields[1].Secret)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_WEBHOOK_SECRET", fields[2].Name)
-}
-
 func TestConnectionEnvFieldsUnknownKind(t *testing.T) {
 	assert.Nil(t, ConnectionEnvFields(nil, "bogus", "x"))
 }
@@ -280,9 +259,6 @@ func TestOverlayBot(t *testing.T) {
 	overlayBot(cfg, "SLACK_BOT_TOKEN", "s-bot")
 	overlayBot(cfg, "SLACK_APP_TOKEN", "s-app")
 	overlayBot(cfg, "SLACK_SIGNING_SECRET", "s-sign")
-	overlayBot(cfg, "WHATSAPP_PHONE_NUMBER_ID", "w-pid")
-	overlayBot(cfg, "WHATSAPP_ACCESS_TOKEN", "w-at")
-	overlayBot(cfg, "WHATSAPP_WEBHOOK_SECRET", "w-ws")
 
 	require.NotNil(t, cfg.BotConnections)
 	assert.Equal(t, "d-tok", cfg.BotConnections.Discord.BotToken)
@@ -290,9 +266,6 @@ func TestOverlayBot(t *testing.T) {
 	assert.Equal(t, "s-bot", cfg.BotConnections.Slack.BotToken)
 	assert.Equal(t, "s-app", cfg.BotConnections.Slack.AppToken)
 	assert.Equal(t, "s-sign", cfg.BotConnections.Slack.SigningSecret)
-	assert.Equal(t, "w-pid", cfg.BotConnections.WhatsApp.PhoneNumberID)
-	assert.Equal(t, "w-at", cfg.BotConnections.WhatsApp.AccessToken)
-	assert.Equal(t, "w-ws", cfg.BotConnections.WhatsApp.WebhookSecret)
 
 	// An unrecognized field is a no-op, not an error.
 	before := *cfg.BotConnections

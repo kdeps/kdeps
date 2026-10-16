@@ -185,48 +185,6 @@ timeout: 30s
 	}
 }
 
-func TestSQLConfigYAML(t *testing.T) {
-	yamlData := `
-connectionName: primary
-query: SELECT * FROM users WHERE id = $1
-params:
-  - 123
-transaction: true
-timeout: 10s
-maxRows: 100
-`
-
-	var config domain.SQLConfig
-	err := yaml.Unmarshal([]byte(yamlData), &config)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal YAML: %v", err)
-	}
-
-	if config.ConnectionName != "primary" {
-		t.Errorf(
-			"ConnectionName = %v, want %v",
-			config.ConnectionName,
-			"primary",
-		)
-	}
-
-	if config.Query != "SELECT * FROM users WHERE id = $1" {
-		t.Errorf("Query = %v, want expected query", config.Query)
-	}
-
-	if len(config.Params) != 1 {
-		t.Errorf("Params length = %v, want %v", len(config.Params), 1)
-	}
-
-	if !config.Transaction {
-		t.Error("Transaction should be true")
-	}
-
-	if config.MaxRows != 100 {
-		t.Errorf("MaxRows = %v, want %v", config.MaxRows, 100)
-	}
-}
-
 func TestPythonConfigYAML(t *testing.T) {
 	yamlData := `
 script: |
@@ -501,15 +459,6 @@ func TestHTTPTLSConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestSQLConfig_DecodeError covers the node.Decode error path in SQLConfig.UnmarshalYAML.
-func TestSQLConfig_DecodeError(t *testing.T) {
-	var cfg domain.SQLConfig
-	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
-	if err == nil {
-		t.Error("expected error when decoding scalar into SQLConfig")
-	}
-}
-
 // TestAPIResponseConfig_DecodeError covers the node.Decode error path in APIResponseConfig.UnmarshalYAML.
 func TestAPIResponseConfig_DecodeError(t *testing.T) {
 	var cfg domain.APIResponseConfig
@@ -648,17 +597,15 @@ chat:
   role: user
   prompt: test
 after:
-  - sql:
-      connectionName: local
-      query: INSERT INTO logs VALUES (?)
+  - exec:
+      command: echo logged
   - python:
       script: print('done')
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.After, 2)
-				assert.NotNil(t, resource.After[0].SQL)
-				assert.Equal(t, "local", resource.After[0].SQL.ConnectionName)
-				assert.Equal(t, "INSERT INTO logs VALUES (?)", resource.After[0].SQL.Query)
+				assert.NotNil(t, resource.After[0].Exec)
+				assert.Equal(t, "echo logged", resource.After[0].Exec.Command)
 				assert.NotNil(t, resource.After[1].Python)
 				assert.Equal(t, "print('done')", resource.After[1].Python.Script)
 				assert.NotNil(t, resource.Chat)
@@ -709,7 +656,6 @@ after:
 				require.Len(t, resource.After, 1)
 				assert.Nil(t, resource.Chat)
 				assert.Nil(t, resource.HTTPClient)
-				assert.Nil(t, resource.SQL)
 				assert.Nil(t, resource.Python)
 				assert.Nil(t, resource.Exec)
 			},
@@ -727,9 +673,11 @@ before:
   - httpClient:
       method: GET
       url: http://example.com
-  - sql:
-      connection: sqlite3://./db.sqlite
-      query: SELECT * FROM config
+  - component:
+      name: sql
+      with:
+        connectionName: local
+        query: SELECT * FROM config
   - python:
       script: print('setup')
   - exec:
@@ -744,7 +692,7 @@ chat:
 				assert.NotNil(t, resource.Before[0].Chat)
 				assert.Equal(t, "helper-model", resource.Before[0].Chat.Model)
 				assert.NotNil(t, resource.Before[1].HTTPClient)
-				assert.NotNil(t, resource.Before[2].SQL)
+				assert.Equal(t, "sql", resource.Before[2].Component.Name)
 				assert.NotNil(t, resource.Before[3].Python)
 				assert.NotNil(t, resource.Before[4].Exec)
 				assert.NotNil(t, resource.Chat)

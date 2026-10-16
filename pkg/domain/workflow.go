@@ -29,7 +29,7 @@ const (
 
 	// InputSourceAPI is the input source for API (HTTP) requests (default).
 	InputSourceAPI = "api"
-	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram, WhatsApp).
+	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram).
 	InputSourceBot = "bot"
 	// InputSourceFile is the input source for file content read from stdin or a file path.
 	InputSourceFile = "file"
@@ -133,14 +133,13 @@ type WorkflowSettings struct {
 	KeyFile  string `yaml:"keyFile,omitempty"`
 	// LetsEncrypt enables automatic TLS certificates for a custom domain via ACME (HTTP-01 / TLS-ALPN-01).
 	// When set, certFile/keyFile are ignored for the API and web servers.
-	LetsEncrypt    *LetsEncryptConfig       `yaml:"letsEncrypt,omitempty"`
-	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
-	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
-	AgentSettings  AgentSettings            `yaml:"agentSettings"`
-	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
-	Session        *SessionConfig           `yaml:"session,omitempty"`
-	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
-	LLM            *LLMInputConfig          `yaml:"llm,omitempty"            json:"llm,omitempty"`
+	LetsEncrypt   *LetsEncryptConfig `yaml:"letsEncrypt,omitempty"`
+	APIServer     *APIServerConfig   `yaml:"apiServer,omitempty"`
+	WebServer     *WebServerConfig   `yaml:"webServer,omitempty"`
+	AgentSettings AgentSettings      `yaml:"agentSettings"`
+	Session       *SessionConfig     `yaml:"session,omitempty"`
+	Input         *InputConfig       `yaml:"input,omitempty"       json:"input,omitempty"`
+	LLM           *LLMInputConfig    `yaml:"llm,omitempty"         json:"llm,omitempty"`
 }
 
 // LetsEncryptConfig configures automatic certificates from Let's Encrypt (or the LE staging CA).

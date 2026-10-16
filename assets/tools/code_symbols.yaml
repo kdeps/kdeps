@@ -1,0 +1,7 @@
+version: 1.0.0
+description: 'List all symbols (functions, types, classes) in a file. Returns structured symbol info with nesting. Requires: path.'
+parameters:
+  path:
+    type: string
+    description: File to extract symbols from (absolute path)
+    required: true

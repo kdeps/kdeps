@@ -80,7 +80,7 @@ fi
 
 # Test 2: Start server
 SERVER_LOG=$(mktemp)
-timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 PORT=3120

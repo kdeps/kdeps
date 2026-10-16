@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install run codeql codeql-db install-hooks harvest-llamafiles test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
+.PHONY: build desktop-build desktop-package test lint clean install run codeql codeql-db install-hooks harvest-llamafiles test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
 
 # Build variables
 VERSION ?= 2.0.0-dev
@@ -12,6 +12,42 @@ build:
 	@echo "Building kdeps v$(VERSION)..."
 	@go build $(LDFLAGS) -o kdeps main.go
 	@echo "✓ Build complete: ./kdeps"
+
+# Desktop app (desktop/ module, Wails). Needs a native toolchain: Xcode CLT on
+# macOS, libgtk-3-dev + libwebkit2gtk-4.1-dev on Linux, none extra on Windows.
+DESKTOP_OUT := dist/desktop
+DESKTOP_OS := $(shell uname -s)
+ifeq ($(DESKTOP_OS),Darwin)
+DESKTOP_TAGS := desktop,production
+# Match LSMinimumSystemVersion; otherwise clang stamps the host/SDK version as minos.
+# Flags (not MACOSX_DEPLOYMENT_TARGET) so the go build cache keys on them.
+export CGO_CFLAGS := -O2 -g -mmacosx-version-min=11.0
+export CGO_LDFLAGS := -framework UniformTypeIdentifiers -mmacosx-version-min=11.0
+else ifeq ($(DESKTOP_OS),Linux)
+DESKTOP_TAGS := desktop,production,webkit2_41
+else
+DESKTOP_TAGS := desktop,production
+endif
+DESKTOP_EXT := $(if $(findstring MINGW,$(DESKTOP_OS))$(findstring MSYS,$(DESKTOP_OS))$(findstring CYGWIN,$(DESKTOP_OS)),.exe,)
+
+# Build the desktop binary for this OS: dist/desktop/kdeps-desktop[.exe]
+desktop-build:
+	@echo "Building kdeps desktop v$(VERSION)..."
+	@mkdir -p $(DESKTOP_OUT)
+	@cd desktop && go build -tags $(DESKTOP_TAGS) -ldflags "-s -w" -o $(abspath $(DESKTOP_OUT))/kdeps-desktop$(DESKTOP_EXT) .
+	@echo "✓ Build complete: $(DESKTOP_OUT)/kdeps-desktop$(DESKTOP_EXT)"
+
+# Package it for distribution: .dmg (macOS), .tar.gz (Linux), .zip (Windows).
+desktop-package: desktop-build
+	@set -e; v="$(patsubst v%,%,$(VERSION))"; \
+	case "$(DESKTOP_OS)" in \
+	Darwin) desktop/packaging/macos/package.sh $(DESKTOP_OUT)/kdeps-desktop "$$v" $(DESKTOP_OUT) $(GOARCH) ;; \
+	Linux) a=$$(uname -m); f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_linux_$$a.tar.gz; \
+	  cp desktop/packaging/linux/kdeps-desktop.desktop desktop/packaging/linux/kdeps.png $(DESKTOP_OUT)/; \
+	  tar -C $(DESKTOP_OUT) -czf $$f kdeps-desktop kdeps-desktop.desktop kdeps.png; echo $$f ;; \
+	*) f=$(DESKTOP_OUT)/kdeps-desktop_$${v}_windows_amd64.zip; \
+	  (cd $(DESKTOP_OUT) && powershell -NoProfile -Command "Compress-Archive -Force -Path kdeps-desktop.exe -DestinationPath $$(basename $$f)" 2>/dev/null || zip -j $$(basename $$f) kdeps-desktop.exe); echo $$f ;; \
+	esac
 
 # Build for Linux (for Docker)
 build-linux:
@@ -339,7 +375,8 @@ deps:
 	@go mod download
 	@go mod tidy
 
-# Harvest llamafile registry from HuggingFace (requires huggingface_hub)
+# Harvest the llamafile + GGUF model registries (assets/models/) from
+# HuggingFace (requires huggingface_hub); a changed registry gets a version bump
 harvest-llamafiles:
 	@echo "Harvesting llamafile registry from HuggingFace..."
 	@test -x .venv-harvest/bin/python || python3 -m venv .venv-harvest

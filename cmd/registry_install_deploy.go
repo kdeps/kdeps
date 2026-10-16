@@ -61,6 +61,7 @@ func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, srcD
 	if manifest.Description != "" {
 		fmt.Fprintf(w, "  %s\n", manifest.Description)
 	}
+	printPackageTokens(w, destDir)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Next steps:")
 	fmt.Fprintf(w, "  Edit ~/.kdeps/config.yaml to set your LLM API keys\n")
@@ -112,14 +113,15 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, src
 	if manifest.Description != "" {
 		fmt.Fprintf(w, "  %s\n", manifest.Description)
 	}
+	printPackageTokens(w, destDir)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage in your workflow:")
 	fmt.Fprintln(w, "  component:")
 	fmt.Fprintf(w, "      name: %s\n", manifest.Name)
 	fmt.Fprintln(w, "      with:")
-	fmt.Fprintf(w, "        # see kdeps registry info %s for available inputs\n", manifest.Name)
+	fmt.Fprintf(w, "        # see kdeps info %s for available inputs\n", manifest.Name)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Documentation: kdeps registry info %s\n", manifest.Name)
+	fmt.Fprintf(w, "Documentation: kdeps info %s\n", manifest.Name)
 	return nil
 }
 

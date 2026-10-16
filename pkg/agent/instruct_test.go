@@ -39,7 +39,7 @@ func TestBuildInstruct_SingleTopic(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Contains(t, out, "## Memory bridge (critical)")
-	assert.Contains(t, out, "memory_search BEFORE every read")
+	assert.Contains(t, out, "memory_query (preferred")
 	assert.NotContains(t, out, "## How to call a tool")
 }
 
@@ -131,8 +131,8 @@ func TestCmdInstruct_UnknownTopic(t *testing.T) {
 }
 
 func TestInstructCommand_InBuiltinList(t *testing.T) {
-	assert.Contains(t, builtinCmds, "/instruct")
-	assert.Contains(t, builtinCmds, "/instruct!")
+	assert.Contains(t, commandNames(), "/instruct")
+	assert.Contains(t, commandNames(), "/instruct!")
 }
 
 // /instruct! sends the briefing as a real turn instead of appending it silently.

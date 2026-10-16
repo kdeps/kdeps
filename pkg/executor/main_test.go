@@ -35,9 +35,19 @@ func TestMain(m *testing.M) {
 		_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
 	}
 	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
+	// Session storage defaults to ~/.kdeps/sessions.db, which a running kdeps
+	// (CLI or desktop app) holds locked; use an empty home instead.
+	home, homeErr := os.MkdirTemp("", "kdeps-test-home")
+	if homeErr == nil {
+		_ = os.Setenv("HOME", home)
+		_ = os.Setenv("USERPROFILE", home)
+	}
 	code := m.Run()
 	if dir != "" {
 		_ = os.RemoveAll(dir)
+	}
+	if homeErr == nil {
+		_ = os.RemoveAll(home)
 	}
 	os.Exit(code)
 }

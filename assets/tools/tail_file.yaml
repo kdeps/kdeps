@@ -1,0 +1,11 @@
+version: 1.0.0
+category: file
+description: Read the last N lines of a file (default 20) -- for checking the end of a log or output file without knowing its total length upfront. Use as evidence that a command's output or a log ends the way a task claims it does.
+seeAlso: read_file, md5_file, list_files
+parameters:
+  file_path:
+    type: string
+    description: Absolute (or cwd-relative) path to the file. Omit to tail the file most recently accessed this session.
+  lines:
+    type: number
+    description: Number of lines from the end to return (default 20)

@@ -469,6 +469,9 @@ linters:
       # G101: schema validation uses URLs with "password" keyword in patterns (not actual credentials)
       - text: 'G101:'
         linters: [ gosec ]
+      # The desktop module is built against this checkout via a local replace.
+      - path: 'desktop/go\.mod'
+        linters: [ gomoddirectives ]
       # G117: APIKey, Password, AccessToken are legitimate domain struct field names, not secrets
       - text: 'G117:'
         linters: [ gosec ]

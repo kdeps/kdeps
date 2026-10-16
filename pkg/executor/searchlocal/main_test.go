@@ -25,7 +25,15 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Setenv("KDEPS_MEMORY_DB_PATH", ":memory:")
+	// Index and graph dbs go to a throwaway data dir, not ~/.kdeps/projects.
+	dataDir, err := os.MkdirTemp("", "kdeps-data")
+	if err == nil {
+		os.Setenv("KDEPS_DATA_DIR", dataDir)
+	}
 	code := m.Run()
+	if err == nil {
+		os.RemoveAll(dataDir)
+	}
 	os.Unsetenv("KDEPS_MEMORY_DB_PATH")
 	os.Exit(code)
 }

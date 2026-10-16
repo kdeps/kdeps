@@ -25,13 +25,14 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
-	"github.com/docker/docker/api/types/filters"
+	"github.com/moby/moby/client"
 )
 
 // TagImage tags a Docker image.
 func (c *Client) TagImage(ctx context.Context, sourceImage, targetImage string) error {
 	kdeps_debug.Log("enter: TagImage")
-	return c.Cli.ImageTag(ctx, sourceImage, targetImage)
+	_, err := c.Cli.ImageTag(ctx, client.ImageTagOptions{Source: sourceImage, Target: targetImage})
+	return err
 }
 
 // ImageSize returns the size of a Docker image in bytes.
@@ -53,13 +54,12 @@ func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error)
 // This is useful after builds to clean up intermediate images.
 func (c *Client) PruneDanglingImages(ctx context.Context) (uint64, error) {
 	kdeps_debug.Log("enter: PruneDanglingImages")
-	pruneFilters := filters.NewArgs()
-	pruneFilters.Add("dangling", "true")
+	pruneFilters := client.Filters{}.Add("dangling", "true")
 
-	report, err := c.Cli.ImagesPrune(ctx, pruneFilters)
+	result, err := c.Cli.ImagePrune(ctx, client.ImagePruneOptions{Filters: pruneFilters})
 	if err != nil {
 		return 0, fmt.Errorf("failed to prune dangling images: %w", err)
 	}
 
-	return report.SpaceReclaimed, nil
+	return result.Report.SpaceReclaimed, nil
 }

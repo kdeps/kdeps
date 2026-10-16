@@ -15,29 +15,6 @@ func (m *mockResourceExec) Execute(_ *ExecutionContext, _ interface{}) (interfac
 	return nil, nil
 }
 
-type mockFileExecutor struct{}
-
-func (m *mockFileExecutor) Execute(_ *ExecutionContext, _ interface{}) (interface{}, error) {
-	return nil, nil
-}
-
-func TestSetGetFileExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockFileExecutor{}
-	reg.SetFileExecutor(exec)
-	got := reg.GetFileExecutor()
-	if got == nil {
-		t.Fatal("expected non-nil executor")
-	}
-}
-
-func TestSetGetGitExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetGitExecutor(exec)
-	assert.NotNil(t, reg.GetGitExecutor())
-}
-
 func TestSetGetCodeIntelligenceExecutor(t *testing.T) {
 	reg := NewRegistry()
 	exec := &mockResourceExec{}
@@ -59,18 +36,6 @@ func TestSetGetVectorStoreExecutor(t *testing.T) {
 	assert.NotNil(t, reg.GetVectorStoreExecutor())
 }
 
-func TestSetGetTranscribeExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetTranscribeExecutor(exec)
-	assert.NotNil(t, reg.GetTranscribeExecutor())
-}
-
-func TestGetGitExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetGitExecutor())
-}
-
 func TestGetLoaderExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetLoaderExecutor())
@@ -81,24 +46,7 @@ func TestGetVectorStoreExecutor_Nil(t *testing.T) {
 	assert.Nil(t, reg.GetVectorStoreExecutor())
 }
 
-func TestGetTranscribeExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetTranscribeExecutor())
-}
-
 func TestGetCodeIntelligenceExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetCodeIntelligenceExecutor())
-}
-
-func TestGetOCRExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetOCRExecutor())
-}
-
-func TestSetOCRExecutor_ThenGet(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetOCRExecutor(exec)
-	assert.Same(t, exec, reg.GetOCRExecutor())
 }

@@ -67,10 +67,12 @@ httpClient:
 	sqlResource := `actionId: store-data
 name: Store Data
 requires: ["fetch-data"]
-sql:
-  connectionName: "default"
-  query: "INSERT INTO data (content) VALUES (?)"
-  params: ["{{fetch-data.response}}"]
+component:
+  name: sql
+  with:
+    connectionName: "default"
+    query: "INSERT INTO data (content) VALUES (?)"
+    params: ["{{fetch-data.response}}"]
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "store-data.yaml"), []byte(sqlResource), 0644)
@@ -128,8 +130,6 @@ settings:
     pythonPackages:
       - requests
       - pandas
-  sqlConnections:
-    default: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -156,7 +156,6 @@ settings:
 	assert.Equal(t, "3.12", workflow.Settings.AgentSettings.PythonVersion)
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "requests")
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "pandas")
-	assert.Contains(t, workflow.Settings.SQLConnections, "default")
 
 	// Verify resources were loaded (should be 4 resources)
 	assert.Len(t, workflow.Resources, 4)
@@ -178,7 +177,7 @@ settings:
 	require.True(t, exists)
 	assert.Equal(t, "Store Data", sqlRes.Name)
 	assert.Contains(t, sqlRes.Requires, "fetch-data")
-	assert.NotNil(t, sqlRes.SQL)
+	assert.NotNil(t, sqlRes.Component)
 
 	// Verify Python resource
 	pythonRes, exists := resourceMap["process-data"]
@@ -328,11 +327,13 @@ httpClient:
 
 		"sql-resource.yaml": `actionId: sql-test
 name: SQL Test
-sql:
-  connectionName: "testdb"
-  query: "SELECT * FROM users WHERE id = ?"
-  params: ["123"]
-  format: "json"
+component:
+  name: sql
+  with:
+    connectionName: "testdb"
+    query: "SELECT * FROM users WHERE id = ?"
+    params: ["123"]
+    format: "json"
 `,
 
 		"python-resource.yaml": `actionId: python-test
@@ -376,8 +377,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  sqlConnections:
-    testdb: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -401,7 +400,7 @@ settings:
 
 	// Verify each resource type
 	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
-	assert.NotNil(t, resourceMap["sql-test"].SQL)
+	assert.Equal(t, "sql", resourceMap["sql-test"].Component.Name)
 	assert.NotNil(t, resourceMap["python-test"].Python)
 	assert.NotNil(t, resourceMap["exec-test"].Exec)
 	assert.NotNil(t, resourceMap["response-test"].APIResponse)
@@ -414,8 +413,8 @@ settings:
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
-	assert.Contains(t, sqlRes.SQL.Query, "SELECT")
-	assert.Contains(t, sqlRes.SQL.Params, "123")
+	assert.Contains(t, sqlRes.Component.With["query"], "SELECT")
+	assert.Equal(t, []interface{}{"123"}, sqlRes.Component.With["params"])
 
 	// Verify Python resource has script
 	pythonRes := resourceMap["python-test"]
@@ -501,5 +500,33 @@ settings:
 			assert.Equal(t, "helper-agent", res.Agent.Name)
 			assert.Equal(t, "hello", res.Agent.Params["query"])
 		}
+	}
+}
+
+// A workflow that still declares a removed or unknown settings key fails to
+// parse, naming the key, instead of the setting being silently ignored.
+func TestWorkflowValidationIntegration_RejectsUnknownSettings(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	yamlParser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	for _, key := range []string{"sqlConnections", "apiServerMode"} {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o755))
+		wf := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: strict-settings
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  ` + key + `:
+    main: {}
+`
+		path := filepath.Join(dir, "workflow.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(wf), 0o600))
+		_, parseErr := yamlParser.ParseWorkflow(path)
+		require.Error(t, parseErr, key)
+		assert.Contains(t, parseErr.Error(), key)
 	}
 }

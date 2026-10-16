@@ -1,0 +1,17 @@
+version: 1.0.0
+name: judges
+order: 250
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: "Show the configured judge panel (reviews each turn's final output)"
+  - args: "add <name> <criteria>"
+    help: Add a judge to the explicit roster
+  - args: "remove <name>"
+    help: Remove a judge from the explicit roster
+  - args: "auto [on|off]"
+    help: Show or toggle a per-turn auto-generated roster
+  - args: clear
+    help: Disable the judge panel entirely

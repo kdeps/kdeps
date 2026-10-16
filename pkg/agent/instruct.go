@@ -90,10 +90,12 @@ tool. You never write a <tool_response>; the runtime returns results, you only
 make calls.`
 
 const instructMemoryBody = `kdeps can switch the LLM model between turns. Persistent memory is the ONLY
-state that survives a switch. Call memory_search BEFORE every read, edit, or
-write to check whether prior work already produced what you need; call
-memory_save to record decisions and progress. The memory graph and recent
-keys are already in the prompt. There is no memory_list tool.
+state that survives a switch. Call memory_query (preferred: a relational lookup
+over memory, tool calls and tasks) when the task refers to earlier work, when a
+fact is not already in the prompt, or on your first turn after a switch. Use
+memory_search only for a fuzzy text match. Call memory_save (or write
+[MEMORY: key] value) to record decisions and progress. The memory graph and
+recent keys are already in the prompt. There is no memory_list tool.
 Memory entries are permanent: write them for a future session, not this turn.`
 
 const instructGoalsBody = `When a goal is active the turn is a task list a cursor walks forward through --
@@ -106,9 +108,9 @@ default.`
 const instructFeedbackBody = `Every "[kdeps] ..." system note and every {"error": ...} result is feedback --
 read it and change what you do next. A step is not done until its tool returned
 a real success; a "[TOOL FAILED]" banner means nothing changed, so retry it or
-say plainly that it failed. Convergence: after 3 web searches or scrapes on a
-topic, all further web calls are BLOCKED for the whole session -- that means
-STOP and answer from what you already have, not retry with new queries.`
+say plainly that it failed. Convergence: when a web call comes back BLOCKED
+because the per-request web-call limit was reached, STOP and answer from what
+you already have, not retry with new queries.`
 
 const instructFilesBody = `The working directory is a real, live filesystem -- the files named in the task
 are present right now. Always read a file before editing it. Put temporary

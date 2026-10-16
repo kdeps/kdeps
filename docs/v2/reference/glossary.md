@@ -11,27 +11,27 @@ mode and agent mode.
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
-| `browser` | A resource action type for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/workflow/resources/browser) |
+| `browser` | A kdeps component (`component: browser`) for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/workflow/resources/browser) |
 | `chat` | A resource action type for LLM chat completion. Sends a prompt and returns the response. The most common action type. | [LLM (chat)](/workflow/resources/llm) |
 | <a id="check"></a>`check` | A list of boolean expressions in `validations.check`. All must be true or the resource fails and the workflow stops. | [Validation and control flow](/workflow/validation) |
 | `codeIntelligence` | A resource action type for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics. | [Code intelligence](/workflow/resources/code-navigation) |
 | <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/agencies/components) |
 | `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/agencies/components) |
 | <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/start/why-kdeps#deterministic-by-design) |
-| `embedding` | A resource action type for a local SQLite keyword store: index, search, upsert, delete. Matching is SQL `LIKE`, not vector similarity. For OpenAI vector embeddings, `kdeps registry install embedding`. | [Embedding](/workflow/resources/embedding) |
+| `embedding` | A resource action type for a local SQLite keyword store: index, search, upsert, delete. Matching is SQL `LIKE`, not vector similarity. For OpenAI vector embeddings, `kdeps install embedding`. | [Embedding](/workflow/resources/embedding) |
 | `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/workflow/resources/exec) |
 | expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/workflow/expressions) |
 | `file()` | An expression function that reads uploaded or local files. Takes a glob pattern and an optional selector (`first`, `last`, `count`, `all`, `mime:<type>`). | [Unified API](/workflow/data-access) |
-| `file` (resource) | A resource action type for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/workflow/resources/file) |
+| `file` | A kdeps component (`component: file`) for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/workflow/resources/file) |
 | `get()` | The primary data access function. Reads from query params, headers, body, session, memory, environment, or resource outputs, with auto-detection. | [Unified API](/workflow/data-access) |
-| `git` | A resource action type for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
+| `git` | A kdeps component (`component: git`) for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
 | `httpClient` | A resource action type for HTTP requests. Supports all methods, headers, query params, body, retry, and caching. | [HTTP client](/workflow/resources/http-client) |
 | `info()` | An expression function that returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`. | [Unified API](/workflow/data-access) |
 | `items` | An array a resource iterates over. The resource runs once per item. Access the current item via `item.current()` or `get('current')`. | [Items iteration](/workflow/items) |
 | `jsonResponse` | A boolean field on `chat` resources. When true, forces the LLM to return valid JSON with no markdown wrapping. | [LLM (chat)](/workflow/resources/llm) |
 | <a id="loop"></a>`loop` | A while-loop on a resource. The body runs while the `while` expression is true, up to `maxIterations`. `every:` turns it into a scheduled ticker. | [While-loop iteration](/workflow/loop) |
 | memory (expression) | Request-scoped key/value storage. Set with `set('key', value, 'memory')`; read with `get('key', 'memory')`. Cleared when the request completes. | [Session and memory](/workflow/sessions) |
-| memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_query`. The graph is injected into the prompt. Workflow resources can still call `memory_list()`. | [Persistent memory](/agent/memory) |
+| memory (persistent) | Project-scoped storage for the agent loop, kept as markdown notes in the knowledge vault, that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_query`. The graph is injected into the prompt. Workflow resources can still call `memory_list()`. | [Persistent memory](/agent/memory) |
 | memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Memory internals](/agent/memory-internals#memory-graph) |
 | `output()` | An expression function that reads the output of a completed resource by its `actionId`. | [Unified API](/workflow/data-access) |
 | <a id="probabilistic"></a>probabilistic | The same prompt can produce different output on each call. Every language model - Claude, GPT, Gemini, Groq, Ollama, local llamafile / GGUF - is probabilistic. A kdeps `chat:` resource inherits this; the pipeline around it stays [deterministic](#deterministic). | [LLM provider reference](/llm-server/providers) |
@@ -39,17 +39,17 @@ mode and agent mode.
 | <a id="requires"></a>`requires` | A list of `actionId`s that must complete before this resource runs. Defines the DAG edges. Transitive dependencies resolve automatically. | [Execution flow](/workflow/execution-flow) |
 | resource | The fundamental building block of a workflow: an `actionId`, a primary action type, optional `requires`, and optional validations, loop, and error handling. | [Resources overview](/workflow/resources) |
 | scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
-| `scraper` | A resource action type for web scraping. Extracts structured data from HTML using CSS selectors. | [Scraper](/workflow/resources/scraper) |
+| `scraper` | A kdeps component (`component: scraper`) that fetches a page and returns its text, optionally narrowed by a CSS selector. | [Scraper](/workflow/resources/scraper) |
 | `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/workflow/resources/search-local) |
-| `searchWeb` | A resource action type for web search via configured search APIs. | [searchWeb](/workflow/resources/search-web) |
+| `searchWeb` | A kdeps component (`component: searchWeb`) for web search: DuckDuckGo, Brave, Bing, Tavily. | [searchWeb](/workflow/resources/search-web) |
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/workflow/data-access) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/workflow/validation) |
-| `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
+| `sql` | A kdeps component (`component: sql`) for SQL against PostgreSQL, MySQL, SQLite, SQL Server or Oracle. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
-| <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl#themes) |
-| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Tools](/workflow/tools) |
+| <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl-themes#themes) |
+| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
 | <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/workflow/validation) |
 | workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/workflow/configuration) |
 

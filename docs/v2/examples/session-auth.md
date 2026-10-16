@@ -1,38 +1,13 @@
 # Add login and sessions to an API
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API with two endpoints: `POST /login` checks a
+Build an API with two endpoints: `POST /login` checks a
 username and password and starts a session; `GET /session` returns the session
 data but only for a logged-in caller. Session state persists in SQLite.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- Basic Python
-- How cookies and sessions work at a high level
-
-By the end you will be able to:
-
-- Configure SQLite-backed sessions with a TTL
-- Write session values with `set(key, value, 'session')`
-- Read them with `get(key, 'session')`
-- Gate a resource on a session value with `validations.check`
-
-## Background
 
 A session is per-caller key/value storage that survives across requests. kdeps
 issues a session id automatically and tracks it with a cookie. With
 `session.type: sqlite`, session data is written to a file, so it survives a
 server restart.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A working directory for the project.
 
 ## Step 1: create the project
 
@@ -68,7 +43,7 @@ settings:
     pythonVersion: "3.12"
   session:
     type: sqlite                 # persist to a file
-    path: .kdeps/sessions.db     # relative to the workflow directory
+    # no path: the db is ~/.kdeps/sessions.db, outside the project and its git history
     ttl: 30m                     # session expires 30 minutes after last use
     cleanupInterval: 5m          # sweep expired sessions every 5 minutes
 ```
@@ -185,6 +160,10 @@ curl -c cookies.txt -X POST http://localhost:16395/api/v1/login \
   -d '{"username": "admin", "password": "secret"}'
 ```
 
+```json
+{"success": true, "data": {"endpoint": "/api/v1/login", "user_id": "admin"}}
+```
+
 Call the guarded endpoint with the cookie:
 
 ```bash
@@ -192,16 +171,15 @@ curl -b cookies.txt http://localhost:16395/api/v1/session \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
 ```
 
-Without the cookie the same call returns `401 not logged in`.
+```json
+{"success": true, "data": {"endpoint": "/api/v1/session", "user_id": "admin"}}
+```
 
-## Summary
+Without the cookie the same call returns HTTP 401:
 
-You built an API that:
-
-- Persists sessions to SQLite with a 30-minute TTL
-- Writes session values in an `after:` block with `set(..., 'session')`
-- Reads them with `get(..., 'session')` and `session()`
-- Blocks unauthenticated calls with a `validations.check` on a session value
+```json
+{"success": false, "error": {"code": "PREFLIGHT_FAILED", "message": "not logged in"}}
+```
 
 ## Next steps
 

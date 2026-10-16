@@ -1,0 +1,45 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: ocr
+  description: Extract text from an image with the tesseract CLI
+  version: "1.0.2"
+  targetActionId: ocrText
+setup:
+  osPackages:
+    - tesseract-ocr          # kdeps build installs it in the image
+  provides:
+    - tesseract              # already on PATH: no package manager runs
+interface:
+  inputs:
+    - name: file
+      type: string
+      required: true
+      description: Path to the image (png, jpg, tiff, bmp, gif). PDFs with a text layer go through the loader resource instead.
+    - name: language
+      type: string
+      default: eng
+      description: tesseract -l value, e.g. eng or eng+fra
+    - name: psm
+      type: integer
+      default: 3
+      description: tesseract --psm page segmentation mode (3 = fully automatic)
+    - name: oem
+      type: integer
+      default: 3
+      description: tesseract --oem engine mode (3 = whatever is available)
+resources:
+  - actionId: ocrText
+    name: OCR
+    exec:
+      command: tesseract
+      args:
+        - "{{ get('ocr.file') }}"
+        - stdout              # write the text to stdout: the result's stdout
+        - "-l"
+        - "{{ get('ocr.language') }}"
+        - "--psm"
+        - "{{ get('ocr.psm') }}"
+        - "--oem"
+        - "{{ get('ocr.oem') }}"
+      timeout: 60s

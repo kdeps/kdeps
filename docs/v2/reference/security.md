@@ -150,7 +150,7 @@ settings:
 
 ### Let's encrypt (custom domain)
 
-Automatic ACME certificates for a **custom domain** (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen **:443**.
+Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen :443.
 
 ```yaml
 # workflow.yaml
@@ -171,9 +171,9 @@ settings:
         methods: [POST]
 ```
 
-If both `certFile`/`keyFile` and `letsEncrypt` are set, **static PEM wins**. The same settings apply to **webServer** when enabled.
+If both `certFile`/`keyFile` and `letsEncrypt` are set, static PEM wins. The same settings apply to webServer when enabled.
 
-Docker/K8s: publish **80** and **443**; keep `cacheDir` on a writable volume.
+Docker/K8s: publish 80 and 443; keep `cacheDir` on a writable volume.
 
 Full guide: [TLS and HTTPS (Custom Domains)](/deploy/tls-https).
 

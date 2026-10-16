@@ -1,0 +1,8 @@
+version: 1.0.0
+category: file
+description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed -- pair both hashes as evidence for task_complete rather than asserting the change happened.
+seeAlso: read_file, tail_file, list_files
+parameters:
+  file_path:
+    type: string
+    description: Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.

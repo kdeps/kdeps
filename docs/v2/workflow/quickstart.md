@@ -2,7 +2,7 @@
 
 Build a two-resource LLM API in [workflow mode](/workflow/), then load the same file as a tool in [agent mode](/agent/).
 
-*Applies to both workflow mode and agent mode. New to kdeps? Read [What is kdeps?](/start/) first.*
+Works in workflow and agent mode.
 
 ## The mental model
 
@@ -152,7 +152,7 @@ direction: down
 A: "POST /api/v1/chat\n{\"q\": \"What is entropy?\"}" {shape: oval}
 B: "resource: llm\nvalidates get('q') != ''; calls llama3.2:1b"
 C: "resource: response\nrequires: [llm]; reads get('llm').message.content"
-D: "{\"success\": true, \"response\": {\"answer\": \"...\"}}" {shape: oval}
+D: "{\"success\": true, \"data\": {\"answer\": \"...\"}}" {shape: oval}
 
 A -> B
 B -> C: "output stored as get('llm')"

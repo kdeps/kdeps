@@ -94,9 +94,10 @@ func TestListGGUFMappings_NonEmpty(t *testing.T) {
 }
 
 func TestGGUFRegistryVersion(t *testing.T) {
-	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	assert.Equal(t, 1, GGUFRegistryVersion())
+	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir()) // no downloaded registry: the source one is used
+	ReloadGGUFRegistry()
+	assert.Equal(t, stockModelsVersion(t, ggufRegistryItem), GGUFRegistryVersion())
 }
 
 func TestGGUFRegistry_LocalOverride(t *testing.T) {

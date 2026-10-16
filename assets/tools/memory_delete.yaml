@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Delete a memory entry by key. Use to remove outdated or incorrect facts from persistent memory.
+parameters:
+  key:
+    type: string
+    description: Key of the memory entry to delete
+    required: true

@@ -24,50 +24,24 @@ package executor
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
 func (r *Registry) SetHTTPExecutor(exec ResourceExecutor)   { r.Register(ExecutorHTTP, exec) }
-func (r *Registry) SetSQLExecutor(exec ResourceExecutor)    { r.Register(ExecutorSQL, exec) }
 func (r *Registry) SetPythonExecutor(exec ResourceExecutor) { r.Register(ExecutorPython, exec) }
 func (r *Registry) SetExecExecutor(exec ResourceExecutor)   { r.Register(ExecutorExec, exec) }
 
 func (r *Registry) GetLLMExecutor() ResourceExecutor    { return r.getExecutor(ExecutorLLM) }
 func (r *Registry) GetHTTPExecutor() ResourceExecutor   { return r.getExecutor(ExecutorHTTP) }
-func (r *Registry) GetSQLExecutor() ResourceExecutor    { return r.getExecutor(ExecutorSQL) }
 func (r *Registry) GetPythonExecutor() ResourceExecutor { return r.getExecutor(ExecutorPython) }
 func (r *Registry) GetExecExecutor() ResourceExecutor   { return r.getExecutor(ExecutorExec) }
 
-func (r *Registry) SetScraperExecutor(exec ResourceExecutor)   { r.Register(ExecutorScraper, exec) }
 func (r *Registry) SetEmbeddingExecutor(exec ResourceExecutor) { r.Register(ExecutorEmbedding, exec) }
 func (r *Registry) SetSearchLocalExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorSearchLocal, exec)
 }
 
-func (r *Registry) GetScraperExecutor() ResourceExecutor   { return r.getExecutor(ExecutorScraper) }
 func (r *Registry) GetEmbeddingExecutor() ResourceExecutor { return r.getExecutor(ExecutorEmbedding) }
 func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorSearchLocal)
 }
 
-func (r *Registry) SetSearchWebExecutor(exec ResourceExecutor) { r.Register(ExecutorSearchWeb, exec) }
-func (r *Registry) GetSearchWebExecutor() ResourceExecutor     { return r.getExecutor(ExecutorSearchWeb) }
-
-func (r *Registry) SetTelephonyExecutor(exec ResourceExecutor) {
-	r.Register(ExecutorTelephony, exec)
-}
-func (r *Registry) GetTelephonyExecutor() ResourceExecutor { return r.getExecutor(ExecutorTelephony) }
-
-func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
-func (r *Registry) GetBrowserExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBrowser) }
-
-func (r *Registry) SetBotReplyExecutor(exec ResourceExecutor) { r.Register(ExecutorBotReply, exec) }
-func (r *Registry) GetBotReplyExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBotReply) }
-
-func (r *Registry) SetEmailExecutor(exec ResourceExecutor) { r.Register(ExecutorEmail, exec) }
-func (r *Registry) GetEmailExecutor() ResourceExecutor     { return r.getExecutor(ExecutorEmail) }
-
-func (r *Registry) SetFileExecutor(exec ResourceExecutor) { r.Register(ExecutorFile, exec) }
-func (r *Registry) GetFileExecutor() ResourceExecutor     { return r.getExecutor(ExecutorFile) }
-
-func (r *Registry) SetGitExecutor(exec ResourceExecutor) { r.Register(ExecutorGit, exec) }
-func (r *Registry) GetGitExecutor() ResourceExecutor     { return r.getExecutor(ExecutorGit) }
 func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorCodeIntel, exec)
 }
@@ -83,18 +57,4 @@ func (r *Registry) SetVectorStoreExecutor(exec ResourceExecutor) {
 }
 func (r *Registry) GetVectorStoreExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorVectorStore)
-}
-
-func (r *Registry) SetTranscribeExecutor(exec ResourceExecutor) {
-	r.Register(ExecutorTranscribe, exec)
-}
-func (r *Registry) GetTranscribeExecutor() ResourceExecutor {
-	return r.getExecutor(ExecutorTranscribe)
-}
-
-func (r *Registry) SetOCRExecutor(exec ResourceExecutor) {
-	r.Register(ExecutorOCR, exec)
-}
-func (r *Registry) GetOCRExecutor() ResourceExecutor {
-	return r.getExecutor(ExecutorOCR)
 }

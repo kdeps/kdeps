@@ -49,3 +49,38 @@ func TestInjectComponentInputs_InterpolatesWithValues(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "static", plain)
 }
+
+// Lists and maps reach the component as lists and maps (type: array and
+// type: object inputs), with the strings inside them interpolated and other
+// values unchanged; a top-level scalar stays a string.
+func TestInjectComponentInputs_KeepsListsAndMaps(t *testing.T) {
+	e := NewEngine(slog.Default())
+	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+	require.NoError(t, ctx.Set("who", "bob@example.com"))
+	require.NoError(t, ctx.Set("n", 10))
+
+	e.injectComponentInputs(map[string]interface{}{
+		"params": []interface{}{"{{ get('n') }}", "x {{ get('n') }}"},
+		"to":     []interface{}{"{{ get('who') }}", "ann@example.com", 3},
+		"search": map[string]interface{}{"subject": "{{ get('who') }}", "unseen": true},
+		"limit":  10,
+		"html":   false,
+	}, "caller", "comp", ctx)
+
+	to, err := ctx.Get("comp.to")
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{"bob@example.com", "ann@example.com", float64(3)}, to)
+	search, err := ctx.Get("comp.search")
+	require.NoError(t, err)
+	require.Equal(t, map[string]interface{}{"subject": "bob@example.com", "unseen": true}, search)
+	params, err := ctx.Get("comp.params")
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{float64(10), "x 10"}, params, "a lone expression keeps its type")
+	limit, err := ctx.Get("comp.limit")
+	require.NoError(t, err)
+	require.Equal(t, "10", limit)
+	html, err := ctx.Get("comp.html")
+	require.NoError(t, err)
+	require.Equal(t, "false", html)
+}

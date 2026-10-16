@@ -1,0 +1,85 @@
+version: 1.0.0
+category: code
+description: |-
+  Edit a file. Pass command:
+  - view: show the file, or the view_range [start,end] (1-based, -1 = end), or the region around an anchor string or a named symbol (context_before/context_after lines, default 20), with line numbers.
+  - str_replace: replace old_str with new_str. old_str MUST match the file byte-for-byte (indentation and all) and appear EXACTLY ONCE - copy it from a view or read_file, or pass occurrence to pick one of several matches. Instead of old_str you can pass start_anchor/end_anchor to replace everything between two unique anchor strings. No fuzzy matching.
+  - insert: insert new_str after line insert_line (0 = before the first line), or pass insert_before_anchor/insert_after_anchor instead of a line number.
+  - patch: apply a standard unified diff (one or more @@ hunks) atomically. Each hunk's context+removed lines must match the file byte-for-byte and appear exactly once.
+  - replace_symbol: replace a whole function/type/class/etc. by symbol name with new_str. The symbol must be declared exactly once in the file; its extent (where the block ends) is found lexically (brace depth or indentation), not with a language parser.
+  - undo_edit: revert the last mutation on this file.
+  str_replace, insert, patch, and replace_symbol require that you have read the file this turn, and return a numbered snippet of the changed region plus the file's new revision. Pass revision (from a prior view/edit) to reject the edit if the file changed since you read it. Pass dry_run to preview the result without writing. Pass validate_syntax to reject a result that fails a syntax check instead of writing it. Absolute path required.
+constraints: read the file this turn before str_replace/insert/patch/replace_symbol; old_str must be byte-exact and unique unless occurrence is given (add surrounding lines to disambiguate instead); replace_symbol's extent detection is lexical, not a parser - an ambiguous or unrecognized declaration errors rather than guessing; validate_syntax runs before any write, so a rejected edit is never written, never needing an undo
+outputFormat: numbered snippet of the edited region plus its revision
+seeAlso: read_file, write_file
+parameters:
+  anchor:
+    type: string
+    description: 'view: show the region around this unique string instead of a line range'
+  command:
+    type: string
+    description: view | str_replace | insert | patch | replace_symbol | undo_edit
+    required: true
+    enum:
+      - view
+      - str_replace
+      - insert
+      - patch
+      - replace_symbol
+      - undo_edit
+  context_after:
+    type: number
+    description: 'view: lines of context after an anchor match (default 20)'
+  context_before:
+    type: number
+    description: 'view: lines of context before an anchor match (default 20)'
+  dry_run:
+    type: boolean
+    description: 'str_replace/insert/patch/replace_symbol: preview the result (diff + would-be revision) without writing the file'
+  end_anchor:
+    type: string
+    description: 'str_replace: the end of the start_anchor/end_anchor range. Required with start_anchor.'
+  file_path:
+    type: string
+    description: Absolute path to the file
+    required: true
+  insert_after_anchor:
+    type: string
+    description: 'insert: insert new_str directly after this unique string''s line, instead of passing insert_line'
+  insert_before_anchor:
+    type: string
+    description: 'insert: insert new_str directly before this unique string''s line, instead of passing insert_line'
+  insert_line:
+    type: number
+    description: 'insert: line number to insert after (0 = top of file)'
+  new_str:
+    type: string
+    description: 'str_replace: the replacement text. insert: the text to insert.'
+  occurrence:
+    type: number
+    description: 'str_replace: 1-based index of which match to replace when old_str is not unique (see the error''s line list)'
+  old_str:
+    type: string
+    description: 'str_replace: the exact current text to replace (byte-for-byte, unique in the file)'
+  patch:
+    type: string
+    description: 'patch: a unified diff with one or more @@ hunks. Each hunk''s context and removed lines must match the file byte-for-byte and appear exactly once.'
+  revision:
+    type: string
+    description: 'str_replace/insert/patch/replace_symbol: the file''s revision from your last view/edit of it. If the file changed since then, the edit is rejected instead of silently overwriting the change.'
+  start_anchor:
+    type: string
+    description: 'str_replace: replace from start_anchor through end_anchor (inclusive) instead of passing the whole block as old_str. Must be unique in the file.'
+  symbol:
+    type: string
+    description: 'view/replace_symbol: a function/type/class/etc. name. Its extent is found lexically (brace depth or indentation) - must be declared exactly once in the file.'
+  symbol_kind:
+    type: string
+    description: 'view/replace_symbol: narrow which declaration keywords count as a match, e.g. "function" or "type" - only useful when a function and a type share a name'
+  validate_syntax:
+    type: boolean
+    description: 'str_replace/insert/patch/replace_symbol: reject the edit (nothing is written) if the resulting file fails a syntax check. Real parsing for .go/.json/.yaml/.yml; a balanced-delimiter check for other common source files; a no-op for unrecognized file types.'
+  view_range:
+    type: array
+    description: 'view: [start, end] 1-based inclusive line range; end -1 reads to the end of the file'
+    itemsType: number

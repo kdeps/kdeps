@@ -97,6 +97,9 @@ func (e *Executor) prepareRequestBody(
 	headers map[string]string,
 ) (io.Reader, map[string]string, error) {
 	kdeps_debug.Log("enter: prepareRequestBody")
+	if len(config.Files) > 0 {
+		return e.prepareMultipartBody(evaluator, ctx, config, headers)
+	}
 	if config.Data == nil {
 		return nil, headers, nil
 	}
@@ -136,4 +139,40 @@ func (e *Executor) createRequest(
 	}
 
 	return req, client, nil
+}
+
+// prepareMultipartBody builds a multipart/form-data body from config.Files
+// (field -> file path) and config.Data's entries (text fields).
+func (e *Executor) prepareMultipartBody(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPClientConfig,
+	headers map[string]string,
+) (io.Reader, map[string]string, error) {
+	var fields map[string]interface{}
+	if config.Data != nil {
+		data, err := e.evaluateData(evaluator, ctx, config.Data)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to evaluate form fields: %w", err)
+		}
+		m, ok := data.(map[string]interface{})
+		if !ok {
+			return nil, nil, errors.New("data must be a map of form fields when files is set")
+		}
+		fields = m
+	}
+	files := make(map[string]string, len(config.Files))
+	for field, p := range config.Files {
+		path, err := e.evaluateStringOrLiteral(evaluator, ctx, p)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to evaluate file for %s: %w", field, err)
+		}
+		files[field] = path
+	}
+	body, contentType, err := encodeMultipartBody(fields, files)
+	if err != nil {
+		return nil, nil, err
+	}
+	headers["Content-Type"] = contentType
+	return body, headers, nil
 }

@@ -104,14 +104,6 @@ func (e *Engine) executeHTTP(resource *domain.Resource, ctx *ExecutionContext) (
 	)
 }
 
-// executeSQL executes a SQL resource.
-func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "SQL", resource.SQL,
-		e.registry.GetSQLExecutor, "SQL", "executeSQL", ctx,
-	)
-}
-
 // executePython executes a Python resource.
 func (e *Engine) executePython(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(
@@ -125,39 +117,6 @@ func (e *Engine) executeExec(resource *domain.Resource, ctx *ExecutionContext) (
 	return e.executeRegisteredResource(
 		resource, "exec", resource.Exec,
 		e.registry.GetExecExecutor, "exec", "executeExec", ctx,
-	)
-}
-
-// executeEmail executes an email resource.
-func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "email", resource.Email,
-		e.registry.GetEmailExecutor, "email", "executeEmail", ctx,
-	)
-}
-
-// executeBotReply executes a botReply resource, sending the reply text to the
-// originating bot platform via the BotSend function set on the execution context.
-func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "botReply", resource.BotReply,
-		e.registry.GetBotReplyExecutor, "botReply", "executeBotReply", ctx,
-	)
-}
-
-// executeFile executes a file resource.
-func (e *Engine) executeFile(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "file", resource.File,
-		e.registry.GetFileExecutor, "file", "executeFile", ctx,
-	)
-}
-
-// executeGit executes a git resource.
-func (e *Engine) executeGit(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "git", resource.Git,
-		e.registry.GetGitExecutor, "git", "executeGit", ctx,
 	)
 }
 

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -44,57 +43,19 @@ func (l *Loop) registerGoalTools() {
 	}
 	l.goalToolsRegistered = true
 
-	l.registry.Register(&kdepstools.Tool{
+	l.registry.Register(definedAs("goal_task_complete", &kdepstools.Tool{
 		Name: toolNameTaskComplete,
-		Description: "Mark the ACTIVE task finished and advance to the next one. " +
-			"Call this as soon as the active task's objective is met. " +
-			"Pass the active task's id and a one-line summary of what was achieved.",
-		Parameters: map[string]domain.ToolParam{
-			"id": {
-				Type:        "integer",
-				Description: "The id of the active task being completed",
-				Required:    true,
-			},
-			"summary": {
-				Type:        toolParamString,
-				Description: "One line describing what was accomplished",
-				Required:    true,
-			},
-			"evidence": {
-				Type: toolParamString,
-				Description: "What verification was run and what it showed " +
-					"(e.g. 'ran go test ./pkg/foo, 12 passed', 'diffed output.txt " +
-					"before/after, matches expected'). Required when this task made " +
-					"tool calls; omit for a pure-reasoning task with nothing to verify.",
-				Required: false,
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			return l.settleTask(args, GoalTaskDone)
 		},
-	})
+	}))
 
-	l.registry.Register(&kdepstools.Tool{
+	l.registry.Register(definedAs("goal_task_fail", &kdepstools.Tool{
 		Name: toolNameTaskFail,
-		Description: "Give up on the ACTIVE task and advance to the next one. " +
-			"Use this instead of retrying when the task cannot be completed, " +
-			"so the goal keeps moving. Pass the active task's id and the reason.",
-		Parameters: map[string]domain.ToolParam{
-			"id": {
-				Type:        "integer",
-				Description: "The id of the active task being abandoned",
-				Required:    true,
-			},
-			"reason": {
-				Type:        toolParamString,
-				Description: "Why the task cannot be completed",
-				Required:    true,
-			},
-		},
 		Execute: func(args map[string]any) (string, error) {
 			return l.settleTask(args, GoalTaskFailed)
 		},
-	})
+	}))
 }
 
 // settleTask closes the active task when the supplied id matches it. A mismatch

@@ -1,0 +1,13 @@
+version: 1.0.0
+name: review
+order: 520
+usage:
+  - args: "[focus]"
+    help: Review the uncommitted changes in this repository (optionally with a focus, e.g. /review error handling)
+run:
+  - prompt: |-
+      Review the uncommitted changes in this repository. Run `git diff HEAD` (and `git status`
+      for new files) to see them; read the surrounding code where a change depends on it.
+      Always check correctness, edge cases and missing tests. Extra focus, if given: $ARGUMENTS
+      Report concrete problems first, each with the file and line, then smaller suggestions.
+      Do not edit any files.

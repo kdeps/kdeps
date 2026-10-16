@@ -2,7 +2,7 @@
 
 `items:` runs a resource once per entry in a list - like a for-each loop, but each iteration is a full resource execution with its own output.
 
-*Applies to both workflow mode and agent mode.* In workflow mode it is a DAG step. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
+In workflow mode it is a DAG step. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
 
 ## Basic usage
 
@@ -209,8 +209,8 @@ chat:
   classify each ticket, translate each string).
 - Generate a multi-section document one section at a time, using `get('prev')`
   and `get('next')` for continuity.
-- Fan a fixed list of URLs, files, or IDs through an `httpClient:`, `scraper:`,
-  or `sql:` resource and collect the results.
+- Fan a fixed list of URLs, files, or IDs through an `httpClient:`, `component: scraper`,
+  or `sql` component call and collect the results.
 
 ## See also
 

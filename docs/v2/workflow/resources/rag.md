@@ -3,7 +3,7 @@
 Three resources that build a retrieval-augmented generation (RAG) pipeline.
 Each has its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ```text
 loader (load + chunk)  ->  embedding OR vectorStore (index)  ->  embedding OR vectorStore (search)  ->  chat (answer with context)
@@ -28,7 +28,7 @@ loader (load + chunk)  ->  embedding OR vectorStore (index)  ->  embedding OR ve
 ## See also
 
 - [Document search tutorial](/examples/rag-search) - `embedding:` upsert and search
-- [Scraper resource](/workflow/resources/scraper) - fetch content to index
+- [Scraper component](/workflow/resources/scraper) - fetch content to index
 - [Search resources](/workflow/resources/search) - keyword file and web search
 - [LLM resource](/workflow/resources/llm) - answer with the retrieved context
 - [Resources overview](/workflow/resources) - all resource types

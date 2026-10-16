@@ -1,0 +1,11 @@
+version: 1.0.0
+category: web
+description: Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.
+constraints: good for general knowledge; not for real-time/current information
+outputFormat: plain text encyclopedia article
+seeAlso: web_search, web_scraper
+parameters:
+  query:
+    type: string
+    description: The topic or question to look up on Wikipedia
+    required: true

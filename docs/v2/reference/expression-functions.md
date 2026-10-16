@@ -2,7 +2,7 @@
 
 Every function available in kdeps expressions - usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Core functions
 
@@ -129,6 +129,55 @@ Accesses the output of a completed resource.
 **Examples:**
 ```yaml
 output('llmResource')        # Get LLM output
+```
+
+### FileExists(path)
+Reports whether a file or directory exists on the machine running the workflow. Typical use is a `validations.skip` that avoids repeating a download.
+
+- **path**: Filesystem path (an empty path is false).
+
+**Examples:**
+```yaml
+fileExists('/data/models/model.bin')                                   # true once downloaded
+fileExists(env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base.en.bin')
+```
+
+### htmlText(html, selector)
+Returns the text of every element matching a CSS selector, one per line. An empty selector returns `html` unchanged. The [scraper component](/workflow/resources/scraper) uses it on an `httpClient` body.
+
+- **html**: An HTML document or fragment.
+- **selector**: A CSS selector (`article.body`, `h1, h2`, `ul > li`).
+
+**Examples:**
+```yaml
+htmlText(output('fetchPage').body, 'h1.title')    # "Integration Test"
+htmlText(output('fetchPage').body, '')            # the whole body
+```
+
+### htmlFind(html, selector)
+Returns one map per element matching a CSS selector: its trimmed text under `text`, plus each attribute (`href`, `class`, `data-*`). The [searchWeb component](/workflow/resources/search-web) maps DuckDuckGo's result links with it.
+
+- **html**: An HTML document or fragment.
+- **selector**: A CSS selector.
+
+**Examples:**
+```yaml
+htmlFind(output('page').body, 'a.result')            # [{text: "Go", href: "https://go.dev", class: "result"}]
+map(htmlFind(output('page').body, 'a'), #.href)      # every link target
+```
+
+### hmacSHA256(key, data)
+Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way; compare against their signature header in a `validations.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
+
+- **key**: The shared secret.
+- **data**: The signed text, usually `request.rawBody`.
+
+**Examples:**
+```yaml
+validations:
+  check:
+    - "request.headers['X-Hub-Signature-256'] == 'sha256=' + hmacSHA256(env('APP_SECRET'), request.rawBody)"
+  error: {code: 403, message: invalid signature}
 ```
 
 ## Iteration functions

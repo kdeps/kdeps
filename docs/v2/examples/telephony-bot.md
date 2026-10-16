@@ -1,52 +1,26 @@
 # Build a phone assistant (IVR)
 
-*Applies to workflow mode.*
+Build an interactive voice response (IVR) phone menu: the caller hears a menu, presses a key or speaks, and the workflow either reads a static answer or has an LLM answer the spoken question. It is an API workflow: Twilio posts each call step to a route, and each route answers with TwiML built by the [`twiml` component](/workflow/resources/telephony).
 
-## Overview
-
-In this tutorial you build an interactive voice response (IVR) phone menu: the
-caller hears a menu, presses a key or speaks, and the workflow either reads a
-static answer or has an LLM answer a spoken question. It uses the `telephony:`
-resource with a provider such as Twilio.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How webhook-based telephony providers work (a call triggers HTTP POSTs)
-
-By the end you will be able to:
-
-- Present a keypad menu with `telephony: action: menu`
-- Read a static message with `telephony: action: say`
-- Gather spoken input with `telephony: action: ask`
-- Route the spoken question to an LLM
-
-## Background
-
-A telephony provider turns a phone call into HTTP webhooks. Each menu choice
-maps to a route; the provider posts to that route when the caller acts. The
-`telephony:` resource returns instructions the provider glue renders as call
-control (TwiML for Twilio). A spoken transcription arrives in the webhook body
-as `SpeechResult`.
-
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- A telephony provider account (Twilio) and a phone number, for a live test.
-- A working directory for the project.
-
-## Step 1: create the project
-
-```bash
-mkdir phone-bot
-cd phone-bot
-mkdir resources
+```d2
+direction: right
+voice: "/twilio/voice\nmenu (gather 1 key)" {shape: oval}
+menu: "/twilio/menu\nDigits?" {shape: diamond}
+hours: "/twilio/hours\nsay + hangup"
+ask: "/twilio/ask\ngather speech"
+answer: "/twilio/answer\nLLM -> say + hangup"
+voice -> menu: Digits
+menu -> hours: "1"
+menu -> ask: "2"
+menu -> voice: other
+ask -> answer: SpeechResult
 ```
 
-## Step 2: define the call routes
+**Needs:** a Twilio account and phone number for a live call; `curl` is enough to test.
 
-Create `workflow.yaml`:
+The finished project is [`examples/telephony-bot`](https://github.com/kdeps/kdeps/tree/main/examples/telephony-bot).
+
+## Step 1: define the call routes
 
 ```yaml
 # workflow.yaml
@@ -54,7 +28,8 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 
 metadata:
-  name: phone-bot
+  name: telephony-bot
+  description: AI phone IVR - Twilio webhooks answered with TwiML from the twiml component
   version: "1.0.0"
   targetActionId: respond
 
@@ -63,88 +38,136 @@ settings:
     hostIp: "127.0.0.1"
     portNum: 16395
     routes:
-      - path: /twilio/voice     # entry: welcome menu
+      - path: /twilio/voice    # entry point: welcome menu
         methods: [POST]
-      - path: /twilio/hours     # static answer
+        public: true           # Twilio sends no bearer token
+      - path: /twilio/menu     # the key the caller pressed
         methods: [POST]
-      - path: /twilio/ask       # gather a spoken question
+        public: true
+      - path: /twilio/hours    # static answer: opening hours
         methods: [POST]
-      - path: /twilio/answer    # LLM answers it
+        public: true
+      - path: /twilio/ask      # gather a spoken question
         methods: [POST]
+        public: true
+      - path: /twilio/answer   # LLM answers the spoken question
+        methods: [POST]
+        public: true
+
+  agentSettings:
+    timezone: Etc/UTC
 ```
 
-## Step 3: the welcome menu
+## Step 2: the welcome menu
 
-Create `resources/menu.yaml`:
+A `gather` collects one key. Twilio posts it to `/twilio/menu` as `Digits`; with no key, the `redirect` replays the menu.
+
+<div v-pre>
+
+```yaml
+# resources/welcome.yaml
+actionId: welcome
+name: Welcome Menu
+validations:
+  routes: [/twilio/voice]
+component:
+  name: twiml
+  with:
+    verbs:
+      - gather:
+          input: dtmf
+          numDigits: 1
+          timeout: 8
+          action: /twilio/menu      # Twilio posts the pressed key here as Digits
+          say: "Welcome to kdeps. Press 1 for opening hours. Press 2 to ask our assistant a question."
+      - redirect: /twilio/voice     # no key pressed: play the menu again
+```
+
+</div>
+
+## Step 3: route the key
+
+The pressed key picks the next route; anything else goes back to the menu.
+
+<div v-pre>
 
 ```yaml
 # resources/menu.yaml
-actionId: welcomeMenu
-name: Welcome menu
+actionId: menuChoice
+name: Menu Choice
 validations:
-  routes: [/twilio/voice]
-  methods: [POST]
-telephony:
-  action: menu
-  say: "Welcome. Press 1 for opening hours. Press 2 to ask a question."
-  voice: alice
-  timeout: 8s
-  matches:
-    - keys: ["1"]              # provider then posts to /twilio/hours
-    - keys: ["2"]              # provider then posts to /twilio/ask
+  routes: [/twilio/menu]
+component:
+  name: twiml
+  with:
+    verbs:
+      # Digits is the key from the welcome menu's gather.
+      - redirect: "{{ get('Digits') == '1' ? '/twilio/hours' : get('Digits') == '2' ? '/twilio/ask' : '/twilio/voice' }}"
 ```
 
-## Step 4: the static answer
+</div>
 
-Create `resources/hours.yaml`:
+## Step 4: a static answer
+
+Speak the hours, then hang up.
+
+<div v-pre>
 
 ```yaml
 # resources/hours.yaml
 actionId: sayHours
-name: Say opening hours
+name: Say Opening Hours
 validations:
   routes: [/twilio/hours]
-  methods: [POST]
-telephony:
-  action: say
-  say: "We are open Monday to Friday, nine to five."
-  voice: alice
+component:
+  name: twiml
+  with:
+    verbs:
+      - say: {text: "We are open Monday to Friday, nine to five, Central European Time.", voice: alice}
+      - hangup: true
 ```
+
+</div>
 
 ## Step 5: gather a spoken question
 
-Create `resources/ask.yaml`:
+A speech `gather`: Twilio transcribes the caller and posts the text to `/twilio/answer` as `SpeechResult`.
+
+<div v-pre>
 
 ```yaml
 # resources/ask.yaml
 actionId: askQuestion
-name: Ask question
+name: Ask Question
 validations:
   routes: [/twilio/ask]
-  methods: [POST]
-telephony:
-  action: ask
-  say: "What would you like to know? Speak after the tone."
-  mode: both                  # speech or keypad
-  limit: 32
-  timeout: 10s
+component:
+  name: twiml
+  with:
+    verbs:
+      - gather:
+          input: speech
+          speechTimeout: auto
+          action: /twilio/answer    # Twilio posts the transcript here as SpeechResult
+          say: "What would you like to know?"
 ```
 
-## Step 6: let the LLM answer
+</div>
 
-Create `resources/answer.yaml`:
+## Step 6: the LLM answer
+
+The model answers the transcript in one sentence.
 
 <div v-pre>
 
 ```yaml
 # resources/answer.yaml
 actionId: answerLLM
-name: LLM answer
+name: LLM Answer
 validations:
   routes: [/twilio/answer]
-  methods: [POST]
   check:
-    - get('SpeechResult') != ''   # the transcription from the provider
+    - get('SpeechResult') != ''   # SpeechResult arrives in Twilio's webhook body
   error:
     code: 400
     message: "SpeechResult is required"
@@ -152,72 +175,85 @@ chat:
   model: llama3.2:1b
   role: user
   prompt: |
-    A caller asked over the phone: "{{ get('SpeechResult') }}"
-    Answer in one short, friendly sentence to be read aloud.
+    A caller asked the following question over the phone:
+    "{{ get('SpeechResult') }}"
+    Answer in one short, friendly sentence suitable for being read aloud.
   timeout: 60s
 ```
 
 </div>
 
-## Step 7: the target resource
+## Step 7: speak the answer
 
-Create `resources/respond.yaml`:
+The answer goes into `say` - the component XML-escapes it.
+
+<div v-pre>
+
+```yaml
+# resources/speak.yaml
+actionId: speakAnswer
+name: Speak Answer
+requires: [answerLLM]
+validations:
+  routes: [/twilio/answer]
+component:
+  name: twiml
+  with:
+    verbs:
+      - say: "{{ get('answerLLM').message.content }}"
+      - hangup: true
+```
+
+</div>
+
+## Step 8: return the TwiML
+
+Each request runs only the resources for its route, so exactly one `twiml` call has output. `Content-Type: text/xml` writes it as the raw body.
 
 <div v-pre>
 
 ```yaml
 # resources/respond.yaml
 actionId: respond
-name: Response
-requires: [welcomeMenu, sayHours, askQuestion, answerLLM]
-before:
-  - set('answerText', safe(safe(get('answerLLM'), 'message'), 'content'))
+name: TwiML Response
+requires: [welcome, menuChoice, sayHours, askQuestion, speakAnswer]
 apiResponse:
   success: true
-  response:
-    menu:   "{{ output('welcomeMenu') }}"
-    hours:  "{{ output('sayHours') }}"
-    ask:    "{{ output('askQuestion') }}"
-    answer: "{{ get('answerText') }}"
+  headers:
+    Content-Type: text/xml       # Twilio reads the body as TwiML
+  # Exactly one twiml call ran - the one for this request's route.
+  response: "{{ (output('welcome') ?? output('menuChoice') ?? output('sayHours') ?? output('askQuestion') ?? output('speakAnswer')).twiml }}"
 ```
 
 </div>
 
-Only the resource whose route matches the current webhook runs; the rest are
-skipped.
-
-## Step 8: validate and test
+## Step 9: run and test
 
 ```bash
-kdeps validate .
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run .
+kdeps validate workflow.yaml
+export KDEPS_API_AUTH_TOKEN=dev-token   # the /twilio routes are public; others need it
+kdeps run workflow.yaml
 ```
 
-Simulate the "ask a question" webhook:
+Post what Twilio would post:
 
 ```bash
-curl -X POST http://localhost:16395/twilio/answer \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"SpeechResult": "what time do you close"}'
+curl -X POST http://localhost:16395/twilio/voice -d CallSid=CA1
+curl -X POST http://localhost:16395/twilio/menu -d Digits=1
+curl -X POST http://localhost:16395/twilio/answer -d "SpeechResult=what time do you close"
 ```
 
-For a live call, point your provider's voice webhook at
-`https://<your-host>/twilio/voice`.
+```xml
+<?xml version="1.0" encoding="UTF-8"?><Response><Gather action="/twilio/menu" input="dtmf" numDigits="1" timeout="8"><Say>Welcome to kdeps. Press 1 for opening hours. Press 2 to ask our assistant a question.</Say></Gather><Redirect>/twilio/voice</Redirect></Response>
+<?xml version="1.0" encoding="UTF-8"?><Response><Redirect>/twilio/hours</Redirect></Response>
+<?xml version="1.0" encoding="UTF-8"?><Response><Say>We close at five in the evening.</Say><Hangup /></Response>
+```
 
-## Summary
-
-You built an IVR that:
-
-- Presents a keypad menu with `telephony: action: menu`
-- Reads a fixed answer with `action: say`
-- Gathers speech with `action: ask`
-- Sends the transcription (`SpeechResult`) to an LLM
+The answer's wording comes from the model and varies. For a live call, set the Twilio number's voice webhook to `https://<your-host>/twilio/voice` (HTTP POST).
 
 ## Next steps
 
-- [Telephony resource](/workflow/resources/telephony) - all actions, voices, providers
-- [Transcribe resource](/workflow/resources/transcribe) - speech to text on your own audio
+- [twiml component](/workflow/resources/telephony) - every verb and attribute
+- [Transcribe component](/workflow/resources/transcribe) - speech to text on your own audio
 - [Validation and control flow](/workflow/validation) - route scoping
-- [Bot reply resource](/workflow/resources/bot-reply) - chat-platform bots
+- [Bot replies](/workflow/resources/bot-reply) - chat-platform bots

@@ -2,7 +2,7 @@
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 Whichever backend you pick - cloud (OpenAI, Anthropic, Groq, ...) or local (llamafile, Ollama, GGUF) - the model is probabilistic. The [workflow pipeline](/workflow/) around it is what makes a kdeps agent deterministic, not the model.
 
@@ -33,7 +33,7 @@ part of the alias so you can trade size for quality:
 
 ```bash
 kdeps llamafile list      # all known aliases (the registry has 100+ models)
-kdeps llamafile update    # refresh the registry from HuggingFace
+kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 The `chat.model` field also accepts a direct URL, an absolute/relative path to
@@ -112,11 +112,36 @@ llm:
 
 Run `kdeps edit` to open the config file, or edit it directly.
 
+## OpenAI-compatible providers
+
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values.
+
+```text
+providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath
+```
+
+```yaml
+# providers/groq.yaml (shipped)
+version: 1.0.0
+name: groq                         # the backend: value
+label: Groq                        # display name
+order: 80                          # position in provider lists and the setup prompt
+configKey: groq_api_key            # llm.groq_api_key in ~/.kdeps/config.yaml
+envVar: GROQ_API_KEY               # an explicit env var wins over config.yaml
+defaultModel: llama-3.3-70b-versatile   # last-resort pick when nothing local is installed
+url: https://api.groq.com          # default host; llm.base_url overrides it
+chatPath: /openai/v1/chat/completions   # chat completions path under url
+embeddings: true                   # also serves OpenAI-compatible /embeddings
+hosts: [groq.com]                  # identifies the provider from a base URL
+```
+
+`url` may reference environment variables, e.g. Cloudflare's `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai`. Adding another OpenAI-compatible provider is one such file - drop it into `$KDEPS_ASSETS_SRC/providers/` while developing, or publish it to the asset set. Anthropic, Google, Cohere, Bedrock, WatsonX and M365 have their own protocols and stay built in.
+
 ## Unified models list
 
-`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a **plain allowlist** (model names only) or as a **router route table** (with routing metadata). The `llm.strategy` field switches between the two modes.
+`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a plain allowlist (model names only) or as a router route table (with routing metadata). The `llm.strategy` field switches between the two modes.
 
-### Allowlist mode (no strategy)
+## Allowlist mode (no strategy)
 
 When `strategy` is absent, `llm.models` is a simple list of permitted model names:
 
@@ -140,7 +165,7 @@ llm:
 
 Any request for a model not in this list is overridden to the first model and a warning is logged. Models listed here are pre-pulled into Docker/ISO artifacts.
 
-### Routing mode (with strategy)
+## Routing mode (with strategy)
 
 When `strategy` is set, the models list acts as router routes:
 
@@ -172,7 +197,7 @@ llm:
       priority: 1
 ```
 
-### Entry fields
+## Entry fields
 
 Each model entry supports these fields:
 
@@ -256,7 +281,7 @@ Anthropic-specific options are set per resource, not in `config.yaml`.
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   promptCaching: true
   scenario:
     - role: system
@@ -273,7 +298,7 @@ chat:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   anthropicExtendedOutput: true
   maxTokens: 16000
   prompt: "{{ get('q') }}"
@@ -286,7 +311,7 @@ Pass arbitrary beta feature strings via `anthropicBetaHeaders`:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   anthropicBetaHeaders:
     - output-128k-2025-02-19
     - interleaved-thinking-2025-05-14
@@ -407,6 +432,6 @@ See [LLM server appliance](/llm-server/) and [LLM commands](/llm-server/cli).
 
 - [LLM provider reference](/llm-server/providers) - Per-provider config snippets and model names
 - [LLM resource](/workflow/resources/llm) - Complete LLM resource documentation
-- [Tools](/workflow/tools) - LLM function calling
+- [Function calling](/workflow/tools) - LLM function calling
 - [Docker deployment](/deploy/docker) - Deploying with local models
 

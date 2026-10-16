@@ -17,339 +17,74 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E test for the browser resource type.
-# Tests focus on YAML schema validation and kdeps validate checks.
-# Tests that require a live browser are skipped when Playwright is not installed.
+# E2E tests for the browser component (kdeps components asset set): Playwright
+# steps called with component: {name: browser}; the browser: key is gone.
+# The live run needs uv and Playwright (CI installs both); otherwise skipped.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing Browser Resource Feature..."
+echo "Testing the browser component..."
 
-# ---------------------------------------------------------------------------
-# Test 1: Validate a minimal browser resource (navigate only)
-# ---------------------------------------------------------------------------
-TEST_DIR=$(mktemp -d)
-mkdir -p "$TEST_DIR/resources"
+BR_DIR=$(mktemp -d)
+BR_PID=""
+trap '[ -n "$BR_PID" ] && kill "$BR_PID" 2>/dev/null; rm -rf "$BR_DIR"' EXIT
+mkdir -p "$BR_DIR/wf/resources"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: b\n  version: "1.0.0"\n  targetActionId: b\nsettings: {}\n' > "$BR_DIR/wf/workflow.yaml"
 
-cat > "$TEST_DIR/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-test
-  version: "1.0.0"
-  targetActionId: navigateResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
+# br_resource writes the component call for url $1.
+br_resource() {
+    cat > "$BR_DIR/wf/resources/b.yaml" <<EOF
+actionId: b
+name: Browser
+component:
+  name: browser
+  with:
+    url: "$1"
+    actions:
+      - {action: fill, selector: "#name", value: World}
+      - {action: click, selector: "#btn"}
+      - {action: wait, wait: "#result"}
+      - {action: evaluate, script: "document.getElementById('result').textContent"}
 EOF
+}
 
-cat > "$TEST_DIR/resources/navigate.yaml" <<'EOF'
+# A registry component named browser would win over the shipped one.
+export KDEPS_COMPONENT_DIR="$BR_DIR/components"
 
-actionId: navigateResource
-name: Navigate to Example
-
-browser:
-  engine: chromium
-  url: "https://example.com"
-  timeout: 30s
-  actions:
-    - action: screenshot
-      outputFile: /tmp/screenshot.png
-apiResponse:
-  success: true
-  response:
-    url: "{{ get('navigateResource') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - minimal navigate resource validates successfully"
+br_resource "https://example.com"
+if "$KDEPS_BIN" validate "$BR_DIR/wf/workflow.yaml" >/dev/null 2>&1; then
+    test_passed "browser component - a component: browser call validates"
 else
-    test_failed "Browser - minimal navigate resource validates successfully" "Validation failed"
+    test_failed "browser component - validate" "$("$KDEPS_BIN" validate "$BR_DIR/wf/workflow.yaml" 2>&1 | tail -3)"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 2: Validate browser resource with all action types
-# ---------------------------------------------------------------------------
-TEST_DIR2=$(mktemp -d)
-mkdir -p "$TEST_DIR2/resources"
-
-cat > "$TEST_DIR2/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-actions-test
-  version: "1.0.0"
-  targetActionId: allActionsResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-cat > "$TEST_DIR2/resources/all-actions.yaml" <<'EOF'
-
-actionId: allActionsResource
-name: Browser All Actions
-
-browser:
-  engine: chromium
-  url: "https://example.com"
-  timeout: 30s
-  actions:
-    - action: navigate
-      url: "https://example.com"
-    - action: click
-      selector: "button"
-    - action: fill
-      selector: "#email"
-      value: "test@example.com"
-    - action: type
-      selector: "#name"
-      value: "Alice"
-    - action: select
-      selector: "select"
-      value: "option1"
-    - action: check
-      selector: "#agree"
-    - action: uncheck
-      selector: "#newsletter"
-    - action: hover
-      selector: ".menu"
-    - action: scroll
-      value: "300"
-    - action: press
-      key: "Enter"
-    - action: clear
-      selector: "#search"
-    - action: evaluate
-      script: "document.title"
-    - action: screenshot
-      outputFile: /tmp/all-actions.png
-    - action: wait
-      wait: "100ms"
-apiResponse:
-  success: true
-  response:
-    title: "{{ get('allActionsResource') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR2/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - all action types resource validates successfully"
+if command -v uv >/dev/null 2>&1 && command -v playwright >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    printf '%s' '<html><head><title>E2E Page</title></head><body><input id="name"><button id="btn" onclick="document.getElementById(&quot;result&quot;).textContent=&quot;Hello, &quot;+document.getElementById(&quot;name&quot;).value">Go</button><div id="result"></div></body></html>' > "$BR_DIR/index.html"
+    PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+    (cd "$BR_DIR" && python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1) & BR_PID=$!
+    for _ in $(seq 1 50); do command curl -s -o /dev/null "http://127.0.0.1:$PORT/" && break; sleep 0.1; done
+    br_resource "http://127.0.0.1:$PORT/index.html"
+    OUT=$(timeout 600 "$KDEPS_BIN" run "$BR_DIR/wf" 2>&1)
+    if output_grep "result:Hello, World" "$OUT" && output_grep "title:E2E Page" "$OUT"; then
+        test_passed "browser component - fills, clicks and reads the page with Playwright"
+    else
+        test_failed "browser component - live run" "$(echo "$OUT" | tail -15)"
+    fi
 else
-    test_failed "Browser - all action types resource validates successfully" "Validation failed"
+    test_skipped "browser component - live run needs uv and Playwright"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 3: Validate browser resource with viewport and session
-# ---------------------------------------------------------------------------
-TEST_DIR3=$(mktemp -d)
-mkdir -p "$TEST_DIR3/resources"
-
-cat > "$TEST_DIR3/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-viewport-test
-  version: "1.0.0"
-  targetActionId: viewportResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-cat > "$TEST_DIR3/resources/viewport.yaml" <<'EOF'
-
-actionId: viewportResource
-name: Browser with Viewport
-
-browser:
-  engine: firefox
-  url: "https://example.com"
-  headless: true
-  sessionId: "persistent-session-1"
-  viewport:
-    width: 1920
-    height: 1080
-  timeout: 30s
-  actions:
-    - action: screenshot
-      fullPage: true
-apiResponse:
-  success: true
-  response:
-    url: "{{ get('viewportResource') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR3/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - viewport and session resource validates successfully"
+printf 'actionId: b\nname: B\nbrowser:\n  url: https://example.com\n' > "$BR_DIR/wf/resources/b.yaml"
+if OUT=$("$KDEPS_BIN" validate "$BR_DIR/wf/workflow.yaml" 2>&1); then
+    test_failed "browser component - the browser: key is gone" "validate accepted it: $OUT"
 else
-    test_failed "Browser - viewport and session resource validates successfully" "Validation failed"
+    test_passed "browser component - the browser: resource key is gone (use component: browser)"
 fi
 
-# ---------------------------------------------------------------------------
-# Test 4: Verify browser resource appears in resource types
-# ---------------------------------------------------------------------------
-if grep -q "browser" "$TEST_DIR/resources/navigate.yaml"; then
-    test_passed "Browser - browser key present in resource file"
-else
-    test_failed "Browser - browser key present in resource file" "browser key not found"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 5: Validate that browser engine constants are valid
-# ---------------------------------------------------------------------------
-TEST_DIR4=$(mktemp -d)
-mkdir -p "$TEST_DIR4/resources"
-
-cat > "$TEST_DIR4/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-webkit-test
-  version: "1.0.0"
-  targetActionId: webkitResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-cat > "$TEST_DIR4/resources/webkit.yaml" <<'EOF'
-
-actionId: webkitResource
-name: WebKit Browser
-
-browser:
-  engine: webkit
-  url: "https://example.com"
-apiResponse:
-  success: true
-  response:
-    url: "{{ get('webkitResource') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR4/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - webkit engine resource validates successfully"
-else
-    test_failed "Browser - webkit engine resource validates successfully" "Validation failed"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 6: Validate browser resource with upload action
-# ---------------------------------------------------------------------------
-TEST_DIR5=$(mktemp -d)
-mkdir -p "$TEST_DIR5/resources"
-# Create a dummy file to upload
-echo "test content" > "$TEST_DIR5/test-file.txt"
-
-cat > "$TEST_DIR5/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-upload-test
-  version: "1.0.0"
-  targetActionId: uploadResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-cat > "$TEST_DIR5/resources/upload.yaml" <<'EOF'
-
-actionId: uploadResource
-name: Browser File Upload
-
-browser:
-  engine: chromium
-  url: "https://example.com"
-  actions:
-    - action: upload
-      selector: "#file-input"
-      files:
-        - /tmp/test-upload.txt
-apiResponse:
-  success: true
-  response:
-    result: "{{ get('uploadResource') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR5/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - file upload action resource validates successfully"
-else
-    test_failed "Browser - file upload action resource validates successfully" "Validation failed"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 7: Browser resource in an inline context (before/after block)
-# ---------------------------------------------------------------------------
-TEST_DIR6=$(mktemp -d)
-mkdir -p "$TEST_DIR6/resources"
-
-cat > "$TEST_DIR6/workflow.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: browser-inline-test
-  version: "1.0.0"
-  targetActionId: inlineResource
-
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-EOF
-
-cat > "$TEST_DIR6/resources/inline.yaml" <<'EOF'
-
-actionId: inlineResource
-name: Browser Inline Usage
-
-before:
-  - "set('target_url', 'before-value')"
-browser:
-  engine: chromium
-  url: "https://example.com"
-  actions:
-    - action: evaluate
-      script: "document.title"
-after:
-  - "set('page_title', get('inlineResource'))"
-apiResponse:
-  success: true
-  response:
-    title: "{{ get('page_title') }}"
-EOF
-
-if "$KDEPS_BIN" validate "$TEST_DIR6/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - inline usage with before/after validates successfully"
-else
-    test_failed "Browser - inline usage with before/after validates successfully" "Validation failed"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 8: Verify browser is included in resource schema
-# ---------------------------------------------------------------------------
-if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" 2>&1 | grep -q "browser" || \
-   "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - schema accepts browser resource type"
-else
-    test_failed "Browser - schema accepts browser resource type" "Schema rejected browser resource"
-fi
-
-# ---------------------------------------------------------------------------
-# Cleanup
-# ---------------------------------------------------------------------------
-rm -rf "$TEST_DIR" "$TEST_DIR2" "$TEST_DIR3" "$TEST_DIR4" "$TEST_DIR5" "$TEST_DIR6"
-
+[ -n "$BR_PID" ] && kill "$BR_PID" 2>/dev/null
+rm -rf "$BR_DIR"
+trap - EXIT
 echo ""

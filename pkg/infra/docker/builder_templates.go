@@ -48,9 +48,9 @@ func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) 
 func resolveDockerfileTemplate(baseOS string) (string, error) {
 	switch baseOS {
 	case baseOSAlpine:
-		return alpineTemplate, nil
+		return dockerTemplate(alpineTemplate)
 	case baseOSUbuntu:
-		return ubuntuTemplate, nil
+		return dockerTemplate(ubuntuTemplate)
 	default:
 		return "", fmt.Errorf(
 			"unsupported base OS: %s (supported: alpine, ubuntu)",
@@ -74,13 +74,17 @@ func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error)
 // renderHookedTemplate runs the optional test hook before rendering a template.
 func (b *Builder) renderHookedTemplate(
 	hook func() error,
-	name, templateStr string,
+	name, file string,
 	workflow *domain.Workflow,
 ) (string, error) {
 	if hook != nil {
 		if err := hook(); err != nil {
 			return "", err
 		}
+	}
+	templateStr, err := dockerTemplate(file)
+	if err != nil {
+		return "", err
 	}
 	return b.renderWorkflowTemplate(name, templateStr, workflow)
 }

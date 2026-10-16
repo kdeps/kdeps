@@ -2,8 +2,6 @@
 
 CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
 
-*Applies to workflow mode.*
-
 ## Basic configuration
 
 ```yaml
@@ -131,7 +129,7 @@ cors:
 
 ### Compatibility
 
-- **Disable Credentials When Possible**: Set `allowCredentials: false` if your API doesn't require cookies or authentication headers to simplify CORS handling.
+- **Disable Credentials When Possible**: Set `allowCredentials: false` if your API does not require cookies or authentication headers to simplify CORS handling.
 - **Handle Preflight Requests**: Ensure your routes support `OPTIONS` method for preflight requests.
 
 ## Troubleshooting

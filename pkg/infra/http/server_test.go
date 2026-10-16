@@ -269,6 +269,7 @@ func TestServer_ParseRequest_POST_JSON(t *testing.T) {
 	assert.Equal(t, "john", ctx.Body["user"])
 	assert.Equal(t, "login", ctx.Body["action"])
 	assert.InDelta(t, float64(42), ctx.Body["count"], 0.001)
+	assert.Equal(t, requestBody, ctx.RawBody, "the body as received, for signature checks")
 }
 
 func TestServer_ParseRequest_POST_FormData(t *testing.T) {
@@ -283,6 +284,7 @@ func TestServer_ParseRequest_POST_FormData(t *testing.T) {
 
 	assert.Equal(t, stdhttp.MethodPost, ctx.Method)
 	assert.Equal(t, "/api/login", ctx.Path)
+	assert.Equal(t, formData, ctx.RawBody)
 	// Form data parsing may not work as expected, check if it was parsed at all
 	if len(ctx.Body) > 0 {
 		assert.Equal(t, "john", ctx.Body["username"])
@@ -5593,11 +5595,8 @@ func TestServer_Start_WithHotReload2(t *testing.T) {
 		_ = server.Start(":0", true) // devMode = true
 	}()
 
-	// Give server time to start
-	time.Sleep(50 * time.Millisecond)
-
-	// Verify hot reload was set up
-	assert.NotNil(t, mockWatcher.callbacks)
+	// Hot reload registers its watches once the server goroutine runs.
+	assert.Eventually(t, func() bool { return mockWatcher.watchCount() > 0 }, 5*time.Second, 10*time.Millisecond)
 }
 
 // TestServer_Start_WithoutHotReload tests Start without hot reload.

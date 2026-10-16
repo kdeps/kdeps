@@ -3,7 +3,7 @@
 Two resources that call another unit of work and return its output. Each has
 its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Calls | Inputs | Reference |
 | :--- | :--- | :--- | :--- |

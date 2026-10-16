@@ -56,8 +56,8 @@ func TestKnownCloudModels_AllFieldsSet(t *testing.T) {
 
 func TestModelMaxOutputTokens_KnownModel(t *testing.T) {
 	got := ModelMaxOutputTokens("claude-opus-4-8")
-	if got != outAnthropic128k {
-		t.Errorf("claude-opus-4-8 MaxOutputTokens: got %d, want %d", got, outAnthropic128k)
+	if got != 128_000 {
+		t.Errorf("claude-opus-4-8 MaxOutputTokens: got %d, want %d", got, 128_000)
 	}
 }
 
@@ -90,8 +90,8 @@ func TestModelSupportsImages_UnknownModel(t *testing.T) {
 
 func TestModelContextWindow_OpusHas1MContext(t *testing.T) {
 	got := ModelContextWindow("claude-opus-4-8")
-	if got != ctxAnthropic1M {
-		t.Errorf("claude-opus-4-8 context window: got %d, want %d", got, ctxAnthropic1M)
+	if got != 1_000_000 {
+		t.Errorf("claude-opus-4-8 context window: got %d, want %d", got, 1_000_000)
 	}
 }
 

@@ -6,7 +6,7 @@ The mental model behind kdeps: how a workflow is shaped, how data moves between 
 
 A kdeps project is a folder. `workflow.yaml` is the manifest - name, version,
 and `targetActionId` (the resource that produces the final result). Every other
-`.yaml` file under `resources/` is a single **resource**: one LLM call, one SQL
+`.yaml` file under `resources/` is a single resource: one LLM call, one SQL
 query, one shell command, one HTTP request. A resource lists what it `requires:`,
 and kdeps runs the resources in that dependency order, passing each one's output
 forward. That ordered graph is the workflow.
@@ -30,7 +30,7 @@ then reach for the rest as you need them.
 | [Expressions](/workflow/expressions) | expr-lang snippets in `{{ }}`, `before:`/`after:`, and `check:` | Both |
 | [Expression helpers](/workflow/expression-helpers) | `Json()`, `Safe()`, `Debug()`, `default()` and other utilities | Both |
 | [Data access](/workflow/data-access) | `get()`/`set()` plus the `input` and `request` shorthands | Both (`input`/`request`: workflow) |
-| [Tools (function calling)](/workflow/tools) | Let a `chat:` resource call other resources mid-response | Workflow |
+| [Function calling](/workflow/tools) | Let a `chat:` resource call other resources mid-response | Workflow |
 | [Inline resources](/workflow/inline-resources) | `chat`/`sql`/`python`/... actions nested in a resource's `before:`/`after:` | Both |
 
 ## Control flow and input

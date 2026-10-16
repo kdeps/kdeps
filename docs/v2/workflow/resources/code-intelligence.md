@@ -3,7 +3,7 @@
 Navigate and map a codebase. The `codeIntelligence:` resource has two families
 of operations, each with its own reference page.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Operations | What they do | Reference |
 | :--- | :--- | :--- |

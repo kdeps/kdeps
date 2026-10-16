@@ -25,6 +25,20 @@ type HTTPClientConfig struct {
 	Data    interface{}       `yaml:"data,omitempty"`
 	Timeout string            `yaml:"timeout,omitempty"`
 
+	// Files sends a multipart/form-data body: each key is a form field and
+	// each value the path of a file uploaded as that field. Data's entries
+	// become the text fields of the same form.
+	Files map[string]string `yaml:"files,omitempty"`
+
+	// SaveTo streams a 2xx response body into this file (parent directories
+	// are created) instead of holding it in memory; the result reports
+	// savedTo and bytes in place of body.
+	SaveTo string `yaml:"saveTo,omitempty"`
+
+	// FailOnError makes a non-2xx response an error (the resource fails)
+	// instead of a result to inspect through statusCode.
+	FailOnError bool `yaml:"failOnError,omitempty"`
+
 	// Retry configuration
 	Retry *RetryConfig `yaml:"retry,omitempty"`
 
@@ -68,27 +82,6 @@ type HTTPTLSConfig struct {
 	CAFile             string `yaml:"caFile,omitempty"`
 }
 
-// SQLConfig represents SQL query configuration.
-type SQLConfig struct {
-	ConnectionName string        `yaml:"connectionName,omitempty"`
-	Pool           *PoolConfig   `yaml:"pool,omitempty"`
-	Query          string        `yaml:"query,omitempty"`
-	Params         []interface{} `yaml:"params,omitempty"`
-	Transaction    bool          `yaml:"transaction,omitempty"`
-	Queries        []QueryItem   `yaml:"queries,omitempty"`
-	Format         string        `yaml:"format,omitempty"`
-	Timeout        string        `yaml:"timeout,omitempty"`
-	MaxRows        int           `yaml:"maxRows,omitempty"`
-}
-
-// QueryItem represents a query in a transaction.
-type QueryItem struct {
-	Name        string        `yaml:"name,omitempty"` // Optional name for the query result
-	Query       string        `yaml:"query"`
-	Params      []interface{} `yaml:"params,omitempty"`
-	ParamsBatch string        `yaml:"paramsBatch,omitempty"`
-}
-
 // PythonConfig represents Python execution configuration.
 type PythonConfig struct {
 	Script     string   `yaml:"script,omitempty"`
@@ -96,6 +89,9 @@ type PythonConfig struct {
 	Args       []string `yaml:"args,omitempty"`
 	Timeout    string   `yaml:"timeout,omitempty"`
 	VenvName   string   `yaml:"venvName,omitempty"` // Custom virtual environment name for isolation
+	// Env adds environment variables to the script's process; values are
+	// expressions. Use it for secrets, which args would expose in ps.
+	Env map[string]string `yaml:"env,omitempty"`
 }
 
 // ExecConfig represents shell execution configuration.

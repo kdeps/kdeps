@@ -1,0 +1,13 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.groq_api_key in ~/.kdeps/config.yaml.
+version: 1.0.0
+name: groq
+label: Groq
+order: 80                # position in provider lists and the setup prompt
+configKey: groq_api_key
+envVar: GROQ_API_KEY
+defaultModel: llama-3.3-70b-versatile
+url: https://api.groq.com
+chatPath: /openai/v1/chat/completions
+embeddings: true          # also serves OpenAI-compatible /embeddings
+hosts: [groq.com]

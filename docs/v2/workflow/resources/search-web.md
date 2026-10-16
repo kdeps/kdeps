@@ -1,12 +1,28 @@
-# searchWeb resource
+# searchWeb component
 
-The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo - no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings. See [Search resources](/workflow/resources/search) for how it relates to `searchLocal`.
+The `searchWeb` component queries the web and returns `{results, count, query, provider}`, each result a `{title, url, snippet}`. DuckDuckGo is the default and needs no key; Brave, Bing and Tavily read their API key from `~/.kdeps/config.yaml`. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. See [Search resources](/workflow/resources/search) for how it relates to `searchLocal`.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
-## Global named connections (paid providers)
+```d2
+direction: right
+call: "component: searchWeb" {shape: oval}
+p: "provider?" {shape: diamond}
+ddg: "httpClient GET\nhtml.duckduckgo.com"
+api: "httpClient\nBrave / Bing / Tavily\n(key from search_connections)"
+norm: "normalize:\nhtmlFind() or the JSON fields"
+out: "{results, count, query, provider}" {shape: oval}
+call -> p
+p -> ddg: ddg
+p -> api: brave | bing | tavily
+ddg -> norm
+api -> norm
+norm -> out
+```
 
-API keys belong in `~/.kdeps/config.yaml`, not inline in resource files or `workflow.yaml`:
+## Named connections (paid providers)
+
+API keys belong in `~/.kdeps/config.yaml`, not in resource files or `workflow.yaml`:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -19,93 +35,50 @@ search_connections:
     apiKey: "${TAVILY_API_KEY}"
 ```
 
+`kdeps run` asks for a connection that a `connectionName:` names but `config.yaml` does not have (the input is marked `connection: search` in the component).
+
 ## Configuration
 
+<div v-pre>
+
 ```yaml
-# resources/example.yaml
-searchWeb:
-  query: "{{ get('query') }}"     # required
-  provider: ddg                    # optional: ddg (default) | brave | bing | tavily
-  connectionName: brave            # required for brave/bing/tavily; references settings.searchConnections
-  maxResults: 5                    # optional, default 5
-  timeout: 15                      # optional, seconds, default 15
+# resources/search.yaml
+actionId: search
+name: Web Search
+component:
+  name: searchWeb                  # from the components asset set; a components/searchWeb/ of your own wins
+  with:
+    query: "{{ get('query') }}"    # required
+    provider: ddg                  # ddg (default) | brave | bing | tavily
+    connectionName: brave          # brave/bing/tavily: search_connections.<name>.apiKey
+    maxResults: 5                  # default 5
+    timeout: 15s                   # duration, default 15s
 ```
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `query` | string | yes | - | Search query |
-| `provider` | string | no | `ddg` | Search provider: `ddg`, `brave`, `bing`, `tavily` |
-| `connectionName` | string | no* | - | Named connection from `settings.searchConnections` |
-| `maxResults` | integer | no | `5` | Maximum number of results |
-| `timeout` | integer | no | `15` | HTTP request timeout in seconds |
+</div>
 
-*Required when `provider` is `brave`, `bing`, or `tavily`.
-
-## Providers
-
-| Provider | Value | Connection required |
-|----------|-------|---------------------|
-| DuckDuckGo | `ddg` | No |
-| Brave Search | `brave` | Yes |
-| Bing | `bing` | Yes |
-| Tavily | `tavily` | Yes |
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `query` | yes | - | Search query |
+| `provider` | no | `ddg` | `ddg`, `brave`, `bing`, `tavily` |
+| `connectionName` | brave/bing/tavily | `""` | Name under `search_connections` in `~/.kdeps/config.yaml` |
+| `maxResults` | no | `5` | Results to return at most |
+| `timeout` | no | `15s` | Request timeout as a duration |
 
 ## Output
 
-```yaml
-output('search').results    # list of result objects
-output('search').count      # number of results returned
-output('search').query      # the query string
-output('search').provider   # provider used
-output('search').json       # JSON string of the full result
+```json
+{
+  "results": [{"title": "The Go Programming Language", "url": "https://go.dev", "snippet": "..."}],
+  "count": 1,
+  "query": "golang",
+  "provider": "ddg"
+}
 ```
 
-Result object fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Page title |
-| `url` | string | Page URL |
-| `snippet` | string | Description or summary snippet |
+DuckDuckGo results have an empty `snippet`. Read them with `output('search').results`.
 
 ## Examples
-
-**DuckDuckGo (no connection needed):**
-
-<div v-pre>
-
-```yaml
-# resources/search.yaml
-actionId: search
-searchWeb:
-  query: "{{ get('query') }}"
-  maxResults: 5
-```
-
-</div>
-
-**Brave Search:**
-
-```yaml
-# ~/.kdeps/config.yaml
-search_connections:
-  brave:
-    apiKey: "${BRAVE_API_KEY}"
-```
-
-<div v-pre>
-
-```yaml
-# resources/search.yaml
-actionId: search
-searchWeb:
-  query: "{{ get('query') }}"
-  provider: brave
-  connectionName: brave
-  maxResults: 10
-```
-
-</div>
 
 **Feed results into an LLM:**
 
@@ -114,45 +87,51 @@ searchWeb:
 ```yaml
 # resources/search.yaml
 actionId: search
-searchWeb:
-  query: "{{ get('query') }}"
+name: Search
+component:
+  name: searchWeb
+  with:
+    query: "{{ get('query') }}"
+```
 
----
+```yaml
+# resources/answer.yaml
 actionId: answer
+name: Answer
 requires: [search]
 chat:
   model: llama3.2:1b
   prompt: |
     Answer based on these results:
-    {% for r in output('search').results %}
-    - {{ r.title }}: {{ r.snippet }}
-    {% endfor %}
+    {{ json(output('search').results) }}
     Question: {{ get('query') }}
 ```
 
 </div>
 
-## Error handling
+## Errors
 
 | Error | Cause |
 |-------|-------|
-| `query is required` | Empty query string |
-| `connectionName required for brave provider` | No connection set for Brave |
-| `connectionName required for bing provider` | No connection set for Bing |
-| `connectionName required for tavily provider` | No connection set for Tavily |
-| `unknown provider "x"` | Invalid provider value |
+| `searchWeb: connectionName required for brave` (bing, tavily) | No key at `search_connections.<connectionName>.apiKey` |
+| `searchWeb: unknown provider` | `provider` is not ddg, brave, bing or tavily |
+| `HTTP 4xx/5xx` | The provider rejected the request (bad key, rate limit) |
 
 ## Environment variable overrides
 
 | Variable | Description |
 |----------|-------------|
-| `KDEPS_DDG_URL` | Override DuckDuckGo base URL |
-| `KDEPS_BRAVE_URL` | Override Brave API base URL |
-| `KDEPS_BING_URL` | Override Bing API base URL |
-| `KDEPS_TAVILY_URL` | Override Tavily API base URL |
+| `KDEPS_DDG_URL` | DuckDuckGo base URL (default `https://html.duckduckgo.com`) |
+| `KDEPS_BRAVE_URL` | Brave API base URL |
+| `KDEPS_BING_URL` | Bing API base URL |
+| `KDEPS_TAVILY_URL` | Tavily API base URL |
+
+## How it is built
+
+One `httpClient` resource per provider, each skipped unless its provider is selected (`validations.skip`) and checked for a key (`validations.check`), then a step that maps the response to `{title, url, snippet}` - DuckDuckGo's HTML with the [`htmlFind()`](/reference/expression-functions) expression, the APIs' JSON with `map()`. Copy `components/searchWeb/` into your project to add a provider or change the mapping.
 
 ## See also
 
 - [Search resources](/workflow/resources/search) - overview and `searchLocal`
-- [Scraper resource](/workflow/resources/scraper) - Fetch URL content to feed into search pipelines
-- [LLM resource](/workflow/resources/llm) - Use search results as context for chat resources
+- [Scraper component](/workflow/resources/scraper) - fetch the pages a search found
+- [LLM resource](/workflow/resources/llm) - use search results as context

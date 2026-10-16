@@ -117,18 +117,21 @@ func (c *convergenceCache) reset() {
 	c.mu.Unlock()
 }
 
+// SetConvergenceLimits applies per-request call limits: >0 caps the category,
+// 0 leaves it at its event default, <0 removes the cap entirely.
 func SetConvergenceLimits(web, bash, file, code int) {
-	if web > 0 {
-		globalWebCache.setMax(web)
-	}
-	if bash > 0 {
-		globalBashCache.setMax(bash)
-	}
-	if file > 0 {
-		globalFileCache.setMax(file)
-	}
-	if code > 0 {
-		globalCodeCache.setMax(code)
+	applyConvergenceLimit(globalWebCache, web)
+	applyConvergenceLimit(globalBashCache, bash)
+	applyConvergenceLimit(globalFileCache, file)
+	applyConvergenceLimit(globalCodeCache, code)
+}
+
+func applyConvergenceLimit(c *convergenceCache, limit int) {
+	switch {
+	case limit > 0:
+		c.setMax(limit)
+	case limit < 0:
+		c.setMax(disabledSentinel)
 	}
 }
 

@@ -20,8 +20,6 @@ package executor_test
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,13 +27,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	embeddingexec "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
-	scraperexec "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	searchlocalexec "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	searchwebexec "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 )
 
 func newCtx(t *testing.T) *executor.ExecutionContext {
@@ -45,54 +40,9 @@ func newCtx(t *testing.T) *executor.ExecutionContext {
 	return ctx
 }
 
-func newCtxWithSearch(t *testing.T, apiKey string) *executor.ExecutionContext {
-	t.Helper()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-	})
-	require.NoError(t, err)
-	ctx.Config = &kdepsconfig.Config{
-		SearchConnections: map[string]kdepsconfig.SearchConnectionConfig{
-			"test": {APIKey: apiKey},
-		},
-	}
-	return ctx
-}
-
 func newIntTestDB(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "test.db")
-}
-
-// --- Scraper ---
-
-func TestIntegration_Scraper_PlainText(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("integration plain text"))
-	}))
-	defer srv.Close()
-
-	e := scraperexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.ScraperConfig{URL: srv.URL})
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.Contains(t, m["content"], "integration plain text")
-	assert.Equal(t, 200, m["status"])
-}
-
-func TestIntegration_Scraper_CSS(t *testing.T) {
-	html := `<html><body><h1 class="title">Integration Test</h1></body></html>`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(html))
-	}))
-	defer srv.Close()
-
-	e := scraperexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.ScraperConfig{URL: srv.URL, Selector: "h1.title"})
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.Equal(t, "Integration Test", m["content"])
 }
 
 // --- Embedding ---
@@ -198,47 +148,4 @@ func TestIntegration_SearchLocal_Combined(t *testing.T) {
 	assert.Equal(t, 1, m["count"])
 	results := m["results"].([]map[string]interface{})
 	assert.Equal(t, "match.go", results[0]["name"])
-}
-
-// --- SearchWeb ---
-
-func TestIntegration_SearchWeb_DDG(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<html><body><a class="result__a" data-href="https://example.com">DDG Result</a></body></html>`))
-	}))
-	defer srv.Close()
-	t.Setenv("KDEPS_DDG_URL", srv.URL)
-
-	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "integration test"})
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.GreaterOrEqual(t, m["count"].(int), 1)
-}
-
-func TestIntegration_SearchWeb_Brave(t *testing.T) {
-	payload := `{"web":{"results":[{"title":"Brave","url":"https://brave.com","description":"brave desc"}]}}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(payload))
-	}))
-	defer srv.Close()
-	t.Setenv("KDEPS_BRAVE_URL", srv.URL)
-
-	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(
-		newCtxWithSearch(t, "key"),
-		&domain.SearchWebConfig{Query: "test", Provider: "brave", ConnectionName: "test"},
-	)
-	require.NoError(t, err)
-	m := res.(map[string]interface{})
-	assert.Equal(t, 1, m["count"])
-}
-
-func TestIntegration_SearchWeb_MissingKey(t *testing.T) {
-	e := searchwebexec.NewExecutor()
-	_, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave"})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "connectionName required")
 }

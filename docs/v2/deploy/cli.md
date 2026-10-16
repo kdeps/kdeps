@@ -49,7 +49,9 @@ kdeps bundle package my-agent/ --name custom-agent
 
 Bundle a `.kdeps` or `.kagency` package with the kdeps runtime into a single
 self-contained executable per architecture. The produced binary needs no kdeps
-installation: running it executes the embedded package directly.
+installation: running it executes the embedded package directly, on the kdeps
+assets (harness, tool definitions, model registries, ...) of the machine that
+packaged it.
 
 ```bash
 kdeps bundle prepackage <package.kdeps|package.kagency> [flags]

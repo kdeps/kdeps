@@ -182,11 +182,11 @@ else
         test_failed "file-processor - declares sources: [file]" "sources: [file] not found in $FP_WF"
     fi
 
-    # T20: apiServerMode is false (single-shot)
-    if ! grep -q "apiServerMode:" "$FP_WF"; then
-        test_passed "file-processor - no apiServerMode (single-shot)"
+    # T20: single-shot, so no apiServer block
+    if ! grep -q "^  apiServer:" "$FP_WF"; then
+        test_passed "file-processor - no apiServer block (single-shot)"
     else
-        test_failed "file-processor - no apiServerMode" "apiServerMode: still found in $FP_WF"
+        test_failed "file-processor - no apiServer block" "apiServer: found in $FP_WF"
     fi
 
     # T21: summarize resource uses input('fileContent')
@@ -342,12 +342,13 @@ else
         test_failed "auto-env - summarizer has no-API extractive fallback" "Extractive fallback not found in $AE_SUMM"
     fi
 
-    # T40: both component dirs have no pre-existing .env (auto-scaffold happens at runtime)
+    # T40: running a component never writes into its folder; .env files only
+    # appear when the user runs `kdeps component update`.
     if [ ! -f "$PROJECT_ROOT/examples/auto-env/components/translator/.env" ] && \
        [ ! -f "$PROJECT_ROOT/examples/auto-env/components/summarizer/.env" ]; then
-        test_passed "auto-env - .env files absent before first run (auto-scaffolded at runtime)"
+        test_passed "auto-env - no .env files written into component folders"
     else
-        test_passed "auto-env - .env files present (auto-scaffolded on a prior run)"
+        test_failed "auto-env - no .env files written into component folders" "a component folder has a .env kdeps should not create"
     fi
 fi
 

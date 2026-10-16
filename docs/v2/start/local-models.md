@@ -5,11 +5,11 @@ description: Run kdeps entirely offline with local models. Your code and prompts
 
 # Local models (llamafile & Ollama)
 
-kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine.
+kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine. For the full self-hosted picture (your own LLM server, air-gapped bundles), see [Data sovereignty](/start/data-sovereignty).
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
-Two local backends are supported: **llamafile** (the default, zero-install) and **Ollama** (model manager with a broader catalog).
+Two local backends are supported: llamafile (the default, zero-install) and Ollama (model manager with a broader catalog).
 
 ---
 
@@ -37,7 +37,7 @@ kdeps --model llama3.2:3b    # 2.2 GB, good balance
 
 ```bash
 kdeps llamafile list          # show known model aliases and sizes
-kdeps llamafile update        # refresh the registry from HuggingFace
+kdeps update models           # newest registry (harvested nightly from HuggingFace)
 ```
 
 Known aliases and their sizes:
@@ -182,4 +182,5 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 
 - [LLM backends reference](/workflow/resources/llm-backends) - Full backend config, routing strategies, all provider options
 - [LLM providers reference](/llm-server/providers) - Per-provider snippets for cloud backends
-- [Run locally in 30 seconds](/agent/quickstart) - Quick start with the agent REPL
+- [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Run locally in 30 seconds](/agent/quickstart) - agent REPL in 30 seconds

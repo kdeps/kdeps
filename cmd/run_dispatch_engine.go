@@ -21,7 +21,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,25 +29,14 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
-	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorCodeIntelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
-	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
-	executorFile "github.com/kdeps/kdeps/v2/pkg/executor/file"
-	executorGit "github.com/kdeps/kdeps/v2/pkg/executor/git"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
-	executorOCR "github.com/kdeps/kdeps/v2/pkg/executor/ocr"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
-	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
-	executorTelephony "github.com/kdeps/kdeps/v2/pkg/executor/telephony"
-	executorTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
@@ -91,7 +79,7 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	logger := logging.NewLogger(debugMode)
 	engine := executor.NewEngine(logger)
 	engine.SetDebugMode(debugMode)
-	engine.SetRegistry(newExecutorRegistry(logger))
+	engine.SetRegistry(newExecutorRegistry())
 	return engine
 }
 
@@ -111,28 +99,17 @@ func setupEngineWithMemory(eng *executor.Engine, _ *domain.Workflow, debugMode b
 
 // newExecutorRegistry creates an executor registry with all adapters wired up.
 // Lives here (not in pkg/executor) to avoid import cycles with sub-packages.
-func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
+func newExecutorRegistry() *executor.Registry {
 	kdeps_debug.Log("enter: newExecutorRegistry")
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
-	registry.SetScraperExecutor(executorScraper.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
-	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())
-	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
-	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
-	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
-	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
-	registry.SetFileExecutor(executorFile.NewAdapter())
-	registry.SetGitExecutor(executorGit.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())
-	registry.SetTranscribeExecutor(executorTranscribe.NewAdapter())
-	registry.SetOCRExecutor(executorOCR.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }

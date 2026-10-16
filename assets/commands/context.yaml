@@ -1,0 +1,11 @@
+version: 1.0.0
+name: context
+order: 200
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Show current context window size
+  - args: "<size>"
+    help: Set context window size (e.g. 32768 or 32k); restarts local servers

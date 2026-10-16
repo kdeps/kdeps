@@ -80,7 +80,7 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 		workflow.Resources = append(allComponentResources, workflow.Resources...)
 	}
 
-	return nil
+	return p.loadAssetComponents(workflow)
 }
 
 // mergeComponentPackages merges a component's declared Python and OS packages into

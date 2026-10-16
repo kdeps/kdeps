@@ -378,20 +378,6 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid SQL resource",
-			resource: &domain.Resource{
-
-				ActionID: "sql-test",
-				Name:     "SQL Resource",
-
-				SQL: &domain.SQLConfig{
-					ConnectionName: "primary",
-					Query:          "SELECT * FROM users",
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "valid Python resource",
 			resource: &domain.Resource{
 
@@ -510,19 +496,6 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "SQL config validation error",
-			resource: &domain.Resource{
-
-				ActionID: "test",
-				Name:     "Test Resource",
-
-				SQL: &domain.SQLConfig{
-					// Missing connection and query - should fail validation
-				},
-			},
-			wantErr: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -565,84 +538,6 @@ func TestWorkflowValidator_ValidateChatConfig(t *testing.T) {
 			err := validator.ValidateChatConfig(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateChatConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
-	validator := validator.NewWorkflowValidator(nil)
-
-	tests := []struct {
-		name     string
-		config   *domain.SQLConfig
-		workflow *domain.Workflow
-		wantErr  bool
-	}{
-		{
-			name: "valid config with connectionName",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "valid config with connectionName and format",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-				Format:         "json",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "missing connectionName",
-			config: &domain.SQLConfig{
-				Query: "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-		{
-			name: "missing query",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-		{
-			name: "valid config with queries array",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Queries: []domain.QueryItem{
-					{Query: "SELECT * FROM users"},
-					{Query: "SELECT * FROM products"},
-				},
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  false,
-		},
-		{
-			name: "invalid format",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-				Format:         "invalid",
-			},
-			workflow: &domain.Workflow{},
-			wantErr:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateSQLConfig(tt.config, tt.workflow)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateSQLConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -1116,16 +1011,6 @@ func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "valid polling with whatsapp",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					WhatsApp:      &domain.WhatsAppConfig{WebhookPort: 16396},
-				},
-			},
-		},
-		{
 			name: "valid stateless no platforms required",
 			input: &domain.InputConfig{
 				Sources: []string{domain.InputSourceBot},
@@ -1340,86 +1225,30 @@ func TestWorkflowValidator_ValidateResource_ComponentExecType(t *testing.T) {
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_TelephonyExecType tests Telephony execution type.
-func TestWorkflowValidator_ValidateResource_TelephonyExecType(t *testing.T) {
+func TestWorkflowValidator_ValidateResource_EmbeddingExecType(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{
-		ActionID:  "tel-test",
-		Name:      "Tel Test",
-		Telephony: &domain.TelephonyActionConfig{Action: "hangup"},
+		ActionID:  "embedding-test",
+		Name:      "Embedding Test",
+		Embedding: &domain.EmbeddingConfig{Text: "t"},
 	}
 	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
 	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Telephony execution type: %v", err)
+		t.Errorf("unexpected error for Embedding execution type: %v", err)
 	}
 }
 
-// TestWorkflowValidator_ValidateResource_BrowserExecType tests Browser execution type.
-func TestWorkflowValidator_ValidateResource_BrowserExecType(t *testing.T) {
+func TestWorkflowValidator_ValidateResource_ChatPlusEmbeddingIsError(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	r := &domain.Resource{
-		ActionID: "br-test",
-		Name:     "Br Test",
-		Browser:  &domain.BrowserConfig{},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Browser execution type: %v", err)
-	}
-}
-
-// TestWorkflowValidator_ValidateResource_BotReplyExecType tests BotReply execution type.
-func TestWorkflowValidator_ValidateResource_BotReplyExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "brp-test",
-		Name:     "Brp Test",
-		BotReply: &domain.BotReplyConfig{Text: "hello"},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for BotReply execution type: %v", err)
-	}
-}
-
-// TestWorkflowValidator_ValidateResource_EmailExecType tests Email execution type.
-func TestWorkflowValidator_ValidateResource_EmailExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "email-test",
-		Name:     "Email Test",
-		Email:    &domain.EmailConfig{},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Email execution type: %v", err)
-	}
-}
-
-func TestWorkflowValidator_ValidateResource_ScraperExecType(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "scraper-test",
-		Name:     "Scraper Test",
-		Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
-	}
-	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
-	if err := v.ValidateResource(r, w); err != nil {
-		t.Errorf("unexpected error for Scraper execution type: %v", err)
-	}
-}
-
-func TestWorkflowValidator_ValidateResource_ChatPlusScraperIsError(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-	r := &domain.Resource{
-		ActionID: "conflict",
-		Name:     "Conflict",
-		Chat:     &domain.ChatConfig{Model: "llama3.2:latest", Prompt: "hi"},
-		Scraper:  &domain.ScraperConfig{URL: "https://example.com"},
+		ActionID:  "conflict",
+		Name:      "Conflict",
+		Chat:      &domain.ChatConfig{Model: "llama3.2:latest", Prompt: "hi"},
+		Embedding: &domain.EmbeddingConfig{Text: "t"},
 	}
 	w := &domain.Workflow{Settings: domain.WorkflowSettings{}}
 	if err := v.ValidateResource(r, w); err == nil {
-		t.Fatal("expected error when chat and scraper are both set")
+		t.Fatal("expected error when chat and embedding are both set")
 	}
 }
 

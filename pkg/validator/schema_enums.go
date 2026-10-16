@@ -21,6 +21,7 @@ package validator
 import (
 	"strings"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -31,23 +32,25 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 	return len(enumValues) > 0
 }
 
+// chatBackendEnum is every chat backend: the local and built-in ones plus each
+// cloud provider (the providers asset set included).
+func chatBackendEnum() []interface{} {
+	out := []interface{}{"file", "gguf", "ollama", "m365"}
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		out = append(out, p.Name)
+	}
+	return out
+}
+
 // schemaEnumMap returns known enum fields and their allowed values.
 func schemaEnumMap() map[string][]interface{} {
 	httpMethods := domain.StandardHTTPMethodsEnum()
 	return map[string][]interface{}{
-		enumKeyChatBackend: {
-			"file", "gguf",
-			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
-			"together", "perplexity", "groq", "deepseek", "openrouter", "xai",
-			"bedrock",
-			"watsonx",
-			"m365",
-		},
-		enumKeyHTTPMethod: httpMethods,
+		enumKeyChatBackend: chatBackendEnum(),
+		enumKeyHTTPMethod:  httpMethods,
 		enumKeyContextLength: {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		enumKeySQLFormat:                    domain.SQLResultFormatsEnum(),
 		"run.validations.methods":           httpMethods,
 		"settings.apiServer.routes.methods": httpMethods,
 		"routes.methods":                    httpMethods,
@@ -79,7 +82,6 @@ func lookupResourceSchemaEnums(field string, enumMap map[string][]interface{}) [
 		"backend":       enumKeyChatBackend,
 		"method":        enumKeyHTTPMethod,
 		"contextLength": enumKeyContextLength,
-		"format":        enumKeySQLFormat,
 	}
 	if key, ok := shortFieldEnums[field]; ok {
 		return enumMap[key]
@@ -112,7 +114,6 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 		{"backend", resourceTypeChat, enumKeyChatBackend},
 		{"method", "httpClient", enumKeyHTTPMethod},
 		{"contextLength", resourceTypeChat, enumKeyContextLength},
-		{"format", "sql", enumKeySQLFormat},
 	}
 	for _, rule := range rules {
 		if lastPart == rule.part && strings.Contains(normalizedField, rule.context) {

@@ -514,14 +514,14 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 // --- expandFileRefs ---
 
 func TestExpandFileRefs_NoRefs(t *testing.T) {
-	out, files := expandFileRefs("hello world")
+	out, files := expandFileRefs("hello world", nil)
 	assert.Equal(t, "hello world", out)
 	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_UnreadablePath(t *testing.T) {
 	// @nonexistent-file should be left as-is
-	out, files := expandFileRefs("check @/nonexistent/file.txt please")
+	out, files := expandFileRefs("check @/nonexistent/file.txt please", nil)
 	assert.Contains(t, out, "@/nonexistent/file.txt")
 	assert.Empty(t, files)
 }
@@ -531,7 +531,7 @@ func TestExpandFileRefs_RealFile(t *testing.T) {
 	p := filepath.Join(dir, "notes.txt")
 	require.NoError(t, os.WriteFile(p, []byte("hello from file"), 0o644))
 
-	out, files := expandFileRefs("review @" + p)
+	out, files := expandFileRefs("review @"+p, nil)
 	assert.Contains(t, out, "hello from file")
 	assert.Contains(t, out, "notes.txt")
 	assert.Empty(t, files) // text files expand inline, not as attachments
@@ -542,21 +542,21 @@ func TestExpandFileRefs_ImageFile(t *testing.T) {
 	p := filepath.Join(dir, "photo.png")
 	require.NoError(t, os.WriteFile(p, []byte("\x89PNG"), 0o644))
 
-	out, files := expandFileRefs("describe @" + p)
+	out, files := expandFileRefs("describe @"+p, nil)
 	// Image ref should be stripped from text, not embedded inline
 	assert.NotContains(t, out, "photo.png")
 	assert.Contains(t, files, p)
 }
 
 func TestExpandFileRefs_ImageNotFound(t *testing.T) {
-	out, files := expandFileRefs("describe @/nonexistent/photo.png")
+	out, files := expandFileRefs("describe @/nonexistent/photo.png", nil)
 	// Non-existent image ref left unchanged (file not accessible)
 	assert.Contains(t, out, "@/nonexistent/photo.png")
 	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_URLImage(t *testing.T) {
-	out, files := expandFileRefs("describe @https://example.com/photo.png what is this?")
+	out, files := expandFileRefs("describe @https://example.com/photo.png what is this?", nil)
 	// URL refs are always treated as multimodal attachments, removed from text
 	assert.NotContains(t, out, "https://example.com/photo.png")
 	assert.Contains(t, files, "https://example.com/photo.png")
@@ -847,6 +847,25 @@ func TestDynamicPrompt_WithTurns(t *testing.T) {
 	assert.Contains(t, m, "·", "modeline segments are separated by a middle dot")
 }
 
+// TestModeline_ReminderSegmentAppearsOnlyWhileActive covers the /harness
+// reminders HUD indicator: it must be absent by default, appear the moment a
+// reminder is turned on, and disappear again once it's turned off -- same
+// on-only-when-active convention as mem:.
+func TestModeline_ReminderSegmentAppearsOnlyWhileActive(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	assert.NotContains(t, repl.modeline(), "reminder:")
+
+	require.NoError(t, SetHarnessReminder("tools-reminder", true))
+	assert.Contains(t, repl.modeline(), "reminder:tools-reminder")
+
+	require.NoError(t, SetHarnessReminder("tools-reminder", false))
+	assert.NotContains(t, repl.modeline(), "reminder:")
+}
+
 // TestContextUsageStr_ReflectsLocalContextSizeChange pins the reported bug:
 // running /context <size> must update the "<consumed>/<this_context>" prompt
 // segment immediately, since /context calls llm.SetLocalContextSize without
@@ -864,13 +883,29 @@ func TestContextUsageStr_ReflectsLocalContextSizeChange(t *testing.T) {
 
 	llm.SetLocalContextSize(4096)
 	before := repl.contextUsageStr()
-	assert.Contains(t, before, "/4k")
+	assert.Contains(t, before, "/4.1k")
 
 	// Simulate /context 256k without switching models.
 	llm.SetLocalContextSize(262144)
 	after := repl.contextUsageStr()
-	assert.Contains(t, after, "/256k")
+	assert.Contains(t, after, "/262.1k")
 	assert.NotEqual(t, before, after)
+}
+
+func TestContextUsageStr_PrefersMeasuredPromptSize(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = modelGPT4o
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	resetContextSegments(modelGPT4o, "")
+	llm.ResetLastCallInput()
+	t.Cleanup(llm.ResetLastCallInput)
+	assert.NotContains(t, repl.contextUsageStr(), "20.7k", "no measurement yet: falls back to session size")
+
+	llm.SetLastCallInputForTest(20700)
+	assert.Equal(t, "20.7k/128.0k", repl.contextUsageStr())
 }
 
 // --- buildCompleter ---
@@ -2869,7 +2904,7 @@ func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
 	loop.config.AutoCompactThreshold = 20000
 	// Should not panic; with no skills/prompt/tools the only content is the
 	// always-present date line.
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Contains(t, preamble, "Today's date is")
 	assert.Empty(t, preambleBeyondDate(preamble))
 }
@@ -2887,7 +2922,7 @@ func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
 	// Both zero: final fallback to 40000
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 0
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 	assert.Empty(t, preambleBeyondDate(preamble)) // no skills/prompt/tools set
 }
 
@@ -2899,7 +2934,7 @@ func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
 	loop.config.SystemPrompt = "you are a helpful assistant"
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Skills should be stripped when context window is tiny
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
@@ -2912,7 +2947,7 @@ func TestBuildSystemPreamble_NormalContext_IncludesSkills(t *testing.T) {
 	loop.skills = "MY SKILL CONTENT"
 	loop.config.CompactTokenBudget = 40000
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.Contains(t, preamble, "MY SKILL CONTENT")
 }
@@ -2923,7 +2958,7 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096
 	loop.config.SystemPrompt = ""
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Only tool guidance when no system prompt and small context
 	assert.NotContains(t, preamble, "SKILL")
@@ -2935,14 +2970,14 @@ func TestBuildSystemPreamble_MemoryRulesSurviveVerbatim(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.memoryStore = NewMemoryStore(t.TempDir())
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	// Byte-for-byte: turoReduce must never see this text, so mechanical
 	// rewriting (filler removal, synonym substitution) cannot have touched it.
-	assert.Contains(t, preamble, "MANDATORY RULE #1 — Check memory before every action.")
-	assert.Contains(t, preamble, "FAILURE TO CHECK MEMORY FIRST IS A BUG.")
-	assert.Contains(t, preamble, "MANDATORY RULE #2 — Save memory after every turn.")
-	assert.Contains(t, preamble, "FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG.")
+	assert.Contains(t, preamble, "MEMORY RULE #1 — Check memory when it can help.")
+	assert.Contains(t, preamble, "Do not query before every action")
+	assert.Contains(t, preamble, "MEMORY RULE #2 — Save what a future model would need.")
+	assert.NotContains(t, preamble, "IS A BUG")
 }
 
 func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
@@ -2951,19 +2986,19 @@ func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
 	loop.skills = "LARGE SKILL BLOCK"
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192): skills get stripped
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.buildSystemPreamble()
 
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	// Memory rules are not "non-essential" content — they must still be sent
 	// even when the context budget is too small for skills.
-	assert.Contains(t, preamble, "MANDATORY RULE #1")
-	assert.Contains(t, preamble, "MANDATORY RULE #2")
+	assert.Contains(t, preamble, "MEMORY RULE #1")
+	assert.Contains(t, preamble, "MEMORY RULE #2")
 }
 
 func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
 	loop := makeTestLoop(nil) // memoryStore left nil
-	preamble := loop.buildSystemPreamble("")
-	assert.NotContains(t, preamble, "MANDATORY RULE")
+	preamble := loop.buildSystemPreamble()
+	assert.NotContains(t, preamble, "MEMORY RULE")
 }
 
 // TestBuildSystemPreamble_MemoryKeysCapped guards against dumping every stored
@@ -2981,7 +3016,7 @@ func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
 		require.NoError(t, store.Set(fmt.Sprintf("key-%04d", i), "value"))
 	}
 
-	preamble := loop.buildSystemPreamble("")
+	preamble := loop.memoryTurnBlock("")
 
 	// Scope the count to the <memory-keys> block itself — FormatForPrompt's
 	// own recent-entries summary also mentions keys and would otherwise

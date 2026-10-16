@@ -56,8 +56,10 @@ embedding:
 ```yaml
 # Step 1: Scrape content
 actionId: fetch
-scraper:
-  url: "{{ get('url') }}"
+component:
+  name: scraper
+  with:
+    url: "{{ get('url') }}"
 
 # Step 2: Index it
 actionId: storeDoc
@@ -113,11 +115,11 @@ embedding:
 
 > **Note**: This uses keyword (LIKE) matching, not vector similarity. For OpenAI vector embeddings, install the component:
 > ```bash
-> kdeps registry install embedding
+> kdeps install embedding
 > ```
 
 ## See also
 
-- [Scraper resource](/workflow/resources/scraper) - fetch content to index
+- [Scraper component](/workflow/resources/scraper) - fetch content to index
 - [Search resource](/workflow/resources/search) - search local files and the web
 - [LLM resource](/workflow/resources/llm) - use search results as context

@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"path"
@@ -29,19 +28,18 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // The harness is every piece of text kdeps sends the LLM to shape its
 // behavior -- not the conversation itself: tool-use rules, sandbox-hallucination
 // reinforcement, and the single-purpose system prompts behind compaction,
 // goal planning, judging, and prompt refinement. Like themes, it is data, not
-// code: every built-in entry ships as an embedded YAML file under harness/,
-// and users can drop their own into ~/.kdeps/harness/*.yaml to add an entry
+// code: every built-in entry is a YAML file in the harness asset set
+// (installed by kdeps update), and users can drop their own into ~/.kdeps/harness/*.yaml to add an entry
 // or override a built-in by reusing its name -- no Go code or recompilation
 // required either way.
-
-//go:embed harness/*.yaml
-var builtinHarnessFS embed.FS
 
 // harnessKindPreambleSection entries are assembled, in ascending Order, into
 // one string that goes into every turn's system preamble (see
@@ -79,6 +77,12 @@ type yamlHarnessEntry struct {
 	// this only supplies the configurable ceiling. Meaningless on a
 	// preamble-section entry, which has no occurrence count to cap.
 	MaxOccurrences int `yaml:"maxOccurrences,omitempty"`
+	// Remind forces this entry's body onto every LLM prompt and every tool
+	// call result, regardless of its normal kind/trigger (a preamble-section
+	// entry's own placement, or a standalone entry's specific call site).
+	// False (the zero value) means no forced reminder. Set/unset via
+	// "/harness reminders <name> on|off"; see harness_reminders.go.
+	Remind bool `yaml:"remind,omitempty"`
 }
 
 // harnessEntry is the parsed, in-memory form.
@@ -88,6 +92,7 @@ type harnessEntry struct {
 	body           string
 	disabled       bool
 	maxOccurrences int
+	remind         bool
 }
 
 // userHarnessDirName is the subdirectory of ~/.kdeps holding user harness
@@ -106,26 +111,22 @@ func userHarnessDir() (string, error) {
 // harnessFS is what loadBuiltinHarnessFrom needs from a filesystem of
 // harness YAML files -- identical in shape to themeFS (theme_yaml.go), so
 // it's an alias rather than a second copy of the same two-method interface.
-// embed.FS satisfies it directly; tests pass a fake to exercise the
-// read/parse-error panics that a real, compiled-in embed can never actually
-// hit.
+// Tests pass a fake to exercise unreadable and invalid files.
 type harnessFS = themeFS
 
-// loadBuiltinHarness parses every embedded harness/*.yaml file.
+// loadBuiltinHarness parses every harness/*.yaml file of the asset set.
 func loadBuiltinHarness() map[string]*harnessEntry {
-	return loadBuiltinHarnessFrom(builtinHarnessFS)
+	return loadBuiltinHarnessFrom(assets.Open("harness"))
 }
 
 // loadBuiltinHarnessFrom is loadBuiltinHarness parameterized over the
-// filesystem, so tests can exercise its logic (skip directories, panic on a
-// bad shipped file) without touching the real embed. A parse failure here is
-// a bug in the shipped files, not user input -- it panics (caught once, at
-// init, same severity as a missing embed) rather than silently shipping a
-// broken harness entry.
+// filesystem, so tests can exercise its logic. A file that cannot be read or
+// parsed is skipped with a warning (see warnAsset).
 func loadBuiltinHarnessFrom(fsys harnessFS) map[string]*harnessEntry {
 	entries, err := fsys.ReadDir("harness")
 	if err != nil {
-		panic(fmt.Sprintf("harness: read embedded harness dir: %v", err))
+		warnAsset(err)
+		return map[string]*harnessEntry{}
 	}
 	out := make(map[string]*harnessEntry, len(entries))
 	for _, e := range entries {
@@ -138,24 +139,24 @@ func loadBuiltinHarnessFrom(fsys harnessFS) map[string]*harnessEntry {
 }
 
 // parseBuiltinHarnessFileFrom parses one harness file from fsys and stores it
-// in out under its resolved name. Panics on any read/parse error -- these are
-// shipped files, not user input.
+// in out under its resolved name, or warns and skips it.
 func parseBuiltinHarnessFileFrom(fsys harnessFS, out map[string]*harnessEntry, filename string) {
-	// fs.FS paths (embed.FS included) are always forward-slash, regardless of
-	// OS -- filepath.Join would emit a backslash on Windows and break the
-	// lookup.
+	// fs.FS paths are always forward-slash, regardless of OS -- filepath.Join
+	// would emit a backslash on Windows and break the lookup.
 	data, err := fsys.ReadFile(path.Join("harness", filename))
 	if err != nil {
-		panic(fmt.Sprintf("harness: read embedded %s: %v", filename, err))
+		warnAsset(err)
+		return
 	}
 	ye, err := parseYAMLHarnessEntry(data, filename)
 	if err != nil {
-		panic(fmt.Sprintf("harness: parse embedded %s: %v", filename, err))
+		warnAsset(fmt.Errorf("harness %w", err))
+		return
 	}
 	name := harnessNameFromYAML(ye, filename)
 	out[name] = &harnessEntry{
 		kind: ye.Kind, order: ye.Order, body: ye.Body,
-		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 	}
 }
 
@@ -223,7 +224,7 @@ func loadUserHarness() (map[string]*harnessEntry, []error) {
 		}
 		out[name] = &harnessEntry{
 			kind: kind, order: ye.Order, body: ye.Body,
-			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences,
+			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 		}
 	}
 	return out, errs

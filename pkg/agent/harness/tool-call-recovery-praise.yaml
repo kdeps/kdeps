@@ -1,4 +1,0 @@
-name: tool-call-recovery-praise
-kind: standalone
-body: >-
-  [GOOD] That's a real tool call and it worked. Keep calling tools this way.

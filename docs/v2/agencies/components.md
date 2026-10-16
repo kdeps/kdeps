@@ -1,12 +1,12 @@
 # Components
 
-A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps registry install`, and custom components you build yourself in a `components/` directory.
+A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps install`, and custom components you build yourself in a `components/` directory.
 
 Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, a component is registered as an LLM tool and runs only when the model calls it.
 
 ## Overview
 
-Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows - you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
+Components encapsulate resources, configuration, and dependencies into a single package. They are callable sub-workflows: you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
 
 ## Types of components
 
@@ -15,10 +15,10 @@ Components encapsulate resources, configuration, and dependencies into a single 
 Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow:
 
 ```bash
-kdeps registry install scraper     # web/doc text extraction
-kdeps registry install search      # web search
-kdeps registry install embedding   # vector embeddings
-kdeps registry install browser     # browser automation
+kdeps install scraper     # web/doc text extraction
+kdeps install search      # web search
+kdeps install embedding   # vector embeddings
+kdeps install browser     # browser automation
 ```
 
 Invoke with `component:`:
@@ -46,12 +46,76 @@ my-workflow/
 
 ## How components work
 
-1. Place a `component.yaml` in `components/<name>/` or install via `kdeps registry install`
+1. Place a `component.yaml` in `components/<name>/` or install via `kdeps install`
 2. At parse time, kdeps scans `components/` and loads all component manifests
 3. Component resources are merged with the workflow's own resources
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql), [email](/workflow/resources/email), [browser](/workflow/resources/browser), [twiml](/workflow/resources/telephony), [scraper](/workflow/resources/scraper), [searchWeb](/workflow/resources/search-web)); one is loaded only when a workflow calls it and does not provide a component of that name itself
+
+A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs, and `validations.check` fails the call with its `error.message` when a condition is false:
+
+```yaml
+# components/fetch/component.yaml (resources, abridged)
+resources:
+  - actionId: viaAPI
+    validations:
+      skip:
+        - "get('fetch.mode') != 'api'"     # inputs are get('<component>.<input>')
+    httpClient: {method: GET, url: "{{ get('fetch.url') }}"}
+  - actionId: viaCLI
+    validations:
+      skip:
+        - "get('fetch.mode') != 'cli'"
+    exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
+```
+
+An input whose value names a connection in `~/.kdeps/config.yaml` declares its kind with `connection:` (`search`, `sql`, `smtp`, `imap`, `http`). `kdeps run` then asks for a missing connection before the workflow starts, as it does for a resource's `connectionName`:
+
+```yaml
+# components/searchWeb/component.yaml (interface, abridged)
+interface:
+  inputs:
+    - name: connectionName
+      type: string
+      default: ""
+      connection: search   # with: {connectionName: brave} -> search_connections.brave must exist
+```
+
+The component's output is the last resource that ran, unless `interface.output` shapes it. `output` is evaluated after the resources run: strings are expressions, maps and lists are walked, so the caller gets fixed field names whatever the steps returned:
+
+<div v-pre>
+
+```yaml
+# components/fetch/component.yaml (interface, abridged)
+interface:
+  inputs:
+    - {name: url, type: string, required: true}
+  output:                                   # what output('<caller>') returns
+    text: "{{ htmlText(output('viaAPI').body, 'article') }}"
+    status: "{{ output('viaAPI').statusCode }}"
+```
+
+</div>
+
+`setup.osPackages` are installed by `kdeps build` in the image and, at run time, by the machine's package manager (apk, apt-get, brew). List the programs they provide under `setup.provides`: when every one is already on `PATH`, no package manager runs - a run on a machine that has the tool costs nothing extra.
+
+```yaml
+# components/ocr/component.yaml (as shipped)
+setup:
+  osPackages: [tesseract-ocr]   # apt/apk package name, installed in images
+  provides: [tesseract]         # on PATH already: skip the install
+```
+
+A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)):
+
+```yaml
+# components/searchWeb/template.yaml (as shipped)
+version: 1.0.1
+requires:
+  schemas/v1: ">=1.0.3"   # the schema that accepts connection: on an input
+```
 
 Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 
@@ -88,7 +152,7 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 ## Use cases
 
 - Pull in a pre-built capability (web scraping, search, embeddings, browser
-  automation) with one `kdeps registry install` instead of writing it.
+  automation) with one `kdeps install` instead of writing it.
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
 - Give an LLM a bounded, typed capability by exposing a component as a tool

@@ -1,0 +1,3 @@
+version: 1.0.0
+description: List all Google AI cached content entries. Returns a JSON array of cache names. Only available when GOOGLE_API_KEY is set.
+parameters: {}

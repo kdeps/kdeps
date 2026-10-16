@@ -2,7 +2,7 @@
 
 This reference covers security, rate limiting, trusted proxies, resource output caps, and other server-level settings that live in `workflow.yaml` under `settings:`.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Request object
 
@@ -60,18 +60,20 @@ validations:
 
 ```yaml
 # resources/example.yaml
-sql:
-  connectionName: logs
-  queries:
-    - query: |
-        INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
-        VALUES (?, ?, ?, ?, ?, NOW())
-      params:
-        - "{{ request.ID }}"
-        - "{{ request.method }}"
-        - "{{ request.path }}"
-        - "{{ request.IP }}"
-        - "{{ info('sessionId') }}"
+component:
+  name: sql
+  with:
+    connectionName: logs
+    queries:
+      - query: |
+          INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
+          VALUES (?, ?, ?, ?, ?, NOW())
+        params:
+          - "{{ request.ID }}"
+          - "{{ request.method }}"
+          - "{{ request.path }}"
+          - "{{ request.IP }}"
+          - "{{ info('sessionId') }}"
 ```
 
 </div>
@@ -158,7 +160,7 @@ settings:
 
 ## SQL connections
 
-SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
+SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled.
 
 ### Configuration
 
@@ -174,35 +176,7 @@ sql_connections:
     connection: "sqlite://./cache.db"
 ```
 
-`workflow.yaml` - pool config only (no credentials):
-
-```yaml
-settings:
-  sqlConnections:
-    primary:
-      pool:
-        maxConnections: 25
-        minConnections: 5
-        maxIdleTime: "30m"
-        connectionTimeout: "10s"
-    analytics:
-      pool:
-        maxConnections: 10
-        minConnections: 2
-        maxIdleTime: "15m"
-        connectionTimeout: "5s"
-```
-
-### Pool configuration
-
-| Field | Default (when `pool:` is omitted entirely) | Description |
-|-------|---------|-------------|
-| `maxConnections` | 10 | Maximum pool size |
-| `minConnections` | 2 | Minimum idle connections |
-| `maxIdleTime` | 5m | Max time before idle connection is closed |
-| `connectionTimeout` | (none - no connection lifetime limit) | Connection acquisition timeout |
-
-These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
+The [`sql` component](/workflow/resources/sql) opens one connection per call; there is no pool to configure.
 
 ### Using named connections
 
@@ -210,12 +184,14 @@ These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out o
 
 ```yaml
 # resources/example.yaml
-sql:
-  connectionName: primary  # Reference by name -- must match key in sql_connections in ~/.kdeps/config.yaml
-  queries:
-    - query: "SELECT * FROM users WHERE id = ?"
-      params:
-        - "{{ get('userId') }}"
+component:
+  name: sql
+  with:
+    connectionName: primary  # Reference by name -- must match key in sql_connections in ~/.kdeps/config.yaml
+    queries:
+      - query: "SELECT * FROM users WHERE id = ?"
+        params:
+          - "{{ get('userId') }}"
 ```
 
 </div>
@@ -317,7 +293,7 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 ## Global defaults (`defaults`, `resource_defaults`)
 
 `~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
-a workflow doesn't set the equivalent field itself. Edit it with
+a workflow does not set the equivalent field itself. Edit it with
 [`kdeps edit`](/reference/cli-dev#kdeps-edit); [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
 checks it (along with Ollama/Python/installed agents) before you hit run.
 
@@ -361,8 +337,28 @@ resource's own `timeout:`, for example) - either can still be overridden
 per-resource in `workflow.yaml`, which always wins over the global default.
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing
-API keys, invalid durations, and agent profiles under `agents:` that don't
+API keys, invalid durations, and agent profiles under `agents:` that do not
 match any installed workflow's `metadata.name`.
+
+## Knowledge vault
+
+```yaml
+# ~/.kdeps/config.yaml
+knowledge:
+  enabled: true               # on by default for agent sessions; false turns it off
+  vault: ~/.kdeps/notes       # folder of markdown notes the agent recalls from each turn (default)
+  session_notes: true         # write a note per session into the project's sessions/ folder
+  workflow_notes: false       # workflow chat calls log to projects/<workflow>/sessions/ (default false)
+  recall:
+    hops: 2                   # how far from the matched notes to walk the link graph
+    budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
+  extract:                    # local-model pass over changed notes at session end
+    model: llama3.2:3b        # empty: the session's model when local, else skipped
+    workers: 2
+    per_session: 20
+```
+
+See [Knowledge vault](/agent/knowledge).
 
 ## Agent identity
 
@@ -387,10 +383,10 @@ agents:
           url: https://crm.example.com
 ```
 
-Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They're used in three places:
+Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They are used in three places:
 
 - **Git commits.** In agent mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
-- **Outbound email.** An [`email:` resource](/workflow/resources/email) with no `from:` set defaults to `identity.email`.
+- **Outbound email.** The [`email` component](/workflow/resources/email) with no `from` input defaults to `identity.email`.
 - **`identity_get` tool.** Agent mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
 
 `accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.

@@ -1,0 +1,11 @@
+version: 1.0.0
+category: shell
+description: Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).
+constraints: prefer dedicated tools over bash for file reads, searches, and edits; long-running commands show a progress spinner; cwd persists between calls
+outputFormat: plain text (stdout + optional stderr), truncated to 2000 lines
+seeAlso: read_file, search_local, edit_file, write_file
+parameters:
+  command:
+    type: string
+    description: The bash command to execute
+    required: true

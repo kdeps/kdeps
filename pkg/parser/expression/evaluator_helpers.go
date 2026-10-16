@@ -19,12 +19,17 @@
 package expression
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -127,6 +132,19 @@ func (e *Evaluator) addSerializationHelpers(evalEnv map[string]interface{}) {
 		return url.QueryEscape(fmt.Sprintf("%v", s))
 	}
 	evalEnv["toJSON"] = evalEnv["json"]
+	// hmacSHA256(key, data) returns the hex HMAC-SHA256 of data, for webhook
+	// signatures: 'sha256=' + hmacSHA256(secret, request.rawBody).
+	evalEnv["hmacSHA256"] = func(key, data interface{}) interface{} {
+		mac := hmac.New(sha256.New, []byte(fmt.Sprintf("%v", key)))
+		fmt.Fprintf(mac, "%v", data)
+		return hex.EncodeToString(mac.Sum(nil))
+	}
+	// htmlText(html, selector) returns the text of every element matching a
+	// CSS selector, one per line; an empty selector returns html unchanged.
+	evalEnv["htmlText"] = htmlText
+	// htmlFind(html, selector) returns one map per matching element: its
+	// trimmed text under "text" plus each attribute (href, class, data-*).
+	evalEnv["htmlFind"] = htmlFind
 	evalEnv["fromJSON"] = func(s interface{}) interface{} {
 		str := fmt.Sprintf("%v", s)
 		var out interface{}
@@ -229,4 +247,39 @@ func (e *Evaluator) EvaluateCondition(exprStr string, env map[string]interface{}
 		}
 		return false, fmt.Errorf("condition must evaluate to boolean, got %T", result)
 	}
+}
+
+// htmlText extracts the text of the elements matching selector from html.
+func htmlText(html, selector string) string {
+	if selector == "" {
+		return html
+	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return ""
+	}
+	var sb strings.Builder
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		sb.WriteString(s.Text())
+		sb.WriteString("\n")
+	})
+	return strings.TrimSpace(sb.String())
+}
+
+// htmlFind returns the elements matching selector as maps of their text and attributes.
+func htmlFind(html, selector string) []interface{} {
+	out := []interface{}{}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil || selector == "" {
+		return out
+	}
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		el := map[string]interface{}{}
+		for _, a := range s.Nodes[0].Attr {
+			el[a.Key] = a.Val
+		}
+		el["text"] = strings.TrimSpace(s.Text())
+		out = append(out, el)
+	})
+	return out
 }

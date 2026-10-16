@@ -1,0 +1,35 @@
+version: 1.0.0
+name: model
+order: 40
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "[name]"
+    help: Show or set the LLM model
+  - args: "default [name]"
+    help: Show or save the default startup model
+  - args: list
+    help: List all available models with provider status
+  - args: ps
+    help: List running local model servers (llamafile/gguf)
+  - args: "ps kill <model>"
+    help: Kill a running local model server
+  - args: "ps switch <model>"
+    help: Switch to a running local model server
+  - args: "hff search <query>"
+    help: Search HuggingFace for GGUF models
+  - args: "hff info <repo>"
+    help: List GGUF files available in a HuggingFace repo
+  - args: "hff download <repo> [file]"
+    help: Download a GGUF file from HuggingFace
+  - args: "<url>"
+    help: Register a .gguf/.llamafile URL or OpenAI-compatible endpoint
+  - args: "favorite <name>"
+    help: "Star a model (shown first in /model, persists); unfavorite to remove"
+  - args: "name [show|hide|abbreviate|auto]"
+    help: Show or set how the modeline displays the model name
+  - args: "tool [list]"
+    help: "Show agent loop settings (tool rounds, retries, compaction)"
+  - args: "tool set <setting> <value>"
+    help: "Change a setting for this session (e.g. rounds 80, retry-delay 5s)"

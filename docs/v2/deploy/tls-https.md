@@ -1,13 +1,11 @@
 # TLS and HTTPS (custom domains)
 
-Serve the kdeps **API server** and **web server** over HTTPS for a **custom domain**. Two modes:
-
-*Applies to workflow mode.*
+Serve the kdeps API server and web server over HTTPS for a custom domain. Two modes:
 
 1. **Static certificates** - you supply PEM `certFile` / `keyFile`
 2. **Let's Encrypt** - kdeps obtains and renews certificates with ACME for your domain
 
-Works in **workflow mode** (HTTP API / web) and for any agent package that enables `apiServer` / `webServer`. Agent mode REPL does not listen for HTTPS itself.
+Works in workflow mode (HTTP API / web) and for any agent package that enables `apiServer` / `webServer`. Agent mode REPL does not listen for HTTPS itself.
 
 ## Choose a mode
 
@@ -38,7 +36,7 @@ E -> H
 | Let's Encrypt | Public custom domain, automatic renew, no PEM files to manage |
 | Reverse proxy (Caddy/Traefik/Nginx) | Multi-service mesh, K8s Ingress - kdeps stays HTTP internally |
 
-**Priority:** if both static PEM and `letsEncrypt` are set, **static PEM wins**.
+**Priority:** if both static PEM and `letsEncrypt` are set, static PEM wins.
 
 ## Static certificates
 
@@ -61,7 +59,7 @@ Paths are top-level under `settings` (not under `apiServer`). Same certs apply t
 
 kdeps uses Go `autocert` (ACME) against Let's Encrypt production or staging.
 
-### Minimal config
+## Minimal config
 
 ```yaml
 # workflow.yaml
@@ -77,7 +75,7 @@ settings:
         methods: [POST]
 ```
 
-### Full field reference
+## Full field reference
 
 ```yaml
 settings:
@@ -108,14 +106,14 @@ settings:
 | `staging` | `false` | Use LE staging directory |
 | `httpChallengeAddr` | `":80"` | Bind address for HTTP-01; empty string disables it |
 
-### DNS and ports
+## DNS and ports
 
-1. Create **A/AAAA** records for every hostname in `domain` / `domains` pointing at this machine (or load balancer that forwards 80/443).
-2. Open **TCP 80** (HTTP-01 challenge) and **TCP 443** (HTTPS app + TLS-ALPN-01).
-3. Prefer listening on **port 443** for production HTTPS.
-4. Ensure the process can **write** `cacheDir` (persist this volume in Docker/K8s so renewals keep working).
+1. Create A/AAAA records for every hostname in `domain` / `domains` pointing at this machine (or load balancer that forwards 80/443).
+2. Open TCP 80 (HTTP-01 challenge) and TCP 443 (HTTPS app + TLS-ALPN-01).
+3. Prefer listening on port 443 for production HTTPS.
+4. Ensure the process can write `cacheDir` (persist this volume in Docker/K8s so renewals keep working).
 
-### What kdeps starts
+## What kdeps starts
 
 When `letsEncrypt` is active (and no static PEM):
 
@@ -124,7 +122,7 @@ When `letsEncrypt` is active (and no static PEM):
 
 Certificates renew automatically while the process is running and the cache directory is preserved.
 
-### Staging checklist
+## Staging checklist
 
 Before production, validate the path with staging:
 
@@ -170,7 +168,7 @@ Alternatively mount static secrets as `certFile` / `keyFile` (see [Docker refere
 
 ## Kubernetes
 
-Expose Service ports **80** and **443**, use a **persistent volume** for `cacheDir`, and set `hostIp`/`port` so the pod listens on 443.
+Expose Service ports 80 and 443, use a persistent volume for `cacheDir`, and set `hostIp`/`port` so the pod listens on 443.
 
 ```yaml
 settings:
@@ -183,7 +181,7 @@ settings:
     portNum: 443
 ```
 
-Many clusters prefer **Ingress TLS** (cert-manager) and keep kdeps on plain HTTP inside the cluster. That remains fully supported - omit `letsEncrypt` and terminate TLS at the Ingress.
+Many clusters prefer Ingress TLS (cert-manager) and keep kdeps on plain HTTP inside the cluster. That remains fully supported - omit `letsEncrypt` and terminate TLS at the Ingress.
 
 ```bash
 kdeps export k8s myagent-1.0.0.kdeps --image REG/myagent:1 -o k8s.yaml
@@ -196,15 +194,15 @@ kubectl apply -f k8s.yaml
 If you already run Caddy, Traefik, or Nginx for TLS:
 
 - Leave kdeps on HTTP (`hostIp: 127.0.0.1`, default port)
-- Do **not** set `letsEncrypt` or PEM paths on kdeps
+- Do not set `letsEncrypt` or PEM paths on kdeps
 - Proxy `https://api.example.com` → `http://127.0.0.1:16395`
 
 ## LLM server appliances
 
 `kdeps llm` appliances expose OpenAI-compatible `/v1`. For a custom domain HTTPS front-end, either:
 
-- Put **Caddy/Traefik/Nginx** with Let's Encrypt in front of the appliance port (8000), or
-- Run a kdeps **agent/API** package with `letsEncrypt` that proxies to the appliance
+- Put Caddy/Traefik/Nginx with Let's Encrypt in front of the appliance port (8000), or
+- Run a kdeps agent/API package with `letsEncrypt` that proxies to the appliance
 
 The appliance recipes themselves do not embed ACME today.
 

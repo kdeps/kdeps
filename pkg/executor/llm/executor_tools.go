@@ -19,9 +19,12 @@
 package llm
 
 import (
+	"fmt"
 	"os"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 )
 
 // extractToolCalls extracts tool calls from LLM response.
@@ -64,6 +67,44 @@ func (e *Executor) extractToolCalls(
 	}
 
 	return toolCalls, len(toolCalls) > 0
+}
+
+// recoverTextToolCalls returns the tool calls a model wrote as JSON text (one
+// call object, or an array of them) when it returned no structured
+// tool_calls. Every call must name one of tools, so a JSON answer is never run
+// as a call. Agent mode recovers text-written calls through the same parser.
+func recoverTextToolCalls(
+	response map[string]interface{},
+	tools []domain.Tool,
+) ([]map[string]interface{}, bool) {
+	message, ok := response[jsonFieldMessage].(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	content, _ := message["content"].(string)
+	known := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		known[t.Name] = true
+	}
+	recovered := toolcall.ParseWholeContent(content)
+	calls := make([]map[string]interface{}, 0, len(recovered))
+	for i, c := range recovered {
+		if !known[c.Name] {
+			return nil, false
+		}
+		calls = append(calls, map[string]interface{}{
+			"id":   fmt.Sprintf("text_call_%d", i),
+			"type": "function",
+			fieldFunction: map[string]interface{}{
+				fieldName:   c.Name,
+				"arguments": c.Arguments,
+			},
+		})
+	}
+	if len(calls) > 1 && os.Getenv("KDEPS_ALLOW_MULTI_TOOL") == "" {
+		calls = calls[:1]
+	}
+	return calls, len(calls) > 0
 }
 
 // executeToolCalls executes all tool calls and returns results.

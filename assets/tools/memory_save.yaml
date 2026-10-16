@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Save a fact to persistent memory. The memory is injected into every LLM call automatically. Use for project conventions, user preferences, key decisions, or any information that should persist across sessions. Keys should be short and descriptive.
+parameters:
+  key:
+    type: string
+    description: Short, descriptive key for this memory entry
+    required: true
+  value:
+    type: string
+    description: The fact or information to remember
+    required: true

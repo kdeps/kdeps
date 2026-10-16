@@ -1,0 +1,9 @@
+version: 1.0.0
+name: kartographer
+order: 330
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Show a live map of the internal data-flow pipelines

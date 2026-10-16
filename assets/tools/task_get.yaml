@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Get a task's full details by ID. Returns status, timestamps, output, and assigned team.
+parameters:
+  task_id:
+    type: string
+    description: The task ID to look up (e.g. 'task-1')
+    required: true

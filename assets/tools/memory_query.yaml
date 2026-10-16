@@ -1,0 +1,10 @@
+version: 1.0.0
+description: 'Run a relational query over agent state. Relations: `memory` (persistent memory entries: key, value, namespace, type, references, createdAt, updatedAt), `tool_calls` (recent tool call history: name, args, result, timestamp), `tasks` (active goal''s task list: id, desc, status, rounds, note). Query language is expr-lang: filter(relation, predicate) selects rows (e.g. filter(memory, .type == "error")), map(relation, expr) projects fields, join(left, right, leftField, rightField) equi-joins two relations into rows with left_/right_ prefixed fields, union(a, b) combines two relations with set semantics.'
+parameters:
+  limit:
+    type: integer
+    description: Max rows returned when the result is a relation (default 50, hard cap 500)
+  query:
+    type: string
+    description: expr-lang expression over the memory/tool_calls/tasks relations
+    required: true

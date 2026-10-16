@@ -88,7 +88,7 @@ rm -f "$NO_AUTH_LOG"
 
 # Test 2: start with token and verify 401 vs authorized access
 SERVER_LOG=$(mktemp)
-KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN}" timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
+KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN}" timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi

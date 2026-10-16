@@ -9,13 +9,13 @@ kdeps llm wizard          # pick engine + model, then build/run/export
 ```
 
 **Not this?** `kdeps llm` deploys *only* the model server. To package an agent
-(workflow + model) as an image, that's [kdeps deploy](/deploy/). To run a model
+(workflow + model) as an image, that is [kdeps deploy](/deploy/). To run a model
 locally with no server at all, the default llamafile backend already does that -
 see [Local models](/start/local-models).
 
 ---
 
-Serves **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
+Serves workflow hosts, the [coding CLI](/agent/), and the [desktop app](/desktop/). Set `llm.backend: openai` and `llm.base_url` on each client. `models:` names one model or several.
 
 ## How it fits
 
@@ -90,7 +90,7 @@ kdeps llm export iso --engine ollama --model llama3.2 --config-only -o llm.yml
 
 ## Client contract
 
-Every appliance exposes OpenAI-compatible chat completions. On the **client** kdeps host:
+Every appliance exposes OpenAI-compatible chat completions. On the client kdeps host:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -111,11 +111,11 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources keep using `chat.model` as usual - only the backend URL changes. Applies to **workflow mode** and **agent mode**.
+Chat resources in workflow mode and agent mode keep using `chat.model`. Only the backend URL changes.
 
 ## Stock recipes
 
-Stock formulas ship embedded (`kdeps llm list`):
+Stock recipes are the `recipes` asset set, installed and updated by `kdeps update` (`kdeps llm list`):
 
 | ID | Engine | Model strategy | GPU | Notes |
 |----|--------|----------------|-----|-------|
@@ -142,7 +142,7 @@ Custom engines use `engine.kind: custom` (or a stock kind) with `install` + `com
 id: my-vllm
 name: My vLLM
 description: vLLM OpenAI-compat server
-version: "1"
+version: 1.0.0   # version of this recipe file; bump when you change it
 api:
   port: 8000
   base_path: /v1
@@ -227,6 +227,9 @@ Default: no auth (private networks - document the risk). Opt in with recipe `api
 
 ## See also
 
+- [Data sovereignty](/start/data-sovereignty) - prompts stay on your network
+- [Desktop app](/desktop/) - window client for this server
+- [Coding CLI](/agent/) - developer client for this server
 - [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
 - [LLM commands](/llm-server/cli) - full CLI flag reference
 - [Docker deployment](/deploy/docker) - agent images (not appliances)

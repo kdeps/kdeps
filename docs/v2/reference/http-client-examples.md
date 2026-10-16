@@ -2,7 +2,7 @@
 
 Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/workflow/resources/http-client) for the full configuration reference.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 ## Fetch data and process
 

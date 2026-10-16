@@ -7,6 +7,11 @@ metadata:
   targetActionId: main
 
 settings:
+  apiServer:
+    portNum: 16395
+    routes:
+      - path: /api/v1/ask
+        methods: [POST]
   agentSettings:
     # Kubernetes-specific settings
     replicas: 3
@@ -21,8 +26,14 @@ settings:
       APP_MODE: production
       DATABASE_URL: "postgres://user:pass@db-service:5432/mydb"
 
-workflows:
-  - id: main
+resources:
+  - actionId: main
+    name: Deployment assistant
     chat:
       model: llama3.2:1b
       system: "You are a Kubernetes deployment assistant."
+      prompt: "{{ get('q') }}"
+    apiResponse:
+      success: true
+      response:
+        answer: "{{ get('main') }}"

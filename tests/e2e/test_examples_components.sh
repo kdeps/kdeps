@@ -241,44 +241,23 @@ fi
 
 _TB_DIR="$(find_example_dir telegram-bot)"
 TB_WF="$_TB_DIR/workflow.yaml"
-TB_COMP="$_TB_DIR/components/botreply/component.yaml"
 
 if [ ! -f "$TB_WF" ]; then
-    test_skipped "telegram-bot component (workflow.yaml not found)"
+    test_skipped "telegram-bot (workflow.yaml not found)"
 else
-    # Test 26: botreply component exists
-    if [ -f "$TB_COMP" ]; then
-        test_passed "telegram-bot - components/botreply/component.yaml exists"
+    # The reply is the workflow result: reply.yaml is an apiResponse and the target
+    if grep -q "^apiResponse:" "$_TB_DIR/resources/reply.yaml" 2>/dev/null \
+        && grep -q "targetActionId: reply" "$TB_WF" 2>/dev/null; then
+        test_passed "telegram-bot - targets the reply apiResponse (its result is sent to the chat)"
     else
-        test_failed "telegram-bot - components/botreply/component.yaml exists" "File not found: $TB_COMP"
+        test_failed "telegram-bot - reply apiResponse target" "reply.yaml apiResponse or targetActionId: reply missing"
     fi
 
-    # Test 27: botreply component declares kind: Component
-    if grep -q "kind: Component" "$TB_COMP" 2>/dev/null; then
-        test_passed "telegram-bot - botreply component has kind: Component"
+    # No local component re-declares the reply action
+    if [ ! -d "$_TB_DIR/components" ]; then
+        test_passed "telegram-bot - no local botreply component"
     else
-        test_failed "telegram-bot - botreply component has kind: Component" "kind: Component not found in $TB_COMP"
-    fi
-
-    # Test 28: botreply component provides reply action
-    if grep -q "actionId: reply" "$TB_COMP" 2>/dev/null; then
-        test_passed "telegram-bot - botreply component exports reply action"
-    else
-        test_failed "telegram-bot - botreply component exports reply action" "actionId: reply not found in $TB_COMP"
-    fi
-
-    # Test 29: reply.yaml removed (logic in component)
-    if [ ! -f "$_TB_DIR/resources/reply.yaml" ]; then
-        test_passed "telegram-bot - reply.yaml removed (moved to component)"
-    else
-        test_failed "telegram-bot - reply.yaml removed (moved to component)" "reply.yaml still exists as a resource"
-    fi
-
-    # Test 30: workflow targets reply action (from component)
-    if grep -q "targetActionId: reply" "$TB_WF" 2>/dev/null; then
-        test_passed "telegram-bot - workflow targetActionId is reply (component action)"
-    else
-        test_failed "telegram-bot - workflow targetActionId is reply" "targetActionId: reply not found in $TB_WF"
+        test_failed "telegram-bot - no local botreply component" "$_TB_DIR/components still exists"
     fi
 fi
 
@@ -295,7 +274,7 @@ else
         test_failed "telephony-bot - workflow validation" "kdeps validate failed for $TELE_WF"
     fi
 
-    # Test 32: native telephony IVR routes are declared
+    # Test 32: the /twilio IVR routes are declared
     if grep -q "/twilio/voice" "$TELE_WF" 2>/dev/null && grep -q "/twilio/answer" "$TELE_WF" 2>/dev/null; then
         test_passed "telephony-bot - declares /twilio IVR routes"
     else
@@ -319,12 +298,13 @@ else
         test_failed "telephony-bot - answer.yaml reads SpeechResult" "SpeechResult not found in answer.yaml"
     fi
 
-    # Test 35: respond.yaml aggregates the IVR actions
+    # Test 35: respond.yaml returns the twiml output as text/xml
     RESPOND_RES="$_TELE_DIR/resources/respond.yaml"
-    if grep -q "answerLLM" "$RESPOND_RES" 2>/dev/null; then
-        test_passed "telephony-bot - respond.yaml requires answerLLM"
+    if grep -q "speakAnswer" "$RESPOND_RES" 2>/dev/null && grep -q "text/xml" "$RESPOND_RES" 2>/dev/null \
+        && grep -q "name: twiml" "$_TELE_DIR/resources/speak.yaml" 2>/dev/null; then
+        test_passed "telephony-bot - respond.yaml returns the twiml component's TwiML as text/xml"
     else
-        test_failed "telephony-bot - respond.yaml requires answerLLM" "answerLLM not found in $RESPOND_RES"
+        test_failed "telephony-bot - respond.yaml TwiML" "speakAnswer/text/xml/twiml not found"
     fi
 fi
 

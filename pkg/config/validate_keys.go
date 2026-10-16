@@ -73,16 +73,18 @@ func validateUnknownKeys(data []byte) []string {
 	for _, k := range topUnknown {
 		warnings = append(warnings, fmt.Sprintf(
 			"unknown top-level key %q — check for typos "+
-				"(valid keys: llm, defaults, resource_defaults, *_connections, api_auth_token, identity, agents)", k))
+				"(valid keys: llm, defaults, resource_defaults, *_connections, api_auth_token, identity, knowledge, agents)", k))
 	}
 
 	// Check sub-keys of each known section.
-	warnings = append(warnings, subKeyWarnings(root, "llm", knownLLMKeys,
+	warnings = append(warnings, subKeyWarnings(root, "llm", knownLLMKeys(),
 		"unknown llm key %q — check for typos in API key or field name")...)
 	warnings = append(warnings, subKeyWarnings(root, "defaults", knownDefaultsKeys,
 		"unknown defaults key %q — valid keys: timezone, python_version, offline_mode")...)
 	warnings = append(warnings, subKeyWarnings(root, "resource_defaults", knownResourceDefaultsKeys,
 		"unknown resource_defaults key %q — valid keys: chat, http, python, exec, sql, onError")...)
+	warnings = append(warnings, subKeyWarnings(root, "knowledge", knownKnowledgeKeys,
+		"unknown knowledge key %q — valid keys: enabled, vault, session_notes, workflow_notes, recall, extract")...)
 
 	return warnings
 }

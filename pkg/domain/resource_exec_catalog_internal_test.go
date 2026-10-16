@@ -10,9 +10,9 @@ package domain
 
 import "testing"
 
+// Not parallel: it swaps the package-level resourceExecCatalog, which parallel
+// tests read concurrently.
 func TestBuildInlineResourceTypes_SkipsPrimaryOnly(t *testing.T) {
-	t.Parallel()
-
 	saved := resourceExecCatalog
 	t.Cleanup(func() { resourceExecCatalog = saved })
 

@@ -2,8 +2,6 @@
 
 With goal-directed execution on, every prompt in the [agent loop REPL](/agent/) becomes an explicit task list that Go code drives to completion.
 
-*Applies to agent mode.*
-
 **Off by default.** Goal-directed execution adds a planning LLM call and extra
 output per turn, so it is opt-in: `/goal on` enables it for the session and
 persists the choice; `/goal off` turns it back off. Library and test callers
@@ -27,7 +25,7 @@ task, the loop retries once with an explicit "break this into at least two
 steps" instruction.
 
 If the model is unavailable, times out, or still will not decompose, kdeps
-falls back to a **mechanical split** that uses only the request's own wording:
+falls back to a mechanical split that uses only the request's own wording:
 numbered lines (`1. ... 2. ...`), bullet lines (`- ...`), and sequencing phrases
 (`; `, `then`, `and then`, `after that`, `finally`) each start a new task. Plain
 `and` is not a separator ("read the file and print it" stays one step). A
@@ -65,7 +63,7 @@ active task from that text and continues with the next one.
 **Failed-tool gate (always on).** A task cannot close as *done* while its most
 recent work tool (anything other than `task_complete` / `task_fail`) is still
 failing: `task_complete` is refused ("your last `edit_file` call failed ... retry
-it or call `task_fail`"), and a prose "done" records the task **failed**. A later
+it or call `task_fail`"), and a prose "done" records the task failed. A later
 successful call to that tool clears the gate. This is independent of
 `RequireTaskEvidence` below.
 
@@ -164,9 +162,9 @@ something new. The model is never asked to forecast a budget: at plan time it ha
 seen no results, and a self-granted limit would be exactly the kind of state the
 task machine refuses to trust.
 
-- A category still returning new content as it approaches its cap is **extended**
+- A category still returning new content as it approaches its cap is extended
   (up to 3x its starting value).
-- A category mostly returning blocks, errors, or duplicates is **cut** to just
+- A category mostly returning blocks, errors, or duplicates is cut to just
   above the calls already made, so the turn stops sinking calls into it.
 
 Adjustments need at least 4 distinct calls in the category, never drop below work

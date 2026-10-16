@@ -20,9 +20,9 @@
 # E2E tests for the scraper component.
 #
 # Spins up a local Python HTTP server that serves HTML/text content, then
-# exercises the scraper component via run.component: {name: scraper, with: {url: ...}}.
-# The component uses requests + BeautifulSoup (declared in pythonPackages) to
-# fetch and parse the page. Tests: plain text scrape, CSS selector extraction.
+# exercises the scraper component (components asset set) via
+# component: {name: scraper, with: {url: ...}}: an httpClient GET plus
+# htmlText() for the CSS selector. Tests: plain text, HTML, CSS selector.
 
 set -uo pipefail
 

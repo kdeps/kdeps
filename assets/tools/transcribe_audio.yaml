@@ -1,0 +1,35 @@
+version: 1.1.0
+description: 'Transcribe an audio or video file to text through a Whisper API: openai (default), groq, or local (a self-hosted OpenAI-compatible Whisper server). Supports mp3, mp4, mpeg, mpga, m4a, wav, webm. Returns the transcribed text. For offline transcription with no API key use transcribe_audio_offline.'
+parameters:
+  file:
+    type: string
+    description: Absolute path to the audio/video file to transcribe
+    required: true
+  backend:
+    type: string
+    description: 'Provider: openai (default), groq, or local'
+    enum: [openai, groq, local]
+    default: openai
+  model:
+    type: string
+    description: 'Transcription model. Default: whisper-1. Groq: whisper-large-v3.'
+    default: whisper-1
+  language:
+    type: string
+    description: 'ISO-639-1 code (e.g. en, fr); empty = auto-detect'
+http:
+  env:
+    OPENAI: [OPENAI_API_KEY, ""]   # optional: local needs no key
+    GROQ: [GROQ_API_KEY, ""]
+  method: POST
+  url: '{{if eq .args.backend "groq"}}https://api.groq.com/openai/v1{{else if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
+  headers:
+    Authorization: '{{if eq .args.backend "groq"}}{{with .env.GROQ}}Bearer {{.}}{{end}}{{else if ne .args.backend "local"}}{{with .env.OPENAI}}Bearer {{.}}{{end}}{{end}}'
+  files:
+    file: "{{.args.file}}"
+  form:
+    model: "{{.args.model}}"
+    response_format: text
+    language: "{{.args.language}}"
+  paths: [file]
+  timeout: 300s

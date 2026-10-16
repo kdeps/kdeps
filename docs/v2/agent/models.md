@@ -2,11 +2,9 @@
 
 Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-session, auto-routing, and running local model servers.
 
-*Applies to agent mode.*
-
 ## Switching models
 
-`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
+`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it is not already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
 
 ```
 /model qwen3.5-4b                     # switch to a known alias
@@ -15,6 +13,26 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 ```
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
+
+## Cloud model catalog
+
+The cloud models `/model list` offers, and the context window, output limit and thinking/image support kdeps assumes for each, come from the `models/cloud` asset - not from the binary. A provider renaming or adding a model is a `kdeps update models/cloud` away.
+
+```yaml
+# models/cloud (as shipped, one entry)
+version: 1.0.0
+models:
+  - id: "claude-opus-4-8"     # the API model ID
+    backend: anthropic        # kdeps backend that serves it
+    desc: "most capable"      # label in /model list
+    envVar: ANTHROPIC_API_KEY # a key here marks the provider ready
+    thinking: true            # supports extended thinking
+    images: true              # accepts image input
+    contextWindow: 1000000    # input tokens; drives compaction and request sizing
+    maxOutputTokens: 128000   # per-call output cap sent to the provider
+```
+
+A model missing from the catalog still works by name (`/model my-fine-tune`); kdeps just uses the provider's defaults for it.
 
 ## Same alias, different backends
 
@@ -66,7 +84,7 @@ llm:
 kdeps --model auto
 ```
 
-If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers - it's always at least as good as omitting `--model` entirely.
+If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers - it is always at least as good as omitting `--model` entirely.
 
 ## `--model auto-router`: zero-config, fully automatic
 
@@ -76,7 +94,7 @@ If nothing's configured (or none of it scores), `auto` falls through to the same
 kdeps --model auto-router
 ```
 
-1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
+1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it is not installed.
 2. **Cloud fallback** - the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
 3. **Fixed tiers** - if neither finds anything, falls through to the same fixed-order pick described below.
 
@@ -111,7 +129,7 @@ Each local model server writes its stdout and stderr next to the model file as `
 /model https://api.together.xyz/v1       # a hosted compat provider
 ```
 
-Each registered model gets a memorable, kind-prefixed ID so it's easy to recall and retype next time:
+Each registered model gets a memorable, kind-prefixed ID so it is easy to recall and retype next time:
 
 - `.gguf` URL -> `gguf-<filename>` (e.g. `gguf-Qwen2.5-7B-Q4_K_M`)
 - `.llamafile` URL -> `llamafile-<filename>`

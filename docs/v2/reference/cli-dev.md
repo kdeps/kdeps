@@ -133,13 +133,14 @@ kdeps new [agent-name] [flags]
 | `--template, -t` | Agent template to use | `api-service` |
 | `--force` | Overwrite existing directory | `false` |
 
-**Available templates:** `api-service`, `sql-agent`
+**Available templates:** `api-service`, `sql-agent`, `agency`, `whatsapp-bot` (a WhatsApp Cloud API webhook: verification handshake, signed messages answered by an LLM and sent back with `httpClient`)
 
 **Examples:**
 
 ```bash
 kdeps new my-agent                           # Uses api-service template
 kdeps new my-agent --template sql-agent      # SQL agent template
+kdeps new my-bot --template whatsapp-bot     # WhatsApp bot (webhook + Graph API reply)
 kdeps new my-agent --force                   # Overwrite existing
 ```
 
@@ -158,7 +159,7 @@ my-agent/
 
 ## `kdeps edit`
 
-Open the global kdeps configuration file (`~/.kdeps/config.yaml`) in your editor. Scaffolded if it doesn't exist.
+Open the global kdeps configuration file (`~/.kdeps/config.yaml`) in your editor. Scaffolded if it does not exist.
 
 ```bash
 kdeps edit [flags]
@@ -199,7 +200,7 @@ Exits with code 1 when any check has FAIL status.
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/agent/repl#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
+Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/agent/repl-updating#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
 
 ```bash
 kdeps --upgrade
@@ -216,6 +217,34 @@ kdeps --upgrade
 kdeps --upgrade --nightly
 kdeps --upgrade --target-version 2.35.0
 ```
+
+---
+
+## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
+
+`kdeps install`, `kdeps update` and `kdeps uninstall` install, update and remove kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas and components - as well as registry packages. An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+
+```bash
+kdeps update                          # the chosen profile and everything installed since, to their newest versions
+kdeps update --check                  # list available updates, change nothing
+kdeps update harness                  # every item in one set
+kdeps install harness/safety          # one item at its newest version (unpins it), with what it requires
+kdeps install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
+kdeps uninstall themes/vim themes/linux   # remove items (restore with: kdeps install themes/vim)
+kdeps list --assets                   # every item, its version, state and ~context tokens
+kdeps profile agent                   # install a profile: minimum, workflows, agent, deploy, full (or sets and items: docker,tools/bash_exec)
+kdeps profile                         # choose the profile again, or tick sets and single items yourself (custom); needs a terminal
+```
+
+| Command | Assets |
+|---|---|
+| `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
+| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
+| `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
+| `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`) and estimated LLM context tokens, with the installed total |
+| `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
+
+The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).
 
 ---
 
@@ -255,16 +284,40 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately - an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
+Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately - an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
 
 When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL's `/model` picker shows a hardware-fit score (0-100) and level for each local model - `Perfect`, `Good`, `Marginal`, or `Too Tight` - based on your machine's RAM/VRAM, so you can tell before downloading whether a model will actually run. Fit levels are searchable in the picker: type `perfect` or `tight` to filter. When aria2c or llmfit is not installed, the REPL prints a one-line install tip at startup.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
-kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + GGUF)
+kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. `update` fetches the latest registries from HuggingFace and writes to both `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. Ollama models are discovered from the local `ollama list` output. Local entries are preserved across updates.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output.
+
+---
+
+## `kdeps knowledge`
+
+Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown notes the agent recalls from each turn without reading them. It is on by default in `~/.kdeps/notes` and set up by the first agent session.
+
+```bash
+kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
+kdeps knowledge build               # build the link graph (only changed notes and code files are re-read)
+kdeps knowledge build --extract     # a local model reads changed notes first: inferred edges with confidence
+kdeps knowledge check               # one home per fact: next steps outside cards, duplicate summaries, dangling links
+kdeps knowledge recall "why monthly billing"   # what recall would hand the agent
+kdeps knowledge report              # GRAPH_REPORT.md: god nodes, Louvain communities, surprising connections
+```
+
+| Flag | Description | Default |
+|---|---|---|
+| `--vault` | Vault folder | `knowledge.vault` in `~/.kdeps/config.yaml`, else `~/.kdeps/notes` |
+| `--extract` (build) | Have a local model read changed notes first | `false` |
+| `--model` (build) | Model for `--extract` | `knowledge.extract.model`, else the detected local model |
+| `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
+
+`check` exits non-zero when it reports anything.
 
 ---
 

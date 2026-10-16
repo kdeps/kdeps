@@ -1,0 +1,2 @@
+version: 1.0.0
+description: List background bash jobs started with bash_exec and backgrounded via Ctrl+Z. Shows job ID, status (running/done/failed), command, and elapsed time.

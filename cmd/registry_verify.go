@@ -36,8 +36,8 @@ Checks:
   - Hardcoded model names emit a WARN but do not block publishing (exit 0)
 
 Examples:
-  kdeps registry verify ./my-agent
-  kdeps registry verify .`,
+  kdeps verify ./my-agent
+  kdeps verify .`,
 		Args: cobra.ExactArgs(1),
 		RunE: runRegistryVerify,
 	}

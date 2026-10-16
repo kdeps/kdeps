@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"embed"
 	"fmt"
 	"maps"
 	"math"
@@ -31,6 +30,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // Events replace scattered hardcoded thresholds (auto-compact, fold, ...)
@@ -42,14 +43,11 @@ import (
 //	  tokens: 30000
 //	run: compact
 //
-// Same built-in-embed + ~/.kdeps user-override-merged-by-name pattern as
+// Same asset-set + ~/.kdeps user-override-merged-by-name pattern as
 // harness/themes (harness_yaml.go/theme_yaml.go), so an event is already
 // covered by konfig export/import (konfig.go) for free, and a user can
 // override one by dropping a same-named file in ~/.kdeps/events/ -- no Go
 // code or recompilation required.
-
-//go:embed events/*.yaml
-var builtinEventsFS embed.FS
 
 // Built-in event names, referenced from loop.go/compact.go/repl.go/
 // goal_enforce.go/handshake.go/tool_history_window.go/builtin_tools.go/
@@ -169,26 +167,26 @@ func userEventsDir() (string, error) {
 	return filepath.Join(home, ".kdeps", userEventsDirName), nil
 }
 
-// loadBuiltinEvents parses every embedded events/*.yaml file.
+// loadBuiltinEvents parses every events/*.yaml file of the asset set.
 func loadBuiltinEvents() map[string]*Event {
-	return loadBuiltinEventsFrom(builtinEventsFS)
+	return loadBuiltinEventsFrom(assets.Open("events"))
 }
 
 // loadBuiltinEventsFrom is loadBuiltinEvents parameterized over the
-// filesystem, so tests can exercise it without touching the real embed.
+// filesystem, so tests can exercise it.
 func loadBuiltinEventsFrom(fsys harnessFS) map[string]*Event {
 	return loadBuiltinYAMLDir(fsys, "events", "events", parseYAMLEvent, func(e Event) string { return e.Name })
 }
 
-// loadBuiltinYAMLDir parses every file in an embedded subdir with parse,
+// loadBuiltinYAMLDir parses every file in an asset set's dir with parse,
 // keying the result by nameOf(parsed value). Shared by
 // loadBuiltinEventsFrom/loadBuiltinActionsFrom (actions.go) -- otherwise
 // identical loops golangci-lint's dupl check would flag as a duplicate.
 // harness_yaml.go/theme_yaml.go predate this helper and have their own
 // per-type logic (kind inference, base-palette merging) beyond this shared
 // shape, so they keep their own copies rather than being forced through it.
-// A parse failure here is a bug in a shipped file, not user input -- it
-// panics, same severity every embedded loader in this package already uses.
+// A file that cannot be read or parsed is skipped with a warning (see
+// warnAsset).
 func loadBuiltinYAMLDir[T any](
 	fsys harnessFS,
 	dir, errPrefix string,
@@ -197,23 +195,25 @@ func loadBuiltinYAMLDir[T any](
 ) map[string]*T {
 	entries, err := fsys.ReadDir(dir)
 	if err != nil {
-		panic(fmt.Sprintf("%s: read embedded %s dir: %v", errPrefix, dir, err))
+		warnAsset(err)
+		return map[string]*T{}
 	}
 	out := make(map[string]*T, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
-		// fs.FS paths (embed.FS included) are always forward-slash, regardless
-		// of OS -- filepath.Join would emit a backslash on Windows and break
-		// the lookup.
+		// fs.FS paths are always forward-slash, regardless of OS --
+		// filepath.Join would emit a backslash on Windows and break the lookup.
 		data, readErr := fsys.ReadFile(path.Join(dir, e.Name()))
 		if readErr != nil {
-			panic(fmt.Sprintf("%s: read embedded %s: %v", errPrefix, e.Name(), readErr))
+			warnAsset(readErr)
+			continue
 		}
 		v, parseErr := parse(data, e.Name())
 		if parseErr != nil {
-			panic(fmt.Sprintf("%s: parse embedded %s: %v", errPrefix, e.Name(), parseErr))
+			warnAsset(fmt.Errorf("%s %w", errPrefix, parseErr))
+			continue
 		}
 		out[nameOf(v)] = &v
 	}

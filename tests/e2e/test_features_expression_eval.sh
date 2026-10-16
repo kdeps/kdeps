@@ -89,7 +89,7 @@ fi
 
 # Test 2: Start server
 SERVER_LOG=$(mktemp)
-timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 PORT=3100
@@ -248,7 +248,7 @@ fi
 
 # Start helpers server
 HELPERS_LOG=$(mktemp)
-timeout 15 "$KDEPS_BIN" run "$HELPERS_DIR" >"$HELPERS_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$HELPERS_DIR" >"$HELPERS_LOG" 2>&1 &
 HELPERS_PID=$!
 
 HELPERS_PORT=3101

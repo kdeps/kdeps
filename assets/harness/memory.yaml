@@ -1,0 +1,21 @@
+version: 1.0.0
+name: memory
+kind: preamble-section
+order: 10
+body: |-
+  <memory>
+  memory_query --- Preferred lookup: a relational query (filter/map/join/union)
+    over memory entries, tool-call history and tasks. Call it when the task refers
+    to earlier work, when a fact is not already in this prompt, or on your first
+    turn after a model switch or resume. Do not call it before every action.
+  memory_search --- Fuzzy text match; use only when you do not know the key or type.
+  memory_save --- Persist facts, decisions, and progress during the turn.
+
+  The memory graph and recent keys are already in this prompt. There is no
+  memory_list tool. Call memory_query to look a fact up. Call memory_save
+  only to record intermediate state.
+
+  What NOT to save: code patterns (read the repo), git history (use git log),
+  debugging recipes (the fix is in the code), ephemeral task state.
+  Memory entries are permanent --- write for a future session, not this turn.
+  </memory>

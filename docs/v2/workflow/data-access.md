@@ -50,7 +50,7 @@ after:
   - set('user_id', get('id'), 'session')        # survives to the next request
 ```
 
-`set()` is like assigning to a variable. Downstream resources read it with `get()`.
+Downstream resources read a `set()` value with `get()`.
 
 ## file() - read uploaded files
 
@@ -91,7 +91,7 @@ after:
 
 ## The input object
 
-`input.field` is a shorthand for a request **body** field - identical to `get('field')`, but with property syntax:
+`input.field` is a shorthand for a request body field - identical to `get('field')`, but with property syntax:
 
 <div v-pre>
 
@@ -127,6 +127,7 @@ chat:
 | `request.headers`  | object | All request headers           |
 | `request.query`    | object | Query parameters              |
 | `request.body`     | object | Request body (same as `input`)|
+| `request.rawBody`  | string | The body exactly as received (not for multipart uploads); sign-check webhooks with `hmacSHA256()` |
 
 File and lookup methods:
 

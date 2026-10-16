@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Grant a pending approval token. Use when the user has explicitly approved the requested exception.
+parameters:
+  token_id:
+    type: string
+    description: The token ID to grant (from approval_request)
+    required: true

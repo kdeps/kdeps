@@ -44,6 +44,7 @@ const agentBackendFile = "file"
 func refreshREPLModelLists(repl *agent.REPL) {
 	// Refresh registries to pick up any embedded data changes since last build.
 	llm.ReloadGGUFRegistry()
+	llm.ReloadCloudModels()
 	llm.ReloadRegistry()
 	entries := buildUnifiedEntries()
 	names := make([]string, 0, len(entries))
@@ -181,6 +182,11 @@ const updateCheckTimeout = 3 * time.Second
 //
 //nolint:gochecknoglobals // test-replaceable hook
 var updateAvailabilityNoticeFunc = kupgrade.CachedOrFresh
+
+// assetUpdateNoticeFunc is agent.AssetUpdateNotice, overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var assetUpdateNoticeFunc = agent.AssetUpdateNotice
 
 // updateAvailabilityNotice returns a one-line "update available" notice, or
 // "" when kdeps is current or the check couldn't complete in time/failed
@@ -328,21 +334,30 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// ~/.kdeps/config.yaml agents.<name> profile. Non-fatal: an unconfigured or
 	// unreadable config.yaml just means no identity, not a startup failure.
 	var identity *config.IdentityConfig
+	var knowledgeCfg *config.KnowledgeConfig
 	if identityCfg, identityErr := config.LoadStructWithAgent(hostWorkflow.Metadata.Name); identityErr == nil {
 		identity = identityCfg.Identity
+		knowledgeCfg = identityCfg.Knowledge
+	}
+	if knowledgeCfg == nil {
+		// The knowledge vault is on by default for agent sessions.
+		knowledgeCfg = &config.KnowledgeConfig{}
 	}
 
 	cfg := agent.Config{
-		Model:        startModel,
-		Backend:      startBackend,
-		BaseURL:      flags.BaseURL,
-		SystemPrompt: flags.SystemPrompt,
-		SkillPaths:   skillPaths,
-		Streamer:     llmAdapter,
-		ModelService: llm.NewModelService(nil),
-		Store:        store,
-		MemoryStore:  memStore,
-		Identity:     identity,
+		Model:           startModel,
+		Backend:         startBackend,
+		BaseURL:         flags.BaseURL,
+		SystemPrompt:    flags.SystemPrompt,
+		SkillPaths:      skillPaths,
+		Streamer:        llmAdapter,
+		ModelService:    llm.NewModelService(nil),
+		Store:           store,
+		MemoryStore:     memStore,
+		Identity:        identity,
+		Knowledge:       knowledgeCfg,
+		KnowledgeCtx:    rootCtx,
+		KnowledgeEngine: func() *executor.Engine { return setupEngine(nil, false) },
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields
@@ -447,6 +462,9 @@ func wireREPL(
 	notices := optionalToolNotices()
 	notices = append(notices, agent.RequestSizePreflightWarnings()...)
 	if notice := updateAvailabilityNotice(ctx); notice != "" {
+		notices = append(notices, notice)
+	}
+	if notice := assetUpdateNoticeFunc(ctx); notice != "" {
 		notices = append(notices, notice)
 	}
 	repl.SetStartupNotices(notices)

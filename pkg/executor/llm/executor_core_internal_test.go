@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -917,71 +918,82 @@ func TestExecutor_Execute_HandleToolCalls_Loop(t *testing.T) {
 	assert.Equal(t, "Final answer after tool call", message["content"])
 }
 
-func TestExecutor_Execute_HandleToolCalls_MaxIterations(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		callCount++
-		// Always return tool_calls to trigger the loop repeatedly
-		resp := map[string]interface{}{
-			"model": "llama3.2:1b",
-			"message": map[string]interface{}{
-				"role":    "assistant",
-				"content": "",
-				"tool_calls": []interface{}{
-					map[string]interface{}{
-						"id": "call_x",
-						"function": map[string]interface{}{
-							"name":      "my_tool",
-							"arguments": `{}`,
-						},
-					},
+// toolLoopServer answers every request with a tool call (args from argsFor)
+// until it sees a request without tools, then answers in text. It records
+// whether each request carried tools.
+func toolLoopServer(t *testing.T, argsFor func(n int) string) (*httptest.Server, *[]bool) {
+	t.Helper()
+	var hadTools []bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		tools, _ := body["tools"].([]interface{})
+		hadTools = append(hadTools, len(tools) > 0)
+		message := map[string]interface{}{"role": "assistant", "content": "final answer"}
+		if len(tools) > 0 {
+			message["content"] = ""
+			message["tool_calls"] = []interface{}{map[string]interface{}{
+				"id": "call_x",
+				"function": map[string]interface{}{
+					"name": "my_tool", "arguments": argsFor(len(hadTools)),
 				},
-			},
-			"done": true,
+			}}
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"model": "llama3.2:1b", "message": message, "done": true,
+		})
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
+	return server, &hadTools
+}
 
+func runToolLoop(t *testing.T, server *httptest.Server) map[string]interface{} {
+	t.Helper()
 	executorLLM := NewExecutor(server.URL)
 	executorLLM.SetToolExecutor(&simpleMockToolExecutor{})
-
-	ctx, innerErr := executor.NewExecutionContext(
+	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
-	require.NoError(t, innerErr)
-
-	config := &domain.ChatConfig{
-		Model:   "llama3.2:1b",
-		Backend: "ollama",
-		Prompt:  "Use the tool repeatedly",
-		BaseURL: server.URL,
-		Tools: []domain.Tool{
-			{
-				Name: "my_tool",
-				Execute: func(_ map[string]interface{}) (string, error) {
-					return "tool result", nil
-				},
-			},
-		},
-	}
-
-	// The loop has maxIterations=5, so we expect 6 calls (1 initial + 5 follow-ups),
-	// after which the loop exits (returns the last response which still has tool_calls).
-	// handleToolCalls returns currentResponse, so the final response still has tool_calls.
-	result, execErr := executorLLM.Execute(ctx, config)
-	require.NoError(t, execErr)
-	assert.Equal(t, 6, callCount, "should hit max 5 iterations = 6 total calls")
-
-	// Final response still contains tool_calls (loop exhausted)
+	require.NoError(t, err)
+	result, err := executorLLM.Execute(ctx, &domain.ChatConfig{
+		Model: "llama3.2:1b", Backend: "ollama", Prompt: "Use the tool", BaseURL: server.URL,
+		Tools: []domain.Tool{{
+			Name:    "my_tool",
+			Execute: func(_ map[string]interface{}) (string, error) { return "tool result", nil },
+		}},
+	})
+	require.NoError(t, err)
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok)
-	message, ok := resultMap["message"].(map[string]interface{})
-	require.True(t, ok)
+	return resultMap
+}
+
+// A model that repeats a call it already has the result of is stopped and
+// asked once more, without tools, so the turn ends in a text answer.
+func TestExecutor_Execute_HandleToolCalls_RepeatedCallEndsWithAnswer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	server, hadTools := toolLoopServer(t, func(int) string { return `{}` })
+	result := runToolLoop(t, server)
+
+	assert.Equal(t, []bool{true, true, false}, *hadTools,
+		"initial call, the repeat, then one tools-less final answer")
+	message, _ := result["message"].(map[string]interface{})
+	assert.Equal(t, "final answer", message["content"])
 	_, hasToolCalls := message["tool_calls"]
-	assert.True(t, hasToolCalls)
+	assert.False(t, hasToolCalls)
+}
+
+// When every round asks for something new, the rounds run out and the same
+// tools-less final answer closes the turn.
+func TestExecutor_Execute_HandleToolCalls_MaxIterationsEndsWithAnswer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	server, hadTools := toolLoopServer(t, func(n int) string { return fmt.Sprintf(`{"n": %d}`, n) })
+	result := runToolLoop(t, server)
+
+	require.Len(t, *hadTools, 7, "1 initial + 5 follow-ups + 1 final answer")
+	assert.False(t, (*hadTools)[6], "the final request carries no tools")
+	message, _ := result["message"].(map[string]interface{})
+	assert.Equal(t, "final answer", message["content"])
 }
 
 func TestExecuteToolCalls_WithExecuteFunc(t *testing.T) {

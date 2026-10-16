@@ -41,6 +41,7 @@ import (
 	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -419,48 +420,23 @@ func buildOpenAICompatEmbedder(cfg *domain.VectorStoreConfig) (lcemb.Embedder, e
 	return lcemb.NewEmbedder(client)
 }
 
+// providerEnvKey is the API key environment variable of a cloud provider.
 func providerEnvKey(backend string) string {
-	switch backend {
-	case backendOpenAICompat:
-		return "OPENAI_API_KEY"
-	case providerGoogle:
-		return "GOOGLE_API_KEY"
-	case providerGroq:
-		return "GROQ_API_KEY"
-	case "mistral":
-		return "MISTRAL_API_KEY"
-	case providerDeepSeek:
-		return "DEEPSEEK_API_KEY"
-	case "openrouter":
-		return "OPENROUTER_API_KEY"
-	case "together":
-		return "TOGETHERAI_API_KEY"
-	case providerCohere:
-		return "COHERE_API_KEY"
-	case "xai":
-		return "XAI_API_KEY"
-	case "perplexity":
-		return "PERPLEXITY_API_KEY"
-	default:
-		return ""
-	}
-}
-
-func openAICompatBaseURL(backend string) string {
-	urls := map[string]string{
-		backendOpenAICompat: "https://api.openai.com/v1",
-		"ollama":            "http://localhost:11434/v1",
-		"groq":              "https://api.groq.com/openai/v1",
-		"mistral":           "https://api.mistral.ai/v1",
-		"deepseek":          "https://api.deepseek.com/v1",
-		"openrouter":        "https://openrouter.ai/api/v1",
-		"together":          "https://api.together.xyz/v1",
-		"cohere":            "https://api.cohere.com/compatibility/v1",
-		"xai":               "https://api.x.ai/v1",
-		"perplexity":        "https://api.perplexity.ai",
-	}
-	if u, ok := urls[backend]; ok {
-		return u
+	if p, ok := kdepsconfig.LookupProvider(backend); ok {
+		return p.EnvVar
 	}
 	return ""
+}
+
+// openAICompatBaseURL is the OpenAI-compatible embeddings base URL of
+// backend: local Ollama, cohere's compatibility endpoint, or a provider from
+// the providers asset set that serves embeddings.
+func openAICompatBaseURL(backend string) string {
+	switch backend {
+	case "ollama":
+		return "http://localhost:11434/v1"
+	case "cohere":
+		return "https://api.cohere.com/compatibility/v1"
+	}
+	return kdepsconfig.EmbeddingBaseURL(backend)
 }

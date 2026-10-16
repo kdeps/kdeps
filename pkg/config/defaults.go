@@ -15,26 +15,42 @@
 package config
 
 import (
-	_ "embed"
 	"fmt"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
-//go:embed defaults.yml
-var defaultsYAML []byte
+// The executor defaults are the "executors" item of the "defaults" asset set.
+const (
+	defaultsSet  = "defaults"
+	defaultsItem = "executors"
+)
 
-// ExecutorDefaults holds all embedded default values for executors.
+//nolint:gochecknoinits // registers the executor defaults as a versioned asset set
+func init() {
+	assets.Register(defaultsSet, assets.Spec{
+		Validate: func(data []byte, _ string) error { return yaml.Unmarshal(data, &ExecutorDefaults{}) },
+		Required: []string{defaultsItem},
+	})
+}
+
+// readDefaults returns the executor defaults file (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var readDefaults = func() ([]byte, error) {
+	return assets.Open(defaultsSet).ReadFile(defaultsSet + "/" + defaultsItem + ".yaml")
+}
+
+// ExecutorDefaults holds the default values for executors.
 type ExecutorDefaults struct {
 	Chat      ChatExecutorDefaults   `yaml:"chat"`
 	HTTP      HTTPExecutorDefaults   `yaml:"http"`
 	Python    PythonExecutorDefaults `yaml:"python"`
 	Exec      ExecExecutorDefaults   `yaml:"exec"`
-	SQL       SQLExecutorDefaults    `yaml:"sql"`
-	Scraper   ScraperDefaults        `yaml:"scraper"`
-	SearchWeb SearchWebDefaults      `yaml:"search_web"`
 	Embedding EmbeddingDefaults      `yaml:"embedding"`
 }
 
@@ -61,26 +77,6 @@ type ExecExecutorDefaults struct {
 	Timeout string `yaml:"timeout"`
 }
 
-// SQLExecutorDefaults holds default values for SQL query execution.
-type SQLExecutorDefaults struct {
-	Timeout         string `yaml:"timeout"`
-	MaxRows         int    `yaml:"max_rows"`
-	MaxOpenConns    int    `yaml:"max_open_conns"`
-	MaxIdleConns    int    `yaml:"max_idle_conns"`
-	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
-}
-
-// ScraperDefaults holds default values for web scraper execution.
-type ScraperDefaults struct {
-	Timeout int `yaml:"timeout"`
-}
-
-// SearchWebDefaults holds default values for web search execution.
-type SearchWebDefaults struct {
-	Timeout    int `yaml:"timeout"`
-	MaxResults int `yaml:"max_results"`
-}
-
 // EmbeddingDefaults holds default values for embedding execution.
 type EmbeddingDefaults struct {
 	DBPath     string `yaml:"db_path"`
@@ -88,10 +84,10 @@ type EmbeddingDefaults struct {
 	Limit      int    `yaml:"limit"`
 }
 
+//nolint:gochecknoglobals // package-level cache of the first successful load
 var (
-	parseDefaultsOnce sync.Once         //nolint:gochecknoglobals // package-level cache
-	parsedDefaults    *ExecutorDefaults //nolint:gochecknoglobals // package-level cache
-	errDefaultsParse  error
+	defaultsMu     sync.Mutex
+	parsedDefaults *ExecutorDefaults
 )
 
 func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
@@ -102,17 +98,26 @@ func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
 	return d
 }
 
-// GetDefaults returns the parsed embedded executor defaults.
+// GetDefaults returns the executor defaults from the defaults asset set. It
+// never returns nil: when the set is missing or broken it returns zero
+// values (each accessor then uses its own fallback) with the error. Only a
+// successful load is cached, so a later call sees assets installed since.
 func GetDefaults() (*ExecutorDefaults, error) {
-	parseDefaultsOnce.Do(func() {
-		var d ExecutorDefaults
-		if err := yaml.Unmarshal(defaultsYAML, &d); err != nil {
-			errDefaultsParse = fmt.Errorf("parse embedded defaults.yml: %w", err)
-			return
-		}
-		parsedDefaults = &d
-	})
-	return parsedDefaults, errDefaultsParse
+	defaultsMu.Lock()
+	defer defaultsMu.Unlock()
+	if parsedDefaults != nil {
+		return parsedDefaults, nil
+	}
+	data, err := readDefaults()
+	if err != nil {
+		return &ExecutorDefaults{}, fmt.Errorf("read executor defaults (run kdeps update): %w", err)
+	}
+	var d ExecutorDefaults
+	if err = yaml.Unmarshal(data, &d); err != nil {
+		return &ExecutorDefaults{}, fmt.Errorf("parse executor defaults: %w", err)
+	}
+	parsedDefaults = &d
+	return parsedDefaults, nil
 }
 
 // TimeoutDuration parses the chat timeout string into a time.Duration.
@@ -133,14 +138,4 @@ func (p *PythonExecutorDefaults) TimeoutDuration() time.Duration {
 // TimeoutDuration parses the Exec timeout string into a time.Duration.
 func (e *ExecExecutorDefaults) TimeoutDuration() time.Duration {
 	return parseDurationOrDefault(e.Timeout, 30*time.Second) //nolint:mnd // fallback
-}
-
-// TimeoutDuration parses the SQL timeout string into a time.Duration.
-func (s *SQLExecutorDefaults) TimeoutDuration() time.Duration {
-	return parseDurationOrDefault(s.Timeout, 30*time.Second) //nolint:mnd // fallback
-}
-
-// ConnMaxIdleTimeDuration parses the SQL connection max idle time.
-func (s *SQLExecutorDefaults) ConnMaxIdleTimeDuration() time.Duration {
-	return parseDurationOrDefault(s.ConnMaxIdleTime, 5*time.Minute) //nolint:mnd // fallback
 }

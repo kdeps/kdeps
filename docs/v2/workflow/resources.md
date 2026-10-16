@@ -44,19 +44,20 @@ before:                 # prepare values the action reads
   - set('pre', 'value')
 after:                  # process the output for downstream resources
   - set('post', 'value')
+```
+
+## The one action
+
+```yaml
+# resources/my-resource.yaml
+actionId: myResource        # required: unique ID -- used by requires: and get()
 
 # Exactly one primary action per resource (apiResponse: may accompany it
 # on the same resource to format the HTTP response):
 chat: { ... }        # send a prompt to an LLM; reply text at .message.content
 httpClient: { ... }  # make an HTTP request; output is the parsed response body
-sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
 exec: { ... }        # run a shell command; output is its stdout
-email: { ... }       # send SMTP email or read/search/modify IMAP messages
-telephony: { ... }   # in-call action (say, ask, menu, ...); output is TwiML
-botReply: { ... }    # reply to the bot platform that delivered the message
-file: { ... }       # filesystem operations: read, write, patch, list, delete
-git: { ... }        # version control: status, diff, log, commit, push, pull
 codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
@@ -81,13 +82,13 @@ apiResponse:
     answer: get('llm').message.content   # reply text from the llm resource
 ```
 
-`requires:` lists **direct** dependencies only. kdeps resolves transitive dependencies automatically - you do not list the whole chain.
+`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically - you do not list the whole chain.
 
 ## Resource types
 
 All executors are compiled into the `kdeps` binary and require no installation. They are grouped here by function; each links to its own reference page.
 
-### AI & language
+## AI & language
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -97,39 +98,39 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `loader` | Load PDF, HTML, CSV, text, or a directory into text chunks | [Loader](/workflow/resources/loader) |
 | `embedding` | Local SQLite keyword store: index / search / upsert / delete | [Embedding](/workflow/resources/embedding) |
 | `vectorStore` | External vector DB: Qdrant, Chroma, Pinecone, pgvector, ... | [Vector store](/workflow/resources/vector-store) |
-| `transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) | [Transcribe](/workflow/resources/transcribe) |
-| `ocr` | Text from an image via tesseract - local, no API key | [OCR](/workflow/resources/ocr) |
+| `component: transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) - a kdeps component, YAML only | [Transcribe](/workflow/resources/transcribe) |
+| `component: ocr` | Text from an image via tesseract - local, no API key (a kdeps component, YAML only) | [OCR](/workflow/resources/ocr) |
 
-### Web
+## Web
 
 | YAML key | Description | Page |
 |---|---|---|
 | `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/workflow/resources/http-client) |
-| `scraper` | Fetch a URL and extract text, optional CSS selector | [Scraper](/workflow/resources/scraper) |
-| `browser` | Playwright browser - navigation, forms, JS, screenshots | [Browser](/workflow/resources/browser) |
+| `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
+| `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | [Browser](/workflow/resources/browser) |
 | `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
-| `searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily | [searchWeb](/workflow/resources/search-web) |
+| `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | [searchWeb](/workflow/resources/search-web) |
 
-### Data & system
+## Data & system
 
 | YAML key | Description | Page |
 |---|---|---|
-| `sql` | Database queries and transactions | [SQL](/workflow/resources/sql) |
-| `file` | Read, write, patch, list, delete, copy, move files | [File](/workflow/resources/file) |
-| `git` | Status, diff, log, commit, branch, push, pull | [Git](/workflow/resources/git) |
+| `component: sql` | Database queries and transactions - a kdeps component, YAML only | [SQL](/workflow/resources/sql) |
+| `component: file` | Read, write, patch, list, delete, copy, move files - a kdeps component, YAML only | [File](/workflow/resources/file) |
+| `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `python` | Run a Python script, stdout parsed as JSON | [Python](/workflow/resources/python) |
 | `exec` | Run a shell command, stdout captured | [Exec](/workflow/resources/exec) |
 | `codeIntelligence` | Symbol search, definitions, references, folder graph | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |
 
-### Messaging
+## Messaging
 
 | YAML key | Description | Page |
 |---|---|---|
-| `email` | SMTP send, IMAP read / search / modify | [Email](/workflow/resources/email) |
-| `telephony` | Voice call handling (say, ask, menu, dial, record) | [Telephony](/workflow/resources/telephony) |
-| `botReply` | Reply to the chat platform that delivered the message | [Bot reply](/workflow/resources/bot-reply) |
+| `component: email` | SMTP send, IMAP read / search / modify - a kdeps component, YAML only | [Email](/workflow/resources/email) |
+| `component: twiml` | Voice call TwiML (say, gather, dial, record) - a kdeps component, YAML only | [Telephony](/workflow/resources/telephony) |
+| `apiResponse` (bot mode) | The workflow result is sent to the chat platform that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 
-### Orchestration
+## Orchestration
 
 | YAML key | Description | Page |
 |---|---|---|
@@ -137,13 +138,12 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component` | Call a reusable resource bundle | [Component](/agencies/component-resource) |
 | `apiResponse` | Return data to the HTTP caller | [API response](/workflow/resources/api-response) |
 
-### Registry components (installable via `kdeps registry install`)
+## Registry components (installable via `kdeps install`)
 
-Some install names (`scraper`, `browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
+Some install names (`embedding`) also exist as native YAML keys; the registry component is a separate package. An installed `browser` registry component takes the place of the shipped `browser` component.
 
 | Install name | Description |
 |-------------|-------------|
-| `scraper` | Extended content extraction: PDFs, .docx, .xlsx, images (type auto-detected) |
 | `browser` | Playwright browser with stealth mode, persistent sessions, and file upload |
 | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
 | `embedding` | Vector embeddings via OpenAI Embeddings API |

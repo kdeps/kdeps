@@ -1,0 +1,9 @@
+version: 1.0.0
+name: search
+order: 320
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "<term>"
+    help: Search the indexed directory and feed the results to the model

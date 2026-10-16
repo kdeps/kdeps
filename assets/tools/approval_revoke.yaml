@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Revoke a previously granted approval token.
+parameters:
+  token_id:
+    type: string
+    description: Token ID to revoke
+    required: true

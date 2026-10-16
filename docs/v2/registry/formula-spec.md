@@ -1,8 +1,8 @@
 # Registry formula specification
 
-A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps registry install` where to download the package and how to verify it.
+A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps install` where to download the package and how to verify it.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 **Formulas are the submission layer.** You PR a formula file to get listed. The registry at [kdeps.io](https://kdeps.io) runs on a database - formulas are ingested on merge and served from the DB for browsing, search, and install metadata.
 
@@ -17,7 +17,7 @@ version: 1.2.0                         # required - semantic version
 type: agent                            # required - component | workflow | agency
 github: owner/repo                     # required - GitHub owner/repo containing the release
 tarball: https://github.com/owner/repo/archive/refs/tags/v1.2.0.tar.gz  # required
-sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps registry submit
+sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps submit
 description: A one-line summary.       # required
 tags: [llm, chat]                      # optional - search keywords
 license: Apache-2.0                    # optional - SPDX identifier
@@ -29,10 +29,10 @@ license: Apache-2.0                    # optional - SPDX identifier
 |---|---|---|
 | `name` | yes | Unique package name. Lowercase, alphanumeric + hyphens. |
 | `version` | yes | Semantic version (`1.2.0`). One formula per version. |
-| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. |
+| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `theme`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
 | `github` | yes | `owner/repo` string. The repo containing the tagged release. |
 | `tarball` | yes | Full URL to the release tarball. Use GitHub's `/archive/refs/tags/v{version}.tar.gz` pattern. |
-| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps registry submit --tag`. |
+| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps submit --tag`. |
 | `description` | yes | One sentence describing what the package does. |
 | `tags` | no | List of search keywords. Use lowercase, no spaces. |
 | `license` | no | SPDX license identifier (`MIT`, `Apache-2.0`, etc.). |
@@ -69,6 +69,42 @@ type: agency
 
 Example: `cv-matcher`, `research-pipeline`
 
+### kdeps assets
+
+kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, providers) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps install`, which also installs what an item lists under `requires:` ([how](/agent/repl-updating)). The formula carries those as `dependencies`.
+
+```yaml
+# formulas/kdeps-components-searchWeb.yaml  (written by kdeps CI, not by hand)
+name: kdeps-components-searchWeb
+version: 1.0.1
+type: kdeps-component    # harness | event | action | preset | theme | tool | command | recipe | model | template | ...
+github: kdeps/packages
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/components/searchWeb/1.0.1.yaml
+sha256: 5a2844c4...      # SHA256 of that YAML file
+description: 'kdeps kdeps-component: searchWeb'
+tags: [kdeps, kdeps-component]
+license: Apache-2.0
+dependencies:            # the item's requires:, as package names; omitted when it has none
+  kdeps-schemas-v1: ">=1.0.3"
+```
+
+### kdeps resource types
+
+The built-in resource types (`httpClient:`, `chat:`, `exec:`, ...) are listed in the registry too, as `type: resource`, so they can be browsed next to packages. They are compiled into the `kdeps` binary and need no install. CI writes one formula per type, named `kdeps-resource-<key>`; the `tarball` is the type's docs page, versioned with kdeps.
+
+```yaml
+# formulas/kdeps-resource-http-client.yaml  (written by kdeps CI, not by hand)
+name: kdeps-resource-http-client
+version: 2.58.2          # the kdeps release the page documents
+type: resource
+github: kdeps/packages
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/resources/httpClient/2.58.2.md
+sha256: 25d97114...      # SHA256 of that page
+description: The `httpClient:` resource makes an outbound HTTP request ...
+tags: [kdeps, resource, httpClient]   # the last tag is the resource's YAML key
+license: Apache-2.0
+```
+
 ## Publishing workflow
 
 ### 1. Create a release
@@ -83,11 +119,11 @@ The tag must match the `version` field in the formula.
 
 ### 2. Generate the formula
 
-Run `kdeps registry submit` from your package directory:
+Run `kdeps submit` from your package directory:
 
 ```bash
 cd my-package/
-kdeps registry submit --tag v1.2.0
+kdeps submit --tag v1.2.0
 ```
 
 This downloads the tarball, computes the SHA256, and prints the formula YAML.
@@ -106,7 +142,7 @@ Open a pull request to `github.com/kdeps/registry` adding the formula as `formul
 Once merged, anyone can install:
 
 ```bash
-kdeps registry install my-agent
+kdeps install my-agent
 ```
 
 ## Repository layout
@@ -120,6 +156,7 @@ registry/
     search.yaml
     summarizer.yaml
     cv-matcher.yaml
+    kdeps-harness-safety.yaml   # kdeps assets, written by kdeps CI
     ...
   README.md
 ```

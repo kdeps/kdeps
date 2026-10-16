@@ -2,8 +2,6 @@
 
 `validations:` gates which HTTP methods and routes can trigger a resource - resources are skipped silently when the incoming request does not match.
 
-*Applies to workflow mode.*
-
 ## HTTP method restrictions
 
 Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
@@ -14,13 +12,15 @@ actionId: createUser
 validations:
   methods: [POST]
 
-sql:
-  connectionName: primary
-  queries:
-    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-      params:
-        - "{{ get('name') }}"
-        - "{{ get('email') }}"
+component:
+  name: sql
+  with:
+    connectionName: primary
+    queries:
+      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+        params:
+          - "{{ get('name') }}"
+          - "{{ get('email') }}"
 ```
 
 When `methods:` is set inside `validations:`:
@@ -37,42 +37,50 @@ When `methods:` is set inside `validations:`:
 actionId: createItem
 validations:
   methods: [POST]
-sql:
-  queries:
-    - query: "INSERT INTO items (name) VALUES (?)"
-      params: ["{{ get('name') }}"]
+component:
+  name: sql
+  with:
+    queries:
+      - query: "INSERT INTO items (name) VALUES (?)"
+        params: ["{{ get('name') }}"]
 
 ---
 # Read - GET only
 actionId: getItem
 validations:
   methods: [GET]
-sql:
-  queries:
-    - query: "SELECT * FROM items WHERE id = ?"
-      params: ["{{ get('id') }}"]
+component:
+  name: sql
+  with:
+    queries:
+      - query: "SELECT * FROM items WHERE id = ?"
+        params: ["{{ get('id') }}"]
 
 ---
 # Update - PUT/PATCH
 actionId: updateItem
 validations:
   methods: [PUT, PATCH]
-sql:
-  queries:
-    - query: "UPDATE items SET name = ? WHERE id = ?"
-      params:
-        - "{{ get('name') }}"
-        - "{{ get('id') }}"
+component:
+  name: sql
+  with:
+    queries:
+      - query: "UPDATE items SET name = ? WHERE id = ?"
+        params:
+          - "{{ get('name') }}"
+          - "{{ get('id') }}"
 
 ---
 # Delete - DELETE only
 actionId: deleteItem
 validations:
   methods: [DELETE]
-sql:
-  queries:
-    - query: "DELETE FROM items WHERE id = ?"
-      params: ["{{ get('id') }}"]
+component:
+  name: sql
+  with:
+    queries:
+      - query: "DELETE FROM items WHERE id = ?"
+        params: ["{{ get('id') }}"]
 ```
 
 ## Route restrictions
@@ -87,9 +95,11 @@ validations:
     - /admin
     - /admin/*
 
-sql:
-  queries:
-    - query: "SELECT * FROM admin_stats"
+component:
+  name: sql
+  with:
+    queries:
+      - query: "SELECT * FROM admin_stats"
 ```
 
 ### Route patterns
@@ -135,9 +145,11 @@ validations:
   routes:
     - /public/*
     - /
-sql:
-  queries:
-    - query: "SELECT * FROM content WHERE is_public = true"
+component:
+  name: sql
+  with:
+    queries:
+      - query: "SELECT * FROM content WHERE is_public = true"
 
 ---
 # Admin content (requires auth)
@@ -149,9 +161,11 @@ validations:
   error:
     code: 401
     message: "Authentication required"
-sql:
-  queries:
-    - query: "SELECT * FROM content"
+component:
+  name: sql
+  with:
+    queries:
+      - query: "SELECT * FROM content"
 ```
 
 ## Combining restrictions
@@ -165,12 +179,14 @@ validations:
   methods: [POST]
   routes: [/api/users]
 
-sql:
-  queries:
-    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-      params:
-        - "{{ get('name') }}"
-        - "{{ get('email') }}"
+component:
+  name: sql
+  with:
+    queries:
+      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+        params:
+          - "{{ get('name') }}"
+          - "{{ get('email') }}"
 
 ---
 actionId: userGet
@@ -178,10 +194,12 @@ validations:
   methods: [GET]
   routes: [/api/users/*]
 
-sql:
-  queries:
-    - query: "SELECT * FROM users WHERE id = ?"
-      params: ["{{ get('id') }}"]
+component:
+  name: sql
+  with:
+    queries:
+      - query: "SELECT * FROM users WHERE id = ?"
+        params: ["{{ get('id') }}"]
 ```
 
 ## RESTful API example
@@ -204,8 +222,6 @@ settings:
         methods: [GET, POST]
       - path: /api/users/:id
         methods: [GET, PUT, DELETE]
-  sqlConnections:
-    db: {}  # pool config here; DSN goes in ~/.kdeps/config.yaml sql_connections.db.connection
 ```
 
 **resources/list-users.yaml:**
@@ -215,10 +231,12 @@ actionId: listUsers
 validations:
   methods: [GET]
   routes: [/api/users]
-sql:
-  connectionName: db
-  queries:
-    - query: "SELECT * FROM users LIMIT 100"
+component:
+  name: sql
+  with:
+    connectionName: db
+    queries:
+      - query: "SELECT * FROM users LIMIT 100"
 ```
 
 **resources/create-user.yaml:**
@@ -229,13 +247,15 @@ validations:
   methods: [POST]
   routes: [/api/users]
   required: [name, email]
-sql:
-  connectionName: db
-  queries:
-    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-      params:
-        - "{{ get('name') }}"
-        - "{{ get('email') }}"
+component:
+  name: sql
+  with:
+    connectionName: db
+    queries:
+      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+        params:
+          - "{{ get('name') }}"
+          - "{{ get('email') }}"
 ```
 
 **resources/get-user.yaml:**
@@ -245,11 +265,13 @@ actionId: getUser
 validations:
   methods: [GET]
   routes: [/api/users/*]
-sql:
-  connectionName: db
-  queries:
-    - query: "SELECT * FROM users WHERE id = ?"
-      params: ["{{ get('id') }}"]
+component:
+  name: sql
+  with:
+    connectionName: db
+    queries:
+      - query: "SELECT * FROM users WHERE id = ?"
+        params: ["{{ get('id') }}"]
 ```
 
 **resources/update-user.yaml:**
@@ -259,14 +281,16 @@ actionId: updateUser
 validations:
   methods: [PUT]
   routes: [/api/users/*]
-sql:
-  connectionName: db
-  queries:
-    - query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
-      params:
-        - "{{ get('name') }}"
-        - "{{ get('email') }}"
-        - "{{ get('id') }}"
+component:
+  name: sql
+  with:
+    connectionName: db
+    queries:
+      - query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
+        params:
+          - "{{ get('name') }}"
+          - "{{ get('email') }}"
+          - "{{ get('id') }}"
 ```
 
 **resources/delete-user.yaml:**
@@ -276,11 +300,13 @@ actionId: deleteUser
 validations:
   methods: [DELETE]
   routes: [/api/users/*]
-sql:
-  connectionName: db
-  queries:
-    - query: "DELETE FROM users WHERE id = ?"
-      params: ["{{ get('id') }}"]
+component:
+  name: sql
+  with:
+    connectionName: db
+    queries:
+      - query: "DELETE FROM users WHERE id = ?"
+        params: ["{{ get('id') }}"]
 ```
 
 ## Best practices

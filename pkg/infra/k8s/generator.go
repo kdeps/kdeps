@@ -19,23 +19,36 @@
 package k8s
 
 import (
-	_ "embed"
 	"fmt"
 
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
 
-//go:embed templates/deployment.yaml.tmpl
-var deploymentTemplate string
+// The manifest templates are the "manifests" item of the "k8s" asset set,
+// one <name>.yaml.tmpl file per manifest.
+const (
+	k8sSet      = "k8s"
+	k8sItem     = "manifests"
+	templateExt = ".yaml.tmpl"
+	deployment  = "deployment"
+	service     = "service"
+	networkPol  = "networkpolicy"
+)
 
-//go:embed templates/service.yaml.tmpl
-var serviceTemplate string
-
-//go:embed templates/networkpolicy.yaml.tmpl
-var networkPolicyTemplate string
+//nolint:gochecknoinits // registers the Kubernetes templates as a versioned asset set
+func init() {
+	assets.Register(k8sSet, assets.Spec{
+		Validate: func(data []byte, _ string) error {
+			_, err := assets.ValidateBundle(data, deployment+templateExt, service+templateExt, networkPol+templateExt)
+			return err
+		},
+		Required: []string{k8sItem},
+	})
+}
 
 const defaultOllamaPort = 11434
 
@@ -77,12 +90,12 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 
 	data := g.buildTemplateData(workflow)
 
-	deployment, err := g.renderTemplate("deployment", deploymentTemplate, data)
+	deployment, err := g.renderManifest(deployment, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to render deployment template: %w", err)
 	}
 
-	service, err := g.renderTemplate("service", serviceTemplate, data)
+	service, err := g.renderManifest(service, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to render service template: %w", err)
 	}
@@ -90,7 +103,7 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 	manifests := fmt.Sprintf("%s---\n%s", deployment, service)
 
 	if data.NetworkPolicy {
-		policy, policyErr := g.renderTemplate("networkpolicy", networkPolicyTemplate, data)
+		policy, policyErr := g.renderManifest(networkPol, data)
 		if policyErr != nil {
 			return "", fmt.Errorf("failed to render networkpolicy template: %w", policyErr)
 		}
@@ -148,6 +161,15 @@ func portOrDefault(port int) int {
 		return port
 	}
 	return domain.DefaultPort
+}
+
+// renderManifest renders the manifest template name from the k8s asset set.
+func (g *Generator) renderManifest(name string, data *ManifestData) (string, error) {
+	tmplStr, err := assets.ReadBundleFile(k8sSet, k8sItem, name+templateExt)
+	if err != nil {
+		return "", err
+	}
+	return g.renderTemplate(name, string(tmplStr), data)
 }
 
 func (g *Generator) renderTemplate(name, tmplStr string, data *ManifestData) (string, error) {

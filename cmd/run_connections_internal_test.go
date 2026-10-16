@@ -31,24 +31,44 @@ import (
 func TestReferencedConnections(t *testing.T) {
 	wf := &domain.Workflow{
 		Resources: []*domain.Resource{
-			{ActionID: "q", SQL: &domain.SQLConfig{ConnectionName: "db"}},
-			{ActionID: "mail", Email: &domain.EmailConfig{
-				SMTPConnection: "out", IMAPConnection: "in",
+			{ActionID: "q", Component: &domain.ComponentCallConfig{
+				Name: "sql", With: map[string]interface{}{"connectionName": "db"},
+			}},
+			{ActionID: "mail", Component: &domain.ComponentCallConfig{
+				Name: "email", With: map[string]interface{}{"smtpConnection": "out", "imapConnection": "in"},
 			}},
 			{ActionID: "api", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "svc"}},
-			{ActionID: "web", SearchWeb: &domain.SearchWebConfig{ConnectionName: "ddg"}},
+			{ActionID: "web", Component: &domain.ComponentCallConfig{
+				Name: "searchWeb", With: map[string]interface{}{"connectionName": "brave", "query": "q"},
+			}},
+			{ActionID: "web2", Component: &domain.ComponentCallConfig{
+				Name: "searchWeb", With: map[string]interface{}{"connectionName": "{{ get('conn') }}"},
+			}},
 			{ActionID: "pre", Before: []domain.ActionConfig{
-				{SQL: &domain.SQLConfig{ConnectionName: "db"}}, // duplicate, deduped
+				{Component: &domain.ComponentCallConfig{ // duplicate, deduped
+					Name: "sql", With: map[string]interface{}{"connectionName": "db"},
+				}},
 			}},
 			{ActionID: "call", Component: &domain.ComponentCallConfig{Name: "comp"}},
 			{ActionID: "empty"}, // no connection
 		},
 		Components: map[string]*domain.Component{
 			"comp": {Resources: []*domain.Resource{
-				{ActionID: "cmail", Email: &domain.EmailConfig{SMTPConnection: "comp-smtp"}},
+				{ActionID: "chttp", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "comp-http"}},
 			}},
+			"sql": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
+				{Name: "connectionName", Type: "string", Connection: config.ConnKindSQL},
+			}}},
+			"email": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
+				{Name: "smtpConnection", Type: "string", Connection: config.ConnKindSMTP},
+				{Name: "imapConnection", Type: "string", Connection: config.ConnKindIMAP},
+			}}},
+			"searchWeb": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
+				{Name: "query", Type: "string"},
+				{Name: "connectionName", Type: "string", Connection: config.ConnKindSearch},
+			}}},
 			"unused": {Resources: []*domain.Resource{
-				{ActionID: "x", SQL: &domain.SQLConfig{ConnectionName: "never"}},
+				{ActionID: "x", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "never"}},
 			}},
 		},
 	}
@@ -59,8 +79,11 @@ func TestReferencedConnections(t *testing.T) {
 	assert.Contains(t, refs, connRef{config.ConnKindSMTP, "out"})
 	assert.Contains(t, refs, connRef{config.ConnKindIMAP, "in"})
 	assert.Contains(t, refs, connRef{config.ConnKindHTTP, "svc"})
-	assert.Contains(t, refs, connRef{config.ConnKindSearch, "ddg"})
-	assert.Contains(t, refs, connRef{config.ConnKindSMTP, "comp-smtp"})
+	// A component input marked connection: search names a search connection;
+	// an expression value is only known at run time and is not prompted for.
+	assert.Contains(t, refs, connRef{config.ConnKindSearch, "brave"})
+	assert.NotContains(t, refs, connRef{config.ConnKindSearch, "{{ get('conn') }}"})
+	assert.Contains(t, refs, connRef{config.ConnKindHTTP, "comp-http"})
 
 	// "db" appears twice but must be deduplicated.
 	dbCount := 0
@@ -72,7 +95,7 @@ func TestReferencedConnections(t *testing.T) {
 	assert.Equal(t, 1, dbCount)
 
 	// A component the workflow never calls must not be scanned.
-	assert.NotContains(t, refs, connRef{config.ConnKindSQL, "never"})
+	assert.NotContains(t, refs, connRef{config.ConnKindHTTP, "never"})
 }
 
 func TestReferencedConnections_Empty(t *testing.T) {
@@ -88,7 +111,6 @@ func TestReferencedConnections_BotPlatforms(t *testing.T) {
 				Bot: &domain.BotConfig{
 					Discord:  &domain.DiscordConfig{GuildID: "123"},
 					Telegram: &domain.TelegramConfig{PollIntervalSeconds: 1},
-					WhatsApp: &domain.WhatsAppConfig{WebhookPort: 16396},
 					// Slack deliberately omitted.
 				},
 			},
@@ -99,7 +121,6 @@ func TestReferencedConnections_BotPlatforms(t *testing.T) {
 
 	assert.Contains(t, refs, connRef{config.ConnKindBot, "discord"})
 	assert.Contains(t, refs, connRef{config.ConnKindBot, "telegram"})
-	assert.Contains(t, refs, connRef{config.ConnKindBot, "whatsapp"})
 	assert.NotContains(t, refs, connRef{config.ConnKindBot, "slack"})
 }
 
@@ -171,7 +192,7 @@ func TestEnsureWorkflowConnections_NoTerminalNoPrompt(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", t.TempDir()+"/config.yaml")
 	wf := &domain.Workflow{
 		Resources: []*domain.Resource{
-			{ActionID: "q", SQL: &domain.SQLConfig{ConnectionName: "missing-db"}},
+			{ActionID: "q", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "missing-api"}},
 		},
 	}
 	require.NoError(t, ensureWorkflowRuntimeConfig(wf))

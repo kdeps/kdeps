@@ -1,0 +1,11 @@
+version: 1.0.0
+description: Assign a task to a team for multi-agent coordination.
+parameters:
+  task_id:
+    type: string
+    description: The task ID to assign
+    required: true
+  team_id:
+    type: string
+    description: The team ID to assign to
+    required: true

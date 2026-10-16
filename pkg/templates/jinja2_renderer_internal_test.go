@@ -28,6 +28,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 //go:embed testdata
@@ -320,7 +322,7 @@ func TestWalkJinja2Template_ProcessDirectoryError(t *testing.T) {
 
 	// Read entries and filter to only directories so the directory error path
 	// is reached (files would fail first in alphabetical order).
-	allEntries, err := templatesFS.ReadDir("templates/api-service")
+	allEntries, err := assets.Open("templates").ReadDir("templates/api-service")
 	require.NoError(t, err)
 	var dirEntries []os.DirEntry
 	for _, e := range allEntries {

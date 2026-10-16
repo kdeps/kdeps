@@ -9,11 +9,9 @@ metadata:
     Features shown:
       1. Per-component env var overrides - each component sees its own API key
          via {COMPONENT_NAME_UPPER}_VAR before falling back to the plain var.
-      2. Auto-scaffolded .env - on first run kdeps creates a .env template
-         listing every env() var found in the component's resources (blank values).
-      3. Auto-scaffolded README.md - generated from component metadata on first run.
-      4. Lowest-priority .env fallback - values in the component's .env file are
-         used only when no matching os env var is set.
+      2. Lowest-priority .env fallback - values in a .env file you put in the
+         component's folder are used only when no matching os env var is set.
+         kdeps never creates or writes that file; keep it out of git.
 
     Two local components: translator and summarizer. Both call OpenAI but use
     different API keys so you can rotate / restrict them independently.
@@ -31,13 +29,8 @@ metadata:
     Run:
       kdeps run examples/auto-env
 
-    After the first run, inspect the auto-created .env files:
-      cat examples/auto-env/components/translator/.env
-      cat examples/auto-env/components/summarizer/.env
-      cat examples/auto-env/components/translator/README.md
-
-    Explicitly regenerate / merge .env and README.md:
-      kdeps component update examples/auto-env
+    Optional per-component fallback values (create the file yourself):
+      echo 'OPENAI_API_KEY=sk-translate' > examples/auto-env/components/translator/.env
   version: "1.0.0"
   targetActionId: response
 

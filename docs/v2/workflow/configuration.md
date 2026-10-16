@@ -2,8 +2,6 @@
 
 `workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` - not here.
 
-*Applies to workflow mode.*
-
 ## How the pieces fit together
 
 ```d2
@@ -20,7 +18,6 @@ A -> B -> C -> D -> E
 settings: workflow.yaml settings {
   B2: "webServer\nstatic files or subprocess proxy"
   B3: "agentSettings\nPython, OS packages, env vars"
-  B4: "sqlConnections\nnamed DB connections"
   B5: "session\ncross-request key-value store"
 }
 
@@ -28,15 +25,16 @@ global: "~/.kdeps/config.yaml" {
   G1: "smtp_connections / imap_connections\nemail send + receive"
   G2: "http_connections\nHTTP auth + proxy"
   G3: "search_connections\nweb search API keys"
+  G4: "sql_connections\nnamed DB connections"
 }
 
 settings.B3 -> C: configures runtime
-settings.B4 -> C: provides connections
 settings.B5 -> C: provides session store
 settings.B2 -> B: runs alongside
 global.G1 -> C: provides connections
 global.G2 -> C: provides connections
 global.G3 -> C: provides connections
+global.G4 -> C: provides connections
 ```
 
 ## Basic structure
@@ -56,11 +54,10 @@ settings:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
   agentSettings: { ... }   # runtime environment (Python, OS packages, LLM backend)
-  sqlConnections: { ... }  # named database connections
   session: { ... }         # session persistence settings
 ```
 
-Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 
@@ -77,7 +74,7 @@ agents:
       timezone: America/New_York
 ```
 
-In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that don't match any installed workflow name (non-fatal).
+In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that do not match any installed workflow name (non-fatal).
 
 ## API server
 
@@ -130,7 +127,7 @@ settings:
     portNum: 443
 ```
 
-DNS must point at this host; open ports **80** and **443**. Full guide: [TLS and HTTPS](/deploy/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
+DNS must point at this host; open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
 
 ## Web server
 
@@ -190,7 +187,7 @@ Model selection goes in `chat.model` inside each resource file. Backend and API 
 
 ## SQL connections
 
-Named SQL connections are split across two files: the connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed), and pool config lives in `workflow.yaml`.
+The connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed). The [`sql` component](/workflow/resources/sql) names it with `connectionName`.
 
 `~/.kdeps/config.yaml` - DSN (credentials stay here):
 
@@ -199,26 +196,12 @@ sql_connections:
   analytics:
     connection: "postgres://user:pass@localhost:5432/analytics"
   cache:
-    connection: "sqlite:///path/to/cache.db"
+    connection: "sqlite:///path/to/cache.db"   # absolute path; sqlite://./cache.db is relative to where kdeps runs
 ```
 
-`workflow.yaml` - pool config (no credentials here):
+The [`sql` component](/workflow/resources/sql) references a connection by name: `connectionName: analytics`. The name must match the key in `sql_connections` in `~/.kdeps/config.yaml`.
 
-```yaml
-settings:
-  sqlConnections:
-    analytics:
-      pool:
-        maxConnections: 10    # max open connections in the pool
-        minConnections: 2     # min idle connections kept alive
-    cache:
-      pool:
-        maxConnections: 5
-```
-
-Resources reference a connection by name: `connectionName: analytics`. The name must match the key in `sql_connections` in `~/.kdeps/config.yaml`.
-
-Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` driver.
+Supported: PostgreSQL, MySQL/MariaDB, SQLite, SQL Server and Oracle.
 
 ## Session
 

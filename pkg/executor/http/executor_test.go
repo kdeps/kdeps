@@ -1631,7 +1631,7 @@ func TestExecutor_evaluateExpression(t *testing.T) {
 		ctx.Request = &executor.RequestContext{
 			Body: map[string]interface{}{"count": 10},
 		}
-		result, exprErr := exec.EvaluateExpressionForTesting(evaluator, ctx, `input.count + 5`)
+		result, exprErr := exec.EvaluateExpressionForTesting(evaluator, ctx, `input('count') + 5`)
 		require.NoError(t, exprErr)
 		assert.Equal(t, 15, result)
 	})

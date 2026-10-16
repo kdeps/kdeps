@@ -1,38 +1,15 @@
 # Analyze an uploaded image
 
-*Applies to workflow mode.*
-
-## Overview
-
-In this tutorial you build an API that accepts an image upload and a question,
+Build an API that accepts an image upload and a question,
 sends both to a multimodal LLM, and returns a structured description of what is
 in the image.
-
-This tutorial is for developers who have completed the
-[quickstart](/workflow/quickstart). It assumes you know:
-
-- Basic YAML
-- How to send a multipart form upload with `curl`
-
-By the end you will be able to:
-
-- Accept a file upload on an API route
-- Attach the uploaded file to a `chat:` prompt with `files:`
-- Read upload metadata with `info('files')` and `info('filetypes')`
-
-## Background
 
 A `chat:` resource can attach files to the prompt. For a vision model, an
 attached image is analyzed alongside the text. Vision needs the Ollama backend
 - the default llamafile backend is text-only - so this workflow enables Ollama
 and pulls a multimodal model.
 
-## Before you start
-
-- kdeps installed (`kdeps --version`).
-- [Ollama](https://ollama.com) installed and running.
-- A multimodal model pulled: `ollama pull llama3.2-vision` (or `llava`).
-- An image file to test with.
+**Needs:** [Ollama](https://ollama.com) installed and running; a multimodal model pulled: `ollama pull llama3.2-vision` (or `llava`); an image file to test with.
 
 ## Step 1: create the project
 
@@ -156,15 +133,6 @@ Response:
   }
 }
 ```
-
-## Summary
-
-You built an API that:
-
-- Accepts a multipart image upload
-- Attaches the file to the LLM prompt with `files:`
-- Forces a structured reply with `jsonResponse` and `jsonResponseKeys`
-- Reads upload metadata with `info('files')` and `info('filetypes')`
 
 ## Next steps
 

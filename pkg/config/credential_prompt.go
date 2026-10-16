@@ -42,7 +42,7 @@ const (
 // IsCloudBackend reports whether backend is a cloud LLM provider that needs an
 // API key (as opposed to a local backend like file/gguf/ollama).
 func IsCloudBackend(backend string) bool {
-	_, ok := cloudProviders[backend]
+	_, ok := providerByName(backend)
 	return ok
 }
 
@@ -50,7 +50,7 @@ func IsCloudBackend(backend string) bool {
 // of its environment variable. A non-cloud backend needs no key and reports
 // SourceConfig with an empty var. config.yaml takes precedence over the env.
 func LLMKeySource(cfg *Config, backend string) (CredentialSource, string) {
-	p, ok := cloudProviders[backend]
+	p, ok := providerByName(backend)
 	if !ok {
 		return SourceConfig, ""
 	}
@@ -79,7 +79,7 @@ func APITokenSource(cfg *Config) CredentialSource {
 // config.yaml or the environment. Non-cloud backends need no key, so they
 // always report true.
 func HasLLMKey(cfg *Config, backend string) bool {
-	p, ok := cloudProviders[backend]
+	p, ok := providerByName(backend)
 	if !ok {
 		return true
 	}
@@ -94,7 +94,7 @@ func HasLLMKey(cfg *Config, backend string) bool {
 // run picks it up. Returns false (no error) for unknown/non-cloud backends or a
 // blank answer.
 func PromptAndSaveLLMKey(backend string, out io.StringWriter, in *bufio.Reader) (bool, error) {
-	p, ok := cloudProviders[backend]
+	p, ok := providerByName(backend)
 	if !ok {
 		return false, nil
 	}
@@ -194,4 +194,13 @@ func randomToken() (string, error) {
 		return "", fmt.Errorf("generate token: %w", err)
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// SaveKnowledgeVault persists knowledge.vault in config.yaml.
+func SaveKnowledgeVault(vault string) error {
+	path, err := Path()
+	if err != nil {
+		return err
+	}
+	return injectNestedScalar(path, "knowledge", "vault", vault)
 }

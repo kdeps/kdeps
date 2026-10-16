@@ -1,0 +1,9 @@
+version: 1.0.0
+name: konfig
+order: 310
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: "export [path]"
+    help: "Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)"

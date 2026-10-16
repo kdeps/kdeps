@@ -135,6 +135,68 @@ nfpms:
     license: Apache-2.0 license
     formats:
       - deb
+      - rpm
       - apk
+      - archlinux
     dependencies:
       - git
+
+scoops:
+  - name: kdeps
+    homepage: "https://kdeps.com"
+    description: "Kdeps is a framework for creating dockerized AI Agent APIs"
+    license: Apache-2.0
+    directory: bucket
+    commit_author:
+      name: jjuliano
+      email: joelbryan.juliano@gmail.com
+    commit_msg_template: "Scoop update for {{ .ProjectName }} version {{ .Tag }}"
+    repository:
+      owner: kdeps
+      name: scoop-bucket
+      token: "{{ .Env.GITHUB_TOKEN }}"
+
+# AUR and winget publish only when their credentials exist as repo secrets
+# (AUR_KEY: ssh private key of the AUR maintainer; WINGET_TOKEN: PAT that can
+# push to the kdeps/winget-pkgs fork and open PRs on microsoft/winget-pkgs).
+# Without a secret the workflow passes an empty string and the entry is skipped.
+aurs:
+  - name: kdeps-bin
+    skip_upload: '{{ if .Env.AUR_KEY }}false{{ else }}true{{ end }}'
+    homepage: "https://kdeps.com"
+    description: "Kdeps is a framework for creating dockerized AI Agent APIs"
+    license: Apache-2.0
+    maintainers:
+      - "Joel Bryan Juliano <joelbryan.juliano@gmail.com>"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/kdeps-bin.git"
+    depends:
+      - git
+    commit_author:
+      name: jjuliano
+      email: joelbryan.juliano@gmail.com
+    commit_msg_template: "kdeps-bin {{ .Tag }}"
+
+winget:
+  - name: kdeps
+    skip_upload: '{{ if .Env.WINGET_TOKEN }}false{{ else }}true{{ end }}'
+    package_identifier: Kdeps.Kdeps
+    publisher: Kdeps
+    publisher_url: https://kdeps.com
+    short_description: "Kdeps is a framework for creating dockerized AI Agent APIs"
+    license: Apache-2.0
+    homepage: https://kdeps.com
+    commit_author:
+      name: jjuliano
+      email: joelbryan.juliano@gmail.com
+    repository:
+      owner: kdeps
+      name: winget-pkgs
+      branch: "kdeps-{{ .Version }}"
+      token: "{{ .Env.WINGET_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master

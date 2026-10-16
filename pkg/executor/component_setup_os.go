@@ -126,3 +126,14 @@ func pkgInstalled(name string, args []string) bool {
 	defer cancel()
 	return exec.CommandContext(ctx, name, args...).Run() == nil
 }
+
+// allOnPath reports whether every program is on PATH; an empty list is false
+// (nothing tells us the packages are already there).
+func allOnPath(programs []string) bool {
+	for _, p := range programs {
+		if !commandExists(p) {
+			return false
+		}
+	}
+	return len(programs) > 0
+}

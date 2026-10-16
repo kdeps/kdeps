@@ -1,27 +1,31 @@
-# Email resource
+# Email component
 
-The `email:` resource sends outbound email via SMTP and reads or searches inbound messages via IMAP. Use it to deliver notifications, reports, and alerts from any workflow step.
+The `email` component sends email over SMTP and reads, searches, modifies, lists or deletes IMAP mailboxes. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/).
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+
+## Requirements
+
+Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource using the standard library (`smtplib`, `imaplib`). Connection details, passwords included, reach it through `env:`, never the command line.
 
 ## Actions
 
-Set the `email.action:` field to one of six values:
+Set the `action` input:
 
 | Action | What it does |
 |---|---|
-| `send` (default) | Send an email via SMTP |
-| `read` | Retrieve recent messages from an IMAP mailbox |
-| `search` | Search messages in an IMAP mailbox by criteria |
-| `modify` | Change flags or move messages via IMAP |
-| `list` | List IMAP mailboxes/folders |
-| `delete` | Delete messages from an IMAP mailbox |
+| `send` (default) | Send an email over SMTP |
+| `read` | Return the most recent messages of a mailbox |
+| `search` | Return messages matching `search:` criteria |
+| `modify` | Set or clear flags, or move messages |
+| `list` | List the selectable mailboxes |
+| `delete` | Delete a mailbox (never `INBOX` or `[Gmail]/...`) |
 
 ## Global named connections
 
-SMTP and IMAP credentials belong in `~/.kdeps/config.yaml`, not in `workflow.yaml`. Resources reference connections by name. This keeps all secrets in one machine-local file and out of version-controlled workflow files.
+SMTP and IMAP credentials belong in `~/.kdeps/config.yaml`, not in `workflow.yaml`. The component's `smtpConnection` / `imapConnection` inputs name them. This keeps all secrets in one machine-local file and out of version-controlled workflow files.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -42,9 +46,9 @@ imap_connections:
     tls: true
 ```
 
-### Interactive setup on first run
+## Interactive setup on first run
 
-If a resource references a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` - so you never have to hand-edit the file to get going:
+If a workflow names a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` - so you never have to hand-edit the file to get going:
 
 ```text
 Connection "inbox" (imap) is referenced but not configured.
@@ -61,7 +65,7 @@ This is interactive-only: when stdin is not a terminal (CI, pipes), kdeps skips 
 
 Values already provided by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are never prompted for and never written to `config.yaml`; kdeps prints a notice that it is using the value from the environment.
 
-### Set connections via environment variables
+## Set connections via environment variables
 
 Every named connection can be supplied entirely from the environment - no `config.yaml` entry needed - using the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>`. The name is matched case-insensitively and used lowercased, so reference it in lowercase in resources (`connectionName: default`, `smtpConnection: alerts`). Env values win over `config.yaml`, per field:
 
@@ -102,112 +106,79 @@ Env-supplied connections are picked up automatically at run time (not prompted, 
 # resources/notify.yaml
 actionId: notify
 requires: [llm]
-email:
-  action: send
-  smtpConnection: default   # references smtp_connections.default in ~/.kdeps/config.yaml
-  from: "reports@example.com"
-  to:
-    - "alice@example.com"
-  subject: "Daily Report"
-  body: "{{ get('llm') }}"
+component:
+  name: email                    # from the components asset set; a components/email/ of your own wins
+  with:
+    smtpConnection: default      # smtp_connections.default in ~/.kdeps/config.yaml
+    from: reports@example.com    # optional: defaults to identity.email
+    to: [alice@example.com]      # a list, or one comma-separated string
+    bcc: [audit@example.com]     # delivered, never written to the headers
+    subject: Daily Report
+    body: "{{ get('llm').message.content }}"
+    html: false                  # true: body is text/html
+    attachments: [reports/q3.pdf]  # relative paths resolve against the workflow directory
 ```
 
 </div>
 
-`from` is optional when the agent has a configured [identity](/reference/advanced-config#agent-identity) - it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
-
-HTML email - set `html: true` and put HTML in `body:`:
-
-<div v-pre>
-
-```yaml
-email:
-  action: send
-  smtpConnection: default
-  from: "noreply@example.com"
-  to: ["{{ get('recipient') }}"]
-  subject: "Your Report"
-  body: "<h1>Summary</h1><p>{{ get('llm') }}</p>"
-  html: true
-```
-
-</div>
-
-With attachments:
-
-```yaml
-email:
-  action: send
-  smtpConnection: default
-  from: "reports@example.com"
-  to: ["cfo@example.com"]
-  subject: "Q3 Report"
-  body: "See attached."
-  attachments:
-    - "/data/reports/q3.pdf"
-```
-
-### Output (send)
+`from` defaults to the agent's [identity](/reference/advanced-config#agent-identity) `identity.email`. A `from`, `subject` or recipient containing a line break fails the call (header injection). With `tls: true` the connection uses implicit TLS (port 465); otherwise it upgrades with STARTTLS when the server offers it (port 587).
 
 ```json
-{"success": true, "action": "send", "from": "...", "to": [...], "subject": "..."}
+{"success": true, "action": "send", "from": "reports@example.com", "to": ["alice@example.com"], "cc": [], "subject": "Daily Report", "attachments": 1}
 ```
 
-## Reading email
-
-```yaml
-# resources/check-inbox.yaml
-actionId: checkInbox
-email:
-  action: read
-  imapConnection: inbox   # references imap_connections.inbox in ~/.kdeps/config.yaml
-  mailbox: "INBOX"
-  limit: 10
-  markRead: true
-```
-
-### Output (read)
-
-An array of message objects:
-
-```json
-[
-  {
-    "uid": "42",
-    "subject": "New order #1234",
-    "from": "orders@shopify.com",
-    "to": ["ops@example.com"],
-    "date": "2024-03-15T09:00:00Z",
-    "body": "Order details...",
-    "html": ""
-  }
-]
-```
-
-Access fields with `get('checkInbox')[0].subject`, `get('checkInbox')[0].body`, etc.
-
-## Searching email
+## Reading and searching
 
 <div v-pre>
 
 ```yaml
 # resources/find-orders.yaml
 actionId: findOrders
-email:
-  action: search
-  imapConnection: inbox
-  mailbox: "INBOX"
-  limit: 50
-  search:
-    from: "orders@shopify.com"
-    subject: "New order"
-    unseen: true
-    since: "2024-01-01"
+component:
+  name: email
+  with:
+    action: search                # read: the newest messages, no criteria
+    imapConnection: inbox         # imap_connections.inbox in ~/.kdeps/config.yaml
+    mailbox: INBOX                # default INBOX
+    limit: 20                     # newest 20 matches (default 10)
+    markRead: false               # true: mark returned messages \Seen
+    search:
+      from: orders@shop.example
+      subject: New order
+      unseen: true
+      since: "2024-01-01"         # YYYY-MM-DD; also before:
 ```
 
 </div>
 
-Search fields: `from`, `to`, `subject`, `body`, `since` (ISO date), `before` (ISO date), `unseen` (bool), `flagged` (bool).
+Search fields: `from`, `subject`, `body`, `since`, `before`, `unseen`, `flagged`.
+
+```json
+{
+  "success": true,
+  "action": "search",
+  "mailbox": "INBOX",
+  "count": 1,
+  "messages": [
+    {
+      "uid": 42,
+      "messageId": "<abc@shop.example>",
+      "from": "Shop <orders@shop.example>",
+      "to": "ops@example.com",
+      "subject": "New order #1234",
+      "date": "2024-03-15T09:00:00Z",
+      "body": "Order details...",
+      "seen": false,
+      "listUnsubscribe": "<https://shop.example/u>, <mailto:u@shop.example>",
+      "unsubscribeUrl": "https://shop.example/u",
+      "unsubscribeMailto": "mailto:u@shop.example",
+      "unsubscribeOneClick": true
+    }
+  ]
+}
+```
+
+Messages are oldest first. `body` is the raw message text (for a multipart message, including its MIME parts). The unsubscribe fields are present only when the message has a `List-Unsubscribe` header. Read them with `output('findOrders').messages[0].subject`.
 
 ## Modifying messages
 
@@ -216,163 +187,92 @@ Search fields: `from`, `to`, `subject`, `body`, `since` (ISO date), `before` (IS
 ```yaml
 # resources/archive.yaml
 actionId: archive
-email:
-  action: modify
-  imapConnection: inbox
-  mailbox: "INBOX"
-  uids:
-    - "{{ get('findOrders')[0].uid }}"
-  modify:
-    markSeen: true
-    moveTo: "Processed"
+requires: [findOrders]
+component:
+  name: email
+  with:
+    action: modify
+    imapConnection: inbox
+    uids: ["{{ output('findOrders').messages[0].uid }}"]   # empty: every message search: matches
+    modify:
+      markSeen: true              # true sets, false clears; also markFlagged, markDeleted
+      moveTo: Processed           # matched case-insensitively to an existing mailbox, else created
+      expunge: false              # true: remove \Deleted messages (ignored with moveTo)
 ```
 
 </div>
-
-### Output (modify)
 
 ```json
-{"success": true, "modified": 1}
+{"success": true, "action": "modify", "mailbox": "INBOX", "count": 1, "uids": [42]}
 ```
 
-## Configuration reference
+A missing source mailbox or no matching messages returns `count: 0`. On servers without `MOVE`, `moveTo` copies, marks the originals deleted and expunges.
 
-### `smtp_connections` fields (in `~/.kdeps/config.yaml`)
+## Listing and deleting mailboxes
 
-| Field | Type | Description |
+```yaml
+# resources/folders.yaml
+actionId: folders
+component:
+  name: email
+  with:
+    action: list                  # {success, action, count, folders: ["INBOX", "Archive", ...]}
+    imapConnection: inbox
+```
+
+`action: delete` with `mailbox: Old` deletes that mailbox; a mailbox that is already gone counts as deleted.
+
+## Inputs
+
+| Input | Default | Description |
 |---|---|---|
-| `host` | string | SMTP server hostname |
-| `port` | int | Port (default: 465 for TLS, 587 for STARTTLS) |
-| `username` | string | Auth username |
-| `password` | string | Auth password |
-| `tls` | bool | `true` = implicit TLS (port 465), `false` = STARTTLS (port 587) |
-| `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
+| `action` | `send` | `send`, `read`, `search`, `modify`, `list`, `delete` |
+| `smtpConnection` | | Name under `smtp_connections` (send) |
+| `imapConnection` | | Name under `imap_connections` (the IMAP actions) |
+| `from` | `identity.email` | Sender address |
+| `to`, `cc`, `bcc` | `[]` | Recipients: a list or a comma-separated string |
+| `subject` | | Subject (required for send) |
+| `body` | | Message body |
+| `html` | `false` | Send `body` as `text/html` |
+| `attachments` | `[]` | File paths to attach |
+| `mailbox` | `INBOX` | Mailbox for read, search, modify; required for delete |
+| `limit` | `10` | Messages to return at most |
+| `markRead` | `false` | Mark returned messages as seen |
+| `uids` | `[]` | Message UIDs for modify |
+| `search` | `{}` | `from`, `subject`, `body`, `since`, `before`, `unseen`, `flagged` |
+| `modify` | `{}` | `markSeen`, `markFlagged`, `markDeleted`, `moveTo`, `expunge` |
+| `timeout` | `30s` | Connection timeout |
 
-### `imap_connections` fields (in `~/.kdeps/config.yaml`)
+### Connection fields
 
-| Field | Type | Description |
-|---|---|---|
-| `host` | string | IMAP server hostname |
-| `port` | int | Port (default: 993 for TLS, 143 for plain) |
-| `username` | string | Auth username |
-| `password` | string | Auth password |
-| `tls` | bool | Enable TLS |
-| `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
+| Field | Description |
+|---|---|
+| `host` | Server hostname |
+| `port` | Default 465 (SMTP, `tls: true`), 587 (SMTP), 993 (IMAP, `tls: true`), 143 (IMAP) |
+| `username`, `password` | Login; omitted means no login |
+| `tls` | `true`: implicit TLS. SMTP without it uses STARTTLS when offered |
+| `insecureSkipVerify` | Skip certificate verification (development only) |
 
-### Top-level `email:` fields
+**Gmail:** use an [App Password](https://support.google.com/accounts/answer/185833). SMTP `smtp.gmail.com:587` with `tls: false` (STARTTLS); IMAP `imap.gmail.com:993` with `tls: true`.
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `action` | string | `send` | `send`, `read`, `search`, `modify`, `list`, or `delete` |
-| `smtpConnection` | string | | Named SMTP connection (required for send) |
-| `imapConnection` | string | | Named IMAP connection (required for read/search/modify/list/delete) |
-| `from` | string | | Sender address (send only) |
-| `to` | []string | | Recipients (send only) |
-| `cc` | []string | | CC recipients (send only) |
-| `bcc` | []string | | BCC recipients (send only) |
-| `subject` | string | | Subject line (send only) |
-| `body` | string | | Plain-text or HTML body (send only) |
-| `html` | bool | false | Treat `body` as HTML (send only) |
-| `attachments` | []string | | Local file paths to attach (send only) |
-| `mailbox` | string | `INBOX` | Mailbox for read/search/modify |
-| `limit` | int | 10 | Max messages to return (read/search) |
-| `markRead` | bool | false | Mark retrieved messages as read |
-| `uids` | []string | | Message UIDs to target (modify) |
-| `search` | object | | Search criteria (search action) |
-| `modify` | object | | Modification flags (modify action) |
-| `timeout` | string | `30s` | Operation timeout |
+## Errors
 
-### `modify:` fields
+| Error | Cause |
+|---|---|
+| `email: smtpConnection is required for send ...` | No `smtpConnection` (likewise `imapConnection` for the IMAP actions) |
+| `email: smtpConnection 'x' not found in ~/.kdeps/config.yaml smtp_connections` | The name is not configured |
+| `email: header Subject contains CR or LF (header injection)` | A line break in a header value |
+| `email: send: ...` / `email: imap connect ...` | The server refused or could not be reached |
+| `email: delete: refusing to delete protected mailbox 'INBOX'` | `delete` on `INBOX` or `[Gmail]/...` |
 
-| Field | Type | Description |
-|---|---|---|
-| `markSeen` | *bool | Set or clear \\Seen flag |
-| `markFlagged` | *bool | Set or clear \\Flagged flag |
-| `markDeleted` | *bool | Set or clear \\Deleted flag |
-| `moveTo` | string | Move messages to this mailbox |
-| `expunge` | bool | Permanently delete messages marked for deletion |
+Add `onError:` to the calling resource to continue with a fallback instead of failing the workflow.
 
-## Secrets
+## How it is built
 
-Always use environment variables - never hardcode credentials:
-
-```yaml
-# ~/.kdeps/config.yaml
-smtp_connections:
-  default:
-    host: "${SMTP_HOST}"
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-imap_connections:
-  inbox:
-    host: "${IMAP_HOST}"
-    username: "${IMAP_USER}"
-    password: "${IMAP_PASS}"
-```
-
-**Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833), not your account password. SMTP: `smtp.gmail.com:587` with `tls: false` (STARTTLS). IMAP: `imap.gmail.com:993` with `tls: true`.
-
-## Common patterns
-
-### Send a report after LLM generation
-
-<div v-pre>
-
-```yaml
-# ~/.kdeps/config.yaml
-smtp_connections:
-  reports:
-    host: "${SMTP_HOST}"
-    port: 587
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: false
-
-# resources/send-report.yaml
-actionId: sendReport
-requires: [generateReport]
-email:
-  action: send
-  smtpConnection: reports
-  from: "${REPORT_FROM}"
-  to: ["${REPORT_TO}"]
-  subject: "Weekly Summary - {{ get('week') }}"
-  body: "{{ get('generateReport') }}"
-```
-
-</div>
-
-### Poll inbox and process new messages
-
-```yaml
-# resources/poll.yaml
-actionId: poll
-email:
-  action: search
-  imapConnection: inbox
-  search:
-    unseen: true
-  limit: 20
-```
-
-### `onError` fallback for SMTP failures
-
-```yaml
-email:
-  action: send
-  smtpConnection: default
-  from: "alerts@example.com"
-  to: ["ops@example.com"]
-  subject: "Alert"
-  body: "Something happened."
-onError:
-  action: continue
-  fallback: {"success": false, "message": "email delivery failed"}
-```
+One python resource: it reads the named connection from `config.yaml` (passed in `env:`), then runs the action with `smtplib`/`imaplib` and prints the result as JSON. Copy `components/email/` into your project to change a result or add an action.
 
 ## See also
 
 - [Global config](/reference/advanced-config) - where SMTP and IMAP credentials live
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback behavior
-- [Expressions](/workflow/expressions) - templating the subject and body
-- [Resources overview](/workflow/resources) - resource structure and dependencies
+- [Components](/agencies/components) - how shipped components load

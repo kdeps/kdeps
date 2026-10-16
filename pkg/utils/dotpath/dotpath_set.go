@@ -44,7 +44,14 @@ func setIn(v reflect.Value, path string, value any) error {
 func setInStruct(v reflect.Value, head, rest string, value any) error {
 	fv := findField(v, head)
 	if !fv.IsValid() {
-		return fmt.Errorf("field %q not found", head)
+		inline, ok := inlineMap(v)
+		if !ok {
+			return fmt.Errorf("field %q not found", head)
+		}
+		if inline.IsNil() {
+			inline.Set(reflect.MakeMap(inline.Type()))
+		}
+		return setInMap(inline, head, rest, value)
 	}
 	if rest == "" {
 		return assignValue(fv, value)

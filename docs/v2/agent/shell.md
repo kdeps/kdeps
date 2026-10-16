@@ -2,7 +2,7 @@
 
 `bash_exec`, one of the [built-in tools](/agent/tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run.
 
-*Applies to agent mode.*
+A command is HTML-unescaped before it is validated and run. Some models emit `&amp;&amp;` for `&&`, `&quot;` for `"`, or `&lt;`/`&gt;` for `<`/`>` when the text passed through an HTML-rendering step upstream. `sql_query` gets the same treatment, since an escaped comparison (`WHERE x &lt; 5`) is the same kind of corruption there.
 
 | Key | Effect |
 |-----|--------|
@@ -42,7 +42,7 @@ Install it with `brew install rtk`, or skip it - kdeps runs your commands unchan
 | `KDEPS_RTK=off` | Never use rtk, even if installed. |
 | `RTK_DISABLED=1` | Also honored. rtk's own escape hatch, so one variable turns it off everywhere. |
 
-What this does **not** change:
+What this does not change:
 
 - **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. rtk can never block execution.
 - **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.

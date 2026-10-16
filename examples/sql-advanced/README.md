@@ -108,20 +108,15 @@ curl -X POST http://localhost:16395/api/v1/sql-demo \
 
 ## Connection Configuration
 
-The example uses named connections for better organization:
+Resources name a connection (`connectionName: analytics`); the connection string is machine-local:
 
 ```yaml
-sqlConnections:
+# ~/.kdeps/config.yaml
+sql_connections:
   analytics:
     connection: "postgres://user:pass@localhost:5432/analytics"
-    pool:
-      maxConnections: 10
-      minConnections: 2
   inventory:
     connection: "mysql://user:pass@localhost:3306/inventory"
-    pool:
-      maxConnections: 5
-      minConnections: 1
 ```
 
-This allows resources to reference connections by name instead of duplicating connection strings.
+Or per shell: `export KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION="postgres://..."`. Pool settings go on the `sql:` resource (`pool: { maxConnections: 10, minConnections: 2 }`).

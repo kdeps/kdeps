@@ -3,12 +3,12 @@
 Two resources that pull text out of a media file. Each has its own reference
 page. Both can run fully offline with no API key.
 
-*Applies to both workflow mode and agent mode.*
+Works in workflow and agent mode.
 
 | Resource | Extracts text from | Reference |
 | :--- | :--- | :--- |
-| `transcribe:` | Audio (speech to text via Whisper) | [Transcribe](/workflow/resources/transcribe) |
-| `ocr:` | Images (printed or handwritten text via tesseract) | [OCR](/workflow/resources/ocr) |
+| `component: transcribe` | Audio (speech to text via Whisper) | [Transcribe](/workflow/resources/transcribe) |
+| `component: ocr` | Images (printed or handwritten text via tesseract) | [OCR](/workflow/resources/ocr) |
 
 ## See also
 

@@ -56,45 +56,6 @@ func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error 
 	return nil
 }
 
-// ValidateSQLConfig validates SQL configuration.
-func (v *WorkflowValidator) ValidateSQLConfig(
-	config *domain.SQLConfig,
-	_ *domain.Workflow,
-) error {
-	kdeps_debug.Log("enter: ValidateSQLConfig")
-	// Validate that either query or queries is provided
-	if config.Query == "" && len(config.Queries) == 0 {
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			"sql.query or sql.queries is required",
-			nil,
-		)
-	}
-
-	// connectionName is required; connection string lives in ~/.kdeps/config.yaml
-	if config.ConnectionName == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			"sql.connectionName is required",
-			nil,
-		)
-	}
-
-	if config.Format != "" && !domain.IsValidSQLResultFormat(config.Format) {
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf(
-				"invalid SQL format: %s. Available options: [%s]",
-				config.Format,
-				domain.SQLResultFormatsDisplay(),
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
 // ValidateHTTPConfig validates HTTP configuration.
 func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) error {
 	kdeps_debug.Log("enter: ValidateHTTPConfig")

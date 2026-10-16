@@ -1,0 +1,7 @@
+version: 1.0.0
+description: Pause a cron job. No new tasks will be created until resumed.
+parameters:
+  cron_id:
+    type: string
+    description: Cron ID to pause
+    required: true

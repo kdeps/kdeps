@@ -49,11 +49,11 @@ else
     test_failed "scraper-native - README.md exists" "File not found"
 fi
 
-# workflow uses native scraper executor
-if grep -q "scraper:" "$EXAMPLE_DIR/resources/fetch.yaml" 2>/dev/null; then
-    test_passed "scraper-native - fetch.yaml uses run.scraper"
+# fetch calls the scraper component
+if grep -q "name: scraper" "$EXAMPLE_DIR/resources/fetch.yaml" 2>/dev/null; then
+    test_passed "scraper-native - fetch.yaml calls the scraper component"
 else
-    test_failed "scraper-native - fetch.yaml uses run.scraper" "scraper: key not found in fetch.yaml"
+    test_failed "scraper-native - fetch.yaml calls the scraper component" "component name: scraper not found in fetch.yaml"
 fi
 
 # fetch resource reads URL from get()
@@ -141,9 +141,11 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 cat > "$WORK_DIR/resources/fetch.yaml" <<EOF
 actionId: fetch
 name: Fetch Page
-scraper:
-  url: "http://127.0.0.1:${MOCK_PORT}/"
-  timeout: 10
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${MOCK_PORT}/"
+    timeout: 10s
 EOF
 cp "$EXAMPLE_DIR/resources/summarize.yaml" "$WORK_DIR/resources/"
 

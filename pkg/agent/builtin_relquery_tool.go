@@ -25,7 +25,6 @@ import (
 
 	"github.com/expr-lang/expr"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -44,33 +43,10 @@ const (
 // Agent-mode only: it reads from activeLoop, which is set during Loop
 // construction (loop.go's New) and stays nil in workflow mode.
 func registerMemoryQueryTool(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
-		Name: "memory_query",
-		Description: "Run a relational query over agent state. Relations: " +
-			"`memory` (persistent memory entries: key, value, namespace, " +
-			"type, references, createdAt, updatedAt), `tool_calls` (recent " +
-			"tool call history: name, args, result, timestamp), `tasks` " +
-			"(active goal's task list: id, desc, status, rounds, note). " +
-			"Query language is expr-lang: filter(relation, predicate) " +
-			"selects rows (e.g. filter(memory, .type == \"error\")), " +
-			"map(relation, expr) projects fields, " +
-			"join(left, right, leftField, rightField) equi-joins two " +
-			"relations into rows with left_/right_ prefixed fields, " +
-			"union(a, b) combines two relations with set semantics.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "expr-lang expression over the memory/tool_calls/tasks relations",
-				Required:    true,
-			},
-			"limit": {
-				Type:        "integer",
-				Description: "Max rows returned when the result is a relation (default 50, hard cap 500)",
-				Required:    false,
-			},
-		},
+	reg.Register(defined(&kdepstools.Tool{
+		Name:    "memory_query",
 		Execute: executeMemoryQuery,
-	})
+	}))
 }
 
 func executeMemoryQuery(args map[string]any) (string, error) {

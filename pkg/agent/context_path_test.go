@@ -169,7 +169,7 @@ func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
 	drawLiveStatus(&buf, "y")
 	got := buf.String()
 	assert.Contains(t, got, "\033[0J")
-	assert.Equal(t, 1, strings.Count(got, "sent "))
+	assert.Equal(t, 1, strings.Count(got, "session sent "))
 	assert.Equal(t, 1, strings.Count(got, "generated "))
 }
 
@@ -188,4 +188,66 @@ func TestResetContextSegments_ClearsPreviousTurn(t *testing.T) {
 
 	resetContextSegments(modelGPT4o, "")
 	assert.Equal(t, "", contextPathStatus(), "a new turn must start with a clean trail")
+}
+
+func TestReconcileSegments(t *testing.T) {
+	segs := []contextSegment{{Label: "system prompt", Tokens: 600}, {Label: "memory", Tokens: 400}}
+	sum := func(in []contextSegment) int {
+		n := 0
+		for _, s := range in {
+			n += s.Tokens
+		}
+		return n
+	}
+
+	assert.Equal(t, segs, reconcileSegments(segs, 0), "no measurement leaves estimates alone")
+	assert.Equal(t, segs, reconcileSegments(segs, 1000), "exact match unchanged")
+
+	over := reconcileSegments(segs, 1500)
+	require.Len(t, over, 3)
+	assert.Equal(t, "other", over[2].Label)
+	assert.Equal(t, 500, over[2].Tokens)
+	assert.Equal(t, 1500, sum(over))
+
+	under := reconcileSegments(segs, 333)
+	assert.Equal(t, 333, sum(under), "overshooting estimates scale down to the measured total")
+	assert.Equal(t, segs[0].Label, under[0].Label)
+}
+
+func TestContextPathStatus_TurnTotalIsMeasuredPromptSize(t *testing.T) {
+	resetContextSegments(modelGPT4o, "")
+	t.Cleanup(executorLLM.ResetLastCallInput)
+	recordContextSegment("system prompt", strings.Repeat("word ", 100))
+	executorLLM.SetLastCallInputForTest(20700)
+
+	status := contextPathStatus()
+	assert.Contains(t, status, "turn 20.7k/128.0k")
+	assert.Contains(t, status, "other ")
+}
+
+func TestCompactTokenStatus_TotalIsSentPlusGenerated(t *testing.T) {
+	executorLLM.ResetSessionTokens(192500, 1000)
+	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
+	assert.Contains(t, compactTokenStatus(), "[session sent 192.5k | generated 1.0k | total 193.5k")
+}
+
+func TestTurnTokenDelta(t *testing.T) {
+	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
+	executorLLM.ResetSessionTokens(145300, 600)
+	beginTurnTokens()
+	in, out := turnTokenDelta()
+	assert.Equal(t, int64(0), in)
+	assert.Equal(t, int64(0), out)
+	assert.NotContains(t, compactTokenStatus(), "this turn")
+
+	executorLLM.ResetSessionTokens(192500, 1000)
+	in, out = turnTokenDelta()
+	assert.Equal(t, int64(47200), in)
+	assert.Equal(t, int64(400), out)
+	assert.Contains(t, compactTokenStatus(), "this turn +47.2k sent +400 generated")
+
+	executorLLM.ResetSessionTokens(20000, 100) // compact mid-turn
+	in, out = turnTokenDelta()
+	assert.Equal(t, int64(0), in, "a compaction must never produce a negative delta")
+	assert.Equal(t, int64(0), out)
 }
