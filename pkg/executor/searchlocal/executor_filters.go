@@ -39,6 +39,9 @@ func contentMatchesQuery(path, query string) bool {
 
 // matchesFilters returns true when the file passes all configured filters.
 func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.SearchLocalConfig) (bool, error) {
+	if IsSecretFile(path) {
+		return false, nil // never surfaced, so a key's content never reaches a prompt
+	}
 	if config.Glob != "" {
 		matched, matchErr := filepath.Match(config.Glob, filepath.Base(path))
 		if matchErr != nil {

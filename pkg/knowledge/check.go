@@ -20,6 +20,7 @@ package knowledge
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -31,10 +32,12 @@ type Finding struct {
 	Problem string `json:"problem"`
 }
 
-func danglingLinks(abs string, n *Note, resolve *resolver) []Finding {
+// danglingLinks reports n's links that reach no note. A full-path link to a
+// file the walk leaves out (memory/.auto captures) is not dangling.
+func danglingLinks(root, abs string, n *Note, resolve *resolver) []Finding {
 	var out []Finding
 	for _, l := range append(append([]string{}, n.Links...), n.MetaLinks...) {
-		if resolve.wiki(l, n.Path) == "" {
+		if resolve.wiki(l, n.Path) == "" && !onDisk(root, l) {
 			out = append(out, Finding{abs, "links to [[" + l + "]], which has no note"})
 		}
 	}
@@ -71,7 +74,7 @@ func Check(v Vault) ([]Finding, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := checkCards(cards)
+	out := append(checkCards(cards), checkSearchFolders(v, cards)...)
 	notes, err := v.Walk()
 	if err != nil {
 		return nil, err
@@ -118,7 +121,7 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 			out = append(out, Finding{abs, "has a next step; it belongs in the project card (one home per fact)"})
 		}
 		if isMemoryNote(n.Path) {
-			out = append(out, danglingLinks(abs, n, resolve)...)
+			out = append(out, danglingLinks(v.Root, abs, n, resolve)...)
 			continue // agent memory: entries may share a first line
 		}
 		if s := strings.ToLower(n.Summary); s != "" {
@@ -126,7 +129,7 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		} else if needsSummary(n.Path) {
 			out = append(out, Finding{abs, "has no summary; recall shows the summary before anyone opens a note"})
 		}
-		out = append(out, danglingLinks(abs, n, resolve)...)
+		out = append(out, danglingLinks(v.Root, abs, n, resolve)...)
 	}
 	for _, files := range summaries {
 		if len(files) > 1 {
@@ -136,4 +139,14 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		}
 	}
 	return out
+}
+
+// onDisk reports whether a full-path link names a markdown file in the vault.
+func onDisk(root, link string) bool {
+	rel := filepath.FromSlash(strings.TrimSuffix(strings.TrimSpace(link), mdExt) + mdExt)
+	if filepath.IsAbs(rel) || strings.HasPrefix(filepath.Clean(rel), "..") {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(root, rel))
+	return err == nil && !info.IsDir()
 }

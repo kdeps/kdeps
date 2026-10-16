@@ -138,6 +138,7 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 |------|--------|
 | `--resume <id>` | Resume a specific session directly, skipping the picker |
 | `--new` | Start a clean session, skipping the resume picker for this folder |
+| `--index <folder>` | Search a folder outside the project with it: added to the card and indexed before the session starts (repeatable) |
 | `--model` / `--backend` / `--base-url` | Override the model for this run |
 | `--system <text>` | Prepend a system prompt |
 | `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)) |

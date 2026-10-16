@@ -167,6 +167,11 @@ func createRootCommand() *cobra.Command {
 		&flags.Theme, "theme", "",
 		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
 	)
+	rootCmd.Flags().StringArrayVar(
+		&flags.Index, "index", nil,
+		"Search a folder with this project: add it to the project card and index it before "+
+			"the session starts (can be specified multiple times)",
+	)
 	rootCmd.Flags().StringVar(
 		&flags.Konfig, "konfig", "",
 		"Import a konfig file (tuning, harness, themes, skills) before starting, "+

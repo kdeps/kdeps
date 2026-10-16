@@ -306,9 +306,48 @@ var indexableExtensions = map[string]bool{
 // isIndexableExt returns true if the file extension is indexable.
 // Files without an extension (e.g. Makefile, README) are considered indexable.
 func isIndexableExt(name string) bool {
+	if IsSecretFile(name) {
+		return false
+	}
 	ext := filepath.Ext(name)
 	return ext == "" || indexableExtensions[ext]
 }
+
+// IsSecretFile reports a file that holds keys or credentials: SSH keys,
+// credentials, .env files, .netrc/.npmrc/.pgpass, certificates and key
+// stores, and anything in .ssh, .gnupg or .aws. Search and indexing never
+// return one, so its content never reaches a prompt through search_local
+// or recall.
+func IsSecretFile(path string) bool {
+	name := strings.ToLower(filepath.Base(path))
+	if secretNames[name] || name == ".env" || strings.HasPrefix(name, ".env.") || secretExts[filepath.Ext(name)] {
+		return true
+	}
+	for _, part := range strings.Split(filepath.ToSlash(filepath.Dir(path)), "/") {
+		if secretDirs[strings.ToLower(part)] {
+			return true
+		}
+	}
+	return false
+}
+
+//nolint:gochecknoglobals // static lookup tables
+var (
+	secretNames = map[string]bool{
+		"id_rsa": true, "id_dsa": true, "id_ecdsa": true, "id_ed25519": true,
+		"id_ecdsa_sk": true, "id_ed25519_sk": true, "credentials": true, "authorized_keys": true,
+		".netrc": true, ".npmrc": true, ".pgpass": true, ".pypirc": true, ".git-credentials": true,
+	}
+	secretExts = map[string]bool{
+		".pem":      true,
+		".key":      true,
+		".p12":      true,
+		".pfx":      true,
+		".keystore": true,
+		".jks":      true,
+	}
+	secretDirs = map[string]bool{".ssh": true, ".gnupg": true, ".aws": true}
+)
 
 const indexBatchSize = 2000
 
@@ -867,13 +906,19 @@ func (e *Executor) IndexFile(path string) {
 	}})
 }
 
-// IndexFiles indexes multiple files into the CWD's search index in a single batch.
-func (e *Executor) IndexFiles(paths []string) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return
+// IndexFiles indexes multiple files into root's search index in a single
+// batch (root "" is the working directory). Files outside root are skipped:
+// each folder's index holds only that folder's files.
+func (e *Executor) IndexFiles(root string, paths []string) {
+	if root == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return
+		}
+		root = wd
 	}
-	dbPath := indexDBPath(wd)
+	root = filepath.Clean(root)
+	dbPath := indexDBPath(root)
 	idx, _, openErr := openOrCreateIndex(dbPath)
 	if openErr != nil {
 		return
@@ -883,6 +928,9 @@ func (e *Executor) IndexFiles(paths []string) {
 	tok := tokenizer.NewTokenizer()
 	docs := make([]index.DocWithTokens, 0, len(paths))
 	for _, path := range paths {
+		if rel, relErr := filepath.Rel(root, path); relErr != nil || strings.HasPrefix(rel, "..") {
+			continue
+		}
 		info, statErr := os.Stat(path)
 		if statErr != nil || info.IsDir() || info.Size() > maxFileSize {
 			continue

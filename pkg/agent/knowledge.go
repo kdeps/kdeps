@@ -97,7 +97,26 @@ func newKnowledgeState(ctx context.Context, cfg *config.KnowledgeConfig) *knowle
 		// missing templates asset still leaves the folders.
 		_, _ = knowledge.Init(k.vault)
 	}
+	projectSearchRoots = k.searchRoots
 	return k
+}
+
+// searchRoots are the folders the working directory's project searches
+// cover, full paths, or nil when no card claims the working directory.
+func (k *knowledgeState) searchRoots() []string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	card := k.vault.CardForDir(wd)
+	if card == nil {
+		return nil
+	}
+	var out []string
+	for _, r := range card.SearchRoots() {
+		out = append(out, knowledge.ExpandPath(r, k.vault.Root))
+	}
+	return out
 }
 
 // knowledgeOn reports whether the vault is configured and not switched off
@@ -282,8 +301,16 @@ func (k *knowledgeState) recallFiles(text string) string {
 		return ""
 	}
 	var b strings.Builder
-	for _, place := range card.Places() {
-		hits := searchlocal.QueryIndex(place, text, recallFileLimit)
+	seen := map[string]bool{}
+	for _, place := range card.SearchRoots() {
+		place = knowledge.ExpandPath(place, k.vault.Root)
+		var hits []searchlocal.Hit
+		for _, h := range searchlocal.QueryIndex(place, text, recallFileLimit) {
+			if !seen[h.Path] { // a folder nested in another: each file once
+				seen[h.Path] = true
+				hits = append(hits, h)
+			}
+		}
 		if len(hits) == 0 {
 			continue
 		}
@@ -299,7 +326,8 @@ func (k *knowledgeState) recallFiles(text string) string {
 		return ""
 	}
 	return "<knowledge-files>\nFiles in this project's search index that match the request (best first). " +
-		"Open the ones you need with read_file; search further with search_local, path set to the folder." +
+		"Open the ones you need with read_file; search further with search_local, path set to the folder " +
+		"(or no path to search all of the project's folders)." +
 		b.String() + "\n</knowledge-files>"
 }
 
@@ -326,10 +354,11 @@ func (k *knowledgeState) prepareProject() {
 	k.notifyMoved()
 }
 
-// recordIndexes adds an index row to the card for each of its places that
-// has a search index, so the card says where everything about it lives.
+// recordIndexes adds an index row to the card for each of its places and
+// search folders that has a search index, so the card says where
+// everything about it lives.
 func recordIndexes(card *knowledge.Card) {
-	for _, place := range card.Places() {
+	for _, place := range card.SearchRoots() {
 		if p := searchlocal.IndexPath(place); fileExistsAt(p) {
 			_ = card.AddLink(knowledge.SourceIndex, p)
 		}
@@ -644,26 +673,8 @@ func (l *Loop) registerKnowledgeTools() {
 		}),
 	}))
 	l.registry.Register(defined(&kdepstools.Tool{
-		Name: "knowledge_card_update",
-		Execute: l.whenKnowledgeOn(func(args map[string]any) (string, error) {
-			c, err := k.card(args)
-			if err != nil {
-				return "", err
-			}
-			status, _ := args["status"].(string)
-			next, _ := args["next"].(string)
-			if status == "" && next == "" {
-				return "", errors.New("knowledge_card_update: give status and/or next")
-			}
-			k.waitBuilds() // archiving moves the folder; a build walking it would block that on Windows
-			innerErr := k.vault.SetStatus(c, strings.TrimSpace(status), strings.TrimSpace(next), time.Now())
-			k.notifyMoved()
-			if innerErr != nil {
-				return "", innerErr
-			}
-			l.InvalidateSystemPreamble()
-			return "Updated card.\n" + formatCard(c), nil
-		}),
+		Name:    "knowledge_card_update",
+		Execute: l.whenKnowledgeOn(l.updateCard),
 	}))
 	l.registry.Register(defined(&kdepstools.Tool{
 		Name: "knowledge_note_save",
@@ -678,6 +689,36 @@ func (l *Loop) registerKnowledgeTools() {
 	}))
 }
 
+// updateCard is knowledge_card_update: it changes the card's search folders
+// and/or its status and next step.
+func (l *Loop) updateCard(args map[string]any) (string, error) {
+	k := l.knowledge
+	c, err := k.card(args)
+	if err != nil {
+		return "", err
+	}
+	str := func(key string) string { v, _ := args[key].(string); return strings.TrimSpace(v) }
+	status, next, add, remove := str("status"), str("next"), str("add_search_folder"), str("remove_search_folder")
+	if status == "" && next == "" && add == "" && remove == "" {
+		return "", errors.New(
+			"knowledge_card_update: give status, next, add_search_folder and/or remove_search_folder")
+	}
+	folderMsg, err := k.changeSearchFolders(c, add, remove)
+	if err != nil {
+		return "", err
+	}
+	if status != "" || next != "" {
+		k.waitBuilds() // archiving moves the folder; a build walking it would block that on Windows
+		err = k.vault.SetStatus(c, status, next, time.Now())
+		k.notifyMoved()
+		if err != nil {
+			return "", err
+		}
+	}
+	l.InvalidateSystemPreamble()
+	return strings.TrimSpace("Updated card. "+folderMsg) + "\n" + formatCard(c), nil
+}
+
 // whenKnowledgeOn makes a knowledge tool refuse while /knowledge off.
 func (l *Loop) whenKnowledgeOn(fn func(map[string]any) (string, error)) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
@@ -686,6 +727,31 @@ func (l *Loop) whenKnowledgeOn(fn func(map[string]any) (string, error)) func(map
 		}
 		return fn(args)
 	}
+}
+
+// changeSearchFolders adds and/or removes one search folder of card,
+// indexing an added folder in the background; it says what it did.
+func (k *knowledgeState) changeSearchFolders(card *knowledge.Card, add, remove string) (string, error) {
+	var msgs []string
+	if strings.TrimSpace(remove) != "" {
+		p, err := k.vault.RemoveSearchFolder(card, remove)
+		if err != nil {
+			return "", err
+		}
+		msgs = append(msgs, "Stopped searching "+p+" with project "+card.Name+".")
+	}
+	if strings.TrimSpace(add) != "" {
+		p, err := k.vault.AddSearchFolder(card, add)
+		if err != nil {
+			return "", err
+		}
+		indexInBackground(func() {
+			searchlocal.NewExecutor().StartIndex(p)
+			recordIndexes(card)
+		})
+		msgs = append(msgs, "Project "+card.Name+" now searches "+p+" (indexing it in the background).")
+	}
+	return strings.Join(msgs, " "), nil
 }
 
 // card resolves the card a tool call names, or the working directory's.

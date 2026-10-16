@@ -17,6 +17,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -164,10 +165,34 @@ func extractResultPaths(results []map[string]interface{}) []string {
 	return paths
 }
 
-// executeSearchLocal runs a search_local tool execution.
+// projectSearchRoots returns the folders the working project's searches
+// cover (its places, then its search folders), or nil with no project. The
+// knowledge vault sets it.
+//
+//nolint:gochecknoglobals // set once by the knowledge vault, read by search_local
+var projectSearchRoots = func() []string { return nil }
+
+// executeSearchLocal runs a search_local tool execution. With no path it
+// searches every folder of the working project, else the working directory.
 //
 //nolint:gocognit // flat sequence of optional-arg extractions, not nested logic
 func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string, error) {
+	q, _ := args[toolParamQuery].(string)
+	g, _ := args["glob"].(string)
+	if strings.TrimSpace(q) == "" && strings.TrimSpace(g) == "" {
+		return "", errors.New("search_local: give a query (or a glob) to search for")
+	}
+	if p, _ := args[toolParamPath].(string); strings.TrimSpace(p) == "" {
+		roots := projectSearchRoots()
+		if len(roots) > 1 {
+			return searchProjectRoots(exec, roots, args)
+		}
+		if len(roots) == 1 {
+			args[toolParamPath] = roots[0]
+		} else if wd, err := os.Getwd(); err == nil {
+			args[toolParamPath] = wd
+		}
+	}
 	config := &domain.SearchLocalConfig{}
 	if v, ok := args[toolParamPath].(string); ok {
 		config.Path = v
@@ -199,7 +224,7 @@ func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string,
 		if resultsOK {
 			paths := extractResultPaths(results)
 			if len(paths) > 0 {
-				indexInBackground(func() { exec.IndexFiles(paths) })
+				indexInBackground(func() { exec.IndexFiles(config.Path, paths) })
 			}
 			annotateSearchMatches(results, config.Query)
 		}
@@ -222,6 +247,69 @@ func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string,
 	}
 
 	return string(out), nil
+}
+
+// searchProjectRoots runs search_local over each root and takes the best
+// hits of each in turn: scores of two folders' searches do not compare.
+func searchProjectRoots(exec *execSearch.Executor, roots []string, args map[string]any) (string, error) {
+	limit := 3
+	if v, ok := args["limit"].(float64); ok && v > 0 {
+		limit = int(v)
+	}
+	query, _ := args[toolParamQuery].(string)
+	glob, _ := args["glob"].(string)
+	var perRoot [][]map[string]interface{}
+	var errs []string
+	for _, root := range roots {
+		res, err := exec.Execute(nil, &domain.SearchLocalConfig{Path: root, Query: query, Glob: glob, Limit: limit})
+		if err != nil {
+			errs = append(errs, root+": "+err.Error())
+			continue
+		}
+		rm, _ := res.(map[string]interface{})
+		results, _ := rm["results"].([]map[string]interface{})
+		if paths := extractResultPaths(results); len(paths) > 0 {
+			indexInBackground(func() { exec.IndexFiles(root, paths) })
+		}
+		perRoot = append(perRoot, results)
+	}
+	merged := interleaveResults(perRoot, limit)
+	annotateSearchMatches(merged, query)
+	out := map[string]interface{}{"results": merged, "count": len(merged), "folders": roots}
+	if len(errs) > 0 {
+		out["errors"] = errs
+	}
+	data, _ := json.MarshalIndent(out, "", "  ")
+	return string(data), nil
+}
+
+// interleaveResults takes the first result of each list, then the second
+// of each, and so on, up to limit, dropping a path seen already.
+func interleaveResults(lists [][]map[string]interface{}, limit int) []map[string]interface{} {
+	out := []map[string]interface{}{}
+	seen := map[string]bool{}
+	for i := 0; len(out) < limit; i++ {
+		more := false
+		for _, l := range lists {
+			if i >= len(l) {
+				continue
+			}
+			more = true
+			p, _ := l[i]["path"].(string)
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			out = append(out, l[i])
+			if len(out) == limit {
+				break
+			}
+		}
+		if !more {
+			break
+		}
+	}
+	return out
 }
 
 // makeEmbeddingExecute builds an Execute closure for embedding tools.

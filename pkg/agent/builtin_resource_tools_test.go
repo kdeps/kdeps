@@ -125,7 +125,7 @@ func TestRegisterSearchLocalTool_Registered(t *testing.T) {
 	require.NotNil(t, tool)
 	assert.Equal(t, "search_local", tool.Name)
 	assert.Contains(t, tool.Parameters, "path")
-	assert.True(t, tool.Parameters["path"].Required)
+	assert.False(t, tool.Parameters["path"].Required, "no path searches every folder of the project")
 	assert.Contains(t, tool.Parameters, "query")
 	assert.True(t, tool.Parameters["query"].Required)
 	assert.Contains(t, tool.Parameters, "glob")
@@ -138,18 +138,25 @@ func TestRegisterSearchLocalTool_Execute_MissingAllArgs(t *testing.T) {
 	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "give a query")
 }
 
-func TestRegisterSearchLocalTool_Execute_MissingPath(t *testing.T) {
+func TestRegisterSearchLocalTool_Execute_NoPathSearchesTheWorkingDirectory(t *testing.T) {
 	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	orig := projectSearchRoots
+	projectSearchRoots = func() []string { return nil }
+	t.Cleanup(func() { projectSearchRoots = orig })
+	wd := t.TempDir()
+	t.Chdir(wd)
+	require.NoError(t, os.WriteFile(filepath.Join(wd, "notes.txt"), []byte("a quokkalicious line"), 0o600))
 	reg := kdepstools.NewRegistry()
 	registerSearchLocalTool(context.Background(), reg)
 	tool := reg.Get("search_local")
 	require.NotNil(t, tool)
 
-	_, err := tool.Execute(map[string]any{"query": "test"})
-	assert.Error(t, err)
+	out, err := tool.Execute(map[string]any{"query": "quokkalicious"})
+	require.NoError(t, err)
+	assert.Contains(t, out, "notes.txt")
 }
 
 func TestRegisterSearchLocalTool_Execute_WithRealPath(t *testing.T) {

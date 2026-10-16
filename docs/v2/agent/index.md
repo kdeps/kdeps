@@ -85,6 +85,7 @@ kdeps [path] [flags]
 | `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
+| `--index` | (none) | Search a folder outside the project with it (repeatable): added to the card and indexed first. See [search folders](/agent/knowledge#search-folders) |
 | `--theme` | `normal` | REPL theme: `normal`, `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` |
 | `--debug` | false | Enable debug logging |
 
