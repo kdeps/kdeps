@@ -153,8 +153,13 @@ func TestCheck_LinkToAnAutoCaptureIsNotDangling(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(mem, AutoFolder), 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(mem, AutoFolder, "tool-x-output.md"), []byte("captured"), 0o600))
 	link := "projects/" + card.Name + "/memory/.auto/tool-x-output"
-	require.NoError(t, os.WriteFile(filepath.Join(mem, "status-x.md"),
-		[]byte("---\nsummary: x ran\n---\nSee [["+link+"]] and [[projects/"+card.Name+"/memory/.auto/gone]].\n"), 0o600))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(mem, "status-x.md"),
+		[]byte(
+			"---\nsummary: x ran\n---\nSee [["+link+"]] and [[projects/"+card.Name+"/memory/.auto/gone]].\n",
+		),
+		0o600,
+	))
 	findings, err := Check(v)
 	require.NoError(t, err)
 	var problems []string
