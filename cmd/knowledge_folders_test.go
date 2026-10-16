@@ -35,6 +35,9 @@ func foldersFixture(t *testing.T) (string, string, string) {
 	t.Helper()
 	base, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
+	// CI keeps temp folders inside the checkout: stop the git-root walk at
+	// base, or the whole kdeps repo becomes the project and docs is inside it.
+	t.Setenv("GIT_CEILING_DIRECTORIES", base)
 	vault, proj, docs := filepath.Join(base, "vault"), filepath.Join(base, "app"), filepath.Join(base, "docs")
 	for _, d := range []string{vault, proj, docs} {
 		require.NoError(t, os.MkdirAll(d, 0o750))

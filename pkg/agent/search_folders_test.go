@@ -20,6 +20,7 @@ package agent
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,10 +94,23 @@ func TestSearchLocal_NoPathSearchesEveryProjectFolder(t *testing.T) {
 
 	out, err := executeSearchLocal(execSearch.NewExecutor(), map[string]any{"query": "zorbulator", "limit": float64(5)})
 	require.NoError(t, err)
-	assert.Contains(t, out, `"folders"`)
-	assert.Contains(t, out, filepath.Join(docs, "billing.md"), "the search folder's file")
-	assert.Contains(t, out, "main.go", "and the project's own")
-	assert.NotContains(t, out, "id_rsa", "never a key file")
+	var res struct {
+		Folders []string                 `json:"folders"`
+		Results []map[string]interface{} `json:"results"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &res), out)
+	assert.Len(t, res.Folders, 2)
+	var names []string
+	for _, r := range res.Results {
+		p, _ := r["path"].(string)
+		names = append(names, filepath.Base(p))
+		if filepath.Base(p) == "billing.md" {
+			assert.Equal(t, filepath.Join(docs, "billing.md"), p, "the search folder's file, full path")
+		}
+	}
+	assert.Contains(t, names, "billing.md", "the search folder's file")
+	assert.Contains(t, names, "main.go", "and the project's own")
+	assert.NotContains(t, names, "id_rsa", "never a key file")
 
 	projectSearchRoots = func() []string { return nil }
 	out, err = executeSearchLocal(execSearch.NewExecutor(), map[string]any{"query": "zorbulator"})
