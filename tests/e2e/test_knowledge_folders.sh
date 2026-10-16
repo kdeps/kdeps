@@ -145,7 +145,8 @@ if nopanic "$OUT" && card | grep -q '^| search | .*lib |$' && output_grep "lib" 
 else
     test_failed "knowledge folders - --index" "$OUT | $OUT2 | $(card)"
 fi
-OUT=$(kf_session "$P" '/search remove '"$(native "$LIB")"'\n/search folders\n/quit\n')
+# kf_session's printf %b reads escapes: a Windows path's backslashes are doubled.
+OUT=$(kf_session "$P" '/search remove '"$(native "$LIB" | sed 's/\\/\\\\/g')"'\n/search folders\n/quit\n')
 if nopanic "$OUT" && ! card | grep -q 'lib |$' && output_grep "no longer searches" "$OUT"; then
     test_passed "knowledge folders - /search remove drops the folder's search and index rows"
 else
