@@ -113,6 +113,25 @@ tools (6/78 ticked; * required):
 Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
 ```
 
+Each asset says what it is for and where kdeps runs it. `kdeps info <set>/<name>` prints that, and the same flow appears on the asset's kdeps.io page:
+
+```text
+$ kdeps info tools/read_file
+# tools/read_file
+Read a file from the local filesystem. ...
+- Set: tools, used in agent mode
+- Loaded by: kdeps (agent loop), /tools, /settings
+- Installed: 1.0.0
+- LLM context: ~620 tokens when loaded
+
+## Where it runs
+     agent loop builds the request
+  -> [ tool definitions are sent to the model ]   <- tools/read_file
+  -> model calls a tool
+  -> kdeps runs it
+  -> result back to the model
+```
+
 Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
 
 ```text
@@ -161,6 +180,8 @@ kdeps update harness/safety           # newest version of one item; unpins and r
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
 kdeps update --check                  # what would change
 kdeps list --assets                   # every item: version, downloaded | pinned | removed, ~context tokens; total at the end
+kdeps info tools/read_file            # what an item is for, where kdeps runs it, its installed version and ~tokens
+kdeps info events                     # a set: its purpose, where it runs, its items
 kdeps uninstall themes/vim,presets/frugal   # remove items
 ```
 

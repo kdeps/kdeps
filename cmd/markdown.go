@@ -69,9 +69,16 @@ func newMarkdownRenderer() (*glamour.TermRenderer, error) {
 	return glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
 		glamour.WithColorProfile(termenv.ColorProfile()),
-		glamour.WithWordWrap(terminalMarkdownWidth()),
+		// The style indents every block by two columns on each side; wrapping at
+		// the full width re-wraps each line and strands its last word.
+		glamour.WithWordWrap(max(terminalMarkdownWidth()-markdownMargins, minMarkdownWidth)),
 	)
 }
+
+const (
+	markdownMargins  = 4
+	minMarkdownWidth = 20
+)
 
 // terminalMarkdownWidth returns the terminal width or a sensible default.
 func terminalMarkdownWidth() int {
