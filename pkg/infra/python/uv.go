@@ -131,6 +131,9 @@ var RunUVFunc = func(ctx context.Context, args []string, env []string) error {
 }
 
 // EnsureVenv ensures a virtual environment exists for the given Python version and packages.
+// A venv counts only once its packages are installed (readyMarker): one left
+// half-built by a killed or failed run is rebuilt, not trusted. A lock file
+// keeps two processes from building the same venv at once.
 func (m *Manager) EnsureVenv(
 	pythonVersion string,
 	packages []string,
@@ -141,14 +144,24 @@ func (m *Manager) EnsureVenv(
 	finalVenvName := resolveVenvName(m, pythonVersion, packages, requirementsFile, venvName)
 	venvPath := filepath.Join(m.BaseDir, finalVenvName)
 
-	// Check if venv already exists
-	if _, err := os.Stat(venvPath); err == nil {
+	if venvReady(venvPath) {
 		return venvPath, nil
 	}
 
 	// Create directory
 	if err := os.MkdirAll(m.BaseDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create base directory: %w", err)
+	}
+	unlock, lockErr := lockVenv(venvPath)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
+	if venvReady(venvPath) {
+		return venvPath, nil // another process built it while this one waited
+	}
+	if err := os.RemoveAll(venvPath); err != nil {
+		return "", fmt.Errorf("failed to remove the incomplete venv %s: %w", venvPath, err)
 	}
 
 	// Create virtual environment with uv
@@ -173,7 +186,47 @@ func (m *Manager) EnsureVenv(
 		}
 	}
 
+	if err := os.WriteFile(filepath.Join(venvPath, readyMarker), nil, 0o600); err != nil {
+		return "", fmt.Errorf("failed to mark the venv ready: %w", err)
+	}
 	return venvPath, nil
+}
+
+// readyMarker is the file EnsureVenv writes in a venv once its packages are in.
+const readyMarker = ".kdeps-ready"
+
+// venvLockPoll is how often a process waiting on another's venv build checks.
+const venvLockPoll = 250 * time.Millisecond
+
+// venvReady reports whether venvPath was fully built.
+func venvReady(venvPath string) bool {
+	_, err := os.Stat(filepath.Join(venvPath, readyMarker))
+	return err == nil
+}
+
+// lockVenv takes venvPath's build lock, waiting while another process holds
+// it. A lock older than UVTimeout is from a process that died: it is taken over.
+func lockVenv(venvPath string) (func(), error) {
+	lock := venvPath + ".lock"
+	deadline := time.Now().Add(UVTimeout)
+	for {
+		f, err := os.OpenFile(lock, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err == nil {
+			_ = f.Close()
+			return func() { _ = os.Remove(lock) }, nil
+		}
+		if !os.IsExist(err) {
+			return nil, fmt.Errorf("failed to lock the venv %s: %w", venvPath, err)
+		}
+		if info, statErr := os.Stat(lock); statErr == nil && time.Since(info.ModTime()) > UVTimeout {
+			_ = os.Remove(lock)
+			continue
+		}
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("timed out waiting for another process to build the venv %s", venvPath)
+		}
+		time.Sleep(venvLockPoll)
+	}
 }
 
 // GetVenvName generates a unique venv name.
@@ -189,12 +242,15 @@ func (m *Manager) GetVenvName(
 		// Two requirements.txt files are two environments.
 		parts = append(parts, filepath.Base(requirementsFile), shortHash(requirementsFile))
 	case len(packages) > 0:
-		parts = append(parts, strings.Join(packages[:min(MaxPackagesInVenvName, len(packages))], "-"))
-		if len(packages) > MaxPackagesInVenvName {
+		// Sorted: one set of packages is one venv whatever order it was
+		// declared or merged in (components merge in map order).
+		sorted := slices.Clone(packages)
+		slices.Sort(sorted)
+		sorted = slices.Compact(sorted)
+		parts = append(parts, strings.Join(sorted[:min(MaxPackagesInVenvName, len(sorted))], "-"))
+		if len(sorted) > MaxPackagesInVenvName {
 			// The name shows only the first packages: the hash of the whole
 			// set keeps two sets that start alike in separate environments.
-			sorted := slices.Clone(packages)
-			slices.Sort(sorted)
 			parts = append(parts, shortHash(strings.Join(sorted, "\n")))
 		}
 	}
