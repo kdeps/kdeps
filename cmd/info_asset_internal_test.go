@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 func TestAssetInfo(t *testing.T) {
@@ -30,8 +32,8 @@ func TestAssetInfo(t *testing.T) {
 	assert.Contains(t, text, "# tools/read_file")
 	assert.Contains(t, text, "- Set: tools, used in agent mode")
 	assert.Contains(t, text, "## Where it runs")
-	assert.Contains(t, text, "[ tool definitions are sent to the model ]   <- tools/read_file")
-	assert.Contains(t, text, "-> model calls a tool")
+	assert.Contains(t, text, "   kdeps (agent loop)", "the flow starts at the command that reaches the set")
+	assert.Regexp(t, `-> \[ agent\.\S+ uses tools \]   <- tools/read_file`, text, "and ends where kdeps uses it")
 	assert.Contains(t, text, "Installed:")
 
 	text, ok = assetInfo("events")
@@ -43,4 +45,12 @@ func TestAssetInfo(t *testing.T) {
 	assert.False(t, ok, "not an asset set: a GitHub repository")
 	_, ok = assetInfo("scraper")
 	assert.False(t, ok, "a registry package")
+}
+
+func TestEverySetHasAGeneratedFlow(t *testing.T) {
+	for _, set := range assets.Registered() {
+		info, ok := assets.SetInfos[set]
+		assert.True(t, ok, "%s is registered but has no SetInfo (add its purpose to pkg/assets/setinfo.go)", set)
+		assert.NotEmpty(t, info.Flow, "%s has no flow: run make generate", set)
+	}
 }

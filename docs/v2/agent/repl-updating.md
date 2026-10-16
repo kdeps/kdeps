@@ -120,17 +120,17 @@ $ kdeps info tools/read_file
 # tools/read_file
 Read a file from the local filesystem. ...
 - Set: tools, used in agent mode
-- Loaded by: kdeps (agent loop), /tools, /settings
+- Loaded by: kdeps (agent loop), /editor, /instruct, /reload, /settings
 - Installed: 1.0.0
-- LLM context: ~620 tokens when loaded
+- LLM context: ~631 tokens when loaded
 
 ## Where it runs
-     agent loop builds the request
-  -> [ tool definitions are sent to the model ]   <- tools/read_file
-  -> model calls a tool
-  -> kdeps runs it
-  -> result back to the model
+     kdeps (agent loop)                                  # the command (or slash command) that reaches it
+  -> agent.RegisterBuiltinTools                          # the call chain, one step per package
+  -> [ agent.registerDeclaredTools uses tools ]   <- tools/read_file   # where kdeps uses the set
 ```
+
+The flow, the mode and "Loaded by" are not written by hand: `tools/assetflow` reads them from kdeps's call graph. It finds where each set is loaded, follows the value into the variables it is stored in and the functions that read them, and walks back to the commands and slash commands that reach those functions. The asset publish job regenerates them from the code it publishes, so the index and kdeps.io always match main; `make generate` rewrites `pkg/assets/setflow_gen.go` for `kdeps info`, and CI fails while it is out of date. Only each set's one-sentence purpose is written by hand (`pkg/assets/setinfo.go`), and each item's purpose is its own `description:`.
 
 Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
 

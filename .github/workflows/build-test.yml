@@ -167,6 +167,11 @@ jobs:
           exit 1
       - name: golangci-lint
         run: golangci-lint run --timeout=10m --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...
+      # pkg/assets/setflow_gen.go is where kdeps uses each asset set, read
+      # from the call graph (kdeps info, kdeps.io): a change to that path
+      # must regenerate it (make generate).
+      - name: Asset flows current
+        run: go run ./tools/assetflow -check
       - name: govulncheck
         run: |
           set +e

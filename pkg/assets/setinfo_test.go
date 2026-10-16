@@ -98,3 +98,19 @@ func TestReadLock_NamesTheFileAndTheFix(t *testing.T) {
 	_, err = ReadLock(file)
 	require.ErrorContains(t, err, "is a file, not a folder")
 }
+
+func TestSetInfos_EveryRegisteredSetHasItsGeneratedFlow(t *testing.T) {
+	for set := range setPurposes {
+		info, ok := SetInfos[set]
+		require.True(t, ok, set)
+		assert.NotEmpty(t, info.Purpose, set)
+		assert.NotEmpty(t, info.Mode, set)
+		require.NotEmpty(t, info.Flow, "%s has no generated flow: run go run ./tools/assetflow", set)
+		assert.True(t, info.Flow[len(info.Flow)-1].Here, "%s: the last step is where kdeps uses it", set)
+		assert.NotEmpty(t, info.UsedBy, set)
+	}
+	for set := range generatedFlows {
+		_, ok := setPurposes[set]
+		assert.True(t, ok, "%s is loaded in the code but has no purpose in setinfo.go", set)
+	}
+}
