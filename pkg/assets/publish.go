@@ -43,12 +43,24 @@ const IndexFile = "index.json"
 // of the published assets; files live at <set>/<name>/<version>.yaml.
 type Index struct {
 	Items map[string]IndexItem `json:"items"`
+	// Sets says what each set is for and where kdeps uses it (SetInfos).
+	Sets map[string]SetInfo `json:"sets,omitempty"`
 }
 
 // IndexItem is one item's published versions, oldest first.
 type IndexItem struct {
-	Latest   string         `json:"latest"`
-	Versions []IndexVersion `json:"versions"`
+	Latest string `json:"latest"`
+	// Description is the latest version's own one-line purpose.
+	Description string         `json:"description,omitempty"`
+	Versions    []IndexVersion `json:"versions"`
+}
+
+// describeLatest sets the item's description from version's content when
+// version is (or becomes) the latest.
+func describeLatest(it *IndexItem, version string, data []byte) {
+	if it.Latest == "" || it.Latest == version || Newer(version, it.Latest) {
+		it.Description = ItemDescription(data)
+	}
 }
 
 // IndexVersion is one published version of an item.
@@ -205,6 +217,7 @@ func Publish(src, out, commit string, now time.Time) ([]string, error) {
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
+	idx.Sets = SetInfos
 	return published, WriteIndex(out, idx)
 }
 
@@ -226,6 +239,7 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	}
 	sum := Sum(data)
 	it := idx.Items[id]
+	describeLatest(&it, h.Version, data) // also fills items published before descriptions
 	set, name, _ := SplitID(id)
 	tokens := ContextTokens(set, name, data)
 	if v, ok := it.Find(h.Version); ok {
@@ -258,6 +272,7 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	})
 	sort.Slice(it.Versions, func(i, j int) bool { return Newer(it.Versions[j].Version, it.Versions[i].Version) })
 	it.Latest = it.Versions[len(it.Versions)-1].Version
+	describeLatest(&it, h.Version, data)
 	idx.Items[id] = it
 	return id + "@" + h.Version, nil
 }

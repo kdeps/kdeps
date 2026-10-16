@@ -281,6 +281,26 @@ else
     test_failed "asset sets - schemas: rejection reason" "$OUT"
 fi
 
+# --- kdeps info: purpose and where each asset runs ------------------------------
+OUT=$(sa "$KDEPS_BIN" info tools/read_file)
+if output_grep_fixed "E2E-TOOL-MARKER" "$OUT" && output_grep "Where it runs" "$OUT" &&
+    output_grep "tool definitions are sent to the model \] +<- tools/read_file" "$OUT" && output_grep "Installed: 9\.0\.0" "$OUT"; then
+    test_passed "asset sets - kdeps info shows an asset's own purpose, where it runs and its installed version"
+else
+    test_failed "asset sets - kdeps info item" "$OUT"
+fi
+OUT=$(sa "$KDEPS_BIN" info events)
+if output_grep "<- events" "$OUT" && output_grep "events/e2e-marker +1\.0\.0" "$OUT"; then
+    test_passed "asset sets - kdeps info <set> shows the set's flow and its items"
+else
+    test_failed "asset sets - kdeps info set" "$OUT"
+fi
+if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "16 E2E-TOOL-MARKER" ]; then
+    test_passed "asset sets - the published index says where all 16 sets run, and each item's purpose"
+else
+    test_failed "asset sets - index sets" "$(head -c 400 "$SA_PUB/index.json")"
+fi
+
 # --- agent loop: harness, tools, commands, providers, events, actions, presets, themes
 : > "$SA_LOG"
 OUT=$(sa_loop '/help\nsay hi\n/e2e-cmd from the e2e\n/harness\n/harness events\n/harness preset list\n/harness preset e2e-preset\n/harness events\n/theme list\n/theme e2e-theme\n/quit\n')

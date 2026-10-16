@@ -9,7 +9,7 @@ Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`
 | Command | Description |
 |---|---|
 | `kdeps search` | Search for packages in the kdeps registry |
-| `kdeps info` | Show metadata and README for a package, component, agent, or GitHub repo |
+| `kdeps info` | Show what a kdeps asset is for and where it runs (`kdeps info tools/read_file`, `kdeps info events`), or the metadata and README of a package, component, agent, or GitHub repo |
 | `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from the registry, a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
 | `kdeps uninstall` | Remove assets, or an agent or component installed from the registry |
 | `kdeps update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
@@ -39,6 +39,7 @@ kdeps install jjuliano/kdeps-component-scraper
 kdeps install ./scraper-1.0.0.komponent
 kdeps list
 kdeps info scraper
+kdeps info tools/read_file           # an asset: its purpose, where kdeps runs it, its state
 kdeps uninstall scraper
 kdeps update scraper
 kdeps submit --tag v1.2.0

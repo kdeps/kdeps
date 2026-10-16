@@ -34,17 +34,22 @@ import (
 func newRegistryInfoCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryInfoCmd")
 	return &cobra.Command{
-		Use:   "info <package | owner/repo[:subdir]>",
-		Short: "Show detailed information about a registry package.",
-		Long: `Show metadata and README for a registry package, local component/agent/agency,
-or a remote GitHub-hosted workflow.
+		Use:   "info <asset | package | owner/repo[:subdir]>",
+		Short: "Show what a kdeps asset is for and where it runs, or details of a registry package.",
+		Long: `Show what a kdeps asset is for, where kdeps runs it and its state; or the
+metadata and README of a registry package, local component/agent/agency, or a
+remote GitHub-hosted workflow.
 
 Reference formats:
+  <set>/<name>              A kdeps asset (tools/read_file, harness/honesty, ...)
+  <set>                     A kdeps asset set and its items
   <name>                    Registry package, local component, agent, or agency
   <owner>/<repo>            Root README of a GitHub repository
   <owner>/<repo>:<subdir>   README inside a subdirectory of a GitHub repository
 
 Examples:
+  kdeps info tools/read_file
+  kdeps info events
   kdeps info scraper
   kdeps info jjuliano/my-ai-agent
   kdeps info jjuliano/my-ai-agent:my-scraper`,
@@ -68,6 +73,11 @@ var osMkdirTempInfoFunc = os.MkdirTemp
 
 func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
+
+	if text, ok := assetInfo(ref); ok {
+		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(text))
+		return nil
+	}
 
 	if strings.Contains(ref, "/") {
 		return printRemoteReadme(cmd, ref)
