@@ -984,6 +984,15 @@ func TestEditFile_ChainedEditsNoReReadNeeded(t *testing.T) {
 	assert.Equal(t, "A\nb\nC\n", string(got))
 }
 
+func TestToInt(t *testing.T) {
+	assert.Equal(t, 5, toInt(float64(5)))
+	assert.Equal(t, 5, toInt(5))
+	assert.Equal(t, 5, toInt(int64(5)))
+	assert.Equal(t, 5, toInt("5"))
+	assert.Equal(t, 0, toInt("not-a-number"))
+	assert.Equal(t, 0, toInt(true), "an unsupported type falls back to 0")
+}
+
 func TestRevisionMatches_AcceptsBareHexAndWrappers(t *testing.T) {
 	got := fileRevision([]byte("abc"))
 	hex := strings.TrimPrefix(got, "sha256:")

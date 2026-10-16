@@ -95,6 +95,18 @@ func TestHarvestListItems(t *testing.T) {
 	}
 }
 
+func TestFormatSizeGB(t *testing.T) {
+	if got := FormatSizeGB(0); got != "" {
+		t.Errorf("FormatSizeGB(0) = %q, want empty", got)
+	}
+	if got := FormatSizeGB(-1); got != "" {
+		t.Errorf("FormatSizeGB(-1) = %q, want empty", got)
+	}
+	if got := FormatSizeGB(4200000000); got != "4.2" {
+		t.Errorf("FormatSizeGB(4200000000) = %q, want 4.2", got)
+	}
+}
+
 func TestHarvestCounts(t *testing.T) {
 	lf, gg := HarvestCounts()
 	if lf < 0 || gg < 0 {

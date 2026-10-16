@@ -76,3 +76,25 @@ func TestEmitRequiresURL(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestEmitRequiresScheme(t *testing.T) {
+	if _, err := Emit(Options{BaseURL: "host:8000"}); err == nil {
+		t.Fatal("expected an error for a base URL with no scheme")
+	}
+}
+
+func TestEmitUnknownFormat(t *testing.T) {
+	if _, err := Emit(Options{BaseURL: "http://h:8000", Format: "toml"}); err == nil {
+		t.Fatal("expected an error for an unknown format")
+	}
+}
+
+func TestEmitYAML_NoAPIKey(t *testing.T) {
+	out, err := Emit(Options{BaseURL: "http://h:8000/v1", Format: FormatYAML})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "# openai_api_key:") {
+		t.Fatalf("expected the commented-out api key hint, got:\n%s", out)
+	}
+}

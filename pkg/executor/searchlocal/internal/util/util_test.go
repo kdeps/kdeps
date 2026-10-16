@@ -26,4 +26,12 @@ func TestMinInt(t *testing.T) {
 	if MinInt3(3, 1, 2) != 1 || MinInt3(9, 8, 7) != 7 || MinInt3(1, 1, 1) != 1 {
 		t.Fatal("MinInt3")
 	}
+	// a < b, and a < c: a wins.
+	if got := MinInt3(1, 5, 9); got != 1 {
+		t.Fatalf("MinInt3(1,5,9) = %d, want 1", got)
+	}
+	// a < b, but c < a: c wins.
+	if got := MinInt3(5, 9, 1); got != 1 {
+		t.Fatalf("MinInt3(5,9,1) = %d, want 1", got)
+	}
 }

@@ -109,6 +109,36 @@ func TestRenderEntrypointAuth(t *testing.T) {
 	}
 }
 
+func TestShellJoin(t *testing.T) {
+	if got := shellJoin([]string{"echo", "hello"}); got != "echo hello" {
+		t.Fatalf("shellJoin plain args = %q", got)
+	}
+	if got := shellJoin([]string{"echo", "hello world"}); got != `echo "hello world"` {
+		t.Fatalf("shellJoin must quote an arg with a space: %q", got)
+	}
+	if got := shellJoin([]string{""}); got != `""` {
+		t.Fatalf("shellJoin must quote an empty arg: %q", got)
+	}
+	if got := shellJoin([]string{`$HOME`}); got != `"$HOME"` {
+		t.Fatalf("shellJoin must quote an arg with a shell metacharacter: %q", got)
+	}
+}
+
+func TestIsDebianFamily(t *testing.T) {
+	cases := map[string]bool{
+		"ubuntu:24.04":       true,
+		"debian:bookworm":    true,
+		"nvidia/cuda:12.4.0": true,
+		"rocm/dev-ubuntu":    true,
+		"alpine:3.19":        false,
+	}
+	for img, want := range cases {
+		if got := isDebianFamily(img); got != want {
+			t.Errorf("isDebianFamily(%q) = %v, want %v", img, got, want)
+		}
+	}
+}
+
 func TestResolveBaseImage(t *testing.T) {
 	if got := ResolveBaseImage("ubuntu:24.04", "cuda"); !strings.Contains(got, "nvidia") {
 		t.Fatalf("got %s", got)

@@ -158,6 +158,27 @@ func TestFormatSkillsForPrompt(t *testing.T) {
 	}
 }
 
+// TestLoadSkillSlice_ExportedWrapper covers the public LoadSkillSlice
+// wrapper (used by cmd/ and konfig export via agent.LoadSkillSlice(nil)),
+// which just delegates to loadSkillSlice -- confirms the delegation actually
+// happens rather than testing loadSkillSlice's own logic again.
+func TestLoadSkillSlice_ExportedWrapper(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "exported-skill.md")
+	content := "---\nname: exported-skill\ndescription: A skill loaded via the exported wrapper\n---\n\nDo stuff."
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills := LoadSkillSlice([]string{p})
+	if len(skills) == 0 {
+		t.Fatal("expected at least one skill from the exported wrapper")
+	}
+	if skills[0].Name != "exported-skill" {
+		t.Fatalf("expected name 'exported-skill', got %q", skills[0].Name)
+	}
+}
+
 func TestLoadSkillSlice_FileExtraPath(t *testing.T) {
 	// Pass a FILE (not a dir) as an extra path so loadSkillSlice takes the
 	// file branch (lines 65-69).
