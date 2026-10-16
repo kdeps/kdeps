@@ -114,7 +114,9 @@ export KDEPS_ASSETS_URL="${KDEPS_ASSETS_URL:-off}"
 if [ -z "${KDEPS_E2E_REAL_LLM:-}" ] && [ -z "${KDEPS_LLM_OVERRIDE_URL:-}" ] && command -v python3 >/dev/null 2>&1; then
     E2E_MOCK_LLM_LOG="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/kdeps-mock-llm.$$")"
     _mock_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-    python3 "$PROJECT_ROOT/tests/e2e/helpers/mock_llm.py" "$_mock_port" "$E2E_MOCK_LLM_LOG" "$$" \
+    _mock_parent="$$"
+    case "$(uname -s 2>/dev/null)" in MINGW* | MSYS* | CYGWIN*) _mock_parent="" ;; esac # $$ is not a Windows pid
+    python3 "$PROJECT_ROOT/tests/e2e/helpers/mock_llm.py" "$_mock_port" "$E2E_MOCK_LLM_LOG" $_mock_parent \
         >/dev/null 2>&1 </dev/null &
     for _ in $(seq 1 50); do
         python3 -c "import socket;socket.create_connection(('127.0.0.1',$_mock_port),1)" 2>/dev/null && break
@@ -122,7 +124,7 @@ if [ -z "${KDEPS_E2E_REAL_LLM:-}" ] && [ -z "${KDEPS_LLM_OVERRIDE_URL:-}" ] && c
     done
     export KDEPS_LLM_OVERRIDE_URL="http://127.0.0.1:$_mock_port"
     export E2E_MOCK_LLM_LOG
-    unset _mock_port
+    unset _mock_port _mock_parent
 fi
 
 # without_llm_override: a script that runs its own LLM server (a provider

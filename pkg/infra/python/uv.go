@@ -206,24 +206,28 @@ func venvReady(venvPath string) bool {
 }
 
 // lockVenv takes venvPath's build lock, waiting while another process holds
-// it. A lock older than UVTimeout is from a process that died: it is taken over.
+// it. It is an OS file lock (flock / LockFileEx): the OS drops it the moment
+// its holder exits, so a build killed half-way never leaves a stale lock.
 func lockVenv(venvPath string) (func(), error) {
-	lock := venvPath + ".lock"
+	f, err := os.OpenFile(venvPath+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lock the venv %s: %w", venvPath, err)
+	}
 	deadline := time.Now().Add(UVTimeout)
 	for {
-		f, err := os.OpenFile(lock, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-		if err == nil {
+		locked, lockErr := tryLockFile(f)
+		if lockErr != nil {
 			_ = f.Close()
-			return func() { _ = os.Remove(lock) }, nil
+			return nil, fmt.Errorf("failed to lock the venv %s: %w", venvPath, lockErr)
 		}
-		if !os.IsExist(err) {
-			return nil, fmt.Errorf("failed to lock the venv %s: %w", venvPath, err)
-		}
-		if info, statErr := os.Stat(lock); statErr == nil && time.Since(info.ModTime()) > UVTimeout {
-			_ = os.Remove(lock)
-			continue
+		if locked {
+			return func() {
+				unlockFile(f)
+				_ = f.Close()
+			}, nil
 		}
 		if time.Now().After(deadline) {
+			_ = f.Close()
 			return nil, fmt.Errorf("timed out waiting for another process to build the venv %s", venvPath)
 		}
 		time.Sleep(venvLockPoll)

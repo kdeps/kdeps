@@ -3,7 +3,8 @@
     python3 mock_llm.py <port> <request log> [parent pid]
 
 With a parent pid, the mock exits once that process is gone, so a test run
-that starts it once never leaves it behind.
+that starts it once never leaves it behind (POSIX only: on Windows
+os.kill(pid, 0) would terminate the process, so the pid is ignored there).
 
 Every request body is appended to the log. The reply to the last user
 message:
@@ -92,7 +93,7 @@ def watch_parent(pid):
         except OSError:
             os._exit(0)
 
-if len(sys.argv) > 3:
+if len(sys.argv) > 3 and os.name != "nt":
     threading.Thread(target=watch_parent, args=(int(sys.argv[3]),), daemon=True).start()
 h.ThreadingHTTPServer.request_queue_size = 64
 h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
