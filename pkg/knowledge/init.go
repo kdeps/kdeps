@@ -47,6 +47,9 @@ func Init(v Vault) ([]string, error) {
 			return created, err
 		}
 	}
+	if _, err := knowledgeTemplateFile(path.Join(workspaceTemplate, RoutingFile)); err != nil {
+		return created, errors.New("the knowledge template is not installed (run kdeps install templates/knowledge)")
+	}
 	fsys := assets.Open("templates")
 	entries, err := fsys.ReadDir(workspaceTemplate)
 	if err != nil {

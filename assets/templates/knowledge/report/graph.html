@@ -15,11 +15,21 @@
          padding: 6px 8px; max-width: 360px; display: none; z-index: 3; }
   #tip b { color: var(--fg); } #tip div { color: var(--dim); margin-top: 2px; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  #legend { position: fixed; top: 56px; right: 12px; width: 280px; max-height: calc(100% - 80px); overflow-y: auto;
+            background: rgba(22,27,34,0.92); border: 1px solid var(--line); border-radius: 2px; padding: 8px; z-index: 2; }
+  #legend h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 6px; }
+  .com { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 1px solid transparent;
+         color: var(--fg); font: inherit; padding: 4px; border-radius: 2px; cursor: pointer; transition: border-color .15s ease; }
+  .com:hover, .com:focus-visible { border-color: var(--line); outline: none; }
+  .com.on { border-color: var(--accent); }
+  .sw { flex: 0 0 10px; height: 10px; border-radius: 50%; margin-top: 3px; }
+  .com small { display: block; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
 </style>
 </head>
 <body>
 <div id="bar"><input id="q" placeholder="Find a note..." aria-label="Find a note"><span id="stats"></span></div>
 <div id="tip"></div>
+<div id="legend" aria-label="Communities"><h2>Communities</h2></div>
 <canvas id="c"></canvas>
 <script>
 const G = "__GRAPH_DATA__";
@@ -33,10 +43,44 @@ const edges = G.edges.filter(e => byId[e.from] && byId[e.to]);
 document.getElementById('stats').textContent =
   `${G.nodes.length} nodes, ${G.edges.length} edges, ${G.communities} communities` + (G.nodes.length > MAX ? ` (showing the ${MAX} most linked)` : '');
 const color = c => `hsl(${(c * 137.508) % 360}, 65%, 60%)`;
+// short is a node's display name: the last two parts of a package path.
+const short = n => n.kind === 'code' ? n.label.split('/').slice(-2).join('/') : n.label;
+// Communities: members by degree, and an anchor on a ring, largest first.
+const coms = {};
+for (const n of nodes) (coms[n.community] = coms[n.community] || []).push(n);
+const comIds = Object.keys(coms).map(Number).sort((a, b) => coms[b].length - coms[a].length);
+comIds.forEach(c => coms[c].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0)));
+const anchor = {};
+const ring = 120 + 25 * Math.sqrt(nodes.length);
+comIds.forEach((c, i) => {
+  const r = i === 0 ? 0 : ring * (1 + Math.floor((i - 1) / 8) * 0.6), t = (i - 1) * Math.PI / 4 + (i > 8 ? 0.4 : 0);
+  anchor[c] = [Math.cos(t) * r, Math.sin(t) * r];
+});
+nodes.forEach((n, i) => { const [ax, ay] = anchor[n.community]; n.x = ax + Math.cos(i) * 30; n.y = ay + Math.sin(i) * 30; });
+let focus = null;
+const legend = document.getElementById('legend');
+for (const c of comIds) {
+  const btn = document.createElement('button');
+  btn.className = 'com';
+  btn.setAttribute('aria-pressed', 'false');
+  const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = color(c);
+  const txt = document.createElement('span');
+  const head = document.createElement('span'); head.textContent = `#${c}  ${coms[c].length} nodes`;
+  const top = document.createElement('small'); top.textContent = coms[c].slice(0, 3).map(short).join(', ');
+  top.title = coms[c].slice(0, 8).map(n => n.label).join('\n');
+  txt.append(head, top); btn.append(sw, txt);
+  btn.addEventListener('click', () => {
+    focus = focus === c ? null : c;
+    for (const b of legend.querySelectorAll('.com')) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
+    if (focus !== null) { btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); }
+  });
+  legend.appendChild(btn);
+}
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 let W, H, scale = 1, ox = 0, oy = 0, query = '', hover = null;
 function resize() { W = cv.width = innerWidth * devicePixelRatio; H = cv.height = innerHeight * devicePixelRatio; }
 addEventListener('resize', resize); resize();
+scale = Math.min(1, (innerHeight - 80) / (2.4 * ring + 200));
 function step() {
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i];
@@ -48,33 +92,42 @@ function step() {
   }
   for (const e of edges) {
     const a = byId[e.from], b = byId[e.to], dx = b.x - a.x, dy = b.y - a.y;
-    const k = (a.community === b.community ? 0.02 : 0.005) * (e.provenance === 'extracted' ? 1 : 0.5);
+    const k = (a.community === b.community ? 0.02 : 0.0015) * (e.provenance === 'extracted' ? 1 : 0.5);
     a.vx += dx * k; a.vy += dy * k; b.vx -= dx * k; b.vy -= dy * k;
   }
-  for (const n of nodes) { n.vx *= 0.85; n.vy *= 0.85; n.vx -= n.x * 0.0005; n.vy -= n.y * 0.0005; n.x += n.vx; n.y += n.vy; }
+  for (const n of nodes) {
+    const [ax, ay] = anchor[n.community];
+    n.vx += (ax - n.x) * 0.01; n.vy += (ay - n.y) * 0.01; // each community gathers at its anchor
+    n.vx *= 0.85; n.vy *= 0.85; n.x += n.vx; n.y += n.vy;
+  }
 }
 function radius(n) { return 2 + Math.sqrt(deg[n.id] || 0) * 1.5; }
 function toScreen(n) { return [W / 2 + (n.x + ox) * scale * devicePixelRatio, H / 2 + (n.y + oy) * scale * devicePixelRatio]; }
+function dimmed(n) { return (query && !n.label.toLowerCase().includes(query)) || (focus !== null && n.community !== focus); }
 function draw() {
   ctx.clearRect(0, 0, W, H);
   ctx.lineWidth = devicePixelRatio * 0.6;
   for (const e of edges) {
-    const [x1, y1] = toScreen(byId[e.from]), [x2, y2] = toScreen(byId[e.to]);
+    const a = byId[e.from], b = byId[e.to];
+    if (focus !== null && a.community !== focus && b.community !== focus) continue;
+    const [x1, y1] = toScreen(a), [x2, y2] = toScreen(b);
     ctx.strokeStyle = e.provenance === 'extracted' ? 'rgba(255,255,255,0.10)' : 'rgba(255,214,10,0.25)';
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   }
   for (const n of nodes) {
     const [x, y] = toScreen(n), match = query && n.label.toLowerCase().includes(query);
-    ctx.fillStyle = query && !match ? 'rgba(139,148,158,0.25)' : color(n.community);
+    ctx.fillStyle = dimmed(n) ? 'rgba(139,148,158,0.18)' : color(n.community);
     ctx.beginPath(); ctx.arc(x, y, radius(n) * devicePixelRatio * (match ? 1.8 : 1), 0, 7); ctx.fill();
-    if (match || n === hover || (deg[n.id] || 0) > 12) {
+    const lead = coms[n.community][0] === n;
+    if (match || n === hover || (!dimmed(n) && (lead || (focus !== null && (deg[n.id] || 0) > 3)))) {
       ctx.fillStyle = '#c9d1d9'; ctx.font = `${11 * devicePixelRatio}px system-ui`;
-      ctx.fillText(n.label, x + 6 * devicePixelRatio, y - 6 * devicePixelRatio);
+      ctx.fillText(short(n), x + 6 * devicePixelRatio, y - 6 * devicePixelRatio);
     }
   }
 }
 let ticks = 0;
-(function loop() { if (ticks++ < 400) step(); draw(); requestAnimationFrame(loop); })();
+for (; ticks < 250; ticks++) step(); // settle before the first frame
+(function loop() { if (ticks++ < 500) step(); draw(); requestAnimationFrame(loop); })();
 const tip = document.getElementById('tip');
 let drag = null;
 cv.addEventListener('mousedown', e => { drag = [e.clientX, e.clientY, ox, oy]; });

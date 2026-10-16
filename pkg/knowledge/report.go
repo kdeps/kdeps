@@ -275,16 +275,18 @@ func nodeRef(n *Node) string {
 	return "`" + n.Label + "`"
 }
 
-// writeReport writes GRAPH_REPORT.md and, when its template is installed,
-// graph.html into dir.
+// writeReport writes GRAPH_REPORT.md and graph.html into dir. The page's
+// template is installed the first time it is needed (a small profile leaves
+// the templates set out); offline without it, only the report is written.
 func writeReport(g *Graph, modularity float64, dir string) error {
 	md := NewReport(g, modularity).Markdown(g.Vault)
 	if err := os.WriteFile(filepath.Join(dir, reportFile), []byte(md), filePerm); err != nil {
 		return err
 	}
-	tmpl, err := assets.Open("templates").ReadFile(htmlTemplate)
+	tmpl, err := knowledgeTemplateFile(htmlTemplate)
 	if err != nil {
-		return nil //nolint:nilerr // no template installed: the report is enough
+		_ = os.Remove(filepath.Join(dir, htmlFile)) // never leave a stale page behind
+		return nil                                  //nolint:nilerr // no template: the report is enough
 	}
 	data, err := json.Marshal(g)
 	if err != nil {
@@ -293,6 +295,16 @@ func writeReport(g *Graph, modularity float64, dir string) error {
 	safe := strings.ReplaceAll(string(data), "</", `<\/`)
 	page := strings.Replace(string(tmpl), htmlDataSlot, safe, 1)
 	return os.WriteFile(filepath.Join(dir, htmlFile), []byte(page), filePerm)
+}
+
+// knowledgeTemplateFile reads a file of the templates/knowledge bundle,
+// installing the bundle on first use when it is missing.
+func knowledgeTemplateFile(name string) ([]byte, error) {
+	data, err := assets.Open("templates").ReadFile(name)
+	if err != nil && assets.InstallOnDemand(assets.ID("templates", "knowledge")) {
+		data, err = assets.Open("templates").ReadFile(name)
+	}
+	return data, err
 }
 
 // ReportPath and HTMLPath are the report files of dir.

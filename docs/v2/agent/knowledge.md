@@ -221,7 +221,7 @@ knowledge:
 
 ## Communities and the report
 
-Each build groups the graph into communities with the Louvain method: notes and packages that link mostly among themselves. Each node gets a `community` number in `graph.json`; 0 is the largest. Next to the graph in `.index/`, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph (search, zoom, hover for a note's summary; colors are communities).
+There is one graph per vault, covering every project, `shared/` and the Go packages of each card's `repo` row. Each build groups it into communities with the Louvain method: notes and packages that link mostly among themselves, which usually follow projects and the areas inside them. Each node gets a `community` number in `graph.json`; 0 is the largest. Next to the graph in `.index/`, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph: each community gathers in its own colored cluster, a legend lists every community with its size and best-connected members (click one to focus it), and you can search, zoom and hover for a note's summary. The page's template (`templates/knowledge`) is installed the first time it is needed, so it is written under any asset profile; `kdeps knowledge build` prints where it is.
 
 ```bash
 kdeps knowledge report
