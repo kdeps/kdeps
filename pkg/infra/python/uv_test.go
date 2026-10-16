@@ -185,9 +185,10 @@ func TestManager_GetPythonPath_PrefersUnix(t *testing.T) {
 func TestManager_EnsureVenv_AlreadyExists(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
-	// Create a venv directory
+	// Create a venv directory that finished building
 	venvPath := filepath.Join(manager.BaseDir, "venv-3.12")
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv
 	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
@@ -703,6 +704,7 @@ func TestManager_EnsureVenv_VenvNameReusesExisting(t *testing.T) {
 	customVenvName := "existing-env"
 	venvPath := filepath.Join(manager.BaseDir, customVenvName)
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv with venv name
 	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", customVenvName)
