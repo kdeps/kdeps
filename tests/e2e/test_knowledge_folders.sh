@@ -152,7 +152,8 @@ if nopanic "$OUT" && ! card | grep -q 'lib |$' && output_grep "no longer searche
 else
     test_failed "knowledge folders - /search remove" "$OUT $(card)"
 fi
-OUT=$(kf_session "$P" 'CALL knowledge_card_update {"add_search_folder":"'"$(native "$LIB" | sed 's/\\/\\\\/g')"'"}\n/quit\n')
+# Escaped twice: once for JSON, once for kf_session's printf %b.
+OUT=$(kf_session "$P" 'CALL knowledge_card_update {"add_search_folder":"'"$(native "$LIB" | sed 's/\\/\\\\\\\\/g')"'"}\n/quit\n')
 for _ in $(seq 1 30); do card | grep -q '^| search | .*lib |$' && break; sleep 0.5; done
 if nopanic "$OUT" && card | grep -q '^| search | .*lib |$'; then
     test_passed "knowledge folders - the model adds a search folder with knowledge_card_update"
@@ -169,7 +170,7 @@ else
 fi
 rm -rf "$LIB"
 OUT=$(kf "$P" knowledge check --vault "$(native "$V")")
-if nopanic "$OUT" && output_grep "search folder .*lib is gone" "$OUT"; then
+if nopanic "$OUT" && output_grep "search folder .*lib is gone" "$OUT" && ! output_grep "which has no note" "$OUT"; then
     test_passed "knowledge folders - kdeps knowledge check flags a search folder that is gone"
 else
     test_failed "knowledge folders - check gone folder" "$OUT"

@@ -146,3 +146,22 @@ func TestLinkRow(t *testing.T) {
 	assert.False(t, within("/a/b", "/a/b"))
 	assert.False(t, within("/a/bc", "/a/b"))
 }
+
+func TestCheck_LinkToAnAutoCaptureIsNotDangling(t *testing.T) {
+	v, card, _ := searchFixture(t)
+	mem := filepath.Join(card.Dir(), MemoryFolder)
+	require.NoError(t, os.MkdirAll(filepath.Join(mem, AutoFolder), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(mem, AutoFolder, "tool-x-output.md"), []byte("captured"), 0o600))
+	link := "projects/" + card.Name + "/memory/.auto/tool-x-output"
+	require.NoError(t, os.WriteFile(filepath.Join(mem, "status-x.md"),
+		[]byte("---\nsummary: x ran\n---\nSee [["+link+"]] and [[projects/"+card.Name+"/memory/.auto/gone]].\n"), 0o600))
+	findings, err := Check(v)
+	require.NoError(t, err)
+	var problems []string
+	for _, f := range findings {
+		problems = append(problems, f.Problem)
+	}
+	joined := strings.Join(problems, "\n")
+	assert.NotContains(t, joined, "tool-x-output", "the capture walk skips is on disk: not dangling")
+	assert.Contains(t, joined, ".auto/gone]], which has no note", "a link to nothing still is")
+}
