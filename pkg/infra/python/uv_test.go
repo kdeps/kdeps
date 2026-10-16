@@ -808,3 +808,13 @@ func TestEnsureVenv_FailedInstallIsNotTrustedNextTime(t *testing.T) {
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
 }
+
+func TestGetVenvName_SpecifiersMakeASafeName(t *testing.T) {
+	m := python.NewManager("/tmp")
+	lt := m.GetVenvName("3.12", []string{"matplotlib<3.7.0"}, "")
+	gt := m.GetVenvName("3.12", []string{"matplotlib>3.7.0"}, "")
+	assert.Regexp(t, `^venv-3\.12-matplotlib_3\.7\.0-[0-9a-f]{8}$`, lt)
+	assert.NotEqual(t, lt, gt, "two specifiers of one package are two venvs")
+	assert.NotContains(t, m.GetVenvName("3.12", []string{"a>=1", "b[extra]", "c:1", "d*"}, ""), ">")
+	assert.Equal(t, "venv-3.12-requests==2.31.0", m.GetVenvName("3.12", []string{"requests==2.31.0"}, ""))
+}

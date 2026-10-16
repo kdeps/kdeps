@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -247,15 +248,29 @@ func (m *Manager) GetVenvName(
 		sorted := slices.Clone(packages)
 		slices.Sort(sorted)
 		sorted = slices.Compact(sorted)
-		parts = append(parts, strings.Join(sorted[:min(MaxPackagesInVenvName, len(sorted))], "-"))
-		if len(sorted) > MaxPackagesInVenvName {
-			// The name shows only the first packages: the hash of the whole
-			// set keeps two sets that start alike in separate environments.
+		shown := sorted[:min(MaxPackagesInVenvName, len(sorted))]
+		named := make([]string, len(shown))
+		changed := false
+		for i, p := range shown {
+			// Version specifiers (<, >, *, :) are not allowed in Windows
+			// file names: keep only name-safe characters.
+			named[i] = venvNameUnsafe.ReplaceAllString(p, "_")
+			changed = changed || named[i] != p
+		}
+		parts = append(parts, strings.Join(named, "-"))
+		if len(sorted) > MaxPackagesInVenvName || changed {
+			// The name shows only the first packages, made name-safe: the
+			// hash of the whole set keeps two sets that start alike (or
+			// differ only in a specifier) in separate environments.
 			parts = append(parts, shortHash(strings.Join(sorted, "\n")))
 		}
 	}
 	return strings.Join(parts, "-")
 }
+
+// venvNameUnsafe matches the characters a venv folder name cannot carry
+// on every OS.
+var venvNameUnsafe = regexp.MustCompile(`[^A-Za-z0-9._=+-]`)
 
 // shortHash is the first 8 hex digits of s's SHA-256.
 func shortHash(s string) string {
