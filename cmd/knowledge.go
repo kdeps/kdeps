@@ -169,9 +169,9 @@ inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 					len(g.Missing),
 				)
 			}
-			fmt.Fprintf(out, "Graph:  %s\nReport: %s\n", knowledge.GraphPath(dir), knowledge.ReportPath(dir))
-			if _, statErr := os.Stat(knowledge.HTMLPath(dir)); statErr == nil {
-				fmt.Fprintf(out, "Explore: %s\n", knowledge.HTMLPath(dir))
+			fmt.Fprintf(out, "Graph:  %s\nReport: %s\n", knowledge.GraphPath(dir), knowledge.ReportPath(v.Root))
+			if _, statErr := os.Stat(knowledge.HTMLPath(v.Root)); statErr == nil {
+				fmt.Fprintf(out, "Explore: %s\n", knowledge.HTMLPath(v.Root))
 			} else {
 				fmt.Fprintln(out,
 					"Explore: graph.html not written - its template is missing (kdeps install templates/knowledge)")
@@ -301,23 +301,22 @@ func newKnowledgeReportCmd() *cobra.Command {
 		Long: `Prints GRAPH_REPORT.md from the last build: the most connected notes (god
 nodes), the communities Louvain found, single links between communities that
 otherwise never touch (surprising connections) and links to missing notes.
-The report and graph.html (an explorer page) live next to graph.json under
-~/.kdeps, never in the vault.`,
+The report and graph.html (an explorer page) are written at the vault root;
+graph.json and the caches stay in the vault's hidden .index/ folder.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			v, _, err := knowledgeTarget(cmd)
 			if err != nil {
 				return err
 			}
-			dir := knowledge.GraphDir(v.Root)
-			data, err := os.ReadFile(knowledge.ReportPath(dir))
+			data, err := os.ReadFile(knowledge.ReportPath(v.Root))
 			if err != nil {
 				return errors.New("no report yet: run kdeps knowledge build")
 			}
 			out := cmd.OutOrStdout()
 			fmt.Fprint(out, string(data))
-			fmt.Fprintf(out, "\n(%s", knowledge.ReportPath(dir))
-			if _, statErr := os.Stat(knowledge.HTMLPath(dir)); statErr == nil {
-				fmt.Fprintf(out, "; explore: %s", knowledge.HTMLPath(dir))
+			fmt.Fprintf(out, "\n(%s", knowledge.ReportPath(v.Root))
+			if _, statErr := os.Stat(knowledge.HTMLPath(v.Root)); statErr == nil {
+				fmt.Fprintf(out, "; explore: %s", knowledge.HTMLPath(v.Root))
 			}
 			fmt.Fprintln(out, ")")
 			return nil

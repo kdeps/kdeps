@@ -100,8 +100,9 @@ fi
 OUT=$(kn report)
 if output_grep "# Knowledge graph report" "$OUT" && output_grep "## God nodes" "$OUT" &&
     output_grep "## Communities" "$OUT" && output_grep "## Surprising connections" "$OUT" &&
-    output_grep "\[\[Nowhere\]\]" "$OUT" && [ -f "$KN_VAULT/.index/graph.html" ]; then
-    test_passed "knowledge - report lists god nodes, Louvain communities, surprising links; graph.html written"
+    output_grep "\[\[Nowhere\]\]" "$OUT" && [ -f "$KN_VAULT/graph.html" ] && [ -f "$KN_VAULT/GRAPH_REPORT.md" ] &&
+    [ ! -e "$KN_VAULT/.index/GRAPH_REPORT.md" ]; then
+    test_passed "knowledge - report lists god nodes, Louvain communities, surprising links; report and graph.html at the vault root"
 else
     test_failed "knowledge - report" "$OUT"
 fi

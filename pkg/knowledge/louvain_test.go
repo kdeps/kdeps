@@ -130,10 +130,11 @@ func TestBuild_WritesReportAndExplorer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Positive(t, st.Communities)
 	assert.Equal(t, st.Communities, g.Communities)
-	md, err := os.ReadFile(ReportPath(dir))
-	require.NoError(t, err)
+	md, err := os.ReadFile(ReportPath(v.Root))
+	require.NoError(t, err, "the report is at the vault root")
 	assert.Contains(t, string(md), "## God nodes")
-	page, err := os.ReadFile(HTMLPath(dir))
+	assert.NoFileExists(t, filepath.Join(dir, ReportFile), "not in the index folder")
+	page, err := os.ReadFile(HTMLPath(v.Root))
 	if _, tmplErr := assets.Open("templates").ReadFile(htmlTemplate); tmplErr != nil {
 		require.Error(t, err, "no template installed: no explorer page")
 	} else {
@@ -178,4 +179,24 @@ func TestWriteReport_InstallsTheTemplateOnFirstUse(t *testing.T) {
 	page, err := os.ReadFile(HTMLPath(dir))
 	require.NoError(t, err, "installed on demand, the page is written")
 	assert.Contains(t, string(page), `"vault":"/v"`)
+}
+
+func TestBuild_ReportAtTheRootIsNotANote(t *testing.T) {
+	v, _ := sampleVault(t)
+	dir := filepath.Join(v.Root, IndexFolder)
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ReportFile), []byte("old"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "graph.html"), []byte("old"), 0o600))
+	g, st, err := Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	assert.FileExists(t, ReportPath(v.Root))
+	assert.NoFileExists(t, filepath.Join(dir, ReportFile), "an older build's copy is removed")
+	assert.NoFileExists(t, filepath.Join(dir, "graph.html"))
+
+	_, st2, err := Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	assert.Equal(t, st.Notes, st2.Notes, "the report written at the root is not read back as a note")
+	for _, n := range g.Nodes {
+		assert.NotEqual(t, ReportFile, n.Note)
+	}
 }

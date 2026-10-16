@@ -65,7 +65,9 @@ use -> turn
   shared/                             # knowledge across projects; shared/memory/ with KDEPS_MEMORY_GLOBAL=1
   inbox/                              # notes dropped by hand, not yet filed
   archive/                            # projects whose card says status: archived
-  .index/                             # graph, caches, GRAPH_REPORT.md, graph.html
+  GRAPH_REPORT.md                     # god nodes, communities, surprising connections (rebuilt; not a note)
+  graph.html                          # the graph explorer page: communities as clusters, a legend
+  .index/                             # graph.json and caches (hidden; rebuilt)
 ```
 
 The layout is the same for every use: a code repository, a folder of documents, a workflow, a bot, a research topic. What kind of project it is goes in the card's `type`, not in the folder names.
@@ -190,7 +192,7 @@ $ kdeps knowledge build
 
 Code files are the ones git tracks or would track, so `.gitignore`d folders stay out; without git, every `.go` file outside `vendor/`, `testdata/` and hidden folders.
 
-The graph lives in the vault's hidden `.index/` folder (`graph.json`, caches, `GRAPH_REPORT.md`, `graph.html`), so it travels with the vault and is never read as a note. A rebuild re-reads only changed files.
+The graph lives in the vault's hidden `.index/` folder (`graph.json` and the caches), so it travels with the vault and is never read as a note. `GRAPH_REPORT.md` and `graph.html` are written at the vault root, where you see them; the report is skipped when the vault is read, so it never becomes a note. A rebuild re-reads only changed files.
 
 ## Model extraction
 
@@ -222,7 +224,7 @@ knowledge:
 
 ## Communities and the report
 
-There is one graph per vault, covering every project, `shared/` and the Go packages of each card's `repo` row. Each build groups it into communities with the Louvain method: notes and packages that link mostly among themselves, which usually follow projects and the areas inside them. Each node gets a `community` number in `graph.json`; 0 is the largest. Next to the graph in `.index/`, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph: each community gathers in its own colored cluster, a legend lists every community with its size and best-connected members (click one to focus it), and you can search, zoom and hover for a note's summary. The page's template (`templates/knowledge`) is installed the first time it is needed, so it is written under any asset profile; `kdeps knowledge build` prints where it is.
+There is one graph per vault, covering every project, `shared/` and the Go packages of each card's `repo` row. Each build groups it into communities with the Louvain method: notes and packages that link mostly among themselves, which usually follow projects and the areas inside them. Each node gets a `community` number in `graph.json`; 0 is the largest. At the vault root, the build writes `GRAPH_REPORT.md` and `graph.html`, a page to explore the graph: each community gathers in its own colored cluster, a legend lists every community with its size and best-connected members (click one to focus it), and you can search, zoom and hover for a note's summary. The page's template (`templates/knowledge`) is installed the first time it is needed, so it is written under any asset profile; `kdeps knowledge build` prints where it is.
 
 ```bash
 kdeps knowledge report

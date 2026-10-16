@@ -109,6 +109,9 @@ func (v Vault) Walk() ([]*Note, error) {
 			return nil //nolint:nilerr // an unreadable note is skipped
 		}
 		rel, _ := filepath.Rel(v.Root, p)
+		if rel == reportFile {
+			return nil // the generated graph report is not a note
+		}
 		notes = append(notes, ParseNote(filepath.ToSlash(rel), data))
 		return nil
 	})
