@@ -17,8 +17,10 @@ on:
     branches: [main]
     paths:
       - 'assets/**'
-      - 'pkg/assets/**'
+      - 'pkg/**'
+      - 'cmd/**'
       - 'tools/publish-assets/**'
+      - 'tools/assetflow/**'
       - 'docs/v2/workflow/resources/**'
       - 'docs/v2/agencies/*-resource.md'
       - 'docs/v2/package.json'
@@ -54,6 +56,10 @@ jobs:
           ref: main
           path: registry
           token: ${{ secrets.RELEASE_TOKEN }}
+      # Where kdeps uses each set, from the code being published, so the
+      # index (and kdeps.io's asset pages) always match it.
+      - name: Regenerate asset flows
+        run: go run ./tools/assetflow
       - name: Publish new versions
         run: go run ./tools/publish-assets -src assets -out packages/assets -formulas registry/formulas -resources packages/resources -commit "$GITHUB_SHA"
       - name: Push
