@@ -54,7 +54,8 @@ KD_HOME="$KD_DIR/home"
 mkdir -p "$KD_HOME/.kdeps"
 # kd_vault points config.yaml at vault $1.
 kd_vault() {
-    printf 'llm:\n  mockllm_api_key: sk-mock\nknowledge:\n  vault: "%s"\n' "$(native "$1")" > "$KD_HOME/.kdeps/config.yaml"
+    # Single quotes: a Windows path's backslashes are escapes inside YAML double quotes.
+    printf "llm:\n  mockllm_api_key: sk-mock\nknowledge:\n  vault: '%s'\n" "$(native "$1" | sed "s/'/''/g")" > "$KD_HOME/.kdeps/config.yaml"
 }
 # kd_session runs one piped agent session in folder $1 with input $2.
 kd_session() {

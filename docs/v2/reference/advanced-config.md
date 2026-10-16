@@ -347,6 +347,7 @@ match any installed workflow's `metadata.name`.
 knowledge:
   enabled: true               # on by default for agent sessions; false turns it off
   vault: ~/.kdeps/notes       # folder of markdown notes the agent recalls from each turn (default)
+                              # Windows: single quotes, 'C:\Users\me\notes' - in double quotes \U is an escape
   session_notes: true         # write a note per session into the project's sessions/ folder
   workflow_notes: false       # workflow chat calls log to projects/<workflow>/sessions/ (default false)
   recall:

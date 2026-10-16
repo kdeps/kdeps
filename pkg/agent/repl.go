@@ -2179,6 +2179,10 @@ func (r *REPL) newReadline() (*readline.Instance, error) {
 		Stdout:                 os.Stdout,
 		FuncFilterInputRune:    r.filterToolInterrupt,
 		Painter:                r.pastePainter(),
+		// Line editing only on a terminal: readline's own check took piped
+		// input for one on Windows and redrew the line on every rune, so a
+		// long piped prompt printed quadratically much output.
+		FuncIsTerminal: func() bool { return stdinIsTerminal() && term.IsTerminal(int(os.Stdout.Fd())) },
 	})
 }
 
