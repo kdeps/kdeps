@@ -37,6 +37,16 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
+// emptyAssetSource points KDEPS_ASSETS_SRC at an empty folder for the test.
+// The reload is registered first so it runs last, after the variable is
+// restored: it re-reads the repo's assets, not the empty folder (which would
+// leave the tool definitions empty for every later test).
+func emptyAssetSource(t *testing.T) {
+	t.Helper()
+	t.Cleanup(ReloadAssets)
+	t.Setenv(assets.SourceEnv, t.TempDir())
+}
+
 // serveAssets publishes files (id@version -> body) in the kdeps/packages assets/
 // layout, points KDEPS_ASSETS_URL at it and gives the test its own asset root.
 func serveAssets(t *testing.T, files map[string]string) string {
@@ -105,7 +115,7 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 
 func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 	// A release binary: no source directory, nothing installed.
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{
 		"tools/md5_file@1.1.0": newerMD5Def,
@@ -127,7 +137,7 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 }
 
 func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	root := serveAssets(t, map[string]string{
 		"tools/md5_file@1.1.0": newerMD5Def,
 		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
@@ -150,7 +160,7 @@ func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
 }
 
 func TestEnsureSets_FirstRunPicker(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
 	var out bytes.Buffer
@@ -167,7 +177,7 @@ func TestEnsureSets_FirstRunPicker(t *testing.T) {
 }
 
 func TestEnsureSets_ProfileGetsOnlyRequiredItems(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "minimum")
 	root := serveAssets(t, map[string]string{
 		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
@@ -214,18 +224,18 @@ func TestResolveProfileChoice(t *testing.T) {
 func TestPickSets_SetsAndItems(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
 		"recipes/vllm": {}, "recipes/tgi": {},
-		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "tools/read_file": {},
+		"tools/goal_task_complete": {}, "tools/web_search": {}, "tools/wikipedia": {},
 		"schemas/v1": {}, "providers/groq": {}, "providers/openai": {},
 	}}
 	sets := assets.Registered()
 	num := func(set string) string { return strconv.Itoa(slices.Index(sets, set) + 1) }
-	// Tick recipes whole; open tools and tick bash_exec (its required control
+	// Tick recipes whole; open tools and tick web_search (its required control
 	// tool comes along); open providers and keep only openai; try to untick
 	// the schemas base set.
 	in := strings.Join([]string{
 		num("recipes") + " " + num("schemas") + " 99 x",
 		"o" + num("tools"),
-		"1", // bash_exec (sorted: bash_exec, goal_task_complete, read_file)
+		"2", // web_search (sorted: goal_task_complete, web_search, wikipedia)
 		"",
 		"o" + num("providers"),
 		"n",
@@ -237,9 +247,9 @@ func TestPickSets_SetsAndItems(t *testing.T) {
 	var out bytes.Buffer
 	got := pickSets(&out, bufio.NewReader(strings.NewReader(in)), idx)
 	assert.Contains(t, got, "recipes", "a whole set by name")
-	assert.Contains(t, got, "tools/bash_exec")
+	assert.Contains(t, got, "tools/web_search")
 	assert.Contains(t, got, "tools/goal_task_complete", "required item follows any ticked item")
-	assert.NotContains(t, got, "tools/read_file")
+	assert.NotContains(t, got, "tools/wikipedia")
 	assert.NotContains(t, got, "tools")
 	assert.Contains(t, got, "providers/openai")
 	assert.NotContains(t, got, "providers/groq")
@@ -252,13 +262,13 @@ func TestPickSets_SetsAndItems(t *testing.T) {
 
 func TestChecklist_RequiredAndBaseRules(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
-		"tools/goal_task_complete": {}, "tools/bash_exec": {}, "schemas/v1": {},
+		"tools/goal_task_complete": {}, "tools/web_search": {}, "schemas/v1": {},
 	}}
 	c := newChecklist(idx)
-	c.toggle("tools", "bash_exec")
-	c.toggle("tools", "goal_task_complete") // required while bash_exec is ticked
+	c.toggle("tools", "web_search")
+	c.toggle("tools", "goal_task_complete") // required while web_search is ticked
 	assert.True(t, c.ticked["tools/goal_task_complete"])
-	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "web_search")
 	c.toggle("tools", "goal_task_complete") // alone now: can be unticked
 	assert.Zero(t, c.count("tools"))
 	c.toggle("schemas", "v1") // the base set's only item
@@ -278,7 +288,7 @@ func TestParseNumbers(t *testing.T) {
 }
 
 func TestSelectProfile(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	root := serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
 	var out bytes.Buffer
 	require.NoError(t, SelectProfile(context.Background(), &out, nil, "themes"))
@@ -297,7 +307,7 @@ func TestSelectProfile(t *testing.T) {
 }
 
 func TestInstallComponentOnDemand(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
 	var out bytes.Buffer
 	install := InstallComponentOnDemand(context.Background(), &out)
@@ -308,7 +318,7 @@ func TestInstallComponentOnDemand(t *testing.T) {
 }
 
 func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
-	t.Setenv(assets.SourceEnv, t.TempDir())
+	emptyAssetSource(t)
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	down := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(down.Close)
