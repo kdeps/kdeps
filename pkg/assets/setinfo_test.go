@@ -19,6 +19,8 @@
 package assets
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -82,4 +84,17 @@ func TestPublish_CarriesSetInfoAndItemDescriptions(t *testing.T) {
 	require.NoError(t, err)
 	idx, _ = ReadIndex(out)
 	assert.Equal(t, "Keeps it safer.", idx.Items["harness/safety"].Description, "the latest version's description")
+}
+
+func TestReadLock_NamesTheFileAndTheFix(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, lockFileName), []byte("{ broken"), 0o600))
+	_, err := ReadLock(root)
+	require.ErrorContains(t, err, filepath.Join(root, lockFileName)+" is corrupt")
+	require.ErrorContains(t, err, "kdeps profile")
+
+	file := filepath.Join(t.TempDir(), "store")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	_, err = ReadLock(file)
+	require.ErrorContains(t, err, "is a file, not a folder")
 }

@@ -234,8 +234,20 @@ func (v Vault) EnsureProject(dir string, now time.Time) (*Card, bool, error) {
 	if c := v.CardForDir(dir); c != nil {
 		return c, false, nil
 	}
-	name, place, source := ProjectName(dir)
+	name, place, source := v.NewProjectName(dir)
 	return v.CreateProject(name, source, place, now)
+}
+
+// NewProjectName is the name, place and link source the project kdeps
+// creates for dir gets: ProjectName's, with the parent folder's name in
+// front when a card already has that name. Memory and the project use it
+// alike, so they always land in the same folder.
+func (v Vault) NewProjectName(dir string) (string, string, string) {
+	name, place, source := ProjectName(dir)
+	if _, err := v.Card(name); err == nil {
+		name = safeName(filepath.Base(filepath.Dir(place))) + "-" + name
+	}
+	return name, place, source
 }
 
 // CreateProject creates projects/<name>/ with a card linking place under
