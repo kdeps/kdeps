@@ -39,9 +39,9 @@ func TestAssetsFS_DownloadAndRemoveReachLoaders(t *testing.T) {
 	assert.Equal(t, "Updated md5 text.", defs["md5_file"].Description)
 
 	// A removed one is gone, so the tool is not registered.
-	require.NoError(t, assets.Remove(root, "tools/tail_file"))
+	require.NoError(t, assets.Remove(root, "tools/wikipedia"))
 	defs = loadToolDefinitionsFrom(assets.Open("tools"))
-	assert.NotContains(t, defs, "tail_file")
+	assert.NotContains(t, defs, "wikipedia")
 
 	// Removing a harness section drops it from the loaded harness.
 	require.NoError(t, assets.Remove(root, "harness/safety"))
@@ -86,5 +86,15 @@ func TestSourceFiles_HaveVersions(t *testing.T) {
 		for _, it := range items {
 			assert.NotEmpty(t, it.BaseVersion, "%s has no version header", it.ID)
 		}
+	}
+}
+
+func TestRequiredTools_AreRealDefinitionsAMinimumAgentCanWorkWith(t *testing.T) {
+	root := filepath.Join("..", "..", "assets", "tools")
+	for _, name := range requiredTools {
+		assert.FileExists(t, filepath.Join(root, name+".yaml"), "required tool %s has a definition", name)
+	}
+	for _, core := range []string{"read_file", "edit_file", "bash_exec", "search_local", "memory_save"} {
+		assert.Contains(t, requiredTools, core, "a minimum install must still read, edit, run, search and remember")
 	}
 }

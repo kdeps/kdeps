@@ -89,12 +89,12 @@ func TestListAssets_Tokens(t *testing.T) {
 
 func TestPickerShowsTokens(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
-		"tools/bash_exec":          {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 150}}},
+		"tools/web_search":         {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 150}}},
 		"tools/goal_task_complete": {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 50}}},
 		"schemas/v1":               {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0"}}},
 	}}
 	assert.Equal(t, 200, selectionTokens([]string{"tools"}, idx))
-	assert.Equal(t, 150, selectionTokens([]string{"tools/bash_exec", "tools/bash_exec"}, idx))
+	assert.Equal(t, 150, selectionTokens([]string{"tools/web_search", "tools/web_search"}, idx))
 	assert.Zero(t, selectionTokens([]string{"schemas"}, idx))
 
 	var out bytes.Buffer
@@ -106,12 +106,12 @@ func TestPickerShowsTokens(t *testing.T) {
 
 	out.Reset()
 	c := newChecklist(idx)
-	c.toggle("tools", "bash_exec")
+	c.toggle("tools", "web_search")
 	c.printSets(&out)
 	assert.Regexp(t, `\[x\] tools\s+2/2\s+items\s+~200 tok`, out.String(), "required goal tool comes along")
 	assert.Contains(t, out.String(), "LLM context of this selection: about 200 tokens")
 	out.Reset()
 	c.pickItems(&out, bufio.NewReader(strings.NewReader("\n")), "tools")
-	assert.Contains(t, out.String(), "bash_exec  ~150 tok")
+	assert.Contains(t, out.String(), "web_search  ~150 tok")
 	assert.Contains(t, out.String(), "goal_task_complete *  ~50 tok")
 }
