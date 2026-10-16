@@ -5686,17 +5686,16 @@ func (r *REPL) cmdSearch(args []string) error {
 	}
 
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: /search index   or   /search <query>\n")
+		fmt.Fprintf(os.Stderr,
+			"Usage: /search <query> | index | folders | add <folder> | remove <folder>\n")
 		return nil
 	}
 
 	if args[0] == "index" {
-		count := exec.StartIndex(wd)
-		if count > 0 {
-			fmt.Fprintf(os.Stdout, "search: indexed %d files\n", count)
-		} else {
-			fmt.Fprintf(os.Stdout, "search: index is up to date\n")
-		}
+		indexProjectFolders(os.Stdout, r.loop.knowledge, wd)
+		return nil
+	}
+	if r.cmdSearchFolders(args) {
 		return nil
 	}
 

@@ -72,7 +72,8 @@ const (
 	SourceRepo     = "repo"
 	SourceFolder   = "folder"
 	SourceWorkflow = "workflow"
-	SourceIndex    = "index" // a search index of one of the places (under ~/.kdeps)
+	SourceIndex    = "index"  // a search index of one of the places (under ~/.kdeps)
+	SourceSearch   = "search" // a folder outside the project searched with it
 )
 
 // linkCells is how many cells a links-table row needs: source and path.

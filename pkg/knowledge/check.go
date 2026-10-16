@@ -71,7 +71,7 @@ func Check(v Vault) ([]Finding, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := checkCards(cards)
+	out := append(checkCards(cards), checkSearchFolders(v, cards)...)
 	notes, err := v.Walk()
 	if err != nil {
 		return nil, err

@@ -62,6 +62,7 @@ kdeps [path] [flags]
 | `--system` | (none) | System prompt injected at conversation start |
 | `--skill` | (none) | Load a skill file or directory (repeatable) |
 | `--resume` | (none) | Resume a saved session by ID |
+| `--index` | (none) | Search a folder with this project: add it to the project card and index it before the session starts (repeatable; see [search folders](/agent/knowledge#search-folders)) |
 | `--debug` | false | Enable debug logging |
 
 **Examples:**

@@ -247,6 +247,7 @@ type agentLoopFlags struct {
 	NewSession   bool
 	Theme        string
 	Konfig       string
+	Index        []string
 }
 
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
@@ -269,7 +270,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// is instead handled by the deferred llm.ShutdownLocalServers() below.
 	llm.SetInteractiveSignalOwner(true)
 
-	if err := importKonfigFlag(flags.Konfig); err != nil {
+	if err := applyStartFlags(flags); err != nil {
 		return err
 	}
 
@@ -1048,4 +1049,12 @@ func applySettingsToRegistry(settings tui.Settings, registry *tools.Registry, fl
 	for _, it := range sel.Skills {
 		flags.SkillPaths = append(flags.SkillPaths, it.Path)
 	}
+}
+
+// applyStartFlags does what --konfig and --index ask before the session starts.
+func applyStartFlags(flags *agentLoopFlags) error {
+	if err := importKonfigFlag(flags.Konfig); err != nil {
+		return err
+	}
+	return indexFoldersFlag(flags.Index)
 }

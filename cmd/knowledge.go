@@ -51,6 +51,8 @@ knowledge.enabled: false in config.yaml, or /knowledge off in a session.
   kdeps knowledge check             one home per fact: duplicates, dangling links, missing summaries
   kdeps knowledge recall "query"    show what recall would give the agent
   kdeps knowledge report            print GRAPH_REPORT.md: god nodes, communities, surprising connections
+  kdeps knowledge folders [add|remove] <folder>
+                                    folders outside the project that its recall and search cover
 
 Every place kdeps runs is a project with one folder, filled in by kdeps:
 projects/<name>/<name>.md (the card: status, next step), sessions/, memory/,
@@ -60,7 +62,7 @@ story in notes, the connections in the graph (<vault>/.index).`,
 	c.PersistentFlags().
 		String("vault", "", "vault folder (default: knowledge.vault in ~/.kdeps/config.yaml, else ~/.kdeps/notes)")
 	c.AddCommand(newKnowledgeInitCmd(), newKnowledgeBuildCmd(), newKnowledgeCheckCmd(), newKnowledgeRecallCmd(),
-		newKnowledgeReportCmd())
+		newKnowledgeReportCmd(), newKnowledgeFoldersCmd())
 	return c
 }
 

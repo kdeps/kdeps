@@ -1,5 +1,5 @@
-version: 1.0.0
-description: 'Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).'
+version: 1.1.0
+description: 'Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: query (search term). path is the directory to search; leave it out to search every folder of the working project (its own and the search folders its card lists). Optional: glob (file pattern), limit (max results, default 3).'
 parameters:
   glob:
     type: string
@@ -9,8 +9,7 @@ parameters:
     description: 'Maximum number of results. Default: 3'
   path:
     type: string
-    description: Directory to search in (absolute path)
-    required: true
+    description: Directory to search in (absolute path); omit to search all of the project's folders
   query:
     type: string
     description: Search term or regex pattern

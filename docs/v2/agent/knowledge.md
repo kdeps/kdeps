@@ -120,7 +120,7 @@ updated: 2026-10-15
 | repo | /home/me/code/my-app |   <- runs in this folder (or below it) use this project
 ```
 
-Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. kdeps adds an `index` row for each place that has a search index (built by `/search index`, kept under `~/.kdeps`), so the card says where everything about the project lives. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. A `search` row is a [search folder](#search-folders): searched with the project, but not one of its places. kdeps adds an `index` row for each place that has a search index (built by `/search index`, kept under `~/.kdeps`), so the card says where everything about the project lives. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -261,13 +261,15 @@ Before each model call, kdeps:
 1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks up to `hops` edges from the best matches. Extracted edges count fully, and each hop halves the score.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`.
-4. When the project's places have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per place, in a `<knowledge-files>` list headed by the folder and its index path. The model is told to open them with `read_file` or search the folder further with `search_local`. The index is only read, never built or changed, and a busy index is skipped.
+4. When the project's places or [search folders](#search-folders) have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per folder, in a `<knowledge-files>` list headed by the folder and its index path. A file is listed once, even when two folders overlap. The model is told to open them with `read_file` or search further with `search_local`: path set to one folder, or no path for all of the project's folders. The index is only read, never built or changed, and a busy index is skipped.
 
 ```text
 <knowledge-files>
-Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder.
+Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder (or no path to search all of the project's folders).
 Folder /home/me/code/my-app (search index /home/me/.kdeps/projects/.../index.db):
 - /home/me/code/my-app/billing/invoices.go - monthly invoices go out on the first day
+Folder /home/me/docs/billing-specs (search index /home/me/.kdeps/projects/.../index.db):
+- /home/me/docs/billing-specs/proration.md - prorate upgrades to the day
 </knowledge-files>
 ```
 
@@ -291,6 +293,53 @@ recall: 4 notes (~180 tok), 2 files
 kdeps knowledge recall "why monthly billing"
 ```
 
+## Search folders
+
+A search folder is a folder outside the project (docs, specs, a shared library) that recall and `search_local` cover as if it were part of the project. It is indexed under `~/.kdeps`, like the project's own folder, and nothing is written into it.
+
+```d2
+direction: right
+add: "kdeps --index ~/docs\n/search add ~/docs\nknowledge_card_update" {shape: oval}
+card: "project card\n| search | /home/me/docs |"
+index: "~/.kdeps/projects/docs-<hash>/index.db"
+recall: "recall: <knowledge-files>\nper folder"
+search: "search_local\n(no path: every folder)"
+add -> card: "records the full path"
+add -> index: "indexes now"
+index -> recall
+index -> search
+card -> search: "which folders"
+```
+
+The card keeps it as a `search` row. Unlike a `repo` or `folder` row, a session started inside a search folder is not this project's; the folder gets its own project:
+
+```markdown
+| Source | Path |
+|---|---|
+| repo | /home/me/code/my-app |
+| search | /home/me/docs/billing-specs |
+| index | /home/me/.kdeps/projects/billing-specs-3f2a91c0/index.db |
+```
+
+Add one as a session starts, from the shell, inside a session, or let the model add one:
+
+```bash
+kdeps --index ~/docs/billing-specs                # add and index before the session starts; repeatable, fine to pass every time
+kdeps knowledge folders                           # list the project's folders and their indexes
+kdeps knowledge folders add ~/docs/billing-specs  # add and index now
+kdeps knowledge folders index                     # update every folder's index
+kdeps knowledge folders remove ~/docs/billing-specs
+```
+
+```text
+/search folders                   list them
+/search add ~/docs/billing-specs  add and index now
+/search remove ~/docs/billing-specs
+/search index                     update the index of every folder the project searches
+```
+
+The model uses `knowledge_card_update` with `add_search_folder` or `remove_search_folder`. kdeps refuses your home folder, a filesystem root, the vault, the project's own folder, a folder inside one the project already searches, and a path that is not a folder. Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned by a search, in any folder. A search folder that is deleted shows up in `kdeps knowledge check`.
+
 ## Check
 
 ```bash
@@ -302,6 +351,7 @@ kdeps knowledge check
   shared/Graph recall.md: links to [[Louvain]], which has no note
   shared/Pricing.md: has the same summary as shared/Tiers.md; keep the fact in one note and link it
   projects/web/web.md: card holds 9 lines of prose; move the story to a vault note and link it
+  projects/my-app/my-app.md: search folder /home/me/old-specs is gone; remove it with kdeps knowledge folders remove /home/me/old-specs
 ```
 
 It exits non-zero when it finds something, so it can run in CI.
@@ -312,7 +362,7 @@ It exits non-zero when it finds something, so it can run in CI.
 |---|---|
 | `knowledge_recall` | Recall notes for other words than the request |
 | `knowledge_card_get` | Read a card (default: the working directory's project, created on first use) |
-| `knowledge_card_update` | Set `status` and/or `next`; stamps `updated`; `archived` moves the project to `archive/` |
+| `knowledge_card_update` | Set `status` and/or `next`; stamps `updated`; `archived` moves the project to `archive/`; `add_search_folder` / `remove_search_folder` change the [search folders](#search-folders) |
 | `knowledge_note_save` | Save a new one-idea note; `scope`: `project` (default), `shared` or `inbox` |
 
 They are offered in agent sessions while the vault is on (the default), refuse while `/knowledge off`, and ship with the `agent` asset profile.

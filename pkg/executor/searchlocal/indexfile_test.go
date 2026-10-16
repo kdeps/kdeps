@@ -50,5 +50,5 @@ func TestIndexFile_EarlyExits(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(old) })
 	e.IndexFile(gp)
 	// IndexFiles empty
-	e.IndexFiles(nil)
+	e.IndexFiles("", nil)
 }
