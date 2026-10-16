@@ -14,6 +14,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+without_llm_override # this script serves its own LLM and reads what it was sent
 
 echo "Testing the knowledge vault against hostile and broken inputs (mock LLM)..."
 
@@ -240,3 +241,4 @@ trap - EXIT
 
 echo ""
 echo "Knowledge defensive E2E: done"
+restore_llm_override

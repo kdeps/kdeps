@@ -27,6 +27,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -127,6 +128,15 @@ func ensureLLMBackendStep(workflow *domain.Workflow) error {
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
 	if !domain.HasChatResources(workflow) {
 		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
+		return nil
+	}
+	if u := llm.OverrideURL(); u != "" {
+		fmt.Fprintf(
+			os.Stdout,
+			"  ✓ Every chat call goes to %s (%s); no local model is started\n",
+			u,
+			llm.OverrideURLEnv,
+		)
 		return nil
 	}
 	if domain.NeedsOllamaAtRuntime(workflow) {

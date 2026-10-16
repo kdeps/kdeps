@@ -1,6 +1,9 @@
 """A mock OpenAI-compatible LLM for E2E tests.
 
-    python3 mock_llm.py <port> <request log>
+    python3 mock_llm.py <port> <request log> [parent pid]
+
+With a parent pid, the mock exits once that process is gone, so a test run
+that starts it once never leaves it behind.
 
 Every request body is appended to the log. The reply to the last user
 message:
@@ -10,7 +13,7 @@ message:
   - anything after a CALL request (the tool's result): "TOOL DONE"
   - anything else: "MOCK REPLY"
 """
-import http.server as h, json, re, sys, time
+import http.server as h, json, os, re, sys, threading, time
 
 LOG = sys.argv[2]
 SUMMARY = ("## Goal\nShip the thing\n\n## Progress\n### Done\n- [x] it\n\n## Key Decisions\n"
@@ -81,5 +84,15 @@ class H(h.BaseHTTPRequestHandler):
         self.wfile.write(b)
 
 
+def watch_parent(pid):
+    while True:
+        time.sleep(2)
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            os._exit(0)
+
+if len(sys.argv) > 3:
+    threading.Thread(target=watch_parent, args=(int(sys.argv[3]),), daemon=True).start()
 h.ThreadingHTTPServer.request_queue_size = 64
 h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()

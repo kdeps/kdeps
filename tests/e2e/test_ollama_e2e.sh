@@ -26,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Ollama LLM Integration..."
+require_real_llm "Ollama e2e" || { return 0 2>/dev/null || exit 0; }
 echo ""
 
 OLLAMA_URL="http://localhost:11434"

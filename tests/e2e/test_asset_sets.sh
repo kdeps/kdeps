@@ -28,6 +28,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+without_llm_override # this script serves its own LLM and reads what it was sent
 
 echo "Testing every kdeps asset set, published and in use..."
 
@@ -417,3 +418,4 @@ trap - EXIT
 
 echo ""
 echo "Asset sets E2E: done"
+restore_llm_override

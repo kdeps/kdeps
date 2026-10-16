@@ -28,6 +28,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 echo "Testing default llamafile (file) backend..."
+require_real_llm "llamafile e2e" || { return 0 2>/dev/null || exit 0; }
 echo ""
 
 WORKFLOW_PATH="$PROJECT_ROOT/examples/llamafile-chat/workflow.yaml"

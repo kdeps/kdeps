@@ -113,6 +113,13 @@ Generate the same snippet with `kdeps llm client-config`.
 
 Chat resources in workflow mode and agent mode keep using `chat.model`. Only the backend URL changes.
 
+To test a workflow without any model, point every chat call at a stub or mock OpenAI-compatible server. Unlike `KDEPS_LLM_BASE_URL`, this wins over a resource's own `backend:`, and no llamafile or ollama is started:
+
+```bash
+export KDEPS_LLM_OVERRIDE_URL=http://127.0.0.1:8099   # POST /v1/chat/completions; the resource's model name is sent as is
+kdeps run my-agent/workflow.yaml                       # [4/5] prints: Every chat call goes to http://127.0.0.1:8099
+```
+
 ## Stock recipes
 
 Stock recipes are the `recipes` asset set, installed and updated by `kdeps update` (`kdeps llm list`):

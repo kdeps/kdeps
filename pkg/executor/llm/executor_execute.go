@@ -39,6 +39,7 @@ func (e *Executor) Execute(
 	if err != nil {
 		return nil, err
 	}
+	applyOverrideURL(resolvedConfig)
 
 	modelStr, promptStr, fallbackRoutes, err := e.resolveModelForExecution(evaluator, ctx, resolvedConfig)
 	if err != nil {

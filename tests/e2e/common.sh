@@ -106,6 +106,53 @@ export KDEPS_SKIP_BOOTSTRAP=1
 export KDEPS_ASSETS_SRC="${KDEPS_ASSETS_SRC:-$PROJECT_ROOT/assets}"
 export KDEPS_ASSETS_URL="${KDEPS_ASSETS_URL:-off}"
 
+# Mock LLM: every chat call of every script goes to helpers/mock_llm.py
+# (KDEPS_LLM_OVERRIDE_URL), so no model is downloaded, served or waited on.
+# It is started once per run and exits with the shell that started it.
+# KDEPS_E2E_REAL_LLM=1 runs against real local models instead (the nightly
+# job); scripts that test the model servers themselves need it.
+if [ -z "${KDEPS_E2E_REAL_LLM:-}" ] && [ -z "${KDEPS_LLM_OVERRIDE_URL:-}" ] && command -v python3 >/dev/null 2>&1; then
+    E2E_MOCK_LLM_LOG="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/kdeps-mock-llm.$$")"
+    _mock_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
+    python3 "$PROJECT_ROOT/tests/e2e/helpers/mock_llm.py" "$_mock_port" "$E2E_MOCK_LLM_LOG" "$$" \
+        >/dev/null 2>&1 </dev/null &
+    for _ in $(seq 1 50); do
+        python3 -c "import socket;socket.create_connection(('127.0.0.1',$_mock_port),1)" 2>/dev/null && break
+        sleep 0.1
+    done
+    export KDEPS_LLM_OVERRIDE_URL="http://127.0.0.1:$_mock_port"
+    export E2E_MOCK_LLM_LOG
+    unset _mock_port
+fi
+
+# without_llm_override: a script that runs its own LLM server (a provider
+# under test, or a mock whose request log it reads back) calls it after
+# sourcing common.sh, and restore_llm_override at its end. A script that
+# returns early leaves the override unset; the next script's common.sh then
+# starts a fresh mock.
+without_llm_override() {
+    _E2E_SAVED_OVERRIDE="${KDEPS_LLM_OVERRIDE_URL:-}"
+    unset KDEPS_LLM_OVERRIDE_URL
+}
+restore_llm_override() {
+    if [ -n "${_E2E_SAVED_OVERRIDE:-}" ]; then
+        export KDEPS_LLM_OVERRIDE_URL="$_E2E_SAVED_OVERRIDE"
+    fi
+    unset _E2E_SAVED_OVERRIDE
+}
+
+# require_real_llm skips the calling script unless KDEPS_E2E_REAL_LLM=1: it
+# tests a real model server (download, start, serve), which the mock is not.
+# Use: require_real_llm "llamafile e2e" || return 0 2>/dev/null || exit 0
+require_real_llm() {
+    if [ -n "${KDEPS_E2E_REAL_LLM:-}" ]; then
+        return 0
+    fi
+    test_skipped "$1 - needs a real model server (KDEPS_E2E_REAL_LLM=1, run nightly)"
+    return 1
+}
+
+
 # Run against an empty config, as CI does. config.yaml values take precedence
 # over the environment, so a developer's ~/.kdeps/config.yaml (api_auth_token,
 # backends, connections) would otherwise change what these tests see.

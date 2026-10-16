@@ -8,6 +8,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+without_llm_override # this script serves its own LLM and reads what it was sent
 
 echo "Testing LLM providers declared in YAML (providers asset set)..."
 
@@ -107,3 +108,4 @@ trap - EXIT
 
 echo ""
 echo "LLM providers E2E: done"
+restore_llm_override

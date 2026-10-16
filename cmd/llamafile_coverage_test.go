@@ -148,3 +148,18 @@ func TestSetupEnvironment_SetenvError(t *testing.T) {
 	}
 	require.Error(t, SetupEnvironment(wf))
 }
+
+func TestEnsureLLMBackendStep_OverrideURLStartsNoLocalModel(t *testing.T) {
+	t.Setenv("KDEPS_LLM_OVERRIDE_URL", "http://127.0.0.1:9")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
+	orig := ensureOllamaRunningFunc
+	ensureOllamaRunningFunc = func(string) error {
+		t.Fatal("no local model server may start while every call goes to the override")
+		return nil
+	}
+	t.Cleanup(func() { ensureOllamaRunningFunc = orig })
+	wf := &domain.Workflow{
+		Resources: []*domain.Resource{{ActionID: "c", Chat: &domain.ChatConfig{Model: "llama3.2:1b"}}},
+	}
+	require.NoError(t, ensureLLMBackendStep(wf))
+}
