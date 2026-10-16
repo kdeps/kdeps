@@ -65,15 +65,7 @@ func (c *Card) SearchRoots() []string {
 // root (too big to index), the vault, and a folder the project's searches
 // already cover.
 func (v Vault) AddSearchFolder(c *Card, dir string) (string, error) {
-	cwd, _ := os.Getwd()
-	dir = strings.TrimSpace(dir)
-	if home, homeErr := os.UserHomeDir(); homeErr == nil && dir == "~" {
-		dir = home
-	}
-	p := ExpandPath(dir, cwd)
-	if resolved, err := filepath.EvalSymlinks(p); err == nil {
-		p = resolved
-	}
+	p := resolveFolder(dir)
 	info, err := os.Stat(p)
 	if err != nil {
 		return "", fmt.Errorf("%s: no such folder", p)
@@ -112,11 +104,7 @@ func (v Vault) AddSearchFolder(c *Card, dir string) (string, error) {
 
 // RemoveSearchFolder drops dir's search row from the card.
 func (v Vault) RemoveSearchFolder(c *Card, dir string) (string, error) {
-	cwd, _ := os.Getwd()
-	want := ExpandPath(strings.TrimSpace(dir), cwd)
-	if resolved, err := filepath.EvalSymlinks(want); err == nil {
-		want = resolved
-	}
+	want := resolveFolder(dir)
 	for _, f := range c.SearchFolders() {
 		if samePath(ExpandPath(f, v.Root), want) {
 			if err := c.RemoveLink(SourceSearch, f); err != nil {
@@ -129,6 +117,24 @@ func (v Vault) RemoveSearchFolder(c *Card, dir string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s is not a search folder of project %s", want, c.Name)
+}
+
+// resolveFolder turns a folder a user or model gave into a full path: ~ is
+// the home folder, a relative path is relative to the working directory, a
+// rooted one ("\\" on Windows) is the current drive's root, and symlinks are
+// resolved.
+func resolveFolder(dir string) string {
+	dir = strings.TrimSpace(dir)
+	if home, err := os.UserHomeDir(); err == nil && (dir == "~" || strings.HasPrefix(dir, "~/")) {
+		dir = filepath.Join(home, strings.TrimPrefix(strings.TrimPrefix(dir, "~"), "/"))
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
+	return filepath.Clean(dir)
 }
 
 // RemoveLink deletes the card's "| source | path |" row and re-reads the card.
