@@ -190,6 +190,59 @@ func TestPromptAndSaveConnection_HTTPBearer(t *testing.T) {
 	assert.Equal(t, "tok-123", cfg.HTTPConnections["api"].Auth.Token)
 }
 
+func TestPromptAndSaveConnection_BotUnknownPlatform(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader(""))
+	var out testWriter
+	err := PromptAndSaveConnection(ConnKindBot, "myspace", &out, in)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown bot platform")
+}
+
+func TestPromptAndSaveConnection_HTTPBasicAndAPIKeyAndProxy(t *testing.T) {
+	origFS := AppFS
+	origTerm := isStdinTerminal
+	t.Cleanup(func() {
+		AppFS = origFS
+		isStdinTerminal = origTerm
+	})
+	AppFS = afero.NewMemMapFs()
+	isStdinTerminal = func() bool { return false }
+	path := "/cfg/config.yaml"
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	in := bufio.NewReader(strings.NewReader("basic\nuser\npass\nhttp://proxy.example.com\n"))
+	var out testWriter
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-basic", &out, in))
+
+	cfg := readConfigFile(t, path)
+	auth := cfg.HTTPConnections["api-basic"].Auth
+	require.NotNil(t, auth)
+	assert.Equal(t, "basic", auth.Type)
+	assert.Equal(t, "user", auth.Username)
+	assert.Equal(t, "pass", auth.Password)
+	assert.Equal(t, "http://proxy.example.com", cfg.HTTPConnections["api-basic"].Proxy)
+
+	in = bufio.NewReader(strings.NewReader("api_key\nX-API-Key\nsecretval\n\n"))
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-key", &out, in))
+	cfg = readConfigFile(t, path)
+	auth = cfg.HTTPConnections["api-key"].Auth
+	require.NotNil(t, auth)
+	assert.Equal(t, "api_key", auth.Type)
+	assert.Equal(t, "X-API-Key", auth.Key)
+	assert.Equal(t, "secretval", auth.Value)
+
+	in = bufio.NewReader(strings.NewReader("none\n\n"))
+	require.NoError(t, PromptAndSaveConnection(ConnKindHTTP, "api-none", &out, in))
+	cfg = readConfigFile(t, path)
+	assert.Nil(t, cfg.HTTPConnections["api-none"].Auth)
+}
+
 func TestPromptAndSaveConnection_UnknownKind(t *testing.T) {
 	in := bufio.NewReader(strings.NewReader(""))
 	var out testWriter

@@ -70,3 +70,77 @@ func TestKonfigExportCmd_DefaultPath(t *testing.T) {
 	_, err := agent.ReadKonfig(filepath.Join(dir, "konfig.yaml"))
 	require.NoError(t, err)
 }
+
+// TestKonfigImportCmd_RoundTripsAnExportedFile exports the default config,
+// disables a harness section for real, then imports the exported file back
+// and confirms the section was actually re-enabled -- not just that the
+// command printed success text.
+func TestKonfigImportCmd_RoundTripsAnExportedFile(t *testing.T) {
+	isolateKonfigHome(t)
+	path := filepath.Join(t.TempDir(), "konfig.yaml")
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"konfig", "export", path})
+	require.NoError(t, root.Execute())
+
+	require.NoError(t, agent.SetHarnessEnabled("memory", false))
+	require.False(t, agent.HarnessEnabled("memory"))
+
+	root = NewRootCmd()
+	out.Reset()
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"konfig", "import", path})
+	require.NoError(t, root.Execute())
+	assert.Contains(t, out.String(), "Imported")
+	assert.True(t, agent.HarnessEnabled("memory"), "importing the exported konfig must restore the harness section")
+}
+
+// TestKonfigImportCmd_MissingFileReturnsError covers the ReadKonfig-fails
+// branch: a nonexistent path must surface as a command error, not a panic
+// or a silently-swallowed failure (unlike the REPL's /konfig import, which
+// reports the error to stdout and returns nil).
+func TestKonfigImportCmd_MissingFileReturnsError(t *testing.T) {
+	isolateKonfigHome(t)
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"konfig", "import", filepath.Join(t.TempDir(), "does-not-exist.yaml")})
+	require.Error(t, root.Execute())
+}
+
+// TestImportKonfigFlag_EmptyPathIsNoOp covers the --konfig flag helper's
+// early return when the flag was not passed.
+func TestImportKonfigFlag_EmptyPathIsNoOp(t *testing.T) {
+	assert.NoError(t, importKonfigFlag(""))
+}
+
+// TestImportKonfigFlag_AppliesAConfig covers the real apply path.
+func TestImportKonfigFlag_AppliesAConfig(t *testing.T) {
+	isolateKonfigHome(t)
+	path := filepath.Join(t.TempDir(), "konfig.yaml")
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"konfig", "export", path})
+	require.NoError(t, root.Execute())
+
+	require.NoError(t, agent.SetHarnessEnabled("memory", false))
+	require.NoError(t, importKonfigFlag(path))
+	assert.True(t, agent.HarnessEnabled("memory"))
+}
+
+// TestImportKonfigFlag_MissingFileReturnsError covers the error branch.
+func TestImportKonfigFlag_MissingFileReturnsError(t *testing.T) {
+	isolateKonfigHome(t)
+	err := importKonfigFlag(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--konfig")
+}
