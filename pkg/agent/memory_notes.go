@@ -91,7 +91,7 @@ func projectMemoryDir(root, cwd string) string {
 	if c := v.CardForDir(cwd); c != nil {
 		return filepath.Join(c.Dir(), knowledge.MemoryFolder)
 	}
-	name, _, _ := knowledge.ProjectName(cwd)
+	name, _, _ := v.NewProjectName(cwd)
 	return filepath.Join(root, knowledge.ProjectsFolder, name, knowledge.MemoryFolder)
 }
 

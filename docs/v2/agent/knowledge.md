@@ -201,7 +201,7 @@ $ kdeps knowledge build
 
 Code files are the ones git tracks or would track, so `.gitignore`d folders stay out; without git, every `.go` file outside `vendor/`, `testdata/` and hidden folders.
 
-The graph lives in the vault's hidden `.index/` folder (`graph.json` and the caches), so it travels with the vault and is never read as a note. `GRAPH_REPORT.md` and `graph.html` are written at the vault root, where you see them; the report is skipped when the vault is read, so it never becomes a note. A rebuild re-reads only changed files.
+The graph lives in the vault's hidden `.index/` folder (`graph.json` and the caches), so it travels with the vault and is never read as a note. `GRAPH_REPORT.md` and `graph.html` are written at the vault root, where you see them; the report is skipped when the vault is read, so it never becomes a note. A `GRAPH_REPORT.md` or `graph.html` of your own there is never replaced: kdeps only rewrites the ones it wrote, and yours stays a note. A rebuild re-reads only changed files.
 
 ## Model extraction
 

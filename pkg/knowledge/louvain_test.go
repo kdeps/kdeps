@@ -154,7 +154,7 @@ func TestWriteReport_InstallsTheTemplateOnFirstUse(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(assets.SourceEnv, t.TempDir()) // a release binary: nothing local
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
-	require.NoError(t, os.WriteFile(HTMLPath(dir), []byte("stale"), 0o600))
+	require.NoError(t, os.WriteFile(HTMLPath(dir), []byte("<title>Knowledge graph</title>stale"), 0o600))
 
 	var asked []string
 	assets.SetOnDemand(func(id string) bool { asked = append(asked, id); return false })
@@ -199,4 +199,30 @@ func TestBuild_ReportAtTheRootIsNotANote(t *testing.T) {
 	for _, n := range g.Nodes {
 		assert.NotEqual(t, ReportFile, n.Note)
 	}
+}
+
+func TestBuild_NeverReplacesTheUsersReportOrPage(t *testing.T) {
+	v, _ := sampleVault(t)
+	dir := filepath.Join(v.Root, IndexFolder)
+	require.NoError(t, os.WriteFile(ReportPath(v.Root), []byte("# My report\nkeep me\n"), 0o600))
+	require.NoError(t, os.WriteFile(HTMLPath(v.Root), []byte("<html>mine</html>"), 0o600))
+	g, _, err := Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	data, _ := os.ReadFile(ReportPath(v.Root))
+	assert.Contains(t, string(data), "keep me", "a GRAPH_REPORT.md of the user's is never replaced")
+	page, _ := os.ReadFile(HTMLPath(v.Root))
+	assert.Equal(t, "<html>mine</html>", string(page))
+	assert.False(t, IsGeneratedReport(v.Root))
+	var asNote bool
+	for _, n := range g.Nodes {
+		if n.Note == ReportFile {
+			asNote = true
+		}
+	}
+	assert.True(t, asNote, "the user's report is a note like any other")
+
+	require.NoError(t, os.Remove(ReportPath(v.Root)))
+	_, _, err = Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	assert.True(t, IsGeneratedReport(v.Root), "with the user's file gone, kdeps writes its report")
 }

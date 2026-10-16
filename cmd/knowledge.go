@@ -169,7 +169,13 @@ inferred edges (with the model's confidence) or ambiguous ones (below 0.5).`,
 					len(g.Missing),
 				)
 			}
-			fmt.Fprintf(out, "Graph:  %s\nReport: %s\n", knowledge.GraphPath(dir), knowledge.ReportPath(v.Root))
+			fmt.Fprintf(out, "Graph:  %s\n", knowledge.GraphPath(dir))
+			if knowledge.IsGeneratedReport(v.Root) {
+				fmt.Fprintf(out, "Report: %s\n", knowledge.ReportPath(v.Root))
+			} else {
+				fmt.Fprintf(out, "Report: not written - %s is a note of yours, kept as is\n",
+					knowledge.ReportPath(v.Root))
+			}
 			if _, statErr := os.Stat(knowledge.HTMLPath(v.Root)); statErr == nil {
 				fmt.Fprintf(out, "Explore: %s\n", knowledge.HTMLPath(v.Root))
 			} else {
@@ -308,9 +314,14 @@ graph.json and the caches stay in the vault's hidden .index/ folder.`,
 			if err != nil {
 				return err
 			}
+			if !knowledge.IsGeneratedReport(v.Root) {
+				return errors.New(
+					"no report yet: run kdeps knowledge build (a GRAPH_REPORT.md of yours is never replaced)",
+				)
+			}
 			data, err := os.ReadFile(knowledge.ReportPath(v.Root))
 			if err != nil {
-				return errors.New("no report yet: run kdeps knowledge build")
+				return err
 			}
 			out := cmd.OutOrStdout()
 			fmt.Fprint(out, string(data))

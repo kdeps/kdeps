@@ -212,15 +212,22 @@ func SplitID(id string) (string, string, error) {
 // ReadLock reads root's lock file. A missing file is an empty lock.
 func ReadLock(root string) (Lock, error) {
 	lock := Lock{Items: map[string]LockEntry{}}
-	data, err := os.ReadFile(filepath.Join(root, lockFileName))
+	if info, statErr := os.Stat(root); statErr == nil && !info.IsDir() {
+		return lock, fmt.Errorf("assets: the asset store %s is a file, not a folder; move it away "+
+			"(or set KDEPS_ASSETS_DIR) and run kdeps profile", root)
+	}
+	file := filepath.Join(root, lockFileName)
+	data, err := os.ReadFile(file)
 	if errors.Is(err, fs.ErrNotExist) {
 		return lock, nil
 	}
 	if err != nil {
-		return lock, fmt.Errorf("assets: read lock: %w", err)
+		return lock, fmt.Errorf("assets: read %s: %w", file, err)
 	}
 	if parseErr := json.Unmarshal(data, &lock); parseErr != nil {
-		return Lock{Items: map[string]LockEntry{}}, fmt.Errorf("assets: parse lock: %w", parseErr)
+		return Lock{Items: map[string]LockEntry{}}, fmt.Errorf(
+			"assets: %s is corrupt (%w); delete it and run kdeps profile to record what is installed again",
+			file, parseErr)
 	}
 	if lock.Items == nil {
 		lock.Items = map[string]LockEntry{}

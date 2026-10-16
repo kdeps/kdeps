@@ -19,6 +19,8 @@
 package python_test
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -56,7 +58,7 @@ func TestManager_GetVenvName_WithPackages(t *testing.T) {
 	manager := python.NewManager("/tmp")
 
 	name := manager.GetVenvName("3.11", []string{"pandas", "numpy"}, "")
-	assert.Equal(t, "venv-3.11-pandas-numpy", name) // Joins all packages
+	assert.Equal(t, "venv-3.11-numpy-pandas", name) // Joins all packages, sorted
 }
 
 func TestManager_GetVenvName_WithRequirements(t *testing.T) {
@@ -183,9 +185,10 @@ func TestManager_GetPythonPath_PrefersUnix(t *testing.T) {
 func TestManager_EnsureVenv_AlreadyExists(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
-	// Create a venv directory
+	// Create a venv directory that finished building
 	venvPath := filepath.Join(manager.BaseDir, "venv-3.12")
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv
 	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
@@ -260,7 +263,7 @@ func TestManager_getVenvName_SpecialCharacters(t *testing.T) {
 		[]string{"package-name", "package_name", "package.name"},
 		"",
 	)
-	assert.Equal(t, "venv-3.12-package-name-package_name-package.name", name)
+	assert.Equal(t, "venv-3.12-package-name-package.name-package_name", name)
 }
 
 func TestManager_getVenvName_EmptyPythonVersion(t *testing.T) {
@@ -276,7 +279,7 @@ func TestManager_getVenvName_VeryLongPackageList(t *testing.T) {
 	// Create a long list of packages
 	packages := make([]string, 10)
 	for i := range 10 {
-		packages[i] = strings.Repeat("a", 50) // Very long package names
+		packages[i] = strings.Repeat(string(rune('j'-i)), 50) // Very long package names, declared in reverse
 	}
 
 	name := manager.GetVenvName("3.12", packages, "")
@@ -285,7 +288,7 @@ func TestManager_getVenvName_VeryLongPackageList(t *testing.T) {
 		t,
 		strings.HasPrefix(
 			name,
-			"venv-3.12-"+strings.Repeat("a", 50)+"-"+strings.Repeat("a", 50)+"-"+strings.Repeat("a", 50)+"-",
+			"venv-3.12-"+strings.Repeat("a", 50)+"-"+strings.Repeat("b", 50)+"-"+strings.Repeat("c", 50)+"-",
 		),
 	)
 	assert.Regexp(t, `-[0-9a-f]{8}$`, name)
@@ -701,6 +704,7 @@ func TestManager_EnsureVenv_VenvNameReusesExisting(t *testing.T) {
 	customVenvName := "existing-env"
 	venvPath := filepath.Join(manager.BaseDir, customVenvName)
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv with venv name
 	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", customVenvName)
@@ -741,4 +745,76 @@ func TestIOToolsBaseDir_UserCacheDirFallback(t *testing.T) {
 	dir := python.IOToolsBaseDir()
 	assert.NotEmpty(t, dir)
 	assert.Contains(t, dir, "kdeps-io-venvs")
+}
+
+func TestGetVenvName_OneSetOneNameInAnyOrder(t *testing.T) {
+	m := python.NewManager("/tmp")
+	a := m.GetVenvName("3.12", []string{"requests", "playwright", "pdfkit", "icalendar"}, "")
+	b := m.GetVenvName("3.12", []string{"pdfkit", "icalendar", "playwright", "requests", "pdfkit"}, "")
+	assert.Equal(t, a, b, "components merge in map order: the same set must name the same venv")
+}
+
+func TestEnsureVenv_RebuildsAHalfBuiltVenv(t *testing.T) {
+	base := t.TempDir()
+	m := python.NewManager(base)
+	name := m.GetVenvName("3.12", []string{"requests"}, "")
+	// A run killed after uv venv, before the packages were installed.
+	require.NoError(t, os.MkdirAll(filepath.Join(base, name, "bin"), 0o750))
+
+	var calls [][]string
+	orig := python.RunUVFunc
+	python.RunUVFunc = func(_ context.Context, args []string, _ []string) error {
+		calls = append(calls, args)
+		if args[0] == "venv" {
+			return os.MkdirAll(filepath.Join(args[len(args)-1], "bin"), 0o750)
+		}
+		return nil
+	}
+	t.Cleanup(func() { python.RunUVFunc = orig })
+
+	path, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	require.NoError(t, err)
+	require.Len(t, calls, 2, "the half-built venv is rebuilt: uv venv, then pip install")
+	assert.Contains(t, calls[1], "requests")
+	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
+	assert.NoFileExists(t, path+".lock", "the build lock is released")
+
+	calls = nil
+	_, err = m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	require.NoError(t, err)
+	assert.Empty(t, calls, "a ready venv is reused as is")
+}
+
+func TestEnsureVenv_FailedInstallIsNotTrustedNextTime(t *testing.T) {
+	base := t.TempDir()
+	m := python.NewManager(base)
+	orig := python.RunUVFunc
+	failInstall := true
+	python.RunUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			return os.MkdirAll(args[len(args)-1], 0o750)
+		}
+		if failInstall {
+			return errors.New("network down")
+		}
+		return nil
+	}
+	t.Cleanup(func() { python.RunUVFunc = orig })
+
+	_, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	require.Error(t, err)
+	failInstall = false
+	path, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
+}
+
+func TestGetVenvName_SpecifiersMakeASafeName(t *testing.T) {
+	m := python.NewManager("/tmp")
+	lt := m.GetVenvName("3.12", []string{"matplotlib<3.7.0"}, "")
+	gt := m.GetVenvName("3.12", []string{"matplotlib>3.7.0"}, "")
+	assert.Regexp(t, `^venv-3\.12-matplotlib_3\.7\.0-[0-9a-f]{8}$`, lt)
+	assert.NotEqual(t, lt, gt, "two specifiers of one package are two venvs")
+	assert.NotContains(t, m.GetVenvName("3.12", []string{"a>=1", "b[extra]", "c:1", "d*"}, ""), ">")
+	assert.Equal(t, "venv-3.12-requests==2.31.0", m.GetVenvName("3.12", []string{"requests==2.31.0"}, ""))
 }

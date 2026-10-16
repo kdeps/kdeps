@@ -202,7 +202,7 @@ func (r Report) Markdown(vault string) string {
 	if r.Edges > 0 {
 		pct = r.Extracted * 100 / r.Edges //nolint:mnd // percent
 	}
-	fmt.Fprintf(&b, "# Knowledge graph report\n\nVault: %s\n\n## Summary\n\n", vault)
+	fmt.Fprintf(&b, "%s\n\nVault: %s\n\n## Summary\n\n", reportMarker, vault)
 	fmt.Fprintf(
 		&b,
 		"| Notes | Nodes | Edges | Extracted edges | Communities | Modularity |\n|---|---|---|---|---|---|\n",
@@ -280,21 +280,54 @@ func nodeRef(n *Node) string {
 // the templates set out); offline without it, only the report is written.
 func writeReport(g *Graph, modularity float64, dir string) error {
 	md := NewReport(g, modularity).Markdown(g.Vault)
-	if err := os.WriteFile(filepath.Join(dir, reportFile), []byte(md), filePerm); err != nil {
-		return err
+	if ours(filepath.Join(dir, reportFile), reportMarker) {
+		if err := os.WriteFile(filepath.Join(dir, reportFile), []byte(md), filePerm); err != nil {
+			return err
+		}
+	}
+	page := filepath.Join(dir, htmlFile)
+	if !ours(page, htmlMarker) {
+		return nil // a page of the user's own: never replaced
 	}
 	tmpl, err := knowledgeTemplateFile(htmlTemplate)
 	if err != nil {
-		_ = os.Remove(filepath.Join(dir, htmlFile)) // never leave a stale page behind
-		return nil                                  //nolint:nilerr // no template: the report is enough
+		_ = os.Remove(page) // never leave a stale page behind
+		return nil          //nolint:nilerr // no template: the report is enough
 	}
 	data, err := json.Marshal(g)
 	if err != nil {
 		return err
 	}
 	safe := strings.ReplaceAll(string(data), "</", `<\/`)
-	page := strings.Replace(string(tmpl), htmlDataSlot, safe, 1)
-	return os.WriteFile(filepath.Join(dir, htmlFile), []byte(page), filePerm)
+	return os.WriteFile(page, []byte(strings.Replace(string(tmpl), htmlDataSlot, safe, 1)), filePerm)
+}
+
+// Markers of the files kdeps writes at the vault root: a file there that
+// lacks its marker is the user's, and kdeps never replaces it.
+const (
+	reportMarker = "# Knowledge graph report"
+	htmlMarker   = "<title>Knowledge graph</title>"
+	markerWindow = 512
+)
+
+// ours reports whether file is missing or one kdeps wrote (its first bytes
+// hold marker).
+func ours(file, marker string) bool {
+	f, err := os.Open(file)
+	if err != nil {
+		return true
+	}
+	defer f.Close()
+	head := make([]byte, markerWindow)
+	n, _ := f.Read(head)
+	return strings.Contains(string(head[:n]), marker)
+}
+
+// IsGeneratedReport reports whether the vault root's GRAPH_REPORT.md is the
+// one kdeps writes (not a note of the user's with that name).
+func IsGeneratedReport(root string) bool {
+	_, err := os.Stat(ReportPath(root))
+	return err == nil && ours(ReportPath(root), reportMarker)
 }
 
 // knowledgeTemplateFile reads a file of the templates/knowledge bundle,

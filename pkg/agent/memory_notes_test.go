@@ -153,3 +153,19 @@ func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
 	g.Rebase()
 	assert.Equal(t, filepath.Join(root, "shared", "memory"), g.path, "global memory never moves")
 }
+
+func TestProjectMemoryDir_FollowsTheNameClashRule(t *testing.T) {
+	root := t.TempDir()
+	v := knowledge.Vault{Root: root}
+	_, _, err := v.CreateProject("work", knowledge.SourceFolder, "/elsewhere/work", time.Now())
+	require.NoError(t, err)
+	cwd := filepath.Join(t.TempDir(), "clash", "work")
+	require.NoError(t, os.MkdirAll(cwd, 0o750))
+	dir := projectMemoryDir(root, cwd)
+	card, created, err := v.EnsureProject(cwd, time.Now())
+	require.NoError(t, err)
+	assert.True(t, created)
+	assert.Equal(t, "clash-work", card.Name)
+	assert.Equal(t, filepath.Join(card.Dir(), "memory"), dir,
+		"memory saved before the project exists lands in the folder the project then gets")
+}
