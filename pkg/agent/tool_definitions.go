@@ -21,6 +21,8 @@ package agent
 import (
 	"fmt"
 	"maps"
+	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -45,6 +47,10 @@ type toolDefinition struct {
 	OutputFormat string                      `yaml:"outputFormat,omitempty"`
 	SeeAlso      string                      `yaml:"seeAlso,omitempty"`
 	Parameters   map[string]domain.ToolParam `yaml:"parameters,omitempty"`
+	// Aliases are other names a model may call the tool by (bash for
+	// bash_exec): a call to one runs the tool. The model is shown only the
+	// tool's own name.
+	Aliases []string `yaml:"aliases,omitempty"`
 	// HTTP, when set, implements the tool as one HTTP call (see httpToolSpec).
 	HTTP *httpToolSpec `yaml:"http,omitempty"`
 	// Exec, when set, implements the tool as one program run (see execToolSpec).
@@ -56,6 +62,71 @@ type toolDefinition struct {
 //
 //nolint:gochecknoglobals // parsed from the asset set
 var toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
+
+// toolAliases maps each alias (lower case) to the tool name it calls, from
+// the definitions' aliases. Rebuilt with toolDefinitions.
+//
+//nolint:gochecknoglobals // derived from toolDefinitions
+var toolAliases = aliasesOf(toolDefinitions)
+
+// toolNameRe is what a tool name or alias may be.
+var toolNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.-]*$`)
+
+// aliasesOf maps the definitions' aliases to their tools. A real tool name
+// is never an alias, and an alias two tools claim is dropped with a warning
+// rather than sending the call to either.
+func aliasesOf(defs map[string]toolDefinition) map[string]string {
+	names := make(map[string]bool, len(defs))
+	ids := make([]string, 0, len(defs))
+	for id, d := range defs {
+		names[strings.ToLower(toolNameOf(id, d))] = true
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := map[string]string{}
+	claimed := map[string]bool{}
+	for _, id := range ids {
+		d := defs[id]
+		for _, a := range d.Aliases {
+			key := strings.ToLower(strings.TrimSpace(a))
+			if key == "" || names[key] {
+				continue
+			}
+			if prev, taken := out[key]; taken && prev != toolNameOf(id, d) {
+				warnAsset(
+					fmt.Errorf("tool alias %q is claimed by %s and %s: neither gets it", key, prev, toolNameOf(id, d)),
+				)
+				claimed[key] = true
+				continue
+			}
+			out[key] = toolNameOf(id, d)
+		}
+	}
+	for key := range claimed {
+		delete(out, key)
+	}
+	return out
+}
+
+// toolNameOf is the name a definition registers its tool under.
+func toolNameOf(id string, d toolDefinition) string {
+	if d.Name != "" {
+		return d.Name
+	}
+	return id
+}
+
+// resolveToolName is the tool a call names: name itself when has(name), else
+// the tool its alias stands for (case-insensitive), else name unchanged.
+func resolveToolName(name string, has func(string) bool) string {
+	if has(name) {
+		return name
+	}
+	if target, ok := toolAliases[strings.ToLower(strings.TrimSpace(name))]; ok && has(target) {
+		return target
+	}
+	return name
+}
 
 // loadToolDefinitionsFrom parses every tools/*.yaml file in fsys. A file that
 // cannot be read or parsed is skipped with a warning (see warnAsset).

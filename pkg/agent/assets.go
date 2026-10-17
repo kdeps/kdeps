@@ -149,6 +149,11 @@ func validateToolDefinition(data []byte, _ string) error {
 	if d.Description == "" {
 		return errors.New("description is required")
 	}
+	for _, a := range d.Aliases {
+		if !toolNameRe.MatchString(a) {
+			return fmt.Errorf("alias %q is not a tool name (letters, digits, _ . -)", a)
+		}
+	}
 	switch {
 	case d.HTTP != nil && d.Exec != nil:
 		return errors.New("a tool declares http: or exec:, not both")

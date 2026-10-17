@@ -52,14 +52,14 @@ func TestRegistryAssetCommands(t *testing.T) {
 	// Before the Setenv calls: reload once they are undone.
 	t.Cleanup(agent.ReloadAssets)
 	dir := t.TempDir()
-	body := []byte("version: 1.1.0\ndescription: Newer tail text.\n")
-	p := filepath.Join(dir, filepath.FromSlash(assets.PublishedPath("tools/tail_file", "1.1.0")))
+	body := []byte("version: 9.1.0\ndescription: Newer tail text.\n")
+	p := filepath.Join(dir, filepath.FromSlash(assets.PublishedPath("tools/tail_file", "9.1.0")))
 	require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o750))
 	require.NoError(t, os.WriteFile(p, body, 0o600))
 	require.NoError(t, assets.WriteIndex(dir, assets.Index{Items: map[string]assets.IndexItem{
 		"tools/tail_file": {
-			Latest:   "1.1.0",
-			Versions: []assets.IndexVersion{{Version: "1.1.0", SHA256: assets.Sum(body)}},
+			Latest:   "9.1.0",
+			Versions: []assets.IndexVersion{{Version: "9.1.0", SHA256: assets.Sum(body)}},
 		},
 	}}))
 	srv := httptest.NewServer(http.FileServer(http.Dir(dir)))
@@ -87,13 +87,13 @@ func TestRegistryAssetCommands(t *testing.T) {
 	_, err = run("update", "--check", "some-package")
 	require.ErrorIs(t, err, errCheckPackages)
 
-	out, err = run("install", "tools/tail_file@1.1.0")
+	out, err = run("install", "tools/tail_file@9.1.0")
 	require.NoError(t, err)
 	assert.Contains(t, out, "pin")
 
 	out, err = run("list", "--assets")
 	require.NoError(t, err)
-	assert.Regexp(t, `tools/tail_file\s+1\.1\.0\s+pinned`, out)
+	assert.Regexp(t, `tools/tail_file\s+9\.1\.0\s+pinned`, out)
 
 	out, err = run("uninstall", "themes/vim,themes/linux")
 	require.NoError(t, err)

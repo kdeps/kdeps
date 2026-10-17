@@ -1,5 +1,6 @@
-version: 1.0.0
+version: 1.1.0
 category: web
+aliases: [websearch, search_web, internet_search]  # other names a model may call it by; the model is shown only this tool's name
 description: Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.
 constraints: limit searches to 3 per topic; never repeat the same query; US-only results
 outputFormat: JSON with title, url, and snippet per result

@@ -1,4 +1,5 @@
-version: 1.0.0
+version: 1.1.0
+aliases: [ls, list_dir, list_directory, dir]  # other names a model may call it by; the model is shown only this tool's name
 description: List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Omit path to list the current working directory.
 parameters:
   path:

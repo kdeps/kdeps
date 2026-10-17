@@ -9,6 +9,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+without_llm_override # this script serves its own LLM and reads what it was sent
 
 echo "Testing declared HTTP tools (tool assets with an http: block)..."
 
@@ -140,3 +141,4 @@ trap - EXIT
 
 echo ""
 echo "Declared HTTP tools E2E: done"
+restore_llm_override

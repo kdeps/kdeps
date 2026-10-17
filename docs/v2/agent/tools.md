@@ -35,9 +35,42 @@ parameters:
 ```
 
 Optional fields: `constraints` (limits and gotchas, shown inline), `outputFormat`
-(what the tool returns), and `name` (the tool name the model sees, when it
+(what the tool returns), `name` (the tool name the model sees, when it
 differs from the file name: goal mode's `goal_task_complete.yaml` registers as
-`task_complete`).
+`task_complete`), and `aliases` (see below).
+
+## Tool aliases
+
+A model trained on another agent often calls a tool by the name it knows - `bash`, `cat`, `grep`, `str_replace_editor` - and gets "tool not found". A definition lists those names under `aliases`, and a call to one runs the tool:
+
+```yaml
+# tools/bash_exec.yaml
+version: 1.1.0
+category: shell
+aliases: [bash, shell, sh, terminal, run_command, execute_command, run_terminal_cmd, run_shell_command, exec_command]
+```
+
+```text
+model calls:   bash {"cmd": "go test ./..."}
+kdeps runs:    bash_exec {"command": "go test ./..."}   # the alias picks the tool, then the argument synonyms below map cmd -> command
+```
+
+The model is shown only the tool's own name, so aliases add nothing to the prompt. Matching ignores case, a real tool's name always wins over an alias, and an alias two tools claim goes to neither (kdeps warns at load). Permissions, logging and the result all use the tool's own name. Shipped aliases:
+
+| Tool | Aliases |
+|---|---|
+| `bash_exec` | `bash`, `shell`, `sh`, `terminal`, `run_command`, `execute_command`, `run_terminal_cmd`, `run_shell_command`, `exec_command` |
+| `read_file` | `read`, `cat`, `view_file`, `open_file`, `read_text_file` |
+| `write_file` | `write`, `create_file`, `save_file`, `write_to_file` |
+| `edit_file` | `edit`, `str_replace_editor`, `str_replace_based_edit_tool`, `replace_in_file`, `edit_text_file` |
+| `list_files` | `ls`, `list_dir`, `list_directory`, `dir` |
+| `search_local` | `grep`, `rg`, `ripgrep`, `search_files`, `find_in_files`, `codebase_search`, `grep_search` |
+| `tail_file` | `tail` |
+| `web_search` | `websearch`, `search_web`, `internet_search` |
+| `web_scraper` | `fetch`, `web_fetch`, `fetch_url`, `read_url` |
+| `memory_save` | `remember`, `save_memory` |
+
+A name that is neither a tool nor an alias still returns `{"error": "tool \"<name>\" not found"}`.
 
 ## Declared HTTP tools
 
@@ -147,7 +180,7 @@ A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the mode
 
 ## Parameter-name synonyms
 
-A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. This is scoped to parameter names only: kdeps does not maintain a separate table of alternate *tool* names (e.g. routing a call to `grep` as if it were `search_local`) - the tool list already tells the model the real name to call, and a second, silently-redirecting name for the same tool added maintenance cost without fixing the cases where a model loses track of what tools it has.
+A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. Alternate *tool* names are [tool aliases](#tool-aliases), declared in each tool's definition.
 
 ## Failed tool calls are fed back to the model
 

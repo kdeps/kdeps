@@ -38,9 +38,12 @@ def reply_for(msgs):
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user" and "CALL " in text(m)]
     if calls and calls[-1] != len(msgs) - 1:
         return "TOOL DONE"  # the tool ran: its result follows the CALL request
-    m = re.search(r"CALL (\w+) (\{.*\})", last, re.S)
+    m = re.search(r"CALL (\w+) (?=\{)", last)
     if m:
-        name, args = m.group(1), json.loads(m.group(2))
+        # One JSON object after the name: text after it (a refined prompt's
+        # tail, a newline) is not part of the arguments.
+        args, _ = json.JSONDecoder().raw_decode(last[m.end():])
+        name = m.group(1)
         params = "".join('<parameter name="%s">%s</parameter>\n' % (k, v) for k, v in args.items())
         return '<invoke name="%s">\n%s</invoke>' % (name, params)
     return "MOCK REPLY"

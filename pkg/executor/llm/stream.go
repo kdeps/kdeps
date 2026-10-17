@@ -105,6 +105,11 @@ func langchainBaseURL(backend string) (string, bool) {
 // buildLangchainLLM constructs a langchaingo LLM from cfg, optionally wrapped
 // in a process-lifetime in-memory response cache when cfg.UseCache is true.
 func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
+	if u := OverrideURL(); u != "" {
+		// KDEPS_LLM_OVERRIDE_URL takes the agent loop's streamed calls too,
+		// not only workflow chat resources.
+		return overrideLLM(cfg, u)
+	}
 	backend := cfg.Backend
 	if backend == "" {
 		backend = BackendFile

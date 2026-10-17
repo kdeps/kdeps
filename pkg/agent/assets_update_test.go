@@ -334,9 +334,9 @@ func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
 func TestAssetUpdateNotice(t *testing.T) {
 	root := serveAssets(t, map[string]string{
 		"tools/md5_file@1.1.0":   newerMD5Def,
-		"tools/tail_file@1.1.0":  "version: 1.1.0\ndescription: t\n",
-		"tools/read_file@1.1.0":  "version: 1.1.0\ndescription: r\n",
-		"tools/write_file@1.1.0": "version: 1.1.0\ndescription: w\n",
+		"tools/tail_file@9.1.0":  "version: 9.1.0\ndescription: t\n",
+		"tools/read_file@9.1.0":  "version: 9.1.0\ndescription: r\n",
+		"tools/write_file@9.1.0": "version: 9.1.0\ndescription: w\n",
 	})
 	assert.Empty(t, AssetUpdateNotice(context.Background()), "silent before the first run")
 	require.NoError(t, assets.MarkInitialized(root))
