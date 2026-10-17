@@ -22,9 +22,11 @@ package debug
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -38,13 +40,29 @@ const (
 var (
 	mu    sync.Mutex
 	chain []string
+	// sink, when set, receives every trace line (an instrumented session's
+	// trace.log); quiet then keeps the lines off stderr.
+	sink  io.Writer
+	quiet bool
 )
 
+// SetSink sends trace lines to w as well (nil stops), and with quiet only
+// to w: an instrumented session records the trace without flooding the
+// terminal.
+func SetSink(w io.Writer, onlySink bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	sink, quiet = w, onlySink && w != nil
+}
+
 // Enabled returns true if call-chain instrumentation is enabled.
-// Primary trigger: KDEPS_INSTRUMENT=true (set by --instrument flag).
-// Legacy fallback: KDEPS_DEBUG=true or DEBUG=true (backward compat).
+// A session sink (kdeps --instrument) enables it, as do
+// KDEPS_INSTRUMENT=true, KDEPS_DEBUG=true and DEBUG=true.
 func Enabled() bool {
-	return os.Getenv("KDEPS_INSTRUMENT") == enabledValue ||
+	mu.Lock()
+	hasSink := sink != nil
+	mu.Unlock()
+	return hasSink || os.Getenv("KDEPS_INSTRUMENT") == enabledValue ||
 		os.Getenv("KDEPS_DEBUG") == enabledValue ||
 		os.Getenv("DEBUG") == enabledValue
 }
@@ -118,7 +136,13 @@ func flushGroup(group []string) {
 	if len(group) == 0 {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "%s\n", colorize(formatFlushLine(group)))
+	line := formatFlushLine(group)
+	if sink != nil {
+		fmt.Fprintf(sink, "%s %s\n", time.Now().UTC().Format("15:04:05.000"), line)
+	}
+	if !quiet {
+		fmt.Fprintf(os.Stderr, "%s\n", colorize(line))
+	}
 }
 
 // Log appends the function name to the running call chain. Each group of

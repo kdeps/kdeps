@@ -24,12 +24,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/instrument"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
 
@@ -73,6 +76,7 @@ func Execute(v, c string) error {
 	rootCmd := config.GetRootCommand()
 	err := rootCmd.Execute()
 	kdeps_debug.Flush()
+	endInstrumentation(os.Stderr, err)
 	return err
 }
 
@@ -122,7 +126,10 @@ func createRootCommand() *cobra.Command {
 
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
-	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
+	rootCmd.PersistentFlags().String("instrument", "",
+		"Record this run as a named debugging session in ~/.kdeps/instrument/<name>/ (--instrument=<name>; "+
+			"bare --instrument picks a timestamp): every log line, model call and tool call, for a model to read")
+	rootCmd.PersistentFlags().Lookup("instrument").NoOptDefVal = instrumentAuto
 
 	rootCmd.Flags().Bool("upgrade", false, "Check for and install the latest kdeps release, then exit")
 	rootCmd.Flags().Bool(
@@ -195,7 +202,7 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify",
+	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify", "instrument",
 	"help", "completion", "__complete", "__completeNoDesc",
 }
 
@@ -283,12 +290,47 @@ func bootstrapRootConfig() {
 	}
 }
 
+// instrumentAuto is --instrument without a name: the session is named by
+// its start time.
+const instrumentAuto = "\x00auto"
+
+// maybeEnableInstrumentation starts the session --instrument names: the
+// call-chain trace and every log record go to its trace.log (off the
+// terminal, unless --debug), and model and tool calls to its events.ndjson.
 func maybeEnableInstrumentation(cmd *cobra.Command) {
-	instrFlag, err := cmd.Flags().GetBool("instrument")
-	if err != nil || !instrFlag {
+	name, err := cmd.Flags().GetString("instrument")
+	if err != nil || name == "" {
 		return
 	}
-	_ = os.Setenv("KDEPS_INSTRUMENT", "true")
+	if name == instrumentAuto {
+		name = ""
+	}
+	s, err := instrument.Start(name, os.Args[1:], time.Now())
+	if err != nil {
+		kdepslog.Warn("instrumented session not started", "error", err)
+		return
+	}
+	debugFlag, _ := cmd.Flags().GetBool("debug")
+	kdeps_debug.SetSink(s.Trace(), !debugFlag)
+	kdepslog.AddSink(s.Trace())
+	fmt.Fprintf(os.Stderr, "Recording instrumented session %s in %s\n", s.Name, s.Dir)
+}
+
+// endInstrumentation closes the running session, if any, and says where it
+// is and how to hand it to a model.
+func endInstrumentation(w io.Writer, runErr error) {
+	s := instrument.Active()
+	if s == nil {
+		return
+	}
+	kdeps_debug.SetSink(nil, false)
+	kdepslog.DropSink()
+	if err := s.Close(runErr); err != nil {
+		fmt.Fprintf(w, "instrumented session %s: %v\n", s.Name, err)
+	}
+	fmt.Fprintf(w, "Instrumented session %s saved in %s\n"+
+		"  Give it to a model to debug: kdeps instrument show %s (or read %s)\n",
+		s.Name, s.Dir, s.Name, filepath.Join(s.Dir, instrument.SessionFile))
 }
 
 // addSubcommands registers all subcommands to the root command.
@@ -324,6 +366,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKnowledgeCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newInstrumentCmd())
 }
 
 func addPackageCommands(rootCmd *cobra.Command) {

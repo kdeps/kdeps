@@ -19,7 +19,10 @@
 package executor
 
 import (
+	"encoding/json"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/instrument"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
@@ -27,14 +30,44 @@ import (
 
 // SetEmitter configures the event emitter for this engine.
 // Call before Execute to receive structured lifecycle events.
+// In an instrumented session the events are recorded there too.
 func (e *Engine) SetEmitter(em events.Emitter) {
 	kdeps_debug.Log("enter: SetEmitter")
 	if em == nil {
-		e.emitter = events.NopEmitter{}
+		e.emitter = withInstrument(events.NopEmitter{})
 		return
 	}
-	e.emitter = em
+	e.emitter = withInstrument(em)
 }
+
+// withInstrument adds the instrumented session's recorder to em, when a
+// session is recording.
+func withInstrument(em events.Emitter) events.Emitter {
+	if instrument.Active() == nil {
+		return em
+	}
+	if _, nop := em.(events.NopEmitter); nop {
+		return instrumentEmitter{}
+	}
+	return events.NewMultiEmitter(em, instrumentEmitter{})
+}
+
+// instrumentEmitter records workflow events in the instrumented session.
+type instrumentEmitter struct{}
+
+func (instrumentEmitter) Emit(ev events.Event) {
+	data, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	var fields map[string]any
+	if json.Unmarshal(data, &fields) != nil {
+		return
+	}
+	instrument.Event("workflow", fields)
+}
+
+func (instrumentEmitter) Close() {}
 
 // SetRegistry sets the executor registry.
 func (e *Engine) SetRegistry(registry *Registry) {
