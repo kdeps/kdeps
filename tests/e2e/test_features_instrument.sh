@@ -17,75 +17,147 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for the --instrument flag (call-chain instrumentation tracing).
+# E2E tests for instrumented sessions (kdeps --instrument=<name>).
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing --instrument flag..."
+echo "Testing instrumented sessions..."
 
-# Test 1: --instrument appears in help output
 HELP_OUT=$("$KDEPS_BIN" --help 2>&1 || true)
-if output_grep_fixed "instrument" "$HELP_OUT"; then
+if output_grep_fixed --instrument "$HELP_OUT"; then
     test_passed "instrument - flag appears in help"
 else
-    test_failed "instrument - flag appears in help" "no 'instrument' in help output"
+    test_failed "instrument - flag appears in help" "no '--instrument' in help output"
 fi
 
-# Test 2: validate accepts --instrument without error
-TMPDIR=$(mktemp -d)
-cat > "$TMPDIR/workflow.yaml" <<'EOF'
+CMD_HELP=$("$KDEPS_BIN" instrument --help 2>&1 || true)
+if output_grep_fixed "instrument list" "$CMD_HELP" && output_grep_fixed "instrument show" "$CMD_HELP" \
+    && output_grep_fixed "instrument path" "$CMD_HELP" && output_grep_fixed "instrument rm" "$CMD_HELP"; then
+    test_passed "instrument - list, show, path and rm are in help"
+else
+    test_failed "instrument - list, show, path and rm are in help" "$CMD_HELP"
+fi
+
+INST_ROOT=$(mktemp -d)
+WF_DIR=$(mktemp -d)
+RUN_LOG=$(mktemp)
+cat > "$WF_DIR/workflow.yaml" << 'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
-  name: instrument-test
+  name: instrument-e2e
   version: "1.0.0"
-  targetActionId: greet
+  targetActionId: response
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  input:
-    sources: [file]
-    file:
-      path: /dev/null
-EOF
-sed -i "s#/dev/null#$NULL_PATH#" "$TMPDIR/workflow.yaml"
-mkdir -p "$TMPDIR/resources"
-cat > "$TMPDIR/resources/greet.yaml" <<'EOF'
-actionId: greet
-name: Greet
-exec:
-  command: echo
-  args: ["hello"]
+resources:
+  - actionId: response
+    name: Test Response
+    apiResponse:
+      success: true
+      response:
+        message: "instrumented"
 EOF
 
-OUT=$("$KDEPS_BIN" validate --instrument "$TMPDIR/workflow.yaml" 2>&1 || true)
-if ! output_grep_i "unknown flag|invalid flag|unrecognized" "$OUT"; then
-    test_passed "instrument - validate accepts --instrument flag"
+if KDEPS_INSTRUMENT_ROOT="$INST_ROOT" timeout 60 "$KDEPS_BIN" run "$WF_DIR/workflow.yaml" --instrument=e2e-session >"$RUN_LOG" 2>&1; then
+    test_passed "instrument - run with --instrument=e2e-session exits"
 else
-    test_failed "instrument - validate accepts --instrument flag" "flag rejected: $OUT"
+    test_failed "instrument - run with --instrument=e2e-session exits" "exit $?; $(tail -20 "$RUN_LOG")"
 fi
 
-# Test 3: run with --instrument produces trace output (ENTER/LEAVE or function names)
-SERVER_LOG=$(mktemp)
-"$KDEPS_BIN" run "$TMPDIR" --file "$NULL_PATH" --instrument >"$SERVER_LOG" 2>&1 &
-SERVER_PID=$!
-sleep 4
-kill "$SERVER_PID" 2>/dev/null || true
-wait "$SERVER_PID" 2>/dev/null || true
-
-COMBINED=$(cat "$SERVER_LOG")
-# --instrument emits trace lines to stderr/stdout; look for any trace indicator
-if output_grep_i "enter|leave|trace|instrument|call" "$COMBINED"; then
-    test_passed "instrument - run with --instrument emits trace output"
+RUN_OUT=$(cat "$RUN_LOG")
+if output_grep_fixed "Recording instrumented session e2e-session" "$RUN_OUT" \
+    && output_grep_fixed "Instrumented session e2e-session saved" "$RUN_OUT"; then
+    test_passed "instrument - run says where the session was saved"
 else
-    # The flag is accepted and workflow runs; instrumentation may be no-op in some modes
-    test_skipped "instrument - run with --instrument trace output (no trace lines found; may require debug-enabled build)"
+    test_failed "instrument - run says where the session was saved" "$RUN_OUT"
 fi
 
-rm -f "$SERVER_LOG"
-rm -rf "$TMPDIR"
+# The call chain is for the file. It stays off the terminal unless --debug.
+if output_grep_fixed "(setupEngine)" "$RUN_OUT" || output_grep_fixed "(NewEngine)" "$RUN_OUT"; then
+    test_failed "instrument - call chain stays off the terminal" "trace lines leaked to the terminal"
+else
+    test_passed "instrument - call chain stays off the terminal"
+fi
 
+SESS="$INST_ROOT/e2e-session"
+if [ -f "$SESS/session.md" ] && [ -f "$SESS/events.ndjson" ] && [ -f "$SESS/trace.log" ]; then
+    test_passed "instrument - session folder has session.md, events.ndjson and trace.log"
+else
+    test_failed "instrument - session folder has session.md, events.ndjson and trace.log" "$(ls -la "$SESS" 2>&1 || echo missing)"
+fi
+
+if grep -q '"kind":"session_end"' "$SESS/events.ndjson" \
+    && grep -q '"kind":"workflow"' "$SESS/events.ndjson" \
+    && grep -q '"event":"workflow.started"' "$SESS/events.ndjson" \
+    && grep -q 'resource.completed' "$SESS/events.ndjson"; then
+    test_passed "instrument - events record the workflow run and its end"
+else
+    test_failed "instrument - events record the workflow run and its end" "$(cat "$SESS/events.ndjson" 2>&1 || true)"
+fi
+
+if grep -q "Ended:" "$SESS/session.md" && grep -q "How to read this session" "$SESS/session.md"; then
+    test_passed "instrument - session.md closes with the reading guide"
+else
+    test_failed "instrument - session.md closes with the reading guide" "$(cat "$SESS/session.md" 2>&1 || true)"
+fi
+
+if grep -qE "setupEngine|NewEngine" "$SESS/trace.log"; then
+    test_passed "instrument - trace.log has the call chain"
+else
+    test_failed "instrument - trace.log has the call chain" "$(tail -20 "$SESS/trace.log" 2>&1 || true)"
+fi
+
+LIST_OUT=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" instrument list 2>&1 || true)
+if output_grep_fixed "e2e-session" "$LIST_OUT"; then
+    test_passed "instrument - list shows the session"
+else
+    test_failed "instrument - list shows the session" "$LIST_OUT"
+fi
+
+SHOW_OUT=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" instrument show e2e-session 2>&1 || true)
+if output_grep_fixed "Instrumented session e2e-session" "$SHOW_OUT" \
+    && output_grep_fixed '"kind":"workflow"' "$SHOW_OUT"; then
+    test_passed "instrument - show prints session.md and events.ndjson"
+else
+    test_failed "instrument - show prints session.md and events.ndjson" "$SHOW_OUT"
+fi
+
+PATH_OUT=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" instrument path e2e-session 2>&1 || true)
+if output_grep_fixed "e2e-session" "$PATH_OUT"; then
+    test_passed "instrument - path prints the folder"
+else
+    test_failed "instrument - path prints the folder" "$PATH_OUT"
+fi
+
+RM_OUT=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" instrument rm e2e-session 2>&1 || true)
+if output_grep_fixed "Removed instrumented session e2e-session" "$RM_OUT" && [ ! -d "$SESS" ]; then
+    test_passed "instrument - rm deletes the session"
+else
+    test_failed "instrument - rm deletes the session" "$RM_OUT"
+fi
+
+MISSING=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" instrument show e2e-session 2>&1 || true)
+if output_grep_fixed "no instrumented session" "$MISSING"; then
+    test_passed "instrument - show of a removed session fails"
+else
+    test_failed "instrument - show of a removed session fails" "$MISSING"
+fi
+
+# A value needs '=': a space would take the workflow path as the session name.
+VAL_OUT=$(KDEPS_INSTRUMENT_ROOT="$INST_ROOT" "$KDEPS_BIN" validate --instrument=e2e-validate "$WF_DIR/workflow.yaml" 2>&1 || true)
+if output_grep_i "unknown flag|invalid flag|unrecognized|accepts" "$VAL_OUT"; then
+    test_failed "instrument - validate --instrument=<name> still validates the workflow" "$VAL_OUT"
+elif [ -f "$INST_ROOT/e2e-validate/session.md" ]; then
+    test_passed "instrument - validate --instrument=<name> still validates the workflow"
+else
+    test_failed "instrument - validate --instrument=<name> still validates the workflow" "$VAL_OUT"
+fi
+
+rm -rf "$INST_ROOT" "$WF_DIR"
+rm -f "$RUN_LOG"
 echo ""

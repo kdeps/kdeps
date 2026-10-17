@@ -199,6 +199,32 @@ Exits with code 1 when any check has FAIL status.
 
 ---
 
+## `kdeps instrument`
+
+List, show and remove sessions recorded with [`--instrument`](/reference/troubleshooting#record-a-session-for-a-model-to-debug).
+
+```bash
+kdeps --instrument=billing-bug          # record an agent session
+kdeps run workflow.yaml --instrument=api-500
+kdeps instrument list                   # saved sessions, newest first
+kdeps instrument show billing-bug       # session.md and events.ndjson
+kdeps instrument show billing-bug --trace   # also trace.log
+kdeps instrument path billing-bug       # the folder
+kdeps instrument rm billing-bug
+```
+
+The session folder is `~/.kdeps/instrument/<name>/`:
+
+```text
+session.md      # command, folder, start and end, event counts, how to read the rest
+events.ndjson   # one JSON object per prompt, model call, tool call and workflow event
+trace.log       # every log line at debug level, and the call-chain trace
+```
+
+Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, the next argument (the workflow path) is taken as the name.
+
+---
+
 ## `kdeps --upgrade`
 
 Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/agent/repl-updating#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).

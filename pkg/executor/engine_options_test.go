@@ -25,11 +25,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/events"
+	"github.com/kdeps/kdeps/v2/pkg/instrument"
 )
 
 func TestSetNewExecutionContextForAgency_Error(t *testing.T) {
@@ -88,4 +91,40 @@ func TestSetAgentMemoryStore(t *testing.T) {
 	if e.agentMemoryStore == nil {
 		t.Fatal("store not set")
 	}
+}
+
+type captureEmitter struct{ got []events.Event }
+
+func (c *captureEmitter) Emit(ev events.Event) { c.got = append(c.got, ev) }
+func (c *captureEmitter) Close()               {}
+
+func TestWithInstrument_RecordsWorkflowEvents(t *testing.T) {
+	t.Setenv(instrument.RootEnv, t.TempDir())
+	s, err := instrument.Start("wf", []string{"run", "wf.yaml"}, time.Now())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close(nil)) })
+
+	plain := withInstrument(events.NopEmitter{})
+	_, nop := plain.(events.NopEmitter)
+	assert.False(t, nop, "a live session replaces a nop emitter")
+
+	got := &captureEmitter{}
+	em := withInstrument(got)
+	em.Emit(events.Event{Event: events.EventResourceFailed, ActionID: "greet", Detail: "boom"})
+	require.Len(t, got.got, 1)
+	assert.Equal(t, "greet", got.got[0].ActionID)
+
+	data, err := os.ReadFile(filepath.Join(s.Dir, instrument.EventsFile))
+	require.NoError(t, err)
+	text := string(data)
+	assert.Contains(t, text, `"kind":"workflow"`)
+	assert.Contains(t, text, `"event":"resource.failed"`)
+	assert.Contains(t, text, `"actionId":"greet"`)
+	assert.Contains(t, text, `"detail":"boom"`)
+}
+
+func TestWithInstrument_NoSessionPassesThrough(t *testing.T) {
+	em := withInstrument(events.NopEmitter{})
+	_, ok := em.(events.NopEmitter)
+	assert.True(t, ok)
 }

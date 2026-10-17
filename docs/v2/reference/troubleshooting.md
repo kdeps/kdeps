@@ -233,6 +233,46 @@ kdeps run workflow.yaml --debug
 
 Shows detailed execution logs including expression evaluation, dependency resolution, and resource dispatch.
 
+### Record a session for a model to debug
+
+`--instrument=<name>` records any kdeps run - an agent session or `kdeps run` - into a folder a model can read and fix from. Bare `--instrument` names it by its start time. Use `=`: with a space, the name is taken as the path argument.
+
+```bash
+kdeps --instrument=billing-bug            # agent session, recorded
+kdeps run workflow.yaml --instrument=api-500
+```
+
+```text
+Recording instrumented session billing-bug in /home/me/.kdeps/instrument/billing-bug
+...
+Instrumented session billing-bug saved in /home/me/.kdeps/instrument/billing-bug
+  Give it to a model to debug: kdeps instrument show billing-bug (or read .../session.md)
+```
+
+The terminal looks as usual (the call-chain trace goes to the file, not the screen, unless `--debug`). The folder holds:
+
+```text
+~/.kdeps/instrument/billing-bug/
+  session.md     # the command, folder, start and end, event counts, and how to read the other two files
+  events.ndjson  # one JSON object per line: prompt, model_request, model_response, tool_call, workflow, session_start/_end
+  trace.log      # every log line (debug level) and call-chain trace, timestamped
+```
+
+```json
+{"ts":"2026-10-17T12:18:39Z","kind":"tool_call","called_as":"bash","name":"bash_exec","arguments":"{\"cmd\":\"echo $((6*7))\"}","result":"42","duration_ms":41}
+{"ts":"2026-10-17T12:18:40Z","kind":"tool_call","name":"read_file","arguments":"{\"file_path\":\"/nonexistent/x.txt\"}","error":"{\"error\":\"path /nonexistent/x.txt is outside the working directory\"}","duration_ms":0}
+{"ts":"2026-10-17T12:18:41Z","kind":"workflow","event":"resource.failed","workflowId":"chatbot","actionId":"llm","detail":"connection refused"}
+```
+
+A `model_request` holds everything the model was sent; the system prompt and tool list are recorded once and then as `{"unchanged_since_request": N}` until they change. A string over 64 KiB is cut, saying how much. A session of the same name is replaced.
+
+```bash
+kdeps instrument list                 # saved sessions, newest first
+kdeps instrument show billing-bug     # session.md + events.ndjson, ready to paste or pipe to a model (--trace adds trace.log)
+kdeps instrument path billing-bug     # the folder, to point a model's read_file at
+kdeps instrument rm billing-bug
+```
+
 ### Validate workflow without executing
 
 ```bash

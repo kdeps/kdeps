@@ -78,7 +78,7 @@ func NewEngine(logger *slog.Logger) *Engine {
 		registry:       NewRegistry(),
 		inputValidator: validator.NewInputValidator(),
 		exprValidator:  validator.NewExpressionValidator(),
-		emitter:        events.NopEmitter{},
+		emitter:        withInstrument(events.NopEmitter{}),
 	}
 	engine.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
 		if sessionID != "" {
