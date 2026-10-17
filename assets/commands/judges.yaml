@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 name: judges
 order: 250
 # builtin: kdeps handles this command itself; this file supplies its help,
@@ -12,6 +12,10 @@ usage:
   - args: "remove <name>"
     help: Remove a judge from the explicit roster
   - args: "auto [on|off]"
-    help: Show or toggle a per-turn auto-generated roster
+    help: Show or toggle a per-turn auto-generated roster; on unless turned off
+  - args: "grade <name> <kind> <pattern>"
+    help: "Attach a grader (exact, contains, not_contains, regex, json, expr) to a judge. It runs before that judge's model review"
+  - args: "off"
+    help: Disable the judge panel and store auto_judges false
   - args: clear
     help: Disable the judge panel entirely

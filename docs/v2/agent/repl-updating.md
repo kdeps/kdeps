@@ -190,7 +190,8 @@ kdeps update tools                    # every item in one set
 kdeps update harness/safety           # newest version of one item; unpins and restores it
 kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
 kdeps update --check                  # what would change
-kdeps list --assets                   # every item: version, downloaded | pinned | removed, ~context tokens; total at the end
+kdeps list --assets                   # every item: version, state, shelf, ~context tokens; total at the end
+kdeps list rag                         # one shelf: model, context, harness, tools, memory, rag, agent, guardrails, evals, workflow, deploy
 kdeps info tools/read_file            # what an item is for, where kdeps runs it, its installed version and ~tokens
 kdeps info events                     # a set: its purpose, where it runs, its items
 kdeps uninstall themes/vim,presets/frugal   # remove items
@@ -231,3 +232,25 @@ To work on assets, point `KDEPS_ASSETS_SRC` at a directory laid out like `assets
 ```bash
 KDEPS_ASSETS_SRC=~/src/kdeps/assets ./kdeps   # run on a checkout's assets
 ```
+
+## Shelves
+
+A shelf is the engineering word an asset is filed under. The path stays the id (`harness/safety`, `tools/bash_exec`): `kdeps update` installs that id, and the formula is `kdeps-<set>-<name>`. `kdeps list` prints the shelf. `kdeps list <shelf>` shows one. kdeps.io filters by the same words. The set stays the kind of file.
+
+| Shelf | What is filed here |
+|---|---|
+| model | `models/`, `providers/`, `recipes/`, and `/model` |
+| context | `presets/`. History-rewrite prompts, window-trim events, actions `compact`, `truncate`, `drop_oldest`, `cap` |
+| harness | Preamble sections, nudges, praise, the skills preamble, the tools reminder |
+| tools | Tool definitions other than memory, rag, guardrails, or agent. Web search and scrapers stay here |
+| memory | `memory_*`, `knowledge_*`, the memory harness section, memory events |
+| rag | `embedding_*`, `search_local`, `retrieve_context`, `load_document`, the rerank tools |
+| agent | Slash commands other than `/model`. Goals, tasks, teams, `load_skill`, `instruct`, `identity_get`, `themes/` |
+| guardrails | Approval tools, the handshake, `session_handshake`, the safety harness. Events and actions that block, reject, or fail |
+| evals | Judge prompts, `judge_verdict`, `judge-iterations`, `judge-max-rounds`. The items keep the name judge. The panel is the eval |
+| workflow | `schemas/`, `templates/`, `components/`, `defaults/` |
+| deploy | `docker/`, `k8s/` |
+
+`events/` and `actions/` stay their own sets. Each file takes the shelf of the behavior it serves.
+
+Tokens, structured output, embeddings, session, trace, and fine-tune are not shelves. Tokens are counts. Structured output is `jsonResponse`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) stay a separate install axis.

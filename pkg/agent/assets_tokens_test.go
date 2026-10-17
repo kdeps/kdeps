@@ -81,9 +81,9 @@ func TestPrintChanges_Tokens(t *testing.T) {
 
 func TestListAssets_Tokens(t *testing.T) {
 	var out bytes.Buffer
-	require.NoError(t, listAssets(&out, assets.Root()))
-	assert.Regexp(t, `tools/bash_exec\s+\S+\s+source\s+~\d+ tok`, out.String())
-	assert.Regexp(t, `themes/normal\s+\S+\s+source\n`, out.String(), "themes never reach the model")
+	require.NoError(t, listAssets(&out, assets.Root(), ""))
+	assert.Regexp(t, `tools/bash_exec\s+\S+\s+source\s+tools\s+~\d+ tok`, out.String())
+	assert.Regexp(t, `themes/normal\s+\S+\s+source\s+agent\n`, out.String(), "themes never reach the model")
 	assert.Contains(t, out.String(), "LLM context: installed prompts and tool definitions total about")
 }
 

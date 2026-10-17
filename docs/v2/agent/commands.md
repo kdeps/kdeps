@@ -58,11 +58,12 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
 | `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files` |
 | `/instruct list` | Name the topics without briefing the model |
-| `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
+| `/judges` | Show the judge panel. It is the eval and runs unless turned off (see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
-| `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
-| `/judges off` (or `/judges clear`) | Disable the judge panel entirely (drops the explicit roster and turns off auto-judges); persists across sessions |
+| `/judges grade <name> <kind> <pattern>` | Attach a grader (`exact`, `contains`, `not_contains`, `regex`, `json`, `expr`) to a judge. It runs before that judge's model review |
+| `/judges auto [on\|off]` | Show or toggle the per-turn roster; on unless turned off; persists across sessions |
+| `/judges off` (or `/judges clear`) | Disable the judge panel (drops the roster, graders included) and store `auto_judges: false` |
 | `/memory` | Show memory store overview: entry count and the 10 most recently updated entries (with values) |
 | `/memory list` | List every stored memory entry with a truncated value preview |
 | `/memory search <query>` | Search memory keys and values for a substring |

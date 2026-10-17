@@ -1641,13 +1641,12 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
-	// Goal-directed execution and the auto judge panel are OFF by default: each
-	// adds a synthetic LLM call per turn (plan / roster) and extra output, which
-	// is unwanted overhead for ordinary use. Opt in with /goal on and
-	// /judges auto on -- both choices persist across sessions via applyToolTuning
-	// below, so a persisted "on" is restored here.
+	// Goal-directed execution is off by default: it adds a plan call per turn.
+	// The judge panel is the eval and is on: a non-trivial turn grows a roster
+	// and reviews the answer. /goal on and /judges off persist via
+	// applyToolTuning below. A settings file that never set auto_judges stays on.
 	r.loop.config.GoalEnforcement = false
-	r.loop.config.AutoJudges = false
+	r.loop.config.AutoJudges = true
 	// Pre-turn prompt refinement is ON by default: one cheap synthetic call
 	// rewrites a terse prompt so the turn lands better. Disable with
 	// /refine off; the choice persists via applyToolTuning below.
@@ -5423,6 +5422,8 @@ func (r *REPL) cmdJudges(args []string) {
 		r.removeJudge(args[1])
 	case "auto":
 		r.cmdJudgesAuto(args[1:])
+	case "grade":
+		r.cmdJudgesGrade(args[1:])
 	case "clear", toggleOff:
 		r.loop.SetJudges(nil)
 		r.loop.SetAutoJudges(false)
@@ -5430,8 +5431,48 @@ func (r *REPL) cmdJudges(args []string) {
 		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("judge panel disabled"))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /judges [list|add <name> <criteria>|remove <name>|auto [on|off]|clear]"))
+			"Usage: /judges [list|add <name> <criteria>|remove <name>|"+
+				"grade <name> <kind> <pattern>|auto [on|off]|clear]"))
 	}
+}
+
+// cmdJudgesGrade attaches a deterministic grader to a named judge. The judge
+// is created when it is not already on the session roster. Graders live on
+// that roster, the same way a hand-added judge does, and /judges off drops them.
+func (r *REPL) cmdJudgesGrade(args []string) {
+	usage := "Usage: /judges grade <name> <kind> <pattern>  (kind: " + graderKindList() + ")"
+	if len(args) < 2 || !knownGraderKind(args[1]) {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(usage))
+		return
+	}
+	name, kind := args[0], args[1]
+	pattern := strings.TrimSpace(strings.Join(args[2:], " "))
+	if pattern == "" && kind != "json" {
+		fmt.Fprintln(os.Stderr, styleReplError.Render(usage))
+		return
+	}
+	if kind == "regex" {
+		if _, err := regexp.Compile(pattern); err != nil {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("regex: "+err.Error()))
+			return
+		}
+	}
+	judges := append([]JudgeSpec(nil), r.loop.Judges()...)
+	g := JudgeGrader{Kind: kind, Pattern: pattern}
+	found := false
+	for i := range judges {
+		if judges[i].Name != name {
+			continue
+		}
+		judges[i].Graders = append(judges[i].Graders, g)
+		found = true
+		break
+	}
+	if !found {
+		judges = append(judges, JudgeSpec{Name: name, Graders: []JudgeGrader{g}})
+	}
+	r.loop.SetJudges(judges)
+	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf("grader %s on %q", kind, name)))
 }
 
 // removeJudge drops the named judge from the explicit roster.
@@ -5498,7 +5539,18 @@ func (r *REPL) printJudgesStatus() {
 	}
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Configured judges:"))
 	for _, j := range judges {
-		fmt.Fprintf(os.Stdout, "  - %s: %s\n", j.Name, j.Criteria)
+		if j.Criteria != "" {
+			fmt.Fprintf(os.Stdout, "  - %s: %s\n", j.Name, j.Criteria)
+		} else {
+			fmt.Fprintf(os.Stdout, "  - %s\n", j.Name)
+		}
+		for _, g := range j.Graders {
+			if g.Pattern == "" {
+				fmt.Fprintf(os.Stdout, "      %s\n", g.Kind)
+				continue
+			}
+			fmt.Fprintf(os.Stdout, "      %s %s\n", g.Kind, g.Pattern)
+		}
 	}
 	if auto {
 		fmt.Fprintln(os.Stdout, styleReplDim.Render(

@@ -54,9 +54,9 @@ type ToolTuning struct {
 	TuroArrows   bool
 	// ToolsFullMode persists the /tools full|lean choice (default: full).
 	ToolsFullMode bool
-	// AutoJudges persists the /judges auto choice (default: off). A snapshot
-	// written while the old on-by-default was in effect carries true here and
-	// restores it -- an explicit /judges auto off then persists false.
+	// AutoJudges persists the /judges auto choice (default: on). /judges off
+	// writes false. A settings file that never set the key stays on: the YAML
+	// field has no omitempty, and a missing key unmarshals as true.
 	AutoJudges bool
 	// GoalEnforcementOff persists the /goal off|on choice, and GoalConfigured is
 	// its "was this ever set" sentinel -- without it a snapshot from before this
@@ -249,7 +249,8 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	// Restore the tools/judges/auto-context toggles only when this section was
 	// actually saved; otherwise keep whatever wireREPL/NewREPL already set
 	// (full tools, auto-judges on, auto-context on) instead of a stale
-	// snapshot's zero values.
+	// snapshot's zero values. AutoJudges false in a configured snapshot is
+	// an explicit /judges off.
 	if t.ToolsConfigured {
 		if r.toolsFilterFn != nil && t.ToolsFullMode != r.toolsFullMode {
 			r.toolsCount = r.toolsFilterFn(t.ToolsFullMode)
@@ -312,7 +313,20 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 // SetPersistedTuning stores tool settings loaded from disk; they are applied when
 // Run starts. Called by cmd wiring at startup.
 func (r *REPL) SetPersistedTuning(t ToolTuning) {
+	if r == nil {
+		return
+	}
 	r.persistedTuning = &t
+}
+
+// SetAutoJudges sets the panel default for a session that does not go through
+// Run (the desktop loop). Run itself turns the panel on, then applyToolTuning
+// restores a saved off.
+func (r *REPL) SetAutoJudges(enabled bool) {
+	if r == nil || r.loop == nil {
+		return
+	}
+	r.loop.SetAutoJudges(enabled)
 }
 
 // persistTuning saves the current tool + turo settings so they survive across

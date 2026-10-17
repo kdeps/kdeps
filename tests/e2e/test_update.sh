@@ -86,10 +86,25 @@ else
 fi
 
 OUT=$(upd --list)
-if output_grep "harness/safety +1\.2\.0 +downloaded" "$OUT" && output_grep "harness/accuracy +1\.1\.0 +source" "$OUT"; then
-    test_passed "update --list shows versions and state"
+if output_grep "harness/safety +1\.2\.0 +downloaded +guardrails" "$OUT" && output_grep "harness/accuracy +1\.1\.0 +source +harness" "$OUT"; then
+    test_passed "update --list shows versions, state and shelf"
 else
     test_failed "update --list" "$OUT"
+fi
+
+# A clean HOME so a downloaded copy in the real store cannot flip the state off source.
+RAG_HOME=$(mktemp -d)
+OUT=$(HOME="$RAG_HOME" "$KDEPS_BIN" list rag 2>&1)
+if output_grep "tools/embedding_search +[0-9.]+ +source +rag" "$OUT" && ! output_grep "tools/bash_exec " "$OUT"; then
+    test_passed "list rag shows the rag shelf"
+else
+    test_failed "list rag" "$OUT"
+fi
+
+if OUT=$("$KDEPS_BIN" list not-a-shelf 2>&1); then
+    test_failed "list unknown shelf should fail" "$OUT"
+else
+    test_passed "list unknown shelf fails"
 fi
 
 OUT=$(upd harness/safety@1.0.0)

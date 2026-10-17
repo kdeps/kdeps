@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDefaultSettings(t *testing.T) {
@@ -32,6 +33,29 @@ func TestSettings_SaveLoad(t *testing.T) {
 	assert.False(t, got.SelectAll)
 	assert.Equal(t, []string{"wf1", "wf2"}, got.EnabledWorkflows)
 	assert.Equal(t, []string{"lint"}, got.EnabledSkills)
+}
+
+func TestAgentLoopTuning_MissingAutoJudgesIsOn(t *testing.T) {
+	var on AgentLoopTuning
+	require.NoError(t, yaml.Unmarshal([]byte("max_tool_rounds: 7\ntools_configured: true\n"), &on))
+	assert.True(t, on.AutoJudges, "a file that never set auto_judges stays on")
+	assert.Equal(t, 7, on.MaxToolRounds)
+
+	var off AgentLoopTuning
+	require.NoError(t, yaml.Unmarshal([]byte("auto_judges: false\n"), &off))
+	assert.False(t, off.AutoJudges)
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	require.NoError(t, SaveAgentLoopTuning(AgentLoopTuning{AutoJudges: false, MaxToolRounds: 4}))
+	data, err := os.ReadFile(filepath.Join(home, ".kdeps", settingsFile))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "auto_judges: false")
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	require.NotNil(t, got.AgentLoop)
+	assert.False(t, got.AgentLoop.AutoJudges)
 }
 
 func TestSettings_ThemeRoundTrips(t *testing.T) {

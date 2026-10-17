@@ -80,7 +80,7 @@ type AgentLoopTuning struct {
 	TuroDefmatch         bool     `yaml:"turo_defmatch"`
 	TuroArrows           bool     `yaml:"turo_arrows,omitempty"`
 	ToolsFullMode        bool     `yaml:"tools_full_mode,omitempty"`
-	AutoJudges           bool     `yaml:"auto_judges,omitempty"`
+	AutoJudges           bool     `yaml:"auto_judges"`
 	GoalEnforcementOff   bool     `yaml:"goal_enforcement_off,omitempty"`
 	GoalConfigured       bool     `yaml:"goal_configured,omitempty"`
 	ToolsConfigured      bool     `yaml:"tools_configured,omitempty"`
@@ -100,6 +100,19 @@ type AgentLoopTuning struct {
 	MaxLeafChars         int      `yaml:"max_leaf_chars,omitempty"`
 	InstructReminders    []string `yaml:"instruct_reminders,omitempty"`
 	PromptMode           string   `yaml:"prompt_mode,omitempty"`
+}
+
+// UnmarshalYAML leaves auto-judges on when the file never set the key.
+// auto_judges has no omitempty, so /judges off is stored as false and comes
+// back false. A file from before the key existed unmarshals as on.
+func (t *AgentLoopTuning) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentLoopTuning
+	aux := plain{AutoJudges: true}
+	if err := value.Decode(&aux); err != nil {
+		return err
+	}
+	*t = AgentLoopTuning(aux)
+	return nil
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

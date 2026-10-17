@@ -51,8 +51,11 @@ type Index struct {
 type IndexItem struct {
 	Latest string `json:"latest"`
 	// Description is the latest version's own one-line purpose.
-	Description string         `json:"description,omitempty"`
-	Versions    []IndexVersion `json:"versions"`
+	Description string `json:"description,omitempty"`
+	// Category is the shelf this item is filed under (see Shelves). Catalog
+	// metadata: the model never sees it, and it is not a line in the YAML.
+	Category string         `json:"category,omitempty"`
+	Versions []IndexVersion `json:"versions"`
 }
 
 // describeLatest sets the item's description from version's content when
@@ -241,6 +244,7 @@ func publishItem(out string, idx Index, id string, data []byte, commit string, n
 	it := idx.Items[id]
 	describeLatest(&it, h.Version, data) // also fills items published before descriptions
 	set, name, _ := SplitID(id)
+	it.Category = Category(set, name)
 	tokens := ContextTokens(set, name, data)
 	if v, ok := it.Find(h.Version); ok {
 		if v.SHA256 != sum {

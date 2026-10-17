@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
@@ -34,18 +36,26 @@ func newRegistryListCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryListCmd")
 	var listAssets bool
 	c := &cobra.Command{
-		Use:   "list",
-		Short: "List installed components and agents, or kdeps assets with --assets",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Use:   "list [shelf]",
+		Short: "List installed components and agents, assets with --assets, or one asset shelf",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registry list RunE")
-			if listAssets {
-				return runAssets(cmd, agent.UpdateOptions{List: true})
+			shelf := ""
+			if len(args) == 1 {
+				shelf = args[0]
+				if !assets.KnownShelf(shelf) {
+					return fmt.Errorf("unknown shelf %q (shelves: %s)", shelf, strings.Join(assets.Shelves, ", "))
+				}
+			}
+			if listAssets || shelf != "" {
+				return runAssets(cmd, agent.UpdateOptions{List: true, Shelf: shelf})
 			}
 			return registryListRunE()
 		},
 	}
 	c.Flags().BoolVar(&listAssets, "assets", false,
-		"list every kdeps asset, its version and whether it is from source, downloaded, pinned or removed")
+		"list every kdeps asset with its shelf, version and whether it is from source, downloaded, pinned or removed")
 	return c
 }
 
