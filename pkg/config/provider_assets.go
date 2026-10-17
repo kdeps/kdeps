@@ -102,6 +102,8 @@ func ReloadProviders() {
 
 // assetProviders returns the providers asset set, ordered. A file that does
 // not parse is skipped.
+//
+//kdeps:flow providers: a chat call names a backend > [the provider gives the URL, chat path and key] > kdeps sends the request > the reply comes back
 func assetProviders() []providerSpec {
 	providerSpecsMu.RLock()
 	if providerLoaded {

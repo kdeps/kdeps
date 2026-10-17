@@ -79,6 +79,8 @@ func validateModelRegistry(data []byte, name string) error {
 }
 
 // readModelRegistry returns the in-use bytes of one registry item, or nil.
+//
+//kdeps:flow models: a chat resource or /model names a model > [the registry resolves it: download, local server or provider] > the model is called
 func readModelRegistry(name string) []byte {
 	data, err := fs.ReadFile(modelsFSFunc(), path.Join(modelsSet, name+".yaml"))
 	if err != nil {

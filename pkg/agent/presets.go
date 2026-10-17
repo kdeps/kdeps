@@ -130,6 +130,8 @@ func init() { initPresets() }
 
 // PresetByName returns the effective (built-in + user-merged) preset
 // definition, or false if no preset of that name is registered.
+//
+//kdeps:flow presets: /harness preset or /efficiency preset > [the preset rewrites events and harness sections] > every later turn uses them
 func PresetByName(name string) (Preset, bool) {
 	p, ok := presetRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {

@@ -102,6 +102,8 @@ func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
 // never returns nil: when the set is missing or broken it returns zero
 // values (each accessor then uses its own fallback) with the error. Only a
 // successful load is cached, so a later call sees assets installed since.
+//
+//kdeps:flow defaults: a resource without a timeout (or another default) runs > [the executor defaults fill it in] > the executor runs the resource
 func GetDefaults() (*ExecutorDefaults, error) {
 	defaultsMu.Lock()
 	defer defaultsMu.Unlock()

@@ -92,6 +92,8 @@ func decodeComponent(data []byte) (*domain.Component, error) {
 // provide itself (local and global components win). Only called components
 // are loaded, and their resources run through the component call, so they
 // are not merged into the workflow's own resources.
+//
+//kdeps:flow components: a resource names a component (or the model calls it as a tool) > [the component's own resources run] > its output goes back to the caller
 func (p *Parser) loadAssetComponents(workflow *domain.Workflow) error {
 	for _, r := range workflow.Resources {
 		if r == nil || r.Component == nil || r.Component.Name == "" {

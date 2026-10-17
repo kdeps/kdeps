@@ -197,6 +197,8 @@ func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
 
 // declaredCommand is the declared (non-builtin) command named or aliased
 // name, or nil.
+//
+//kdeps:flow commands: you type /name in kdeps > [the command runs: built in, or its declared steps] > prompts go to the model; the output is shown
 func declaredCommand(name string) *slashCommand {
 	for _, c := range slashCommands {
 		if !c.Builtin && slices.Contains(c.names(), name) {

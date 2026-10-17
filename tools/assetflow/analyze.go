@@ -20,6 +20,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -40,7 +41,6 @@ const (
 	assetsPkg   = module + "/pkg/assets"
 	agentPkg    = module + "/pkg/agent"
 	startupName = "kdeps start-up"
-	maxSteps    = 4 // middle steps shown between the entry and the loader
 	maxDepth    = 40
 )
 
@@ -60,6 +60,8 @@ type Flow struct {
 	Mode   string
 	Steps  []Step
 	UsedBy []string
+	Code   []string // the code path from the main entry to the use, one step per package
+	Path   []Frame  // that path in full, for -explain
 }
 
 // Step is one step of a flow; Here marks the call that reads the set.
@@ -70,14 +72,14 @@ type Step struct {
 
 // analyze builds the call graph of the module in dir and returns each
 // set's flow. entries maps SSA function names to command labels.
-func analyze(dir string, entries map[string]string) (map[string]Flow, error) {
+func analyze(dir string, entries map[string]string) (map[string]Flow, *callgraph.Graph, error) {
 	cfg := &packages.Config{Mode: packages.LoadAllSyntax, Dir: dir}
 	pkgs, err := packages.Load(cfg, "./pkg/...", "./cmd/...", ".")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if packages.PrintErrors(pkgs) > 0 {
-		return nil, errors.New("the packages do not build")
+		return nil, nil, errors.New("the packages do not build")
 	}
 	prog, _ := ssautil.AllPackages(pkgs, ssa.InstantiateGenerics)
 	prog.Build()
@@ -134,7 +136,17 @@ func analyze(dir string, entries map[string]string) (map[string]Flow, error) {
 			}
 		}
 	}
+	stories, err := storiesIn(fns)
+	if err != nil {
+		return nil, nil, err
+	}
 	out := map[string]Flow{}
+	var problems []string
+	for set := range stories {
+		if _, loaded := loads[set]; !loaded {
+			problems = append(problems, "//kdeps:flow story for "+set+", which kdeps never loads")
+		}
+	}
 	for set, ls := range loads {
 		var loadFns, uses []*ssa.Function
 		for _, l := range ls {
@@ -149,9 +161,17 @@ func analyze(dir string, entries map[string]string) (map[string]Flow, error) {
 				}
 			}
 		}
-		out[set] = flowFor(cg, uses, sortedFuncs(loadFns), labelOf, set)
+		fl, ferr := flowFor(cg, uses, sortedFuncs(loadFns), labelOf, set, stories[set])
+		if ferr != nil {
+			problems = append(problems, ferr.Error())
+		}
+		out[set] = fl
 	}
-	return out, nil
+	if len(problems) > 0 {
+		sort.Strings(problems)
+		return out, cg, errors.New(strings.Join(problems, "\n"))
+	}
+	return out, cg, nil
 }
 
 // sortedFuncs is fs without duplicates, by name.
@@ -273,17 +293,19 @@ func loadedSet(ins ssa.Instruction) string {
 
 // flowFor walks the callers of where a set is used back to entry points:
 // the readers of the globals its load is stored in, or the loads
-// themselves when it is read where it is loaded.
+// themselves when it is read where it is loaded. It gives the set's users
+// and mode, and the code path from the main entry; the steps come from the
+// set's //kdeps:flow story, which must sit on a function that leads to a use.
 func flowFor(cg *callgraph.Graph, uses, loads []*ssa.Function, labelOf func(*ssa.Function) (string, bool),
-	set string,
-) Flow {
+	set string, stories []story,
+) (Flow, error) {
 	if len(uses) == 0 {
 		uses = loads
 	}
 	// Map order would pick a different one of two equally short paths on
 	// each run: the walk goes by name, so the output is stable.
 	uses = sortedFuncs(uses)
-	parent := map[*ssa.Function]*ssa.Function{}
+	toward := map[*ssa.Function]*callgraph.Edge{} // caller -> its call toward the use
 	depth := map[*ssa.Function]int{}
 	var queue []*ssa.Function
 	for _, f := range uses {
@@ -325,65 +347,258 @@ func flowFor(cg *callgraph.Graph, uses, loads []*ssa.Function, labelOf func(*ssa
 				continue
 			}
 			depth[caller] = depth[f] + 1
-			parent[caller] = f
+			toward[caller] = in
 			queue = append(queue, caller)
 		}
 	}
-	usedBy := make([]string, 0, len(reached))
-	for l := range reached {
-		if l != startupName || len(reached) == 1 {
-			usedBy = append(usedBy, l)
+	usedBy := focusedUsers(reached, depth)
+	fl := Flow{Mode: modeOf(usedBy), UsedBy: usedBy}
+	if len(usedBy) > 0 {
+		fl.Path = pathFrom(reached[usedBy[0]], toward)
+		fl.Code = codeOf(usedBy[0], fl.Path)
+	}
+	switch {
+	case len(stories) == 0:
+		return fl, fmt.Errorf("%s has no //kdeps:flow story: add one to the function where kdeps uses it (%s)",
+			set, funcLabel(uses[0]))
+	case len(stories) > 1:
+		return fl, fmt.Errorf("%s has %d //kdeps:flow stories (%s, %s): keep one", set, len(stories),
+			funcLabel(stories[0].fn), funcLabel(stories[1].fn))
+	}
+	st := stories[0]
+	if _, leads := depth[st.fn]; !leads {
+		return fl, fmt.Errorf("the //kdeps:flow story of %s is on %s, which does not lead to a use of %s "+
+			"(move it to where kdeps uses the set, e.g. %s)", set, funcLabel(st.fn), set, funcLabel(uses[0]))
+	}
+	fl.Steps = st.steps
+	// The code path leads to the function the story is on, from the first
+	// user that reaches it.
+	for _, u := range usedBy {
+		if p := forwardPath(cg, reached[u], st.fn); p != nil {
+			fl.Path = p
+			fl.Code = codeOf(u, p)
+			break
 		}
 	}
-	sort.Slice(usedBy, func(i, j int) bool { return entryRank(usedBy[i]) < entryRank(usedBy[j]) ||
-		entryRank(usedBy[i]) == entryRank(usedBy[j]) && usedBy[i] < usedBy[j] })
-	fl := Flow{Mode: modeOf(usedBy), UsedBy: usedBy}
-	if len(usedBy) == 0 {
-		fl.Steps = []Step{{Label: funcLabel(uses[0]) + " uses " + set, Here: true}}
-		return fl
-	}
-	entry := usedBy[0]
-	f := reached[entry]
-	var chain []*ssa.Function
-	for cur := parent[f]; cur != nil; cur = parent[cur] {
-		chain = append(chain, cur)
-	}
-	// chain runs from just below the entry to the load.
-	if len(chain) == 0 {
-		chain = []*ssa.Function{f}
-	}
-	// A use inside a package-level closure is labeled init: the step that
-	// calls it is the use.
-	for len(chain) > 1 && isInit(chain[len(chain)-1]) {
-		chain = chain[:len(chain)-1]
-	}
-	fl.Steps = append(fl.Steps, Step{Label: entry})
-	middle := collapse(chain[:len(chain)-1])
-	if len(middle) > maxSteps {
-		middle = append(middle[:1], middle[len(middle)-maxSteps+1:]...)
-	}
-	for _, m := range middle {
-		fl.Steps = append(fl.Steps, Step{Label: m})
-	}
-	fl.Steps = append(fl.Steps, Step{Label: funcLabel(chain[len(chain)-1]) + " uses " + set, Here: true})
-	return fl
+	return fl, nil
 }
 
-// collapse labels a call chain one step per package, keeping the first
-// function of each run of the same package.
-func collapse(chain []*ssa.Function) []string {
-	var out []string
-	last := ""
-	for _, f := range chain {
-		if f.Pkg == nil {
+// forwardPath is the shortest call path from entry to target (calls into
+// kdeps only, by name so it is stable), or nil.
+func forwardPath(cg *callgraph.Graph, entry, target *ssa.Function) []Frame {
+	if entry == nil || target == nil {
+		return nil
+	}
+	via := map[*ssa.Function]*callgraph.Edge{}
+	seen := map[*ssa.Function]bool{entry: true}
+	queue := []*ssa.Function{entry}
+	for d := 0; len(queue) > 0 && d <= maxDepth; d++ {
+		var next []*ssa.Function
+		for _, f := range queue {
+			if f == target {
+				var rev []*callgraph.Edge
+				for cur := target; cur != entry; cur = via[cur].Caller.Func {
+					rev = append(rev, via[cur])
+				}
+				out := make([]Frame, 0, len(rev)+1)
+				for i := len(rev) - 1; i >= 0; i-- {
+					out = append(out, Frame{Fn: rev[i].Caller.Func, Site: rev[i].Site})
+				}
+				return append(out, Frame{Fn: target})
+			}
+			for _, c := range callsIn(cg, f) {
+				if !seen[c.callee] {
+					seen[c.callee] = true
+					via[c.callee] = c.edge
+					next = append(next, c.callee)
+				}
+			}
+		}
+		queue = next
+	}
+	return nil
+}
+
+type callSite struct {
+	edge   *callgraph.Edge
+	callee *ssa.Function
+}
+
+// callsIn are fn's calls to kdeps functions, from the call graph (so a call
+// through an interface or a func value counts), by callee name.
+func callsIn(cg *callgraph.Graph, fn *ssa.Function) []callSite {
+	node := cg.Nodes[fn]
+	if node == nil {
+		return nil
+	}
+	var out []callSite
+	for _, e := range node.Out {
+		if e.Site == nil || e.Callee.Func == nil || e.Callee.Func.Pkg == nil ||
+			!strings.HasPrefix(e.Callee.Func.Pkg.Pkg.Path(), module) {
 			continue
 		}
-		p := f.Pkg.Pkg.Path()
-		if p == last || p == module+"/cmd" {
+		out = append(out, callSite{e, e.Callee.Func})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].callee.String() < out[j].callee.String() ||
+			out[i].callee.String() == out[j].callee.String() && out[i].edge.Pos() < out[j].edge.Pos()
+	})
+	return out
+}
+
+// Frame is one function on a flow's path and its call toward the use (nil
+// for the use itself).
+type Frame struct {
+	Fn   *ssa.Function
+	Site ssa.CallInstruction
+}
+
+// pathFrom is the path from entry to the use, each frame with its call
+// toward the next.
+func pathFrom(entry *ssa.Function, toward map[*ssa.Function]*callgraph.Edge) []Frame {
+	var out []Frame
+	seen := map[*ssa.Function]bool{}
+	for f := entry; f != nil && !seen[f]; {
+		seen[f] = true
+		e := toward[f]
+		if e == nil {
+			out = append(out, Frame{Fn: f})
+			break
+		}
+		out = append(out, Frame{Fn: f, Site: e.Site})
+		f = e.Callee.Func
+	}
+	// A use inside a package-level closure is labeled init: the frame that
+	// calls it is the use.
+	for len(out) > 1 && isInit(out[len(out)-1].Fn) {
+		out = out[:len(out)-1]
+		out[len(out)-1].Site = nil
+	}
+	return out
+}
+
+const (
+	maxUsers  = 8 // entries listed as users
+	userSlack = 2 // hops an entry may be farther from the use than the nearest one
+)
+
+// codeOf labels the code path from the main entry to the use, one step
+// per package.
+func codeOf(entry string, path []Frame) []string {
+	out := []string{entry}
+	last := ""
+	for i, fr := range path {
+		if i == 0 || fr.Fn.Pkg == nil {
+			continue
+		}
+		p := fr.Fn.Pkg.Pkg.Path()
+		if (p == last || p == module+"/cmd") && i < len(path)-1 {
 			continue
 		}
 		last = p
-		out = append(out, funcLabel(f))
+		out = append(out, funcLabel(fr.Fn))
+	}
+	return out
+}
+
+// story is a set's //kdeps:flow story and the function it is on.
+type story struct {
+	fn    *ssa.Function
+	steps []Step
+}
+
+// flowDirective starts a set's story: //kdeps:flow <set>: step > step >
+// [step where the set is used] > step.
+const flowDirective = "//kdeps:flow "
+
+// storiesIn are the //kdeps:flow stories in the doc comments of fns, by set.
+func storiesIn(fns map[*ssa.Function]bool) (map[string][]story, error) {
+	out := map[string][]story{}
+	for fn := range fns {
+		decl, ok := fn.Syntax().(*ast.FuncDecl)
+		if !ok || decl.Doc == nil {
+			continue
+		}
+		for _, c := range decl.Doc.List {
+			if !strings.HasPrefix(c.Text, flowDirective) {
+				continue
+			}
+			set, steps, err := parseStory(strings.TrimPrefix(c.Text, flowDirective))
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", funcLabel(fn), err)
+			}
+			out[set] = append(out[set], story{fn, steps})
+		}
+	}
+	for set := range out {
+		sort.Slice(out[set], func(i, j int) bool { return out[set][i].fn.String() < out[set][j].fn.String() })
+	}
+	return out, nil
+}
+
+// parseStory reads "set: a > [b] > c": steps split on ">", exactly one in
+// brackets (where the set is used).
+func parseStory(text string) (string, []Step, error) {
+	set, rest, ok := strings.Cut(text, ":")
+	if !ok || strings.TrimSpace(set) == "" {
+		return "", nil, fmt.Errorf("//kdeps:flow needs \"<set>: step > [step] > step\", got %q", text)
+	}
+	var steps []Step
+	here := 0
+	for _, part := range strings.Split(rest, ">") {
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		st := Step{Label: p}
+		if strings.HasPrefix(p, "[") && strings.HasSuffix(p, "]") {
+			st = Step{Label: strings.TrimSpace(p[1 : len(p)-1]), Here: true}
+			here++
+		}
+		steps = append(steps, st)
+	}
+	if here != 1 {
+		return "", nil, fmt.Errorf("//kdeps:flow %s: mark exactly one step [like this] as where the set is used, found %d",
+			strings.TrimSpace(set), here)
+	}
+	return strings.TrimSpace(set), steps, nil
+}
+
+// focusedUsers are the entries that reach the use: the agent loop and the
+// workflow commands, and the others nearest it (at most userSlack hops
+// farther than the nearest), up to maxUsers, by rank. kdeps start-up counts
+// only when nothing else reaches it.
+func focusedUsers(reached map[string]*ssa.Function, depth map[*ssa.Function]int) []string {
+	nearest := -1
+	for l, f := range reached {
+		if l != startupName && (nearest < 0 || depth[f] < nearest) {
+			nearest = depth[f]
+		}
+	}
+	var out []string
+	for l, f := range reached {
+		if l == startupName && nearest >= 0 {
+			continue
+		}
+		// The agent loop and the workflow commands always count: they are
+		// where a set does its work; other commands only when they are
+		// about as close to the use as the nearest one.
+		if l == rootLabel || workflowCommands[l] || nearest < 0 || depth[f] <= nearest+userSlack {
+			out = append(out, l)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		ri, rj := entryRank(out[i]), entryRank(out[j])
+		if ri != rj {
+			return ri < rj
+		}
+		if depth[reached[out[i]]] != depth[reached[out[j]]] {
+			return depth[reached[out[i]]] < depth[reached[out[j]]]
+		}
+		return out[i] < out[j]
+	})
+	if len(out) > maxUsers {
+		out = out[:maxUsers]
 	}
 	return out
 }

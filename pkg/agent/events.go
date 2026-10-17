@@ -325,6 +325,8 @@ func init() { initEvents() }
 
 // EventByName returns the effective (built-in + user-merged) event
 // definition, or false if no event of that name is registered.
+//
+//kdeps:flow events: the agent loop runs a turn > kdeps measures tokens, rounds and calls > [an event's trigger is met] > its action runs > the turn continues
 func EventByName(name string) (Event, bool) {
 	e, ok := eventRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {

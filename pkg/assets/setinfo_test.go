@@ -106,7 +106,14 @@ func TestSetInfos_EveryRegisteredSetHasItsGeneratedFlow(t *testing.T) {
 		assert.NotEmpty(t, info.Purpose, set)
 		assert.NotEmpty(t, info.Mode, set)
 		require.NotEmpty(t, info.Flow, "%s has no generated flow: run go run ./tools/assetflow", set)
-		assert.True(t, info.Flow[len(info.Flow)-1].Here, "%s: the last step is where kdeps uses it", set)
+		here := 0
+		for _, st := range info.Flow {
+			if st.Here {
+				here++
+			}
+		}
+		assert.Equal(t, 1, here, "%s: one step is where kdeps uses it", set)
+		assert.NotEmpty(t, info.Code, "%s: the code path to it", set)
 		assert.NotEmpty(t, info.UsedBy, set)
 	}
 	for set := range generatedFlows {

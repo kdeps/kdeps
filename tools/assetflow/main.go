@@ -40,11 +40,18 @@ const outFile = "pkg/assets/setflow_gen.go"
 
 func main() {
 	check := flag.Bool("check", false, "fail when "+outFile+" is out of date instead of writing it")
+	explain := flag.Bool("explain", false, "print each set's story, users and call path (file and line)")
 	flag.Parse()
-	flows, err := analyze(".", commandEntries(cmd.NewRootCmd()))
+	flows, cg, err := analyze(".", commandEntries(cmd.NewRootCmd()))
+	if *explain && cg != nil {
+		explainFlows(os.Stdout, cg, flows)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "assetflow:", err)
 		os.Exit(1)
+	}
+	if *explain {
+		return
 	}
 	src, err := render(flows)
 	if err != nil {

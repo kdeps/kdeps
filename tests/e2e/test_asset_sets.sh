@@ -285,7 +285,7 @@ fi
 # --- kdeps info: purpose and where each asset runs ------------------------------
 OUT=$(sa "$KDEPS_BIN" info tools/read_file)
 if output_grep_fixed "E2E-TOOL-MARKER" "$OUT" && output_grep "Where it runs" "$OUT" &&
-    output_grep "kdeps \(agent loop\)" "$OUT" && output_grep "\[ agent\.[^ ]+ uses tools \] +<- tools/read_file" "$OUT" &&
+    output_grep "tool definitions are sent to the model \] +<- tools/read_file" "$OUT" && output_grep "In the code: kdeps \(agent loop\)" "$OUT" &&
     output_grep "Installed: 9\.0\.0" "$OUT"; then
     test_passed "asset sets - kdeps info shows an asset's own purpose, where it runs and its installed version"
 else

@@ -179,6 +179,8 @@ func exportThemeEntries() []yamlTheme {
 
 // SetTheme selects the active theme. Unknown names leave the current theme
 // unchanged and return false.
+//
+//kdeps:flow themes: kdeps starts, or /theme > [the theme colors the terminal] > every reply and prompt
 func SetTheme(name string) bool {
 	key := strings.ToLower(strings.TrimSpace(name))
 	if _, ok := themes[key]; !ok {
