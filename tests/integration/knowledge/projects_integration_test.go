@@ -43,7 +43,7 @@ func TestProjectLifecycle(t *testing.T) {
 
 	summary := "## Goal\nMove billing to monthly invoices\n\n## Key Decisions\n" +
 		"- **Monthly invoices**: per-call billing doubled churn\n\n## Next Steps\n1. write the invoice job\n"
-	sn, err := knowledge.WriteSession(card, "s1", summary, now)
+	sn, err := knowledge.WriteSession(card, "s1", summary, now, knowledge.GitRange{})
 	require.NoError(t, err)
 	written, err := knowledge.WriteDecisions(card, sn.File, summary, now)
 	require.NoError(t, err)

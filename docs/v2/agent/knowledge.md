@@ -120,7 +120,7 @@ updated: 2026-10-15
 | repo | /home/me/code/my-app |   <- runs in this folder (or below it) use this project
 ```
 
-Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. A `search` row is a [search folder](#search-folders): searched with the project, but not one of its places. kdeps adds an `index` row for each place that has a search index (built by `/search index`, kept under `~/.kdeps`), so the card says where everything about the project lives. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
+Add rows to make several places one project: `repo` (a git repository; its Go packages join the graph), `folder` or `workflow`. The deepest matching row wins. A `search` row is a [search folder](#search-folders): searched with the project, but not one of its places. kdeps keeps one `branch` row naming the git branch the project is on, updated at the start of a turn when it changes. kdeps adds an `index` row for each place that has a search index (built by `/search index`, kept under `~/.kdeps`), so the card says where everything about the project lives. Every turn carries a status overview of the active projects, read from the cards at that moment (`<knowledge-status>`); it is never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
 ## Notes
 
@@ -163,13 +163,19 @@ project: my-app
 session: 7f3c...
 summary: Ship knowledge recall for my-app
 links: ["[[my-app]]"]
+branch: feat/recall              # in a git repository: the branch the thread ran on
+commits: 3f2a91c0b7de..9c41e2d07a55  # HEAD when the thread began .. HEAD now
 ---
 ## Focus
 ## What was built
 ## Mistakes
 ## Decisions
 ## Wins
+## Git
+On branch `feat/recall`, commits `3f2a91c0b7de..9c41e2d07a55`: `git log 3f2a91c0b7de..9c41e2d07a55` shows them.
 ```
+
+In a git repository a note points into git instead of copying it: `branch` and `commits` (from the commit `HEAD` was at when the thread began to the one it is at now, read with `git rev-parse` at the start of each turn), and a `## Git` line the model can turn into `git log` or `git diff`. The history itself stays in git (one home per fact), so a rebase or a squash never leaves the vault behind. A rewritten note keeps the start it first recorded, even in a resumed session. Outside a git repository a note has no git lines.
 
 After each turn the note is updated without a model call: your prompts, the files written or edited, decisions saved to memory and tools that failed. At compaction the model's summary replaces it with a written one (no extra model call: compaction makes that summary anyway), and later turns are added on top. When an interactive terminal session ends, one summary call covers the turns since the last note; a piped or scripted session exits at once (its compactions still write notes). The summary's first next step goes to the card's `next`, not into the note, and each of its Key Decisions becomes a note in `decisions/`, titled by its bold lead (`- **Monthly billing**: per-call doubled churn` becomes `decisions/Monthly billing.md`). A decision that already has a note is left alone.
 
