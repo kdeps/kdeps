@@ -86,7 +86,7 @@ else
 fi
 
 OUT=$(upd --list)
-if output_grep "harness/safety +1\.2\.0 +downloaded" "$OUT" && output_grep "harness/accuracy +1\.0\.0 +source" "$OUT"; then
+if output_grep "harness/safety +1\.2\.0 +downloaded" "$OUT" && output_grep "harness/accuracy +1\.1\.0 +source" "$OUT"; then
     test_passed "update --list shows versions and state"
 else
     test_failed "update --list" "$OUT"
