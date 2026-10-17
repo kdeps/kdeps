@@ -146,6 +146,8 @@ func initActions() {
 
 // ActionByName returns the effective (built-in + user-merged) action
 // definition, or false if no action of that name is registered.
+//
+//kdeps:flow actions: an event's trigger is met > [its action runs: compact, truncate, block, cap, force an answer or fail a task] > the agent loop continues
 func ActionByName(name string) (Action, bool) {
 	a, ok := actionRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {

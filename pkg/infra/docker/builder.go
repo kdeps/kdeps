@@ -77,6 +77,8 @@ func init() {
 }
 
 // dockerTemplate returns the build template file from the docker asset set.
+//
+//kdeps:flow docker: kdeps bundle build or kdeps export > [the Dockerfile is rendered from the template] > docker builds the image > the workflow runs in it
 func dockerTemplate(file string) (string, error) {
 	data, err := assets.ReadBundleFile(dockerSet, dockerItem, file)
 	return string(data), err

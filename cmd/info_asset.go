@@ -117,6 +117,9 @@ func writeAssetFlow(b *strings.Builder, info assets.SetInfo, label string) {
 		fmt.Fprintf(b, "%s%s\n", arrow, s.Label)
 	}
 	b.WriteString("```\n")
+	if len(info.Code) > 0 {
+		fmt.Fprintf(b, "\nIn the code: %s\n", strings.Join(info.Code, " -> "))
+	}
 }
 
 // writeSetItems lists a set's items and their state.

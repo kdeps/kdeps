@@ -93,6 +93,8 @@ func defined(t *kdepstools.Tool) *kdepstools.Tool {
 // definedAs fills t's model-facing fields from the definition with the given
 // id. It returns nil when there is no definition (the user removed it with
 // kdeps update), and Registry.Register ignores nil, so the tool is not offered.
+//
+//kdeps:flow tools: the agent loop builds the request > [the tool definitions are sent to the model] > the model calls a tool > kdeps runs it > the result goes back to the model
 func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	d, ok := toolDefinitions[id]
 	if !ok {

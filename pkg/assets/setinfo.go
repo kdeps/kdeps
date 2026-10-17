@@ -32,7 +32,8 @@ type SetInfo struct {
 	Purpose string     `json:"purpose"`
 	Mode    string     `json:"mode"` // agent, workflow, both or cli
 	Flow    []FlowStep `json:"flow"`
-	UsedBy  []string   `json:"usedBy"` // the commands and resources that load it
+	UsedBy  []string   `json:"usedBy"`         // the commands and resources that load it
+	Code    []string   `json:"code,omitempty"` // the code path from the main command to the use
 }
 
 // FlowStep is one step of a set's flow.

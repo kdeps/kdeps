@@ -65,6 +65,8 @@ func validateSchemaBundle(data []byte, _ string) error {
 }
 
 // schemaFS returns the schemas item's files, rooted at the item directory.
+//
+//kdeps:flow schemas: kdeps validate, run or build reads the YAML > [the schema checks it] > the workflow is accepted, or each error is named
 func schemaFS() (fs.FS, error) {
 	return fs.Sub(assets.Open(schemasSet), schemasSet+"/"+schemasItem)
 }

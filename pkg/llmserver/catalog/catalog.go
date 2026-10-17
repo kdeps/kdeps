@@ -79,6 +79,8 @@ func LoadDefault() ([]recipe.Entry, error) {
 
 // Load merges recipes. Later sources override earlier ones with the same id
 // (stock < user < project).
+//
+//kdeps:flow recipes: kdeps llm build or kdeps llm run > [the recipe is rendered into an image] > the LLM server starts > workflows call it
 func Load(opts Options) ([]recipe.Entry, error) {
 	byID := make(map[string]recipe.Entry)
 

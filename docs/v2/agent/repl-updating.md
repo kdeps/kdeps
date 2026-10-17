@@ -120,17 +120,28 @@ $ kdeps info tools/read_file
 # tools/read_file
 Read a file from the local filesystem. ...
 - Set: tools, used in agent mode
-- Loaded by: kdeps (agent loop), /editor, /instruct, /reload, /settings
+- Loaded by: kdeps (agent loop), /reload, /settings
 - Installed: 1.0.0
 - LLM context: ~631 tokens when loaded
 
 ## Where it runs
-     kdeps (agent loop)                                  # the command (or slash command) that reaches it
-  -> agent.RegisterBuiltinTools                          # the call chain, one step per package
-  -> [ agent.registerDeclaredTools uses tools ]   <- tools/read_file   # where kdeps uses the set
+     the agent loop builds the request
+  -> [ the tool definitions are sent to the model ]   <- tools/read_file
+  -> the model calls a tool
+  -> kdeps runs it
+  -> the result goes back to the model
+
+In the code: kdeps (agent loop) -> agent.RegisterBuiltinTools -> agent.definedAs
 ```
 
-The flow, the mode and "Loaded by" are not written by hand: `tools/assetflow` reads them from kdeps's call graph. It finds where each set is loaded, follows the value into the variables it is stored in and the functions that read them, and walks back to the commands and slash commands that reach those functions. The asset publish job regenerates them from the code it publishes, so the index and kdeps.io always match main; `make generate` rewrites `pkg/assets/setflow_gen.go` for `kdeps info`, and CI fails while it is out of date. Only each set's one-sentence purpose is written by hand (`pkg/assets/setinfo.go`), and each item's purpose is its own `description:`.
+The story is written once, as a `//kdeps:flow` line on the function where kdeps uses the set; the bracketed step is the one the set drives:
+
+```go
+//kdeps:flow tools: the agent loop builds the request > [the tool definitions are sent to the model] > the model calls a tool > kdeps runs it > the result goes back to the model
+func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
+```
+
+Everything else is read from kdeps's call graph by `tools/assetflow`. It finds where each set is loaded, follows the value into the variables it is stored in and the functions that read them, and walks back to the commands and slash commands that reach them: that gives "Loaded by" (the agent loop and workflow commands, and the commands nearest the use), the mode, and "In the code" (the call path to the function the story is on). It also checks the story: a set without one, with two, or with one on a function that does not lead to a use of the set fails the run, naming the function to move it to. The asset publish job regenerates all of it from the code it publishes, so the index and kdeps.io match main; `make generate` rewrites `pkg/assets/setflow_gen.go` for `kdeps info`, and CI fails while it is out of date. A set's one-sentence purpose is in `pkg/assets/setinfo.go`, and each item's purpose is its own `description:`.
 
 Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
 

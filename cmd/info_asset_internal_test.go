@@ -32,8 +32,10 @@ func TestAssetInfo(t *testing.T) {
 	assert.Contains(t, text, "# tools/read_file")
 	assert.Contains(t, text, "- Set: tools, used in agent mode")
 	assert.Contains(t, text, "## Where it runs")
-	assert.Contains(t, text, "   kdeps (agent loop)", "the flow starts at the command that reaches the set")
-	assert.Regexp(t, `-> \[ agent\.\S+ uses tools \]   <- tools/read_file`, text, "and ends where kdeps uses it")
+	assert.Contains(t, text, "[ the tool definitions are sent to the model ]   <- tools/read_file",
+		"the story told on the function that uses the set")
+	assert.Contains(t, text, "-> the model calls a tool")
+	assert.Regexp(t, `In the code: kdeps \(agent loop\) -> .*agent\.definedAs`, text, "and the code path to it")
 	assert.Contains(t, text, "Installed:")
 
 	text, ok = assetInfo("events")

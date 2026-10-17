@@ -164,6 +164,8 @@ func portOrDefault(port int) int {
 }
 
 // renderManifest renders the manifest template name from the k8s asset set.
+//
+//kdeps:flow k8s: kdeps export k8s > [the manifests are rendered from the templates] > you apply them with kubectl > the workflow runs in the cluster
 func (g *Generator) renderManifest(name string, data *ManifestData) (string, error) {
 	tmplStr, err := assets.ReadBundleFile(k8sSet, k8sItem, name+templateExt)
 	if err != nil {
