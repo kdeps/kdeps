@@ -43,7 +43,7 @@ kdeps run workflow.yaml
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
 | `kdeps instrument` | [Dev commands](/reference/cli-dev#kdeps-instrument) | List, show and remove sessions recorded with `--instrument` |
 | `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
-| `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, slash commands, themes, recipes, model registries and templates; `kdeps profile` picks what is installed |
+| `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, slash commands, themes, recipes, model registries and templates; `kdeps list <shelf>` filters by shelf; `kdeps profile` picks what is installed |
 | `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps konfig export` | [Dev commands](/reference/cli-dev#kdeps-konfig-export) | Export the full agent-loop config to one YAML file |

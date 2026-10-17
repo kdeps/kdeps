@@ -235,7 +235,7 @@ KDEPS_ASSETS_SRC=~/src/kdeps/assets ./kdeps   # run on a checkout's assets
 
 ## Shelves
 
-A shelf is the engineering word an asset is filed under. The path stays the id (`harness/safety`, `tools/bash_exec`): `kdeps update` installs that id, and the formula is `kdeps-<set>-<name>`. `kdeps list` prints the shelf. `kdeps list <shelf>` shows one. kdeps.io filters by the same words. The set stays the kind of file.
+A [shelf](/reference/glossary#shelf) is the engineering word an asset is filed under. The path stays the id (`harness/safety`, `tools/bash_exec`): `kdeps update` installs that id, and the formula is `kdeps-<set>-<name>`. `kdeps list` prints the shelf. `kdeps list <shelf>` shows one. kdeps.io filters by the same words. The set stays the kind of file.
 
 | Shelf | What is filed here |
 |---|---|

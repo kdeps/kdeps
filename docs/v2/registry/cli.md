@@ -13,7 +13,7 @@ Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`
 | `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from the registry, a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
 | `kdeps uninstall` | Remove assets, or an agent or component installed from the registry |
 | `kdeps update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
-| `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset, its version, state and context tokens |
+| `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset with its version, state, shelf and context tokens; `kdeps list <shelf>` shows one shelf |
 | `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
 | `kdeps verify` | Run LLM-agnostic verification on a package directory |
 | `kdeps profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker. Items the new profile leaves out are removed |
@@ -50,7 +50,8 @@ kdeps install tools/bash_exec      # one asset, with what it requires; prints ~t
 kdeps update                       # every installed asset to its newest version
 kdeps update --check               # what would change
 kdeps uninstall themes/vim
-kdeps list --assets
+kdeps list --assets                # version, state, shelf, ~context tokens
+kdeps list rag                     # one shelf; the id stays tools/embedding_search
 kdeps profile agent                # install the agent profile
 ```
 
