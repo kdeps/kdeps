@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: narration
 kind: preamble-section
 order: 30
+summary: Before each tool call, say one present-tense sentence about what you are about to do and why.
 body: |-
   <narration>
   Before each tool call, say in one plain sentence what you are about to do and

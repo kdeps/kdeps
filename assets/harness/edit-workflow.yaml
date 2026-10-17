@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: edit-workflow
 kind: preamble-section
 order: 135
+summary: For a file change, check memory, read the file, then edit_file. An unchanged md5 means the edit did not land, so retry the call the result gives you.
 body: |-
   <edit-workflow>
   When the task is to change a file, go to the edit early and prefer edit_file over

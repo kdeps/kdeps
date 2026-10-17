@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: internals
 kind: preamble-section
 order: 120
+summary: Token counts are tracked for you. A convergence block ends web calls for the rest of this turn. Compaction summarizes old turns. Memory is the only state that survives a model switch.
 body: |-
   <internals>
   How kdeps processes your actions:

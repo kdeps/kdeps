@@ -103,7 +103,7 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{List: true}))
 	assert.Regexp(t, `tools/md5_file\s+1\.1\.0\s+downloaded`, out.String())
 	assert.Regexp(t, `themes/vim\s+1\.0\.0\s+removed`, out.String())
-	assert.Regexp(t, `harness/safety\s+1\.0\.0\s+source`, out.String())
+	assert.Regexp(t, `harness/safety\s+1\.1\.0\s+source`, out.String())
 
 	err := RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"themes/normal"}})
 	assert.ErrorContains(t, err, "required")

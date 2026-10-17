@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: memory
 kind: preamble-section
 order: 10
+summary: Look up earlier work with memory_query, use memory_search only when the key or type is unknown, and save durable decisions with memory_save rather than code, git history, or this-turn scratch.
 body: |-
   <memory>
   memory_query --- Preferred lookup: a relational query (filter/map/join/union)

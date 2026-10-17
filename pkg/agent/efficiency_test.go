@@ -346,6 +346,17 @@ func TestCmdEfficiency(t *testing.T) {
 	r.cmdEfficiency([]string{"reset"})
 	assert.False(t, EfficiencyVerbose())
 	assert.Contains(t, commandNames(), "/efficiency")
+
+	loop := loopWithRegisteredTool(t)
+	r.loop = loop
+	r.cmdEfficiency([]string{"prompt", "summary"})
+	assert.Equal(t, promptModeSummary, loop.PromptMode())
+	r.cmdEfficiency([]string{"prompt", "nope"})
+	assert.Equal(t, promptModeSummary, loop.PromptMode())
+	r.cmdEfficiency([]string{"prompt", "full"})
+	assert.Equal(t, promptModeFull, loop.PromptMode())
+	r.cmdEfficiency([]string{"prompt"})
+	assert.Equal(t, promptModeFull, loop.PromptMode())
 }
 
 func newEfficiencyLoop(t *testing.T, ms Streamer) *Loop {

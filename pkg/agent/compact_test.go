@@ -233,6 +233,7 @@ func TestCompactWithLLM_DoesNotRepeatOnNextCall(t *testing.T) {
 		Model:              "llama3.2",
 		CompactTokenBudget: 400,
 	})
+	loop.fullPreambleSent = true
 	for range 8 {
 		loop.session.Append("question", strings.Repeat("answer ", 800))
 	}
@@ -245,6 +246,9 @@ func TestCompactWithLLM_DoesNotRepeatOnNextCall(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("first compaction calls = %d, want 1", calls)
+	}
+	if loop.fullPreambleSent {
+		t.Fatal("compaction must send the full system prompt on the next request")
 	}
 	second, err := loop.CompactWithLLM(context.Background())
 	if err != nil {

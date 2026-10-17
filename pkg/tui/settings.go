@@ -99,6 +99,7 @@ type AgentLoopTuning struct {
 	MaxLeafNodes         int      `yaml:"max_leaf_nodes,omitempty"`
 	MaxLeafChars         int      `yaml:"max_leaf_chars,omitempty"`
 	InstructReminders    []string `yaml:"instruct_reminders,omitempty"`
+	PromptMode           string   `yaml:"prompt_mode,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

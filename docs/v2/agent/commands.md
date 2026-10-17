@@ -53,6 +53,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/efficiency <setting> <n\|off>` | Set one limit: `reads`, `actions`, `stops`, `tighten`, `web`, `bash`, `file`, `code`; persists |
 | `/efficiency preset <name>` | Overwrite every efficiency value from `frugal`, `balanced` or `thorough` |
 | `/efficiency reset` | Restore the shipped defaults |
+| `/efficiency prompt [auto\|full\|summary]` | After the first full harness send, keep it (`full`), replace each section with its YAML `summary` (`summary`), or do that only on backends that do not cache prompts (`auto`, the default). Persists |
 | `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
 | `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files` |

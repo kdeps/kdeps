@@ -123,6 +123,9 @@ type ToolTuning struct {
 	// InstructReminders persists the /instruct topics forced onto every
 	// prompt and tool result via /harness reminders instruct:<topic> on.
 	InstructReminders []string
+	// PromptMode persists /efficiency prompt (auto, full, or summary).
+	// Empty means auto, which is also the zero value.
+	PromptMode string
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -176,6 +179,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		MaxLeafNodes:         c.MaxLeafNodes,
 		MaxLeafChars:         c.MaxLeafChars,
 		InstructReminders:    append([]string(nil), c.InstructReminders...),
+		PromptMode:           c.PromptMode,
 	}
 }
 
@@ -278,6 +282,9 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		c.MaxLeafChars = t.MaxLeafChars
 	}
 	c.InstructReminders = validInstructReminders(t.InstructReminders)
+	if mode, ok := normalizePromptMode(t.PromptMode); ok {
+		c.PromptMode = mode
+	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
 	// built-in default for it), so no extra sentinel is needed here.

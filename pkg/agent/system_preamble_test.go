@@ -262,6 +262,73 @@ func TestGitBranch_Detached(t *testing.T) {
 	assert.Empty(t, gitBranch(dir))
 }
 
+func TestCachedSystemPreamble_SummaryAfterFirstSend(t *testing.T) {
+	l := loopWithRegisteredTool(t)
+	l.config.Backend = modelTypeOllama
+	first := l.cachedSystemPreamble()
+	second := l.cachedSystemPreamble()
+	if !strings.Contains(first, "<use-kdeps-tools>") {
+		t.Fatal("first request must carry the full harness")
+	}
+	if strings.Contains(second, "<use-kdeps-tools>") {
+		t.Fatal("later request on a non-caching backend must drop the full harness section")
+	}
+	if !strings.Contains(second, harnessSummaryHint) || !strings.Contains(second, "- use-kdeps-tools:") {
+		t.Fatalf("later request missing the section summary:\n%s", second)
+	}
+	if !strings.Contains(second, "Working directory:") {
+		t.Fatal("the short prompt must still carry the working directory")
+	}
+	if len(second) >= len(first) {
+		t.Fatalf("summary prompt len %d, full len %d", len(second), len(first))
+	}
+	if l.systemPreamble == "" || !strings.Contains(l.systemPreamble, "<use-kdeps-tools>") {
+		t.Fatal("the cached full preamble must stay available")
+	}
+}
+
+func TestCachedSystemPreamble_AutoKeepsFullPromptOnCachingBackends(t *testing.T) {
+	for _, backend := range []string{backendAnthropic, "openai"} {
+		t.Run(backend, func(t *testing.T) {
+			l := loopWithRegisteredTool(t)
+			l.config.Backend = backend
+			_ = l.cachedSystemPreamble()
+			second := l.cachedSystemPreamble()
+			if !strings.Contains(second, "<use-kdeps-tools>") {
+				t.Fatalf("auto mode on %s must keep the full harness", backend)
+			}
+		})
+	}
+}
+
+func TestCachedSystemPreamble_PromptModes(t *testing.T) {
+	full := loopWithRegisteredTool(t)
+	full.config.Backend = modelTypeOllama
+	full.config.PromptMode = promptModeFull
+	_ = full.cachedSystemPreamble()
+	if !strings.Contains(full.cachedSystemPreamble(), "<use-kdeps-tools>") {
+		t.Fatal("full mode must keep the harness on a non-caching backend")
+	}
+
+	sum := loopWithRegisteredTool(t)
+	sum.config.Backend = backendAnthropic
+	sum.config.PromptMode = promptModeSummary
+	_ = sum.cachedSystemPreamble()
+	second := sum.cachedSystemPreamble()
+	if strings.Contains(second, "<use-kdeps-tools>") || !strings.Contains(second, harnessSummaryHint) {
+		t.Fatal("summary mode must replace the harness even on a caching backend")
+	}
+
+	sum.InvalidateSystemPreamble()
+	third := sum.cachedSystemPreamble()
+	if !strings.Contains(third, "<use-kdeps-tools>") {
+		t.Fatal("invalidate must send the full harness once")
+	}
+	if strings.Contains(sum.cachedSystemPreamble(), "<use-kdeps-tools>") {
+		t.Fatal("the request after that full send returns to the summary")
+	}
+}
+
 func TestCachedSystemPreamble_IncludesLiveEnvFactsEveryCall(t *testing.T) {
 	l := loopWithRegisteredTool(t)
 	dir := resolvedTempDir(t)

@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: safety
 kind: preamble-section
 order: 50
+summary: Take local reversible actions freely. Confirm before deletes, force-push, published-history rewrites, or anything other people will see. Do not retry a denied call.
 body: |-
   <safety>
   Freely take local, reversible actions (editing files, running tests, building).

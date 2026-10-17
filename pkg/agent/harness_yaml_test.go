@@ -59,6 +59,46 @@ var (
 	}
 )
 
+func TestLoadBuiltinHarness_PreambleSectionsDeclareSummaries(t *testing.T) {
+	built := loadBuiltinHarness()
+	for _, name := range wantPreambleSections {
+		s := strings.TrimSpace(built[name].summary)
+		require.NotEmptyf(t, s, "preamble section %q needs a hand-written summary", name)
+		assert.NotContains(t, s, "\n", "summary %q", name)
+	}
+	block := harnessSummaryBlock()
+	assert.Contains(t, block, harnessSummaryHint)
+	for _, name := range wantPreambleSections {
+		assert.Contains(t, block, "- "+name+": "+built[name].summary)
+	}
+}
+
+func TestHarnessSummaryBlock_FallsBackWhenSummaryMissing(t *testing.T) {
+	orig := harnessRegistry
+	origAsm := assembledPreamble
+	t.Cleanup(func() {
+		harnessRegistry = orig
+		assembledPreamble = origAsm
+	})
+	harnessRegistry = map[string]*harnessEntry{
+		"alpha": {
+			kind: harnessKindPreambleSection, order: 1, summary: "Read before editing.",
+			body: "<alpha>\nRead the file first.\n</alpha>",
+		},
+		"beta": {kind: harnessKindPreambleSection, order: 2, body: "<beta>\nNever invent paths.\n</beta>"},
+		"gone": {kind: harnessKindStandalone, body: "nope", summary: "standalone"},
+		"off": {
+			kind: harnessKindPreambleSection, order: 3, body: "hidden",
+			summary: "hidden line", disabled: true,
+		},
+	}
+	got := harnessSummaryBlock()
+	assert.Contains(t, got, "- alpha: Read before editing.")
+	assert.Contains(t, got, "- beta: Never invent paths.")
+	assert.NotContains(t, got, "standalone")
+	assert.NotContains(t, got, "hidden")
+}
+
 func TestLoadBuiltinHarness_HasExactlyKnownNames(t *testing.T) {
 	built := loadBuiltinHarness()
 	assert.Len(t, built, len(wantPreambleSections)+len(wantStandaloneEntries))
