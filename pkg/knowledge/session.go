@@ -57,8 +57,10 @@ type SessionNote struct {
 
 // WriteSession writes (or rewrites) the note for session id from a summary
 // into the project's sessions/ folder, linked to the project's card. The
-// summary's first next step becomes the card's next (its only home).
-func WriteSession(card *Card, id, summary string, now time.Time) (*SessionNote, error) {
+// summary's first next step becomes the card's next (its only home). git is
+// the commits the session covers (zero outside a git repository); a note
+// rewritten later keeps the start it first recorded.
+func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (*SessionNote, error) {
 	sec := SummarySections(summary)
 	focus := firstNonEmpty(sec["goal"], sec["focus"])
 	if strings.TrimSpace(focus) == "" {
@@ -74,8 +76,10 @@ func WriteSession(card *Card, id, summary string, now time.Time) (*SessionNote, 
 	if sn.File == "" {
 		sn.New = true
 		sn.File = filepath.Join(dir, now.Format("2006-01-02 1504")+" "+slug(line)+mdExt)
+	} else if from := recordedGitStart(sn.File); from != "" {
+		git.From = from
 	}
-	body := sessionBody(id, card.Name, card.SelfLink(), line, sec, now)
+	body := sessionBody(id, card.Name, card.SelfLink(), line, sec, now, git)
 	if err := os.WriteFile(sn.File, []byte(body), filePerm); err != nil {
 		return nil, err
 	}
@@ -148,7 +152,19 @@ func decisionTitle(item string) string {
 	return slug(strings.TrimRight(strings.Join(words, " "), ":;,."))
 }
 
-func sessionBody(id, project, cardLink, summary string, sec map[string]string, now time.Time) string {
+// recordedGitStart is the first commit of the range a session note records
+// ("from..to", or a single commit), or "".
+func recordedGitStart(file string) string {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return ""
+	}
+	meta, _ := SplitFrontmatter(data)
+	from, _, _ := strings.Cut(metaString(meta, "commits"), "..")
+	return strings.TrimSpace(from)
+}
+
+func sessionBody(id, project, cardLink, summary string, sec map[string]string, now time.Time, git GitRange) string {
 	var b strings.Builder
 	b.WriteString(frontDelim + "\ntype: session\nstatus: done\n")
 	fmt.Fprintf(&b, "project: %s\n", yamlScalar(project))
@@ -160,6 +176,12 @@ func sessionBody(id, project, cardLink, summary string, sec map[string]string, n
 		yamlScalar(summary),
 	)
 	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", yamlScalar(project), cardLink)
+	if git.To != "" {
+		if git.Branch != "" {
+			fmt.Fprintf(&b, "branch: %s\n", yamlScalar(git.Branch))
+		}
+		fmt.Fprintf(&b, "commits: %s\n", yamlScalar(gitRangeMeta(git)))
+	}
 	b.WriteString(frontDelim + "\n")
 	body := map[string]string{
 		"Focus":          sec["goal"],
@@ -174,6 +196,9 @@ func sessionBody(id, project, cardLink, summary string, sec map[string]string, n
 			text = noneText
 		}
 		fmt.Fprintf(&b, "\n## %s\n\n%s\n", h, text)
+	}
+	if g := gitSection(git); g != "" {
+		fmt.Fprintf(&b, "\n## Git\n\n%s\n", g)
 	}
 	return b.String()
 }

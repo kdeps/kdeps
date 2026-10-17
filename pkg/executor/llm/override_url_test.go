@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -77,4 +78,33 @@ func TestExecute_OverrideURLTakesEveryChatCall(t *testing.T) {
 	assert.Equal(t, "llama3.2:1b", model)
 	data, _ := json.Marshal(out)
 	assert.Contains(t, string(data), "OVERRIDDEN")
+}
+
+func TestStreamChat_OverrideURLTakesTheAgentLoopsCalls(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "")
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write(
+			[]byte(
+				`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"STREAMED"}}]}` + "\n\n",
+			),
+		)
+		_, _ = w.Write(
+			[]byte(
+				`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}` + "\n\ndata: [DONE]\n\n",
+			),
+		)
+	}))
+	defer srv.Close()
+	t.Setenv(OverrideURLEnv, srv.URL)
+
+	var out strings.Builder
+	text, _, err := NewExecutor("").StreamChat(t.Context(),
+		&domain.ChatConfig{Backend: "anthropic", Model: "claude-x", Prompt: "hi"}, &out)
+	require.NoError(t, err, "no key needed: a stub or mock takes the call")
+	assert.Equal(t, "/v1/chat/completions", path)
+	assert.Contains(t, text, "STREAMED")
 }

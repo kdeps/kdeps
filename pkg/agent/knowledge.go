@@ -63,6 +63,11 @@ type knowledgeState struct {
 	summary    string
 	summaryAt  time.Time // when summary was written (or the session started)
 	noteFile   string    // this session's note, never recalled into the session
+	// turnHead is where the working directory's git repository was when the
+	// turn began; gitStarts is the commit each session note's thread began
+	// at (its "commits" range starts there).
+	turnHead  knowledge.GitPoint
+	gitStarts map[string]string
 	// The conversation thread the note covers: a request that is not related
 	// to it starts a new thread, with a note of its own.
 	topic          knowledge.Topic
@@ -344,6 +349,7 @@ func (k *knowledgeState) prepareProject() {
 		return
 	}
 	recordIndexes(c)
+	k.recordGitHead(c)
 	if !c.Archived() {
 		return
 	}
@@ -352,6 +358,49 @@ func (k *knowledgeState) prepareProject() {
 		fmt.Fprintf(os.Stderr, "knowledge: project %s not reopened: %v\n", c.Name, err)
 	}
 	k.notifyMoved()
+}
+
+// recordGitHead notes where the working directory's git repository is as
+// the turn begins, and keeps the card's branch row on its branch.
+func (k *knowledgeState) recordGitHead(c *knowledge.Card) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	head, ok := knowledge.ReadGitHead(k.ctx, wd)
+	k.mu.Lock()
+	k.turnHead = head
+	k.mu.Unlock()
+	if ok && head.Branch != c.Branch() {
+		_ = c.SetBranch(head.Branch)
+	}
+}
+
+// gitRange is the commits note id covers: from where its thread began (the
+// first turn it was written for) to HEAD now. Zero outside a git repository.
+func (k *knowledgeState) gitRange(id string) knowledge.GitRange {
+	wd, err := os.Getwd()
+	if err != nil {
+		return knowledge.GitRange{}
+	}
+	now, ok := knowledge.ReadGitHead(k.ctx, wd)
+	if !ok {
+		return knowledge.GitRange{}
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.gitStarts == nil {
+		k.gitStarts = map[string]string{}
+	}
+	start, have := k.gitStarts[id]
+	if !have {
+		start = k.turnHead.Commit
+		if start == "" {
+			start = now.Commit
+		}
+		k.gitStarts[id] = start
+	}
+	return knowledge.GitRange{Branch: now.Branch, From: start, To: now.Commit}
 }
 
 // recordIndexes adds an index row to the card for each of its places and
@@ -469,7 +518,8 @@ func (l *Loop) saveSessionNote(summary string, w io.Writer) bool {
 		}
 		return false
 	}
-	sn, err := knowledge.WriteSession(card, l.sessionNoteID(), summary, time.Now())
+	id := l.sessionNoteID()
+	sn, err := knowledge.WriteSession(card, id, summary, time.Now(), k.gitRange(id))
 	if err != nil {
 		if w != nil {
 			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)

@@ -229,7 +229,7 @@ func TestWriteSession(t *testing.T) {
 	v, repo := sampleVault(t)
 	card := v.CardForDir(filepath.Join(repo, "store"))
 	require.NotNil(t, card)
-	sn, err := WriteSession(card, "s1", summaryText, buildNow())
+	sn, err := WriteSession(card, "s1", summaryText, buildNow(), GitRange{})
 	require.NoError(t, err)
 	assert.True(t, sn.New)
 	assert.Equal(t, "app", sn.Card.Name)
@@ -255,12 +255,13 @@ func TestWriteSession(t *testing.T) {
 		"s1",
 		strings.Replace(summaryText, "graph build", "graph build v2", 1),
 		buildNow().Add(time.Hour),
+		GitRange{},
 	)
 	require.NoError(t, err)
 	assert.False(t, again.New)
 	assert.Equal(t, sn.File, again.File, "one note per session, rewritten in place")
 
-	_, err = WriteSession(card, "s3", "## Goal\n(none)\n", buildNow())
+	_, err = WriteSession(card, "s3", "## Goal\n(none)\n", buildNow(), GitRange{})
 	require.Error(t, err)
 }
 
