@@ -257,7 +257,9 @@ missing=""
 for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets/e2e-preset themes/e2e-theme \
     tools/read_file commands/e2e-cmd recipes/e2e-recipe models/gguf templates/api-service docker/image \
     k8s/manifests schemas/v1 components/e2e-echo providers/e2eprov defaults/executors; do
-    printf '%s\n' "$LIST" | grep -qE "^ *$id +[0-9]" || missing="$missing $id"
+    # A here-string, not printf | grep -q: grep -q exits at its first match,
+    # and under pipefail printf's SIGPIPE on a long list fails the match.
+    output_grep "^ *$id +[0-9]" "$LIST" || missing="$missing $id"
 done
 if [ -z "$missing" ]; then
     test_passed "asset sets - kdeps list --assets shows the published item of all 16 sets"
