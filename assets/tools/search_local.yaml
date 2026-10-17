@@ -1,4 +1,5 @@
-version: 1.1.0
+version: 1.2.0
+aliases: [grep, rg, ripgrep, search_files, find_in_files, codebase_search, grep_search]  # other names a model may call it by; the model is shown only this tool's name
 description: 'Search for text patterns in local files using ripgrep. Returns matching files with a snippet, and (when the query is found) a match_id/line/revision - pass match_id to read_file to jump straight to that hit. Use for finding usages, patterns, or strings across the codebase. Requires: query (search term). path is the directory to search; leave it out to search every folder of the working project (its own and the search folders its card lists). Optional: glob (file pattern), limit (max results, default 3).'
 parameters:
   glob:

@@ -643,6 +643,7 @@ func runToolCall(
 	cfg AgentLoopConfig,
 	sink EventSink,
 ) (finalizedToolCall, error) {
+	tc.Name = resolveToolName(tc.Name, func(n string) bool { return findTool(agentCtx.Tools, n) != nil })
 	tool := findTool(agentCtx.Tools, tc.Name)
 	if tool == nil {
 		return finalizedToolCall{

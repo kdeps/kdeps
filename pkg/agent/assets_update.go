@@ -56,6 +56,7 @@ func ReloadAssets() {
 	initPresets()
 	initCommands()
 	toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
+	toolAliases = aliasesOf(toolDefinitions)
 	executorLLM.ReloadRegistry()
 	executorLLM.ReloadGGUFRegistry()
 	executorLLM.ReloadCloudModels()

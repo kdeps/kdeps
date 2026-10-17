@@ -22,6 +22,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tmc/langchaingo/llms"
+	lcopenai "github.com/tmc/langchaingo/llms/openai"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -34,6 +37,21 @@ const OverrideURLEnv = "KDEPS_LLM_OVERRIDE_URL"
 // OverrideURL is KDEPS_LLM_OVERRIDE_URL without a trailing slash, or "".
 func OverrideURL() string {
 	return strings.TrimRight(strings.TrimSpace(os.Getenv(OverrideURLEnv)), "/")
+}
+
+// overrideLLM is the streaming client for KDEPS_LLM_OVERRIDE_URL: an
+// OpenAI-compatible one at <url>/v1, whatever backend cfg names. A stub or
+// mock needs no key, so a placeholder is sent when OPENAI_API_KEY is unset.
+func overrideLLM(cfg *domain.ChatConfig, url string) (llms.Model, error) {
+	key := os.Getenv(providerAPIKeyEnvVar(backendOpenAI))
+	if key == "" {
+		key = "override"
+	}
+	model, err := lcopenai.New(lcopenai.WithToken(key), lcopenai.WithModel(cfg.Model), lcopenai.WithBaseURL(url+"/v1"))
+	if err != nil {
+		return nil, err
+	}
+	return withObservability(model, cfg.Model), nil
 }
 
 // applyOverrideURL points cfg at KDEPS_LLM_OVERRIDE_URL when it is set,

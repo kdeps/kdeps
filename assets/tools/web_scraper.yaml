@@ -1,5 +1,6 @@
-version: 1.0.0
+version: 1.1.0
 category: web
+aliases: [fetch, web_fetch, fetch_url, read_url]  # other names a model may call it by; the model is shown only this tool's name
 description: Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.
 constraints: 60s timeout; never scrape the same URL twice in a turn; fails on authenticated/private URLs; may be blocked by some sites
 outputFormat: HTML page converted to markdown text

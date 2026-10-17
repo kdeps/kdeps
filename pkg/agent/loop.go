@@ -2725,6 +2725,9 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 
 // dispatchStreamToolCall executes a tool call from the streaming path.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
+	// An alias (bash for bash_exec) runs its tool: permissions, argument
+	// names and the result all go by the tool's own name from here.
+	tc.Name = resolveToolName(tc.Name, func(n string) bool { return l.registry.Get(n) != nil })
 	tool := l.registry.Get(tc.Name)
 	if tool == nil {
 		if termW := l.config.ToolOutputWriter; termW != nil {

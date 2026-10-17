@@ -249,6 +249,7 @@ func parseReactAction(output string) (string, string, bool) {
 
 // dispatchReactTool executes a tool by name with the given JSON input string.
 func (l *Loop) dispatchReactTool(toolName, toolInput string) string {
+	toolName = resolveToolName(toolName, func(n string) bool { return l.registry.Get(n) != nil })
 	tool := l.registry.Get(toolName)
 	if tool == nil {
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, toolName)
