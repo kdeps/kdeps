@@ -19,8 +19,11 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -28,27 +31,55 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
 func TestBootstrapRootConfig(t *testing.T) {
 	assert.NotPanics(t, func() { bootstrapRootConfig() })
 }
 
-func TestMaybeEnableInstrumentation_Enabled(t *testing.T) {
+func TestMaybeEnableInstrumentation_StartsAndEndsANamedSession(t *testing.T) {
+	t.Setenv("KDEPS_INSTRUMENT_ROOT", t.TempDir())
 	c := &cobra.Command{}
-	c.Flags().Bool("instrument", false, "")
-	require.NoError(t, c.Flags().Set("instrument", "true"))
-	t.Setenv("KDEPS_INSTRUMENT", "")
+	c.Flags().String("instrument", "", "")
+	c.Flags().Bool("debug", false, "")
+	require.NoError(t, c.Flags().Set("instrument", "my bug!"))
 	maybeEnableInstrumentation(c)
-	assert.Equal(t, "true", os.Getenv("KDEPS_INSTRUMENT"))
+	s := instrument.Active()
+	require.NotNil(t, s)
+	assert.Equal(t, "my-bug", s.Name, "the name is made safe for a folder")
+	kdepslog.Warn("recorded line")
+
+	var out bytes.Buffer
+	endInstrumentation(&out, errors.New("boom"))
+	assert.Nil(t, instrument.Active())
+	assert.Contains(t, out.String(), "Instrumented session my-bug saved in")
+	assert.Contains(t, out.String(), "kdeps instrument show my-bug")
+	trace, _ := os.ReadFile(filepath.Join(s.Dir, instrument.TraceFile))
+	assert.Contains(t, string(trace), "recorded line", "log records reach trace.log")
+	events, _ := os.ReadFile(filepath.Join(s.Dir, instrument.EventsFile))
+	assert.Contains(t, string(events), `"kind":"session_end"`)
+	assert.Contains(t, string(events), `"error":"boom"`, "the run's error is recorded")
 }
 
-func TestMaybeEnableInstrumentation_Disabled(t *testing.T) {
-	c := &cobra.Command{}
-	c.Flags().Bool("instrument", false, "")
-	t.Setenv("KDEPS_INSTRUMENT", "")
+func TestMaybeEnableInstrumentation_BareFlagNamesByTime(t *testing.T) {
+	t.Setenv("KDEPS_INSTRUMENT_ROOT", t.TempDir())
+	c := NewRootCmd()
+	require.NoError(t, c.ParseFlags([]string{"--instrument"}))
 	maybeEnableInstrumentation(c)
-	assert.Empty(t, os.Getenv("KDEPS_INSTRUMENT"))
+	s := instrument.Active()
+	require.NotNil(t, s)
+	assert.Regexp(t, `^\d{8}-\d{6}$`, s.Name)
+	endInstrumentation(io.Discard, nil)
+}
+
+func TestMaybeEnableInstrumentation_Off(t *testing.T) {
+	c := &cobra.Command{}
+	c.Flags().String("instrument", "", "")
+	maybeEnableInstrumentation(c)
+	assert.Nil(t, instrument.Active())
+	endInstrumentation(io.Discard, nil) // nothing to end
 }
 
 func TestRunRootPersistentPreRun(t *testing.T) {

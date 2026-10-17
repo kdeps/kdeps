@@ -1066,6 +1066,7 @@ func (l *Loop) autoCompactIfDue(ctx context.Context) {
 // as they arrive. Returns the full accumulated response (also stored in session history).
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
+	recordPrompt(input)
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
@@ -1184,7 +1185,10 @@ func (l *Loop) streamChatWithRetry(
 	var lastErr error
 	for attempt := range attempts {
 		buf.Reset() // discard partial output from a failed attempt
+		recordModelRequest(chatCfg, attempt)
+		started := time.Now()
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, buf)
+		recordModelResponse(chatCfg, content, toolCalls, err, time.Since(started))
 		if err == nil {
 			return content, toolCalls, nil
 		}
@@ -2723,8 +2727,20 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 	return "permission denied by user", true, true
 }
 
-// dispatchStreamToolCall executes a tool call from the streaming path.
+// dispatchStreamToolCall executes a tool call from the streaming path,
+// recording it in an instrumented session.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
+	started := time.Now()
+	called := tc.Name
+	result := l.runStreamToolCall(&tc, w)
+	recordToolCall(called, tc.Name, tc.Arguments, result, time.Since(started))
+	return result
+}
+
+// runStreamToolCall runs tc (its Name resolved from an alias in place).
+func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) string {
+	tc := *tcp
+	defer func() { tcp.Name = tc.Name }()
 	// An alias (bash for bash_exec) runs its tool: permissions, argument
 	// names and the result all go by the tool's own name from here.
 	tc.Name = resolveToolName(tc.Name, func(n string) bool { return l.registry.Get(n) != nil })

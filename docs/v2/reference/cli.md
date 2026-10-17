@@ -10,7 +10,7 @@ All commands support these global flags:
 |---|---|
 | `--verbose` | Enable INFO-level log output (default: WARN) |
 | `--debug` | Enable DEBUG-level log output with source locations |
-| `--instrument` | Enable call-chain instrumentation tracing |
+| `--instrument[=<name>]` | Record the run as a named session in `~/.kdeps/instrument/<name>/` (prompts, model and tool calls, workflow events, every log line) for a model to debug; bare `--instrument` names it by time. See [Record a session](/reference/troubleshooting#record-a-session-for-a-model-to-debug) and `kdeps instrument` |
 
 ### Structured logging
 
@@ -41,6 +41,7 @@ kdeps run workflow.yaml
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
 | `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
+| `kdeps instrument` | [Dev commands](/reference/cli-dev#kdeps-instrument) | List, show and remove sessions recorded with `--instrument` |
 | `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
 | `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, slash commands, themes, recipes, model registries and templates; `kdeps profile` picks what is installed |
 | `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
@@ -160,7 +161,7 @@ kubectl rollout status deployment/my-agent
 
 ## See also
 
-- [Dev commands](/reference/cli-dev) - run, serve, validate, new, edit, doctor, chat
+- [Dev commands](/reference/cli-dev) - run, validate, new, edit, doctor, instrument, chat
 - [Registry commands](/registry/cli) - search, install, publish
 - [Packaging commands](/deploy/cli) - bundle, export, build
 - [Installation](/start/installation)
