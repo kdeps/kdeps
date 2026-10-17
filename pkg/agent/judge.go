@@ -55,6 +55,21 @@ type JudgeSpec struct {
 	// MaxRounds caps this judge's tool rounds. 0 uses the "judge-max-rounds"
 	// event's default.
 	MaxRounds int
+	// Graders run on the candidate answer before any model call. A failed
+	// grader rejects the answer and this judge does not open an LLM review.
+	// Graders that pass, when Criteria is set, still use that review. A
+	// judge with graders and no criteria never calls the model.
+	Graders []JudgeGrader
+}
+
+// JudgeGrader is one deterministic check of the candidate answer.
+// Kind is exact, contains, not_contains, regex, json, or expr.
+// Pattern is the expected text, regular expression, JSON document, or
+// expr-lang expression (names output and answer are the candidate text).
+// An empty Pattern with kind json only requires valid JSON.
+type JudgeGrader struct {
+	Kind    string
+	Pattern string
 }
 
 // JudgeVerdict is one judge's ruling on a candidate output.
@@ -103,6 +118,9 @@ func scopedRegistry(parent *kdepstools.Registry, names []string) *kdepstools.Reg
 // that never calls judge_verdict degrades to an approval, matching
 // confirmPlan's and planGoal's "a broken pass must not block a turn" rule.
 func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string) JudgeVerdict {
+	if v, settled := settleByGraders(spec, output); settled {
+		return v
+	}
 	approve := JudgeVerdict{Name: spec.Name, Approved: true}
 	if l == nil || l.engine == nil || l.workflow == nil || l.streamer == nil {
 		return approve

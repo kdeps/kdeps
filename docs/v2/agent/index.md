@@ -1,7 +1,7 @@
 # kdeps agent
 
 **An autonomous LLM REPL you run on your machine.** Tool use, persistent memory, multi-step
-reasoning, skills, goals, and a judge panel. The default model is local, with no API key,
+reasoning, skills, goals, and a judge panel (the [eval](/reference/glossary#eval), on unless you turn it off). The default model is local, with no API key,
 fully offline. Point `llm.base_url` at an [LLM server](/llm-server/) you run and the same
 REPL sends prompts there. Whole workflows and components register as callable tools; the
 model decides what to invoke.

@@ -135,6 +135,72 @@ func TestPrintJudgesStatus_ShowsLastAutoRoster(t *testing.T) {
 	}
 }
 
+func TestDispatchCommand_JudgesGrade(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	if err := repl.dispatchCommand("/judges grade correctness contains workflow.yaml"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	judges := loop.Judges()
+	if len(judges) != 1 || judges[0].Name != "correctness" {
+		t.Fatalf("expected a correctness judge, got %v", judges)
+	}
+	g := judges[0].Graders
+	if len(g) != 1 || g[0].Kind != "contains" || g[0].Pattern != "workflow.yaml" {
+		t.Fatalf("grader not attached: %+v", g)
+	}
+	if judges[0].Criteria != "" {
+		t.Fatalf("a grade on a new judge must not invent criteria, got %q", judges[0].Criteria)
+	}
+
+	if err := repl.dispatchCommand(`/judges grade correctness regex timeout:\s+\d+`); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(loop.Judges()[0].Graders) != 2 {
+		t.Fatalf("expected both graders, got %+v", loop.Judges()[0].Graders)
+	}
+
+	loop.SetJudges(nil)
+	if err := repl.dispatchCommand("/judges add correctness must cite a file"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := repl.dispatchCommand("/judges grade correctness contains workflow.yaml"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := loop.Judges()[0]
+	if got.Criteria != "must cite a file" || len(got.Graders) != 1 {
+		t.Fatalf("grade must keep criteria and add a grader, got %+v", got)
+	}
+
+	if err := repl.dispatchCommand("/judges off"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(loop.Judges()) != 0 || loop.AutoJudges() {
+		t.Fatal("off drops the roster, graders included")
+	}
+}
+
+func TestDispatchCommand_JudgesGradeUsage(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	if err := repl.dispatchCommand("/judges grade correctness"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(loop.Judges()) != 0 {
+		t.Fatalf("malformed grade must not add a judge, got %v", loop.Judges())
+	}
+	if err := repl.dispatchCommand("/judges grade correctness regex '('"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(loop.Judges()) != 0 {
+		t.Fatalf("a bad regex must not add a grader, got %v", loop.Judges())
+	}
+}
+
 func TestDispatchCommand_JudgesAddUsageError(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

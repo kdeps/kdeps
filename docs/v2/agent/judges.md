@@ -1,7 +1,9 @@
 # Judge panel
 
+The judge panel is the eval. It reviews a turn's answer on its own.
+
 [Goal enforcement](/agent/goals) checks that the loop keeps moving; it says nothing about whether
-the final answer is actually *right*. A judge panel is an independent review of
+the final answer is actually right. The panel is an independent review of
 that answer, run after the turn produces it - one or more reviewer personas, each
 with real tool access, check the output and can send it back for revision before
 it reaches you.
@@ -93,20 +95,18 @@ same way goal decomposition is. Any failure anywhere in the panel (a judge
 that errors, times out, or never calls `judge_verdict`) degrades to approval
 rather than blocking the turn.
 
-**Off by default.** An auto panel adds a roster-generation LLM call and a review
-pass per turn, so it is opt-in: `/judges auto on` enables it for the session and
-persists the choice; `/judges auto off` (or `/judges off`) turns it back off.
-Library and test callers get no panel unless they set `Config.Judges` or
-`Config.AutoJudges` explicitly. A hand-configured roster (`/judges add`/`remove`)
-is session-only.
+**On unless turned off.** The REPL and the desktop agent loop start with the panel on. A settings file that never set `auto_judges` stays on. `/judges off` (or `/judges clear`) drops the roster and writes `auto_judges: false`. `/judges auto on` turns it back on. A hand-configured roster (`/judges add` / `remove`) is session-only and wins over the generated one. Library callers get no panel unless they set `Config.Judges` or `Config.AutoJudges`. When the agent calls a workflow or an agency as a tool, the panel reviews that turn's final answer. An agency started as its own agent loop gets the same default. `kdeps run` does not.
+
+**Graders** sit on a judge and run on the answer first, in process, with no model call. A failed grader rejects the answer and that judge does not open an LLM review. Graders that pass, on a judge that also has criteria, still use `judge_verdict`. A judge with graders and no criteria never calls the model. The auto-generated roster stays criteria-only. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json` (valid JSON, or equal to a JSON pattern), `expr` (`output` and `answer` are the candidate text). `/judges` prints them under that judge. `/judges off` drops them with the roster.
 
 **From the REPL**, the same roster is managed with `/judges` - no restart
 needed:
 
 ```
 /judges                                        # show the current roster / auto-judges state
-/judges auto off                               # turn off the default auto-generated panel
+/judges auto off                               # turn the panel off and store it
 /judges add correctness every claim must cite a source   # or: hand-configure an explicit roster instead
+/judges grade correctness contains workflow.yaml         # attach a grader to that judge
 /judges remove correctness                     # drop it again
 /judges clear                                  # disable the panel entirely
 ```

@@ -258,7 +258,8 @@ kdeps update harness                  # every item in one set
 kdeps install harness/safety          # one item at its newest version (unpins it), with what it requires
 kdeps install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
 kdeps uninstall themes/vim themes/linux   # remove items (restore with: kdeps install themes/vim)
-kdeps list --assets                   # every item, its version, state and ~context tokens
+kdeps list --assets                   # every item, its version, state, shelf and ~context tokens
+kdeps list rag                        # one shelf (model, context, harness, tools, memory, rag, agent, guardrails, evals, workflow, deploy)
 kdeps profile agent                   # install a profile: minimum, workflows, agent, deploy, full (or sets and items: docker,tools/bash_exec)
 kdeps profile                         # choose the profile again, or tick sets and single items yourself (custom); needs a terminal
 ```
@@ -268,7 +269,8 @@ kdeps profile                         # choose the profile again, or tick sets a
 | `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
 | `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
 | `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
-| `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`) and estimated LLM context tokens, with the installed total |
+| `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`), shelf and estimated LLM context tokens, with the installed total |
+| `kdeps list <shelf>` | Assets on one shelf. Item ids stay `set/name` |
 | `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
 
 The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).

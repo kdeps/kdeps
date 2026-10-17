@@ -101,6 +101,7 @@ type UpdateOptions struct {
 	Items  []string // set or set/name[@version]; empty means every item
 	Check  bool     // report only
 	List   bool     // list every item and its state
+	Shelf  string   // with List, only this shelf (empty lists every shelf)
 	Remove []string // items to remove
 }
 
@@ -109,7 +110,7 @@ type UpdateOptions struct {
 func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error {
 	root := assets.Root()
 	if opts.List {
-		return listAssets(w, root)
+		return listAssets(w, root, opts.Shelf)
 	}
 	var changes []assets.Change
 	if len(opts.Remove) > 0 {
@@ -194,38 +195,72 @@ func formatTokens(n int) string {
 	return strconv.FormatFloat(float64(n)/k, 'f', 1, 64) + "k"
 }
 
-func listAssets(w io.Writer, root string) error {
+func listAssets(w io.Writer, root, shelf string) error {
+	if shelf != "" && !assets.KnownShelf(shelf) {
+		return fmt.Errorf("unknown shelf %q (shelves: %s)", shelf, strings.Join(assets.Shelves, ", "))
+	}
 	tokens := assets.LocalTokens()
 	total := 0
+	if shelf != "" {
+		fmt.Fprintln(w, shelf)
+	}
 	for _, set := range assets.Registered() {
-		items, err := assets.Items(set, root)
+		n, err := writeAssetSet(w, root, set, shelf, tokens)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(w, set)
-		for _, it := range items {
-			state := "source"
-			switch {
-			case it.Removed:
-				state = "removed"
-			case it.Pinned:
-				state = "pinned"
-			case it.Downloaded:
-				state = "downloaded"
-			}
-			line := fmt.Sprintf("  %-36s %-10s %-10s", it.ID, orDash(it.Version), state)
-			if n := tokens[it.ID]; n > 0 && !it.Removed {
-				line += " " + tokenLabel(n)
-				total += n
-			}
-			fmt.Fprintln(w, strings.TrimRight(line, " "))
-		}
+		total += n
 	}
 	if total > 0 {
 		fmt.Fprintf(w, "LLM context: installed prompts and tool definitions total about %s tokens.\n",
 			formatTokens(total))
 	}
 	return nil
+}
+
+func writeAssetSet(w io.Writer, root, set, shelf string, tokens map[string]int) (int, error) {
+	items, err := assets.Items(set, root)
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	printed := false
+	for _, it := range items {
+		cat := assets.Category(it.Set, it.Name)
+		if shelf != "" && cat != shelf {
+			continue
+		}
+		if shelf == "" && !printed {
+			fmt.Fprintln(w, set)
+			printed = true
+		}
+		fmt.Fprintln(w, formatAssetLine(it, cat, tokens[it.ID]))
+		if n := tokens[it.ID]; n > 0 && !it.Removed {
+			total += n
+		}
+	}
+	return total, nil
+}
+
+func formatAssetLine(it assets.Item, category string, tokens int) string {
+	line := fmt.Sprintf("  %-36s %-10s %-12s %s", it.ID, orDash(it.Version), assetState(it), category)
+	if tokens > 0 && !it.Removed {
+		line += " " + tokenLabel(tokens)
+	}
+	return strings.TrimRight(line, " ")
+}
+
+func assetState(it assets.Item) string {
+	switch {
+	case it.Removed:
+		return "removed"
+	case it.Pinned:
+		return "pinned"
+	case it.Downloaded:
+		return "downloaded"
+	default:
+		return "source"
+	}
 }
 
 func orDash(s string) string {
