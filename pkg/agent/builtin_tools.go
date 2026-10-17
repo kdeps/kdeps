@@ -102,6 +102,19 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
 	registerMemoryQueryTool(reg)
+	registerInstructTool(reg)
+}
+
+// registerInstructTool returns one harness section or one /instruct briefing.
+// help is an alias declared on the tool asset; /instruct stays a slash command.
+func registerInstructTool(reg *kdepstools.Registry) {
+	reg.Register(defined(&kdepstools.Tool{
+		Name: "instruct",
+		Execute: func(args map[string]any) (string, error) {
+			topic, _ := args["topic"].(string)
+			return instructToolResult(topic, reg.ToolPrompt)
+		},
+	}))
 }
 
 // registerCalculator registers the langchain-go Calculator tool.

@@ -171,6 +171,16 @@ func TestSetHarnessEnabled_UnknownNameErrors(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestSetHarnessEnabled_PreservesSummary(t *testing.T) {
+	isolateHarnessHome(t)
+	const name = "honesty"
+	before := harnessRegistry[name].summary
+	require.NotEmpty(t, before)
+	require.NoError(t, SetHarnessEnabled(name, false))
+	require.NoError(t, SetHarnessEnabled(name, true))
+	assert.Equal(t, before, harnessRegistry[name].summary)
+}
+
 func TestSetHarnessEnabled_DisableThenEnableRoundTrips(t *testing.T) {
 	isolateHarnessHome(t)
 	const name = "m365-sandbox"

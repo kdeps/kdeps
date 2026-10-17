@@ -76,7 +76,7 @@ func SetHarnessEnabled(name string, enabled bool) error {
 		return fmt.Errorf("harness: unknown section %q", name)
 	}
 	entry := yamlHarnessEntry{
-		Name: key, Kind: e.kind, Order: e.order, Body: e.body,
+		Name: key, Kind: e.kind, Order: e.order, Body: e.body, Summary: e.summary,
 		Disabled: !enabled, MaxOccurrences: e.maxOccurrences, Remind: e.remind,
 	}
 	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
@@ -108,7 +108,7 @@ func SetHarnessReminder(name string, enabled bool) error {
 		return fmt.Errorf("harness: unknown section %q", name)
 	}
 	entry := yamlHarnessEntry{
-		Name: key, Kind: e.kind, Order: e.order, Body: e.body,
+		Name: key, Kind: e.kind, Order: e.order, Body: e.body, Summary: e.summary,
 		Disabled: e.disabled, MaxOccurrences: e.maxOccurrences, Remind: enabled,
 	}
 	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
@@ -335,24 +335,114 @@ func harnessRender(name string, data any) string {
 	return buf.String()
 }
 
+// preambleSection is one enabled preamble-section entry plus the name the
+// instruct tool looks it up by.
+type preambleSection struct {
+	name string
+	e    *harnessEntry
+}
+
+// enabledPreambleSections returns preamble-section entries that are on, in
+// ascending order. Equal orders keep map order, same as before.
+func enabledPreambleSections() []preambleSection {
+	var sections []preambleSection
+	for name, e := range harnessRegistry {
+		if e.kind == harnessKindPreambleSection && !e.disabled {
+			sections = append(sections, preambleSection{name: name, e: e})
+		}
+	}
+	sort.Slice(sections, func(i, j int) bool { return sections[i].e.order < sections[j].e.order })
+	return sections
+}
+
 // harnessAssembledPreamble joins every preamble-section entry, in ascending
 // order, with a blank line between each -- replacing the old toolUseGuidance
 // + kdepsToolsFirstGuidance concatenation. The join is cached, unrendered
 // text: it may still contain template placeholders (e.g. "internals"'s
 // {{.WebCallLimit}}), rendered per call by renderAssembledPreamble.
 func harnessAssembledPreamble() string {
-	var sections []*harnessEntry
-	for _, e := range harnessRegistry {
-		if e.kind == harnessKindPreambleSection && !e.disabled {
-			sections = append(sections, e)
-		}
-	}
-	sort.Slice(sections, func(i, j int) bool { return sections[i].order < sections[j].order })
+	sections := enabledPreambleSections()
 	parts := make([]string, len(sections))
-	for i, e := range sections {
-		parts[i] = e.body
+	for i, s := range sections {
+		parts[i] = s.e.body
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+// harnessSummaryHint is the line that tells the model how to fetch a section
+// it was shown only as a one-line summary.
+const harnessSummaryHint = "Call instruct with a topic for the full text of any section."
+
+// harnessSummaryBlock is the short harness: the hint, then one line per
+// enabled preamble section. The line is the hand-written summary, or the
+// first sentence of the body when a user override left summary blank.
+func harnessSummaryBlock() string {
+	sections := enabledPreambleSections()
+	parts := make([]string, 0, len(sections)+1)
+	parts = append(parts, harnessSummaryHint)
+	for _, s := range sections {
+		parts = append(parts, "- "+s.name+": "+s.e.summaryLine())
+	}
+	return strings.Join(parts, "\n")
+}
+
+// summaryLine is the one line this section contributes to the short prompt.
+func (e *harnessEntry) summaryLine() string {
+	s := strings.TrimSpace(e.summary)
+	if s == "" {
+		s = fallbackHarnessSummary(e.body)
+	}
+	return strings.Join(strings.Fields(s), " ")
+}
+
+// fallbackHarnessSummary is the first sentence of a section that has no
+// hand-written summary. Shipped preamble sections always set summary.
+func fallbackHarnessSummary(body string) string {
+	const (
+		summarySentenceMax = 200
+		summaryMaxLen      = 180
+		summaryBreakMin    = 80
+	)
+	var b strings.Builder
+	for _, line := range strings.Split(body, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || (strings.HasPrefix(t, "<") && strings.HasSuffix(t, ">") && !strings.Contains(t, " ")) {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(t)
+	}
+	s := b.String()
+	if i := strings.IndexAny(s, ".!?"); i >= 0 && i < summarySentenceMax {
+		s = s[:i+1]
+	}
+	if len(s) > summaryMaxLen {
+		s = s[:summaryMaxLen]
+		if sp := strings.LastIndex(s, " "); sp > summaryBreakMin {
+			s = s[:sp]
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+// harnessSectionText returns one section's full text. Preamble sections are
+// rendered, so a template such as the web-call limit is the live value.
+// A disabled section returns disabled true and ok true with empty text.
+func harnessSectionText(name string) (string, bool, bool) {
+	key := strings.ToLower(strings.TrimSpace(name))
+	e, found := harnessRegistry[key]
+	if !found {
+		return "", false, false
+	}
+	if e.disabled {
+		return "", true, true
+	}
+	if e.kind == harnessKindPreambleSection {
+		return harnessRender(key, currentPreambleData()), false, true
+	}
+	return e.body, false, true
 }
 
 // harnessPreambleData carries the values interpolated into the cached,

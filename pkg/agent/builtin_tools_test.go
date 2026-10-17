@@ -72,6 +72,36 @@ func TestBuiltinToolParameters(t *testing.T) {
 	}
 }
 
+func TestInstructTool_SectionTopicAndAlias(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("instruct")
+	require.NotNil(t, tool)
+	assert.Equal(t, "instruct", resolveToolName("help", func(n string) bool { return reg.Get(n) != nil }))
+
+	text, err := tool.Execute(map[string]any{"topic": "honesty"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "<honesty>")
+
+	text, err = tool.Execute(map[string]any{"topic": "tools"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "<tools>")
+
+	text, err = tool.Execute(map[string]any{"topic": "instruct:tools"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "LITERAL")
+	assert.NotContains(t, text, "<tools>")
+
+	text, err = tool.Execute(map[string]any{"topic": "goals"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "task_complete")
+
+	_, err = tool.Execute(map[string]any{"topic": ""})
+	assert.Error(t, err)
+	_, err = tool.Execute(map[string]any{"topic": "no-such-topic"})
+	assert.Error(t, err)
+}
+
 func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)

@@ -83,6 +83,10 @@ type yamlHarnessEntry struct {
 	// False (the zero value) means no forced reminder. Set/unset via
 	// "/harness reminders <name> on|off"; see harness_reminders.go.
 	Remind bool `yaml:"remind,omitempty"`
+	// Summary is the one line sent in place of Body after the full section
+	// has already been delivered this session. Written by hand in the asset.
+	// Empty falls back to the first sentence of Body.
+	Summary string `yaml:"summary,omitempty"`
 }
 
 // harnessEntry is the parsed, in-memory form.
@@ -90,6 +94,7 @@ type harnessEntry struct {
 	kind           string
 	order          int
 	body           string
+	summary        string
 	disabled       bool
 	maxOccurrences int
 	remind         bool
@@ -155,7 +160,7 @@ func parseBuiltinHarnessFileFrom(fsys harnessFS, out map[string]*harnessEntry, f
 	}
 	name := harnessNameFromYAML(ye, filename)
 	out[name] = &harnessEntry{
-		kind: ye.Kind, order: ye.Order, body: ye.Body,
+		kind: ye.Kind, order: ye.Order, body: ye.Body, summary: ye.Summary,
 		disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 	}
 }
@@ -223,7 +228,7 @@ func loadUserHarness() (map[string]*harnessEntry, []error) {
 			kind = harnessKindStandalone
 		}
 		out[name] = &harnessEntry{
-			kind: kind, order: ye.Order, body: ye.Body,
+			kind: kind, order: ye.Order, body: ye.Body, summary: ye.Summary,
 			disabled: ye.Disabled, maxOccurrences: ye.MaxOccurrences, remind: ye.Remind,
 		}
 	}

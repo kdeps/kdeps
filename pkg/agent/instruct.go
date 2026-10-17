@@ -18,7 +18,10 @@
 
 package agent
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // instructTopic is one section of the /instruct briefing. body is static prose;
 // when render is set it is called instead, for topics that reflect live session
@@ -211,3 +214,62 @@ func collapseWrap(s string) string {
 const instructAck = "Understood. I will follow this kdeps briefing for the rest " +
 	"of the session and act only through the fenced kdeps tools. kdeps is a parser " +
 	"and an interpreter: a matched <invoke> block in my message is parsed at runtime and interpreted."
+
+// instructToolResult is what the instruct tool (alias help) returns.
+// A harness section wins a bare name that is also an /instruct topic
+// (tools, memory). "instruct:<topic>" is always the briefing. catalog
+// renders the live tool list for the available topic.
+func instructToolResult(topic string, catalog func() string) (string, error) {
+	raw := strings.TrimSpace(topic)
+	if raw == "" {
+		return "", fmt.Errorf("instruct: topic is required (%s)", instructTopicChoices())
+	}
+	n := strings.ToLower(raw)
+	if briefing, ok := strings.CutPrefix(n, instructReminderPrefix); ok {
+		text, found := instructBriefing(briefing, catalog)
+		if !found {
+			return "", fmt.Errorf("instruct: unknown topic %q (%s)", raw, instructTopicChoices())
+		}
+		return text, nil
+	}
+	if text, disabled, ok := harnessSectionText(n); ok {
+		if disabled {
+			return "", fmt.Errorf("instruct: section %q is disabled", n)
+		}
+		return text, nil
+	}
+	if text, found := instructBriefing(n, catalog); found {
+		return text, nil
+	}
+	return "", fmt.Errorf("instruct: unknown topic %q (%s)", raw, instructTopicChoices())
+}
+
+// instructBriefing renders one /instruct topic. The available topic uses catalog.
+func instructBriefing(name string, catalog func() string) (string, bool) {
+	t, ok := findInstructTopic(name)
+	if !ok {
+		return "", false
+	}
+	if t.render != nil {
+		body := "No tools are registered in this session."
+		if catalog != nil {
+			if cat := strings.TrimSpace(catalog()); cat != "" {
+				body = cat
+			}
+		}
+		return "## " + t.title + "\n\n" + body, true
+	}
+	return renderInstructTopic(nil, t), true
+}
+
+// instructTopicChoices lists the names instruct accepts, for an error.
+func instructTopicChoices() string {
+	var names []string
+	for _, s := range enabledPreambleSections() {
+		names = append(names, s.name)
+	}
+	for _, t := range instructTopicList() {
+		names = append(names, instructReminderPrefix+t.name)
+	}
+	return strings.Join(names, ", ")
+}

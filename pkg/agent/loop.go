@@ -124,6 +124,11 @@ type Config struct {
 	// prompt and tool result (see Loop.SetInstructReminder), alongside the
 	// harness-section reminders.
 	InstructReminders []string
+	// PromptMode is how the harness is sent after the first full prompt of a
+	// session: "auto" (default), "full", or "summary". Empty means auto.
+	// auto keeps the full prompt on backends that cache it (anthropic, openai)
+	// and sends the per-section summary on every other backend.
+	PromptMode string
 	// FoldOff disables automatic folding once FoldThreshold is crossed.
 	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
 	// the zero value is the enabled default, not a silently-forced override.
@@ -403,8 +408,15 @@ type Loop struct {
 	// systemPreamble is built once on the first turn and reused verbatim on every
 	// subsequent turn. Keeping it byte-identical lets provider prompt caches hit
 	// on the system prefix instead of re-billing the full preamble each turn.
+	// systemPreambleShort is that preamble with each harness section replaced
+	// by its hand-written summary. fullPreambleSent is set once the full text
+	// has been handed to a request since the last invalidate or compaction.
 	systemPreamble      string
+	systemPreambleShort string
 	systemPreambleBuilt bool
+	fullPreambleSent    bool
+	fullPreambleTokens  int
+	shortPreambleTokens int
 	// toolDisplayActive is read by the REPL spinner: while a running tool's
 	// monitor line owns the terminal, spinner frames must not overwrite it.
 	toolDisplayActive atomic.Bool
@@ -3032,45 +3044,111 @@ func (l *Loop) dispatchToTerminal(
 	}
 }
 
-// InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
-// Call after a runtime change that the preamble embeds (model switch, which
-// renames the commit trailer author) so the cached prefix does not go stale.
+// InvalidateSystemPreamble forces the next turn to rebuild the system preamble
+// and to send the full text once before any summary. Call after a runtime
+// change that the preamble embeds (model switch, which renames the commit
+// trailer author) so the cached prefix does not go stale.
 func (l *Loop) InvalidateSystemPreamble() {
 	l.systemPreambleBuilt = false
 	l.systemPreamble = ""
+	l.systemPreambleShort = ""
+	l.fullPreambleSent = false
 }
 
-// cachedSystemPreamble returns the system preamble, building it once on the
-// first turn and reusing the identical string thereafter. Re-sending a stable
-// system prefix every turn is what lets provider prompt caches hit it instead
-// of re-billing skills, instructions, and memory rules on each turn.
+// cachedSystemPreamble returns the system preamble. The full text is built
+// once. The first request after a session start, compaction, or invalidate
+// sends that full text. Later requests send it again when the prompt mode
+// says so (full, or auto on a backend that caches prompts) and otherwise
+// send the same preamble with each harness section replaced by its summary.
+//
+// dateAndWDPreamble is deliberately NOT part of the cached preamble: the
+// working directory can change mid-session (a `cd` via bash_exec), and a
+// stale cached CWD is actively misleading rather than merely wasteful.
+// Recomputed and re-sent on every call so the model is told the real
+// working directory on every turn, not just the session's first one.
 func (l *Loop) cachedSystemPreamble() string {
 	if !l.systemPreambleBuilt {
 		l.systemPreamble = l.buildSystemPreamble()
+		l.fullPreambleTokens = l.cachedSystemPromptSegmentTokens
 		l.systemPreambleBuilt = true
+		l.systemPreambleShort = ""
 	}
-	// dateAndWDPreamble is deliberately NOT part of the cached preamble above:
-	// the working directory can change mid-session (a `cd` via bash_exec), and
-	// a stale cached CWD is actively misleading rather than merely wasteful.
-	// Recomputed and re-sent on every call so the model is told the real
-	// working directory on every turn, not just the session's first one.
+	body := l.systemPreamble
+	tokens := l.fullPreambleTokens
+	if l.summaryPreambleDue() {
+		if l.systemPreambleShort == "" {
+			l.systemPreambleShort = l.composeSystemPreamble(harnessSummaryBlock())
+			l.shortPreambleTokens = l.cachedSystemPromptSegmentTokens
+		}
+		body = l.systemPreambleShort
+		tokens = l.shortPreambleTokens
+	} else {
+		l.fullPreambleSent = true
+	}
+	l.cachedSystemPromptSegmentTokens = tokens
 	hasRegistry := l.registry != nil && len(l.registry.List()) > 0
 	if hasRegistry {
-		if l.systemPreamble == "" {
+		if body == "" {
 			return l.dateAndWDPreamble()
 		}
-		return l.systemPreamble + "\n\n" + l.dateAndWDPreamble()
+		return body + "\n\n" + l.dateAndWDPreamble()
 	}
-	return l.systemPreamble
+	return body
+}
+
+// summaryPreambleDue reports whether this request should carry the harness
+// summaries instead of the full section text.
+func (l *Loop) summaryPreambleDue() bool {
+	if l == nil || !l.fullPreambleSent {
+		return false
+	}
+	switch l.PromptMode() {
+	case promptModeFull:
+		return false
+	case promptModeSummary:
+		return true
+	default:
+		return !backendCachesPrompt(l.config.Backend)
+	}
+}
+
+// PromptMode returns the normalized harness prompt mode. Empty and unknown
+// values are auto.
+func (l *Loop) PromptMode() string {
+	if l == nil {
+		return promptModeAuto
+	}
+	if mode, ok := normalizePromptMode(l.config.PromptMode); ok {
+		return mode
+	}
+	return promptModeAuto
+}
+
+// SetPromptMode sets the harness prompt mode. The next request honors it.
+// The full text is still sent on the first request after an invalidate or
+// a compaction, even in summary mode.
+func (l *Loop) SetPromptMode(mode string) error {
+	norm, ok := normalizePromptMode(mode)
+	if !ok || strings.TrimSpace(mode) == "" {
+		return errors.New("efficiency: prompt mode must be auto, full, or summary")
+	}
+	l.config.PromptMode = norm
+	return nil
 }
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
 // For small-context models (< 8K), non-essential parts are dropped to
 // leave room for the actual conversation.
+func (l *Loop) buildSystemPreamble() string {
+	return l.composeSystemPreamble(renderAssembledPreamble(currentPreambleData()))
+}
+
+// composeSystemPreamble builds the cached system prompt. harness is the
+// assembled preamble sections: the full text, or one summary line each.
 //
 //nolint:gocognit
-func (l *Loop) buildSystemPreamble() string {
+func (l *Loop) composeSystemPreamble(harness string) string {
 	limit := l.preambleLimit()
 	var parts []string
 
@@ -3104,7 +3182,7 @@ func (l *Loop) buildSystemPreamble() string {
 		// limit models actually hit (globalWebCache, builtin_tool_cache.go),
 		// not a hardcoded number that would silently go stale the next time
 		// that limit changes.
-		toolParts = append(toolParts, renderAssembledPreamble(currentPreambleData()))
+		toolParts = append(toolParts, harness)
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}
@@ -3731,6 +3809,7 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		// Fall back to truncation so the user isn't left with nothing.
 		fallback := l.session.Compact()
 		if fallback != "" {
+			l.fullPreambleSent = false
 			return fallback, nil
 		}
 		return "", fmt.Errorf("compaction LLM call failed: %w", err)
@@ -3739,12 +3818,17 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 		// LLM returned empty or unusable response — fall back to truncation.
 		fallback := l.session.Compact()
 		if fallback != "" {
+			l.fullPreambleSent = false
 			return fallback, nil
 		}
 		return "", errors.New("compaction produced empty summary")
 	}
 
 	l.session.CompactWith(summary, toKeep, compactedTurns)
+	// The folded history no longer carries the earlier turns, and the system
+	// prompt is not part of that history. Send the full instructions once
+	// on the next request, then resume the summary if the mode says so.
+	l.fullPreambleSent = false
 	// Mandatory session-integrity handshake: the rewritten context (fold or
 	// full compaction, both funnel through here) leaves the model's
 	// tool-calling path against it unproven until it makes one real call.

@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -150,19 +151,57 @@ func onOffWord(on bool) string {
 	return toggleOff
 }
 
-const efficiencyUsage = "Usage: /efficiency [on|off|verbose on|off|<setting> <n|off>|preset <name>|reset]"
+const (
+	promptModeAuto    = "auto"
+	promptModeFull    = "full"
+	promptModeSummary = "summary"
+)
+
+// normalizePromptMode accepts auto, full, and summary. Empty is auto.
+// The bool is false for anything else.
+func normalizePromptMode(mode string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", promptModeAuto:
+		return promptModeAuto, true
+	case promptModeFull:
+		return promptModeFull, true
+	case promptModeSummary:
+		return promptModeSummary, true
+	default:
+		return "", false
+	}
+}
+
+// backendCachesPrompt reports whether a stable system prefix is cheap after
+// the first request. Anthropic caches an ephemeral system block. OpenAI
+// caches a stable prefix on its own. Every other backend bills the full
+// prompt on every request. Changing the prompt between requests drops the
+// cache, so auto mode leaves those two on the full text.
+func backendCachesPrompt(backend string) bool {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
+	case backendAnthropic, "openai":
+		return true
+	default:
+		return false
+	}
+}
+
+const efficiencyUsage = "Usage: /efficiency [on|off|verbose on|off|prompt auto|full|summary|" +
+	"<setting> <n|off>|preset <name>|reset]"
 
 // cmdEfficiency inspects and configures efficiency enforcement. Every change
 // overwrites the stored value and persists across launches.
 func (r *REPL) cmdEfficiency(args []string) {
 	if len(args) == 0 {
-		cmdEfficiencyStatus()
+		r.cmdEfficiencyStatus()
 		return
 	}
 	sub := strings.ToLower(args[0])
 	var err error
 	var msg string
 	switch sub {
+	case "prompt":
+		msg, err = r.efficiencySetPrompt(args[1:])
 	case toggleOn, toggleOff:
 		err = SetEfficiencyEnabled(sub == toggleOn)
 		msg = "efficiency enforcement " + sub + " (saved)"
@@ -220,10 +259,29 @@ func efficiencySetValue(key string, rest []string) (string, error) {
 	return fmt.Sprintf("efficiency %s = %d (saved)", key, n), nil
 }
 
-func cmdEfficiencyStatus() {
+func (r *REPL) efficiencySetPrompt(rest []string) (string, error) {
+	if r == nil || r.loop == nil {
+		return "", errors.New("efficiency: no agent loop")
+	}
+	if len(rest) == 0 {
+		return "efficiency prompt " + r.loop.PromptMode(), nil
+	}
+	if err := r.loop.SetPromptMode(rest[0]); err != nil {
+		return "", errors.New("usage: /efficiency prompt auto|full|summary")
+	}
+	r.persistTuning()
+	return "efficiency prompt " + r.loop.PromptMode() + " (saved)", nil
+}
+
+func (r *REPL) cmdEfficiencyStatus() {
+	mode := promptModeAuto
+	if r != nil && r.loop != nil {
+		mode = r.loop.PromptMode()
+	}
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Efficiency enforcement"))
 	fmt.Fprintf(os.Stdout, "  %-8s %s\n", "state", onOffWord(EfficiencyEnabled()))
 	fmt.Fprintf(os.Stdout, "  %-8s %s\n", "verbose", onOffWord(EfficiencyVerbose()))
+	fmt.Fprintf(os.Stdout, "  %-8s %-8s %s\n", "prompt", mode, "harness text after the first send")
 	for _, v := range efficiencyValues {
 		val := toggleOff
 		if EventEnabled(v.event) {

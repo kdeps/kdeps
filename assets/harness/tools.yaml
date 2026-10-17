@@ -1,7 +1,8 @@
-version: 1.0.0
+version: 1.1.0
 name: tools
 kind: preamble-section
 order: 20
+summary: Run independent calls in one message. A tool has not run until the runtime returns a real result. Write one unfenced literal invoke block only when the native channel is absent. Put temp files under /tmp/kdeps and clean them up.
 body: |-
   <tools>
   Send independent tool calls in a single message to run them concurrently.

@@ -132,12 +132,28 @@ A turn can have several soft stops. Each stop tightens the reads budget (`tighte
 
 Enforcement stands down when it is off, when the `audit` or `explain` agent preset is active (those are read-only by design), or when no output tool is registered.
 
+## Harness prompt
+
+`/efficiency prompt` chooses what happens to the harness after its full text has been sent once.
+
+```text
+/efficiency prompt                 # show auto, full, or summary
+/efficiency prompt auto            # summary only where the prompt is billed every request (default)
+/efficiency prompt full            # always send the full sections
+/efficiency prompt summary         # summary after the first send, on every backend
+```
+
+The first request of a session, and the first request after compaction, a fold, or a model switch, always sends the full harness. Later requests in `summary` mode, and in `auto` mode on a backend other than Anthropic or OpenAI, send one line per section. That line is the hand-written `summary:` field in the section's harness YAML. The model calls `instruct` (alias `help`) with the section name to read the full text.
+
+`auto` leaves Anthropic and OpenAI on the full text. They cache a stable system prefix, so swapping in a summary barely saves anything and invalidates that cache. Ollama, llamafile, GGUF, M365, and the other backends pay for the prompt on every request, so the summary is the saving. The choice persists in `~/.kdeps/agent-loop-settings.yaml` (`prompt_mode`).
+
 ## From the REPL
 
 ```text
 /efficiency                    # show state and every limit
 /efficiency on|off             # master switch (persists)
 /efficiency verbose on|off     # reveal the model-facing channel (persists)
+/efficiency prompt auto|full|summary   # harness text after the first send (persists)
 /efficiency reads 4            # consecutive reads before a stop (persists)
 /efficiency failures 8         # failed calls briefed and retried per turn (persists)
 /efficiency web off            # remove one limit entirely (persists)

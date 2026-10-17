@@ -129,17 +129,30 @@ Every piece of text kdeps sends the model to shape its *behavior* - not the conv
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
 name: house-style        # optional - defaults to the filename without its extension
-kind: preamble-section    # "preamble-section" (sent on every turn) or "standalone" (looked up by name)
+kind: preamble-section    # "preamble-section" (joined into the system prompt) or "standalone" (looked up by name)
 order: 200                 # only meaningful for preamble-section; controls where it lands among the others
+summary: Answer in one paragraph, then a next-steps list.  # one line sent after the full text has been delivered
 body: |-
   Always answer in one paragraph, then a bulleted "next steps" list.
 ```
 
-A `preamble-section` entry is appended to every turn's system preamble automatically - no other configuration needed. A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
+A `preamble-section` entry is part of the system prompt. The first request of a session sends every section's `body` in full, and so does the first request after compaction, a fold, or a model switch. Later requests send one `summary` line per section, plus a line telling the model to call the `instruct` tool with that section's name for the full text. `help` is an alias of that tool. `/instruct` stays a slash command. A section with no `summary` falls back to the first sentence of its body. Shipped sections always declare `summary`.
 
-The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, and `use-kdeps-tools`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
+`/efficiency prompt` chooses that later-request behavior and persists it in `~/.kdeps/agent-loop-settings.yaml`:
 
-There is no `/harness` command: unlike a theme, harness content loads once at startup and is not switched at runtime.
+```text
+/efficiency prompt auto      # summary on backends that bill the whole prompt every request (default)
+/efficiency prompt full      # always the full sections
+/efficiency prompt summary   # summary after the first send, including Anthropic and OpenAI
+```
+
+`auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, M365, and every other backend are billed for the prompt on every request, so `auto` sends the summaries there.
+
+A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
+
+The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, and `edit-workflow`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
+
+`/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 
 ## Turn-complete alert
 

@@ -12,6 +12,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
 | Code | `code_search`, `code_definition`, and the other LSP tools | [Code intelligence](/workflow/resources/code-navigation) |
+| Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
 
