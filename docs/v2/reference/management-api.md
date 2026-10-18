@@ -1,6 +1,6 @@
 # Management API
 
-The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes.
+The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes. The [kdeps API](/reference/glossary#kdeps-api) is a different listener.
 
 Workflow mode only.
 

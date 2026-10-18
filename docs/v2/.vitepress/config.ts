@@ -185,6 +185,7 @@ export default defineConfig({
             { text: 'Function calling', link: '/reference/tools' },
             { text: 'Browser actions', link: '/reference/browser-actions' },
             { text: 'Management API', link: '/reference/management-api' },
+            { text: 'kdeps API', link: '/reference/api' },
             { text: 'Security', link: '/reference/security' },
             { text: 'Glossary', link: '/reference/glossary' },
           ]

@@ -291,31 +291,6 @@ func makeTestSQLiteDB(t *testing.T) string {
 	return dbPath
 }
 
-func TestSQLListTables_ReturnsTableNames(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlListTables(context.Background(), dbPath)
-	require.NoError(t, err)
-	assert.Contains(t, result, "users")
-}
-
-func TestSQLDescribeTable_ReturnsSchema(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlDescribeTable(context.Background(), dbPath, "users")
-	require.NoError(t, err)
-	assert.Contains(t, result, "users")
-	assert.Contains(t, result, "id")
-	assert.Contains(t, result, "name")
-	assert.Contains(t, result, "email")
-}
-
-func TestSQLExecQuery_ReturnsRows(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, name FROM users ORDER BY id")
-	require.NoError(t, err)
-	assert.Contains(t, result, "Alice")
-	assert.Contains(t, result, "Bob")
-}
-
 func TestSQLExecQuery_RejectsNonSelect(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -352,18 +327,6 @@ func TestSQLListTables_AlwaysRegistered(t *testing.T) {
 	assert.NotNil(t, reg.Get("sql_list_tables"), "sql_list_tables should always register")
 	assert.NotNil(t, reg.Get("sql_describe_table"), "sql_describe_table should always register")
 	assert.NotNil(t, reg.Get("sql_query"), "sql_query should always register")
-}
-
-func TestSQLDBPath_UsesEnvFallback(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]any{})
-	assert.Equal(t, "/tmp/fallback.db", p)
-}
-
-func TestSQLDBPath_ArgOverridesEnv(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]any{"db_path": "/tmp/override.db"})
-	assert.Equal(t, "/tmp/override.db", p)
 }
 
 func TestSQLListTables_Tool_WithDBPath(t *testing.T) {
@@ -409,13 +372,6 @@ func TestSQLQuery_UnescapesHTMLEntitiesInQuery(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, result, "Alice")
 	assert.NotContains(t, result, "Bob")
-}
-
-func TestSQLOpenEngine_EmptyPath(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "")
-	_, err := sqlOpenEngine("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db_path is required")
 }
 
 func TestSQLListTables_MissingDBPath(t *testing.T) {
@@ -1014,49 +970,6 @@ func TestBashJobList_WithEntries(t *testing.T) {
 	assert.Contains(t, out, "echo hello")
 }
 
-func TestSQLExecQuery_InvalidSQL(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	require.NoError(t, err)
-	_, err = db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT, nullable TEXT)")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO t VALUES (1, 'a', NULL)")
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	// Test NULL value handling in sqlExecQuery: LC sqlite3 engine returns empty string for NULL.
-	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, val, nullable FROM t")
-	require.NoError(t, err)
-	assert.Contains(t, result, "id")
-	assert.Contains(t, result, "val")
-	assert.Contains(t, result, "nullable")
-}
-
-func TestSQLExecQuery_BadSQL(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	// Bad SQL triggers query error path
-	_, err = sqlExecQuery(context.Background(), dbPath, "SELECT * FROM nonexistent_table_xyz")
-	require.Error(t, err)
-}
-
-func TestSQLListTables_NoDB(t *testing.T) {
-	// Covers sqlListTables db open error path.
-	_, err := sqlListTables(context.Background(), "")
-	require.Error(t, err)
-}
-
-func TestSQLDescribeTable_NoDB(t *testing.T) {
-	// sqlDescribeTable fails with invalid db path.
-	_, err := sqlDescribeTable(context.Background(), "", "test_table")
-	require.Error(t, err)
-}
-
 func TestTruncateBashOutput_NoTruncation(t *testing.T) {
 	out := "line1\nline2\nline3"
 	got := truncateBashOutput(out)
@@ -1108,30 +1021,6 @@ func TestTruncateBashOutput_ExactLimit(t *testing.T) {
 }
 
 // --- SQL error paths ---
-
-func TestSQLListTables_QueryError(t *testing.T) {
-	// A file that exists but is not a valid sqlite3 database causes QueryContext to fail.
-	dir := t.TempDir()
-	path := filepath.Join(dir, "corrupt.db")
-	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlListTables(context.Background(), path)
-	require.Error(t, err)
-}
-
-func TestSQLDescribeTable_QueryError(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "corrupt.db")
-	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlDescribeTable(context.Background(), path, "users")
-	require.Error(t, err)
-}
-
-func TestSQLExecQuery_OpenError(t *testing.T) {
-	// Empty dbPath triggers sqlOpenDB error, covering the err != nil branch in sqlExecQuery.
-	_, err := sqlExecQuery(context.Background(), "", "SELECT 1")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "db_path is required")
-}
 
 // --- HTTP build-request error paths (malformed URL) ---
 
@@ -1215,7 +1104,7 @@ func TestReadFile_RelativePath(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	reg := kdepstools.NewRegistry()
-	registerReadFile(reg)
+	registerReadFile(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"file_path": relName})

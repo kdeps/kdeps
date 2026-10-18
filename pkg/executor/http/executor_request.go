@@ -27,6 +27,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -136,6 +137,9 @@ func (e *Executor) createRequest(
 	client, err := e.clientFactory.CreateClient(config, proxy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create HTTP client: %w", err)
+	}
+	if strings.EqualFold(req.URL.Hostname(), api.InProcessHost) {
+		client = api.CurrentClient()
 	}
 
 	return req, client, nil

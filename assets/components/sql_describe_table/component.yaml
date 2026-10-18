@@ -1,0 +1,30 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: sql_describe_table
+  description: Describe one SQLite table through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: db_path
+      type: string
+      default: ""
+      description: SQLite file. Empty uses KDEPS_SQL_DB_PATH
+    - name: table
+      type: string
+      required: true
+      description: Table name
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Describe table
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/sql_describe_table/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        db_path: "{{ get('sql_describe_table.db_path') }}"
+        table: "{{ get('sql_describe_table.table') }}"

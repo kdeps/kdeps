@@ -35,6 +35,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -144,6 +145,7 @@ type Service struct {
 	store    *agent.SessionStore
 	memStore *agent.MemoryStore
 	registry *tools.Registry
+	apiSrv   *api.Server
 
 	mu        sync.Mutex
 	loop      *agent.Loop
@@ -167,6 +169,10 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 	if opts.Engine == nil {
 		return nil, errors.New("desktop: Options.Engine is required")
 	}
+	apiSrv, err := api.StartFromProcess(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("start kdeps api: %w", err)
+	}
 	if opts.Cwd == "" {
 		opts.Cwd, _ = os.Getwd()
 	}
@@ -187,6 +193,7 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 		store:    agent.NewSessionStore(opts.StateDir),
 		memStore: agent.NewMemoryStore(opts.StateDir),
 		registry: opts.Registry,
+		apiSrv:   apiSrv,
 		pending:  map[string]chan agent.ApprovalChoice{},
 		inChat:   map[string]*tools.Tool{},
 		procs:    map[string]*running{},
@@ -202,6 +209,9 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 	s.openLoop(nil, "")
 	return s, nil
 }
+
+// API is the process control API started with the service.
+func (s *Service) API() *api.Server { return s.apiSrv }
 
 func (s *Service) openLoop(resume *agent.Session, id string) {
 	streamer := s.opts.Streamer

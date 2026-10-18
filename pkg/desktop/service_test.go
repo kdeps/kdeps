@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -175,6 +176,42 @@ func TestNew_Validation(t *testing.T) {
 	assert.ErrorContains(t, err, "Emit")
 	_, err = desktop.New(t.Context(), desktop.Options{Emit: func(desktop.Event) {}})
 	assert.ErrorContains(t, err, "Engine")
+}
+
+func TestNew_StartsAPI(t *testing.T) {
+	svc, err := desktop.New(t.Context(), desktop.Options{
+		Emit:     func(desktop.Event) {},
+		Engine:   executor.NewEngine(nil),
+		Cwd:      t.TempDir(),
+		StateDir: t.TempDir(),
+		Model:    "test",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, svc.API())
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://kdeps.invalid/api", nil)
+	require.NoError(t, err)
+	resp, err := svc.API().Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestNew_APIListenFails(t *testing.T) {
+	t.Setenv("KDEPS_API_LISTEN", "bad-listen-addr")
+	_, err := desktop.New(t.Context(), desktop.Options{
+		Emit:   func(desktop.Event) {},
+		Engine: executor.NewEngine(nil),
+	})
+	require.ErrorContains(t, err, "api listen")
+}
+
+func TestNew_NilContext(t *testing.T) {
+	var ctx context.Context
+	_, err := desktop.New(ctx, desktop.Options{
+		Emit:   func(desktop.Event) {},
+		Engine: executor.NewEngine(nil),
+	})
+	require.ErrorContains(t, err, "nil context")
 }
 
 func TestSend_StreamsTokensAndPersistsSession(t *testing.T) {

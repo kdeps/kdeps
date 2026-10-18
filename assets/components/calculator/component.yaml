@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: calculator
+  description: Evaluate a math expression through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: expression
+      type: string
+      required: true
+      description: Starlark numeric expression
+  # body is the result text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Calculate
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/calculator/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        expression: "{{ get('calculator.expression') }}"

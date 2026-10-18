@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -225,9 +227,17 @@ func editView(path string, args map[string]any) (string, error) {
 		}
 		return appendRevision(path, out), nil
 	}
-	// No range/anchor/symbol: reuse read_file's path -- size guard, offset/limit,
-	// numbered output, document extraction, per-turn caching.
-	res, err := trackFileCall(path, func() (string, error) { return readLocalFile(path, args) })
+	// No range/anchor/symbol: the read_file handler does the size guard,
+	// offset/limit, numbered output, and document extraction.
+	res, err := trackFileCall(path, func() (string, error) {
+		var readCtx context.Context
+		out, readErr := api.ReadFile(readCtx, readFileViewArgs(path, args))
+		if readErr != nil {
+			return "", readErr
+		}
+		indexReadFile(path)
+		return out, nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("edit_file view: %w", err)
 	}

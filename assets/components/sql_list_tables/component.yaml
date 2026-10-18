@@ -1,0 +1,25 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: sql_list_tables
+  description: List SQLite tables through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: db_path
+      type: string
+      default: ""
+      description: SQLite file. Empty uses KDEPS_SQL_DB_PATH
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: List tables
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/sql_list_tables/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        db_path: "{{ get('sql_list_tables.db_path') }}"

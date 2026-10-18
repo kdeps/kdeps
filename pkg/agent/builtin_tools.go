@@ -37,29 +37,21 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
-	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
 	lcllms "github.com/tmc/langchaingo/llms"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
-	lctools "github.com/tmc/langchaingo/tools"
-	lcduckduckgo "github.com/tmc/langchaingo/tools/duckduckgo"
 	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
-	lcscraper "github.com/tmc/langchaingo/tools/scraper"
 	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
-	lcsqldatabase "github.com/tmc/langchaingo/tools/sqldatabase"
-	_ "github.com/tmc/langchaingo/tools/sqldatabase/sqlite3" // registers sqlite3 engine + driver
-	lcwikipedia "github.com/tmc/langchaingo/tools/wikipedia"
 
 	codeintel "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 )
 
 const (
-	builtinDDGMaxResults    = 5
-	builtinUserAgent        = "kdeps/agent"
 	bashOutputMaxLines      = 2000      // pi truncate.ts DEFAULT_MAX_LINES
 	bashOutputMaxBytes      = 50 * 1024 // pi truncate.ts DEFAULT_MAX_BYTES (50 KB)
 	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
@@ -89,7 +81,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerBashJobWait(ctx, reg)
 	registerListFiles(reg)
 	registerCalculator(ctx, reg)
-	registerReadFile(reg)
+	registerReadFile(ctx, reg)
 	registerMD5File(reg)
 	registerTailFile(reg)
 	registerWriteFile(reg)
@@ -120,17 +112,7 @@ func registerInstructTool(reg *kdepstools.Registry) {
 // registerCalculator registers the langchain-go Calculator tool.
 // No API key required. Accepts any valid Starlark numeric expression.
 func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
-	calc := lctools.Calculator{}
-	reg.Register(defined(&kdepstools.Tool{
-		Name: toolNameCalculator,
-		Execute: func(args map[string]any) (string, error) {
-			expr, _ := args["expression"].(string)
-			if expr == "" {
-				return "", errors.New("calculator: expression is required")
-			}
-			return calc.Call(toolCallCtx(ctx, args), expr)
-		},
-	}))
+	registerAPITool(ctx, reg, toolNameCalculator, api.Calculator)
 }
 
 // maxFileReadBytes returns the "file-read-limit" event's byte cap on any
@@ -214,182 +196,137 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 	return nil
 }
 
-// registerReadFile registers a local file reading tool.
-// Reads text files from the filesystem, and extracts text from PDF, DOCX,
-// EPUB, RTF, and ODT documents via the same loader package the loader:
-// workflow-mode resource action and the load_document tool use. Accepts
-// absolute paths only. No API key required.
-func registerReadFile(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// registerReadFile registers a local file reading tool. The read itself is
+// the read_file call on the kdeps API. This wrapper only fills session state
+// (match_id, the last file) before that call.
+func registerReadFile(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: toolNameReadFile,
 		Execute: func(args map[string]any) (string, error) {
-			filePath, err := resolveReadFilePath("read_file", args)
-			if err != nil {
-				return "", err
-			}
-			rememberFile(filePath)
-			return trackFileCall(filePath, func() (string, error) {
-				return readLocalFile(filePath, args)
-			})
+			return executeReadFile(ctx, args)
 		},
-	}))
-}
-
-// readFileDocDispatchTypes are the loader types read_file dispatches to --
-// formats it could not read at all before (rejected by isBinaryContent).
-// html/csv are deliberately excluded: they are already plain text and
-// already read correctly today (raw markup / raw rows); routing them
-// through the loader would strip that raw form (e.g. goquery discards HTML
-// tags) for no benefit. load_document still offers structured html/csv
-// parsing explicitly when that's what's wanted.
-//
-//nolint:gochecknoglobals // static allowlist
-var readFileDocDispatchTypes = map[string]bool{
-	"pdf": true, "docx": true, "epub": true, "rtf": true, "odt": true,
-}
-
-func readLocalFile(filePath string, args map[string]any) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("read_file: %w", err)
-	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("read_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf(
-			"read_file: %s is %d bytes (max %d)",
-			filePath,
-			info.Size(),
-			limit,
-		)
-	}
-
-	if docType := execLoader.DetectTypeFromExtension(filePath); readFileDocDispatchTypes[docType] {
-		content, docErr := readDocumentFile(filePath, docType)
-		if docErr != nil {
-			return "", fmt.Errorf("read_file: %w", docErr)
-		}
-		indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
-		return formatFileLines(content, args), nil
-	}
-
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
-	}
-	if isBinaryContent(data) {
-		return "", fmt.Errorf("read_file: %s appears to be a binary file", filePath)
-	}
-
-	// Lazily index every file that's read into the search index.
-	indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
-
-	return formatFileLines(string(data), args), nil
-}
-
-// readDocumentFile extracts text from a PDF/DOCX/EPUB/RTF/ODT file via the
-// same loader package the loader: workflow-mode resource action and the
-// load_document tool use, so read_file needs no format-parsing code of its
-// own.
-func readDocumentFile(filePath, docType string) (string, error) {
-	result, err := execLoader.NewExecutor().Execute(nil, &domain.LoaderConfig{
-		Source: filePath,
-		Type:   docType,
 	})
-	if err != nil {
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.ReadFile,
+		})
+	}
+	reg.Register(tool)
+}
+
+func executeReadFile(ctx context.Context, args map[string]any) (string, error) {
+	if err := fillReadFileSession(args); err != nil {
 		return "", err
 	}
-	resultMap, ok := result.(map[string]interface{})
-	if !ok {
-		return "", errors.New("unexpected loader result type")
+	remembered := sessionReadPath(args)
+	body := readCallBody(args)
+	if remembered != "" {
+		rememberFile(remembered)
 	}
-	docs, ok := resultMap["documents"].([]execLoader.Document)
-	if !ok || len(docs) == 0 {
-		return "", errors.New("document produced no readable content")
+	call := func() (string, error) {
+		out, callErr := api.CallTool(toolCallCtx(ctx, args), toolNameReadFile, body)
+		if callErr != nil {
+			return "", callErr
+		}
+		if remembered != "" {
+			indexReadFile(remembered)
+		}
+		return out, nil
 	}
-	parts := make([]string, len(docs))
-	for i, d := range docs {
-		parts[i] = d.Content
+	if remembered == "" {
+		return call()
 	}
-	return strings.Join(parts, "\n\n"), nil
+	return trackFileCall(remembered, call)
 }
 
-// formatFileLines applies the offset/limit line-windowing and cat -n-style
-// numbering read_file has always used to plain text, now shared with the
-// document-dispatch path so both look identical to the model.
-func formatFileLines(content string, args map[string]any) string {
-	lines := strings.Split(content, "\n")
-	// Content ending with \n produces a trailing empty element; drop it.
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
+// fillReadFileSession copies match_id or the last file into file_path.
+// It does not resolve, stat, or bound the path. The API handler does that.
+func fillReadFileSession(args map[string]any) error {
+	if args == nil {
+		return nil
 	}
-	totalLines := len(lines)
-	startLine := 0
-	endLine := totalLines
+	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) != "" {
+		return nil
+	}
+	if id, _ := args["match_id"].(string); id != "" {
+		return resolveMatchIDIntoArgs(toolNameReadFile, id, args)
+	}
+	if lf := lastFile(); lf != "" {
+		args[toolParamFilePath] = lf
+	}
+	return nil
+}
 
-	if v, ok := args["offset"].(float64); ok && v > 0 {
-		startLine = min(int(v)-1, totalLines)
+// sessionReadPath is the absolute path remembered for the next read.
+// A relative path is joined to the working directory here so the session
+// pointer matches the file the handler reads. This is not the security check.
+func sessionReadPath(args map[string]any) string {
+	filePath, ok := stringArgFrom(args, toolParamFilePath)
+	if !ok {
+		return ""
 	}
-	if v, ok := args["limit"].(float64); ok && v > 0 {
-		endLine = min(startLine+int(v), totalLines)
+	filePath = strings.TrimSpace(filePath)
+	if filePath == "" || filepath.IsAbs(filePath) {
+		return filePath
 	}
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return filePath
+	}
+	return abs
+}
 
-	// Build output with line numbers (cat -n style) plus visible whitespace
-	// and control characters (cat -A style: tabs as ^I, other control chars
-	// as ^X, a $ marking the true end of line so trailing whitespace before
-	// it is unambiguous) so the LLM can see indentation and stray characters
-	// a plain read would hide.
-	shown := lines[startLine:endLine]
-	var sb strings.Builder
-	digitWidth := len(strconv.Itoa(startLine + len(shown)))
-	for i, line := range shown {
-		ln := startLine + i + 1
-		fmt.Fprintf(&sb, "%*d\t%s$\n", digitWidth, ln, visibleWhitespace(line))
+func stringArgFrom(args map[string]any, key string) (string, bool) {
+	if args == nil {
+		return "", false
 	}
-	out := strings.TrimSuffix(sb.String(), "\n")
+	s, ok := args[key].(string)
+	return s, ok
+}
 
-	shownLines := endLine - startLine
-	if shownLines > 0 && shownLines < totalLines {
-		out = fmt.Sprintf("%s\n[%d/%d lines shown]", out, shownLines, totalLines)
+func readCallBody(args map[string]any) map[string]any {
+	body := map[string]any{}
+	if args == nil {
+		return body
 	}
+	if s, ok := args[toolParamFilePath].(string); ok {
+		body[toolParamFilePath] = s
+	}
+	if v, ok := args["offset"]; ok {
+		body["offset"] = v
+	}
+	if v, ok := args["limit"]; ok {
+		body["limit"] = v
+	}
+	return body
+}
 
+func readFileViewArgs(path string, args map[string]any) map[string]any {
+	out := map[string]any{toolParamFilePath: path}
+	if args == nil {
+		return out
+	}
+	if v, ok := args["offset"]; ok {
+		out["offset"] = v
+	}
+	if v, ok := args["limit"]; ok {
+		out["limit"] = v
+	}
 	return out
 }
 
-// visibleWhitespace renders a line the way `cat -A` (`cat -vET`) would: a
-// literal tab becomes "^I" and any other C0 control character or DEL becomes
-// its caret notation ("^X" for byte X, "^?" for DEL), so read_file's output
-// distinguishes tabs from spaces and surfaces stray control characters that
-// would otherwise be invisible. Operates on runes, not bytes, so valid
-// multi-byte UTF-8 text is left untouched -- only ASCII control characters
-// are ever rewritten. The caller appends "$" after this to mark the true end
-// of line, which is what makes trailing whitespace visible.
-const (
-	runeDEL          = 0x7f
-	c0ControlUpper   = 0x20 // first non-control ASCII rune; runes below this are C0 controls
-	caretNotationGap = 64   // caret notation: control char N prints as '^' + (N+64)
-)
+func indexReadFile(path string) {
+	indexInBackground(func() { execSearch.NewExecutor().IndexFile(path) })
+}
 
+// visibleWhitespace renders a line the way cat -A does. The kdeps API owns
+// the formatter; this name stays for callers in this package.
 func visibleWhitespace(line string) string {
-	var sb strings.Builder
-	for _, r := range line {
-		switch {
-		case r == '\t':
-			sb.WriteString("^I")
-		case r == runeDEL:
-			sb.WriteString("^?")
-		case r < c0ControlUpper:
-			sb.WriteByte('^')
-			sb.WriteRune(r + caretNotationGap)
-		default:
-			sb.WriteRune(r)
-		}
-	}
-	return sb.String()
+	return api.VisibleWhitespace(line)
 }
 
 // defaultTailLines is how many lines from the end of a file tail_file
@@ -776,39 +713,16 @@ func registerCachedQueryTool(
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	ddg, err := lcduckduckgo.New(builtinDDGMaxResults, builtinUserAgent)
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, ddg, "web_search")
+	registerCachedAPITool(ctx, reg, cache, toolNameWebSearch, toolParamQuery, builtinSearchTimeout, api.WebSearch)
 }
 
 func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	wiki := lcwikipedia.New(builtinUserAgent)
-	registerCachedQueryTool(ctx, reg, cache, wiki, "wikipedia")
+	registerCachedAPITool(ctx, reg, cache, "wikipedia", toolParamQuery, builtinSearchTimeout, api.Wikipedia)
 }
 
-// registerWebScraper registers a URL scraping tool using langchain-go's colly-based scraper.
-// No API key required. Fetches the URL and returns structured page content.
+// registerWebScraper registers a URL scraping tool. The fetch runs in the kdeps API.
 func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	scraper, err := lcscraper.New()
-	if err != nil {
-		return
-	}
-	reg.Register(defined(&kdepstools.Tool{
-		Name: toolNameWebScraper,
-		Execute: func(args map[string]any) (string, error) {
-			u, _ := args["url"].(string)
-			if u == "" {
-				return "", errors.New("web_scraper: url is required")
-			}
-			return cache.call("web_scraper:"+u, func() (string, error) {
-				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinScrapeTimeout)
-				defer cancel()
-				return scraper.Call(callCtx, u)
-			})
-		},
-	}))
+	registerCachedAPITool(ctx, reg, cache, toolNameWebScraper, "url", builtinScrapeTimeout, api.WebScrape)
 }
 
 // registerSQLTools registers three tools for interacting with a SQLite database:
@@ -818,125 +732,98 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 //
 // The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
 func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_list_tables",
-		Execute: func(args map[string]any) (string, error) {
-			dbPath := sqlDBPath(args)
-			return sqlListTables(toolCallCtx(ctx, args), dbPath)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_describe_table",
-		Execute: func(args map[string]any) (string, error) {
-			table, _ := args["table"].(string)
-			if table == "" {
-				return "", errors.New("sql_describe_table: table is required")
-			}
-			dbPath := sqlDBPath(args)
-			return sqlDescribeTable(toolCallCtx(ctx, args), dbPath, table)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_query",
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("sql_query: query is required")
-			}
-			// Same reasoning as bash_exec: an HTML-escaped comparison
-			// operator (WHERE x &lt; 5) is executable-syntax corruption,
-			// not literal content -- unescape before validating/running.
-			query = html.UnescapeString(query)
-			trimmed := strings.TrimSpace(strings.ToUpper(query))
-			if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
-				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
-			}
-			dbPath := sqlDBPath(args)
-			return sqlExecQuery(toolCallCtx(ctx, args), dbPath, query)
-		},
-	}))
+	registerAPITool(ctx, reg, "sql_list_tables", api.SQLListTables)
+	registerAPITool(ctx, reg, "sql_describe_table", api.SQLDescribeTable)
+	registerAPITool(ctx, reg, "sql_query", api.SQLQuery)
 }
 
-func sqlDBPath(args map[string]any) string {
-	if p, ok := args["db_path"].(string); ok && p != "" {
-		return p
+// registerAPITool registers one tool whose Execute only calls the kdeps API.
+func registerAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	name string,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{
+		Name: name,
+		Execute: func(args map[string]any) (string, error) {
+			return api.CallTool(toolCallCtx(ctx, args), name, jsonArgs(args))
+		},
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        call,
+		})
 	}
-	return os.Getenv("KDEPS_SQL_DB_PATH")
+	reg.Register(tool)
 }
 
-// sqlOpenEngine opens a read-only SQLite database using langchain-go's sqlite3 engine.
-func sqlOpenEngine(dbPath string) (lcsqldatabase.Engine, error) {
-	if dbPath == "" {
-		return nil, errors.New("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+// registerCachedAPITool is registerAPITool with the web convergence cache
+// around the call. An empty argument skips the cache so a missing query does
+// not consume a distinct-call slot.
+func registerCachedAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	cache *webToolCache,
+	name, arg string,
+	timeout time.Duration,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{
+		Name: name,
+		Execute: func(args map[string]any) (string, error) {
+			return executeCachedAPI(ctx, cache, name, arg, timeout, args)
+		},
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        call,
+		})
 	}
-	engine, err := lcsqldatabase.NewSQLDatabaseWithDSN("sqlite3", dbPath+"?mode=ro", nil)
-	if err != nil {
-		return nil, fmt.Errorf("sql tool: open %s: %w", dbPath, err)
-	}
-	return engine.Engine, nil
+	reg.Register(tool)
 }
 
-func sqlListTables(ctx context.Context, dbPath string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
+func executeCachedAPI(
+	ctx context.Context, cache *webToolCache, name, arg string, timeout time.Duration, args map[string]any,
+) (string, error) {
+	if cache == nil {
+		cache = globalWebCache
 	}
-	defer engine.Close()
-
-	_, rows, queryErr := engine.Query(
-		ctx,
-		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-	)
-	if queryErr != nil {
-		return "", fmt.Errorf("sql_list_tables: %w", queryErr)
-	}
-	tables := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if len(row) > 0 {
-			tables = append(tables, row[0])
+	raw, _ := stringArgFrom(args, arg)
+	body := map[string]any{}
+	if args != nil {
+		if v, ok := args[arg]; ok {
+			body[arg] = v
 		}
 	}
-	return strings.Join(tables, "\n"), nil
+	if strings.TrimSpace(raw) == "" {
+		return api.CallTool(toolCallCtx(ctx, args), name, body)
+	}
+	return cache.call(name+":"+raw, func() (string, error) {
+		callCtx, cancel := toolCallCtxTimeout(ctx, args, timeout)
+		defer cancel()
+		return api.CallTool(callCtx, name, body)
+	})
 }
 
-func sqlDescribeTable(ctx context.Context, dbPath, table string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
+func jsonArgs(args map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range args {
+		if k == "_ctx" {
+			continue
+		}
+		if _, isCtx := v.(context.Context); isCtx {
+			continue
+		}
+		out[k] = v
 	}
-	defer engine.Close()
-
-	// TableInfo returns the CREATE TABLE DDL which shows all columns, types, and constraints.
-	info, infoErr := engine.TableInfo(ctx, table)
-	if infoErr != nil {
-		return "", fmt.Errorf("sql_describe_table: %w", infoErr)
-	}
-	return fmt.Sprintf("Table: %s\n%s", table, strings.TrimSpace(info)), nil
-}
-
-func sqlExecQuery(ctx context.Context, dbPath, query string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
-	}
-	defer engine.Close()
-
-	cols, results, queryErr := engine.Query(ctx, query)
-	if queryErr != nil {
-		return "", fmt.Errorf("sql_query: %w", queryErr)
-	}
-
-	var sb strings.Builder
-	sb.WriteString(strings.Join(cols, "\t"))
-	sb.WriteByte('\n')
-
-	for _, row := range results {
-		sb.WriteString(strings.Join(row, "\t"))
-		sb.WriteByte('\n')
-	}
-	return strings.TrimSpace(sb.String()), nil
+	return out
 }
 
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.

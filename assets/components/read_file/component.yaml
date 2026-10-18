@@ -1,0 +1,37 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: read_file
+  description: Read a file through the kdeps API and return its text
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file_path
+      type: string
+      required: true
+      description: Path of the file to read
+    - name: offset
+      type: number
+      default: 0
+      description: First line to return (1-based). 0 reads from the start
+    - name: limit
+      type: number
+      default: 0
+      description: How many lines to return. 0 reads through the end
+  # body is the formatted file text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Read file
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/read_file/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        file_path: "{{ get('read_file.file_path') }}"
+        offset: "{{ get('read_file.offset') }}"
+        limit: "{{ get('read_file.limit') }}"
