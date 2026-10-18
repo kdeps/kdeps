@@ -29,7 +29,7 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
 | `GET` | `/apis` | Groups `tools.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
-| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `read_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, and the three `sql_*` tools. |
+| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, and the three `sql_*` tools. |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
 
 ```bash
@@ -115,7 +115,7 @@ An unknown tool name is `404` with message `tool not found`. A body without `fil
 
 ## Other calls
 
-`web_search`, `wikipedia`, `web_scraper`, `calculator`, `sql_list_tables`, `sql_describe_table`, and `sql_query` use the same call route. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
+`bash_exec`, `bash_job_list`, `bash_job_wait`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, `sql_list_tables`, `sql_describe_table`, and `sql_query` use the same call route. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
 
 ```text
 component -> POST /apis/tools.kdeps.io/v1/tools/calculator/call -> handler
@@ -128,4 +128,4 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
   http://127.0.0.1:9095/apis/tools.kdeps.io/v1/tools/calculator/call
 ```
 
-The body is `4`. `web_search` and `wikipedia` take `query`. `web_scraper` takes `url`. `sql_query` takes `query` and `db_path` (`db_path` falls back to `KDEPS_SQL_DB_PATH`). A missing required argument is `400`.
+The body is `4`. `bash_exec` takes `command` (`{"command":"echo hi"}` returns `hi`). `web_search` and `wikipedia` take `query`. `web_scraper` takes `url`. `sql_query` takes `query` and `db_path` (`db_path` falls back to `KDEPS_SQL_DB_PATH`). A missing required argument is `400`. `KDEPS_ALLOW_BASH=false` leaves `bash_exec` on this list and a call returns `bash_exec: disabled (KDEPS_ALLOW_BASH=false)`.

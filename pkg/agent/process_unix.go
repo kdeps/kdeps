@@ -22,7 +22,6 @@ package agent
 
 import (
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -31,48 +30,6 @@ import (
 
 // sigTSTP is the SIGTSTP signal (Ctrl+Z). Only available on Unix.
 const sigTSTP = syscall.SIGTSTP
-
-// setProcessGroup configures cmd to start in its own process group so that
-// Ctrl+Z backgrounds only the child process, not the kdeps REPL itself.
-// Also ignores SIGTTOU/SIGTTIN so the child won't be suspended when it's
-// temporarily not in the foreground (e.g., before makeForeground runs).
-func setProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-}
-
-// killProcessGroup kills the entire process group led by cmd, not just the
-// direct child. bash_exec starts commands with Setpgid, so a command like
-// `find /` (or an rtk-wrapped command) runs children inside that group; killing
-// only cmd.Process would orphan them and they would keep running after Ctrl+C.
-// Sending SIGKILL to the negative PID targets every process in the group.
-func killProcessGroup(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
-		return
-	}
-	pid := cmd.Process.Pid
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
-		// Group kill failed (e.g. child never became a leader): kill the child.
-		_ = cmd.Process.Kill()
-	}
-}
-
-// makeForeground puts the child's process group in the terminal foreground so it
-// can write to stdout/stderr without being suspended by SIGTTOU. Call after
-// cmd.Start(). When Setpgid is set, the child's PGID equals its PID.
-func makeForeground(cmd *exec.Cmd) int {
-	tfd := int(os.Stdin.Fd())
-	prev, _ := unix.IoctlGetInt(tfd, unix.TIOCGPGRP)
-	// Child's PGID = its PID when Setpgid is true (it becomes group leader).
-	_ = unix.IoctlSetInt(tfd, unix.TIOCSPGRP, cmd.Process.Pid)
-	return prev
-}
-
-// restoreForeground returns the terminal foreground to the given process group.
-func restoreForeground(pgid int) {
-	if pgid != 0 {
-		_ = unix.IoctlSetInt(int(os.Stdin.Fd()), unix.TIOCSPGRP, pgid)
-	}
-}
 
 // sendSIGTSTP sends the terminal stop signal to the current process group.
 func sendSIGTSTP() {

@@ -24,6 +24,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -204,7 +205,7 @@ func effReadOnlyBash(command string) bool {
 	if command == "" || strings.Contains(command, ">") {
 		return false
 	}
-	if blocked, _ := validateReadOnly(command); blocked {
+	if api.CommandChangesState(command) {
 		return false
 	}
 	seg := strings.NewReplacer("&&", "\n", "||", "\n", ";", "\n", "|", "\n").Replace(command)
@@ -213,7 +214,7 @@ func effReadOnlyBash(command string) bool {
 		if s == "" {
 			continue
 		}
-		first := bashFirstCommand(s)
+		first := api.BashFirstCommand(s)
 		if first == "git" {
 			f := strings.Fields(s)
 			if len(f) < 2 || !effGitInspect[f[1]] {

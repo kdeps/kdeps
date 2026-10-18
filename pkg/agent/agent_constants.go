@@ -45,9 +45,6 @@ const (
 	toolParamContent    = "content"
 	toolParamModel      = "model"
 	toolParamCommand    = "command"
-
-	// Bash validation.
-	bashValidationKill = "kill"
 )
 
 const (

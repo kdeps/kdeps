@@ -28,7 +28,6 @@ import (
 	"html"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -52,12 +51,6 @@ import (
 )
 
 const (
-	bashOutputMaxLines      = 2000      // pi truncate.ts DEFAULT_MAX_LINES
-	bashOutputMaxBytes      = 50 * 1024 // pi truncate.ts DEFAULT_MAX_BYTES (50 KB)
-	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
-	unicodeInterlinearStart = 0xFFF9    // Unicode interlinear annotation (start)
-	unicodeInterlinearEnd   = 0xFFFB    // Unicode interlinear annotation (end)
-
 	binaryCheckBytes = 512 // bytes to scan for binary detection
 )
 
@@ -77,7 +70,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWebScraper(ctx, reg, webCache)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
-	registerBashJobList(reg)
+	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
 	registerListFiles(reg)
 	registerCalculator(ctx, reg)
@@ -881,92 +874,102 @@ func toolCallCtx(fallback context.Context, args map[string]any) context.Context 
 	return context.Background()
 }
 
-// bashExecCtx returns the context injected by the Loop dispatcher (preferred),
-// falling back to fallback when _ctx is not in args.
-func bashExecCtx(fallback context.Context, args map[string]any) context.Context {
-	return toolCallCtx(fallback, args)
-}
-
-// formatBashOutput appends stderr to stdout (when non-empty) and truncates.
-// Shared by bashExecResult, bashExecCancelResult, and background jobs.
-func formatBashOutput(out, errOut string) string {
-	if errOut != "" {
-		out += "\nstderr: " + errOut
-	}
-	return truncateBashOutput(out)
-}
-
-// bashExecResult builds the return value for a completed (non-cancelled) bash_exec.
-func bashExecResult(_ context.Context, out, errOut string, runErr error) (string, error) {
-	if runErr != nil {
-		if errOut != "" {
-			return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
-		}
-		return "", fmt.Errorf("bash_exec: %w", runErr)
-	}
-	return formatBashOutput(out, errOut), nil
-}
-
-// bashExecCancelResult returns partial output when the command was killed mid-run.
-// Returned as success (nil error) so the LLM sees what ran before the interrupt.
-func bashExecCancelResult(out, errOut string) string {
-	return formatBashOutput(out, errOut) + "\n[interrupted]"
-}
-
 // registerBashExec registers a bash command execution tool.
-// Runs in its own process group so Ctrl+Z backgrounds only the tool (not kdeps).
-// Ctrl+C (via _ctx cancellation) kills the process and returns partial output.
-// Ctrl+Z (via _bg_ch signal) detaches the job; retrieve it with bash_job_wait.
+// The handler runs the command. This wrapper keeps the agent-loop checks:
+// a shell-shaped tool call is refused, and the convergence cache records the
+// command the user asked for, before rtk rewrites it.
 func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
-	tool := defined(&kdepstools.Tool{
-		Name: toolNameBashExec,
-	})
+	tool := defined(&kdepstools.Tool{Name: toolNameBashExec})
 	if tool == nil {
 		return
 	}
 	tool.Execute = func(args map[string]any) (string, error) {
-		command, _ := args["command"].(string)
-		if command == "" {
-			return "", errors.New("bash_exec: command is required")
-		}
-		// Some models emit HTML-escaped shell operators (&amp;&amp; for &&,
-		// &quot; for ", &lt;/&gt; for </>) -- e.g. when the command text
-		// passed through an HTML-rendering step upstream. Unescape before
-		// validating/running so the actual operators are seen, not their
-		// entity form (which would either fail outright or run as literal
-		// text). A no-op for a command with no entities.
-		command = html.UnescapeString(command)
-		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
-			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
-		}
-		if name, ok := commandInvokesOtherToolAsShell(command, reg); ok {
-			return "", fmt.Errorf(
-				"bash_exec: this command runs `%s` as a shell command, followed by "+
-					"header-style lines (key: value) -- that looks like an attempt to call "+
-					"the %q tool, not a real shell command, and will fail with "+
-					"\"command not found\". Call %q directly with its own tool call instead "+
-					"of inside bash_exec",
-				name, name, name,
-			)
-		}
-
-		// Convergence: track distinct bash commands, cache repeats.
-		// The original command (before rtk rewriting) is the cache key.
-		bashTracked, bashTrackErr := trackBashCall(command, func() (string, error) {
-			return "", nil // placeholder; actual result cached below
-		})
-		if bashTrackErr != nil {
-			return "", bashTrackErr // limit reached
-		}
-		if bashTracked != "" {
-			return bashTracked, nil // cached repeat
-		}
-		return runBashExec(ctx, tool, command, args)
+		return executeBashAPI(ctx, tool, reg, args)
 	}
+	api.RegisterTool(api.ToolSpec{
+		Name:        tool.Name,
+		Description: tool.Description,
+		Parameters:  tool.Parameters,
+		Call:        api.BashExec,
+	})
 	reg.Register(tool)
+}
+
+func executeBashAPI(
+	ctx context.Context, tool *kdepstools.Tool, reg *kdepstools.Registry, args map[string]any,
+) (string, error) {
+	raw, _ := args["command"].(string)
+	command := html.UnescapeString(raw)
+	if command == "" {
+		return api.CallTool(toolCallCtx(ctx, args), toolNameBashExec, bashCallBody(args))
+	}
+	if name, ok := commandInvokesOtherToolAsShell(command, reg); ok {
+		return "", fmt.Errorf(
+			"bash_exec: this command runs `%s` as a shell command, followed by "+
+				"header-style lines (key: value) -- that looks like an attempt to call "+
+				"the %q tool, not a real shell command, and will fail with "+
+				"\"command not found\". Call %q directly with its own tool call instead "+
+				"of inside bash_exec",
+			name, name, name,
+		)
+	}
+	if cached, ok := cachedBash(command); ok {
+		return cached, nil
+	}
+	result, err := api.CallTool(bashCallContext(ctx, tool, args), toolNameBashExec, bashCallBody(args))
+	if err != nil {
+		if !bashSkipBudget(err) {
+			_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+		}
+		return "", err
+	}
+	if strings.TrimSpace(result) == "" {
+		_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+		return result, nil
+	}
+	return trackBashCall(command, func() (string, error) { return result, nil })
+}
+
+func bashSkipBudget(err error) bool {
+	msg := err.Error()
+	return strings.HasPrefix(msg, "bash_exec: blocked:") ||
+		strings.HasPrefix(msg, "bash_exec: command is required") ||
+		strings.HasPrefix(msg, "bash_exec: disabled")
+}
+
+func bashCallBody(args map[string]any) map[string]any {
+	body := map[string]any{}
+	if args == nil {
+		return body
+	}
+	if v, ok := args["command"]; ok {
+		body["command"] = v
+	}
+	return body
+}
+
+func bashCallContext(ctx context.Context, tool *kdepstools.Tool, args map[string]any) context.Context {
+	interactive, _ := args["_interactive"].(bool)
+	bg, _ := args["_bg_ch"].(<-chan struct{})
+	var output io.Writer
+	if tool != nil {
+		output = tool.OutputWriter
+	}
+	return api.WithBashOpts(toolCallCtx(ctx, args), api.BashOpts{
+		Background:  bg,
+		Interactive: interactive,
+		Output:      output,
+	})
+}
+
+func cachedBash(command string) (string, bool) {
+	globalBashCache.mu.Lock()
+	defer globalBashCache.mu.Unlock()
+	v, ok := globalBashCache.m[command]
+	return v, ok
 }
 
 // commandInvokesOtherToolAsShell detects a live-confirmed model confusion
@@ -1028,171 +1031,12 @@ func looksLikeHeaderLine(s string) bool {
 	return true
 }
 
-// runBashExec executes a validated bash command, handling rtk rewriting,
-// foreground/background job control, cancellation, and result caching.
-func runBashExec(ctx context.Context, tool *kdepstools.Tool, command string, args map[string]any) (string, error) {
-	toolCtx := bashExecCtx(ctx, args)
-	bgCh, _ := args["_bg_ch"].(<-chan struct{})
-
-	// Route through rtk when available to cut output tokens. Validation above
-	// runs on the original command; `command` itself stays untouched so the
-	// job registry and any user-facing display show what was actually asked
-	// for, not the rtk-prefixed form.
-	runCommand := command
-	if rewritten, ok := rtkRewrite(toolCtx, command); ok {
-		runCommand = rewritten
-	}
-
-	// Must use exec.Command (not CommandContext): we handle cancellation and
-	// backgrounding manually in the select below so the process survives
-	// beyond context cancellation when the user presses Ctrl+Z.
-	cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
-		"bash",
-		"-c",
-		runCommand,
-	)
-	setProcessGroup(cmd)
-	var stdout, stderr strings.Builder
-	if tool.OutputWriter != nil {
-		cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
-		cmd.Stderr = io.MultiWriter(&stderr, tool.OutputWriter)
-	} else {
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-	}
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("bash_exec: %w", err)
-	}
-
-	// Put the child in the terminal foreground so an interactive child that
-	// reads stdin isn't stopped by SIGTTIN. Only in the interactive REPL:
-	// grabbing the tty from a test harness or non-interactive caller running
-	// on a real terminal would stop that process group instead.
-	if interactive, _ := args["_interactive"].(bool); interactive {
-		prevFG := makeForeground(cmd)
-		defer restoreForeground(prevFG)
-	}
-
-	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
-
-	select {
-	case runErr := <-waitCh:
-		result, resErr := bashExecResult(
-			toolCtx,
-			strings.TrimSpace(stdout.String()),
-			strings.TrimSpace(stderr.String()),
-			runErr,
-		)
-		// Cache non-error results in the bash call tracker.
-		if resErr == nil && result != "" {
-			_, _ = trackBashCall(command, func() (string, error) { return result, nil })
-		}
-		return result, resErr
-	case <-toolCtx.Done():
-		killProcessGroup(cmd) // kill the whole group so children (find, rtk-wrapped cmds) die too
-		<-waitCh
-		return bashExecCancelResult(
-			strings.TrimSpace(stdout.String()),
-			strings.TrimSpace(stderr.String()),
-		), nil
-	case <-bgCh:
-		jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
-		return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
-	}
+func registerBashJobList(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "bash_job_list", api.BashJobList)
 }
 
-// registerBashJobList registers the bash_job_list tool.
-// Lists background jobs started by bash_exec that were backgrounded via Ctrl+Z.
-func registerBashJobList(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "bash_job_list",
-		Execute: func(_ map[string]any) (string, error) {
-			jobs := bashJobRegistry.listAll()
-			if len(jobs) == 0 {
-				return "No background jobs.", nil
-			}
-			var sb strings.Builder
-			for _, j := range jobs {
-				fmt.Fprintf(&sb, "%s\n", j.summary())
-			}
-			return strings.TrimSpace(sb.String()), nil
-		},
-	}))
-}
-
-// registerBashJobWait registers the bash_job_wait tool.
-// Blocks until the background job completes, then returns its output.
 func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "bash_job_wait",
-		Execute: func(args map[string]any) (string, error) {
-			idF, ok := args["job_id"].(float64)
-			if !ok {
-				return "", errors.New("bash_job_wait: job_id is required")
-			}
-			id := int(idF)
-			job := bashJobRegistry.get(id)
-			if job == nil {
-				return "", fmt.Errorf("bash_job_wait: no job with id %d", id)
-			}
-			toolCtx := bashExecCtx(ctx, args)
-			select {
-			case <-job.done:
-			case <-toolCtx.Done():
-				return "", fmt.Errorf("bash_job_wait: cancelled while waiting for job %d", id)
-			}
-			bashJobRegistry.remove(id)
-			if job.err != nil {
-				return "", fmt.Errorf("bash_job_wait: job %d failed: %w", id, job.err)
-			}
-			return job.output, nil
-		},
-	}))
-}
-
-// sanitizeBashOutput removes non-printable control characters from bash output,
-// preserving tab, newline, and carriage return. Matches pi's sanitizeBinaryOutput.
-func sanitizeBashOutput(s string) string {
-	out := make([]rune, 0, len(s))
-	for _, r := range s {
-		switch {
-		case r == 0x09 || r == 0x0A || r == 0x0D:
-			out = append(out, r)
-		case r <= asciiLastControlChar:
-			// drop other ASCII control chars
-		case r >= unicodeInterlinearStart && r <= unicodeInterlinearEnd:
-			// drop Unicode interlinear annotation
-		default:
-			out = append(out, r)
-		}
-	}
-	return string(out)
-}
-
-// truncateBashOutput trims bash_exec output to bashOutputMaxLines lines or
-// bashOutputMaxBytes bytes, whichever is hit first, appending a truncation
-// notice. Matches pi's truncate.ts DEFAULT_MAX_LINES / DEFAULT_MAX_BYTES limits.
-func truncateBashOutput(out string) string {
-	out = sanitizeBashOutput(out)
-	if len(out) <= bashOutputMaxBytes {
-		lines := strings.Split(out, "\n")
-		if len(lines) <= bashOutputMaxLines {
-			return out
-		}
-		truncated := strings.Join(lines[:bashOutputMaxLines], "\n")
-		return fmt.Sprintf("%s\n[Output truncated: %d lines total, showing first %d]",
-			truncated, len(lines), bashOutputMaxLines)
-	}
-	// Byte limit: find the last complete line boundary within the byte limit.
-	cutoff := out[:bashOutputMaxBytes]
-	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
-		cutoff = cutoff[:idx]
-	}
-	totalLines := strings.Count(out, "\n") + 1
-	shownLines := strings.Count(cutoff, "\n") + 1
-	return fmt.Sprintf("%s\n[Output truncated: %d bytes total, showing first %d/%d lines]",
-		cutoff, len(out), shownLines, totalLines)
+	registerAPITool(ctx, reg, "bash_job_wait", api.BashJobWait)
 }
 
 // registerGoogleCacheTools registers google_cache_create, google_cache_delete, and

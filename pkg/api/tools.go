@@ -81,6 +81,9 @@ func init() {
 	RegisterTool(loadToolSpec(toolSQLList, "List tables in a SQLite database.", SQLListTables))
 	RegisterTool(loadToolSpec(toolSQLDescribe, "Describe one SQLite table.", SQLDescribeTable))
 	RegisterTool(loadToolSpec(toolSQLQuery, "Run a read-only SQL query.", SQLQuery))
+	RegisterTool(loadToolSpec(toolBashExec, "Execute a bash shell command.", BashExec))
+	RegisterTool(loadToolSpec(toolBashJobList, "List background bash jobs.", BashJobList))
+	RegisterTool(loadToolSpec(toolBashJobWait, "Wait for a background bash job.", BashJobWait))
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

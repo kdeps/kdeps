@@ -37,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -877,7 +878,10 @@ func TestBashExec_ContextCancelKillsChildren(t *testing.T) {
 }
 
 func TestBashExec_Background(t *testing.T) {
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
@@ -898,8 +902,10 @@ func TestBashExec_Background(t *testing.T) {
 }
 
 func TestBashJobWait(t *testing.T) {
-	bashJobRegistry.reset()
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	bashTool := reg.Get("bash_exec")
@@ -924,17 +930,11 @@ func TestBashJobWait(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &result))
 	require.Greater(t, result.JobID, 0)
-
-	// Kill the backgrounded sleep so the test doesn't hang.
-	job := bashJobRegistry.get(result.JobID)
-	require.NotNil(t, job)
-	_ = job
-	// Remove from registry to clean up (don't wait for sleep 5 to finish).
-	bashJobRegistry.remove(result.JobID)
 }
 
 func TestBashJobList(t *testing.T) {
-	bashJobRegistry.reset()
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -943,92 +943,6 @@ func TestBashJobList(t *testing.T) {
 	out, err := listTool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, "No background jobs.", out)
-}
-
-// Regression: registerBashJobList was 50% covered (only the empty-registry
-// branch). The with-entries branch (the for-loop summary path) was uncovered.
-func TestBashJobList_WithEntries(t *testing.T) {
-	bashJobRegistry.reset()
-	t.Cleanup(func() { bashJobRegistry.reset() })
-	t.Setenv("KDEPS_ALLOW_BASH", "true")
-
-	// Add a job that completes immediately via a closed channel.
-	waitCh := make(chan error, 1)
-	waitCh <- nil
-	var stdout, stderr strings.Builder
-	stdout.WriteString("output")
-	id := bashJobRegistry.add("echo hello", &stdout, &stderr, waitCh)
-	assert.Greater(t, id, 0)
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	listTool := reg.Get("bash_job_list")
-	require.NotNil(t, listTool)
-	out, err := listTool.Execute(map[string]any{})
-	require.NoError(t, err)
-	assert.Contains(t, out, "job")
-	assert.Contains(t, out, "echo hello")
-}
-
-func TestTruncateBashOutput_NoTruncation(t *testing.T) {
-	out := "line1\nline2\nline3"
-	got := truncateBashOutput(out)
-	assert.Equal(t, out, got)
-}
-
-func TestTruncateBashOutput_LineLimitExceeded(t *testing.T) {
-	lines := make([]string, bashOutputMaxLines+10)
-	for i := range lines {
-		lines[i] = "x"
-	}
-	input := strings.Join(lines, "\n")
-	got := truncateBashOutput(input)
-	assert.Contains(t, got, "[Output truncated:")
-	assert.Contains(t, got, "showing first 2000")
-	gotLines := strings.Count(got, "\n")
-	assert.LessOrEqual(t, gotLines, bashOutputMaxLines+2)
-}
-
-func TestTruncateBashOutput_ByteLimitExceeded(t *testing.T) {
-	// 60 KB of data on 3 lines
-	big := strings.Repeat("a", 60*1024)
-	input := "header\n" + big + "\nfooter"
-	got := truncateBashOutput(input)
-	assert.Contains(t, got, "[Output truncated:")
-	assert.Contains(t, got, "bytes total")
-	assert.LessOrEqual(t, len(got), bashOutputMaxBytes+200)
-}
-
-func TestSanitizeBashOutput_RemovesControlChars(t *testing.T) {
-	input := "hello\x00world\x01\x02\t\nfoo"
-	got := sanitizeBashOutput(input)
-	assert.Equal(t, "helloworld\t\nfoo", got)
-}
-
-func TestSanitizeBashOutput_KeepsTabNewlineCR(t *testing.T) {
-	input := "\t\n\r"
-	assert.Equal(t, input, sanitizeBashOutput(input))
-}
-
-func TestTruncateBashOutput_ExactLimit(t *testing.T) {
-	lines := make([]string, bashOutputMaxLines)
-	for i := range lines {
-		lines[i] = "y"
-	}
-	input := strings.Join(lines, "\n")
-	got := truncateBashOutput(input)
-	assert.Equal(t, input, got)
-}
-
-// --- SQL error paths ---
-
-// --- HTTP build-request error paths (malformed URL) ---
-
-func TestSanitizeBashOutput_InterlinearAnnotation(t *testing.T) {
-	// Runes U+FFF9..U+FFFB (interlinear annotation, unicodeInterlinearStart..End) are stripped.
-	input := "hello\ufff9world\ufffafoo\ufffbbar"
-	got := sanitizeBashOutput(input)
-	assert.Equal(t, "helloworldfoobar", got)
 }
 
 // --- Execute closures via tool.Execute (covers the return callXxx lines) ---

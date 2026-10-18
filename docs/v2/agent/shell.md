@@ -46,7 +46,7 @@ What this does not change:
 
 - **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. rtk can never block execution.
 - **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.
-- **Workflow mode is untouched.** Only agent loop `bash_exec` uses rtk. Workflow `exec` resources keep raw output, because pipelines parse it downstream.
+- **A workflow `exec` resource keeps raw output,** because pipelines parse it downstream. `bash_exec` and the shipped `bash_exec` component both use rtk.
 
 ::: tip Verifying the right rtk
 An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name - it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.

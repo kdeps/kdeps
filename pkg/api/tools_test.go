@@ -53,6 +53,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		}
 	}
 	wantNames := []string{
+		toolBashExec, toolBashJobList, toolBashJobWait,
 		toolCalculator, toolReadFile, toolSQLDescribe, toolSQLList, toolSQLQuery,
 		toolWebScraper, toolWebSearch, toolWikipedia,
 	}

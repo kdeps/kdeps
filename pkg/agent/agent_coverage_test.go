@@ -36,120 +36,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
-
-// ---- bash_jobs.go ----
-
-func TestBashJob_Status_Running(t *testing.T) {
-	t.Parallel()
-	job := &bashJob{
-		id:      1,
-		command: "sleep 100",
-		started: time.Now(),
-		done:    make(chan struct{}),
-	}
-	assert.Equal(t, "running", job.status())
-}
-
-func TestBashJob_Status_Done(t *testing.T) {
-	t.Parallel()
-	job := &bashJob{
-		id:      2,
-		command: "echo hello",
-		started: time.Now(),
-		done:    make(chan struct{}),
-	}
-	close(job.done)
-	assert.Equal(t, "done", job.status())
-}
-
-func TestBashJob_Status_Failed(t *testing.T) {
-	t.Parallel()
-	job := &bashJob{
-		id:      3,
-		command: "exit 1",
-		started: time.Now(),
-		done:    make(chan struct{}),
-		err:     errors.New("exit status 1"),
-	}
-	close(job.done)
-	assert.Equal(t, "failed", job.status())
-}
-
-func TestBashJob_Summary_ShortCommand(t *testing.T) {
-	t.Parallel()
-	job := &bashJob{
-		id:      1,
-		command: "ls",
-		started: time.Now(),
-		done:    make(chan struct{}),
-	}
-	s := job.summary()
-	assert.Contains(t, s, "job 1")
-	assert.Contains(t, s, "running")
-	assert.Contains(t, s, "ls")
-	assert.Contains(t, s, "ago")
-}
-
-func TestBashJob_Summary_LongCommand(t *testing.T) {
-	t.Parallel()
-	long := strings.Repeat("x", 80)
-	job := &bashJob{
-		id:      2,
-		command: long,
-		started: time.Now(),
-		done:    make(chan struct{}),
-	}
-	s := job.summary()
-	assert.Contains(t, s, "...")
-	// The command portion should be truncated, not the full 80-char string
-	assert.LessOrEqual(t, len(s), 200)
-}
-
-func TestJobRegistry_ListAll_WithJobs(t *testing.T) {
-	t.Parallel()
-	reg := &jobRegistry{jobs: make(map[int]*bashJob)}
-	reg.next = 0
-
-	// Add a couple of jobs manually to the registry
-	reg.mu.Lock()
-	reg.next++
-	j1 := &bashJob{id: reg.next, command: "cmd1", done: make(chan struct{})}
-	reg.jobs[j1.id] = j1
-	reg.next++
-	j2 := &bashJob{id: reg.next, command: "cmd2", done: make(chan struct{})}
-	reg.jobs[j2.id] = j2
-	reg.mu.Unlock()
-
-	jobs := reg.listAll()
-	assert.Len(t, jobs, 2)
-}
-
-func TestJobRegistry_Add_WithStderr(t *testing.T) {
-	t.Parallel()
-	reg := &jobRegistry{jobs: make(map[int]*bashJob)}
-	reg.next = 0
-
-	var stdout strings.Builder
-	var stderr strings.Builder
-	waitCh := make(chan error, 1)
-
-	id := reg.add("test-cmd", &stdout, &stderr, waitCh)
-	assert.Greater(t, id, 0)
-
-	// Write to stderr and send result
-	stderr.WriteString("some error output")
-	waitCh <- nil
-
-	// Wait for the goroutine to finish
-	job := reg.get(id)
-	require.NotNil(t, job)
-	<-job.done
-
-	assert.Contains(t, job.output, "stderr: some error output")
-}
 
 // ---- repl_render.go ----
 
@@ -856,11 +746,12 @@ func TestFuzzyFilter_NoMatch(t *testing.T) {
 
 // ---- builtin_tools.go: registerBashJobList ----
 
-// Not parallel: bashJobRegistry is global and parallel tests start jobs.
+// Not parallel: the bash job registry is process-global.
 func TestRegisterBashJobList_Empty(t *testing.T) {
-	bashJobRegistry.reset()
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	reg := kdepstools.NewRegistry()
-	registerBashJobList(reg)
+	registerBashJobList(t.Context(), reg)
 
 	tool := reg.Get("bash_job_list")
 	require.NotNil(t, tool)
@@ -897,30 +788,6 @@ func TestRegisterBashJobWait_NoSuchJob(t *testing.T) {
 	_, err := tool.Execute(map[string]any{"job_id": float64(999)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no job with id 999")
-}
-
-func TestRegisterBashJobWait_ValidJob(t *testing.T) {
-	t.Parallel()
-	reg := kdepstools.NewRegistry()
-	registerBashJobWait(context.Background(), reg)
-
-	tool := reg.Get("bash_job_wait")
-	require.NotNil(t, tool)
-
-	// Add a job to the global registry and close its done channel so wait returns.
-	var stdout, stderr strings.Builder
-	waitCh := make(chan error, 1)
-	id := bashJobRegistry.add("test-cmd-wait", &stdout, &stderr, waitCh)
-	waitCh <- nil
-	job := bashJobRegistry.get(id)
-	<-job.done
-
-	result, err := tool.Execute(map[string]any{"job_id": float64(id)})
-	assert.NoError(t, err)
-	_ = result
-
-	// Clean up global registry
-	bashJobRegistry.reset()
 }
 
 // ---- model_context.go: ContextWindowForModel ----
@@ -1123,26 +990,6 @@ func TestFdBinPath_NotFound(t *testing.T) {
 	_ = path
 }
 
-// ---- builtin_tools.go: bashExecCtx ----
-
-func TestBashExecCtx_NoCtx(t *testing.T) {
-	t.Parallel()
-	ctx := bashExecCtx(context.Background(), map[string]any{})
-	assert.NotNil(t, ctx)
-	// Should return context.Background() which is not done
-	assert.NoError(t, ctx.Err())
-}
-
-func TestBashExecCtx_WithCtx(t *testing.T) {
-	t.Parallel()
-	cancelledCtx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	ctx := bashExecCtx(context.Background(), map[string]any{"_ctx": cancelledCtx})
-	assert.NotNil(t, ctx)
-	assert.Error(t, ctx.Err())
-}
-
 // ---- builtin_tools.go: toolCallCtx / toolCallCtxTimeout ----
 
 func TestToolCallCtx_PrefersInjectedCtx(t *testing.T) {
@@ -1167,34 +1014,6 @@ func TestToolCallCtxTimeout_HasDeadline(t *testing.T) {
 	defer cancel()
 	_, hasDeadline := got.Deadline()
 	assert.True(t, hasDeadline, "network tool contexts must carry a hard timeout")
-}
-
-// ---- builtin_tools.go: bashExecResult ----
-
-func TestBashExecResult_NoError(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	result, err := bashExecResult(ctx, "output text", "", nil)
-	assert.NoError(t, err)
-	assert.Contains(t, result, "output text")
-}
-
-func TestBashExecResult_WithError(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	_, err := bashExecResult(ctx, "", "error output", errors.New("exit code 1"))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "exit code 1")
-}
-
-func TestBashExecResult_StderrAppended(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	result, err := bashExecResult(ctx, "stdout text", "stderr text", nil)
-	assert.NoError(t, err)
-	assert.Contains(t, result, "stdout text")
-	assert.Contains(t, result, "stderr:")
-	assert.Contains(t, result, "stderr text")
 }
 
 // ---- loop.go: compactAndRetry (IsTaskCompleted branch) ----
@@ -1427,32 +1246,6 @@ func TestRegisterResourceTools_AllToolsAccessible(t *testing.T) {
 	assert.NotNil(t, reg.Get("embedding_vectorize"))
 }
 
-// ---- builtin_tools.go: bashExecCancelResult ----
-
-func TestBashExecCancelResult_OnlyOut(t *testing.T) {
-	t.Parallel()
-	result := bashExecCancelResult("some output", "")
-	assert.Contains(t, result, "some output")
-	assert.Contains(t, result, "[interrupted]")
-}
-
-func TestBashExecCancelResult_OnlyErr(t *testing.T) {
-	t.Parallel()
-	result := bashExecCancelResult("", "error detail")
-	assert.Contains(t, result, "stderr:")
-	assert.Contains(t, result, "error detail")
-	assert.Contains(t, result, "[interrupted]")
-}
-
-func TestBashExecCancelResult_Both(t *testing.T) {
-	t.Parallel()
-	result := bashExecCancelResult("stdout line", "stderr line")
-	assert.Contains(t, result, "stdout line")
-	assert.Contains(t, result, "stderr:")
-	assert.Contains(t, result, "stderr line")
-	assert.Contains(t, result, "[interrupted]")
-}
-
 // ---- loop.go: summarizeToolArgs truncation ----
 
 func TestSummarizeToolArgs_Truncation(t *testing.T) {
@@ -1460,28 +1253,4 @@ func TestSummarizeToolArgs_Truncation(t *testing.T) {
 	long := strings.Repeat("x", 100)
 	result := summarizeToolArgs(`{"file_path":"` + long + `"}`)
 	assert.Len(t, result, 80) // 77 chars + "..."
-}
-
-// ---- builtin_tools.go: truncateBashOutput ----
-
-func TestTruncateBashOutput_Normal(t *testing.T) {
-	t.Parallel()
-	result := truncateBashOutput("hello world")
-	assert.Equal(t, "hello world", result)
-}
-
-func TestTruncateBashOutput_BinaryData(t *testing.T) {
-	t.Parallel()
-	// Content with binary null bytes should be detected and handled
-	input := "normal text\x00with null\x00bytes"
-	result := truncateBashOutput(input)
-	assert.NotContains(t, result, "\x00")
-}
-
-func TestTruncateBashOutput_CarriageReturns(t *testing.T) {
-	t.Parallel()
-	// \r characters (0x0D) are preserved by sanitizeBashOutput
-	input := "line1\rline2\rline3"
-	result := truncateBashOutput(input)
-	assert.Contains(t, result, "\r")
 }

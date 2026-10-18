@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: bash_job_wait
+  description: Wait for a background shell job through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: job_id
+      type: number
+      required: true
+      description: Job id returned when bash_exec backgrounds a command
+  # body is the job output. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Wait for job
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/bash_job_wait/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 120s  # hard stop for this call; the agent tool itself has no timeout
+      data:
+        job_id: "{{ get('bash_job_wait.job_id') }}"

@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: bash_exec
+  description: Run a shell command through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: command
+      type: string
+      required: true
+      description: Shell command to run
+  # body is the command output. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Run command
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/bash_exec/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 120s  # hard stop for this call; the agent tool itself has no timeout
+      data:
+        command: "{{ get('bash_exec.command') }}"

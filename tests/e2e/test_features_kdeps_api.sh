@@ -30,6 +30,10 @@ source "$SCRIPT_DIR/common.sh"
 echo "Testing kdeps API..."
 
 kdeps_api_e2e() {
+    # The bash_exec handler rewrites commands through rtk when it is installed.
+    # Turn that off before any server starts so `echo hi` stays `echo hi`.
+    export KDEPS_RTK=off
+    export KDEPS_ALLOW_BASH=true
     if ! command -v python3 >/dev/null 2>&1; then
         test_skipped "kdeps API - python3 is required"
         return 0
@@ -263,6 +267,7 @@ elif kind == "tools":
         die(repr(doc))
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
+        "bash_exec", "bash_job_list", "bash_job_wait",
         "calculator", "read_file", "sql_describe_table", "sql_list_tables",
         "sql_query", "web_scraper", "web_search", "wikipedia",
     ]
@@ -592,6 +597,15 @@ EOF
         test_passed "kdeps API - calculator returns 4"
     else
         test_failed "kdeps API - calculator returns 4" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"command":"echo hi"}' "${tools}/bash_exec/call" || true)
+    if [ "$got" = "200" ] && [ "$(cat "$body")" = "hi" ] && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - bash_exec returns hi"
+    else
+        test_failed "kdeps API - bash_exec returns hi" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
