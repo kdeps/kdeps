@@ -21,12 +21,13 @@
 // server recipes, model registries and project templates. None of them is
 // compiled into the binary: they are published to the registry and installed
 // into ~/.kdeps/assets by kdeps update (Ensure runs it on first start). A
-// source directory ($KDEPS_ASSETS_SRC, or the repo's assets/ under go test)
-// sits under the store, for developing assets. Loaders read a set through
-// Open.
+// source directory ($KDEPS_ASSETS_SRC, the repo's assets/ under go test, or
+// the repo's assets/ when the process starts inside this module) sits under
+// the store, for developing assets. Loaders read a set through Open.
 package assets
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -141,13 +142,44 @@ func Root() string {
 }
 
 // Source returns the source directory loaded under the store: $KDEPS_ASSETS_SRC,
-// or the repo's assets/ under go test (exported as $KDEPS_ASSETS_SRC, so
-// kdeps processes a test starts load it too). Release binaries have none.
+// the repo's assets/ under go test (exported as $KDEPS_ASSETS_SRC, so
+// kdeps processes a test starts load it too), or the repo's assets/ when the
+// process was started inside this module. A binary started anywhere else has
+// none and uses the asset store only.
 func Source() string {
 	if d := os.Getenv(SourceEnv); d != "" {
 		return d
 	}
-	return testSource
+	if testSource != "" {
+		return testSource
+	}
+	return repoAssetsFromCwd()
+}
+
+// repoAssetsFromCwd walks up from the working directory to this module and
+// returns its assets/ directory. A new harness file in the repo is then
+// visible to ./kdeps without a publish. Any other module is ignored.
+func repoAssetsFromCwd() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		mod := filepath.Join(dir, "go.mod")
+		data, readErr := os.ReadFile(mod)
+		if readErr == nil && bytes.HasPrefix(data, []byte("module github.com/kdeps/kdeps/v2\n")) {
+			assets := filepath.Join(dir, "assets")
+			if st, statErr := os.Stat(filepath.Join(assets, "harness")); statErr == nil && st.IsDir() {
+				return assets
+			}
+			return ""
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // testSource is the repo's assets/ under go test, found at package init from

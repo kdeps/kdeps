@@ -332,3 +332,38 @@ func TestRunSudoInstall_HasTTYAttemptsInstall(t *testing.T) {
 	assert.Equal(t, "apt-get", gotManager)
 	assert.Equal(t, "libvulkan1", gotPkg)
 }
+
+func TestSudoInstallArgs(t *testing.T) {
+	assert.Equal(t,
+		[]string{"apt-get", "install", "-y", "libvulkan1"},
+		sudoInstallArgs("apt-get", "libvulkan1"))
+	assert.Equal(t,
+		[]string{"dnf", "install", "-y", "vulkan-loader"},
+		sudoInstallArgs("dnf", "vulkan-loader"))
+	assert.Equal(t,
+		[]string{"pacman", "-S", "--noconfirm", "vulkan-loader"},
+		sudoInstallArgs("pacman", "vulkan-loader"))
+	assert.Equal(t,
+		[]string{"apk", "add", "vulkan-loader"},
+		sudoInstallArgs("apk", "vulkan-loader"))
+}
+
+func TestRunSudoInstall_NoTTYMessageMatchesCommand(t *testing.T) {
+	origIsTerminal := stdinIsTerminalFn
+	origExecSudo := execSudoInstallFn
+	t.Cleanup(func() {
+		stdinIsTerminalFn = origIsTerminal
+		execSudoInstallFn = origExecSudo
+	})
+	stdinIsTerminalFn = func() bool { return false }
+	execSudoInstallFn = func(string, string) error { return nil }
+
+	err := runSudoInstall("apk", "vulkan-loader")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sudo apk add vulkan-loader")
+	assert.NotContains(t, err.Error(), "apk install")
+
+	err = runSudoInstall("pacman", "vulkan-loader")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sudo pacman -S --noconfirm vulkan-loader")
+}

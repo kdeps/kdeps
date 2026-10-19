@@ -87,6 +87,15 @@ func TestBashExec_StderrOnFailure(t *testing.T) {
 	}
 }
 
+func TestBashExec_StdoutOnFailure(t *testing.T) {
+	t.Setenv("KDEPS_RTK", "off")
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	_, err := BashExec(t.Context(), map[string]any{argCommand: "echo FAIL_MARKER; exit 1"})
+	if err == nil || !strings.Contains(err.Error(), "FAIL_MARKER") {
+		t.Fatal(err)
+	}
+}
+
 func TestBashExec_StderrOnSuccess(t *testing.T) {
 	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
@@ -153,6 +162,23 @@ func TestBashExecResult(t *testing.T) {
 	}
 	_, err = bashExecResult("", "", errors.New("exit code 1"))
 	if err == nil || strings.Contains(err.Error(), "stderr:") {
+		t.Fatal(err)
+	}
+	body := "START_MARKER\n" + strings.Repeat("x", 2000) + "\n--- FAIL: TestSearchLocal\n"
+	_, err = bashExecResult(body, "", errors.New("exit status 1"))
+	got := ""
+	if err != nil {
+		got = err.Error()
+	}
+	if err == nil || !strings.Contains(got, "TestSearchLocal") || strings.Contains(got, "START_MARKER") {
+		t.Fatal(err)
+	}
+	_, err = bashExecResult("stdout-marker", "stderr-marker", errors.New("exit status 1"))
+	got = ""
+	if err != nil {
+		got = err.Error()
+	}
+	if err == nil || strings.Index(got, "stderr-marker") > strings.Index(got, "stdout-marker") {
 		t.Fatal(err)
 	}
 	out, err = bashExecResult("stdout text", "stderr text", nil)

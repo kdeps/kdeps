@@ -54,8 +54,11 @@ func TestTools_ListAndCall(t *testing.T) {
 	}
 	wantNames := []string{
 		toolBashExec, toolBashJobList, toolBashJobWait,
-		toolCalculator, toolEditFile, toolGoogleCacheCreate, toolGoogleCacheDelete, toolGoogleCacheList,
-		toolListFiles, toolMD5File, toolPerplexity, toolReadFile, toolSerpAPI,
+		toolCalculator, toolCodeDefinition, toolCodeDiagnostics, toolCodeGraphAll, toolCodeGraphFile,
+		toolCodeGraphTopic, toolCodeHover, toolCodeIndexFolder, toolCodeReferences, toolCodeSearch, toolCodeSymbols,
+		toolEditFile, toolGoogleCacheCreate, toolGoogleCacheDelete, toolGoogleCacheList,
+		toolListFiles, toolMD5File, toolMemoryDelete, toolMemorySave, toolMemorySearch,
+		toolPerplexity, toolReadFile, toolSerpAPI,
 		toolSQLDescribe, toolSQLList, toolSQLQuery, toolTailFile,
 		toolWebScraper, toolWebSearch, toolWikipedia, toolWriteFile,
 	}

@@ -268,9 +268,13 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "bash_exec", "bash_job_list", "bash_job_wait",
-        "calculator", "edit_file",
+        "calculator",
+        "code_definition", "code_diagnostics", "code_graph_all", "code_graph_file", "code_graph_topic",
+        "code_hover", "code_index_folder", "code_references", "code_search", "code_symbols",
+        "edit_file",
         "google_cache_create", "google_cache_delete", "google_cache_list",
-        "list_files", "md5_file", "perplexity_search", "read_file", "serpapi_search",
+        "list_files", "md5_file", "memory_delete", "memory_save", "memory_search",
+        "perplexity_search", "read_file", "serpapi_search",
         "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
         "web_scraper", "web_search", "wikipedia", "write_file",
     ]
@@ -640,6 +644,26 @@ EOF
         test_passed "kdeps API - google_cache_create requires model"
     else
         test_failed "kdeps API - google_cache_create requires model" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/memory_save/call" || true)
+    if [ "$got" = "400" ] && grep -F "memory_save: memory store is not configured" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - memory_save needs a store"
+    else
+        test_failed "kdeps API - memory_save needs a store" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/code_search/call" || true)
+    if [ "$got" = "400" ] && grep -F "codeIntelligence: query is required for symbolSearch" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - code_search requires query"
+    else
+        test_failed "kdeps API - code_search requires query" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \

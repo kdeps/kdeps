@@ -2074,7 +2074,7 @@ func TestRunStreaming_MemoryTools_SaveSearch(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2121,7 +2121,7 @@ func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2162,7 +2162,7 @@ func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2191,7 +2191,7 @@ func TestRunStreaming_MemoryMarkerExtractedThenStripped(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2839,19 +2839,22 @@ func TestRunStreaming_GiveUpAfterProgressIsNudged(t *testing.T) {
 	assert.Equal(t, "Actually, here is the answer.", got)
 }
 
-// The same give-up language with NO tool call having succeeded this turn must
-// not be nudged -- there is nothing to push back with, and settleActiveFromText
-// (or, outside goal mode, a plain stop) must handle it as before.
-func TestRunStreaming_GiveUpWithNoProgressIsNotNudged(t *testing.T) {
+// The same give-up language with NO tool call having succeeded this turn is
+// still a fictional limit. The progress give-up nudge does not fire. The
+// self-limit nudge does, and the refusal is not shown.
+func TestRunStreaming_GiveUpWithNoProgressIsNudgedAsSelfLimit(t *testing.T) {
 	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
 		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+		{content: "Listed the files.", toolCalls: nil},
 	}}}
 	loop := newStreamingLoop(ms, 10)
 	var buf bytes.Buffer
 	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
 	require.NoError(t, err)
-	require.Len(t, ms.cfgs, 1, "no progress this turn means no give-up nudge -- the turn ends here")
-	assert.Equal(t, "I cannot complete this, no access to the repo.", got)
+	require.Len(t, ms.cfgs, 2, "a fictional limit with no progress must draw the self-limit nudge")
+	assert.Contains(t, ms.cfgs[1].Prompt, "That limit is not real")
+	assert.Equal(t, "Listed the files.", got)
+	assert.NotContains(t, buf.String(), "I cannot complete this")
 }
 
 // The give-up nudge is bounded to nudge-give-up's maxOccurrences (2): a model that keeps
@@ -2884,6 +2887,8 @@ func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 		"nudgeForActionConfig":            nudgeForActionConfig,
 		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
 		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
+		"nudgeContinueConfig":             nudgeContinueConfig,
+		"nudgeSelfLimitConfig":            nudgeSelfLimitConfig,
 	} {
 		for _, repeat := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/repeat=%v", name, repeat), func(t *testing.T) {

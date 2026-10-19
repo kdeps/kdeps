@@ -77,7 +77,9 @@ func RenderDockerfile(req BuildRequest) (string, error) { //nolint:cyclop,funlen
 	if err := recipe.Validate(r); err != nil {
 		return "", err
 	}
-	if r.Resources.GPU == recipe.GPURequired && strings.TrimSpace(req.GPU) == "" {
+	// Same fold as ResolveBaseImage, so "Vulkan" still installs libvulkan1.
+	req.GPU = strings.ToLower(strings.TrimSpace(req.GPU))
+	if r.Resources.GPU == recipe.GPURequired && req.GPU == "" {
 		return "", fmt.Errorf("recipe %q requires GPU: pass --gpu cuda|rocm|intel|vulkan", r.ID)
 	}
 	model := strings.TrimSpace(req.Model)

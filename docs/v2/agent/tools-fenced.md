@@ -40,7 +40,21 @@ When a round makes no tool call but the text reads like a failed code-interprete
 
 ## A premature "sorry, I can't" is pushed back on when there was real progress
 
-When a round ends with no tool call and the text reads as declining to continue ("I cannot complete this," "unable to," "no access," ...), but a tool call already succeeded earlier this turn and nothing is currently failing, the loop does not accept the refusal as final - it tells the model tool calls just worked and to try a different approach, or state exactly what is blocking it, bounded to the same two-nudges-per-turn cap as every other corrective nudge here. A give-up reply with no progress behind it (nothing succeeded yet this turn) is never second-guessed this way - there is nothing to push back with. This applies with or without goal mode: in goal mode it fires *before* the active task would otherwise be recorded failed, so a premature refusal never gets logged as a settled failure while the nudge budget remains.
+When a round ends with no tool call and the text reads as declining to continue ("I cannot complete this," "unable to," "no access," ...), but a tool call already succeeded earlier this turn and nothing is currently failing, the loop does not accept the refusal as final - it tells the model tool calls just worked and to try a different approach, or state exactly what is blocking it, bounded to the same two-nudges-per-turn cap as every other corrective nudge here. A give-up reply with no successful tool yet this turn is not handled by that progress nudge. A fictional limit in that reply is handled by `nudge-self-limit`, below. This applies with or without goal mode: the nudge fires before the active task would be recorded failed, so a premature refusal is not logged as a settled failure while the nudge budget remains.
+
+## A fictional "I can't" is pushed back on
+
+A text-only reply that says the model cannot do the work, has no tools, has no access, or cannot emit an invoke is a bug. The tools are already registered. The loop sends `nudge-self-limit` (at most four times) and does not show that reply. A real safety stop is left alone: refusing to delete data, force-push, drop a database, or run `rm -rf`. After four pushes, the next reply is accepted so a concrete blocker can be stated. If `nudge-self-limit` is not loaded, that reply is accepted immediately. The loop does not keep appending the invoke example. Each push adds a different wording of that same instruction, one of at least 100 (the same order in another sentence or another language), so the request is not the same bytes as the push before it. A provider throttle (`temporarily unable to respond`, `too many requests`) is not a fictional limit.
+
+## Continue means do the next action
+
+`continue`, `continue the work`, `continue on the current task`, `make the modifications`, and "do not wait for my instructions" do not end on a status, a plan, or a restatement. The loop sends `nudge-continue` (at most twice) telling the model to call the next tool. A failed tool is not a reason to wait.
+
+```text
+continue # present this to yourself on the next run so I won't type continue
+```
+
+That sentence also saves memory key `preference:continue` for the project. Later turns follow it without another `continue`. A greeting or a `status` request still answers in text.
 
 ## Good tool-calling behavior is praised, not just bad behavior flagged
 

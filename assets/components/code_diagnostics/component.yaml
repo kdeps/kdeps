@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: code_diagnostics
+  description: Get file diagnostics through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: File to check
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Get file diagnostics
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/code_diagnostics/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        path: "{{ get('code_diagnostics.path') }}"

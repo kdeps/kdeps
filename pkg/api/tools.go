@@ -94,6 +94,19 @@ func init() {
 	RegisterTool(loadToolSpec(toolGoogleCacheCreate, "Create a Google AI cached content entry.", GoogleCacheCreate))
 	RegisterTool(loadToolSpec(toolGoogleCacheDelete, "Delete a Google AI cached content entry.", GoogleCacheDelete))
 	RegisterTool(loadToolSpec(toolGoogleCacheList, "List Google AI cached content entries.", GoogleCacheList))
+	RegisterTool(loadToolSpec(toolMemorySave, "Save a fact to persistent memory.", MemorySave))
+	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
+	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
+	RegisterTool(loadToolSpec(toolCodeSearch, "Search for a symbol or pattern.", CodeSearch))
+	RegisterTool(loadToolSpec(toolCodeDefinition, "Find the definition of a symbol.", CodeDefinition))
+	RegisterTool(loadToolSpec(toolCodeReferences, "Find references to a symbol.", CodeReferences))
+	RegisterTool(loadToolSpec(toolCodeSymbols, "List symbols in a file.", CodeSymbols))
+	RegisterTool(loadToolSpec(toolCodeHover, "Get documentation for a symbol.", CodeHover))
+	RegisterTool(loadToolSpec(toolCodeDiagnostics, "Get diagnostics for a file.", CodeDiagnostics))
+	RegisterTool(loadToolSpec(toolCodeIndexFolder, "Index the working directory into a graph.", CodeIndexFolder))
+	RegisterTool(loadToolSpec(toolCodeGraphFile, "Graph one indexed file.", CodeGraphFile))
+	RegisterTool(loadToolSpec(toolCodeGraphTopic, "Graph indexed files for a topic.", CodeGraphTopic))
+	RegisterTool(loadToolSpec(toolCodeGraphAll, "Graph the whole index.", CodeGraphAll))
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

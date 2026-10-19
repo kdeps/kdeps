@@ -1,6 +1,6 @@
 # Input sources
 
-kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`.
+A workflow is fed by an HTTP server (`settings.apiServer`), a chat bot, or one file. The bot and file feeds are named under `settings.input`.
 
 This controls how a running workflow is fed. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
@@ -8,15 +8,15 @@ This controls how a running workflow is fed. Agent mode does not use these sourc
 
 | Source | Use Case |
 |--------|----------|
-| `api` | HTTP REST server (default) |
+| `api` | Valid source name. Does not open a port. |
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 
-The default source is `api`. If no input config is specified, the workflow starts an HTTP API server on port 16395.
+An HTTP server starts only when `settings.apiServer` is set. Leave `portNum` out and it listens on port 16395. Omitting `settings.input` does not start that server. With no `apiServer`, no `webServer`, no bot source, and no file source, `kdeps run` executes the workflow once and exits.
 
 ## API source
 
-The `api` source starts an HTTP REST server. This is the default for all workflows.
+`settings.apiServer` starts the HTTP server. `sources: [api]` does not.
 
 ```yaml
 # workflow.yaml
@@ -127,7 +127,7 @@ This opens a terminal REPL where you can send prompts and invoke tools interacti
 ## Use cases
 
 - Serve a workflow as an HTTP JSON API for a frontend or another service
-  (`api`).
+  (`settings.apiServer`).
 - Run a workflow as a chat bot on Discord, Slack or Telegram (WhatsApp: the `whatsapp-bot` template)
   (`bot`).
 - Process one file per invocation from a pipeline, cron job, or CI step

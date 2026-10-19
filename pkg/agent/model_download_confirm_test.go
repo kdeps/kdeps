@@ -20,10 +20,13 @@ package agent
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
@@ -87,6 +90,18 @@ func TestConfirmModelDownload_AssumeYesEnv(t *testing.T) {
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
+	assert.Empty(t, out.String())
+}
+
+func TestConfirmModelDownload_CachedGGUFSkipsPrompt(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	t.Setenv("KDEPS_YES", "")
+	t.Setenv("KDEPS_ASSUME_YES", "")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "local.gguf"), []byte("gguf"), 0o644))
+	var out bytes.Buffer
+	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "local.gguf", llm.BackendGGUF, true)
+	assert.True(t, ok, "a complete file already in the models dir is cached")
 	assert.Empty(t, out.String())
 }
 

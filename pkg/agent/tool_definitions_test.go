@@ -46,7 +46,7 @@ func allBuiltinTools(t *testing.T) ([]*kdepstools.Tool, map[string]bool) {
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 	loopReg := kdepstools.NewRegistry()
 	l := &Loop{registry: loopReg, skillList: []Skill{{Name: "s"}}}
 	l.registerSkillLoader()

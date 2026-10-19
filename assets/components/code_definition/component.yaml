@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: code_definition
+  description: Find a symbol definition through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: File containing the symbol
+    - name: symbol
+      type: string
+      required: true
+      description: Symbol name
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Find a symbol definition
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/code_definition/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        path: "{{ get('code_definition.path') }}"
+        symbol: "{{ get('code_definition.symbol') }}"

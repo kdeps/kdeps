@@ -54,10 +54,8 @@ func confirmModelDownload(w io.Writer, r io.Reader, model, backend string, inter
 	if backend == llm.BackendFile && !llm.NeedsLlamafileDownload(model) {
 		return true
 	}
-	if backend == llm.BackendGGUF {
-		if cached := llm.DownloadedModelAliases(); cached[model] {
-			return true
-		}
+	if backend == llm.BackendGGUF && !llm.NeedsGGUFDownload(model) {
+		return true
 	}
 	// Non-interactive (CI/pipes): only auto-download when explicitly opted in.
 	// Otherwise startup would block on multi-GB HuggingFace fetches and get
@@ -70,10 +68,15 @@ func confirmModelDownload(w io.Writer, r io.Reader, model, backend string, inter
 	}
 
 	sizeHint := ""
-	if backend == llm.BackendFile {
-		if n := llm.LlamafileSizeBytes(model); n > 0 {
-			sizeHint = fmt.Sprintf(" (~%s)", formatDownloadSize(n))
-		}
+	var sizeBytes int64
+	switch backend {
+	case llm.BackendFile:
+		sizeBytes = llm.LlamafileSizeBytes(model)
+	case llm.BackendGGUF:
+		sizeBytes = llm.GGUFSizeBytes(model)
+	}
+	if sizeBytes > 0 {
+		sizeHint = fmt.Sprintf(" (~%s)", formatDownloadSize(sizeBytes))
 	}
 	fmt.Fprintf(w, "\nModel %s is not cached%s.\nDownload now and continue? [Y/n] ", model, sizeHint)
 	line, err := bufio.NewReader(r).ReadString('\n')

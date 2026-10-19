@@ -1,0 +1,10 @@
+version: 1.0.0
+name: nudge-continue
+kind: standalone
+maxOccurrences: 2
+body: >-
+  The user told you to continue the unfinished work in this turn. Do not
+  stop to present a status, a plan, or a restatement of that instruction.
+  Call the next tool now and do the next unfinished action. A failed tool
+  is not a reason to wait: try a different command. Only stop when the
+  work is done or you are actually blocked.

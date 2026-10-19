@@ -134,14 +134,48 @@ func waitBash(
 	}
 }
 
+// bashFailureKeepBytes is how much of a failed command's output is attached to
+// the error. tool-error-truncate keeps the start of that error (default 500
+// bytes), so the kept slice is the end of the output, where a test summary
+// or a shell error lands. A longer head of "ok" lines used to be dropped
+// entirely, and the model only saw "exit status 1".
+const bashFailureKeepBytes = 400
+
 func bashExecResult(out, errOut string, runErr error) (string, error) {
 	if runErr != nil {
-		if errOut != "" {
-			return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
+		tail := bashFailureTail(out, errOut)
+		if tail == "" {
+			return "", fmt.Errorf("bash_exec: %w", runErr)
 		}
-		return "", fmt.Errorf("bash_exec: %w", runErr)
+		return "", fmt.Errorf("bash_exec: %w\n%s", runErr, tail)
 	}
 	return bashExecResultText(out, errOut), nil
+}
+
+// bashFailureTail is the part of a failed command the model needs: stderr
+// first (a rewrite or a missing command), then the end of stdout.
+func bashFailureTail(out, errOut string) string {
+	out = strings.TrimSpace(sanitizeBashOutput(out))
+	errOut = strings.TrimSpace(sanitizeBashOutput(errOut))
+	var parts []string
+	if errOut != "" {
+		parts = append(parts, "stderr: "+tailBytes(errOut, bashFailureKeepBytes))
+	}
+	if out != "" {
+		parts = append(parts, tailBytes(out, bashFailureKeepBytes))
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func tailBytes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	cut := s[len(s)-n:]
+	if i := strings.IndexByte(cut, '\n'); i >= 0 && i < len(cut)-1 {
+		cut = cut[i+1:]
+	}
+	return "[...]\n" + cut
 }
 
 func bashExecResultText(out, errOut string) string {

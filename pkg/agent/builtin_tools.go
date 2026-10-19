@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -34,11 +33,8 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
-
-	codeintel "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 )
 
 const (
@@ -968,171 +964,80 @@ func pathWithinRoot(path, root string) bool {
 		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
 }
 
-type codeToolDef struct {
-	name string
-	op   domain.CodeIntelligenceOperation
-}
-
-func codeIntelligenceToolDefs() []codeToolDef {
-	defs := lspCodeToolDefs()
-	return append(defs, graphCodeToolDefs()...)
-}
-
-// lspCodeToolDefs returns the LSP/rg-backed code-intelligence tools
-// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
-func lspCodeToolDefs() []codeToolDef {
-	return []codeToolDef{
-		{
-			name: "code_search",
-			op:   domain.CodeIntOpSymbolSearch,
-		},
-		{
-			name: "code_definition",
-			op:   domain.CodeIntOpDefinition,
-		},
-		{
-			name: "code_references",
-			op:   domain.CodeIntOpReferences,
-		},
-		{
-			name: "code_symbols",
-			op:   domain.CodeIntOpDocumentSymbols,
-		},
-		{
-			name: "code_hover",
-			op:   domain.CodeIntOpHover,
-		},
-		{
-			name: "code_diagnostics",
-			op:   domain.CodeIntOpDiagnostics,
-		},
-	}
-}
-
-// graphCodeToolDefs returns the kartographer-backed folder index/graph tools
-// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
-func graphCodeToolDefs() []codeToolDef {
-	return []codeToolDef{
-		{
-			name: "code_index_folder",
-			op:   domain.CodeIntOpIndexFolder,
-		},
-		{
-			name: "code_graph_file",
-			op:   domain.CodeIntOpGraphFile,
-		},
-		{
-			name: "code_graph_topic",
-			op:   domain.CodeIntOpGraphTopic,
-		},
-		{
-			name: "code_graph_all",
-			op:   domain.CodeIntOpGraphAll,
-		},
-	}
-}
-
-// codeIntelligenceConfigFromArgs builds a CodeIntelligenceConfig for op from
-// the tool call args shared across every code_* tool.
-func codeIntelligenceConfigFromArgs(
-	toolName string, op domain.CodeIntelligenceOperation, args map[string]any,
-) (*domain.CodeIntelligenceConfig, error) {
-	config := &domain.CodeIntelligenceConfig{Operation: op}
-	if v, ok := args["query"].(string); ok {
-		config.Query = v
-	}
-	if v, ok := args["symbol"].(string); ok {
-		config.Symbol = v
-	}
-	if v, ok := args["path"].(string); ok {
-		config.Path = v
-		if err := ValidateRootPath(v); err != nil {
-			return nil, fmt.Errorf("%s: %w", toolName, err)
-		}
-	}
-	if v, ok := args["topic"].(string); ok {
-		config.Topic = v
-	}
-	if v, ok := args["graphDBPath"].(string); ok {
-		config.GraphDBPath = v
-	}
-	if v, ok := args["extensions"].([]any); ok {
-		for _, e := range v {
-			config.Extensions = append(config.Extensions, fmt.Sprint(e))
-		}
-	}
-	return config, nil
-}
-
-// registerCodeIntelligenceTools registers code intelligence tools: LSP/rg-backed
-// symbol search (code_search, code_definition, code_references, code_symbols,
-// code_hover, code_diagnostics) and kartographer-backed folder graphing
-// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
-func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
-	exec := codeintel.NewExecutor()
-
-	for _, ct := range codeIntelligenceToolDefs() {
-		reg.Register(defined(&kdepstools.Tool{
-			Name: ct.name,
-			Execute: func(args map[string]any) (string, error) {
-				config, err := codeIntelligenceConfigFromArgs(ct.name, ct.op, args)
-				if err != nil {
-					return "", err
-				}
-
-				res, err := exec.Execute(nil, config)
-				if err != nil {
-					return "", err
-				}
-				out, err := json.MarshalIndent(res, "", "  ")
-				if err != nil {
-					return "", err
-				}
-				return string(out), nil
-			},
-		}))
-	}
+// registerCodeIntelligenceTools registers the code_* tools. The handler is the
+// kdeps API. LSP lookup and the folder graph run there.
+func registerCodeIntelligenceTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "code_search", api.CodeSearch)
+	registerAPITool(ctx, reg, "code_definition", api.CodeDefinition)
+	registerAPITool(ctx, reg, "code_references", api.CodeReferences)
+	registerAPITool(ctx, reg, "code_symbols", api.CodeSymbols)
+	registerAPITool(ctx, reg, "code_hover", api.CodeHover)
+	registerAPITool(ctx, reg, "code_diagnostics", api.CodeDiagnostics)
+	registerAPITool(ctx, reg, "code_index_folder", api.CodeIndexFolder)
+	registerAPITool(ctx, reg, "code_graph_file", api.CodeGraphFile)
+	registerAPITool(ctx, reg, "code_graph_topic", api.CodeGraphTopic)
+	registerAPITool(ctx, reg, "code_graph_all", api.CodeGraphAll)
 }
 
 // registerMemoryTools registers LLM-callable tools for persistent memory.
-// Tools use the package-level memoryStoreInstance set during Loop construction.
-func registerMemoryTools(reg *kdepstools.Registry) {
-	registerMemorySaveTool(reg)
-	registerMemorySearchTool(reg)
-	registerMemoryDeleteTool(reg)
+// The handler is the kdeps API. This wrapper attaches the process store.
+func registerMemoryTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemorySaveTool(ctx, reg)
+	registerMemorySearchTool(ctx, reg)
+	registerMemoryDeleteTool(ctx, reg)
 }
 
-func registerMemorySaveTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_save",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_save: memory store is not configured")
-			}
-			key, _ := args["key"].(string)
-			value, _ := args["value"].(string)
-			if key == "" {
-				return "", errors.New("memory_save: key is required")
-			}
-			if value == "" {
-				return "", errors.New("memory_save: value is required")
-			}
-			if toolguard.LooksLikeConfabulation(value) || toolguard.LooksLikeHallucinatedCompletion(value) {
-				return "", fmt.Errorf(
-					"memory_save: refused to save %q -- it reads as a claim that a tool "+
-						"or action failed or is unavailable, and this gets replayed as fact "+
-						"in every future call. If a tool call genuinely failed, save the "+
-						"specific error instead of a general capability claim; otherwise "+
-						"retry the tool call for real before concluding it doesn't work",
-					value,
-				)
-			}
-			if err := memoryStoreInstance.Set(key, value); err != nil {
-				return "", fmt.Errorf("memory_save: %w", err)
-			}
-			return fmt.Sprintf("Saved memory entry %q (%d bytes)", key, len(value)), nil
-		},
-	}))
+// memoryAPIStore is the agent vault as the API memory interface.
+type memoryAPIStore struct{ store *MemoryStore }
+
+func (m memoryAPIStore) Set(key, value string) error { return m.store.Set(key, value) }
+func (m memoryAPIStore) Delete(key string) error     { return m.store.Delete(key) }
+func (m memoryAPIStore) Search(query string) []api.MemoryHit {
+	found := m.store.Search(query)
+	out := make([]api.MemoryHit, len(found))
+	for i, entry := range found {
+		out[i] = api.MemoryHit{Key: entry.Key, Value: entry.Value}
+	}
+	return out
+}
+
+func memoryCallContext(ctx context.Context, args map[string]any) context.Context {
+	callCtx := toolCallCtx(ctx, args)
+	if memoryStoreInstance == nil {
+		return callCtx
+	}
+	return api.WithMemory(callCtx, api.MemoryOpts{
+		Store:      memoryAPIStore{store: memoryStoreInstance},
+		Fallback:   memorySearchLocalFileFallback,
+		ResultCap:  memorySearchResultCap,
+		ValueLimit: maxValueLength,
+	})
+}
+
+func registerMemoryAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	name string,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{Name: name})
+	if tool == nil {
+		return
+	}
+	tool.Execute = func(args map[string]any) (string, error) {
+		return api.CallTool(memoryCallContext(ctx, args), name, jsonArgs(args))
+	}
+	api.RegisterTool(api.ToolSpec{
+		Name:        tool.Name,
+		Description: tool.Description,
+		Parameters:  tool.Parameters,
+		Call:        call,
+	})
+	reg.Register(tool)
+}
+
+func registerMemorySaveTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_save", api.MemorySave)
 }
 
 // memorySearchResultCap bounds how many matching entries memory_search shows.
@@ -1147,48 +1052,8 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 // exist and can narrow the query instead.
 const memorySearchResultCap = 20
 
-func registerMemorySearchTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_search",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_search: memory store is not configured")
-			}
-			query, _ := args[toolParamQuery].(string)
-			if query == "" {
-				return "", errors.New("memory_search: query is required")
-			}
-			if results := memoryStoreInstance.Search(query); len(results) > 0 {
-				return formatMemorySearchResults(results), nil
-			}
-			return memorySearchLocalFileFallback(query)
-		},
-	}))
-}
-
-// formatMemorySearchResults renders capped, per-value-truncated memory
-// matches for memory_search. Order is the relevance order Search returned
-// (key hit, then more query words, then newer UpdatedAt). See
-// memorySearchResultCap.
-func formatMemorySearchResults(results []MemoryEntry) string {
-	total := len(results)
-	shown := append([]MemoryEntry(nil), results...)
-	if len(shown) > memorySearchResultCap {
-		shown = shown[:memorySearchResultCap]
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Found %d memory entries", total)
-	if total > len(shown) {
-		fmt.Fprintf(&sb, " (showing %d)", len(shown))
-	}
-	sb.WriteString(":\n")
-	for _, entry := range shown {
-		fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, truncateValue(entry.Value, maxValueLength))
-	}
-	if total > len(shown) {
-		fmt.Fprintf(&sb, "... and %d more (narrow the query to see them)\n", total-len(shown))
-	}
-	return sb.String()
+func registerMemorySearchTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_search", api.MemorySearch)
 }
 
 // memorySearchLocalFileFallback runs when memory has no hits for query --
@@ -1215,23 +1080,8 @@ func memorySearchLocalFileFallback(query string) (string, error) {
 		truncateValue(string(out), maxToolResultBytes())), nil
 }
 
-func registerMemoryDeleteTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_delete",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_delete: memory store is not configured")
-			}
-			key, _ := args["key"].(string)
-			if key == "" {
-				return "", errors.New("memory_delete: key is required")
-			}
-			if err := memoryStoreInstance.Delete(key); err != nil {
-				return "", fmt.Errorf("memory_delete: %w", err)
-			}
-			return fmt.Sprintf("Deleted memory entry %q.", key), nil
-		},
-	}))
+func registerMemoryDeleteTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_delete", api.MemoryDelete)
 }
 
 var backgroundIndexing sync.WaitGroup //nolint:gochecknoglobals // tracks fire-and-forget index writes

@@ -274,7 +274,8 @@ func (l *Loop) appendReminders(content string) string {
 
 // harnessOccurrenceLimit returns a standalone entry's configured occurrence
 // cap (see yamlHarnessEntry.MaxOccurrences), or 0 if the entry is unknown,
-// disabled, or has no cap set -- 0 means "unlimited" to every caller.
+// disabled, or has no cap set. Callers must not treat a missing entry's 0 as
+// permission to fire; harnessOccurrenceAllowed does not.
 func harnessOccurrenceLimit(name string) int {
 	e, ok := harnessRegistry[name]
 	if !ok || e.disabled {
@@ -287,14 +288,22 @@ func harnessOccurrenceLimit(name string) int {
 // given the caller's own occurrence count so far (how many times it has
 // ALREADY fired -- 0 on the first check). The count itself stays wherever it
 // already lives (a turn-scoped turnNudges field, a session-scoped Loop
-// field); this only supplies the configurable ceiling from harness YAML. A
-// cap of 0 (unset) means always allowed.
+// field); this only supplies the configurable ceiling from harness YAML.
+//
+// A missing entry, a disabled entry, or an entry with an empty body does not
+// fire. A release binary loads harness from the asset store, so a new nudge
+// whose YAML is not installed yet must not be treated as unlimited: that
+// appended the invoke example on every round. A cap of 0 on an entry that is
+// present and has a body still means always allowed.
 func harnessOccurrenceAllowed(name string, occurred int) bool {
-	limit := harnessOccurrenceLimit(name)
-	if limit <= 0 {
+	e, ok := harnessRegistry[name]
+	if !ok || e.disabled || strings.TrimSpace(e.body) == "" {
+		return false
+	}
+	if e.maxOccurrences <= 0 {
 		return true
 	}
-	return occurred < limit
+	return occurred < e.maxOccurrences
 }
 
 // harnessSuffix returns a standalone entry's body prefixed with a blank-line

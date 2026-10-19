@@ -302,6 +302,16 @@ func TestOpenAndItems_UnknownSet(t *testing.T) {
 	assert.Contains(t, read(t, Open("harness"), "harness/safety.yaml"), "source safety")
 }
 
+func TestRepoAssetsFromCwd(t *testing.T) {
+	got := repoAssetsFromCwd()
+	require.NotEmpty(t, got)
+	_, err := os.Stat(filepath.Join(got, "harness", "nudge-self-limit.yaml"))
+	require.NoError(t, err)
+
+	t.Chdir(t.TempDir())
+	assert.Empty(t, repoAssetsFromCwd())
+}
+
 func TestSourceAndRoot_UnderTest(t *testing.T) {
 	t.Setenv(SourceEnv, "")
 	t.Setenv("KDEPS_ASSETS_DIR", "")
