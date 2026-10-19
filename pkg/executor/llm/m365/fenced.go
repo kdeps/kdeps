@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 )
 
 // The chat model has no native tool-calling API. Tool calls are emulated with
@@ -719,17 +720,26 @@ func parseEditPairParams(rest string, pair *editPair) (string, string, bool) {
 }
 
 // ParseFencedToolCalls parses every <invoke> block whose name matches a known
-// tool. leftover is the text with those blocks removed.
+// tool and whose opening tag is outside a markdown fence. A block inside
+// ``` or ~~~ is an example and stays in leftover. leftover is the text with
+// the dispatched blocks removed.
 func ParseFencedToolCalls(text string, specs map[string]FencedToolSpec) ([]ParsedToolCall, string) {
 	kdeps_debug.Log("enter: ParseFencedToolCalls")
+	fences := toolcall.MarkdownFenceSpans(text)
 	var calls []ParsedToolCall
-	leftover := text
-	for _, m := range invokeRegex.FindAllStringSubmatch(text, -1) {
-		spec, ok := specs[m[1]]
+	var cut [][2]int
+	for _, loc := range invokeRegex.FindAllStringSubmatchIndex(text, -1) {
+		if toolcall.IndexInSpans(loc[0], fences) {
+			continue
+		}
+		name := text[loc[2]:loc[3]]
+		spec, ok := specs[name]
 		if !ok {
 			continue // not a tool - leave it in prose
 		}
-		args, ok := parseFencedInner(spec, m[2], m[3])
+		attrs := text[loc[4]:loc[5]]
+		body := text[loc[6]:loc[7]]
+		args, ok := parseFencedInner(spec, attrs, body)
 		if !ok {
 			continue
 		}
@@ -742,7 +752,7 @@ func ParseFencedToolCalls(text string, specs map[string]FencedToolSpec) ([]Parse
 			Name:      spec.Name,
 			Arguments: string(argsJSON),
 		})
-		leftover = strings.Replace(leftover, m[0], "", 1)
+		cut = append(cut, [2]int{loc[0], loc[1]})
 	}
-	return calls, leftover
+	return calls, toolcall.RemoveSpans(text, cut)
 }

@@ -20,7 +20,7 @@ The guidance also tells the model that kdeps is a parser and an interpreter: it 
 </invoke>
 ```
 
-and the runtime hands back the real output.
+and the runtime hands back the real output. A literal invoke runs only when those tags sit outside a markdown fence. The same tags inside a ``` or ~~~ block are an example and are not run. A fence inside a parameter value stays part of that value. A fenced `session_handshake` block still counts in the handshake round.
 
 A shell invoke with no `<parameter>` tag still runs. The command is the block body, an attribute on the opening tag, or one `command:` / `command="..."` / JSON line inside the block:
 
@@ -44,7 +44,7 @@ When a round ends with no tool call and the text reads as declining to continue 
 
 ## A fictional "I can't" is pushed back on
 
-A text-only reply that says the model cannot do the work, has no tools, has no access, or cannot emit an invoke is a bug. The tools are already registered. The loop sends `nudge-self-limit` (at most four times) and does not show that reply. A real safety stop is left alone: refusing to delete data, force-push, drop a database, or run `rm -rf`. After four pushes, the next reply is accepted so a concrete blocker can be stated. If `nudge-self-limit` is not loaded, that reply is accepted immediately. The loop does not keep appending the invoke example. Each push adds a different wording of that same instruction, one of at least 100 (the same order in another sentence or another language), so the request is not the same bytes as the push before it. A provider throttle (`temporarily unable to respond`, `too many requests`) is not a fictional limit.
+A text-only reply that says the model cannot do the work, has no tools, has no access, or cannot emit an invoke is a bug. So is a paraphrase that hands the work back ("run it yourself", "out of scope", "no shell", "I lack the ability", "I have to stop") without a tool result. The tools are already registered. The loop sends `nudge-self-limit` (at most four times) and does not show that reply. A real safety stop is left alone: refusing to delete data, force-push, drop a database, or run `rm -rf`. After four pushes, the next reply is accepted so a concrete blocker can be stated. If `nudge-self-limit` is not loaded, that reply is accepted immediately. The loop does not keep appending the invoke example. Each push adds a different wording of that same instruction, one of at least 100 (the same order in another sentence or another language), so the request is not the same bytes as the push before it. A provider throttle (`temporarily unable to respond`, `too many requests`) is not a fictional limit.
 
 ## Continue means do the next action
 

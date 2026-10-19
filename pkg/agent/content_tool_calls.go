@@ -82,17 +82,6 @@ var (
 	// the backslash-escaped case above, so collapsing the run down to a
 	// single "/" before any tag matching runs is required, not cosmetic.
 	multiSlashClosingTagRe = regexp.MustCompile(`<//+`)
-
-	// fencedCodeBlockRe matches a triple-backtick or triple-tilde fenced code
-	// block (optional language tag on the opening fence, DOTALL body, closes
-	// on the nearest fence of either style). A block explaining the
-	// <invoke>/<parameter> tool-call syntax -- exactly what use-kdeps-tools.yaml
-	// teaches models to write -- would otherwise be indistinguishable from a
-	// real text-fallback tool call to every regex below, which run over the
-	// whole reply with no notion of "inside a fence." protectFencedCodeBlocks/
-	// restoreFencedCodeBlocks swap fenced spans out before salvage runs and
-	// back in afterward so example code can never be stripped or misparsed.
-	fencedCodeBlockRe = regexp.MustCompile("(?s)(```|~~~)[^\n]*\n.*?\n(```|~~~)")
 )
 
 // fencedCodeBlockPlaceholder brackets a block's index while it is swapped out
@@ -103,13 +92,25 @@ const fencedCodeBlockPlaceholder = "\x00KDEPSFENCE\x00"
 // protectFencedCodeBlocks replaces every fenced code block in content with a
 // placeholder and returns the placeholder'd text plus the blocks in order, for
 // restoreFencedCodeBlocks to put back once salvage/strip processing is done.
+// Invoke recovery does not use this swap: a fence inside a parameter value
+// would become the placeholder in the arguments. Spans decide which invokes
+// are examples; this swap only hides example markup from the other regexes.
 func protectFencedCodeBlocks(content string) (string, []string) {
-	var blocks []string
-	protected := fencedCodeBlockRe.ReplaceAllStringFunc(content, func(m string) string {
-		blocks = append(blocks, m)
-		return fencedCodeBlockPlaceholder + strconv.Itoa(len(blocks)-1) + fencedCodeBlockPlaceholder
-	})
-	return protected, blocks
+	spans := toolcall.MarkdownFenceSpans(content)
+	if len(spans) == 0 {
+		return content, nil
+	}
+	blocks := make([]string, len(spans))
+	var b strings.Builder
+	prev := 0
+	for i, sp := range spans {
+		b.WriteString(content[prev:sp[0]])
+		blocks[i] = content[sp[0]:sp[1]]
+		b.WriteString(fencedCodeBlockPlaceholder + strconv.Itoa(i) + fencedCodeBlockPlaceholder)
+		prev = sp[1]
+	}
+	b.WriteString(content[prev:])
+	return b.String(), blocks
 }
 
 // restoreFencedCodeBlocks reverses protectFencedCodeBlocks.
@@ -128,9 +129,45 @@ func restoreFencedCodeBlocks(content string, blocks []string) string {
 // <observation> removed and trimmed; hallucinated is true when such a
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
-	protected, fences := protectFencedCodeBlocks(content)
+	repaired := repairInvokeClosers(content)
+	// Take unfenced invokes from the repaired text so a fence inside a
+	// parameter stays in the arguments. Fenced examples stay in the remainder
+	// and are swapped out before the other regexes run.
+	invokeCalls, remainder := takeUnfencedInvokes(repaired)
+	protected, fences := protectFencedCodeBlocks(remainder)
 	calls, cleaned, hallucinated := salvageUnfencedContentToolCalls(protected)
+	calls = append(calls, invokeCalls...)
 	return calls, restoreFencedCodeBlocks(cleaned, fences), hallucinated
+}
+
+// repairInvokeClosers undoes two ways a model mangles a closing tag:
+// "<\/invoke>" (a JSON-string slash escape) and "<//invoke>" / "<///parameter>"
+// (an extra literal slash). Neither form matches the tag regexes.
+func repairInvokeClosers(content string) string {
+	content = strings.ReplaceAll(content, `<\/`, "</")
+	return multiSlashClosingTagRe.ReplaceAllString(content, "</")
+}
+
+// takeUnfencedInvokes returns invokes whose opening tag is outside a markdown
+// fence, and content with those spans removed. An invoke inside ``` or ~~~
+// stays put: it is an example, not a call.
+func takeUnfencedInvokes(content string) ([]domain.StreamedToolCall, string) {
+	fences := toolcall.MarkdownFenceSpans(content)
+	var calls []domain.StreamedToolCall
+	var cut [][2]int
+	for _, loc := range invokeRe.FindAllStringSubmatchIndex(content, -1) {
+		if toolcall.IndexInSpans(loc[0], fences) {
+			continue
+		}
+		name := content[loc[2]:loc[3]]
+		attrs := content[loc[4]:loc[5]]
+		body := content[loc[6]:loc[7]]
+		calls = append(calls, domain.StreamedToolCall{
+			Name: name, Arguments: invokeArguments(name, attrs, body),
+		})
+		cut = append(cut, [2]int{loc[0], loc[1]})
+	}
+	return calls, toolcall.RemoveSpans(content, cut)
 }
 
 // salvageUnfencedContentToolCalls is salvageContentToolCalls's original body,
@@ -138,17 +175,7 @@ func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string,
 // placeholders (see protectFencedCodeBlocks).
 func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
-	// A model that treats this text-fallback markup as a JSON string it's
-	// embedding (rather than the literal tags kdeps expects) sometimes
-	// escapes every "/" as "\/" -- a legal, no-op JSON string escape, but it
-	// turns "</invoke>" into "<\/invoke>", which none of the tag regexes
-	// below match, silently dropping the whole call. "<\/" has no other
-	// meaning here, so repairing it unconditionally is safe.
-	cleaned := strings.ReplaceAll(content, `<\/`, "</")
-	// Separately, some models mangle a closing tag with an extra literal
-	// slash instead ("<//invoke>", "<///parameter>") -- same failure, no
-	// backslash involved.
-	cleaned = multiSlashClosingTagRe.ReplaceAllString(cleaned, "</")
+	cleaned := repairInvokeClosers(content)
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {

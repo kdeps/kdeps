@@ -22,6 +22,7 @@ package toolcall
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -185,4 +186,53 @@ func closeMissingBraces(s string) (string, bool) {
 		return strings.TrimSpace(strings.TrimSuffix(s, "]")) + closing + "]", true
 	}
 	return s + closing, true
+}
+
+// markdownFenceRe matches one triple-backtick or triple-tilde block, including
+// a language tag on the opening line. The close is the nearest fence marker
+// after a newline. An <invoke> that starts inside the match is an example.
+// A fence that starts after an <invoke> is text inside that call.
+var markdownFenceRe = regexp.MustCompile("(?s)(```|~~~)[^\\n]*\\n.*?\\n(```|~~~)")
+
+// MarkdownFenceSpans returns the half-open byte ranges of fenced code blocks.
+func MarkdownFenceSpans(s string) [][2]int {
+	locs := markdownFenceRe.FindAllStringIndex(s, -1)
+	if len(locs) == 0 {
+		return nil
+	}
+	out := make([][2]int, len(locs))
+	for i, loc := range locs {
+		out[i] = [2]int{loc[0], loc[1]}
+	}
+	return out
+}
+
+// IndexInSpans reports whether index falls inside any half-open span.
+func IndexInSpans(index int, spans [][2]int) bool {
+	for _, sp := range spans {
+		if index >= sp[0] && index < sp[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveSpans deletes the half-open spans from s. spans must be ordered and
+// non-overlapping. An empty list returns s unchanged.
+func RemoveSpans(s string, spans [][2]int) string {
+	if len(spans) == 0 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	prev := 0
+	for _, sp := range spans {
+		if sp[0] < prev || sp[1] < sp[0] || sp[1] > len(s) {
+			continue
+		}
+		b.WriteString(s[prev:sp[0]])
+		prev = sp[1]
+	}
+	b.WriteString(s[prev:])
+	return b.String()
 }

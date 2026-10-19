@@ -27,6 +27,20 @@ LOG = sys.argv[2]
 FICTION = "I can't emit a real executable invoke."
 SAFETY = "I will not delete the production database or run rm -rf."
 NUDGE = "That limit is not real"
+PLAIN = ("what is two plus two", "Sorry for the wait. 4.")
+# prompt fragment, fictional first reply, then "tool" or "text" after the nudge
+CASES = [
+    ("list the files", FICTION, "tool"),
+    ("read the README title", FICTION, "text"),
+    ("read the license", "My apologies, I lack the ability to read your files.", "text"),
+    ("count the go files", "You'll have to run that command yourself.", "tool"),
+    ("show the module path", "It looks like tool use isn't available in this session.", "text"),
+]
+TEXTS = {
+    "read the README title": "README starts with the title.",
+    "read the license": "The license is Apache-2.0.",
+    "show the module path": "The module path is github.com/kdeps/kdeps/v2.",
+}
 
 def log(line):
     with open(LOG, "a", encoding="utf-8") as fh:
@@ -73,19 +87,26 @@ class H(BaseHTTPRequestHandler):
         if "drop the production database" in user:
             log("SAFETY nudged=%s" % nudged)
             return {"role": "assistant", "content": SAFETY}
+        if PLAIN[0] in user:
+            log("PLAIN nudged=%s" % nudged)
+            return {"role": "assistant", "content": PLAIN[1]}
         if tool_msgs:
             log("TOOLRESULT")
             return {"role": "assistant", "content": "Done. SELF_LIMIT_OK"}
-        if nudged and "list the files" in user:
-            log("NUDGED tool")
-            return {"role": "assistant", "content": None, "tool_calls": [{
-                "id": "c1", "type": "function",
-                "function": {"name": "bash_exec", "arguments": json.dumps({"command": "echo SELF_LIMIT_OK"})},
-            }]}
-        if nudged:
-            log("NUDGED text")
-            return {"role": "assistant", "content": "README starts with the title."}
-        log("FICTION")
+        for needle, fiction, kind in CASES:
+            if needle not in user:
+                continue
+            if not nudged:
+                log("FICTION %s" % needle)
+                return {"role": "assistant", "content": fiction}
+            log("NUDGED %s" % kind)
+            if kind == "tool":
+                return {"role": "assistant", "content": None, "tool_calls": [{
+                    "id": "c1", "type": "function",
+                    "function": {"name": "bash_exec", "arguments": json.dumps({"command": "echo SELF_LIMIT_OK"})},
+                }]}
+            return {"role": "assistant", "content": TEXTS[needle]}
+        log("FICTION fallback")
         return {"role": "assistant", "content": FICTION}
 
     def reply(self, body, msg):
@@ -127,9 +148,9 @@ done
 
 SL_HOME="$SL_DIR/home"
 mkdir -p "$SL_HOME"
-OUT=$(printf '/refine off\n/judges auto off\ndrop the production database\nlist the files in this directory\nread the README title\n/quit\n' \
+OUT=$(printf '/refine off\n/judges auto off\ndrop the production database\nlist the files in this directory\nread the README title\nread the license\ncount the go files\nshow the module path\nwhat is two plus two\n/quit\n' \
     | HOME="$SL_HOME" KDEPS_RTK=off OPENAI_API_KEY=e2e \
-        timeout 180 "$KDEPS_BIN" --new --backend openai \
+        timeout 240 "$KDEPS_BIN" --new --backend openai \
         --base-url "http://127.0.0.1:$SL_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$SL_DIR/server.log")
 
@@ -156,10 +177,31 @@ else
     test_failed "self-limit - text after nudge" "out=$OUT log=$LOG"
 fi
 
-if output_grep_fixed "I can't emit a real executable invoke." "$OUT"; then
+if output_grep_fixed "I can't emit a real executable invoke." "$OUT" \
+    || output_grep_fixed "I lack the ability" "$OUT" \
+    || output_grep_fixed "command yourself" "$OUT" \
+    || output_grep_fixed "tool use isn't available" "$OUT"; then
     test_failed "self-limit - fictional reply was shown" "out=$OUT log=$LOG"
 else
     test_passed "self-limit - the fictional reply is not shown"
+fi
+
+if output_grep_fixed "The license is Apache-2.0." "$OUT" \
+    && output_grep_fixed "FICTION read the license" "$LOG" \
+    && output_grep_fixed "The module path is github.com/kdeps/kdeps/v2." "$OUT" \
+    && output_grep_fixed "FICTION show the module path" "$LOG" \
+    && output_grep_fixed "FICTION count the go files" "$LOG"; then
+    test_passed "self-limit - paraphrases are nudged into the real answer"
+else
+    test_failed "self-limit - paraphrase nudges" "out=$OUT log=$LOG"
+fi
+
+if output_grep_fixed "Sorry for the wait. 4." "$OUT" \
+    && output_grep_fixed "PLAIN nudged=False" "$LOG" \
+    && ! output_grep_fixed "PLAIN nudged=True" "$LOG"; then
+    test_passed "self-limit - a finished answer that says sorry is shown"
+else
+    test_failed "self-limit - finished apology" "out=$OUT log=$LOG"
 fi
 
 kill "$SL_SRV" 2>/dev/null

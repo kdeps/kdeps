@@ -44,6 +44,27 @@ var selfLimitMarkers = []string{
 	"i have no way", "don't have a way", "do not have a way",
 	"no way for me", "no way to",
 	"won't be able", "will not be able", "impossible for me",
+	// Paraphrases that dodge the phrases above: handing the work back,
+	// claiming a tool or shell is missing, or stopping on a negative vibe.
+	"not something i can", "isn't possible", "is not possible", "not possible",
+	"i lack", "lack the ability", "lack permission",
+	"i am limited", "i'm limited",
+	"don't think i can", "do not think i can",
+	"command yourself", "do it yourself", "run it yourself",
+	"do this manually", "on your machine",
+	"no filesystem", "has no shell",
+	"restricted from", "not permitted", "outside what i",
+	"wasn't built", "was not built", "not built to", "not designed",
+	"not sure the tools", "tool use isn't", "tools aren't",
+	"i don't support", "i do not support", "out of scope",
+	"i'm only able", "i am only able",
+	"for you to paste", "best i can do", "no can do",
+	"part of my setup", "without tools", "nothing to execute",
+	"hands are tied", "instead of me", "exceeds what",
+	"don't see a way", "do not see a way",
+	"isn't a tool", "is not a tool", "include a terminal",
+	"is on you", "have to stop", "i must decline", "shouldn't touch",
+	"sandbox i have",
 }
 
 // safetyStopMarkers are a real refusal of a destructive or abusive action.

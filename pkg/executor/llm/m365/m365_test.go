@@ -238,6 +238,43 @@ func TestParseFencedToolCalls_ChainedInvokeDoesNotLeakIntoBody(t *testing.T) {
 // way the old greedy fenceRegex was made immune to it: the closing
 // </parameter> is a far rarer substring than "```" to find inside real file
 // content, and parseFinalParam is greedy through to the LAST occurrence.
+func TestParseFencedToolCalls_InvokeInsideMarkdownFenceIsNotACall(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{bashExecToolDef()})
+	text := "Example:\n\n```text\n" +
+		"<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n" +
+		"```\n"
+	calls, leftover := ParseFencedToolCalls(text, specs)
+	if len(calls) != 0 {
+		t.Fatalf("fenced example dispatched: %+v", calls)
+	}
+	if !strings.Contains(leftover, "pwd") {
+		t.Fatalf("example was stripped: %q", leftover)
+	}
+}
+
+func TestParseFencedToolCalls_UnfencedInvokeBesideFencedExample(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{bashExecToolDef()})
+	text := "<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n\n" +
+		"```text\n<invoke name=\"bash_exec\"><parameter name=\"command\">rm -rf /</parameter></invoke>\n```\n"
+	calls, leftover := ParseFencedToolCalls(text, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	if calls[0].Name != "bash_exec" {
+		t.Fatalf("name = %s", calls[0].Name)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["command"] != "pwd" {
+		t.Fatalf("command = %#v", args["command"])
+	}
+	if !strings.Contains(leftover, "rm -rf /") {
+		t.Fatalf("fenced example removed: %q", leftover)
+	}
+}
+
 func TestParseFencedToolCalls_ContentWithNestedFence(t *testing.T) {
 	tools := []ToolDef{writeToolDef()}
 	specs := BuildSpecMap(tools)

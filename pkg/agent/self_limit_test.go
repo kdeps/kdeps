@@ -51,6 +51,42 @@ func TestLooksLikeSelfLimit(t *testing.T) {
 		"That is beyond my capabilities",
 		"I won't be able to list the files",
 		"I can\u2019t emit an invoke",
+		"Sorry, that's not something I can help with.",
+		"I'm afraid that isn't possible from here.",
+		"My apologies, I lack the ability to read your files.",
+		"Unfortunately I am limited to answering in text.",
+		"I don't think I can list those files.",
+		"You'll have to run that command yourself.",
+		"I recommend you do this manually on your machine.",
+		"There is no filesystem available to me.",
+		"This environment has no shell.",
+		"I'm restricted from running commands.",
+		"I am not permitted to access the workspace.",
+		"That's outside what I can do.",
+		"I wasn't built to execute code.",
+		"I'm not sure the tools are available for that.",
+		"It looks like tool use isn't available in this session.",
+		"I don't support shell access.",
+		"That request is out of scope for me.",
+		"I'm only able to discuss the code, not change it.",
+		"The best I can do is describe the command for you to paste.",
+		"Sorry, no can do.",
+		"I lack permission to read the workspace.",
+		"Filesystem access isn't part of my setup.",
+		"I operate without tools in this chat.",
+		"Please run ls locally; I have nothing to execute with.",
+		"I must decline. I shouldn't touch your files.",
+		"This won't work because the tools aren't here.",
+		"I'd love to help, but my hands are tied.",
+		"Let me explain how you could do it instead of me doing it.",
+		"I apologize, but that exceeds what this assistant is allowed to do.",
+		"Hmm, I don't see a way to read that file.",
+		"There isn't a tool for reading files.",
+		"My environment doesn't include a terminal.",
+		"I can describe the change, but applying it is on you.",
+		"Afraid I have to stop here.",
+		"I am not designed to run shell commands.",
+		"The sandbox I have is empty, so your repository is not visible.",
 	}
 	for _, s := range yes {
 		assert.Truef(t, looksLikeSelfLimit(s), "%q", s)
@@ -66,10 +102,30 @@ func TestLooksLikeSelfLimit(t *testing.T) {
 		"I won't drop the production database.",
 		"I will not overwrite the production database.",
 		"We're temporarily unable to respond to this volume of requests. Please try again later.",
+		"Sorry for the wait. The title is kdeps.",
+		"Done. I updated main.go.",
+		"Unfortunately I don't think this is going to work, but here is the file list: README.md.",
+		"I don't know which file you mean. Name it and I will read it.",
 	}
 	for _, s := range no {
 		assert.Falsef(t, looksLikeSelfLimit(s), "%q", s)
 	}
+}
+
+func TestRunStreaming_SelfLimitParaphraseIsNudged(t *testing.T) {
+	refusal := "You'll have to run that command yourself."
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: refusal},
+		{content: "Listed the files."},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "list the files", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "a hand-back must be nudged before it is shown")
+	assert.Contains(t, ms.cfgs[1].Prompt, "That limit is not real")
+	assert.Equal(t, "Listed the files.", got)
+	assert.NotContains(t, buf.String(), "yourself")
 }
 
 func TestRunStreaming_SelfLimitMissingHarnessDoesNotLoop(t *testing.T) {

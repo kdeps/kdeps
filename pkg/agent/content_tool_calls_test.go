@@ -305,6 +305,34 @@ func TestSalvageContentToolCalls_RealCallOutsideFenceStillRecovered(t *testing.T
 	assert.Contains(t, cleaned, `<invoke name="bash_exec"></invoke>`)
 }
 
+// A literal invoke outside the fence is the call. The copy inside the fence
+// is an example and must not run, even when the two blocks are identical.
+func TestSalvageContentToolCalls_UnfencedInvokeBesideFencedExample(t *testing.T) {
+	in := "<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n\n" +
+		"```text\n<invoke name=\"bash_exec\"><parameter name=\"command\">rm -rf /</parameter></invoke>\n```\n"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"pwd"}`, calls[0].Arguments)
+	assert.Contains(t, cleaned, "rm -rf /")
+	assert.NotContains(t, cleaned, ">pwd<")
+}
+
+// A fence inside a parameter is file content. Protecting fences by swapping
+// them out before argument parsing used to replace that content with a
+// placeholder, so the call ran with the fence bytes missing.
+func TestSalvageContentToolCalls_FenceInsideParameterKept(t *testing.T) {
+	in := "<invoke name=\"write_file\">\n" +
+		"<parameter name=\"content\"># Plan\n\n```bash\necho hello\n```\n</parameter>\n" +
+		"</invoke>"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "write_file", calls[0].Name)
+	assert.Contains(t, calls[0].Arguments, "echo hello")
+	assert.Contains(t, calls[0].Arguments, "```bash")
+	assert.NotContains(t, cleaned, "echo hello")
+}
+
 // TestSalvageHandshakeToolCall_RecoversFencedInvoke is the direct regression
 // test for a live failure mode: a small local model, asked to send a
 // literal <invoke> block for session_handshake, wrote a genuine,

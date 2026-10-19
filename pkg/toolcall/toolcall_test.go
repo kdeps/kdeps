@@ -85,3 +85,17 @@ func TestParseJSONAndFirstJSONObject(t *testing.T) {
 	assert.Equal(t, `{"a": {"b": 1}}`, toolcall.FirstJSONObject(`x {"a": {"b": 1}} y`))
 	assert.Empty(t, toolcall.FirstJSONObject(`{"a": `))
 }
+
+func TestMarkdownFenceSpans_BacktickAndTilde(t *testing.T) {
+	s := "before\n```text\n<invoke name=\"bash_exec\"></invoke>\n```\nafter\n~~~\ninside\n~~~\n"
+	spans := toolcall.MarkdownFenceSpans(s)
+	require.Len(t, spans, 2)
+	assert.Contains(t, s[spans[0][0]:spans[0][1]], "<invoke")
+	assert.Contains(t, s[spans[1][0]:spans[1][1]], "inside")
+	assert.True(t, toolcall.IndexInSpans(spans[0][0]+3, spans))
+	assert.False(t, toolcall.IndexInSpans(0, spans))
+	got := toolcall.RemoveSpans(s, spans)
+	assert.NotContains(t, got, "<invoke")
+	assert.Contains(t, got, "before")
+	assert.Contains(t, got, "after")
+}
