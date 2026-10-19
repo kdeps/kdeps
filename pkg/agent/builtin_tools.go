@@ -21,7 +21,6 @@ package agent
 import (
 	"bytes"
 	"context"
-	"crypto/md5" //nolint:gosec // content-identity checksum, not a security use
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,23 +28,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
-
-	lcllms "github.com/tmc/langchaingo/llms"
-	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
-	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
-	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
 
 	codeintel "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 )
@@ -72,13 +63,13 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerBashExec(ctx, reg)
 	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
-	registerListFiles(reg)
+	registerListFiles(ctx, reg)
 	registerCalculator(ctx, reg)
 	registerReadFile(ctx, reg)
-	registerMD5File(reg)
-	registerTailFile(reg)
-	registerWriteFile(reg)
-	registerEditFile(reg)
+	registerMD5File(ctx, reg)
+	registerTailFile(ctx, reg)
+	registerWriteFile(ctx, reg)
+	registerEditFile(ctx, reg)
 	registerSerpAPI(ctx, reg, webCache)
 	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
@@ -177,7 +168,7 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 	if _, hasOffset := args["offset"]; hasOffset {
 		return nil
 	}
-	before, after := viewAnchorContext(args)
+	before, after := api.ViewAnchorContext(args)
 	start := ref.line - before
 	if start < 1 {
 		start = 1
@@ -322,15 +313,12 @@ func visibleWhitespace(line string) string {
 	return api.VisibleWhitespace(line)
 }
 
-// defaultTailLines is how many lines from the end of a file tail_file
-// returns when the caller omits lines.
-const defaultTailLines = 20
-
 // registerMD5File registers an evidence tool: the MD5 checksum of a file.
-// Call once before and once after a change to prove whether the file's
-// contents actually changed. No API key required.
-func registerMD5File(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// The handler hashes the file. This wrapper fills the session path
+// (match_id or the last file) and does not cache the hash.
+func registerMD5File(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: "md5_file",
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("md5_file", args)
@@ -338,47 +326,30 @@ func registerMD5File(reg *kdepstools.Registry) {
 				return "", err
 			}
 			rememberFile(filePath)
-			// Deliberately not wrapped in trackFileCall: that cache exists so
-			// re-reading an unchanged file is free, but md5_file's entire
-			// purpose is detecting whether a file *changed* between two
-			// calls -- returning a cached "before" hash on the "after" call
-			// would silently defeat that.
-			return md5File(filePath)
+			// Deliberately not wrapped in trackFileCall: a cached hash would
+			// hide a change between the before and after calls.
+			return api.CallTool(toolCallCtx(ctx, args), "md5_file", map[string]any{
+				toolParamFilePath: filePath,
+			})
 		},
-	}))
-}
-
-func md5File(filePath string) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("md5_file: %w", err)
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.MD5File,
+		})
 	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("md5_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("md5_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
-	}
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("md5_file: read %s: %w", filePath, err)
-	}
-	sum := md5.Sum(data) //nolint:gosec // content-identity checksum, not a security use
-	// Output mirrors the real md5sum CLI ("<hex>  <path>"... here path-first
-	// to match sha256sum-style tools too), so a model that already knows the
-	// shape of a checksum command's output recognizes it immediately.
-	return fmt.Sprintf("%s  %x", filePath, sum), nil
+	reg.Register(tool)
 }
 
 // registerTailFile registers an evidence tool: the last N lines of a file.
-// Unlike read_file's offset/limit (which needs the caller to already know
-// where to start), tail_file answers "how does this log/output end" in one
-// call. No API key required.
-func registerTailFile(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// The handler reads the file. This wrapper fills the session path and does
+// not cache the tail.
+func registerTailFile(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: "tail_file",
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("tail_file", args)
@@ -386,103 +357,35 @@ func registerTailFile(reg *kdepstools.Registry) {
 				return "", err
 			}
 			rememberFile(filePath)
-			// Deliberately not wrapped in trackFileCall (see md5_file's same
-			// note): a log/output file's tail is expected to change between
-			// calls, and evidence gathering wants the current state, not a
-			// cached snapshot from an earlier call in the same task.
-			return tailLocalFile(filePath, args)
+			body := map[string]any{toolParamFilePath: filePath}
+			if v, ok := args["lines"]; ok {
+				body["lines"] = v
+			}
+			return api.CallTool(toolCallCtx(ctx, args), "tail_file", body)
 		},
-	}))
-}
-
-func tailLocalFile(filePath string, args map[string]any) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("tail_file: %w", err)
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.TailFile,
+		})
 	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("tail_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("tail_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
-	}
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("tail_file: read %s: %w", filePath, err)
-	}
-	if isBinaryContent(data) {
-		return "", fmt.Errorf("tail_file: %s appears to be a binary file", filePath)
-	}
-
-	n := defaultTailLines
-	if v, ok := args["lines"].(float64); ok && v > 0 {
-		n = int(v)
-	}
-
-	lines := strings.Split(string(data), "\n")
-	// File ending with \n produces a trailing empty element; drop it.
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	totalLines := len(lines)
-	startLine := max(0, totalLines-n)
-
-	shown := lines[startLine:]
-	var sb strings.Builder
-	digitWidth := len(strconv.Itoa(totalLines))
-	for i, line := range shown {
-		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, startLine+i+1, line)
-	}
-	out := strings.TrimSuffix(sb.String(), "\n")
-	if startLine > 0 {
-		out = fmt.Sprintf("%s\n[last %d/%d lines shown]", out, len(shown), totalLines)
-	}
-	return out, nil
-}
-
-// writeFileVerified writes data to path and reads it back to confirm the
-// bytes on disk actually match what was written, retrying once on mismatch
-// before failing. This is a read-after-write durability check -- it cannot
-// detect an upstream problem (e.g. the model itself handed the tool
-// incomplete content), only that the write to disk was faithful to whatever
-// content the tool actually received.
-func writeFileVerified(path string, data []byte) error {
-	const maxAttempts = 2
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		if err := afero.WriteFile(AppFS, path, data, 0o600); err != nil {
-			lastErr = fmt.Errorf("write %s: %w", path, err)
-			continue
-		}
-		got, err := afero.ReadFile(AppFS, path)
-		if err != nil {
-			lastErr = fmt.Errorf("verify %s: read back failed: %w", path, err)
-			continue
-		}
-		if bytes.Equal(got, data) {
-			return nil
-		}
-		lastErr = fmt.Errorf(
-			"verify %s: wrote %d bytes but read back %d bytes -- content did not round-trip",
-			path, len(data), len(got),
-		)
-	}
-	return lastErr
+	reg.Register(tool)
 }
 
 // registerWriteFile registers a local file write/overwrite tool.
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
-func registerWriteFile(reg *kdepstools.Registry) {
+func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameWriteFile,
 	})
 	if tool == nil {
 		return
 	}
+	api.SetFileReadLimit(maxFileReadBytes)
 	tool.Execute = func(args map[string]any) (string, error) {
 		filePath, err := requireAbsFilePath("write_file", args)
 		if err != nil {
@@ -499,23 +402,33 @@ func registerWriteFile(reg *kdepstools.Registry) {
 				limit,
 			)
 		}
-		info, statErr := AppFS.Stat(filePath)
+		info, statErr := os.Stat(filePath)
 		if statErr == nil && info.IsDir() {
 			return "", fmt.Errorf("write_file: %s is a directory", filePath)
 		}
-		// Read the prior content (empty for a new file) so the terminal can show a
-		// diff of what changed.
 		var oldContent string
-		if prev, rerr := afero.ReadFile(AppFS, filePath); rerr == nil {
+		if prev, rerr := os.ReadFile(filePath); rerr == nil {
 			oldContent = string(prev)
 		}
-		if err = writeFileVerified(filePath, []byte(content)); err != nil {
-			return "", fmt.Errorf("write_file: %w", err)
+		out, err := api.CallTool(toolCallCtx(ctx, args), toolNameWriteFile, map[string]any{
+			toolParamFilePath: filePath,
+			"content":         content,
+		})
+		if err != nil {
+			return "", err
 		}
 		rememberFile(filePath)
 		markFileSeen(filePath) // the model wrote it, so it may edit_file it without a re-read
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
-		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
+		return out, nil
+	}
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.WriteFile,
+		})
 	}
 	reg.Register(tool)
 }
@@ -614,23 +527,30 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 
 // registerListFiles registers a directory listing tool.
 // Lists files and directories at a given path. No API key required.
-func registerListFiles(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+func registerListFiles(ctx context.Context, reg *kdepstools.Registry) {
+	tool := defined(&kdepstools.Tool{
 		Name: toolNameListFiles,
 		Execute: func(args map[string]any) (string, error) {
 			dirPath, err := resolveListFilesDirPath(args)
 			if err != nil {
 				return "", err
 			}
-			entries, err := afero.ReadDir(AppFS, dirPath)
-			if err != nil {
-				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
-			}
 			return trackFileCall(dirPath, func() (string, error) {
-				return renderFileList(dirPath, entries), nil
+				return api.CallTool(toolCallCtx(ctx, args), toolNameListFiles, map[string]any{
+					"path": dirPath,
+				})
 			})
 		},
-	}))
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.ListFiles,
+		})
+	}
+	reg.Register(tool)
 }
 
 // resolveListFilesDirPath resolves list_files's path argument: empty
@@ -656,53 +576,6 @@ func resolveListFilesDirPath(args map[string]any) (string, error) {
 		return "", fmt.Errorf("list_files: %w", err)
 	}
 	return dirPath, nil
-}
-
-// renderFileList formats a directory's entries as "[file|dir] name" lines.
-func renderFileList(dirPath string, entries []os.FileInfo) string {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%s:\n", dirPath)
-	for _, e := range entries {
-		const fileKind = "file"
-		kind := fileKind
-		if e.IsDir() {
-			kind = "dir"
-		}
-		fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
-	}
-	return strings.TrimSpace(sb.String())
-}
-
-// queryCaller is the langchaingo tool shape shared by the single-query
-// search/lookup tools.
-type queryCaller interface {
-	Call(ctx context.Context, input string) (string, error)
-}
-
-// registerCachedQueryTool registers a tool that takes a single required query
-// string, runs it through tool.Call with the standard search timeout, and
-// caches successful results.
-func registerCachedQueryTool(
-	ctx context.Context,
-	reg *kdepstools.Registry,
-	cache *webToolCache,
-	tool queryCaller,
-	name string,
-) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: name,
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args[toolParamQuery].(string)
-			if query == "" {
-				return "", errors.New(name + ": query is required")
-			}
-			return cache.call(name+":"+query, func() (string, error) {
-				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-				defer cancel()
-				return tool.Call(callCtx, query)
-			})
-		},
-	}))
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
@@ -820,27 +693,29 @@ func jsonArgs(args map[string]any) map[string]any {
 }
 
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
+// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
 func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("SERPAPI_API_KEY") == "" {
 		return
 	}
-	tool, err := lcserpapi.New()
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, tool, "serpapi_search")
+	registerCachedAPITool(ctx, reg, cache, "serpapi_search", toolParamQuery, builtinSearchTimeout, api.SerpAPISearch)
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.
+// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
 func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("PERPLEXITY_API_KEY") == "" {
 		return
 	}
-	tool, err := lcperplexity.New()
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, tool, "perplexity_search")
+	registerCachedAPITool(
+		ctx,
+		reg,
+		cache,
+		"perplexity_search",
+		toolParamQuery,
+		builtinSearchTimeout,
+		api.PerplexitySearch,
+	)
 }
 
 // Network tool timeouts: a hung remote endpoint must not stall the agent
@@ -1040,99 +915,14 @@ func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerGoogleCacheTools registers google_cache_create, google_cache_delete, and
-// google_cache_list when GOOGLE_API_KEY is set. These wrap lcgoogleai.CachingHelper
-// to manage Google AI server-side cached content (pre-created caches referenced via
-// chat: googleCachedContent field).
+// google_cache_list when GOOGLE_API_KEY is set. The handler is the kdeps API.
 func registerGoogleCacheTools(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("GOOGLE_API_KEY")
-	if apiKey == "" {
+	if os.Getenv("GOOGLE_API_KEY") == "" {
 		return
 	}
-	reg.Register(googleCacheCreateTool(ctx, apiKey))
-	reg.Register(googleCacheDeleteTool(ctx, apiKey))
-	reg.Register(googleCacheListTool(ctx, apiKey))
-}
-
-func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_create",
-		Execute: func(args map[string]any) (string, error) {
-			model, _ := args["model"].(string)
-			if model == "" {
-				return "", errors.New("google_cache_create: model is required")
-			}
-			content, _ := args["content"].(string)
-			if content == "" {
-				return "", errors.New("google_cache_create: content is required")
-			}
-			ttlStr, _ := args["ttl"].(string)
-			if ttlStr == "" {
-				ttlStr = "1h"
-			}
-			ttl, parseErr := time.ParseDuration(ttlStr)
-			if parseErr != nil {
-				return "", fmt.Errorf("google_cache_create: invalid ttl %q: %w", ttlStr, parseErr)
-			}
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_create: init helper: %w", helperErr)
-			}
-			messages := []lcllms.MessageContent{
-				{
-					Role:  lcllms.ChatMessageTypeSystem,
-					Parts: []lcllms.ContentPart{lcllms.TextPart(content)},
-				},
-			}
-			cached, createErr := helper.CreateCachedContent(ctx, model, messages, ttl)
-			if createErr != nil {
-				return "", fmt.Errorf("google_cache_create: %w", createErr)
-			}
-			return cached.Name, nil
-		},
-	})
-}
-
-func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_delete",
-		Execute: func(args map[string]any) (string, error) {
-			name, _ := args["name"].(string)
-			if name == "" {
-				return "", errors.New("google_cache_delete: name is required")
-			}
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_delete: init helper: %w", helperErr)
-			}
-			if delErr := helper.DeleteCachedContent(ctx, name); delErr != nil {
-				return "", fmt.Errorf("google_cache_delete: %w", delErr)
-			}
-			return "deleted", nil
-		},
-	})
-}
-
-func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_list",
-		Execute: func(_ map[string]any) (string, error) {
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_list: init helper: %w", helperErr)
-			}
-			iter := helper.ListCachedContents(ctx)
-			var names []string
-			for {
-				cc, nextErr := iter.Next()
-				if nextErr != nil {
-					break // iterator.Done or real error; both stop iteration
-				}
-				names = append(names, cc.Name)
-			}
-			out, _ := json.Marshal(names)
-			return string(out), nil //nolint:nilerr // iterator.Done is not propagated by design
-		},
-	})
+	registerAPITool(ctx, reg, "google_cache_create", api.GoogleCacheCreate)
+	registerAPITool(ctx, reg, "google_cache_delete", api.GoogleCacheDelete)
+	registerAPITool(ctx, reg, "google_cache_list", api.GoogleCacheList)
 }
 
 // isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.

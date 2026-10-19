@@ -478,6 +478,58 @@ func TestParseFencedShellRouting(t *testing.T) {
 	}
 }
 
+// The shapes below are what a live M365 session wrote when it meant to run
+// a shell command. Each one used to become a bash call with no command.
+func TestParseFencedShellRouting_CommandOutsideParameterTag(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{shellToolDef()})
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "plain body",
+			in:   "<<invoke name=\"bash\">\nls -la && cat README.md\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "attribute",
+			in:   "<<invoke name=\"bash\" command=\"ls -la && cat README.md\">\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "body assignment",
+			in:   "<invoke name=\"bash\">\ncommand=\"ls -la && cat README.md\"\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "body colon",
+			in:   "<invoke name=\"bash\">\ncommand: ls -la && cat README.md\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "json body",
+			in:   "<invoke name=\"bash\">\n{\"command\":\"ls -la && cat README.md\"}\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _ := ParseFencedToolCalls(tc.in, specs)
+			if len(calls) != 1 {
+				t.Fatalf("calls = %+v", calls)
+			}
+			var args map[string]string
+			if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+				t.Fatal(err)
+			}
+			if args["command"] != tc.want {
+				t.Fatalf("command = %q", args["command"])
+			}
+		})
+	}
+}
+
 func TestFormatFencedToolDefinitionsVariants(t *testing.T) {
 	tools := []ToolDef{shellToolDef()}
 	for _, v := range []string{"baseline", "minimal", "softened", "unknown-falls-to-baseline", ""} {
@@ -1551,7 +1603,7 @@ func TestDeriveSpecFromArgs(t *testing.T) {
 
 func TestParseFencedInnerEditPairMismatch(t *testing.T) {
 	spec := DeriveFencedSpec(editToolDef())
-	if _, ok := parseFencedInner(spec, "no search/replace markers here"); ok {
+	if _, ok := parseFencedInner(spec, "", "no search/replace markers here"); ok {
 		t.Error("malformed edit body should fail to parse")
 	}
 }

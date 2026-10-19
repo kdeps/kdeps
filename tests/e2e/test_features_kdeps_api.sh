@@ -268,8 +268,11 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "bash_exec", "bash_job_list", "bash_job_wait",
-        "calculator", "read_file", "sql_describe_table", "sql_list_tables",
-        "sql_query", "web_scraper", "web_search", "wikipedia",
+        "calculator", "edit_file",
+        "google_cache_create", "google_cache_delete", "google_cache_list",
+        "list_files", "md5_file", "perplexity_search", "read_file", "serpapi_search",
+        "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
+        "web_scraper", "web_search", "wikipedia", "write_file",
     ]
     if names != want:
         die(repr(names))
@@ -606,6 +609,37 @@ EOF
         test_passed "kdeps API - bash_exec returns hi"
     else
         test_failed "kdeps API - bash_exec returns hi" "status $got body $(head -c 180 "$body")"
+    fi
+    payload=$(python3 -c 'import json,sys; print(json.dumps({"file_path": sys.argv[1]}))' "$sample")
+    want_md5=$(python3 -c 'import hashlib,sys; p=sys.argv[1]; print("%s  %s" % (p, hashlib.md5(open(p,"rb").read()).hexdigest()))' "$sample")
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data "$payload" "${tools}/md5_file/call" || true)
+    if [ "$got" = "200" ] && [ "$(cat "$body")" = "$want_md5" ] && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - md5_file returns the checksum"
+    else
+        test_failed "kdeps API - md5_file returns the checksum" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/serpapi_search/call" || true)
+    if [ "$got" = "400" ] && grep -F "serpapi_search: query is required" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - serpapi_search requires query"
+    else
+        test_failed "kdeps API - serpapi_search requires query" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/google_cache_create/call" || true)
+    if [ "$got" = "400" ] && grep -F "google_cache_create: model is required" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - google_cache_create requires model"
+    else
+        test_failed "kdeps API - google_cache_create requires model" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \

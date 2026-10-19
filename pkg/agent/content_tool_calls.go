@@ -47,10 +47,15 @@ var (
 	// Anthropic-style tool call written as text:
 	//   <function_calls><invoke name="TOOL"><parameter name="K">V</parameter>...</invoke></function_calls>
 	// (with or without the wrapper, with or without an "antml:" prefix).
+	// One extra leading "<" is accepted: models write "<<invoke" when told
+	// the tag must be literal. The second capture is attributes after the
+	// name (command="..."); the third is the body.
 	invokeRe = regexp.MustCompile(
-		`(?s)<(?:[a-z]+:)?invoke\s+name\s*=\s*"([^"]+)"\s*>(.*?)</(?:[a-z]+:)?invoke\s*>`,
+		`(?s)<{1,2}(?:[a-z]+:)?invoke\s+name\s*=\s*"([^"]+)"([^>]*)>(.*?)</(?:[a-z]+:)?invoke\s*>`,
 	)
-	parameterRe = regexp.MustCompile(
+	invokeAttrRe   = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"`)
+	looseArgLineRe = regexp.MustCompile(`(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(.*)$`)
+	parameterRe    = regexp.MustCompile(
 		`(?s)<(?:[a-z]+:)?parameter\s+name\s*=\s*"([^"]+)"\s*>(.*?)</(?:[a-z]+:)?parameter\s*>`,
 	)
 	functionCallsWrapRe = regexp.MustCompile(`(?i)</?(?:[a-z]+:)?function_calls\s*>`)
@@ -162,7 +167,7 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	// Anthropic <invoke name="..."><parameter name="...">...</parameter></invoke>.
 	for _, m := range invokeRe.FindAllStringSubmatch(cleaned, -1) {
 		calls = append(calls, domain.StreamedToolCall{
-			Name: m[1], Arguments: parametersToJSON(m[2]),
+			Name: m[1], Arguments: invokeArguments(m[1], m[2], m[3]),
 		})
 	}
 	cleaned = invokeRe.ReplaceAllString(cleaned, "")
@@ -228,6 +233,100 @@ func collectTagCalls(
 		}
 	}
 	return calls, re.ReplaceAllString(text, "")
+}
+
+// invokeArguments turns one <invoke> into a JSON arguments object.
+// Parameter tags win. Otherwise attributes on the opening tag, a JSON object
+// body, or `key: value` / `key="value"` lines. A shell invoke whose body is
+// plain text (no tags) uses that text as command: models write the command
+// where the parameter element should be, and an empty object then fails
+// bash_exec with "command is required".
+func invokeArguments(name, attrs, body string) string {
+	if args := parametersToJSON(body); args != "{}" {
+		return args
+	}
+	obj := map[string]json.RawMessage{}
+	for _, a := range invokeAttrRe.FindAllStringSubmatch(attrs, -1) {
+		obj[a[1]] = json.RawMessage(jsonString(html.UnescapeString(a[2])))
+	}
+	if len(obj) == 0 {
+		obj = looseInvokeObject(body)
+	}
+	if len(obj) == 0 {
+		text := strings.TrimSpace(body)
+		if text != "" && !strings.Contains(text, "<") && isShellInvokeName(name) {
+			obj = map[string]json.RawMessage{
+				"command": json.RawMessage(jsonString(html.UnescapeString(text))),
+			}
+		}
+	}
+	return marshalArgObject(obj)
+}
+
+// isShellInvokeName reports names whose plain-text body is a shell command.
+func isShellInvokeName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "bash", "bash_exec", "sh", "shell", "zsh", "console":
+		return true
+	default:
+		return false
+	}
+}
+
+// looseInvokeObject reads a body that is a JSON object or `key: value` lines.
+// A shell script that is not that shape returns nil so the caller can decide.
+func looseInvokeObject(body string) map[string]json.RawMessage {
+	text := strings.TrimSpace(body)
+	if text == "" || strings.Contains(text, "<") {
+		return nil
+	}
+	if strings.HasPrefix(text, "{") && json.Valid([]byte(text)) {
+		var obj map[string]json.RawMessage
+		if json.Unmarshal([]byte(text), &obj) == nil && len(obj) > 0 {
+			return obj
+		}
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	obj := map[string]json.RawMessage{}
+	matched := 0
+	for _, ln := range lines {
+		if strings.TrimSpace(ln) == "" {
+			continue
+		}
+		m := looseArgLineRe.FindStringSubmatch(ln)
+		if m == nil {
+			return nil
+		}
+		obj[m[1]] = json.RawMessage(jsonString(unquoteArg(html.UnescapeString(strings.TrimSpace(m[2])))))
+		matched++
+	}
+	if matched == 0 {
+		return nil
+	}
+	return obj
+}
+
+func unquoteArg(s string) string {
+	if len(s) < len(`""`) {
+		return s
+	}
+	q := s[0]
+	if (q == '"' || q == '\'') && s[len(s)-1] == q {
+		return s[1 : len(s)-1]
+	}
+	return s
+}
+
+func marshalArgObject(obj map[string]json.RawMessage) string {
+	if len(obj) == 0 {
+		return "{}"
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return "{}"
+	}
+	return string(out)
 }
 
 // parametersToJSON turns the body of an <invoke> element -- a run of

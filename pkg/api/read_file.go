@@ -151,7 +151,7 @@ func ReadFile(ctx context.Context, args map[string]any) (string, error) {
 }
 
 func resolveReadPath(args map[string]any) (string, error) {
-	filePath, _ := stringArg(args, argFilePath)
+	filePath := stringArg(args, argFilePath)
 	filePath = strings.TrimSpace(filePath)
 	if filePath == "" {
 		return "", errors.New(msgFileRequired)
@@ -172,12 +172,12 @@ func resolveReadPath(args map[string]any) (string, error) {
 	return filePath, nil
 }
 
-func stringArg(args map[string]any, key string) (string, bool) {
+func stringArg(args map[string]any, key string) string {
 	if args == nil {
-		return "", false
+		return ""
 	}
-	s, ok := args[key].(string)
-	return s, ok
+	s, _ := args[key].(string)
+	return s
 }
 
 func readContents(path string, args map[string]any) (string, error) {

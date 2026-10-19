@@ -127,6 +127,34 @@ func TestStripContentToolCalls_PlainTextUnchanged(t *testing.T) {
 	assert.Equal(t, "just an answer", stripContentToolCalls("just an answer"))
 }
 
+func TestSalvageContentToolCalls_ShellBodyIsTheCommand(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+	}{
+		{"plain", "<<invoke name=\"bash\">\nls -la && cat README.md\n</invoke>"},
+		{"attribute", "<<invoke name=\"bash\" command=\"ls -la && cat README.md\">\n</invoke>"},
+		{"assign", "<invoke name=\"bash\">\ncommand=\"ls -la && cat README.md\"\n</invoke>"},
+		{"colon", "<invoke name=\"bash\">\ncommand: ls -la && cat README.md\n</invoke>"},
+		{"json", "<invoke name=\"bash\">\n{\"command\":\"ls -la && cat README.md\"}\n</invoke>"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, _ := salvageContentToolCalls(tc.in)
+			require.Len(t, calls, 1)
+			assert.Equal(t, "bash", calls[0].Name)
+			assert.JSONEq(t, `{"command":"ls -la && cat README.md"}`, calls[0].Arguments)
+		})
+	}
+}
+
+func TestSalvageContentToolCalls_PlainBodyIsNotARead(t *testing.T) {
+	in := "<invoke name=\"read_file\">\npkg/api/calculator.go\n</invoke>"
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{}`, calls[0].Arguments)
+}
+
 func TestSalvageContentToolCalls_AnthropicInvoke(t *testing.T) {
 	in := "Listing the directory.\n<function_calls>\n<invoke name=\"bash_exec\">\n<parameter name=\"command\">ls -la</parameter>\n</invoke>\n</function_calls>"
 	calls, cleaned, fake := salvageContentToolCalls(in)

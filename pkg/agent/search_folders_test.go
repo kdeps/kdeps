@@ -87,6 +87,7 @@ func TestKnowledgeCardUpdate_SearchFolders(t *testing.T) {
 
 func TestSearchLocal_NoPathSearchesEveryProjectFolder(t *testing.T) {
 	l, docs := searchFolderLoop(t)
+	t.Cleanup(WaitForBackgroundIndexing)
 	card, err := l.knowledge.project()
 	require.NoError(t, err)
 	_, err = l.knowledge.vault.AddSearchFolder(card, docs)

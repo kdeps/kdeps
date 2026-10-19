@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	execHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -375,7 +376,7 @@ func annotateSearchMatches(results []map[string]interface{}, query string) {
 		if line == 0 {
 			continue
 		}
-		revision := fileRevision(data)
+		revision := api.FileRevision(data)
 		id := mintMatchID(path, line, revision)
 		rememberMatch(id, matchRef{path: path, line: line, revision: revision})
 		r["match_id"] = id

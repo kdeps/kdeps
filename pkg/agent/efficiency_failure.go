@@ -29,6 +29,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -261,7 +262,7 @@ func editFocusLine(content string, args map[string]any) int {
 		if strings.TrimSpace(s) == "" {
 			continue
 		}
-		if _, at := closestMatch(content, s); at > 0 {
+		if _, at := api.ClosestMatch(content, s); at > 0 {
 			return at
 		}
 	}
@@ -270,7 +271,7 @@ func editFocusLine(content string, args map[string]any) int {
 
 // fileExcerpt renders the numbered lines around focus.
 func fileExcerpt(path, content string, focus int) string {
-	lines := splitKeepCount(content)
+	lines := api.SplitKeepCount(content)
 	if len(lines) == 0 {
 		return fmt.Sprintf("%s is empty.", path)
 	}

@@ -22,6 +22,14 @@ The guidance also tells the model that kdeps is a parser and an interpreter: it 
 
 and the runtime hands back the real output.
 
+A shell invoke with no `<parameter>` tag still runs. The command is the block body, an attribute on the opening tag, or one `command:` / `command="..."` / JSON line inside the block:
+
+```
+<invoke name="bash">
+ls -la && cat README.md
+</invoke>
+```
+
 ## The available_tools block
 
 The same preamble lists every registered tool in an `<available_tools>` block: name, parameters, and an `<invoke>` skeleton for each. That block is what the model copies a name from. Later turns repeat the list next to the one-line reminder. Backends with a native tool channel (Anthropic, OpenAI) also receive the tools as a native schema; kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway.

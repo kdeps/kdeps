@@ -1367,7 +1367,7 @@ func TestWriteFile_RelativePath(t *testing.T) {
 	defer func() { _ = os.Remove(relName) }()
 
 	reg := kdepstools.NewRegistry()
-	registerWriteFile(reg)
+	registerWriteFile(t.Context(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
 	_, err = tool.Execute(map[string]any{"file_path": relName, "content": "data"})
@@ -1569,7 +1569,7 @@ func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "w.txt")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
 	reg := kdepstools.NewRegistry()
-	registerWriteFile(reg)
+	registerWriteFile(t.Context(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
 	var buf strings.Builder
@@ -1598,7 +1598,7 @@ func TestWriteToolDiff_NilWriterNoPanic(_ *testing.T) {
 // covered too.
 func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 
@@ -1616,7 +1616,7 @@ func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
 	// with any parallel test's own relative-path I/O. go test always runs
 	// with the package directory as CWD, so this file is guaranteed present.
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"path": "."})
@@ -1971,16 +1971,11 @@ func TestRegisterCodeIntelligenceTools_IndexFolder_InvalidRootPath(t *testing.T)
 // --- googleCacheListTool execute closure ---
 
 func TestGoogleCacheListTool_Execute_HelperInitError(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key-that-causes-init-failure")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("google_cache_list")
-	require.NotNil(t, tool)
-	// Init will fail because the API key is invalid; the error is propagated
-	result, err := tool.Execute(map[string]any{})
-	// May or may not error depending on langchain-go init behavior
-	_ = result
-	_ = err
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheList(t.Context(), nil)
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("list with no key must not dial, got %v", err)
+	}
 }
 
 // --- readLocalFile binary content detection ---
@@ -2308,10 +2303,20 @@ func TestValidateWorkspaceBoundary_RootNoTrailingSlash(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
+func googleCacheTool(t *testing.T, name string) *kdepstools.Tool {
+	t.Helper()
 	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(t.Context(), reg)
+	tool := reg.Get(name)
+	if tool == nil {
+		t.Fatalf("%s was not registered", name)
+	}
+	return tool
+}
+
+func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"content": "test content",
 	})
 	if err == nil {
@@ -2326,9 +2331,7 @@ func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_MissingContent(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"model": "gemini-2.0-flash",
 	})
 	if err == nil {
@@ -2343,9 +2346,7 @@ func TestGoogleCacheCreateTool_Execute_MissingContent(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_InvalidTTL(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"model":   "gemini-2.0-flash",
 		"content": "test content",
 		"ttl":     "not-a-duration",
@@ -2362,25 +2363,18 @@ func TestGoogleCacheCreateTool_Execute_InvalidTTL(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_DefaultTTL(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key")
-	tool := googleCacheCreateTool(context.Background(), "bad-key")
-	result, err := tool.Execute(map[string]any{
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheCreate(t.Context(), map[string]any{
 		"model":   "gemini-2.0-flash",
 		"content": "test content",
 	})
-	// TTL defaults to "1h", then init fails because API key is bad
-	if err == nil {
-		t.Fatal("expected error from helper init with bad key")
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("omitted ttl should pass duration parsing and stop on the missing key, got %v", err)
 	}
-	_ = result
 }
 
-// --- googleCacheDeleteTool execute closure arg validation ---
-
 func TestGoogleCacheDeleteTool_Execute_MissingName(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheDeleteTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{})
+	result, err := googleCacheTool(t, "google_cache_delete").Execute(map[string]any{})
 	if err == nil {
 		t.Fatal("expected error for missing name")
 	}
@@ -2390,16 +2384,13 @@ func TestGoogleCacheDeleteTool_Execute_MissingName(t *testing.T) {
 }
 
 func TestGoogleCacheDeleteTool_Execute_InitError(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key")
-	tool := googleCacheDeleteTool(context.Background(), "bad-key")
-	result, err := tool.Execute(map[string]any{
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheDelete(t.Context(), map[string]any{
 		"name": "cachedContents/test123",
 	})
-	// Init fails because API key is bad
-	if err == nil {
-		t.Fatal("expected error from helper init with bad key")
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("delete with a name and no key must not dial, got %v", err)
 	}
-	_ = result
 }
 
 // --- writeFileVerified ---
@@ -2410,7 +2401,7 @@ func TestWriteFileVerified_RoundTripsSuccessfully(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 	defer os.Remove(tmpFile.Name())
 
-	err = writeFileVerified(tmpFile.Name(), []byte("hello verified\n"))
+	err = api.WriteFileVerified(tmpFile.Name(), []byte("hello verified\n"))
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(tmpFile.Name())
@@ -2430,7 +2421,7 @@ func TestWriteFileVerified_PermissionErrorAfterRetries(t *testing.T) {
 		os.RemoveAll(tmpDir)
 	}()
 
-	err = writeFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
+	err = api.WriteFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
 	assert.Error(t, err)
 }
 
@@ -2715,7 +2706,7 @@ func TestRegisterListFiles_Execute_Success(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0600))
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 	result, err := tool.Execute(map[string]any{"path": dir})

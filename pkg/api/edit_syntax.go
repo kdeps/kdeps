@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package api
 
 // edit_file's validate_syntax support. Every mutator computes its whole
 // candidate file content before deciding to write, so validateSyntax runs

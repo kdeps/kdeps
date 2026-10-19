@@ -54,8 +54,10 @@ func TestTools_ListAndCall(t *testing.T) {
 	}
 	wantNames := []string{
 		toolBashExec, toolBashJobList, toolBashJobWait,
-		toolCalculator, toolReadFile, toolSQLDescribe, toolSQLList, toolSQLQuery,
-		toolWebScraper, toolWebSearch, toolWikipedia,
+		toolCalculator, toolEditFile, toolGoogleCacheCreate, toolGoogleCacheDelete, toolGoogleCacheList,
+		toolListFiles, toolMD5File, toolPerplexity, toolReadFile, toolSerpAPI,
+		toolSQLDescribe, toolSQLList, toolSQLQuery, toolTailFile,
+		toolWebScraper, toolWebSearch, toolWikipedia, toolWriteFile,
 	}
 	if doc.Kind != kindToolList || doc.APIVersion != groupTools+"/v1" || !slices.Equal(names, wantNames) {
 		t.Fatalf("names %v", names)

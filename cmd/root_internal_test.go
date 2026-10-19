@@ -63,6 +63,36 @@ func TestMaybeEnableInstrumentation_StartsAndEndsANamedSession(t *testing.T) {
 	assert.Contains(t, string(events), `"error":"boom"`, "the run's error is recorded")
 }
 
+func TestNormalizeInstrumentArgs(t *testing.T) {
+	assert.Equal(t,
+		[]string{"kdeps", "--instrument=basic"},
+		normalizeInstrumentArgs([]string{"kdeps", "--instrument", "basic"}))
+	assert.Equal(t,
+		[]string{"kdeps", "--instrument"},
+		normalizeInstrumentArgs([]string{"kdeps", "--instrument"}))
+	assert.Equal(t,
+		[]string{"kdeps", "--instrument", "--debug"},
+		normalizeInstrumentArgs([]string{"kdeps", "--instrument", "--debug"}))
+	assert.Equal(t,
+		[]string{"kdeps", "run", "w.yaml", "--instrument=api"},
+		normalizeInstrumentArgs([]string{"kdeps", "run", "w.yaml", "--instrument", "api"}))
+	assert.Equal(t,
+		[]string{"kdeps", "--instrument=basic"},
+		normalizeInstrumentArgs([]string{"kdeps", "--instrument=basic"}))
+}
+
+func TestMaybeEnableInstrumentation_SpaceNameIsTheSession(t *testing.T) {
+	t.Setenv("KDEPS_INSTRUMENT_ROOT", t.TempDir())
+	c := NewRootCmd()
+	args := normalizeInstrumentArgs([]string{"kdeps", "--instrument", "basic"})
+	require.NoError(t, c.ParseFlags(args[1:]))
+	maybeEnableInstrumentation(c)
+	s := instrument.Active()
+	require.NotNil(t, s)
+	assert.Equal(t, "basic", s.Name)
+	endInstrumentation(io.Discard, nil)
+}
+
 func TestMaybeEnableInstrumentation_BareFlagNamesByTime(t *testing.T) {
 	t.Setenv("KDEPS_INSTRUMENT_ROOT", t.TempDir())
 	c := NewRootCmd()

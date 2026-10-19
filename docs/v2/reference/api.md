@@ -29,7 +29,7 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
 | `GET` | `/apis` | Groups `tools.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
-| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, and the three `sql_*` tools. |
+| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `list_files`, `md5_file`, `tail_file`, `write_file`, `edit_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, the three `sql_*` tools, `serpapi_search`, `perplexity_search`, and the three `google_cache_*` tools. |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
 
 ```bash
@@ -115,7 +115,7 @@ An unknown tool name is `404` with message `tool not found`. A body without `fil
 
 ## Other calls
 
-`bash_exec`, `bash_job_list`, `bash_job_wait`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, `sql_list_tables`, `sql_describe_table`, and `sql_query` use the same call route. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
+`bash_exec`, `bash_job_list`, `bash_job_wait`, `list_files`, `md5_file`, `tail_file`, `write_file`, `edit_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, `sql_list_tables`, `sql_describe_table`, `sql_query`, `serpapi_search`, `perplexity_search`, `google_cache_create`, `google_cache_delete`, and `google_cache_list` use the same call route. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
 
 ```text
 component -> POST /apis/tools.kdeps.io/v1/tools/calculator/call -> handler
@@ -128,4 +128,4 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
   http://127.0.0.1:9095/apis/tools.kdeps.io/v1/tools/calculator/call
 ```
 
-The body is `4`. `bash_exec` takes `command` (`{"command":"echo hi"}` returns `hi`). `web_search` and `wikipedia` take `query`. `web_scraper` takes `url`. `sql_query` takes `query` and `db_path` (`db_path` falls back to `KDEPS_SQL_DB_PATH`). A missing required argument is `400`. `KDEPS_ALLOW_BASH=false` leaves `bash_exec` on this list and a call returns `bash_exec: disabled (KDEPS_ALLOW_BASH=false)`.
+The body is `4`. `bash_exec` takes `command` (`{"command":"echo hi"}` returns `hi`). `list_files` takes `path` (empty lists the working directory). `md5_file` takes `file_path` and returns `<path>  <hex>`. `tail_file` takes `file_path` and `lines` (default 20). `write_file` takes `file_path` and `content`. `edit_file` takes `file_path` and `command`. `web_search` and `wikipedia` take `query`. `web_scraper` takes `url`. `sql_query` takes `query` and `db_path` (`db_path` falls back to `KDEPS_SQL_DB_PATH`). A missing required argument is `400`. `KDEPS_ALLOW_BASH=false` leaves `bash_exec` on this list and a call returns `bash_exec: disabled (KDEPS_ALLOW_BASH=false)`. `serpapi_search`, `perplexity_search`, and the `google_cache_*` tools stay on this list when their API key is unset. A call then returns `<tool>: disabled (<ENV> is unset)`. The agent still registers those tools for the model only when the key is set. A workflow `edit_file` call passes `file_path` and does not need a prior read. The read-before-edit check stays in the agent loop.

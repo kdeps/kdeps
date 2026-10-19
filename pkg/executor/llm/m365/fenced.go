@@ -2,6 +2,7 @@ package m365
 
 import (
 	"encoding/json"
+	"html"
 	"os"
 	"regexp"
 	"strings"
@@ -106,7 +107,16 @@ var commandParamName = regexp.MustCompile(`(?i)^(command|cmd|script|input)$`)
 // nearest close tag, so FindAllStringSubmatch below recovers every real call
 // in the response instead of only the first (with the rest mangled into its
 // body).
-var invokeRegex = regexp.MustCompile(`(?s)<invoke name="([A-Za-z0-9_.\-]+)">(.*?)</invoke>`)
+// invokeRegex captures the tool name, any attributes after it
+// (command="..."), and the body. One extra leading "<" is accepted
+// ("<<invoke"): models double the bracket when told the tag is literal.
+// The body capture stays non-greedy so a second invoke in the same reply
+// is its own match.
+var invokeRegex = regexp.MustCompile(`(?s)<{1,2}invoke\s+name="([A-Za-z0-9_.\-]+)"([^>]*)>(.*?)</invoke>`)
+
+var invokeAttrRe = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"`)
+
+var looseArgLineRe = regexp.MustCompile(`(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(.*)$`)
 
 const parameterCloseTag = "</parameter>"
 
@@ -488,10 +498,9 @@ type ParsedToolCall struct {
 	Arguments string
 }
 
-// parseFencedInner parses one <invoke> block body into an arguments object.
-// inner is everything between the opening <invoke name="..."> tag and the
-// closing </invoke> tag.
-func parseFencedInner(spec FencedToolSpec, inner string) (map[string]any, bool) {
+// parseFencedInner parses one <invoke> block into an arguments object.
+// attrs is the opening tag's attributes after the name. inner is the body.
+func parseFencedInner(spec FencedToolSpec, attrs, inner string) (map[string]any, bool) {
 	args := map[string]any{}
 	rest := inner
 
@@ -521,11 +530,104 @@ func parseFencedInner(spec FencedToolSpec, inner string) (map[string]any, bool) 
 	case spec.BodyParam != "":
 		val, ok := parseFinalParam(rest, spec.BodyParam)
 		if !ok {
+			val, ok = bodyParamFallback(spec, attrs, inner)
+		}
+		if !ok {
 			return nil, false
 		}
 		args[spec.BodyParam] = stripRedundantOuterFence(val)
 	}
 	return args, true
+}
+
+// bodyParamFallback recovers a body parameter written outside a
+// <parameter> tag: an attribute (command="ls"), a JSON object, a
+// `command: ls` line, or, for a tool whose only parameter is the body
+// (a shell command), the plain text of the block.
+func bodyParamFallback(spec FencedToolSpec, attrs, inner string) (string, bool) {
+	if v, ok := namedAttr(attrs, spec.BodyParam); ok {
+		return v, true
+	}
+	text := strings.TrimSpace(inner)
+	if text == "" || strings.Contains(text, "<") {
+		return "", false
+	}
+	if strings.HasPrefix(text, "{") && json.Valid([]byte(text)) {
+		var obj map[string]any
+		if json.Unmarshal([]byte(text), &obj) == nil {
+			return stringField(obj, spec.BodyParam)
+		}
+	}
+	if v, ok := looseBodyLine(text, spec.BodyParam); ok {
+		return v, true
+	}
+	if len(spec.HeaderParams) == 0 {
+		return text, true
+	}
+	return "", false
+}
+
+func namedAttr(attrs, want string) (string, bool) {
+	for _, m := range invokeAttrRe.FindAllStringSubmatch(attrs, -1) {
+		if strings.EqualFold(m[1], want) || sameCommandParam(want, m[1]) {
+			return html.UnescapeString(m[2]), true
+		}
+	}
+	return "", false
+}
+
+func sameCommandParam(a, b string) bool {
+	return commandParamName.MatchString(a) && commandParamName.MatchString(b)
+}
+
+func stringField(obj map[string]any, want string) (string, bool) {
+	for k, v := range obj {
+		if !strings.EqualFold(k, want) && !sameCommandParam(want, k) {
+			continue
+		}
+		switch t := v.(type) {
+		case string:
+			return t, t != ""
+		default:
+			b, err := json.Marshal(t)
+			if err != nil || string(b) == "null" {
+				return "", false
+			}
+			return string(b), true
+		}
+	}
+	return "", false
+}
+
+func looseBodyLine(text, want string) (string, bool) {
+	lines := strings.Split(text, "\n")
+	var found string
+	saw := false
+	for _, ln := range lines {
+		if strings.TrimSpace(ln) == "" {
+			continue
+		}
+		m := looseArgLineRe.FindStringSubmatch(ln)
+		if m == nil {
+			return "", false
+		}
+		if strings.EqualFold(m[1], want) || sameCommandParam(want, m[1]) {
+			found = unquoteLoose(html.UnescapeString(strings.TrimSpace(m[2])))
+			saw = true
+		}
+	}
+	return found, saw && found != ""
+}
+
+func unquoteLoose(s string) string {
+	if len(s) < len(`""`) {
+		return s
+	}
+	q := s[0]
+	if (q == '"' || q == '\'') && s[len(s)-1] == q {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // stripRedundantOuterFence removes a body's own self-wrapping Markdown code
@@ -627,7 +729,7 @@ func ParseFencedToolCalls(text string, specs map[string]FencedToolSpec) ([]Parse
 		if !ok {
 			continue // not a tool - leave it in prose
 		}
-		args, ok := parseFencedInner(spec, m[2])
+		args, ok := parseFencedInner(spec, m[2], m[3])
 		if !ok {
 			continue
 		}

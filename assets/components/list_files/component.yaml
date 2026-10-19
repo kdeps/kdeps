@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: list_files
+  description: List a directory through the kdeps API and return names and types
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      description: Directory to list. Empty lists the working directory
+  # body is the formatted listing. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: List files
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/list_files/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        path: "{{ get('list_files.path') }}"
