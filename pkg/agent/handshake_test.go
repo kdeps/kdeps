@@ -80,6 +80,43 @@ func TestHandshakeAck_PraisesTheRealCall(t *testing.T) {
 	assert.Contains(t, handshakeAck("1234"), "real kdeps tool call")
 }
 
+// TestSessionHandshakeTool_RejectsMissingCode is the regression test for a
+// weak model calling session_handshake with {} (instrument session
+// kdeps-api-8): the tool used to return the praise ack with an empty code,
+// telling the model it had passed and letting it abandon the check. A call
+// without the code is a miss and must return an error.
+func TestSessionHandshakeTool_RejectsMissingCode(t *testing.T) {
+	reg := tools.NewRegistry()
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop.handshake = &handshakeState{challenge: "1234"}
+	loop.registerSessionHandshakeTool()
+
+	tool := reg.Get("session_handshake")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "code is required")
+	assert.Empty(t, out, "a missing code must not get the praise ack")
+	assert.Empty(t, loop.handshake.observedCode, "a missing code must not count as a pass")
+	assert.True(t, loop.handshake.attempted, "the dispatched call still counts as engagement")
+}
+
+func TestSessionHandshakeTool_AcceptsCode(t *testing.T) {
+	reg := tools.NewRegistry()
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop.handshake = &handshakeState{challenge: "1234"}
+	loop.registerSessionHandshakeTool()
+
+	tool := reg.Get("session_handshake")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{"code": "1234"})
+	require.NoError(t, err)
+	assert.Contains(t, out, "1234")
+	assert.Equal(t, "1234", loop.handshake.observedCode)
+}
+
 // handshakeStreamer replies with a session_handshake tool call. If wrongCode
 // is set, it sends that instead of whatever challenge the system prompt
 // carried -- simulating a model that calls the tool but with a hallucinated
@@ -153,6 +190,69 @@ func TestPerformHandshake_AsksWarmupQuestionsFirst(t *testing.T) {
 	require.NotEmpty(t, invokeCfg.Messages, "invoke request must carry the warm-up conversation as history")
 	assert.Contains(t, invokeCfg.Messages, handshakeWarmupQuestions[0])
 	assert.Contains(t, invokeCfg.Messages, handshakeWarmupQuestions[1])
+}
+
+// TestPerformHandshake_WarmupIncludesToolCatalog is the regression test for a
+// prompt inconsistency seen in instrument session kdeps-api-9: the warm-up
+// system preamble says the invoke name "must be a tool in the
+// <available_tools> block that follows", but the warm-up request carried no
+// such block and no native tools, so the model correctly answered that the
+// catalog was missing and the "how many tools" question was unanswerable.
+func TestPerformHandshake_WarmupIncludesToolCatalog(t *testing.T) {
+	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
+	loop := newStreamingLoop(cfgs, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+
+	require.GreaterOrEqual(t, len(cfgs.cfgs), len(handshakeWarmupQuestions))
+	for i := range handshakeWarmupQuestions {
+		require.NotEmpty(t, cfgs.cfgs[i].Scenario, "warm-up %d must carry a system preamble", i)
+		system := cfgs.cfgs[i].Scenario[0].Prompt
+		assert.Contains(t, system, "<available_tools>", "warm-up %d preamble references a catalog it must include", i)
+		assert.Contains(t, system, "- noop", "warm-up %d catalog must list registered tools", i)
+	}
+}
+
+// emptyCodeThenRightStreamer calls session_handshake with "{}" for the first
+// emptyCalls challenge rounds, then with the correct code. Used to prove an
+// empty-code call counts as engagement, not as the no-tool-call give-up.
+type emptyCodeThenRightStreamer struct {
+	emptyCalls int
+	emptyUsed  int
+}
+
+func (s *emptyCodeThenRightStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if len(cfg.Tools) == 0 {
+		return "done", nil, nil
+	}
+	if m := challengeInPromptRe.FindStringSubmatch(cfg.Prompt); m != nil {
+		if s.emptyUsed < s.emptyCalls {
+			s.emptyUsed++
+			return "", []domain.StreamedToolCall{{
+				ID: "1", Name: "session_handshake", Arguments: "{}",
+			}}, nil
+		}
+		return "", []domain.StreamedToolCall{{
+			ID: "1", Name: "session_handshake", Arguments: fmt.Sprintf(`{"code":%q}`, m[1]),
+		}}, nil
+	}
+	return "", []domain.StreamedToolCall{{
+		ID: "1", Name: "bash_exec", Arguments: `{"command":"pwd"}`,
+	}}, nil
+}
+
+// TestPerformHandshake_EmptyCodeCallCountsAsEngagement: a session_handshake
+// call with {} is a wrong-code miss (the tool now returns an error), not
+// "never made a tool call". It must not advance the 5-strike no-call
+// give-up: the model is engaging, so the loop keeps retrying.
+func TestPerformHandshake_EmptyCodeCallCountsAsEngagement(t *testing.T) {
+	ms := &emptyCodeThenRightStreamer{emptyCalls: 6}
+	loop := newStreamingLoop(ms, 5)
+	require.NoError(t, loop.performHandshake(context.Background()))
+	assert.Equal(t, 6, ms.emptyUsed,
+		"must retry past 5 empty-code misses instead of giving up unverified")
+	assert.Nil(t, loop.handshake, "handshake must clear on success")
 }
 
 // TestPerformHandshake_WarmupErrorPropagates covers the failure path: if the
@@ -895,7 +995,7 @@ func TestSessionHandshakeTool_SetsObservedCode(t *testing.T) {
 	loop.handshake = &handshakeState{challenge: "4242"}
 	tool := loop.registry.Get("session_handshake")
 	require.NotNil(t, tool)
-	out, err := tool.Execute(map[string]interface{}{"code": "4242"})
+	out, err := tool.Execute(map[string]any{"code": "4242"})
 	require.NoError(t, err)
 	assert.Contains(t, out, "4242")
 	assert.Equal(t, "4242", loop.handshake.observedCode)
@@ -913,7 +1013,7 @@ func TestSessionHandshakeTool_SetsObservedCode_NumericArg(t *testing.T) {
 	loop.handshake = &handshakeState{challenge: "4242"}
 	tool := loop.registry.Get("session_handshake")
 	require.NotNil(t, tool)
-	out, err := tool.Execute(map[string]interface{}{"code": float64(4242)})
+	out, err := tool.Execute(map[string]any{"code": float64(4242)})
 	require.NoError(t, err)
 	assert.Contains(t, out, "4242")
 	assert.Equal(t, "4242", loop.handshake.observedCode)

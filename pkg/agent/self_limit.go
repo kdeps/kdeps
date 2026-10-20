@@ -65,6 +65,12 @@ var selfLimitMarkers = []string{
 	"isn't a tool", "is not a tool", "include a terminal",
 	"is on you", "have to stop", "i must decline", "shouldn't touch",
 	"sandbox i have",
+	// Environment claims. The m365 backend answered "are not accessible in
+	// this execution environment" about a workspace it had read a turn
+	// earlier, and the turn accepted it without a nudge because no marker
+	// matched.
+	"not accessible in this", "not available in this", "unavailable in this",
+	"not accessible to the tools", "not available to the tools", "unavailable to the tools",
 }
 
 // safetyStopMarkers are a real refusal of a destructive or abusive action.

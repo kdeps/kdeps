@@ -2728,6 +2728,29 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	assert.Equal(t, "The config timeout is 30s.", got)
 }
 
+// A round that makes no tool call but writes a shell diagnostic the runtime
+// never produced is a fabricated tool result and must draw the sandbox nudge.
+// Instrument session kdeps-api-10 recorded a model answering a git status
+// request with "Exact output: /bin/bash: line 4: cd: <existing repo>: No such
+// file or directory" without calling bash_exec at all.
+func TestRunStreaming_FabricatedShellOutputNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{
+			content: "The command did not run because the repository path is unavailable. " +
+				"Exact output:\n```text\n/bin/bash: line 4: cd: /repo: No such file or directory\n```",
+			toolCalls: nil,
+		},
+		{content: "main.go is clean.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "run git status --short", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "a fabricated shell diagnostic must draw a nudge")
+	assert.Contains(t, ms.cfgs[1].Prompt, `<invoke name="bash_exec">`)
+	assert.Equal(t, "main.go is clean.", got)
+}
+
 // The sandbox nudge is bounded to nudge-sandbox-hallucination's maxOccurrences (2): a model that regresses
 // into the same hallucination a second time within the turn draws a second,
 // sharper nudge instead of the turn silently ending on the first repeat.

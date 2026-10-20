@@ -293,6 +293,24 @@ func TestSettleActiveFromText_AdvancesAndClassifies(t *testing.T) {
 	}
 }
 
+// "Couldn't complete" is the same decline as "cannot complete": a weak model
+// wrote it after real tool calls and the turn accepted it as final
+// (instrument session kdeps-api-10).
+func TestLooksLikeGiveUp_CouldNotComplete(t *testing.T) {
+	if !looksLikeGiveUp("I couldn't complete the repository fixes.") {
+		t.Fatal("\"couldn't complete\" must read as giving up")
+	}
+	if !looksLikeGiveUp("I couldn’t complete the repository fixes.") {
+		t.Fatal("a curly apostrophe must not hide the give-up")
+	}
+	if !looksLikeGiveUp("I could not complete the repository fixes.") {
+		t.Fatal("\"could not complete\" must read as giving up")
+	}
+	if looksLikeGiveUp("The tests pass and the fix is complete.") {
+		t.Fatal("a completion report is not a give-up")
+	}
+}
+
 func TestSettleActiveFromText_NoEnforcerIsNoop(t *testing.T) {
 	l := &Loop{}
 	if l.settleActiveFromText("anything", nil) {

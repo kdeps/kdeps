@@ -87,6 +87,10 @@ func TestLooksLikeSelfLimit(t *testing.T) {
 		"Afraid I have to stop here.",
 		"I am not designed to run shell commands.",
 		"The sandbox I have is empty, so your repository is not visible.",
+		"The session directory and the repo are not accessible in this execution environment.",
+		"The session directory is unavailable in this execution environment.",
+		"The workspace is not available in this chat.",
+		"The repository is unavailable to the tools in this execution environment.",
 	}
 	for _, s := range yes {
 		assert.Truef(t, looksLikeSelfLimit(s), "%q", s)

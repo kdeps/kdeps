@@ -1541,7 +1541,12 @@ var sandboxArtifactRe = regexp.MustCompile(`(?i)` +
 	`|\b(sandbox|upload|download|file|link|session|environment)\s+(has\s+)?(expired|been reset|reset)\b` +
 	`|\bexpired\s+(sandbox|link|session|upload|token)\b` +
 	`|\b(can(no|')t|cannot|unable to)\s+(access|read|reach|open)\s+(the\s+)?` +
-	`(file[ -]?system|filesystem|working directory|directory|repository|repo|files)\b`)
+	`(file[ -]?system|filesystem|working directory|directory|repository|repo|files)\b` +
+	// A shell diagnostic the model wrote itself. bash_exec results arrive as
+	// tool messages, never as assistant text, so in a round with no tool call
+	// this is a fabricated result -- "Exact output: /bin/bash: line 4: cd:
+	// /repo: No such file or directory" about a directory that exists.
+	`|\b(?:/bin/)?(?:ba)?sh: line \d+:`)
 
 // looksLikeSandboxHallucination reports whether a text-only round reads as a
 // simulated sandbox session rather than a real answer.
