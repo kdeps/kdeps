@@ -2705,6 +2705,44 @@ func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
 	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] goal: task 1 failed")
 }
 
+// A model that emits several tool calls in one round has only the first run,
+// so the dropped calls must be named back to it in the next request -- they
+// are absent from the replayed assistant turn, and without the note the model
+// never learns it still has to issue them.
+func TestRunStreaming_ExtraToolCallsInRoundReportedToModel(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	var ran []string
+	for _, name := range []string{"first_tool", "second_tool"} {
+		reg.Register(&tools.Tool{
+			Name: name, Description: name, Parameters: map[string]domain.ToolParam{},
+			Execute: func(_ map[string]any) (string, error) {
+				ran = append(ran, name)
+				return name + " ok", nil
+			},
+		})
+	}
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{
+			{ID: "1", Name: "first_tool", Arguments: "{}"},
+			{ID: "2", Name: "second_tool", Arguments: "{}"},
+		}},
+		{content: "done", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"first_tool"}, ran, "one tool per round")
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] you requested 2 tool calls in one round")
+	assert.Contains(t, ms.cfgs[1].Messages, "Not run: second_tool")
+	assert.NotContains(t, ms.cfgs[1].Messages, `"id":"2"`, "the unrun call is not replayed as if it ran")
+}
+
 // A round that makes no tool call but describes a failed sandbox / code-
 // interpreter session ("NO CONTENT AVAILABLE", "cannot access the filesystem")
 // must draw one nudge to make a real call, not settle the turn on the fake

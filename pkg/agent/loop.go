@@ -1424,6 +1424,13 @@ func (l *Loop) runToolRounds(
 
 		var outcome roundOutcome
 		workBefore := l.successfulWorkToolCalls
+		// Only the first call in a multi-call round runs (see the slice below),
+		// so tell the model the rest were not executed -- otherwise they vanish
+		// from the transcript and the model has no way to know it must re-issue
+		// them.
+		if len(toolCalls) > 1 {
+			l.queueModelNote(deferredToolCallsNote(toolCalls))
+		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
 		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
@@ -2915,6 +2922,23 @@ func (l *Loop) queueModelNote(text string) {
 		return
 	}
 	l.modelNotes = append(l.modelNotes, text)
+}
+
+// deferredToolCallsNote names the tool calls a multi-call round did not run.
+// The loop dispatches one call per round so the model can re-evaluate after
+// each result (a long build must not chain into a redundant batched call);
+// the remaining calls are absent from the replayed assistant turn, so without
+// this note the model never learns they still have to be issued.
+func deferredToolCallsNote(calls []domain.StreamedToolCall) string {
+	names := make([]string, 0, len(calls)-1)
+	for _, c := range calls[1:] {
+		names = append(names, c.Name)
+	}
+	return fmt.Sprintf(
+		"you requested %d tool calls in one round; only %q ran so you can re-evaluate after it. "+
+			"Not run: %s. Re-issue each one you still need, one per round.",
+		len(calls), calls[0].Name, strings.Join(names, ", "),
+	)
 }
 
 // isToolErrorResult reports whether a tool result is the {"error": ...} shape
