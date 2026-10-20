@@ -2034,6 +2034,10 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 	})
 
 	t.Run("no spinner when fast", func(t *testing.T) {
+		// The 20ms threshold used above makes this subtest flaky under a loaded
+		// suite: a zero-delay streamer can still be scheduled past it. A wide
+		// threshold keeps the assertion about the code path, not the scheduler.
+		replThinkingDelay = 5 * time.Second
 		spinBuf := setSpinnerCapture(t)
 		streamer := &slowStreamIntegration{
 			delay:    0,

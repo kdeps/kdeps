@@ -308,7 +308,14 @@ func TestRepoAssetsFromCwd(t *testing.T) {
 	_, err := os.Stat(filepath.Join(got, "harness", "nudge-self-limit.yaml"))
 	require.NoError(t, err)
 
-	t.Chdir(t.TempDir())
+	// A sibling of the checkout, not t.TempDir(): CI's TMPDIR can live inside
+	// the repo, where any temp dir still walks up to the repo's go.mod.
+	outside, err := os.MkdirTemp(filepath.Dir(filepath.Dir(got)), "kdeps-assets-outside-")
+	if err != nil {
+		t.Skipf("cannot create a dir outside the checkout: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(outside) })
+	t.Chdir(outside)
 	assert.Empty(t, repoAssetsFromCwd())
 }
 

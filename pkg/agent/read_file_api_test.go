@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -64,7 +65,11 @@ func TestReadFile_ExecuteCallsHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "FROM-HANDLER", out)
 	require.Equal(t, "/apis/tools.kdeps.io/v1/tools/read_file/call", gotPath)
-	require.Contains(t, gotBody, path)
+	// Compare the decoded value, not the raw JSON: a Windows path's backslashes
+	// are escaped in the body ("C:\\\\Users\\\\...") and a substring check fails.
+	var body map[string]any
+	require.NoError(t, json.Unmarshal([]byte(gotBody), &body))
+	require.Equal(t, path, body["file_path"])
 	require.NotContains(t, gotBody, "SECRET-BYTES")
 	require.Contains(t, gotBody, "offset")
 	require.Contains(t, gotBody, "limit")

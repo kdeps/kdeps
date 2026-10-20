@@ -1414,6 +1414,9 @@ func (e *Executor) StreamChat(
 	// convertOpenAICompatResponse; do the same here so it never reaches the
 	// terminal or the saved session history.
 	content := stripTrailingSpecialTokens(choice.Content)
+	if m365Err := m365ContentError(backend, content); m365Err != nil {
+		return "", nil, m365Err
+	}
 
 	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
 	// Skip when StreamThinking is active: reasoning was already written to w inline.
@@ -1507,6 +1510,9 @@ func (e *Executor) streamChatOnce(
 
 	choice := resp.Choices[0]
 	content := stripTrailingSpecialTokens(choice.Content)
+	if m365Err := m365ContentError(backend, content); m365Err != nil {
+		return "", nil, m365Err
+	}
 
 	if cfg.ReasoningOut != nil {
 		// Captured separately from content: providers that require the reasoning

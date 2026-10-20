@@ -108,3 +108,33 @@ func TestStreamChat_OverrideURLTakesTheAgentLoopsCalls(t *testing.T) {
 	assert.Equal(t, "/v1/chat/completions", path)
 	assert.Contains(t, text, "STREAMED")
 }
+
+// An upstream failure from the m365 bridge arrives as a normal content delta
+// (see pkg/executor/llm/m365/server.go's producedError case). StreamChat must
+// report it as an error, so the agent loop's transient-error retry runs
+// instead of saving "[m365 error: ...]" as the assistant's answer.
+func TestStreamChat_M365UpstreamErrorIsAnError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(
+			`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[` +
+				`{"index":0,"delta":{"role":"assistant","content":"[m365 error: m365: read frame: ` +
+				`read: connection reset by peer]"}}]}` + "\n\n",
+		))
+		_, _ = w.Write([]byte(
+			`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[` +
+				`{"index":0,"delta":{},"finish_reason":"stop"}]}` + "\n\ndata: [DONE]\n\n",
+		))
+	}))
+	defer srv.Close()
+	t.Setenv(OverrideURLEnv, srv.URL)
+
+	var out strings.Builder
+	text, toolCalls, err := NewExecutor("").StreamChat(t.Context(),
+		&domain.ChatConfig{Backend: "m365", Model: "claude-sonnet", Prompt: "hi"}, &out)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "connection reset by peer")
+	assert.Empty(t, text)
+	assert.Empty(t, toolCalls)
+}

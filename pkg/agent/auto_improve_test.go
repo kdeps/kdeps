@@ -46,7 +46,12 @@ func TestKdepsRepoRoot(t *testing.T) {
 	require.Contains(t, err.Error(), kdepsModule)
 	require.Contains(t, err.Error(), other)
 
-	_, err = kdepsRepoRoot(t.TempDir())
+	// A dir with its own foreign go.mod is stopped there even when an ancestor
+	// is the kdeps checkout: CI's TMPDIR can live inside the repo, so an empty
+	// temp dir is not reliably "not a repo".
+	notRepo := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(notRepo, "go.mod"), []byte("module example.com/other\n"), 0o644))
+	_, err = kdepsRepoRoot(notRepo)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "/auto-improve runs in the kdeps repo")
 }

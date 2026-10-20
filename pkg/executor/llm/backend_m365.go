@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	stdhttp "net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,6 +79,37 @@ func (s *m365Server) baseURLOnce() (string, error) {
 	return s.baseURL, s.err
 }
 
+// m365ErrorContentPrefix is the marker the local M365 server streams as
+// assistant content when the Copilot upstream fails. It has no other channel an
+// OpenAI-compatible streaming client understands (m365/server.go's producedError
+// case), so a dropped upstream stream arrives here as ordinary text.
+const m365ErrorContentPrefix = "[m365 error: "
+
+// m365ContentError turns that marker back into an error. Without this, an
+// upstream failure ("m365: read frame: ... connection reset by peer") was
+// recorded as the assistant's answer and persisted, instead of reaching the
+// agent loop's transient-error retry and, if retries run out, surfacing as a
+// failure rather than as model prose (instrument session kdeps-api-11 event
+// 167).
+func m365ContentError(backend, content string) error {
+	if backend != backendM365 {
+		return nil
+	}
+	s := strings.TrimSpace(content)
+	if !strings.HasPrefix(s, m365ErrorContentPrefix) || !strings.HasSuffix(s, "]") {
+		return nil
+	}
+	inner := strings.TrimSpace(s[len(m365ErrorContentPrefix) : len(s)-len("]")])
+	if inner == "" {
+		return nil
+	}
+	// The server's own messages already carry the "m365: " prefix.
+	if strings.HasPrefix(inner, "m365: ") {
+		return fmt.Errorf("%s", inner)
+	}
+	return fmt.Errorf("m365: %s", inner)
+}
+
 // M365Backend adapts the local M365 server to the Backend interface.
 type M365Backend struct{}
 
@@ -116,10 +148,22 @@ func (b *M365Backend) BuildRequest(
 	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
-// ParseResponse parses the local server's OpenAI-compatible response.
+// ParseResponse parses the local server's OpenAI-compatible response, turning
+// the local server's "[m365 error: ...]" content marker back into an error (see
+// m365ContentError).
 func (b *M365Backend) ParseResponse(resp *stdhttp.Response) (map[string]any, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	return parseOpenAICompatHTTPResponse(resp, "M365 Copilot")
+	parsed, err := parseOpenAICompatHTTPResponse(resp, "M365 Copilot")
+	if err != nil {
+		return parsed, err
+	}
+	if msg, ok := parsed[jsonFieldMessage].(map[string]any); ok {
+		content, _ := msg[jsonFieldContent].(string)
+		if m365Err := m365ContentError(backendM365, content); m365Err != nil {
+			return nil, m365Err
+		}
+	}
+	return parsed, nil
 }
 
 // GetAPIKeyHeader returns no auth header; the local server needs no key.
