@@ -170,6 +170,13 @@ settings:
 	return out, nil
 }
 
+// yamlPath quotes a filesystem path as a YAML scalar. Single quotes, unlike
+// double quotes, take a Windows path's backslashes literally ("C:\Users" is an
+// invalid escape in a double-quoted scalar).
+func yamlPath(p string) string {
+	return "'" + strings.ReplaceAll(p, "'", "''") + "'"
+}
+
 // runComponentValue runs one call of the named shipped component and returns
 // its result whatever its type (a map, a list or a string).
 func runComponentValue(t *testing.T, name, with string) (interface{}, error) {

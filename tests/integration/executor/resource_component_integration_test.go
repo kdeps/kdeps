@@ -51,7 +51,7 @@ func TestLoadDocumentComponent_ReadsText(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "note.txt")
 	require.NoError(t, os.WriteFile(path, []byte("hello api"), 0o600))
 
-	out, err := runComponentValue(t, "load_document", "    source: \""+path+"\"\n")
+	out, err := runComponentValue(t, "load_document", "    source: "+yamlPath(path)+"\n")
 	require.NoError(t, err)
 	require.Contains(t, fmt.Sprint(out), "hello api")
 }

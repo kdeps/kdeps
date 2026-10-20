@@ -71,7 +71,7 @@ func TestSQLQueryComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 
 	got, err := runComponentValue(t, "sql_query",
-		"    db_path: \""+path+"\"\n    query: \"SELECT name FROM users\"\n")
+		"    db_path: "+yamlPath(path)+"\n    query: \"SELECT name FROM users\"\n")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

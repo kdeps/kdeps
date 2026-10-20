@@ -964,6 +964,18 @@ const (
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
 	defaultModelName                   = executorLLM.DefaultBuiltinModel
+
+	// syntheticCallTimeout is the deadline for the loop's synthetic
+	// single-chat-resource calls: the main turn's non-streaming path and the
+	// internal ones (compaction, goal planning, judge roster, refine, branch
+	// summaries). They would otherwise inherit the 60s default meant for a
+	// user-authored chat: resource, which is too short for the same slow
+	// reasoning models the streaming path waits on without a deadline.
+	// Confirmed live: a judge-roster call against a slow reasoning model hit
+	// that 60s cap ("context deadline exceeded") while the turn's own calls
+	// ran up to 47s, silently skipping the panel. Matches the loop's
+	// tool-stall ceiling.
+	syntheticCallTimeout = 10 * time.Minute
 )
 
 func envOrDefault(key, fallback string) string {
@@ -3626,6 +3638,13 @@ func (l *Loop) buildSyntheticWorkflow(
 	actionID string,
 	chatCfg *domain.ChatConfig,
 ) *domain.Workflow {
+	// See syntheticCallTimeout: the chat-resource default (60s) is meant for
+	// user-authored resources. An explicit KDEPS_CHAT_TIMEOUT is the
+	// operator's global cap and still applies, and a caller-set Timeout wins
+	// outright.
+	if chatCfg.Timeout == "" && os.Getenv("KDEPS_CHAT_TIMEOUT") == "" {
+		chatCfg.Timeout = syntheticCallTimeout.String()
+	}
 	// Every caller builds Prompt by concatenating Go-constructed instructions
 	// with conversation-derived text (compaction, goal planning, branch
 	// summaries, refine, judge roster) -- never a user-authored workflow. That

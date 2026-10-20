@@ -48,7 +48,7 @@ func TestReadFileComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 
 	got, err := runComponentValue(t, "read_file",
-		"    file_path: \""+path+"\"\n    offset: 2\n    limit: 1\n")
+		"    file_path: "+yamlPath(path)+"\n    offset: 2\n    limit: 1\n")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

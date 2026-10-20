@@ -45,7 +45,7 @@ func TestListFilesComponent_MatchesTool(t *testing.T) {
 	want, err := tool.Execute(map[string]any{"path": dir})
 	require.NoError(t, err)
 
-	got, err := runComponentValue(t, "list_files", "    path: \""+dir+"\"\n")
+	got, err := runComponentValue(t, "list_files", "    path: "+yamlPath(dir)+"\n")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -66,7 +66,7 @@ func TestMD5FileComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, want, "5eb63bbbe01eeed093cb22bb8f5acdc3")
 
-	got, err := runComponentValue(t, "md5_file", "    file_path: \""+path+"\"\n")
+	got, err := runComponentValue(t, "md5_file", "    file_path: "+yamlPath(path)+"\n")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -86,7 +86,7 @@ func TestTailFileComponent_MatchesTool(t *testing.T) {
 	want, err := tool.Execute(map[string]any{"file_path": path, "lines": float64(2)})
 	require.NoError(t, err)
 
-	got, err := runComponentValue(t, "tail_file", "    file_path: \""+path+"\"\n    lines: 2\n")
+	got, err := runComponentValue(t, "tail_file", "    file_path: "+yamlPath(path)+"\n    lines: 2\n")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -108,7 +108,7 @@ func TestWriteFileComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 
 	got, err := runComponentValue(t, "write_file",
-		"    file_path: \""+compPath+"\"\n    content: hello\n")
+		"    file_path: "+yamlPath(compPath)+"\n    content: hello\n")
 	require.NoError(t, err)
 	require.Equal(t, "Wrote 5 bytes to "+toolPath, want)
 	require.Equal(t, "Wrote 5 bytes to "+compPath, got)
@@ -130,7 +130,7 @@ func TestEditFileComponent_MatchesTool(t *testing.T) {
 
 	// The component has no session, so it edits without a prior read.
 	got, err := runComponentValue(t, "edit_file",
-		"    file_path: \""+path+"\"\n    command: str_replace\n    old_str: beta\n    new_str: BETA\n")
+		"    file_path: "+yamlPath(path)+"\n    command: str_replace\n    old_str: beta\n    new_str: BETA\n")
 	require.NoError(t, err)
 	edited, err := os.ReadFile(path)
 	require.NoError(t, err)
