@@ -705,6 +705,7 @@ func TestManager_EnsureVenv_VenvNameReusesExisting(t *testing.T) {
 	customVenvName := "existing-env"
 	venvPath := filepath.Join(manager.BaseDir, customVenvName)
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, writeFakePython(venvPath))
 	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv with venv name
