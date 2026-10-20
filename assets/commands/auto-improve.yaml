@@ -1,0 +1,9 @@
+version: 1.0.0
+name: auto-improve
+order: 215
+# builtin: kdeps handles this command itself; this file supplies its help,
+# aliases and completion.
+builtin: true
+usage:
+  - args: ""
+    help: Run the fixed task list in this kdeps repo, then fix product bugs from the instrument log

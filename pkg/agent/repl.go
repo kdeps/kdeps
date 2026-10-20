@@ -2559,6 +2559,8 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, r.cmdTuro(args)
 	case "/goal":
 		return true, r.cmdGoal(args)
+	case "/auto-improve":
+		return true, r.cmdAutoImprove()
 	case "/refine":
 		r.cmdRefine(args)
 		return true, nil

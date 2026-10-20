@@ -48,7 +48,7 @@ var goCommands = []string{
 	"help", "clear", "model", "skills", "prompts", "compact", "fold", "history", "prompt", "session",
 	"settings", "thinking", "editor", "copy", "reload", "search", "context", "kartographer",
 	"permission", "permissions", "autocontext", "tools", "upgrade", "konfig", "login", "theme", "harness",
-	"exit", "quit", "turo", "goal", "refine", "efficiency", "handshake", "judges", "memory",
+	"exit", "quit", "turo", "goal", "auto-improve", "refine", "efficiency", "handshake", "judges", "memory",
 	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 
