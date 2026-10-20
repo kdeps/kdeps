@@ -1,0 +1,31 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: load_document
+  description: Load a document through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: source
+      type: string
+      required: true
+      description: Absolute path to the document
+    - name: type
+      type: string
+      description: Document type. Omitted types follow the file extension
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Load a document
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/load_document/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        source: "{{ get('load_document.source') }}"
+        type: "{{ get('load_document.type') }}"

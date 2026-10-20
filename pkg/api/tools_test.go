@@ -56,9 +56,10 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolBashExec, toolBashJobList, toolBashJobWait,
 		toolCalculator, toolCodeDefinition, toolCodeDiagnostics, toolCodeGraphAll, toolCodeGraphFile,
 		toolCodeGraphTopic, toolCodeHover, toolCodeIndexFolder, toolCodeReferences, toolCodeSearch, toolCodeSymbols,
-		toolEditFile, toolGoogleCacheCreate, toolGoogleCacheDelete, toolGoogleCacheList,
-		toolListFiles, toolMD5File, toolMemoryDelete, toolMemorySave, toolMemorySearch,
-		toolPerplexity, toolReadFile, toolSerpAPI,
+		toolEditFile, toolEmbeddingSearch, toolEmbeddingVectorize,
+		toolGoogleCacheCreate, toolGoogleCacheDelete, toolGoogleCacheList, toolHTTPRequest,
+		toolListFiles, toolLoadDocument, toolMD5File, toolMemoryDelete, toolMemorySave, toolMemorySearch,
+		toolPerplexity, toolReadFile, toolSearchLocal, toolSerpAPI,
 		toolSQLDescribe, toolSQLList, toolSQLQuery, toolTailFile,
 		toolWebScraper, toolWebSearch, toolWikipedia, toolWriteFile,
 	}

@@ -271,10 +271,10 @@ elif kind == "tools":
         "calculator",
         "code_definition", "code_diagnostics", "code_graph_all", "code_graph_file", "code_graph_topic",
         "code_hover", "code_index_folder", "code_references", "code_search", "code_symbols",
-        "edit_file",
-        "google_cache_create", "google_cache_delete", "google_cache_list",
-        "list_files", "md5_file", "memory_delete", "memory_save", "memory_search",
-        "perplexity_search", "read_file", "serpapi_search",
+        "edit_file", "embedding_search", "embedding_vectorize",
+        "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
+        "list_files", "load_document", "md5_file", "memory_delete", "memory_save", "memory_search",
+        "perplexity_search", "read_file", "search_local", "serpapi_search",
         "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
         "web_scraper", "web_search", "wikipedia", "write_file",
     ]
@@ -664,6 +664,26 @@ EOF
         test_passed "kdeps API - code_search requires query"
     else
         test_failed "kdeps API - code_search requires query" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/search_local/call" || true)
+    if [ "$got" = "400" ] && grep -F "search_local: give a query (or a glob) to search for" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - search_local requires a query or a glob"
+    else
+        test_failed "kdeps API - search_local requires a query or a glob" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/embedding_vectorize/call" || true)
+    if [ "$got" = "400" ] && grep -F "embedding vectorize: no inputs provided" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - embedding_vectorize requires texts"
+    else
+        test_failed "kdeps API - embedding_vectorize requires texts" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \

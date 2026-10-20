@@ -107,6 +107,11 @@ func init() {
 	RegisterTool(loadToolSpec(toolCodeGraphFile, "Graph one indexed file.", CodeGraphFile))
 	RegisterTool(loadToolSpec(toolCodeGraphTopic, "Graph indexed files for a topic.", CodeGraphTopic))
 	RegisterTool(loadToolSpec(toolCodeGraphAll, "Graph the whole index.", CodeGraphAll))
+	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
+	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
+	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
+	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
+	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

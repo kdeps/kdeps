@@ -1093,4 +1093,7 @@ func indexInBackground(fn func()) {
 
 // WaitForBackgroundIndexing blocks until pending lazy index writes finish, so
 // callers (tests) can remove the working directory the indexer writes into.
-func WaitForBackgroundIndexing() { backgroundIndexing.Wait() }
+func WaitForBackgroundIndexing() {
+	backgroundIndexing.Wait()
+	api.WaitSearchIndex()
+}
