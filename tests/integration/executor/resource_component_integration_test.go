@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,6 +102,9 @@ func TestInstructComponent_ReturnsHarnessSection(t *testing.T) {
 // The ocr_image component reaches the asset-declared exec tool through the
 // kdeps API: no YAML here implements tesseract; the tool asset does.
 func TestOCRImageComponent_DeclaredTool(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the tesseract stand-in is a POSIX shell script")
+	}
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
 	dir := t.TempDir()
