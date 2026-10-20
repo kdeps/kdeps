@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: task_assign_team
+  description: Assign a task to a team through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: task_id
+      type: string
+      required: true
+      description: Task id to assign
+    - name: team_id
+      type: string
+      required: true
+      description: Team id that receives the task
+  # body is the assigned-task sentence. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Assign team
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/task_assign_team/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        task_id: "{{ get('task_assign_team.task_id') }}"
+        team_id: "{{ get('task_assign_team.team_id') }}"

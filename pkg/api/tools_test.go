@@ -61,6 +61,8 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolListFiles, toolLoadDocument, toolMD5File, toolMemoryDelete, toolMemorySave, toolMemorySearch,
 		toolPerplexity, toolReadFile, toolSearchLocal, toolSerpAPI,
 		toolSQLDescribe, toolSQLList, toolSQLQuery, toolTailFile,
+		toolTaskAppendOutput, toolTaskAssignTeam, toolTaskComplete, toolTaskCreate, toolTaskGet, toolTaskList,
+		toolTaskStop, toolTeamAddTask, toolTeamCreate, toolTeamDelete, toolTeamGet, toolTeamList,
 		toolWebScraper, toolWebSearch, toolWikipedia, toolWriteFile,
 	}
 	if doc.Kind != kindToolList || doc.APIVersion != groupTools+"/v1" || !slices.Equal(names, wantNames) {

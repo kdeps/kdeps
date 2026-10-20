@@ -276,6 +276,8 @@ elif kind == "tools":
         "list_files", "load_document", "md5_file", "memory_delete", "memory_save", "memory_search",
         "perplexity_search", "read_file", "search_local", "serpapi_search",
         "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
+        "task_append_output", "task_assign_team", "task_complete", "task_create", "task_get", "task_list",
+        "task_stop", "team_add_task", "team_create", "team_delete", "team_get", "team_list",
         "web_scraper", "web_search", "wikipedia", "write_file",
     ]
     if names != want:
@@ -684,6 +686,26 @@ EOF
         test_passed "kdeps API - embedding_vectorize requires texts"
     else
         test_failed "kdeps API - embedding_vectorize requires texts" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"task_id":"missing-api-task"}' "${tools}/task_get/call" || true)
+    if [ "$got" = "400" ] && grep -F "missing-api-task" "$body" >/dev/null \
+        && grep -F "not found" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - task_get reports a missing task"
+    else
+        test_failed "kdeps API - task_get reports a missing task" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/team_list/call" || true)
+    if [ "$got" = "200" ] && [ "$(cat "$body")" = "No teams." ] && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - team_list is empty"
+    else
+        test_failed "kdeps API - team_list is empty" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \

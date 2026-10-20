@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: task_list
+  description: List tasks through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs: []
+  # body is one line per task, or No tasks. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: List tasks
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/task_list/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data: {}

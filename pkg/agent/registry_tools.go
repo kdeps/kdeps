@@ -23,177 +23,145 @@ package agent
 // GlobalCronRegistry, GlobalApprovalTokenRegistry) as callable LLM tools.
 
 import (
+	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
+
+// The call route lives in pkg/api. This package owns the registries, so the
+// handler reaches them through the setters.
+//
+//nolint:gochecknoinits // wires task and team tools before any call
+func init() {
+	api.SetTaskBackend(taskAPIBackend{})
+	api.SetTeamBackend(teamAPIBackend{})
+}
 
 // Approval token default duration.
 const approvalTokenDuration = 5 * time.Minute
 
 // registerTaskTeamTools registers task/team/cron/approval-token management tools.
 // These are always available in the agent loop (not filtered by lean mode).
-func registerTaskTeamTools(reg *kdepstools.Registry) {
-	registerTaskTools(reg)
-	registerTeamTools(reg)
+func registerTaskTeamTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerTaskTools(ctx, reg)
+	registerTeamTools(ctx, reg)
 	registerCronTools(reg)
 	registerApprovalTokenTools(reg)
 }
 
 // --- Task Tools ---
 
-func registerTaskTools(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_create",
-		Execute: func(args map[string]any) (string, error) {
-			prompt, _ := args["prompt"].(string)
-			desc, _ := args["description"].(string)
-			task := GlobalTaskRegistry.Create(prompt, desc)
-			return fmt.Sprintf("Created task %s: %s", task.TaskID, task.Description), nil
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_get",
-		Execute: func(args map[string]any) (string, error) {
-			taskID, _ := args["task_id"].(string)
-			task := GlobalTaskRegistry.Get(taskID)
-			if task == nil {
-				return "", fmt.Errorf("task %q not found", taskID)
-			}
-			return fmt.Sprintf("Task: %s\nStatus: %s\nDescription: %s\nCreated: %s\nOutput: %s\nTeam: %s",
-				task.TaskID, task.Status, task.Description,
-				task.CreatedAt.Format(time.RFC3339), task.Output, task.TeamID), nil
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_list",
-		Execute: func(_ map[string]any) (string, error) {
-			tasks := GlobalTaskRegistry.List()
-			if len(tasks) == 0 {
-				return "No tasks.", nil
-			}
-			var sb strings.Builder
-			for _, t := range tasks {
-				fmt.Fprintf(&sb, "%s | %s | %s\n", t.TaskID, t.Status, t.Description)
-			}
-			return strings.TrimRight(sb.String(), "\n"), nil
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_stop",
-		Execute: func(args map[string]any) (string, error) {
-			taskID, _ := args["task_id"].(string)
-			if GlobalTaskRegistry.Stop(taskID) {
-				return fmt.Sprintf("Stopped task %s", taskID), nil
-			}
-			return "", fmt.Errorf("task %q not found", taskID)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_complete",
-		Execute: func(args map[string]any) (string, error) {
-			taskID, _ := args["task_id"].(string)
-			if GlobalTaskRegistry.SetStatus(taskID, TaskCompleted) {
-				return fmt.Sprintf("Completed task %s", taskID), nil
-			}
-			return "", fmt.Errorf("task %q not found", taskID)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_append_output",
-		Execute: func(args map[string]any) (string, error) {
-			taskID, _ := args["task_id"].(string)
-			text, _ := args["text"].(string)
-			if GlobalTaskRegistry.AppendOutput(taskID, text) {
-				return fmt.Sprintf("Appended output to task %s", taskID), nil
-			}
-			return "", fmt.Errorf("task %q not found", taskID)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "task_assign_team",
-		Execute: func(args map[string]any) (string, error) {
-			taskID, _ := args["task_id"].(string)
-			teamID, _ := args["team_id"].(string)
-			if GlobalTaskRegistry.AssignTeam(taskID, teamID) {
-				return fmt.Sprintf("Assigned task %s to team %s", taskID, teamID), nil
-			}
-			return "", fmt.Errorf("task %q not found", taskID)
-		},
-	}))
+func registerTaskTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "task_create", api.TaskCreate)
+	registerAPITool(ctx, reg, "task_get", api.TaskGet)
+	registerAPITool(ctx, reg, "task_list", api.TaskList)
+	registerAPITool(ctx, reg, "task_stop", api.TaskStop)
+	registerAPITool(ctx, reg, "task_complete", api.TaskComplete)
+	registerAPITool(ctx, reg, "task_append_output", api.TaskAppendOutput)
+	registerAPITool(ctx, reg, "task_assign_team", api.TaskAssignTeam)
 }
 
 // --- Team Tools ---
 
-func registerTeamTools(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "team_create",
-		Execute: func(args map[string]any) (string, error) {
-			name, _ := args["name"].(string)
-			team := GlobalTeamRegistry.Create(name)
-			return fmt.Sprintf("Created team %s: %s", team.TeamID, team.Name), nil
-		},
-	}))
+func registerTeamTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "team_create", api.TeamCreate)
+	registerAPITool(ctx, reg, "team_get", api.TeamGet)
+	registerAPITool(ctx, reg, "team_list", api.TeamList)
+	registerAPITool(ctx, reg, "team_add_task", api.TeamAddTask)
+	registerAPITool(ctx, reg, "team_delete", api.TeamDelete)
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "team_get",
-		Execute: func(args map[string]any) (string, error) {
-			teamID, _ := args["team_id"].(string)
-			team := GlobalTeamRegistry.Get(teamID)
-			if team == nil {
-				return "", fmt.Errorf("team %q not found", teamID)
-			}
-			return fmt.Sprintf("Team: %s\nName: %s\nStatus: %s\nTasks: %d",
-				team.TeamID, team.Name, team.Status, len(team.TaskIDs)), nil
-		},
-	}))
+type taskAPIBackend struct{}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "team_list",
-		Execute: func(_ map[string]any) (string, error) {
-			teams := GlobalTeamRegistry.List()
-			if len(teams) == 0 {
-				return "No teams.", nil
-			}
-			var sb strings.Builder
-			for _, t := range teams {
-				fmt.Fprintf(&sb, "%s | %s | %s | tasks=%d\n",
-					t.TeamID, t.Name, t.Status, len(t.TaskIDs))
-			}
-			return strings.TrimRight(sb.String(), "\n"), nil
-		},
-	}))
+func (taskAPIBackend) CreateTask(prompt, description string) api.TaskView {
+	return taskView(GlobalTaskRegistry.Create(prompt, description))
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "team_add_task",
-		Execute: func(args map[string]any) (string, error) {
-			teamID, _ := args["team_id"].(string)
-			taskID, _ := args["task_id"].(string)
-			if GlobalTeamRegistry.AddTask(teamID, taskID) {
-				return fmt.Sprintf("Added task %s to team %s", taskID, teamID), nil
-			}
-			return "", fmt.Errorf("team %q not found", teamID)
-		},
-	}))
+func (taskAPIBackend) GetTask(id string) (api.TaskView, bool) {
+	task := GlobalTaskRegistry.Get(id)
+	if task == nil {
+		return api.TaskView{}, false
+	}
+	return taskView(task), true
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "team_delete",
-		Execute: func(args map[string]any) (string, error) {
-			teamID, _ := args["team_id"].(string)
-			if GlobalTeamRegistry.Delete(teamID) {
-				return fmt.Sprintf("Deleted team %s", teamID), nil
-			}
-			return "", fmt.Errorf("team %q not found", teamID)
-		},
-	}))
+func (taskAPIBackend) ListTasks() []api.TaskView {
+	tasks := GlobalTaskRegistry.List()
+	out := make([]api.TaskView, 0, len(tasks))
+	for _, task := range tasks {
+		out = append(out, taskView(task))
+	}
+	return out
+}
+
+func (taskAPIBackend) StopTask(id string) bool {
+	return GlobalTaskRegistry.Stop(id)
+}
+
+func (taskAPIBackend) CompleteTask(id string) bool {
+	return GlobalTaskRegistry.SetStatus(id, TaskCompleted)
+}
+
+func (taskAPIBackend) AppendTaskOutput(id, text string) bool {
+	return GlobalTaskRegistry.AppendOutput(id, text)
+}
+
+func (taskAPIBackend) AssignTaskTeam(taskID, teamID string) bool {
+	return GlobalTaskRegistry.AssignTeam(taskID, teamID)
+}
+
+func taskView(task *Task) api.TaskView {
+	return api.TaskView{
+		ID:          task.TaskID,
+		Status:      task.Status.String(),
+		Description: task.Description,
+		Output:      task.Output,
+		TeamID:      task.TeamID,
+		CreatedAt:   task.CreatedAt,
+	}
+}
+
+type teamAPIBackend struct{}
+
+func (teamAPIBackend) CreateTeam(name string) api.TeamView {
+	return teamView(GlobalTeamRegistry.Create(name))
+}
+
+func (teamAPIBackend) GetTeam(id string) (api.TeamView, bool) {
+	team := GlobalTeamRegistry.Get(id)
+	if team == nil {
+		return api.TeamView{}, false
+	}
+	return teamView(team), true
+}
+
+func (teamAPIBackend) ListTeams() []api.TeamView {
+	teams := GlobalTeamRegistry.List()
+	out := make([]api.TeamView, 0, len(teams))
+	for _, team := range teams {
+		out = append(out, teamView(team))
+	}
+	return out
+}
+
+func (teamAPIBackend) AddTeamTask(teamID, taskID string) bool {
+	return GlobalTeamRegistry.AddTask(teamID, taskID)
+}
+
+func (teamAPIBackend) DeleteTeam(id string) bool {
+	return GlobalTeamRegistry.Delete(id)
+}
+
+func teamView(team *Team) api.TeamView {
+	return api.TeamView{
+		ID:        team.TeamID,
+		Name:      team.Name,
+		Status:    team.Status.String(),
+		TaskCount: len(team.TaskIDs),
+	}
 }
 
 // --- Cron Tools ---

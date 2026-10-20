@@ -112,6 +112,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
+	registerRegistryTools()
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

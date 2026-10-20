@@ -72,7 +72,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDeclaredTools(ctx, reg, webCache)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
-	registerTaskTeamTools(reg)
+	registerTaskTeamTools(ctx, reg)
 	registerMemoryQueryTool(reg)
 	registerInstructTool(reg)
 }

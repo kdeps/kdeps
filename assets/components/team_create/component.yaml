@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: team_create
+  description: Create a team through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: name
+      type: string
+      required: true
+      description: Team name
+  # body is the created-team sentence. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Create team
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/team_create/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        name: "{{ get('team_create.name') }}"
