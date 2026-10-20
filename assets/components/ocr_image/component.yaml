@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: ocr_image
   description: Extract text from an image with tesseract through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file
@@ -14,6 +14,14 @@ interface:
       type: string
       default: eng
       description: 'tesseract -l value, e.g. eng or eng+fra'
+    - name: psm
+      type: integer
+      default: 3
+      description: 'tesseract --psm page segmentation mode (3 = fully automatic)'
+    - name: oem
+      type: integer
+      default: 3
+      description: 'tesseract --oem engine mode (3 = whatever is available)'
   # body is the extracted text. A missing tesseract is an error. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -30,3 +38,5 @@ resources:
       data:
         file: "{{ get('ocr_image.file') }}"
         language: "{{ get('ocr_image.language') }}"
+        psm: "{{ get('ocr_image.psm') }}"
+        oem: "{{ get('ocr_image.oem') }}"

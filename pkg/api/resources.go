@@ -40,17 +40,19 @@ const (
 	toolEmbeddingSearch    = "embedding_search"
 	toolEmbeddingVectorize = "embedding_vectorize"
 
-	argSource     = "source"
-	argChunkSize  = "chunkSize"
-	argTexts      = "texts"
-	argCollection = "collection"
-	argBackend    = "backend"
-	argMethod     = "method"
-	argHeaders    = "headers"
-	argData       = "data"
-	argTimeout    = "timeout"
-	argGlob       = "glob"
-	argPath       = "path"
+	argSource      = "source"
+	argChunkSize   = "chunkSize"
+	argTexts       = "texts"
+	argCollection  = "collection"
+	argBackend     = "backend"
+	argMethod      = "method"
+	argHeaders     = "headers"
+	argData        = "data"
+	argTimeout     = "timeout"
+	argFailOnError = "failOnError"
+	argSaveTo      = "saveTo"
+	argGlob        = "glob"
+	argPath        = "path"
 
 	searchDefaultLimit = 3
 	msgSearchNeedQuery = "search_local: give a query (or a glob) to search for"
@@ -86,10 +88,12 @@ func HTTPRequest(ctx context.Context, args map[string]any) (string, error) {
 		return "", err
 	}
 	config := &domain.HTTPClientConfig{
-		URL:     stringArg(args, argURL),
-		Method:  stringArg(args, argMethod),
-		Data:    args[argData],
-		Timeout: stringArg(args, argTimeout),
+		URL:         stringArg(args, argURL),
+		Method:      stringArg(args, argMethod),
+		Data:        args[argData],
+		Timeout:     stringArg(args, argTimeout),
+		FailOnError: args[argFailOnError] == true,
+		SaveTo:      stringArg(args, argSaveTo),
 	}
 	if headers, ok := args[argHeaders].(map[string]any); ok {
 		config.Headers = make(map[string]string, len(headers))

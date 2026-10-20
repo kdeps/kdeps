@@ -1,15 +1,21 @@
-version: 1.0.0
-description: 'Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout.'
+version: 1.1.0
+description: 'Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout, failOnError, saveTo.'
 parameters:
   data:
     type: object
     description: Request body as JSON (for POST/PUT/PATCH)
+  failOnError:
+    type: boolean
+    description: 'Treat a non-2xx response as an error instead of returning it. Default: false'
   headers:
     type: object
     description: HTTP headers as key-value pairs
   method:
     type: string
     description: 'HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET'
+  saveTo:
+    type: string
+    description: 'Absolute path to stream a 2xx response body into, creating parent directories. Returns savedTo and bytes instead of the body'
   timeout:
     type: string
     description: 'Request timeout, e.g. ''30s''. Default: 30s'

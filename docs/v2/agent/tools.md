@@ -131,15 +131,17 @@ A block can upload files: `files` maps form fields to path templates and `form` 
 # tools/transcribe_audio.yaml (shipped, abridged)
 http:
   env:
-    OPENAI: [OPENAI_API_KEY, ""]     # optional: the local backend needs no key
+    OPENAI: [OPENAI_API_KEY, ""]     # optional: a local server may take it or no key at all
+    GROQ: [GROQ_API_KEY, ""]
   method: POST
-  url: '{{if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
+  url: '{{if .args.baseURL}}{{.args.baseURL}}{{else if eq .args.backend "groq"}}https://api.groq.com/openai/v1{{else if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
   headers:
-    Authorization: '{{with .env.OPENAI}}Bearer {{.}}{{end}}'   # omitted when empty
+    Authorization: '{{if eq .args.backend "groq"}}{{with .env.GROQ}}Bearer {{.}}{{end}}{{else}}{{with .env.OPENAI}}Bearer {{.}}{{end}}{{end}}'   # omitted when empty
   files:
     file: "{{.args.file}}"           # uploaded as the "file" form field
   form:
     model: "{{.args.model}}"
+    response_format: "{{.args.responseFormat}}"
   paths: [file]
 ```
 

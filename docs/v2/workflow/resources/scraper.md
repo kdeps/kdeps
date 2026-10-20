@@ -1,9 +1,10 @@
 # Scraper component
 
-The `scraper` component fetches a URL and returns its text - the whole body, or only the elements matching a CSS selector. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
+The `scraper` component fetches a URL and returns its text - the whole body, or only the elements matching a CSS selector. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The fetch is the kdeps API's `http_request` tool; the component only shapes the result.
 
 ```text
-component: scraper -> httpClient GET url -> htmlText(body, selector) -> {content, url, status}
+component: scraper -> POST /apis/tools.kdeps.io/v1/tools/http_request/call
+                   -> http_request GET url -> htmlText(body, selector) -> {content, url, status}
 ```
 
 ## Where it runs
@@ -89,7 +90,7 @@ component:
 
 ## How it is built
 
-The component is one `httpClient` resource plus an `interface.output` block that shapes the result with the [`htmlText()`](/reference/expression-functions) expression function. Copy it into `components/scraper/` of your project to change it (add headers, follow a link, keep the raw HTML):
+The component is one `httpClient` call to the `http_request` tool plus an `interface.output` block that shapes the result with the [`htmlText()`](/reference/expression-functions) expression function. The tool returns `{statusCode, body, headers}`; `fromJSON` reads it back. Copy the component into `components/scraper/` of your project to change it (add headers, follow a link, keep the raw HTML):
 
 <div v-pre>
 
@@ -101,16 +102,22 @@ interface:
     - {name: selector, type: string, default: ""}
     - {name: timeout, type: string, default: 30s}
   output:                                         # the component's result
-    content: "{{ htmlText(output('scraperFetch').body, get('scraper.selector')) }}"
+    content: "{{ htmlText(fromJSON(output('call').body).body, get('scraper.selector')) }}"
     url: "{{ get('scraper.url') }}"
-    status: "{{ output('scraperFetch').statusCode }}"
+    status: "{{ fromJSON(output('call').body).statusCode }}"
 resources:
-  - actionId: scraperFetch
+  - actionId: call
     name: Fetch page
     httpClient:
-      method: GET
-      url: "{{ get('scraper.url') }}"
-      timeout: "{{ get('scraper.timeout') }}"
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
+      headers: {Content-Type: application/json}
+      failOnError: true
+      timeout: 60s
+      data:
+        url: "{{ get('scraper.url') }}"
+        method: GET
+        timeout: "{{ get('scraper.timeout') }}"
 ```
 
 </div>

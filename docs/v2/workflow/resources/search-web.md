@@ -1,6 +1,6 @@
 # searchWeb component
 
-The `searchWeb` component queries the web and returns `{results, count, query, provider}`, each result a `{title, url, snippet}`. DuckDuckGo is the default and needs no key; Brave, Bing and Tavily read their API key from `~/.kdeps/config.yaml`. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. See [Search resources](/workflow/resources/search) for how it relates to `searchLocal`.
+The `searchWeb` component queries the web and returns `{results, count, query, provider}`, each result a `{title, url, snippet}`. DuckDuckGo is the default and needs no key; Brave, Bing and Tavily read their API key from `~/.kdeps/config.yaml`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its provider calls are the kdeps API's `http_request` tool. See [Search resources](/workflow/resources/search) for how it relates to `searchLocal`.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -8,8 +8,8 @@ It works in both modes: as a DAG step in workflow mode, and inside any workflow 
 direction: right
 call: "component: searchWeb" {shape: oval}
 p: "provider?" {shape: diamond}
-ddg: "httpClient GET\nhtml.duckduckgo.com"
-api: "httpClient\nBrave / Bing / Tavily\n(key from search_connections)"
+ddg: "POST /tools/http_request/call\n-> GET html.duckduckgo.com"
+api: "POST /tools/http_request/call\n-> Brave / Bing / Tavily\n(key from search_connections)"
 norm: "normalize:\nhtmlFind() or the JSON fields"
 out: "{results, count, query, provider}" {shape: oval}
 call -> p
@@ -128,7 +128,7 @@ chat:
 
 ## How it is built
 
-One `httpClient` resource per provider, each skipped unless its provider is selected (`validations.skip`) and checked for a key (`validations.check`), then a step that maps the response to `{title, url, snippet}` - DuckDuckGo's HTML with the [`htmlFind()`](/reference/expression-functions) expression, the APIs' JSON with `map()`. Copy `components/searchWeb/` into your project to add a provider or change the mapping.
+One `httpClient` POST to the kdeps API's `http_request` tool per provider, each skipped unless its provider is selected (`validations.skip`) and checked for a key (`validations.check`), then a step that maps the response to `{title, url, snippet}` - DuckDuckGo's HTML with the [`htmlFind()`](/reference/expression-functions) expression, the APIs' JSON with `map()`. `http_request` returns the response as `{statusCode, body, headers}`, so each mapping reads `fromJSON(output('<provider>').body)`. Copy `components/searchWeb/` into your project to add a provider or change the mapping.
 
 ## See also
 
