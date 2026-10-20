@@ -47,7 +47,7 @@ func newTestLoopWithMemory(t *testing.T) (*Loop, *MemoryStore) {
 
 func TestRegisterMemoryQueryTool_Registers(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerMemoryQueryTool(reg)
+	registerMemoryQueryTool(t.Context(), reg)
 	tool := reg.Get("memory_query")
 	require.NotNil(t, tool)
 	assert.Equal(t, "memory_query", tool.Name)
@@ -76,6 +76,45 @@ func TestMemoryQuery_InvalidExpression(t *testing.T) {
 	_, err := executeMemoryQuery(map[string]any{"query": "filter(memory, "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "compile")
+}
+
+func TestMemoryQuery_InfixOperatorHint(t *testing.T) {
+	loop, _ := newTestLoopWithMemory(t)
+	withActiveLoop(t, loop)
+	// expr-lang's string operators are infix; the function-call form is a
+	// parse error whose bare message never says so.
+	_, err := executeMemoryQuery(map[string]any{
+		"query": `filter(memory, contains(lower(.value), "latency"))`,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "contains is an infix operator")
+	assert.Contains(t, err.Error(), `instead of`)
+}
+
+func TestInfixOperatorHint(t *testing.T) {
+	assert.Contains(t, infixOperatorHint(`startsWith(.key, "a")`), "startsWith")
+	assert.Contains(t, infixOperatorHint(`matches(.value, "^x")`), "matches")
+	assert.Empty(t, infixOperatorHint(`.value contains "x"`))
+	assert.Empty(t, infixOperatorHint(`filter(memory, .type == "error")`))
+}
+
+func TestMemoryQuery_InfixContainsSelectsRows(t *testing.T) {
+	loop, ms := newTestLoopWithMemory(t)
+	require.NoError(t, ms.Set("progress:latency", "high latency observed"))
+	require.NoError(t, ms.Set("progress:other", "unrelated"))
+	withActiveLoop(t, loop)
+
+	out, err := executeMemoryQuery(map[string]any{
+		"query": `filter(memory, .value contains "latency")`,
+	})
+	require.NoError(t, err)
+
+	var decoded struct {
+		Rows []map[string]any `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	require.Len(t, decoded.Rows, 1)
+	assert.Equal(t, "progress:latency", decoded.Rows[0]["key"])
 }
 
 func TestMemoryQuery_FilterOverMemory(t *testing.T) {

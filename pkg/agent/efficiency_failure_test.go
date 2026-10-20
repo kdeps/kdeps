@@ -120,6 +120,7 @@ func TestEfficiencyLLMErrorStop_OnlyFixableErrors(t *testing.T) {
 		"503 service unavailable", "connection refused",
 		"401 Unauthorized", "invalid api key", "model not found", "insufficient credit balance",
 		"context_length_exceeded: maximum context length",
+		"422 Failed to deserialize the JSON body into the target type: messages[8]: missing field `id`",
 	} {
 		assert.False(t, l.efficiencyLLMErrorStop(errors.New(msg)), msg)
 	}

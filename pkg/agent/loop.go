@@ -26,6 +26,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -352,6 +353,11 @@ type Loop struct {
 	// a later work tool succeeds. Drives the end-of-turn "did that actually
 	// work?" nudge.
 	lastWorkFailure *toolFailure
+	// turnUserText is this turn's user message. Prompt is cleared into history
+	// after the first tool round, and a later text-only round still needs the
+	// original "continue" (or the remembered way of working) to decide whether
+	// to stop.
+	turnUserText string
 	// pendingEdit is the latest mutating edit_file call that left its file's md5
 	// unchanged; cleared when a later edit changes the file. The turn cannot end
 	// on it without a bounded push-back (nudge-edit-unchanged).
@@ -958,6 +964,18 @@ const (
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
 	defaultModelName                   = executorLLM.DefaultBuiltinModel
+
+	// syntheticCallTimeout is the deadline for the loop's synthetic
+	// single-chat-resource calls: the main turn's non-streaming path and the
+	// internal ones (compaction, goal planning, judge roster, refine, branch
+	// summaries). They would otherwise inherit the 60s default meant for a
+	// user-authored chat: resource, which is too short for the same slow
+	// reasoning models the streaming path waits on without a deadline.
+	// Confirmed live: a judge-roster call against a slow reasoning model hit
+	// that 60s cap ("context deadline exceeded") while the turn's own calls
+	// ran up to 47s, silently skipping the panel. Matches the loop's
+	// tool-stall ceiling.
+	syntheticCallTimeout = 10 * time.Minute
 )
 
 func envOrDefault(key, fallback string) string {
@@ -1079,6 +1097,7 @@ func (l *Loop) autoCompactIfDue(ctx context.Context) {
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
 	recordPrompt(input)
+	l.noteTurnUser(input)
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
 	l.ensureM365Ready(ctx)
@@ -1405,6 +1424,13 @@ func (l *Loop) runToolRounds(
 
 		var outcome roundOutcome
 		workBefore := l.successfulWorkToolCalls
+		// Only the first call in a multi-call round runs (see the slice below),
+		// so tell the model the rest were not executed -- otherwise they vanish
+		// from the transcript and the model has no way to know it must re-issue
+		// them.
+		if len(toolCalls) > 1 {
+			l.queueModelNote(deferredToolCallsNote(toolCalls))
+		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
 		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
@@ -1497,13 +1523,8 @@ func (l *Loop) applyRoundOutcome(
 // repeat is true on the second strike within this turn (see turnNudges) --
 // the wording gets sharper instead of silently repeating verbatim.
 func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
 	note := turoReduce(context.Background(), harnessText("nudge-action")) + invokeExample()
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, note, repeat)
 }
 
 // nudgeNoFakeToolResponseConfig is used when the model wrote a <tool_response>
@@ -1511,13 +1532,8 @@ func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfi
 // -- nothing ran -- so tell it to make the real call and wait for the result.
 // repeat is true on the second strike within this turn.
 func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
 	note := turoReduce(context.Background(), harnessText("nudge-fake-tool-response")) + invokeExample()
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, note, repeat)
 }
 
 // invokeExample returns the shared worked <invoke> example
@@ -1544,7 +1560,12 @@ var sandboxArtifactRe = regexp.MustCompile(`(?i)` +
 	`|\b(sandbox|upload|download|file|link|session|environment)\s+(has\s+)?(expired|been reset|reset)\b` +
 	`|\bexpired\s+(sandbox|link|session|upload|token)\b` +
 	`|\b(can(no|')t|cannot|unable to)\s+(access|read|reach|open)\s+(the\s+)?` +
-	`(file[ -]?system|filesystem|working directory|directory|repository|repo|files)\b`)
+	`(file[ -]?system|filesystem|working directory|directory|repository|repo|files)\b` +
+	// A shell diagnostic the model wrote itself. bash_exec results arrive as
+	// tool messages, never as assistant text, so in a round with no tool call
+	// this is a fabricated result -- "Exact output: /bin/bash: line 4: cd:
+	// /repo: No such file or directory" about a directory that exists.
+	`|\b(?:/bin/)?(?:ba)?sh: line \d+:`)
 
 // looksLikeSandboxHallucination reports whether a text-only round reads as a
 // simulated sandbox session rather than a real answer.
@@ -1559,16 +1580,11 @@ func looksLikeSandboxHallucination(content string) bool {
 // model to make a real call.
 // repeat is true on the second strike within this turn.
 func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
 	// invokeExample() is appended after turoReduce, not passed through it --
 	// see invokeExample's own comment.
 	note := turoReduce(context.Background(), harnessText("nudge-sandbox-hallucination")) +
 		invokeExample() + " " + harnessText("nudge-sandbox-hallucination-qualifier")
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, note, repeat)
 }
 
 // nudgeUnresolvedToolFailureConfig fires when the turn is about to end while the
@@ -1576,13 +1592,8 @@ func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domai
 // state plainly that the step failed -- not silently report it done.
 // repeat is true on the second strike within this turn.
 func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
 	note := harnessRender("nudge-unresolved-failure", struct{ Tool, Msg string }{f.tool, f.msg})
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, note, repeat)
 }
 
 // nudgeEditUnchangedConfig fires when the turn is about to end while the last
@@ -1590,13 +1601,8 @@ func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, re
 // happen, so the model must re-read and retry until the md5 differs.
 // repeat is true on the second and later strikes within this turn.
 func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
 	note := harnessRender("nudge-edit-unchanged", struct{ Path, MD5 string }{p.path, shortMD5(p.md5)})
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, note, repeat)
 }
 
 // nudgeGiveUpConfig fires when a text-only reply reads as the model declining
@@ -1608,13 +1614,23 @@ func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat boo
 // actually hit a wall.
 // repeat is true on the second strike within this turn.
 func nudgeGiveUpConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	nudgeCfg := *cfg
-	note := harnessText("nudge-give-up")
-	if repeat {
-		note += " " + harnessText("repeat-offense-note")
-	}
-	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
-	return &nudgeCfg
+	return finishNudge(cfg, harnessText("nudge-give-up"), repeat)
+}
+
+// nudgeContinueConfig fires when the user told the agent to keep working and
+// the model answered with a status, a plan, or a refusal instead of the next
+// action. repeat is true on the second strike within this turn.
+func nudgeContinueConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	return finishNudge(cfg, harnessText("nudge-continue")+invokeExample(), repeat)
+}
+
+// nudgeSelfLimitConfig fires when a text-only reply invents a limit ("I can't",
+// "I don't have the tools", "I can't emit an invoke") even though no tool has
+// succeeded yet. repeat is true on the second and later strikes this turn.
+// The note is harness text plus the invoke example. It is not run through
+// turoReduce: that rewrite would mangle the invoke block the model must copy.
+func nudgeSelfLimitConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	return finishNudge(cfg, harnessText("nudge-self-limit")+invokeExample(), repeat)
 }
 
 // silentTurnNotice writes and returns the message shown when the model ends a
@@ -1949,6 +1965,19 @@ func summarizeToolArgs(raw string) string {
 	return raw
 }
 
+// synthToolCallID makes an ID for a tool call the backend never assigned one
+// (a text-salvaged call the model wrote as a literal <invoke> block).
+// OpenAI-schema backends require a non-empty id on both the assistant
+// tool_calls entry and the tool message that answers it.
+func synthToolCallID() string {
+	const idBytes = 8
+	b := make([]byte, idBytes)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("call_%d", time.Now().UnixNano())
+	}
+	return "call_" + hex.EncodeToString(b)
+}
+
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
 // A canceled ctx (Ctrl+C) skips executing the remaining tools.
@@ -2113,6 +2142,8 @@ type turnNudges struct {
 	workFailure   int // turn ending while the last work tool is still failing
 	giveUp        int // reply reads as declining to continue despite real progress this turn
 	editUnchanged int // turn ending while the last edit_file left the file's md5 unchanged
+	keepGoing     int // user said continue (or saved that way of working) and the model stopped in text
+	selfLimit     int // text-only reply invents a limit ("I can't", "no tools") with tools registered
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -2277,18 +2308,31 @@ func (l *Loop) resolveEmptyToolRound(
 // A silent round (no text either) is nudged for a concrete action, up to
 // that entry's configured maxOccurrences. A reply that reads as giving up
 // despite real progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn)
-// draws the
-// same bounded push-back, independent of goal mode -- checked before
-// settleActiveFromText so a premature "sorry, I can't" is never recorded as a
-// failed task while the nudge budget remains. A round with text otherwise
-// settles the active task; when later tasks remain the turn continues on the
-// next one rather than stopping with the plan unfinished.
+// draws that bounded push-back. A fictional self-limit ("I can't", "no
+// tools", "I can't emit an invoke") is pushed back even when nothing has
+// succeeded, unless the reply is a real safety stop. Both are checked before
+// settleActiveFromText so the refusal is not recorded as a failed task while
+// the nudge budget remains. A round with text otherwise settles the active
+// task; when later tasks remain the turn continues on the next one. A round
+// with no tools registered (the forced-text phase) is never nudged: it was
+// already told to answer in text.
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
 ) (*domain.ChatConfig, bool) {
+	// A round run without tools was told to answer in text (forceAnswerConfig
+	// strips them once the tool budget or an efficiency stop ends the tool
+	// phase). Pushing it to call a tool contradicts that directive, and no call
+	// could run anyway -- accept the text as the turn's answer.
+	if len(chatCfg.Tools) == 0 {
+		_, _ = io.WriteString(w, buffered)
+		if l.settleActiveFromText(content, w) {
+			return withGoalDirective(chatCfg, l.enforcer.directive()), true
+		}
+		return chatCfg, false
+	}
 	if harnessOccurrenceAllowed("nudge-action", nudges.action) &&
 		strings.TrimSpace(stripContentToolCalls(content)) == "" {
 		repeat := nudges.action > 0
@@ -2300,6 +2344,24 @@ func (l *Loop) handleTextOnlyRound(
 		repeat := nudges.giveUp > 0
 		nudges.giveUp++
 		return nudgeGiveUpConfig(chatCfg, repeat), true
+	}
+	// giveUp == 0: once the progress give-up path has already argued this
+	// turn, do not start a second argument on the same refusal. A fictional
+	// limit with no successful tool never enters that path, so it is pushed
+	// here. A reply that states the last tool failure ("was not able", "did
+	// not") is an honest admission, not a fictional limit.
+	if nudges.giveUp == 0 &&
+		(l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
+		looksLikeSelfLimit(content) &&
+		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
+		repeat := nudges.selfLimit > 0
+		nudges.selfLimit++
+		return nudgeSelfLimitConfig(chatCfg, repeat), true
+	}
+	if l.shouldNudgeContinue() && harnessOccurrenceAllowed("nudge-continue", nudges.keepGoing) {
+		repeat := nudges.keepGoing > 0
+		nudges.keepGoing++
+		return nudgeContinueConfig(chatCfg, repeat), true
 	}
 	_, _ = io.WriteString(w, buffered)
 	if l.settleActiveFromText(content, w) {
@@ -2356,13 +2418,21 @@ func (l *Loop) appendToolRoundTrip(
 
 	// Build tool_calls JSON for the assistant turn.
 	tcJSON := make([]map[string]any, len(toolCalls))
-	for i, tc := range toolCalls {
+	for i := range toolCalls {
+		if toolCalls[i].ID == "" {
+			// Text-salvaged calls (a literal <invoke> block the model wrote)
+			// carry no backend-assigned ID. Strict OpenAI-schema backends
+			// reject the replayed history with a 422 when `id` is empty, so
+			// synthesize one -- executeToolCalls then answers it with a
+			// matching tool_call_id.
+			toolCalls[i].ID = synthToolCallID()
+		}
 		tcJSON[i] = map[string]any{
-			"id":   tc.ID,
+			"id":   toolCalls[i].ID,
 			"type": "function",
 			"function": map[string]any{
-				"name":      tc.Name,
-				"arguments": tc.Arguments,
+				"name":      toolCalls[i].Name,
+				"arguments": toolCalls[i].Arguments,
 			},
 		}
 	}
@@ -2864,6 +2934,23 @@ func (l *Loop) queueModelNote(text string) {
 		return
 	}
 	l.modelNotes = append(l.modelNotes, text)
+}
+
+// deferredToolCallsNote names the tool calls a multi-call round did not run.
+// The loop dispatches one call per round so the model can re-evaluate after
+// each result (a long build must not chain into a redundant batched call);
+// the remaining calls are absent from the replayed assistant turn, so without
+// this note the model never learns they still have to be issued.
+func deferredToolCallsNote(calls []domain.StreamedToolCall) string {
+	names := make([]string, 0, len(calls)-1)
+	for _, c := range calls[1:] {
+		names = append(names, c.Name)
+	}
+	return fmt.Sprintf(
+		"you requested %d tool calls in one round; only %q ran so you can re-evaluate after it. "+
+			"Not run: %s. Re-issue each one you still need, one per round.",
+		len(calls), calls[0].Name, strings.Join(names, ", "),
+	)
 }
 
 // isToolErrorResult reports whether a tool result is the {"error": ...} shape
@@ -3587,6 +3674,13 @@ func (l *Loop) buildSyntheticWorkflow(
 	actionID string,
 	chatCfg *domain.ChatConfig,
 ) *domain.Workflow {
+	// See syntheticCallTimeout: the chat-resource default (60s) is meant for
+	// user-authored resources. An explicit KDEPS_CHAT_TIMEOUT is the
+	// operator's global cap and still applies, and a caller-set Timeout wins
+	// outright.
+	if chatCfg.Timeout == "" && os.Getenv("KDEPS_CHAT_TIMEOUT") == "" {
+		chatCfg.Timeout = syntheticCallTimeout.String()
+	}
 	// Every caller builds Prompt by concatenating Go-constructed instructions
 	// with conversation-derived text (compaction, goal planning, branch
 	// summaries, refine, judge roster) -- never a user-authored workflow. That

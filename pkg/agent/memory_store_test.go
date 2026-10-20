@@ -1371,7 +1371,7 @@ func setupMemoryStoreForTools(t *testing.T) *MemoryStore {
 
 func TestMemoryTools_Registered(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	for _, name := range []string{"memory_save", "memory_search", "memory_delete"} {
 		assert.NotNil(t, reg.Get(name), "tool %q should be registered", name)
@@ -1382,7 +1382,7 @@ func TestMemoryTools_Registered(t *testing.T) {
 func TestMemoryTools_SaveSearch(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	saveTool := reg.Get("memory_save")
 	require.NotNil(t, saveTool)
@@ -1407,7 +1407,7 @@ func TestMemoryTools_SaveSearch(t *testing.T) {
 func TestMemoryTools_Delete(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	saveTool := reg.Get("memory_save")
 	require.NotNil(t, saveTool)
@@ -1432,7 +1432,7 @@ func TestMemoryTools_NoStore(t *testing.T) {
 	defer func() { memoryStoreInstance = old }()
 
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	_, err := reg.Get("memory_save").Execute(map[string]any{"key": "k", "value": "v"})
 	assert.Error(t, err)
@@ -1450,7 +1450,7 @@ func TestMemoryTools_NoStore(t *testing.T) {
 func TestMemoryTools_Save_EmptyKey(t *testing.T) {
 	setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	_, err := reg.Get("memory_save").Execute(map[string]any{"key": "", "value": "v"})
 	assert.Error(t, err)
@@ -1460,7 +1460,7 @@ func TestMemoryTools_Save_EmptyKey(t *testing.T) {
 func TestMemoryTools_Save_EmptyValue(t *testing.T) {
 	setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	_, err := reg.Get("memory_save").Execute(map[string]any{"key": "k", "value": ""})
 	assert.Error(t, err)
@@ -1475,7 +1475,7 @@ func TestMemoryTools_Save_EmptyValue(t *testing.T) {
 func TestMemoryTools_Save_RefusesConfabulatedClaim(t *testing.T) {
 	setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	_, err := reg.Get("memory_save").Execute(map[string]any{
 		"key": "status", "value": "I cannot access the tools in this session",
@@ -1491,7 +1491,7 @@ func TestMemoryTools_Save_RefusesConfabulatedClaim(t *testing.T) {
 func TestMemoryTools_Search_NoResults(t *testing.T) {
 	setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "nonexistent"})
 	require.NoError(t, err)
@@ -1505,7 +1505,7 @@ func TestMemoryTools_Search_NoResults(t *testing.T) {
 func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	total := memorySearchResultCap + 5
 	for i := range total {
@@ -1539,7 +1539,7 @@ func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
 func TestMemoryTools_Search_TruncatesLongValues(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	huge := strings.Repeat("x", maxValueLength*10)
 	require.NoError(t, store.Set("giant", huge))
@@ -1564,7 +1564,7 @@ func TestMemoryTools_RegisteredInBuiltinTools(t *testing.T) {
 func TestMemoryTools_Search_KeyHitOutranksNewerValue(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	require.NoError(t, store.Set("billing", "old fact"))
 	require.NoError(t, store.Set("note", "billing details"))

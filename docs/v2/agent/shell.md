@@ -4,6 +4,8 @@
 
 A command is HTML-unescaped before it is validated and run. Some models emit `&amp;&amp;` for `&&`, `&quot;` for `"`, or `&lt;`/`&gt;` for `<`/`>` when the text passed through an HTML-rendering step upstream. `sql_query` gets the same treatment, since an escaped comparison (`WHERE x &lt; 5`) is the same kind of corruption there.
 
+A non-zero exit returns that output with the error. The model sees stderr and the end of stdout, not only `exit status 1`. A long `go test` log keeps the summary at the end.
+
 | Key | Effect |
 |-----|--------|
 | `Ctrl+C` | Cancel the running tool. Partial output is returned to the LLM as a result so it can decide what to do next. Works for any built-in tool, not only `bash_exec`. |
@@ -44,9 +46,9 @@ Install it with `brew install rtk`, or skip it - kdeps runs your commands unchan
 
 What this does not change:
 
-- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. rtk can never block execution.
+- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. The same fallback applies when rtk's rewrite does not actually invoke `rtk` - kdeps only executes a rewrite it can identify as an rtk command. rtk can never block execution.
 - **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.
-- **Workflow mode is untouched.** Only agent loop `bash_exec` uses rtk. Workflow `exec` resources keep raw output, because pipelines parse it downstream.
+- **A workflow `exec` resource keeps raw output,** because pipelines parse it downstream. `bash_exec` and the shipped `bash_exec` component both use rtk.
 
 ::: tip Verifying the right rtk
 An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name - it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.

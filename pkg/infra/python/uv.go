@@ -199,9 +199,17 @@ const readyMarker = ".kdeps-ready"
 // venvLockPoll is how often a process waiting on another's venv build checks.
 const venvLockPoll = 250 * time.Millisecond
 
-// venvReady reports whether venvPath was fully built.
+// venvReady reports whether venvPath was fully built. The marker alone is not
+// enough: a venv built while HOME pointed at a temporary directory can keep a
+// bin/python symlink into a uv-managed interpreter that was deleted with it,
+// and a venv whose packages installed but whose interpreter is gone cannot run
+// anything. os.Stat follows the link, so a dangling one counts as not ready
+// and the venv is rebuilt.
 func venvReady(venvPath string) bool {
-	_, err := os.Stat(filepath.Join(venvPath, readyMarker))
+	if _, err := os.Stat(filepath.Join(venvPath, readyMarker)); err != nil {
+		return false
+	}
+	_, err := findPythonExecutable(venvPath)
 	return err == nil
 }
 

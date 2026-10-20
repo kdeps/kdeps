@@ -21,51 +21,24 @@ package agent
 import (
 	"bytes"
 	"context"
-	"crypto/md5" //nolint:gosec // content-identity checksum, not a security use
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/spf13/afero"
-
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
-	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
-
-	lcllms "github.com/tmc/langchaingo/llms"
-	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
-	lctools "github.com/tmc/langchaingo/tools"
-	lcduckduckgo "github.com/tmc/langchaingo/tools/duckduckgo"
-	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
-	lcscraper "github.com/tmc/langchaingo/tools/scraper"
-	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
-	lcsqldatabase "github.com/tmc/langchaingo/tools/sqldatabase"
-	_ "github.com/tmc/langchaingo/tools/sqldatabase/sqlite3" // registers sqlite3 engine + driver
-	lcwikipedia "github.com/tmc/langchaingo/tools/wikipedia"
-
-	codeintel "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 )
 
 const (
-	builtinDDGMaxResults    = 5
-	builtinUserAgent        = "kdeps/agent"
-	bashOutputMaxLines      = 2000      // pi truncate.ts DEFAULT_MAX_LINES
-	bashOutputMaxBytes      = 50 * 1024 // pi truncate.ts DEFAULT_MAX_BYTES (50 KB)
-	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
-	unicodeInterlinearStart = 0xFFF9    // Unicode interlinear annotation (start)
-	unicodeInterlinearEnd   = 0xFFFB    // Unicode interlinear annotation (end)
-
 	binaryCheckBytes = 512 // bytes to scan for binary detection
 )
 
@@ -85,52 +58,53 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWebScraper(ctx, reg, webCache)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
-	registerBashJobList(reg)
+	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
-	registerListFiles(reg)
+	registerListFiles(ctx, reg)
 	registerCalculator(ctx, reg)
-	registerReadFile(reg)
-	registerMD5File(reg)
-	registerTailFile(reg)
-	registerWriteFile(reg)
-	registerEditFile(reg)
+	registerReadFile(ctx, reg)
+	registerMD5File(ctx, reg)
+	registerTailFile(ctx, reg)
+	registerWriteFile(ctx, reg)
+	registerEditFile(ctx, reg)
 	registerSerpAPI(ctx, reg, webCache)
 	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
 	registerDeclaredTools(ctx, reg, webCache)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
-	registerTaskTeamTools(reg)
-	registerMemoryQueryTool(reg)
+	registerTaskTeamTools(ctx, reg)
+	registerMemoryQueryTool(ctx, reg)
 	registerInstructTool(reg)
 }
 
 // registerInstructTool returns one harness section or one /instruct briefing.
 // help is an alias declared on the tool asset; /instruct stays a slash command.
+// The renderer runs in the API backend; the registry supplies the live catalog.
 func registerInstructTool(reg *kdepstools.Registry) {
+	api.SetInstructBackend(instructAPIBackend{catalog: reg.ToolPrompt})
+	var noCtx context.Context
 	reg.Register(defined(&kdepstools.Tool{
 		Name: "instruct",
 		Execute: func(args map[string]any) (string, error) {
-			topic, _ := args["topic"].(string)
-			return instructToolResult(topic, reg.ToolPrompt)
+			return api.CallTool(toolCallCtx(noCtx, args), "instruct", jsonArgs(args))
 		},
 	}))
+}
+
+// instructAPIBackend renders the instruct briefing from the live tool catalog.
+type instructAPIBackend struct {
+	catalog func() string
+}
+
+func (b instructAPIBackend) Instruct(topic string) (string, error) {
+	return instructToolResult(topic, b.catalog)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
 // No API key required. Accepts any valid Starlark numeric expression.
 func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
-	calc := lctools.Calculator{}
-	reg.Register(defined(&kdepstools.Tool{
-		Name: toolNameCalculator,
-		Execute: func(args map[string]any) (string, error) {
-			expr, _ := args["expression"].(string)
-			if expr == "" {
-				return "", errors.New("calculator: expression is required")
-			}
-			return calc.Call(toolCallCtx(ctx, args), expr)
-		},
-	}))
+	registerAPITool(ctx, reg, toolNameCalculator, api.Calculator)
 }
 
 // maxFileReadBytes returns the "file-read-limit" event's byte cap on any
@@ -202,11 +176,8 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 	if _, hasOffset := args["offset"]; hasOffset {
 		return nil
 	}
-	before, after := viewAnchorContext(args)
-	start := ref.line - before
-	if start < 1 {
-		start = 1
-	}
+	before, after := api.ViewAnchorContext(args)
+	start := max(ref.line-before, 1)
 	args["offset"] = float64(start)
 	if _, hasLimit := args["limit"]; !hasLimit {
 		args["limit"] = float64(before + after + 1)
@@ -214,193 +185,177 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 	return nil
 }
 
-// registerReadFile registers a local file reading tool.
-// Reads text files from the filesystem, and extracts text from PDF, DOCX,
-// EPUB, RTF, and ODT documents via the same loader package the loader:
-// workflow-mode resource action and the load_document tool use. Accepts
-// absolute paths only. No API key required.
-func registerReadFile(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// registerReadFile registers a local file reading tool. The read itself is
+// the read_file call on the kdeps API. This wrapper only fills session state
+// (match_id, the last file) before that call.
+func registerReadFile(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: toolNameReadFile,
 		Execute: func(args map[string]any) (string, error) {
-			filePath, err := resolveReadFilePath("read_file", args)
-			if err != nil {
-				return "", err
-			}
-			rememberFile(filePath)
-			return trackFileCall(filePath, func() (string, error) {
-				return readLocalFile(filePath, args)
-			})
+			return executeReadFile(ctx, args)
 		},
-	}))
-}
-
-// readFileDocDispatchTypes are the loader types read_file dispatches to --
-// formats it could not read at all before (rejected by isBinaryContent).
-// html/csv are deliberately excluded: they are already plain text and
-// already read correctly today (raw markup / raw rows); routing them
-// through the loader would strip that raw form (e.g. goquery discards HTML
-// tags) for no benefit. load_document still offers structured html/csv
-// parsing explicitly when that's what's wanted.
-//
-//nolint:gochecknoglobals // static allowlist
-var readFileDocDispatchTypes = map[string]bool{
-	"pdf": true, "docx": true, "epub": true, "rtf": true, "odt": true,
-}
-
-func readLocalFile(filePath string, args map[string]any) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("read_file: %w", err)
-	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("read_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf(
-			"read_file: %s is %d bytes (max %d)",
-			filePath,
-			info.Size(),
-			limit,
-		)
-	}
-
-	if docType := execLoader.DetectTypeFromExtension(filePath); readFileDocDispatchTypes[docType] {
-		content, docErr := readDocumentFile(filePath, docType)
-		if docErr != nil {
-			return "", fmt.Errorf("read_file: %w", docErr)
-		}
-		indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
-		return formatFileLines(content, args), nil
-	}
-
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
-	}
-	if isBinaryContent(data) {
-		return "", fmt.Errorf("read_file: %s appears to be a binary file", filePath)
-	}
-
-	// Lazily index every file that's read into the search index.
-	indexInBackground(func() { execSearch.NewExecutor().IndexFile(filePath) })
-
-	return formatFileLines(string(data), args), nil
-}
-
-// readDocumentFile extracts text from a PDF/DOCX/EPUB/RTF/ODT file via the
-// same loader package the loader: workflow-mode resource action and the
-// load_document tool use, so read_file needs no format-parsing code of its
-// own.
-func readDocumentFile(filePath, docType string) (string, error) {
-	result, err := execLoader.NewExecutor().Execute(nil, &domain.LoaderConfig{
-		Source: filePath,
-		Type:   docType,
 	})
-	if err != nil {
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.ReadFile,
+		})
+	}
+	reg.Register(tool)
+}
+
+func executeReadFile(ctx context.Context, args map[string]any) (string, error) {
+	if err := fillReadFileSession(args); err != nil {
 		return "", err
 	}
-	resultMap, ok := result.(map[string]interface{})
-	if !ok {
-		return "", errors.New("unexpected loader result type")
+	remembered := sessionReadPath(args)
+	body := readCallBody(args)
+	if remembered != "" {
+		rememberFile(remembered)
 	}
-	docs, ok := resultMap["documents"].([]execLoader.Document)
-	if !ok || len(docs) == 0 {
-		return "", errors.New("document produced no readable content")
+	call := func() (string, error) {
+		out, callErr := api.CallTool(toolCallCtx(ctx, args), toolNameReadFile, body)
+		if callErr != nil {
+			return "", callErr
+		}
+		if remembered != "" {
+			indexReadFile(remembered)
+			// A windowed read caches under a composite key, so the raw path
+			// is recorded here for edit_file's read-before-edit gate. An
+			// empty window (offset past end) shows no content; leave the
+			// gate closed.
+			if strings.TrimSpace(out) != "" {
+				markFileSeen(remembered)
+			}
+		}
+		return out, nil
 	}
-	parts := make([]string, len(docs))
-	for i, d := range docs {
-		parts[i] = d.Content
+	if remembered == "" {
+		return call()
 	}
-	return strings.Join(parts, "\n\n"), nil
+	return trackFileCall(readFileCacheKey(remembered, args), call)
 }
 
-// formatFileLines applies the offset/limit line-windowing and cat -n-style
-// numbering read_file has always used to plain text, now shared with the
-// document-dispatch path so both look identical to the model.
-func formatFileLines(content string, args map[string]any) string {
-	lines := strings.Split(content, "\n")
-	// Content ending with \n produces a trailing empty element; drop it.
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
+// readFileCacheKey keys a read by the file and the window asked for. The
+// convergence cache makes an identical repeat free; it must not answer a
+// different question with the previous answer. Keyed by path alone, a second
+// read of the same file with a new offset/limit returned the first window
+// (instrument session kdeps-api-10: read loop.go lines 1-180, then asked for
+// offset 1360 / limit 220 and got lines 1-180 again).
+func readFileCacheKey(path string, args map[string]any) string {
+	offset := readWindowNumber(args["offset"])
+	limit := readWindowNumber(args["limit"])
+	if offset == 0 && limit == 0 {
+		return path
 	}
-	totalLines := len(lines)
-	startLine := 0
-	endLine := totalLines
+	return path + "\x00" + strconv.Itoa(offset) + ":" + strconv.Itoa(limit)
+}
 
-	if v, ok := args["offset"].(float64); ok && v > 0 {
-		startLine = min(int(v)-1, totalLines)
+// readWindowNumber returns a positive offset/limit the same way the API's
+// lineWindow reads it: a number or numeric string, anything else ignored.
+func readWindowNumber(v any) int {
+	n, ok := toolArgNumber(v)
+	if !ok || n <= 0 {
+		return 0
 	}
-	if v, ok := args["limit"].(float64); ok && v > 0 {
-		endLine = min(startLine+int(v), totalLines)
-	}
+	return int(n)
+}
 
-	// Build output with line numbers (cat -n style) plus visible whitespace
-	// and control characters (cat -A style: tabs as ^I, other control chars
-	// as ^X, a $ marking the true end of line so trailing whitespace before
-	// it is unambiguous) so the LLM can see indentation and stray characters
-	// a plain read would hide.
-	shown := lines[startLine:endLine]
-	var sb strings.Builder
-	digitWidth := len(strconv.Itoa(startLine + len(shown)))
-	for i, line := range shown {
-		ln := startLine + i + 1
-		fmt.Fprintf(&sb, "%*d\t%s$\n", digitWidth, ln, visibleWhitespace(line))
+// fillReadFileSession copies match_id or the last file into file_path.
+// It does not resolve, stat, or bound the path. The API handler does that.
+func fillReadFileSession(args map[string]any) error {
+	if args == nil {
+		return nil
 	}
-	out := strings.TrimSuffix(sb.String(), "\n")
-
-	shownLines := endLine - startLine
-	if shownLines > 0 && shownLines < totalLines {
-		out = fmt.Sprintf("%s\n[%d/%d lines shown]", out, shownLines, totalLines)
+	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) != "" {
+		return nil
 	}
+	if id, _ := args["match_id"].(string); id != "" {
+		return resolveMatchIDIntoArgs(toolNameReadFile, id, args)
+	}
+	if lf := lastFile(); lf != "" {
+		args[toolParamFilePath] = lf
+	}
+	return nil
+}
 
+// sessionReadPath is the absolute path remembered for the next read.
+// A relative path is joined to the working directory here so the session
+// pointer matches the file the handler reads. This is not the security check.
+func sessionReadPath(args map[string]any) string {
+	filePath, ok := stringArgFrom(args, toolParamFilePath)
+	if !ok {
+		return ""
+	}
+	filePath = strings.TrimSpace(filePath)
+	if filePath == "" || filepath.IsAbs(filePath) {
+		return filePath
+	}
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return filePath
+	}
+	return abs
+}
+
+func stringArgFrom(args map[string]any, key string) (string, bool) {
+	if args == nil {
+		return "", false
+	}
+	s, ok := args[key].(string)
+	return s, ok
+}
+
+func readCallBody(args map[string]any) map[string]any {
+	body := map[string]any{}
+	if args == nil {
+		return body
+	}
+	if s, ok := args[toolParamFilePath].(string); ok {
+		body[toolParamFilePath] = s
+	}
+	if v, ok := args["offset"]; ok {
+		body["offset"] = v
+	}
+	if v, ok := args["limit"]; ok {
+		body["limit"] = v
+	}
+	return body
+}
+
+func readFileViewArgs(path string, args map[string]any) map[string]any {
+	out := map[string]any{toolParamFilePath: path}
+	if args == nil {
+		return out
+	}
+	if v, ok := args["offset"]; ok {
+		out["offset"] = v
+	}
+	if v, ok := args["limit"]; ok {
+		out["limit"] = v
+	}
 	return out
 }
 
-// visibleWhitespace renders a line the way `cat -A` (`cat -vET`) would: a
-// literal tab becomes "^I" and any other C0 control character or DEL becomes
-// its caret notation ("^X" for byte X, "^?" for DEL), so read_file's output
-// distinguishes tabs from spaces and surfaces stray control characters that
-// would otherwise be invisible. Operates on runes, not bytes, so valid
-// multi-byte UTF-8 text is left untouched -- only ASCII control characters
-// are ever rewritten. The caller appends "$" after this to mark the true end
-// of line, which is what makes trailing whitespace visible.
-const (
-	runeDEL          = 0x7f
-	c0ControlUpper   = 0x20 // first non-control ASCII rune; runes below this are C0 controls
-	caretNotationGap = 64   // caret notation: control char N prints as '^' + (N+64)
-)
-
-func visibleWhitespace(line string) string {
-	var sb strings.Builder
-	for _, r := range line {
-		switch {
-		case r == '\t':
-			sb.WriteString("^I")
-		case r == runeDEL:
-			sb.WriteString("^?")
-		case r < c0ControlUpper:
-			sb.WriteByte('^')
-			sb.WriteRune(r + caretNotationGap)
-		default:
-			sb.WriteRune(r)
-		}
-	}
-	return sb.String()
+func indexReadFile(path string) {
+	indexInBackground(func() { execSearch.NewExecutor().IndexFile(path) })
 }
 
-// defaultTailLines is how many lines from the end of a file tail_file
-// returns when the caller omits lines.
-const defaultTailLines = 20
+// visibleWhitespace renders a line the way cat -A does. The kdeps API owns
+// the formatter; this name stays for callers in this package.
+func visibleWhitespace(line string) string {
+	return api.VisibleWhitespace(line)
+}
 
 // registerMD5File registers an evidence tool: the MD5 checksum of a file.
-// Call once before and once after a change to prove whether the file's
-// contents actually changed. No API key required.
-func registerMD5File(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// The handler hashes the file. This wrapper fills the session path
+// (match_id or the last file) and does not cache the hash.
+func registerMD5File(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: "md5_file",
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("md5_file", args)
@@ -408,47 +363,30 @@ func registerMD5File(reg *kdepstools.Registry) {
 				return "", err
 			}
 			rememberFile(filePath)
-			// Deliberately not wrapped in trackFileCall: that cache exists so
-			// re-reading an unchanged file is free, but md5_file's entire
-			// purpose is detecting whether a file *changed* between two
-			// calls -- returning a cached "before" hash on the "after" call
-			// would silently defeat that.
-			return md5File(filePath)
+			// Deliberately not wrapped in trackFileCall: a cached hash would
+			// hide a change between the before and after calls.
+			return api.CallTool(toolCallCtx(ctx, args), "md5_file", map[string]any{
+				toolParamFilePath: filePath,
+			})
 		},
-	}))
-}
-
-func md5File(filePath string) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("md5_file: %w", err)
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.MD5File,
+		})
 	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("md5_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("md5_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
-	}
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("md5_file: read %s: %w", filePath, err)
-	}
-	sum := md5.Sum(data) //nolint:gosec // content-identity checksum, not a security use
-	// Output mirrors the real md5sum CLI ("<hex>  <path>"... here path-first
-	// to match sha256sum-style tools too), so a model that already knows the
-	// shape of a checksum command's output recognizes it immediately.
-	return fmt.Sprintf("%s  %x", filePath, sum), nil
+	reg.Register(tool)
 }
 
 // registerTailFile registers an evidence tool: the last N lines of a file.
-// Unlike read_file's offset/limit (which needs the caller to already know
-// where to start), tail_file answers "how does this log/output end" in one
-// call. No API key required.
-func registerTailFile(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+// The handler reads the file. This wrapper fills the session path and does
+// not cache the tail.
+func registerTailFile(ctx context.Context, reg *kdepstools.Registry) {
+	api.SetFileReadLimit(maxFileReadBytes)
+	tool := defined(&kdepstools.Tool{
 		Name: "tail_file",
 		Execute: func(args map[string]any) (string, error) {
 			filePath, err := resolveReadFilePath("tail_file", args)
@@ -456,103 +394,35 @@ func registerTailFile(reg *kdepstools.Registry) {
 				return "", err
 			}
 			rememberFile(filePath)
-			// Deliberately not wrapped in trackFileCall (see md5_file's same
-			// note): a log/output file's tail is expected to change between
-			// calls, and evidence gathering wants the current state, not a
-			// cached snapshot from an earlier call in the same task.
-			return tailLocalFile(filePath, args)
+			body := map[string]any{toolParamFilePath: filePath}
+			if v, ok := args["lines"]; ok {
+				body["lines"] = v
+			}
+			return api.CallTool(toolCallCtx(ctx, args), "tail_file", body)
 		},
-	}))
-}
-
-func tailLocalFile(filePath string, args map[string]any) (string, error) {
-	if err := validateWorkspaceBoundary(filePath); err != nil {
-		return "", fmt.Errorf("tail_file: %w", err)
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.TailFile,
+		})
 	}
-	info, err := AppFS.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("tail_file: stat %s: %w", filePath, err)
-	}
-	if info.IsDir() {
-		return "", fmt.Errorf("tail_file: %s is a directory", filePath)
-	}
-	if limit := maxFileReadBytes(); info.Size() > int64(limit) {
-		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), limit)
-	}
-	data, err := afero.ReadFile(AppFS, filePath)
-	if err != nil {
-		return "", fmt.Errorf("tail_file: read %s: %w", filePath, err)
-	}
-	if isBinaryContent(data) {
-		return "", fmt.Errorf("tail_file: %s appears to be a binary file", filePath)
-	}
-
-	n := defaultTailLines
-	if v, ok := args["lines"].(float64); ok && v > 0 {
-		n = int(v)
-	}
-
-	lines := strings.Split(string(data), "\n")
-	// File ending with \n produces a trailing empty element; drop it.
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	totalLines := len(lines)
-	startLine := max(0, totalLines-n)
-
-	shown := lines[startLine:]
-	var sb strings.Builder
-	digitWidth := len(strconv.Itoa(totalLines))
-	for i, line := range shown {
-		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, startLine+i+1, line)
-	}
-	out := strings.TrimSuffix(sb.String(), "\n")
-	if startLine > 0 {
-		out = fmt.Sprintf("%s\n[last %d/%d lines shown]", out, len(shown), totalLines)
-	}
-	return out, nil
-}
-
-// writeFileVerified writes data to path and reads it back to confirm the
-// bytes on disk actually match what was written, retrying once on mismatch
-// before failing. This is a read-after-write durability check -- it cannot
-// detect an upstream problem (e.g. the model itself handed the tool
-// incomplete content), only that the write to disk was faithful to whatever
-// content the tool actually received.
-func writeFileVerified(path string, data []byte) error {
-	const maxAttempts = 2
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		if err := afero.WriteFile(AppFS, path, data, 0o600); err != nil {
-			lastErr = fmt.Errorf("write %s: %w", path, err)
-			continue
-		}
-		got, err := afero.ReadFile(AppFS, path)
-		if err != nil {
-			lastErr = fmt.Errorf("verify %s: read back failed: %w", path, err)
-			continue
-		}
-		if bytes.Equal(got, data) {
-			return nil
-		}
-		lastErr = fmt.Errorf(
-			"verify %s: wrote %d bytes but read back %d bytes -- content did not round-trip",
-			path, len(data), len(got),
-		)
-	}
-	return lastErr
+	reg.Register(tool)
 }
 
 // registerWriteFile registers a local file write/overwrite tool.
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
-func registerWriteFile(reg *kdepstools.Registry) {
+func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameWriteFile,
 	})
 	if tool == nil {
 		return
 	}
+	api.SetFileReadLimit(maxFileReadBytes)
 	tool.Execute = func(args map[string]any) (string, error) {
 		filePath, err := requireAbsFilePath("write_file", args)
 		if err != nil {
@@ -569,23 +439,33 @@ func registerWriteFile(reg *kdepstools.Registry) {
 				limit,
 			)
 		}
-		info, statErr := AppFS.Stat(filePath)
+		info, statErr := os.Stat(filePath)
 		if statErr == nil && info.IsDir() {
 			return "", fmt.Errorf("write_file: %s is a directory", filePath)
 		}
-		// Read the prior content (empty for a new file) so the terminal can show a
-		// diff of what changed.
 		var oldContent string
-		if prev, rerr := afero.ReadFile(AppFS, filePath); rerr == nil {
+		if prev, rerr := os.ReadFile(filePath); rerr == nil {
 			oldContent = string(prev)
 		}
-		if err = writeFileVerified(filePath, []byte(content)); err != nil {
-			return "", fmt.Errorf("write_file: %w", err)
+		out, err := api.CallTool(toolCallCtx(ctx, args), toolNameWriteFile, map[string]any{
+			toolParamFilePath: filePath,
+			"content":         content,
+		})
+		if err != nil {
+			return "", err
 		}
 		rememberFile(filePath)
 		markFileSeen(filePath) // the model wrote it, so it may edit_file it without a re-read
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
-		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
+		return out, nil
+	}
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.WriteFile,
+		})
 	}
 	reg.Register(tool)
 }
@@ -684,23 +564,30 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 
 // registerListFiles registers a directory listing tool.
 // Lists files and directories at a given path. No API key required.
-func registerListFiles(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
+func registerListFiles(ctx context.Context, reg *kdepstools.Registry) {
+	tool := defined(&kdepstools.Tool{
 		Name: toolNameListFiles,
 		Execute: func(args map[string]any) (string, error) {
 			dirPath, err := resolveListFilesDirPath(args)
 			if err != nil {
 				return "", err
 			}
-			entries, err := afero.ReadDir(AppFS, dirPath)
-			if err != nil {
-				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
-			}
 			return trackFileCall(dirPath, func() (string, error) {
-				return renderFileList(dirPath, entries), nil
+				return api.CallTool(toolCallCtx(ctx, args), toolNameListFiles, map[string]any{
+					"path": dirPath,
+				})
 			})
 		},
-	}))
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        api.ListFiles,
+		})
+	}
+	reg.Register(tool)
 }
 
 // resolveListFilesDirPath resolves list_files's path argument: empty
@@ -728,87 +615,17 @@ func resolveListFilesDirPath(args map[string]any) (string, error) {
 	return dirPath, nil
 }
 
-// renderFileList formats a directory's entries as "[file|dir] name" lines.
-func renderFileList(dirPath string, entries []os.FileInfo) string {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%s:\n", dirPath)
-	for _, e := range entries {
-		const fileKind = "file"
-		kind := fileKind
-		if e.IsDir() {
-			kind = "dir"
-		}
-		fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
-	}
-	return strings.TrimSpace(sb.String())
-}
-
-// queryCaller is the langchaingo tool shape shared by the single-query
-// search/lookup tools.
-type queryCaller interface {
-	Call(ctx context.Context, input string) (string, error)
-}
-
-// registerCachedQueryTool registers a tool that takes a single required query
-// string, runs it through tool.Call with the standard search timeout, and
-// caches successful results.
-func registerCachedQueryTool(
-	ctx context.Context,
-	reg *kdepstools.Registry,
-	cache *webToolCache,
-	tool queryCaller,
-	name string,
-) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: name,
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args[toolParamQuery].(string)
-			if query == "" {
-				return "", errors.New(name + ": query is required")
-			}
-			return cache.call(name+":"+query, func() (string, error) {
-				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-				defer cancel()
-				return tool.Call(callCtx, query)
-			})
-		},
-	}))
-}
-
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	ddg, err := lcduckduckgo.New(builtinDDGMaxResults, builtinUserAgent)
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, ddg, "web_search")
+	registerCachedAPITool(ctx, reg, cache, toolNameWebSearch, toolParamQuery, builtinSearchTimeout, api.WebSearch)
 }
 
 func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	wiki := lcwikipedia.New(builtinUserAgent)
-	registerCachedQueryTool(ctx, reg, cache, wiki, "wikipedia")
+	registerCachedAPITool(ctx, reg, cache, "wikipedia", toolParamQuery, builtinSearchTimeout, api.Wikipedia)
 }
 
-// registerWebScraper registers a URL scraping tool using langchain-go's colly-based scraper.
-// No API key required. Fetches the URL and returns structured page content.
+// registerWebScraper registers a URL scraping tool. The fetch runs in the kdeps API.
 func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	scraper, err := lcscraper.New()
-	if err != nil {
-		return
-	}
-	reg.Register(defined(&kdepstools.Tool{
-		Name: toolNameWebScraper,
-		Execute: func(args map[string]any) (string, error) {
-			u, _ := args["url"].(string)
-			if u == "" {
-				return "", errors.New("web_scraper: url is required")
-			}
-			return cache.call("web_scraper:"+u, func() (string, error) {
-				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinScrapeTimeout)
-				defer cancel()
-				return scraper.Call(callCtx, u)
-			})
-		},
-	}))
+	registerCachedAPITool(ctx, reg, cache, toolNameWebScraper, "url", builtinScrapeTimeout, api.WebScrape)
 }
 
 // registerSQLTools registers three tools for interacting with a SQLite database:
@@ -818,149 +635,128 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 //
 // The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
 func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_list_tables",
-		Execute: func(args map[string]any) (string, error) {
-			dbPath := sqlDBPath(args)
-			return sqlListTables(toolCallCtx(ctx, args), dbPath)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_describe_table",
-		Execute: func(args map[string]any) (string, error) {
-			table, _ := args["table"].(string)
-			if table == "" {
-				return "", errors.New("sql_describe_table: table is required")
-			}
-			dbPath := sqlDBPath(args)
-			return sqlDescribeTable(toolCallCtx(ctx, args), dbPath, table)
-		},
-	}))
-
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "sql_query",
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("sql_query: query is required")
-			}
-			// Same reasoning as bash_exec: an HTML-escaped comparison
-			// operator (WHERE x &lt; 5) is executable-syntax corruption,
-			// not literal content -- unescape before validating/running.
-			query = html.UnescapeString(query)
-			trimmed := strings.TrimSpace(strings.ToUpper(query))
-			if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
-				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
-			}
-			dbPath := sqlDBPath(args)
-			return sqlExecQuery(toolCallCtx(ctx, args), dbPath, query)
-		},
-	}))
+	registerAPITool(ctx, reg, "sql_list_tables", api.SQLListTables)
+	registerAPITool(ctx, reg, "sql_describe_table", api.SQLDescribeTable)
+	registerAPITool(ctx, reg, "sql_query", api.SQLQuery)
 }
 
-func sqlDBPath(args map[string]any) string {
-	if p, ok := args["db_path"].(string); ok && p != "" {
-		return p
+// registerAPITool registers one tool whose Execute only calls the kdeps API.
+func registerAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	name string,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{
+		Name: name,
+		Execute: func(args map[string]any) (string, error) {
+			return api.CallTool(toolCallCtx(ctx, args), name, jsonArgs(args))
+		},
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        call,
+		})
 	}
-	return os.Getenv("KDEPS_SQL_DB_PATH")
+	reg.Register(tool)
 }
 
-// sqlOpenEngine opens a read-only SQLite database using langchain-go's sqlite3 engine.
-func sqlOpenEngine(dbPath string) (lcsqldatabase.Engine, error) {
-	if dbPath == "" {
-		return nil, errors.New("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+// registerCachedAPITool is registerAPITool with the web convergence cache
+// around the call. An empty argument skips the cache so a missing query does
+// not consume a distinct-call slot.
+func registerCachedAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	cache *webToolCache,
+	name, arg string,
+	timeout time.Duration,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{
+		Name: name,
+		Execute: func(args map[string]any) (string, error) {
+			return executeCachedAPI(ctx, cache, name, arg, timeout, args)
+		},
+	})
+	if tool != nil {
+		api.RegisterTool(api.ToolSpec{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+			Call:        call,
+		})
 	}
-	engine, err := lcsqldatabase.NewSQLDatabaseWithDSN("sqlite3", dbPath+"?mode=ro", nil)
-	if err != nil {
-		return nil, fmt.Errorf("sql tool: open %s: %w", dbPath, err)
-	}
-	return engine.Engine, nil
+	reg.Register(tool)
 }
 
-func sqlListTables(ctx context.Context, dbPath string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
+func executeCachedAPI(
+	ctx context.Context, cache *webToolCache, name, arg string, timeout time.Duration, args map[string]any,
+) (string, error) {
+	if cache == nil {
+		cache = globalWebCache
 	}
-	defer engine.Close()
-
-	_, rows, queryErr := engine.Query(
-		ctx,
-		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-	)
-	if queryErr != nil {
-		return "", fmt.Errorf("sql_list_tables: %w", queryErr)
-	}
-	tables := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if len(row) > 0 {
-			tables = append(tables, row[0])
+	raw, _ := stringArgFrom(args, arg)
+	body := map[string]any{}
+	if args != nil {
+		if v, ok := args[arg]; ok {
+			body[arg] = v
 		}
 	}
-	return strings.Join(tables, "\n"), nil
+	if strings.TrimSpace(raw) == "" {
+		return api.CallTool(toolCallCtx(ctx, args), name, body)
+	}
+	return cache.call(name+":"+raw, func() (string, error) {
+		callCtx, cancel := toolCallCtxTimeout(ctx, args, timeout)
+		defer cancel()
+		return api.CallTool(callCtx, name, body)
+	})
 }
 
-func sqlDescribeTable(ctx context.Context, dbPath, table string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
+func jsonArgs(args map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range args {
+		// Loop-injected keys never travel to the API: _ctx is a context and
+		// _bg_ch is a <-chan struct{} (both JSON-incompatible); _interactive is
+		// terminal-only. Sending _bg_ch made every API-routed tool fail with
+		// "json: unsupported type: <-chan struct {}".
+		if k == "_ctx" || k == "_bg_ch" || k == "_interactive" {
+			continue
+		}
+		if _, isCtx := v.(context.Context); isCtx {
+			continue
+		}
+		out[k] = v
 	}
-	defer engine.Close()
-
-	// TableInfo returns the CREATE TABLE DDL which shows all columns, types, and constraints.
-	info, infoErr := engine.TableInfo(ctx, table)
-	if infoErr != nil {
-		return "", fmt.Errorf("sql_describe_table: %w", infoErr)
-	}
-	return fmt.Sprintf("Table: %s\n%s", table, strings.TrimSpace(info)), nil
-}
-
-func sqlExecQuery(ctx context.Context, dbPath, query string) (string, error) {
-	engine, err := sqlOpenEngine(dbPath)
-	if err != nil {
-		return "", err
-	}
-	defer engine.Close()
-
-	cols, results, queryErr := engine.Query(ctx, query)
-	if queryErr != nil {
-		return "", fmt.Errorf("sql_query: %w", queryErr)
-	}
-
-	var sb strings.Builder
-	sb.WriteString(strings.Join(cols, "\t"))
-	sb.WriteByte('\n')
-
-	for _, row := range results {
-		sb.WriteString(strings.Join(row, "\t"))
-		sb.WriteByte('\n')
-	}
-	return strings.TrimSpace(sb.String()), nil
+	return out
 }
 
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
+// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
 func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("SERPAPI_API_KEY") == "" {
 		return
 	}
-	tool, err := lcserpapi.New()
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, tool, "serpapi_search")
+	registerCachedAPITool(ctx, reg, cache, "serpapi_search", toolParamQuery, builtinSearchTimeout, api.SerpAPISearch)
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.
+// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
 func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("PERPLEXITY_API_KEY") == "" {
 		return
 	}
-	tool, err := lcperplexity.New()
-	if err != nil {
-		return
-	}
-	registerCachedQueryTool(ctx, reg, cache, tool, "perplexity_search")
+	registerCachedAPITool(
+		ctx,
+		reg,
+		cache,
+		"perplexity_search",
+		toolParamQuery,
+		builtinSearchTimeout,
+		api.PerplexitySearch,
+	)
 }
 
 // Network tool timeouts: a hung remote endpoint must not stall the agent
@@ -994,92 +790,102 @@ func toolCallCtx(fallback context.Context, args map[string]any) context.Context 
 	return context.Background()
 }
 
-// bashExecCtx returns the context injected by the Loop dispatcher (preferred),
-// falling back to fallback when _ctx is not in args.
-func bashExecCtx(fallback context.Context, args map[string]any) context.Context {
-	return toolCallCtx(fallback, args)
-}
-
-// formatBashOutput appends stderr to stdout (when non-empty) and truncates.
-// Shared by bashExecResult, bashExecCancelResult, and background jobs.
-func formatBashOutput(out, errOut string) string {
-	if errOut != "" {
-		out += "\nstderr: " + errOut
-	}
-	return truncateBashOutput(out)
-}
-
-// bashExecResult builds the return value for a completed (non-cancelled) bash_exec.
-func bashExecResult(_ context.Context, out, errOut string, runErr error) (string, error) {
-	if runErr != nil {
-		if errOut != "" {
-			return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
-		}
-		return "", fmt.Errorf("bash_exec: %w", runErr)
-	}
-	return formatBashOutput(out, errOut), nil
-}
-
-// bashExecCancelResult returns partial output when the command was killed mid-run.
-// Returned as success (nil error) so the LLM sees what ran before the interrupt.
-func bashExecCancelResult(out, errOut string) string {
-	return formatBashOutput(out, errOut) + "\n[interrupted]"
-}
-
 // registerBashExec registers a bash command execution tool.
-// Runs in its own process group so Ctrl+Z backgrounds only the tool (not kdeps).
-// Ctrl+C (via _ctx cancellation) kills the process and returns partial output.
-// Ctrl+Z (via _bg_ch signal) detaches the job; retrieve it with bash_job_wait.
+// The handler runs the command. This wrapper keeps the agent-loop checks:
+// a shell-shaped tool call is refused, and the convergence cache records the
+// command the user asked for, before rtk rewrites it.
 func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
-	tool := defined(&kdepstools.Tool{
-		Name: toolNameBashExec,
-	})
+	tool := defined(&kdepstools.Tool{Name: toolNameBashExec})
 	if tool == nil {
 		return
 	}
 	tool.Execute = func(args map[string]any) (string, error) {
-		command, _ := args["command"].(string)
-		if command == "" {
-			return "", errors.New("bash_exec: command is required")
-		}
-		// Some models emit HTML-escaped shell operators (&amp;&amp; for &&,
-		// &quot; for ", &lt;/&gt; for </>) -- e.g. when the command text
-		// passed through an HTML-rendering step upstream. Unescape before
-		// validating/running so the actual operators are seen, not their
-		// entity form (which would either fail outright or run as literal
-		// text). A no-op for a command with no entities.
-		command = html.UnescapeString(command)
-		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
-			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
-		}
-		if name, ok := commandInvokesOtherToolAsShell(command, reg); ok {
-			return "", fmt.Errorf(
-				"bash_exec: this command runs `%s` as a shell command, followed by "+
-					"header-style lines (key: value) -- that looks like an attempt to call "+
-					"the %q tool, not a real shell command, and will fail with "+
-					"\"command not found\". Call %q directly with its own tool call instead "+
-					"of inside bash_exec",
-				name, name, name,
-			)
-		}
-
-		// Convergence: track distinct bash commands, cache repeats.
-		// The original command (before rtk rewriting) is the cache key.
-		bashTracked, bashTrackErr := trackBashCall(command, func() (string, error) {
-			return "", nil // placeholder; actual result cached below
-		})
-		if bashTrackErr != nil {
-			return "", bashTrackErr // limit reached
-		}
-		if bashTracked != "" {
-			return bashTracked, nil // cached repeat
-		}
-		return runBashExec(ctx, tool, command, args)
+		return executeBashAPI(ctx, tool, reg, args)
 	}
+	api.RegisterTool(api.ToolSpec{
+		Name:        tool.Name,
+		Description: tool.Description,
+		Parameters:  tool.Parameters,
+		Call:        api.BashExec,
+	})
 	reg.Register(tool)
+}
+
+func executeBashAPI(
+	ctx context.Context, tool *kdepstools.Tool, reg *kdepstools.Registry, args map[string]any,
+) (string, error) {
+	raw, _ := args["command"].(string)
+	command := html.UnescapeString(raw)
+	if command == "" {
+		return api.CallTool(toolCallCtx(ctx, args), toolNameBashExec, bashCallBody(args))
+	}
+	if name, ok := commandInvokesOtherToolAsShell(command, reg); ok {
+		return "", fmt.Errorf(
+			"bash_exec: this command runs `%s` as a shell command, followed by "+
+				"header-style lines (key: value) -- that looks like an attempt to call "+
+				"the %q tool, not a real shell command, and will fail with "+
+				"\"command not found\". Call %q directly with its own tool call instead "+
+				"of inside bash_exec",
+			name, name, name,
+		)
+	}
+	if cached, ok := cachedBash(command); ok {
+		return cached, nil
+	}
+	result, err := api.CallTool(bashCallContext(ctx, tool, args), toolNameBashExec, bashCallBody(args))
+	if err != nil {
+		if !bashSkipBudget(err) {
+			_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+		}
+		return "", err
+	}
+	if strings.TrimSpace(result) == "" {
+		_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+		return result, nil
+	}
+	return trackBashCall(command, func() (string, error) { return result, nil })
+}
+
+func bashSkipBudget(err error) bool {
+	msg := err.Error()
+	return strings.HasPrefix(msg, "bash_exec: blocked:") ||
+		strings.HasPrefix(msg, "bash_exec: command is required") ||
+		strings.HasPrefix(msg, "bash_exec: disabled")
+}
+
+func bashCallBody(args map[string]any) map[string]any {
+	body := map[string]any{}
+	if args == nil {
+		return body
+	}
+	if v, ok := args["command"]; ok {
+		body["command"] = v
+	}
+	return body
+}
+
+func bashCallContext(ctx context.Context, tool *kdepstools.Tool, args map[string]any) context.Context {
+	interactive, _ := args["_interactive"].(bool)
+	bg, _ := args["_bg_ch"].(<-chan struct{})
+	var output io.Writer
+	if tool != nil {
+		output = tool.OutputWriter
+	}
+	return api.WithBashOpts(toolCallCtx(ctx, args), api.BashOpts{
+		Background:  bg,
+		Interactive: interactive,
+		Output:      output,
+	})
+}
+
+func cachedBash(command string) (string, bool) {
+	globalBashCache.mu.Lock()
+	defer globalBashCache.mu.Unlock()
+	v, ok := globalBashCache.m[command]
+	return v, ok
 }
 
 // commandInvokesOtherToolAsShell detects a live-confirmed model confusion
@@ -1141,267 +947,23 @@ func looksLikeHeaderLine(s string) bool {
 	return true
 }
 
-// runBashExec executes a validated bash command, handling rtk rewriting,
-// foreground/background job control, cancellation, and result caching.
-func runBashExec(ctx context.Context, tool *kdepstools.Tool, command string, args map[string]any) (string, error) {
-	toolCtx := bashExecCtx(ctx, args)
-	bgCh, _ := args["_bg_ch"].(<-chan struct{})
-
-	// Route through rtk when available to cut output tokens. Validation above
-	// runs on the original command; `command` itself stays untouched so the
-	// job registry and any user-facing display show what was actually asked
-	// for, not the rtk-prefixed form.
-	runCommand := command
-	if rewritten, ok := rtkRewrite(toolCtx, command); ok {
-		runCommand = rewritten
-	}
-
-	// Must use exec.Command (not CommandContext): we handle cancellation and
-	// backgrounding manually in the select below so the process survives
-	// beyond context cancellation when the user presses Ctrl+Z.
-	cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
-		"bash",
-		"-c",
-		runCommand,
-	)
-	setProcessGroup(cmd)
-	var stdout, stderr strings.Builder
-	if tool.OutputWriter != nil {
-		cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
-		cmd.Stderr = io.MultiWriter(&stderr, tool.OutputWriter)
-	} else {
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-	}
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("bash_exec: %w", err)
-	}
-
-	// Put the child in the terminal foreground so an interactive child that
-	// reads stdin isn't stopped by SIGTTIN. Only in the interactive REPL:
-	// grabbing the tty from a test harness or non-interactive caller running
-	// on a real terminal would stop that process group instead.
-	if interactive, _ := args["_interactive"].(bool); interactive {
-		prevFG := makeForeground(cmd)
-		defer restoreForeground(prevFG)
-	}
-
-	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
-
-	select {
-	case runErr := <-waitCh:
-		result, resErr := bashExecResult(
-			toolCtx,
-			strings.TrimSpace(stdout.String()),
-			strings.TrimSpace(stderr.String()),
-			runErr,
-		)
-		// Cache non-error results in the bash call tracker.
-		if resErr == nil && result != "" {
-			_, _ = trackBashCall(command, func() (string, error) { return result, nil })
-		}
-		return result, resErr
-	case <-toolCtx.Done():
-		killProcessGroup(cmd) // kill the whole group so children (find, rtk-wrapped cmds) die too
-		<-waitCh
-		return bashExecCancelResult(
-			strings.TrimSpace(stdout.String()),
-			strings.TrimSpace(stderr.String()),
-		), nil
-	case <-bgCh:
-		jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
-		return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
-	}
+func registerBashJobList(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "bash_job_list", api.BashJobList)
 }
 
-// registerBashJobList registers the bash_job_list tool.
-// Lists background jobs started by bash_exec that were backgrounded via Ctrl+Z.
-func registerBashJobList(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "bash_job_list",
-		Execute: func(_ map[string]any) (string, error) {
-			jobs := bashJobRegistry.listAll()
-			if len(jobs) == 0 {
-				return "No background jobs.", nil
-			}
-			var sb strings.Builder
-			for _, j := range jobs {
-				fmt.Fprintf(&sb, "%s\n", j.summary())
-			}
-			return strings.TrimSpace(sb.String()), nil
-		},
-	}))
-}
-
-// registerBashJobWait registers the bash_job_wait tool.
-// Blocks until the background job completes, then returns its output.
 func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "bash_job_wait",
-		Execute: func(args map[string]any) (string, error) {
-			idF, ok := args["job_id"].(float64)
-			if !ok {
-				return "", errors.New("bash_job_wait: job_id is required")
-			}
-			id := int(idF)
-			job := bashJobRegistry.get(id)
-			if job == nil {
-				return "", fmt.Errorf("bash_job_wait: no job with id %d", id)
-			}
-			toolCtx := bashExecCtx(ctx, args)
-			select {
-			case <-job.done:
-			case <-toolCtx.Done():
-				return "", fmt.Errorf("bash_job_wait: cancelled while waiting for job %d", id)
-			}
-			bashJobRegistry.remove(id)
-			if job.err != nil {
-				return "", fmt.Errorf("bash_job_wait: job %d failed: %w", id, job.err)
-			}
-			return job.output, nil
-		},
-	}))
-}
-
-// sanitizeBashOutput removes non-printable control characters from bash output,
-// preserving tab, newline, and carriage return. Matches pi's sanitizeBinaryOutput.
-func sanitizeBashOutput(s string) string {
-	out := make([]rune, 0, len(s))
-	for _, r := range s {
-		switch {
-		case r == 0x09 || r == 0x0A || r == 0x0D:
-			out = append(out, r)
-		case r <= asciiLastControlChar:
-			// drop other ASCII control chars
-		case r >= unicodeInterlinearStart && r <= unicodeInterlinearEnd:
-			// drop Unicode interlinear annotation
-		default:
-			out = append(out, r)
-		}
-	}
-	return string(out)
-}
-
-// truncateBashOutput trims bash_exec output to bashOutputMaxLines lines or
-// bashOutputMaxBytes bytes, whichever is hit first, appending a truncation
-// notice. Matches pi's truncate.ts DEFAULT_MAX_LINES / DEFAULT_MAX_BYTES limits.
-func truncateBashOutput(out string) string {
-	out = sanitizeBashOutput(out)
-	if len(out) <= bashOutputMaxBytes {
-		lines := strings.Split(out, "\n")
-		if len(lines) <= bashOutputMaxLines {
-			return out
-		}
-		truncated := strings.Join(lines[:bashOutputMaxLines], "\n")
-		return fmt.Sprintf("%s\n[Output truncated: %d lines total, showing first %d]",
-			truncated, len(lines), bashOutputMaxLines)
-	}
-	// Byte limit: find the last complete line boundary within the byte limit.
-	cutoff := out[:bashOutputMaxBytes]
-	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
-		cutoff = cutoff[:idx]
-	}
-	totalLines := strings.Count(out, "\n") + 1
-	shownLines := strings.Count(cutoff, "\n") + 1
-	return fmt.Sprintf("%s\n[Output truncated: %d bytes total, showing first %d/%d lines]",
-		cutoff, len(out), shownLines, totalLines)
+	registerAPITool(ctx, reg, "bash_job_wait", api.BashJobWait)
 }
 
 // registerGoogleCacheTools registers google_cache_create, google_cache_delete, and
-// google_cache_list when GOOGLE_API_KEY is set. These wrap lcgoogleai.CachingHelper
-// to manage Google AI server-side cached content (pre-created caches referenced via
-// chat: googleCachedContent field).
+// google_cache_list when GOOGLE_API_KEY is set. The handler is the kdeps API.
 func registerGoogleCacheTools(ctx context.Context, reg *kdepstools.Registry) {
-	apiKey := os.Getenv("GOOGLE_API_KEY")
-	if apiKey == "" {
+	if os.Getenv("GOOGLE_API_KEY") == "" {
 		return
 	}
-	reg.Register(googleCacheCreateTool(ctx, apiKey))
-	reg.Register(googleCacheDeleteTool(ctx, apiKey))
-	reg.Register(googleCacheListTool(ctx, apiKey))
-}
-
-func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_create",
-		Execute: func(args map[string]any) (string, error) {
-			model, _ := args["model"].(string)
-			if model == "" {
-				return "", errors.New("google_cache_create: model is required")
-			}
-			content, _ := args["content"].(string)
-			if content == "" {
-				return "", errors.New("google_cache_create: content is required")
-			}
-			ttlStr, _ := args["ttl"].(string)
-			if ttlStr == "" {
-				ttlStr = "1h"
-			}
-			ttl, parseErr := time.ParseDuration(ttlStr)
-			if parseErr != nil {
-				return "", fmt.Errorf("google_cache_create: invalid ttl %q: %w", ttlStr, parseErr)
-			}
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_create: init helper: %w", helperErr)
-			}
-			messages := []lcllms.MessageContent{
-				{
-					Role:  lcllms.ChatMessageTypeSystem,
-					Parts: []lcllms.ContentPart{lcllms.TextPart(content)},
-				},
-			}
-			cached, createErr := helper.CreateCachedContent(ctx, model, messages, ttl)
-			if createErr != nil {
-				return "", fmt.Errorf("google_cache_create: %w", createErr)
-			}
-			return cached.Name, nil
-		},
-	})
-}
-
-func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_delete",
-		Execute: func(args map[string]any) (string, error) {
-			name, _ := args["name"].(string)
-			if name == "" {
-				return "", errors.New("google_cache_delete: name is required")
-			}
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_delete: init helper: %w", helperErr)
-			}
-			if delErr := helper.DeleteCachedContent(ctx, name); delErr != nil {
-				return "", fmt.Errorf("google_cache_delete: %w", delErr)
-			}
-			return "deleted", nil
-		},
-	})
-}
-
-func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
-	return defined(&kdepstools.Tool{
-		Name: "google_cache_list",
-		Execute: func(_ map[string]any) (string, error) {
-			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
-			if helperErr != nil {
-				return "", fmt.Errorf("google_cache_list: init helper: %w", helperErr)
-			}
-			iter := helper.ListCachedContents(ctx)
-			var names []string
-			for {
-				cc, nextErr := iter.Next()
-				if nextErr != nil {
-					break // iterator.Done or real error; both stop iteration
-				}
-				names = append(names, cc.Name)
-			}
-			out, _ := json.Marshal(names)
-			return string(out), nil //nolint:nilerr // iterator.Done is not propagated by design
-		},
-	})
+	registerAPITool(ctx, reg, "google_cache_create", api.GoogleCacheCreate)
+	registerAPITool(ctx, reg, "google_cache_delete", api.GoogleCacheDelete)
+	registerAPITool(ctx, reg, "google_cache_list", api.GoogleCacheList)
 }
 
 // isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.
@@ -1447,171 +1009,80 @@ func pathWithinRoot(path, root string) bool {
 		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
 }
 
-type codeToolDef struct {
-	name string
-	op   domain.CodeIntelligenceOperation
-}
-
-func codeIntelligenceToolDefs() []codeToolDef {
-	defs := lspCodeToolDefs()
-	return append(defs, graphCodeToolDefs()...)
-}
-
-// lspCodeToolDefs returns the LSP/rg-backed code-intelligence tools
-// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
-func lspCodeToolDefs() []codeToolDef {
-	return []codeToolDef{
-		{
-			name: "code_search",
-			op:   domain.CodeIntOpSymbolSearch,
-		},
-		{
-			name: "code_definition",
-			op:   domain.CodeIntOpDefinition,
-		},
-		{
-			name: "code_references",
-			op:   domain.CodeIntOpReferences,
-		},
-		{
-			name: "code_symbols",
-			op:   domain.CodeIntOpDocumentSymbols,
-		},
-		{
-			name: "code_hover",
-			op:   domain.CodeIntOpHover,
-		},
-		{
-			name: "code_diagnostics",
-			op:   domain.CodeIntOpDiagnostics,
-		},
-	}
-}
-
-// graphCodeToolDefs returns the kartographer-backed folder index/graph tools
-// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
-func graphCodeToolDefs() []codeToolDef {
-	return []codeToolDef{
-		{
-			name: "code_index_folder",
-			op:   domain.CodeIntOpIndexFolder,
-		},
-		{
-			name: "code_graph_file",
-			op:   domain.CodeIntOpGraphFile,
-		},
-		{
-			name: "code_graph_topic",
-			op:   domain.CodeIntOpGraphTopic,
-		},
-		{
-			name: "code_graph_all",
-			op:   domain.CodeIntOpGraphAll,
-		},
-	}
-}
-
-// codeIntelligenceConfigFromArgs builds a CodeIntelligenceConfig for op from
-// the tool call args shared across every code_* tool.
-func codeIntelligenceConfigFromArgs(
-	toolName string, op domain.CodeIntelligenceOperation, args map[string]any,
-) (*domain.CodeIntelligenceConfig, error) {
-	config := &domain.CodeIntelligenceConfig{Operation: op}
-	if v, ok := args["query"].(string); ok {
-		config.Query = v
-	}
-	if v, ok := args["symbol"].(string); ok {
-		config.Symbol = v
-	}
-	if v, ok := args["path"].(string); ok {
-		config.Path = v
-		if err := ValidateRootPath(v); err != nil {
-			return nil, fmt.Errorf("%s: %w", toolName, err)
-		}
-	}
-	if v, ok := args["topic"].(string); ok {
-		config.Topic = v
-	}
-	if v, ok := args["graphDBPath"].(string); ok {
-		config.GraphDBPath = v
-	}
-	if v, ok := args["extensions"].([]any); ok {
-		for _, e := range v {
-			config.Extensions = append(config.Extensions, fmt.Sprint(e))
-		}
-	}
-	return config, nil
-}
-
-// registerCodeIntelligenceTools registers code intelligence tools: LSP/rg-backed
-// symbol search (code_search, code_definition, code_references, code_symbols,
-// code_hover, code_diagnostics) and kartographer-backed folder graphing
-// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
-func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
-	exec := codeintel.NewExecutor()
-
-	for _, ct := range codeIntelligenceToolDefs() {
-		reg.Register(defined(&kdepstools.Tool{
-			Name: ct.name,
-			Execute: func(args map[string]any) (string, error) {
-				config, err := codeIntelligenceConfigFromArgs(ct.name, ct.op, args)
-				if err != nil {
-					return "", err
-				}
-
-				res, err := exec.Execute(nil, config)
-				if err != nil {
-					return "", err
-				}
-				out, err := json.MarshalIndent(res, "", "  ")
-				if err != nil {
-					return "", err
-				}
-				return string(out), nil
-			},
-		}))
-	}
+// registerCodeIntelligenceTools registers the code_* tools. The handler is the
+// kdeps API. LSP lookup and the folder graph run there.
+func registerCodeIntelligenceTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "code_search", api.CodeSearch)
+	registerAPITool(ctx, reg, "code_definition", api.CodeDefinition)
+	registerAPITool(ctx, reg, "code_references", api.CodeReferences)
+	registerAPITool(ctx, reg, "code_symbols", api.CodeSymbols)
+	registerAPITool(ctx, reg, "code_hover", api.CodeHover)
+	registerAPITool(ctx, reg, "code_diagnostics", api.CodeDiagnostics)
+	registerAPITool(ctx, reg, "code_index_folder", api.CodeIndexFolder)
+	registerAPITool(ctx, reg, "code_graph_file", api.CodeGraphFile)
+	registerAPITool(ctx, reg, "code_graph_topic", api.CodeGraphTopic)
+	registerAPITool(ctx, reg, "code_graph_all", api.CodeGraphAll)
 }
 
 // registerMemoryTools registers LLM-callable tools for persistent memory.
-// Tools use the package-level memoryStoreInstance set during Loop construction.
-func registerMemoryTools(reg *kdepstools.Registry) {
-	registerMemorySaveTool(reg)
-	registerMemorySearchTool(reg)
-	registerMemoryDeleteTool(reg)
+// The handler is the kdeps API. This wrapper attaches the process store.
+func registerMemoryTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemorySaveTool(ctx, reg)
+	registerMemorySearchTool(ctx, reg)
+	registerMemoryDeleteTool(ctx, reg)
 }
 
-func registerMemorySaveTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_save",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_save: memory store is not configured")
-			}
-			key, _ := args["key"].(string)
-			value, _ := args["value"].(string)
-			if key == "" {
-				return "", errors.New("memory_save: key is required")
-			}
-			if value == "" {
-				return "", errors.New("memory_save: value is required")
-			}
-			if toolguard.LooksLikeConfabulation(value) || toolguard.LooksLikeHallucinatedCompletion(value) {
-				return "", fmt.Errorf(
-					"memory_save: refused to save %q -- it reads as a claim that a tool "+
-						"or action failed or is unavailable, and this gets replayed as fact "+
-						"in every future call. If a tool call genuinely failed, save the "+
-						"specific error instead of a general capability claim; otherwise "+
-						"retry the tool call for real before concluding it doesn't work",
-					value,
-				)
-			}
-			if err := memoryStoreInstance.Set(key, value); err != nil {
-				return "", fmt.Errorf("memory_save: %w", err)
-			}
-			return fmt.Sprintf("Saved memory entry %q (%d bytes)", key, len(value)), nil
-		},
-	}))
+// memoryAPIStore is the agent vault as the API memory interface.
+type memoryAPIStore struct{ store *MemoryStore }
+
+func (m memoryAPIStore) Set(key, value string) error { return m.store.Set(key, value) }
+func (m memoryAPIStore) Delete(key string) error     { return m.store.Delete(key) }
+func (m memoryAPIStore) Search(query string) []api.MemoryHit {
+	found := m.store.Search(query)
+	out := make([]api.MemoryHit, len(found))
+	for i, entry := range found {
+		out[i] = api.MemoryHit{Key: entry.Key, Value: entry.Value}
+	}
+	return out
+}
+
+func memoryCallContext(ctx context.Context, args map[string]any) context.Context {
+	callCtx := toolCallCtx(ctx, args)
+	if memoryStoreInstance == nil {
+		return callCtx
+	}
+	return api.WithMemory(callCtx, api.MemoryOpts{
+		Store:      memoryAPIStore{store: memoryStoreInstance},
+		Fallback:   memorySearchLocalFileFallback,
+		ResultCap:  memorySearchResultCap,
+		ValueLimit: maxValueLength,
+	})
+}
+
+func registerMemoryAPITool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	name string,
+	call func(context.Context, map[string]any) (string, error),
+) {
+	tool := defined(&kdepstools.Tool{Name: name})
+	if tool == nil {
+		return
+	}
+	tool.Execute = func(args map[string]any) (string, error) {
+		return api.CallTool(memoryCallContext(ctx, args), name, jsonArgs(args))
+	}
+	api.RegisterTool(api.ToolSpec{
+		Name:        tool.Name,
+		Description: tool.Description,
+		Parameters:  tool.Parameters,
+		Call:        call,
+	})
+	reg.Register(tool)
+}
+
+func registerMemorySaveTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_save", api.MemorySave)
 }
 
 // memorySearchResultCap bounds how many matching entries memory_search shows.
@@ -1626,48 +1097,8 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 // exist and can narrow the query instead.
 const memorySearchResultCap = 20
 
-func registerMemorySearchTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_search",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_search: memory store is not configured")
-			}
-			query, _ := args[toolParamQuery].(string)
-			if query == "" {
-				return "", errors.New("memory_search: query is required")
-			}
-			if results := memoryStoreInstance.Search(query); len(results) > 0 {
-				return formatMemorySearchResults(results), nil
-			}
-			return memorySearchLocalFileFallback(query)
-		},
-	}))
-}
-
-// formatMemorySearchResults renders capped, per-value-truncated memory
-// matches for memory_search. Order is the relevance order Search returned
-// (key hit, then more query words, then newer UpdatedAt). See
-// memorySearchResultCap.
-func formatMemorySearchResults(results []MemoryEntry) string {
-	total := len(results)
-	shown := append([]MemoryEntry(nil), results...)
-	if len(shown) > memorySearchResultCap {
-		shown = shown[:memorySearchResultCap]
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Found %d memory entries", total)
-	if total > len(shown) {
-		fmt.Fprintf(&sb, " (showing %d)", len(shown))
-	}
-	sb.WriteString(":\n")
-	for _, entry := range shown {
-		fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, truncateValue(entry.Value, maxValueLength))
-	}
-	if total > len(shown) {
-		fmt.Fprintf(&sb, "... and %d more (narrow the query to see them)\n", total-len(shown))
-	}
-	return sb.String()
+func registerMemorySearchTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_search", api.MemorySearch)
 }
 
 // memorySearchLocalFileFallback runs when memory has no hits for query --
@@ -1694,23 +1125,8 @@ func memorySearchLocalFileFallback(query string) (string, error) {
 		truncateValue(string(out), maxToolResultBytes())), nil
 }
 
-func registerMemoryDeleteTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "memory_delete",
-		Execute: func(args map[string]any) (string, error) {
-			if memoryStoreInstance == nil {
-				return "", errors.New("memory_delete: memory store is not configured")
-			}
-			key, _ := args["key"].(string)
-			if key == "" {
-				return "", errors.New("memory_delete: key is required")
-			}
-			if err := memoryStoreInstance.Delete(key); err != nil {
-				return "", fmt.Errorf("memory_delete: %w", err)
-			}
-			return fmt.Sprintf("Deleted memory entry %q.", key), nil
-		},
-	}))
+func registerMemoryDeleteTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryAPITool(ctx, reg, "memory_delete", api.MemoryDelete)
 }
 
 var backgroundIndexing sync.WaitGroup //nolint:gochecknoglobals // tracks fire-and-forget index writes
@@ -1722,4 +1138,7 @@ func indexInBackground(fn func()) {
 
 // WaitForBackgroundIndexing blocks until pending lazy index writes finish, so
 // callers (tests) can remove the working directory the indexer writes into.
-func WaitForBackgroundIndexing() { backgroundIndexing.Wait() }
+func WaitForBackgroundIndexing() {
+	backgroundIndexing.Wait()
+	api.WaitSearchIndex()
+}

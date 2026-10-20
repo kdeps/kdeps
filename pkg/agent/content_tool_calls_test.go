@@ -110,6 +110,52 @@ func TestSalvageContentToolCalls_DSML(t *testing.T) {
 	assert.NotContains(t, cleaned, "DSML")
 }
 
+// DeepSeek's native DSML markup wraps the same invoke/parameter elements as
+// the Anthropic text form, with a string="true" attribute added. The exact
+// payload below was emitted as plain text by deepseek-v4-flash; it produced
+// no tool call, so the model kept repeating it until the turn ended.
+func TestSalvageContentToolCalls_DSMLInvoke(t *testing.T) {
+	in := "<｜｜DSML｜｜ calls>\n" +
+		"<｜｜DSML｜｜ invoke name=\"bash_exec\">\n" +
+		"<｜｜DSML｜｜ parameter name=\"command\" string=\"true\">rg -n 'WaitSearchIndex' pkg</｜｜DSML｜｜ parameter>\n" +
+		"</｜｜DSML｜｜ invoke>\n" +
+		"</｜｜DSML｜｜ calls>"
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"rg -n 'WaitSearchIndex' pkg"}`, calls[0].Arguments)
+	assert.False(t, fake)
+	assert.Empty(t, strings.TrimSpace(cleaned))
+	assert.NotContains(t, cleaned, "DSML")
+}
+
+func TestSalvageContentToolCalls_DSMLInvokeTwice(t *testing.T) {
+	in := "<｜DSML｜ calls>\n" +
+		"<｜DSML｜ invoke name=\"read_file\">\n" +
+		"<｜DSML｜ parameter name=\"file_path\" string=\"true\">/tmp/a.go</｜DSML｜ parameter>\n" +
+		"</｜DSML｜ invoke>\n" +
+		"<｜DSML｜ invoke name=\"bash_exec\">\n" +
+		"<｜DSML｜ parameter name=\"command\" string=\"true\">pwd</｜DSML｜ parameter>\n" +
+		"</｜DSML｜ invoke>\n" +
+		"</｜DSML｜ calls>"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 2)
+	assert.Equal(t, "read_file", calls[0].Name)
+	assert.JSONEq(t, `{"file_path":"/tmp/a.go"}`, calls[0].Arguments)
+	assert.Equal(t, "bash_exec", calls[1].Name)
+	assert.JSONEq(t, `{"command":"pwd"}`, calls[1].Arguments)
+	assert.Empty(t, strings.TrimSpace(cleaned))
+}
+
+func TestStripContentToolCalls_DSMLInvokeIsNotAnswer(t *testing.T) {
+	in := "<｜｜DSML｜｜ calls>\n" +
+		"<｜｜DSML｜｜ invoke name=\"bash_exec\">\n" +
+		"<｜｜DSML｜｜ parameter name=\"command\" string=\"true\">pwd</｜｜DSML｜｜ parameter>\n" +
+		"</｜｜DSML｜｜ invoke>\n" +
+		"</｜｜DSML｜｜ calls>"
+	assert.Empty(t, stripContentToolCalls(in))
+}
+
 func TestStripContentToolCalls_StripsTags(t *testing.T) {
 	got := stripContentToolCalls(
 		"Result:\n<tool_call>{\"name\":\"x\",\"arguments\":{}}</tool_call>\n<tool_response>fake</tool_response>\nHere is the answer.",
@@ -125,6 +171,34 @@ func TestStripContentToolCalls_JSONArrayStillEmptied(t *testing.T) {
 
 func TestStripContentToolCalls_PlainTextUnchanged(t *testing.T) {
 	assert.Equal(t, "just an answer", stripContentToolCalls("just an answer"))
+}
+
+func TestSalvageContentToolCalls_ShellBodyIsTheCommand(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+	}{
+		{"plain", "<<invoke name=\"bash\">\nls -la && cat README.md\n</invoke>"},
+		{"attribute", "<<invoke name=\"bash\" command=\"ls -la && cat README.md\">\n</invoke>"},
+		{"assign", "<invoke name=\"bash\">\ncommand=\"ls -la && cat README.md\"\n</invoke>"},
+		{"colon", "<invoke name=\"bash\">\ncommand: ls -la && cat README.md\n</invoke>"},
+		{"json", "<invoke name=\"bash\">\n{\"command\":\"ls -la && cat README.md\"}\n</invoke>"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, _ := salvageContentToolCalls(tc.in)
+			require.Len(t, calls, 1)
+			assert.Equal(t, "bash", calls[0].Name)
+			assert.JSONEq(t, `{"command":"ls -la && cat README.md"}`, calls[0].Arguments)
+		})
+	}
+}
+
+func TestSalvageContentToolCalls_PlainBodyIsNotARead(t *testing.T) {
+	in := "<invoke name=\"read_file\">\npkg/api/calculator.go\n</invoke>"
+	calls, _, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.JSONEq(t, `{}`, calls[0].Arguments)
 }
 
 func TestSalvageContentToolCalls_AnthropicInvoke(t *testing.T) {
@@ -275,6 +349,34 @@ func TestSalvageContentToolCalls_RealCallOutsideFenceStillRecovered(t *testing.T
 	assert.Equal(t, "bash_exec", calls[0].Name)
 	assert.Contains(t, cleaned, "```")
 	assert.Contains(t, cleaned, `<invoke name="bash_exec"></invoke>`)
+}
+
+// A literal invoke outside the fence is the call. The copy inside the fence
+// is an example and must not run, even when the two blocks are identical.
+func TestSalvageContentToolCalls_UnfencedInvokeBesideFencedExample(t *testing.T) {
+	in := "<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n\n" +
+		"```text\n<invoke name=\"bash_exec\"><parameter name=\"command\">rm -rf /</parameter></invoke>\n```\n"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"pwd"}`, calls[0].Arguments)
+	assert.Contains(t, cleaned, "rm -rf /")
+	assert.NotContains(t, cleaned, ">pwd<")
+}
+
+// A fence inside a parameter is file content. Protecting fences by swapping
+// them out before argument parsing used to replace that content with a
+// placeholder, so the call ran with the fence bytes missing.
+func TestSalvageContentToolCalls_FenceInsideParameterKept(t *testing.T) {
+	in := "<invoke name=\"write_file\">\n" +
+		"<parameter name=\"content\"># Plan\n\n```bash\necho hello\n```\n</parameter>\n" +
+		"</invoke>"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "write_file", calls[0].Name)
+	assert.Contains(t, calls[0].Arguments, "echo hello")
+	assert.Contains(t, calls[0].Arguments, "```bash")
+	assert.NotContains(t, cleaned, "echo hello")
 }
 
 // TestSalvageHandshakeToolCall_RecoversFencedInvoke is the direct regression

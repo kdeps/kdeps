@@ -250,6 +250,15 @@ type agentLoopFlags struct {
 	Index        []string
 }
 
+// processParent returns parent, or a root context when the command has none.
+// context.Background is only created in this file.
+func processParent(parent context.Context) context.Context {
+	if parent == nil {
+		return context.Background()
+	}
+	return parent
+}
+
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
 // loop starts with no workflow tools (model-only mode). When path is provided
 // every workflow and agency found at that path is registered as a tool.
@@ -257,12 +266,15 @@ type agentLoopFlags struct {
 // Discovered items from ~/.kdeps are registered according to persisted settings
 // (default: all enabled). Use /settings inside the REPL to change selections.
 //
-//nolint:funlen // sequential startup orchestration; splitting obscures the order
+//nolint:funlen,gocognit // sequential startup orchestration; splitting obscures the order
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// Single root context for the entire agent loop session lifetime.
 	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
+	if err := startControlAPI(rootCtx); err != nil {
+		return err
+	}
 
 	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
 	// exiting); tell the llm package's local-server shutdown hook not to also

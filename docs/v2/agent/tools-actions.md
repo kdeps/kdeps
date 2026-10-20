@@ -32,9 +32,11 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 |------|-----------------|-------------|
 | `zapier_list_actions` | `ZAPIER_NLA_API_KEY` | List available Zapier NLA actions |
 | `zapier_run_action` | `ZAPIER_NLA_API_KEY` | Execute a Zapier NLA action |
-| `google_cache_create` | (Google credentials) | Create a Google AI cached content object |
-| `google_cache_list` | (Google credentials) | List Google AI cached content objects |
-| `google_cache_delete` | (Google credentials) | Delete a Google AI cached content object |
+| `google_cache_create` | `GOOGLE_API_KEY` | Create a Google AI cached content object |
+| `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |
+| `google_cache_delete` | `GOOGLE_API_KEY` | Delete a Google AI cached content object |
+
+`google_cache_create`, `google_cache_delete`, and `google_cache_list` run through the [kdeps API](/reference/api). The agent registers them for the model only when `GOOGLE_API_KEY` is set. A call with the key unset returns `google_cache_create: disabled (GOOGLE_API_KEY is unset)`, and the same sentence for `google_cache_delete` and `google_cache_list`.
 
 ## Resource-backed tools
 

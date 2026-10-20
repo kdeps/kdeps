@@ -1,0 +1,25 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: perplexity_search
+  description: Search the web with Perplexity through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Search query
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/perplexity_search/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        query: "{{ get('perplexity_search.query') }}"

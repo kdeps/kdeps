@@ -343,6 +343,11 @@ func (e *Executor) findSymbolPosition(config *domain.CodeIntelligenceConfig) map
 	ch := strings.Index(m.Data.Lines.Text, config.Symbol)
 	if ch < 0 {
 		ch = 0
+	} else if dot := strings.LastIndex(config.Symbol, "."); dot >= 0 {
+		// A qualified symbol (pkg.Func) also matches its package qualifier; a
+		// definition request on "pkg" resolves to the import, not the symbol,
+		// so point the character offset at the member after the dot.
+		ch += dot + 1
 	}
 
 	pos["line"] = line

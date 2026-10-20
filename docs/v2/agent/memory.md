@@ -115,13 +115,24 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 | Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
 | Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
 
+String matching uses infix operators, not function calls. `contains(...)` is a parse error; put the field on the left:
+
+| Match | Operator | Example |
+|---|---|---|
+| Substring | `contains` | `filter(memory, .value contains "latency")` |
+| Prefix | `startsWith` | `filter(memory, .key startsWith "tool:read_file")` |
+| Suffix | `endsWith` | `filter(memory, .key endsWith ":summary")` |
+| Regex | `matches` | `filter(memory, .key matches "^tool:")` |
+| Case-insensitive substring | `lower()` + `contains` | `filter(memory, lower(.value) contains "latency")` |
+| Membership | `in` | `filter(memory, .type in ["error", "decision"])` |
+
 `join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide; no inequality/range-join or multi-field-key support today.
 
 ```json
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is agent mode only - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` runs through the kdeps API and reads the in-process agent loop. An empty query returns `memory_query: query is required`. A call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
 ## Memory entry types
 
@@ -147,7 +158,7 @@ Entries are auto-classified by key pattern. The type controls where the entry si
 
 ## Workflow mode
 
-Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. Workflow resources can still call `memory_list()` to enumerate keys. The agent loop does not register that as a tool. `memory_query` is agent mode only: it needs the agent loop's live state.
+Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. Workflow resources can still call `memory_list()` to enumerate keys. The agent loop does not register that as a tool. `memory_query` uses that same call route and still needs the agent loop's live state. A workflow call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
 ## Configuration
 

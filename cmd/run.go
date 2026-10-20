@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -123,6 +124,11 @@ Examples:
 // RunWorkflowWithFlags executes the run command with injected flags.
 func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) error {
 	kdeps_debug.Log("enter: RunWorkflowWithFlags")
+	ctx, cancel := context.WithCancel(processParent(cmd.Context()))
+	defer cancel()
+	if err := startControlAPI(ctx); err != nil {
+		return err
+	}
 	inputPath := args[0]
 
 	// Check if debug flag is set

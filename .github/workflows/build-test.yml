@@ -216,7 +216,22 @@ jobs:
       run: playwright install --with-deps chromium
 
     - name: Install OS packages for e2e (wkhtmltopdf, espeak, tesseract, imagemagick)
-      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak tesseract-ocr imagemagick
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y espeak tesseract-ocr imagemagick
+        # Ubuntu 26.04 dropped wkhtmltopdf. The jammy build still runs there.
+        # If it cannot be installed, the pdf e2e test skips.
+        candidate=$(apt-cache policy wkhtmltopdf | awk '/Candidate:/ {print $2; exit}')
+        if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+          sudo apt-get install -y wkhtmltopdf
+        else
+          curl -fsSL -o /tmp/wkhtmltox.deb \
+            https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_amd64.deb
+          if ! sudo apt-get install -y /tmp/wkhtmltox.deb; then
+            echo "::warning::wkhtmltopdf is unavailable on this image; the pdf e2e test skips"
+          fi
+        fi
 
     # whisper.cpp has no apt package on Ubuntu noble (confirmed live: "E: Unable
     # to locate package whisper-cpp") -- build the whisper-cli binary from

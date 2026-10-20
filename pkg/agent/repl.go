@@ -42,6 +42,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
@@ -1841,7 +1842,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		line = r.expandPasteSentinels(line)
 
 		input := strings.TrimSpace(line)
-		if input == "" {
+		if input == "" || !hasVisibleText(input) {
 			continue
 		}
 		// History is saved here, not by readline, so it keeps the "@paste:<id>"
@@ -1917,8 +1918,26 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 	}
 }
 
+// hasVisibleText reports whether s has at least one printable, non-space
+// rune. A line of nothing but control characters or whitespace is not a
+// prompt: readline self-inserts an unhandled control rune (a stray Ctrl-X),
+// so Enter submits it as a line. Instrument session kdeps-api-9 recorded
+// "\x18" reaching the model as a turn, which spent a model call and a tool
+// call on "the user's message just says".
+func hasVisibleText(s string) bool {
+	for _, r := range s {
+		if unicode.IsPrint(r) && !unicode.IsSpace(r) {
+			return true
+		}
+	}
+	return false
+}
+
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
+	if !hasVisibleText(input) {
+		return nil
+	}
 	beginTurnTokens()
 	// Reset convergence counters and apply configured limits per user request.
 	ResetConvergence()
@@ -2559,6 +2578,8 @@ func (r *REPL) dispatchControlCommand(command string, args []string) (bool, erro
 		return true, r.cmdTuro(args)
 	case "/goal":
 		return true, r.cmdGoal(args)
+	case "/auto-improve":
+		return true, r.cmdAutoImprove()
 	case "/refine":
 		r.cmdRefine(args)
 		return true, nil

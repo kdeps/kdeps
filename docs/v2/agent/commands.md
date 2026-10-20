@@ -45,6 +45,7 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal (the next prompt starts a new one) |
+| `/auto-improve` | In the kdeps repo, start an instrumented session, run the fixed task list, then read the event log and fix product bugs before the next task |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
 | `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
@@ -147,6 +148,33 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 
 Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 `kdeps` runs in. See [Sessions](/agent/repl-sessions#sessions).
+
+## Auto-improve
+
+`/auto-improve` runs a fixed task list against this repo and fixes product bugs the instrument log shows.
+
+```d2
+direction: down
+start: "/auto-improve" {shape: oval}
+repo: "module github.com/kdeps/kdeps/v2?" {shape: diamond}
+session: "record ~/.kdeps/instrument/auto-improve"
+task: "model runs the next task"
+eval: "model reads events.ndjson\nand fixes product bugs"
+more: "another task?" {shape: diamond}
+done: "done" {shape: oval}
+start -> repo
+repo -> session: "yes"
+repo -> done: "other folder"
+session -> task
+task -> eval
+eval -> more
+more -> task: "yes"
+more -> done: "no"
+```
+
+The working directory must be this module, or a folder inside it. Another module stops the walk. When no session is recording, the command starts one named `auto-improve`. An existing session keeps recording. Each task asks for one tool use and does not edit files. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). It fixes a loop, a refusal of work the tools can do, a call to the wrong tool, or a wrong tool error, and adds a test. A model guess is left as a guess. The session stays open after the command finishes.
+
+The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
 
 ## Declared commands
 

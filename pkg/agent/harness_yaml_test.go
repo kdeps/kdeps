@@ -53,7 +53,9 @@ var (
 		"handshake-ack", "invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
 		"nudge-sandbox-hallucination-qualifier", "nudge-unresolved-failure",
-		"nudge-give-up", "nudge-edit-unchanged", "tool-call-early-praise", "tool-call-recovery-praise",
+		"nudge-give-up", "nudge-continue", "nudge-self-limit",
+		"nudge-edit-unchanged",
+		"tool-call-early-praise", "tool-call-recovery-praise",
 		"tool-call-sandbox-recovery-praise", "handshake-evidence",
 		"handshake-evidence-retry", "handshake-evidence-praise",
 	}

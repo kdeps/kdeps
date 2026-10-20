@@ -2034,6 +2034,10 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 	})
 
 	t.Run("no spinner when fast", func(t *testing.T) {
+		// The 20ms threshold used above makes this subtest flaky under a loaded
+		// suite: a zero-delay streamer can still be scheduled past it. A wide
+		// threshold keeps the assertion about the code path, not the scheduler.
+		replThinkingDelay = 5 * time.Second
 		spinBuf := setSpinnerCapture(t)
 		streamer := &slowStreamIntegration{
 			delay:    0,
@@ -2074,7 +2078,7 @@ func TestRunStreaming_MemoryTools_SaveSearch(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2121,7 +2125,7 @@ func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2162,7 +2166,7 @@ func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2191,7 +2195,7 @@ func TestRunStreaming_MemoryMarkerExtractedThenStripped(t *testing.T) {
 
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
-	registerMemoryTools(reg)
+	registerMemoryTools(t.Context(), reg)
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
@@ -2460,6 +2464,57 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	assert.NotContains(t, result, "invoke")
 }
 
+// DeepSeek's DSML-wrapped invoke markup written as text (the payload seen from
+// deepseek-v4-flash) must be recovered and executed like a native tool call.
+func TestRunStreaming_SalvagesDSMLInvoke(t *testing.T) {
+	var got map[string]any
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
+		Execute: func(a map[string]any) (string, error) { got = a; return "ok", nil },
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content: "<｜｜DSML｜｜ calls>\n" +
+				"<｜｜DSML｜｜ invoke name=\"probe\">\n" +
+				"<｜｜DSML｜｜ parameter name=\"target\" string=\"true\">host-1</｜｜DSML｜｜ parameter>\n" +
+				"</｜｜DSML｜｜ invoke>\n" +
+				"</｜｜DSML｜｜ calls>",
+			toolCalls: nil,
+		},
+		{content: "probe returned ok", toolCalls: nil},
+	}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 5,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "probe host-1", &buf)
+	require.NoError(t, err)
+	require.NotNil(t, got, "the DSML invoke-form call must execute")
+	assert.Equal(t, "host-1", got["target"])
+	assert.Equal(t, "probe returned ok", result)
+	assert.NotContains(t, result, "DSML")
+}
+
+// A text-only round run without tools (forceAnswerConfig stripped them on the
+// last allowed round) is the model's final answer. Nudging it to call a tool
+// contradicts the "do not call tools" directive and keeps the turn running.
+func TestRunStreaming_CappedRoundAnswerEndsTurn(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "Tool budget is now exhausted, so this turn stops here.", toolCalls: nil},
+		{content: "must not be requested", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 2)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(t.Context(), "continue", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "a capped round's text answer must end the turn")
+	assert.Empty(t, ms.cfgs[1].Tools, "the last allowed round must be force-answer")
+	assert.Equal(t, "Tool budget is now exhausted, so this turn stops here.", got)
+}
+
 // A failed work tool is soft-stopped: the error reaches the model on the hidden
 // efficiency channel (not as a [TOOL FAILED] banner in history), and the loop
 // must not end the turn on a "done" claim right after it -- it nudges once for
@@ -2701,6 +2756,44 @@ func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
 	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] goal: task 1 failed")
 }
 
+// A model that emits several tool calls in one round has only the first run,
+// so the dropped calls must be named back to it in the next request -- they
+// are absent from the replayed assistant turn, and without the note the model
+// never learns it still has to issue them.
+func TestRunStreaming_ExtraToolCallsInRoundReportedToModel(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	var ran []string
+	for _, name := range []string{"first_tool", "second_tool"} {
+		reg.Register(&tools.Tool{
+			Name: name, Description: name, Parameters: map[string]domain.ToolParam{},
+			Execute: func(_ map[string]any) (string, error) {
+				ran = append(ran, name)
+				return name + " ok", nil
+			},
+		})
+	}
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{
+			{ID: "1", Name: "first_tool", Arguments: "{}"},
+			{ID: "2", Name: "second_tool", Arguments: "{}"},
+		}},
+		{content: "done", toolCalls: nil},
+	}}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 10,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"first_tool"}, ran, "one tool per round")
+	require.GreaterOrEqual(t, len(ms.cfgs), 2)
+	assert.Contains(t, ms.cfgs[1].Messages, "[kdeps] you requested 2 tool calls in one round")
+	assert.Contains(t, ms.cfgs[1].Messages, "Not run: second_tool")
+	assert.NotContains(t, ms.cfgs[1].Messages, `"id":"2"`, "the unrun call is not replayed as if it ran")
+}
+
 // A round that makes no tool call but describes a failed sandbox / code-
 // interpreter session ("NO CONTENT AVAILABLE", "cannot access the filesystem")
 // must draw one nudge to make a real call, not settle the turn on the fake
@@ -2726,6 +2819,29 @@ func TestRunStreaming_SandboxHallucinationNudged(t *testing.T) {
 	assert.Contains(t, ms.cfgs[1].Prompt, `<parameter name="command">`)
 	assert.Contains(t, ms.cfgs[1].Prompt, "</invoke>")
 	assert.Equal(t, "The config timeout is 30s.", got)
+}
+
+// A round that makes no tool call but writes a shell diagnostic the runtime
+// never produced is a fabricated tool result and must draw the sandbox nudge.
+// Instrument session kdeps-api-10 recorded a model answering a git status
+// request with "Exact output: /bin/bash: line 4: cd: <existing repo>: No such
+// file or directory" without calling bash_exec at all.
+func TestRunStreaming_FabricatedShellOutputNudged(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{
+			content: "The command did not run because the repository path is unavailable. " +
+				"Exact output:\n```text\n/bin/bash: line 4: cd: /repo: No such file or directory\n```",
+			toolCalls: nil,
+		},
+		{content: "main.go is clean.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "run git status --short", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "a fabricated shell diagnostic must draw a nudge")
+	assert.Contains(t, ms.cfgs[1].Prompt, `<invoke name="bash_exec">`)
+	assert.Equal(t, "main.go is clean.", got)
 }
 
 // The sandbox nudge is bounded to nudge-sandbox-hallucination's maxOccurrences (2): a model that regresses
@@ -2839,19 +2955,22 @@ func TestRunStreaming_GiveUpAfterProgressIsNudged(t *testing.T) {
 	assert.Equal(t, "Actually, here is the answer.", got)
 }
 
-// The same give-up language with NO tool call having succeeded this turn must
-// not be nudged -- there is nothing to push back with, and settleActiveFromText
-// (or, outside goal mode, a plain stop) must handle it as before.
-func TestRunStreaming_GiveUpWithNoProgressIsNotNudged(t *testing.T) {
+// The same give-up language with NO tool call having succeeded this turn is
+// still a fictional limit. The progress give-up nudge does not fire. The
+// self-limit nudge does, and the refusal is not shown.
+func TestRunStreaming_GiveUpWithNoProgressIsNudgedAsSelfLimit(t *testing.T) {
 	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
 		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
+		{content: "Listed the files.", toolCalls: nil},
 	}}}
 	loop := newStreamingLoop(ms, 10)
 	var buf bytes.Buffer
 	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
 	require.NoError(t, err)
-	require.Len(t, ms.cfgs, 1, "no progress this turn means no give-up nudge -- the turn ends here")
-	assert.Equal(t, "I cannot complete this, no access to the repo.", got)
+	require.Len(t, ms.cfgs, 2, "a fictional limit with no progress must draw the self-limit nudge")
+	assert.Contains(t, ms.cfgs[1].Prompt, "That limit is not real")
+	assert.Equal(t, "Listed the files.", got)
+	assert.NotContains(t, buf.String(), "I cannot complete this")
 }
 
 // The give-up nudge is bounded to nudge-give-up's maxOccurrences (2): a model that keeps
@@ -2884,6 +3003,8 @@ func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 		"nudgeForActionConfig":            nudgeForActionConfig,
 		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
 		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
+		"nudgeContinueConfig":             nudgeContinueConfig,
+		"nudgeSelfLimitConfig":            nudgeSelfLimitConfig,
 	} {
 		for _, repeat := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/repeat=%v", name, repeat), func(t *testing.T) {
@@ -2918,4 +3039,41 @@ func TestRunStreaming_UnlimitedToolLimitDoesNotBreakRepeatLoop(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, result, "repeated the same")
 	assert.Equal(t, 7, ms.callCount)
+}
+
+// TestAppendToolRoundTrip_SynthesizesIDsForSalvagedCalls is the regression
+// test for the 422 retry storm against strict OpenAI-schema backends: a
+// tool call recovered from model text (a literal <invoke> block) has no
+// backend-assigned ID, and replayed history with an empty tool_calls[].id
+// (and an empty tool_call_id on the tool message) was rejected as
+// "messages[N]: missing field `id`" -- then soft-stop-retried 8 times with
+// the same payload. Salvaged calls must get a synthesized ID, answered by a
+// matching tool_call_id.
+func TestAppendToolRoundTrip_SynthesizesIDsForSalvagedCalls(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	cfg := &domain.ChatConfig{Messages: "[]"}
+	outCfg, _ := loop.appendToolRoundTrip(
+		context.Background(), cfg, "calling",
+		[]domain.StreamedToolCall{{Name: "noop", Arguments: "{}"}}, // no ID: text-salvaged
+		io.Discard,
+	)
+	var history []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(outCfg.Messages), &history))
+	var assistantID string
+	for _, m := range history {
+		switch m["role"] {
+		case RoleAssistant:
+			calls, ok := m["tool_calls"].([]any)
+			require.True(t, ok)
+			require.Len(t, calls, 1)
+			call, ok := calls[0].(map[string]any)
+			require.True(t, ok)
+			assistantID, _ = call["id"].(string)
+			require.NotEmpty(t, assistantID, "salvaged call must get a synthesized id")
+		case "tool":
+			require.Equal(t, assistantID, m["tool_call_id"],
+				"tool message must answer the synthesized id")
+		}
+	}
+	require.NotEmpty(t, assistantID)
 }

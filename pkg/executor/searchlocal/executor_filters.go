@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -29,16 +30,55 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func contentMatchesQuery(path, query string) bool {
+// queryMatcher matches a query against file content. The query is a regex, as
+// the tool spec advertises, when it compiles as one; it falls back to a
+// case-insensitive literal match when it does not, so queries with unbalanced
+// metacharacters (e.g. "func Start(") still work. rg is line-oriented, hence
+// multiline mode so ^ and $ anchor at line boundaries.
+type queryMatcher struct {
+	re      *regexp.Regexp
+	literal string
+}
+
+func newQueryMatcher(query string) *queryMatcher {
+	if re, err := regexp.Compile("(?im)" + query); err == nil {
+		return &queryMatcher{re: re}
+	}
+	return &queryMatcher{literal: strings.ToLower(query)}
+}
+
+// find returns the byte range of the first match in content, or -1, -1.
+func (m *queryMatcher) find(content string) (int, int) {
+	if m.re == nil {
+		idx := strings.Index(strings.ToLower(content), m.literal)
+		if idx < 0 {
+			return -1, -1
+		}
+		return idx, idx + len(m.literal)
+	}
+	loc := m.re.FindStringIndex(content)
+	if loc == nil {
+		return -1, -1
+	}
+	return loc[0], loc[1]
+}
+
+func contentMatchesQuery(path string, m *queryMatcher) bool {
 	data, readErr := afero.ReadFile(AppFS, path) // path is walk-derived from caller-supplied root
 	if readErr != nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(string(data)), strings.ToLower(query))
+	start, _ := m.find(string(data))
+	return start >= 0
 }
 
 // matchesFilters returns true when the file passes all configured filters.
-func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.SearchLocalConfig) (bool, error) {
+func (e *Executor) matchesFilters(
+	path string,
+	d fs.DirEntry,
+	config *domain.SearchLocalConfig,
+	matcher *queryMatcher,
+) (bool, error) {
 	if IsSecretFile(path) {
 		return false, nil // never surfaced, so a key's content never reaches a prompt
 	}
@@ -52,7 +92,7 @@ func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.Sea
 		}
 	}
 
-	if config.Query != "" && !contentMatchesQuery(path, config.Query) {
+	if matcher != nil && !contentMatchesQuery(path, matcher) {
 		return false, nil
 	}
 

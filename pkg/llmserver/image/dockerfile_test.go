@@ -87,6 +87,19 @@ func TestRenderDockerfileGPU(t *testing.T) {
 	}
 }
 
+func TestRenderDockerfileGPUVulkanIgnoresCase(t *testing.T) {
+	df, err := RenderDockerfile(BuildRequest{Recipe: sampleRecipe(), Model: "m", GPU: "Vulkan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(df, "ubuntu:24.04") {
+		t.Fatalf("expected ubuntu base, got:\n%s", df)
+	}
+	if !strings.Contains(df, "libvulkan1") {
+		t.Fatalf("Vulkan profile must install libvulkan1, got:\n%s", df)
+	}
+}
+
 func TestRenderDockerfileGPURequired(t *testing.T) {
 	r := sampleRecipe()
 	r.Resources.GPU = recipe.GPURequired

@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: memory_search
+  description: Search persistent memory through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Words matched against keys and values
+  # body is the match list, or the no-hit sentence. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search memory
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/memory_search/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        query: "{{ get('memory_search.query') }}"

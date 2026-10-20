@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -693,6 +694,62 @@ func TestLoop_ForceCompact_UsesLiteralPrompt(t *testing.T) {
 	}
 	if !gotLiteralPrompt {
 		t.Fatal("compaction's synthetic ChatConfig must have LiteralPrompt: true")
+	}
+}
+
+// Internal calls must not inherit the 60s default a user-authored chat:
+// resource gets: a slow reasoning model whose turn calls already run 45s+
+// exceeded it on a judge-roster call, which then failed and was silently
+// skipped. See syntheticCallTimeout.
+func TestLoop_ForceCompact_SyntheticCallTimeout(t *testing.T) {
+	var got string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		got = wf.Resources[0].Chat.Timeout
+		return "## Progress\n- did things", nil
+	})
+	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 1_000_000,
+	})
+	for range 8 {
+		if _, err := loop.Run(context.Background(), "hi"); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	}
+	if _, err := loop.ForceCompact(context.Background()); err != nil {
+		t.Fatalf("ForceCompact: %v", err)
+	}
+	d, err := time.ParseDuration(got)
+	if err != nil || d <= time.Minute {
+		t.Fatalf("synthetic call timeout = %q (%v), want more than the 60s chat-resource default", got, err)
+	}
+}
+
+// An explicit KDEPS_CHAT_TIMEOUT is the operator's global cap and still
+// governs internal calls, so the builder must leave it in charge.
+func TestLoop_ForceCompact_SyntheticCallTimeoutHonorsEnv(t *testing.T) {
+	t.Setenv("KDEPS_CHAT_TIMEOUT", "90s")
+	var got string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		got = wf.Resources[0].Chat.Timeout
+		return "## Progress\n- did things", nil
+	})
+	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 1_000_000,
+	})
+	for range 8 {
+		if _, err := loop.Run(context.Background(), "hi"); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	}
+	if _, err := loop.ForceCompact(context.Background()); err != nil {
+		t.Fatalf("ForceCompact: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("synthetic call timeout = %q, want empty so KDEPS_CHAT_TIMEOUT applies", got)
 	}
 }
 

@@ -1,0 +1,25 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: google_cache_delete
+  description: Delete a Google AI cached content entry through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: name
+      type: string
+      required: true
+      description: Cached content name returned by google_cache_create
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Delete cache
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/google_cache_delete/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        name: "{{ get('google_cache_delete.name') }}"

@@ -302,8 +302,28 @@ func TestOpenAndItems_UnknownSet(t *testing.T) {
 	assert.Contains(t, read(t, Open("harness"), "harness/safety.yaml"), "source safety")
 }
 
+func TestRepoAssetsFromCwd(t *testing.T) {
+	got := repoAssetsFromCwd()
+	require.NotEmpty(t, got)
+	_, err := os.Stat(filepath.Join(got, "harness", "nudge-self-limit.yaml"))
+	require.NoError(t, err)
+
+	// A sibling of the checkout, not t.TempDir(): CI's TMPDIR can live inside
+	// the repo, where any temp dir still walks up to the repo's go.mod.
+	outside, err := os.MkdirTemp(filepath.Dir(filepath.Dir(got)), "kdeps-assets-outside-")
+	if err != nil {
+		t.Skipf("cannot create a dir outside the checkout: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(outside) })
+	t.Chdir(outside)
+	assert.Empty(t, repoAssetsFromCwd())
+}
+
 func TestSourceAndRoot_UnderTest(t *testing.T) {
-	t.Setenv(SourceEnv, "")
+	// Unset, not empty: under go test the repo's assets/ is the fallback only
+	// when KDEPS_ASSETS_SRC is absent (empty now means "no source").
+	t.Setenv(SourceEnv, "unset-me")
+	require.NoError(t, os.Unsetenv(SourceEnv))
 	t.Setenv("KDEPS_ASSETS_DIR", "")
 	src := Source()
 	require.NotEmpty(t, src, "go test loads the repo's assets/")
@@ -313,6 +333,9 @@ func TestSourceAndRoot_UnderTest(t *testing.T) {
 
 	t.Setenv(SourceEnv, "/x")
 	assert.Equal(t, "/x", Source())
+
+	t.Setenv(SourceEnv, "")
+	assert.Empty(t, Source(), "an explicitly empty source disables every fallback")
 }
 
 func TestMissing(t *testing.T) {

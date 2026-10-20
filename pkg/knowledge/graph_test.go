@@ -265,6 +265,28 @@ func TestWriteSession(t *testing.T) {
 	require.Error(t, err)
 }
 
+// Two sessions can finish in the same minute with the same summary goal, so
+// both propose the same note filename. The second must take its own file
+// instead of overwriting the first session's note.
+func TestWriteSession_SameMinuteSessionsDoNotOverwrite(t *testing.T) {
+	v, repo := sampleVault(t)
+	card := v.CardForDir(filepath.Join(repo, "store"))
+	require.NotNil(t, card)
+	first, err := WriteSession(card, "s1", summaryText, buildNow(), GitRange{})
+	require.NoError(t, err)
+	second, err := WriteSession(card, "s2", summaryText, buildNow(), GitRange{})
+	require.NoError(t, err)
+	require.NotEqual(t, first.File, second.File, "each session keeps its own note")
+	assert.True(t, second.New)
+
+	firstNote, err := os.ReadFile(first.File)
+	require.NoError(t, err)
+	secondNote, err := os.ReadFile(second.File)
+	require.NoError(t, err)
+	assert.Contains(t, string(firstNote), "session: s1")
+	assert.Contains(t, string(secondNote), "session: s2")
+}
+
 func TestWriteDecisions(t *testing.T) {
 	v, repo := sampleVault(t)
 	card := v.CardForDir(repo)

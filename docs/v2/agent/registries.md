@@ -1,6 +1,6 @@
 # Agent registries
 
-The [agent loop](/agent/) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
+The [agent loop](/agent/) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules. Task and team tools run through the [kdeps API](/reference/api). The agent and a workflow component call the same handler. Cron stays in this process.
 
 ## TaskRegistry
 

@@ -1,0 +1,30 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: sql_query
+  description: Run a read-only SQL query through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: db_path
+      type: string
+      default: ""
+      description: SQLite file. Empty uses KDEPS_SQL_DB_PATH
+    - name: query
+      type: string
+      required: true
+      description: SELECT or WITH statement
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Query
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/sql_query/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        db_path: "{{ get('sql_query.db_path') }}"
+        query: "{{ get('sql_query.query') }}"

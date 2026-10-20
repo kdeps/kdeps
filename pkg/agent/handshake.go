@@ -21,9 +21,11 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -57,6 +59,11 @@ type handshakeCtxKey struct{}
 type handshakeState struct {
 	challenge    string
 	observedCode string
+	// attempted records that session_handshake was dispatched at all, even
+	// with a missing/empty code. performHandshake uses it to tell the
+	// no-tool-call give-up streak (never engages) from a wrong-code miss
+	// (engages but gets the code wrong), which retries indefinitely.
+	attempted bool
 }
 
 // handshakeChallengeRange bounds newHandshakeChallenge's output to the
@@ -133,8 +140,20 @@ func (l *Loop) registerSessionHandshakeTool() {
 	}
 	l.registry.Register(defined(&tools.Tool{
 		Name: "session_handshake",
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			code := handshakeCodeArg(args["code"])
+			if l.handshake != nil {
+				l.handshake.attempted = true
+			}
+			if code == "" {
+				// A call with no code is a miss, not a pass: the ack praises a
+				// real tool call, so returning one here told the model it had
+				// succeeded (instrument logs show weak models calling
+				// session_handshake with {} and then abandoning the check).
+				return "", errors.New(
+					"session_handshake: code is required -- pass the exact 4-digit code from the " +
+						"<session-integrity-check> directive as the code argument")
+			}
 			if l.handshake != nil {
 				l.handshake.observedCode = code
 			}
@@ -239,16 +258,17 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 	history = l.handshakeEvidence(ctx, history)
 	history = capHandshakeHistory(history)
 
-	// noCallStreak counts consecutive misses where the model made NO tool
-	// call at all (observedCode stays ""), as opposed to a wrong-code miss,
-	// which at least shows engagement with the directive. A model that keeps
-	// trying and getting the code wrong is exactly the "slow but eventually
-	// correct" case this loop is designed to wait out forever. A model that
-	// never engages with the directive at all -- ignoring it and answering
-	// something else instead, the failure mode seen on weak local models --
-	// will never get there no matter how long kdeps waits, so that case gets
-	// a bound: warn that session integrity is unverified and let the turn
-	// proceed rather than bricking the session.
+	// noCallStreak counts consecutive misses where the model made no tool
+	// call at all (handshakeState.attempted stays false), as opposed to a
+	// wrong-code miss -- including a session_handshake call with a missing
+	// code, which still shows engagement with the directive. A model that
+	// keeps trying and getting the code wrong is exactly the "slow but
+	// eventually correct" case this loop is designed to wait out forever. A
+	// model that never engages with the directive at all -- ignoring it and
+	// answering something else instead, the failure mode seen on weak local
+	// models -- will never get there no matter how long kdeps waits, so that
+	// case gets a bound: warn that session integrity is unverified and let
+	// the turn proceed rather than bricking the session.
 	noCallStreak := 0
 	for attempt := 1; ; attempt++ {
 		if ctx.Err() != nil {
@@ -262,19 +282,21 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 			return fmt.Errorf("session handshake: %w", roundErr)
 		}
 
-		observed := ""
+		observed, attempted := "", false
 		if l.handshake != nil {
-			observed = l.handshake.observedCode
+			observed, attempted = l.handshake.observedCode, l.handshake.attempted
 		}
 		if observed == challenge {
 			l.handshake = nil
 			return nil
 		}
 
-		if observed == "" {
-			noCallStreak++
-		} else {
+		if attempted {
+			// The model made a real call but sent the wrong (or no) code: it is
+			// engaging, so reset the no-call streak and retry.
 			noCallStreak = 0
+		} else {
+			noCallStreak++
 		}
 		if noCallStreak >= handshakeGiveUpAfterNoCallStreak {
 			l.warnHandshakeUnverified(noCallStreak)
@@ -374,6 +396,9 @@ func (l *Loop) warnHandshakeUnverified(misses int) {
 // handled here -- these are conversational only.
 func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
 	grounding := l.handshakeGrounding()
+	if catalog := l.handshakeToolCatalog(); catalog != "" {
+		grounding += "\n\n" + catalog
+	}
 	var history []map[string]any
 	for _, question := range handshakeWarmupQuestions {
 		cfg := &domain.ChatConfig{
@@ -677,6 +702,35 @@ func (l *Loop) handshakeGrounding(toolNames ...string) string {
 		grounding += "\n\n" + harnessText("m365-sandbox")
 	}
 	return grounding
+}
+
+// handshakeToolCatalog returns a names-only <available_tools> block listing
+// every registered tool, sorted. The warm-up round asks the model how many
+// tools it has, and the preamble refers to the "<available_tools> block that
+// follows" -- without this block that reference points at nothing and the
+// model correctly answers that the catalog is missing (instrument session
+// kdeps-api-9). Names only, not handshakeToolNote's name+description lines:
+// the warm-up call handles no tool call, so the count is all it needs, and
+// descriptions for a large registry would add thousands of tokens to both
+// warm-up calls.
+func (l *Loop) handshakeToolCatalog() string {
+	if l.registry == nil {
+		return ""
+	}
+	tools := l.registry.List()
+	if len(tools) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		names = append(names, t.Name)
+	}
+	sort.Strings(names)
+	lines := make([]string, 0, len(names))
+	for _, name := range names {
+		lines = append(lines, "- "+name)
+	}
+	return "<available_tools>\n" + strings.Join(lines, "\n") + "\n</available_tools>"
 }
 
 // handshakeToolNote returns a compact, single-line-per-tool confirmation

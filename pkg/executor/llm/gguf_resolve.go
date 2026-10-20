@@ -24,8 +24,52 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/pathologize"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
+
+// NeedsGGUFDownload reports whether serving model would fetch bytes.
+// A complete local file, including a bare name already in the models dir,
+// does not. Alias and URL lookups use the same cache path as the downloader.
+func NeedsGGUFDownload(model string) bool {
+	if model == "" {
+		return false
+	}
+	dir, err := modelsDir()
+	if err != nil {
+		return true
+	}
+	if filepath.IsAbs(model) || strings.HasPrefix(model, "./") || strings.HasPrefix(model, "../") {
+		return false
+	}
+	if IsRemoteModel(model) {
+		return !completeModelFile(ggufDownloadDest(dir, model))
+	}
+	if p, ok := GGUFCachedPath(model, dir); ok {
+		return !completeModelFile(p)
+	}
+	return false
+}
+
+func completeModelFile(path string) bool {
+	info, err := AppFS.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	return !isPartialDownload(AppFS, path)
+}
+
+// ggufDownloadDest matches downloadModelFile's destination for rawURL.
+func ggufDownloadDest(modelsDir, rawURL string) string {
+	basename := filepath.Base(rawURL)
+	if isMeaninglessBasename(basename) {
+		basename = "model.gguf"
+	} else {
+		basename = pathologize.Clean(basename)
+	}
+	return filepath.Join(modelsDir, basename)
+}
 
 // Resolve returns the local filesystem path to the GGUF model file,
 // downloading or resolving as needed. ctx cancels an in-flight download.

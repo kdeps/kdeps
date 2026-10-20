@@ -19,12 +19,15 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/expr-lang/expr"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -37,38 +40,62 @@ const (
 	relQueryMaxLimit = 500
 )
 
+// The call route lives in pkg/api. This package owns the live loop, so the
+// handler reaches it through the setter. activeLoop is set during Loop
+// construction (loop.go's New) and stays nil when no loop is running.
+//
+//nolint:gochecknoinits // wires memory_query before any call
+func init() {
+	api.SetMemoryQueryBackend(runMemoryQuery)
+}
+
 // registerMemoryQueryTool registers the memory_query builtin tool: a
 // relational query layer (select/project/join/union) over agent state --
 // persistent memory, tool-call history, and the active goal's task list.
-// Agent-mode only: it reads from activeLoop, which is set during Loop
-// construction (loop.go's New) and stays nil in workflow mode.
-func registerMemoryQueryTool(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name:    "memory_query",
-		Execute: executeMemoryQuery,
-	}))
+func registerMemoryQueryTool(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "memory_query", api.MemoryQuery)
 }
 
 func executeMemoryQuery(args map[string]any) (string, error) {
-	query, _ := args[toolParamQuery].(string)
-	if query == "" {
-		return "", errors.New("memory_query: query is required")
-	}
+	var noCtx context.Context
+	return api.CallTool(toolCallCtx(noCtx, args), "memory_query", jsonArgs(args))
+}
+
+func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {
 	if activeLoop == nil {
 		return "", errors.New("memory_query: agent loop is not configured (memory_query is an agent-mode tool)")
 	}
-
+	query, _ := args[toolParamQuery].(string)
 	env := buildQueryEnv(activeLoop.MemoryStore(), activeLoop.ToolCallLog(), activeLoop.ActiveGoal())
 	program, err := expr.Compile(query, expr.Env(env))
 	if err != nil {
+		if hint := infixOperatorHint(query); hint != "" {
+			return "", fmt.Errorf("memory_query: compile: %w; hint: %s", err, hint)
+		}
 		return "", fmt.Errorf("memory_query: compile: %w", err)
 	}
 	result, err := expr.Run(program, env)
 	if err != nil {
 		return "", fmt.Errorf("memory_query: run: %w", err)
 	}
-
 	return marshalQueryResult(result, resolveQueryLimit(args["limit"]))
+}
+
+// infixOperatorHint explains expr-lang's parse failure for the function-call
+// form of an infix operator. The parser reports
+// `unexpected token Operator("contains")`, which does not tell the model that
+// the operator exists in infix form, so a model that writes
+// contains(lower(.value), "x") burns rounds rediscovering the syntax.
+func infixOperatorHint(query string) string {
+	for _, op := range []string{"contains", "startsWith", "endsWith", "matches"} {
+		if strings.Contains(query, op+"(") {
+			return fmt.Sprintf(
+				"%s is an infix operator, not a function: write `.field %s \"text\"` instead of `%s(...)`",
+				op, op, op,
+			)
+		}
+	}
+	return ""
 }
 
 // resolveQueryLimit reads the limit argument (an LLM tool call may send it

@@ -20,23 +20,12 @@ package agent
 
 import (
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 )
 
 // sigTSTP is a no-op signal value on Windows.
 const sigTSTP = syscall.SIGINT
-
-// setProcessGroup is a no-op on Windows (no process group semantics).
-func setProcessGroup(_ *exec.Cmd) {}
-
-// killProcessGroup kills the process on Windows (no process-group semantics).
-func killProcessGroup(cmd *exec.Cmd) {
-	if cmd != nil && cmd.Process != nil {
-		_ = cmd.Process.Kill()
-	}
-}
 
 // sendSIGTSTP is a no-op on Windows (SIGTSTP is a Unix signal).
 func sendSIGTSTP() {}
@@ -60,12 +49,6 @@ func snapshotTerminal(_ int) *termSnapshot { return nil }
 
 // restoreTerminalState is a no-op on Windows.
 func restoreTerminalState(_ int, _ *termSnapshot) {}
-
-// makeForeground is a no-op on Windows (no process group foreground semantics).
-func makeForeground(_ *exec.Cmd) int { return 0 }
-
-// restoreForeground is a no-op on Windows.
-func restoreForeground(_ int) {}
 
 // notifyTermination registers SIGTERM for clean shutdown on Windows.
 func notifyTermination(sigCh chan<- os.Signal) {

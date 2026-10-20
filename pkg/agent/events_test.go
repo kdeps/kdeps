@@ -293,6 +293,9 @@ func isolateEventsHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	// Registered after the temp dir (LIFO), so lazy index writes finish before
+	// the home dir's RemoveAll runs.
+	t.Cleanup(WaitForBackgroundIndexing)
 }
 
 func TestInitEvents_UserOverrideReplacesBuiltinByName(t *testing.T) {

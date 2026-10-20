@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: md5_file
+  description: Hash a file through the kdeps API and return the path and MD5
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file_path
+      type: string
+      required: true
+      description: Path of the file to hash
+  # body is "<path>  <hex>". The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: MD5 file
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/md5_file/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        file_path: "{{ get('md5_file.file_path') }}"

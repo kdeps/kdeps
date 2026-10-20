@@ -27,8 +27,12 @@ import (
 )
 
 func TestCountTokens_EncodingErrorFallback(t *testing.T) {
+	resetTokenEncodingCache()
 	orig := tikTokenGetEncoding
-	t.Cleanup(func() { tikTokenGetEncoding = orig })
+	t.Cleanup(func() {
+		tikTokenGetEncoding = orig
+		resetTokenEncodingCache()
+	})
 	tikTokenGetEncoding = func(_ string) (*tiktoken.Tiktoken, error) {
 		return nil, errors.New("encoding not available")
 	}
@@ -40,6 +44,8 @@ func TestCountTokens_EncodingErrorFallback(t *testing.T) {
 }
 
 func TestCountTokens_KnownModel(t *testing.T) {
+	resetTokenEncodingCache()
+	t.Cleanup(resetTokenEncodingCache)
 	// Uses real tiktoken — verify it works for a known model
 	count := CountTokens("gpt-4", "hello world")
 	assert.Greater(t, count, 0)

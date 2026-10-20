@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: google_cache_list
+  description: List Google AI cached content entries through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs: []
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: List caches
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/google_cache_list/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data: {}

@@ -2,6 +2,8 @@
 
 `read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no YAML and no API key. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
 
+Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file and the read-before-edit check stay in the agent loop. A component call does not need a prior read.
+
 ## File operations
 
 Always available. No environment variables required.

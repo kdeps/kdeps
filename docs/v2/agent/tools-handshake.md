@@ -40,7 +40,7 @@ The exchange also carries a system message grounding the request: the same tool-
 
 ## Warm-up
 
-Before the invoke request itself, kdeps also asks two warm-up questions - "how do you invoke a kdeps tool?" and "how many tools do you have?" - answers not checked, but establishing an ongoing conversation about kdeps tools before asking the model to actually call one, rather than a cold open. Each attempt (warm-up included) stays in the same growing conversation, so a retry sees its own prior miss as context instead of a repeat cold start.
+Before the invoke request itself, kdeps also asks two warm-up questions - "how do you invoke a kdeps tool?" and "how many tools do you have?" - answers not checked, but establishing an ongoing conversation about kdeps tools before asking the model to actually call one, rather than a cold open. The warm-up system message appends a names-only `<available_tools>` catalog of every registered tool: the shared preamble refers to that block, and without it the "how many tools" question is unanswerable and the model answers that the catalog is missing. Each attempt (warm-up included) stays in the same growing conversation, so a retry sees its own prior miss as context instead of a repeat cold start. A `session_handshake` call with no `code` is a miss, not a pass: it returns an error rather than the success ack, because the ack tells the model the check is done.
 
 ## Evidence step
 

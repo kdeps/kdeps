@@ -1,6 +1,6 @@
 # Web and search
 
-These tools fetch the web during an agent turn. DuckDuckGo, Wikipedia, and the page scraper need no key. SerpAPI, Exa, and Perplexity register only when their env var is set. Permission modes stay on [Built-in tools](/agent/tools).
+These tools fetch the web during an agent turn. DuckDuckGo, Wikipedia, and the page scraper need no key. SerpAPI, Exa, and Perplexity register for the model only when their env var is set. `serpapi_search` and `perplexity_search` still stay on the [kdeps API](/reference/api) tool list without a key. A call with the key unset returns `serpapi_search: disabled (SERPAPI_API_KEY is unset)` or `perplexity_search: disabled (PERPLEXITY_API_KEY is unset)`. Permission modes stay on [Built-in tools](/agent/tools).
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|

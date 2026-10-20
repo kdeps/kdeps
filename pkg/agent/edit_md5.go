@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kdeps/v2/pkg/api"
 )
 
 // md5DisplayLen is how many hex characters of a file's md5 the notices show.
@@ -63,7 +65,7 @@ func mutatingEditTarget(name, arguments string) (string, bool) {
 	cmd, _ := args["command"].(string)
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
-		cmd = inferEditCommand(args)
+		cmd = api.InferEditCommand(args)
 	}
 	path, _ := args[toolParamFilePath].(string)
 	if !editMutatingCommands[cmd] || path == "" {

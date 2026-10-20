@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
@@ -74,6 +75,10 @@ func Execute(v, c string) error {
 	config.commit = c
 
 	rootCmd := config.GetRootCommand()
+	// pflag's NoOptDefVal makes `--instrument name` leave name as a path.
+	// Fold that form into `--instrument=name` before cobra parses flags.
+	// SetArgs, not os.Args: the recorded command line stays what was typed.
+	rootCmd.SetArgs(normalizeInstrumentArgs(os.Args[1:]))
 	err := rootCmd.Execute()
 	kdeps_debug.Flush()
 	endInstrumentation(os.Stderr, err)
@@ -293,6 +298,25 @@ func bootstrapRootConfig() {
 // instrumentAuto is --instrument without a name: the session is named by
 // its start time.
 const instrumentAuto = "\x00auto"
+
+// normalizeInstrumentArgs rewrites `--instrument name` to `--instrument=name`.
+// Bare `--instrument` stays bare (the session is named by its start time).
+// A following flag (`--instrument --debug`) is not a name.
+func normalizeInstrumentArgs(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--instrument" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			out = append(out, "--instrument="+args[i+1])
+			i++
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
+}
 
 // maybeEnableInstrumentation starts the session --instrument names: the
 // call-chain trace and every log record go to its trace.log (off the

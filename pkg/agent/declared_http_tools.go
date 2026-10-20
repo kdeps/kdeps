@@ -36,6 +36,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -97,8 +98,8 @@ var declaredToolFuncs = template.FuncMap{
 	"urlpath":    url.PathEscape,
 	"trimSuffix": strings.TrimSuffix,
 	"add":        func(a, b int) int { return a + b },
-	"int":        toInt,
-	"min":        func(a, b any) int { return min(toInt(a), toInt(b)) },
+	"int":        api.ToInt,
+	"min":        func(a, b any) int { return min(api.ToInt(a), api.ToInt(b)) },
 	// get walks nested maps and lists by key or index, returning nil
 	// (not an error) where a level is missing.
 	"get": getPath,
@@ -378,7 +379,7 @@ func getPath(v any, keys ...any) any {
 			ks, _ := k.(string)
 			v = c[ks]
 		case []any:
-			i := toInt(k)
+			i := api.ToInt(k)
 			if i < 0 || i >= len(c) {
 				return nil
 			}

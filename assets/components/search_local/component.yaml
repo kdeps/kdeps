@@ -1,0 +1,34 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: search_local
+  description: Search local files through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      description: Search term. A query or a glob is required
+    - name: path
+      type: string
+      description: Directory to search. Empty searches the working directory
+    - name: glob
+      type: string
+      description: File glob filter, for example *.go
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search local files
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/search_local/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        query: "{{ get('search_local.query') }}"
+        path: "{{ get('search_local.path') }}"
+        glob: "{{ get('search_local.glob') }}"

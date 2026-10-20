@@ -9,7 +9,7 @@ REFINE_HOME=$(mktemp -d)
 trap 'rm -rf "$REFINE_HOME"' EXIT
 
 OUTPUT=$(printf '/help\n/refine\n/refine off\n/refine\n/refine on\n/refine bogus\n/quit\n' \
-    | HOME="$REFINE_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$REFINE_HOME" USERPROFILE="$(to_native_path "$REFINE_HOME")" timeout 60 "$KDEPS_BIN" 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "refine - agent loop starts"

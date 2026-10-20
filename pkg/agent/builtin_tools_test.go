@@ -37,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -291,31 +292,6 @@ func makeTestSQLiteDB(t *testing.T) string {
 	return dbPath
 }
 
-func TestSQLListTables_ReturnsTableNames(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlListTables(context.Background(), dbPath)
-	require.NoError(t, err)
-	assert.Contains(t, result, "users")
-}
-
-func TestSQLDescribeTable_ReturnsSchema(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlDescribeTable(context.Background(), dbPath, "users")
-	require.NoError(t, err)
-	assert.Contains(t, result, "users")
-	assert.Contains(t, result, "id")
-	assert.Contains(t, result, "name")
-	assert.Contains(t, result, "email")
-}
-
-func TestSQLExecQuery_ReturnsRows(t *testing.T) {
-	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, name FROM users ORDER BY id")
-	require.NoError(t, err)
-	assert.Contains(t, result, "Alice")
-	assert.Contains(t, result, "Bob")
-}
-
 func TestSQLExecQuery_RejectsNonSelect(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -352,18 +328,6 @@ func TestSQLListTables_AlwaysRegistered(t *testing.T) {
 	assert.NotNil(t, reg.Get("sql_list_tables"), "sql_list_tables should always register")
 	assert.NotNil(t, reg.Get("sql_describe_table"), "sql_describe_table should always register")
 	assert.NotNil(t, reg.Get("sql_query"), "sql_query should always register")
-}
-
-func TestSQLDBPath_UsesEnvFallback(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]any{})
-	assert.Equal(t, "/tmp/fallback.db", p)
-}
-
-func TestSQLDBPath_ArgOverridesEnv(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]any{"db_path": "/tmp/override.db"})
-	assert.Equal(t, "/tmp/override.db", p)
 }
 
 func TestSQLListTables_Tool_WithDBPath(t *testing.T) {
@@ -409,13 +373,6 @@ func TestSQLQuery_UnescapesHTMLEntitiesInQuery(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, result, "Alice")
 	assert.NotContains(t, result, "Bob")
-}
-
-func TestSQLOpenEngine_EmptyPath(t *testing.T) {
-	t.Setenv("KDEPS_SQL_DB_PATH", "")
-	_, err := sqlOpenEngine("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db_path is required")
 }
 
 func TestSQLListTables_MissingDBPath(t *testing.T) {
@@ -921,7 +878,10 @@ func TestBashExec_ContextCancelKillsChildren(t *testing.T) {
 }
 
 func TestBashExec_Background(t *testing.T) {
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
@@ -942,8 +902,10 @@ func TestBashExec_Background(t *testing.T) {
 }
 
 func TestBashJobWait(t *testing.T) {
-	bashJobRegistry.reset()
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	bashTool := reg.Get("bash_exec")
@@ -968,17 +930,11 @@ func TestBashJobWait(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &result))
 	require.Greater(t, result.JobID, 0)
-
-	// Kill the backgrounded sleep so the test doesn't hang.
-	job := bashJobRegistry.get(result.JobID)
-	require.NotNil(t, job)
-	_ = job
-	// Remove from registry to clean up (don't wait for sleep 5 to finish).
-	bashJobRegistry.remove(result.JobID)
 }
 
 func TestBashJobList(t *testing.T) {
-	bashJobRegistry.reset()
+	api.ResetBashJobs()
+	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -987,159 +943,6 @@ func TestBashJobList(t *testing.T) {
 	out, err := listTool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, "No background jobs.", out)
-}
-
-// Regression: registerBashJobList was 50% covered (only the empty-registry
-// branch). The with-entries branch (the for-loop summary path) was uncovered.
-func TestBashJobList_WithEntries(t *testing.T) {
-	bashJobRegistry.reset()
-	t.Cleanup(func() { bashJobRegistry.reset() })
-	t.Setenv("KDEPS_ALLOW_BASH", "true")
-
-	// Add a job that completes immediately via a closed channel.
-	waitCh := make(chan error, 1)
-	waitCh <- nil
-	var stdout, stderr strings.Builder
-	stdout.WriteString("output")
-	id := bashJobRegistry.add("echo hello", &stdout, &stderr, waitCh)
-	assert.Greater(t, id, 0)
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	listTool := reg.Get("bash_job_list")
-	require.NotNil(t, listTool)
-	out, err := listTool.Execute(map[string]any{})
-	require.NoError(t, err)
-	assert.Contains(t, out, "job")
-	assert.Contains(t, out, "echo hello")
-}
-
-func TestSQLExecQuery_InvalidSQL(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	require.NoError(t, err)
-	_, err = db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT, nullable TEXT)")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO t VALUES (1, 'a', NULL)")
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	// Test NULL value handling in sqlExecQuery: LC sqlite3 engine returns empty string for NULL.
-	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, val, nullable FROM t")
-	require.NoError(t, err)
-	assert.Contains(t, result, "id")
-	assert.Contains(t, result, "val")
-	assert.Contains(t, result, "nullable")
-}
-
-func TestSQLExecQuery_BadSQL(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	// Bad SQL triggers query error path
-	_, err = sqlExecQuery(context.Background(), dbPath, "SELECT * FROM nonexistent_table_xyz")
-	require.Error(t, err)
-}
-
-func TestSQLListTables_NoDB(t *testing.T) {
-	// Covers sqlListTables db open error path.
-	_, err := sqlListTables(context.Background(), "")
-	require.Error(t, err)
-}
-
-func TestSQLDescribeTable_NoDB(t *testing.T) {
-	// sqlDescribeTable fails with invalid db path.
-	_, err := sqlDescribeTable(context.Background(), "", "test_table")
-	require.Error(t, err)
-}
-
-func TestTruncateBashOutput_NoTruncation(t *testing.T) {
-	out := "line1\nline2\nline3"
-	got := truncateBashOutput(out)
-	assert.Equal(t, out, got)
-}
-
-func TestTruncateBashOutput_LineLimitExceeded(t *testing.T) {
-	lines := make([]string, bashOutputMaxLines+10)
-	for i := range lines {
-		lines[i] = "x"
-	}
-	input := strings.Join(lines, "\n")
-	got := truncateBashOutput(input)
-	assert.Contains(t, got, "[Output truncated:")
-	assert.Contains(t, got, "showing first 2000")
-	gotLines := strings.Count(got, "\n")
-	assert.LessOrEqual(t, gotLines, bashOutputMaxLines+2)
-}
-
-func TestTruncateBashOutput_ByteLimitExceeded(t *testing.T) {
-	// 60 KB of data on 3 lines
-	big := strings.Repeat("a", 60*1024)
-	input := "header\n" + big + "\nfooter"
-	got := truncateBashOutput(input)
-	assert.Contains(t, got, "[Output truncated:")
-	assert.Contains(t, got, "bytes total")
-	assert.LessOrEqual(t, len(got), bashOutputMaxBytes+200)
-}
-
-func TestSanitizeBashOutput_RemovesControlChars(t *testing.T) {
-	input := "hello\x00world\x01\x02\t\nfoo"
-	got := sanitizeBashOutput(input)
-	assert.Equal(t, "helloworld\t\nfoo", got)
-}
-
-func TestSanitizeBashOutput_KeepsTabNewlineCR(t *testing.T) {
-	input := "\t\n\r"
-	assert.Equal(t, input, sanitizeBashOutput(input))
-}
-
-func TestTruncateBashOutput_ExactLimit(t *testing.T) {
-	lines := make([]string, bashOutputMaxLines)
-	for i := range lines {
-		lines[i] = "y"
-	}
-	input := strings.Join(lines, "\n")
-	got := truncateBashOutput(input)
-	assert.Equal(t, input, got)
-}
-
-// --- SQL error paths ---
-
-func TestSQLListTables_QueryError(t *testing.T) {
-	// A file that exists but is not a valid sqlite3 database causes QueryContext to fail.
-	dir := t.TempDir()
-	path := filepath.Join(dir, "corrupt.db")
-	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlListTables(context.Background(), path)
-	require.Error(t, err)
-}
-
-func TestSQLDescribeTable_QueryError(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "corrupt.db")
-	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlDescribeTable(context.Background(), path, "users")
-	require.Error(t, err)
-}
-
-func TestSQLExecQuery_OpenError(t *testing.T) {
-	// Empty dbPath triggers sqlOpenDB error, covering the err != nil branch in sqlExecQuery.
-	_, err := sqlExecQuery(context.Background(), "", "SELECT 1")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "db_path is required")
-}
-
-// --- HTTP build-request error paths (malformed URL) ---
-
-func TestSanitizeBashOutput_InterlinearAnnotation(t *testing.T) {
-	// Runes U+FFF9..U+FFFB (interlinear annotation, unicodeInterlinearStart..End) are stripped.
-	input := "hello\ufff9world\ufffafoo\ufffbbar"
-	got := sanitizeBashOutput(input)
-	assert.Equal(t, "helloworldfoobar", got)
 }
 
 // --- Execute closures via tool.Execute (covers the return callXxx lines) ---
@@ -1215,7 +1018,7 @@ func TestReadFile_RelativePath(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	reg := kdepstools.NewRegistry()
-	registerReadFile(reg)
+	registerReadFile(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"file_path": relName})
@@ -1307,6 +1110,100 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
+}
+
+// TestReadFile_StringOffsetAndLimit covers a fenced-tool backend, where the
+// model writes <parameter name="offset">2</parameter> and the parameter
+// arrives as a string. Both must still window the read.
+func TestReadFile_StringOffsetAndLimit(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-stringoffset-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(content), 0o600))
+
+	args := map[string]any{
+		"file_path": tmpFile.Name(),
+		"offset":    "2",
+		"limit":     "2",
+	}
+	normalizeToolArgs("read_file", args)
+	coerceToolArgTypes(tool.Parameters, args)
+	result, err := tool.Execute(args)
+	require.NoError(t, err)
+	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
+}
+
+// TestReadFile_SecondWindowNotServedFromCache reproduces instrument session
+// kdeps-api-10: read lines 1-180, then ask for offset 1360 / limit 220 with no
+// file_path. The repeat must reach the new window, not return the earlier one.
+func TestReadFile_SecondWindowNotServedFromCache(t *testing.T) {
+	ResetConvergence()
+	t.Cleanup(ResetConvergence)
+	lastFileState.mu.Lock()
+	lastFileState.path = ""
+	lastFileState.mu.Unlock()
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	lines := make([]string, 400)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %d", i+1)
+	}
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-secondwindow-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(strings.Join(lines, "\n")+"\n"), 0o600))
+
+	first, err := tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(),
+		"limit":     "180",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, first, "1\tline 1$")
+	assert.NotContains(t, first, "line 300")
+
+	second, err := tool.Execute(map[string]any{
+		"offset": "300",
+		"limit":  "2",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, second, "300\tline 300$")
+	assert.NotContains(t, second, "line 1$")
+}
+
+// TestReadFile_WindowedReadMarksFileSeen: a windowed read caches under a
+// composite key, so the read-before-edit gate must still see the path as read.
+func TestReadFile_WindowedReadMarksFileSeen(t *testing.T) {
+	ResetConvergence()
+	t.Cleanup(ResetConvergence)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-seen-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("line 1\nline 2\nline 3\n"), 0o600))
+
+	_, err = tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(),
+		"offset":    "2",
+		"limit":     "1",
+	})
+	require.NoError(t, err)
+	assert.True(t, fileSeenThisTurn(tmpFile.Name()))
 }
 
 func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
@@ -1564,7 +1461,7 @@ func TestWriteFile_RelativePath(t *testing.T) {
 	defer func() { _ = os.Remove(relName) }()
 
 	reg := kdepstools.NewRegistry()
-	registerWriteFile(reg)
+	registerWriteFile(t.Context(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
 	_, err = tool.Execute(map[string]any{"file_path": relName, "content": "data"})
@@ -1766,7 +1663,7 @@ func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "w.txt")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
 	reg := kdepstools.NewRegistry()
-	registerWriteFile(reg)
+	registerWriteFile(t.Context(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
 	var buf strings.Builder
@@ -1795,7 +1692,7 @@ func TestWriteToolDiff_NilWriterNoPanic(_ *testing.T) {
 // covered too.
 func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 
@@ -1813,7 +1710,7 @@ func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
 	// with any parallel test's own relative-path I/O. go test always runs
 	// with the package directory as CWD, so this file is guaranteed present.
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"path": "."})
@@ -2168,16 +2065,11 @@ func TestRegisterCodeIntelligenceTools_IndexFolder_InvalidRootPath(t *testing.T)
 // --- googleCacheListTool execute closure ---
 
 func TestGoogleCacheListTool_Execute_HelperInitError(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key-that-causes-init-failure")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("google_cache_list")
-	require.NotNil(t, tool)
-	// Init will fail because the API key is invalid; the error is propagated
-	result, err := tool.Execute(map[string]any{})
-	// May or may not error depending on langchain-go init behavior
-	_ = result
-	_ = err
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheList(t.Context(), nil)
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("list with no key must not dial, got %v", err)
+	}
 }
 
 // --- readLocalFile binary content detection ---
@@ -2505,10 +2397,20 @@ func TestValidateWorkspaceBoundary_RootNoTrailingSlash(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
+func googleCacheTool(t *testing.T, name string) *kdepstools.Tool {
+	t.Helper()
 	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(t.Context(), reg)
+	tool := reg.Get(name)
+	if tool == nil {
+		t.Fatalf("%s was not registered", name)
+	}
+	return tool
+}
+
+func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"content": "test content",
 	})
 	if err == nil {
@@ -2523,9 +2425,7 @@ func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_MissingContent(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"model": "gemini-2.0-flash",
 	})
 	if err == nil {
@@ -2540,9 +2440,7 @@ func TestGoogleCacheCreateTool_Execute_MissingContent(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_InvalidTTL(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheCreateTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{
+	result, err := googleCacheTool(t, "google_cache_create").Execute(map[string]any{
 		"model":   "gemini-2.0-flash",
 		"content": "test content",
 		"ttl":     "not-a-duration",
@@ -2559,25 +2457,18 @@ func TestGoogleCacheCreateTool_Execute_InvalidTTL(t *testing.T) {
 }
 
 func TestGoogleCacheCreateTool_Execute_DefaultTTL(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key")
-	tool := googleCacheCreateTool(context.Background(), "bad-key")
-	result, err := tool.Execute(map[string]any{
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheCreate(t.Context(), map[string]any{
 		"model":   "gemini-2.0-flash",
 		"content": "test content",
 	})
-	// TTL defaults to "1h", then init fails because API key is bad
-	if err == nil {
-		t.Fatal("expected error from helper init with bad key")
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("omitted ttl should pass duration parsing and stop on the missing key, got %v", err)
 	}
-	_ = result
 }
 
-// --- googleCacheDeleteTool execute closure arg validation ---
-
 func TestGoogleCacheDeleteTool_Execute_MissingName(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "test-key")
-	tool := googleCacheDeleteTool(context.Background(), "test-key")
-	result, err := tool.Execute(map[string]any{})
+	result, err := googleCacheTool(t, "google_cache_delete").Execute(map[string]any{})
 	if err == nil {
 		t.Fatal("expected error for missing name")
 	}
@@ -2587,16 +2478,13 @@ func TestGoogleCacheDeleteTool_Execute_MissingName(t *testing.T) {
 }
 
 func TestGoogleCacheDeleteTool_Execute_InitError(t *testing.T) {
-	t.Setenv("GOOGLE_API_KEY", "bad-key")
-	tool := googleCacheDeleteTool(context.Background(), "bad-key")
-	result, err := tool.Execute(map[string]any{
+	t.Setenv("GOOGLE_API_KEY", "")
+	_, err := api.GoogleCacheDelete(t.Context(), map[string]any{
 		"name": "cachedContents/test123",
 	})
-	// Init fails because API key is bad
-	if err == nil {
-		t.Fatal("expected error from helper init with bad key")
+	if err == nil || !strings.Contains(err.Error(), "disabled (GOOGLE_API_KEY is unset)") {
+		t.Fatalf("delete with a name and no key must not dial, got %v", err)
 	}
-	_ = result
 }
 
 // --- writeFileVerified ---
@@ -2607,7 +2495,7 @@ func TestWriteFileVerified_RoundTripsSuccessfully(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 	defer os.Remove(tmpFile.Name())
 
-	err = writeFileVerified(tmpFile.Name(), []byte("hello verified\n"))
+	err = api.WriteFileVerified(tmpFile.Name(), []byte("hello verified\n"))
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(tmpFile.Name())
@@ -2627,7 +2515,7 @@ func TestWriteFileVerified_PermissionErrorAfterRetries(t *testing.T) {
 		os.RemoveAll(tmpDir)
 	}()
 
-	err = writeFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
+	err = api.WriteFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
 	assert.Error(t, err)
 }
 
@@ -2912,7 +2800,7 @@ func TestRegisterListFiles_Execute_Success(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0600))
 	reg := kdepstools.NewRegistry()
-	registerListFiles(reg)
+	registerListFiles(t.Context(), reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 	result, err := tool.Execute(map[string]any{"path": dir})
@@ -2946,4 +2834,31 @@ func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
 	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
 	err := validateWorkspaceBoundary("/any/path")
 	assert.NoError(t, err, "no workspace root means no boundary check")
+}
+
+// TestJSONArgsStripsLoopInjectedKeys is the regression test for API-routed
+// tools failing with "json: unsupported type: <-chan struct {}": the loop
+// injects _ctx/_bg_ch/_interactive into every tool's args, and _bg_ch is a
+// channel that json.Marshal rejects. jsonArgs must drop all three before the
+// args travel to the kdeps API.
+func TestJSONArgsStripsLoopInjectedKeys(t *testing.T) {
+	bg := make(chan struct{})
+	out := jsonArgs(map[string]any{
+		"query":        "tool_calls",
+		"_ctx":         context.Background(),
+		"_bg_ch":       (<-chan struct{})(bg),
+		"_interactive": true,
+	})
+	require.Equal(t, map[string]any{"query": "tool_calls"}, out)
+	if _, err := json.Marshal(out); err != nil {
+		t.Fatalf("jsonArgs output must marshal cleanly: %v", err)
+	}
+}
+
+func TestJSONArgsStripsContextValues(t *testing.T) {
+	out := jsonArgs(map[string]any{
+		"query": "x",
+		"ctx":   context.Background(),
+	})
+	require.Equal(t, map[string]any{"query": "x"}, out)
 }

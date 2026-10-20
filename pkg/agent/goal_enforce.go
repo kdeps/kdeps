@@ -610,7 +610,8 @@ func (l *Loop) SkipActiveTask() *GoalTask {
 //
 //nolint:gochecknoglobals // static lookup table
 var refusalMarkers = []string{
-	"cannot complete", "can't complete", "unable to", "i cannot", "i can't",
+	"cannot complete", "can't complete", "could not complete", "couldn't complete",
+	"unable to", "i cannot", "i can't",
 	"not able to", "no access", "blocked",
 }
 
@@ -620,7 +621,8 @@ var refusalMarkers = []string{
 // resolveEmptyToolRound's give-up nudge (loop.go) so both readings of "the
 // model gave up" use the same list and never drift apart.
 func looksLikeGiveUp(content string) bool {
-	lower := strings.ToLower(content)
+	// Models emit U+2019 ("couldn’t"); every marker here is ASCII.
+	lower := strings.ToLower(strings.ReplaceAll(content, "’", "'"))
 	for _, m := range refusalMarkers {
 		if strings.Contains(lower, m) {
 			return true

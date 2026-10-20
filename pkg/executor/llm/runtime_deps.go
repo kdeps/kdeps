@@ -271,28 +271,38 @@ var (
 	execSudoInstallFn = execSudoInstall
 )
 
+// sudoInstallArgs is the package-manager argv, without sudo.
+// apt-get and dnf take "install -y". pacman takes "-S --noconfirm".
+// apk has no install subcommand; Alpine installs with "add".
+func sudoInstallArgs(manager, pkg string) []string {
+	switch manager {
+	case "pacman":
+		return []string{manager, "-S", "--noconfirm", pkg}
+	case "apk":
+		return []string{manager, "add", pkg}
+	default:
+		return []string{manager, "install", "-y", pkg}
+	}
+}
+
 // runSudoInstall runs the platform-appropriate install command under sudo,
 // with stdio inherited so an interactive password prompt is visible and can
-// be answered -- CombinedOutput()-style capture can't do either. If no
-// terminal is attached (CI, piped output), a password prompt would just hang
-// forever with nothing to answer it, so this fails fast with the manual
-// command instead of attempting it.
+// be answered. If no terminal is attached, a password prompt would hang, so
+// this fails fast with the same command execSudoInstall would run.
 func runSudoInstall(manager, pkg string) error {
+	manual := strings.Join(sudoInstallArgs(manager, pkg), " ")
 	if !stdinIsTerminalFn() {
 		return fmt.Errorf(
-			"no terminal attached for an interactive sudo prompt; run manually: sudo %s install -y %s",
-			manager, pkg,
+			"no terminal attached for an interactive sudo prompt; run manually: sudo %s",
+			manual,
 		)
 	}
 	return execSudoInstallFn(manager, pkg)
 }
 
 func execSudoInstall(manager, pkg string) error {
-	args := []string{manager, "install", "-y", pkg}
-	if manager == "pacman" {
-		args = []string{manager, "-S", "--noconfirm", pkg}
-	}
-	cmd := exec.CommandContext(context.Background(), "sudo", args...)
+	//nolint:gosec // G204: argv is sudoInstallArgs, a fixed package-manager command, not a shell line
+	cmd := exec.CommandContext(context.Background(), "sudo", sudoInstallArgs(manager, pkg)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

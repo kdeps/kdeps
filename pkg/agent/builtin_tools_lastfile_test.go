@@ -67,7 +67,6 @@ func TestReadFile_FallsBackToLastFile(t *testing.T) {
 	assert.Equal(t, fpath, lastFile())
 
 	// A follow-up read with only offset/limit reuses that path.
-	ResetConvergence() // clear the read cache so the second call actually re-reads
 	out, err = read.Execute(map[string]any{"offset": float64(3), "limit": float64(1)})
 	require.NoError(t, err)
 	assert.Contains(t, out, "line 3")

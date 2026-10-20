@@ -19,7 +19,11 @@ import (
 // runLlamaFitTimeout bounds the llmfit subprocess. It normally returns in
 // <1s; this is a backstop against a slow or hung first invocation (e.g.
 // building its own hardware/model database) blocking startup indefinitely.
-const runLlamaFitTimeout = 10 * time.Second
+// A variable so tests can lengthen it: the machine-wide test suite can starve
+// process startup past 10s, which says nothing about llmfit.
+//
+//nolint:gochecknoglobals // test-replaceable
+var runLlamaFitTimeout = 10 * time.Second
 
 // ScoredModelCandidate is one model llmfit-scoring can be attempted against:
 // a bare alias plus every string worth matching against llmfit's own model

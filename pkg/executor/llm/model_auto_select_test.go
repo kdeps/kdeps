@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -348,6 +349,16 @@ func TestBestInstalled_NoCandidates(t *testing.T) {
 
 // --- RunLlamaFit ---------------------------------------------------------
 
+// allowSlowLlamaFit raises the llmfit subprocess budget for the duration of a
+// test. The default 10s is a product backstop; under a full-suite run the OS
+// can take that long to start the shim, which is not what the test measures.
+func allowSlowLlamaFit(t *testing.T) {
+	t.Helper()
+	orig := runLlamaFitTimeout
+	runLlamaFitTimeout = time.Minute
+	t.Cleanup(func() { runLlamaFitTimeout = orig })
+}
+
 // fakeLlamaFitBinary writes a fake `llmfit` shim that prints fixture and
 // prepends its directory to PATH -- prepend, not replace, so the shim's own
 // `cat` (used to emit the fixture) still resolves via the rest of PATH.
@@ -356,6 +367,7 @@ func fakeLlamaFitBinary(t *testing.T, fixture string) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake llmfit shim is a #!/bin/sh heredoc script; not runnable on Windows")
 	}
+	allowSlowLlamaFit(t)
 	dir := t.TempDir()
 	script := "#!/bin/sh\ncat <<'EOF'\n" + fixture + "\nEOF\n"
 	fake := filepath.Join(dir, "llmfit")
@@ -448,6 +460,7 @@ func TestRunLlamaFitCached_MemoizesAcrossCalls(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake llmfit shim is a #!/bin/sh heredoc script; not runnable on Windows")
 	}
+	allowSlowLlamaFit(t)
 
 	dir := t.TempDir()
 	counterFile := filepath.Join(dir, "calls")

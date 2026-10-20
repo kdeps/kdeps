@@ -187,8 +187,9 @@ func TestManager_EnsureVenv_AlreadyExists(t *testing.T) {
 
 	// Create a venv directory that finished building
 	venvPath := filepath.Join(manager.BaseDir, "venv-3.12")
-	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(venvPath, "bin"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, "bin", "python"), []byte("#!/bin/sh\n"), 0o755))
 
 	// Try to ensure the same venv
 	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
@@ -704,6 +705,7 @@ func TestManager_EnsureVenv_VenvNameReusesExisting(t *testing.T) {
 	customVenvName := "existing-env"
 	venvPath := filepath.Join(manager.BaseDir, customVenvName)
 	require.NoError(t, os.MkdirAll(venvPath, 0755))
+	require.NoError(t, writeFakePython(venvPath))
 	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv with venv name
@@ -754,6 +756,16 @@ func TestGetVenvName_OneSetOneNameInAnyOrder(t *testing.T) {
 	assert.Equal(t, a, b, "components merge in map order: the same set must name the same venv")
 }
 
+// writeFakePython builds the minimum a real `uv venv` leaves behind: the
+// interpreter EnsureVenv is expected to hand out.
+func writeFakePython(venvPath string) error {
+	bin := filepath.Join(venvPath, "bin")
+	if err := os.MkdirAll(bin, 0o750); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(bin, "python"), []byte("#!/bin/sh\n"), 0o755)
+}
+
 func TestEnsureVenv_RebuildsAHalfBuiltVenv(t *testing.T) {
 	base := t.TempDir()
 	m := python.NewManager(base)
@@ -766,7 +778,7 @@ func TestEnsureVenv_RebuildsAHalfBuiltVenv(t *testing.T) {
 	python.RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		calls = append(calls, args)
 		if args[0] == "venv" {
-			return os.MkdirAll(filepath.Join(args[len(args)-1], "bin"), 0o750)
+			return writeFakePython(args[len(args)-1])
 		}
 		return nil
 	}
@@ -791,7 +803,7 @@ func TestEnsureVenv_FailedInstallIsNotTrustedNextTime(t *testing.T) {
 	failInstall := true
 	python.RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
-			return os.MkdirAll(args[len(args)-1], 0o750)
+			return writeFakePython(args[len(args)-1])
 		}
 		if failInstall {
 			return errors.New("network down")
@@ -806,6 +818,37 @@ func TestEnsureVenv_FailedInstallIsNotTrustedNextTime(t *testing.T) {
 	path, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
+}
+
+func TestEnsureVenv_RebuildsAVenvWhoseInterpreterDisappeared(t *testing.T) {
+	base := t.TempDir()
+	m := python.NewManager(base)
+	name := m.GetVenvName("3.12", []string{"playwright"}, "")
+	venvPath := filepath.Join(base, name)
+	// A venv built while HOME was a temporary directory: uv managed Python
+	// under that HOME, and bin/python is a symlink left dangling when it went.
+	// A marker with no interpreter behind it is the same state to os.Stat.
+	require.NoError(t, os.MkdirAll(filepath.Join(venvPath, "bin"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
+
+	var calls [][]string
+	orig := python.RunUVFunc
+	python.RunUVFunc = func(_ context.Context, args []string, _ []string) error {
+		calls = append(calls, args)
+		if args[0] == "venv" {
+			return writeFakePython(args[len(args)-1])
+		}
+		return nil
+	}
+	t.Cleanup(func() { python.RunUVFunc = orig })
+
+	path, err := m.EnsureVenv("3.12", []string{"playwright"}, "", "")
+	require.NoError(t, err)
+	assert.Equal(t, venvPath, path)
+	require.Len(t, calls, 2, "a marker with no working interpreter is rebuilt")
+	assert.Contains(t, calls[1], "playwright")
+	_, err = m.GetPythonPath(path)
+	require.NoError(t, err)
 }
 
 func TestGetVenvName_SpecifiersMakeASafeName(t *testing.T) {

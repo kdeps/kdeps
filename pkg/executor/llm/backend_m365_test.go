@@ -29,6 +29,68 @@ func TestM365Backend_Name(t *testing.T) {
 	assert.Equal(t, "m365", b.Name())
 }
 
+// The local M365 server streams upstream failures as assistant text because an
+// OpenAI-compatible client has no other channel for them. The executor must
+// turn that marker back into an error, or a dropped Copilot stream is saved as
+// the model's answer (instrument session kdeps-api-11 event 167).
+func TestM365ContentError(t *testing.T) {
+	assert.NoError(t, m365ContentError(backendM365, "ordinary answer"))
+	assert.NoError(t, m365ContentError(backendM365, "a note: [m365 error: x] inside prose"))
+	assert.NoError(t, m365ContentError(backendM365, "[m365 error: ]"))
+	assert.NoError(t, m365ContentError(backendAnthropic, "[m365 error: boom]"))
+
+	err := m365ContentError(
+		backendM365, "[m365 error: m365: read frame: read: connection reset by peer]")
+	require.Error(t, err)
+	assert.Equal(t, "m365: read frame: read: connection reset by peer", err.Error())
+
+	err = m365ContentError(
+		backendM365, "  [m365 error: M365 Copilot returned an empty response]  ")
+	require.Error(t, err)
+	assert.Equal(t, "m365: M365 Copilot returned an empty response", err.Error())
+}
+
+// Copilot reports throttling as a plain-text apology, not an error frame
+// (instrument sessions kdeps-api-4 events 142-180, kdeps-api-5 events 3 and 6).
+// It must reach the loop as a rate-limit error, never as the answer.
+func TestM365ContentError_ThrottleApology(t *testing.T) {
+	err := m365ContentError(backendM365,
+		"We're temporarily unable to respond to this volume of requests. Please try again later.")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rate limited")
+
+	err = m365ContentError(backendM365,
+		"  We're temporarily unable to respond to this volume of requests.")
+	require.Error(t, err)
+
+	// Quoting the apology inside an answer is not throttling.
+	assert.NoError(t, m365ContentError(backendM365,
+		"Copilot replied: We're temporarily unable to respond to this volume of requests."))
+}
+
+// Workflow mode reads the local server's non-streaming response through
+// ParseResponse; the same marker must not become the chat output there.
+func TestM365Backend_ParseResponse_UpstreamError(t *testing.T) {
+	respond := func(content string) *stdhttp.Response {
+		body := `{"id":"x","object":"chat.completion","model":"m365","choices":[` +
+			`{"index":0,"message":{"role":"assistant","content":"` + content + `"},` +
+			`"finish_reason":"stop"}]}`
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Header:     make(stdhttp.Header),
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}
+	}
+
+	_, err := (&M365Backend{}).ParseResponse(respond("[m365 error: m365: read frame: reset]"))
+	require.Error(t, err)
+	assert.Equal(t, "m365: read frame: reset", err.Error())
+
+	out, err := (&M365Backend{}).ParseResponse(respond("ordinary answer"))
+	require.NoError(t, err)
+	assert.Equal(t, "ordinary answer", out["message"].(map[string]any)["content"])
+}
+
 func TestM365Backend_DefaultURL_StartsLocalServer(t *testing.T) {
 	b := &M365Backend{}
 	url := b.DefaultURL()

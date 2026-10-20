@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: code_search
+  description: Search for a symbol through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: File or directory to search
+    - name: query
+      type: string
+      required: true
+      description: Symbol name or search pattern
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search for a symbol
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/code_search/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        path: "{{ get('code_search.path') }}"
+        query: "{{ get('code_search.query') }}"

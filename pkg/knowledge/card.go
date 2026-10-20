@@ -266,7 +266,7 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 		"| Source | Path |\n|---|---|\n| %s | %s |\n",
 		frontDelim, yamlScalar(noneText), now.Format(time.DateOnly), frontDelim, source, place)
 	file := filepath.Join(dir, name+mdExt)
-	if err := os.WriteFile(file, []byte(body), filePerm); err != nil {
+	if err := writeFileAtomic(file, body); err != nil {
 		return nil, false, err
 	}
 	c, err := ReadCard(file)
@@ -462,7 +462,7 @@ func (c *Card) AddLink(source, place string) error {
 		text += "\n| Source | Path |\n|---|---|"
 	}
 	text += "\n| " + source + " | " + place + " |\n"
-	if err = os.WriteFile(c.File, []byte(text), filePerm); err != nil {
+	if err = writeFileAtomic(c.File, text); err != nil {
 		return err
 	}
 	updated, err := ReadCard(c.File)
@@ -504,7 +504,7 @@ func (c *Card) Update(status, next string, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	if innerErr := os.WriteFile(c.File, []byte(out), filePerm); innerErr != nil {
+	if innerErr := writeFileAtomic(c.File, out); innerErr != nil {
 		return innerErr
 	}
 	updated, err := ReadCard(c.File)

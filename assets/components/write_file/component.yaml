@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: write_file
+  description: Write or overwrite a text file through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file_path
+      type: string
+      required: true
+      description: Path of the file to write
+    - name: content
+      type: string
+      required: true
+      description: Text to write
+  # body is the byte confirmation. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Write file
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/write_file/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        file_path: "{{ get('write_file.file_path') }}"
+        content: "{{ get('write_file.content') }}"

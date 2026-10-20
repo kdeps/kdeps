@@ -238,6 +238,43 @@ func TestParseFencedToolCalls_ChainedInvokeDoesNotLeakIntoBody(t *testing.T) {
 // way the old greedy fenceRegex was made immune to it: the closing
 // </parameter> is a far rarer substring than "```" to find inside real file
 // content, and parseFinalParam is greedy through to the LAST occurrence.
+func TestParseFencedToolCalls_InvokeInsideMarkdownFenceIsNotACall(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{bashExecToolDef()})
+	text := "Example:\n\n```text\n" +
+		"<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n" +
+		"```\n"
+	calls, leftover := ParseFencedToolCalls(text, specs)
+	if len(calls) != 0 {
+		t.Fatalf("fenced example dispatched: %+v", calls)
+	}
+	if !strings.Contains(leftover, "pwd") {
+		t.Fatalf("example was stripped: %q", leftover)
+	}
+}
+
+func TestParseFencedToolCalls_UnfencedInvokeBesideFencedExample(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{bashExecToolDef()})
+	text := "<invoke name=\"bash_exec\"><parameter name=\"command\">pwd</parameter></invoke>\n\n" +
+		"```text\n<invoke name=\"bash_exec\"><parameter name=\"command\">rm -rf /</parameter></invoke>\n```\n"
+	calls, leftover := ParseFencedToolCalls(text, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	if calls[0].Name != "bash_exec" {
+		t.Fatalf("name = %s", calls[0].Name)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["command"] != "pwd" {
+		t.Fatalf("command = %#v", args["command"])
+	}
+	if !strings.Contains(leftover, "rm -rf /") {
+		t.Fatalf("fenced example removed: %q", leftover)
+	}
+}
+
 func TestParseFencedToolCalls_ContentWithNestedFence(t *testing.T) {
 	tools := []ToolDef{writeToolDef()}
 	specs := BuildSpecMap(tools)
@@ -475,6 +512,58 @@ func TestParseFencedShellRouting(t *testing.T) {
 	)
 	if len(calls) != 1 || calls[0].Name != "bash" {
 		t.Fatalf("calls = %+v", calls)
+	}
+}
+
+// The shapes below are what a live M365 session wrote when it meant to run
+// a shell command. Each one used to become a bash call with no command.
+func TestParseFencedShellRouting_CommandOutsideParameterTag(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{shellToolDef()})
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "plain body",
+			in:   "<<invoke name=\"bash\">\nls -la && cat README.md\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "attribute",
+			in:   "<<invoke name=\"bash\" command=\"ls -la && cat README.md\">\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "body assignment",
+			in:   "<invoke name=\"bash\">\ncommand=\"ls -la && cat README.md\"\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "body colon",
+			in:   "<invoke name=\"bash\">\ncommand: ls -la && cat README.md\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+		{
+			name: "json body",
+			in:   "<invoke name=\"bash\">\n{\"command\":\"ls -la && cat README.md\"}\n</invoke>",
+			want: "ls -la && cat README.md",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _ := ParseFencedToolCalls(tc.in, specs)
+			if len(calls) != 1 {
+				t.Fatalf("calls = %+v", calls)
+			}
+			var args map[string]string
+			if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+				t.Fatal(err)
+			}
+			if args["command"] != tc.want {
+				t.Fatalf("command = %q", args["command"])
+			}
+		})
 	}
 }
 
@@ -1551,7 +1640,7 @@ func TestDeriveSpecFromArgs(t *testing.T) {
 
 func TestParseFencedInnerEditPairMismatch(t *testing.T) {
 	spec := DeriveFencedSpec(editToolDef())
-	if _, ok := parseFencedInner(spec, "no search/replace markers here"); ok {
+	if _, ok := parseFencedInner(spec, "", "no search/replace markers here"); ok {
 		t.Error("malformed edit body should fail to parse")
 	}
 }

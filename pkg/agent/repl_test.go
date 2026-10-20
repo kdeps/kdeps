@@ -987,6 +987,35 @@ func TestProcessInput_TextMessage(t *testing.T) {
 	assert.Len(t, repl.history, 1)
 }
 
+// TestProcessInput_ControlOnlyIsNotATurn is the regression test for instrument
+// session kdeps-api-9, where a stray Ctrl-X (U+0018) was submitted as a prompt
+// and the model spent a turn answering "the user's message just says ...".
+func TestProcessInput_ControlOnlyIsNotATurn(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	called := false
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		called = true
+		return "mock response", nil
+	}
+	for _, input := range []string{"\x18", "\x1b", "\x18\x1b\n", " \x18 "} {
+		assert.NoError(t, repl.processInput(input))
+	}
+	assert.False(t, called, "a control-character-only line must not start a model turn")
+	assert.Empty(t, repl.history)
+}
+
+func TestHasVisibleText(t *testing.T) {
+	assert.True(t, hasVisibleText("hello"))
+	assert.True(t, hasVisibleText("\x18hi"))
+	assert.True(t, hasVisibleText("hi\n"))
+	assert.False(t, hasVisibleText(""))
+	assert.False(t, hasVisibleText(" \t\n"))
+	assert.False(t, hasVisibleText("\x18"))
+}
+
 func TestProcessInput_RunError(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

@@ -1,0 +1,104 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: edit_file
+  description: Edit a file through the kdeps API and return the changed snippet
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file_path
+      type: string
+      required: true
+      description: Path of the file to edit
+    - name: command
+      type: string
+      description: view, str_replace, insert, patch, replace_symbol, or undo_edit. Empty is inferred
+    - name: old_str
+      type: string
+      description: Exact text to replace
+    - name: new_str
+      type: string
+      description: Replacement or inserted text
+    - name: insert_line
+      type: number
+      description: Line to insert after. 0 inserts at the top. Omit to use an anchor
+    - name: patch
+      type: string
+      description: Unified diff to apply
+    - name: symbol
+      type: string
+      description: Declaration name for view or replace_symbol
+    - name: symbol_kind
+      type: string
+      description: Narrow a shared name to function or type
+    - name: anchor
+      type: string
+      description: Unique string a view is centered on
+    - name: start_anchor
+      type: string
+      description: Start of a str_replace range
+    - name: end_anchor
+      type: string
+      description: End of a str_replace range
+    - name: insert_before_anchor
+      type: string
+      description: Insert before this unique string
+    - name: insert_after_anchor
+      type: string
+      description: Insert after this unique string
+    - name: view_range
+      type: array
+      description: "[start, end] 1-based inclusive line range. end -1 reads to the end"
+    - name: context_before
+      type: number
+      description: Lines before an anchor or symbol
+    - name: context_after
+      type: number
+      description: Lines after an anchor or symbol
+    - name: occurrence
+      type: number
+      description: 1-based match to replace when old_str is not unique
+    - name: revision
+      type: string
+      description: Revision from the last view. A mismatch rejects the edit
+    - name: dry_run
+      type: boolean
+      description: Preview the edit and do not write
+    - name: validate_syntax
+      type: boolean
+      description: Reject the edit when the result fails a syntax check
+  # body is the numbered snippet. The HTTP envelope stays inside the call.
+  # A workflow call has no session, so it does not need a prior read.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Edit file
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/edit_file/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        file_path: "{{ get('edit_file.file_path') }}"
+        command: "{{ get('edit_file.command') }}"
+        old_str: "{{ get('edit_file.old_str') }}"
+        new_str: "{{ get('edit_file.new_str') }}"
+        insert_line: "{{ get('edit_file.insert_line') }}"
+        patch: "{{ get('edit_file.patch') }}"
+        symbol: "{{ get('edit_file.symbol') }}"
+        symbol_kind: "{{ get('edit_file.symbol_kind') }}"
+        anchor: "{{ get('edit_file.anchor') }}"
+        start_anchor: "{{ get('edit_file.start_anchor') }}"
+        end_anchor: "{{ get('edit_file.end_anchor') }}"
+        insert_before_anchor: "{{ get('edit_file.insert_before_anchor') }}"
+        insert_after_anchor: "{{ get('edit_file.insert_after_anchor') }}"
+        view_range: "{{ get('edit_file.view_range') }}"
+        context_before: "{{ get('edit_file.context_before') }}"
+        context_after: "{{ get('edit_file.context_after') }}"
+        occurrence: "{{ get('edit_file.occurrence') }}"
+        revision: "{{ get('edit_file.revision') }}"
+        dry_run: "{{ get('edit_file.dry_run') }}"
+        validate_syntax: "{{ get('edit_file.validate_syntax') }}"

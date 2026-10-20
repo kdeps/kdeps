@@ -23,9 +23,12 @@ import (
 	"encoding/json"
 	"io"
 	stdhttp "net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,6 +41,30 @@ func TestGGUFBackend_Name(t *testing.T) {
 func TestGGUFBackend_DefaultURL(t *testing.T) {
 	b := &GGUFBackend{}
 	assert.Equal(t, BackendGGUFHostURL, b.DefaultURL())
+}
+
+func TestNeedsGGUFDownload(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	orig := AppFS
+	t.Cleanup(func() { AppFS = orig })
+	AppFS = afero.NewOsFs()
+
+	assert.False(t, NeedsGGUFDownload(""))
+	assert.False(t, NeedsGGUFDownload("/tmp/already.gguf"))
+	assert.False(t, NeedsGGUFDownload("local.gguf"))
+
+	url := "https://example.com/weights/model.gguf"
+	assert.True(t, NeedsGGUFDownload(url))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "model.gguf"), []byte("gguf"), 0o644))
+	assert.False(t, NeedsGGUFDownload(url))
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "model.gguf.aria2"), []byte("partial"), 0o644))
+	assert.True(t, NeedsGGUFDownload(url))
+
+	if names := GGUFAliasNames(); len(names) > 0 {
+		assert.True(t, NeedsGGUFDownload(names[0]), "uncached alias still needs a download")
+	}
 }
 
 func TestGGUFBackend_ChatEndpoint(t *testing.T) {

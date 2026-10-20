@@ -31,8 +31,13 @@ func (e *Executor) walk(config *domain.SearchLocalConfig) ([]map[string]interfac
 	var results []map[string]interface{}
 	limitHit := false
 
+	var matcher *queryMatcher
+	if config.Query != "" {
+		matcher = newQueryMatcher(config.Query)
+	}
+
 	walkErr := filepath.WalkDir(config.Path, func(path string, d fs.DirEntry, err error) error {
-		return e.walkEntry(path, d, err, config, &results, &limitHit)
+		return e.walkEntry(path, d, err, config, matcher, &results, &limitHit)
 	})
 
 	if walkErr != nil && !limitHit {
@@ -49,6 +54,7 @@ func (e *Executor) walkEntry(
 	d fs.DirEntry,
 	err error,
 	config *domain.SearchLocalConfig,
+	matcher *queryMatcher,
 	results *[]map[string]interface{},
 	limitHit *bool,
 ) error {
@@ -56,7 +62,7 @@ func (e *Executor) walkEntry(
 		return nil //nolint:nilerr // intentionally skip unreadable entries and directories
 	}
 
-	ok, filterErr := e.matchesFilters(path, d, config)
+	ok, filterErr := e.matchesFilters(path, d, config, matcher)
 	if filterErr != nil {
 		return filterErr
 	}

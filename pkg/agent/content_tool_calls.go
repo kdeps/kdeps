@@ -47,10 +47,15 @@ var (
 	// Anthropic-style tool call written as text:
 	//   <function_calls><invoke name="TOOL"><parameter name="K">V</parameter>...</invoke></function_calls>
 	// (with or without the wrapper, with or without an "antml:" prefix).
+	// One extra leading "<" is accepted: models write "<<invoke" when told
+	// the tag must be literal. The second capture is attributes after the
+	// name (command="..."); the third is the body.
 	invokeRe = regexp.MustCompile(
-		`(?s)<(?:[a-z]+:)?invoke\s+name\s*=\s*"([^"]+)"\s*>(.*?)</(?:[a-z]+:)?invoke\s*>`,
+		`(?s)<{1,2}(?:[a-z]+:)?invoke\s+name\s*=\s*"([^"]+)"([^>]*)>(.*?)</(?:[a-z]+:)?invoke\s*>`,
 	)
-	parameterRe = regexp.MustCompile(
+	invokeAttrRe   = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"`)
+	looseArgLineRe = regexp.MustCompile(`(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(.*)$`)
+	parameterRe    = regexp.MustCompile(
 		`(?s)<(?:[a-z]+:)?parameter\s+name\s*=\s*"([^"]+)"\s*>(.*?)</(?:[a-z]+:)?parameter\s*>`,
 	)
 	functionCallsWrapRe = regexp.MustCompile(`(?i)</?(?:[a-z]+:)?function_calls\s*>`)
@@ -68,6 +73,18 @@ var (
 	dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
 	// dsmlTagRe matches a stray DSML tag left by a truncated/malformed block.
 	dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
+	// dsmlInvokeTagRe matches DeepSeek's DSML-wrapped invoke/parameter form:
+	//   <｜｜DSML｜｜ calls>
+	//   <｜｜DSML｜｜ invoke name="bash_exec">
+	//   <｜｜DSML｜｜ parameter name="command" string="true">pwd</｜｜DSML｜｜ parameter>
+	//   </｜｜DSML｜｜ invoke>
+	//   </｜｜DSML｜｜ calls>
+	// It is the same element structure as the Anthropic text form, with a
+	// model-control-token prefix and a string="true" attribute on parameters.
+	dsmlInvokeTagRe = regexp.MustCompile(
+		`(?i)<(/?)｜+\s*DSML\s*｜+\s*(invoke|parameter)((?:\s[^>]*)?)>`,
+	)
+	dsmlNameAttrRe = regexp.MustCompile(`name\s*=\s*"([^"]+)"`)
 
 	// multiSlashClosingTagRe matches "<" followed by two or more literal "/"
 	// characters -- some models write a closing tag as "<//invoke>" or
@@ -77,17 +94,6 @@ var (
 	// the backslash-escaped case above, so collapsing the run down to a
 	// single "/" before any tag matching runs is required, not cosmetic.
 	multiSlashClosingTagRe = regexp.MustCompile(`<//+`)
-
-	// fencedCodeBlockRe matches a triple-backtick or triple-tilde fenced code
-	// block (optional language tag on the opening fence, DOTALL body, closes
-	// on the nearest fence of either style). A block explaining the
-	// <invoke>/<parameter> tool-call syntax -- exactly what use-kdeps-tools.yaml
-	// teaches models to write -- would otherwise be indistinguishable from a
-	// real text-fallback tool call to every regex below, which run over the
-	// whole reply with no notion of "inside a fence." protectFencedCodeBlocks/
-	// restoreFencedCodeBlocks swap fenced spans out before salvage runs and
-	// back in afterward so example code can never be stripped or misparsed.
-	fencedCodeBlockRe = regexp.MustCompile("(?s)(```|~~~)[^\n]*\n.*?\n(```|~~~)")
 )
 
 // fencedCodeBlockPlaceholder brackets a block's index while it is swapped out
@@ -98,13 +104,25 @@ const fencedCodeBlockPlaceholder = "\x00KDEPSFENCE\x00"
 // protectFencedCodeBlocks replaces every fenced code block in content with a
 // placeholder and returns the placeholder'd text plus the blocks in order, for
 // restoreFencedCodeBlocks to put back once salvage/strip processing is done.
+// Invoke recovery does not use this swap: a fence inside a parameter value
+// would become the placeholder in the arguments. Spans decide which invokes
+// are examples; this swap only hides example markup from the other regexes.
 func protectFencedCodeBlocks(content string) (string, []string) {
-	var blocks []string
-	protected := fencedCodeBlockRe.ReplaceAllStringFunc(content, func(m string) string {
-		blocks = append(blocks, m)
-		return fencedCodeBlockPlaceholder + strconv.Itoa(len(blocks)-1) + fencedCodeBlockPlaceholder
-	})
-	return protected, blocks
+	spans := toolcall.MarkdownFenceSpans(content)
+	if len(spans) == 0 {
+		return content, nil
+	}
+	blocks := make([]string, len(spans))
+	var b strings.Builder
+	prev := 0
+	for i, sp := range spans {
+		b.WriteString(content[prev:sp[0]])
+		blocks[i] = content[sp[0]:sp[1]]
+		b.WriteString(fencedCodeBlockPlaceholder + strconv.Itoa(i) + fencedCodeBlockPlaceholder)
+		prev = sp[1]
+	}
+	b.WriteString(content[prev:])
+	return b.String(), blocks
 }
 
 // restoreFencedCodeBlocks reverses protectFencedCodeBlocks.
@@ -123,9 +141,73 @@ func restoreFencedCodeBlocks(content string, blocks []string) string {
 // <observation> removed and trimmed; hallucinated is true when such a
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
-	protected, fences := protectFencedCodeBlocks(content)
+	repaired := normalizeDSMLInvokes(repairInvokeClosers(content))
+	// Take unfenced invokes from the repaired text so a fence inside a
+	// parameter stays in the arguments. Fenced examples stay in the remainder
+	// and are swapped out before the other regexes run.
+	invokeCalls, remainder := takeUnfencedInvokes(repaired)
+	protected, fences := protectFencedCodeBlocks(remainder)
 	calls, cleaned, hallucinated := salvageUnfencedContentToolCalls(protected)
+	calls = append(calls, invokeCalls...)
 	return calls, restoreFencedCodeBlocks(cleaned, fences), hallucinated
+}
+
+// normalizeDSMLInvokes rewrites DeepSeek DSML-wrapped invoke/parameter tags
+// into the plain Anthropic-style tags the rest of this file parses. The
+// wrapper <｜｜DSML｜｜ calls> tags are left for dsmlTagRe to strip. Without this
+// rewrite the whole block reads as prose: no tool_call event is emitted, the
+// model's call is dropped, and the loop nudges it into repeating the same
+// markup until the turn ends.
+func normalizeDSMLInvokes(content string) string {
+	if !strings.Contains(content, "DSML") || !strings.Contains(content, "｜") {
+		return content
+	}
+	return dsmlInvokeTagRe.ReplaceAllStringFunc(content, func(tag string) string {
+		m := dsmlInvokeTagRe.FindStringSubmatch(tag)
+		name := strings.ToLower(m[2])
+		if m[1] == "/" {
+			return "</" + name + ">"
+		}
+		if name == "parameter" {
+			// parameterRe accepts name="..." immediately before ">"; DSML adds
+			// string="true" (and sometimes other attributes) after it.
+			if a := dsmlNameAttrRe.FindStringSubmatch(m[3]); a != nil {
+				return `<parameter name="` + a[1] + `">`
+			}
+			return "<parameter>"
+		}
+		return "<" + name + m[3] + ">"
+	})
+}
+
+// repairInvokeClosers undoes two ways a model mangles a closing tag:
+// "<\/invoke>" (a JSON-string slash escape) and "<//invoke>" / "<///parameter>"
+// (an extra literal slash). Neither form matches the tag regexes.
+func repairInvokeClosers(content string) string {
+	content = strings.ReplaceAll(content, `<\/`, "</")
+	return multiSlashClosingTagRe.ReplaceAllString(content, "</")
+}
+
+// takeUnfencedInvokes returns invokes whose opening tag is outside a markdown
+// fence, and content with those spans removed. An invoke inside ``` or ~~~
+// stays put: it is an example, not a call.
+func takeUnfencedInvokes(content string) ([]domain.StreamedToolCall, string) {
+	fences := toolcall.MarkdownFenceSpans(content)
+	var calls []domain.StreamedToolCall
+	var cut [][2]int
+	for _, loc := range invokeRe.FindAllStringSubmatchIndex(content, -1) {
+		if toolcall.IndexInSpans(loc[0], fences) {
+			continue
+		}
+		name := content[loc[2]:loc[3]]
+		attrs := content[loc[4]:loc[5]]
+		body := content[loc[6]:loc[7]]
+		calls = append(calls, domain.StreamedToolCall{
+			Name: name, Arguments: invokeArguments(name, attrs, body),
+		})
+		cut = append(cut, [2]int{loc[0], loc[1]})
+	}
+	return calls, toolcall.RemoveSpans(content, cut)
 }
 
 // salvageUnfencedContentToolCalls is salvageContentToolCalls's original body,
@@ -133,17 +215,7 @@ func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string,
 // placeholders (see protectFencedCodeBlocks).
 func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
-	// A model that treats this text-fallback markup as a JSON string it's
-	// embedding (rather than the literal tags kdeps expects) sometimes
-	// escapes every "/" as "\/" -- a legal, no-op JSON string escape, but it
-	// turns "</invoke>" into "<\/invoke>", which none of the tag regexes
-	// below match, silently dropping the whole call. "<\/" has no other
-	// meaning here, so repairing it unconditionally is safe.
-	cleaned := strings.ReplaceAll(content, `<\/`, "</")
-	// Separately, some models mangle a closing tag with an extra literal
-	// slash instead ("<//invoke>", "<///parameter>") -- same failure, no
-	// backslash involved.
-	cleaned = multiSlashClosingTagRe.ReplaceAllString(cleaned, "</")
+	cleaned := normalizeDSMLInvokes(repairInvokeClosers(content))
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {
@@ -162,7 +234,7 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	// Anthropic <invoke name="..."><parameter name="...">...</parameter></invoke>.
 	for _, m := range invokeRe.FindAllStringSubmatch(cleaned, -1) {
 		calls = append(calls, domain.StreamedToolCall{
-			Name: m[1], Arguments: parametersToJSON(m[2]),
+			Name: m[1], Arguments: invokeArguments(m[1], m[2], m[3]),
 		})
 	}
 	cleaned = invokeRe.ReplaceAllString(cleaned, "")
@@ -228,6 +300,100 @@ func collectTagCalls(
 		}
 	}
 	return calls, re.ReplaceAllString(text, "")
+}
+
+// invokeArguments turns one <invoke> into a JSON arguments object.
+// Parameter tags win. Otherwise attributes on the opening tag, a JSON object
+// body, or `key: value` / `key="value"` lines. A shell invoke whose body is
+// plain text (no tags) uses that text as command: models write the command
+// where the parameter element should be, and an empty object then fails
+// bash_exec with "command is required".
+func invokeArguments(name, attrs, body string) string {
+	if args := parametersToJSON(body); args != "{}" {
+		return args
+	}
+	obj := map[string]json.RawMessage{}
+	for _, a := range invokeAttrRe.FindAllStringSubmatch(attrs, -1) {
+		obj[a[1]] = json.RawMessage(jsonString(html.UnescapeString(a[2])))
+	}
+	if len(obj) == 0 {
+		obj = looseInvokeObject(body)
+	}
+	if len(obj) == 0 {
+		text := strings.TrimSpace(body)
+		if text != "" && !strings.Contains(text, "<") && isShellInvokeName(name) {
+			obj = map[string]json.RawMessage{
+				"command": json.RawMessage(jsonString(html.UnescapeString(text))),
+			}
+		}
+	}
+	return marshalArgObject(obj)
+}
+
+// isShellInvokeName reports names whose plain-text body is a shell command.
+func isShellInvokeName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "bash", "bash_exec", "sh", "shell", "zsh", "console":
+		return true
+	default:
+		return false
+	}
+}
+
+// looseInvokeObject reads a body that is a JSON object or `key: value` lines.
+// A shell script that is not that shape returns nil so the caller can decide.
+func looseInvokeObject(body string) map[string]json.RawMessage {
+	text := strings.TrimSpace(body)
+	if text == "" || strings.Contains(text, "<") {
+		return nil
+	}
+	if strings.HasPrefix(text, "{") && json.Valid([]byte(text)) {
+		var obj map[string]json.RawMessage
+		if json.Unmarshal([]byte(text), &obj) == nil && len(obj) > 0 {
+			return obj
+		}
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	obj := map[string]json.RawMessage{}
+	matched := 0
+	for _, ln := range lines {
+		if strings.TrimSpace(ln) == "" {
+			continue
+		}
+		m := looseArgLineRe.FindStringSubmatch(ln)
+		if m == nil {
+			return nil
+		}
+		obj[m[1]] = json.RawMessage(jsonString(unquoteArg(html.UnescapeString(strings.TrimSpace(m[2])))))
+		matched++
+	}
+	if matched == 0 {
+		return nil
+	}
+	return obj
+}
+
+func unquoteArg(s string) string {
+	if len(s) < len(`""`) {
+		return s
+	}
+	q := s[0]
+	if (q == '"' || q == '\'') && s[len(s)-1] == q {
+		return s[1 : len(s)-1]
+	}
+	return s
+}
+
+func marshalArgObject(obj map[string]json.RawMessage) string {
+	if len(obj) == 0 {
+		return "{}"
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return "{}"
+	}
+	return string(out)
 }
 
 // parametersToJSON turns the body of an <invoke> element -- a run of

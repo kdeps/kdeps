@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: memory_delete
+  description: Delete a memory entry through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: key
+      type: string
+      required: true
+      description: Key of the entry to delete
+  # body is the deleted sentence. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Delete memory
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/memory_delete/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        key: "{{ get('memory_delete.key') }}"
