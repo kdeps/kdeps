@@ -50,6 +50,24 @@ func TestM365ContentError(t *testing.T) {
 	assert.Equal(t, "m365: M365 Copilot returned an empty response", err.Error())
 }
 
+// Copilot reports throttling as a plain-text apology, not an error frame
+// (instrument sessions kdeps-api-4 events 142-180, kdeps-api-5 events 3 and 6).
+// It must reach the loop as a rate-limit error, never as the answer.
+func TestM365ContentError_ThrottleApology(t *testing.T) {
+	err := m365ContentError(backendM365,
+		"We're temporarily unable to respond to this volume of requests. Please try again later.")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rate limited")
+
+	err = m365ContentError(backendM365,
+		"  We're temporarily unable to respond to this volume of requests.")
+	require.Error(t, err)
+
+	// Quoting the apology inside an answer is not throttling.
+	assert.NoError(t, m365ContentError(backendM365,
+		"Copilot replied: We're temporarily unable to respond to this volume of requests."))
+}
+
 // Workflow mode reads the local server's non-streaming response through
 // ParseResponse; the same marker must not become the chat output there.
 func TestM365Backend_ParseResponse_UpstreamError(t *testing.T) {

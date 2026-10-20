@@ -20,6 +20,7 @@ package llm
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -135,6 +136,34 @@ func TestStreamChat_M365UpstreamErrorIsAnError(t *testing.T) {
 		&domain.ChatConfig{Backend: "m365", Model: "claude-sonnet", Prompt: "hi"}, &out)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "connection reset by peer")
+	assert.Empty(t, text)
+	assert.Empty(t, toolCalls)
+}
+
+// Copilot's throttling apology arrives as ordinary assistant text. The loop
+// must see a retryable rate-limit error instead of treating it as the answer
+// (instrument sessions kdeps-api-4 events 142-180, kdeps-api-5 events 3 and 6).
+func TestStreamChat_M365ThrottleApologyIsAnError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(
+			`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[` +
+				`{"index":0,"delta":{"role":"assistant","content":"We're temporarily unable to ` +
+				`respond to this volume of requests. Please try again later."}}]}` + "\n\n",
+		))
+		_, _ = w.Write([]byte(
+			`data: {"id":"x","object":"chat.completion.chunk","model":"m","choices":[` +
+				`{"index":0,"delta":{},"finish_reason":"stop"}]}` + "\n\ndata: [DONE]\n\n",
+		))
+	}))
+	defer srv.Close()
+	t.Setenv(OverrideURLEnv, srv.URL)
+
+	text, toolCalls, err := NewExecutor("").StreamChat(t.Context(),
+		&domain.ChatConfig{Backend: "m365", Model: "claude-sonnet", Prompt: "hi"}, io.Discard)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rate limited")
 	assert.Empty(t, text)
 	assert.Empty(t, toolCalls)
 }

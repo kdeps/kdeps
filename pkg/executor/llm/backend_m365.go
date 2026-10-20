@@ -85,17 +85,29 @@ func (s *m365Server) baseURLOnce() (string, error) {
 // case), so a dropped upstream stream arrives here as ordinary text.
 const m365ErrorContentPrefix = "[m365 error: "
 
+// m365ThrottleContentPrefix is how Copilot answers a rate-limited request: a
+// plain-text apology instead of an error frame, so it arrives as the model's
+// answer (instrument sessions kdeps-api-4 events 142-180 and kdeps-api-5
+// events 3 and 6). Only the first sentence is stable; the closing sentence
+// varies, so match the prefix.
+const m365ThrottleContentPrefix = "We're temporarily unable to respond to this volume of requests"
+
 // m365ContentError turns that marker back into an error. Without this, an
 // upstream failure ("m365: read frame: ... connection reset by peer") was
 // recorded as the assistant's answer and persisted, instead of reaching the
 // agent loop's transient-error retry and, if retries run out, surfacing as a
 // failure rather than as model prose (instrument session kdeps-api-11 event
-// 167).
+// 167). The rate-limit apology becomes a "rate limited" error for the same
+// reason: the loop's transient-error retry backs off on it, and it is never
+// saved as the reply.
 func m365ContentError(backend, content string) error {
 	if backend != backendM365 {
 		return nil
 	}
 	s := strings.TrimSpace(content)
+	if strings.HasPrefix(s, m365ThrottleContentPrefix) {
+		return fmt.Errorf("m365: rate limited: %s", s)
+	}
 	if !strings.HasPrefix(s, m365ErrorContentPrefix) || !strings.HasSuffix(s, "]") {
 		return nil
 	}

@@ -156,5 +156,24 @@ func rtkRewrite(ctx context.Context, command string) (string, bool) {
 	if out == "" || out == command {
 		return "", false
 	}
+	if !invokesRTKCommand(out) {
+		return "", false
+	}
 	return out, true
+}
+
+// invokesRTKCommand reports whether a rewritten command actually runs rtk.
+// kdeps executes rtk's output directly, and rtk's contract (its own hook and
+// kdeps's probe alike) is to prefix the command with the rtk binary. A rewrite
+// that drops the prefix cannot be run by kdeps: "cat README.md CLAUDE.md" ->
+// "read README.md CLAUDE.md" resolves to /usr/bin/read, a /bin/sh shim that
+// fails with "not a valid identifier" (instrument session kdeps-api-1 event
+// 78). Fall back to the original command instead.
+func invokesRTKCommand(command string) bool {
+	for field := range strings.FieldsSeq(command) {
+		if field == "rtk" || strings.HasSuffix(field, "/rtk") {
+			return true
+		}
+	}
+	return false
 }

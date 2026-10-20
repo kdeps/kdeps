@@ -225,6 +225,58 @@ echo "$2"`)
 	}
 }
 
+// A rewrite that does not invoke rtk cannot be executed as intended: on macOS,
+// "cat README.md CLAUDE.md" -> "read README.md CLAUDE.md" resolves to
+// /usr/bin/read, a shell shim that fails with "not a valid identifier"
+// (instrument session kdeps-api-1 event 78). kdeps must run the original.
+func TestRTKRewrite_NonRTKOutputFallsBack(t *testing.T) {
+	fakeRTK(t, `[ "$1" = "rewrite" ] || exit 2
+if [ "$2" = "cat README.md CLAUDE.md" ]; then echo "read README.md CLAUDE.md"; exit 0; fi
+echo "rtk $2"`)
+	got, ok := rtkRewrite(context.Background(), "cat README.md CLAUDE.md")
+	if ok {
+		t.Fatalf("accepted a rewrite that does not invoke rtk: %q", got)
+	}
+}
+
+// rtk may substitute a compression pipeline for the command; the rtk
+// invocation can sit anywhere in it, not only at the front.
+func TestRTKRewrite_RTKLaterInPipelineIsAccepted(t *testing.T) {
+	fakeRTK(t, `[ "$1" = "rewrite" ] || exit 2
+if [ "$2" = "cat huge.log" ]; then echo "cat huge.log | rtk filter"; exit 0; fi
+echo "rtk $2"`)
+	got, ok := rtkRewrite(context.Background(), "cat huge.log")
+	if !ok || got != "cat huge.log | rtk filter" {
+		t.Fatalf("rtkRewrite = %q, %v; want the rtk pipeline", got, ok)
+	}
+}
+
+func TestInvokesRTKCommand(t *testing.T) {
+	yes := []string{
+		"rtk git status",
+		"ls -la && rtk cat README.md",
+		"/usr/local/bin/rtk git status",
+		"cat huge.log | rtk filter",
+		"sudo rtk go test ./...",
+	}
+	for _, cmd := range yes {
+		if !invokesRTKCommand(cmd) {
+			t.Errorf("invokesRTKCommand(%q) = false, want true", cmd)
+		}
+	}
+	no := []string{
+		"read README.md CLAUDE.md",
+		"git status",
+		"cat rtkums",
+		`echo "rtk"`,
+	}
+	for _, cmd := range no {
+		if invokesRTKCommand(cmd) {
+			t.Errorf("invokesRTKCommand(%q) = true, want false", cmd)
+		}
+	}
+}
+
 func TestRTKRewrite_HangingBinaryDoesNotBlock(t *testing.T) {
 	// Absolute path: fakeRTK replaces PATH with the temp dir, so a bare `sleep`
 	// would fail to resolve and exit 127 without ever exercising the timeout.
