@@ -2924,3 +2924,40 @@ func TestRunStreaming_UnlimitedToolLimitDoesNotBreakRepeatLoop(t *testing.T) {
 	assert.NotContains(t, result, "repeated the same")
 	assert.Equal(t, 7, ms.callCount)
 }
+
+// TestAppendToolRoundTrip_SynthesizesIDsForSalvagedCalls is the regression
+// test for the 422 retry storm against strict OpenAI-schema backends: a
+// tool call recovered from model text (a literal <invoke> block) has no
+// backend-assigned ID, and replayed history with an empty tool_calls[].id
+// (and an empty tool_call_id on the tool message) was rejected as
+// "messages[N]: missing field `id`" -- then soft-stop-retried 8 times with
+// the same payload. Salvaged calls must get a synthesized ID, answered by a
+// matching tool_call_id.
+func TestAppendToolRoundTrip_SynthesizesIDsForSalvagedCalls(t *testing.T) {
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	cfg := &domain.ChatConfig{Messages: "[]"}
+	outCfg, _ := loop.appendToolRoundTrip(
+		context.Background(), cfg, "calling",
+		[]domain.StreamedToolCall{{Name: "noop", Arguments: "{}"}}, // no ID: text-salvaged
+		io.Discard,
+	)
+	var history []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(outCfg.Messages), &history))
+	var assistantID string
+	for _, m := range history {
+		switch m["role"] {
+		case RoleAssistant:
+			calls, ok := m["tool_calls"].([]any)
+			require.True(t, ok)
+			require.Len(t, calls, 1)
+			call, ok := calls[0].(map[string]any)
+			require.True(t, ok)
+			assistantID, _ = call["id"].(string)
+			require.NotEmpty(t, assistantID, "salvaged call must get a synthesized id")
+		case "tool":
+			require.Equal(t, assistantID, m["tool_call_id"],
+				"tool message must answer the synthesized id")
+		}
+	}
+	require.NotEmpty(t, assistantID)
+}

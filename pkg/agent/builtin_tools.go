@@ -165,10 +165,7 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 		return nil
 	}
 	before, after := api.ViewAnchorContext(args)
-	start := ref.line - before
-	if start < 1 {
-		start = 1
-	}
+	start := max(ref.line-before, 1)
 	args["offset"] = float64(start)
 	if _, hasLimit := args["limit"]; !hasLimit {
 		args["limit"] = float64(before + after + 1)
@@ -677,7 +674,11 @@ func executeCachedAPI(
 func jsonArgs(args map[string]any) map[string]any {
 	out := map[string]any{}
 	for k, v := range args {
-		if k == "_ctx" {
+		// Loop-injected keys never travel to the API: _ctx is a context and
+		// _bg_ch is a <-chan struct{} (both JSON-incompatible); _interactive is
+		// terminal-only. Sending _bg_ch made every API-routed tool fail with
+		// "json: unsupported type: <-chan struct {}".
+		if k == "_ctx" || k == "_bg_ch" || k == "_interactive" {
 			continue
 		}
 		if _, isCtx := v.(context.Context); isCtx {

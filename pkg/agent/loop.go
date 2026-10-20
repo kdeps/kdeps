@@ -26,6 +26,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -1940,6 +1941,19 @@ func summarizeToolArgs(raw string) string {
 	return raw
 }
 
+// synthToolCallID makes an ID for a tool call the backend never assigned one
+// (a text-salvaged call the model wrote as a literal <invoke> block).
+// OpenAI-schema backends require a non-empty id on both the assistant
+// tool_calls entry and the tool message that answers it.
+func synthToolCallID() string {
+	const idBytes = 8
+	b := make([]byte, idBytes)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("call_%d", time.Now().UnixNano())
+	}
+	return "call_" + hex.EncodeToString(b)
+}
+
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
 // A canceled ctx (Ctrl+C) skips executing the remaining tools.
@@ -2368,13 +2382,21 @@ func (l *Loop) appendToolRoundTrip(
 
 	// Build tool_calls JSON for the assistant turn.
 	tcJSON := make([]map[string]any, len(toolCalls))
-	for i, tc := range toolCalls {
+	for i := range toolCalls {
+		if toolCalls[i].ID == "" {
+			// Text-salvaged calls (a literal <invoke> block the model wrote)
+			// carry no backend-assigned ID. Strict OpenAI-schema backends
+			// reject the replayed history with a 422 when `id` is empty, so
+			// synthesize one -- executeToolCalls then answers it with a
+			// matching tool_call_id.
+			toolCalls[i].ID = synthToolCallID()
+		}
 		tcJSON[i] = map[string]any{
-			"id":   tc.ID,
+			"id":   toolCalls[i].ID,
 			"type": "function",
 			"function": map[string]any{
-				"name":      tc.Name,
-				"arguments": tc.Arguments,
+				"name":      toolCalls[i].Name,
+				"arguments": toolCalls[i].Arguments,
 			},
 		}
 	}

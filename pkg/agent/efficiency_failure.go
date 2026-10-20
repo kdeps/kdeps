@@ -55,11 +55,14 @@ const (
 )
 
 // llmUnfixableErrRe matches LLM-call errors the model cannot fix by being told
-// about them: credentials, billing, quotas and unknown models.
+// about them: credentials, billing, quotas, unknown models, and request-shape
+// rejections (a 422 on the request body is deterministic -- the same history
+// produces the same rejection, so retrying only burns the failure budget).
 var llmUnfixableErrRe = regexp.MustCompile(
-	`(?i)401|403|unauthori[sz]ed|forbidden|invalid.?api.?key|api.?key|authenticat` +
+	`(?i)401|403|422|unauthori[sz]ed|forbidden|invalid.?api.?key|api.?key|authenticat` +
 		`|permission.?denied|billing|quota|insufficient.?(funds|credit|balance)` +
-		`|model.?not.?found|no such model|unknown model|404`,
+		`|model.?not.?found|no such model|unknown model|404` +
+		`|failed to deserialize the json body`,
 )
 
 // efficiencyFailureStop soft-stops after a failed tool call: it queues a hidden

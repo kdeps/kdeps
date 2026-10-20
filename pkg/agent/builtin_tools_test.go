@@ -2741,3 +2741,30 @@ func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
 	err := validateWorkspaceBoundary("/any/path")
 	assert.NoError(t, err, "no workspace root means no boundary check")
 }
+
+// TestJSONArgsStripsLoopInjectedKeys is the regression test for API-routed
+// tools failing with "json: unsupported type: <-chan struct {}": the loop
+// injects _ctx/_bg_ch/_interactive into every tool's args, and _bg_ch is a
+// channel that json.Marshal rejects. jsonArgs must drop all three before the
+// args travel to the kdeps API.
+func TestJSONArgsStripsLoopInjectedKeys(t *testing.T) {
+	bg := make(chan struct{})
+	out := jsonArgs(map[string]any{
+		"query":        "tool_calls",
+		"_ctx":         context.Background(),
+		"_bg_ch":       (<-chan struct{})(bg),
+		"_interactive": true,
+	})
+	require.Equal(t, map[string]any{"query": "tool_calls"}, out)
+	if _, err := json.Marshal(out); err != nil {
+		t.Fatalf("jsonArgs output must marshal cleanly: %v", err)
+	}
+}
+
+func TestJSONArgsStripsContextValues(t *testing.T) {
+	out := jsonArgs(map[string]any{
+		"query": "x",
+		"ctx":   context.Background(),
+	})
+	require.Equal(t, map[string]any{"query": "x"}, out)
+}
