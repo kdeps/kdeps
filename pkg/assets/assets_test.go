@@ -320,7 +320,10 @@ func TestRepoAssetsFromCwd(t *testing.T) {
 }
 
 func TestSourceAndRoot_UnderTest(t *testing.T) {
-	t.Setenv(SourceEnv, "")
+	// Unset, not empty: under go test the repo's assets/ is the fallback only
+	// when KDEPS_ASSETS_SRC is absent (empty now means "no source").
+	t.Setenv(SourceEnv, "unset-me")
+	require.NoError(t, os.Unsetenv(SourceEnv))
 	t.Setenv("KDEPS_ASSETS_DIR", "")
 	src := Source()
 	require.NotEmpty(t, src, "go test loads the repo's assets/")
@@ -330,6 +333,9 @@ func TestSourceAndRoot_UnderTest(t *testing.T) {
 
 	t.Setenv(SourceEnv, "/x")
 	assert.Equal(t, "/x", Source())
+
+	t.Setenv(SourceEnv, "")
+	assert.Empty(t, Source(), "an explicitly empty source disables every fallback")
 }
 
 func TestMissing(t *testing.T) {

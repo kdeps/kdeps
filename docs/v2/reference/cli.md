@@ -147,7 +147,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_ON_ERROR_RETRY_DELAY` | Default delay between retries |
 | `KDEPS_ASSETS_URL` | Where `kdeps update` downloads from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
 | `KDEPS_ASSETS_DIR` | Where downloaded assets and `lock.json` live (default `~/.kdeps/assets`) |
-| `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; for developing assets |
+| `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; for developing assets. Set empty to turn off the automatic checkout fallback |
 | `KDEPS_PROFILE` | Install profile for a first run without a terminal: `minimum`, `workflows`, `agent`, `deploy`, `full`, or a comma-separated list of sets and `set/name` items; unset installs only the sets the command loads |
 
 ## Tips

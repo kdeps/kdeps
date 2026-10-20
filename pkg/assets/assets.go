@@ -23,7 +23,8 @@
 // into ~/.kdeps/assets by kdeps update (Ensure runs it on first start). A
 // source directory ($KDEPS_ASSETS_SRC, the repo's assets/ under go test, or
 // the repo's assets/ when the process starts inside this module) sits under
-// the store, for developing assets. Loaders read a set through Open.
+// the store, for developing assets. An empty $KDEPS_ASSETS_SRC disables the
+// checkout fallback. Loaders read a set through Open.
 package assets
 
 import (
@@ -144,10 +145,12 @@ func Root() string {
 // Source returns the source directory loaded under the store: $KDEPS_ASSETS_SRC,
 // the repo's assets/ under go test (exported as $KDEPS_ASSETS_SRC, so
 // kdeps processes a test starts load it too), or the repo's assets/ when the
-// process was started inside this module. A binary started anywhere else has
-// none and uses the asset store only.
+// process was started inside this module. Setting $KDEPS_ASSETS_SRC empty is
+// an explicit "no source", so a release-binary simulation run from the
+// checkout does not pick the checkout's assets/ up. A binary started anywhere
+// else has none and uses the asset store only.
 func Source() string {
-	if d := os.Getenv(SourceEnv); d != "" {
+	if d, ok := os.LookupEnv(SourceEnv); ok {
 		return d
 	}
 	if testSource != "" {

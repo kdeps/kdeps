@@ -25,6 +25,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -145,14 +146,18 @@ func TestReadFile_RelativeAndUnreadable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Chmod(secret, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(secret, 0o600) })
-	_, err = ReadFile(t.Context(), map[string]any{argFilePath: secret})
-	if err == nil || !strings.Contains(err.Error(), "read ") {
-		t.Fatalf("unreadable %v", err)
+	// Windows ignores the read bits of a mode: chmod 0 leaves the file
+	// readable, so this half is Unix-only.
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(secret, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(secret, 0o600) })
+		_, err = ReadFile(t.Context(), map[string]any{argFilePath: secret})
+		if err == nil || !strings.Contains(err.Error(), "read ") {
+			t.Fatalf("unreadable %v", err)
+		}
 	}
 }
 
