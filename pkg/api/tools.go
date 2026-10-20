@@ -111,6 +111,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
+	RegisterTool(loadToolSpec(toolTwiml, "Build a TwiML voice response.", TwiML))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	registerRegistryTools()

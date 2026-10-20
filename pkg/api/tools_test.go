@@ -111,6 +111,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolTeamDelete,
 		toolTeamGet,
 		toolTeamList,
+		toolTwiml,
 		toolWebScraper,
 		toolWebSearch,
 		toolWikipedia,

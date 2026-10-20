@@ -10,11 +10,13 @@ call: "Caller" {shape: oval}
 twilio: "Twilio"
 route: "POST /twilio/voice\n(CallSid, From, Digits, SpeechResult)"
 twiml: "component: twiml\nverbs -> <Response>"
+api: "POST /apis/tools.kdeps.io/v1/\ntools/twiml/call"
 resp: "apiResponse\nContent-Type: text/xml"
 call -> twilio
 twilio -> route
 route -> twiml
-twiml -> resp
+twiml -> api
+api -> resp
 resp -> twilio: TwiML
 ```
 
@@ -119,7 +121,7 @@ component:
 
 ## How it is built
 
-One python resource that renders the verbs with `xml.etree` and prints the result as JSON. Copy `components/twiml/` into your project to support more verbs or another provider's XML dialect.
+The component holds no XML builder. Its one `httpClient` resource POSTs `{verbs}` to the kdeps API's `twiml` tool (`tools/twiml/call`), and `interface.output` unwraps the `{twiml: ...}` reply into the component result. Copy `components/twiml/` into your project to call the same tool with more verbs or to add another provider's XML dialect.
 
 ## See also
 
