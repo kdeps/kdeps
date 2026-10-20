@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: ocr_image
+  description: Extract text from an image with tesseract through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file
+      type: string
+      required: true
+      description: Absolute path to the image (png, jpg/jpeg, tiff, bmp, gif). PDFs with a text layer go through load_document instead.
+    - name: language
+      type: string
+      default: eng
+      description: 'tesseract -l value, e.g. eng or eng+fra'
+  # body is the extracted text. A missing tesseract is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: OCR
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/ocr_image/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 120s
+      data:
+        file: "{{ get('ocr_image.file') }}"
+        language: "{{ get('ocr_image.language') }}"

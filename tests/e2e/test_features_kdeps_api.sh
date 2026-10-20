@@ -268,20 +268,21 @@ elif kind == "tools":
         die(repr(doc))
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
-        "approval_grant", "approval_list", "approval_request", "approval_revoke",
-        "bash_exec", "bash_job_list", "bash_job_wait",
-        "calculator",
-        "code_definition", "code_diagnostics", "code_graph_all", "code_graph_file", "code_graph_topic",
-        "code_hover", "code_index_folder", "code_references", "code_search", "code_symbols",
-        "cron_create", "cron_delete", "cron_list", "cron_pause", "cron_resume",
-        "edit_file", "embedding_search", "embedding_vectorize",
-        "google_cache_create", "google_cache_delete", "google_cache_list", "http_request", "instruct",
-        "list_files", "load_document", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
-        "perplexity_search", "read_file", "search_local", "serpapi_search",
-        "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
-        "task_append_output", "task_assign_team", "task_complete", "task_create", "task_get", "task_list",
-        "task_stop", "team_add_task", "team_create", "team_delete", "team_get", "team_list",
-        "web_scraper", "web_search", "wikipedia", "write_file",
+        "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
+        "bash_job_list", "bash_job_wait", "calculator", "code_definition", "code_diagnostics",
+        "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
+        "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create",
+        "cron_delete", "cron_list", "cron_pause", "cron_resume", "edit_file",
+        "embedding_search", "embedding_vectorize", "exa_search", "google_cache_create", "google_cache_delete",
+        "google_cache_list", "http_request", "instruct", "jina_rerank", "list_files",
+        "load_document", "md5_file", "memory_delete", "memory_query", "memory_save",
+        "memory_search", "ocr_image", "perplexity_search", "read_file", "retrieve_context",
+        "search_local", "serpapi_search", "sql_describe_table", "sql_list_tables", "sql_query",
+        "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
+        "task_get", "task_list", "task_stop", "team_add_task", "team_create",
+        "team_delete", "team_get", "team_list", "transcribe_audio", "transcribe_audio_offline",
+        "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha",
+        "write_file", "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:
         die(repr(names))
@@ -348,6 +349,8 @@ settings:
         methods: [GET]
       - path: /api/v1/instruct
         methods: [GET]
+      - path: /api/v1/ocr
+        methods: [GET]
   agentSettings:
     timezone: Etc/UTC
 EOF
@@ -363,6 +366,12 @@ apiResponse:
 EOF
     local sample="$root/sample.txt"
     printf 'line 1\nline 2\nline 3\n' >"$sample"
+    # A stand-in tesseract proves the ocr_image component reaches the
+    # asset-declared exec tool through the kdeps API.
+    local fakebin="$root/fakebin"
+    mkdir -p "$fakebin"
+    printf '#!/bin/sh\necho "OCR: $1"\n' >"$fakebin/tesseract"
+    chmod +x "$fakebin/tesseract"
     python3 - "$sample" "$server_dir/resources/read.yaml" <<'PY'
 import json, sys
 path, dest = sys.argv[1], sys.argv[2]
@@ -398,6 +407,14 @@ component:
   with:
     topic: narration
 EOF
+    cat >"$server_dir/resources/ocr.yaml" <<EOF
+actionId: ocrText
+name: Extract image text
+component:
+  name: ocr_image
+  with:
+    file: ${sample}
+EOF
     cat >"$server_dir/resources/gateway.yaml" <<'EOF'
 actionId: gateway
 name: Gateway
@@ -406,9 +423,10 @@ requires:
   - readOut
   - cronCreate
   - instructRead
+  - ocrText
 apiResponse:
   success: true
-  response: "{{ request.path == '/api/v1/cron' ? output('cronCreate') : (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data)) }}"
+  response: "{{ request.path == '/api/v1/cron' ? output('cronCreate') : (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/ocr' ? output('ocrText') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data))) }}"
 EOF
     cat >"$bare_dir/workflow.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
@@ -458,6 +476,7 @@ EOF
     # --- kdeps run with a public-style apiServer still isolates the control API ---
     log="$root/server.log"
     HOME="$home" \
+        PATH="${fakebin}:${PATH}" \
         KDEPS_API_LISTEN="127.0.0.1:${ctrl_port}" \
         KDEPS_API_TOKEN="$ctrl_tok" \
         KDEPS_API_AUTH_TOKEN="$wf_tok" \
@@ -877,6 +896,22 @@ PY
         test_passed "kdeps API - workflow instruct component returns a harness section"
     else
         test_failed "kdeps API - workflow instruct component returns a harness section" "status $got body $(head -c 220 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
+        -H "Authorization: Bearer ${wf_tok}" "http://127.0.0.1:${wf_port}/api/v1/ocr" || true)
+    if [ "$got" = "200" ] && python3 - "$body" "$sample" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+want = "OCR: " + sys.argv[2]
+if not doc.get("success") or doc.get("data") != want:
+    sys.stderr.write(repr(doc)[:300])
+    sys.exit(1)
+PY
+    then
+        test_passed "kdeps API - workflow ocr_image component runs the declared exec tool"
+    else
+        test_failed "kdeps API - workflow ocr_image component runs the declared exec tool" "status $got body $(head -c 220 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

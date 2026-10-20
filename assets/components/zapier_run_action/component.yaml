@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: zapier_run_action
+  description: Run a Zapier NLA action through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: action_id
+      type: string
+      required: true
+      description: The Zapier NLA action ID to execute (from zapier_list_actions)
+    - name: instructions
+      type: string
+      required: true
+      description: Natural language instructions describing what to do with this action
+  # body is the action's JSON result. A missing ZAPIER_NLA_API_KEY is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Run action
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/zapier_run_action/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        action_id: "{{ get('zapier_run_action.action_id') }}"
+        instructions: "{{ get('zapier_run_action.instructions') }}"

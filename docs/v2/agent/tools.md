@@ -179,6 +179,27 @@ exec:
 
 A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
 
+## The call runs in the kdeps API
+
+A declared `http:` or `exec:` tool is served by the kdeps API like every other tool. The tool asset declares the call; the handler runs it. The agent loop and a workflow component both reach it the same way.
+
+```text
+workflow YAML -> component YAML -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/{name}/call -> handler -> http: or exec: block
+agent loop    -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/{name}/call -> handler -> http: or exec: block
+```
+
+```yaml
+# resources/ocr.yaml
+actionId: ocrText
+name: Extract text
+component:
+  name: ocr_image          # assets/components/ocr_image/component.yaml POSTs the tool's route
+  with:
+    file: /tmp/scan.png
+```
+
+A required `env` entry that is unset keeps the tool out of the agent's catalog; a direct API call returns `<tool>: required environment variables are not set`.
+
 ## Parameter-name synonyms
 
 A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. Alternate *tool* names are [tool aliases](#tool-aliases), declared in each tool's definition.

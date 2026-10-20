@@ -169,31 +169,81 @@ func (s *httpToolSpec) resolveEnv() (map[string]string, bool) {
 }
 
 // registerDeclaredTools registers every tool asset implemented by its own
-// YAML: an http: block whose env resolves, or an exec: block.
+// YAML: an http: block whose env resolves, or an exec: block. The call runs
+// through the kdeps API; the wrapper keeps the declared defaults and, for a
+// cached http: tool, the convergence cache.
 func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
 		switch {
 		case d.HTTP != nil:
-			env, ok := d.HTTP.resolveEnv()
-			if !ok {
+			if _, ok := d.HTTP.resolveEnv(); !ok {
 				continue
 			}
 			reg.Register(definedAs(id, &kdepstools.Tool{
 				Name:    id,
-				Execute: declaredHTTPExecute(ctx, id, d, env, cache),
+				Execute: declaredHTTPExecute(ctx, id, d, cache),
 			}))
 		case d.Exec != nil:
-			env, ok := d.Exec.resolveEnv()
-			if !ok {
+			if _, ok := d.Exec.resolveEnv(); !ok {
 				continue
 			}
 			reg.Register(definedAs(id, &kdepstools.Tool{
 				Name:    id,
-				Execute: declaredExecExecute(ctx, id, d, env),
+				Execute: declaredExecExecute(ctx, id, d),
 			}))
 		}
 	}
+}
+
+// declaredToolAPIBackend runs asset-declared tools for the kdeps API. It is
+// the only implementation behind their call routes; the agent loop and a
+// workflow component both reach it through api.CallTool.
+type declaredToolAPIBackend struct{}
+
+func (declaredToolAPIBackend) CallDeclaredTool(
+	ctx context.Context, id string, args map[string]any,
+) (string, error) {
+	d, ok := toolDefinitions[id]
+	if !ok || (d.HTTP == nil && d.Exec == nil) {
+		return "", fmt.Errorf("%s: no declared implementation", id)
+	}
+	name := declaredName(id, d)
+	full, err := withParamDefaults(name, d, args)
+	if err != nil {
+		return "", err
+	}
+	if d.HTTP != nil {
+		env, envOK := d.HTTP.resolveEnv()
+		if !envOK {
+			return "", fmt.Errorf("%s: required environment variables are not set", name)
+		}
+		return callDeclaredHTTPTool(ctx, name, d.HTTP, full, env)
+	}
+	env, envOK := d.Exec.resolveEnv()
+	if !envOK {
+		return "", fmt.Errorf("%s: required environment variables are not set", name)
+	}
+	return callDeclaredExecTool(ctx, name, d.Exec, full, env)
+}
+
+// registerDeclaredAPIRoutes serves every asset-declared tool on its call
+// route and installs the runner behind it. Runs at init and after an asset
+// update, so a newly downloaded tool becomes reachable without a restart.
+func registerDeclaredAPIRoutes() {
+	api.SetDeclaredToolBackend(declaredToolAPIBackend{})
+	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
+		d := toolDefinitions[id]
+		if d.HTTP == nil && d.Exec == nil {
+			continue
+		}
+		api.RegisterDeclaredTool(id, d.Description, d.Parameters)
+	}
+}
+
+//nolint:gochecknoinits // the routes exist in workflow mode, before any agent loop starts
+func init() {
+	registerDeclaredAPIRoutes()
 }
 
 // declaredName is the tool name the model sees for definition id.
@@ -206,7 +256,7 @@ func declaredName(id string, d toolDefinition) string {
 
 // declaredExecExecute builds the Execute func of a declared exec tool.
 func declaredExecExecute(
-	ctx context.Context, id string, d toolDefinition, env map[string]string,
+	ctx context.Context, id string, d toolDefinition,
 ) func(map[string]any) (string, error) {
 	name := declaredName(id, d)
 	return func(args map[string]any) (string, error) {
@@ -214,13 +264,13 @@ func declaredExecExecute(
 		if err != nil {
 			return "", err
 		}
-		return callDeclaredExecTool(ctx, name, d.Exec, full, env)
+		return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(full))
 	}
 }
 
 // declaredHTTPExecute builds the Execute func of a declared HTTP tool.
 func declaredHTTPExecute(
-	ctx context.Context, id string, d toolDefinition, env map[string]string, cache *webToolCache,
+	ctx context.Context, id string, d toolDefinition, cache *webToolCache,
 ) func(map[string]any) (string, error) {
 	name := declaredName(id, d)
 	return func(args map[string]any) (string, error) {
@@ -228,7 +278,9 @@ func declaredHTTPExecute(
 		if err != nil {
 			return "", err
 		}
-		run := func() (string, error) { return callDeclaredHTTPTool(ctx, name, d.HTTP, full, env) }
+		run := func() (string, error) {
+			return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(full))
+		}
 		if !d.HTTP.Cache || cache == nil {
 			return run()
 		}

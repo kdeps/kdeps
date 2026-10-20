@@ -175,7 +175,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps runs it"},
 			{Label: "the result goes back to the model"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/reload", "/settings"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "/reload", "/settings", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
 		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "agent.definedAs"},
 	},
 }

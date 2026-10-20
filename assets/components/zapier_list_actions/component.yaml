@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: zapier_list_actions
+  description: List the available Zapier NLA actions through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs: []
+  # body is the numbered action list. A missing ZAPIER_NLA_API_KEY is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: List actions
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/zapier_list_actions/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data: {}

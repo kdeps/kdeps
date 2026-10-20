@@ -1,0 +1,37 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: transcribe_audio_offline
+  description: Transcribe audio offline with whisper.cpp through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: file
+      type: string
+      required: true
+      description: Absolute path to the audio file (flac, mp3, ogg, wav)
+    - name: language
+      type: string
+      default: en
+      description: ISO-639-1 code
+    - name: modelPath
+      type: string
+      default: ""
+      description: 'Absolute path to a GGML model file. Empty uses <models dir>/ggml-base.en.bin'
+  # body is the transcribed text. A missing whisper-cli is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Transcribe offline
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/transcribe_audio_offline/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 600s
+      data:
+        file: "{{ get('transcribe_audio_offline.file') }}"
+        language: "{{ get('transcribe_audio_offline.language') }}"
+        modelPath: "{{ get('transcribe_audio_offline.modelPath') }}"
