@@ -65,6 +65,17 @@ func isolateEventsAndPresetsHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	// Load the registries under the isolated HOME now: the package-level init()
+	// already loaded them from the developer's real ~/.kdeps, and a user event
+	// override (e.g. efficiency-failures rounds) would otherwise leak into the
+	// test's expected defaults.
+	initEvents()
+	initPresets()
+	// Registered after the temp dirs: t.Cleanup runs LIFO, so this waits for
+	// lazy index writes before the home dir's RemoveAll runs. Without it a
+	// fire-and-forget edit_file/read_file index write races the cleanup
+	// ("directory not empty" on .kdeps/projects/<name>-<hash>).
+	t.Cleanup(WaitForBackgroundIndexing)
 }
 
 func TestInitPresets_UserOverrideReplacesBuiltinByName(t *testing.T) {
