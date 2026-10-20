@@ -5,6 +5,11 @@
 # versioned by their template.yaml, so any change inside a bundle directory
 # needs a bump there.
 #
+# The file list is the three-dot diff (changes on HEAD since the merge
+# base). A two-dot diff also lists files that only moved on the base, such
+# as the nightly model registry, and then asks for a version bump the pull
+# request did not cause.
+#
 # usage: scripts/check-asset-versions.sh <base-ref> <head-ref>
 set -euo pipefail
 
@@ -49,7 +54,7 @@ while IFS= read -r f; do
 		git cat-file -e "$head:assets/$item" 2>/dev/null || continue # bundle deleted
 		check "assets/$item/template.yaml" "bundle $item" || failed=1
 	fi
-done < <(git diff --name-only --diff-filter=AMR "$base" "$head")
+done < <(git diff --name-only --diff-filter=AMR "$base...$head")
 
 if [ "$failed" -ne 0 ]; then
 	exit 1
