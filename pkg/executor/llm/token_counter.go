@@ -16,6 +16,7 @@ package llm
 
 import (
 	"strings"
+	"sync"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
 
@@ -24,6 +25,24 @@ import (
 
 //nolint:gochecknoglobals // test-replaceable
 var tikTokenGetEncoding = tiktoken.GetEncoding
+
+// tiktoken's GetEncoding rebuilds the BPE merge table on every call (~90ms),
+// and CountTokens runs once per message in the REPL's token display and per
+// prompt in the streamer. One encoding per encoding name is loaded and reused.
+//
+//nolint:gochecknoglobals // process-wide encoding cache
+var (
+	tokenEncMu    sync.Mutex
+	tokenEncCache = map[string]*tiktoken.Tiktoken{}
+)
+
+// resetTokenEncodingCache clears the cache so tests can swap
+// tikTokenGetEncoding without a previously cached encoding masking the swap.
+func resetTokenEncodingCache() {
+	tokenEncMu.Lock()
+	tokenEncCache = map[string]*tiktoken.Tiktoken{}
+	tokenEncMu.Unlock()
+}
 
 const approxCharsPerToken = 4 // rough fallback when tiktoken encoding fails
 
@@ -40,7 +59,18 @@ func CountTokens(model, text string) int {
 
 func resolveTokenEncoding(model string) (*tiktoken.Tiktoken, error) {
 	kdeps_debug.Log("enter: resolveTokenEncoding")
-	return tikTokenGetEncoding(modelEncoding(model))
+	name := modelEncoding(model)
+	tokenEncMu.Lock()
+	defer tokenEncMu.Unlock()
+	if enc := tokenEncCache[name]; enc != nil {
+		return enc, nil
+	}
+	enc, err := tikTokenGetEncoding(name)
+	if err != nil {
+		return nil, err
+	}
+	tokenEncCache[name] = enc
+	return enc, nil
 }
 
 func approximateTokenCount(text string) int {

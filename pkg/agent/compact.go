@@ -21,6 +21,7 @@ package agent
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
 )
@@ -225,18 +226,54 @@ func estimateTokens(m SessionMessage, modelHint string) int {
 	return countTokensSilent(modelHint, m.Content)
 }
 
+// tiktoken's GetEncoding/EncodingForModel rebuild the whole BPE merge table on
+// every call (~90ms for a short string). The loop counts every message of every
+// round (tool-history windowing, compaction, branch summaries), so the
+// encoding must be loaded once and reused. Test-replaceable, like the llm
+// package's token counter.
+//
+//nolint:gochecknoglobals // process-wide encoding cache and test-replaceable resolvers
+var (
+	tokenEncMu               sync.Mutex
+	tokenEncCache            = map[string]*tiktoken.Tiktoken{}
+	tiktokenEncodingForModel = tiktoken.EncodingForModel
+	tiktokenGetEncoding      = tiktoken.GetEncoding
+)
+
+// tokenEncoding returns the cached tokenizer for a model hint, or nil when no
+// encoding can be loaded (the caller then falls back to chars/4). A failure is
+// not cached: the loader may succeed later.
+func tokenEncoding(model string) *tiktoken.Tiktoken {
+	tokenEncMu.Lock()
+	defer tokenEncMu.Unlock()
+	if enc, ok := tokenEncCache[model]; ok {
+		return enc
+	}
+	var enc *tiktoken.Tiktoken
+	if model != "" {
+		if e, err := tiktokenEncodingForModel(model); err == nil {
+			enc = e
+		}
+	}
+	if enc == nil {
+		if e, err := tiktokenGetEncoding("cl100k_base"); err == nil {
+			enc = e
+		}
+	}
+	if enc == nil {
+		return nil
+	}
+	tokenEncCache[model] = enc
+	return enc
+}
+
 // countTokensSilent counts tokens without emitting any log warnings.
 // langchaingo's llms.CountTokens logs "[WARN] Failed to calculate number of
 // tokens for model" for every unrecognized model, which is too noisy for
 // models like llama3.2:1b or gemini-2.5-flash. This implementation falls back
 // silently to the gpt2 encoding or a chars/4 approximation.
 func countTokensSilent(model, text string) int {
-	if model != "" {
-		if enc, err := tiktoken.EncodingForModel(model); err == nil {
-			return len(enc.Encode(text, nil, nil))
-		}
-	}
-	if enc, err := tiktoken.GetEncoding("cl100k_base"); err == nil {
+	if enc := tokenEncoding(model); enc != nil {
 		return len(enc.Encode(text, nil, nil))
 	}
 	// Silent fallback: approximate 4 chars per token.

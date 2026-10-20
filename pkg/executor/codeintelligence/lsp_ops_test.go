@@ -228,6 +228,28 @@ func TestFindSymbolPosition_SymbolNotFoundInLine(t *testing.T) {
 	assert.Equal(t, 0, pos["character"]) // not found -> 0
 }
 
+func TestFindSymbolPosition_QualifiedSymbolPointsAtMember(t *testing.T) {
+	const lineContent = "if err := instrument.Start(ctx); err != nil {"
+	runner := &mockRunner{
+		entries: map[string]string{
+			"--json --line-number --max-count 1 instrument.Start /path/cmd.go": rgMatchJSON(
+				"cmd.go", lineContent, 78,
+			),
+		},
+	}
+	e := newTestExecutor(runner)
+	pos := e.findSymbolPosition(&domain.CodeIntelligenceConfig{
+		Path:   "/path/cmd.go",
+		Symbol: "instrument.Start",
+	})
+	assert.Equal(t, 77, pos["line"]) // 78 - 1 = 77
+	// LSP must resolve the member, not the package qualifier, or gopls answers
+	// with the import line instead of the declaration.
+	want := strings.Index(lineContent, "instrument.") + len("instrument.")
+	assert.Equal(t, want, pos["character"])
+	assert.Equal(t, byte('S'), lineContent[pos["character"].(int)])
+}
+
 // --- lspEnsureDocument tests ---
 
 func TestLSPEnsureDocument_EmptyPath(t *testing.T) {

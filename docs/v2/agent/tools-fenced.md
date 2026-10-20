@@ -32,7 +32,7 @@ ls -la && cat README.md
 
 ## The available_tools block
 
-The same preamble lists every registered tool in an `<available_tools>` block: name, parameters, and an `<invoke>` skeleton for each. That block is what the model copies a name from. Later turns repeat the list next to the one-line reminder. Backends with a native tool channel (Anthropic, OpenAI) also receive the tools as a native schema; kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway.
+The same preamble lists every registered tool in an `<available_tools>` block: name, parameters, and an `<invoke>` skeleton for each. That block is what the model copies a name from. Later turns repeat the list next to the one-line reminder. Backends with a native tool channel (Anthropic, OpenAI) also receive the tools as a native schema; kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway, including DeepSeek's DSML-wrapped form (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend emits as plain content.
 
 ## Simulated sandbox sessions are caught, and escalated
 
@@ -55,6 +55,8 @@ continue # present this to yourself on the next run so I won't type continue
 ```
 
 That sentence also saves memory key `preference:continue` for the project. Later turns follow it without another `continue`. A greeting or a `status` request still answers in text.
+
+These nudges stop once the tool phase ends. The last allowed round, and any round after an efficiency stop, runs with the tools stripped and a prompt telling the model to answer in plain text without tool-call markup. A text answer there is the turn's final answer; pushing it to call a tool would contradict that directive and no call could run anyway.
 
 ## Good tool-calling behavior is praised, not just bad behavior flagged
 

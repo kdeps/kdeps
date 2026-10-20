@@ -55,6 +55,63 @@ type SessionNote struct {
 	New  bool
 }
 
+// createSessionNote creates a session note without ever overwriting one that
+// already exists. Two sessions started in the same minute share the timestamp
+// and, when their summaries name the same goal, the slug too; the second one
+// takes a numeric suffix instead of replacing the first session's note.
+func createSessionNote(dir, name, body string) (string, error) {
+	for n := 1; ; n++ {
+		file := filepath.Join(dir, name+mdExt)
+		if n > 1 {
+			file = filepath.Join(dir, fmt.Sprintf("%s %d%s", name, n, mdExt))
+		}
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		_, werr := f.WriteString(body)
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			_ = os.Remove(file)
+			return "", werr
+		}
+		return file, nil
+	}
+}
+
+// writeFileAtomic replaces file's contents through a temp file and a rename,
+// so a concurrent reader never sees a half-written note or card.
+func writeFileAtomic(file, body string) error {
+	tmp, err := os.CreateTemp(filepath.Dir(file), ".kdeps-write-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	if _, werr := tmp.WriteString(body); werr != nil {
+		_ = tmp.Close()
+		_ = os.Remove(name)
+		return werr
+	}
+	if cerr := tmp.Close(); cerr != nil {
+		_ = os.Remove(name)
+		return cerr
+	}
+	if cerr := os.Chmod(name, filePerm); cerr != nil {
+		_ = os.Remove(name)
+		return cerr
+	}
+	if rerr := os.Rename(name, file); rerr != nil {
+		_ = os.Remove(name)
+		return rerr
+	}
+	return nil
+}
+
 // WriteSession writes (or rewrites) the note for session id from a summary
 // into the project's sessions/ folder, linked to the project's card. The
 // summary's first next step becomes the card's next (its only home). git is
@@ -73,14 +130,21 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	line := oneLine(focus)
 	sn := &SessionNote{Card: card}
 	sn.File = findSession(dir, id)
-	if sn.File == "" {
-		sn.New = true
-		sn.File = filepath.Join(dir, now.Format("2006-01-02 1504")+" "+slug(line)+mdExt)
-	} else if from := recordedGitStart(sn.File); from != "" {
-		git.From = from
+	newNote := sn.File == ""
+	if !newNote {
+		if from := recordedGitStart(sn.File); from != "" {
+			git.From = from
+		}
 	}
 	body := sessionBody(id, card.Name, card.SelfLink(), line, sec, now, git)
-	if err := os.WriteFile(sn.File, []byte(body), filePerm); err != nil {
+	if newNote {
+		sn.New = true
+		file, err := createSessionNote(dir, now.Format("2006-01-02 1504")+" "+slug(line), body)
+		if err != nil {
+			return nil, err
+		}
+		sn.File = file
+	} else if err := writeFileAtomic(sn.File, body); err != nil {
 		return nil, err
 	}
 	if next := firstItem(sec["next steps"]); next != "" {
@@ -109,16 +173,25 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 	for _, item := range items {
 		title := decisionTitle(item)
 		file := filepath.Join(dir, slug(title)+mdExt)
-		if _, err := os.Stat(file); err == nil {
-			continue
-		}
 		summaryLine := strings.ReplaceAll(item, boldTitleMark, "")
 		body := fmt.Sprintf("%s\ntype: decision\nstatus: done\nproject: %s\ncreated: %s\nsummary: %s\n"+
 			"links: [%q, %q]\n%s\n\n# %s\n\n%s\n",
 			frontDelim, yamlScalar(card.Name), now.Format(time.DateOnly), yamlScalar(oneLine(summaryLine)),
 			sessionLink, card.SelfLink(), frontDelim, title, summaryLine)
-		if err := os.WriteFile(file, []byte(body), filePerm); err != nil {
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+		if errors.Is(err, os.ErrExist) {
+			continue // another session already wrote this fact's one home
+		}
+		if err != nil {
 			return written, err
+		}
+		_, werr := f.WriteString(body)
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			_ = os.Remove(file)
+			return written, werr
 		}
 		written = append(written, file)
 	}

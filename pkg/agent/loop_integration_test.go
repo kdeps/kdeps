@@ -2464,6 +2464,57 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	assert.NotContains(t, result, "invoke")
 }
 
+// DeepSeek's DSML-wrapped invoke markup written as text (the payload seen from
+// deepseek-v4-flash) must be recovered and executed like a native tool call.
+func TestRunStreaming_SalvagesDSMLInvoke(t *testing.T) {
+	var got map[string]any
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
+		Execute: func(a map[string]any) (string, error) { got = a; return "ok", nil },
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content: "<｜｜DSML｜｜ calls>\n" +
+				"<｜｜DSML｜｜ invoke name=\"probe\">\n" +
+				"<｜｜DSML｜｜ parameter name=\"target\" string=\"true\">host-1</｜｜DSML｜｜ parameter>\n" +
+				"</｜｜DSML｜｜ invoke>\n" +
+				"</｜｜DSML｜｜ calls>",
+			toolCalls: nil,
+		},
+		{content: "probe returned ok", toolCalls: nil},
+	}}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model: "test", Streamer: ms, MaxToolRounds: 5,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "probe host-1", &buf)
+	require.NoError(t, err)
+	require.NotNil(t, got, "the DSML invoke-form call must execute")
+	assert.Equal(t, "host-1", got["target"])
+	assert.Equal(t, "probe returned ok", result)
+	assert.NotContains(t, result, "DSML")
+}
+
+// A text-only round run without tools (forceAnswerConfig stripped them on the
+// last allowed round) is the model's final answer. Nudging it to call a tool
+// contradicts the "do not call tools" directive and keeps the turn running.
+func TestRunStreaming_CappedRoundAnswerEndsTurn(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
+		{content: "Tool budget is now exhausted, so this turn stops here.", toolCalls: nil},
+		{content: "must not be requested", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 2)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(t.Context(), "continue", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2, "a capped round's text answer must end the turn")
+	assert.Empty(t, ms.cfgs[1].Tools, "the last allowed round must be force-answer")
+	assert.Equal(t, "Tool budget is now exhausted, so this turn stops here.", got)
+}
+
 // A failed work tool is soft-stopped: the error reaches the model on the hidden
 // efficiency channel (not as a [TOOL FAILED] banner in history), and the loop
 // must not end the turn on a "done" claim right after it -- it nudges once for

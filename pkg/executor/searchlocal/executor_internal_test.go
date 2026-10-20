@@ -70,6 +70,7 @@ func TestWalkEntry_InfoError(t *testing.T) {
 		&errDirEntry{infoErr: errStat},
 		nil,
 		&domain.SearchLocalConfig{},
+		nil,
 		&results,
 		&limitHit,
 	)
@@ -100,6 +101,7 @@ func TestWalkEntry_InfoOK(t *testing.T) {
 		&mockOKDirEntry{name: "path.txt"},
 		nil,
 		&domain.SearchLocalConfig{},
+		nil,
 		&results,
 		&limitHit,
 	)

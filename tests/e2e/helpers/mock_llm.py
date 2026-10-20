@@ -11,6 +11,7 @@ message:
   - prompt refinement: the request itself
   - a compaction request (<conversation>): a fixed summary
   - "CALL <tool> <json args>": that tool call, written as an <invoke> block
+  - "CALLDSML <tool> <json args>": the same call wrapped in DeepSeek DSML markup
   - anything after a CALL request (the tool's result): "TOOL DONE"
   - anything else: "MOCK REPLY"
 """
@@ -35,15 +36,22 @@ def reply_for(msgs):
         return last.split("Request:\n", 1)[-1]
     if "<conversation>" in everything:
         return SUMMARY
-    calls = [i for i, m in enumerate(msgs) if m.get("role") == "user" and "CALL " in text(m)]
+    calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"
+             and re.search(r"CALL(DSML)? \w+ (?=\{)", text(m))]
     if calls and calls[-1] != len(msgs) - 1:
         return "TOOL DONE"  # the tool ran: its result follows the CALL request
-    m = re.search(r"CALL (\w+) (?=\{)", last)
+    m = re.search(r"CALL(DSML)? (\w+) (?=\{)", last)
     if m:
         # One JSON object after the name: text after it (a refined prompt's
         # tail, a newline) is not part of the arguments.
         args, _ = json.JSONDecoder().raw_decode(last[m.end():])
-        name = m.group(1)
+        name = m.group(2)
+        if m.group(1):
+            # DeepSeek's DSML control-token markup, exactly as deepseek-v4-flash
+            # writes it into plain content instead of its tool-call channel.
+            params = "".join('<｜｜DSML｜｜ parameter name="%s" string="true">%s</｜｜DSML｜｜ parameter>\n' % (k, v) for k, v in args.items())
+            return ('<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name="%s">\n%s</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>'
+                    % (name, params))
         params = "".join('<parameter name="%s">%s</parameter>\n' % (k, v) for k, v in args.items())
         return '<invoke name="%s">\n%s</invoke>' % (name, params)
     return "MOCK REPLY"

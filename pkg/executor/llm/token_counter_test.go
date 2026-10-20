@@ -70,12 +70,16 @@ func TestCountTokensFallback(t *testing.T) {
 }
 
 func TestApproximateTokenCount(t *testing.T) {
+	resetTokenEncodingCache()
 	// Force fallback path by making tiktoken fail.
 	orig := tikTokenGetEncoding
 	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
 		return nil, errors.New("forced failure")
 	}
-	defer func() { tikTokenGetEncoding = orig }()
+	t.Cleanup(func() {
+		tikTokenGetEncoding = orig
+		resetTokenEncodingCache()
+	})
 
 	text := "Hello, world!" // 13 chars / 4 = 3 tokens
 	count := CountTokens("any-model", text)
@@ -83,11 +87,36 @@ func TestApproximateTokenCount(t *testing.T) {
 }
 
 func TestApproximateTokenCount_Empty(t *testing.T) {
+	resetTokenEncodingCache()
 	orig := tikTokenGetEncoding
 	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
 		return nil, errors.New("forced failure")
 	}
-	defer func() { tikTokenGetEncoding = orig }()
+	t.Cleanup(func() {
+		tikTokenGetEncoding = orig
+		resetTokenEncodingCache()
+	})
 
 	assert.Equal(t, 0, CountTokens("m", ""))
+}
+
+func TestCountTokens_CachesEncoding(t *testing.T) {
+	resetTokenEncodingCache()
+	calls := 0
+	orig := tikTokenGetEncoding
+	tikTokenGetEncoding = func(name string) (*tiktoken.Tiktoken, error) {
+		calls++
+		return orig(name)
+	}
+	t.Cleanup(func() {
+		tikTokenGetEncoding = orig
+		resetTokenEncodingCache()
+	})
+
+	CountTokens("gpt-4", "hello")
+	// gpt-4 and gpt-4-turbo share cl100k_base: one load serves both. tiktoken
+	// rebuilds the BPE table on every GetEncoding call (~90ms), so a second
+	// load here would be the regression this test guards.
+	CountTokens("gpt-4-turbo", "hello")
+	assert.Equal(t, 1, calls)
 }

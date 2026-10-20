@@ -110,6 +110,52 @@ func TestSalvageContentToolCalls_DSML(t *testing.T) {
 	assert.NotContains(t, cleaned, "DSML")
 }
 
+// DeepSeek's native DSML markup wraps the same invoke/parameter elements as
+// the Anthropic text form, with a string="true" attribute added. The exact
+// payload below was emitted as plain text by deepseek-v4-flash; it produced
+// no tool call, so the model kept repeating it until the turn ended.
+func TestSalvageContentToolCalls_DSMLInvoke(t *testing.T) {
+	in := "<｜｜DSML｜｜ calls>\n" +
+		"<｜｜DSML｜｜ invoke name=\"bash_exec\">\n" +
+		"<｜｜DSML｜｜ parameter name=\"command\" string=\"true\">rg -n 'WaitSearchIndex' pkg</｜｜DSML｜｜ parameter>\n" +
+		"</｜｜DSML｜｜ invoke>\n" +
+		"</｜｜DSML｜｜ calls>"
+	calls, cleaned, fake := salvageContentToolCalls(in)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "bash_exec", calls[0].Name)
+	assert.JSONEq(t, `{"command":"rg -n 'WaitSearchIndex' pkg"}`, calls[0].Arguments)
+	assert.False(t, fake)
+	assert.Empty(t, strings.TrimSpace(cleaned))
+	assert.NotContains(t, cleaned, "DSML")
+}
+
+func TestSalvageContentToolCalls_DSMLInvokeTwice(t *testing.T) {
+	in := "<｜DSML｜ calls>\n" +
+		"<｜DSML｜ invoke name=\"read_file\">\n" +
+		"<｜DSML｜ parameter name=\"file_path\" string=\"true\">/tmp/a.go</｜DSML｜ parameter>\n" +
+		"</｜DSML｜ invoke>\n" +
+		"<｜DSML｜ invoke name=\"bash_exec\">\n" +
+		"<｜DSML｜ parameter name=\"command\" string=\"true\">pwd</｜DSML｜ parameter>\n" +
+		"</｜DSML｜ invoke>\n" +
+		"</｜DSML｜ calls>"
+	calls, cleaned, _ := salvageContentToolCalls(in)
+	require.Len(t, calls, 2)
+	assert.Equal(t, "read_file", calls[0].Name)
+	assert.JSONEq(t, `{"file_path":"/tmp/a.go"}`, calls[0].Arguments)
+	assert.Equal(t, "bash_exec", calls[1].Name)
+	assert.JSONEq(t, `{"command":"pwd"}`, calls[1].Arguments)
+	assert.Empty(t, strings.TrimSpace(cleaned))
+}
+
+func TestStripContentToolCalls_DSMLInvokeIsNotAnswer(t *testing.T) {
+	in := "<｜｜DSML｜｜ calls>\n" +
+		"<｜｜DSML｜｜ invoke name=\"bash_exec\">\n" +
+		"<｜｜DSML｜｜ parameter name=\"command\" string=\"true\">pwd</｜｜DSML｜｜ parameter>\n" +
+		"</｜｜DSML｜｜ invoke>\n" +
+		"</｜｜DSML｜｜ calls>"
+	assert.Empty(t, stripContentToolCalls(in))
+}
+
 func TestStripContentToolCalls_StripsTags(t *testing.T) {
 	got := stripContentToolCalls(
 		"Result:\n<tool_call>{\"name\":\"x\",\"arguments\":{}}</tool_call>\n<tool_response>fake</tool_response>\nHere is the answer.",

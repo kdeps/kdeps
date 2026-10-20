@@ -115,6 +115,17 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 | Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
 | Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
 
+String matching uses infix operators, not function calls. `contains(...)` is a parse error; put the field on the left:
+
+| Match | Operator | Example |
+|---|---|---|
+| Substring | `contains` | `filter(memory, .value contains "latency")` |
+| Prefix | `startsWith` | `filter(memory, .key startsWith "tool:read_file")` |
+| Suffix | `endsWith` | `filter(memory, .key endsWith ":summary")` |
+| Regex | `matches` | `filter(memory, .key matches "^tool:")` |
+| Case-insensitive substring | `lower()` + `contains` | `filter(memory, lower(.value) contains "latency")` |
+| Membership | `in` | `filter(memory, .type in ["error", "decision"])` |
+
 `join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide; no inequality/range-join or multi-field-key support today.
 
 ```json

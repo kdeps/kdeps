@@ -11,7 +11,7 @@ Always available. No environment variables required. `memory_save`, `memory_sear
 | `memory_save` | Save a fact to persistent memory. Injected into every LLM call automatically. |
 | `memory_search` | Search memory entries by key or value. At most 20 matches, best first (key hit, then more query words, then newer); each value cut at 500 characters. |
 | `memory_delete` | Remove a memory entry by key. |
-| `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. |
+| `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. String matching is infix: `.value contains "x"`, `.key startsWith "x"`, `.value matches "regex"`; `contains(...)` is a parse error. |
 
 Memory is stored per-project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/agent/memory) for details.
 

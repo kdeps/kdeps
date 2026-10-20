@@ -2313,13 +2313,26 @@ func (l *Loop) resolveEmptyToolRound(
 // succeeded, unless the reply is a real safety stop. Both are checked before
 // settleActiveFromText so the refusal is not recorded as a failed task while
 // the nudge budget remains. A round with text otherwise settles the active
-// task; when later tasks remain the turn continues on the next one.
+// task; when later tasks remain the turn continues on the next one. A round
+// with no tools registered (the forced-text phase) is never nudged: it was
+// already told to answer in text.
 func (l *Loop) handleTextOnlyRound(
 	chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
 ) (*domain.ChatConfig, bool) {
+	// A round run without tools was told to answer in text (forceAnswerConfig
+	// strips them once the tool budget or an efficiency stop ends the tool
+	// phase). Pushing it to call a tool contradicts that directive, and no call
+	// could run anyway -- accept the text as the turn's answer.
+	if len(chatCfg.Tools) == 0 {
+		_, _ = io.WriteString(w, buffered)
+		if l.settleActiveFromText(content, w) {
+			return withGoalDirective(chatCfg, l.enforcer.directive()), true
+		}
+		return chatCfg, false
+	}
 	if harnessOccurrenceAllowed("nudge-action", nudges.action) &&
 		strings.TrimSpace(stripContentToolCalls(content)) == "" {
 		repeat := nudges.action > 0
@@ -2335,10 +2348,9 @@ func (l *Loop) handleTextOnlyRound(
 	// giveUp == 0: once the progress give-up path has already argued this
 	// turn, do not start a second argument on the same refusal. A fictional
 	// limit with no successful tool never enters that path, so it is pushed
-	// here. An empty tool list means this round was told to answer in text.
-	// A reply that states the last tool failure ("was not able", "did not")
-	// is an honest admission, not a fictional limit.
-	if nudges.giveUp == 0 && len(chatCfg.Tools) > 0 &&
+	// here. A reply that states the last tool failure ("was not able", "did
+	// not") is an honest admission, not a fictional limit.
+	if nudges.giveUp == 0 &&
 		(l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
 		looksLikeSelfLimit(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {

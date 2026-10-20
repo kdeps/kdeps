@@ -149,7 +149,7 @@ done
 SL_HOME="$SL_DIR/home"
 mkdir -p "$SL_HOME"
 OUT=$(printf '/refine off\n/judges auto off\ndrop the production database\nlist the files in this directory\nread the README title\nread the license\ncount the go files\nshow the module path\nwhat is two plus two\n/quit\n' \
-    | HOME="$SL_HOME" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    | HOME="$SL_HOME" USERPROFILE="$(to_native_path "$SL_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
         timeout 240 "$KDEPS_BIN" --new --backend openai \
         --base-url "http://127.0.0.1:$SL_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$SL_DIR/server.log")

@@ -277,3 +277,42 @@ func TestExecute_Subdirectory(t *testing.T) {
 	m := res.(map[string]interface{})
 	assert.Equal(t, 2, m["count"])
 }
+
+func TestExecute_RegexQuery(t *testing.T) {
+	dir := t.TempDir()
+	content := "package main\n\nfunc Start(ctx context.Context) error { return nil }\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.go"), []byte(content), 0o600))
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newSearchLocalCtx(t), &domain.SearchLocalConfig{Path: dir, Query: `^func Start\(`})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, 1, m["count"], "the spec advertises a regex; an anchored pattern must match")
+	results := m["results"].([]map[string]interface{})
+	assert.Contains(t, results[0]["snippet"], "func Start(")
+}
+
+func TestExecute_RegexAnchorRespectsLineBoundaries(t *testing.T) {
+	dir := t.TempDir()
+	// The pattern appears, but not at the start of a line, so rg semantics say no match.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "file.go"), []byte("// call func Start( here\n"), 0o600,
+	))
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newSearchLocalCtx(t), &domain.SearchLocalConfig{Path: dir, Query: `^func Start\(`})
+	require.NoError(t, err)
+	assert.Equal(t, 0, res.(map[string]interface{})["count"])
+}
+
+func TestExecute_InvalidRegexFallsBackToLiteral(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "file.go"), []byte("if err := call(http.MethodGet); err != nil {\n"), 0o600,
+	))
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newSearchLocalCtx(t), &domain.SearchLocalConfig{Path: dir, Query: "call(http.MethodGet"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, res.(map[string]interface{})["count"], "unbalanced parentheses must still match literally")
+}

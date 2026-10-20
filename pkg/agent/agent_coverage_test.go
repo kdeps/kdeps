@@ -855,6 +855,20 @@ func TestCountTokensSilent_UnknownModel(t *testing.T) {
 	assert.Greater(t, n, 0)
 }
 
+func TestTokenEncoding_CachedPerModel(t *testing.T) {
+	// tiktoken rebuilds the BPE table on every GetEncoding call (~90ms), so
+	// the agent loop must reuse one encoding per model hint. Pointer identity
+	// proves the second call did not rebuild.
+	first := tokenEncoding("gpt-4o")
+	require.NotNil(t, first)
+	assert.Same(t, first, tokenEncoding("gpt-4o"))
+	// The fallback encoding is cached too, so repeated counts without a model
+	// hint do not rebuild it.
+	fallback := tokenEncoding("")
+	require.NotNil(t, fallback)
+	assert.Same(t, fallback, tokenEncoding(""))
+}
+
 // ---- loop.go: autoStartLocalModel ----
 
 func TestAutoStartLocalModel_NilService(t *testing.T) {

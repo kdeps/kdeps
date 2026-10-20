@@ -799,11 +799,8 @@ func generateSnippet(filePath, query string) string {
 		return ""
 	}
 	content := string(buf[:n])
-	lower := strings.ToLower(content)
-	queryLower := strings.ToLower(query)
-
-	idx := strings.Index(lower, queryLower)
-	if idx < 0 {
+	findStart, findEnd := newQueryMatcher(query).find(content)
+	if findStart < 0 {
 		// Query not found in content (token mismatch). Return first ~200 chars.
 		end := len(content)
 		if end > snippetMaxPreview {
@@ -815,17 +812,17 @@ func generateSnippet(filePath, query string) string {
 		return content[:end]
 	}
 
-	start := idx - snippetContext
+	start := findStart - snippetContext
 	if start < 0 {
 		start = 0
 	}
-	end := idx + len(query) + snippetContext
+	end := findEnd + snippetContext
 	if end > len(content) {
 		end = len(content)
 	}
 	// Defend against Unicode case-expansion: strings.ToLower may produce a
-	// longer byte string than the original content, so idx (from lower) can
-	// point past content's bounds after start/end clamping. Fall back to a
+	// longer byte string than the original content, so the literal-match index
+	// can point past content's bounds after start/end clamping. Fall back to a
 	// preview when indices are inverted or start exceeds content length.
 	if start >= len(content) || end < start {
 		previewEnd := len(content)

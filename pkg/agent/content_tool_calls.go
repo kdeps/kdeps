@@ -73,6 +73,18 @@ var (
 	dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
 	// dsmlTagRe matches a stray DSML tag left by a truncated/malformed block.
 	dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
+	// dsmlInvokeTagRe matches DeepSeek's DSML-wrapped invoke/parameter form:
+	//   <｜｜DSML｜｜ calls>
+	//   <｜｜DSML｜｜ invoke name="bash_exec">
+	//   <｜｜DSML｜｜ parameter name="command" string="true">pwd</｜｜DSML｜｜ parameter>
+	//   </｜｜DSML｜｜ invoke>
+	//   </｜｜DSML｜｜ calls>
+	// It is the same element structure as the Anthropic text form, with a
+	// model-control-token prefix and a string="true" attribute on parameters.
+	dsmlInvokeTagRe = regexp.MustCompile(
+		`(?i)<(/?)｜+\s*DSML\s*｜+\s*(invoke|parameter)((?:\s[^>]*)?)>`,
+	)
+	dsmlNameAttrRe = regexp.MustCompile(`name\s*=\s*"([^"]+)"`)
 
 	// multiSlashClosingTagRe matches "<" followed by two or more literal "/"
 	// characters -- some models write a closing tag as "<//invoke>" or
@@ -129,7 +141,7 @@ func restoreFencedCodeBlocks(content string, blocks []string) string {
 // <observation> removed and trimmed; hallucinated is true when such a
 // model-authored result was present.
 func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
-	repaired := repairInvokeClosers(content)
+	repaired := normalizeDSMLInvokes(repairInvokeClosers(content))
 	// Take unfenced invokes from the repaired text so a fence inside a
 	// parameter stays in the arguments. Fenced examples stay in the remainder
 	// and are swapped out before the other regexes run.
@@ -138,6 +150,34 @@ func salvageContentToolCalls(content string) ([]domain.StreamedToolCall, string,
 	calls, cleaned, hallucinated := salvageUnfencedContentToolCalls(protected)
 	calls = append(calls, invokeCalls...)
 	return calls, restoreFencedCodeBlocks(cleaned, fences), hallucinated
+}
+
+// normalizeDSMLInvokes rewrites DeepSeek DSML-wrapped invoke/parameter tags
+// into the plain Anthropic-style tags the rest of this file parses. The
+// wrapper <｜｜DSML｜｜ calls> tags are left for dsmlTagRe to strip. Without this
+// rewrite the whole block reads as prose: no tool_call event is emitted, the
+// model's call is dropped, and the loop nudges it into repeating the same
+// markup until the turn ends.
+func normalizeDSMLInvokes(content string) string {
+	if !strings.Contains(content, "DSML") || !strings.Contains(content, "｜") {
+		return content
+	}
+	return dsmlInvokeTagRe.ReplaceAllStringFunc(content, func(tag string) string {
+		m := dsmlInvokeTagRe.FindStringSubmatch(tag)
+		name := strings.ToLower(m[2])
+		if m[1] == "/" {
+			return "</" + name + ">"
+		}
+		if name == "parameter" {
+			// parameterRe accepts name="..." immediately before ">"; DSML adds
+			// string="true" (and sometimes other attributes) after it.
+			if a := dsmlNameAttrRe.FindStringSubmatch(m[3]); a != nil {
+				return `<parameter name="` + a[1] + `">`
+			}
+			return "<parameter>"
+		}
+		return "<" + name + m[3] + ">"
+	})
 }
 
 // repairInvokeClosers undoes two ways a model mangles a closing tag:
@@ -175,7 +215,7 @@ func takeUnfencedInvokes(content string) ([]domain.StreamedToolCall, string) {
 // placeholders (see protectFencedCodeBlocks).
 func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall, string, bool) {
 	var calls []domain.StreamedToolCall
-	cleaned := repairInvokeClosers(content)
+	cleaned := normalizeDSMLInvokes(repairInvokeClosers(content))
 	hallucinated := false
 
 	if strings.Contains(cleaned, "DSML") && strings.Contains(cleaned, "｜") {

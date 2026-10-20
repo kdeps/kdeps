@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/expr-lang/expr"
 
@@ -68,6 +69,9 @@ func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {
 	env := buildQueryEnv(activeLoop.MemoryStore(), activeLoop.ToolCallLog(), activeLoop.ActiveGoal())
 	program, err := expr.Compile(query, expr.Env(env))
 	if err != nil {
+		if hint := infixOperatorHint(query); hint != "" {
+			return "", fmt.Errorf("memory_query: compile: %w; hint: %s", err, hint)
+		}
 		return "", fmt.Errorf("memory_query: compile: %w", err)
 	}
 	result, err := expr.Run(program, env)
@@ -75,6 +79,23 @@ func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {
 		return "", fmt.Errorf("memory_query: run: %w", err)
 	}
 	return marshalQueryResult(result, resolveQueryLimit(args["limit"]))
+}
+
+// infixOperatorHint explains expr-lang's parse failure for the function-call
+// form of an infix operator. The parser reports
+// `unexpected token Operator("contains")`, which does not tell the model that
+// the operator exists in infix form, so a model that writes
+// contains(lower(.value), "x") burns rounds rediscovering the syntax.
+func infixOperatorHint(query string) string {
+	for _, op := range []string{"contains", "startsWith", "endsWith", "matches"} {
+		if strings.Contains(query, op+"(") {
+			return fmt.Sprintf(
+				"%s is an infix operator, not a function: write `.field %s \"text\"` instead of `%s(...)`",
+				op, op, op,
+			)
+		}
+	}
+	return ""
 }
 
 // resolveQueryLimit reads the limit argument (an LLM tool call may send it
