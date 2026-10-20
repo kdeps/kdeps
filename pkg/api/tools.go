@@ -113,6 +113,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
 	RegisterTool(loadToolSpec(toolTwiml, "Build a TwiML voice response.", TwiML))
 	RegisterTool(loadToolSpec(toolFileOps, "Run one structured filesystem operation.", FileOps))
+	RegisterTool(loadToolSpec(toolGitOps, "Run one structured git operation.", GitOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	registerRegistryTools()

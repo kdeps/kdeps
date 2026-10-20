@@ -4,6 +4,7 @@ metadata:
   name: searchWeb
   description: Search the web - DuckDuckGo by default, Brave, Bing or Tavily with an API key - and return title/url/snippet results
   version: "1.1.0"
+  targetActionId: searchWebResults
 interface:
   inputs:
     - name: query

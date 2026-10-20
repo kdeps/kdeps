@@ -4,6 +4,7 @@ metadata:
   name: scraper
   description: Fetch a web page and return its text, optionally only the elements matching a CSS selector
   version: "1.1.0"
+  targetActionId: call
 interface:
   inputs:
     - name: url

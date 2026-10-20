@@ -28,8 +28,8 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing the git component..."
 
-if ! command -v git >/dev/null 2>&1 || ! command -v uv >/dev/null 2>&1; then
-    test_skipped "git component - needs git and uv (python resources)"
+if ! command -v git >/dev/null 2>&1; then
+    test_skipped "git component - needs git"
     return 0 2>/dev/null || exit 0
 fi
 

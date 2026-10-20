@@ -81,6 +81,9 @@ func LeanModeToolFilter(names []string) []string {
 		"google_cache_delete": true,
 		"google_cache_list":   true,
 		"http_request":        true,
+		"twiml":               true,
+		"file_ops":            true,
+		"git_ops":             true,
 	}
 
 	filtered := make([]string, 0, len(names))

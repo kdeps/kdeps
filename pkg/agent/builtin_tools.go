@@ -67,6 +67,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerTailFile(ctx, reg)
 	registerWriteFile(ctx, reg)
 	registerEditFile(ctx, reg)
+	registerStructuredTools(ctx, reg)
 	registerSerpAPI(ctx, reg, webCache)
 	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
@@ -76,6 +77,15 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerTaskTeamTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
 	registerInstructTool(reg)
+}
+
+// registerStructuredTools registers the structured operation tools: TwiML
+// building, filesystem operations and git operations. Each is served by the
+// kdeps API; an agent call and the shipped component reach the same handler.
+func registerStructuredTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "twiml", api.TwiML)
+	registerAPITool(ctx, reg, "file_ops", api.FileOps)
+	registerAPITool(ctx, reg, "git_ops", api.GitOps)
 }
 
 // registerInstructTool returns one harness section or one /instruct briefing.
