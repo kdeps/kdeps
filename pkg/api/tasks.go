@@ -108,6 +108,9 @@ func registerRegistryTools() {
 	RegisterTool(loadToolSpec(toolTeamDelete, "Delete a team.", TeamDelete))
 	RegisterTool(loadToolSpec(toolTeamGet, "Read one team.", TeamGet))
 	RegisterTool(loadToolSpec(toolTeamList, "List teams.", TeamList))
+	registerCronTools()
+	registerApprovalTools()
+	registerInstructTool()
 }
 
 // SetTaskBackend installs the process task registry. A nil backend makes

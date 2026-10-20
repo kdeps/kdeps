@@ -40,6 +40,7 @@ kdeps_api_e2e() {
     fi
 
     local root body hdr got
+    local cron_id cron_ok token_id approval_ok
     root=$(mktemp -d)
     body="$root/body"
     hdr="$root/hdr"
@@ -267,12 +268,14 @@ elif kind == "tools":
         die(repr(doc))
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
+        "approval_grant", "approval_list", "approval_request", "approval_revoke",
         "bash_exec", "bash_job_list", "bash_job_wait",
         "calculator",
         "code_definition", "code_diagnostics", "code_graph_all", "code_graph_file", "code_graph_topic",
         "code_hover", "code_index_folder", "code_references", "code_search", "code_symbols",
+        "cron_create", "cron_delete", "cron_list", "cron_pause", "cron_resume",
         "edit_file", "embedding_search", "embedding_vectorize",
-        "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
+        "google_cache_create", "google_cache_delete", "google_cache_list", "http_request", "instruct",
         "list_files", "load_document", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "perplexity_search", "read_file", "search_local", "serpapi_search",
         "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
@@ -728,6 +731,80 @@ EOF
         test_failed "kdeps API - team_list is empty" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"name":"e2e-cron","expression":"0 2 * * *","task_prompt":"p","task_description":"d"}' \
+        "${tools}/cron_create/call" || true)
+    cron_id=$(sed -n 's/^Created cron \([^:]*\): .*/\1/p' "$body")
+    if [ "$got" = "200" ] && [ -n "$cron_id" ] && grep -F "e2e-cron" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - cron_create returns an id"
+    else
+        test_failed "kdeps API - cron_create returns an id" "status $got body $(head -c 180 "$body")"
+    fi
+    cron_ok=0
+    if [ -n "$cron_id" ]; then
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data '{}' "${tools}/cron_list/call" || true)
+        if [ "$got" = "200" ] && grep -F "$cron_id" "$body" >/dev/null \
+            && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+            test_passed "kdeps API - cron_list shows the created cron"
+            cron_ok=1
+        else
+            test_failed "kdeps API - cron_list shows the created cron" "status $got body $(head -c 180 "$body")"
+        fi
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data "{\"cron_id\":\"${cron_id}\"}" "${tools}/cron_delete/call" || true)
+        if [ "$got" = "200" ] && grep -F "Deleted cron ${cron_id}" "$body" >/dev/null; then
+            test_passed "kdeps API - cron_delete deletes the cron"
+        else
+            test_failed "kdeps API - cron_delete deletes the cron" "status $got body $(head -c 180 "$body")"
+        fi
+    fi
+    if [ "$cron_ok" -eq 0 ]; then
+        test_skipped "kdeps API - cron_list shows the created cron (no cron id)"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"tool_name":"bash_exec","action":"e2e"}' "${tools}/approval_request/call" || true)
+    token_id=$(sed -n 's/^Requested approval token \([^ ]*\) .*/\1/p' "$body")
+    if [ "$got" = "200" ] && [ -n "$token_id" ] && grep -F "bash_exec" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - approval_request returns a token id"
+    else
+        test_failed "kdeps API - approval_request returns a token id" "status $got body $(head -c 180 "$body")"
+    fi
+    approval_ok=0
+    if [ -n "$token_id" ]; then
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data '{}' "${tools}/approval_list/call" || true)
+        if [ "$got" = "200" ] && grep -F "$token_id" "$body" >/dev/null; then
+            test_passed "kdeps API - approval_list shows the token"
+            approval_ok=1
+        else
+            test_failed "kdeps API - approval_list shows the token" "status $got body $(head -c 180 "$body")"
+        fi
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data "{\"token_id\":\"${token_id}\"}" "${tools}/approval_revoke/call" || true)
+        if [ "$got" = "200" ] && grep -F "Revoked approval token ${token_id}" "$body" >/dev/null; then
+            test_passed "kdeps API - approval_revoke revokes the token"
+        else
+            test_failed "kdeps API - approval_revoke revokes the token" "status $got body $(head -c 180 "$body")"
+        fi
+    fi
+    if [ "$approval_ok" -eq 0 ]; then
+        test_skipped "kdeps API - approval_list shows the token (no token id)"
+    fi
+    : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
         -H "Authorization: Bearer ${wf_tok}" "http://127.0.0.1:${wf_port}/api/v1/read" || true)
     if [ "$got" = "200" ] && python3 - "$root/control-read.txt" "$body" <<'PY'
@@ -867,12 +944,19 @@ PY
     pids+=("$!")
     local def_pid="${pids[0]}"
     local endpoints=""
-    local tries
+    local tries winpid
     for tries in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
         if command -v lsof >/dev/null 2>&1; then
             endpoints=$(lsof -nP -a -p "$def_pid" -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $9}')
         elif command -v ss >/dev/null 2>&1; then
             endpoints=$(ss -ltnp 2>/dev/null | awk -v pid="$def_pid" 'index($0, "pid=" pid ",") {print $4}')
+        elif command -v netstat >/dev/null 2>&1; then
+            # Git Bash on Windows: $! is the MSYS pid, while netstat reports the
+            # Windows pid, which Git Bash's ps prints in its WINPID column.
+            winpid=$(ps -p "$def_pid" 2>/dev/null | awk 'NR==2 {print $4}')
+            if [ -n "$winpid" ]; then
+                endpoints=$(netstat -ano -p tcp 2>/dev/null | awk -v pid="$winpid" '$4=="LISTENING" && $5==pid {print $2}')
+            fi
         else
             endpoints="UNSUPPORTED"
             break
@@ -884,7 +968,7 @@ PY
         sleep 0.25
     done
     if [ "$endpoints" = "UNSUPPORTED" ]; then
-        test_failed "kdeps API - default listen is 127.0.0.1" "lsof and ss are both missing"
+        test_skipped "kdeps API - default listen is 127.0.0.1 (no lsof, ss or netstat)"
     elif [ -z "$endpoints" ]; then
         test_failed "kdeps API - default listen is 127.0.0.1" "no listen socket log $(tail -c 300 "$log")"
     else
@@ -961,6 +1045,17 @@ PY
         _check "kdeps API - REPL GET /api" GET "http://127.0.0.1:${repl_port}/api" "Bearer ${repl_tok}" 200 versions || true
         _check "kdeps API - REPL GET /apis" GET "http://127.0.0.1:${repl_port}/apis" "Bearer ${repl_tok}" 200 groups || true
         _check "kdeps API - REPL rejects the kdeps run token" GET "http://127.0.0.1:${repl_port}/api" "Bearer ${ctrl_tok}" 401 denied || true
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"topic":"modes"}' \
+            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/instruct/call" || true)
+        if [ "$got" = "200" ] && grep -F "Workflow mode" "$body" >/dev/null \
+            && ! grep -F "$repl_tok" "$body" >/dev/null; then
+            test_passed "kdeps API - REPL instruct returns a briefing section"
+        else
+            test_failed "kdeps API - REPL instruct returns a briefing section" "status $got body $(head -c 180 "$body")"
+        fi
         if grep -F "$repl_tok" "$log" >/dev/null; then
             test_failed "kdeps API - REPL log does not contain the token"
         else

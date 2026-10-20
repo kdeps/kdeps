@@ -24,7 +24,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
@@ -38,6 +37,8 @@ import (
 func init() {
 	api.SetTaskBackend(taskAPIBackend{})
 	api.SetTeamBackend(teamAPIBackend{})
+	api.SetCronBackend(cronAPIBackend{})
+	api.SetApprovalBackend(approvalAPIBackend{})
 }
 
 // Approval token default duration.
@@ -48,8 +49,8 @@ const approvalTokenDuration = 5 * time.Minute
 func registerTaskTeamTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerTaskTools(ctx, reg)
 	registerTeamTools(ctx, reg)
-	registerCronTools(reg)
-	registerApprovalTokenTools(reg)
+	registerCronTools(ctx, reg)
+	registerApprovalTokenTools(ctx, reg)
 }
 
 // --- Task Tools ---
@@ -166,104 +167,83 @@ func teamView(team *Team) api.TeamView {
 
 // --- Cron Tools ---
 
-func registerCronTools(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "cron_create",
-		Execute: func(args map[string]any) (string, error) {
-			name, _ := args["name"].(string)
-			expr, _ := args["expression"].(string)
-			prompt, _ := args["task_prompt"].(string)
-			desc, _ := args["task_description"].(string)
-			cron := GlobalCronRegistry.Create(name, expr, prompt, desc)
-			return fmt.Sprintf("Created cron %s: %s (%s)", cron.CronID, cron.Name, cron.Expression), nil
-		},
-	}))
+func registerCronTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "cron_create", api.CronCreate)
+	registerAPITool(ctx, reg, "cron_delete", api.CronDelete)
+	registerAPITool(ctx, reg, "cron_list", api.CronList)
+	registerAPITool(ctx, reg, "cron_pause", api.CronPause)
+	registerAPITool(ctx, reg, "cron_resume", api.CronResume)
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "cron_list",
-		Execute: func(_ map[string]any) (string, error) {
-			return GlobalCronRegistry.CronSummary(), nil
-		},
-	}))
+type cronAPIBackend struct{}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "cron_pause",
-		Execute: func(args map[string]any) (string, error) {
-			cronID, _ := args["cron_id"].(string)
-			if GlobalCronRegistry.Pause(cronID) {
-				return fmt.Sprintf("Paused cron %s", cronID), nil
-			}
-			return "", fmt.Errorf("cron %q not found", cronID)
-		},
-	}))
+func (cronAPIBackend) CreateCron(name, expression, taskPrompt, taskDescription string) api.CronView {
+	return cronView(GlobalCronRegistry.Create(name, expression, taskPrompt, taskDescription))
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "cron_resume",
-		Execute: func(args map[string]any) (string, error) {
-			cronID, _ := args["cron_id"].(string)
-			if GlobalCronRegistry.Resume(cronID) {
-				return fmt.Sprintf("Resumed cron %s", cronID), nil
-			}
-			return "", fmt.Errorf("cron %q not found", cronID)
-		},
-	}))
+func (cronAPIBackend) ListCrons() []api.CronView {
+	crons := GlobalCronRegistry.List()
+	out := make([]api.CronView, 0, len(crons))
+	for _, cron := range crons {
+		out = append(out, cronView(cron))
+	}
+	return out
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "cron_delete",
-		Execute: func(args map[string]any) (string, error) {
-			cronID, _ := args["cron_id"].(string)
-			if GlobalCronRegistry.Delete(cronID) {
-				return fmt.Sprintf("Deleted cron %s", cronID), nil
-			}
-			return "", fmt.Errorf("cron %q not found", cronID)
-		},
-	}))
+func (cronAPIBackend) PauseCron(id string) bool  { return GlobalCronRegistry.Pause(id) }
+func (cronAPIBackend) ResumeCron(id string) bool { return GlobalCronRegistry.Resume(id) }
+func (cronAPIBackend) DeleteCron(id string) bool { return GlobalCronRegistry.Delete(id) }
+
+func cronView(cron *Cron) api.CronView {
+	return api.CronView{
+		ID:         cron.CronID,
+		Name:       cron.Name,
+		Expression: cron.Expression,
+		Status:     cron.Status.String(),
+		RunCount:   cron.RunCount,
+		LastRun:    cron.LastRun,
+		NextRun:    cron.NextRun,
+	}
 }
 
 // --- Approval Token Tools ---
 
-func registerApprovalTokenTools(reg *kdepstools.Registry) {
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "approval_request",
-		Execute: func(args map[string]any) (string, error) {
-			toolName, _ := args["tool_name"].(string)
-			action, _ := args["action"].(string)
-			scope := ApprovalScope{
-				ToolName: toolName,
-				Action:   action,
-			}
-			token := GlobalApprovalTokenRegistry.Request(scope, approvalTokenDuration)
-			return fmt.Sprintf("Requested approval token %s for tool=%q action=%q\nAsk the user to grant it.",
-				token.TokenID, toolName, action), nil
-		},
-	}))
+func registerApprovalTokenTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerAPITool(ctx, reg, "approval_grant", api.ApprovalGrant)
+	registerAPITool(ctx, reg, "approval_list", api.ApprovalList)
+	registerAPITool(ctx, reg, "approval_request", api.ApprovalRequest)
+	registerAPITool(ctx, reg, "approval_revoke", api.ApprovalRevoke)
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "approval_grant",
-		Execute: func(args map[string]any) (string, error) {
-			tokenID, _ := args["token_id"].(string)
-			if GlobalApprovalTokenRegistry.Grant(tokenID, "agent", "", "user approved") {
-				return fmt.Sprintf("Granted approval token %s", tokenID), nil
-			}
-			return "", fmt.Errorf("token %q not found or not in pending state", tokenID)
-		},
-	}))
+type approvalAPIBackend struct{}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "approval_list",
-		Execute: func(_ map[string]any) (string, error) {
-			return GlobalApprovalTokenRegistry.TokenSummary(), nil
-		},
-	}))
+func (approvalAPIBackend) RequestApproval(toolName, action string) api.ApprovalView {
+	scope := ApprovalScope{ToolName: toolName, Action: action}
+	return approvalView(GlobalApprovalTokenRegistry.Request(scope, approvalTokenDuration))
+}
 
-	reg.Register(defined(&kdepstools.Tool{
-		Name: "approval_revoke",
-		Execute: func(args map[string]any) (string, error) {
-			tokenID, _ := args["token_id"].(string)
-			if GlobalApprovalTokenRegistry.Revoke(tokenID) {
-				return fmt.Sprintf("Revoked approval token %s", tokenID), nil
-			}
-			return "", fmt.Errorf("token %q not found or already consumed", tokenID)
-		},
-	}))
+func (approvalAPIBackend) GrantApproval(tokenID string) bool {
+	return GlobalApprovalTokenRegistry.Grant(tokenID, "agent", "", "user approved")
+}
+
+func (approvalAPIBackend) ListApprovals() []api.ApprovalView {
+	tokens := GlobalApprovalTokenRegistry.List()
+	out := make([]api.ApprovalView, 0, len(tokens))
+	for _, token := range tokens {
+		out = append(out, approvalView(token))
+	}
+	return out
+}
+
+func (approvalAPIBackend) RevokeApproval(tokenID string) bool {
+	return GlobalApprovalTokenRegistry.Revoke(tokenID)
+}
+
+func approvalView(token *ApprovalToken) api.ApprovalView {
+	return api.ApprovalView{
+		ID:        token.TokenID,
+		Status:    token.Status.String(),
+		Scope:     token.Scope.String(),
+		CreatedAt: token.CreatedAt,
+	}
 }

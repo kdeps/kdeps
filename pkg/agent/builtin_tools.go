@@ -80,14 +80,25 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 
 // registerInstructTool returns one harness section or one /instruct briefing.
 // help is an alias declared on the tool asset; /instruct stays a slash command.
+// The renderer runs in the API backend; the registry supplies the live catalog.
 func registerInstructTool(reg *kdepstools.Registry) {
+	api.SetInstructBackend(instructAPIBackend{catalog: reg.ToolPrompt})
+	var noCtx context.Context
 	reg.Register(defined(&kdepstools.Tool{
 		Name: "instruct",
 		Execute: func(args map[string]any) (string, error) {
-			topic, _ := args["topic"].(string)
-			return instructToolResult(topic, reg.ToolPrompt)
+			return api.CallTool(toolCallCtx(noCtx, args), "instruct", jsonArgs(args))
 		},
 	}))
+}
+
+// instructAPIBackend renders the instruct briefing from the live tool catalog.
+type instructAPIBackend struct {
+	catalog func() string
+}
+
+func (b instructAPIBackend) Instruct(topic string) (string, error) {
+	return instructToolResult(topic, b.catalog)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
