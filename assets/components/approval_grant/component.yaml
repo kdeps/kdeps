@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: approval_grant
+  description: Grant a pending approval token through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: token_id
+      type: string
+      required: true
+      description: The token ID to grant (from approval_request)
+  # body is the granted-token sentence. A token that is not pending is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Grant approval token
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/approval_grant/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        token_id: "{{ get('approval_grant.token_id') }}"

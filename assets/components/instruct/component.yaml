@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: instruct
+  description: Read one harness section or briefing through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: topic
+      type: string
+      required: true
+      description: "Harness section name or instruct topic. Prefix instruct: to force the briefing when the name is also a harness section."
+  # body is the section or briefing text. An unknown topic is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Read harness section
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/instruct/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        topic: "{{ get('instruct.topic') }}"

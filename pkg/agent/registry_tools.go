@@ -39,6 +39,9 @@ func init() {
 	api.SetTeamBackend(teamAPIBackend{})
 	api.SetCronBackend(cronAPIBackend{})
 	api.SetApprovalBackend(approvalAPIBackend{})
+	// Workflow mode has no agent registry; the agent loop replaces this with
+	// a renderer backed by the live tool catalog.
+	api.SetInstructBackend(instructAPIBackend{})
 }
 
 // Approval token default duration.

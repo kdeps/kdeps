@@ -344,6 +344,10 @@ settings:
         methods: [GET]
       - path: /api/v1/read
         methods: [GET]
+      - path: /api/v1/cron
+        methods: [GET]
+      - path: /api/v1/instruct
+        methods: [GET]
   agentSettings:
     timezone: Etc/UTC
 EOF
@@ -375,15 +379,36 @@ apiResponse:
   success: true
   response: "{{ output('readConfig') }}"
 EOF
+    cat >"$server_dir/resources/cron.yaml" <<'EOF'
+actionId: cronCreate
+name: Create cron
+component:
+  name: cron_create
+  with:
+    expression: "0 0 * * *"
+    name: e2e-component-cron
+    task_description: E2E task
+    task_prompt: E2E prompt
+EOF
+    cat >"$server_dir/resources/instruct.yaml" <<'EOF'
+actionId: instructRead
+name: Read narration section
+component:
+  name: instruct
+  with:
+    topic: narration
+EOF
     cat >"$server_dir/resources/gateway.yaml" <<'EOF'
 actionId: gateway
 name: Gateway
 requires:
   - ping
   - readOut
+  - cronCreate
+  - instructRead
 apiResponse:
   success: true
-  response: "{{ request.path == '/api/v1/read' ? output('readOut').data : output('ping').data }}"
+  response: "{{ request.path == '/api/v1/cron' ? output('cronCreate') : (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data)) }}"
 EOF
     cat >"$bare_dir/workflow.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
@@ -819,6 +844,39 @@ PY
         test_passed "kdeps API - workflow component returns the same file text"
     else
         test_failed "kdeps API - workflow component returns the same file text" "status $got body $(head -c 220 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
+        -H "Authorization: Bearer ${wf_tok}" "http://127.0.0.1:${wf_port}/api/v1/cron" || true)
+    if [ "$got" = "200" ] && python3 - "$body" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+data = doc.get("data") or ""
+if not doc.get("success") or not data.startswith("Created cron ") \
+        or ": e2e-component-cron (0 0 * * *)" not in data:
+    sys.stderr.write(repr(doc)[:300])
+    sys.exit(1)
+PY
+    then
+        test_passed "kdeps API - workflow cron_create component creates a cron"
+    else
+        test_failed "kdeps API - workflow cron_create component creates a cron" "status $got body $(head -c 220 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
+        -H "Authorization: Bearer ${wf_tok}" "http://127.0.0.1:${wf_port}/api/v1/instruct" || true)
+    if [ "$got" = "200" ] && python3 - "$body" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+data = doc.get("data") or ""
+if not doc.get("success") or "<narration>" not in data:
+    sys.stderr.write(repr(doc)[:300])
+    sys.exit(1)
+PY
+    then
+        test_passed "kdeps API - workflow instruct component returns a harness section"
+    else
+        test_failed "kdeps API - workflow instruct component returns a harness section" "status $got body $(head -c 220 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

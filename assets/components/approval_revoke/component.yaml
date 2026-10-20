@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: approval_revoke
+  description: Revoke an approval token through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: token_id
+      type: string
+      required: true
+      description: Token ID to revoke
+  # body is the revoked-token sentence. A consumed token is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Revoke approval token
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/approval_revoke/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        token_id: "{{ get('approval_revoke.token_id') }}"
