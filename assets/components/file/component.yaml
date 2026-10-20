@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: file
   description: Structured filesystem operations (read, write, patch, list, delete, exists, mkdir, copy, move, append)
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: operation
@@ -13,7 +13,7 @@ interface:
     - name: path
       type: string
       default: ""
-      description: Target file or directory (the destination for copy and move); relative paths resolve against the workflow directory
+      description: Target file or directory (the destination for copy and move); relative paths resolve against the working directory
     - name: source
       type: string
       default: ""
@@ -54,222 +54,29 @@ interface:
       type: boolean
       default: false
       description: write and append end the content with a newline
+  output: "{{ fromJSON(output('fileOperation').body) }}"
 resources:
+  # One call to the kdeps API's file_ops tool: the component holds no
+  # filesystem code of its own.
   - actionId: fileOperation
     name: File
-    python:
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/file_ops/call
+      headers:
+        Content-Type: application/json
       timeout: 120s
-      args:
-        - "{{ get('file.operation') }}"
-        - "{{ get('file.path') }}"
-        - "{{ get('file.source') }}"
-        - "{{ get('file.content') }}"
-        - "{{ get('file.patch') }}"
-        - "{{ get('file.encoding') }}"
-        - "{{ get('file.pattern') }}"
-        - "{{ get('file.recursive') }}"
-        - "{{ get('file.backup') }}"
-        - "{{ get('file.dryRun') }}"
-        - "{{ get('file.mode') }}"
-        - "{{ get('file.appendNewline') }}"
-      script: |
-        # Runs one filesystem operation and prints its structured result as JSON.
-        import base64, datetime, fnmatch, json, os, shutil, stat, sys
-
-        (op, path, source, content, patch, encoding, pattern,
-         recursive, backup, dry, mode, append_newline) = sys.argv[1:13]
-        recursive, backup, dry, append_newline = (
-            v.lower() == "true" for v in (recursive, backup, dry, append_newline))
-
-        def done(ok=True, **fields):
-            print(json.dumps(dict(fields, success=ok)))
-            sys.exit(0)
-
-        def fail(msg):
-            sys.exit("file: " + msg)
-
-        def need(value, what):
-            if not value:
-                fail("%s is required for %s operation" % (what, op))
-
-        def perm(m):
-            return "-" + stat.filemode(m)[1:]
-
-        def parse_mode(default):
-            try:
-                return int(mode, 8) if mode else default
-            except ValueError:
-                return default
-
-        def entry(p):
-            st = os.stat(p)
-            return {"name": os.path.basename(p), "path": p, "isDir": stat.S_ISDIR(st.st_mode),
-                    "size": st.st_size, "mode": stat.filemode(st.st_mode),
-                    "modTime": datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()}
-
-        def text():
-            if append_newline and not content.endswith("\n"):
-                return content + "\n"
-            return content
-
-        def copy_file(src, dst):
-            os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
-            shutil.copyfile(src, dst)
-            shutil.copymode(src, dst)
-
-        def apply_patch(original, diff):
-            lines = original.split("\n")
-            trailing = original.endswith("\n")
-            if trailing:
-                lines.pop()
-            out, rest, applied = [], lines, False
-            diff_lines = diff.split("\n")
-            for i, header in enumerate(diff_lines):
-                if not header.startswith("@@"):
-                    continue
-                try:
-                    start = int(header.split()[1][1:].split(",")[0]) - 1
-                except (IndexError, ValueError):
-                    raise ValueError("invalid hunk header: " + header)
-                start = max(start, 0)
-                out.extend(rest[:start])
-                rest, pos = rest[start:], 0
-                for line in diff_lines[i + 1:]:
-                    if line.startswith(("@@", "---", "+++")):
-                        break
-                    if line.startswith(" "):
-                        if pos >= len(rest):
-                            raise ValueError("patch context line out of range: %r" % line[1:])
-                        if rest[pos] != line[1:]:
-                            raise ValueError("patch context mismatch: expected %r, got %r" % (line[1:], rest[pos]))
-                        out.append(line[1:])
-                        pos += 1
-                    elif line.startswith("-"):
-                        if pos >= len(rest):
-                            raise ValueError("patch removal out of range: %r" % line[1:])
-                        if rest[pos] != line[1:]:
-                            raise ValueError("patch removal mismatch: expected %r, got %r" % (line[1:], rest[pos]))
-                        pos += 1
-                    elif line.startswith("+"):
-                        out.append(line[1:])
-                rest, applied = rest[pos:], True
-            if not applied:
-                raise ValueError("no valid hunks found in patch")
-            return "\n".join(out + rest) + ("\n" if trailing else "")
-
-        if op == "read":
-            need(path, "path")
-            try:
-                with open(path, "rb") as f:
-                    data = f.read()
-            except OSError as e:
-                fail(str(e))
-            body = data.decode("utf-8", "replace")
-            if encoding == "base64":
-                body = base64.b64encode(data).decode()
-            done(content=body, encoding="base64" if encoding == "base64" else "text", path=path,
-                 exists=True, size=len(data), lines=body.split("\n"))
-        if op == "write":
-            need(path, "path")
-            data = text().encode()
-            exists = os.path.exists(path)
-            if dry:
-                done(dryRun=True, path=path, size=len(data), exists=exists, written=False)
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-            backup_path = None
-            if backup and exists:
-                backup_path = path + ".bak"
-                copy_file(path, backup_path)
-            m = parse_mode(0o644)
-            with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, m), "wb") as f:
-                f.write(data)
-            done(path=path, size=len(data), written=True, mode=perm(m), exists=exists,
-                 backup=backup_path is not None, backupPath=backup_path)
-        if op == "patch":
-            need(path, "path")
-            need(patch, "patch content")
-            try:
-                with open(path, encoding="utf-8", newline="") as f:
-                    patched = apply_patch(f.read(), patch)
-            except OSError as e:
-                fail("failed to read target file for patch: %s" % e)
-            except ValueError as e:
-                fail("patch failed: %s" % e)
-            hunk_lines = patch.count("\n") + 1
-            if dry:
-                done(dryRun=True, path=path, patched=False, patchLines=hunk_lines)
-            if backup:
-                copy_file(path, path + ".bak")
-            with open(path, "w", encoding="utf-8", newline="") as f:
-                f.write(patched)
-            done(path=path, patched=True, patchLines=hunk_lines)
-        if op == "list":
-            need(path, "path")
-            if not os.path.exists(path):
-                fail("cannot access path: %s" % path)
-            if not os.path.isdir(path):
-                entries = [entry(path)]
-            elif recursive:
-                found = [os.path.join(d, n) for d, dirs, files in os.walk(path) for n in dirs + files]
-                entries = [entry(p) for p in sorted(found)
-                           if not pattern or fnmatch.fnmatchcase(os.path.basename(p), pattern)]
-            else:
-                entries = [entry(os.path.join(path, n)) for n in sorted(os.listdir(path))
-                           if not pattern or fnmatch.fnmatchcase(n, pattern)]
-            done(path=path, entries=entries, count=len(entries))
-        if op == "delete":
-            need(path, "path")
-            if not os.path.lexists(path):
-                done(path=path, deleted=False, reason="not_found")
-            if dry:
-                done(path=path, deleted=False, dryRun=True)
-            if os.path.isdir(path) and not os.path.islink(path):
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
-            done(path=path, deleted=True)
-        if op == "exists":
-            need(path, "path")
-            if not os.path.exists(path):
-                done(False, exists=False, path=path)
-            info = entry(path)
-            done(exists=True, path=path, isDir=info["isDir"], size=info["size"], mode=info["mode"],
-                 modTime=info["modTime"])
-        if op == "mkdir":
-            need(path, "path")
-            if dry:
-                done(path=path, created=False, dryRun=True)
-            m = parse_mode(0o755)
-            os.makedirs(path, m, exist_ok=True)
-            done(path=path, created=True, mode=perm(m))
-        if op == "copy":
-            need(source, "source")
-            need(path, "path (destination)")
-            if dry:
-                done(source=source, dest=path, copied=False, dryRun=True)
-            if not os.path.exists(source):
-                fail("source not accessible: %s" % source)
-            if os.path.isdir(source):
-                shutil.copytree(source, path, dirs_exist_ok=True)
-            else:
-                copy_file(source, path)
-            done(source=source, dest=path, copied=True)
-        if op == "move":
-            need(source, "source")
-            need(path, "path (destination)")
-            if not os.path.exists(source):
-                fail("source does not exist: %s" % source)
-            if dry:
-                done(source=source, dest=path, moved=False, dryRun=True)
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-            shutil.move(source, path)
-            done(source=source, dest=path, moved=True)
-        if op == "append":
-            need(path, "path")
-            data = text().encode()
-            if dry:
-                done(path=path, size=len(data), appended=False, dryRun=True)
-            with open(path, "ab") as f:
-                f.write(data)
-            done(path=path, appended=True, size=len(data))
-        fail("unsupported operation %r" % op)
+      failOnError: true
+      data:
+        operation: "{{ get('file.operation') }}"
+        path: "{{ get('file.path') }}"
+        source: "{{ get('file.source') }}"
+        content: "{{ get('file.content') }}"
+        patch: "{{ get('file.patch') }}"
+        encoding: "{{ get('file.encoding') }}"
+        pattern: "{{ get('file.pattern') }}"
+        recursive: "{{ get('file.recursive') }}"
+        backup: "{{ get('file.backup') }}"
+        dryRun: "{{ get('file.dryRun') }}"
+        mode: "{{ get('file.mode') }}"
+        appendNewline: "{{ get('file.appendNewline') }}"

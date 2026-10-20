@@ -27,11 +27,6 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing the file component..."
 
-if ! command -v uv >/dev/null 2>&1; then
-    test_skipped "file component - needs uv (python resources)"
-    return 0 2>/dev/null || exit 0
-fi
-
 FC_DIR=$(mktemp -d)
 trap 'rm -rf "$FC_DIR"' EXIT
 FC_DATA="$FC_DIR/data"

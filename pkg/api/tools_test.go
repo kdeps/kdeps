@@ -79,6 +79,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolEditFile,
 		toolEmbeddingSearch,
 		toolEmbeddingVectorize,
+		toolFileOps,
 		toolGoogleCacheCreate,
 		toolGoogleCacheDelete,
 		toolGoogleCacheList,
