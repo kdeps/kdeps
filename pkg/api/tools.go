@@ -97,6 +97,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolMemorySave, "Save a fact to persistent memory.", MemorySave))
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
+	RegisterTool(loadToolSpec(toolMemoryQuery, "Run a relational query over agent state.", MemoryQuery))
 	RegisterTool(loadToolSpec(toolCodeSearch, "Search for a symbol or pattern.", CodeSearch))
 	RegisterTool(loadToolSpec(toolCodeDefinition, "Find the definition of a symbol.", CodeDefinition))
 	RegisterTool(loadToolSpec(toolCodeReferences, "Find references to a symbol.", CodeReferences))

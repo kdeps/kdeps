@@ -42,6 +42,15 @@ func TestMemorySearchComponent_NoStore(t *testing.T) {
 	require.Contains(t, err.Error(), "memory_search: memory store is not configured")
 }
 
+func TestMemoryQueryComponent_NoLoop(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	_, err := runComponentValue(t, "memory_query", "    query: \"memory\"\n")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "agent loop is not configured")
+}
+
 func TestMemoryDeleteComponent_NoStore(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())

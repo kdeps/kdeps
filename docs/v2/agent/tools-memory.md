@@ -4,7 +4,7 @@
 
 ## Memory tools
 
-Always available. No environment variables required. `memory_save`, `memory_search`, and `memory_delete` run through the [kdeps API](/reference/api). A call with no memory store returns `memory_save: memory store is not configured`, and the same sentence for `memory_search` and `memory_delete`. The agent attaches its store before the call. `memory_query` stays in the agent loop.
+Always available. No environment variables required. `memory_save`, `memory_search`, and `memory_delete` run through the [kdeps API](/reference/api). A call with no memory store returns `memory_save: memory store is not configured`, and the same sentence for `memory_search` and `memory_delete`. The agent attaches its store before the call. `memory_query` runs through the [kdeps API](/reference/api). An empty query returns `memory_query: query is required`. A call with no agent loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`. The agent installs the loop before the call.
 
 | Tool | Description |
 |------|-------------|

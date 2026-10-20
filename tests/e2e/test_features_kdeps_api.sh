@@ -273,7 +273,7 @@ elif kind == "tools":
         "code_hover", "code_index_folder", "code_references", "code_search", "code_symbols",
         "edit_file", "embedding_search", "embedding_vectorize",
         "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
-        "list_files", "load_document", "md5_file", "memory_delete", "memory_save", "memory_search",
+        "list_files", "load_document", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "perplexity_search", "read_file", "search_local", "serpapi_search",
         "sql_describe_table", "sql_list_tables", "sql_query", "tail_file",
         "task_append_output", "task_assign_team", "task_complete", "task_create", "task_get", "task_list",
@@ -656,6 +656,26 @@ EOF
         test_passed "kdeps API - memory_save needs a store"
     else
         test_failed "kdeps API - memory_save needs a store" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/memory_query/call" || true)
+    if [ "$got" = "400" ] && grep -F "memory_query: query is required" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - memory_query requires query"
+    else
+        test_failed "kdeps API - memory_query requires query" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"query":"memory"}' "${tools}/memory_query/call" || true)
+    if [ "$got" = "400" ] && grep -F "agent loop is not configured" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - memory_query needs an agent loop"
+    else
+        test_failed "kdeps API - memory_query needs an agent loop" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

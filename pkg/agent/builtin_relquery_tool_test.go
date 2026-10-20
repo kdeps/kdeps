@@ -47,7 +47,7 @@ func newTestLoopWithMemory(t *testing.T) (*Loop, *MemoryStore) {
 
 func TestRegisterMemoryQueryTool_Registers(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerMemoryQueryTool(reg)
+	registerMemoryQueryTool(t.Context(), reg)
 	tool := reg.Get("memory_query")
 	require.NotNil(t, tool)
 	assert.Equal(t, "memory_query", tool.Name)
