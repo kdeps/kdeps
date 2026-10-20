@@ -64,3 +64,34 @@ func TestEmbeddingVectorizeComponent_NoInputs(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "embedding vectorize: no inputs provided")
 }
+
+func TestCronCreateComponent_CreatesCron(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	out, err := runComponentValue(t, "cron_create",
+		"    expression: \"0 0 * * *\"\n    name: it-cron\n    task_description: IT task\n    task_prompt: IT prompt\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "Created cron ")
+	require.Contains(t, fmt.Sprint(out), ": it-cron (0 0 * * *)")
+}
+
+func TestApprovalRequestComponent_ReturnsToken(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	out, err := runComponentValue(t, "approval_request",
+		"    tool_name: bash_exec\n    action: it-action\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "Requested approval token ")
+	require.Contains(t, fmt.Sprint(out), "tool=\"bash_exec\" action=\"it-action\"")
+}
+
+func TestInstructComponent_ReturnsHarnessSection(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	out, err := runComponentValue(t, "instruct", "    topic: narration\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "<narration>")
+}

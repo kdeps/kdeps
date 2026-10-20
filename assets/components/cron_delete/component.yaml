@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: cron_delete
+  description: Delete a cron job through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: cron_id
+      type: string
+      required: true
+      description: Cron ID to delete
+  # body is the deleted-cron sentence. An unknown id is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Delete cron
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/cron_delete/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        cron_id: "{{ get('cron_delete.cron_id') }}"

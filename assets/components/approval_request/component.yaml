@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: approval_request
+  description: Request an approval token through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: action
+      type: string
+      required: true
+      description: The specific action that was blocked
+    - name: tool_name
+      type: string
+      required: true
+      description: The tool name that needs the exception (e.g. 'bash_exec')
+  # body is the token id and a request to ask the user. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Request approval token
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/approval_request/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        action: "{{ get('approval_request.action') }}"
+        tool_name: "{{ get('approval_request.tool_name') }}"
