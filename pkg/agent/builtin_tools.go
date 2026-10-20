@@ -27,6 +27,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -211,13 +212,45 @@ func executeReadFile(ctx context.Context, args map[string]any) (string, error) {
 		}
 		if remembered != "" {
 			indexReadFile(remembered)
+			// A windowed read caches under a composite key, so the raw path
+			// is recorded here for edit_file's read-before-edit gate. An
+			// empty window (offset past end) shows no content; leave the
+			// gate closed.
+			if strings.TrimSpace(out) != "" {
+				markFileSeen(remembered)
+			}
 		}
 		return out, nil
 	}
 	if remembered == "" {
 		return call()
 	}
-	return trackFileCall(remembered, call)
+	return trackFileCall(readFileCacheKey(remembered, args), call)
+}
+
+// readFileCacheKey keys a read by the file and the window asked for. The
+// convergence cache makes an identical repeat free; it must not answer a
+// different question with the previous answer. Keyed by path alone, a second
+// read of the same file with a new offset/limit returned the first window
+// (instrument session kdeps-api-10: read loop.go lines 1-180, then asked for
+// offset 1360 / limit 220 and got lines 1-180 again).
+func readFileCacheKey(path string, args map[string]any) string {
+	offset := readWindowNumber(args["offset"])
+	limit := readWindowNumber(args["limit"])
+	if offset == 0 && limit == 0 {
+		return path
+	}
+	return path + "\x00" + strconv.Itoa(offset) + ":" + strconv.Itoa(limit)
+}
+
+// readWindowNumber returns a positive offset/limit the same way the API's
+// lineWindow reads it: a number or numeric string, anything else ignored.
+func readWindowNumber(v any) int {
+	n, ok := toolArgNumber(v)
+	if !ok || n <= 0 {
+		return 0
+	}
+	return int(n)
 }
 
 // fillReadFileSession copies match_id or the last file into file_path.

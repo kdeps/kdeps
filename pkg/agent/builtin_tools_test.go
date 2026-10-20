@@ -1112,6 +1112,100 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
 }
 
+// TestReadFile_StringOffsetAndLimit covers a fenced-tool backend, where the
+// model writes <parameter name="offset">2</parameter> and the parameter
+// arrives as a string. Both must still window the read.
+func TestReadFile_StringOffsetAndLimit(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-stringoffset-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(content), 0o600))
+
+	args := map[string]any{
+		"file_path": tmpFile.Name(),
+		"offset":    "2",
+		"limit":     "2",
+	}
+	normalizeToolArgs("read_file", args)
+	coerceToolArgTypes(tool.Parameters, args)
+	result, err := tool.Execute(args)
+	require.NoError(t, err)
+	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
+}
+
+// TestReadFile_SecondWindowNotServedFromCache reproduces instrument session
+// kdeps-api-10: read lines 1-180, then ask for offset 1360 / limit 220 with no
+// file_path. The repeat must reach the new window, not return the earlier one.
+func TestReadFile_SecondWindowNotServedFromCache(t *testing.T) {
+	ResetConvergence()
+	t.Cleanup(ResetConvergence)
+	lastFileState.mu.Lock()
+	lastFileState.path = ""
+	lastFileState.mu.Unlock()
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	lines := make([]string, 400)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %d", i+1)
+	}
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-secondwindow-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(strings.Join(lines, "\n")+"\n"), 0o600))
+
+	first, err := tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(),
+		"limit":     "180",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, first, "1\tline 1$")
+	assert.NotContains(t, first, "line 300")
+
+	second, err := tool.Execute(map[string]any{
+		"offset": "300",
+		"limit":  "2",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, second, "300\tline 300$")
+	assert.NotContains(t, second, "line 1$")
+}
+
+// TestReadFile_WindowedReadMarksFileSeen: a windowed read caches under a
+// composite key, so the read-before-edit gate must still see the path as read.
+func TestReadFile_WindowedReadMarksFileSeen(t *testing.T) {
+	ResetConvergence()
+	t.Cleanup(ResetConvergence)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-seen-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("line 1\nline 2\nline 3\n"), 0o600))
+
+	_, err = tool.Execute(map[string]any{
+		"file_path": tmpFile.Name(),
+		"offset":    "2",
+		"limit":     "1",
+	})
+	require.NoError(t, err)
+	assert.True(t, fileSeenThisTurn(tmpFile.Name()))
+}
+
 func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)

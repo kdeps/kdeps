@@ -193,6 +193,11 @@ func TestDetectRootTarget(t *testing.T) {
 		"ls /tmp", "cat /etc/hosts", "rm -rf /tmp/testdir", "find /Users",
 		"ls /var/log", "dd if=/dev/zero of=file bs=1M", "mkfs /dev/sda",
 		"fdisk /dev/sda", "sudo ls /etc",
+		// Heredoc bodies are program input, not shell words. Python's
+		// pathlib division operator is a bare "/" token there.
+		"python3 - <<'PY'\nfrom pathlib import Path\np = Path('/x')\nprint((p / 'a.md').read_text())\nPY",
+		"cat <<EOF\n/\nEOF",
+		"echo \"a << b\"\nls /tmp",
 	}
 	for _, cmd := range allowed {
 		if detectRootTarget(cmd) {

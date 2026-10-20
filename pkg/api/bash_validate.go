@@ -120,9 +120,13 @@ func detectDestructive(command string) string {
 	return ""
 }
 
-// detectRootTarget reports whether an argument is exactly "/".
+// detectRootTarget reports whether an argument is exactly "/". Heredoc
+// bodies are dropped first: they are stdin data for the program, not shell
+// words, so a Python expression like (session / 'session.md') inside
+// python3 - <<'PY' is not a "/" argument (instrument session kdeps-api-10
+// was blocked by exactly that).
 func detectRootTarget(command string) bool {
-	fields := strings.Fields(strings.TrimSpace(command))
+	fields := strings.Fields(strings.TrimSpace(stripHeredocBodies(command)))
 	for i, f := range fields {
 		if i == 0 || strings.HasPrefix(f, "-") {
 			continue
@@ -135,6 +139,86 @@ func detectRootTarget(command string) bool {
 		}
 	}
 	return false
+}
+
+// stripHeredocBodies removes every heredoc body from command, keeping the
+// header lines. A body starts after a << or <<- redirection and ends at the
+// line holding its delimiter word.
+func stripHeredocBodies(command string) string {
+	lines := strings.Split(command, "\n")
+	out := make([]string, 0, len(lines))
+	var delims []string
+	for _, line := range lines {
+		if len(delims) > 0 {
+			if strings.TrimSpace(line) == delims[0] {
+				delims = delims[1:]
+			}
+			continue
+		}
+		out = append(out, line)
+		delims = append(delims, heredocDelims(line)...)
+	}
+	return strings.Join(out, "\n")
+}
+
+// heredocDelims returns the delimiter words of the heredoc redirections on a
+// single line. Redirections inside quotes and here-strings (<<<) are ignored.
+func heredocDelims(line string) []string {
+	var delims []string
+	for i := 0; i < len(line); {
+		switch {
+		case line[i] == '\'' || line[i] == '"':
+			i = skipQuoted(line, i) + 1
+		case line[i] == '\\':
+			i += 2
+		case line[i] == '<' && i+1 < len(line) && line[i+1] == '<':
+			var delim string
+			delim, i = heredocDelimAt(line, i)
+			if delim != "" {
+				delims = append(delims, delim)
+			}
+		default:
+			i++
+		}
+	}
+	return delims
+}
+
+// skipQuoted returns the index of the quote that closes the quoted run
+// starting at i, or len(line)-1 when the run is unterminated.
+func skipQuoted(line string, i int) int {
+	q := line[i]
+	for j := i + 1; j < len(line); j++ {
+		if line[j] == q {
+			return j
+		}
+	}
+	return len(line) - 1
+}
+
+// heredocDelimAt reads a << or <<- redirection at i and returns its delimiter
+// word ("" when the construct is not a heredoc) and the index to resume from.
+func heredocDelimAt(line string, i int) (string, int) {
+	j := i + len("<<") // past '<<'
+	if j < len(line) && (line[j] == '<' || line[j] == '&') {
+		return "", j + 1 // here-string or <<&
+	}
+	if j < len(line) && line[j] == '-' {
+		j++ // <<- strips leading tabs from the delimiter
+	}
+	for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
+		j++
+	}
+	start := j
+	if j < len(line) && (line[j] == '\'' || line[j] == '"') {
+		start = j + 1
+		j = skipQuoted(line, j) + 1
+		return line[start:min(j-1, len(line))], j
+	}
+	for j < len(line) && !strings.ContainsRune(" \t|&;()<>", rune(line[j])) {
+		j++
+	}
+	return line[start:j], j
 }
 
 // BashFirstCommand returns the first command word, skipping leading env assignments.
