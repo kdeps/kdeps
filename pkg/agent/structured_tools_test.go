@@ -55,6 +55,7 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 		{"twiml", map[string]any{"verbs": []any{"say"}}},
 		{"file_ops", map[string]any{"operation": "exists", "path": "x"}},
 		{"git_ops", map[string]any{"operation": "status"}},
+		{"sql_ops", map[string]any{"connectionName": "main", "query": "SELECT 1"}},
 	}
 	for _, tc := range cases {
 		tool := reg.Get(tc.name)
@@ -70,6 +71,6 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 }
 
 func TestStructuredTools_LeanExcluded(t *testing.T) {
-	kept := LeanModeToolFilter([]string{"twiml", "file_ops", "git_ops", "read_file"})
+	kept := LeanModeToolFilter([]string{"twiml", "file_ops", "git_ops", "sql_ops", "read_file"})
 	require.Equal(t, []string{"read_file"}, kept)
 }

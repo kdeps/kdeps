@@ -99,6 +99,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolSerpAPI,
 		toolSQLDescribe,
 		toolSQLList,
+		toolSQLOps,
 		toolSQLQuery,
 		toolTailFile,
 		toolTaskAppendOutput,

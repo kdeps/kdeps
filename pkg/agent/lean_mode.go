@@ -84,6 +84,7 @@ func LeanModeToolFilter(names []string) []string {
 		"twiml":               true,
 		"file_ops":            true,
 		"git_ops":             true,
+		"sql_ops":             true,
 	}
 
 	filtered := make([]string, 0, len(names))

@@ -27,6 +27,7 @@ require (
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/minio/selfupdate v0.6.0
 	github.com/moby/moby/api v1.56.1
@@ -36,6 +37,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.30.1
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -126,6 +128,8 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocolly/colly v1.2.0 // indirect
+	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
+	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
@@ -165,6 +169,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect

@@ -32,7 +32,7 @@ import (
 func TestEveryToolHasShippedComponent(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "components")
 	// A tool whose public component has another name maps to that directory.
-	componentDir := map[string]string{"file_ops": "file", "git_ops": "git"}
+	componentDir := map[string]string{"file_ops": "file", "git_ops": "git", "sql_ops": "sql"}
 	for name := range toolReg {
 		dirName := name
 		if mapped, ok := componentDir[name]; ok {
