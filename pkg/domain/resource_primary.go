@@ -94,8 +94,27 @@ func IsRecognizedResourceActionKey(name string) bool {
 type componentBackedAction struct {
 	Name      string
 	Component string
-	Resource  func(*Resource) bool
-	Inline    func(*ActionConfig) bool
+	// ResourceComponent overrides Component when the target component depends
+	// on the resource config, such as the codeIntelligence operation.
+	ResourceComponent func(*Resource) string
+	// InlineComponent is ResourceComponent for a before:/after: step.
+	InlineComponent func(*ActionConfig) string
+	Resource        func(*Resource) bool
+	Inline          func(*ActionConfig) bool
+}
+
+func (a componentBackedAction) componentForResource(r *Resource) string {
+	if a.ResourceComponent != nil {
+		return a.ResourceComponent(r)
+	}
+	return a.Component
+}
+
+func (a componentBackedAction) componentForInline(step *ActionConfig) string {
+	if a.InlineComponent != nil {
+		return a.InlineComponent(step)
+	}
+	return a.Component
 }
 
 //nolint:gochecknoglobals // registry table
@@ -136,6 +155,51 @@ var componentBackedActions = []componentBackedAction{
 		Resource:  func(r *Resource) bool { return r.Loader != nil },
 		Inline:    func(a *ActionConfig) bool { return a.Loader != nil },
 	},
+	{
+		Name:      "codeIntelligence",
+		Component: "code_search",
+		ResourceComponent: func(r *Resource) string {
+			return codeIntelligenceComponent(r.CodeIntelligence)
+		},
+		InlineComponent: func(a *ActionConfig) string {
+			return codeIntelligenceComponent(a.CodeIntelligence)
+		},
+		Resource: func(r *Resource) bool { return r.CodeIntelligence != nil },
+		Inline:   func(a *ActionConfig) bool { return a.CodeIntelligence != nil },
+	},
+}
+
+// codeIntelligenceComponent names the component for a codeIntelligence
+// operation. An unknown or missing operation falls back to code_search, the
+// component for the default symbolSearch operation.
+func codeIntelligenceComponent(config *CodeIntelligenceConfig) string {
+	if config == nil {
+		return "code_search"
+	}
+	switch config.Operation {
+	case CodeIntOpSymbolSearch:
+		return "code_search"
+	case CodeIntOpDefinition:
+		return "code_definition"
+	case CodeIntOpReferences:
+		return "code_references"
+	case CodeIntOpDocumentSymbols:
+		return "code_symbols"
+	case CodeIntOpHover:
+		return "code_hover"
+	case CodeIntOpDiagnostics:
+		return "code_diagnostics"
+	case CodeIntOpIndexFolder:
+		return "code_index_folder"
+	case CodeIntOpGraphFile:
+		return "code_graph_file"
+	case CodeIntOpGraphTopic:
+		return "code_graph_topic"
+	case CodeIntOpGraphAll:
+		return "code_graph_all"
+	default:
+		return "code_search"
+	}
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be
@@ -147,7 +211,7 @@ func ComponentBackedAction(r *Resource) (string, string, bool) {
 	}
 	for _, entry := range componentBackedActions {
 		if entry.Resource(r) {
-			return entry.Name, entry.Component, true
+			return entry.Name, entry.componentForResource(r), true
 		}
 	}
 	return "", "", false
@@ -160,7 +224,7 @@ func ComponentBackedInlineAction(a *ActionConfig) (string, string, bool) {
 	}
 	for _, entry := range componentBackedActions {
 		if entry.Inline(a) {
-			return entry.Name, entry.Component, true
+			return entry.Name, entry.componentForInline(a), true
 		}
 	}
 	return "", "", false

@@ -55,12 +55,13 @@ cat > "$RESOURCE_FILE_INDEX" <<EOF
 actionId: indexFolder
 name: Index Folder
 
-# indexFolder always indexes the process's current working directory --
+# code_index_folder always indexes the process's current working directory --
 # "path" is intentionally not set here (and would be ignored if it were).
 # The server below is launched with its cwd set to the docs fixture dir.
-codeIntelligence:
-  operation: indexFolder
-  graphDBPath: "$DB_PATH_NATIVE"
+component:
+  name: code_index_folder
+  with:
+    graphDBPath: "$DB_PATH_NATIVE"
 EOF
 
 cat > "$RESOURCE_FILE_GRAPH" <<EOF
@@ -70,9 +71,10 @@ name: Graph All
 requires:
   - indexFolder
 
-codeIntelligence:
-  operation: graphAll
-  graphDBPath: "$DB_PATH_NATIVE"
+component:
+  name: code_graph_all
+  with:
+    graphDBPath: "$DB_PATH_NATIVE"
 EOF
 
 cat > "$RESOURCE_FILE_RESPONSE" <<'EOF'
@@ -87,9 +89,10 @@ restrictToRoutes: [/api/v1/graph]
 apiResponse:
   success: true
   response:
-    graphSuccess: "{{ output('graphAll').success }}"
-    roots: "{{ output('graphAll').roots }}"
-    references: "{{ output('graphAll').references }}"
+    # The component returns the tool's body as JSON text; fromJSON reads fields.
+    graphSuccess: "{{ fromJSON(output('graphAll')).success }}"
+    roots: "{{ fromJSON(output('graphAll')).roots }}"
+    references: "{{ fromJSON(output('graphAll')).references }}"
 EOF
 
 # Test 1: Validate workflow
@@ -99,6 +102,29 @@ else
     test_failed "CodeIntelligence Graph - Workflow validation" "Validation failed"
     rm -rf "$TEST_DIR"
     return 0
+fi
+
+# Test 1b: the native codeIntelligence: key is rejected; the error names the
+# component for the operation.
+NATIVE_DIR="$TEST_DIR/native"
+mkdir -p "$NATIVE_DIR/resources"
+NATIVE_WORKFLOW="$NATIVE_DIR/workflow.yaml"
+sed -e 's/name: codeintelligence-graph-test/name: codeintelligence-native-test/' \
+    -e 's/targetActionId: response/targetActionId: native/' \
+    "$WORKFLOW_FILE" > "$NATIVE_WORKFLOW"
+cat > "$NATIVE_DIR/resources/native.yaml" <<EOF
+actionId: native
+name: Native
+codeIntelligence:
+  operation: indexFolder
+  graphDBPath: "$DB_PATH_NATIVE"
+EOF
+NATIVE_OUT=$("$KDEPS_BIN" validate "$NATIVE_WORKFLOW" 2>&1 || true)
+if echo "$NATIVE_OUT" | grep -q "call the code_index_folder component instead"; then
+    test_passed "CodeIntelligence Graph - native codeIntelligence rejected in favor of components"
+else
+    test_failed "CodeIntelligence Graph - native codeIntelligence rejected in favor of components" \
+        "$(echo "$NATIVE_OUT" | head -5)"
 fi
 
 # Test 2: Start server and run the indexFolder -> graphAll -> response dependency chain.

@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestCode_NilAndCanceled(t *testing.T) {
@@ -114,5 +116,27 @@ func TestCode_GraphRequiresFields(t *testing.T) {
 	}
 	if _, err := CodeHover(t.Context(), map[string]any{"path": t.TempDir()}); err == nil {
 		t.Fatal("hover with no symbol must fail")
+	}
+}
+
+func TestCodeConfig_SearchOptions(t *testing.T) {
+	dir := t.TempDir()
+	config, err := codeConfig(toolCodeSearch, domain.CodeIntOpSymbolSearch, map[string]any{
+		"path":        dir,
+		"query":       "q",
+		argPattern:    "*.go",
+		argLanguage:   "go",
+		argLanguageID: "go",
+		argContext:    float64(2),
+		argLimit:      "10",
+	})
+	if err != nil {
+		t.Fatalf("codeConfig: %v", err)
+	}
+	if config.Pattern != "*.go" || config.Language != "go" || config.LanguageID != "go" {
+		t.Fatalf("string options lost: %+v", config)
+	}
+	if config.Context != 2 || config.Limit != 10 {
+		t.Fatalf("numeric options lost: %+v", config)
 	}
 }
