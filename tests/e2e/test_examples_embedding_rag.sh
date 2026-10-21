@@ -49,11 +49,11 @@ else
     test_failed "embedding-rag - README.md exists" "File not found"
 fi
 
-# index.yaml uses embedding upsert
-if grep -q "embedding:" "$EXAMPLE_DIR/resources/index.yaml" 2>/dev/null; then
-    test_passed "embedding-rag - index.yaml uses run.embedding"
+# index.yaml calls the embedding component
+if grep -q "name: embedding" "$EXAMPLE_DIR/resources/index.yaml" 2>/dev/null; then
+    test_passed "embedding-rag - index.yaml calls the embedding component"
 else
-    test_failed "embedding-rag - index.yaml uses run.embedding" "embedding: key not found"
+    test_failed "embedding-rag - index.yaml calls the embedding component" "component name not found"
 fi
 
 if grep -q "upsert" "$EXAMPLE_DIR/resources/index.yaml" 2>/dev/null; then
@@ -62,11 +62,11 @@ else
     test_failed "embedding-rag - index.yaml uses operation: upsert" "upsert not found"
 fi
 
-# search.yaml uses embedding search
-if grep -q "embedding:" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
-    test_passed "embedding-rag - search.yaml uses run.embedding"
+# search.yaml calls the embedding component
+if grep -q "name: embedding" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
+    test_passed "embedding-rag - search.yaml calls the embedding component"
 else
-    test_failed "embedding-rag - search.yaml uses run.embedding" "embedding: key not found"
+    test_failed "embedding-rag - search.yaml calls the embedding component" "component name not found"
 fi
 
 if grep -q "search" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
@@ -113,7 +113,7 @@ mkdir -p "$WORK_DIR/resources"
 sed "s/portNum: ${PORT}/portNum: ${API_PORT}/" "$WF" > "$WORK_DIR/workflow.yaml"
 cp "$EXAMPLE_DIR/resources/"*.yaml "$WORK_DIR/resources/"
 
-"$KDEPS_BIN" run "$WORK_DIR/workflow.yaml" >"$LOG_FILE" 2>&1 &
+KDEPS_COMPONENT_DIR= "$KDEPS_BIN" run "$WORK_DIR/workflow.yaml" >"$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
 
 READY=false
@@ -146,7 +146,7 @@ SRCH_RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/search" 
     -H "Content-Type: application/json" \
     -d '{"query": "compiled language"}' 2>&1)
 
-if output_grep "success|results|count" "$SRCH_RESP"; then
+if output_grep "compiled language|count" "$SRCH_RESP"; then
     test_passed "embedding-rag - /search endpoint responds"
 else
     test_failed "embedding-rag - /search endpoint responds" "resp=$SRCH_RESP"

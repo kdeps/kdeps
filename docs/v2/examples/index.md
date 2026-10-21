@@ -11,7 +11,7 @@ closest to what you are building.
 |---|---|
 | [Document summarizer](/examples/file-processor) | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | `items:` iteration - process a list in one request |
-| [Document search (RAG)](/examples/rag-search) | `embedding:` upsert and search, two routes in one workflow |
+| [Document search (RAG)](/examples/rag-search) | `component: embedding` upsert and search, two routes in one workflow |
 | [Web scraper](/examples/web-scraper) | `component: scraper` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
 | [Shell command API](/examples/shell-command-api) | the `exec` component with a timeout, method scoping, `info()` |
@@ -75,7 +75,7 @@ Best for:
 ## Document search (RAG)
 
 A two-route API: `POST /index` stores a document, `POST /search` returns the
-closest matches. Uses the built-in `embedding:` resource - a local SQLite
+closest matches. Uses the built-in `embedding` component - a local SQLite
 index, no vector database.
 
 Best for:

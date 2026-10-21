@@ -691,3 +691,78 @@ func TestYAMLParser_ExecExamplesUseComponent(t *testing.T) {
 		assert.True(t, found, path+" must call the exec component")
 	}
 }
+
+// A workflow runs embedding operations only through the embedding component,
+// which reaches the embedding executor over the kdeps API.
+func TestYAMLParser_EmbeddingComponentBacked(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: embedding-component-backed
+  version: "1.0.0"
+  targetActionId: index
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "index.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: index
+name: Index
+embedding:
+  operation: index
+  text: hello
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the embedding component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: index
+name: Index
+component:
+  name: embedding
+  with:
+    operation: index
+    text: hello
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["embedding"]
+	require.NotNil(t, comp, "the shipped embedding component must resolve")
+	require.Len(t, comp.Resources, 1)
+	require.NotNil(t, comp.Resources[0].HTTPClient)
+	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
+		"/apis/tools.kdeps.io/v1/tools/embedding/call")
+}
+
+// The shipped embedding-rag example calls the component; it keeps no native
+// embedding resource that the parser would now reject.
+func TestYAMLParser_EmbeddingExampleUsesComponent(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	workflow, err := parser.ParseWorkflow("../../../examples/embedding-rag/workflow.yaml")
+	require.NoError(t, err)
+
+	var found bool
+	for _, resource := range workflow.Resources {
+		if resource.Component == nil || resource.Component.Name != "embedding" {
+			continue
+		}
+		found = true
+		if action, _, ok := domain.ComponentBackedAction(resource); ok {
+			t.Fatalf("example resource %q still runs a component-backed native action", action)
+		}
+	}
+	assert.True(t, found, "examples/embedding-rag must call the embedding component")
+}

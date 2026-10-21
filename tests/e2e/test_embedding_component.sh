@@ -17,14 +17,14 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for native embedding executor
+# E2E tests for the embedding component
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing native embedding executor..."
+echo "Testing embedding component..."
 
 if [ -z "${KDEPS_BIN:-}" ] || [ ! -x "${KDEPS_BIN}" ]; then
     test_skipped "native embedding - kdeps binary not found"
@@ -56,11 +56,13 @@ YAML
     cat > "$pkg_dir/resources/do-index.yaml" <<YAML
 actionId: do-index
 name: Do Index
-embedding:
-  operation: "index"
-  text: "hello world embedding test"
-  collection: "e2e-test"
-  dbPath: "${DB_PATH}"
+component:
+  name: embedding
+  with:
+    operation: "index"
+    text: "hello world embedding test"
+    collection: "e2e-test"
+    dbPath: "${DB_PATH}"
 apiResponse:
   success: true
   response:
@@ -68,10 +70,10 @@ apiResponse:
 YAML
 
     local result
-    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native embedding - index operation"
+    if result=$(KDEPS_COMPONENT_DIR= timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        test_passed "embedding component - index operation"
     else
-        test_failed "native embedding - index operation (run failed)" "${result:-}"
+        test_failed "embedding component - index operation (run failed)" "${result:-}"
     fi
 }
 
@@ -93,11 +95,13 @@ YAML
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
 actionId: do-search
 name: Do Search
-embedding:
-  operation: "search"
-  text: "hello"
-  collection: "e2e-test"
-  dbPath: "${DB_PATH}"
+component:
+  name: embedding
+  with:
+    operation: "search"
+    text: "hello"
+    collection: "e2e-test"
+    dbPath: "${DB_PATH}"
 apiResponse:
   success: true
   response:
@@ -105,10 +109,10 @@ apiResponse:
 YAML
 
     local result
-    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native embedding - search operation"
+    if result=$(KDEPS_COMPONENT_DIR= timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        test_passed "embedding component - search operation"
     else
-        test_failed "native embedding - search operation (run failed)" "${result:-}"
+        test_failed "embedding component - search operation (run failed)" "${result:-}"
     fi
 }
 
@@ -132,11 +136,13 @@ YAML
     cat > "$pkg_dir/resources/do-upsert.yaml" <<YAML
 actionId: do-upsert
 name: Do Upsert
-embedding:
-  operation: "upsert"
-  text: "upsert test content"
-  collection: "upsert-col"
-  dbPath: "${upsert_db}"
+component:
+  name: embedding
+  with:
+    operation: "upsert"
+    text: "upsert test content"
+    collection: "upsert-col"
+    dbPath: "${upsert_db}"
 apiResponse:
   success: true
   response:
@@ -144,10 +150,10 @@ apiResponse:
 YAML
 
     local result
-    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native embedding - upsert operation"
+    if result=$(KDEPS_COMPONENT_DIR= timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        test_passed "embedding component - upsert operation"
     else
-        test_failed "native embedding - upsert operation (run failed)" "${result:-}"
+        test_failed "embedding component - upsert operation (run failed)" "${result:-}"
     fi
 }
 
@@ -171,11 +177,13 @@ YAML
     cat > "$pkg_dir/resources/do-delete.yaml" <<YAML
 actionId: do-delete
 name: Do Delete
-embedding:
-  operation: "delete"
-  text: ""
-  collection: "del-col"
-  dbPath: "${del_db}"
+component:
+  name: embedding
+  with:
+    operation: "delete"
+    text: ""
+    collection: "del-col"
+    dbPath: "${del_db}"
 apiResponse:
   success: true
   response:
@@ -183,10 +191,10 @@ apiResponse:
 YAML
 
     local result
-    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native embedding - delete operation"
+    if result=$(KDEPS_COMPONENT_DIR= timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        test_passed "embedding component - delete operation"
     else
-        test_failed "native embedding - delete operation (run failed)" "${result:-}"
+        test_failed "embedding component - delete operation (run failed)" "${result:-}"
     fi
 }
 

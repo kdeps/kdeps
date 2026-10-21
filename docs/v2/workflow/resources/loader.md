@@ -1,6 +1,6 @@
 # Loader resource
 
-The `loader:` resource reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or `embedding:` for indexing.
+The `loader:` resource reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or the `embedding` component for indexing.
 
 ## Where it runs
 
@@ -102,5 +102,5 @@ vectorStore:
 ## See also
 
 - [Vector store resource](/workflow/resources/vector-store) - index and search the loaded documents
-- [Embedding resource](/workflow/resources/embedding) - lightweight keyword-based alternative for local, API-key-free RAG
+- [Embedding component](/workflow/resources/embedding) - lightweight keyword-based alternative for local, API-key-free RAG
 - [Resources overview](/workflow/resources) - all resource types

@@ -122,6 +122,6 @@ Response:
 ## Next steps
 
 - [search_local component](/workflow/resources/search-local) - `index: true`, fuzzy matching, graph boost
-- [Document search tutorial](/examples/rag-search) - semantic search with `embedding:`
+- [Document search tutorial](/examples/rag-search) - semantic search with the `embedding` component
 - [Code intelligence](/workflow/resources/code-navigation) - symbol search over a source tree
 - [Web scraper tutorial](/examples/web-scraper) - fetch remote pages instead

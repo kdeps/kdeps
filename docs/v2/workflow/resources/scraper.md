@@ -141,7 +141,7 @@ onError:
 
 ## See also
 
-- [Embedding resource](/workflow/resources/embedding) - store and search scraped content
+- [Embedding component](/workflow/resources/embedding) - store and search scraped content
 - [LLM resource](/workflow/resources/llm) - feed scraped content into prompts
 - [HTTP client](/workflow/resources/http-client) - lower-level HTTP with auth, headers, caching
 - [Browser resource](/workflow/resources/browser) - pages that need JavaScript

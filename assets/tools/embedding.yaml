@@ -1,0 +1,40 @@
+version: 1.0.0
+description: 'Run one embedding operation: index, search, upsert or delete in the local SQLite embedding database, vectorize or embed_query through an embedding backend, or rerank documents with Cohere. Call it through the embedding component. Requires: operation. Optional: text, collection, dbPath, limit, inputs, model, backend, baseURL, rerankQuery, rerankDocuments, rerankTopN.'
+parameters:
+  backend:
+    type: string
+    description: 'Embedding backend for vectorize/embed_query: openai, ollama, google.'
+  baseURL:
+    type: string
+    description: Custom base URL for an OpenAI-compatible backend.
+  collection:
+    type: string
+    description: Collection (namespace) inside the local embedding database.
+  dbPath:
+    type: string
+    description: Path to the SQLite embedding database. Default comes from the embedding defaults.
+  inputs:
+    type: array
+    description: Texts to embed for vectorize and embed_query.
+  limit:
+    type: number
+    description: Maximum number of search results.
+  model:
+    type: string
+    description: Embedding model for vectorize and embed_query, e.g. text-embedding-3-small.
+  operation:
+    type: string
+    description: 'index, search, upsert, delete, vectorize, embed_query or rerank.'
+    required: true
+  rerankDocuments:
+    type: array
+    description: Candidate documents to rerank (operation rerank).
+  rerankQuery:
+    type: string
+    description: Query the candidate documents are ranked against (operation rerank).
+  rerankTopN:
+    type: number
+    description: Number of top reranked results to return; 0 returns all.
+  text:
+    type: string
+    description: Text to index, search for, upsert or delete.

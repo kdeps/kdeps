@@ -104,6 +104,7 @@ func init() {
 	registerCodeTools()
 	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
+	RegisterTool(loadToolSpec(toolEmbedding, "Run one embedding operation.", EmbeddingOps))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
 	RegisterTool(loadToolSpec(toolTwiml, "Build a TwiML voice response.", TwiML))
 	RegisterTool(loadToolSpec(toolEmailOps, "Send email and work with IMAP mailboxes.", EmailOps))

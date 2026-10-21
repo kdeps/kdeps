@@ -2,7 +2,7 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: embedding-rag
-  description: Simple RAG pipeline - index documents and search them with the native embedding executor
+  description: Simple RAG pipeline - index documents and search them with the embedding component
   version: "1.0.0"
   targetActionId: response
 settings:

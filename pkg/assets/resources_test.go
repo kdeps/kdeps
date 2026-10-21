@@ -68,7 +68,7 @@ func TestWriteResources(t *testing.T) {
 
 	doc, err := os.ReadFile(filepath.Join(files, "embedding", "2.58.2.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(doc), "# Embedding resource")
+	assert.Contains(t, string(doc), "# embedding component")
 	assert.NotContains(t, string(doc), "](/")
 
 	var f Formula
@@ -80,7 +80,7 @@ func TestWriteResources(t *testing.T) {
 	assert.Equal(t, "https://files.example/resources/embedding/2.58.2.md", f.Tarball)
 	assert.Equal(t, Sum(doc), f.SHA256)
 	assert.Equal(t, []string{"kdeps", "resource", "embedding"}, f.Tags)
-	assert.True(t, strings.HasPrefix(f.Description, "The `embedding` executor"), f.Description)
+	assert.True(t, strings.HasPrefix(f.Description, "The `embedding` component"), f.Description)
 
 	entries, err := os.ReadDir(formulas)
 	require.NoError(t, err)

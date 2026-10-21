@@ -1,6 +1,6 @@
 # embedding-rag
 
-Simple RAG (Retrieval-Augmented Generation) pipeline using the **built-in native embedding executor** -- keyword-indexed SQLite store, pure Go, zero external dependencies.
+Simple RAG (Retrieval-Augmented Generation) pipeline that indexes documents and searches them through the built-in `embedding` component -- a keyword-indexed SQLite store, pure Go, zero external dependencies.
 
 ## Usage
 
@@ -24,8 +24,8 @@ curl -X POST http://localhost:16403/search \
 
 ## How it works
 
-1. **index** -- `run.embedding` with `operation: upsert` stores the text in a SQLite keyword index
-2. **search** -- `run.embedding` with `operation: search` retrieves the top-5 matching documents
+1. **index** -- calls the `embedding` component with `operation: upsert`; the component stores the text in a SQLite keyword index
+2. **search** -- calls the `embedding` component with `operation: search`; the component retrieves the top-5 matching documents
 3. **response** -- returns the results and match count
 
 ## Operations
@@ -43,7 +43,7 @@ curl -X POST http://localhost:16403/search \
 embedding-rag/
 ├── workflow.yaml
 └── resources/
-    ├── index.yaml    # run.embedding operation: upsert
-    ├── search.yaml   # run.embedding operation: search
+    ├── index.yaml    # component: embedding, operation: upsert
+    ├── search.yaml   # component: embedding, operation: search
     └── response.yaml # API response
 ```

@@ -2,10 +2,10 @@
 
 Build an HTTP API with two endpoints: one indexes a
 document, the other searches the indexed documents and returns the closest
-matches. It uses the built-in `embedding:` resource, which stores text in a
+matches. It uses the built-in `embedding` component, which stores text in a
 local SQLite index - no external vector database, no API key.
 
-This is the retrieval half of RAG. The `embedding:` resource keeps a keyword
+This is the retrieval half of RAG. The `embedding` component keeps a keyword
 index in SQLite and ranks results by match - enough for a working search API
 with zero setup.
 
@@ -61,10 +61,12 @@ validations:
   error:
     code: 400
     message: "text is required"
-embedding:
-  operation: upsert            # add or update the document in the index
-  text: "{{ get('text') }}"
-  collection: "{{ get('collection', 'docs') }}"   # 'docs' if not supplied
+component:
+  name: embedding              # the shipped embedding component
+  with:
+    operation: upsert          # add or update the document in the index
+    text: "{{ get('text') }}"
+    collection: "{{ get('collection', 'docs') }}"   # 'docs' if not supplied
 ```
 
 </div>
@@ -90,11 +92,13 @@ validations:
   error:
     code: 400
     message: "query is required"
-embedding:
-  operation: search            # return ranked matches
-  text: "{{ get('query') }}"
-  collection: "{{ get('collection', 'docs') }}"
-  limit: 5
+component:
+  name: embedding              # the shipped embedding component
+  with:
+    operation: search          # return ranked matches
+    text: "{{ get('query') }}"
+    collection: "{{ get('collection', 'docs') }}"
+    limit: 5
 ```
 
 </div>
@@ -170,7 +174,7 @@ Response:
 
 ## Next steps
 
-- [Embedding resource](/workflow/resources/embedding) - collections, delete, batch upsert
+- [Embedding component](/workflow/resources/embedding) - collections, delete, batch upsert
 - [Vector store](/workflow/resources/vector-store) - persistent vector storage
 - [search_local](/workflow/resources/search-local) - TF-IDF search over files on disk
 - [Validation and control flow](/workflow/validation) - route and method scoping

@@ -1,7 +1,7 @@
 name: embedding-rag
 version: "1.0.0"
 type: workflow
-description: Simple RAG pipeline - index documents and search them with the native embedding executor
+description: Simple RAG pipeline - index documents and search them with the embedding component
 tags:
   - rag
   - embedding
