@@ -28,8 +28,8 @@ require (
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
-	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/minio/selfupdate v0.6.0
 	github.com/moby/moby/api v1.56.1
 	github.com/moby/moby/client v0.6.1
@@ -143,7 +143,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
