@@ -367,12 +367,23 @@ apiResponse:
 EOF
     local sample="$root/sample.txt"
     printf 'line 1\nline 2\nline 3\n' >"$sample"
+    # The path is embedded in YAML content, which MSYS never translates for a
+    # native kdeps.exe; hand it the Windows form (same string the OCR echo sees).
+    sample=$(to_native_path "$sample")
     # A stand-in tesseract proves the ocr_image component reaches the
     # asset-declared exec tool through the kdeps API.
     local fakebin="$root/fakebin"
     mkdir -p "$fakebin"
-    printf '#!/bin/sh\necho "OCR: $1"\n' >"$fakebin/tesseract"
-    chmod +x "$fakebin/tesseract"
+    case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*)
+        # Windows resolves commands by PATHEXT, so the stand-in must be a batch file.
+        printf '@echo off\r\necho OCR: %%~1\r\n' >"$fakebin/tesseract.bat"
+        ;;
+    *)
+        printf '#!/bin/sh\necho "OCR: $1"\n' >"$fakebin/tesseract"
+        chmod +x "$fakebin/tesseract"
+        ;;
+    esac
     python3 - "$sample" "$server_dir/resources/read.yaml" <<'PY'
 import json, sys
 path, dest = sys.argv[1], sys.argv[2]

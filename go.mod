@@ -1,6 +1,6 @@
 module github.com/kdeps/kdeps/v2
 
-go 1.26.9
+go 1.26.10
 
 tool golang.org/x/vuln/cmd/govulncheck
 
