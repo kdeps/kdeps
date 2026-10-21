@@ -19,7 +19,8 @@
 
 # E2E tests for the browser component (kdeps components asset set): Playwright
 # steps called with component: {name: browser}; the browser: key is gone.
-# The live run needs uv and Playwright (CI installs both); otherwise skipped.
+# The live run needs python3 for the page server and a downloaded Chromium;
+# without one the live run is skipped.
 
 set -uo pipefail
 
@@ -61,7 +62,23 @@ else
     test_failed "browser component - validate" "$("$KDEPS_BIN" validate "$BR_DIR/wf/workflow.yaml" 2>&1 | tail -3)"
 fi
 
-if command -v uv >/dev/null 2>&1 && command -v playwright >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+# br_chromium prints an already-downloaded Playwright Chromium, or nothing.
+br_chromium() {
+    for cache in "$HOME/.cache/ms-playwright" "$HOME/Library/Caches/ms-playwright" \
+        "$HOME/AppData/Local/ms-playwright"; do
+        [ -d "$cache" ] || continue
+        found=$(find "$cache" -type f \( -name chrome -o -name chrome.exe \
+            -o -name Chromium -o -name "Google Chrome for Testing" \) 2>/dev/null | head -1)
+        if [ -n "$found" ]; then
+            printf '%s' "$found"
+            return 0
+        fi
+    done
+}
+
+BR_CHROMIUM=$(br_chromium)
+if [ -n "$BR_CHROMIUM" ] && command -v python3 >/dev/null 2>&1; then
+    export CHROMIUM_PATH="$BR_CHROMIUM"
     printf '%s' '<html><head><title>E2E Page</title></head><body><input id="name"><button id="btn" onclick="document.getElementById(&quot;result&quot;).textContent=&quot;Hello, &quot;+document.getElementById(&quot;name&quot;).value">Go</button><div id="result"></div></body></html>' > "$BR_DIR/index.html"
     PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
     (cd "$BR_DIR" && python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1) & BR_PID=$!
@@ -74,7 +91,7 @@ if command -v uv >/dev/null 2>&1 && command -v playwright >/dev/null 2>&1 && com
         test_failed "browser component - live run" "$(echo "$OUT" | tail -15)"
     fi
 else
-    test_skipped "browser component - live run needs uv and Playwright"
+    test_skipped "browser component - live run needs python3 and a downloaded Chromium"
 fi
 
 printf 'actionId: b\nname: B\nbrowser:\n  url: https://example.com\n' > "$BR_DIR/wf/resources/b.yaml"

@@ -113,6 +113,8 @@ func init() {
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
 	RegisterTool(loadToolSpec(toolTwiml, "Build a TwiML voice response.", TwiML))
+	RegisterTool(loadToolSpec(toolEmailOps, "Send email and work with IMAP mailboxes.", EmailOps))
+	RegisterTool(loadToolSpec(toolBrowserOps, "Drive a browser with Playwright.", BrowserOps))
 	RegisterTool(loadToolSpec(toolFileOps, "Run one structured filesystem operation.", FileOps))
 	RegisterTool(loadToolSpec(toolGitOps, "Run one structured git operation.", GitOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))

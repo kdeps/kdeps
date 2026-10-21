@@ -11,7 +11,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | [Web and search](/agent/tools-web) |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
-| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml` - the same handlers behind the `file`, `git`, `sql` and `twiml` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony) |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml`, `email_ops`, `browser_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony), [Email](/workflow/resources/email), [Browser](/workflow/resources/browser) |
 | Code | `code_search`, `code_definition`, and the other LSP tools | [Code intelligence](/workflow/resources/code-navigation) |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
@@ -241,7 +241,7 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ## Lean mode
 
-The full tool catalog (~59 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool catalog (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time

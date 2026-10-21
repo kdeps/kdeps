@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -140,9 +139,6 @@ func rawMail(subject, body, extra string) string {
 // The email component sends over SMTP and reads, searches, modifies, lists and
 // deletes over IMAP with the results the email: resource returned.
 func TestEmailComponent_SMTPAndIMAP(t *testing.T) {
-	if _, err := exec.LookPath("uv"); err != nil {
-		t.Skip("uv not installed (python resources)")
-	}
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
 	smtpAddr, sent := fakeSMTP(t)
@@ -178,7 +174,7 @@ func TestEmailComponent_SMTPAndIMAP(t *testing.T) {
 	assert.Equal(t, []string{"bob@example.com", "hidden@example.com"}, rcpt)
 	assert.Contains(t, data, "Subject: Report")
 	assert.NotContains(t, data, "hidden@example.com", "bcc stays out of the headers")
-	assert.Contains(t, data, "filename=\"note.txt\"")
+	assert.Contains(t, data, "filename=note.txt")
 
 	_, err := runComponentCall(
 		t,

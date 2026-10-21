@@ -4,7 +4,7 @@ The `browser` component drives a real browser (Chromium, Firefox, or WebKit) wit
 
 ## Requirements
 
-Python through uv like any [python resource](/workflow/resources/python). The component declares `playwright` under `setup.pythonPackages`; the first launch of an engine downloads its browser (`chromium` about 150 MB) and later runs reuse it. On Linux, Chromium needs system libraries - Playwright's error names the install command (`playwright install-deps chromium`).
+None beyond kdeps itself. Playwright is compiled into the binary; the first launch of an engine downloads its browser (`chromium` about 150 MB) and later runs reuse it. On Linux, Chromium needs system libraries - Playwright's error names the missing library. Set `CHROMIUM_PATH` to use a browser you already have instead of downloading one.
 
 ## Where it runs
 
@@ -320,11 +320,11 @@ Each action result carries what it did: `value` (fill, type, select), `key` (pre
 
 ## How it is built
 
-One python resource that runs the steps with Playwright's sync API and prints the result as JSON. Copy `components/browser/` into your project to add an action or change launch settings.
+```text
+component: browser -> POST /apis/tools.kdeps.io/v1/tools/browser_ops/call -> {success, url, title, sessionId, actionResults}
+```
 
-## How it is built
-
-One python resource that runs the steps with Playwright's sync API and prints the result as JSON. Copy `components/browser/` into your project to add an action or change launch settings.
+One `httpClient` POST carries the ten inputs to the `browser_ops` tool in the kdeps API. The tool launches the engine with Playwright's Go library inside the kdeps process - no python, no uv - runs the actions in order, and returns the result as JSON. Copy `components/browser/` into your project to change defaults; the actions themselves are interpreted by the tool.
 
 ## See also
 
