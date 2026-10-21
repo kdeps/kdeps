@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -141,9 +140,11 @@ func TestBrowserSessionDir(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_BROWSER_SESSION_DIR", dir)
 	assert.Equal(t, dir, browserSessionDir())
-	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_BROWSER_SESSION_DIR", "")
-	assert.Equal(t, filepath.Join(os.Getenv("HOME"), ".kdeps", browserSessionFolder), browserSessionDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
+	assert.Equal(t, filepath.Join(home, ".kdeps", browserSessionFolder), browserSessionDir())
 }
 
 func TestBrowserWait(t *testing.T) {

@@ -842,10 +842,8 @@ func emailModifyMailbox(client *imapclient.Client, args map[string]any) (map[str
 }
 
 func emailModifyResult(mailbox string, uids []imap.UID) map[string]any {
-	values := make([]int, 0, len(uids))
-	for _, uid := range uids {
-		values = append(values, int(uid))
-	}
+	values := make([]imap.UID, len(uids))
+	copy(values, uids)
 	return map[string]any{
 		"success": true,
 		"action":  emailActionModify,

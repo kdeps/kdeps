@@ -270,6 +270,9 @@ func TestGitOps_DryRunsAndFailure(t *testing.T) {
 	}
 
 	notRepo := t.TempDir()
+	// CI's temp dir sits inside the checked-out repo; stop git discovery at its
+	// parent so the directory reads as "not a repository" (as it does locally).
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(notRepo))
 	if got := gitError(t, map[string]any{argOperation: "status", argWorkingDir: notRepo}); !strings.HasPrefix(
 		got,
 		"git status failed: exit status",
