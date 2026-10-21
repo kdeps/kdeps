@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -252,9 +253,13 @@ func TestFileOps_List(t *testing.T) {
 		t.Fatalf("entries: %+v", all["entries"])
 	}
 	first, _ := entries[0].(map[string]any)
+	wantMode := "-rw-r--r--"
+	if runtime.GOOS == "windows" {
+		wantMode = "-rw-rw-rw-" // Windows has no Unix permission bits; Go reports the 0666 default
+	}
 	if first["name"] != "a.txt" || first["path"] != filepath.Join(dir, "a.txt") ||
 		first["isDir"] != false || first["size"] != float64(1) ||
-		first["mode"] != "-rw-r--r--" || first["modTime"] == "" {
+		first["mode"] != wantMode || first["modTime"] == "" {
 		t.Fatalf("entry: %+v", first)
 	}
 

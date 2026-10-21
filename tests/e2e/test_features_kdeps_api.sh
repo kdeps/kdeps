@@ -269,18 +269,19 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
-        "bash_job_list", "bash_job_wait", "calculator", "code_definition", "code_diagnostics",
+        "bash_job_list", "bash_job_wait", "browser_ops", "calculator", "code_definition", "code_diagnostics",
         "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
         "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create",
         "cron_delete", "cron_list", "cron_pause", "cron_resume", "edit_file",
-        "embedding_search", "embedding_vectorize", "exa_search", "google_cache_create", "google_cache_delete",
+        "email_ops", "embedding_search", "embedding_vectorize", "exa_search", "file_ops", "git_ops",
+        "google_cache_create", "google_cache_delete",
         "google_cache_list", "http_request", "instruct", "jina_rerank", "list_files",
         "load_document", "md5_file", "memory_delete", "memory_query", "memory_save",
         "memory_search", "ocr_image", "perplexity_search", "read_file", "retrieve_context",
-        "search_local", "serpapi_search", "sql_describe_table", "sql_list_tables", "sql_query",
+        "search_local", "serpapi_search", "sql_describe_table", "sql_list_tables", "sql_ops", "sql_query",
         "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
         "task_get", "task_list", "task_stop", "team_add_task", "team_create",
-        "team_delete", "team_get", "team_list", "transcribe_audio", "transcribe_audio_offline",
+        "team_delete", "team_get", "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha",
         "write_file", "zapier_list_actions", "zapier_run_action",
     ]
