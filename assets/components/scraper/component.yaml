@@ -3,8 +3,8 @@ kind: Component
 metadata:
   name: scraper
   description: Fetch a web page and return its text, optionally only the elements matching a CSS selector
-  version: "1.0.1"
-  targetActionId: scraperFetch
+  version: "1.1.0"
+  targetActionId: call
 interface:
   inputs:
     - name: url
@@ -20,15 +20,24 @@ interface:
       default: 30s
       description: Request timeout as a duration (30s, 2m)
   # The result: same fields whatever the page returned; a non-2xx status is
-  # reported in status, not raised.
+  # reported in status, not raised. The fetch itself is the kdeps API's
+  # http_request tool, which returns {statusCode, body, headers}.
   output:
-    content: "{{ htmlText(output('scraperFetch').body, get('scraper.selector')) }}"
+    content: "{{ htmlText(fromJSON(output('call').body).body, get('scraper.selector')) }}"
     url: "{{ get('scraper.url') }}"
-    status: "{{ output('scraperFetch').statusCode }}"
+    status: "{{ fromJSON(output('call').body).statusCode }}"
 resources:
-  - actionId: scraperFetch
+  - actionId: call
     name: Fetch page
     httpClient:
-      method: GET
-      url: "{{ get('scraper.url') }}"
-      timeout: "{{ get('scraper.timeout') }}"
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s      # the called request's own timeout comes from the timeout input
+      data:
+        url: "{{ get('scraper.url') }}"
+        method: GET
+        timeout: "{{ get('scraper.timeout') }}"

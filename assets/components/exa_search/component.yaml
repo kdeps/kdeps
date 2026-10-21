@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: exa_search
+  description: Search the web with Exa neural search through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: The search query or prompt to find relevant links for
+  # body is the numbered result list. A missing EXA_API_KEY is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/exa_search/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        query: "{{ get('exa_search.query') }}"

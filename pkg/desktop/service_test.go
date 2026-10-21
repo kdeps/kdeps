@@ -783,7 +783,10 @@ func TestSearchAllSessions_AcrossWorkspaces(t *testing.T) {
 	require.NoError(t, h.svc.Send("capital question", nil))
 	inA := h.log.waitFor(t, desktop.KindTurnEnd).SessionID
 
-	wsB := t.TempDir()
+	// A named subdirectory: a bare t.TempDir() base ("003") can occur inside
+	// the test's own root name, making the folder-name search ambiguous.
+	wsB := filepath.Join(t.TempDir(), "fruit-folder")
+	require.NoError(t, os.MkdirAll(wsB, 0o755))
 	require.NoError(t, h.svc.SetWorkspace(wsB))
 	require.NoError(t, h.svc.Send("fruit question", nil))
 	inB := h.log.waitFor(t, desktop.KindTurnEnd).SessionID

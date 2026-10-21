@@ -461,7 +461,27 @@ func TestTranscribeAudio_Declared(t *testing.T) {
 	require.NoError(t, err)
 	req = api.last(t)
 	assert.Equal(t, "localhost:8080", req.Host)
-	assert.Empty(t, req.Header.Get("Authorization"), "local sends no key")
+	assert.Equal(t, "Bearer sk-o", req.Header.Get("Authorization"), "local sends OPENAI_API_KEY when set")
+
+	_, err = tool.Execute(map[string]any{
+		"file": audio, "backend": "local", "baseURL": "http://127.0.0.1:9999/v1",
+		"responseFormat": "json", "prompt": "names", "temperature": "0",
+	})
+	require.NoError(t, err)
+	req = api.last(t)
+	assert.Equal(t, "127.0.0.1:9999", req.Host, "baseURL overrides the backend's")
+	assert.Equal(t, "/v1/audio/transcriptions", req.Path)
+	assert.Contains(t, req.Body, `name="response_format"`)
+	assert.Contains(t, req.Body, "json")
+	assert.Contains(t, req.Body, `name="prompt"`)
+	assert.Contains(t, req.Body, "names")
+	assert.Contains(t, req.Body, `name="temperature"`)
+
+	t.Setenv("OPENAI_API_KEY", "")
+	tool = declaredTool(t, "transcribe_audio", map[string]string{"OPENAI_API_KEY": "", "GROQ_API_KEY": ""})
+	_, err = tool.Execute(map[string]any{"file": audio, "backend": "local"})
+	require.NoError(t, err)
+	assert.Empty(t, api.last(t).Header.Get("Authorization"), "local sends no key when none is set")
 }
 
 func TestTranscribeAudio_RegisteredWithoutKeys(t *testing.T) {

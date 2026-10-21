@@ -1,0 +1,28 @@
+version: 1.0.0
+description: 'Run SQL against a named connection in config.yaml sql_connections and return the rows or a change summary. Databases: PostgreSQL, MySQL/MariaDB, SQLite, SQL Server, Oracle. One statement (query + params), or several in one transaction (transaction + queries). Requires: connectionName.'
+parameters:
+  connectionName:
+    type: string
+    description: Name under sql_connections in ~/.kdeps/config.yaml
+    required: true
+  format:
+    type: string
+    description: 'Rows shape: table (default), json or csv'
+  maxRows:
+    type: integer
+    description: 'Rows a SELECT returns at most. Default: KDEPS_SQL_MAX_ROWS, else 1000'
+  params:
+    type: array
+    description: Placeholder values, in order - a JSON array
+  queries:
+    type: array
+    description: 'Transaction statements: [{query, params}] or [{query, paramsBatch}]'
+  query:
+    type: string
+    description: One SQL statement. Placeholders may be $1, $N, ?, ?N, @pN or :N
+  timeout:
+    type: string
+    description: 'Statement timeout as a Go duration or seconds. Default: KDEPS_SQL_TIMEOUT, else 30s'
+  transaction:
+    type: boolean
+    description: 'Run queries in one transaction. Default: false'

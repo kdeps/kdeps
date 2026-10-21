@@ -1,0 +1,34 @@
+version: 1.0.0
+description: 'Run one structured git operation and return its JSON result. Operations: status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull. Requires: operation, and url for clone. Optional: workingDir, paths, message, branch, remote, args, maxCount, dryRun.'
+parameters:
+  args:
+    type: string
+    description: Extra space-separated git arguments (show)
+  branch:
+    type: string
+    description: Branch for checkout, push, pull
+  dryRun:
+    type: boolean
+    description: 'Report what a write operation would do without doing it. Default: false'
+  maxCount:
+    type: integer
+    description: 'Commits to list (log). Default: 10'
+  message:
+    type: string
+    description: Commit message (commit)
+  operation:
+    type: string
+    description: status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push or pull
+    required: true
+  paths:
+    type: string
+    description: 'Space-separated paths for add, checkout, diff, log (add defaults to .); quote a path with spaces'
+  remote:
+    type: string
+    description: 'Remote for push and pull. Default: origin'
+  url:
+    type: string
+    description: Repository URL (clone)
+  workingDir:
+    type: string
+    description: Repository directory (clone - the target directory); defaults to the current directory

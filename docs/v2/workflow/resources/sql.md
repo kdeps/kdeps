@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-Python through uv like any [python resource](/workflow/resources/python). SQLite needs nothing else; the first call to another database installs its driver into the workflow's venv (`psycopg`, `pymysql`, `pymssql`, `oracledb`). Each call opens its own connection - there is no pool between calls.
+The SQL drivers are compiled into kdeps: no Python, no uv, no first-call driver install. SQLite needs nothing else; the other databases need only a reachable server. Each call opens its own connection - there is no pool between calls.
 
 ## Basic usage
 
@@ -35,7 +35,7 @@ component:
 
 ## Connections
 
-Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`; the component reads them through `env:`, so the password is not on any command line.
+Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component names the connection; the kdeps API reads its string from `config.yaml` in-process, so the password never crosses the request and is not on any command line.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -131,7 +131,11 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"   # bad: SQL inject
 
 ## How it is built
 
-One python resource: it reads the connection string from `config.yaml` through `env:`, runs the statements with the database's DB-API driver and prints the result. Copy `components/sql/` into your project to change a result shape or add a database.
+```text
+component: sql -> POST /apis/tools.kdeps.io/v1/tools/sql_ops/call -> rows or change summary
+```
+
+One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` itself and runs the statements with `database/sql` - the PostgreSQL, MySQL, SQLite, SQL Server and Oracle drivers are compiled in. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default; the SQL itself runs in the kdeps API.
 
 ## See also
 

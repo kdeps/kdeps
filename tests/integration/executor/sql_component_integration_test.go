@@ -84,7 +84,7 @@ func TestSQLComponent_SQLite(t *testing.T) {
 	assert.Equal(t, []interface{}{"id", "name"}, many["columns"])
 
 	asJSON := run("    query: \"SELECT name FROM users ORDER BY id\"\n    format: json\n")
-	assert.Equal(t, `[{"name": "ann"}, {"name": "bob"}, {"name": "cy"}, {"name": "di"}]`, asJSON)
+	assert.JSONEq(t, `[{"name": "ann"}, {"name": "bob"}, {"name": "cy"}, {"name": "di"}]`, asJSON.(string))
 	asCSV := run("    query: \"SELECT id, name FROM users WHERE id < 3 ORDER BY id\"\n    format: csv\n")
 	assert.Equal(t, "id,name\n1,ann\n2,bob\n", asCSV)
 

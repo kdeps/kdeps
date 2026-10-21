@@ -31,8 +31,16 @@ import (
 // its call route.
 func TestEveryToolHasShippedComponent(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "components")
+	// A tool whose public component has another name maps to that directory.
+	componentDir := map[string]string{
+		"browser_ops": "browser", "email_ops": "email", "file_ops": "file", "git_ops": "git", "sql_ops": "sql",
+	}
 	for name := range toolReg {
-		data, err := os.ReadFile(filepath.Join(dir, name, "component.yaml"))
+		dirName := name
+		if mapped, ok := componentDir[name]; ok {
+			dirName = mapped
+		}
+		data, err := os.ReadFile(filepath.Join(dir, dirName, "component.yaml"))
 		require.NoError(t, err, "%s must ship a component", name)
 		want := "http://kdeps.api/apis/tools.kdeps.io/v1/tools/" + name + "/call"
 		require.Contains(t, string(data), want, "%s component must POST its call route", name)

@@ -1,0 +1,40 @@
+version: 1.0.0
+description: 'Run one structured filesystem operation and return its JSON result. Operations: read, write, patch, list, delete, exists, mkdir, copy, move, append. Requires: operation, and path (or source for copy and move). Optional: content, patch, encoding (text or base64), pattern, recursive, backup, dryRun, mode, appendNewline.'
+parameters:
+  appendNewline:
+    type: boolean
+    description: 'write and append end the content with a newline. Default: false'
+  backup:
+    type: boolean
+    description: 'write and patch copy the existing file to <path>.bak first. Default: false'
+  content:
+    type: string
+    description: Text to write or append
+  dryRun:
+    type: boolean
+    description: 'Report what a changing operation would do without doing it. Default: false'
+  encoding:
+    type: string
+    description: 'read output encoding: text or base64. Default: text'
+  mode:
+    type: string
+    description: 'Octal permissions for write (default 0644) and mkdir (default 0755)'
+  operation:
+    type: string
+    description: read, write, patch, list, delete, exists, mkdir, copy, move or append
+    required: true
+  patch:
+    type: string
+    description: Unified diff applied by the patch operation
+  path:
+    type: string
+    description: Target file or directory (the destination for copy and move)
+  pattern:
+    type: string
+    description: 'Glob on entry names for list, e.g. *.go'
+  recursive:
+    type: boolean
+    description: 'list walks subdirectories. Default: false'
+  source:
+    type: string
+    description: Source path for copy and move

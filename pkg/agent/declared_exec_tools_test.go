@@ -102,7 +102,9 @@ func TestDeclaredExecExecute_Defaults(t *testing.T) {
 		Parameters: map[string]domain.ToolParam{"var": {Type: "string", Default: "GOOS"}},
 		Exec:       &execToolSpec{Command: "go", Args: []string{"env", "{{.args.var}}"}},
 	}
-	out, err := declaredExecExecute(context.Background(), "goenv", d, nil)(nil)
+	full, err := withParamDefaults("goenv", d, nil)
+	require.NoError(t, err)
+	out, err := callDeclaredExecTool(context.Background(), "goenv", d.Exec, full, nil)
 	require.NoError(t, err)
 	assert.Equal(t, runtime.GOOS, out, "a declared default fills a missing argument")
 }

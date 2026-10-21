@@ -65,6 +65,12 @@ func TestHTTPRequest_URLAndExecutor(t *testing.T) {
 		if config.URL != "https://example.com" || config.Method != http.MethodPost || config.Timeout != "1s" {
 			t.Fatalf("config %+v", config)
 		}
+		if !config.FailOnError {
+			t.Fatalf("failOnError not forwarded: %+v", config)
+		}
+		if config.SaveTo != "/tmp/out.bin" {
+			t.Fatalf("saveTo not forwarded: %+v", config)
+		}
 		if config.Headers["X-Test"] != "1" {
 			t.Fatalf("headers %+v", config.Headers)
 		}
@@ -75,11 +81,13 @@ func TestHTTPRequest_URLAndExecutor(t *testing.T) {
 		return map[string]any{"status": 200}, nil
 	}
 	out, err := HTTPRequest(t.Context(), map[string]any{
-		argURL:     "https://example.com",
-		argMethod:  "POST",
-		argHeaders: map[string]any{"X-Test": "1"},
-		argData:    map[string]any{"k": "v"},
-		argTimeout: "1s",
+		argURL:         "https://example.com",
+		argMethod:      "POST",
+		argHeaders:     map[string]any{"X-Test": "1"},
+		argData:        map[string]any{"k": "v"},
+		argTimeout:     "1s",
+		argFailOnError: true,
+		argSaveTo:      "/tmp/out.bin",
 	})
 	if err != nil || !strings.Contains(out, `"status": 200`) {
 		t.Fatalf("call: %v %s", err, out)

@@ -68,10 +68,10 @@ func TestAssetComponents_CalledComponentIsLoaded(t *testing.T) {
 	require.NoError(t, err)
 	comp := wf.Components["ocr"]
 	require.NotNil(t, comp, "ocr comes from the components asset set")
-	assert.Equal(t, "ocrText", comp.Metadata.TargetActionID)
+	assert.Equal(t, "call", comp.Metadata.TargetActionID)
 	assert.Contains(t, wf.Settings.AgentSettings.OSPackages, "tesseract-ocr", "its setup reaches the build")
 	for _, r := range wf.Resources {
-		assert.NotEqual(t, "ocrText", r.ActionID, "asset component resources run through the call only")
+		assert.NotEqual(t, "call", r.ActionID, "asset component resources run through the call only")
 	}
 }
 

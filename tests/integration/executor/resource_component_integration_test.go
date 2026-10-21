@@ -20,8 +20,11 @@ package executor_test
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -94,4 +97,48 @@ func TestInstructComponent_ReturnsHarnessSection(t *testing.T) {
 	out, err := runComponentValue(t, "instruct", "    topic: narration\n")
 	require.NoError(t, err)
 	require.Contains(t, fmt.Sprint(out), "<narration>")
+}
+
+// The ocr_image component reaches the asset-declared exec tool through the
+// kdeps API: no YAML here implements tesseract; the tool asset does.
+func TestOCRImageComponent_DeclaredTool(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the tesseract stand-in is a POSIX shell script, which Windows cannot execute")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	require.NoError(t, os.MkdirAll(bin, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "tesseract"),
+		[]byte("#!/bin/sh\necho \"ocr $1 $4\"\n"), 0o700)) //nolint:gosec // test stand-in must be executable
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	image := filepath.Join(dir, "img.png")
+	require.NoError(t, os.WriteFile(image, []byte("png"), 0o600))
+
+	out, err := runComponentValue(t, "ocr_image", "    file: "+yamlPath(image)+"\n")
+	require.NoError(t, err)
+	require.Equal(t, "ocr "+image+" eng", fmt.Sprint(out))
+}
+
+// The retrieve_context component reaches the asset-declared http tool through
+// the kdeps API and renders the tool's own result template.
+func TestRetrieveContextComponent_DeclaredTool(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/query" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[{"score":0.9,"source":"docs/a.md","text":"hello rag"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("KDEPS_RAG_BASE_URL", srv.URL+"/")
+
+	out, err := runComponentValue(t, "retrieve_context", "    query: hello\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "[1] score=0.900 source=docs/a.md")
+	require.Contains(t, fmt.Sprint(out), "hello rag")
 }

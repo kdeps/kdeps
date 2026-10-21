@@ -11,6 +11,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | [Web and search](/agent/tools-web) |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml`, `email_ops`, `browser_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony), [Email](/workflow/resources/email), [Browser](/workflow/resources/browser) |
 | Code | `code_search`, `code_definition`, and the other LSP tools | [Code intelligence](/workflow/resources/code-navigation) |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
@@ -131,15 +132,17 @@ A block can upload files: `files` maps form fields to path templates and `form` 
 # tools/transcribe_audio.yaml (shipped, abridged)
 http:
   env:
-    OPENAI: [OPENAI_API_KEY, ""]     # optional: the local backend needs no key
+    OPENAI: [OPENAI_API_KEY, ""]     # optional: a local server may take it or no key at all
+    GROQ: [GROQ_API_KEY, ""]
   method: POST
-  url: '{{if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
+  url: '{{if .args.baseURL}}{{.args.baseURL}}{{else if eq .args.backend "groq"}}https://api.groq.com/openai/v1{{else if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
   headers:
-    Authorization: '{{with .env.OPENAI}}Bearer {{.}}{{end}}'   # omitted when empty
+    Authorization: '{{if eq .args.backend "groq"}}{{with .env.GROQ}}Bearer {{.}}{{end}}{{else}}{{with .env.OPENAI}}Bearer {{.}}{{end}}{{end}}'   # omitted when empty
   files:
     file: "{{.args.file}}"           # uploaded as the "file" form field
   form:
     model: "{{.args.model}}"
+    response_format: "{{.args.responseFormat}}"
   paths: [file]
 ```
 
@@ -179,6 +182,27 @@ exec:
 
 A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
 
+## The call runs in the kdeps API
+
+A declared `http:` or `exec:` tool is served by the kdeps API like every other tool. The tool asset declares the call; the handler runs it. The agent loop and a workflow component both reach it the same way.
+
+```text
+workflow YAML -> component YAML -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/{name}/call -> handler -> http: or exec: block
+agent loop    -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/{name}/call -> handler -> http: or exec: block
+```
+
+```yaml
+# resources/ocr.yaml
+actionId: ocrText
+name: Extract text
+component:
+  name: ocr_image          # assets/components/ocr_image/component.yaml POSTs the tool's route
+  with:
+    file: /tmp/scan.png
+```
+
+A required `env` entry that is unset keeps the tool out of the agent's catalog; a direct API call returns `<tool>: required environment variables are not set`.
+
 ## Parameter-name synonyms
 
 A model sometimes names a tool's argument something plausible but not exact - `grep`'s `pattern` instead of `search_local`'s `query`, `cat`'s `path` instead of `read_file`'s `file_path`. These synonym keys are normalized to the key the tool actually expects before dispatch, without clobbering a real key already present. Alternate *tool* names are [tool aliases](#tool-aliases), declared in each tool's definition.
@@ -217,7 +241,7 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ## Lean mode
 
-The full tool catalog (~55 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool catalog (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time

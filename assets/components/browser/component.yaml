@@ -3,9 +3,7 @@ kind: Component
 metadata:
   name: browser
   description: Drive a real browser with Playwright - navigate, click, fill, type, upload, select, check, hover, scroll, press, clear, evaluate, screenshot, wait
-  version: "1.0.0"
-setup:
-  pythonPackages: [playwright]   # the browser binary installs on first launch
+  version: "1.1.0"
 interface:
   inputs:
     - name: url
@@ -48,186 +46,30 @@ interface:
       type: boolean
       default: false
       description: Launch flags and context settings that make automation less detectable
+  # The tool returns {success, url, title, sessionId, actionResults}: the page
+  # it ended on and each step's result fields.
+  output: "{{ fromJSON(output('browserRun').body) }}"
 resources:
+  # One call to the kdeps API's browser_ops tool: the component holds no
+  # browser code of its own. Playwright runs in the kdeps process and the
+  # engine's browser downloads on first use.
   - actionId: browserRun
     name: Browser
-    python:
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/browser_ops/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
       timeout: 600s
-      args:
-        - "{{ get('browser.url') }}"
-        - "{{ json(get('browser.actions')) }}"
-        - "{{ get('browser.engine') }}"
-        - "{{ get('browser.headless') }}"
-        - "{{ get('browser.sessionId') }}"
-        - "{{ json(get('browser.viewport')) }}"
-        - "{{ get('browser.timeout') }}"
-        - "{{ get('browser.waitFor') }}"
-        - "{{ get('browser.userAgent') }}"
-        - "{{ get('browser.stealthMode') }}"
-      script: |
-        # Runs the browser steps with Playwright and prints the result as JSON.
-        import json, os, re, subprocess, sys, tempfile, time
-        from playwright.sync_api import sync_playwright, Error as PlaywrightError
-
-        (url, actions, engine, headless, session_id, viewport, timeout,
-         wait_for, user_agent, stealth) = sys.argv[1:11]
-        actions = json.loads(actions or "[]")
-        viewport = json.loads(viewport or "{}") or {}
-        headless = headless.lower() != "false"
-        stealth = stealth.lower() == "true"
-        engine = (engine or "chromium").lower()
-
-        def seconds(d, default=30.0):
-            m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)(ms|s|m|h)?\s*", d or "")
-            if not m:
-                return default
-            return float(m.group(1)) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600, None: 1}[m.group(2)]
-
-        tms = seconds(timeout) * 1000
-        state_dir = os.path.join(os.path.expanduser("~"), ".kdeps", "browser-sessions")
-        safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", session_id)
-        state_file = os.path.join(state_dir, safe_id + ".json") if session_id else ""
-        url_file = os.path.join(state_dir, safe_id + ".url") if session_id else ""
-        stealth_args = ["--disable-blink-features=AutomationControlled", "--no-sandbox",
-                        "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-first-run",
-                        "--disable-gpu", "--window-size=1280,720"]
-
-        def launch(pw):
-            kind = {"firefox": pw.firefox, "webkit": pw.webkit}.get(engine, pw.chromium)
-            opts = {"headless": headless, "args": stealth_args if stealth else []}
-            try:
-                return kind.launch(**opts)
-            except PlaywrightError as e:
-                if "Executable doesn't exist" not in str(e):
-                    raise
-                # First use: download this engine's browser, then retry.
-                sys.stderr.write("browser: installing %s (first use only)...\n" % engine)
-                subprocess.run([sys.executable, "-m", "playwright", "install", engine], check=True,
-                               stdout=sys.stderr)
-                return kind.launch(**opts)
-
-        def value(a, *keys):
-            for k in keys:
-                if a.get(k) not in (None, ""):
-                    return str(a[k])
-            return ""
-
-        def run(page, a):
-            kind = str(a.get("action", "")).lower()
-            sel = value(a, "selector")
-            base = {"action": a.get("action", "")}
-            if sel:
-                base["selector"] = sel
-            def need_sel():
-                if not sel:
-                    raise ValueError("%s: missing selector" % kind)
-            if kind == "navigate":
-                dest = value(a, "url", "value")
-                if not dest:
-                    raise ValueError("navigate: missing url")
-                page.goto(dest, timeout=tms)
-                base["url"] = dest
-            elif kind in ("click", "check", "uncheck", "hover", "clear"):
-                need_sel()
-                getattr(page.locator(sel), kind)(timeout=tms)
-            elif kind == "fill":
-                need_sel()
-                page.locator(sel).fill(value(a, "value"), timeout=tms)
-                base["value"] = value(a, "value")
-            elif kind == "type":
-                need_sel()
-                page.locator(sel).press_sequentially(value(a, "value"), timeout=tms)
-                base["value"] = value(a, "value")
-            elif kind == "upload":
-                need_sel()
-                files = a.get("files") or []
-                if not files:
-                    raise ValueError("upload: no files specified")
-                page.locator(sel).set_input_files(files, timeout=tms)
-                base["files"] = files
-            elif kind == "select":
-                need_sel()
-                page.locator(sel).select_option(value(a, "value"), timeout=tms)
-                base["value"] = value(a, "value")
-            elif kind == "scroll":
-                if sel:
-                    page.locator(sel).scroll_into_view_if_needed(timeout=tms)
-                else:
-                    page.evaluate("(o) => window.scrollBy(0, parseInt(o, 10) || 0)", value(a, "value"))
-            elif kind == "press":
-                key = value(a, "key", "value")
-                if not key:
-                    raise ValueError("press: missing key")
-                if sel:
-                    page.locator(sel).press(key, timeout=tms)
-                else:
-                    page.keyboard.press(key)
-                base["key"] = key
-            elif kind == "evaluate":
-                script = value(a, "script")
-                if not script:
-                    raise ValueError("evaluate: missing script")
-                base["result"] = page.evaluate(script)
-            elif kind == "screenshot":
-                out = value(a, "outputFile")
-                if not out:
-                    d = os.path.join(tempfile.gettempdir(), "kdeps-browser")
-                    os.makedirs(d, exist_ok=True)
-                    out = os.path.join(d, "screenshot-%d.png" % time.time_ns())
-                else:
-                    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-                if sel:
-                    page.locator(sel).screenshot(path=out, timeout=tms)
-                else:
-                    page.screenshot(path=out, full_page=bool(a.get("fullPage")))
-                base["file"] = out
-            elif kind == "wait":
-                target = value(a, "wait", "selector", "value")
-                if not target:
-                    raise ValueError("wait: nothing to wait for")
-                pause = re.fullmatch(r"(\d+(?:\.\d+)?)(ms|s|m)", target)
-                if pause:
-                    time.sleep(seconds(target))
-                else:
-                    page.locator(target).wait_for(timeout=tms)
-                base["waited"] = target
-            else:
-                raise ValueError("unknown browser action: %r" % a.get("action"))
-            base["success"] = True
-            return base
-
-        results = []
-        with sync_playwright() as pw:
-            browser = launch(pw)
-            ctx_opts = {"viewport": {"width": int(viewport.get("width") or 1280),
-                                     "height": int(viewport.get("height") or 720)},
-                        "user_agent": user_agent or "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            if stealth:
-                ctx_opts.update(locale="en-US", timezone_id="America/New_York", color_scheme="light")
-            if state_file and os.path.exists(state_file):
-                ctx_opts["storage_state"] = state_file
-            context = browser.new_context(**ctx_opts)
-            page = context.new_page()
-            start = url
-            if not start and url_file and os.path.exists(url_file):
-                start = open(url_file).read().strip()
-            try:
-                if start:
-                    page.goto(start, timeout=tms)
-                if wait_for:
-                    page.locator(wait_for).wait_for(timeout=tms)
-                for i, a in enumerate(actions):
-                    try:
-                        results.append(run(page, a))
-                    except Exception as e:
-                        sys.exit("browser: action[%d] %r failed: %s" % (i, a.get("action"), e))
-            finally:
-                if state_file:
-                    os.makedirs(state_dir, exist_ok=True)
-                    context.storage_state(path=state_file)
-                    with open(url_file, "w") as f:
-                        f.write(page.url)
-            print(json.dumps({"success": True, "url": page.url, "title": page.title(),
-                              "sessionId": session_id, "actionResults": results}))
-            browser.close()
+      data:
+        url: "{{ get('browser.url') }}"
+        actions: "{{ get('browser.actions') }}"
+        engine: "{{ get('browser.engine') }}"
+        headless: "{{ get('browser.headless') }}"
+        sessionId: "{{ get('browser.sessionId') }}"
+        viewport: "{{ get('browser.viewport') }}"
+        timeout: "{{ get('browser.timeout') }}"
+        waitFor: "{{ get('browser.waitFor') }}"
+        userAgent: "{{ get('browser.userAgent') }}"
+        stealthMode: "{{ get('browser.stealthMode') }}"

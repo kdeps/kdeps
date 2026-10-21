@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 description: 'Transcribe an audio or video file to text through a Whisper API: openai (default), groq, or local (a self-hosted OpenAI-compatible Whisper server). Supports mp3, mp4, mpeg, mpga, m4a, wav, webm. Returns the transcribed text. For offline transcription with no API key use transcribe_audio_offline.'
 parameters:
   file:
@@ -14,22 +14,37 @@ parameters:
     type: string
     description: 'Transcription model. Default: whisper-1. Groq: whisper-large-v3.'
     default: whisper-1
+  baseURL:
+    type: string
+    description: 'Overrides the backend''s API base URL (the .../v1 part)'
   language:
     type: string
     description: 'ISO-639-1 code (e.g. en, fr); empty = auto-detect'
+  prompt:
+    type: string
+    description: 'Spelling hints for names and terms'
+  responseFormat:
+    type: string
+    description: 'text (default), json, verbose_json, srt or vtt'
+    default: text
+  temperature:
+    type: string
+    description: 'Sampling temperature 0-1'
 http:
   env:
-    OPENAI: [OPENAI_API_KEY, ""]   # optional: local needs no key
+    OPENAI: [OPENAI_API_KEY, ""]   # optional: local servers may take it or no key at all
     GROQ: [GROQ_API_KEY, ""]
   method: POST
-  url: '{{if eq .args.backend "groq"}}https://api.groq.com/openai/v1{{else if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
+  url: '{{if .args.baseURL}}{{.args.baseURL}}{{else if eq .args.backend "groq"}}https://api.groq.com/openai/v1{{else if eq .args.backend "local"}}http://localhost:8080/v1{{else}}https://api.openai.com/v1{{end}}/audio/transcriptions'
   headers:
-    Authorization: '{{if eq .args.backend "groq"}}{{with .env.GROQ}}Bearer {{.}}{{end}}{{else if ne .args.backend "local"}}{{with .env.OPENAI}}Bearer {{.}}{{end}}{{end}}'
+    Authorization: '{{if eq .args.backend "groq"}}{{with .env.GROQ}}Bearer {{.}}{{end}}{{else}}{{with .env.OPENAI}}Bearer {{.}}{{end}}{{end}}'
   files:
     file: "{{.args.file}}"
   form:
     model: "{{.args.model}}"
-    response_format: text
+    response_format: "{{.args.responseFormat}}"
     language: "{{.args.language}}"
+    prompt: "{{.args.prompt}}"
+    temperature: "{{.args.temperature}}"
   paths: [file]
   timeout: 300s

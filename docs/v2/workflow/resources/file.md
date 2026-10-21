@@ -1,6 +1,6 @@
 # File component
 
-The `file` component runs one filesystem operation - read, write, patch, list, delete, exists, mkdir, copy, move, append - and returns a structured result (content and lines, entry lists, flags) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
+The `file` component runs one filesystem operation - read, write, patch, list, delete, exists, mkdir, copy, move, append - and returns a structured result (content and lines, entry lists, flags) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. Its operations are the kdeps API's `file_ops` tool; the component only POSTs the arguments.
 
 ## Where it runs
 
@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource that does the operation with the standard library and prints the result.
+None. The operations are served by the kdeps API's `file_ops` tool in the kdeps process; the component makes one call and returns the result.
 
 ## Basic usage
 
@@ -22,7 +22,7 @@ component:
   name: file                   # from the components asset set; a components/file/ of your own wins
   with:
     operation: read
-    path: config.json          # relative paths resolve against the workflow directory
+    path: config.json          # relative paths resolve against the working directory
 ```
 
 ```yaml
@@ -144,7 +144,11 @@ Listing a file (not a directory) returns one entry for it.
 
 ## How it is built
 
-One python resource whose script does each operation with Python's standard library (`shutil`, `os`, `fnmatch`) and prints the result as JSON. Copy `components/file/` into your project to add an operation or change a result.
+```text
+component: file -> POST /apis/tools.kdeps.io/v1/tools/file_ops/call -> {success, ...operation fields}
+```
+
+One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool does each operation with the Go standard library (`os`, `path/filepath`) and returns the same fields. Copy `components/file/` into your project to change an input default; the operations themselves live in the kdeps API.
 
 ## See also
 

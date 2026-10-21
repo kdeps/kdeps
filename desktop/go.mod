@@ -1,6 +1,6 @@
 module github.com/kdeps/kdeps/desktop
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/kdeps/kdeps/v2 v2.0.0
@@ -76,6 +76,9 @@ require (
 	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/emersion/go-imap/v2 v2.0.0-beta.8 // indirect
+	github.com/emersion/go-message v0.18.2 // indirect
+	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -90,6 +93,8 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocolly/colly v1.2.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
+	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
@@ -107,7 +112,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kdeps/kartographer v0.2.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/labstack/echo/v4 v4.15.3 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
@@ -124,6 +129,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mattn/go-sqlite3 v1.14.52 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
+	github.com/microsoft/go-mssqldb v1.11.2 // indirect
 	github.com/minio/selfupdate v0.6.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/moby/api v1.56.1 // indirect
@@ -152,6 +158,8 @@ require (
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/samber/lo v1.49.1 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/sijms/go-ora/v2 v2.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/slack-go/slack v0.30.1 // indirect
 	github.com/spf13/afero v1.15.0 // indirect

@@ -20,10 +20,10 @@ package executor_test
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -38,26 +38,47 @@ const browserTestPage = `<!DOCTYPE html><html><head><title>Browser Test Page</ti
   document.getElementById('result').textContent = 'Hello, ' + document.getElementById('name').value + '!';
 });</script></body></html>`
 
+// findChromium returns an already-downloaded Chromium from the Playwright
+// cache, so the test does not have to download one; "" when none is present.
+func findChromium() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	caches := []string{".cache/ms-playwright", "Library/Caches/ms-playwright", "AppData/Local/ms-playwright"}
+	for _, cache := range caches {
+		found := ""
+		_ = filepath.WalkDir(filepath.Join(home, cache), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() {
+				return nil //nolint:nilerr // a missing cache just means "not here"
+			}
+			switch entry.Name() {
+			case "chrome", "chrome.exe", "Chromium", "Google Chrome for Testing":
+				found = path
+				return fs.SkipAll
+			default:
+				return nil
+			}
+		})
+		if found != "" {
+			return found
+		}
+	}
+	return ""
+}
+
 // The browser component drives a real browser with the steps the browser:
 // resource took, and keeps cookies and the current page under a sessionId.
-// It needs Playwright (CI installs it); without it the test is skipped.
+// It uses an already-downloaded Chromium; without one the test is skipped.
 func TestBrowserComponent_Steps(t *testing.T) {
-	for _, tool := range []string{"uv", "playwright"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			t.Skip(tool + " not installed")
-		}
+	chromium := findChromium()
+	if chromium == "" {
+		t.Skip("no downloaded Playwright Chromium found")
 	}
+	t.Setenv("CHROMIUM_PATH", chromium)
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-	// Sessions live under HOME; keep using the machine's Playwright browsers.
-	if home, err := os.UserHomeDir(); err == nil && os.Getenv("PLAYWRIGHT_BROWSERS_PATH") == "" {
-		for _, cache := range []string{".cache/ms-playwright", "Library/Caches/ms-playwright", "AppData/Local/ms-playwright"} {
-			if info, statErr := os.Stat(filepath.Join(home, cache)); statErr == nil && info.IsDir() {
-				t.Setenv("PLAYWRIGHT_BROWSERS_PATH", filepath.Join(home, cache))
-				break
-			}
-		}
-	}
-	t.Setenv("HOME", t.TempDir())
+	// Sessions live under HOME: keep them in a temp folder.
+	t.Setenv("KDEPS_BROWSER_SESSION_DIR", t.TempDir())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = fmt.Fprint(w, browserTestPage)

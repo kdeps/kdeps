@@ -1,0 +1,42 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: voyageai_rerank
+  description: Rerank documents by relevance to a query through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: documents
+      type: string
+      required: true
+      description: JSON array of document texts to rerank
+    - name: model
+      type: string
+      default: rerank-2
+      description: VoyageAI rerank model
+    - name: query
+      type: string
+      required: true
+      description: The search query to rank documents against
+    - name: top_n
+      type: number
+      default: 5
+      description: Number of top results to return
+  # body is the ranked JSON array. A missing VOYAGEAI_API_KEY is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Rerank
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/voyageai_rerank/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        documents: "{{ get('voyageai_rerank.documents') }}"
+        model: "{{ get('voyageai_rerank.model') }}"
+        query: "{{ get('voyageai_rerank.query') }}"
+        top_n: "{{ get('voyageai_rerank.top_n') }}"

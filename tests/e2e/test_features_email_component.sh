@@ -27,8 +27,8 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing the email component..."
 
-if ! command -v uv >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
-    test_skipped "email component - needs uv (python resources) and python3 (fake SMTP server)"
+if ! command -v python3 >/dev/null 2>&1; then
+    test_skipped "email component - needs python3 for the fake SMTP server"
     return 0 2>/dev/null || exit 0
 fi
 

@@ -1,6 +1,6 @@
 # Git component
 
-The `git` component runs structured version-control operations - status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull - and returns parsed results (file lists, commit objects, branch lists) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
+The `git` component runs structured version-control operations - status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull - and returns parsed results (file lists, commit objects, branch lists) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. Its operations are the kdeps API's `git_ops` tool; the component only POSTs the arguments.
 
 ## Where it runs
 
@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-`git` on `PATH`, and Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource that runs git and prints the structured result.
+`git` on `PATH`. The operations are served by the kdeps API's `git_ops` tool in the kdeps process; the component makes one call and returns the result.
 
 ## Basic usage
 
@@ -89,8 +89,16 @@ apiResponse:
 3. **Use `status` before `add`** to understand what will be staged
 4. **Set `maxCount` on `log`** to keep output bounded
 
+## How it is built
+
+```text
+component: git -> POST /apis/tools.kdeps.io/v1/tools/git_ops/call -> {success, ...operation fields}
+```
+
+One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool runs `git` with `GIT_PAGER=cat` and `GIT_TERMINAL_PROMPT=0` and parses the output into the same fields; a failing command returns `git <operation> failed: exit status N` with git's stderr. Copy `components/git/` into your project to change an input default; the operations themselves live in the kdeps API.
+
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
 - [Exec resource](/workflow/resources/exec) - shell commands (use for other CLI tools)
-- [Python resource](/workflow/resources/python) - what the component's step runs on
+- [Git component source](https://github.com/kdeps/kdeps/tree/main/assets/components/git) - the component and its tool asset

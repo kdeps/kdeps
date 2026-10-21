@@ -3,64 +3,26 @@ kind: Component
 metadata:
   name: twiml
   description: Build a TwiML voice response (say, play, pause, gather, dial, record, hangup, reject, redirect) for a phone webhook
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: verbs
       type: array
       required: true
       description: "TwiML verbs in order, one key each, e.g. [{say: Hello}, {gather: {input: dtmf, numDigits: 1, action: /voice/menu, say: Press 1}}, {hangup: true}]"
+  output:
+    twiml: "{{ fromJSON(output('call').body).twiml }}"
 resources:
-  - actionId: twimlBuild
+  # One call to the kdeps API's twiml tool: the component holds no XML builder
+  # of its own.
+  - actionId: call
     name: TwiML
-    python:
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/twiml/call
+      headers:
+        Content-Type: application/json
       timeout: 30s
-      args:
-        - "{{ json(get('twiml.verbs')) }}"
-      script: |
-        # Renders the verbs as a TwiML <Response> and prints {"twiml": xml}.
-        import json, sys
-        import xml.etree.ElementTree as ET
-
-        verbs = json.loads(sys.argv[1] or "[]")
-        if isinstance(verbs, dict):
-            verbs = [verbs]
-        names = {"say": "Say", "play": "Play", "pause": "Pause", "gather": "Gather", "dial": "Dial",
-                 "record": "Record", "hangup": "Hangup", "reject": "Reject", "redirect": "Redirect"}
-        # The key a verb's plain-string form fills: {say: "Hi"} is {say: {text: "Hi"}}.
-        shorthand = {"say": "text", "play": "url", "pause": "length", "dial": "to",
-                     "reject": "reason", "redirect": "url"}
-
-        def attr(value):
-            if isinstance(value, bool):
-                return "true" if value else "false"
-            if isinstance(value, list):
-                return " ".join(str(v) for v in value)
-            return str(value)
-
-        def verb(parent, key, spec):
-            if key not in names:
-                sys.exit("twiml: unknown verb %r (one of %s)" % (key, ", ".join(names)))
-            if not isinstance(spec, dict):
-                spec = {} if spec in (True, None) else {shorthand.get(key, "text"): spec}
-            el = ET.SubElement(parent, names[key])
-            for k, v in spec.items():
-                if k in ("text", "url") and key in ("say", "play", "redirect"):
-                    el.text = str(v)
-                elif k == "to" and key == "dial":
-                    for target in v if isinstance(v, list) else [v]:
-                        target = str(target)
-                        ET.SubElement(el, "Sip" if target.startswith("sip:") else "Number").text = target
-                elif k in ("say", "play") and key == "gather":
-                    verb(el, k, v)
-                elif v is not None:
-                    el.set(k, attr(v))
-
-        root = ET.Element("Response")
-        for item in verbs:
-            if not isinstance(item, dict) or len(item) != 1:
-                sys.exit("twiml: each verb is a map with one key, e.g. {say: Hello}")
-            (key, spec), = item.items()
-            verb(root, key, spec)
-        xml = '<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(root, encoding="unicode")
-        print(json.dumps({"twiml": xml}))
+      failOnError: true
+      data:
+        verbs: "{{ json(get('twiml.verbs')) }}"

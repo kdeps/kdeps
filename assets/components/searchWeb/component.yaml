@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: searchWeb
   description: Search the web - DuckDuckGo by default, Brave, Bing or Tavily with an API key - and return title/url/snippet results
-  version: "1.0.1"
+  version: "1.1.0"
   targetActionId: searchWebResults
 interface:
   inputs:
@@ -34,19 +34,30 @@ interface:
     query: "{{ get('searchWeb.query') }}"
     provider: "{{ lower(trim(get('searchWeb.provider'))) }}"
 resources:
+  # Each provider is one call to the kdeps API's http_request tool: the
+  # component holds no HTTP client of its own. failOnError keeps the old
+  # behavior - a provider error fails the resource instead of yielding no
+  # results.
   - actionId: searchWebDDG
     name: DuckDuckGo
     validations:
       skip:
         - "lower(trim(get('searchWeb.provider'))) != 'ddg'"
     httpClient:
-      method: GET
-      url: "{{ env('KDEPS_DDG_URL', 'https://html.duckduckgo.com') }}/html/?q={{ urlencode(get('searchWeb.query')) }}"
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
       headers:
-        User-Agent: "Mozilla/5.0 (compatible; kdeps/2.0)"
-        Accept: text/html
-      timeout: "{{ get('searchWeb.timeout') }}"
+        Content-Type: application/json
+      timeout: 60s
       failOnError: true
+      data:
+        url: "{{ env('KDEPS_DDG_URL', 'https://html.duckduckgo.com') }}/html/?q={{ urlencode(get('searchWeb.query')) }}"
+        method: GET
+        headers:
+          User-Agent: "Mozilla/5.0 (compatible; kdeps/2.0)"
+          Accept: text/html
+        timeout: "{{ get('searchWeb.timeout') }}"
+        failOnError: true
   - actionId: searchWebBrave
     name: Brave
     validations:
@@ -58,13 +69,20 @@ resources:
         code: 400
         message: "searchWeb: connectionName required for brave - set search_connections.<name>.apiKey in ~/.kdeps/config.yaml"
     httpClient:
-      method: GET
-      url: "{{ env('KDEPS_BRAVE_URL', 'https://api.search.brave.com') }}/res/v1/web/search?q={{ urlencode(get('searchWeb.query')) }}&count={{ get('searchWeb.maxResults') }}"
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
       headers:
-        Accept: application/json
-        X-Subscription-Token: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
-      timeout: "{{ get('searchWeb.timeout') }}"
+        Content-Type: application/json
+      timeout: 60s
       failOnError: true
+      data:
+        url: "{{ env('KDEPS_BRAVE_URL', 'https://api.search.brave.com') }}/res/v1/web/search?q={{ urlencode(get('searchWeb.query')) }}&count={{ get('searchWeb.maxResults') }}"
+        method: GET
+        headers:
+          Accept: application/json
+          X-Subscription-Token: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
+        timeout: "{{ get('searchWeb.timeout') }}"
+        failOnError: true
   - actionId: searchWebBing
     name: Bing
     validations:
@@ -76,12 +94,19 @@ resources:
         code: 400
         message: "searchWeb: connectionName required for bing - set search_connections.<name>.apiKey in ~/.kdeps/config.yaml"
     httpClient:
-      method: GET
-      url: "{{ env('KDEPS_BING_URL', 'https://api.bing.microsoft.com') }}/v7.0/search?q={{ urlencode(get('searchWeb.query')) }}&count={{ get('searchWeb.maxResults') }}"
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
       headers:
-        Ocp-Apim-Subscription-Key: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
-      timeout: "{{ get('searchWeb.timeout') }}"
+        Content-Type: application/json
+      timeout: 60s
       failOnError: true
+      data:
+        url: "{{ env('KDEPS_BING_URL', 'https://api.bing.microsoft.com') }}/v7.0/search?q={{ urlencode(get('searchWeb.query')) }}&count={{ get('searchWeb.maxResults') }}"
+        method: GET
+        headers:
+          Ocp-Apim-Subscription-Key: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
+        timeout: "{{ get('searchWeb.timeout') }}"
+        failOnError: true
   - actionId: searchWebTavily
     name: Tavily
     validations:
@@ -94,15 +119,22 @@ resources:
         message: "searchWeb: connectionName required for tavily - set search_connections.<name>.apiKey in ~/.kdeps/config.yaml"
     httpClient:
       method: POST
-      url: "{{ env('KDEPS_TAVILY_URL', 'https://api.tavily.com') }}/search"
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_request/call
       headers:
         Content-Type: application/json
-      data:
-        api_key: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
-        query: "{{ get('searchWeb.query') }}"
-        max_results: "{{ int(get('searchWeb.maxResults')) }}"
-      timeout: "{{ get('searchWeb.timeout') }}"
+      timeout: 60s
       failOnError: true
+      data:
+        url: "{{ env('KDEPS_TAVILY_URL', 'https://api.tavily.com') }}/search"
+        method: POST
+        headers:
+          Content-Type: application/json
+        data:
+          api_key: "{{ get('config.search_connections.' + get('searchWeb.connectionName') + '.apiKey') }}"
+          query: "{{ get('searchWeb.query') }}"
+          max_results: "{{ int(get('searchWeb.maxResults')) }}"
+        timeout: "{{ get('searchWeb.timeout') }}"
+        failOnError: true
   # Normalizes whichever provider ran to [{title, url, snippet}], at most maxResults.
   - actionId: searchWebResults
     name: Results
@@ -113,4 +145,4 @@ resources:
         code: 400
         message: "searchWeb: unknown provider (use ddg, brave, bing or tavily)"
     before:
-      - "set('searchWeb.results', lower(trim(get('searchWeb.provider'))) == 'brave' ? map((output('searchWebBrave').data.web.results ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.title ?? '', url: #.url ?? '', snippet: #.description ?? ''})) : lower(trim(get('searchWeb.provider'))) == 'bing' ? map((output('searchWebBing').data.webPages.value ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.name ?? '', url: #.url ?? '', snippet: #.snippet ?? ''})) : lower(trim(get('searchWeb.provider'))) == 'tavily' ? map((output('searchWebTavily').data.results ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.title ?? '', url: #.url ?? '', snippet: #.content ?? ''})) : map(filter(htmlFind(output('searchWebDDG').body, 'a.result__a'), (#.text ?? '') != '' || (#.href ?? '') != '')[:int(get('searchWeb.maxResults'))], ({title: #.text ?? '', url: (#['data-href'] ?? '') != '' ? #['data-href'] : (#.href ?? ''), snippet: ''})))"
+      - "set('searchWeb.results', lower(trim(get('searchWeb.provider'))) == 'brave' ? map((fromJSON(output('searchWebBrave').body).data.web.results ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.title ?? '', url: #.url ?? '', snippet: #.description ?? ''})) : lower(trim(get('searchWeb.provider'))) == 'bing' ? map((fromJSON(output('searchWebBing').body).data.webPages.value ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.name ?? '', url: #.url ?? '', snippet: #.snippet ?? ''})) : lower(trim(get('searchWeb.provider'))) == 'tavily' ? map((fromJSON(output('searchWebTavily').body).data.results ?? [])[:int(get('searchWeb.maxResults'))], ({title: #.title ?? '', url: #.url ?? '', snippet: #.content ?? ''})) : map(filter(htmlFind(fromJSON(output('searchWebDDG').body).body, 'a.result__a'), (#.text ?? '') != '' || (#.href ?? '') != '')[:int(get('searchWeb.maxResults'))], ({title: #.text ?? '', url: (#['data-href'] ?? '') != '' ? #['data-href'] : (#.href ?? ''), snippet: ''})))"

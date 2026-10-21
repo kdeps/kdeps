@@ -1,0 +1,7 @@
+version: 1.0.0
+description: 'Build a TwiML voice response (say, play, pause, gather, dial, record, hangup, reject, redirect) from an ordered list of verbs. Returns {"twiml": "<Response>...</Response>"}. Requires: verbs (an ordered list, one key per verb).'
+parameters:
+  verbs:
+    type: array
+    description: 'TwiML verbs in order, one key each, e.g. [{say: Hello}, {gather: {input: dtmf, numDigits: 1, action: /voice/menu, say: Press 1}}, {hangup: true}]'
+    required: true

@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: wolfram_alpha
+  description: Query Wolfram Alpha for a computed answer through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: The question or computation to evaluate (e.g. 'integral of x^2', '42 miles in km')
+  # body is the short plain-text answer. A missing WOLFRAM_APP_ID is an error. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Query
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/wolfram_alpha/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        query: "{{ get('wolfram_alpha.query') }}"

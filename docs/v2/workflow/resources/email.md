@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-Python through uv like any [python resource](/workflow/resources/python) - the component's single step is a python resource using the standard library (`smtplib`, `imaplib`). Connection details, passwords included, reach it through `env:`, never the command line.
+None beyond kdeps itself. The SMTP and IMAP clients are compiled in, and the tool reads the named connection from `~/.kdeps/config.yaml` in-process - passwords never cross the request.
 
 ## Actions
 
@@ -178,7 +178,7 @@ Search fields: `from`, `subject`, `body`, `since`, `before`, `unseen`, `flagged`
 }
 ```
 
-Messages are oldest first. `body` is the raw message text (for a multipart message, including its MIME parts). The unsubscribe fields are present only when the message has a `List-Unsubscribe` header. Read them with `output('findOrders').messages[0].subject`.
+Messages are oldest first. `body` is the message's text part (`text/plain` when present, otherwise `text/html`), trimmed - not the raw MIME source. The unsubscribe fields are present only when the message has a `List-Unsubscribe` header. Read them with `output('findOrders').messages[0].subject`.
 
 ## Modifying messages
 
@@ -269,7 +269,11 @@ Add `onError:` to the calling resource to continue with a fallback instead of fa
 
 ## How it is built
 
-One python resource: it reads the named connection from `config.yaml` (passed in `env:`), then runs the action with `smtplib`/`imaplib` and prints the result as JSON. Copy `components/email/` into your project to change a result or add an action.
+```text
+component: email -> POST /apis/tools.kdeps.io/v1/tools/email_ops/call -> send summary or mailbox result
+```
+
+One `httpClient` POST carrying the eighteen inputs to the `email_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named SMTP/IMAP connection from `config.yaml` itself and runs the action with the Go standard library (`net/smtp`, `mime`) and `go-imap/v2` - no python, no uv. Message building, IMAP command sequencing, result shapes and the error texts live in the tool. Copy `components/email/` into your project to change an input default; the mail operations themselves live in the kdeps API.
 
 ## See also
 
