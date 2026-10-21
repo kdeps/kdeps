@@ -19,11 +19,56 @@
 package yaml
 
 import (
+	"fmt"
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+// checkComponentBackedActions rejects a workflow resource - primary or inline
+// before:/after: step - that runs an action a shipped component implements. The
+// resource must call the component, which reaches the same executor through the
+// kdeps API. Component resources are loaded after this check, so they are not
+// subject to it.
+func checkComponentBackedActions(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: checkComponentBackedActions")
+	for _, resource := range workflow.Resources {
+		if err := checkResourceComponentBackedActions(resource); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkResourceComponentBackedActions(resource *domain.Resource) error {
+	action, component, ok := domain.ComponentBackedAction(resource)
+	if ok {
+		return componentBackedActionError(resource.ActionID, "", action, component)
+	}
+	for _, inline := range resource.Before {
+		if action, component, ok = domain.ComponentBackedInlineAction(&inline); ok {
+			return componentBackedActionError(resource.ActionID, " in a before: step", action, component)
+		}
+	}
+	for _, inline := range resource.After {
+		if action, component, ok = domain.ComponentBackedInlineAction(&inline); ok {
+			return componentBackedActionError(resource.ActionID, " in an after: step", action, component)
+		}
+	}
+	return nil
+}
+
+func componentBackedActionError(actionID, where, action, component string) error {
+	return domain.NewError(
+		domain.ErrCodeInvalidWorkflow,
+		fmt.Sprintf(
+			"resource '%s' uses %s%s directly; call the %s component instead: component: {name: %s}",
+			actionID, action, where, component, component,
+		),
+		nil,
+	)
+}
 
 // loadComponents scans the ./components/ directory alongside the workflow file,
 // parses each component.yaml it finds, and prepends its resources to the host

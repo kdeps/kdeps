@@ -88,6 +88,54 @@ func IsRecognizedResourceActionKey(name string) bool {
 	return name == resourceActionAPIResponse || IsPrimaryResourceTypeName(name)
 }
 
+// componentBackedAction is a native workflow action that a shipped component
+// replaces. Workflow resources call the component; the executor stays behind
+// the kdeps API tool the component POSTs to.
+type componentBackedAction struct {
+	Name      string
+	Component string
+	Resource  func(*Resource) bool
+	Inline    func(*ActionConfig) bool
+}
+
+//nolint:gochecknoglobals // registry table
+var componentBackedActions = []componentBackedAction{
+	{
+		Name:      "searchLocal",
+		Component: "search_local",
+		Resource:  func(r *Resource) bool { return r.SearchLocal != nil },
+		Inline:    func(a *ActionConfig) bool { return a.SearchLocal != nil },
+	},
+}
+
+// ComponentBackedAction reports the native action a resource uses that must be
+// invoked through a component instead. Component resources are not checked:
+// only workflow resources reach this function.
+func ComponentBackedAction(r *Resource) (string, string, bool) {
+	if r == nil {
+		return "", "", false
+	}
+	for _, entry := range componentBackedActions {
+		if entry.Resource(r) {
+			return entry.Name, entry.Component, true
+		}
+	}
+	return "", "", false
+}
+
+// ComponentBackedInlineAction is ComponentBackedAction for a before:/after: step.
+func ComponentBackedInlineAction(a *ActionConfig) (string, string, bool) {
+	if a == nil {
+		return "", "", false
+	}
+	for _, entry := range componentBackedActions {
+		if entry.Inline(a) {
+			return entry.Name, entry.Component, true
+		}
+	}
+	return "", "", false
+}
+
 // PrimaryResourceEventName returns the event/telemetry label for the resource's execution type.
 func PrimaryResourceEventName(r *Resource) string {
 	for _, entry := range PrimaryResourceTypes() {

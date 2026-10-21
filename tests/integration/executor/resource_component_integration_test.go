@@ -136,7 +136,9 @@ func TestSearchLocalComponent_RespectsLimit(t *testing.T) {
 	out, err := runComponentValue(t, "search_local",
 		"    path: "+yamlPath(dir)+"\n    query: quokka\n    limit: 1\n")
 	require.NoError(t, err)
-	require.Contains(t, fmt.Sprint(out), `"count": 1`)
+	result, ok := out.(map[string]interface{})
+	require.True(t, ok, "the search_local component returns a result object, got %T", out)
+	require.EqualValues(t, 1, result["count"])
 }
 
 // A boolean input reaches the kdeps API tool as a JSON boolean: without the

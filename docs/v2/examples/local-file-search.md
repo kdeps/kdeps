@@ -1,12 +1,13 @@
 # Search local files
 
 Build an API that searches a directory on disk by
-filename pattern and content keyword, using the built-in `searchLocal:`
-resource - no index, no external service.
+filename pattern and content keyword, using the `search_local` component - no
+index, no external service.
 
-`searchLocal:` walks a directory and returns matching files. With both a
-`query` and a `glob` set, a file must match both. For ranked results over a
-large folder, add `index: true` (see the resource reference).
+The component POSTs to the kdeps API's `search_local` tool, which walks a
+directory and returns matching files. With both a `query` and a `glob` set, a
+file must match both. For ranked results over a large folder, add `index: true`
+(see the component reference).
 
 **Needs:** A directory with some text files to search.
 
@@ -58,11 +59,13 @@ validations:
   error:
     code: 400
     message: "query is required"
-searchLocal:
-  path: "{{ get('path', '/data') }}"      # ?path=... or default
-  query: "{{ get('query') }}"             # keyword in file contents
-  glob: "{{ get('glob', '') }}"           # optional filename pattern
-  limit: 20
+component:
+  name: search_local
+  with:
+    path: "{{ get('path', '/data') }}"    # ?path=... or default
+    query: "{{ get('query') }}"           # keyword in file contents
+    glob: "{{ get('glob', '') }}"         # optional filename pattern
+    limit: 20
 ```
 
 </div>
@@ -118,7 +121,7 @@ Response:
 
 ## Next steps
 
-- [searchLocal resource](/workflow/resources/search-local) - `index: true`, fuzzy matching, graph boost
+- [search_local component](/workflow/resources/search-local) - `index: true`, fuzzy matching, graph boost
 - [Document search tutorial](/examples/rag-search) - semantic search with `embedding:`
 - [Code intelligence](/workflow/resources/code-navigation) - symbol search over a source tree
 - [Web scraper tutorial](/examples/web-scraper) - fetch remote pages instead

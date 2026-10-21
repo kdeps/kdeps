@@ -49,11 +49,18 @@ else
     test_failed "search-local-files - README.md exists" "File not found"
 fi
 
-# search.yaml uses searchLocal executor
-if grep -q "searchLocal:" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
-    test_passed "search-local-files - search.yaml uses run.searchLocal"
+# search.yaml calls the search_local component
+if grep -q "name: search_local" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
+    test_passed "search-local-files - search.yaml calls the search_local component"
 else
-    test_failed "search-local-files - search.yaml uses run.searchLocal" "searchLocal: key not found"
+    test_failed "search-local-files - search.yaml calls the search_local component" "search_local not found"
+fi
+
+# The native searchLocal action is rejected in workflows
+if grep -q "searchLocal:" "$EXAMPLE_DIR/resources/search.yaml" 2>/dev/null; then
+    test_failed "search-local-files - search.yaml avoids native searchLocal" "searchLocal: key found"
+else
+    test_passed "search-local-files - search.yaml avoids native searchLocal"
 fi
 
 # search.yaml reads query via get()
@@ -120,11 +127,13 @@ validations:
   error:
     code: 400
     message: "query is required"
-searchLocal:
-  path: "$DATA_DIR"
-  query: "{{ get('query') }}"
-  glob: "{{ get('glob', '') }}"
-  limit: 20
+component:
+  name: search_local
+  with:
+    path: "$DATA_DIR"
+    query: "{{ get('query') }}"
+    glob: "{{ get('glob', '') }}"
+    limit: 20
 EOF
 
 "$KDEPS_BIN" run "$WORK_DIR/workflow.yaml" >"$LOG_FILE" 2>&1 &

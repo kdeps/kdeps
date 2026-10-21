@@ -205,3 +205,52 @@ func TestEmbeddingVectorize_NoInputs(t *testing.T) {
 		t.Fatalf("vectorize: %v", err)
 	}
 }
+
+func TestSearchLocalConfig_ArgTypes(t *testing.T) {
+	got := searchLocalConfig(map[string]any{
+		argIndex:       "true",
+		argFuzzy:       true,
+		argGraphBoost:  "1",
+		argMaxDistance: "3",
+		argIndexDBPath: "/tmp/index.db",
+	}, "/docs", "needle", "*.md", 7)
+
+	if !got.Index || !got.Fuzzy || !got.GraphBoost {
+		t.Fatalf("bool args: %+v", got)
+	}
+	if got.MaxDistance != 3 || got.IndexDBPath != "/tmp/index.db" || got.Limit != 7 {
+		t.Fatalf("scalar args: %+v", got)
+	}
+	if got.Path != "/docs" || got.Query != "needle" || got.Glob != "*.md" {
+		t.Fatalf("search args: %+v", got)
+	}
+
+	// JSON numbers arrive as float64; unset and bad strings are zero values.
+	got = searchLocalConfig(map[string]any{
+		argMaxDistance: float64(4),
+		argIndex:       "not-a-bool",
+	}, "/docs", "q", "", 0)
+	if got.MaxDistance != 4 || got.Index {
+		t.Fatalf("float/int: %+v", got)
+	}
+}
+
+func TestSearchLocal_IndexReachesExecutor(t *testing.T) {
+	t.Cleanup(WaitSearchIndex)
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+
+	dir := t.TempDir()
+	for _, name := range []string{"one.txt", "two.txt"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("needle in a haystack"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, err := SearchLocal(t.Context(), map[string]any{
+		argPath:  dir,
+		argQuery: "needle",
+		argIndex: true,
+	})
+	if err != nil || !strings.Contains(out, `"count"`) || !strings.Contains(out, ".txt") {
+		t.Fatalf("index search: %v %s", err, out)
+	}
+}

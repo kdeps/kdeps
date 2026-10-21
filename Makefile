@@ -62,6 +62,11 @@ build-linux:
 FAILFAST ?= 1
 GOTEST_FAILFAST := $(if $(filter 0,$(FAILFAST)),,-failfast)
 
+# Packages fmt and govulncheck scan. A bare ./... also walks gitignored working
+# directories, whose stray Go files are not part of the build and break the
+# run with "no required module provides package" errors.
+GO_PKGS ?= . ./cmd/... ./pkg/... ./tests/... ./tools/...
+
 test: fmt lint build
 	@rm -f coverage.out coverage-unit.out coverage-integration.out; \
 	echo "=========================================="; \
@@ -139,7 +144,7 @@ test: fmt lint build
 	echo "Running govulncheck"; \
 	echo "=========================================="; \
 	GOVULN_EXIT=0; \
-	go tool govulncheck ./... > /tmp/govuln-make.txt 2>&1 || GOVULN_EXIT=$$?; \
+	go tool govulncheck $(GO_PKGS) > /tmp/govuln-make.txt 2>&1 || GOVULN_EXIT=$$?; \
 	cat /tmp/govuln-make.txt; \
 	if [ "$$GOVULN_EXIT" -ne 0 ]; then \
 		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887\|GO-2026-4883\|GO-2026-5746\|GO-2026-5668\|GO-2026-5617" || true); \
@@ -338,7 +343,7 @@ lint: golangci-lint-bin
 	@go run ./tools/assetflow -check
 	@echo "Running govulncheck..."
 	@set +e; \
-	go tool govulncheck ./... > /tmp/govuln-lint.txt 2>&1; \
+	go tool govulncheck $(GO_PKGS) > /tmp/govuln-lint.txt 2>&1; \
 	exit_code=$$?; \
 	set -e; \
 	cat /tmp/govuln-lint.txt; \
@@ -375,7 +380,7 @@ dev:
 # Format code
 fmt:
 	@echo "Formatting code..."
-	@go fmt ./...
+	@go fmt $(GO_PKGS)
 
 # Download dependencies
 deps:

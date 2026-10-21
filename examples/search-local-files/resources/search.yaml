@@ -8,8 +8,11 @@ validations:
   error:
     code: 400
     message: "query is required"
-searchLocal:
-  path: "{{ get('path', '/data') }}"
-  query: "{{ get('query') }}"
-  glob: "{{ get('glob', '') }}"
-  limit: 20
+# The search_local component POSTs to the kdeps API's search_local tool.
+component:
+  name: search_local
+  with:
+    path: "{{ get('path', '/data') }}"
+    query: "{{ get('query') }}"
+    glob: "{{ get('glob', '') }}"
+    limit: 20

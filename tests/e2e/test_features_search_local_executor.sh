@@ -17,17 +17,20 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for native searchLocal executor
+# E2E tests for the search_local component
+#
+# The component POSTs to the kdeps API's search_local tool, which runs the
+# native searchLocal executor. Direct searchLocal: resources are rejected.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing native searchLocal executor..."
+echo "Testing search_local component executor..."
 
 if [ -z "${KDEPS_BIN:-}" ] || [ ! -x "${KDEPS_BIN}" ]; then
-    test_skipped "native searchLocal - kdeps binary not found"
+    test_skipped "search_local component - kdeps binary not found"
     exit 0
 fi
 
@@ -46,7 +49,7 @@ echo "package main" > "$SEARCH_DIR/main.go"
 # to_native_path in common.sh).
 SEARCH_DIR_NATIVE=$(to_native_path "$SEARCH_DIR")
 
-# Test: searchLocal with glob filter
+# Test: search_local component with glob filter
 test_searchlocal_glob() {
     local pkg_dir="$WORK_DIR/sl-glob"
     mkdir -p "$pkg_dir/resources"
@@ -64,9 +67,11 @@ YAML
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
 actionId: do-search
 name: Do Search
-searchLocal:
-  path: "${SEARCH_DIR_NATIVE}"
-  glob: "*.go"
+component:
+  name: search_local
+  with:
+    path: "${SEARCH_DIR_NATIVE}"
+    glob: "*.go"
 apiResponse:
   success: true
   response:
@@ -75,13 +80,13 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native searchLocal - glob filter"
+        test_passed "search_local component - glob filter"
     else
-        test_failed "native searchLocal - glob filter (run failed)" "${result:-}"
+        test_failed "search_local component - glob filter (run failed)" "${result:-}"
     fi
 }
 
-# Test: searchLocal with keyword filter
+# Test: search_local component with keyword filter
 test_searchlocal_keyword() {
     local pkg_dir="$WORK_DIR/sl-keyword"
     mkdir -p "$pkg_dir/resources"
@@ -99,9 +104,11 @@ YAML
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
 actionId: do-search
 name: Do Search
-searchLocal:
-  path: "${SEARCH_DIR_NATIVE}"
-  query: "hello"
+component:
+  name: search_local
+  with:
+    path: "${SEARCH_DIR_NATIVE}"
+    query: "hello"
 apiResponse:
   success: true
   response:
@@ -110,13 +117,13 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native searchLocal - keyword filter"
+        test_passed "search_local component - keyword filter"
     else
-        test_failed "native searchLocal - keyword filter (run failed)" "${result:-}"
+        test_failed "search_local component - keyword filter (run failed)" "${result:-}"
     fi
 }
 
-# Test: searchLocal with glob and keyword combined
+# Test: search_local component with glob and keyword combined
 test_searchlocal_combined() {
     local pkg_dir="$WORK_DIR/sl-combined"
     mkdir -p "$pkg_dir/resources"
@@ -134,10 +141,12 @@ YAML
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
 actionId: do-search
 name: Do Search
-searchLocal:
-  path: "${SEARCH_DIR_NATIVE}"
-  glob: "*.txt"
-  query: "hello"
+component:
+  name: search_local
+  with:
+    path: "${SEARCH_DIR_NATIVE}"
+    glob: "*.txt"
+    query: "hello"
 apiResponse:
   success: true
   response:
@@ -146,9 +155,9 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        test_passed "native searchLocal - glob and keyword combined"
+        test_passed "search_local component - glob and keyword combined"
     else
-        test_failed "native searchLocal - glob and keyword combined (run failed)" "${result:-}"
+        test_failed "search_local component - glob and keyword combined (run failed)" "${result:-}"
     fi
 }
 
@@ -176,9 +185,11 @@ YAML
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
 actionId: do-search
 name: Do Search
-searchLocal:
-  path: "${skip_dir_native}"
-  query: "needle"
+component:
+  name: search_local
+  with:
+    path: "${skip_dir_native}"
+    query: "needle"
 apiResponse:
   success: true
   response:
@@ -189,12 +200,45 @@ YAML
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         if output_grep "count:1" "$result" && output_grep "first:visible.txt" "$result"; then
-            test_passed "native searchLocal - skips hidden and vendor directories"
+            test_passed "search_local component - skips hidden and vendor directories"
         else
-            test_failed "native searchLocal - skips hidden and vendor directories (wrong results)" "$(echo "$result" | tail -15)"
+            test_failed "search_local component - skips hidden and vendor directories (wrong results)" "$(echo "$result" | tail -15)"
         fi
     else
-        test_failed "native searchLocal - skips hidden and vendor directories (run failed)" "${result:-}"
+        test_failed "search_local component - skips hidden and vendor directories (run failed)" "${result:-}"
+    fi
+}
+
+# Test: a native searchLocal: block is rejected; the component is the only path.
+test_searchlocal_native_rejected() {
+    local pkg_dir="$WORK_DIR/sl-native"
+    mkdir -p "$pkg_dir/resources"
+
+    cat > "$pkg_dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: searchlocal-native-test
+  version: "1.0.0"
+  targetActionId: do-search
+settings: {}
+YAML
+
+    cat > "$pkg_dir/resources/do-search.yaml" <<YAML
+actionId: do-search
+name: Do Search
+searchLocal:
+  path: "${SEARCH_DIR_NATIVE}"
+  query: "hello"
+YAML
+
+    local result
+    if result=$("$KDEPS_BIN" validate "$pkg_dir/workflow.yaml" 2>&1); then
+        test_failed "search_local component - native searchLocal is rejected" "validate succeeded: $result"
+    elif echo "$result" | grep -q "call the search_local component instead"; then
+        test_passed "search_local component - native searchLocal is rejected"
+    else
+        test_failed "search_local component - native searchLocal is rejected" "$result"
     fi
 }
 
@@ -202,3 +246,4 @@ test_searchlocal_glob
 test_searchlocal_keyword
 test_searchlocal_combined
 test_searchlocal_skips_vendor_and_hidden
+test_searchlocal_native_rejected

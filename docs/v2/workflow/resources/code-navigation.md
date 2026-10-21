@@ -193,4 +193,4 @@ See [Graphing an Indexed Folder](/workflow/resources/code-graph) for the full re
 - [Agent mode](/agent/) - built-in `code_*` tools
 - [Git component](/workflow/resources/git) - version control operations
 - [Exec resource](/workflow/resources/exec) - shell commands
-- [searchLocal resource](/workflow/resources/search) - local file search
+- [search_local component](/workflow/resources/search-local) - local file search

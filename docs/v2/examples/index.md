@@ -25,7 +25,7 @@ closest to what you are building.
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
 | [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
-| [Local file search](/examples/local-file-search) | `searchLocal:` glob + content search |
+| [Local file search](/examples/local-file-search) | `component: search_local` glob + content search |
 | [Python data processing](/examples/python-processing) | `python:` resource, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
@@ -232,8 +232,8 @@ Best for:
 
 ## Local file search
 
-Search a directory by filename pattern and content keyword with the built-in
-`searchLocal:` resource.
+Search a directory by filename pattern and content keyword with the
+`search_local` component.
 
 Best for:
 - A search endpoint over files on disk
