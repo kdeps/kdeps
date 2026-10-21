@@ -2968,7 +2968,7 @@ func TestRunStreaming_GiveUpWithNoProgressIsNudgedAsSelfLimit(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 2, "a fictional limit with no progress must draw the self-limit nudge")
-	assert.Contains(t, ms.cfgs[1].Prompt, "That limit is not real")
+	assert.Contains(t, ms.cfgs[1].Prompt, "Your next output is the tool call itself")
 	assert.Equal(t, "Listed the files.", got)
 	assert.NotContains(t, buf.String(), "I cannot complete this")
 }

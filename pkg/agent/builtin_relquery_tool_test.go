@@ -20,6 +20,7 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,6 +97,30 @@ func TestInfixOperatorHint(t *testing.T) {
 	assert.Contains(t, infixOperatorHint(`matches(.value, "^x")`), "matches")
 	assert.Empty(t, infixOperatorHint(`.value contains "x"`))
 	assert.Empty(t, infixOperatorHint(`filter(memory, .type == "error")`))
+}
+
+func TestMemoryQuery_BackslashEscapeHint(t *testing.T) {
+	loop, _ := newTestLoopWithMemory(t)
+	withActiveLoop(t, loop)
+	// A model that double-escapes quotes while building the JSON tool call
+	// sends a query whose parsed form contains a literal \" where expr expects
+	// a string; expr stops at the backslash with a message that never says so.
+	_, err := executeMemoryQuery(map[string]any{
+		"query": `map(filter(tool_calls, .name == \"bash_exec\"), {name: .name})`,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remove the backslashes")
+}
+
+func TestBackslashEscapeHint(t *testing.T) {
+	backslashErr := errors.New(`unrecognized character: U+005C '\' (1:33)`)
+	assert.Contains(t,
+		backslashEscapeHint(`.name == \"bash_exec\"`, backslashErr), "remove the backslashes")
+	assert.Empty(t, backslashEscapeHint(`.name == "bash_exec"`, backslashErr),
+		"no backslash-escaped quote, no hint")
+	assert.Empty(t,
+		backslashEscapeHint(`.name == \"bash_exec\"`, errors.New("unexpected token EOF")),
+		"a different parse error is not the double-escape failure")
 }
 
 func TestMemoryQuery_InfixContainsSelectsRows(t *testing.T) {

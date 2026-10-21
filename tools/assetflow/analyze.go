@@ -713,4 +713,3 @@ func slashCommands(pkgs []*packages.Package) map[string]string {
 	}
 	return out
 }
-

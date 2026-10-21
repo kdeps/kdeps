@@ -45,7 +45,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 | Tool | Description |
 |------|-------------|
 | `http_request` | Make an HTTP request (GET/POST/PUT/DELETE/PATCH) |
-| `search_local` | Search files in a folder (`path`), or, with no `path`, every folder of the working project: its own and its [search folders](/agent/knowledge#search-folders), best hits of each in turn. Key and credential files are never returned |
+| `search_local` | Search files in a folder (`path`), or, with no `path`, every folder of the working project: its own and its [search folders](/agent/knowledge#search-folders), best hits of each in turn. Dot-directories, vendor/build folders (`node_modules`, `vendor`, `target`, caches), and files over 1 MiB are skipped. Key and credential files are never returned |
 | `transcribe_audio` | Transcribe an audio file through a Whisper API (OpenAI, Groq, or a local HTTP server); a declared HTTP tool |
 | `transcribe_audio_offline` | Transcribe offline with whisper.cpp (`whisper-cli`), no API key; a declared exec tool |
 | `ocr_image` | Extract text from an image via tesseract (local, no API key); a [declared exec tool](/agent/tools#declared-exec-tools) |

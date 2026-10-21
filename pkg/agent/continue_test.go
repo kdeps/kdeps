@@ -159,7 +159,7 @@ func TestRunStreaming_FixItAfterFailedToolIsNudged(t *testing.T) {
 	got, err := loop.RunStreaming(t.Context(), "make the modifications and fix it", &buf)
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 5)
-	assert.Contains(t, ms.cfgs[2].Prompt, "That limit is not real")
+	assert.Contains(t, ms.cfgs[2].Prompt, "Your next output is the tool call itself")
 	assert.Contains(t, ms.cfgs[3].Prompt, "unfinished work")
 	assert.Equal(t, "The step failed. I could not finish.", got)
 }

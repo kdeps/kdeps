@@ -24,6 +24,14 @@ searchLocal:
 
 When both `query` and `glob` are set, a file must match both to be included.
 
+## What the walk skips
+
+The walk prunes directories that only ever hold binaries, generated output, or caches: every dot-directory (`.git`, `.codeql-db`, `.venv`, `.cache`, ...) and the vendor/build/cache names `node_modules`, `bower_components`, `vendor`, `target`, `build`, `bin`, `obj`, `__pycache__`, `site-packages`, `coverage`, `dist-packages`, `tmp`. Their contents would otherwise crowd real documents out of the `limit`.
+
+Files larger than 1 MiB are skipped too - they are neither glob-matched nor content-matched.
+
+The `path` you pass is always searched, even when it is a dot-directory such as `path: "/workspace/.config-app"`. Indexed mode (`index: true`) applies the same directory and size skips when it builds the index.
+
 ## Output
 
 | Key | Type | Description |

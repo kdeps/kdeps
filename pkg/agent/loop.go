@@ -575,7 +575,13 @@ func (l *Loop) registerSkillLoader() {
 			}
 			sk := l.SkillByName(name)
 			if sk == nil {
-				return "", fmt.Errorf("load_skill: no skill named %q", name)
+				l.refreshSkills()
+				sk = l.SkillByName(name)
+			}
+			if sk == nil {
+				return "", fmt.Errorf(
+					"load_skill: no skill named %q; available skills: %s", name, l.visibleSkillNames(),
+				)
 			}
 			content := sk.Content
 			if related := l.relatedSkills[sk.Name]; len(related) > 0 {
@@ -716,6 +722,58 @@ func (l *Loop) SkillByName(name string) *Skill {
 		}
 	}
 	return nil
+}
+
+// visibleSkillNames lists the non-hidden skill names for a load_skill error,
+// so a model that guessed a wrong name can retry with a real one instead of
+// rediscovering the set over several rounds. Hidden skills stay hidden, the
+// same as in the system prompt. Capped so a big skill set cannot flood the
+// tool result.
+func (l *Loop) visibleSkillNames() string {
+	const maxNames = 20
+	names := make([]string, 0, len(l.skillList))
+	for _, sk := range l.skillList {
+		if !sk.Hidden {
+			names = append(names, sk.Name)
+		}
+	}
+	switch {
+	case len(names) == 0:
+		return "none"
+	case len(names) > maxNames:
+		return fmt.Sprintf(
+			"%s, ... (%d more)", strings.Join(names[:maxNames], ", "), len(names)-maxNames,
+		)
+	default:
+		return strings.Join(names, ", ")
+	}
+}
+
+// refreshSkills rescans the skill directories and appends any skill that is
+// not already loaded, so a skill installed while the loop is running (an
+// npx skills add, a hand-written SKILL.md) is loadable without restarting
+// kdeps. On a hit it also rebuilds the skills block and invalidates the
+// cached preamble so later turns advertise the new skill.
+func (l *Loop) refreshSkills() {
+	known := make(map[string]struct{}, len(l.skillList))
+	for i := range l.skillList {
+		known[l.skillList[i].Name] = struct{}{}
+	}
+	slice, dirs := loadSkillSliceWithDirs(resolveAbsPaths(l.config.SkillPaths))
+	added := false
+	for i := range slice {
+		if _, ok := known[slice[i].Name]; ok {
+			continue
+		}
+		l.skillList = append(l.skillList, slice[i])
+		added = true
+	}
+	if !added {
+		return
+	}
+	l.relatedSkills = computeRelatedSkills(l.skillList, dirs)
+	l.skills = formatSkillsForPrompt(l.skillList)
+	l.InvalidateSystemPreamble()
 }
 
 // PromptByName returns the prompt template with the given name, or nil if not found.
@@ -2310,9 +2368,11 @@ func (l *Loop) resolveEmptyToolRound(
 // despite real progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn)
 // draws that bounded push-back. A fictional self-limit ("I can't", "no
 // tools", "I can't emit an invoke") is pushed back even when nothing has
-// succeeded, unless the reply is a real safety stop. Both are checked before
-// settleActiveFromText so the refusal is not recorded as a failed task while
-// the nudge budget remains. A round with text otherwise settles the active
+// succeeded, unless the reply is a real safety stop. A reply that only
+// acknowledges the push-back itself ("the limit I named was not real", a
+// promise to call the tool) draws it again instead of ending the turn. All
+// are checked before settleActiveFromText so the refusal is not recorded as
+// a failed task while the nudge budget remains. A round with text otherwise settles the active
 // task; when later tasks remain the turn continues on the next one. A round
 // with no tools registered (the forced-text phase) is never nudged: it was
 // already told to answer in text.
@@ -2338,6 +2398,18 @@ func (l *Loop) handleTextOnlyRound(
 		repeat := nudges.action > 0
 		nudges.action++
 		return nudgeForActionConfig(chatCfg, repeat), true
+	}
+	// A reply that only acknowledges the push-back ("the limit I named was not
+	// real", a promise to call the tool) is neither work nor an answer. It has
+	// no tool call and leaves the task where it was, so it draws the same
+	// self-limit push again, bounded by that entry's occurrence cap. Checked
+	// before the give-up path: such a reply can contain "blocked" and read as
+	// a give-up, but the right correction is "call the tool", not "try another
+	// approach".
+	if looksLikeNudgeAck(content) &&
+		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
+		nudges.selfLimit++
+		return nudgeSelfLimitConfig(chatCfg, nudges.selfLimit > 1), true
 	}
 	if harnessOccurrenceAllowed("nudge-give-up", nudges.giveUp) &&
 		looksLikeGiveUp(content) && l.hasMadeProgressThisTurn() {

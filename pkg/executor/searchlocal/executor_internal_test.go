@@ -110,6 +110,62 @@ func TestWalkEntry_InfoOK(t *testing.T) {
 	assert.False(t, limitHit)
 }
 
+// walkRows runs a non-indexed walk search and returns its result rows.
+func walkRows(t *testing.T, config *domain.SearchLocalConfig) []map[string]interface{} {
+	t.Helper()
+	res, err := NewExecutor().Execute(nil, config)
+	require.NoError(t, err)
+	m, ok := res.(map[string]interface{})
+	require.True(t, ok)
+	rows, ok := m["results"].([]map[string]interface{})
+	require.True(t, ok)
+	return rows
+}
+
+func TestWalk_SkipsHiddenAndVendorDirs(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel string) {
+		t.Helper()
+		p := filepath.Join(root, rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte("needle"), 0o600))
+	}
+	write("visible.txt")
+	write(".git/index")
+	write(".codeql-db/page-000000001")
+	write("node_modules/pkg/index.js")
+
+	rows := walkRows(t, &domain.SearchLocalConfig{Path: root, Query: "needle"})
+	require.Len(t, rows, 1)
+	assert.Equal(t, filepath.Join(root, "visible.txt"), rows[0]["path"])
+}
+
+func TestWalk_SkipsOversizedFile(t *testing.T) {
+	root := t.TempDir()
+	small := filepath.Join(root, "small.txt")
+	big := filepath.Join(root, "big.txt")
+	require.NoError(t, os.WriteFile(small, []byte("needle"), 0o600))
+	oversized := append([]byte("needle"), bytes.Repeat([]byte("x"), maxFileSize)...)
+	require.NoError(t, os.WriteFile(big, oversized, 0o600))
+
+	rows := walkRows(t, &domain.SearchLocalConfig{Path: root, Query: "needle"})
+	require.Len(t, rows, 1)
+	assert.Equal(t, small, rows[0]["path"])
+}
+
+func TestWalk_SearchesExplicitHiddenRoot(t *testing.T) {
+	root := t.TempDir()
+	hidden := filepath.Join(root, ".hidden")
+	require.NoError(t, os.MkdirAll(hidden, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hidden, "notes.txt"), []byte("needle"), 0o600))
+
+	// A path the caller names explicitly is searched even when its own name
+	// starts with a dot -- the prune is for traversed children only.
+	rows := walkRows(t, &domain.SearchLocalConfig{Path: hidden, Query: "needle"})
+	require.Len(t, rows, 1)
+	assert.Equal(t, filepath.Join(hidden, "notes.txt"), rows[0]["path"])
+}
+
 func TestOpenOrCreateIndex_New(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := datadir.File(dir, "index.db")

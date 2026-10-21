@@ -128,7 +128,18 @@ if [ "$BACKEND_READY" != "true" ]; then
     return 0
 fi
 
-if wait_for_http "http://127.0.0.1:${PORT_API}/api/fetch" 40 || wait_for_kdeps_port "$PORT_API" 5; then
+if ! wait_for_http "http://127.0.0.1:${PORT_API}/api/fetch" 40 && ! wait_for_kdeps_port "$PORT_API" 5; then
+    # The port was picked before kdeps started; another process may have taken
+    # it in between and kdeps moved to the next free port. Follow it.
+    STARTED_PORT=$(sed -n 's/.*Starting HTTP server on [^:]*:\([0-9][0-9]*\).*/\1/p' "$KDEPS_LOG" | tail -1)
+    if [ -n "$STARTED_PORT" ] && [ "$STARTED_PORT" != "$PORT_API" ] &&
+        wait_for_http "http://127.0.0.1:${STARTED_PORT}/api/fetch" 10; then
+        echo "  port $PORT_API was taken before kdeps bound; it started on $STARTED_PORT"
+        PORT_API=$STARTED_PORT
+    fi
+fi
+
+if wait_for_http "http://127.0.0.1:${PORT_API}/api/fetch" 2 || wait_for_kdeps_port "$PORT_API" 5; then
     SERVER_READY=true
 else
     SERVER_READY=false

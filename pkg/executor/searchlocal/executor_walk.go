@@ -58,8 +58,27 @@ func (e *Executor) walkEntry(
 	results *[]map[string]interface{},
 	limitHit *bool,
 ) error {
-	if err != nil || d.IsDir() {
-		return nil //nolint:nilerr // intentionally skip unreadable entries and directories
+	if err != nil {
+		return nil //nolint:nilerr // intentionally skip unreadable entries
+	}
+	if d.IsDir() {
+		// Prune hidden and generated/vendor directories (the same set the
+		// inverted-index walk skips): they hold binary blobs -- .git/index,
+		// CodeQL page dumps, node_modules -- that match a text query, crowd
+		// real hits out of the limit, and make the walk read gigabytes. The
+		// walk root itself is always searched, even under a dot-directory.
+		if filepath.Clean(path) != filepath.Clean(config.Path) && skipWalkEntry(d) {
+			return fs.SkipDir
+		}
+		return nil
+	}
+
+	info, statErr := d.Info()
+	if statErr != nil {
+		return nil //nolint:nilerr // skip files whose stat fails
+	}
+	if info.Size() > maxFileSize {
+		return nil // oversized files are never content-matched or snippet-read
 	}
 
 	ok, filterErr := e.matchesFilters(path, d, config, matcher)
@@ -68,11 +87,6 @@ func (e *Executor) walkEntry(
 	}
 	if !ok {
 		return nil
-	}
-
-	info, statErr := d.Info()
-	if statErr != nil {
-		return nil //nolint:nilerr // skip files whose stat fails
 	}
 
 	result := map[string]interface{}{
