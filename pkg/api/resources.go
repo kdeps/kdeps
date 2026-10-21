@@ -397,20 +397,30 @@ func RunEmbedding(exec *execEmbedding.Executor, op string, args map[string]any) 
 	if exec == nil {
 		exec = embedExec
 	}
+	text := stringArg(args, argText)
+	if text == "" {
+		text = stringArg(args, argQuery)
+	}
 	config := &domain.EmbeddingConfig{
-		Operation:  op,
-		Text:       stringArg(args, argQuery),
-		Collection: stringArg(args, argCollection),
-		Model:      stringArg(args, argModel),
-		Backend:    stringArg(args, argBackend),
+		Operation:       op,
+		Text:            text,
+		Collection:      stringArg(args, argCollection),
+		DBPath:          stringArg(args, argEmbedDBPath),
+		Model:           stringArg(args, argModel),
+		Backend:         stringArg(args, argBackend),
+		BaseURL:         stringArg(args, argBaseURL),
+		RerankQuery:     stringArg(args, argRerankQuery),
+		RerankDocuments: stringListArg(args, argRerankDocs),
 	}
-	if v, ok := args[argLimit].(float64); ok {
-		config.Limit = int(v)
+	if v, ok := positiveNumber(args[argLimit]); ok {
+		config.Limit = v
 	}
-	if texts, ok := args[argTexts].([]any); ok {
-		for _, item := range texts {
-			config.Inputs = append(config.Inputs, fmt.Sprint(item))
-		}
+	if v, ok := positiveNumber(args[argRerankTopN]); ok {
+		config.RerankTopN = v
+	}
+	config.Inputs = stringListArg(args, argInputs)
+	if len(config.Inputs) == 0 {
+		config.Inputs = stringListArg(args, argTexts)
 	}
 	result, err := exec.Execute(nil, config)
 	if err != nil {

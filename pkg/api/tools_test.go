@@ -79,6 +79,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolCronResume,
 		toolEditFile,
 		toolEmailOps,
+		toolEmbedding,
 		toolEmbeddingSearch,
 		toolEmbeddingVectorize,
 		toolExec,

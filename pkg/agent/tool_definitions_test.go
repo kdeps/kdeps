@@ -73,7 +73,7 @@ func TestToolDefinitions_EveryToolDefined(t *testing.T) {
 	// Tool assets served by the kdeps API instead of the agent loop:
 	// components call them through pkg/api, so no agent-loop tool registers
 	// them. TestTools_ListAndCall in pkg/api keeps this set honest.
-	apiOnly := map[string]bool{"exec": true, "python": true}
+	apiOnly := map[string]bool{"exec": true, "python": true, "embedding": true}
 	tools, used := allBuiltinTools(t)
 	require.NotEmpty(t, tools)
 	for _, tl := range tools {

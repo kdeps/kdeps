@@ -251,6 +251,16 @@ func TestComponentBackedAction(t *testing.T) {
 			component: "python",
 			ok:        true,
 		},
+		{
+			name: "native embedding",
+			res: &domain.Resource{
+				ActionID:  "a",
+				Embedding: &domain.EmbeddingConfig{Operation: "index", Text: "hello"},
+			},
+			action:    "embedding",
+			component: "embedding",
+			ok:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -300,6 +310,13 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		Python: &domain.PythonConfig{Script: "print(1)"},
 	})
 	if !ok || action != "python" || component != "python" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Embedding: &domain.EmbeddingConfig{Operation: "index", Text: "hello"},
+	})
+	if !ok || action != "embedding" || component != "embedding" {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }

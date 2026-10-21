@@ -2476,3 +2476,69 @@ apiResponse:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uses python in a before: step directly")
 }
+
+// A workflow runs embedding operations through the embedding component, which
+// reaches the embedding executor over the kdeps API.
+func TestParser_ParseWorkflowEmbeddingComponentBacked(t *testing.T) {
+	dir := t.TempDir()
+	resourcesDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
+
+	workflowPath := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: embedding-component-backing
+  version: 1.0.0
+  targetActionId: index
+settings:
+  agentSettings:
+    timezone: UTC
+`), 0o600))
+
+	resourcePath := filepath.Join(resourcesDir, "index.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+embedding:
+  operation: index
+  text: hello
+`), 0o600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	_, err := parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses embedding directly")
+	assert.Contains(t, err.Error(), "call the embedding component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+component:
+  name: embedding
+  with:
+    operation: index
+    text: hello
+`), 0o600))
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.Len(t, workflow.Resources, 1)
+	require.NotNil(t, workflow.Resources[0].Component)
+	assert.Equal(t, "embedding", workflow.Resources[0].Component.Name)
+
+	// An inline before: step has no more access to the native action.
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+before:
+  - embedding:
+      operation: index
+      text: hello
+apiResponse:
+  success: true
+`), 0o600))
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses embedding in a before: step directly")
+}

@@ -40,9 +40,9 @@ after:
 
 ## Supported resource types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `agent`, `component`, `embedding`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `agent`, `component`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
-`exec:` and `python:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`) and scripts call the `python` component, the same as anywhere else in a workflow.
+`exec:`, `python:`, and `embedding:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`), scripts call the `python` component, and embedding steps call the `embedding` component, the same as anywhere else in a workflow.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 

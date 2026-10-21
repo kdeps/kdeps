@@ -118,6 +118,12 @@ var componentBackedActions = []componentBackedAction{
 		Resource:  func(r *Resource) bool { return r.Python != nil },
 		Inline:    func(a *ActionConfig) bool { return a.Python != nil },
 	},
+	{
+		Name:      "embedding",
+		Component: "embedding",
+		Resource:  func(r *Resource) bool { return r.Embedding != nil },
+		Inline:    func(a *ActionConfig) bool { return a.Embedding != nil },
+	},
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be

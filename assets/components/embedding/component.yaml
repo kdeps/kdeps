@@ -1,0 +1,72 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: embedding
+  description: Run one embedding operation through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: operation
+      type: string
+      required: true
+      description: "index, search, upsert, delete, vectorize, embed_query or rerank"
+    - name: text
+      type: string
+      description: Text to index, search for, upsert or delete
+    - name: collection
+      type: string
+      description: Collection (namespace) inside the local embedding database
+    - name: dbPath
+      type: string
+      description: Path to the SQLite embedding database; defaults come from the embedding defaults
+    - name: limit
+      type: number
+      description: Maximum number of search results
+    - name: inputs
+      type: array
+      description: Texts to embed for vectorize and embed_query
+    - name: model
+      type: string
+      description: "Embedding model, for example text-embedding-3-small"
+    - name: backend
+      type: string
+      description: "Embedding backend: openai, ollama, google"
+    - name: baseURL
+      type: string
+      description: Custom base URL for an OpenAI-compatible backend
+    - name: rerankQuery
+      type: string
+      description: Query the candidate documents are ranked against (operation rerank)
+    - name: rerankDocuments
+      type: array
+      description: Candidate documents to rerank (operation rerank)
+    - name: rerankTopN
+      type: number
+      description: Number of top reranked results; 0 returns all
+  # Each call posts to the kdeps API tool, which runs the embedding executor;
+  # the component output is the executor's structured result.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Embedding operation
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/embedding/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 120s  # hard stop for the call; vectorize/rerank may hit a provider
+      data:
+        operation: "{{ get('embedding.operation') }}"
+        text: "{{ get('embedding.text') }}"
+        collection: "{{ get('embedding.collection') }}"
+        dbPath: "{{ get('embedding.dbPath') }}"
+        limit: "{{ get('embedding.limit') }}"
+        inputs: "{{ get('embedding.inputs') }}"
+        model: "{{ get('embedding.model') }}"
+        backend: "{{ get('embedding.backend') }}"
+        baseURL: "{{ get('embedding.baseURL') }}"
+        rerankQuery: "{{ get('embedding.rerankQuery') }}"
+        rerankDocuments: "{{ get('embedding.rerankDocuments') }}"
+        rerankTopN: "{{ get('embedding.rerankTopN') }}"

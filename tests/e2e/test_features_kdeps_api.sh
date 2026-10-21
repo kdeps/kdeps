@@ -276,7 +276,7 @@ elif kind == "tools":
         "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
         "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create",
         "cron_delete", "cron_list", "cron_pause", "cron_resume", "edit_file",
-        "email_ops", "embedding_search", "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops",
+        "email_ops", "embedding", "embedding_search", "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops",
         "google_cache_create", "google_cache_delete",
         "google_cache_list", "http_request", "instruct", "jina_rerank", "list_files",
         "load_document", "md5_file", "memory_delete", "memory_query", "memory_save",
@@ -805,6 +805,16 @@ EOF
         test_passed "kdeps API - embedding_vectorize requires texts"
     else
         test_failed "kdeps API - embedding_vectorize requires texts" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/embedding/call" || true)
+    if [ "$got" = "400" ] && grep -F "embedding: unknown operation" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - embedding requires an operation"
+    else
+        test_failed "kdeps API - embedding requires an operation" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

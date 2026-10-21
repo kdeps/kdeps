@@ -8,7 +8,9 @@ validations:
   error:
     code: 400
     message: "text is required"
-embedding:
-  operation: upsert
-  text: "{{ get('text') }}"
-  collection: "{{ get('collection', 'docs') }}"
+component:
+  name: embedding
+  with:
+    operation: upsert
+    text: "{{ get('text') }}"
+    collection: "{{ get('collection', 'docs') }}"

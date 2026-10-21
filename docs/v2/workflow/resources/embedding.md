@@ -1,41 +1,87 @@
-# Embedding resource
+# embedding component
 
-The `embedding` executor is a native capability compiled into the `kdeps` binary. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
+The `embedding` component runs one embedding operation and returns a structured result: a SQLite keyword store for `index`, `search`, `upsert`, and `delete`, an embedding backend for `vectorize` and `embed_query`, and Cohere for `rerank`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `embedding` tool, which runs the native embedding executor. A workflow that uses `embedding:` directly - primary or in a `before:`/`after:` step - is rejected.
 
-## Where it runs
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+```d2
+direction: right
+call: "component: embedding" {shape: oval}
+api: "POST /tools/embedding/call"
+sqlite: "SQLite keyword store\nindex, search, upsert, delete"
+backend: "embedding backend\nvectorize, embed_query"
+cohere: "Cohere\nrerank"
+out: "result map" {shape: oval}
+call -> api
+api -> sqlite: "operation index/search/upsert/delete"
+api -> backend: "operation vectorize/embed_query"
+api -> cohere: "operation rerank"
+sqlite -> out
+backend -> out
+cohere -> out
+```
 
 ## Configuration
 
+<div v-pre>
+
 ```yaml
 # resources/store.yaml
-embedding:
-  operation: "index"                    # required: index | search | upsert | delete
-  text: "document content here"         # required for index/search/upsert (optional for delete-all)
-  collection: "default"                 # optional namespace (default: "default")
-  dbPath: "/data/kdeps-store.db"       # optional path (default: "kdeps-embedding.db")
-  limit: 10                             # optional max search results (default: 10)
+actionId: store
+name: Store Document
+component:
+  name: embedding                   # from the components asset set; a components/embedding/ of your own wins
+  with:
+    operation: index                # required: index | search | upsert | delete | vectorize | embed_query | rerank
+    text: "{{ get('text') }}"       # text to index, search for, upsert or delete
+    collection: docs                # optional namespace (default: "default")
+    dbPath: /data/store.db          # optional SQLite path; default from the kdeps embedding defaults
+    limit: 5                        # optional max search results
 ```
 
-| Field | Type | Required | Default | Description |
+</div>
+
+| Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `operation` | string | yes | - | `index`, `search`, `upsert`, or `delete` |
-| `text` | string | yes* | - | Text to index, query, or delete. *Optional for `delete` (omit to delete entire collection) |
-| `collection` | string | no | `"default"` | Namespace for documents |
-| `dbPath` | string | no | `"kdeps-embedding.db"` | SQLite database file path |
-| `limit` | integer | no | `10` | Max results for `search` |
+| `operation` | string | yes | - | `index`, `search`, `upsert`, `delete`, `vectorize`, `embed_query`, or `rerank` |
+| `text` | string | see below | - | Text to index, search for, upsert, or delete. Required for `index`, `search`, and `upsert`; empty deletes the whole collection on `delete` |
+| `collection` | string | no | `"default"` | Namespace inside the SQLite database |
+| `dbPath` | string | no | kdeps embedding default | SQLite database file path |
+| `limit` | number | no | kdeps embedding default | Max results for `search` |
+| `inputs` | array | yes for `vectorize`, `embed_query` | - | Texts to embed |
+| `model` | string | no | backend default | Embedding model, e.g. `text-embedding-3-small` |
+| `backend` | string | no | kdeps LLM backend | `openai`, `ollama`, or `google` |
+| `baseURL` | string | no | - | Custom base URL for an OpenAI-compatible backend |
+| `rerankQuery` | string | yes for `rerank` | - | Query the candidate documents are ranked against |
+| `rerankDocuments` | array | yes for `rerank` | - | Candidate documents to rerank |
+| `rerankTopN` | number | no | `0` (all) | Number of top reranked results |
 
 ## Operations
 
-| Operation | Description |
-|-----------|-------------|
-| `index` | Insert text (ignored if duplicate) |
-| `upsert` | Insert or replace text |
-| `search` | Case-insensitive keyword search via LIKE |
-| `delete` | Delete by text, or whole collection if text is empty |
+| Operation | Backing | Description |
+|-----------|---------|-------------|
+| `index` | SQLite | Insert text (ignored if duplicate) |
+| `upsert` | SQLite | Insert or replace text |
+| `search` | SQLite | Case-insensitive keyword search via `LIKE` |
+| `delete` | SQLite | Delete by text, or the whole collection when `text` is empty |
+| `vectorize` | embedding backend | Convert `inputs` into vectors |
+| `embed_query` | embedding backend | Convert `text` into a query vector |
+| `rerank` | Cohere | Rank `rerankDocuments` against `rerankQuery` |
 
 ## Output
+
+```json
+{
+  "operation": "search",
+  "collection": "docs",
+  "query": "compiled language",
+  "results": ["Go is a statically typed, compiled programming language."],
+  "count": 1,
+  "json": "{\"collection\":\"docs\",...}"
+}
+```
+
+Read fields with `output('store').results`, `output('store').count`, and so on.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -45,7 +91,9 @@ embedding:
 | `results` | []string | Matching texts (search only) |
 | `count` | integer | Number of results (search only) |
 | `affected` | integer | Rows deleted (delete only) |
-| `json` | string | Full result as JSON string |
+| `json` | string | Full result as a JSON string |
+
+A failed operation does not return this map: the call fails and `onError:` on the resource decides what happens next.
 
 ## Examples
 
@@ -64,20 +112,24 @@ component:
 # Step 2: Index it
 actionId: storeDoc
 requires: [fetch]
-embedding:
-  operation: "index"
-  text: "{{ output('fetch').content }}"
-  collection: "knowledge"
-  dbPath: "/data/store.db"
+component:
+  name: embedding
+  with:
+    operation: index
+    text: "{{ output('fetch').content }}"
+    collection: knowledge
+    dbPath: /data/store.db
 
 # Step 3: Search on user query
 actionId: findDocs
-embedding:
-  operation: "search"
-  text: "{{ get('query') }}"
-  collection: "knowledge"
-  dbPath: "/data/store.db"
-  limit: 5
+component:
+  name: embedding
+  with:
+    operation: search
+    text: "{{ get('query') }}"
+    collection: knowledge
+    dbPath: /data/store.db
+    limit: 5
 
 # Step 4: Answer with context
 actionId: answer
@@ -93,30 +145,53 @@ apiResponse:
 
 </div>
 
+### Vector embeddings
+
+<div v-pre>
+
+```yaml
+# resources/embed.yaml
+actionId: embed
+component:
+  name: embedding
+  with:
+    operation: vectorize
+    inputs: ["{{ get('text') }}"]    # texts to embed
+    model: text-embedding-3-small
+    backend: openai                  # KDEPS_OPENAI_API_KEY or ~/.kdeps/config.yaml
+```
+
+</div>
+
 ## Collections
 
 Use `collection` to namespace documents - useful for multi-tenant or multi-topic stores:
 
+<div v-pre>
+
 ```yaml
 # Index into separate collections
-embedding:
-  operation: "index"
-  text: "..."
-  collection: "contracts"
+component:
+  name: embedding
+  with:
+    operation: index
+    text: "..."
+    collection: contracts
 
 # Search only within one collection
-embedding:
-  operation: "search"
-  text: "termination clause"
-  collection: "contracts"
+component:
+  name: embedding
+  with:
+    operation: search
+    text: termination clause
+    collection: contracts
 ```
+
+</div>
 
 ---
 
-> **Note**: This uses keyword (LIKE) matching, not vector similarity. For OpenAI vector embeddings, install the component:
-> ```bash
-> kdeps install embedding
-> ```
+> **Note**: `index`, `search`, `upsert`, and `delete` use keyword (`LIKE`) matching, not vector similarity. Use `vectorize` and `embed_query` with a backend for vector embeddings.
 
 ## See also
 

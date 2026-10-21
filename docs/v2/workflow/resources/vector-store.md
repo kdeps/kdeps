@@ -1,6 +1,6 @@
 # Vector store resource
 
-The `vectorStore:` resource adds documents to, and runs similarity search against, an external vector database. Unlike `embedding:` (SQLite keyword/vector index built into kdeps), `vectorStore:` talks to a real vector database service - Qdrant, Chroma, Pinecone, pgvector, and more - for production-scale RAG.
+The `vectorStore:` resource adds documents to, and runs similarity search against, an external vector database. Unlike the `embedding` component (SQLite keyword index built into kdeps), `vectorStore:` talks to a real vector database service - Qdrant, Chroma, Pinecone, pgvector, and more - for production-scale RAG.
 
 ## Where it runs
 
@@ -94,5 +94,5 @@ vectorStore:
 ## See also
 
 - [Loader resource](/workflow/resources/loader) - load files/URLs into documents before indexing
-- [Embedding resource](/workflow/resources/embedding) - local SQLite-backed alternative, no external service required
+- [Embedding component](/workflow/resources/embedding) - local SQLite-backed alternative, no external service required
 - [Resources overview](/workflow/resources) - all resource types
