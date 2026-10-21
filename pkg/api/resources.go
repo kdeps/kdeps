@@ -87,10 +87,16 @@ func HTTPRequest(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, toolHTTPRequest); err != nil {
 		return "", err
 	}
+	// A component's unset optional input arrives as "", which must mean "no
+	// body", not a literal empty JSON string body.
+	bodyData := args[argData]
+	if s, ok := bodyData.(string); ok && s == "" {
+		bodyData = nil
+	}
 	config := &domain.HTTPClientConfig{
 		URL:         stringArg(args, argURL),
 		Method:      stringArg(args, argMethod),
-		Data:        args[argData],
+		Data:        bodyData,
 		Timeout:     stringArg(args, argTimeout),
 		FailOnError: args[argFailOnError] == true,
 		SaveTo:      stringArg(args, argSaveTo),

@@ -3,9 +3,15 @@ kind: Component
 metadata:
   name: code_graph_all
   description: Graph the whole index through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
-  inputs: []
+  inputs:
+    - name: path
+      type: string
+      description: Indexed folder root, used to locate the default graph db path. Empty uses the working folder
+    - name: graphDBPath
+      type: string
+      description: Graph index db path written by code_index_folder. Empty uses the working folder's data dir
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -19,4 +25,6 @@ resources:
         Content-Type: application/json
       failOnError: true
       timeout: 30s
-      data: {}
+      data:
+        path: "{{ get('code_graph_all.path') }}"
+        graphDBPath: "{{ get('code_graph_all.graphDBPath') }}"

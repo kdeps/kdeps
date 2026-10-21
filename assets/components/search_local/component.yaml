@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: search_local
   description: Search local files through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: query
@@ -15,6 +15,10 @@ interface:
     - name: glob
       type: string
       description: File glob filter, for example *.go
+    - name: limit
+      type: number
+      default: 3
+      description: Maximum number of results
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -32,3 +36,4 @@ resources:
         query: "{{ get('search_local.query') }}"
         path: "{{ get('search_local.path') }}"
         glob: "{{ get('search_local.glob') }}"
+        limit: "{{ get('search_local.limit') }}"

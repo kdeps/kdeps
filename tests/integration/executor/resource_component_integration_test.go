@@ -20,6 +20,7 @@ package executor_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -119,6 +120,67 @@ func TestOCRImageComponent_DeclaredTool(t *testing.T) {
 	out, err := runComponentValue(t, "ocr_image", "    file: "+yamlPath(image)+"\n")
 	require.NoError(t, err)
 	require.Equal(t, "ocr "+image+" eng", fmt.Sprint(out))
+}
+
+// A number input reaches the kdeps API tool as a JSON number: without the
+// conversion the string "1" would be ignored and the handler's default (3)
+// would win.
+func TestSearchLocalComponent_RespectsLimit(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	dir := t.TempDir()
+	for _, name := range []string{"a.txt", "b.txt", "c.txt", "d.txt"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte("quokka marker"), 0o600))
+	}
+
+	out, err := runComponentValue(t, "search_local",
+		"    path: "+yamlPath(dir)+"\n    query: quokka\n    limit: 1\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), `"count": 1`)
+}
+
+// A boolean input reaches the kdeps API tool as a JSON boolean: without the
+// conversion dry_run would arrive as the string "true", the handler would not
+// see it, and a preview would write the file.
+func TestEditFileComponent_DryRunDoesNotWrite(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	path := filepath.Join(t.TempDir(), "note.txt")
+	require.NoError(t, os.WriteFile(path, []byte("alpha\n"), 0o600))
+
+	out, err := runComponentValue(t, "edit_file",
+		"    file_path: "+yamlPath(path)+
+			"\n    command: str_replace\n    old_str: alpha\n    new_str: beta\n    dry_run: true\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "[dry_run] no changes written.")
+	content, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	require.Equal(t, "alpha\n", string(content))
+}
+
+// The http_request component exposes the tool's headers and data parameters;
+// a workflow sets them as objects and the handler receives the same request
+// an agent would send.
+func TestHTTPRequestComponent_PassesHeadersAndBody(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	var gotHeader, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get("X-From-Component")
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"got":true}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	out, err := runComponentValue(t, "http_request",
+		"    url: "+yamlPath(srv.URL)+"\n    method: POST\n"+
+			"    headers:\n      X-From-Component: yes\n    data:\n      k: v\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), `"got": true`)
+	require.Equal(t, "yes", gotHeader)
+	require.JSONEq(t, `{"k":"v"}`, gotBody)
 }
 
 // The retrieve_context component reaches the asset-declared http tool through

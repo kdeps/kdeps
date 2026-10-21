@@ -20,6 +20,7 @@ package executor
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -82,22 +83,75 @@ func (e *Engine) buildInjectedInputs(
 	return injected
 }
 
+// coerceDeclaredInputs converts each with: value to the type its input
+// declares. A scalar with: value reaches the component as a string, so a
+// component that POSTs to the kdeps API would otherwise send "false" for a
+// boolean or "5" for a number; the tool handler reads JSON booleans and
+// numbers, so coercion here keeps the API call equivalent to the agent's.
+func coerceDeclaredInputs(
+	injected map[string]interface{},
+	iface *domain.ComponentInterface,
+) map[string]interface{} {
+	if iface == nil {
+		return injected
+	}
+	for _, inp := range iface.Inputs {
+		v, exists := injected[inp.Name]
+		if !exists {
+			continue
+		}
+		injected[inp.Name] = coerceInputValue(v, inp.Type)
+	}
+	return injected
+}
+
+// coerceInputValue converts a scalar string to the declared type, leaving a
+// value that does not parse (or a type that needs no conversion) as it is.
+func coerceInputValue(val interface{}, typ string) interface{} {
+	s, isString := val.(string)
+	if !isString {
+		return val
+	}
+	switch typ {
+	case "integer":
+		if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+			return n
+		}
+	case "number":
+		if f, err := strconv.ParseFloat(strings.TrimSpace(s), 64); err == nil {
+			return f
+		}
+	case "boolean":
+		if b, err := strconv.ParseBool(strings.TrimSpace(s)); err == nil {
+			return b
+		}
+	}
+	return val
+}
+
 // injectComponentInputs writes each input into ctx under both caller-scoped and
 // component-scoped keys. Each with: value is evaluated against the caller's
 // context first, so a component receives the resolved value (e.g. "hello")
 // rather than the raw template ("{{ get('q') }}"). This does not rely on the
-// interpolator re-scanning substituted output.
+// interpolator re-scanning substituted output. Declared types are enforced on
+// the resolved value, so a template that yields "10" reaches a number input as
+// a number.
 func (e *Engine) injectComponentInputs(
 	injected map[string]interface{},
+	iface *domain.ComponentInterface,
 	callerID, componentName string,
 	ctx *ExecutionContext,
 ) {
 	_ = e.ensureResponseEvaluator(ctx)
 	env := e.buildEvaluationEnvironment(ctx)
+	resolved := make(map[string]interface{}, len(injected))
 	for key, val := range injected {
-		resolved := e.resolveComponentValue(val, env)
-		_ = ctx.Set(callerID+"."+key, resolved)
-		_ = ctx.Set(componentName+"."+key, resolved)
+		resolved[key] = e.resolveComponentValue(val, env)
+	}
+	resolved = coerceDeclaredInputs(resolved, iface)
+	for key, val := range resolved {
+		_ = ctx.Set(callerID+"."+key, val)
+		_ = ctx.Set(componentName+"."+key, val)
 	}
 }
 

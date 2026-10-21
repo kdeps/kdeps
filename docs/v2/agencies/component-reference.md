@@ -105,6 +105,8 @@ interface:
       default: 0.7
 ```
 
+`type` is one of `string`, `integer`, `number`, `boolean`, `array`, `object`. A scalar `with:` value is converted to its declared type before the component runs: `limit: 3` reaches a component that calls a kdeps API tool as the number `3`, and `dry_run: true` as the boolean `true`, not as strings. A value that does not parse is left as it is for the component or tool to reject.
+
 Inside component resources, reference inputs with `input()`:
 
 ```yaml
@@ -125,6 +127,7 @@ When a resource calls a component, kdeps validates `with:` against the interface
 | Required input missing | Error - execution stops |
 | Unknown key in `with:` | Warning logged; key is ignored |
 | Optional input omitted | Component default value is applied |
+| Scalar declared `integer`, `number` or `boolean` | Converted to that type before the component runs |
 
 ## Input scoping
 

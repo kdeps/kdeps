@@ -3,13 +3,19 @@ kind: Component
 metadata:
   name: code_graph_topic
   description: Graph indexed files for a topic through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: topic
       type: string
       required: true
       description: Topic declared in frontmatter
+    - name: path
+      type: string
+      description: Indexed folder root, used to locate the default graph db path. Empty uses the working folder
+    - name: graphDBPath
+      type: string
+      description: Graph index db path written by code_index_folder. Empty uses the working folder's data dir
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -25,3 +31,5 @@ resources:
       timeout: 30s
       data:
         topic: "{{ get('code_graph_topic.topic') }}"
+        path: "{{ get('code_graph_topic.path') }}"
+        graphDBPath: "{{ get('code_graph_topic.graphDBPath') }}"

@@ -107,7 +107,9 @@ type ComponentInterface struct {
 }
 
 // ComponentInput describes a single named input parameter for the component.
-// Type must be one of: string, integer, number, boolean.
+// Type is string, integer, number, boolean, array or object. Scalar with:
+// values are converted to integer, number and boolean before injection, so
+// the component's API call carries real JSON numbers and booleans.
 type ComponentInput struct {
 	Name        string `yaml:"name"`
 	Type        string `yaml:"type"`

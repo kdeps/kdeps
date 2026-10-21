@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: transcribe_audio
   description: Transcribe audio or video through a Whisper API with the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: file
@@ -22,6 +22,19 @@ interface:
       type: string
       default: ""
       description: ISO-639-1 code, e.g. en; empty = auto-detect
+    - name: baseURL
+      type: string
+      description: Overrides the backend API base URL (the .../v1 part)
+    - name: prompt
+      type: string
+      description: Spelling hints for names and terms
+    - name: responseFormat
+      type: string
+      default: text
+      description: text, json, verbose_json, srt or vtt
+    - name: temperature
+      type: string
+      description: Sampling temperature 0-1
   # body is the transcribed text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -40,3 +53,7 @@ resources:
         backend: "{{ get('transcribe_audio.backend') }}"
         model: "{{ get('transcribe_audio.model') }}"
         language: "{{ get('transcribe_audio.language') }}"
+        baseURL: "{{ get('transcribe_audio.baseURL') }}"
+        prompt: "{{ get('transcribe_audio.prompt') }}"
+        responseFormat: "{{ get('transcribe_audio.responseFormat') }}"
+        temperature: "{{ get('transcribe_audio.temperature') }}"
