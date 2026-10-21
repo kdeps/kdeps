@@ -56,6 +56,27 @@ func TestNextNudgeVariant_ConsecutiveCallsDiffer(t *testing.T) {
 	assert.Contains(t, b, "wording ")
 }
 
+// The pool used to open with "Say it again, in new words: the limit you named
+// is not real" and a model answered it with "The limit I named was not real.
+// The tool call succeeded..." - an acknowledgment the loop accepted as the
+// turn's answer. Every wording must be an instruction to act, never a claim
+// the model can agree with.
+func TestNudgeVariants_NeverStateTheLimit(t *testing.T) {
+	for _, v := range nudgeVariants {
+		lower := strings.ToLower(v)
+		assert.NotContains(t, lower, "not real", "%q can be answered instead of acted on", v)
+		assert.NotContains(t, lower, "say it again", "%q asks for a restatement", v)
+	}
+}
+
+func TestNudgeSelfLimitBody_ForbidsAcknowledgement(t *testing.T) {
+	body := strings.ToLower(harnessText("nudge-self-limit"))
+	require.NotEmpty(t, body)
+	assert.Contains(t, body, "your next output is the tool call itself")
+	assert.Contains(t, body, "do not reply to this message")
+	assert.NotContains(t, body, "not real")
+}
+
 func TestFinishNudge_SecondPromptIsNotTheSameBytes(t *testing.T) {
 	cfg := &domain.ChatConfig{Prompt: "list the files"}
 	first := finishNudge(cfg, "call the tool", false)

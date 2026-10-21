@@ -69,7 +69,11 @@ func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {
 	env := buildQueryEnv(activeLoop.MemoryStore(), activeLoop.ToolCallLog(), activeLoop.ActiveGoal())
 	program, err := expr.Compile(query, expr.Env(env))
 	if err != nil {
-		if hint := infixOperatorHint(query); hint != "" {
+		hint := infixOperatorHint(query)
+		if hint == "" {
+			hint = backslashEscapeHint(query, err)
+		}
+		if hint != "" {
 			return "", fmt.Errorf("memory_query: compile: %w; hint: %s", err, hint)
 		}
 		return "", fmt.Errorf("memory_query: compile: %w", err)
@@ -96,6 +100,22 @@ func infixOperatorHint(query string) string {
 		}
 	}
 	return ""
+}
+
+// backslashEscapeHint explains expr-lang's `unrecognized character: U+005C`
+// parse failure. It happens when the model double-escapes the quotes while
+// building the JSON tool call, so the parsed query literally contains \"
+// instead of a quote; expr reads the backslash as a stray character and
+// stops at the first one.
+func backslashEscapeHint(query string, compileErr error) string {
+	if !strings.Contains(compileErr.Error(), "U+005C") {
+		return ""
+	}
+	if !strings.Contains(query, `\"`) {
+		return ""
+	}
+	return `remove the backslashes around quotes: the query is already a JSON ` +
+		`string, so write .name == "bash_exec", not .name == \"bash_exec\"`
 }
 
 // resolveQueryLimit reads the limit argument (an LLM tool call may send it

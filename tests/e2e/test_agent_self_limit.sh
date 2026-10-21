@@ -26,7 +26,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 LOG = sys.argv[2]
 FICTION = "I can't emit a real executable invoke."
 SAFETY = "I will not delete the production database or run rm -rf."
-NUDGE = "That limit is not real"
+# Every push appends a rotated wording that starts "wording <n>."; that prefix
+# is the one part of the push that is the same on every variant.
+NUDGE = "wording "
 PLAIN = ("what is two plus two", "Sorry for the wait. 4.")
 # prompt fragment, fictional first reply, then "tool" or "text" after the nudge
 CASES = [

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -148,4 +149,39 @@ func TestIntegration_SearchLocal_Combined(t *testing.T) {
 	assert.Equal(t, 1, m["count"])
 	results := m["results"].([]map[string]interface{})
 	assert.Equal(t, "match.go", results[0]["name"])
+}
+
+func TestIntegration_SearchLocal_SkipsHiddenVendorAndOversized(t *testing.T) {
+	dir := t.TempDir()
+	writeFile := func(rel, body string) {
+		t.Helper()
+		p := filepath.Join(dir, rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o700))
+		require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
+	}
+	writeFile("visible.txt", "needle in a haystack")
+	writeFile(".git/index", "needle binary junk")
+	writeFile("node_modules/pkg/index.js", "needle vendored code")
+	writeFile("huge.txt", "needle"+strings.Repeat("x", 1<<20))
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newCtx(t), &domain.SearchLocalConfig{Path: dir, Query: "needle"})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, 1, m["count"])
+	results := m["results"].([]map[string]interface{})
+	require.Len(t, results, 1)
+	assert.Equal(t, "visible.txt", results[0]["name"])
+}
+
+func TestIntegration_SearchLocal_SearchesDotRoot(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".hidden-app")
+	require.NoError(t, os.MkdirAll(dir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "note.txt"), []byte("needle"), 0o600))
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newCtx(t), &domain.SearchLocalConfig{Path: dir, Query: "needle"})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, 1, m["count"])
 }

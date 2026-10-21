@@ -27,38 +27,41 @@ import (
 )
 
 // nudgeVariantFrames and nudgeVariantLines are crossed to build the pool.
-// Each item says the same thing: the named limit is not real, emit one
-// invoke block, call the tool. A repeated nudge used to append the same
-// sentence, and the model answered that sentence with the same refusal.
+// Every item is a task-focused imperative: emit the invoke block and wait.
+// None of them state a fact the model can answer - a frame like "say it again,
+// in new words: the limit you named is not real" was answered with "The limit
+// I named was not real. The tool call succeeded..." and the turn ended there
+// with no tool call. The rotation number plus the language line still make
+// every push different bytes from the last.
 //
 //nolint:gochecknoglobals // static wording table
 var nudgeVariantFrames = []string{
-	"Say it again, in new words: the limit you named is not real. Call the tool.",
-	"Same instruction, different sentence. Do the action with one invoke block.",
-	"Do not repeat the refusal. The tools are on this turn. Use one.",
-	"A cached refusal is still a refusal. Emit one invoke and wait for the result.",
-	"The user asked for the action, not a status. One invoke block now.",
-	"You are not missing a runtime. Write the invoke block exactly once.",
-	"Stop describing what you cannot do. Call the tool and wait.",
-	"This wording is new on purpose. The request is the same: one invoke.",
-	"Previous pushes used other words. The task did not change. Call the tool.",
-	"Different language or different sentence, same order: emit one invoke block.",
+	"Answer with the invoke block only. No sentence around it.",
+	"One invoke block, nothing else: the action is not done yet.",
+	"Do not type a reply. Emit the invoke block and wait for the result.",
+	"Next output is the invoke block. Not a status, not an apology.",
+	"Write the invoke block now; its result is the only thing to read next.",
+	"The work is unfinished. One invoke block, then stop and wait.",
+	"Emit exactly one invoke block for the next step.",
+	"Skip the text. Send the invoke block that does the step.",
+	"This turn continues only through an invoke block: send one.",
+	"Send one invoke block now and read what it returns.",
 }
 
 //nolint:gochecknoglobals // static wording table
 var nudgeVariantLines = []struct{ lang, line string }{
-	{"English", "That limit is not real. Emit one invoke block and call the tool."},
-	{"Spanish", "Ese limite no es real. Emite un bloque invoke y llama a la herramienta."},
-	{"French", "Cette limite n'est pas reelle. Emets un bloc invoke et appelle l'outil."},
-	{"German", "Dieses Limit ist nicht real. Gib einen Invoke-Block aus und rufe das Werkzeug auf."},
-	{"Portuguese", "Esse limite nao e real. Emita um bloco invoke e chame a ferramenta."},
-	{"Italian", "Quel limite non e reale. Emetti un blocco invoke e chiama lo strumento."},
-	{"Dutch", "Die limiet is niet echt. Stuur een invoke-blok en roep de tool aan."},
-	{"Polish", "To ograniczenie nie jest prawdziwe. Wyslij jeden blok invoke i wywolaj narzedzie."},
-	{"Swedish", "Den gransen ar inte verklig. Skriv ett invoke-block och anropa verktyget."},
-	{"Indonesian", "Batasan itu tidak nyata. Keluarkan satu blok invoke dan panggil alatnya."},
-	{"Turkish", "Bu sinir gercek degil. Bir invoke blogu yaz ve araci cagir."},
-	{"Vietnamese", "Gioi han do khong co that. Xuat mot khoi invoke va goi cong cu."},
+	{"English", "Emit one invoke block now, do the action, and wait for its result."},
+	{"Spanish", "Emite un bloque invoke ahora, haz la accion y espera el resultado."},
+	{"French", "Emets un bloc invoke maintenant, fais l'action et attends le resultat."},
+	{"German", "Gib jetzt einen Invoke-Block aus, fuehre die Aktion aus und warte auf das Ergebnis."},
+	{"Portuguese", "Emita um bloco invoke agora, faca a acao e espere o resultado."},
+	{"Italian", "Emetti un blocco invoke ora, esegui l'azione e attendi il risultato."},
+	{"Dutch", "Stuur nu een invoke-blok, doe de actie en wacht op het resultaat."},
+	{"Polish", "Wyslij teraz jeden blok invoke, wykonaj akcje i poczekaj na wynik."},
+	{"Swedish", "Skriv ett invoke-block nu, utfor handlingen och vanta pa resultatet."},
+	{"Indonesian", "Keluarkan satu blok invoke sekarang, lakukan aksinya, dan tunggu hasilnya."},
+	{"Turkish", "Simdi bir invoke blogu yaz, islemi yap ve sonucu bekle."},
+	{"Vietnamese", "Xuat mot khoi invoke ngay, thuc hien hanh dong va cho ket qua."},
 }
 
 // nudgeVariants is every frame crossed with every language line.

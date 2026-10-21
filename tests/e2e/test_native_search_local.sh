@@ -152,6 +152,53 @@ YAML
     fi
 }
 
+# Test: hidden and vendor directories are not walked
+test_searchlocal_skips_vendor_and_hidden() {
+    local pkg_dir="$WORK_DIR/sl-skips"
+    local skip_dir="$WORK_DIR/skip-files"
+    mkdir -p "$pkg_dir/resources" "$skip_dir/.git" "$skip_dir/node_modules/pkg"
+    echo "needle in a haystack" > "$skip_dir/visible.txt"
+    echo "needle binary junk" > "$skip_dir/.git/index"
+    echo "needle vendored code" > "$skip_dir/node_modules/pkg/index.js"
+    local skip_dir_native
+    skip_dir_native=$(to_native_path "$skip_dir")
+
+    cat > "$pkg_dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: searchlocal-skips-test
+  version: "1.0.0"
+  targetActionId: do-search
+settings: {}
+YAML
+
+    cat > "$pkg_dir/resources/do-search.yaml" <<YAML
+actionId: do-search
+name: Do Search
+searchLocal:
+  path: "${skip_dir_native}"
+  query: "needle"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('do-search').count }}"
+    first: "{{ output('do-search').results[0].name }}"
+YAML
+
+    local result
+    if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        if output_grep "count:1" "$result" && output_grep "first:visible.txt" "$result"; then
+            test_passed "native searchLocal - skips hidden and vendor directories"
+        else
+            test_failed "native searchLocal - skips hidden and vendor directories (wrong results)" "$(echo "$result" | tail -15)"
+        fi
+    else
+        test_failed "native searchLocal - skips hidden and vendor directories (run failed)" "${result:-}"
+    fi
+}
+
 test_searchlocal_glob
 test_searchlocal_keyword
 test_searchlocal_combined
+test_searchlocal_skips_vendor_and_hidden

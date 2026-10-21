@@ -106,6 +106,79 @@ func TestRegisterSkillLoader_NoRelatedSkills(t *testing.T) {
 	assert.Equal(t, "Do A.", out)
 }
 
+func TestRegisterSkillLoader_UnknownSkillListsAvailable(t *testing.T) {
+	reg := tools.NewRegistry()
+	loop := &Loop{
+		registry: reg,
+		skillList: []Skill{
+			{Name: "lint", Content: "Lint."},
+			{Name: "test", Content: "Test."},
+			{Name: "secret", Content: "Hidden.", Hidden: true},
+		},
+	}
+	loop.registerSkillLoader()
+
+	tool := reg.Get("load_skill")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"name": "typesafe-ai"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `no skill named "typesafe-ai"`)
+	assert.Contains(t, err.Error(), "available skills: lint, test")
+	assert.NotContains(t, err.Error(), "secret", "hidden skills stay hidden")
+}
+
+func TestRegisterSkillLoader_RefreshPicksUpNewSkill(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+
+	root := t.TempDir()
+	writeSkill := func(dir, name, body string) {
+		t.Helper()
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o755))
+		content := "---\nname: " + name + "\ndescription: test\n---\n\n" + body
+		require.NoError(t, os.WriteFile(filepath.Join(root, dir, "SKILL.md"), []byte(content), 0o644))
+	}
+	writeSkill("old", "old", "Old body.")
+
+	reg := tools.NewRegistry()
+	loop := &Loop{
+		registry:  reg,
+		config:    Config{Model: "test-model", SkillPaths: []string{root}},
+		skillList: loadSkillSlice([]string{root}),
+	}
+	require.Len(t, loop.skillList, 1)
+	loop.registerSkillLoader()
+	tool := reg.Get("load_skill")
+	require.NotNil(t, tool)
+
+	// A skill installed after the loop started (e.g. `npx skills add`) must be
+	// loadable without a restart.
+	writeSkill("new", "new", "New body.")
+
+	out, err := tool.Execute(map[string]any{"name": "new"})
+	require.NoError(t, err)
+	assert.Contains(t, out, "New body.")
+	assert.NotNil(t, loop.SkillByName("new"))
+	assert.Contains(t, loop.Skills(), "new", "the skills block advertises the new skill")
+}
+
+func TestVisibleSkillNames_CapsLongList(t *testing.T) {
+	loop := makeTestLoop(nil)
+	for i := range 25 {
+		loop.skillList = append(loop.skillList, Skill{Name: fmt.Sprintf("s%02d", i)})
+	}
+	names := loop.visibleSkillNames()
+	assert.Contains(t, names, "s00")
+	assert.Contains(t, names, "(5 more)")
+	assert.NotContains(t, names, "s24")
+}
+
+func TestVisibleSkillNames_None(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.Equal(t, "none", loop.visibleSkillNames())
+}
+
 // --- dispatchCommand skill routing ---
 
 func TestDispatchCommand_UnknownNonSkill(t *testing.T) {

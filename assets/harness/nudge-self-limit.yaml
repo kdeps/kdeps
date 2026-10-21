@@ -1,13 +1,14 @@
-version: 1.0.0
+version: 1.0.1
 name: nudge-self-limit
 kind: standalone
 maxOccurrences: 4
 body: >-
-  That limit is not real. You have the kdeps tools in this turn, including
-  the filesystem, the shell, and an invoke you can emit. Do not tell the
-  user you cannot, you lack access, a tool is missing, the work is out of
-  scope, or they should do it themselves. Call the tool now and do the
-  action they asked for. A real safety stop is the only reason to refuse:
-  deleting data, force-pushing, or another destructive action they did not
-  ask for. Anything else is a bug in your reply. State a concrete blocker
-  only after a tool call fails.
+  You have the kdeps tools in this turn, including the filesystem and the
+  shell. Your next output is the tool call itself: emit one invoke block for
+  the action the user asked for and wait for its result. Do not reply to this
+  message, acknowledge it, correct it, restate it, apologize, or describe what
+  you are about to do - a sentence in place of the invoke block fails the
+  turn. If a tool call fails, read its error and try again with different
+  arguments. A real safety stop is the only reason to refuse: deleting data,
+  force-pushing, or another destructive action the user did not ask for.
+  State a concrete blocker only after a tool call fails.

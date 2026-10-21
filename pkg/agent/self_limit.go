@@ -113,6 +113,43 @@ func admitsToolFailure(content string) bool {
 	return containsAny(strings.ToLower(content), realFailureAdmissionWords...)
 }
 
+// nudgeAckMaxRunes caps how long a reply can be and still count as a bare
+// acknowledgment of the push-back. A real answer that quotes the nudge is
+// longer and structured.
+const nudgeAckMaxRunes = 500
+
+// nudgeAckPhrases are replies that answer the self-limit push-back instead of
+// acting on it. The nudge used to open with "That limit is not real", and a
+// model replied "The limit I named was not real. The tool call succeeded, and
+// I should have continued..." - agreeing with the nudge and stopping, so the
+// turn ended with no tool call and no answer. These phrases are specific to
+// that correction, not general politeness, so "You're right, the bug is in
+// loop.go" followed by real work is not caught.
+//
+//nolint:gochecknoglobals // static lookup table
+var nudgeAckPhrases = []string{
+	"limit i named", "limit you named",
+	"limit was not real", "limit is not real", "limit wasn't real",
+	"should have continued", "should not have stopped", "shouldn't have stopped",
+	"instead of treating the work as blocked",
+	"tool call succeeded, and i should",
+	"i should call the tool", "i will call the tool", "i will now call the tool",
+}
+
+// looksLikeNudgeAck reports whether content only acknowledges the self-limit
+// push-back: it agrees the named limit was not real, or promises a call it
+// did not make. Those replies are neither work nor an answer.
+func looksLikeNudgeAck(content string) bool {
+	folded := foldLimitText(content)
+	if folded == "" || len([]rune(folded)) > nudgeAckMaxRunes {
+		return false
+	}
+	if strings.Contains(folded, "```") {
+		return false
+	}
+	return containsAny(folded, nudgeAckPhrases...)
+}
+
 // providerThrottlePhrases are the service's own rate-limit text. "unable to"
 // is a self-limit marker, and that sentence contains it. Pushing back on a
 // throttle stacks another invoke example and makes the next call, which is

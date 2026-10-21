@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -127,7 +128,7 @@ func TestRunStreaming_SelfLimitParaphraseIsNudged(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "list the files", &buf)
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 2, "a hand-back must be nudged before it is shown")
-	assert.Contains(t, ms.cfgs[1].Prompt, "That limit is not real")
+	assert.Contains(t, ms.cfgs[1].Prompt, "Your next output is the tool call itself")
 	assert.Equal(t, "Listed the files.", got)
 	assert.NotContains(t, buf.String(), "yourself")
 }
@@ -193,9 +194,67 @@ func TestRunStreaming_SelfLimitFourThenAccepted(t *testing.T) {
 	require.Len(t, ms.cfgs, 5, "four self-limit nudges, then the fifth refusal is accepted")
 	assert.NotContains(t, ms.cfgs[1].Prompt, "second time this turn")
 	assert.Contains(t, ms.cfgs[2].Prompt, "second time this turn")
-	assert.Contains(t, ms.cfgs[4].Prompt, "That limit is not real")
+	assert.Contains(t, ms.cfgs[4].Prompt, "Your next output is the tool call itself")
 	assert.Equal(t, refusal, got)
 	assert.Contains(t, buf.String(), refusal)
+}
+
+func TestLooksLikeNudgeAck(t *testing.T) {
+	yes := []string{
+		"The limit I named was not real. The tool call succeeded, and I should have continued from its output instead of treating the work as blocked.",
+		"The limit I named was not real. I should have continued.",
+		"You are right about the limit you named. I will call the tool now.",
+		"Understood. I should call the tool.",
+	}
+	for _, s := range yes {
+		assert.Truef(t, looksLikeNudgeAck(s), "%q", s)
+	}
+	long := "The limit I named was not real, but the remaining work is the analysis: " +
+		strings.Repeat("session 15 event 36, ", 40)
+	no := []string{
+		"",
+		"Listed the files.",
+		"You're right, the bug is in loop.go:2414. The fix is to check the budget first.",
+		"I don't know which file you mean. Name it and I will read it.",
+		long,
+		"The limit I named was not real.\n```go\nfunc f() {}\n```",
+	}
+	for _, s := range no {
+		assert.Falsef(t, looksLikeNudgeAck(s), "%q", s)
+	}
+}
+
+func TestRunStreaming_NudgeAcknowledgementIsPushedAgain(t *testing.T) {
+	ack := "The limit I named was not real. The tool call succeeded, and I should have " +
+		"continued from its output instead of treating the work as blocked."
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "I can't emit a real executable invoke."},
+		{content: ack},
+		{content: "Listed the files."},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "list the files", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 3, "an acknowledgment of the push-back is not the answer")
+	assert.Contains(t, ms.cfgs[2].Prompt, "Your next output is the tool call itself")
+	assert.Equal(t, "Listed the files.", got)
+	assert.NotContains(t, buf.String(), "limit I named")
+}
+
+func TestRunStreaming_NudgeAcknowledgementBoundedThenAccepted(t *testing.T) {
+	ack := "The limit I named was not real. I should have continued."
+	responses := make([]mockStreamResponse, 0, 6)
+	for range 6 {
+		responses = append(responses, mockStreamResponse{content: ack})
+	}
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := newStreamingLoop(ms, 20)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "list the files", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 5, "four pushes, then the fifth acknowledgment is accepted")
+	assert.Equal(t, ack, got)
 }
 
 func TestRunStreaming_SelfLimitAfterProgressWhenGiveUpMisses(t *testing.T) {
@@ -209,7 +268,7 @@ func TestRunStreaming_SelfLimitAfterProgressWhenGiveUpMisses(t *testing.T) {
 	got, err := loop.RunStreaming(context.Background(), "list the files", &buf)
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 3)
-	assert.Contains(t, ms.cfgs[2].Prompt, "That limit is not real")
+	assert.Contains(t, ms.cfgs[2].Prompt, "Your next output is the tool call itself")
 	assert.NotContains(t, ms.cfgs[2].Prompt, "reads as giving up")
 	assert.Equal(t, "Listed the files.", got)
 	assert.NotContains(t, buf.String(), "don't actually have access")
@@ -226,7 +285,7 @@ func TestRunStreaming_SafetyRefusalIsNotNudged(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ms.cfgs, 1, "a destructive refusal is the answer, not a fictional limit")
 	assert.Equal(t, refusal, got)
-	assert.NotContains(t, ms.cfgs[0].Prompt, "That limit is not real")
+	assert.NotContains(t, ms.cfgs[0].Prompt, "Your next output is the tool call itself")
 }
 
 func TestRunStreaming_SelfLimitSkippedWhenToolsStripped(t *testing.T) {
