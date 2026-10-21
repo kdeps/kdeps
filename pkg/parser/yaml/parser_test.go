@@ -2747,3 +2747,73 @@ after:
 	assert.Contains(t, err.Error(), "uses codeIntelligence in an after: step directly")
 	assert.Contains(t, err.Error(), "call the code_hover component instead")
 }
+
+func TestParser_ParseWorkflowVectorStoreComponentBacked(t *testing.T) {
+	dir := t.TempDir()
+	resourcesDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
+
+	workflowPath := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: vector-store-component-backing
+  version: 1.0.0
+  targetActionId: index
+settings:
+  agentSettings:
+    timezone: UTC
+`), 0o600))
+
+	resourcePath := filepath.Join(resourcesDir, "index.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+vectorStore:
+  collection: docs
+  operation: add_documents
+  embedModel: text-embedding-3-small
+  documents:
+    - content: "hello"
+`), 0o600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	_, err := parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses vectorStore directly")
+	assert.Contains(t, err.Error(), "call the vector_store component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+component:
+  name: vector_store
+  with:
+    collection: docs
+    operation: add_documents
+    embedModel: text-embedding-3-small
+`), 0o600))
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.Len(t, workflow.Resources, 1)
+	require.NotNil(t, workflow.Resources[0].Component)
+	assert.Equal(t, "vector_store", workflow.Resources[0].Component.Name)
+
+	// An inline after: step has no more access to the native action.
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: index
+name: Index
+apiResponse:
+  success: true
+after:
+  - vectorStore:
+      collection: docs
+      operation: similarity_search
+      query: "hi"
+`), 0o600))
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses vectorStore in an after: step directly")
+	assert.Contains(t, err.Error(), "call the vector_store component instead")
+}

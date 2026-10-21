@@ -1,0 +1,38 @@
+version: 1.0.0
+description: 'Run one vector store operation against an external vector database: add_documents to upsert documents, or similarity_search to query them. Call it through the vector_store component. Requires: collection, operation, embedModel (except bedrock). Optional: provider, url, apiKey, documents, query, topK, embedBackend, embedBaseURL.'
+parameters:
+  apiKey:
+    type: string
+    description: 'Auth token. For mongodb the database name (default kdeps); for opensearch/elasticsearch user:pass'
+  collection:
+    type: string
+    description: Collection, index, or table name in the store
+    required: true
+  documents:
+    type: array
+    description: Documents to upsert for add_documents, each an object with content and optional metadata
+  embedBackend:
+    type: string
+    description: 'Embedding provider: openai, ollama, google, or system (follow KDEPS_DEFAULT_BACKEND)'
+  embedBaseURL:
+    type: string
+    description: Custom base URL for an OpenAI-compatible embedding backend
+  embedModel:
+    type: string
+    description: Embedding model used to vectorize documents and queries, e.g. text-embedding-3-small
+  operation:
+    type: string
+    description: 'add_documents or similarity_search.'
+    required: true
+  provider:
+    type: string
+    description: 'Vector store backend: qdrant (default), chroma, pinecone, azureaisearch, opensearch, elasticsearch, weaviate, pgvector, postgres, alloydb, cloudsql, mariadb, dolt, mysql, mongodb, redis, bedrock.'
+  query:
+    type: string
+    description: Natural language search query (operation similarity_search)
+  topK:
+    type: number
+    description: Number of results to return for similarity_search (default 5)
+  url:
+    type: string
+    description: Endpoint or DSN for the store

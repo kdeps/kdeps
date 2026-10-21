@@ -260,3 +260,55 @@ func TestRetrieveContextComponent_DeclaredTool(t *testing.T) {
 	require.Contains(t, fmt.Sprint(out), "[1] score=0.900 source=docs/a.md")
 	require.Contains(t, fmt.Sprint(out), "hello rag")
 }
+
+// The vector_store component reaches a real Pinecone REST store and an
+// OpenAI-compatible embedding backend through the kdeps API tool.
+func TestVectorStoreComponent_AddAndSearch(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	var upserts, queries int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/embeddings":
+			fmt.Fprint(w, `{"object":"list","model":"text-embedding-3-small",`+
+				`"data":[{"object":"embedding","embedding":[0.1,0.2,0.3],"index":0}]}`)
+		case "/vectors/upsert":
+			upserts++
+			fmt.Fprint(w, `{"upsertedCount":1}`)
+		case "/query":
+			queries++
+			fmt.Fprint(w, `{"matches":[{"id":"1","score":0.91,"metadata":{"text":"hello world"}}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	base := "    provider: pinecone\n" +
+		"    collection: docs\n" +
+		"    url: \"" + srv.URL + "\"\n" +
+		"    apiKey: test\n" +
+		"    embedModel: text-embedding-3-small\n" +
+		"    embedBackend: openai\n" +
+		"    embedBaseURL: \"" + srv.URL + "/v1\"\n"
+
+	out, err := runComponentValue(t, "vector_store", base+
+		"    operation: add_documents\n"+
+		"    documents:\n"+
+		"      - content: \"hello world\"\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), `"added": 1`)
+
+	out, err = runComponentValue(t, "vector_store", base+
+		"    operation: similarity_search\n"+
+		"    query: \"hello\"\n"+
+		"    topK: 2\n")
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprint(out), "hello world")
+	require.Contains(t, fmt.Sprint(out), `"count": 1`)
+	require.Equal(t, 1, upserts)
+	require.Equal(t, 1, queries)
+}

@@ -1,0 +1,69 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: vector_store
+  description: Run one vector store operation through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: operation
+      type: string
+      required: true
+      description: "add_documents or similarity_search"
+    - name: collection
+      type: string
+      required: true
+      description: Collection, index, or table name in the store
+    - name: provider
+      type: string
+      description: "Vector store backend: qdrant (default), chroma, pinecone, azureaisearch, opensearch, elasticsearch, weaviate, pgvector, postgres, alloydb, cloudsql, mariadb, dolt, mysql, mongodb, redis, bedrock"
+    - name: url
+      type: string
+      description: Endpoint or DSN for the store
+    - name: apiKey
+      type: string
+      description: "Auth token. For mongodb the database name (default kdeps); for opensearch/elasticsearch user:pass"
+    - name: documents
+      type: array
+      description: Documents to upsert for add_documents, each an object with content and optional metadata
+    - name: query
+      type: string
+      description: Natural language search query (operation similarity_search)
+    - name: topK
+      type: number
+      default: 0
+      description: Number of results to return for similarity_search; 0 uses the default of 5
+    - name: embedModel
+      type: string
+      description: Embedding model used to vectorize documents and queries, for example text-embedding-3-small
+    - name: embedBackend
+      type: string
+      description: "Embedding provider: openai, ollama, google, or system (follow KDEPS_DEFAULT_BACKEND)"
+    - name: embedBaseURL
+      type: string
+      description: Custom base URL for an OpenAI-compatible embedding backend
+  # body is the handler text. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Vector store operation
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/vector_store/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 120s  # hard stop for the call; the store and embedding backend are remote
+      data:
+        operation: "{{ get('vector_store.operation') }}"
+        collection: "{{ get('vector_store.collection') }}"
+        provider: "{{ get('vector_store.provider') }}"
+        url: "{{ get('vector_store.url') }}"
+        apiKey: "{{ get('vector_store.apiKey') }}"
+        documents: "{{ get('vector_store.documents') }}"
+        query: "{{ get('vector_store.query') }}"
+        topK: "{{ get('vector_store.topK') }}"
+        embedModel: "{{ get('vector_store.embedModel') }}"
+        embedBackend: "{{ get('vector_store.embedBackend') }}"
+        embedBaseURL: "{{ get('vector_store.embedBaseURL') }}"
