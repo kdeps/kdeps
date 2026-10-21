@@ -1,8 +1,8 @@
 # Graphing an indexed folder
 
-The `indexFolder`/`graphFile`/`graphTopic`/`graphAll` operations of the [Code Intelligence resource](/workflow/resources/code-navigation) are different from its LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
+The `code_index_folder`/`code_graph_file`/`code_graph_topic`/`code_graph_all` components are different from the LSP/rg operations of [Code intelligence](/workflow/resources/code-navigation): instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
 
-It works in both modes: as a DAG step in workflow mode, and as a built-in capability in the agent loop.
+They work in both modes: as DAG steps in workflow mode, and as built-in capabilities in the agent loop.
 
 References are derived per file type:
 
@@ -15,30 +15,32 @@ References are derived per file type:
 
 All of the above (plus any file with a leading `---` YAML frontmatter block) get topic extraction from a `topics:`/`tags:` list - for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
 
-The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs - indexing source code, HTML, or JSON requires opting in explicitly, so pointing `indexFolder` at a project root never silently walks an entire source tree by surprise:
+The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs - indexing source code, HTML, or JSON requires opting in explicitly, so pointing the index at a project root never silently walks an entire source tree by surprise:
 
 ```yaml
-codeIntelligence:
-  operation: indexFolder
-  extensions: [".go", ".md"]  # opt in to Go import graphing alongside docs
+component:
+  name: code_index_folder
+  with:
+    extensions: [".go", ".md"]  # opt in to Go import graphing alongside docs
 ```
 
-`indexFolder` must run once before `graphFile`/`graphTopic`/`graphAll` can query the same graph database (same `graphDBPath`, which defaults to `~/.kdeps/projects/<folder>-<hash>/graph.db` for the working folder; nothing is written into the folder itself).
+`code_index_folder` must run once before `code_graph_file`/`code_graph_topic`/`code_graph_all` can query the same graph database (same `graphDBPath`, which defaults to `~/.kdeps/projects/<folder>-<hash>/graph.db` for the working folder; nothing is written into the folder itself).
 
 ```text
-indexFolder() -> walks the CWD, extracts links + frontmatter topics
-              -> writes them into ~/.kdeps/projects/<folder>-<hash>/graph.db
-                   -> graphFile(path)   returns that file's references + topic-related files
-                   -> graphTopic(topic) returns every file tagged `topic` + the full reference graph
-                   -> graphAll()        returns the full reference graph + every root file
+code_index_folder -> walks the CWD, extracts links + frontmatter topics
+                  -> writes them into ~/.kdeps/projects/<folder>-<hash>/graph.db
+                       -> code_graph_file(path)   returns that file's references + topic-related files
+                       -> code_graph_topic(topic) returns every file tagged `topic` + the full reference graph
+                       -> code_graph_all()        returns the full reference graph + every root file
 ```
 
 **Index the current working directory:**
 
 ```yaml
-codeIntelligence:
-  operation: indexFolder
-  extensions: [".md", ".yaml"]  # optional; defaults to .md/.markdown/.txt/.yaml/.yml
+component:
+  name: code_index_folder
+  with:
+    extensions: [".md", ".yaml"]  # optional; defaults to .md/.markdown/.txt/.yaml/.yml
 ```
 
 `path` is not accepted here - see the note above. Run `kdeps run` (or the `code_index_folder` agent tool) from inside the directory you want indexed.
@@ -55,9 +57,10 @@ codeIntelligence:
 **Graph a single file** - its references, plus every other indexed file sharing a topic with it:
 
 ```yaml
-codeIntelligence:
-  operation: graphFile
-  path: /path/to/docs/intro.md
+component:
+  name: code_graph_file
+  with:
+    path: /path/to/docs/intro.md
 ```
 
 **Output:**
@@ -76,21 +79,36 @@ codeIntelligence:
 **Graph everything tagged with a topic:**
 
 ```yaml
-codeIntelligence:
-  operation: graphTopic
-  topic: getting-started
-  # path: /path/to/docs  # optional: locate the graph db elsewhere; defaults to ~/.kdeps/projects/<folder>-<hash>/graph.db
+component:
+  name: code_graph_topic
+  with:
+    topic: getting-started
+    # path: /path/to/docs  # optional: locate the graph db elsewhere; defaults to ~/.kdeps/projects/<folder>-<hash>/graph.db
 ```
 
 **Graph the whole index** - the full reference graph plus every root file (files nothing else references):
 
 ```yaml
-codeIntelligence:
-  operation: graphAll
+component:
+  name: code_graph_all
+```
+
+Each component returns the tool's JSON body as text. Read fields with `fromJSON`:
+
+```yaml
+# resources/respond.yaml
+actionId: respond
+name: Respond
+requires: [graphAll]
+apiResponse:
+  success: true
+  response:
+    roots: "{{ fromJSON(output('graphAll')).roots }}"
+    references: "{{ fromJSON(output('graphAll')).references }}"
 ```
 
 `references` is always a full adjacency map (`file -> files it links to`); the caller walks it to render a tree or diagram. This mirrors [kartographer](https://github.com/kdeps/kartographer)'s own `DependencyGraph` traversal machinery, reused here through `IndexedGraph`.
 
 ## See also
 
-- [Code intelligence resource](/workflow/resources/code-navigation) - the other LSP/rg-backed operations
+- [Code intelligence](/workflow/resources/code-navigation) - the other LSP/rg-backed operations

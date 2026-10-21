@@ -1,6 +1,6 @@
 # Inline resources
 
-Inline resources are full resource actions (chat, component, codeIntelligence) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+Inline resources are full resource actions (chat, component, code_search) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
 
@@ -22,7 +22,7 @@ before:
       with:
         command: "echo 'Preparing environment...'"
 
-# Main resource (chat, component, codeIntelligence, or file)
+# Main resource (chat, component, code_search, or file)
 chat:
   role: user
   prompt: "Process this data"
@@ -42,9 +42,9 @@ after:
 
 ## Supported resource types
 
-Each inline resource can be any supported execution block, including `chat`, `agent`, `component`, `codeIntelligence`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `agent`, `component`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
-`exec:`, `python:`, `embedding:`, `httpClient:`, and `loader:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`), scripts call the `python` component, embedding steps call the `embedding` component, HTTP steps call the `http_request` component, and document loading calls the `load_document` component, the same as anywhere else in a workflow.
+`exec:`, `python:`, `embedding:`, `httpClient:`, `loader:`, and `codeIntelligence:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`), scripts call the `python` component, embedding steps call the `embedding` component, HTTP steps call the `http_request` component, document loading calls the `load_document` component, and code intelligence steps call the `code_*` components, the same as anywhere else in a workflow.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 
@@ -56,7 +56,7 @@ direction: down
 A: "expressions in before:\nset() / get() statements"
 B: "inline resources in before:\ncomponent, chat, etc."
 C: "main action\nchat, sql, component..."
-D: "inline resources in after:\ncomponent, codeIntelligence, etc."
+D: "inline resources in after:\ncomponent, code_search, etc."
 E: "expressions in after:\nset() / get() statements"
 
 A -> B -> C -> D -> E

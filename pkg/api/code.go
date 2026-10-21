@@ -43,6 +43,9 @@ const (
 	argTopic       = "topic"
 	argGraphDBPath = "graphDBPath"
 	argExtensions  = "extensions"
+	argLanguage    = "language"
+	argLanguageID  = "languageId"
+	argContext     = "context"
 )
 
 // One executor keeps the LSP manager across calls. A new one per call would
@@ -149,5 +152,16 @@ func codeConfig(
 			config.Extensions = append(config.Extensions, fmt.Sprint(item))
 		}
 	}
+	if v, ok := args[argPattern].(string); ok {
+		config.Pattern = v
+	}
+	if v, ok := args[argLanguage].(string); ok {
+		config.Language = v
+	}
+	if v, ok := args[argLanguageID].(string); ok {
+		config.LanguageID = v
+	}
+	config.Context = intArg(args, argContext)
+	config.Limit = intArg(args, argLimit)
 	return config, nil
 }

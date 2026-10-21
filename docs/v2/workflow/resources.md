@@ -55,7 +55,6 @@ actionId: myResource        # required: unique ID -- used by requires: and get()
 # Exactly one primary action per resource (apiResponse: may accompany it
 # on the same resource to format the HTTP response):
 chat: { ... }        # send a prompt to an LLM; reply text at .message.content
-codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
 component:           # call a shipped or installed component:
@@ -65,7 +64,7 @@ component:           # call a shipped or installed component:
     url: https://api.example.com/data
 ```
 
-The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
+The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, `codeIntelligence:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
 
 ## actionId and requires
 
@@ -119,7 +118,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `component: python` | Run a Python script, stdout parsed as JSON - a kdeps component, YAML only | [Python](/workflow/resources/python) |
 | `component: exec` | Run a shell command, structured `{success, exitCode, stdout, stderr, ...}` - a kdeps component, YAML only | [Exec](/workflow/resources/exec) |
-| `codeIntelligence` | Symbol search, definitions, references, folder graph | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |
+| `component: code_search` | Symbol search, definitions, references, hover, diagnostics, folder graph - the ten `code_*` components, YAML only | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |
 
 ## Messaging
 

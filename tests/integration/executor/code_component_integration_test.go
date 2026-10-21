@@ -20,6 +20,7 @@ package executor_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -47,4 +48,33 @@ func TestCodeSearchComponent_RequiresQuery(t *testing.T) {
 	_, err := runComponentValue(t, "code_search", "    path: \"/tmp\"\n    query: \"\"\n")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "codeIntelligence: query is required for symbolSearch")
+}
+
+// Search options reach the kdeps API tool: pattern filters files and limit
+// caps matches per file. Markdown has no LSP server, so the ripgrep path runs.
+func TestCodeSearchComponent_SearchOptions(t *testing.T) {
+	if _, err := exec.LookPath("rg"); err != nil {
+		t.Skip("ripgrep (rg) is not installed")
+	}
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "a.md"), []byte("zorb\nzorb\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "b.md"), []byte("zorb\n"), 0o600))
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	out, err := runComponentValue(t, "code_search",
+		"    path: \""+root+"\"\n    query: \"zorb\"\n    pattern: \"*.md\"\n    limit: 1\n")
+	require.NoError(t, err)
+	require.Contains(t, out, `"count": 2`, "limit caps matches per file, not across files")
+
+	out, err = runComponentValue(t, "code_search",
+		"    path: \""+root+"\"\n    query: \"zorb\"\n")
+	require.NoError(t, err)
+	require.Contains(t, out, `"count": 3`, "no limit keeps both matches in a.md")
+
+	out, err = runComponentValue(t, "code_search",
+		"    path: \""+root+"\"\n    query: \"zorb\"\n    pattern: \"b.md\"\n")
+	require.NoError(t, err)
+	require.Contains(t, out, `"count": 1`)
+	require.Contains(t, out, "b.md")
 }

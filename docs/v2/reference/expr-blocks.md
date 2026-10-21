@@ -4,7 +4,7 @@
 
 Works in workflow and agent mode.
 
-- `before:` runs before the main action (chat, component, codeIntelligence, etc.)
+- `before:` runs before the main action (chat, component, etc.)
 - `after:` runs after the main action
 
 Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
@@ -113,7 +113,7 @@ direction: down
 
 A: Request {shape: oval}
 B: "before:\nexpressions run in order\nvalues stored via set()"
-C: "Main Action\nchat, component, codeIntelligence, agent, apiResponse"
+C: "Main Action\nchat, component, code_search, agent, apiResponse"
 D: "after:\nexpressions run in order\noutput accessible via get()"
 E: response {shape: oval}
 

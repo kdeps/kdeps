@@ -354,3 +354,57 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }
+
+func TestComponentBackedAction_CodeIntelligence(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		operation string
+		component string
+	}{
+		{string(domain.CodeIntOpSymbolSearch), "code_search"},
+		{string(domain.CodeIntOpDefinition), "code_definition"},
+		{string(domain.CodeIntOpReferences), "code_references"},
+		{string(domain.CodeIntOpDocumentSymbols), "code_symbols"},
+		{string(domain.CodeIntOpHover), "code_hover"},
+		{string(domain.CodeIntOpDiagnostics), "code_diagnostics"},
+		{string(domain.CodeIntOpIndexFolder), "code_index_folder"},
+		{string(domain.CodeIntOpGraphFile), "code_graph_file"},
+		{string(domain.CodeIntOpGraphTopic), "code_graph_topic"},
+		{string(domain.CodeIntOpGraphAll), "code_graph_all"},
+		{"", "code_search"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.operation, func(t *testing.T) {
+			t.Parallel()
+			res := &domain.Resource{
+				ActionID: "a",
+				CodeIntelligence: &domain.CodeIntelligenceConfig{
+					Operation: domain.CodeIntelligenceOperation(tt.operation),
+				},
+			}
+			action, component, ok := domain.ComponentBackedAction(res)
+			if !ok || action != "codeIntelligence" || component != tt.component {
+				t.Fatalf("ComponentBackedAction() = (%q, %q, %v), want codeIntelligence -> %q",
+					action, component, ok, tt.component)
+			}
+
+			inline := &domain.ActionConfig{
+				CodeIntelligence: &domain.CodeIntelligenceConfig{
+					Operation: domain.CodeIntelligenceOperation(tt.operation),
+				},
+			}
+			action, component, ok = domain.ComponentBackedInlineAction(inline)
+			if !ok || action != "codeIntelligence" || component != tt.component {
+				t.Fatalf(
+					"ComponentBackedInlineAction() = (%q, %q, %v), want codeIntelligence -> %q",
+					action,
+					component,
+					ok,
+					tt.component,
+				)
+			}
+		})
+	}
+}

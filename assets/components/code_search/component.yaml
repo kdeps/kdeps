@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: code_search
   description: Search for a symbol through the kdeps API
-  version: "1.0.1"
+  version: "1.1.0"
 interface:
   inputs:
     - name: path
@@ -14,6 +14,23 @@ interface:
       type: string
       required: true
       description: Symbol name or search pattern
+    - name: pattern
+      type: string
+      description: File glob filter, for example "*.go" (ripgrep fallback only)
+    - name: language
+      type: string
+      description: ripgrep --type value, for example go (ripgrep fallback only)
+    - name: languageId
+      type: string
+      description: Explicit LSP language ID. Auto-detected from the path extension if omitted
+    - name: context
+      type: number
+      default: 0
+      description: Lines of context before and after each match (ripgrep fallback only)
+    - name: limit
+      type: number
+      default: 0
+      description: Maximum results per file (ripgrep fallback only). 0 = unlimited
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -30,3 +47,8 @@ resources:
       data:
         path: "{{ get('code_search.path') }}"
         query: "{{ get('code_search.query') }}"
+        pattern: "{{ get('code_search.pattern') }}"
+        language: "{{ get('code_search.language') }}"
+        languageId: "{{ get('code_search.languageId') }}"
+        context: "{{ get('code_search.context') }}"
+        limit: "{{ get('code_search.limit') }}"
