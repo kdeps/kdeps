@@ -2,7 +2,7 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: search-local-files
-  description: Local filesystem search using the native searchLocal executor
+  description: Local filesystem search through the search_local component and the kdeps API
   version: "1.0.0"
   targetActionId: response
 settings:

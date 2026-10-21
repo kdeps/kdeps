@@ -159,6 +159,10 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, loadErr
 	}
 
+	if boundaryErr := checkComponentBackedActions(workflow); boundaryErr != nil {
+		return nil, boundaryErr
+	}
+
 	if compErr := p.loadComponents(workflow, path); compErr != nil {
 		return nil, compErr
 	}

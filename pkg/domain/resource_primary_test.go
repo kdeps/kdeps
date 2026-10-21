@@ -192,3 +192,80 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 		}
 	}
 }
+
+func TestComponentBackedAction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		res       *domain.Resource
+		action    string
+		component string
+		ok        bool
+	}{
+		{
+			name: "nil resource",
+			res:  nil,
+		},
+		{
+			name: "component call",
+			res: &domain.Resource{
+				ActionID:  "a",
+				Component: &domain.ComponentCallConfig{Name: "search_local"},
+			},
+		},
+		{
+			name: "other native action",
+			res: &domain.Resource{
+				ActionID: "a",
+				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
+			},
+		},
+		{
+			name: "native searchLocal",
+			res: &domain.Resource{
+				ActionID:    "a",
+				SearchLocal: &domain.SearchLocalConfig{Path: "/data", Query: "q"},
+			},
+			action:    "searchLocal",
+			component: "search_local",
+			ok:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			action, component, ok := domain.ComponentBackedAction(tt.res)
+			if action != tt.action || component != tt.component || ok != tt.ok {
+				t.Fatalf("ComponentBackedAction() = (%q, %q, %v), want (%q, %q, %v)",
+					action, component, ok, tt.action, tt.component, tt.ok)
+			}
+		})
+	}
+}
+
+func TestComponentBackedInlineAction(t *testing.T) {
+	t.Parallel()
+
+	if _, _, ok := domain.ComponentBackedInlineAction(nil); ok {
+		t.Fatal("nil inline action reported as component-backed")
+	}
+	if _, _, ok := domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Chat: &domain.ChatConfig{Model: "m", Prompt: "p"},
+	}); ok {
+		t.Fatal("chat inline action reported as component-backed")
+	}
+	if _, _, ok := domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Component: &domain.ComponentCallConfig{Name: "search_local"},
+	}); ok {
+		t.Fatal("component inline action reported as component-backed")
+	}
+
+	action, component, ok := domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		SearchLocal: &domain.SearchLocalConfig{Path: "/data", Query: "q"},
+	})
+	if !ok || action != "searchLocal" || component != "search_local" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+}

@@ -273,7 +273,7 @@ export default defineConfig({
             { text: 'Scraper', link: '/workflow/resources/scraper' },
             { text: 'Browser', link: '/workflow/resources/browser' },
             { text: 'Search', link: '/workflow/resources/search' },
-            { text: 'searchLocal', link: '/workflow/resources/search-local' },
+            { text: 'search_local', link: '/workflow/resources/search-local' },
             { text: 'searchWeb', link: '/workflow/resources/search-web' },
           ]
         },

@@ -1,6 +1,6 @@
 # search-local-files
 
-Local filesystem search using the **built-in native searchLocal executor** -- walks directories with glob filtering, pure Go, no external dependencies.
+Local filesystem search through the `search_local` component, which calls the kdeps API's `search_local` tool. The tool walks directories in pure Go with glob filtering - no external dependencies.
 
 ## Usage
 
@@ -24,17 +24,17 @@ curl -X POST http://localhost:16404/search \
 
 ## How it works
 
-1. **search** -- `run.searchLocal` walks the given path, filters by glob, and returns files containing the keyword
-2. **response** -- returns matching file paths, match count, and the original query
+1. **search** - the `search_local` component POSTs to the kdeps API's `search_local` tool, which walks the given path, filters by glob, and returns files containing the keyword
+2. **response** - returns matching file paths, match count, and the original query
 
-## Config fields
+## Component inputs
 
-| Field | Description | Default |
+| Input | Description | Default |
 |-------|-------------|---------|
 | `path` | Directory to search | `/data` |
 | `query` | Keyword to search for | (required) |
 | `glob` | File pattern filter | all files |
-| `limit` | Max results (0 = unlimited) | 20 |
+| `limit` | Max results | 20 |
 
 ## Structure
 
@@ -42,6 +42,6 @@ curl -X POST http://localhost:16404/search \
 search-local-files/
 ├── workflow.yaml
 └── resources/
-    ├── search.yaml    # run.searchLocal - native filepath.WalkDir
+    ├── search.yaml    # component: search_local -> kdeps API search_local tool
     └── response.yaml  # API response
 ```

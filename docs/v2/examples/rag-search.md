@@ -172,5 +172,5 @@ Response:
 
 - [Embedding resource](/workflow/resources/embedding) - collections, delete, batch upsert
 - [Vector store](/workflow/resources/vector-store) - persistent vector storage
-- [searchLocal](/workflow/resources/search-local) - TF-IDF search over files on disk
+- [search_local](/workflow/resources/search-local) - TF-IDF search over files on disk
 - [Validation and control flow](/workflow/validation) - route and method scoping

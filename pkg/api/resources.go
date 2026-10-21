@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -53,6 +54,11 @@ const (
 	argSaveTo      = "saveTo"
 	argGlob        = "glob"
 	argPath        = "path"
+	argIndex       = "index"
+	argFuzzy       = "fuzzy"
+	argMaxDistance = "maxDistance"
+	argIndexDBPath = "indexDBPath"
+	argGraphBoost  = "graphBoost"
 
 	searchDefaultLimit = 3
 	msgSearchNeedQuery = "search_local: give a query (or a glob) to search for"
@@ -172,29 +178,29 @@ func SearchLocalWith(opts SearchOpts, args map[string]any) (string, error) {
 	}
 	path := stringArg(args, argPath)
 	if strings.TrimSpace(path) != "" {
-		return searchOne(opts, path, query, glob, limit)
+		return searchOne(opts, args, path, query, glob, limit)
 	}
 	if len(opts.Roots) > 1 {
-		return searchRoots(opts, opts.Roots, query, glob, limit)
+		return searchRoots(opts, args, opts.Roots, query, glob, limit)
 	}
 	if len(opts.Roots) == 1 {
 		path = opts.Roots[0]
 	} else if wd, err := os.Getwd(); err == nil {
 		path = wd
 	}
-	return searchOne(opts, path, query, glob, limit)
+	return searchOne(opts, args, path, query, glob, limit)
 }
 
-func searchOne(opts SearchOpts, path, query, glob string, limit int) (string, error) {
+func searchOne(
+	opts SearchOpts, args map[string]any, path, query, glob string, limit int,
+) (string, error) {
 	if path != "" {
 		if err := validateRootPath(path); err != nil {
 			return "", fmt.Errorf("%s: %w", toolSearchLocal, err)
 		}
 	}
 	exec := opts.executor()
-	result, err := exec.Execute(nil, &domain.SearchLocalConfig{
-		Path: path, Query: query, Glob: glob, Limit: limit,
-	})
+	result, err := exec.Execute(nil, searchLocalConfig(args, path, query, glob, limit))
 	if err != nil {
 		return "", err
 	}
@@ -204,14 +210,55 @@ func searchOne(opts SearchOpts, path, query, glob string, limit int) (string, er
 	return marshalIndent(result)
 }
 
-func searchRoots(opts SearchOpts, roots []string, query, glob string, limit int) (string, error) {
+// searchLocalConfig mirrors the searchLocal resource fields the tool exposes.
+func searchLocalConfig(
+	args map[string]any, path, query, glob string, limit int,
+) *domain.SearchLocalConfig {
+	return &domain.SearchLocalConfig{
+		Path:        path,
+		Query:       query,
+		Glob:        glob,
+		Limit:       limit,
+		Index:       boolArg(args, argIndex),
+		Fuzzy:       boolArg(args, argFuzzy),
+		MaxDistance: intArg(args, argMaxDistance),
+		IndexDBPath: stringArg(args, argIndexDBPath),
+		GraphBoost:  boolArg(args, argGraphBoost),
+	}
+}
+
+func boolArg(args map[string]any, key string) bool {
+	switch v := args[key].(type) {
+	case bool:
+		return v
+	case string:
+		b, _ := strconv.ParseBool(strings.TrimSpace(v))
+		return b
+	}
+	return false
+}
+
+func intArg(args map[string]any, key string) int {
+	switch v := args[key].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		n, _ := strconv.Atoi(strings.TrimSpace(v))
+		return n
+	}
+	return 0
+}
+
+func searchRoots(
+	opts SearchOpts, args map[string]any, roots []string, query, glob string, limit int,
+) (string, error) {
 	exec := opts.executor()
 	perRoot := make([][]map[string]any, 0, len(roots))
 	var errs []string
 	for _, root := range roots {
-		res, err := exec.Execute(nil, &domain.SearchLocalConfig{
-			Path: root, Query: query, Glob: glob, Limit: limit,
-		})
+		res, err := exec.Execute(nil, searchLocalConfig(args, root, query, glob, limit))
 		if err != nil {
 			errs = append(errs, root+": "+err.Error())
 			continue

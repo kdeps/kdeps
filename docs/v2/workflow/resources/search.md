@@ -1,12 +1,12 @@
 # Search resources
 
-Two ways to search: the `searchLocal` resource and the `searchWeb` component. Each has its own reference page.
+Two search components: `search_local` for files on disk and `searchWeb` for the web. Each has its own reference page.
 
 Works in workflow and agent mode.
 
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
-| `searchLocal:` | Walk a directory by filename glob and content keyword. Optional TF-IDF index for ranked results. | [searchLocal](/workflow/resources/search-local) |
+| `component: search_local` | Walk a directory by filename glob and content keyword. Optional TF-IDF index for ranked results - a kdeps component, YAML only. | [search_local](/workflow/resources/search-local) |
 | `component: searchWeb` | Query the web. DuckDuckGo needs no key. Brave, Bing, and Tavily need a named connection. | [searchWeb](/workflow/resources/search-web) |
 
 ## See also

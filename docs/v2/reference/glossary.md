@@ -44,7 +44,7 @@ mode and agent mode.
 | resource | The fundamental building block of a workflow: an `actionId`, a primary action type, optional `requires`, and optional validations, loop, and error handling. | [Resources overview](/workflow/resources) |
 | scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
 | `scraper` | A kdeps component (`component: scraper`) that fetches a page and returns its text, optionally narrowed by a CSS selector. | [Scraper](/workflow/resources/scraper) |
-| `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/workflow/resources/search-local) |
+| `search_local` | A kdeps component (`component: search_local`) that searches local files by keyword and glob, optionally with a TF-IDF index and graph boost. | [search_local](/workflow/resources/search-local) |
 | `searchWeb` | A kdeps component (`component: searchWeb`) for web search: DuckDuckGo, Brave, Bing, Tavily. | [searchWeb](/workflow/resources/search-web) |
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/workflow/data-access) |

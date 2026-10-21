@@ -108,7 +108,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
 | `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | [Browser](/workflow/resources/browser) |
-| `searchLocal` | Glob + keyword search across local files | [searchLocal](/workflow/resources/search-local) |
+| `component: search_local` | Glob + keyword search across local files - a kdeps component, YAML only | [search_local](/workflow/resources/search-local) |
 | `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | [searchWeb](/workflow/resources/search-web) |
 
 ## Data & system

@@ -3,7 +3,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing searchLocal graphBoost Feature..."
+echo "Testing search_local graphBoost Feature..."
 
 TEST_DIR=$(mktemp -d)
 DOCS_DIR="$TEST_DIR/docs"
@@ -51,18 +51,20 @@ name: Search
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/search]
-searchLocal:
-  path: "$DOCS_DIR_NATIVE"
-  query: "needle"
-  index: true
-  graphBoost: true
+component:
+  name: search_local
+  with:
+    path: "$DOCS_DIR_NATIVE"
+    query: "needle"
+    index: true
+    graphBoost: true
 EOF
 
 # Test 1: Validate workflow
 if "$KDEPS_BIN" validate "$WORKFLOW_FILE" &> /dev/null; then
-    test_passed "searchLocal graphBoost - Workflow validation"
+    test_passed "search_local graphBoost - Workflow validation"
 else
-    test_failed "searchLocal graphBoost - Workflow validation" "Validation failed"
+    test_failed "search_local graphBoost - Workflow validation" "Validation failed"
     rm -rf "$TEST_DIR"
     return 0
 fi
@@ -76,7 +78,7 @@ PORT=3093
 if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
-    fail_server_startup "searchLocal graphBoost - Server startup" "$SERVER_LOG"
+    fail_server_startup "search_local graphBoost - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
@@ -84,7 +86,7 @@ if [ "$SERVER_READY" = false ]; then
     return 0
 fi
 
-test_passed "searchLocal graphBoost - Server startup"
+test_passed "search_local graphBoost - Server startup"
 
 # Test 3: Hit the endpoint; graphBoost re-ranks using hub.md's link to linked.md.
 if command -v curl &> /dev/null; then
@@ -96,45 +98,45 @@ if command -v curl &> /dev/null; then
     BODY=$(echo "$RESPONSE" | sed '$d')
 
     if [ "$STATUS_CODE" = "200" ]; then
-        test_passed "searchLocal graphBoost - POST endpoint (200 OK)"
+        test_passed "search_local graphBoost - POST endpoint (200 OK)"
 
         JSON_BODY=$(echo "$BODY" | grep -o '^{.*}' | head -1 || echo "$BODY")
         if command -v jq &> /dev/null; then
             if echo "$JSON_BODY" | jq -e '.data.count == 2' > /dev/null 2>&1; then
-                test_passed "searchLocal graphBoost - both linked and hub docs matched"
+                test_passed "search_local graphBoost - both linked and hub docs matched"
             else
-                test_failed "searchLocal graphBoost - result count" "Got: $JSON_BODY"
+                test_failed "search_local graphBoost - result count" "Got: $JSON_BODY"
             fi
 
             if echo "$JSON_BODY" | jq -e '[.data.results[].path] | any(endswith("linked.md"))' > /dev/null 2>&1; then
-                test_passed "searchLocal graphBoost - linked.md present in results"
+                test_passed "search_local graphBoost - linked.md present in results"
             else
-                test_failed "searchLocal graphBoost - linked.md present in results" "Got: $JSON_BODY"
+                test_failed "search_local graphBoost - linked.md present in results" "Got: $JSON_BODY"
             fi
         else
-            test_skipped "searchLocal graphBoost - Response body checks (jq not available)"
+            test_skipped "search_local graphBoost - Response body checks (jq not available)"
         fi
     elif [ "$STATUS_CODE" = "500" ]; then
-        test_failed "searchLocal graphBoost - POST endpoint (500)" "$BODY"
+        test_failed "search_local graphBoost - POST endpoint (500)" "$BODY"
     else
-        test_failed "searchLocal graphBoost - POST endpoint" "Unexpected status $STATUS_CODE: $BODY"
+        test_failed "search_local graphBoost - POST endpoint" "Unexpected status $STATUS_CODE: $BODY"
     fi
 else
-    test_skipped "searchLocal graphBoost - POST endpoint (curl not available)"
+    test_skipped "search_local graphBoost - POST endpoint (curl not available)"
 fi
 
 # Test 4: The graph db (separate from the TF-IDF index.db) was created in the
 # data dir, and nothing was written into the searched folder.
 GRAPH_DB=$(find "$KDEPS_DATA_DIR" -name graph.db 2>/dev/null | head -1)
 if [ -n "$GRAPH_DB" ]; then
-    test_passed "searchLocal graphBoost - graph.db created in the data dir"
+    test_passed "search_local graphBoost - graph.db created in the data dir"
 else
-    test_failed "searchLocal graphBoost - graph.db created in the data dir" "No graph.db under $KDEPS_DATA_DIR"
+    test_failed "search_local graphBoost - graph.db created in the data dir" "No graph.db under $KDEPS_DATA_DIR"
 fi
 if [ ! -e "$DOCS_DIR/.kdeps" ]; then
-    test_passed "searchLocal graphBoost - nothing written into the searched folder"
+    test_passed "search_local graphBoost - nothing written into the searched folder"
 else
-    test_failed "searchLocal graphBoost - nothing written into the searched folder" "$DOCS_DIR/.kdeps exists"
+    test_failed "search_local graphBoost - nothing written into the searched folder" "$DOCS_DIR/.kdeps exists"
 fi
 
 kill $SERVER_PID 2>/dev/null || true

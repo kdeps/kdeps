@@ -1,7 +1,7 @@
 name: search-local-files
 version: "1.0.0"
 type: workflow
-description: Local filesystem search using the native searchLocal executor
+description: Local filesystem search through the search_local component and the kdeps API
 tags:
   - search
   - filesystem

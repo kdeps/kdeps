@@ -2285,3 +2285,68 @@ apiResponse:
 	require.Len(t, workflow.Resources, 1)
 	assert.Equal(t, "rendered-action", workflow.Resources[0].ActionID)
 }
+
+// A workflow resource runs a component, never a native action a shipped
+// component already wraps.
+func TestParser_ParseWorkflowComponentBackedAction(t *testing.T) {
+	dir := t.TempDir()
+	resourcesDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
+
+	workflowPath := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: component-backing
+  version: 1.0.0
+  targetActionId: search
+settings:
+  agentSettings:
+    timezone: UTC
+`), 0o600))
+
+	resourcePath := filepath.Join(resourcesDir, "search.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: search
+name: Search
+searchLocal:
+  path: "."
+  query: needle
+`), 0o600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	_, err := parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses searchLocal directly")
+	assert.Contains(t, err.Error(), "call the search_local component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: search
+name: Search
+component:
+  name: search_local
+  with:
+    query: needle
+`), 0o600))
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.Len(t, workflow.Resources, 1)
+	require.NotNil(t, workflow.Resources[0].Component)
+	assert.Equal(t, "search_local", workflow.Resources[0].Component.Name)
+
+	// An inline before:/after: step has no more access to the native action.
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: search
+name: Search
+before:
+  - searchLocal:
+      path: "."
+      query: needle
+apiResponse:
+  success: true
+`), 0o600))
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses searchLocal in a before: step directly")
+}

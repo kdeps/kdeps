@@ -533,3 +533,82 @@ settings:
 	assert.Equal(t, "requirements-large.txt", workflow.Settings.AgentSettings.RequirementsFile)
 	assert.Equal(t, "America/New_York", workflow.Settings.AgentSettings.Timezone)
 }
+
+// A workflow reaches local file search only through the search_local component.
+func TestYAMLParser_ComponentBackedActions(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: component-backed
+  version: "1.0.0"
+  targetActionId: search
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /search
+        methods: [POST]
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "search.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: search
+name: Search
+searchLocal:
+  path: "/data"
+  query: needle
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the search_local component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: search
+name: Search
+component:
+  name: search_local
+  with:
+    path: "/data"
+    query: needle
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["search_local"]
+	require.NotNil(t, comp, "the shipped search_local component must resolve")
+	require.Len(t, comp.Resources, 1)
+	require.NotNil(t, comp.Resources[0].HTTPClient)
+	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
+		"/apis/tools.kdeps.io/v1/tools/search_local/call")
+}
+
+// The shipped example keeps its shape: the resource calls the component.
+func TestYAMLParser_SearchLocalExampleUsesComponent(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	workflow, err := parser.ParseWorkflow("../../../examples/search-local-files/workflow.yaml")
+	require.NoError(t, err)
+
+	var found bool
+	for _, resource := range workflow.Resources {
+		if resource.Component == nil || resource.Component.Name != "search_local" {
+			continue
+		}
+		found = true
+		if action, _, ok := domain.ComponentBackedAction(resource); ok {
+			t.Fatalf("example resource %q still runs a component-backed native action", action)
+		}
+	}
+	assert.True(t, found, "examples/search-local-files must call the search_local component")
+}

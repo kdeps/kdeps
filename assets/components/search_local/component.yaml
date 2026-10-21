@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: search_local
   description: Search local files through the kdeps API
-  version: "1.1.1"
+  version: "1.2.0"
 interface:
   inputs:
     - name: query
@@ -19,8 +19,23 @@ interface:
       type: number
       default: 3
       description: Maximum number of results
-  # body is the handler text. The HTTP envelope stays inside the call.
-  output: "{{ output('call').body }}"
+    - name: index
+      type: boolean
+      description: Build and use the folder's TF-IDF index for ranked search
+    - name: fuzzy
+      type: boolean
+      description: Fuzzy (Levenshtein) matching when index is true
+    - name: maxDistance
+      type: integer
+      description: Maximum edit distance for fuzzy matching (default 2)
+    - name: indexDBPath
+      type: string
+      description: Index database path; defaults to the folder's kdeps data dir
+    - name: graphBoost
+      type: boolean
+      description: Re-rank indexed results using the folder's reference/topic graph; requires index
+  # fromJSON returns the result map (results, count) rather than JSON text.
+  output: "{{ fromJSON(output('call').body) }}"
 resources:
   - actionId: call
     name: Search local files
@@ -37,3 +52,8 @@ resources:
         path: "{{ get('search_local.path') }}"
         glob: "{{ get('search_local.glob') }}"
         limit: "{{ get('search_local.limit') }}"
+        index: "{{ get('search_local.index') }}"
+        fuzzy: "{{ get('search_local.fuzzy') }}"
+        maxDistance: "{{ get('search_local.maxDistance') }}"
+        indexDBPath: "{{ get('search_local.indexDBPath') }}"
+        graphBoost: "{{ get('search_local.graphBoost') }}"

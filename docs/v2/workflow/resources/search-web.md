@@ -1,6 +1,6 @@
 # searchWeb component
 
-The `searchWeb` component queries the web and returns `{results, count, query, provider}`, each result a `{title, url, snippet}`. DuckDuckGo is the default and needs no key; Brave, Bing and Tavily read their API key from `~/.kdeps/config.yaml`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its provider calls are the kdeps API's `http_request` tool. See [Search resources](/workflow/resources/search) for how it relates to `searchLocal`.
+The `searchWeb` component queries the web and returns `{results, count, query, provider}`, each result a `{title, url, snippet}`. DuckDuckGo is the default and needs no key; Brave, Bing and Tavily read their API key from `~/.kdeps/config.yaml`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its provider calls are the kdeps API's `http_request` tool. See [Search resources](/workflow/resources/search) for how it relates to `search_local`.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -132,6 +132,6 @@ One `httpClient` POST to the kdeps API's `http_request` tool per provider, each 
 
 ## See also
 
-- [Search resources](/workflow/resources/search) - overview and `searchLocal`
+- [Search resources](/workflow/resources/search) - overview and `search_local`
 - [Scraper component](/workflow/resources/scraper) - fetch the pages a search found
 - [LLM resource](/workflow/resources/llm) - use search results as context
