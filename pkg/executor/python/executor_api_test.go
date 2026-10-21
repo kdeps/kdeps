@@ -56,17 +56,20 @@ func (m *recordingUVManager) GetPythonPath(_ string) (string, error) {
 	return m.pythonBin, nil
 }
 
-// echoCommand replaces the python process with echo for the given output.
-func echoCommand(output string) func(name string, arg ...string) *execpkg.Cmd {
+// shellCommand replaces the python process with a POSIX shell for the given
+// script. The CI platforms all supply sh (Git for Windows includes it), so the
+// fake behaves the same on Windows as on macOS and Linux; a bare "echo" is not
+// an executable there.
+func shellCommand(script string) func(name string, arg ...string) *execpkg.Cmd {
 	return func(_ string, _ ...string) *execpkg.Cmd {
-		return execpkg.Command("echo", output)
+		return execpkg.Command("sh", "-c", script)
 	}
 }
 
 func TestExecutor_Run_InlineScriptParsesJSON(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
-	exec.SetExecCommandForTesting(echoCommand(`{"ok":true,"n":2}`))
+	exec.SetExecCommandForTesting(shellCommand(`printf '%s' '{"ok":true,"n":2}'`))
 
 	result, err := exec.Run(&domain.PythonConfig{Script: "print('hi')"}, "", nil)
 	require.NoError(t, err)
@@ -77,17 +80,17 @@ func TestExecutor_Run_InlineScriptParsesJSON(t *testing.T) {
 func TestExecutor_Run_PlainTextOutput(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
-	exec.SetExecCommandForTesting(echoCommand("hello"))
+	exec.SetExecCommandForTesting(shellCommand(`printf '%s' hello`))
 
 	result, err := exec.Run(&domain.PythonConfig{Script: "print('hello')"}, "", nil)
 	require.NoError(t, err)
-	assert.Equal(t, "hello\n", result)
+	assert.Equal(t, "hello", result)
 }
 
 func TestExecutor_Run_ExplicitVersionPackagesVenv(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
-	exec.SetExecCommandForTesting(echoCommand("ok"))
+	exec.SetExecCommandForTesting(shellCommand(`printf ok`))
 
 	_, err := exec.Run(
 		&domain.PythonConfig{Script: "print('x')", VenvName: "shard"},
@@ -104,7 +107,7 @@ func TestExecutor_Run_VersionFromEnv(t *testing.T) {
 	t.Setenv("KDEPS_PYTHON_VERSION", "3.13")
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
-	exec.SetExecCommandForTesting(echoCommand("ok"))
+	exec.SetExecCommandForTesting(shellCommand(`printf ok`))
 
 	_, err := exec.Run(&domain.PythonConfig{Script: "print('x')"}, "", nil)
 	require.NoError(t, err)
@@ -121,7 +124,7 @@ func TestExecutor_Run_ScriptFileRelativeToWorkingDir(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(func(_ string, arg ...string) *execpkg.Cmd {
 		gotArgs = arg
-		return execpkg.Command("echo", "done")
+		return execpkg.Command("sh", "-c", "printf done")
 	})
 
 	_, err := exec.Run(&domain.PythonConfig{ScriptFile: "job.py", Args: []string{"--x"}}, "", nil)
@@ -138,7 +141,7 @@ func TestExecutor_Run_ScriptFileAbsolute(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(func(_ string, arg ...string) *execpkg.Cmd {
 		gotArgs = arg
-		return execpkg.Command("echo", "done")
+		return execpkg.Command("sh", "-c", "printf done")
 	})
 
 	_, err := exec.Run(&domain.PythonConfig{ScriptFile: path}, "", nil)
@@ -171,7 +174,7 @@ func TestExecutor_Run_FailingCommand(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
-		return execpkg.Command("false")
+		return execpkg.Command("sh", "-c", "exit 1")
 	})
 
 	_, err := exec.Run(&domain.PythonConfig{Script: "raise SystemExit(1)"}, "", nil)
@@ -183,7 +186,7 @@ func TestExecutor_Run_OutputLimit(t *testing.T) {
 	t.Setenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES", "3")
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
-	exec.SetExecCommandForTesting(echoCommand("far more than three bytes"))
+	exec.SetExecCommandForTesting(shellCommand(`printf 'far more than three bytes'`))
 
 	_, err := exec.Run(&domain.PythonConfig{Script: "print('x')"}, "", nil)
 	require.Error(t, err)
@@ -194,7 +197,7 @@ func TestExecutor_Run_Timeout(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
-		return execpkg.Command("sleep", "5")
+		return execpkg.Command("sh", "-c", "sleep 5")
 	})
 
 	_, err := exec.Run(&domain.PythonConfig{Script: "time.sleep(5)", Timeout: "10ms"}, "", nil)
