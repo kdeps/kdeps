@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -97,6 +98,59 @@ func TestEveryToolHasShippedComponent(t *testing.T) {
 		require.NoError(t, err, "%s must ship a component", name)
 		want := "http://kdeps.api/apis/tools.kdeps.io/v1/tools/" + name + "/call"
 		require.Contains(t, string(data), want, "%s component must POST its call route", name)
+	}
+}
+
+// componentToolURL matches the kdeps API tool call route a component POSTs.
+var componentToolURL = regexp.MustCompile(`tools\.kdeps\.io/v1/tools/([A-Za-z0-9_]+)/call`)
+
+// TestEveryShippedComponentRequiresItsTools guards the dependency chain from
+// the other side: every kdeps API tool a component calls must be listed under
+// requires: in its template.yaml, so `kdeps update` installs the tool assets
+// with the component. It also keeps requires: honest in both directions -- no
+// undeclared tool call, no requires entry without the call -- and every
+// required tool must ship as an asset.
+func TestEveryShippedComponentRequiresItsTools(t *testing.T) {
+	compsDir := filepath.Join("..", "..", "assets", "components")
+	toolsDir := filepath.Join("..", "..", "assets", "tools")
+	entries, err := os.ReadDir(compsDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		body, readErr := os.ReadFile(filepath.Join(compsDir, entry.Name(), "component.yaml"))
+		require.NoError(t, readErr)
+
+		called := map[string]struct{}{}
+		for _, m := range componentToolURL.FindAllStringSubmatch(string(body), -1) {
+			called[m[1]] = struct{}{}
+		}
+		require.NotEmpty(t, called, "%s must call a kdeps API tool", entry.Name())
+
+		var tpl struct {
+			Requires map[string]string `yaml:"requires"`
+		}
+		tplBody, tplErr := os.ReadFile(filepath.Join(compsDir, entry.Name(), "template.yaml"))
+		require.NoError(t, tplErr)
+		require.NoError(t, yaml.Unmarshal(tplBody, &tpl), entry.Name())
+
+		required := map[string]struct{}{}
+		for key := range tpl.Requires {
+			name, ok := strings.CutPrefix(key, "tools/")
+			if !ok {
+				continue
+			}
+			required[name] = struct{}{}
+		}
+		require.Equal(t, called, required,
+			"%s must declare exactly the tools it calls under requires:", entry.Name())
+
+		for tool := range called {
+			_, statErr := os.Stat(filepath.Join(toolsDir, tool+".yaml"))
+			require.NoError(t, statErr, "%s requires tool asset %s", entry.Name(), tool)
+		}
 	}
 }
 

@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: cron_create
   description: Create a cron job through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: expression

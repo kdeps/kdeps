@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: team_add_task
   description: Add a task to a team through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: team_id

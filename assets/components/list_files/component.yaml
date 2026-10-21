@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: list_files
   description: List a directory through the kdeps API and return names and types
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: path

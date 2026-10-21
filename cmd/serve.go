@@ -419,6 +419,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(rootCtx, loop)
+	repl.RegisterCommandAPI()
 	defer llm.ShutdownLocalServers()
 
 	fmt.Fprintln(os.Stderr, "Loading model catalog...")

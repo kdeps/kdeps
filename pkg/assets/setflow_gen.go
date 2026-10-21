@@ -25,7 +25,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the command runs: built in, or its declared steps", Here: true},
 			{Label: "prompts go to the model; the output is shown"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/help"},
+		UsedBy: []string{"kdeps (agent loop)", "/help", "/update"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.declaredCommand"},
 	},
 	"components": {

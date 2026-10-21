@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: email
   description: Send email over SMTP and read, search, modify, list or delete IMAP mailboxes
-  version: "1.1.0"
+  version: "1.1.1"
 interface:
   inputs:
     - name: action

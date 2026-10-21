@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: team_list
   description: List teams through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs: []
   # body is one line per team, or No teams. The HTTP envelope stays inside the call.

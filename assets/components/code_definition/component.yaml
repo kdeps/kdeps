@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: code_definition
   description: Find a symbol definition through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: path

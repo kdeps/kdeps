@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: transcribe_audio_offline
   description: Transcribe audio offline with whisper.cpp through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file

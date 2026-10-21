@@ -35,15 +35,16 @@ import (
 
 // Slash commands are declared by the commands asset set: one YAML file per
 // command under commands/, updated with `kdeps update` like any asset. A
-// builtin command's file supplies the help, aliases and completion for a
-// command kdeps handles in Go; any other file defines the command entirely,
-// as a list of steps -- other slash commands and prompts sent to the model.
+// builtin command's file names the kdeps API operation that runs it in api:
+// (the file name, an entry in builtinCommandOps) and supplies its help,
+// aliases and completion; any other file defines the command entirely, as a
+// list of steps -- other slash commands and prompts sent to the model.
 
-// goCommands are the slash commands handled in Go by dispatchCommand and
-// dispatchControlCommand. Each has a builtin commands/ asset; a declared
+// goCommands are the slash commands handled in Go: each has a builtin
+// commands/ asset naming its builtinCommandOps entry in api:, and a declared
 // command can never take one of these names.
 //
-//nolint:gochecknoglobals // fixed list, kept in step with dispatchCommand
+//nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
 	"help", "clear", "model", "skills", "prompts", "compact", "fold", "history", "prompt", "session",
 	"settings", "thinking", "editor", "copy", "reload", "search", "context", "kartographer",
@@ -69,11 +70,15 @@ type commandStep struct {
 }
 
 type slashCommand struct {
-	item    string         // file name without .yaml: the asset item id
-	Version string         `yaml:"version"`
-	Name    string         `yaml:"name"`
-	Order   int            `yaml:"order"`
-	Builtin bool           `yaml:"builtin"`
+	item    string // file name without .yaml: the asset item id
+	Version string `yaml:"version"`
+	Name    string `yaml:"name"`
+	Order   int    `yaml:"order"`
+	Builtin bool   `yaml:"builtin"`
+	// API is the kdeps API operation that runs a builtin command. It must be
+	// this file's name (see loadCommandsFrom) and an entry in
+	// builtinCommandOps, so the asset names the one function that runs it.
+	API     string         `yaml:"api"`
 	Aliases []string       `yaml:"aliases"`
 	Usage   []commandUsage `yaml:"usage"`
 	Run     []commandStep  `yaml:"run"`
@@ -124,6 +129,12 @@ func (c *slashCommand) validateBuiltin() error {
 	}
 	if len(c.Run) > 0 {
 		return errors.New("a builtin command has no run steps")
+	}
+	if c.API == "" {
+		return errors.New("api is required: the kdeps API operation that runs this command")
+	}
+	if _, ok := builtinCommandOps()[c.API]; !ok {
+		return fmt.Errorf("api %q is not a kdeps API command operation", c.API)
 	}
 	return nil
 }
@@ -180,6 +191,10 @@ func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
 			continue
 		}
 		c.item = strings.TrimSuffix(e.Name(), ".yaml")
+		if c.Builtin && c.API != c.item {
+			warnAsset(fmt.Errorf("command %s: api %q must be the file name %q", e.Name(), c.API, c.item))
+			continue
+		}
 		byName[c.Name] = c
 	}
 	out := make([]*slashCommand, 0, len(byName))

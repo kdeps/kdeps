@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: approval_revoke
   description: Revoke an approval token through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: token_id

@@ -1,9 +1,10 @@
-version: 1.0.0
+version: 1.0.1
 name: memory
 order: 260
-# builtin: kdeps handles this command itself; this file supplies its help,
-# aliases and completion.
+# builtin: kdeps handles this command itself; this file names the operation
+# that runs it in api:, and supplies its help, aliases and completion.
 builtin: true
+api: memory
 usage:
   - args: ""
     help: "Show memory store overview (entry count, most recent entries)"

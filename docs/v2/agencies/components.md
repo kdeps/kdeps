@@ -108,13 +108,14 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)):
+A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
 # components/searchWeb/template.yaml (as shipped)
-version: 1.0.1
+version: 1.0.3
 requires:
   schemas/v1: ">=1.0.3"   # the schema that accepts connection: on an input
+  tools/http_request: ""  # the kdeps API tool this component calls
 ```
 
 Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.

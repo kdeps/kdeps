@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: zapier_run_action
   description: Run a Zapier NLA action through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: action_id

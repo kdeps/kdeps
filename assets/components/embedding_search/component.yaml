@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: embedding_search
   description: Search the local embedding database through the kdeps API
-  version: "1.1.0"
+  version: "1.1.1"
 interface:
   inputs:
     - name: query

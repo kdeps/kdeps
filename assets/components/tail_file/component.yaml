@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: tail_file
   description: Read the last lines of a file through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file_path

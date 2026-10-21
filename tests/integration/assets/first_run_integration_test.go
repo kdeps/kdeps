@@ -120,7 +120,7 @@ func TestInstall_NamedItemBringsItsRequires(t *testing.T) {
 
 	changes, err := assets.Update(t.Context(), root, assets.NewClient(), []string{"components/searchWeb"}, false)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"schemas/v1", "components/searchWeb"}, ids(changes))
+	assert.Equal(t, []string{"schemas/v1", "tools/http_request", "components/searchWeb"}, ids(changes))
 	assert.Equal(t, "required by components/searchWeb", changes[0].Note)
 
 	changes, err = assets.Update(t.Context(), root, assets.NewClient(), []string{"commands/frugal"}, false)

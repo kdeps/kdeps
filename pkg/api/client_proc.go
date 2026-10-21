@@ -83,6 +83,16 @@ func Listening() bool {
 // CallTool POSTs args to the named tool and returns the response body.
 // A non-2xx status becomes an error whose text is the Status message.
 func CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
+	return callRoute(ctx, name, toolCallURL(name), args)
+}
+
+// CallCommand POSTs args to the named slash command and returns its output.
+// A non-2xx status becomes an error whose text is the Status message.
+func CallCommand(ctx context.Context, name string, args map[string]any) (string, error) {
+	return callRoute(ctx, name, commandCallURL(name), args)
+}
+
+func callRoute(ctx context.Context, name, url string, args map[string]any) (string, error) {
 	if ctx == nil {
 		return "", errors.New("api: nil context")
 	}
@@ -93,7 +103,7 @@ func CallTool(ctx context.Context, name string, args map[string]any) (string, er
 	if err != nil {
 		return "", fmt.Errorf("api: encode %s: %w", name, err)
 	}
-	req, err := newCallRequest(ctx, http.MethodPost, toolCallURL(name), bytes.NewReader(payload))
+	req, err := newCallRequest(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return "", fmt.Errorf("api: call %s: %w", name, err)
 	}
@@ -124,6 +134,10 @@ func clientFor(ctx context.Context) *http.Client {
 
 func toolCallURL(name string) string {
 	return "http://" + InProcessHost + toolsPrefix + "/" + url.PathEscape(name) + "/call"
+}
+
+func commandCallURL(name string) string {
+	return "http://" + InProcessHost + commandsPrefix + "/" + url.PathEscape(name) + "/call"
 }
 
 // newCallRequest builds the tool POST. Tests replace it.
