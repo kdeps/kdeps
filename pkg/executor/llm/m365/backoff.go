@@ -28,14 +28,14 @@ const (
 
 //nolint:gochecknoglobals // process-wide degradation policy
 var defaultBackoff = toolguard.NewBackoffController(toolguard.BackoffOptions{
-	Window:       durationEnv("M365_BACKOFF_WINDOW_MS", defaultBackoffWindowMs),
-	Threshold:    intEnv("M365_BACKOFF_THRESHOLD", defaultBackoffThreshold),
-	BaseCooldown: durationEnv("M365_BACKOFF_BASE_MS", defaultBackoffBaseMs),
-	MaxCooldown:  durationEnv("M365_BACKOFF_MAX_MS", defaultBackoffMaxMs),
+	Window:       durationEnv("KDEPS_M365_BACKOFF_WINDOW_MS", defaultBackoffWindowMs),
+	Threshold:    intEnv("KDEPS_M365_BACKOFF_THRESHOLD", defaultBackoffThreshold),
+	BaseCooldown: durationEnv("KDEPS_M365_BACKOFF_BASE_MS", defaultBackoffBaseMs),
+	MaxCooldown:  durationEnv("KDEPS_M365_BACKOFF_MAX_MS", defaultBackoffMaxMs),
 })
 
 func backoffDisabled() bool {
-	return os.Getenv("M365_NO_BACKOFF") != "" || os.Getenv("M365_NO_AUTO_REAUTH") != ""
+	return os.Getenv("KDEPS_M365_NO_BACKOFF") != "" || os.Getenv("KDEPS_M365_NO_AUTO_REAUTH") != ""
 }
 
 // noteRequestOutcome feeds the global degradation policy. No-op when disabled.

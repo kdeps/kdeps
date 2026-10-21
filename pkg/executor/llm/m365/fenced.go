@@ -336,7 +336,7 @@ var framingVariants = map[string]framingBuilder{
 // CurrentFramingVariant resolves the active framing name from the environment,
 // defaulting to baseline.
 func CurrentFramingVariant() string {
-	if v := strings.TrimSpace(os.Getenv("M365_FRAMING_VARIANT")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("KDEPS_M365_FRAMING_VARIANT")); v != "" {
 		return v
 	}
 	return "baseline"
