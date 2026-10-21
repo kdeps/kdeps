@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: google_cache_list
   description: List Google AI cached content entries through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs: []
   output: "{{ output('call').body }}"

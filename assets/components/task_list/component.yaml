@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: task_list
   description: List tasks through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs: []
   # body is one line per task, or No tasks. The HTTP envelope stays inside the call.

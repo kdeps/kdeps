@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: md5_file
   description: Hash a file through the kdeps API and return the path and MD5
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file_path

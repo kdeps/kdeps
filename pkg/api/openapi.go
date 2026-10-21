@@ -18,18 +18,20 @@
 
 package api
 
-// openAPIDocument describes discovery, the tool list, and the tool call.
-// It has no workflow.kdeps.io operations.
+// openAPIDocument describes discovery, the tool and command lists, and the
+// corresponding call routes. It has no workflow.kdeps.io operations.
 func openAPIDocument() oasDoc {
 	return oasDoc{
 		OpenAPI: "3.0.3",
 		Info:    oasInfo{Title: "kdeps", Version: versionV1},
 		Paths: map[string]oasPath{
-			"/api":                       {Get: oasOpDoc("Core API versions", "APIVersions")},
-			"/apis":                      {Get: oasOpDoc("API groups", "APIGroupList")},
-			"/openapi/v3":                {Get: oasOpDoc("This document", "OpenAPI document")},
-			toolsPrefix:                  {Get: oasOpDoc("List tools", kindToolList)},
-			toolsPrefix + "/{name}/call": {Post: oasOpDoc("Call a tool", "tool result")},
+			"/api":                          {Get: oasOpDoc("Core API versions", "APIVersions")},
+			"/apis":                         {Get: oasOpDoc("API groups", "APIGroupList")},
+			"/openapi/v3":                   {Get: oasOpDoc("This document", "OpenAPI document")},
+			toolsPrefix:                     {Get: oasOpDoc("List tools", kindToolList)},
+			toolsPrefix + "/{name}/call":    {Post: oasOpDoc("Call a tool", "tool result")},
+			commandsPrefix:                  {Get: oasOpDoc("List slash commands", kindCommandList)},
+			commandsPrefix + "/{name}/call": {Post: oasOpDoc("Run a slash command", "command result")},
 		},
 		Components: oasComponents{
 			SecuritySchemes: oasSchemes{

@@ -54,7 +54,12 @@ func (r *REPL) cmdUpdate(args []string) {
 		fmt.Fprintln(os.Stderr, styleReplError.Render("update: "+err.Error()))
 		return
 	}
-	if !opts.Check && !opts.List && r.loop != nil {
-		r.loop.InvalidateSystemPreamble()
+	if !opts.Check && !opts.List {
+		// Freshly installed commands/ assets carry new display names and usage
+		// lines; republish them so the kdeps API lists what /update installed.
+		r.RegisterCommandAPI()
+		if r.loop != nil {
+			r.loop.InvalidateSystemPreamble()
+		}
 	}
 }

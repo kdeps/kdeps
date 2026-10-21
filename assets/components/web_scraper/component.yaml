@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: web_scraper
   description: Fetch a page through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: url

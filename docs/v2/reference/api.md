@@ -27,10 +27,12 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | Method | Path | Body |
 | --- | --- | --- |
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
-| `GET` | `/apis` | Groups `tools.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
+| `GET` | `/apis` | Groups `tools.kdeps.io`, `commands.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
 | `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `list_files`, `md5_file`, `tail_file`, `write_file`, `edit_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, the four `sql_*` tools, `serpapi_search`, `perplexity_search`, the three `google_cache_*` tools, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, the `code_*` tools, `http_request`, `twiml`, `email_ops`, `browser_ops`, `file_ops`, `git_ops`, `sql_ops`, `search_local`, `load_document`, `embedding_search`, `embedding_vectorize`, `task_create`, `task_get`, `task_list`, `task_stop`, `task_complete`, `task_append_output`, `task_assign_team`, `team_create`, `team_get`, `team_list`, `team_add_task`, `team_delete`, the five `cron_*` tools, the four `approval_*` tools, `instruct`, and the tools whose implementation is declared in their own asset (`cohere_rerank`, `exa_search`, `jina_rerank`, `ocr_image`, `retrieve_context`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`). |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
+| `GET` | `/apis/commands.kdeps.io/v1/commands` | Slash-command list: each command's operation name (`name`), the name you type (`display`), its usage lines, and the first usage line as `description`. |
+| `POST` | `/apis/commands.kdeps.io/v1/commands/{name}/call` | Command output, `text/plain`. `name` is the operation id: the builtin command's `commands/<name>.yaml` file stem, which its `api:` field repeats. `{"args": ["new", "ship it"]}`, `{"args": "new ship it"}` and `{"arguments": "new ship it"}` are all accepted; args not as an array are split on whitespace. |
 
 ```bash
 curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
@@ -57,6 +59,11 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
       "preferredVersion": {"groupVersion": "tools.kdeps.io/v1", "version": "v1"}
     },
     {
+      "name": "commands.kdeps.io",
+      "versions": [{"groupVersion": "commands.kdeps.io/v1", "version": "v1"}],
+      "preferredVersion": {"groupVersion": "commands.kdeps.io/v1", "version": "v1"}
+    },
+    {
       "name": "workflow.kdeps.io",
       "versions": [{"groupVersion": "workflow.kdeps.io/v1", "version": "v1"}],
       "preferredVersion": {"groupVersion": "workflow.kdeps.io/v1", "version": "v1"}
@@ -65,7 +72,7 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
 }
 ```
 
-`POST /api` with a valid token is `405`. `GET` on a call route is `405` and `Allow` is `POST`. `GET /openapi/v3` lists `GET /api`, `GET /apis`, `GET /openapi/v3`, `GET /apis/tools.kdeps.io/v1/tools`, and `POST /apis/tools.kdeps.io/v1/tools/{name}/call`.
+`POST /api` with a valid token is `405`. `GET` on a call route is `405` and `Allow` is `POST`. `GET /openapi/v3` lists `GET /api`, `GET /apis`, `GET /openapi/v3`, `GET /apis/tools.kdeps.io/v1/tools`, `POST /apis/tools.kdeps.io/v1/tools/{name}/call`, `GET /apis/commands.kdeps.io/v1/commands`, and `POST /apis/commands.kdeps.io/v1/commands/{name}/call`.
 
 ## Call read_file
 
@@ -112,6 +119,47 @@ A file whose text is `line 1`, `line 2`, and `line 3` comes back as:
 ```
 
 An unknown tool name is `404` with message `tool not found`. A body without `file_path` is `400`.
+
+## Run a slash command
+
+Every builtin slash command is a `commands/<op>.yaml` asset. Its `api:` field names the operation that runs it, and the REPL publishes each operation on this API. The file stem, `api:`, and the call-route `name` are all the same string; a command whose asset does not match is skipped at load.
+
+```text
+/clear -> commands/clear.yaml (api: clear) -> POST /apis/commands.kdeps.io/v1/commands/clear/call -> handler
+```
+
+```bash
+curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
+  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands
+```
+
+```json
+{
+  "kind": "CommandList",
+  "apiVersion": "commands.kdeps.io/v1",
+  "items": [
+    {
+      "name": "clear",
+      "display": "clear",
+      "description": "Clear the conversation history",
+      "usage": [{"args": "", "help": "Clear the conversation history"}]
+    }
+  ]
+}
+```
+
+`display` is the name you type in the REPL, which is not always the operation id (`/instruct!` is `instruct-now`). Run one:
+
+```bash
+curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"args": ["new", "ship the release"]}' \
+  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands/goal/call
+```
+
+The call runs against the REPL that published it, so it acts on that session (`/clear` empties it). The response is the command's output, `text/plain`; a command that prints only to the terminal returns an empty body, and a command that fails is `400` with the error text. Arg decoding accepts a JSON array, a string (split on whitespace), or an `arguments` string. An unknown name is `404` with message `command not found`.
+
+The routes are published by the agent loop (`kdeps`, the desktop app). A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
 
 ## Other calls
 

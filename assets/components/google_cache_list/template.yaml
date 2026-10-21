@@ -1,3 +1,4 @@
-version: 1.0.0
+version: 1.0.1
 requires:
   schemas/v1: ""
+  tools/google_cache_list: ""

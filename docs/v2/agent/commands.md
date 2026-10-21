@@ -2,6 +2,8 @@
 
 Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 
+Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names the kdeps API operation that runs it. The REPL dispatches through that binding, and the same operation is on the [kdeps API](/reference/api#run-a-slash-command) at `POST /apis/commands.kdeps.io/v1/commands/{name}/call` - see `/apis/commands.kdeps.io/v1/commands` for the list with each operation's display name and usage.
+
 | Command | Description |
 |---------|-------------|
 | `/help` | Show available commands |
@@ -178,7 +180,21 @@ The three tasks are: read `README.md` and name the two modes, run `git status --
 
 ## Declared commands
 
-Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps update` keeps current. For a command kdeps runs itself, the file only supplies the `/help` text, aliases and tab completion. Any other file *is* the command: kdeps runs its `run:` steps in order, so a new command ships as an asset update, with no new binary.
+Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps update` keeps current. For a command kdeps runs itself, the file supplies the `/help` text, aliases and tab completion and names the operation that runs it in `api:`:
+
+```yaml
+# commands/model.yaml - a builtin command's file
+version: 1.0.1
+name: model
+order: 20
+builtin: true            # kdeps runs it; this file supplies help, aliases and completion
+api: model               # the kdeps API operation that runs it: the file name
+usage:
+  - args: "[name]"
+    help: Show or switch LLM model mid-session
+```
+
+Any other file *is* the command: kdeps runs its `run:` steps in order, so a new command ships as an asset update, with no new binary.
 
 ```d2
 direction: right
@@ -210,6 +226,7 @@ run:                      # steps run in order; the first failing step stops the
 
 - `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
 - A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
+- A builtin file's `api:` must be its own file name, and that name must be one the binary implements. A mismatch is skipped with a warning instead of running another command's handler.
 - Built-in command files cannot be removed. Declared ones can, with `kdeps uninstall commands/<name>`, and `kdeps update commands/<name>` restores them.
 
 | Shipped declared command | Runs |

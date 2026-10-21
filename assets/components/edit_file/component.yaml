@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: edit_file
   description: Edit a file through the kdeps API and return the changed snippet
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: file_path

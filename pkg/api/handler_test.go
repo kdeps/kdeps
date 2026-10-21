@@ -53,10 +53,11 @@ func TestDiscovery_Groups(t *testing.T) {
 	if err := json.NewDecoder(groups.Body).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
-	if list.Kind != kindAPIGroupList || len(list.Groups) != 2 {
+	if list.Kind != kindAPIGroupList || len(list.Groups) != 3 {
 		t.Fatalf("groups %+v", list)
 	}
-	if list.Groups[0].Name != groupTools || list.Groups[1].Name != groupWorkflow {
+	if list.Groups[0].Name != groupTools || list.Groups[1].Name != groupCommands ||
+		list.Groups[2].Name != groupWorkflow {
 		t.Fatalf("names %+v", list.Groups)
 	}
 	wantGV := groupTools + "/" + versionV1
@@ -83,7 +84,9 @@ func TestDiscovery_OpenAPI(t *testing.T) {
 	}
 	paths, _ := doc["paths"].(map[string]any)
 	wantPaths := []string{
-		"/api", "/apis", "/openapi/v3", toolsPrefix, toolsPrefix + "/{name}/call",
+		"/api", "/apis", "/openapi/v3",
+		toolsPrefix, toolsPrefix + "/{name}/call",
+		commandsPrefix, commandsPrefix + "/{name}/call",
 	}
 	if len(paths) != len(wantPaths) {
 		t.Fatalf("paths %+v", paths)

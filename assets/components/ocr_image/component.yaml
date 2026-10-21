@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: ocr_image
   description: Extract text from an image with tesseract through the kdeps API
-  version: "1.0.1"
+  version: "1.0.2"
 interface:
   inputs:
     - name: file

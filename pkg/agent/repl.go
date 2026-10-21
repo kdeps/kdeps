@@ -2491,118 +2491,18 @@ func (r *REPL) runPlain() {
 	}
 }
 
-// dispatchCommand handles slash-prefixed commands.
-//
-//nolint:funlen // flat command-dispatch switch; splitting it obscures rather than clarifies
+// dispatchCommand handles slash-prefixed commands. A builtin command runs
+// through the operation its commands/ asset names in api: (an entry in
+// builtinCommandOps, also published on the kdeps API by RegisterCommandAPI);
+// any other name falls through to declared commands, skills and prompts.
 func (r *REPL) dispatchCommand(cmd string) error {
 	parts := strings.Fields(cmd)
 	command := strings.ToLower(parts[0])
 	args := parts[1:]
-
-	switch command {
-	case "/help":
-		return r.cmdHelp()
-	case "/clear":
-		return r.cmdClear()
-	case "/model":
-		return r.cmdModel(args)
-	case "/skills":
-		return r.cmdSkills()
-	case "/prompts":
-		return r.cmdPrompts()
-	case "/compact":
-		return r.cmdCompact()
-	case "/fold":
-		return r.cmdFold(args)
-	case "/history":
-		return r.cmdHistory()
-	case "/prompt":
-		return r.cmdPrompt(args)
-	case "/session":
-		return r.cmdSession(args)
-	case "/settings":
-		return r.cmdSettings()
-	case "/thinking":
-		return r.cmdThinking(args)
-	case "/editor":
-		return r.cmdEditor()
-	case "/copy":
-		return r.cmdCopy()
-	case "/reload":
-		return r.cmdReload()
-	case "/search":
-		return r.cmdSearch(args)
-	case "/context":
-		return r.cmdContext(args)
-	case "/kartographer":
-		return r.cmdKartographer()
-	case "/permission", "/permissions":
-		return r.cmdPermission(args)
-	case "/autocontext":
-		return r.cmdAutoContext(args)
-	case "/tools":
-		return r.cmdTools(args)
-	case "/upgrade":
-		return r.cmdUpgrade(args)
-	case "/konfig":
-		return r.cmdKonfig(args)
-	case "/login":
-		return r.cmdLogin(args)
-	case "/theme":
-		return r.cmdTheme(args)
-	case "/harness":
-		return r.cmdHarness(args)
-	case "/exit", "/quit":
-		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
-		return nil
-	default:
-		if handled, err := r.dispatchControlCommand(command, args); handled {
-			return err
-		}
-		return r.dispatchUnknownCommand(command, args)
+	if op := builtinCommandOperation(strings.TrimPrefix(command, "/")); op != "" {
+		return builtinCommandOps()[op](r, args)
 	}
-}
-
-// dispatchControlCommand handles the per-turn control commands (turo, goal,
-// refine, judges, memory), split out of dispatchCommand to keep its cyclomatic
-// complexity under the lint limit. handled is false when command is none of them.
-func (r *REPL) dispatchControlCommand(command string, args []string) (bool, error) {
-	switch command {
-	case "/recall":
-		r.cmdRecall(args)
-		return true, nil
-	case "/knowledge":
-		r.cmdKnowledge(args)
-		return true, nil
-	case "/turo":
-		return true, r.cmdTuro(args)
-	case "/goal":
-		return true, r.cmdGoal(args)
-	case "/auto-improve":
-		return true, r.cmdAutoImprove()
-	case "/refine":
-		r.cmdRefine(args)
-		return true, nil
-	case "/efficiency":
-		r.cmdEfficiency(args)
-		return true, nil
-	case "/handshake":
-		r.cmdHandshake(args)
-		return true, nil
-	case "/judges":
-		r.cmdJudges(args)
-		return true, nil
-	case "/memory":
-		return true, r.cmdMemory(args)
-	case "/instruct":
-		return true, r.cmdInstruct(false, args)
-	case "/instruct!":
-		return true, r.cmdInstruct(true, args)
-	case "/update":
-		r.cmdUpdate(args)
-		return true, nil
-	}
-	return false, nil
+	return r.dispatchUnknownCommand(command, args)
 }
 
 // dispatchUnknownCommand handles a slash command that is not a REPL built-in: it

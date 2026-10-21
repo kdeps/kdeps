@@ -73,20 +73,22 @@ func TestCommands_CoreItemsAreRequired(t *testing.T) {
 
 func TestParseYAMLCommand_Errors(t *testing.T) {
 	cases := map[string]string{
-		"unknown field":     "name: x\nusage: [{help: h}]\nrun: [{command: /help}]\nbogus: 1\n",
-		"bad name":          "name: a b\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"slash in name":     "name: /x\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"no usage":          "name: x\nrun: [{command: /help}]\n",
-		"empty help":        "name: x\nusage: [{args: a}]\nrun: [{command: /help}]\n",
-		"unknown builtin":   "name: nope\nbuiltin: true\nusage: [{help: h}]\n",
-		"builtin with run":  "name: help\nbuiltin: true\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"shadows a builtin": "name: help\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"alias shadows":     "name: x\naliases: [exit]\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"no run":            "name: x\nusage: [{help: h}]\n",
-		"both in a step":    "name: x\nusage: [{help: h}]\nrun: [{command: /help, prompt: p}]\n",
-		"neither in a step": "name: x\nusage: [{help: h}]\nrun: [{}]\n",
-		"command needs a /": "name: x\nusage: [{help: h}]\nrun: [{command: help}]\n",
-		"not yaml":          "name: [\n",
+		"unknown field":       "name: x\nusage: [{help: h}]\nrun: [{command: /help}]\nbogus: 1\n",
+		"bad name":            "name: a b\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"slash in name":       "name: /x\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"no usage":            "name: x\nrun: [{command: /help}]\n",
+		"empty help":          "name: x\nusage: [{args: a}]\nrun: [{command: /help}]\n",
+		"unknown builtin":     "name: nope\nbuiltin: true\nusage: [{help: h}]\n",
+		"builtin without api": "name: help\nbuiltin: true\nusage: [{help: h}]\n",
+		"builtin bad api":     "name: help\nbuiltin: true\napi: nope\nusage: [{help: h}]\n",
+		"builtin with run":    "name: help\nbuiltin: true\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"shadows a builtin":   "name: help\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"alias shadows":       "name: x\naliases: [exit]\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"no run":              "name: x\nusage: [{help: h}]\n",
+		"both in a step":      "name: x\nusage: [{help: h}]\nrun: [{command: /help, prompt: p}]\n",
+		"neither in a step":   "name: x\nusage: [{help: h}]\nrun: [{}]\n",
+		"command needs a /":   "name: x\nusage: [{help: h}]\nrun: [{command: help}]\n",
+		"not yaml":            "name: [\n",
 	}
 	for label, data := range cases {
 		_, err := parseYAMLCommand([]byte(data), label)
@@ -110,6 +112,17 @@ func TestLoadCommandsFrom_SortsSkipsAndReplaces(t *testing.T) {
 	}
 	assert.Equal(t, []string{"first", "a", "b"}, names)
 	assert.Nil(t, loadCommandsFrom(fstest.MapFS{}), "no commands dir")
+}
+
+func TestLoadCommandsFrom_SkipsMismatchedAPI(t *testing.T) {
+	withCommands(t, map[string]string{
+		"model": "name: model\nbuiltin: true\napi: history\nusage: [{help: h}]\n",
+	})
+	for _, c := range slashCommands {
+		if c.Name == "model" {
+			t.Fatal("a builtin whose api: is another file must be skipped")
+		}
+	}
 }
 
 func TestCommandHelpLines(t *testing.T) {

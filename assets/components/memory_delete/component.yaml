@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: memory_delete
   description: Delete a memory entry through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: key

@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: transcribe_audio
   description: Transcribe audio or video through a Whisper API with the kdeps API
-  version: "1.1.0"
+  version: "1.1.1"
 interface:
   inputs:
     - name: file

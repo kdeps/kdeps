@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: bash_job_wait
   description: Wait for a background shell job through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs:
     - name: job_id

@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: bash_job_list
   description: List background shell jobs through the kdeps API
-  version: "1.0.0"
+  version: "1.0.1"
 interface:
   inputs: []
   # body is the job list, or the empty-list sentence. The HTTP envelope stays inside the call.

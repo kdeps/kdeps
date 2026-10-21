@@ -244,6 +244,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 	}
 	loop := agent.New(s.opts.Engine, wf, s.registry, cfg)
 	repl := agent.NewREPL(s.ctx, loop)
+	repl.RegisterCommandAPI()
 	repl.SetHeadless()
 	// NewREPL turns thinking on for the terminal; the chat view renders plain
 	// answer text, so leave it off until the user runs /thinking.

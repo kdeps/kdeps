@@ -18,8 +18,8 @@
 # license notices and attribution when redistributing derived code.
 
 # E2E for the process control API (pkg/api) against the built kdeps binary.
-# kdeps run and the REPL must serve discovery and the read_file call
-# on 127.0.0.1 only. The workflow apiServer and /_kdeps/ are a different listener.
+# kdeps run and the REPL must serve discovery, tool calls, and slash-command
+# calls on 127.0.0.1 only. The workflow apiServer and /_kdeps/ are a different listener.
 # command curl is required: common.sh's curl wrapper would inject KDEPS_API_AUTH_TOKEN.
 
 set -uo pipefail
@@ -229,9 +229,9 @@ elif kind == "groups":
     if doc.get("kind") != "APIGroupList" or doc.get("apiVersion") != "v1":
         die(repr(doc))
     groups = doc.get("groups")
-    if not isinstance(groups, list) or len(groups) != 2:
+    if not isinstance(groups, list) or len(groups) != 3:
         die("group count")
-    want = ["tools.kdeps.io", "workflow.kdeps.io"]
+    want = ["tools.kdeps.io", "commands.kdeps.io", "workflow.kdeps.io"]
     for group, name in zip(groups, want):
         gv = name + "/v1"
         if group.get("name") != name:
@@ -251,11 +251,14 @@ elif kind == "openapi":
         die(str(doc.get("openapi")))
     paths = doc.get("paths") or {}
     call = "/apis/tools.kdeps.io/v1/tools/{name}/call"
-    want = {"/api", "/apis", "/openapi/v3", "/apis/tools.kdeps.io/v1/tools", call}
+    cmd = "/apis/commands.kdeps.io/v1/commands"
+    cmd_call = cmd + "/{name}/call"
+    want = {"/api", "/apis", "/openapi/v3", "/apis/tools.kdeps.io/v1/tools", call, cmd, cmd_call}
     if set(paths) != want:
         die(",".join(sorted(paths)))
+    posts = {call, cmd_call}
     for key, item in paths.items():
-        verbs = {"post"} if key == call else {"get"}
+        verbs = {"post"} if key in posts else {"get"}
         if set(item) != verbs:
             die(key + " " + ",".join(sorted(item)))
     scheme = (((doc.get("components") or {}).get("securitySchemes") or {}).get("bearer") or {})
@@ -287,6 +290,22 @@ elif kind == "tools":
     ]
     if names != want:
         die(repr(names))
+elif kind == "commands":
+    if doc.get("kind") != "CommandList" or doc.get("apiVersion") != "commands.kdeps.io/v1":
+        die(repr(doc))
+    items = doc.get("items") or []
+    names = [item.get("name") for item in items]
+    if names != sorted(names):
+        die("unsorted " + repr(names))
+    for want in ("clear", "goal", "instruct-now"):
+        if want not in names:
+            die("missing " + want)
+    for item in items:
+        if not item.get("name") or not item.get("display"):
+            die(repr(item))
+elif kind == "command-missing":
+    if doc.get("kind") != "Status" or doc.get("code") != 404 or doc.get("message") != "command not found":
+        die(repr(doc))
 elif kind == "missing-tool":
     if doc.get("kind") != "Status" or doc.get("code") != 404 or doc.get("message") != "tool not found":
         die(repr(doc))
@@ -1160,6 +1179,25 @@ PY
             test_passed "kdeps API - REPL instruct returns a briefing section"
         else
             test_failed "kdeps API - REPL instruct returns a briefing section" "status $got body $(head -c 180 "$body")"
+        fi
+        _check "kdeps API - REPL lists slash commands" GET "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands" "Bearer ${repl_tok}" 200 commands || true
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"args":[]}' \
+            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/clear/call" || true)
+        if [ "$got" = "200" ]; then
+            test_passed "kdeps API - REPL runs a slash command"
+        else
+            test_failed "kdeps API - REPL runs a slash command" "status $got body $(head -c 180 "$body")"
+        fi
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{}' \
+            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/no_such_command/call" || true)
+        if [ "$got" = "404" ] && python3 "$root/check_api.py" command-missing "$body"; then
+            test_passed "kdeps API - unknown command is 404"
+        else
+            test_failed "kdeps API - unknown command is 404" "status $got body $(head -c 180 "$body")"
         fi
         if grep -F "$repl_tok" "$log" >/dev/null; then
             test_failed "kdeps API - REPL log does not contain the token"

@@ -37,11 +37,12 @@ import (
 )
 
 const (
-	module      = "github.com/kdeps/kdeps/v2"
-	assetsPkg   = module + "/pkg/assets"
-	agentPkg    = module + "/pkg/agent"
-	startupName = "kdeps start-up"
-	maxDepth    = 40
+	module         = "github.com/kdeps/kdeps/v2"
+	assetsPkg      = module + "/pkg/assets"
+	agentPkg       = module + "/pkg/agent"
+	builtinOpsFunc = "builtinCommandOps"
+	startupName    = "kdeps start-up"
+	maxDepth       = 40
 )
 
 // loaders are the pkg/assets functions whose first argument names the set
@@ -666,8 +667,11 @@ func methodKey(f *ssa.Function) string {
 	return t[strings.LastIndex(t, ".")+1:] + "." + f.Name()
 }
 
-// slashCommands maps "REPL.cmdX" to the slash command(s) that dispatch to
-// it, from the case clauses of pkg/agent's dispatch switches.
+// slashCommands maps "REPL.cmdX" to the slash command that dispatches to it,
+// from the entries of pkg/agent's builtinCommandOps table: each entry is
+// "operation": func(r *REPL, args []string) error { return r.cmdX(args) }, and
+// the operation is the label. This is why the flow names /help, /settings and
+// the other commands that reach an asset set.
 func slashCommands(pkgs []*packages.Package) map[string]string {
 	names := map[string][]string{}
 	packages.Visit(pkgs, nil, func(p *packages.Package) {
@@ -676,31 +680,42 @@ func slashCommands(pkgs []*packages.Package) map[string]string {
 		}
 		for _, file := range p.Syntax {
 			ast.Inspect(file, func(n ast.Node) bool {
-				cc, ok := n.(*ast.CaseClause)
-				if !ok {
+				fn, ok := n.(*ast.FuncDecl)
+				if !ok || fn.Name == nil || fn.Name.Name != builtinOpsFunc || fn.Body == nil {
 					return true
 				}
-				var cmds []string
-				for _, e := range cc.List {
-					if lit, isLit := e.(*ast.BasicLit); isLit && lit.Kind == token.STRING {
-						if s, err := strconv.Unquote(lit.Value); err == nil && strings.HasPrefix(s, "/") {
-							cmds = append(cmds, s)
-						}
+				for _, st := range fn.Body.List {
+					ret, isRet := st.(*ast.ReturnStmt)
+					if !isRet || len(ret.Results) != 1 {
+						continue
 					}
-				}
-				if len(cmds) == 0 {
-					return true
-				}
-				for _, st := range cc.Body {
-					ast.Inspect(st, func(m ast.Node) bool {
-						if sel, isSel := m.(*ast.SelectorExpr); isSel {
-							if id, isID := sel.X.(*ast.Ident); isID && id.Name == "r" && strings.HasPrefix(sel.Sel.Name, "cmd") {
-								key := "REPL." + sel.Sel.Name
-								names[key] = append(names[key], cmds[0])
-							}
+					lit, isLit := ret.Results[0].(*ast.CompositeLit)
+					if !isLit {
+						continue
+					}
+					for _, elt := range lit.Elts {
+						kv, isKV := elt.(*ast.KeyValueExpr)
+						if !isKV {
+							continue
 						}
-						return true
-					})
+						key, isKey := kv.Key.(*ast.BasicLit)
+						if !isKey || key.Kind != token.STRING {
+							continue
+						}
+						op, err := strconv.Unquote(key.Value)
+						if err != nil || op == "" {
+							continue
+						}
+						ast.Inspect(kv.Value, func(m ast.Node) bool {
+							if sel, isSel := m.(*ast.SelectorExpr); isSel {
+								if id, isID := sel.X.(*ast.Ident); isID && id.Name == "r" && strings.HasPrefix(sel.Sel.Name, "cmd") {
+									key := "REPL." + sel.Sel.Name
+									names[key] = append(names[key], "/"+op)
+								}
+							}
+							return true
+						})
+					}
 				}
 				return true
 			})
@@ -713,4 +728,3 @@ func slashCommands(pkgs []*packages.Package) map[string]string {
 	}
 	return out
 }
-
