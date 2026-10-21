@@ -41,24 +41,29 @@ const (
 	toolEmbeddingSearch    = "embedding_search"
 	toolEmbeddingVectorize = "embedding_vectorize"
 
-	argSource      = "source"
-	argChunkSize   = "chunkSize"
-	argTexts       = "texts"
-	argCollection  = "collection"
-	argBackend     = "backend"
-	argMethod      = "method"
-	argHeaders     = "headers"
-	argData        = "data"
-	argTimeout     = "timeout"
-	argFailOnError = "failOnError"
-	argSaveTo      = "saveTo"
-	argGlob        = "glob"
-	argPath        = "path"
-	argIndex       = "index"
-	argFuzzy       = "fuzzy"
-	argMaxDistance = "maxDistance"
-	argIndexDBPath = "indexDBPath"
-	argGraphBoost  = "graphBoost"
+	argSource        = "source"
+	argType          = "type"
+	argColumns       = "columns"
+	argPassword      = "password"
+	argChunkSize     = "chunkSize"
+	argChunkOverlap  = "chunkOverlap"
+	argChunkSplitter = "chunkSplitter"
+	argTexts         = "texts"
+	argCollection    = "collection"
+	argBackend       = "backend"
+	argMethod        = "method"
+	argHeaders       = "headers"
+	argData          = "data"
+	argTimeout       = "timeout"
+	argFailOnError   = "failOnError"
+	argSaveTo        = "saveTo"
+	argGlob          = "glob"
+	argPath          = "path"
+	argIndex         = "index"
+	argFuzzy         = "fuzzy"
+	argMaxDistance   = "maxDistance"
+	argIndexDBPath   = "indexDBPath"
+	argGraphBoost    = "graphBoost"
 
 	argFiles           = "files"
 	argRetry           = "retry"
@@ -412,21 +417,32 @@ func LoadDocument(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, toolLoadDocument); err != nil {
 		return "", err
 	}
-	config := &domain.LoaderConfig{Type: stringArg(args, "type")}
-	if v, ok := args[argSource].(string); ok {
-		config.Source = v
-		if err := validateRootPath(v); err != nil {
+	config := loaderConfig(args)
+	if config.Source != "" {
+		if err := validateRootPath(config.Source); err != nil {
 			return "", fmt.Errorf("%s: %w", toolLoadDocument, err)
 		}
-	}
-	if v, ok := args[argChunkSize].(float64); ok {
-		config.ChunkSize = int(v)
 	}
 	result, err := loaderExec.Execute(nil, config)
 	if err != nil {
 		return "", err
 	}
 	return marshalIndent(result)
+}
+
+// loaderConfig mirrors the loader resource fields the tool exposes. The
+// component sends every input as a string, so ints are decoded from both
+// JSON numbers and strings.
+func loaderConfig(args map[string]any) *domain.LoaderConfig {
+	return &domain.LoaderConfig{
+		Type:          stringArg(args, argType),
+		Source:        stringArg(args, argSource),
+		Columns:       stringListArg(args, argColumns),
+		Password:      stringArg(args, argPassword),
+		ChunkSize:     intArg(args, argChunkSize),
+		ChunkOverlap:  intArg(args, argChunkOverlap),
+		ChunkSplitter: stringArg(args, argChunkSplitter),
+	}
 }
 
 // EmbeddingSearch searches one collection in the local embedding database.

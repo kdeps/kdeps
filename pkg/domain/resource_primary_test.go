@@ -271,6 +271,16 @@ func TestComponentBackedAction(t *testing.T) {
 			component: "http_request",
 			ok:        true,
 		},
+		{
+			name: "native loader",
+			res: &domain.Resource{
+				ActionID: "a",
+				Loader:   &domain.LoaderConfig{Type: "pdf", Source: "/data/report.pdf"},
+			},
+			action:    "loader",
+			component: "load_document",
+			ok:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -334,6 +344,13 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "https://example.com"},
 	})
 	if !ok || action != "httpClient" || component != "http_request" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Loader: &domain.LoaderConfig{Type: "text", Source: "/data/note.txt"},
+	})
+	if !ok || action != "loader" || component != "load_document" {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }

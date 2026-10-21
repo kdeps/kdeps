@@ -87,9 +87,9 @@ vectorStore:
 }
 ```
 
-## Feeding from a loader
+## Feeding from the load_document component
 
-`loader:`'s output documents map directly onto `vectorStore:`'s `documents:` field - see the [Loader Resource](/workflow/resources/loader#rag-pipeline-example) for the full load-then-index pipeline.
+The `load_document` component's output documents map directly onto `vectorStore:`'s `documents:` field - see the [Loader](/workflow/resources/loader#rag-pipeline-example) for the full load-then-index pipeline.
 
 ## See also
 

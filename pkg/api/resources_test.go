@@ -241,6 +241,37 @@ func TestLoadDocument_TextAndRoot(t *testing.T) {
 	}
 }
 
+// The load_document component sends every input as a string; numbers must
+// decode from strings as well as from JSON numbers, or chunkSize is ignored.
+func TestLoaderConfig_ArgTypes(t *testing.T) {
+	got := loaderConfig(map[string]any{
+		argSource:        "/data/report.pdf",
+		argType:          "pdf",
+		argColumns:       []any{"Name", "Total"},
+		argPassword:      "secret",
+		argChunkSize:     "500",
+		argChunkOverlap:  float64(50),
+		argChunkSplitter: "token",
+	})
+	if got.Source != "/data/report.pdf" || got.Type != "pdf" || got.Password != "secret" {
+		t.Fatalf("strings: %+v", got)
+	}
+	if len(got.Columns) != 2 || got.Columns[0] != "Name" || got.Columns[1] != "Total" {
+		t.Fatalf("columns: %+v", got.Columns)
+	}
+	if got.ChunkSize != 500 || got.ChunkOverlap != 50 || got.ChunkSplitter != "token" {
+		t.Fatalf("chunking: %+v", got)
+	}
+
+	// Unset optional inputs arrive as "" and keep the zero value.
+	got = loaderConfig(map[string]any{
+		argChunkSize: "", argChunkOverlap: "", argColumns: "", argChunkSplitter: "",
+	})
+	if got.ChunkSize != 0 || got.ChunkOverlap != 0 || got.ChunkSplitter != "" || len(got.Columns) != 0 {
+		t.Fatalf("unset: %+v", got)
+	}
+}
+
 func TestEmbeddingVectorize_NoInputs(t *testing.T) {
 	if _, err := EmbeddingVectorize(t.Context(), map[string]any{}); err == nil ||
 		err.Error() != "embedding vectorize: no inputs provided" {

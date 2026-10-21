@@ -1,9 +1,21 @@
-version: 1.0.0
-description: 'Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, pdfcpu), DOCX/EPUB/RTF/ODT (pandoc), HTML (goquery, lynx), CSV, text, directory, notion, markdown (textutil). Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).'
+version: 1.1.0
+description: 'Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, pdfcpu), DOCX/EPUB/RTF/ODT (pandoc), HTML (goquery, lynx), CSV, text, directory, notion, markdown (textutil). Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text - auto-detected from extension), columns (CSV column filter), password (encrypted PDF), chunkSize (split into chunks of N characters), chunkOverlap, chunkSplitter (recursive, token, markdown).'
 parameters:
+  chunkOverlap:
+    type: number
+    description: Characters of overlap between consecutive chunks. Only used with chunkSize.
   chunkSize:
     type: number
     description: Split into chunks of this many characters (for RAG). 0 = no splitting.
+  chunkSplitter:
+    type: string
+    description: 'Splitting strategy when chunkSize is set: recursive (default), token, or markdown.'
+  columns:
+    type: array
+    description: CSV only - optional column filter. Empty loads all columns.
+  password:
+    type: string
+    description: PDF only - decryption password for encrypted PDFs.
   source:
     type: string
     description: Absolute path to the document file

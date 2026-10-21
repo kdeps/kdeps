@@ -130,6 +130,12 @@ var componentBackedActions = []componentBackedAction{
 		Resource:  func(r *Resource) bool { return r.HTTPClient != nil },
 		Inline:    func(a *ActionConfig) bool { return a.HTTPClient != nil },
 	},
+	{
+		Name:      "loader",
+		Component: "load_document",
+		Resource:  func(r *Resource) bool { return r.Loader != nil },
+		Inline:    func(a *ActionConfig) bool { return a.Loader != nil },
+	},
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be

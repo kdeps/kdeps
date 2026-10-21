@@ -839,3 +839,55 @@ func TestYAMLParser_HTTPClientExampleUsesComponent(t *testing.T) {
 	}
 	assert.True(t, found, "examples/http-advanced must call the http_request component")
 }
+
+// A workflow loads documents through the load_document component; the parser
+// rejects a native loader resource and the shipped component resolves.
+func TestYAMLParser_LoaderComponentBacked(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: loader-component-backed
+  version: "1.0.0"
+  targetActionId: load
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "load.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: load
+name: Load
+loader:
+  type: text
+  source: /data/note.txt
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the load_document component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: load
+name: Load
+component:
+  name: load_document
+  with:
+    source: /data/note.txt
+    chunkSize: 500
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["load_document"]
+	require.NotNil(t, comp, "the shipped load_document component must resolve")
+	require.Len(t, comp.Resources, 1)
+	require.NotNil(t, comp.Resources[0].HTTPClient)
+	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
+		"/apis/tools.kdeps.io/v1/tools/load_document/call")
+}

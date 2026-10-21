@@ -42,7 +42,7 @@ apiResponse:
 
 | Input | Default | Description |
 |---|---|---|
-| `file` | (required) | Path to the image: png, jpg/jpeg, tiff, bmp, gif. Text-layer PDFs go through the [loader](/workflow/resources/loader) instead |
+| `file` | (required) | Path to the image: png, jpg/jpeg, tiff, bmp, gif. Text-layer PDFs go through the [load_document component](/workflow/resources/loader) instead |
 | `language` | `eng` | tesseract `-l` value, e.g. `deu`, `eng+fra`. Needs the matching `tesseract-ocr-<lang>` data pack |
 | `psm` | `3` | Page segmentation mode (`--psm`, `0`-`13`); `3` is fully automatic, `6` assumes one uniform block of text |
 | `oem` | `3` | Engine mode (`--oem`, `0`-`3`); `3` uses whatever engine is available |
