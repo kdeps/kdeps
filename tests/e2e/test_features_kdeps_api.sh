@@ -285,7 +285,7 @@ elif kind == "tools":
         "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
         "task_get", "task_list", "task_stop", "team_add_task", "team_create",
         "team_delete", "team_get", "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml",
-        "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha",
+        "vector_store", "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha",
         "write_file", "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:

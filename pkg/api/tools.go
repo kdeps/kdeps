@@ -113,6 +113,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolGitOps, "Run one structured git operation.", GitOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
+	RegisterTool(loadToolSpec(toolVectorStore, "Run one vector store operation.", VectorStore))
 	registerRegistryTools()
 }
 

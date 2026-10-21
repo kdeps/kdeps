@@ -120,6 +120,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolTeamGet,
 		toolTeamList,
 		toolTwiml,
+		toolVectorStore,
 		toolWebScraper,
 		toolWebSearch,
 		toolWikipedia,

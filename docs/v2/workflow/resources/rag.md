@@ -6,18 +6,18 @@ Each has its own reference page.
 Works in workflow and agent mode.
 
 ```text
-loader (load + chunk)  ->  embedding component OR vectorStore (index)  ->  embedding component OR vectorStore (search)  ->  chat (answer with context)
+load_document (load + chunk)  ->  embedding or vector_store component (index)  ->  embedding or vector_store component (search)  ->  chat (answer with context)
 ```
 
 | Resource | Role | Reference |
 | :--- | :--- | :--- |
 | `component: load_document` | Read files, URLs, or a directory into text chunks | [Loader](/workflow/resources/loader) |
 | `component: embedding` | Local SQLite keyword store - index and search, no API key | [Embedding](/workflow/resources/embedding) |
-| `vectorStore:` | External vector database - Qdrant, Chroma, pgvector, ... | [Vector store](/workflow/resources/vector-store) |
+| `component: vector_store` | External vector database - Qdrant, Chroma, pgvector, ... | [Vector store](/workflow/resources/vector-store) |
 
 ## embedding or vector store
 
-| | `component: embedding` | `vectorStore:` |
+| | `component: embedding` | `component: vector_store` |
 | :--- | :--- | :--- |
 | Storage | Local SQLite file | External vector DB service |
 | Matching | Keyword (LIKE) | Vector similarity |

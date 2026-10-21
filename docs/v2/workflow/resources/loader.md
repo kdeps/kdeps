@@ -1,6 +1,6 @@
 # loader component
 
-The `load_document` component reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or the `embedding` component for indexing. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `load_document` tool, which runs the native loader executor. A workflow that uses `loader:` directly - primary or in a `before:`/`after:` step - is rejected.
+The `load_document` component reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into the `vector_store` or `embedding` component for indexing. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `load_document` tool, which runs the native loader executor. A workflow that uses `loader:` directly - primary or in a `before:`/`after:` step - is rejected.
 
 It works in both modes: as a DAG step in workflow mode, and as the `load_document` built-in tool in agent mode.
 
@@ -88,11 +88,11 @@ component:
 }
 ```
 
-`documents` is directly usable as the `documents:` input to a `vectorStore:` `add_documents` operation - each `content`/`metadata` pair maps onto a [`VectorStoreDocument`](/workflow/resources/vector-store).
+`documents` is directly usable as the `documents:` input to the [`vector_store` component](/workflow/resources/vector-store)'s `add_documents` operation - each `content`/`metadata` pair maps onto a `VectorStoreDocument`. The component returns the tool's body as a string, so read it with `fromJSON`.
 
 ## Size limit
 
-Every loader type reads its source fully into memory before returning - fine for a report or a handbook, but a workflow doing bulk ingestion (a large CSV, a directory of documents) risks an OS-level, no-core-dump `SIGKILL` once that content gets copied again downstream (`chunkSize` splitting, `json.Marshal` in the result, a `vectorStore:` step embedding it). Any single file over **256 MiB** is rejected with a clear error instead - `type: directory`/`notion` skip an oversized file and keep loading the rest (a batch load should not abort over one large file); every other type fails that one load outright, the same way an explicit `--file`/stdin over its own 256 MiB default already does (see [Input sources](/workflow/input-sources)).
+Every loader type reads its source fully into memory before returning - fine for a report or a handbook, but a workflow doing bulk ingestion (a large CSV, a directory of documents) risks an OS-level, no-core-dump `SIGKILL` once that content gets copied again downstream (`chunkSize` splitting, `json.Marshal` in the result, a `vector_store` step embedding it). Any single file over **256 MiB** is rejected with a clear error instead - `type: directory`/`notion` skip an oversized file and keep loading the rest (a batch load should not abort over one large file); every other type fails that one load outright, the same way an explicit `--file`/stdin over its own 256 MiB default already does (see [Input sources](/workflow/input-sources)).
 
 Raise or lower it with `KDEPS_LOADER_MAX_BYTES` (bytes; `0` disables the check):
 
@@ -118,18 +118,20 @@ component:
 # resources/index.yaml
 actionId: index
 requires: [load]
-vectorStore:
-  operation: add_documents
-  provider: qdrant
-  url: http://localhost:6333
-  collection: docs
-  documents: "{{ get('load').documents }}"
-  embedModel: text-embedding-3-small
+component:
+  name: vector_store
+  with:
+    operation: add_documents
+    provider: qdrant
+    url: http://localhost:6333
+    collection: docs
+    embedModel: text-embedding-3-small  # embedding model for the document contents
+    documents: "{{ fromJSON(output('load')).documents }}"  # load_document's Document list
 ```
 
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [Vector store resource](/workflow/resources/vector-store) - index and search the loaded documents
+- [Vector store component](/workflow/resources/vector-store) - index and search the loaded documents
 - [Embedding component](/workflow/resources/embedding) - lightweight keyword-based alternative for local, API-key-free RAG
 - [Resources overview](/workflow/resources) - all resource types

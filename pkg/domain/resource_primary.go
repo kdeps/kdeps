@@ -167,6 +167,12 @@ var componentBackedActions = []componentBackedAction{
 		Resource: func(r *Resource) bool { return r.CodeIntelligence != nil },
 		Inline:   func(a *ActionConfig) bool { return a.CodeIntelligence != nil },
 	},
+	{
+		Name:      "vectorStore",
+		Component: "vector_store",
+		Resource:  func(r *Resource) bool { return r.VectorStore != nil },
+		Inline:    func(a *ActionConfig) bool { return a.VectorStore != nil },
+	},
 }
 
 // codeIntelligenceComponent names the component for a codeIntelligence

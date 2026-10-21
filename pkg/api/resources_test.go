@@ -42,6 +42,7 @@ func TestResources_NilAndCanceled(t *testing.T) {
 		{toolLoadDocument, LoadDocument},
 		{toolEmbeddingSearch, EmbeddingSearch},
 		{toolEmbeddingVectorize, EmbeddingVectorize},
+		{toolVectorStore, VectorStore},
 	}
 	for _, tc := range cases {
 		if _, err := tc.call(noCtx, nil); err == nil || err.Error() != tc.name+": nil context" {

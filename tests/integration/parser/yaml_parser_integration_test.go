@@ -942,3 +942,54 @@ component:
 	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
 		"/apis/tools.kdeps.io/v1/tools/code_search/call")
 }
+
+func TestYAMLParser_VectorStoreComponentBacked(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: vector-store-component-backed
+  version: "1.0.0"
+  targetActionId: index
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "index.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: index
+name: Index
+vectorStore:
+  collection: docs
+  operation: add_documents
+  embedModel: text-embedding-3-small
+  documents:
+    - content: "hello"
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the vector_store component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: index
+name: Index
+component:
+  name: vector_store
+  with:
+    collection: docs
+    operation: add_documents
+    embedModel: text-embedding-3-small
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["vector_store"]
+	require.NotNil(t, comp, "the shipped vector_store component must resolve")
+	require.Len(t, comp.Resources, 1)
+}

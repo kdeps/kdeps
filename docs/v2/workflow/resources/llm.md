@@ -520,7 +520,7 @@ Both fields can be combined: `fewShotSelectK` ranks examples by similarity first
 
 ## RAG context injection
 
-Pass pre-fetched retriever chunks into the system prompt with `retrieverContext`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from a `vectorStore:` action output.
+Pass pre-fetched retriever chunks into the system prompt with `retrieverContext`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from the `vector_store` component's output.
 
 <div v-pre>
 

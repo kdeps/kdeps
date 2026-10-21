@@ -281,6 +281,16 @@ func TestComponentBackedAction(t *testing.T) {
 			component: "load_document",
 			ok:        true,
 		},
+		{
+			name: "native vectorStore",
+			res: &domain.Resource{
+				ActionID:    "a",
+				VectorStore: &domain.VectorStoreConfig{Collection: "docs", Operation: "similarity_search"},
+			},
+			action:    "vectorStore",
+			component: "vector_store",
+			ok:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -351,6 +361,13 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		Loader: &domain.LoaderConfig{Type: "text", Source: "/data/note.txt"},
 	})
 	if !ok || action != "loader" || component != "load_document" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		VectorStore: &domain.VectorStoreConfig{Collection: "docs", Operation: "similarity_search"},
+	})
+	if !ok || action != "vectorStore" || component != "vector_store" {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }
