@@ -4,8 +4,8 @@ Build an endpoint that calls a third-party API with a
 bearer token, retries on transient failures, and caches the response. You will
 also see API-key auth and TLS options.
 
-The `httpClient:` resource makes an outbound request and stores the parsed body
-as its output. Credentials come from a named connection in `~/.kdeps/config.yaml`
+The `http_request` component makes an outbound request and returns the parsed
+body as its output. Credentials come from a named connection in `~/.kdeps/config.yaml`
 (`connectionName:`), so the token never sits in the repo. `retry:`, `cache:` and
 `tls:` are built in - you do not write retry loops or token headers by hand.
 
@@ -54,19 +54,21 @@ name: Authenticated API call
 validations:
   methods: [GET]
   routes: [/api/v1/call]
-httpClient:
-  method: GET
-  url: "https://httpbin.org/bearer"
-  timeout: 10s
-  connectionName: httpbin                           # auth from http_connections.httpbin
-  retry:
-    maxAttempts: 3
-    backoff: 1s
-    maxBackoff: 5s
-    retryOn: [500, 502, 503, 504]                   # retry only these
-  cache:
-    ttl: 5m                                         # reuse the response for 5 minutes
-    key: "bearer_call"                              # cache entry name
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://httpbin.org/bearer"
+    timeout: 10s
+    connectionName: httpbin                         # auth from http_connections.httpbin
+    retry:
+      maxAttempts: 3
+      backoff: 1s
+      maxBackoff: 5s
+      retryOn: [500, 502, 503, 504]                 # retry only these
+    cache:
+      ttl: 5m                                       # reuse the response for 5 minutes
+      key: "bearer_call"                            # cache entry name
 ```
 
 </div>
@@ -170,7 +172,7 @@ tls:
 
 ## Next steps
 
-- [HTTP client resource](/workflow/resources/http-client) - all auth types, proxy, named connections
+- [HTTP client component](/workflow/resources/http-client) - all auth types, proxy, named connections
 - [HTTP client examples](/reference/http-client-examples) - pagination, file downloads
 - [Error handling (onError)](/workflow/error-handling) - fallback when retries are exhausted
 - [Global config](/reference/advanced-config) - named HTTP connections with shared credentials

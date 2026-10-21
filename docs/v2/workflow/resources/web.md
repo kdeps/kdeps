@@ -6,13 +6,13 @@ Works in workflow and agent mode.
 
 | Resource | Use it for | Reference |
 | :--- | :--- | :--- |
-| `httpClient:` | Call a JSON API, webhook, or REST endpoint | [HTTP client](/workflow/resources/http-client) |
+| `component: http_request` | Call a JSON API, webhook, or REST endpoint | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Get the readable text of a static page | [Scraper](/workflow/resources/scraper) |
 | `component: browser` | A page that needs JavaScript, a login, or form interaction | [Browser](/workflow/resources/browser) |
 
 ## Which one
 
-- **Just data from an API** - `httpClient:`. Built-in auth, retry, and cache.
+- **Just data from an API** - the `http_request` component. Built-in auth, retry, and cache.
 - **Text from a page** - the `scraper` component. No browser, optional CSS
   selector.
 - **The page only works with JavaScript, or you need to click and type** -
@@ -20,7 +20,7 @@ Works in workflow and agent mode.
 
 ## See also
 
-- [Authenticated API call tutorial](/examples/http-auth) - `httpClient:` auth, retry, cache
+- [Authenticated API call tutorial](/examples/http-auth) - `http_request` auth, retry, cache
 - [Web scraper tutorial](/examples/web-scraper) - the scraper component plus an LLM summary
 - [Search resources](/workflow/resources/search) - find pages to fetch
 - [Resources overview](/workflow/resources) - all resource types

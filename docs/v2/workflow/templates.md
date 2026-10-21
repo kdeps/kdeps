@@ -36,11 +36,13 @@ Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated n
 ```yaml
 # resource.yaml - no {% raw %} needed
 {% if env.ENABLE_HTTP == 'true' %}
-  httpClient:
-    method: GET
-    url: "{{ get('url') }}"
-    headers:
-      X-Request-ID: "{{ info('request_id') }}"
+  component:
+    name: http_request
+    with:
+      method: GET
+      url: "{{ get('url') }}"
+      headers:
+        X-Request-ID: "{{ info('request_id') }}"
 {% endif %}
 ```
 

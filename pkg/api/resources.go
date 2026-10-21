@@ -60,6 +60,13 @@ const (
 	argIndexDBPath = "indexDBPath"
 	argGraphBoost  = "graphBoost"
 
+	argFiles           = "files"
+	argRetry           = "retry"
+	argCache           = "cache"
+	argAccountName     = "accountName"
+	argFollowRedirects = "followRedirects"
+	argTLS             = "tls"
+
 	searchDefaultLimit = 3
 	msgSearchNeedQuery = "search_local: give a query (or a glob) to search for"
 	msgURLRequired     = "URL is required"
@@ -75,14 +82,15 @@ var (
 	loaderExec = execLoader.NewExecutor()
 	embedExec  = execEmbedding.NewExecutor()
 
-	httpDo        func(*domain.HTTPClientConfig) (any, error)
+	httpDo        func(context.Context, *domain.HTTPClientConfig) (any, error)
 	searchIndexWG sync.WaitGroup
 )
 
 // SetHTTPExecutor wires http_request to the process HTTP executor.
 // That package already imports this one for the in-process host, so the
-// wiring is a function instead of an import.
-func SetHTTPExecutor(fn func(*domain.HTTPClientConfig) (any, error)) {
+// wiring is a function instead of an import. The call's context is passed
+// through so named connections and caching work as they do in workflow mode.
+func SetHTTPExecutor(fn func(context.Context, *domain.HTTPClientConfig) (any, error)) {
 	if fn != nil {
 		httpDo = fn
 	}
@@ -100,18 +108,29 @@ func HTTPRequest(ctx context.Context, args map[string]any) (string, error) {
 		bodyData = nil
 	}
 	config := &domain.HTTPClientConfig{
-		URL:         stringArg(args, argURL),
-		Method:      stringArg(args, argMethod),
-		Data:        bodyData,
-		Timeout:     stringArg(args, argTimeout),
-		FailOnError: args[argFailOnError] == true,
-		SaveTo:      stringArg(args, argSaveTo),
+		URL:            stringArg(args, argURL),
+		Method:         stringArg(args, argMethod),
+		Data:           bodyData,
+		Timeout:        stringArg(args, argTimeout),
+		FailOnError:    args[argFailOnError] == true,
+		SaveTo:         stringArg(args, argSaveTo),
+		Headers:        stringMapArg(args, argHeaders),
+		Files:          stringMapArg(args, argFiles),
+		ConnectionName: stringArg(args, argConnectionName),
+		AccountName:    stringArg(args, argAccountName),
 	}
-	if headers, ok := args[argHeaders].(map[string]any); ok {
-		config.Headers = make(map[string]string, len(headers))
-		for key, val := range headers {
-			config.Headers[key] = fmt.Sprint(val)
-		}
+	if v, ok := args[argFollowRedirects].(bool); ok {
+		config.FollowRedirects = &v
+	}
+	var err error
+	if config.Retry, err = objectArg[domain.RetryConfig](args, argRetry); err != nil {
+		return "", err
+	}
+	if config.Cache, err = objectArg[domain.HTTPCacheConfig](args, argCache); err != nil {
+		return "", err
+	}
+	if config.TLS, err = objectArg[domain.HTTPTLSConfig](args, argTLS); err != nil {
+		return "", err
 	}
 	if config.URL == "" {
 		return "", errors.New(msgURLRequired)
@@ -119,11 +138,46 @@ func HTTPRequest(ctx context.Context, args map[string]any) (string, error) {
 	if httpDo == nil {
 		return "", errors.New(msgHTTPUnavailable)
 	}
-	result, err := httpDo(config)
+	result, err := httpDo(ctx, config)
 	if err != nil {
 		return "", err
 	}
 	return marshalIndent(result)
+}
+
+// stringMapArg reads an object arg whose values are scalars, such as headers
+// or the multipart files map. An absent or empty value is nil.
+func stringMapArg(args map[string]any, key string) map[string]string {
+	raw, ok := args[key].(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		out[k] = fmt.Sprint(v)
+	}
+	return out
+}
+
+// objectArg decodes a nested object arg (retry, cache, tls) into T. A component
+// leaves an unset optional input as "", which means nil.
+func objectArg[T any](args map[string]any, key string) (*T, error) {
+	raw, ok := args[key]
+	if !ok || raw == nil {
+		return nil, nil //nolint:nilnil // an unset optional input means no block
+	}
+	if s, isString := raw.(string); isString && s == "" {
+		return nil, nil //nolint:nilnil // a component passes unset optional inputs as ""
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", key, err)
+	}
+	var out T
+	if unmarshalErr := json.Unmarshal(data, &out); unmarshalErr != nil {
+		return nil, fmt.Errorf("%s: %w", key, unmarshalErr)
+	}
+	return &out, nil
 }
 
 // SearchOpts carries the working project's folders into search_local.

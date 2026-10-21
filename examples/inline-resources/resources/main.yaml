@@ -16,11 +16,13 @@ validations:
 
 # Inline resources that run BEFORE the main resource
 before:
-  # HTTP call to fetch additional data
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/config"
-      timeout: 5s
+  # HTTP call to fetch additional data (the http_request component)
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/config"
+        timeout: 5s
 
   # Execute a shell command to prepare environment
   - component:
@@ -59,16 +61,18 @@ after:
           print(json.dumps(result))
         timeout: 10s
 
-  # Send notification via HTTP
-  - httpClient:
-      method: POST
-      url: "https://api.example.com/notify"
-      headers:
-        Content-Type: "application/json"
-      data:
-        status: "completed"
-        resource: "main"
-      timeout: 5s
+  # Send notification via HTTP (the http_request component)
+  - component:
+      name: http_request
+      with:
+        method: POST
+        url: "https://api.example.com/notify"
+        headers:
+          Content-Type: "application/json"
+        data:
+          status: "completed"
+          resource: "main"
+        timeout: 5s
 
 # API response formatting
 apiResponse:

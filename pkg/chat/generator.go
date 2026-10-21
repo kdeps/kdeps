@@ -81,12 +81,14 @@ chat:
   prompt: "{{ input('message') }}"
   system: "You are a helpful assistant."
 
-# HTTP request
+# HTTP request (the http_request component)
 actionId: my-resource
-httpClient:
-  url: "https://api.example.com/data"
-  method: GET
-  headers: {}
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    method: GET
+    headers: {}
 
 # Shell command (the exec component)
 actionId: my-resource
@@ -135,7 +137,7 @@ component:
 6. If the task involves shell commands, use the ` + "`exec`" + ` component (` + "`component: {name: exec, with: {command: ...}}`" + `).
 7. If the task requires LLM reasoning, use ` + "`chat`" + `.
 8. For tasks that return data to the user, end with an ` + "`apiResponse`" + ` resource.
-9. Use ` + "`httpClient`" + ` (not ` + "`http`" + `) for HTTP requests.
+9. Use the ` + "`http_request`" + ` component (` + "`component: {name: http_request, with: {url: ...}}`" + `) for HTTP requests. Never write ` + "`httpClient:`" + ` directly.
 10. Do NOT include any text outside the <kdeps-workflow> block.
 `
 )

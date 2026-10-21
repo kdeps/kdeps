@@ -27,7 +27,7 @@ mode and agent mode.
 | `get()` | The primary data access function. Reads from query params, headers, body, session, memory, environment, or resource outputs, with auto-detection. | [Unified API](/workflow/data-access) |
 | `git` | A kdeps component (`component: git`) for version control: status, diff, log, commit, branch, push, pull. | [Git](/workflow/resources/git) |
 | <a id="grader"></a>grader | A check attached to a judge with `/judges grade`. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json`, `expr`. It runs on the answer in process. A failure rejects that judge before it calls the model. | [Judge panel](/agent/judges) |
-| `httpClient` | A resource action type for HTTP requests. Supports all methods, headers, query params, body, retry, and caching. | [HTTP client](/workflow/resources/http-client) |
+| `http_request` | A kdeps component (`component: http_request`) for HTTP requests. Supports all methods, headers, query params, body, retry, caching, and named connections. | [HTTP client](/workflow/resources/http-client) |
 | `info()` | An expression function that returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`. | [Unified API](/workflow/data-access) |
 | `items` | An array a resource iterates over. The resource runs once per item. Access the current item via `item.current()` or `get('current')`. | [Items iteration](/workflow/items) |
 | `jsonResponse` | A boolean field on `chat` resources. When true, forces the LLM to return valid JSON with no markdown wrapping. | [LLM (chat)](/workflow/resources/llm) |

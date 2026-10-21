@@ -1,24 +1,45 @@
-version: 1.1.0
-description: 'Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout, failOnError, saveTo.'
+version: 1.2.0
+description: 'Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), files (multipart uploads), timeout, failOnError, saveTo, retry, cache, connectionName, accountName, followRedirects, tls.'
 parameters:
+  accountName:
+    type: string
+    description: Named account under the agent identity; resolved as Basic Auth
+  cache:
+    type: object
+    description: 'Cache block: {ttl, key}. Presence enables response caching. Key defaults to the HTTP method and URL'
+  connectionName:
+    type: string
+    description: Named connection in ~/.kdeps/config.yaml supplying auth and proxy settings
   data:
     type: object
     description: Request body as JSON (for POST/PUT/PATCH)
   failOnError:
     type: boolean
     description: 'Treat a non-2xx response as an error instead of returning it. Default: false'
+  files:
+    type: object
+    description: 'Multipart form uploads: {field: file path}. Data entries become the text fields of the same form'
+  followRedirects:
+    type: boolean
+    description: 'Follow redirects. Leave unset to follow (default); false stops at the first 3xx'
   headers:
     type: object
     description: HTTP headers as key-value pairs
   method:
     type: string
     description: 'HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET'
+  retry:
+    type: object
+    description: 'Retry block: {maxAttempts, backoff, maxBackoff, retryOn: [status codes]}'
   saveTo:
     type: string
     description: 'Absolute path to stream a 2xx response body into, creating parent directories. Returns savedTo and bytes instead of the body'
   timeout:
     type: string
     description: 'Request timeout, e.g. ''30s''. Default: 30s'
+  tls:
+    type: object
+    description: 'TLS block: {insecureSkipVerify, certFile, keyFile, caFile}'
   url:
     type: string
     description: The URL to request

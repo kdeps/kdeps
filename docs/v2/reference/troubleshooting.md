@@ -137,9 +137,11 @@ The resource's action exceeded its timeout.
 Fix: increase the timeout on the resource:
 ```yaml
 # resources/example.yaml
-httpClient:
-  url: https://api.example.com/slow
-  timeout: 60s  # increase from default 30s
+component:
+  name: http_request
+  with:
+    url: https://api.example.com/slow
+    timeout: 60s  # increase from default 30s
 ```
 
 ### Resource not reachable

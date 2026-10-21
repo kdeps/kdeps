@@ -4,8 +4,8 @@ Build an API that takes a URL, fetches the page with the
 `scraper` component, sends the extracted text to a local LLM, and
 returns a short summary as JSON.
 
-The `scraper` component fetches a URL and returns its readable text - an
-`httpClient` GET, no browser, no external service. For pages that need JavaScript
+The `scraper` component fetches a URL and returns its readable text - a plain
+HTTP GET, no browser, no external service. For pages that need JavaScript
 rendering, use the [`browser` component](/workflow/resources/browser) instead.
 
 **Needs:** Network access.

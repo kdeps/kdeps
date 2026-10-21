@@ -21,7 +21,7 @@ closest to what you are building.
 | [Chat web app](/examples/chat-web-app) | API + static frontend together, `public` routes, `scenario:` |
 | [File upload](/examples/file-upload) | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
 | [Conditionals and lists](/examples/control-flow) | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
-| [Authenticated API call](/examples/http-auth) | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
+| [Authenticated API call](/examples/http-auth) | `component: http_request` bearer/API-key auth, `retry:`, `cache:` |
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
 | [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
@@ -188,7 +188,8 @@ Best for:
 
 An endpoint that calls a third-party API with a bearer token, retries only on
 5xx with exponential backoff, and caches the response for five minutes - all
-from the `httpClient:` `auth:` / `retry:` / `cache:` blocks.
+from the `http_request` component's `connectionName`, `retry:`, and `cache:`
+inputs.
 
 Best for:
 - Wrapping a paid or rate-limited upstream API
@@ -209,7 +210,7 @@ Best for:
 
 ## Inline resources
 
-Attach `httpClient:` and `component:` actions directly to one
+Attach `component:` and `chat:` actions directly to one
 resource's `before:` and `after:` blocks instead of creating a file for each.
 
 Best for:

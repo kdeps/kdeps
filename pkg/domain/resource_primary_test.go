@@ -261,6 +261,16 @@ func TestComponentBackedAction(t *testing.T) {
 			component: "embedding",
 			ok:        true,
 		},
+		{
+			name: "native httpClient",
+			res: &domain.Resource{
+				ActionID:   "a",
+				HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "https://example.com"},
+			},
+			action:    "httpClient",
+			component: "http_request",
+			ok:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -317,6 +327,13 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		Embedding: &domain.EmbeddingConfig{Operation: "index", Text: "hello"},
 	})
 	if !ok || action != "embedding" || component != "embedding" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "https://example.com"},
+	})
+	if !ok || action != "httpClient" || component != "http_request" {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }

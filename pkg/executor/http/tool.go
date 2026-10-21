@@ -19,8 +19,13 @@
 package http
 
 import (
+	"context"
+
 	"github.com/kdeps/kdeps/v2/pkg/api"
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
 )
 
 // The call route lives in pkg/api. This package already imports pkg/api, so
@@ -29,7 +34,15 @@ import (
 //nolint:gochecknoinits // wires http_request before any call
 func init() {
 	exec := NewExecutor()
-	api.SetHTTPExecutor(func(config *domain.HTTPClientConfig) (any, error) {
-		return exec.Execute(nil, config)
+	// One memory store per process so cache: entries survive across calls.
+	memory, _ := storage.NewMemoryStorage("")
+	api.SetHTTPExecutor(func(ctx context.Context, config *domain.HTTPClientConfig) (any, error) {
+		execCtx := &executor.ExecutionContext{Ctx: ctx, Memory: memory}
+		// connectionName resolves against ~/.kdeps/config.yaml, as it does
+		// when a workflow resource runs.
+		if cfg, err := kdepsconfig.LoadStruct(); err == nil {
+			execCtx.Config = cfg
+		}
+		return exec.Execute(execCtx, config)
 	})
 }

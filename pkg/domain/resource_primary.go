@@ -124,6 +124,12 @@ var componentBackedActions = []componentBackedAction{
 		Resource:  func(r *Resource) bool { return r.Embedding != nil },
 		Inline:    func(a *ActionConfig) bool { return a.Embedding != nil },
 	},
+	{
+		Name:      "httpClient",
+		Component: "http_request",
+		Resource:  func(r *Resource) bool { return r.HTTPClient != nil },
+		Inline:    func(a *ActionConfig) bool { return a.HTTPClient != nil },
+	},
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be

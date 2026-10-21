@@ -118,5 +118,5 @@ The model download posts `{url, method: GET, saveTo, failOnError}` to the `http_
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [HTTP client resource](/workflow/resources/http-client#file-upload-download-and-failing-on-errors) - `files`, `saveTo`, `failOnError`
+- [HTTP client component](/workflow/resources/http-client#file-upload-download-and-failing-on-errors) - `files`, `saveTo`, `failOnError`
 - [OCR component](/workflow/resources/ocr) - the same pattern for images

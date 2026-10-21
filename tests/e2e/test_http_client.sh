@@ -78,9 +78,11 @@ settings:
 resources:
   - actionId: httpCall
     name: HTTP Call
-    httpClient:
-      method: GET
-      url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
   - actionId: response
     name: HTTP Response
     requires: [httpCall]
@@ -161,5 +163,35 @@ else
     echo "--- kdeps log ---"
     tail -20 "$KDEPS_LOG"
 fi
+
+# The native httpClient: key is rejected in workflows: they call the component.
+LEGACY_DIR=$(mktemp -d)
+mkdir -p "$LEGACY_DIR/resources"
+cat > "$LEGACY_DIR/workflow.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: legacy-http
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  agentSettings:
+    timezone: UTC
+EOF
+cat > "$LEGACY_DIR/resources/legacy.yaml" <<'EOF'
+actionId: legacy
+name: Legacy HTTP
+httpClient:
+  method: GET
+  url: "https://example.com"
+EOF
+VALIDATE_OUT=$("$KDEPS_BIN" validate "$LEGACY_DIR/workflow.yaml" 2>&1 || true)
+if echo "$VALIDATE_OUT" | grep -q "call the http_request component instead"; then
+    test_passed "HTTP client - native httpClient rejected in favor of the component"
+else
+    test_failed "HTTP client - native httpClient rejected in favor of the component" \
+        "$(echo "$VALIDATE_OUT" | head -5)"
+fi
+rm -rf "$LEGACY_DIR"
 
 echo ""

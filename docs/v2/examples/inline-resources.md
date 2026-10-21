@@ -1,12 +1,13 @@
 # Run extra resources inline
 
-Attach `httpClient:` and `component:` actions directly to
+Attach `component:` and `chat:` actions directly to
 one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
 
 `before:` and `after:` usually hold bare expressions. They can also hold whole
-resource actions - `chat:`, `httpClient:`, `component:` - as list
-items. Shell and Python steps call the `exec` and `python` components inline. Use inline actions for
+resource actions - `chat:`, `component:` - as list
+items. Shell, Python, and HTTP steps call the `exec`, `python`, and
+`http_request` components inline. Use inline actions for
 one-off setup or teardown that only this resource needs; use a separate
 resource when other resources also depend on the result.
 

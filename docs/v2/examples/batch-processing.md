@@ -56,12 +56,14 @@ actionId: fetch
 name: Fetch repo data
 items:
   - "{{ input.items }}"           # the "items" array from the request body
-httpClient:
-  method: GET
-  url: "https://api.github.com/repos/{{ item.org }}/{{ item.repo }}"
-  headers:
-    Accept: application/vnd.github.v3+json
-  timeout: 10s
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.github.com/repos/{{ item.org }}/{{ item.repo }}"
+    headers:
+      Accept: application/vnd.github.v3+json
+    timeout: 10s
 ```
 
 </div>

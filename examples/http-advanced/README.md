@@ -91,52 +91,73 @@ This example demonstrates advanced HTTP client capabilities in KDeps v2:
 
 ## ⚙️ Configuration Examples
 
+The `http_request` component takes the request as component inputs. Reusable
+credentials belong in a named connection in `~/.kdeps/config.yaml`; reference it
+with `connectionName` and the executor applies the auth headers.
+
 ### Bearer Token Authentication
 ```yaml
-httpClient:
-  auth:
-    type: bearer
-    token: "{{ get('api_token') }}"
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/bearer"
+    connectionName: httpbin       # auth: bearer in http_connections.httpbin
+```
+
+Or set the header directly for a one-off token:
+```yaml
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/bearer"
+    headers:
+      Authorization: "Bearer {{ get('api_token') }}"
 ```
 
 ### API Key Authentication
 ```yaml
-httpClient:
-  auth:
-    type: api_key
-    key: "X-API-Key"
-    value: "{{ get('api_key') }}"
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/post"
+    connectionName: partner_api   # auth: api_key with header name and value
 ```
 
 ### Advanced Retry Configuration
 ```yaml
-httpClient:
-  retry:
-    maxAttempts: 5
-    backoff: 500ms      # Initial delay
-    maxBackoff: 10s     # Maximum delay
-    retryOn: [429, 500, 502, 503]  # Status codes to retry
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/get"
+    retry:
+      maxAttempts: 5
+      backoff: 500ms                # Initial delay
+      maxBackoff: 10s               # Maximum delay
+      retryOn: [429, 500, 502, 503] # Status codes to retry
 ```
 
 ### Response Caching
 ```yaml
-httpClient:
-  cache:
-    enabled: true
-    ttl: 5m
-    key: "custom_cache_key"
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/get"
+    cache:
+      ttl: 5m
+      key: "custom_cache_key"
 ```
 
 ### Proxy and TLS Configuration
 ```yaml
-httpClient:
-  proxy: "http://proxy.company.com:8080"
-  tls:
-    insecureSkipVerify: false
-    certFile: "/path/to/client.crt"
-    keyFile: "/path/to/client.key"
-    caFile: "/path/to/ca.crt"
-  followRedirects: false
+component:
+  name: http_request
+  with:
+    url: "https://httpbin.org/get"
+    connectionName: corporate-proxy # proxy set on the connection in config.yaml
+    followRedirects: false
+    tls:
+      insecureSkipVerify: false
+      caFile: "/path/to/ca.crt"
 ```
 
 ## 🧪 Testing the Features

@@ -41,8 +41,10 @@ metadata:
 
 resources:
   - actionId: fetchData
-    httpClient:
-      url: https://api.example.com/data
+    component:
+      name: http_request
+      with:
+        url: https://api.example.com/data
 
   - actionId: analyzeData
     requires: [fetchData]            # runs only after fetchData succeeds
@@ -97,12 +99,16 @@ Resources that do not depend on each other (neither directly nor transitively) c
 ```yaml
 # resources/example.yaml
 - actionId: fetchUsers
-  httpClient:
-    url: https://api.example.com/users
+  component:
+    name: http_request
+    with:
+      url: https://api.example.com/users
 
 - actionId: fetchProducts                    # no requires -- independent of fetchUsers
-  httpClient:
-    url: https://api.example.com/products
+  component:
+    name: http_request
+    with:
+      url: https://api.example.com/products
 
 - actionId: merge
   requires: [fetchUsers, fetchProducts]      # waits for both

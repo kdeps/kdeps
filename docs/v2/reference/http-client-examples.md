@@ -1,6 +1,6 @@
 # HTTP client examples
 
-Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/workflow/resources/http-client) for the full configuration reference.
+Example `http_request` component calls for common API integration patterns. See [HTTP client component](/workflow/resources/http-client) for the full configuration reference.
 
 Works in workflow and agent mode.
 
@@ -18,13 +18,15 @@ http_connections:
 
 # resources/fetch-data.yaml
 actionId: fetchData
-httpClient:
-  method: GET
-  url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
-  headers:
-    Accept: application/vnd.github.v3+json
-  connectionName: github
-  timeout: 30s
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
+    headers:
+      Accept: application/vnd.github.v3+json
+    connectionName: github
+    timeout: 30s
 
 ---
 
@@ -50,21 +52,23 @@ http_connections:
       token: "${STRIPE_SECRET_KEY}"
 
 # resources/example.yaml
-httpClient:
-  method: POST
-  url: "https://api.stripe.com/v1/charges"
-  connectionName: stripe
-  headers:
-    Content-Type: application/x-www-form-urlencoded
-  data:
-    amount: "{{ get('amount') }}"
-    currency: usd
-    source: "{{ get('token') }}"
-  retry:
-    maxAttempts: 3
-    backoff: 2s
-    retryOn: [500, 502, 503]
-  timeout: 30s
+component:
+  name: http_request
+  with:
+    method: POST
+    url: "https://api.stripe.com/v1/charges"
+    connectionName: stripe
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    data:
+      amount: "{{ get('amount') }}"
+      currency: usd
+      source: "{{ get('token') }}"
+    retry:
+      maxAttempts: 3
+      backoff: 2s
+      retryOn: [500, 502, 503]
+    timeout: 30s
 ```
 
 </div>
@@ -75,17 +79,19 @@ httpClient:
 
 ```yaml
 # resources/example.yaml
-httpClient:
-  method: POST
-  url: "{{ get('webhook_url') }}"
-  headers:
-    Content-Type: application/json
-    X-Webhook-Secret: "{{ get('WEBHOOK_SECRET', 'env') }}"
-  data:
-    event: order_completed
-    order_id: "{{ get('order_id') }}"
-    timestamp: "{{ info('timestamp') }}"
-  timeout: 10s
+component:
+  name: http_request
+  with:
+    method: POST
+    url: "{{ get('webhook_url') }}"
+    headers:
+      Content-Type: application/json
+      X-Webhook-Secret: "{{ get('WEBHOOK_SECRET', 'env') }}"
+    data:
+      event: order_completed
+      order_id: "{{ get('order_id') }}"
+      timestamp: "{{ info('timestamp') }}"
+    timeout: 10s
 ```
 
 </div>
@@ -94,15 +100,17 @@ httpClient:
 
 ```yaml
 # resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.exchangerate.host/latest"
-  cache:
-    ttl: 1h
-    key: "exchange-rates"
-  timeout: 30s
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.exchangerate.host/latest"
+    cache:
+      ttl: 1h
+      key: "exchange-rates"
+    timeout: 30s
 ```
 
 ## See also
 
-- [HTTP client resource](/workflow/resources/http-client) - Full configuration reference
+- [HTTP client component](/workflow/resources/http-client) - Full configuration reference

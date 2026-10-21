@@ -55,17 +55,17 @@ actionId: myResource        # required: unique ID -- used by requires: and get()
 # Exactly one primary action per resource (apiResponse: may accompany it
 # on the same resource to format the HTTP response):
 chat: { ... }        # send a prompt to an LLM; reply text at .message.content
-httpClient: { ... }  # make an HTTP request; output is the parsed response body
 codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
 component:           # call a shipped or installed component:
-  name: exec         #   exec runs a shell command; output {success, exitCode, stdout, ...}
+  name: http_request #   make an HTTP request; output is the parsed response body
   with:
-    command: "uname -a"
+    method: GET
+    url: https://api.example.com/data
 ```
 
-The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
+The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
 
 ## actionId and requires
 
@@ -104,7 +104,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 | YAML key | Description | Page |
 |---|---|---|
-| `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/workflow/resources/http-client) |
+| `component: http_request` | HTTP requests - APIs, webhooks, auth, retry, cache - a kdeps component, YAML only | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
 | `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | [Browser](/workflow/resources/browser) |
 | `component: search_local` | Glob + keyword search across local files - a kdeps component, YAML only | [search_local](/workflow/resources/search-local) |

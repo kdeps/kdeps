@@ -40,5 +40,5 @@ maintainers coordinate a fix and a disclosure timeline with you.
 In scope: the `kdeps` CLI, the workflow engine, resource executors, the agent
 loop, and the packaging and deployment tooling in this repository.
 
-Out of scope: third-party model backends, external APIs called by `httpClient:`
-or `browser:` resources, and user-authored workflows.
+Out of scope: third-party model backends, external APIs called by the
+`http_request` or `browser` components, and user-authored workflows.

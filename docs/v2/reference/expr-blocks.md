@@ -4,7 +4,7 @@
 
 Works in workflow and agent mode.
 
-- `before:` runs before the main action (chat, httpClient, sql, file, etc.)
+- `before:` runs before the main action (chat, component, codeIntelligence, etc.)
 - `after:` runs after the main action
 
 Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
@@ -40,11 +40,13 @@ after:
   - set('cleaned_data', trim(get('rawData')))
   - set('request_time', info('timestamp'))
 
-httpClient:
-  url: "https://api.example.com/process"
-  data:
-    input: get('cleaned_data')
-    timestamp: get('request_time')
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/process"
+    data:
+      input: get('cleaned_data')
+      timestamp: get('request_time')
 ```
 
 ### 2. Memory/Session operations
@@ -94,10 +96,12 @@ after:
   - set('mode', get('env') == 'production' ? 'strict' : 'debug')
   - set('cache_ttl', get('mode') == 'strict' ? '1h' : '5m')
 
-httpClient:
-  url: "https://api.example.com/data"
-  cache:
-    ttl: get('cache_ttl')
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    cache:
+      ttl: get('cache_ttl')
 ```
 
 ## Execution order
@@ -109,7 +113,7 @@ direction: down
 
 A: Request {shape: oval}
 B: "before:\nexpressions run in order\nvalues stored via set()"
-C: "Main Action\nchat, httpClient, sql, python, exec, file, git, codeIntelligence, apiResponse"
+C: "Main Action\nchat, component, codeIntelligence, agent, apiResponse"
 D: "after:\nexpressions run in order\noutput accessible via get()"
 E: response {shape: oval}
 
@@ -178,10 +182,12 @@ after:
   - set('fallback_value', get('default', 'memory') ?? 'N/A')
   - set('retry_count', get('retry_count', 'memory') ?? 0)
 
-httpClient:
-  url: "https://api.example.com/data"
-  retry:
-    maxAttempts: 3
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    retry:
+      maxAttempts: 3
 ```
 
 ## Expression-only resources

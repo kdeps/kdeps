@@ -87,13 +87,15 @@ resources:
   # DuckDuckGo instant-answer API — lightweight, no API key required.
   - actionId: web-search-tool
     name: Web Search Tool
-    httpClient:
-      method: GET
-      url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
-      timeout: 10s
-      headers:
-        Accept: "application/json"
-        User-Agent: "personal-assistant/1.0"
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
+        timeout: 10s
+        headers:
+          Accept: "application/json"
+          User-Agent: "personal-assistant/1.0"
 
   # ── Tool 2: web scrape ───────────────────────────────────────────────────────
   # Fetches and parses the full text content of a URL.

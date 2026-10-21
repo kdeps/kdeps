@@ -101,7 +101,7 @@ What you should expect to maintain:
 | Thing | Why it moves | What to do |
 |---|---|---|
 | The `workflow.yaml` schema | kdeps does not carry legacy schema shims - a newer `kdeps` binary may reject an older file. `apiVersion: kdeps.io/v1` marks the current schema, not a frozen one. | Keep the source YAML with the image; re-validate with `kdeps validate` before upgrading the runtime, or just keep running the built image. |
-| `httpClient:` targets | External APIs change schema, auth, endpoints | Target a versioned path (`/v2/users`, not `/users`) |
+| `http_request` targets | External APIs change schema, auth, endpoints | Target a versioned path (`/v2/users`, not `/users`) |
 | `browser` component selectors | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
 
 The guarantee is not that your YAML runs forever on any future kdeps. It is that the appliance you ship is a self-contained unit you can freeze, archive, and redeploy without a live dependency on any vendor.

@@ -215,7 +215,12 @@ func TestHTTPRequestComponent_PassesHeadersAndBody(t *testing.T) {
 		"    url: "+yamlPath(srv.URL)+"\n    method: POST\n"+
 			"    headers:\n      X-From-Component: yes\n    data:\n      k: v\n")
 	require.NoError(t, err)
-	require.Contains(t, fmt.Sprint(out), `"got": true`)
+	result, ok := out.(map[string]interface{})
+	require.True(t, ok, "the http_request component returns the tool result object, got %T", out)
+	data, ok := result["data"].(map[string]interface{})
+	require.True(t, ok, "the response body is decoded into data, got %T", result["data"])
+	require.Equal(t, true, data["got"])
+	require.EqualValues(t, 200, result["statusCode"])
 	require.Equal(t, "yes", gotHeader)
 	require.JSONEq(t, `{"k":"v"}`, gotBody)
 }
