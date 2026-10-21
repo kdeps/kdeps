@@ -363,6 +363,8 @@ func TestHandshakeGrounding_OmitsFullCatalog(t *testing.T) {
 // identical addition, since the handshake round is the one place this
 // failure is most costly (it blocks the entire turn from ever starting).
 func TestPerformHandshake_M365GetsSandboxReinforcement(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	initHarness()
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	eng := executor.NewEngine(nil)
 	loop := New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
@@ -371,29 +373,40 @@ func TestPerformHandshake_M365GetsSandboxReinforcement(t *testing.T) {
 		Streamer:      cfgs,
 		MaxToolRounds: 5,
 	})
+	loop.config.Backend = backendM365
 	require.NoError(t, loop.performHandshake(context.Background()))
 
 	require.NotEmpty(t, cfgs.cfgs)
-	found := false
-	for _, item := range cfgs.cfgs[0].Scenario {
-		if item.Role == "system" && strings.Contains(item.Prompt, "/mnt/data sandbox") {
-			found = true
+	sandbox := harnessText("m365-sandbox")
+	require.NotEmpty(t, sandbox, "the harness asset must be loaded for this test to mean anything")
+	foundReinforcedChallenge := false
+	for _, cfg := range cfgs.cfgs {
+		for _, item := range cfg.Scenario {
+			if item.Role == "system" && strings.Count(item.Prompt, sandbox) == 1 {
+				foundReinforcedChallenge = true
+			}
 		}
 	}
-	assert.True(t, found, "m365 handshake grounding must include the sandbox reinforcement")
+	assert.True(t, foundReinforcedChallenge,
+		"m365 challenge grounding must add the sandbox reinforcement to the assembled preamble")
 }
 
 // TestPerformHandshake_NonM365SkipsSandboxReinforcement ensures the addition
 // is m365-specific, not accidentally sent to every backend.
 func TestPerformHandshake_NonM365SkipsSandboxReinforcement(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	initHarness()
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	loop := newStreamingLoop(cfgs, 5)
 	require.NoError(t, loop.performHandshake(context.Background()))
 
 	require.NotEmpty(t, cfgs.cfgs)
+	sandbox := harnessText("m365-sandbox")
+	require.NotEmpty(t, sandbox, "the harness asset must be loaded for this test to mean anything")
 	for _, item := range cfgs.cfgs[0].Scenario {
 		if item.Role == "system" {
-			assert.NotContains(t, item.Prompt, "/mnt/data sandbox")
+			assert.Equal(t, 0, strings.Count(item.Prompt, sandbox),
+				"non-m365 handshake grounding must never carry the sandbox reinforcement")
 		}
 	}
 }
