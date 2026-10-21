@@ -33,6 +33,9 @@ func (e *Executor) checkCache(
 	headers map[string]string,
 ) (interface{}, bool) {
 	kdeps_debug.Log("enter: checkCache")
+	if ctx == nil || ctx.Memory == nil {
+		return nil, false
+	}
 	cacheKey := e.buildCacheKey(cache, url, method, headers)
 
 	if cached, exists := ctx.Memory.Get(cacheKey); exists {
@@ -51,6 +54,9 @@ func (e *Executor) cacheResponse(
 	response interface{},
 ) {
 	kdeps_debug.Log("enter: cacheResponse")
+	if ctx == nil || ctx.Memory == nil {
+		return
+	}
 	cacheKey := e.buildCacheKey(cache, url, method, headers)
 	_ = ctx.Memory.Set(cacheKey, response)
 }

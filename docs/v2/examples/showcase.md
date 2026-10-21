@@ -92,14 +92,16 @@ apiResponse:
 # resources/respond.yaml
 actionId: respond
 before:
-  - httpClient:
-      method: GET
-      url: "{{ env('BANK_API_URL') }}/transactions"
-      headers:
-        Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
 chat:
   prompt: |
-    Transactions: {{ get('httpClient') }}
+    Transactions: {{ get('http_request') }}
     Today: {{ info('timestamp') }}
     List bills due in 7 days. Flag anything overdue.
   jsonResponse: true
@@ -120,14 +122,16 @@ apiResponse:
 # resources/respond.yaml
 actionId: respond
 before:
-  - httpClient:
-      method: GET
-      url: "{{ env('BANK_API_URL') }}/transactions?days=90"
-      headers:
-        Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions?days=90"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
 chat:
   prompt: |
-    Transactions: {{ get('httpClient') }}
+    Transactions: {{ get('http_request') }}
     Find all recurring charges. Flag any not used in 30+ days.
   jsonResponse: true
   jsonResponseKeys: [subscriptions, unused, monthly_total]
@@ -172,12 +176,14 @@ apiResponse:
 # resources/respond.yaml
 actionId: respond
 before:
-  - httpClient:
-      method: GET
-      url: "{{ env('PANTRY_API') }}/inventory"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "{{ env('PANTRY_API') }}/inventory"
 chat:
   prompt: |
-    Pantry: {{ get('httpClient') }}
+    Pantry: {{ get('http_request') }}
     Suggest 5 meals using items expiring soonest.
     List what needs reordering.
   jsonResponse: true

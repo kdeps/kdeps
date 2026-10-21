@@ -392,7 +392,7 @@ Identity is `name`/`email`/`address` (attribution - who the agent is) plus `acco
 - **Outbound email.** The [`email` component](/workflow/resources/email) with no `from` input defaults to `identity.email`.
 - **`identity_get` tool.** Agent mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
 
-`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.
+`accounts` are consumed by resources that need to authenticate as the agent. An `http_request` component call with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.
 
 ## See also
 

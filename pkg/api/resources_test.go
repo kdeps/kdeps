@@ -55,13 +55,14 @@ func TestResources_NilAndCanceled(t *testing.T) {
 	}
 }
 
+//nolint:gocognit,gocyclo,cyclop // exercises every http_request input and its unset form
 func TestHTTPRequest_URLAndExecutor(t *testing.T) {
 	if _, err := HTTPRequest(t.Context(), map[string]any{}); err == nil || err.Error() != msgURLRequired {
 		t.Fatalf("url: %v", err)
 	}
 	orig := httpDo
 	t.Cleanup(func() { httpDo = orig })
-	httpDo = func(config *domain.HTTPClientConfig) (any, error) {
+	httpDo = func(_ context.Context, config *domain.HTTPClientConfig) (any, error) {
 		if config.URL != "https://example.com" || config.Method != http.MethodPost || config.Timeout != "1s" {
 			t.Fatalf("config %+v", config)
 		}
@@ -78,33 +79,74 @@ func TestHTTPRequest_URLAndExecutor(t *testing.T) {
 		if body["k"] != "v" {
 			t.Fatalf("data %+v", config.Data)
 		}
+		if config.Files["upload"] != "/tmp/a.txt" {
+			t.Fatalf("files %+v", config.Files)
+		}
+		if config.ConnectionName != "stripe" || config.AccountName != "work" {
+			t.Fatalf("names %+v", config)
+		}
+		if config.FollowRedirects == nil || *config.FollowRedirects {
+			t.Fatalf("followRedirects %+v", config.FollowRedirects)
+		}
+		if config.Retry == nil || config.Retry.MaxAttempts != 3 || len(config.Retry.RetryOn) != 2 {
+			t.Fatalf("retry %+v", config.Retry)
+		}
+		if config.Cache == nil || config.Cache.TTL != "5m" {
+			t.Fatalf("cache %+v", config.Cache)
+		}
+		if config.TLS == nil || !config.TLS.InsecureSkipVerify || config.TLS.CAFile != "/ca.pem" {
+			t.Fatalf("tls %+v", config.TLS)
+		}
 		return map[string]any{"status": 200}, nil
 	}
 	out, err := HTTPRequest(t.Context(), map[string]any{
-		argURL:         "https://example.com",
-		argMethod:      "POST",
-		argHeaders:     map[string]any{"X-Test": "1"},
-		argData:        map[string]any{"k": "v"},
-		argTimeout:     "1s",
-		argFailOnError: true,
-		argSaveTo:      "/tmp/out.bin",
+		argURL:             "https://example.com",
+		argMethod:          "POST",
+		argHeaders:         map[string]any{"X-Test": "1"},
+		argFiles:           map[string]any{"upload": "/tmp/a.txt"},
+		argData:            map[string]any{"k": "v"},
+		argTimeout:         "1s",
+		argFailOnError:     true,
+		argSaveTo:          "/tmp/out.bin",
+		argConnectionName:  "stripe",
+		argAccountName:     "work",
+		argFollowRedirects: false,
+		argRetry:           map[string]any{"maxAttempts": 3, "retryOn": []any{500, 503}},
+		argCache:           map[string]any{"ttl": "5m"},
+		argTLS:             map[string]any{"insecureSkipVerify": true, "caFile": "/ca.pem"},
 	})
 	if err != nil || !strings.Contains(out, `"status": 200`) {
 		t.Fatalf("call: %v %s", err, out)
 	}
 
-	// An unset data input from a component is "": it must not become a body.
-	httpDo = func(config *domain.HTTPClientConfig) (any, error) {
+	// An unset data input from a component is "": it must not become a body,
+	// and unset nested inputs stay nil.
+	httpDo = func(_ context.Context, config *domain.HTTPClientConfig) (any, error) {
 		if config.Data != nil {
 			t.Fatalf("empty data forwarded as %#v, want nil", config.Data)
+		}
+		if config.Retry != nil || config.Cache != nil || config.TLS != nil || config.FollowRedirects != nil {
+			t.Fatalf("unset inputs became %+v", config)
 		}
 		return map[string]any{"status": 204}, nil
 	}
 	if _, callErr := HTTPRequest(t.Context(), map[string]any{
-		argURL:  "https://example.com",
-		argData: "",
+		argURL:   "https://example.com",
+		argData:  "",
+		argRetry: "",
+		argCache: "",
+		argTLS:   "",
 	}); callErr != nil {
 		t.Fatalf("empty data: %v", callErr)
+	}
+
+	// A malformed nested object is reported against its input name.
+	httpDo = orig
+	if _, reqErr := HTTPRequest(t.Context(), map[string]any{
+		argURL:   "https://example.com",
+		argRetry: map[string]any{"maxAttempts": "many"},
+	}); reqErr == nil || !strings.Contains(reqErr.Error(), "retry:") {
+		t.Fatalf("bad retry: %v", reqErr)
 	}
 }
 

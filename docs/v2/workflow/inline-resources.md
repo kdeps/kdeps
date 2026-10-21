@@ -1,6 +1,6 @@
 # Inline resources
 
-Inline resources are full resource actions (chat, httpClient, component, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+Inline resources are full resource actions (chat, component, codeIntelligence) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
 
@@ -12,15 +12,17 @@ actionId: example
 name: Example Resource
 # Inline resources to run BEFORE the main resource
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/config"
+  - component:                     # HTTP steps go through the http_request component
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/config"
   - component:                     # shell steps go through the exec component
       name: exec
       with:
         command: "echo 'Preparing environment...'"
 
-# Main resource (chat, httpClient, component, or file)
+# Main resource (chat, component, codeIntelligence, or file)
 chat:
   role: user
   prompt: "Process this data"
@@ -40,9 +42,9 @@ after:
 
 ## Supported resource types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `agent`, `component`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `agent`, `component`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
-`exec:`, `python:`, and `embedding:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`), scripts call the `python` component, and embedding steps call the `embedding` component, the same as anywhere else in a workflow.
+`exec:`, `python:`, `embedding:`, and `httpClient:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`), scripts call the `python` component, embedding steps call the `embedding` component, and HTTP steps call the `http_request` component, the same as anywhere else in a workflow.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 
@@ -52,9 +54,9 @@ When `apiResponse` is the only primary block and the resource has `before:` or `
 direction: down
 
 A: "expressions in before:\nset() / get() statements"
-B: "inline resources in before:\nhttpClient, component, etc."
+B: "inline resources in before:\ncomponent, chat, etc."
 C: "main action\nchat, sql, component..."
-D: "inline resources in after:\nhttpClient, sql, etc."
+D: "inline resources in after:\ncomponent, codeIntelligence, etc."
 E: "expressions in after:\nset() / get() statements"
 
 A -> B -> C -> D -> E
@@ -69,10 +71,12 @@ Fetch additional data before processing:
 ```yaml
 # resources/example.yaml
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/user/{{get('user_id')}}"
-      timeout: 5s
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/user/{{get('user_id')}}"
+        timeout: 5s
 
 chat:
   prompt: "Analyze user: {{get('_output')}}"
@@ -108,12 +112,14 @@ component:
     script: "process_data.py"
 
 after:
-  - httpClient:
-      method: POST
-      url: "https://api.example.com/notify"
-      data:
-        status: "completed"
-        timestamp: "{{now()}}"
+  - component:
+      name: http_request
+      with:
+        method: POST
+        url: "https://api.example.com/notify"
+        data:
+          status: "completed"
+          timestamp: "{{now()}}"
 ```
 
 ### 4. Environment setup
@@ -169,12 +175,16 @@ You can have multiple inline resources of the same or different types:
 ```yaml
 # resources/example.yaml
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/config"
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/user"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/config"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/user"
   - component:
       name: exec
       with:
@@ -193,9 +203,11 @@ after:
       name: python
       with:
         script: "send_metrics.py"
-  - httpClient:
-      method: POST
-      url: "https://api.example.com/complete"
+  - component:
+      name: http_request
+      with:
+        method: POST
+        url: "https://api.example.com/complete"
 ```
 
 ## Resources without main type
@@ -205,9 +217,11 @@ You can have a resource with only inline resources and no main resource type:
 ```yaml
 # resources/example.yaml
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/data"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/data"
 
 after:
   - component:
@@ -232,9 +246,11 @@ You can use the resource's `onError` configuration to handle errors:
 ```yaml
 # resources/example.yaml
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/config"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/config"
 
 chat:
   prompt: "{{get('prompt')}}"
@@ -257,9 +273,11 @@ before:
 
 before:
   # Access variables set in before
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/user/{{get('user_id')}}"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/user/{{get('user_id')}}"
 
 chat:
   # Access results from previous steps
@@ -270,20 +288,22 @@ chat:
 
 Each inline resource supports the same configuration options as the standalone resource:
 
-### HTTP client
+### HTTP request (component)
 ```yaml
 # resources/example.yaml
-- httpClient:
-    method: POST
-    url: "https://api.example.com"
-    headers:
-      Authorization: "Bearer {{get('token')}}"
-    data:
-      key: "value"
-    timeout: 10s
-    retry:
-      maxAttempts: 3
-      backoff: 1s
+- component:
+    name: http_request
+    with:
+      method: POST
+      url: "https://api.example.com"
+      headers:
+        Authorization: "Bearer {{get('token')}}"
+      data:
+        key: "value"
+      timeout: 10s
+      retry:
+        maxAttempts: 3
+        backoff: 1s
 ```
 
 ### SQL
@@ -360,12 +380,12 @@ Each inline resource supports the same configuration options as the standalone r
 ```yaml
 # Single resource file
 before:
-  - httpClient: { ... }  # Fetch config
-  - component: { name: exec, with: { ... } }  # Prepare env
-chat: { ... }            # Main processing
+  - component: { name: http_request, with: { ... } }  # Fetch config
+  - component: { name: exec, with: { ... } }          # Prepare env
+chat: { ... }                                         # Main processing
 after:
-  - component: { name: sql, with: { ... } }   # Store results
-  - httpClient: { ... }  # Send notification
+  - component: { name: sql, with: { ... } }           # Store results
+  - component: { name: http_request, with: { ... } }  # Send notification
 ```
 
 **Benefits:**
@@ -404,8 +424,10 @@ items:
   - item2
 
 before:
-  - httpClient:
-      url: "https://api.example.com/prepare/{{item.current()}}"
+  - component:
+      name: http_request
+      with:
+        url: "https://api.example.com/prepare/{{item.current()}}"
 
 chat:
   prompt: "Process {{item.current()}}"

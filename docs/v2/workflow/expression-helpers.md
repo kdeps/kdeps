@@ -55,10 +55,12 @@ after:
       "timestamp": info('timestamp'),
       "metadata": get('sessionData')
     }))
-httpClient:
-  url: "https://api.example.com/data"
-  method: POST
-  data: "{{ get('payload') }}"
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    method: POST
+    data: "{{ get('payload') }}"
 ```
 
 </div>

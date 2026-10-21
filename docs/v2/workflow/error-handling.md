@@ -42,9 +42,11 @@ Continue execution even if the resource fails, using a fallback value:
 ```yaml
 # resources/fetch-data.yaml
 actionId: fetchData
-httpClient:
-  url: "https://api.example.com/data"
-  method: GET
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    method: GET
 
 onError:
   action: continue
@@ -83,9 +85,11 @@ Automatically retry failed operations:
 ```yaml
 # resources/unreliable-api.yaml
 actionId: unreliableApi
-httpClient:
-  url: "https://flaky-api.example.com/data"
-  method: GET
+component:
+  name: http_request
+  with:
+    url: "https://flaky-api.example.com/data"
+    method: GET
 
 onError:
   action: retry
@@ -181,10 +185,12 @@ onError:
 ```yaml
 # resources/fetch-user-data.yaml
 actionId: fetchUserData
-httpClient:
-  url: "https://api.example.com/users/{{ get('userId') }}"
-  method: GET
-  timeout: 5s
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/users/{{ get('userId') }}"
+    method: GET
+    timeout: 5s
 
 onError:
   action: retry
@@ -221,9 +227,11 @@ validations:
   skip:
   - get('circuitOpen', 'session') == true
 
-httpClient:
-  url: "https://api.example.com/data"
-  method: GET
+component:
+  name: http_request
+  with:
+    url: "https://api.example.com/data"
+    method: GET
 
 onError:
   action: continue

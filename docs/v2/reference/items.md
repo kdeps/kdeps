@@ -38,9 +38,11 @@ requires: [fetchProducts]
 items:
   - "get('fetchProducts')"
 
-httpClient:
-  method: GET
-  url: "https://api.example.com/details/{{ get('current') }}"
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/details/{{ get('current') }}"
 ```
 
 </div>

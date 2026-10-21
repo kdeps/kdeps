@@ -33,7 +33,7 @@ The execution order for a resource with inline resources is:
 
 1. **ExprBefore** expressions (if any)
 2. **Before** inline resources (executed sequentially)
-3. **Main resource** (chat, httpClient, component, python)
+3. **Main resource** (chat, component, ...)
 4. **After** inline resources (executed sequentially)
 5. **Expr/ExprAfter** expressions (if any)
 6. **APIResponse** formatting (if configured)
@@ -45,9 +45,11 @@ The execution order for a resource with inline resources is:
 ```yaml
 # Inline resources to run before main resource
 before:
-  - httpClient:
-      method: GET
-      url: "https://api.example.com/data"
+  - component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.example.com/data"
   - component:
       name: exec
       with:
@@ -60,20 +62,24 @@ chat:
 
 # Inline resources to run after main resource
 after:
-  - sql:
-      connection: "sqlite3://./db.sqlite"
-      query: "INSERT INTO logs VALUES (?)"
-  - python:
-      script: "print('Done')"
+  - component:
+      name: sql
+      with:
+        connectionName: main
+        query: "INSERT INTO logs VALUES (?)"
+  - component:
+      name: python
+      with:
+        script: "print('Done')"
 ```
 
 ### Supported Inline Resource Types
 
 Each inline resource can be one of:
 - **chat**: LLM interaction
-- **httpClient**: HTTP requests
-- **sql**: Database queries
-- **python**: Python script execution
+- **component: http_request**: HTTP requests
+- **component: sql**: Database queries
+- **component: python**: Python script execution
 - **component: exec**: Shell command execution
 
 ### Error Handling
@@ -135,12 +141,12 @@ resources:
 ```yaml
 # Single resource file with inline resources
 before:
-  - httpClient: ...    # Fetch config
-  - component: { name: exec, with: { ... } }  # Prepare env
-chat: ...              # Main processing
+  - component: { name: http_request, with: { ... } }  # Fetch config
+  - component: { name: exec, with: { ... } }          # Prepare env
+chat: ...                                             # Main processing
 after:
-  - sql: ...           # Store results
-  - httpClient: ...    # Send notification
+  - component: { name: sql, with: { ... } }           # Store results
+  - component: { name: http_request, with: { ... } }  # Send notification
 ```
 
 **Benefits:**
@@ -160,12 +166,12 @@ before:
   - set('timestamp', now())
 
 before:
-  - httpClient: ...
+  - component: { name: http_request, with: { ... } }
 
 chat: ...
 
 after:
-  - sql: ...
+  - component: { name: sql, with: { ... } }
 
 after:
   - set('duration', now() - get('timestamp'))

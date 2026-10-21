@@ -5,24 +5,27 @@ validations:
   methods: [GET]
   routes: [/api/v1/http-demo]
 
-httpClient:
-  method: GET
-  url: "https://httpbin.org/bearer"
-  timeout: 10s
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://httpbin.org/bearer"
+    timeout: 10s
 
-  # Bearer token authentication
-  auth:
-    type: bearer
-    token: "{{ get('api_token', 'your-bearer-token-here') }}"
+    headers:
+      # Bearer authentication as a request header. Reusable credentials belong
+      # in a named connection in ~/.kdeps/config.yaml; reference it with
+      # connectionName instead of templating the token here.
+      Authorization: "Bearer {{ get('api_token', 'your-bearer-token-here') }}"
 
-  # Retry configuration
-  retry:
-    maxAttempts: 3
-    backoff: 1s
-    maxBackoff: 5s
-    retryOn: [500, 502, 503, 504]
+    # Retry configuration
+    retry:
+      maxAttempts: 3
+      backoff: 1s
+      maxBackoff: 5s
+      retryOn: [500, 502, 503, 504]
 
-  # Response caching
-  cache:
-    ttl: 5m
-    key: "bearer_auth_test"
+    # Response caching
+    cache:
+      ttl: 5m
+      key: "bearer_auth_test"

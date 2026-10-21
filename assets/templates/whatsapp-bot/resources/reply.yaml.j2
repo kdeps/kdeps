@@ -10,17 +10,19 @@ validations:
     - "{% raw %}(request.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body ?? '') == ''{% endraw %}"
 
 # WhatsApp Cloud API: send the answer back to the sender's number.
-httpClient:
-  method: POST
-  url: "{% raw %}{{ env('WHATSAPP_API_URL', 'https://graph.facebook.com/v19.0') }}/{{ env('WHATSAPP_PHONE_NUMBER_ID') }}/messages{% endraw %}"
-  headers:
-    Authorization: "{% raw %}Bearer {{ env('WHATSAPP_ACCESS_TOKEN') }}{% endraw %}"
-    Content-Type: application/json
-  data:
-    messaging_product: whatsapp
-    to: "{% raw %}{{ request.body.entry[0].changes[0].value.messages[0].from }}{% endraw %}"
-    type: text
-    text:
-      body: "{% raw %}{{ get('llm').message.content }}{% endraw %}"
-  failOnError: true
-  timeout: 30s
+component:
+  name: http_request
+  with:
+    method: POST
+    url: "{% raw %}{{ env('WHATSAPP_API_URL', 'https://graph.facebook.com/v19.0') }}/{{ env('WHATSAPP_PHONE_NUMBER_ID') }}/messages{% endraw %}"
+    headers:
+      Authorization: "{% raw %}Bearer {{ env('WHATSAPP_ACCESS_TOKEN') }}{% endraw %}"
+      Content-Type: application/json
+    data:
+      messaging_product: whatsapp
+      to: "{% raw %}{{ request.body.entry[0].changes[0].value.messages[0].from }}{% endraw %}"
+      type: text
+      text:
+        body: "{% raw %}{{ get('llm').message.content }}{% endraw %}"
+    failOnError: true
+    timeout: 30s

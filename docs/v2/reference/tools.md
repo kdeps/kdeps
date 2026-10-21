@@ -118,10 +118,12 @@ chat:
 ```yaml
 # Weather API resource
 actionId: weatherTool
-httpClient:
-  method: GET
-  url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
-  timeout: 30s
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
+    timeout: 30s
 
 ---
 # LLM with weather

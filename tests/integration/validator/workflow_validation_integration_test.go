@@ -53,11 +53,13 @@ func TestWorkflowValidationIntegration_CompleteWorkflow(t *testing.T) {
 	// Create HTTP resource
 	httpResource := `actionId: fetch-data
 name: Fetch Data
-httpClient:
-  method: "GET"
-  url: "https://httpbin.org/get"
-  headers:
-    Accept: "application/json"
+component:
+  name: http_request
+  with:
+    method: "GET"
+    url: "https://httpbin.org/get"
+    headers:
+      Accept: "application/json"
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "fetch-data.yaml"), []byte(httpResource), 0644)
@@ -172,7 +174,8 @@ settings:
 	httpRes, exists := resourceMap["fetch-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Fetch Data", httpRes.Name)
-	assert.NotNil(t, httpRes.HTTPClient)
+	require.NotNil(t, httpRes.Component)
+	assert.Equal(t, "http_request", httpRes.Component.Name)
 
 	// Verify SQL resource
 	sqlRes, exists := resourceMap["store-data"]
@@ -319,12 +322,14 @@ func TestWorkflowValidationIntegration_ResourceValidation(t *testing.T) {
 	resources := map[string]string{
 		"http-resource.yaml": `actionId: http-test
 name: HTTP Test
-httpClient:
-  method: "GET"
-  url: "https://api.example.com/test"
-  headers:
-    Authorization: "Bearer token"
-    Content-Type: "application/json"
+component:
+  name: http_request
+  with:
+    method: "GET"
+    url: "https://api.example.com/test"
+    headers:
+      Authorization: "Bearer token"
+      Content-Type: "application/json"
 `,
 
 		"sql-resource.yaml": `actionId: sql-test
@@ -405,17 +410,19 @@ settings:
 	}
 
 	// Verify each resource type
-	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
+	assert.Equal(t, "http_request", resourceMap["http-test"].Component.Name)
 	assert.Equal(t, "sql", resourceMap["sql-test"].Component.Name)
 	assert.Equal(t, "python", resourceMap["python-test"].Component.Name)
 	assert.Equal(t, "exec", resourceMap["exec-test"].Component.Name)
 	assert.NotNil(t, resourceMap["response-test"].APIResponse)
 
-	// Verify HTTP resource configuration
+	// Verify HTTP resource passes its request to the http_request component
 	httpRes := resourceMap["http-test"]
-	assert.Equal(t, "https://api.example.com/test", httpRes.HTTPClient.URL)
-	assert.Equal(t, "GET", httpRes.HTTPClient.Method)
-	assert.Contains(t, httpRes.HTTPClient.Headers, "Authorization")
+	assert.Equal(t, "https://api.example.com/test", httpRes.Component.With["url"])
+	assert.Equal(t, "GET", httpRes.Component.With["method"])
+	headers, ok := httpRes.Component.With["headers"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Bearer token", headers["Authorization"])
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]

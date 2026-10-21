@@ -32,7 +32,7 @@ Set the backend, base URL, and model via flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
-Yes. Resources like `httpClient`, `python`, `exec`, `codeIntelligence`, and `apiResponse` (and the `sql`, `git`, `file`, `email`, `browser` and `scraper` components) do not require an LLM. You can build pure data pipelines with no AI at all.
+Yes. Resources like `codeIntelligence`, `agent`, and `apiResponse` (and the `http_request`, `python`, `exec`, `sql`, `git`, `file`, `email`, `browser` and `scraper` components) do not require an LLM. You can build pure data pipelines with no AI at all.
 
 ## How is this different from writing a Python script?
 
@@ -72,10 +72,12 @@ Use environment variables. Reference them in your workflow with `get('SECRET_NAM
 
 ```yaml
 # resources/example.yaml
-httpClient:
-  url: https://api.example.com
-  headers:
-    Authorization: "Bearer {{ get('API_KEY', 'env') }}"
+component:
+  name: http_request
+  with:
+    url: https://api.example.com
+    headers:
+      Authorization: "Bearer {{ get('API_KEY', 'env') }}"
 ```
 
 </div>

@@ -2542,3 +2542,67 @@ apiResponse:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uses embedding in a before: step directly")
 }
+
+func TestParser_ParseWorkflowHTTPClientComponentBacked(t *testing.T) {
+	dir := t.TempDir()
+	resourcesDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
+
+	workflowPath := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: http-client-component-backing
+  version: 1.0.0
+  targetActionId: fetch
+settings:
+  agentSettings:
+    timezone: UTC
+`), 0o600))
+
+	resourcePath := filepath.Join(resourcesDir, "fetch.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: fetch
+name: Fetch
+httpClient:
+  method: GET
+  url: "https://example.com"
+`), 0o600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	_, err := parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses httpClient directly")
+	assert.Contains(t, err.Error(), "call the http_request component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: fetch
+name: Fetch
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://example.com"
+`), 0o600))
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.Len(t, workflow.Resources, 1)
+	require.NotNil(t, workflow.Resources[0].Component)
+	assert.Equal(t, "http_request", workflow.Resources[0].Component.Name)
+
+	// An inline before: step has no more access to the native action.
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: fetch
+name: Fetch
+before:
+  - httpClient:
+      method: GET
+      url: "https://example.com"
+apiResponse:
+  success: true
+`), 0o600))
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses httpClient in a before: step directly")
+}

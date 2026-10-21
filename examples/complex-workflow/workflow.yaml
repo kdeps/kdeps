@@ -24,52 +24,60 @@ resources:
     name: fetch-repo-data
     description: "Fetch GitHub repository information"
     requires: []
-    httpClient:
-      method: GET
-      url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}"
-      headers:
-        Accept: "application/vnd.github.v3+json"
-        User-Agent: "KDeps-Workflow"
-      timeout: 10s
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeout: 10s
 
   # Step 2: Fetch recent commits (parallel with step 3)
   - actionId: fetch-commits
     name: fetch-commits
     description: "Fetch recent commits"
     requires: ["fetch-repo-data"]
-    httpClient:
-      method: GET
-      url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/commits?per_page=10"
-      headers:
-        Accept: "application/vnd.github.v3+json"
-        User-Agent: "KDeps-Workflow"
-      timeout: 10s
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/commits?per_page=10"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeout: 10s
 
   # Step 3: Fetch contributors (parallel with step 2)
   - actionId: fetch-contributors
     name: fetch-contributors
     description: "Fetch repository contributors"
     requires: ["fetch-repo-data"]
-    httpClient:
-      method: GET
-      url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/contributors?per_page=5"
-      headers:
-        Accept: "application/vnd.github.v3+json"
-        User-Agent: "KDeps-Workflow"
-      timeout: 10s
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/contributors?per_page=5"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeout: 10s
 
   # Step 4: Fetch issues (parallel with steps 2 & 3)
   - actionId: fetch-issues
     name: fetch-issues
     description: "Fetch recent issues"
     requires: ["fetch-repo-data"]
-    httpClient:
-      method: GET
-      url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/issues?state=open&per_page=10"
-      headers:
-        Accept: "application/vnd.github.v3+json"
-        User-Agent: "KDeps-Workflow"
-      timeout: 10s
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/issues?state=open&per_page=10"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeout: 10s
 
   # Step 5: Analyze repository activity
   - actionId: analyze-activity

@@ -1,14 +1,110 @@
-# HTTP client resource
+# http_request component
 
-The `httpClient:` resource makes an outbound HTTP request and stores the parsed response body as its output. JSON responses are parsed automatically; other content types are stored as a string.
+The `http_request` component makes one outbound HTTP request and returns the response: status code, status line, headers, raw body, and the parsed JSON body under `data` when the response is JSON. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `http_request` tool, which runs the native HTTP executor. A workflow that uses `httpClient:` directly - primary or in a `before:`/`after:` step - is rejected.
 
-## Where it runs
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+```d2
+direction: right
+call: "component: http_request" {shape: oval}
+api: "POST /tools/http_request/call\nkdeps API"
+conn: "~/.kdeps/config.yaml\nhttp_connections / identity.accounts"
+exec: "HTTP executor\nretry, cache, TLS, redirects"
+target: "outbound HTTP request"
+out: "result map\nstatusCode, headers, body, data" {shape: oval}
+call -> api
+conn -> api: "connectionName / accountName"
+api -> exec
+exec -> target
+exec -> out
+```
 
-## Global named connections
+## Configuration
 
-Authentication credentials and proxy settings belong in `~/.kdeps/config.yaml` as named connections, not inline in resource files or `workflow.yaml`. Resources reference them by name.
+<div v-pre>
+
+```yaml
+# resources/fetch.yaml
+actionId: fetch
+name: Fetch User
+component:
+  name: http_request               # from the components asset set; a components/http_request/ of your own wins
+  with:
+    method: GET                    # GET, POST, PUT, PATCH, DELETE (default GET)
+    url: "https://api.example.com/users/{{ get('id') }}"
+    headers:
+      Accept: application/json
+    data:                          # request body, serialized as JSON (POST, PUT, PATCH)
+      name: "{{ get('name') }}"
+    timeout: 30s                   # hard stop; returns an error, does not retry
+    failOnError: false             # true: a 4xx/5xx fails the resource instead of returning a result
+```
+
+</div>
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | string | yes | - | URL to request |
+| `method` | string | no | `GET` | `GET`, `POST`, `PUT`, `PATCH`, or `DELETE` |
+| `headers` | object | no | - | Request headers as key-value pairs |
+| `data` | object | no | - | Request body, serialized as JSON |
+| `files` | object | no | - | Multipart form uploads: each key is a form field, each value a file path |
+| `timeout` | string | no | executor default | Hard stop for the request, e.g. `30s` |
+| `failOnError` | bool | no | `false` | A non-2xx response becomes a resource error instead of a result |
+| `saveTo` | string | no | - | Stream a 2xx body into this file; the result reports `savedTo` and `bytes` instead of the body |
+| `retry` | object | no | - | `{maxAttempts, backoff, maxBackoff, retryOn}` - retry on the listed status codes |
+| `cache` | object | no | - | `{ttl, key}` - presence enables response caching, key defaults to the method and URL |
+| `connectionName` | string | no | - | Named connection in `~/.kdeps/config.yaml` supplying auth and proxy |
+| `accountName` | string | no | - | Named account under the agent identity; resolved as Basic Auth |
+| `followRedirects` | bool | no | follow | `false` stops at the first 3xx |
+| `tls` | object | no | - | `{insecureSkipVerify, certFile, keyFile, caFile}` |
+
+## HTTP methods
+
+<div v-pre>
+
+```yaml
+# GET
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/users/{{ get('id') }}"
+
+# POST with a JSON body
+component:
+  name: http_request
+  with:
+    method: POST
+    url: "https://api.example.com/users"
+    headers:
+      Content-Type: application/json
+    data:
+      name: "{{ get('name') }}"
+      email: "{{ get('email') }}"
+
+# PUT
+component:
+  name: http_request
+  with:
+    method: PUT
+    url: "https://api.example.com/users/{{ get('id') }}"
+    data:
+      name: "{{ get('name') }}"
+
+# DELETE
+component:
+  name: http_request
+  with:
+    method: DELETE
+    url: "https://api.example.com/users/{{ get('id') }}"
+```
+
+</div>
+
+## Authentication
+
+Credentials belong in `~/.kdeps/config.yaml` as named connections, not inline in resource files or `workflow.yaml`. The component references them with `connectionName`.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -22,161 +118,15 @@ http_connections:
       type: basic
       username: "${API_USER}"
       password: "${API_PASS}"
-  corporate-proxy:
-    proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
-  github:
-    auth:
-      type: api_key
-      key: Authorization       # header name
-      value: "token ${GITHUB_TOKEN}"
-```
-
-Reference a connection in a resource:
-
-```yaml
-httpClient:
-  method: GET
-  url: "https://api.stripe.com/v1/charges"
-  connectionName: stripe   # references http_connections.stripe in ~/.kdeps/config.yaml
-```
-
-## Complete reference
-
-<div v-pre>
-
-```yaml
-# resources/http-client.yaml
-httpClient:
-  method: GET                    # GET, POST, PUT, PATCH, DELETE
-  url: "https://api.example.com/{{ get('id') }}"
-  headers:
-    Content-Type: application/json
-  data:                          # request body -- serialised as JSON
-    key: value
-  timeout: 30s                   # hard stop -- returns error, does not retry
-
-  connectionName: myapi          # named connection (auth + proxy) from settings.httpConnections
-
-  # Retry on transient failures
-  retry:
-    maxAttempts: 3               # total attempts including the first
-    backoff: 1s                  # initial wait; doubles on each retry
-    maxBackoff: 30s              # ceiling on the retry wait
-    retryOn: [500, 502, 503, 504]
-
-  # Response caching -- presence of the cache: block enables it
-  cache:
-    ttl: 5m                      # cache lifetime; key defaults to the URL
-    key: "custom-cache-key"
-
-  followRedirects: true          # set false to stop at the first 3xx
-  tls:
-    insecureSkipVerify: false    # never set true in production
-    certFile: "/path/to/cert.pem"
-    keyFile: "/path/to/key.pem"
-    caFile: "/path/to/ca.pem"
-```
-
-</div>
-
-## HTTP methods
-
-<div v-pre>
-
-```yaml
-# GET request
-httpClient:
-  method: GET
-  url: "https://api.example.com/users/{{ get('id') }}"
-
-# POST request with body
-httpClient:
-  method: POST
-  url: "https://api.example.com/users"
-  headers:
-    Content-Type: application/json
-  data:
-    name: "{{ get('name') }}"
-    email: "{{ get('email') }}"
-
-# PUT request
-httpClient:
-  method: PUT
-  url: "https://api.example.com/users/{{ get('id') }}"
-  data:
-    name: "{{ get('name') }}"
-
-# DELETE request
-httpClient:
-  method: DELETE
-  url: "https://api.example.com/users/{{ get('id') }}"
-```
-
-</div>
-
-## Authentication
-
-All auth types are defined in `settings.httpConnections` and referenced via `connectionName:`.
-
-### Bearer token
-
-```yaml
-# ~/.kdeps/config.yaml
-http_connections:
-  myapi:
-    auth:
-      type: bearer
-      token: "${API_TOKEN}"
-```
-
-```yaml
-# resources/fetch.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/protected"
-  connectionName: myapi
-```
-
-### Basic auth
-
-```yaml
-# ~/.kdeps/config.yaml
-http_connections:
-  legacy:
-    auth:
-      type: basic
-      username: "${API_USER}"
-      password: "${API_PASS}"
-```
-
-### API key
-
-```yaml
-# ~/.kdeps/config.yaml
-http_connections:
   analytics:
     auth:
       type: api_key
-      key: X-API-Key        # header name
+      key: X-API-Key              # header name
       value: "${ANALYTICS_KEY}"
-```
-
-### OAuth2
-
-```yaml
-# ~/.kdeps/config.yaml
-http_connections:
   oauth:
     auth:
       type: oauth2
       token: "${OAUTH2_ACCESS_TOKEN}"
-```
-
-### Proxy with auth
-
-```yaml
-# ~/.kdeps/config.yaml
-http_connections:
   via-proxy:
     proxy: "http://${PROXY_USER}:${PROXY_PASS}@proxy.corp:8080"
     auth:
@@ -184,9 +134,20 @@ http_connections:
       token: "${API_TOKEN}"
 ```
 
-### Account auth
+<div v-pre>
 
-`accountName:` is a lighter alternative to `connectionName:` for services the agent authenticates with as itself, using a named account from the agent's [identity](/reference/advanced-config#agent-identity) instead of a full `http_connections` entry. Resolves as Basic Auth. When both are set, `connectionName` wins.
+```yaml
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.stripe.com/v1/charges"
+    connectionName: stripe        # auth + proxy from http_connections.stripe
+```
+
+</div>
+
+`accountName` is a lighter alternative for services the agent authenticates with as itself, using a named account from the agent's [identity](/reference/advanced-config#agent-identity). It resolves as Basic Auth; when both are set, `connectionName` wins.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -195,202 +156,22 @@ identity:
     crm:
       username: "${CRM_USER}"
       password: "${CRM_PASS}"
-      url: https://crm.example.com
 ```
-
-```yaml
-# resources/fetch.yaml
-httpClient:
-  method: GET
-  url: "https://crm.example.com/contacts"
-  accountName: crm
-```
-
-## File upload, download and failing on errors
-
-`files:` sends a `multipart/form-data` body: each key is a form field, each value the path of the file to upload; `data:` holds the text fields of the same form (empty ones are left out). `saveTo:` streams a 2xx response into a file instead of memory. `failOnError: true` turns a non-2xx response into a resource error instead of a result to inspect.
-
-```yaml
-# resources/upload.yaml - multipart upload (e.g. a Whisper API)
-httpClient:
-  method: POST
-  url: https://api.openai.com/v1/audio/transcriptions
-  headers:
-    Authorization: "Bearer {{ env('OPENAI_API_KEY') }}"
-  files:
-    file: "{{ get('audioPath') }}"     # field name -> file path, uploaded with its base name
-  data:
-    model: whisper-1                   # text fields of the same form
-    language: "{{ get('lang') }}"      # left out when empty
-  failOnError: true                    # 4xx/5xx fails the resource with the status and body
-```
-
-```yaml
-# resources/download.yaml - fetch a file once
-validations:
-  skip:
-    - "fileExists('/data/models/model.bin')"   # already there: do not download again
-httpClient:
-  method: GET
-  url: https://example.com/model.bin
-  saveTo: /data/models/model.bin       # parent dirs created; written to .part then renamed
-  timeout: 900s
-```
-
-With `saveTo`, the result is `{statusCode, status, headers, savedTo, bytes}` instead of `body`/`data`. A non-2xx response is not saved and comes back as a normal result (or an error with `failOnError`).
-
-## Retry configuration
-
-Automatic retries with exponential backoff:
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/data"
-  retry:
-    maxAttempts: 3           # Total attempts (including first)
-    backoff: 1s              # Initial delay between retries
-    maxBackoff: 30s          # Maximum delay
-    retryOn:                 # Status codes to retry on
-      - 500
-      - 502
-      - 503
-      - 504
-      - 429  # Rate limited
-```
-
-Retry timing example:
-- Attempt 1: immediate
-- Attempt 2: wait 1s
-- Attempt 3: wait 2s (exponential backoff)
-
-## Response caching
-
-Cache responses to reduce API calls. Presence of the `cache:` block enables caching.
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/static-data"
-  cache:
-    ttl: 5m                  # Cache for 5 minutes
-    key: "static-data-cache" # Optional: custom cache key
-```
-
-Cache key defaults to the URL if not specified.
-
-## TLS configuration
-
-### Skip certificate verification (development only)
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://self-signed.example.com"
-  tls:
-    insecureSkipVerify: true
-```
-
-> **Warning**: Never use `insecureSkipVerify: true` in production.
-
-### Custom certificates
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://internal.example.com"
-  tls:
-    certFile: "/certs/client.pem"
-    keyFile: "/certs/client-key.pem"
-    caFile: "/certs/ca.pem"
-```
-
-## Redirect handling
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/redirect"
-  followRedirects: true      # Default: true
-```
-
-Set to `false` to prevent following redirects.
-
-## Accessing response
-
-The HTTP client response includes:
-
-```yaml
-# In another resource
-requires: [httpResource]
-apiResponse:
-  response:
-    # Full response body (parsed JSON or raw string)
-    data: get('httpResource')
-
-    # If JSON response, access fields directly
-    user_name: get('httpResource').name
-    user_email: get('httpResource').email
-
-    # Access response details
-    status_code: get('httpResource').statusCode
-    headers: get('httpResource').headers
-```
-
-### Advanced response access
-
-Use resource-specific accessors for detailed response information:
-
-```yaml
-# resources/example.yaml
-after:
-  # Get response body only
-  - set('response_body', http.responseBody('httpResource'))
-
-  # Get specific header
-  - set('content_type', http.responseHeader('httpResource', 'Content-Type'))
-
-  # Check status
-  - set('is_success', get('httpResource').statusCode >= 200 && get('httpResource').statusCode < 300)
-
-apiResponse:
-  response:
-    body: get('response_body')
-    content_type: get('content_type')
-    success: get('is_success')
-```
-
-See [Unified API](/workflow/data-access#resource-specific-accessors) for details.
-
-## Error handling
-
-Use preflight checks to validate before making requests:
 
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-validations:
-  check:
-    - get('user_id') != ''
-  error:
-    code: 400
-    message: "user_id is required"
-
-httpClient:
-  method: GET
-  url: "https://api.example.com/users/{{ get('user_id') }}"
-  connectionName: myapi
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://crm.example.com/contacts"
+    accountName: crm
 ```
 
 </div>
 
-## `http_connections` fields (in `~/.kdeps/config.yaml`)
+### `http_connections` fields (in `~/.kdeps/config.yaml`)
 
 | Field | Type | Description |
 |---|---|---|
@@ -402,9 +183,201 @@ httpClient:
 | `auth.value` | string | API key header value |
 | `proxy` | string | Proxy URL (may include `user:pass@`) |
 
+## File upload, download and failing on errors
+
+`files:` sends a `multipart/form-data` body: each key is a form field, each value the path of the file to upload; `data:` holds the text fields of the same form. `saveTo:` streams a 2xx response into a file instead of memory. `failOnError: true` turns a non-2xx response into a resource error instead of a result to inspect.
+
+<div v-pre>
+
+```yaml
+# resources/upload.yaml - multipart upload (e.g. a Whisper API)
+component:
+  name: http_request
+  with:
+    method: POST
+    url: https://api.openai.com/v1/audio/transcriptions
+    headers:
+      Authorization: "Bearer {{ env('OPENAI_API_KEY') }}"
+    files:
+      file: "{{ get('audioPath') }}"   # field name -> file path, uploaded with its base name
+    data:
+      model: whisper-1                 # text fields of the same form
+      language: "{{ get('lang') }}"
+    failOnError: true                  # 4xx/5xx fails the resource with the status and body
+```
+
+```yaml
+# resources/download.yaml - fetch a file once
+validations:
+  skip:
+    - "fileExists('/data/models/model.bin')"
+component:
+  name: http_request
+  with:
+    method: GET
+    url: https://example.com/model.bin
+    saveTo: /data/models/model.bin     # parent dirs created; written to .part then renamed
+    timeout: 900s
+```
+
+</div>
+
+With `saveTo`, the result is `{statusCode, status, headers, savedTo, bytes}` instead of `body`/`data`. A non-2xx response is not saved and comes back as a normal result, or an error with `failOnError`.
+
+## Retry
+
+Retries use exponential backoff: attempt 1 immediately, then `backoff`, `2x backoff`, up to `maxBackoff`.
+
+<div v-pre>
+
+```yaml
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/data"
+    retry:
+      maxAttempts: 3          # total attempts, including the first
+      backoff: 1s             # initial delay; doubles each retry
+      maxBackoff: 30s         # ceiling on the delay
+      retryOn: [429, 500, 502, 503, 504]   # status codes to retry
+```
+
+</div>
+
+## Response caching
+
+Presence of the `cache:` block enables caching in the process memory store, shared across component calls.
+
+<div v-pre>
+
+```yaml
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/static-data"
+    cache:
+      ttl: 5m                    # cache lifetime
+      key: "static-data-cache"   # optional; defaults to the method and URL
+```
+
+</div>
+
+## TLS
+
+<div v-pre>
+
+```yaml
+# Skip certificate verification - development only
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://self-signed.example.com"
+    tls:
+      insecureSkipVerify: true
+
+# Client certificates
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://internal.example.com"
+    tls:
+      certFile: "/certs/client.pem"
+      keyFile: "/certs/client-key.pem"
+      caFile: "/certs/ca.pem"
+```
+
+</div>
+
+## Redirects
+
+Redirects are followed by default. Set `followRedirects: false` to stop at the first 3xx and return it as the result.
+
+<div v-pre>
+
+```yaml
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/redirect"
+    followRedirects: false
+```
+
+</div>
+
+## Output
+
+```json
+{
+  "statusCode": 200,
+  "status": "200 OK",
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"name\":\"Ada\"}",
+  "data": {"name": "Ada"}
+}
+```
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `statusCode` | integer | HTTP status code |
+| `status` | string | Status line, e.g. `200 OK` |
+| `headers` | object | Response headers |
+| `body` | string | Raw response body |
+| `data` | any | Parsed body when it is JSON; absent otherwise |
+| `savedTo` | string | File the body was streamed into (`saveTo`) |
+| `bytes` | integer | Bytes written (`saveTo`) |
+
+Read the parsed body with `get('fetch').data`, the status with `get('fetch').statusCode`.
+
+### Response accessors
+
+Resource-specific accessors read the same result:
+
+<div v-pre>
+
+```yaml
+# resources/fetch.yaml runs first; this resource reads it
+after:
+  - set('response_body', http.responseBody('fetch'))            # body only
+  - set('content_type', http.responseHeader('fetch', 'Content-Type'))
+  - set('is_success', get('fetch').statusCode >= 200 && get('fetch').statusCode < 300)
+```
+
+</div>
+
+See [Unified API](/workflow/data-access#resource-specific-accessors) for details.
+
+## Error handling
+
+Use preflight checks to validate before making requests:
+
+<div v-pre>
+
+```yaml
+validations:
+  check:
+    - get('user_id') != ''
+  error:
+    code: 400
+    message: "user_id is required"
+
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://api.example.com/users/{{ get('user_id') }}"
+    connectionName: myapi
+```
+
+</div>
+
 ## See also
 
 - [HTTP client examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
+- [Scraper component](/workflow/resources/scraper) - fetch and extract readable text from a page
 - [SQL resource](/workflow/resources/sql) - database operations
-- [LLM resource](/workflow/resources/llm) - AI model integration
 - [Unified API](/workflow/data-access) - data access patterns

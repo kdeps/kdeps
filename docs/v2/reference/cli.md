@@ -138,7 +138,7 @@ kubectl rollout status deployment/my-agent
 | `OLLAMA_HOST` | Ollama server URL |
 | `TZ` | Timezone applied to all workflow runs |
 | `KDEPS_CHAT_TIMEOUT` | Default timeout for LLM chat resources. Agent-loop internal calls (compaction, goals, judging) use a 10m default instead, and this variable caps them when set |
-| `KDEPS_HTTP_TIMEOUT` | Default timeout for HTTP client resources |
+| `KDEPS_HTTP_TIMEOUT` | Default timeout for HTTP requests |
 | `KDEPS_PYTHON_TIMEOUT` | Default timeout for Python resources |
 | `KDEPS_EXEC_TIMEOUT` | Default timeout for the exec component |
 | `KDEPS_SQL_TIMEOUT` | Default timeout for SQL resources |

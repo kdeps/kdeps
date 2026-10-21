@@ -26,12 +26,14 @@ resources:
     requires: []
     items:
       - "{{input.items}}"  # Iterate over items from request
-    httpClient:
-      method: GET
-      url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
-      headers:
-        Accept: "application/vnd.github.v3+json"
-      timeout: 10s
+    component:
+      name: http_request
+      with:
+        method: GET
+        url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        timeout: 10s
 
   # Transform each result
   - actionId: transform-results

@@ -766,3 +766,76 @@ func TestYAMLParser_EmbeddingExampleUsesComponent(t *testing.T) {
 	}
 	assert.True(t, found, "examples/embedding-rag must call the embedding component")
 }
+
+func TestYAMLParser_HTTPClientComponentBacked(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: http-client-component-backed
+  version: "1.0.0"
+  targetActionId: fetch
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "fetch.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: fetch
+name: Fetch
+httpClient:
+  method: GET
+  url: "https://example.com"
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the http_request component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: fetch
+name: Fetch
+component:
+  name: http_request
+  with:
+    method: GET
+    url: "https://example.com"
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["http_request"]
+	require.NotNil(t, comp, "the shipped http_request component must resolve")
+	require.Len(t, comp.Resources, 1)
+	require.NotNil(t, comp.Resources[0].HTTPClient)
+	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
+		"/apis/tools.kdeps.io/v1/tools/http_request/call")
+}
+
+// The shipped http-advanced example calls the component; it keeps no native
+// httpClient resource that the parser would now reject.
+func TestYAMLParser_HTTPClientExampleUsesComponent(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	workflow, err := parser.ParseWorkflow("../../../examples/http-advanced/workflow.yaml")
+	require.NoError(t, err)
+
+	var found bool
+	for _, resource := range workflow.Resources {
+		if resource.Component == nil || resource.Component.Name != "http_request" {
+			continue
+		}
+		found = true
+		if action, _, ok := domain.ComponentBackedAction(resource); ok {
+			t.Fatalf("example resource %q still runs a component-backed native action", action)
+		}
+	}
+	assert.True(t, found, "examples/http-advanced must call the http_request component")
+}
