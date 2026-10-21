@@ -3,12 +3,18 @@ kind: Component
 metadata:
   name: embedding_vectorize
   description: Convert text into embeddings through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: texts
       type: array
       description: Strings to embed. An empty list is refused
+    - name: backend
+      type: string
+      description: 'Embedding backend: openai, ollama, google'
+    - name: model
+      type: string
+      description: 'Embedding model, for example text-embedding-3-small'
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -24,3 +30,5 @@ resources:
       timeout: 30s
       data:
         texts: "{{ get('embedding_vectorize.texts') }}"
+        backend: "{{ get('embedding_vectorize.backend') }}"
+        model: "{{ get('embedding_vectorize.model') }}"

@@ -3,13 +3,17 @@ kind: Component
 metadata:
   name: memory_query
   description: Run a relational memory query through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: query
       type: string
       required: true
       description: expr-lang query over memory, tool_calls, and tasks
+    - name: limit
+      type: integer
+      default: 50
+      description: Max rows returned when the result is a relation (hard cap 500)
   # body is the JSON result, or the handler error. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -24,3 +28,4 @@ resources:
       timeout: 30s
       data:
         query: "{{ get('memory_query.query') }}"
+        limit: "{{ get('memory_query.limit') }}"

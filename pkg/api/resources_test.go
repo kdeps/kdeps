@@ -92,6 +92,20 @@ func TestHTTPRequest_URLAndExecutor(t *testing.T) {
 	if err != nil || !strings.Contains(out, `"status": 200`) {
 		t.Fatalf("call: %v %s", err, out)
 	}
+
+	// An unset data input from a component is "": it must not become a body.
+	httpDo = func(config *domain.HTTPClientConfig) (any, error) {
+		if config.Data != nil {
+			t.Fatalf("empty data forwarded as %#v, want nil", config.Data)
+		}
+		return map[string]any{"status": 204}, nil
+	}
+	if _, callErr := HTTPRequest(t.Context(), map[string]any{
+		argURL:  "https://example.com",
+		argData: "",
+	}); callErr != nil {
+		t.Fatalf("empty data: %v", callErr)
+	}
 }
 
 func TestSearchLocal_QueryRootAndHits(t *testing.T) {

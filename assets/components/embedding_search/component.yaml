@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: embedding_search
   description: Search the local embedding database through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: query
@@ -14,6 +14,10 @@ interface:
       type: string
       required: true
       description: Document collection to search
+    - name: limit
+      type: number
+      default: 5
+      description: Maximum number of results
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -30,3 +34,4 @@ resources:
       data:
         query: "{{ get('embedding_search.query') }}"
         collection: "{{ get('embedding_search.collection') }}"
+        limit: "{{ get('embedding_search.limit') }}"

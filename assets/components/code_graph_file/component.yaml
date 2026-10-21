@@ -3,13 +3,16 @@ kind: Component
 metadata:
   name: code_graph_file
   description: Graph one indexed file through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: path
       type: string
       required: true
       description: Indexed file to graph
+    - name: graphDBPath
+      type: string
+      description: Graph index db path written by code_index_folder. Empty uses the working folder's data dir
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -25,3 +28,4 @@ resources:
       timeout: 30s
       data:
         path: "{{ get('code_graph_file.path') }}"
+        graphDBPath: "{{ get('code_graph_file.graphDBPath') }}"

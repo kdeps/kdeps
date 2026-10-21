@@ -3,13 +3,12 @@ kind: Component
 metadata:
   name: read_file
   description: Read a file through the kdeps API and return its text
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: file_path
       type: string
-      required: true
-      description: Path of the file to read
+      description: Path of the file to read. Omit when using match_id
     - name: offset
       type: number
       default: 0
@@ -18,6 +17,15 @@ interface:
       type: number
       default: 0
       description: How many lines to return. 0 reads through the end
+    - name: match_id
+      type: string
+      description: A match_id from a search_local result, instead of file_path
+    - name: context_before
+      type: number
+      description: Only with match_id - lines of context before the match (default 20)
+    - name: context_after
+      type: number
+      description: Only with match_id - lines of context after the match (default 20)
   # body is the formatted file text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -35,3 +43,6 @@ resources:
         file_path: "{{ get('read_file.file_path') }}"
         offset: "{{ get('read_file.offset') }}"
         limit: "{{ get('read_file.limit') }}"
+        match_id: "{{ get('read_file.match_id') }}"
+        context_before: "{{ get('read_file.context_before') }}"
+        context_after: "{{ get('read_file.context_after') }}"

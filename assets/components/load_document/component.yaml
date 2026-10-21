@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: load_document
   description: Load a document through the kdeps API
-  version: "1.0.0"
+  version: "1.1.0"
 interface:
   inputs:
     - name: source
@@ -13,6 +13,10 @@ interface:
     - name: type
       type: string
       description: Document type. Omitted types follow the file extension
+    - name: chunkSize
+      type: number
+      default: 0
+      description: Split into chunks of this many characters (for RAG). 0 = no splitting
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -29,3 +33,4 @@ resources:
       data:
         source: "{{ get('load_document.source') }}"
         type: "{{ get('load_document.type') }}"
+        chunkSize: "{{ get('load_document.chunkSize') }}"

@@ -56,7 +56,7 @@ func (e *Engine) executeComponentCall(
 	}
 
 	injected := e.buildInjectedInputs(cfg, comp)
-	e.injectComponentInputs(injected, callerID, cfg.Name, ctx)
+	e.injectComponentInputs(injected, comp.Interface, callerID, cfg.Name, ctx)
 
 	e.logger.Debug("Executing component call",
 		"caller", callerID,
