@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: load_document
   description: Load a document through the kdeps API
-  version: "1.1.1"
+  version: "1.2.0"
 interface:
   inputs:
     - name: source
@@ -13,10 +13,23 @@ interface:
     - name: type
       type: string
       description: Document type. Omitted types follow the file extension
+    - name: columns
+      type: array
+      description: CSV only - optional column filter. Empty loads all columns
+    - name: password
+      type: string
+      description: PDF only - decryption password for encrypted PDFs
     - name: chunkSize
       type: number
       default: 0
       description: Split into chunks of this many characters (for RAG). 0 = no splitting
+    - name: chunkOverlap
+      type: number
+      default: 0
+      description: Characters of overlap between consecutive chunks
+    - name: chunkSplitter
+      type: string
+      description: Splitting strategy when chunkSize is set - recursive (default), token, or markdown
   # body is the handler text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:
@@ -33,4 +46,8 @@ resources:
       data:
         source: "{{ get('load_document.source') }}"
         type: "{{ get('load_document.type') }}"
+        columns: "{{ get('load_document.columns') }}"
+        password: "{{ get('load_document.password') }}"
         chunkSize: "{{ get('load_document.chunkSize') }}"
+        chunkOverlap: "{{ get('load_document.chunkOverlap') }}"
+        chunkSplitter: "{{ get('load_document.chunkSplitter') }}"

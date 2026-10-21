@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,11 +54,24 @@ func TestLoadDocumentComponent_ReadsText(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
 	path := filepath.Join(t.TempDir(), "note.txt")
-	require.NoError(t, os.WriteFile(path, []byte("hello api"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("alpha beta gamma delta epsilon"), 0o600))
 
 	out, err := runComponentValue(t, "load_document", "    source: "+yamlPath(path)+"\n")
 	require.NoError(t, err)
-	require.Contains(t, fmt.Sprint(out), "hello api")
+	require.Contains(t, fmt.Sprint(out), "alpha beta gamma delta epsilon")
+
+	// The component sends chunkSize as a string; the handler must decode it or
+	// the document comes back unsplit.
+	out, err = runComponentValue(t, "load_document",
+		"    source: "+yamlPath(path)+"\n    chunkSize: 6\n    chunkOverlap: 1\n"+
+			"    chunkSplitter: recursive\n")
+	require.NoError(t, err)
+	var doc struct {
+		Documents []map[string]interface{} `json:"documents"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(fmt.Sprint(out)), &doc))
+	require.Greater(t, len(doc.Documents), 1,
+		"chunkSize from the component must split the document")
 }
 
 func TestEmbeddingVectorizeComponent_NoInputs(t *testing.T) {

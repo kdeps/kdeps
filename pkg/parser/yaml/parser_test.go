@@ -2606,3 +2606,66 @@ apiResponse:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uses httpClient in a before: step directly")
 }
+
+func TestParser_ParseWorkflowLoaderComponentBacked(t *testing.T) {
+	dir := t.TempDir()
+	resourcesDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
+
+	workflowPath := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: loader-component-backing
+  version: 1.0.0
+  targetActionId: load
+settings:
+  agentSettings:
+    timezone: UTC
+`), 0o600))
+
+	resourcePath := filepath.Join(resourcesDir, "load.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: load
+name: Load
+loader:
+  type: text
+  source: /data/note.txt
+`), 0o600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	_, err := parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses loader directly")
+	assert.Contains(t, err.Error(), "call the load_document component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: load
+name: Load
+component:
+  name: load_document
+  with:
+    source: /data/note.txt
+`), 0o600))
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.Len(t, workflow.Resources, 1)
+	require.NotNil(t, workflow.Resources[0].Component)
+	assert.Equal(t, "load_document", workflow.Resources[0].Component.Name)
+
+	// An inline after: step has no more access to the native action.
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`
+actionId: load
+name: Load
+apiResponse:
+  success: true
+after:
+  - loader:
+      type: text
+      source: /data/note.txt
+`), 0o600))
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uses loader in an after: step directly")
+}

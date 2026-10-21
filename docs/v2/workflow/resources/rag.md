@@ -11,7 +11,7 @@ loader (load + chunk)  ->  embedding component OR vectorStore (index)  ->  embed
 
 | Resource | Role | Reference |
 | :--- | :--- | :--- |
-| `loader:` | Read files, URLs, or a directory into text chunks | [Loader](/workflow/resources/loader) |
+| `component: load_document` | Read files, URLs, or a directory into text chunks | [Loader](/workflow/resources/loader) |
 | `component: embedding` | Local SQLite keyword store - index and search, no API key | [Embedding](/workflow/resources/embedding) |
 | `vectorStore:` | External vector database - Qdrant, Chroma, pgvector, ... | [Vector store](/workflow/resources/vector-store) |
 
