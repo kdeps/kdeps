@@ -1,8 +1,12 @@
 actionId: readFile
 name: Read File Content
 
-exec:
-  command: echo "file content loaded"
+# The exec component POSTs to the kdeps API's exec tool.
+component:
+  name: exec
+  with:
+    command: echo "file content loaded"
+
 apiResponse:
   success: true
   response:

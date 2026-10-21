@@ -77,7 +77,7 @@ ts: info('timestamp')    # current timestamp
 ```yaml
 # resources/example.yaml
 after:
-  # Python and exec resources
+  # exec component
   - set('ok',  exec.exitCode('build') == 0)
   - set('err', exec.stderr('build'))
 

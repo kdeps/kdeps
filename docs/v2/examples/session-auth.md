@@ -63,18 +63,20 @@ validations:
   required:
     - username                  # 400 if either field is missing
     - password
-python:
-  script: |
-    import json, sys
-    username = "{{ get('username') }}"
-    password = "{{ get('password') }}"
-    # Demo credentials: admin / secret
-    if username == "admin" and password == "secret":
-        print(json.dumps({"success": True, "user": username}))
-    else:
-        print(json.dumps({"success": False, "error": "invalid credentials"}), file=sys.stderr)
-        sys.exit(1)              # non-zero exit fails the resource, no session set
-  timeout: 10s
+component:
+  name: python
+  with:
+    script: |
+      import json, sys
+      username = "{{ get('username') }}"
+      password = "{{ get('password') }}"
+      # Demo credentials: admin / secret
+      if username == "admin" and password == "secret":
+          print(json.dumps({"success": True, "user": username}))
+      else:
+          print(json.dumps({"success": False, "error": "invalid credentials"}), file=sys.stderr)
+          sys.exit(1)              # non-zero exit fails the call, no session set
+    timeout: 10s
 after:
   - "set('user_id', get('username'), 'session')"
   - "set('logged_in', 'true', 'session')"
@@ -185,5 +187,5 @@ Without the cookie the same call returns HTTP 401:
 
 - [Session and memory](/workflow/sessions) - full session configuration
 - [Validation and control flow](/workflow/validation) - `check`, `required`, `error`
-- [Python resource](/workflow/resources/python) - packages, virtual environments
+- [python component](/workflow/resources/python) - packages, virtual environments
 - [Unified API](/workflow/data-access) - `get`, `set`, storage scopes

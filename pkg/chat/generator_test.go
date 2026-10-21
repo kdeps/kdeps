@@ -82,8 +82,10 @@ settings:
 </file>
 <file name="resources/main.yaml">
 actionId: main
-exec:
-  command: "echo hello"
+component:
+  name: exec
+  with:
+    command: "echo hello"
 </file>
 </kdeps-workflow>`
 
@@ -100,8 +102,10 @@ settings:
 </file>
 <file name="resources/main.yaml">
 actionId: main
-exec:
-  command: "echo hello"
+component:
+  name: exec
+  with:
+    command: "echo hello"
 </file>
 </kdeps-workflow>`
 

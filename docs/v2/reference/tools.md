@@ -11,30 +11,32 @@ Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` 
 ```yaml
 # Calculator resource
 actionId: calcTool
-python:
-  script: |
-    import json
-    import math
+component:
+  name: python
+  with:
+    script: |
+      import json
+      import math
 
-    expression = """{{ get('expression') }}"""
+      expression = """{{ get('expression') }}"""
 
-    # Safe evaluation with math functions
-    safe_dict = {
-        'abs': abs, 'round': round,
-        'min': min, 'max': max,
-        'sum': sum, 'pow': pow,
-        'sqrt': math.sqrt, 'sin': math.sin,
-        'cos': math.cos, 'tan': math.tan,
-        'log': math.log, 'log10': math.log10,
-        'exp': math.exp, 'pi': math.pi, 'e': math.e
-    }
+      # Safe evaluation with math functions
+      safe_dict = {
+          'abs': abs, 'round': round,
+          'min': min, 'max': max,
+          'sum': sum, 'pow': pow,
+          'sqrt': math.sqrt, 'sin': math.sin,
+          'cos': math.cos, 'tan': math.tan,
+          'log': math.log, 'log10': math.log10,
+          'exp': math.exp, 'pi': math.pi, 'e': math.e
+      }
 
-    try:
-        result = eval(expression, {"__builtins__": {}}, safe_dict)
-        print(json.dumps({"result": result, "expression": expression}))
-    except Exception as e:
-        print(json.dumps({"error": str(e)}))
-  timeout: 30s
+      try:
+          result = eval(expression, {"__builtins__": {}}, safe_dict)
+          print(json.dumps({"result": result, "expression": expression}))
+      except Exception as e:
+          print(json.dumps({"error": str(e)}))
+    timeout: 30s
 
 ---
 # LLM with calculator
@@ -272,17 +274,19 @@ Add logging to understand tool execution:
 ```yaml
 # resources/debug-tool.yaml
 actionId: debugTool
-python:
-  script: |
-    import json
-    import sys
+component:
+  name: python
+  with:
+    script: |
+      import json
+      import sys
 
-    # Log to stderr (not captured as output)
-    print(f"Tool called with: {{ get('params') }}", file=sys.stderr)
+      # Log to stderr (not captured as output)
+      print(f"Tool called with: {{ get('params') }}", file=sys.stderr)
 
-    # Process and return result
-    result = {"status": "success"}
-    print(json.dumps(result))
+      # Process and return result
+      result = {"status": "success"}
+      print(json.dumps(result))
 ```
 
 </div>
@@ -317,5 +321,5 @@ The cached content has a TTL set by Google AI (default 1 hour). Use `google_cach
 
 - [Function calling](/workflow/tools) - Core tool definition and syntax
 - [LLM resource](/workflow/resources/llm) - Full LLM configuration
-- [Python resource](/workflow/resources/python) - Building tool scripts
+- [python component](/workflow/resources/python) - Building tool scripts
 - [Unified API](/workflow/data-access) - Data access in tools

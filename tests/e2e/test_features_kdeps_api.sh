@@ -276,11 +276,11 @@ elif kind == "tools":
         "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
         "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create",
         "cron_delete", "cron_list", "cron_pause", "cron_resume", "edit_file",
-        "email_ops", "embedding_search", "embedding_vectorize", "exa_search", "file_ops", "git_ops",
+        "email_ops", "embedding_search", "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops",
         "google_cache_create", "google_cache_delete",
         "google_cache_list", "http_request", "instruct", "jina_rerank", "list_files",
         "load_document", "md5_file", "memory_delete", "memory_query", "memory_save",
-        "memory_search", "ocr_image", "perplexity_search", "read_file", "retrieve_context",
+        "memory_search", "ocr_image", "perplexity_search", "python", "read_file", "retrieve_context",
         "search_local", "serpapi_search", "sql_describe_table", "sql_list_tables", "sql_ops", "sql_query",
         "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
         "task_get", "task_list", "task_stop", "team_add_task", "team_create",
@@ -473,9 +473,11 @@ EOF
     cat >"$bare_dir/resources/hold.yaml" <<'EOF'
 actionId: hold
 name: Hold
-exec:
-  command: sleep
-  args: ["45"]
+component:
+  name: exec
+  with:
+    command: sleep
+    args: ["45"]
 EOF
 
     # --- bad listen must fail closed on both entry points ---
@@ -693,6 +695,25 @@ EOF
         test_passed "kdeps API - bash_exec returns hi"
     else
         test_failed "kdeps API - bash_exec returns hi" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 60 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"script":"import json; print(json.dumps({\"ok\": True}))"}' "${tools}/python/call" || true)
+    if [ "$got" = "200" ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d=={"ok": True} else 1)' "$body" \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - python returns the parsed script output"
+    else
+        test_failed "kdeps API - python returns the parsed script output" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/python/call" || true)
+    if [ "$got" = "400" ] && grep -F "python: script or scriptFile is required" "$body" >/dev/null; then
+        test_passed "kdeps API - python requires a script"
+    else
+        test_failed "kdeps API - python requires a script" "status $got body $(head -c 180 "$body")"
     fi
     payload=$(python3 -c 'import json,sys; print(json.dumps({"file_path": sys.argv[1]}))' "$sample")
     want_md5=$(python3 -c 'import hashlib,sys; p=sys.argv[1]; print("%s  %s" % (p, hashlib.md5(open(p,"rb").read()).hexdigest()))' "$sample")

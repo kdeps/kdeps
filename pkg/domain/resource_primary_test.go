@@ -231,6 +231,26 @@ func TestComponentBackedAction(t *testing.T) {
 			component: "search_local",
 			ok:        true,
 		},
+		{
+			name: "native exec",
+			res: &domain.Resource{
+				ActionID: "a",
+				Exec:     &domain.ExecConfig{Command: "true"},
+			},
+			action:    "exec",
+			component: "exec",
+			ok:        true,
+		},
+		{
+			name: "native python",
+			res: &domain.Resource{
+				ActionID: "a",
+				Python:   &domain.PythonConfig{Script: "print(1)"},
+			},
+			action:    "python",
+			component: "python",
+			ok:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -266,6 +286,20 @@ func TestComponentBackedInlineAction(t *testing.T) {
 		SearchLocal: &domain.SearchLocalConfig{Path: "/data", Query: "q"},
 	})
 	if !ok || action != "searchLocal" || component != "search_local" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Exec: &domain.ExecConfig{Command: "true"},
+	})
+	if !ok || action != "exec" || component != "exec" {
+		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
+	}
+
+	action, component, ok = domain.ComponentBackedInlineAction(&domain.ActionConfig{
+		Python: &domain.PythonConfig{Script: "print(1)"},
+	})
+	if !ok || action != "python" || component != "python" {
 		t.Fatalf("ComponentBackedInlineAction() = (%q, %q, %v)", action, component, ok)
 	}
 }

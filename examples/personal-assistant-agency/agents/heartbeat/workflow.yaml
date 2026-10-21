@@ -28,43 +28,47 @@ resources:
   # It is created with sensible defaults on first run.
   - actionId: load-tasks
     name: Load Task List
-    python:
-      script: |
-        import os
+    component:
+      name: python
+      with:
+        script: |
+          import os
 
-        path = "/tmp/pa-memory/heartbeat.md"
-        if os.path.exists(path):
-            with open(path) as f:
-                print(f.read())
-        else:
-            os.makedirs("/tmp/pa-memory", exist_ok=True)
-            default = (
-                "# Heartbeat Tasks\n\n"
-                "Edit this file to customise your assistant's recurring proactive checks.\n\n"
-                "- [ ] Summarise any unread emails in the INBOX\n"
-                "- [ ] Report current disk usage (df -h /)\n"
-                "- [ ] Report system uptime\n"
-                "- [ ] Remind the user of any calendar events today\n"
-            )
-            with open(path, "w") as f:
-                f.write(default)
-            print(default)
+          path = "/tmp/pa-memory/heartbeat.md"
+          if os.path.exists(path):
+              with open(path) as f:
+                  print(f.read())
+          else:
+              os.makedirs("/tmp/pa-memory", exist_ok=True)
+              default = (
+                  "# Heartbeat Tasks\n\n"
+                  "Edit this file to customise your assistant's recurring proactive checks.\n\n"
+                  "- [ ] Summarise any unread emails in the INBOX\n"
+                  "- [ ] Report current disk usage (df -h /)\n"
+                  "- [ ] Report system uptime\n"
+                  "- [ ] Remind the user of any calendar events today\n"
+              )
+              with open(path, "w") as f:
+                  f.write(default)
+              print(default)
 
   # ── Collect system context ────────────────────────────────────────────────────
   # Gathers lightweight system facts so the LLM can make informed decisions.
   - actionId: system-context
     name: System Context
-    exec:
-      command: sh
-      args:
-        - "-c"
-        - |
-          echo "=== System Context ==="
-          echo "UTC time : $(date -u '+%Y-%m-%d %H:%M:%S')"
-          echo "Uptime   : $(uptime)"
-          echo "Disk     : $(df -h / | tail -1)"
-          echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
-      timeout: 10s
+    component:
+      name: exec
+      with:
+        command: sh
+        args:
+          - "-c"
+          - |
+            echo "=== System Context ==="
+            echo "UTC time : $(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "Uptime   : $(uptime)"
+            echo "Disk     : $(df -h / | tail -1)"
+            echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
+        timeout: 10s
 
   # ── Assess which tasks need attention ────────────────────────────────────────
   # LLM reviews the task list + system context and picks what to action now.
@@ -109,24 +113,26 @@ resources:
   - actionId: act
     name: Execute Actions
     requires: [assess]
-    exec:
-      command: sh
-      args:
-        - "-c"
-        - |
-          echo "=== Heartbeat Actions — $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
-          echo ""
-          echo "--- Disk usage ---"
-          df -h /
-          echo ""
-          echo "--- Uptime ---"
-          uptime
-          echo ""
-          echo "--- Recent system log (last 5 lines) ---"
-          tail -5 /var/log/syslog 2>/dev/null || \
-            journalctl -n 5 --no-pager 2>/dev/null || \
-            echo "(no system log available)"
-      timeout: 15s
+    component:
+      name: exec
+      with:
+        command: sh
+        args:
+          - "-c"
+          - |
+            echo "=== Heartbeat Actions — $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
+            echo ""
+            echo "--- Disk usage ---"
+            df -h /
+            echo ""
+            echo "--- Uptime ---"
+            uptime
+            echo ""
+            echo "--- Recent system log (last 5 lines) ---"
+            tail -5 /var/log/syslog 2>/dev/null || \
+              journalctl -n 5 --no-pager 2>/dev/null || \
+              echo "(no system log available)"
+        timeout: 15s
 
   # ── Response ──────────────────────────────────────────────────────────────────
   - actionId: heartbeat-response

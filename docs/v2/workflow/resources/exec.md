@@ -1,273 +1,181 @@
-# Exec resource
+# exec component
 
-The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that do not have a native resource type.
+The `exec` component runs a shell command and returns a structured result: `{success, exitCode, stdout, stderr, command, result, timedOut}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `exec` tool, which runs the native exec executor. A workflow that uses `exec:` directly - primary or in a `before:`/`after:` step - is rejected.
 
-## Where it runs
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
-
-## Basic usage
-
-```yaml
-# resources/run.yaml
-actionId: execResource
-name: System Command
-exec:
-  command: "echo 'Hello, World!'"
-  timeout: 30s
+```d2
+direction: right
+call: "component: exec" {shape: oval}
+api: "POST /tools/exec/call"
+shell: "sh -c command\n(cmd /C on Windows)"
+direct: "command + args\nexecuted directly"
+out: "{success, exitCode,\nstdout, stderr, timedOut}" {shape: oval}
+call -> api
+api -> shell: "no args"
+api -> direct: "args given"
+shell -> out
+direct -> out
 ```
 
-## Configuration options
-
-| Option | Description |
-|--------|-------------|
-| `command` | The shell command to execute. Supports multiline scripts. |
-| `args` | List of arguments to pass to the command. |
-| `workingDir` | The directory in which the command should execute. |
-| `env` | Map of environment variables specific to this execution. |
-| `timeout` | Maximum time allowed for execution (e.g., "30s", "1m"). |
-
-## Command execution
-
-### Simple command
-
-```yaml
-# resources/example.yaml
-exec:
-  command: "date"
-  timeout: 10s
-```
-
-### Command with arguments
-
-```yaml
-# resources/example.yaml
-exec:
-  command: "your-command"    # The command to execute
-  args:                      # Optional: command arguments
-    - "--flag"
-    - "value"
-  workingDir: "/tmp"         # Optional: working directory
-  env:                       # Optional: resource-specific env vars
-    TEMP_VAR: "value"
-  timeout: 30s       # Execution timeout
-```
-
-### Multi-line script
-
-```yaml
-# resources/example.yaml
-exec:
-  command: |
-    echo "Starting process..."
-    date
-    uname -a
-    echo "Done!"
-  timeout: 30s
-```
-
-### With interpolation
+## Configuration
 
 <div v-pre>
-
-```yaml
-# resources/example.yaml
-exec:
-  command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
-  timeout: 30s
-```
-
-</div>
-
-## Examples
-
-## System information
 
 ```yaml
 # resources/system-info.yaml
 actionId: systemInfo
-exec:
-  command: |
-    echo '{"hostname": "'$(hostname)'", "os": "'$(uname -s)'", "kernel": "'$(uname -r)'", "date": "'$(date -Iseconds)'"}'
-  timeout: 10s
-```
-
-## File operations
-
-<div v-pre>
-
-```yaml
-# resources/file-ops.yaml
-actionId: fileOps
-exec:
-  command: |
-    # Create directory
-    mkdir -p /tmp/processing
-
-    # Copy uploaded file
-    cp "{{ get('file', 'filepath') }}" /tmp/processing/
-
-    # Get file info
-    FILE="/tmp/processing/$(basename "{{ get('file', 'filepath') }}")"
-    SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE")
-    MD5=$(md5sum "$FILE" | cut -d' ' -f1)
-
-    echo "{\"path\": \"$FILE\", \"size\": $SIZE, \"md5\": \"$MD5\"}"
-  timeout: 60s
+name: System Information
+component:
+  name: exec                       # from the components asset set; a components/exec/ of your own wins
+  with:
+    command: "uname -a && date"    # required; multiline scripts allowed
+    timeout: 10s                   # hard stop; the call fails after it, no retry
 ```
 
 </div>
 
-## Git operations
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `command` | string | yes | - | The shell command to run. Supports multiline scripts |
+| `args` | array | no | - | Arguments for `command`. When set, `command` runs directly instead of through a shell |
+| `workingDir` | string | no | process working directory | The directory the command runs in |
+| `env` | object | no | - | Extra environment variables for this execution; the process environment is inherited |
+| `timeout` | string | no | `KDEPS_EXEC_TIMEOUT`, else the kdeps default | Maximum time allowed (e.g. `30s`, `1m`) |
+
+## Shell or direct execution
+
+Without `args`, the command string runs through `sh -c` on Unix and `cmd /C` on Windows, so pipes, `&&`, globs, and redirections work.
+
+With `args`, the command is executed directly with an argv array - no shell - which avoids quoting problems and shell injection:
+
+<div v-pre>
+
+```yaml
+# resources/grep-logs.yaml
+actionId: grepLogs
+component:
+  name: exec
+  with:
+    command: grep                       # executed directly, not through sh
+    args: ["-c", "ERROR", "/var/log/app.log"]
+```
+
+</div>
+
+## Output
+
+```json
+{
+  "success": true,
+  "exitCode": 0,
+  "stdout": "Linux kdeps 6.8.0\nWed Oct 21 09:00:00 UTC 2026\n",
+  "stderr": "",
+  "command": "uname -a && date",
+  "result": "Linux kdeps 6.8.0\nWed Oct 21 09:00:00 UTC 2026\n",
+  "timedOut": false
+}
+```
+
+Read fields with `output('systemInfo').stdout`, `output('systemInfo').exitCode`, and so on.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `success` | bool | `true` when the command exited 0 |
+| `exitCode` | integer | Process exit code; `-1` on timeout |
+| `stdout` | string | Captured standard output |
+| `stderr` | string | Captured standard error |
+| `command` | string | The full command line that ran, arguments included |
+| `result` | string | Same as `stdout`; kept for compatibility with simple consumers |
+| `timedOut` | bool | `true` when the timeout killed the command |
+
+A non-zero exit does not return this map: the call fails with `command failed: ...` and `onError:` on the resource decides what happens next.
+
+## Examples
+
+**Multi-line script:**
+
+<div v-pre>
+
+```yaml
+# resources/report.yaml
+actionId: report
+component:
+  name: exec
+  with:
+    command: |
+      echo "Starting process..."
+      date
+      uname -a
+      echo "Done!"
+    timeout: 30s
+```
+
+</div>
+
+**Interpolate request data:**
+
+<div v-pre>
+
+```yaml
+# resources/lookup.yaml
+actionId: lookup
+component:
+  name: exec
+  with:
+    command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
+    timeout: 30s
+```
+
+</div>
+
+**Structured output - echo JSON, then parse it:**
+
+<div v-pre>
 
 ```yaml
 # resources/git-info.yaml
 actionId: gitInfo
-exec:
-  command: |
-    cd /app
-    BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    COMMIT=$(git rev-parse --short HEAD)
-    AUTHOR=$(git log -1 --format='%an')
-    MESSAGE=$(git log -1 --format='%s')
+component:
+  name: exec
+  with:
+    command: |
+      echo "{\"branch\": \"$(git rev-parse --abbrev-ref HEAD)\", \"commit\": \"$(git rev-parse --short HEAD)\"}"
+    workingDir: /app
+    timeout: 30s
 
-    echo "{\"branch\": \"$BRANCH\", \"commit\": \"$COMMIT\", \"author\": \"$AUTHOR\", \"message\": \"$MESSAGE\"}"
-  timeout: 30s
-```
-
-## Process external tools
-
-<div v-pre>
-
-```yaml
-# resources/process-image.yaml
-actionId: processImage
-exec:
-  command: |
-    INPUT="{{ get('file', 'filepath') }}"
-    OUTPUT="/tmp/processed_$(date +%s).jpg"
-
-    # Resize with ImageMagick
-    convert "$INPUT" -resize 800x600 -quality 85 "$OUTPUT"
-
-    # Get dimensions
-    DIMS=$(identify -format '{"width":%w,"height":%h}' "$OUTPUT")
-
-    echo "{\"output\": \"$OUTPUT\", \"dimensions\": $DIMS}"
-  timeout: 120s
-```
-
-</div>
-
-## FFmpeg video processing
-
-```yaml
-# resources/extract-audio.yaml
-actionId: extractAudio
-exec:
-  command: |
-    INPUT="{{ get('video', 'filepath') }}"
-    OUTPUT="/tmp/audio_$(date +%s).mp3"
-
-    # Extract audio
-    ffmpeg -i "$INPUT" -vn -acodec libmp3lame -q:a 2 "$OUTPUT" 2>/dev/null
-
-    # Get duration
-    DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTPUT")
-
-    echo "{\"audio_file\": \"$OUTPUT\", \"duration_seconds\": $DURATION}"
-  timeout: 300s
-```
-
-## OCR with tesseract
-
-<div v-pre>
-
-```yaml
-# resources/ocr-process.yaml
-actionId: ocrProcess
-exec:
-  command: |
-    INPUT="{{ get('file', 'filepath') }}"
-    OUTPUT="/tmp/ocr_result.txt"
-
-    # Run OCR
-    tesseract "$INPUT" "/tmp/ocr_result" -l eng 2>/dev/null
-
-    # Read result and escape for JSON
-    TEXT=$(cat "$OUTPUT" | jq -Rs .)
-
-    echo "{\"text\": $TEXT}"
-  timeout: 60s
-```
-
-</div>
-
-## Docker operations
-
-```yaml
-# resources/docker-info.yaml
-actionId: dockerInfo
-exec:
-  command: |
-    CONTAINERS=$(docker ps --format '{{.Names}}' | wc -l | tr -d ' ')
-    IMAGES=$(docker images --format '{{.Repository}}' | wc -l | tr -d ' ')
-
-    echo "{\"running_containers\": $CONTAINERS, \"images\": $IMAGES}"
-  timeout: 30s
-```
-
-## Curl API call
-
-<div v-pre>
-
-```yaml
-# resources/api-call.yaml
-actionId: apiCall
-exec:
-  command: |
-    RESPONSE=$(curl -s -X POST \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $API_TOKEN" \
-      -d '{"query": "{{ get('q') }}"}' \
-      https://api.example.com/search)
-
-    echo "$RESPONSE"
-  timeout: 30s
-```
-
-</div>
-
-## Output handling
-
-The exec resource captures stdout as the result. For structured output, echo JSON:
-
-```yaml
-# resources/example.yaml
-exec:
-  command: |
-    # Process something
-    RESULT="success"
-    COUNT=42
-
-    # Output JSON
-    echo "{\"status\": \"$RESULT\", \"count\": $COUNT}"
-```
-
-Access in other resources:
-
-```yaml
-# resources/example.yaml
-requires: [execResource]
+---
+actionId: response
+requires: [gitInfo]
 apiResponse:
+  success: true
   response:
-    result: get('execResource').stdout
-    success: get('execResource').success
+    branch: "{{ fromJSON(output('gitInfo').stdout).branch }}"
+    commit: "{{ fromJSON(output('gitInfo').stdout).commit }}"
 ```
+
+</div>
+
+**Run with extra environment variables:**
+
+<div v-pre>
+
+```yaml
+# resources/whoami.yaml
+actionId: whoami
+component:
+  name: exec
+  with:
+    command: "echo \"$DEPLOY_ENV\""
+    env:
+      DEPLOY_ENV: "staging"
+```
+
+</div>
 
 ## Environment variables
 
-Environment variables from workflow settings are available:
+The command inherits the kdeps process environment, so `agentSettings.env` values are visible:
 
 ```yaml
 # In workflow.yaml
@@ -279,100 +187,71 @@ settings:
 ```
 
 ```yaml
-# In resource
-exec:
-  command: |
-    echo "Token: $API_TOKEN"
-    if [ "$DEBUG" = "true" ]; then
-      echo "Debug mode enabled"
-    fi
+# In a resource
+component:
+  name: exec
+  with:
+    command: |
+      echo "Token: $API_TOKEN"
+      if [ "$DEBUG" = "true" ]; then
+        echo "Debug mode enabled"
+      fi
 ```
 
-## Accessing output details
+`env:` adds or overrides variables for that one execution.
 
-Access stdout, stderr, and exit codes from other resources:
+## Errors and timeouts
+
+| Error | Cause |
+|-------|-------|
+| `exec: command is required` | `command` is missing or whitespace |
+| `command failed: ...` | The command exited non-zero; the call fails, `exitCode` and `stderr` stay in the logs |
+| `command timed out after 30s` | `timeout` expired; the process was killed |
+| `exec stdout exceeds output limit of N bytes` | Output crossed `KDEPS_EXEC_MAX_OUTPUT_BYTES` |
+
+Handle a failing command without stopping the workflow with `onError:`:
+
+<div v-pre>
 
 ```yaml
-# resources/example.yaml
-requires: [execResource]
-after:
-  # Check if command succeeded
-  - set('command_success', exec.exitCode('execResource') == 0)
-  - set('error_output', exec.stderr('execResource'))
-
-apiResponse:
-  response:
-    output: get('execResource')  # stdout (default)
-    errors: get('error_output')
-    success: get('command_success')
+# resources/optional-step.yaml
+actionId: optionalStep
+component:
+  name: exec
+  with:
+    command: "exit 3"
+onError:
+  action: continue
 ```
 
-See [Unified API](/workflow/data-access#resource-specific-accessors) for details.
-
-## Error handling
-
-Check command exit codes:
-
-```yaml
-# resources/example.yaml
-exec:
-  command: |
-    if ! command -v ffmpeg &> /dev/null; then
-      echo '{"error": "ffmpeg not installed"}' >&2  # Write to stderr
-      exit 1
-    fi
-
-    # Continue with processing...
-    echo '{"status": "success"}'
-  timeout: 30s
-```
-
-**Note**: Errors written to stderr are accessible via `exec.stderr('resourceId')` in other resources.
-
-## Installed packages
-
-Configure OS packages in your workflow:
-
-```yaml
-# workflow.yaml
-settings:
-  agentSettings:
-    osPackages:
-      - ffmpeg
-      - imagemagick
-      - tesseract-ocr
-      - jq
-      - curl
-```
-
-## Best practices
-
-1. **Always set timeouts** - Prevent hanging commands
-2. **Output JSON** - Easier to parse in subsequent resources
-3. **Handle errors** - Check for command availability and failures
-4. **Escape user input** - Prevent command injection
-5. **Use absolute paths** - Avoid directory confusion
-6. **Prefer Python for complex logic** - Shell scripts can get unwieldy
+</div>
 
 ## Security notes
 
-When using user input in commands, be careful about command injection:
+When user input reaches a command, prefer `args:` over string interpolation - it never goes through a shell:
 
 <div v-pre>
 
 ```yaml
 # Dangerous -- command injection possible
 command: "echo {{ get('user_input') }}"
+
+# Safer -- no shell, each value is one argument
+command: echo
+args: ["{{ get('user_input') }}"]
 ```
 
 </div>
 
+Validate input as well:
+
 ```yaml
-# Safer -- validate input before use
 validations:
   check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
+
+The workflow-side `exec` tool has no agent guardrails: unlike `bash_exec` in agent mode, it does not check `KDEPS_ALLOW_BASH` or the bash command blocklist. A workflow YAML is trusted configuration; treat `command:` as code you ship.
 
 ## See also
 

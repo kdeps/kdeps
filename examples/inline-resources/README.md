@@ -1,6 +1,6 @@
 # Inline Resources Example
 
-This example demonstrates the **inline resources** feature in KDeps, which allows you to configure multiple LLM, HTTP, Exec, SQL, and Python resources to run before or after the main resource execution.
+This example demonstrates the **inline resources** feature in KDeps, which allows you to configure multiple LLM, HTTP, exec-component, SQL-component and Python resources to run before or after the main resource execution.
 
 ## Overview
 
@@ -33,7 +33,7 @@ The execution order for a resource with inline resources is:
 
 1. **ExprBefore** expressions (if any)
 2. **Before** inline resources (executed sequentially)
-3. **Main resource** (chat, httpClient, sql, python, or exec)
+3. **Main resource** (chat, httpClient, component, python)
 4. **After** inline resources (executed sequentially)
 5. **Expr/ExprAfter** expressions (if any)
 6. **APIResponse** formatting (if configured)
@@ -48,8 +48,10 @@ before:
   - httpClient:
       method: GET
       url: "https://api.example.com/data"
-  - exec:
-      command: "echo 'Preparing...'"
+  - component:
+      name: exec
+      with:
+        command: "echo 'Preparing...'"
 
 # Main resource
 chat:
@@ -72,7 +74,7 @@ Each inline resource can be one of:
 - **httpClient**: HTTP requests
 - **sql**: Database queries
 - **python**: Python script execution
-- **exec**: Shell command execution
+- **component: exec**: Shell command execution
 
 ### Error Handling
 
@@ -134,7 +136,7 @@ resources:
 # Single resource file with inline resources
 before:
   - httpClient: ...    # Fetch config
-  - exec: ...          # Prepare env
+  - component: { name: exec, with: { ... } }  # Prepare env
 chat: ...              # Main processing
 after:
   - sql: ...           # Store results

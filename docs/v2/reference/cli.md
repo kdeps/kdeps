@@ -140,7 +140,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_CHAT_TIMEOUT` | Default timeout for LLM chat resources. Agent-loop internal calls (compaction, goals, judging) use a 10m default instead, and this variable caps them when set |
 | `KDEPS_HTTP_TIMEOUT` | Default timeout for HTTP client resources |
 | `KDEPS_PYTHON_TIMEOUT` | Default timeout for Python resources |
-| `KDEPS_EXEC_TIMEOUT` | Default timeout for exec resources |
+| `KDEPS_EXEC_TIMEOUT` | Default timeout for the exec component |
 | `KDEPS_SQL_TIMEOUT` | Default timeout for SQL resources |
 | `KDEPS_ON_ERROR_ACTION` | Default error action: `fail`, `continue`, `retry` |
 | `KDEPS_ON_ERROR_MAX_RETRIES` | Default max retries for `retry` action |

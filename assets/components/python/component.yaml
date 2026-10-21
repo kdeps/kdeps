@@ -1,0 +1,57 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: python
+  description: Run a Python script through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: script
+      type: string
+      description: Inline Python source. Use scriptFile instead to run a file
+    - name: scriptFile
+      type: string
+      description: "Path to a .py file. Relative paths resolve against the kdeps process working directory"
+    - name: args
+      type: array
+      description: Arguments passed to the script after the script path or -c
+    - name: env
+      type: object
+      description: Extra environment variables as key-value pairs; the process environment is inherited
+    - name: timeout
+      type: string
+      description: Hard stop for the script, for example 30s
+    - name: venvName
+      type: string
+      description: Name of a dedicated virtual environment; omit to share the default one
+    - name: pythonVersion
+      type: string
+      description: Python version for the venv; defaults to KDEPS_PYTHON_VERSION, then 3.12
+    - name: packages
+      type: array
+      description: Python packages installed into the venv before the script runs
+  # Each call posts to the kdeps API tool, which runs the python executor; the
+  # component output is stdout parsed as JSON when possible, otherwise text.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Run script
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/python/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      # Hard stop for the call; a first run may build the venv, so allow longer
+      # than the script's own timeout.
+      timeout: 900s
+      data:
+        script: "{{ get('python.script') }}"
+        scriptFile: "{{ get('python.scriptFile') }}"
+        args: "{{ get('python.args') }}"
+        env: "{{ get('python.env') }}"
+        timeout: "{{ get('python.timeout') }}"
+        venvName: "{{ get('python.venvName') }}"
+        pythonVersion: "{{ get('python.pythonVersion') }}"
+        packages: "{{ get('python.packages') }}"

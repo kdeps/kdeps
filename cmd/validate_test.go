@@ -57,8 +57,10 @@ settings:
 	resourceContent := `
 name: main-resource
 actionId: main
-python:
-  script: print("test")
+component:
+  name: python
+  with:
+    script: print("test")
 `
 	resourcePath := filepath.Join(resourcesDir, "main.yaml")
 	err = os.WriteFile(resourcePath, []byte(resourceContent), 0644)

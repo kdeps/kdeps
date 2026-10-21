@@ -27,8 +27,10 @@ name:  "{{ workflow.metadata.name }}"
 model: "{{ get('config.llm.model', 'llama3.2') }}"
 
 # set() mutates the value at runtime
-exec:
-  command: "echo '{{ set(\"config.llm.model\", \"gpt-4o\") }}'"
+component:
+  name: exec
+  with:
+    command: "echo '{{ set(\"config.llm.model\", \"gpt-4o\") }}'"
 ```
 
 ## Run

@@ -98,9 +98,11 @@ EOF
     cat > "$dir/resources/greet.yaml" <<'EOF'
 actionId: greet
 name: Greet
-exec:
-  command: echo
-  args: ["hello from events test"]
+component:
+  name: exec
+  with:
+    command: echo
+    args: ["hello from events test"]
 EOF
 }
 
@@ -132,8 +134,10 @@ EOF
     cat > "$dir/resources/bad.yaml" <<'EOF'
 actionId: bad
 name: Bad
-exec:
-  command: this-command-definitely-does-not-exist-kdeps-test
+component:
+  name: exec
+  with:
+    command: this-command-definitely-does-not-exist-kdeps-test
 EOF
 }
 
@@ -249,7 +253,7 @@ if [ -n "$RES_STARTED" ]; then
     else
         test_failed "Events - resource.started has correct actionId" "got actionId='$ACTION_ID'"
     fi
-    if [ "$RES_TYPE" = "exec" ]; then
+    if [ "$RES_TYPE" = "component" ]; then
         test_passed "Events - resource.started has correct resourceType"
     else
         test_failed "Events - resource.started has correct resourceType" "got resourceType='$RES_TYPE'"

@@ -1,0 +1,19 @@
+version: 1.0.0
+description: 'Run a shell command and return its structured result: success, exitCode, stdout, stderr, command, result and timedOut. Use through the exec component for pipeline steps that shell out. The command runs with sh -c (cmd /C on Windows) unless args are given. Optional: args, env, workingDir, timeout.'
+parameters:
+  args:
+    type: array
+    description: Arguments for command. When set, command runs directly instead of through a shell.
+  command:
+    type: string
+    description: Command to run. Runs with sh -c (cmd /C on Windows) unless args are given.
+    required: true
+  env:
+    type: object
+    description: Extra environment variables as key-value pairs; the process environment is inherited.
+  timeout:
+    type: string
+    description: 'Hard stop for the command, e.g. ''30s''. Default comes from kdeps defaults, then KDEPS_EXEC_TIMEOUT.'
+  workingDir:
+    type: string
+    description: 'Directory the command runs in. Default: the kdeps process working directory.'

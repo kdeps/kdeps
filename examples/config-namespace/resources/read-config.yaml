@@ -5,7 +5,11 @@ validations:
   methods: [GET]
   routes: [/api/v1/config]
 
-exec:
-  # Echo the model from config so it appears in the resource output.
-  command: "echo '{{ get(\"config.llm.model\", \"llama3.2\") }}'"
-  timeout: 5s
+# The exec component POSTs to the kdeps API's exec tool. The command runs
+# and the resource output is the structured result map.
+component:
+  name: exec
+  with:
+    # Echo the model from config so it appears in the resource output.
+    command: "echo '{{ get(\"config.llm.model\", \"llama3.2\") }}'"
+    timeout: 5s

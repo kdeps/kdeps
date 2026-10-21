@@ -52,7 +52,7 @@ fi
 python3 - bot/resources/llm.yaml <<'PY'
 import re, sys
 p = sys.argv[1]; s = open(p).read()
-s = s[:s.index("chat:")] + 'python:\n  script: |\n    import json; print(json.dumps({"message": {"content": "pong"}}))\n'
+s = s[:s.index("chat:")] + 'component:\n  name: python\n  with:\n    script: |\n      import json; print(json.dumps({"message": {"content": "pong"}}))\n'
 open(p, "w").write(s)
 PY
 

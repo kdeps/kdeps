@@ -89,9 +89,12 @@ name: Echo Hello
 validations:
   routes: [/exec/echo]
   methods: [POST]
-exec:
-  command: echo
-  args: ["hello world"]
+# The exec component POSTs to the kdeps API's exec tool.
+component:
+  name: exec
+  with:
+    command: echo
+    args: ["hello world"]
 apiResponse:
   success: true
   response:
@@ -107,9 +110,11 @@ name: Echo Args
 validations:
   routes: [/exec/args]
   methods: [POST]
-exec:
-  command: echo
-  args: ["arg1", "arg2", "arg3"]
+component:
+  name: exec
+  with:
+    command: echo
+    args: ["arg1", "arg2", "arg3"]
 apiResponse:
   success: true
   response:
@@ -124,11 +129,13 @@ name: Exec Env
 validations:
   routes: [/exec/env]
   methods: [POST]
-exec:
-  command: printenv
-  args: ["MY_E2E_VAR"]
-  env:
-    MY_E2E_VAR: "hello_from_env"
+component:
+  name: exec
+  with:
+    command: printenv
+    args: ["MY_E2E_VAR"]
+    env:
+      MY_E2E_VAR: "hello_from_env"
 apiResponse:
   success: true
   response:
@@ -143,18 +150,20 @@ name: Exec Multiline
 validations:
   routes: [/exec/multiline]
   methods: [POST]
-exec:
-  # Routed through sh -c with an escaped (not literal) \n rather than passed
-  # directly to printf: Windows reconstructs a child process's argv from a
-  # single command-line string, and an argument containing a raw embedded
-  # newline byte gets split into separate arguments during that
-  # reconstruction (confirmed: printf receives "line1" "line2" "line3" as
-  # three args instead of one, printing only the first with a "ignoring
-  # excess arguments" warning). Keeping the argument itself single-line and
-  # letting the shell's own printf interpret \n internally avoids ever
-  # passing a raw newline across the process-creation boundary.
-  command: sh
-  args: ["-c", "printf 'line1\\nline2\\nline3\\n'"]
+component:
+  name: exec
+  with:
+    # Routed through sh -c with an escaped (not literal) \n rather than passed
+    # directly to printf: Windows reconstructs a child process's argv from a
+    # single command-line string, and an argument containing a raw embedded
+    # newline byte gets split into separate arguments during that
+    # reconstruction (confirmed: printf receives "line1" "line2" "line3" as
+    # three args instead of one, printing only the first with a "ignoring
+    # excess arguments" warning). Keeping the argument itself single-line and
+    # letting the shell's own printf interpret \n internally avoids ever
+    # passing a raw newline across the process-creation boundary.
+    command: sh
+    args: ["-c", "printf 'line1\\nline2\\nline3\\n'"]
 apiResponse:
   success: true
   response:
@@ -169,9 +178,11 @@ name: Exec Fail
 validations:
   routes: [/exec/fail]
   methods: [POST]
-exec:
-  command: sh
-  args: ["-c", "exit 1"]
+component:
+  name: exec
+  with:
+    command: sh
+    args: ["-c", "exit 1"]
 onError:
   action: continue
 apiResponse:
@@ -336,6 +347,36 @@ if [ -n "$FAIL_RESP" ]; then
 else
     test_failed "Exec - failing command handled by onError" "No response received"
 fi
+
+# -- Test 6: native exec in a workflow is rejected -----------------------------
+
+NATIVE_DIR=$(mktemp -d)
+mkdir -p "$NATIVE_DIR/resources"
+cat > "$NATIVE_DIR/workflow.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: native-exec-rejected
+  version: "1.0.0"
+  targetActionId: shell
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+EOF
+cat > "$NATIVE_DIR/resources/shell.yaml" <<'EOF'
+actionId: shell
+name: Shell
+exec:
+  command: echo hi
+EOF
+
+NATIVE_OUT=$("$KDEPS_BIN" validate "$NATIVE_DIR/workflow.yaml" 2>&1 || true)
+if output_grep_fixed "call the exec component instead" "$NATIVE_OUT"; then
+    test_passed "Exec - native exec is rejected with component guidance"
+else
+    test_failed "Exec - native exec is rejected with component guidance" "output: $NATIVE_OUT"
+fi
+rm -rf "$NATIVE_DIR"
 
 echo ""
 echo "Exec E2E tests complete."

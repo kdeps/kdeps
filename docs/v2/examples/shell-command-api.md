@@ -1,13 +1,14 @@
 # Wrap a shell command in an API
 
-Build an API endpoint that runs a shell command with the
-`exec:` resource and returns its output as JSON. This is the pattern for
-exposing a script, a CLI tool, or a system check as an HTTP service.
+Build an API endpoint that runs a shell command with the `exec` component
+and returns its output as JSON. This is the pattern for exposing a script, a
+CLI tool, or a system check as an HTTP service.
 
-The `exec:` resource runs a command and stores its stdout as the resource's
-output. It is the escape hatch for anything kdeps has no native resource for.
-The command runs with the privileges of the kdeps process, so only expose
-commands you trust.
+The `exec` component runs the command through the kdeps API's `exec` tool and
+returns a structured result - `stdout`, `stderr`, `exitCode`, and more. It is
+the escape hatch for anything kdeps has no native resource for. The command
+runs with the privileges of the kdeps process, so only expose commands you
+trust.
 
 ## Step 1: create the project
 
@@ -53,12 +54,15 @@ name: System information
 validations:
   methods: [GET]              # only GET reaches this resource
   routes: [/api/v1/exec]
-exec:
-  command: "echo 'System Info:' && uname -a && echo 'Date:' && date"
-  timeout: 10s                # kill the command and fail after 10s
+component:                    # the exec component calls the kdeps API's exec tool
+  name: exec
+  with:
+    command: "echo 'System Info:' && uname -a && echo 'Date:' && date"
+    timeout: 10s              # kill the command and fail after 10s
 ```
 
-The resource's output is the command's stdout.
+The resource's output is the command's structured result:
+`{success, exitCode, stdout, stderr, command, result, timedOut}`.
 
 ## Step 4: format the response
 
@@ -74,7 +78,7 @@ requires: [systemInfo]
 apiResponse:
   success: true
   response:
-    system_info: "{{ get('systemInfo') }}"       # command stdout
+    system_info: "{{ get('systemInfo') }}"       # the exec result map
     timestamp: "{{ info('current_time') }}"
     workflow: "{{ info('name') }}"
 ```
@@ -102,7 +106,15 @@ Response:
 {
   "success": true,
   "data": {
-    "system_info": "System Info:\nDarwin host 24.6.0 ...\nDate:\nMon Sep  1 12:00:00 UTC 2026\n",
+    "system_info": {
+      "success": true,
+      "exitCode": 0,
+      "stdout": "System Info:\nDarwin host 24.6.0 ...\nDate:\nMon Sep  1 12:00:00 UTC 2026\n",
+      "stderr": "",
+      "command": "echo 'System Info:' && uname -a && echo 'Date:' && date",
+      "result": "System Info:\nDarwin host 24.6.0 ...\nDate:\nMon Sep  1 12:00:00 UTC 2026\n",
+      "timedOut": false
+    },
     "timestamp": "2026-09-01T12:00:00Z",
     "workflow": "sysinfo-api"
   }
@@ -111,7 +123,7 @@ Response:
 
 ## Next steps
 
-- [Exec resource](/workflow/resources/exec) - stdin, environment, exit-code access
+- [exec component](/workflow/resources/exec) - stdin, environment, exit-code access
 - [Shell execution](/agent/shell) - the agent mode `bash_exec` tool
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback on a failed command
 - [CORS configuration](/workflow/cors) - the `cors:` block

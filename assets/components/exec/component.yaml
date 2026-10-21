@@ -1,0 +1,44 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: exec
+  description: Run a shell command through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: command
+      type: string
+      required: true
+      description: Command to run; sh -c on Unix, cmd /C on Windows, unless args are given
+    - name: args
+      type: array
+      description: Arguments for command. When set, command runs directly instead of through a shell
+    - name: env
+      type: object
+      description: Extra environment variables as key-value pairs; the process environment is inherited
+    - name: workingDir
+      type: string
+      description: "Directory the command runs in. Default: the kdeps process working directory"
+    - name: timeout
+      type: string
+      description: Hard stop for the command, for example 30s
+  # Each call posts to the kdeps API tool, which runs the exec executor; the
+  # component output is the executor's structured result.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Run command
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/exec/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 600s  # hard stop for the call; the command's own timeout fires first
+      data:
+        command: "{{ get('exec.command') }}"
+        args: "{{ get('exec.args') }}"
+        env: "{{ get('exec.env') }}"
+        workingDir: "{{ get('exec.workingDir') }}"
+        timeout: "{{ get('exec.timeout') }}"

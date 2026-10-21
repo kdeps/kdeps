@@ -612,3 +612,82 @@ func TestYAMLParser_SearchLocalExampleUsesComponent(t *testing.T) {
 	}
 	assert.True(t, found, "examples/search-local-files must call the search_local component")
 }
+
+// A workflow runs shell commands only through the exec component, which
+// reaches the exec executor over the kdeps API.
+func TestYAMLParser_ExecComponentBacked(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: exec-component-backed
+  version: "1.0.0"
+  targetActionId: shell
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+`), 0o644))
+
+	resourcePath := filepath.Join(tmpDir, "resources", "shell.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: shell
+name: Shell
+exec:
+  command: echo hi
+`), 0o644))
+
+	_, err = parser.ParseWorkflow(workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call the exec component instead")
+
+	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: shell
+name: Shell
+component:
+  name: exec
+  with:
+    command: echo hi
+`), 0o644))
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	comp := workflow.Components["exec"]
+	require.NotNil(t, comp, "the shipped exec component must resolve")
+	require.Len(t, comp.Resources, 1)
+	require.NotNil(t, comp.Resources[0].HTTPClient)
+	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
+		"/apis/tools.kdeps.io/v1/tools/exec/call")
+}
+
+// The shipped exec examples call the component; none keeps a native exec
+// resource that the parser would now reject.
+func TestYAMLParser_ExecExamplesUseComponent(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	parser := yaml.NewParser(schemaValidator, expression.NewParser())
+
+	for _, path := range []string{
+		"../../../examples/shell-exec/workflow.yaml",
+		"../../../examples/config-namespace/workflow.yaml",
+		"../../../examples/file-processor/workflow.yaml",
+		"../../../examples/component-input-source/workflow.yaml",
+	} {
+		workflow, parseErr := parser.ParseWorkflow(path)
+		require.NoError(t, parseErr)
+		var found bool
+		for _, resource := range workflow.Resources {
+			if resource.Component == nil || resource.Component.Name != "exec" {
+				continue
+			}
+			found = true
+			if action, _, ok := domain.ComponentBackedAction(resource); ok {
+				t.Fatalf("example resource %q still runs a component-backed native action", action)
+			}
+		}
+		assert.True(t, found, path+" must call the exec component")
+	}
+}

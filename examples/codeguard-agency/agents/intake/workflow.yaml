@@ -35,9 +35,11 @@ resources:
       error:
         code: 400
         message: "'code' field is required"
-    exec:
-      command: echo
-      args: ["Input validated"]
+    component:
+      name: exec
+      with:
+        command: echo
+        args: ["Input validated"]
 
   # ── Step 1a: Security review (parallel) ───────────────────────────────────────
   - actionId: callSecurity

@@ -1,0 +1,27 @@
+version: 1.0.0
+description: 'Run a Python script and return its result: stdout parsed as JSON when possible, otherwise the raw text. Use through the python component for pipeline steps written in Python. Give either script (inline source) or scriptFile (a .py file). Optional: args, env, timeout, venvName, pythonVersion, packages.'
+parameters:
+  args:
+    type: array
+    description: Arguments passed to the script after the script path or -c.
+  env:
+    type: object
+    description: Extra environment variables as key-value pairs; the process environment is inherited.
+  packages:
+    type: array
+    description: Python packages installed into the venv before the script runs.
+  pythonVersion:
+    type: string
+    description: 'Python version for the venv. Default: KDEPS_PYTHON_VERSION, then 3.12.'
+  script:
+    type: string
+    description: Inline Python source. Use scriptFile instead to run a file.
+  scriptFile:
+    type: string
+    description: 'Path to a .py file. Relative paths resolve against the kdeps process working directory.'
+  timeout:
+    type: string
+    description: 'Hard stop for the script, e.g. ''30s''. Default comes from kdeps defaults, then KDEPS_PYTHON_TIMEOUT.'
+  venvName:
+    type: string
+    description: Name of a dedicated virtual environment; omit to share the default one.

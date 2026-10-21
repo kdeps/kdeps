@@ -141,6 +141,41 @@ func TestSearchLocalComponent_RespectsLimit(t *testing.T) {
 	require.EqualValues(t, 1, result["count"])
 }
 
+// The exec component runs the command through the kdeps API tool and returns
+// the executor's structured result, so a workflow reads fields, not text.
+func TestExecComponent_ReturnsStructuredResult(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the exec component test uses a POSIX shell command")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "note.txt"), []byte("component-dir"), 0o600))
+
+	out, err := runComponentValue(t, "exec",
+		"    command: cat note.txt\n    workingDir: "+yamlPath(dir)+"\n")
+	require.NoError(t, err)
+	result, ok := out.(map[string]interface{})
+	require.True(t, ok, "the exec component returns a result object, got %T", out)
+	require.Equal(t, true, result["success"])
+	require.EqualValues(t, 0, result["exitCode"])
+	require.Equal(t, "component-dir", result["stdout"])
+	require.Equal(t, false, result["timedOut"])
+}
+
+// A failing command surfaces as a component error, not a silent empty output.
+func TestExecComponent_FailingCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the exec component test uses a POSIX shell command")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	_, err := runComponentValue(t, "exec", "    command: \"exit 3\"\n")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "command failed")
+}
+
 // A boolean input reaches the kdeps API tool as a JSON boolean: without the
 // conversion dry_run would arrive as the string "true", the handler would not
 // see it, and a preview would write the file.

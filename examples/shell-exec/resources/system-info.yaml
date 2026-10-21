@@ -5,6 +5,10 @@ validations:
   methods: [GET]
   routes: [/api/v1/exec]
 
-exec:
-  command: "echo 'System Info:' && uname -a && echo 'Current Directory:' && pwd && echo 'Date:' && date"
-  timeout: 10s
+# The exec component POSTs to the kdeps API's exec tool, which runs the command
+# and returns a structured result: success, exitCode, stdout, stderr and more.
+component:
+  name: exec
+  with:
+    command: "echo 'System Info:' && uname -a && echo 'Current Directory:' && pwd && echo 'Date:' && date"
+    timeout: 10s

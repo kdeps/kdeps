@@ -13,34 +13,36 @@ interface:
 resources:
   - name: Evaluate Expression
     actionId: evaluate-expression
-    python:
-      script: |
-        import json, ast, operator
+    component:
+      name: python
+      with:
+        script: |
+          import json, ast, operator
 
-        expr = "{{ get('calculator.expression') }}"
+          expr = "{{ get('calculator.expression') }}"
 
-        _ops = {
-            ast.Add: operator.add,
-            ast.Sub: operator.sub,
-            ast.Mult: operator.mul,
-            ast.Div: operator.truediv,
-            ast.Pow: operator.pow,
-            ast.Mod: operator.mod,
-            ast.USub: operator.neg,
-        }
+          _ops = {
+              ast.Add: operator.add,
+              ast.Sub: operator.sub,
+              ast.Mult: operator.mul,
+              ast.Div: operator.truediv,
+              ast.Pow: operator.pow,
+              ast.Mod: operator.mod,
+              ast.USub: operator.neg,
+          }
 
-        def _eval(node):
-            if isinstance(node, ast.Constant):
-                return node.value
-            if isinstance(node, ast.BinOp):
-                return _ops[type(node.op)](_eval(node.left), _eval(node.right))
-            if isinstance(node, ast.UnaryOp):
-                return _ops[type(node.op)](_eval(node.operand))
-            raise ValueError(f"unsupported operation: {type(node).__name__}")
+          def _eval(node):
+              if isinstance(node, ast.Constant):
+                  return node.value
+              if isinstance(node, ast.BinOp):
+                  return _ops[type(node.op)](_eval(node.left), _eval(node.right))
+              if isinstance(node, ast.UnaryOp):
+                  return _ops[type(node.op)](_eval(node.operand))
+              raise ValueError(f"unsupported operation: {type(node).__name__}")
 
-        try:
-            tree = ast.parse(expr, mode="eval")
-            result = _eval(tree.body)
-            print(json.dumps({"expression": expr, "result": result}))
-        except Exception as e:
-            print(json.dumps({"expression": expr, "error": str(e)}))
+          try:
+              tree = ast.parse(expr, mode="eval")
+              result = _eval(tree.body)
+              print(json.dumps({"expression": expr, "result": result}))
+          except Exception as e:
+              print(json.dumps({"expression": expr, "error": str(e)}))

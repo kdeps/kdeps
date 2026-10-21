@@ -1,206 +1,179 @@
-# Python resource
+# python component
 
-The `python:` resource runs a Python script and stores its stdout (parsed as JSON) as the resource's output.
+The `python` component runs a Python script in a managed virtualenv and returns its stdout, parsed as JSON when possible and as raw text otherwise. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `python` tool, which runs the native Python executor. A workflow that uses `python:` directly - primary or in a `before:`/`after:` step - is rejected.
 
-## Where it runs
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+```d2
+direction: right
+call: "component: python" {shape: oval}
+api: "POST /tools/python/call"
+venv: "uv venv\nversion + packages"
+run: "python -c script\nor python scriptFile"
+out: "stdout parsed as JSON\nelse raw text" {shape: oval}
+call -> api
+api -> venv
+venv -> run
+run -> out
+```
 
-## Complete reference
+## Configuration
 
 <div v-pre>
 
 ```yaml
-# resources/python.yaml
-python:
-  script: |                  # inline Python -- must print JSON to stdout
-    import json
-    data = {{ get('inputData') }}
-    print(json.dumps({"processed": len(data)}))
-
-  scriptFile: "./scripts/process.py"  # alternative: path to a .py file
-
-  args:                      # command-line arguments passed to the script
-    - "--input"
-    - "{{ get('input_file') }}"
-
-  env:                       # extra environment variables for the script; values are expressions
-    API_TOKEN: "{{ env('API_TOKEN') }}"   # secrets go here, not args (args show in ps)
-
-  venvName: "my-project-env" # isolated venv -- resources sharing the same name share packages
-  timeout: 60s               # hard stop; non-zero exit code also counts as failure
+# resources/analyze.yaml
+actionId: analyze
+name: Analyze Data
+component:
+  name: python                     # from the components asset set
+  with:
+    script: |                      # inline Python; print JSON for structured output
+      import json
+      print(json.dumps({"rows": 3}))
+    timeout: 120s                  # hard stop; the call fails after it, no retry
 ```
 
 </div>
 
-`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout - that output becomes `get('actionId')` for downstream resources.
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `script` | string | one of `script` / `scriptFile` | - | Inline Python source |
+| `scriptFile` | string | one of `script` / `scriptFile` | - | Path to a `.py` file; relative paths resolve against the kdeps process working directory |
+| `args` | array | no | - | Arguments passed to the script after the script path or `-c` |
+| `env` | object | no | - | Extra environment variables; the process environment is inherited |
+| `timeout` | string | no | `KDEPS_PYTHON_TIMEOUT`, else the kdeps default | Hard stop for the script (e.g. `30s`, `2m`) |
+| `venvName` | string | no | package-hashed default venv | Dedicated virtualenv name; resources sharing a name share packages |
+| `pythonVersion` | string | no | `KDEPS_PYTHON_VERSION`, else `3.12` | Interpreter version for the venv |
+| `packages` | array | no | - | Python packages installed into the venv before the script runs |
 
-## Inline scripts
+## Script or script file
+
+`script` runs inline through `python -c`. `scriptFile` runs a file on disk and receives `args` through `sys.argv`:
 
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-python:
-  script: |
-    import json
-    import pandas as pd
-
-    raw_data = {{ get('httpResource') }}
-    df = pd.DataFrame(raw_data)
-    summary = df.describe()
-
-    result = {
-        "rows": len(df),
-        "columns": list(df.columns),
-        "summary": summary.to_dict()
-    }
-    print(json.dumps(result))
-  timeout: 120s
+# resources/process.yaml
+actionId: process
+component:
+  name: python
+  with:
+    scriptFile: "./scripts/data_processor.py"
+    args: ["--mode", "analyze", "--data", "{{ get('data') }}"]
 ```
 
 </div>
-
-## Script files
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-python:
-  scriptFile: "./scripts/data_processor.py"
-  args:
-    - "--mode"
-    - "analyze"
-    - "--data"
-    - "{{ get('data') }}"
-  timeout: 60s
-```
-
-</div>
-
-The script receives arguments via `sys.argv`:
 
 ```python
 # scripts/data_processor.py
-import sys
-import json
 import argparse
+import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", required=True)
 parser.add_argument("--data", required=True)
 args = parser.parse_args()
 
-data = json.loads(args.data)
-# Process data...
-
-result = {"status": "success", "mode": args.mode}
-print(json.dumps(result))
+print(json.dumps({"status": "success", "mode": args.mode}))
 ```
 
-## Python packages
+## Packages and virtualenvs
 
-Configure Python packages in your workflow:
+kdeps manages Python with [uv](https://github.com/astral-sh/uv). Packages go in the call, not in workflow settings:
+
+<div v-pre>
 
 ```yaml
-# workflow.yaml
-settings:
-  agentSettings:
-    pythonVersion: "3.12"
-
-    # Option 1: List packages
-    pythonPackages:
-      - pandas>=2.0
-      - numpy
-      - scikit-learn
-      - requests
-
-    # Option 2: Requirements file
-    requirementsFile: "requirements.txt"
-
-    # Option 3: pyproject.toml (for uv)
-    pyprojectFile: "pyproject.toml"
-    lockFile: "uv.lock"
+# resources/report.yaml
+actionId: report
+component:
+  name: python
+  with:
+    packages: ["pandas>=2.0", "requests"]   # installed into the venv on first run
+    script: |
+      import pandas as pd
+      print(pd.__version__)
 ```
 
-kdeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
+</div>
 
-## Virtual environment isolation
+The venv is built once and reused. Without `venvName`, the name is derived from the package list, so two resources with the same packages share one venv. Give a `venvName` to isolate a resource from everything else:
 
-Use separate virtual environments for different resources:
+<div v-pre>
 
 ```yaml
-# Resource 1: Data science packages
-actionId: dataScience
-python:
-  venvName: "datascience-env"
-  script: |
-    import pandas as pd
-    import numpy as np
-    # ...
+# resources/data-science.yaml
+component:
+  name: python
+  with:
+    venvName: "datascience-env"
+    packages: ["pandas", "numpy"]
 
----
-# Resource 2: Web scraping packages
-actionId: webScraper
-python:
-  venvName: "scraper-env"
-  script: |
-    import requests
-    from bs4 import BeautifulSoup
-    # ...
+# resources/scraper.yaml -- separate venv, separate package set
+component:
+  name: python
+  with:
+    venvName: "scraper-env"
+    packages: ["requests", "beautifulsoup4"]
 ```
 
-## Output handling
+</div>
 
-Python scripts must output JSON to stdout:
+## Output
 
-```python
-import json
+The script's stdout is the resource output. When stdout parses as a JSON object, the resource output is that object; otherwise it is the raw text.
 
-result = {
-    "status": "success",
-    "data": [1, 2, 3]
-}
-
-# This is how kdeps captures the output
-print(json.dumps(result))
-```
-
-Access the output in other resources:
+<div v-pre>
 
 ```yaml
-# resources/example.yaml
-requires: [pythonResource]
+# resources/summarize.yaml
+actionId: summarize
+component:
+  name: python
+  with:
+    script: |
+      import json
+      print(json.dumps({"status": "success", "data": [1, 2, 3]}))
+```
+
+</div>
+
+```yaml
+# resources/response.yaml
+requires: [summarize]
 apiResponse:
+  success: true
   response:
-    # Full output
-    python_result: get('pythonResource')
-
-    # Specific fields
-    status: get('pythonResource').status
-    data: get('pythonResource').data
+    full: get('summarize')          # the parsed map
+    status: get('summarize').status
+    data: get('summarize').data
 ```
+
+A non-zero exit does not return stdout: the call fails with `python execution failed: ..., stderr: ...` and `onError:` on the resource decides what happens next. stderr and the exit code stay in the logs.
 
 ## Environment variables
 
-`env:` on the resource sets variables for that script only; values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
+`env:` sets variables for that one call; values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
 
 <div v-pre>
 
 ```yaml
 # resources/fetch.yaml
-python:
-  env:
-    DB_PASSWORD: "{{ env('DB_PASSWORD') }}"
-  script: |
-    import os
-    print(len(os.environ["DB_PASSWORD"]) > 0)
+actionId: fetch
+component:
+  name: python
+  with:
+    env:
+      DB_PASSWORD: "{{ env('DB_PASSWORD') }}"
+    script: |
+      import os
+      print(os.environ["DB_PASSWORD"] != "")
 ```
 
 </div>
 
-Workflow-wide variables come from `agentSettings.env`:
+Workflow-wide values from `agentSettings.env` are inherited by the script:
 
 ```yaml
 # In workflow.yaml
@@ -212,37 +185,48 @@ settings:
 ```
 
 ```python
-# In Python script
 import os
 
 api_key = os.environ.get('API_KEY')
 debug = os.environ.get('DEBUG') == 'true'
 ```
 
-## Accessing output details
+| Variable | Effect |
+|----------|--------|
+| `KDEPS_PYTHON_VERSION` | Default `pythonVersion` when the call does not set one (then `3.12`) |
+| `KDEPS_PYTHON_TIMEOUT` | Default `timeout` when the call does not set one |
+| `KDEPS_PYTHON_MAX_OUTPUT_BYTES` | Cap on captured stdout; exceeding it fails the call |
 
-Access stdout, stderr, and exit codes from other resources:
+## Errors and timeouts
+
+| Error | Cause |
+|-------|-------|
+| `python: script or scriptFile is required` | Neither `script` nor `scriptFile` was given |
+| `python execution failed: ..., stderr: ...` | The script exited non-zero; stderr is quoted in the message |
+| `python stdout exceeds output limit of N bytes` | Output crossed `KDEPS_PYTHON_MAX_OUTPUT_BYTES` |
+| `failed to ensure venv: ...` | uv could not build the virtualenv (bad version, network, package resolution) |
+
+Handle a failing script without stopping the workflow with `onError:`:
+
+<div v-pre>
 
 ```yaml
-# resources/example.yaml
-requires: [pythonResource]
-after:
-  # Check if Python script succeeded
-  - set('script_success', python.exitCode('pythonResource') == 0)
-  - set('error_output', python.stderr('pythonResource'))
-
-apiResponse:
-  response:
-    output: get('pythonResource')  # stdout (default)
-    errors: get('error_output')
-    success: get('script_success')
+# resources/optional-step.yaml
+actionId: optionalStep
+component:
+  name: python
+  with:
+    script: |
+      raise SystemExit(3)
+onError:
+  action: continue
 ```
 
-See [Unified API](/workflow/data-access#resource-specific-accessors) for details.
+</div>
 
 ## See also
 
-- [Python examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
-- [Exec resource](/workflow/resources/exec) - shell command execution
+- [Python examples](/reference/python-examples) - data transformation, ML inference, image processing, error handling, debugging
+- [exec component](/workflow/resources/exec) - shell command execution
+- [Inline resources](/workflow/inline-resources) - `component:` in `before:` / `after:`
 - [LLM resource](/workflow/resources/llm) - combine with AI
-- [Workflow configuration](/workflow/configuration) - Python settings

@@ -40,23 +40,27 @@ resources:
     requires: ["process-items"]
     items:
       - "{{get('process-items')}}"  # Iterate over previous results
-    exec:
-      command: "echo"
-      args:
-        - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
+    component:
+      name: exec
+      with:
+        command: "echo"
+        args:
+          - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
 
   # Aggregate all results (for debugging/logging)
   - actionId: aggregate-results
     name: aggregate-results
     description: "Aggregate all processed items"
     requires: ["transform-results"]
-    exec:
-      command: "sh"
-      args:
-        - "-c"
-        - |
-          echo "Processed {{len(get('transform-results'))}} items:"
-          echo {{json(get('transform-results'))}}
+    component:
+      name: exec
+      with:
+        command: "sh"
+        args:
+          - "-c"
+          - |
+            echo "Processed {{len(get('transform-results'))}} items:"
+            echo {{json(get('transform-results'))}}
 
   # Format and return API response
   - actionId: api-response

@@ -129,10 +129,12 @@ settings:
 | Field | Description |
 |-------|-------------|
 | `pythonVersion` | Python version (e.g., "3.11", "3.12") |
-| `pythonPackages` | List of pip packages to install |
+| `pythonPackages` | List of pip packages to install into the built image |
 | `requirementsFile` | Path to requirements.txt |
 | `pyprojectFile` | Path to pyproject.toml (for uv) |
 | `lockFile` | Path to uv.lock file |
+
+A script run through the [`python` component](/workflow/resources/python) installs its own packages from the call's `packages:` input at run time; `pythonPackages` above provisions the workflow's image for native tooling.
 
 #### System packages
 

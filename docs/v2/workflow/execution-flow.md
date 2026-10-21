@@ -68,8 +68,10 @@ The engine resolves the full transitive closure. If A requires B, and B requires
 ```yaml
 # resources/example.yaml
 - actionId: C
-  exec:
-    command: echo "first"
+  component:
+    name: exec
+    with:
+      command: echo "first"
 
 - actionId: B
   requires: [C]

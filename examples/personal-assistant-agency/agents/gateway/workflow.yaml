@@ -70,9 +70,11 @@ resources:
           get('event.user') != ''             ? get('event.user') :
           'default'
         )
-    exec:
-      command: echo
-      args: ["Input normalised"]
+    component:
+      name: exec
+      with:
+        command: echo
+        args: ["Input normalised"]
 
   # ── Step 1a: Brain — handles chat + webhook routes ───────────────────────────
   - actionId: call-brain

@@ -83,10 +83,12 @@ name: Extract star counts
 requires: [fetch]
 items:
   - "{{ get('fetch') }}"          # iterate over fetch's collected results
-exec:
-  command: echo
-  args:
-    - "{{ default(safe(item, 'data.name'), 'N/A') }} has {{ default(safe(item, 'data.stargazers_count'), 0) }} stars"
+component:
+  name: exec
+  with:
+    command: echo
+    args:
+      - "{{ default(safe(item, 'data.name'), 'N/A') }} has {{ default(safe(item, 'data.stargazers_count'), 0) }} stars"
 ```
 
 </div>

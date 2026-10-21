@@ -1,22 +1,22 @@
-apiVersion: v2
+apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: python
   name: Python Script
   description: Execute Python code
-run:
-  python:
+component:
+  name: python
+  with:
     script: |
       # Your Python code here
       import json
-      import sys
 
-      # Access input via environment or stdin
+      # Access input via expressions
       input_data = "{% raw %}{{ get('input', '{}') }}{% endraw %}"
 
       # Process data
       result = {"processed": True, "input": input_data}
 
-      # Output result as JSON (will be captured as stdout)
+      # Output result as JSON (captured as the resource output)
       print(json.dumps(result))
-    timeout: "60s"
+    timeout: 60s

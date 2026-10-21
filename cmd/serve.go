@@ -272,9 +272,6 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
-	if err := startControlAPI(rootCtx); err != nil {
-		return err
-	}
 
 	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
 	// exiting); tell the llm package's local-server shutdown hook not to also
@@ -424,6 +421,13 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	fmt.Fprintln(os.Stderr, "Loading model catalog...")
 	wireREPL(rootCtx, repl, registry, flags, excludedTools)
+
+	// Start the control API only after the REPL has published its slash
+	// commands and tools: a client that sees /api up must see the complete
+	// surface, not an empty command list during startup.
+	if err = startControlAPI(rootCtx); err != nil {
+		return err
+	}
 
 	// Start cron background scheduler: polls every 60s for due cron jobs.
 	// Each due job creates a task and advances its NextRun.

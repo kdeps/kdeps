@@ -6,7 +6,7 @@ the first file on disk.
 
 When a request is `multipart/form-data`, kdeps writes each uploaded file to a
 temporary path and exposes it. A resource can then read the file, pass its path
-to an `exec:` or `python:` step, or attach it to an LLM prompt.
+to a `component: exec` or `python` component step, or attach it to an LLM prompt.
 
 **Needs:** A couple of files to upload.
 
@@ -107,4 +107,4 @@ Response:
 - [Data access](/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
 - [Image analysis tutorial](/examples/vision) - attach the upload to an LLM
 - [Document summarizer tutorial](/examples/file-processor) - the `file` input source
-- [Exec resource](/workflow/resources/exec) - process the file with a shell command
+- [exec component](/workflow/resources/exec) - process the file with a shell command

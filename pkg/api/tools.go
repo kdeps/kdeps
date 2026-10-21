@@ -83,6 +83,8 @@ func init() {
 	RegisterTool(loadToolSpec(toolSQLQuery, "Run a read-only SQL query.", SQLQuery))
 	RegisterTool(loadToolSpec(toolSQLOps, "Run SQL against a named connection.", SQLOps))
 	RegisterTool(loadToolSpec(toolBashExec, "Execute a bash shell command.", BashExec))
+	RegisterTool(loadToolSpec(toolExec, "Run a shell command with structured output.", ExecOps))
+	RegisterTool(loadToolSpec(toolPython, "Run a Python script with structured output.", PythonOps))
 	RegisterTool(loadToolSpec(toolBashJobList, "List background bash jobs.", BashJobList))
 	RegisterTool(loadToolSpec(toolBashJobWait, "Wait for a background bash job.", BashJobWait))
 	RegisterTool(loadToolSpec(toolListFiles, "List files and directories.", ListFiles))
@@ -99,16 +101,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
 	RegisterTool(loadToolSpec(toolMemoryQuery, "Run a relational query over agent state.", MemoryQuery))
-	RegisterTool(loadToolSpec(toolCodeSearch, "Search for a symbol or pattern.", CodeSearch))
-	RegisterTool(loadToolSpec(toolCodeDefinition, "Find the definition of a symbol.", CodeDefinition))
-	RegisterTool(loadToolSpec(toolCodeReferences, "Find references to a symbol.", CodeReferences))
-	RegisterTool(loadToolSpec(toolCodeSymbols, "List symbols in a file.", CodeSymbols))
-	RegisterTool(loadToolSpec(toolCodeHover, "Get documentation for a symbol.", CodeHover))
-	RegisterTool(loadToolSpec(toolCodeDiagnostics, "Get diagnostics for a file.", CodeDiagnostics))
-	RegisterTool(loadToolSpec(toolCodeIndexFolder, "Index the working directory into a graph.", CodeIndexFolder))
-	RegisterTool(loadToolSpec(toolCodeGraphFile, "Graph one indexed file.", CodeGraphFile))
-	RegisterTool(loadToolSpec(toolCodeGraphTopic, "Graph indexed files for a topic.", CodeGraphTopic))
-	RegisterTool(loadToolSpec(toolCodeGraphAll, "Graph the whole index.", CodeGraphAll))
+	registerCodeTools()
 	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
@@ -120,6 +113,20 @@ func init() {
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	registerRegistryTools()
+}
+
+// registerCodeTools registers the code intelligence tools.
+func registerCodeTools() {
+	RegisterTool(loadToolSpec(toolCodeSearch, "Search for a symbol or pattern.", CodeSearch))
+	RegisterTool(loadToolSpec(toolCodeDefinition, "Find the definition of a symbol.", CodeDefinition))
+	RegisterTool(loadToolSpec(toolCodeReferences, "Find references to a symbol.", CodeReferences))
+	RegisterTool(loadToolSpec(toolCodeSymbols, "List symbols in a file.", CodeSymbols))
+	RegisterTool(loadToolSpec(toolCodeHover, "Get documentation for a symbol.", CodeHover))
+	RegisterTool(loadToolSpec(toolCodeDiagnostics, "Get diagnostics for a file.", CodeDiagnostics))
+	RegisterTool(loadToolSpec(toolCodeIndexFolder, "Index the working directory into a graph.", CodeIndexFolder))
+	RegisterTool(loadToolSpec(toolCodeGraphFile, "Graph one indexed file.", CodeGraphFile))
+	RegisterTool(loadToolSpec(toolCodeGraphTopic, "Graph indexed files for a topic.", CodeGraphTopic))
+	RegisterTool(loadToolSpec(toolCodeGraphAll, "Graph the whole index.", CodeGraphAll))
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

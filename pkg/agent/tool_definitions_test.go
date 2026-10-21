@@ -70,12 +70,19 @@ func allBuiltinTools(t *testing.T) ([]*kdepstools.Tool, map[string]bool) {
 }
 
 func TestToolDefinitions_EveryToolDefined(t *testing.T) {
+	// Tool assets served by the kdeps API instead of the agent loop:
+	// components call them through pkg/api, so no agent-loop tool registers
+	// them. TestTools_ListAndCall in pkg/api keeps this set honest.
+	apiOnly := map[string]bool{"exec": true, "python": true}
 	tools, used := allBuiltinTools(t)
 	require.NotEmpty(t, tools)
 	for _, tl := range tools {
 		assert.NotEmpty(t, tl.Description, "tool %s has no tools/*.yaml definition", tl.Name)
 	}
 	for id := range toolDefinitions {
+		if apiOnly[id] {
+			continue
+		}
 		assert.True(t, used[id], "tools/%s.yaml is not used by any registered tool", id)
 	}
 }
