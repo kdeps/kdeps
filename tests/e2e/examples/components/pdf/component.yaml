@@ -23,12 +23,16 @@ interface:
 resources:
   - name: Generate Pdf
     actionId: generate-pdf
-    python:
-      script: |
-        import pdfkit
-        content = "{{ get('pdf.content') }}"
-        output_file = "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"
-        pdfkit.from_string(content, output_file)
+    component:
+      name: python
+      with:
+        packages:
+          - pdfkit
+        script: |
+          import pdfkit
+          content = "{{ get('pdf.content') }}"
+          output_file = "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"
+          pdfkit.from_string(content, output_file)
     response:
       data:
         generated: "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"

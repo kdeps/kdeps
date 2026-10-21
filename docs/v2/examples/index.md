@@ -14,7 +14,7 @@ closest to what you are building.
 | [Document search (RAG)](/examples/rag-search) | `embedding:` upsert and search, two routes in one workflow |
 | [Web scraper](/examples/web-scraper) | `component: scraper` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
-| [Shell command API](/examples/shell-command-api) | `exec:` with a timeout, method scoping, `info()` |
+| [Shell command API](/examples/shell-command-api) | the `exec` component with a timeout, method scoping, `info()` |
 | [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
 | [Image analysis](/examples/vision) | Multipart upload, `files:` on a chat prompt, Ollama vision |
 | [SQL-backed API](/examples/sql-api) | `sql` component: parameterized queries, CSV output, batch transactions |
@@ -26,7 +26,7 @@ closest to what you are building.
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
 | [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
 | [Local file search](/examples/local-file-search) | `component: search_local` glob + content search |
-| [Python data processing](/examples/python-processing) | `python:` resource, `input()`, `packages:`, JSON output |
+| [Python data processing](/examples/python-processing) | `python` component, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
@@ -109,7 +109,7 @@ Best for:
 
 ## Shell command API
 
-An endpoint that runs a shell command with `exec:` and returns its output -
+An endpoint that runs a shell command with the `exec` component and returns its output -
 the pattern for exposing a script or CLI tool as an HTTP service.
 
 Best for:
@@ -120,8 +120,8 @@ Best for:
 
 ## Function calling
 
-An API where the LLM calls your own resources mid-response - a `python:`
-calculator and a mock database lookup - then answers using the results.
+An API where the LLM calls your own resources mid-response - a `python`
+component calculator and a mock database lookup - then answers using the results.
 
 Best for:
 - Letting a model compute or look things up instead of guessing
@@ -209,8 +209,8 @@ Best for:
 
 ## Inline resources
 
-Attach `exec:`, `python:` and `component:` actions directly to one resource's
-`before:` and `after:` blocks instead of creating a file for each.
+Attach `httpClient:` and `component:` actions directly to one
+resource's `before:` and `after:` blocks instead of creating a file for each.
 
 Best for:
 - One-off setup and teardown a single resource needs
@@ -244,7 +244,7 @@ Best for:
 ## Python data processing
 
 An API that runs a Python script to validate and convert data formats. Shows
-how a `python:` resource receives request fields and returns structured data.
+how a `python` component receives request fields and returns structured data.
 
 Best for:
 - Anything with no native resource - parsing, transforms, calculations

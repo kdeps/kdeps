@@ -1,6 +1,6 @@
 # Inline resources
 
-Inline resources are full resource actions (chat, httpClient, sql, python, exec, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+Inline resources are full resource actions (chat, httpClient, component, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
 
@@ -15,10 +15,12 @@ before:
   - httpClient:
       method: GET
       url: "https://api.example.com/config"
-  - exec:
-      command: "echo 'Preparing environment...'"
+  - component:                     # shell steps go through the exec component
+      name: exec
+      with:
+        command: "echo 'Preparing environment...'"
 
-# Main resource (chat, httpClient, sql, python, exec, or file)
+# Main resource (chat, httpClient, component, or file)
 chat:
   role: user
   prompt: "Process this data"
@@ -30,13 +32,17 @@ after:
       with:
         connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
         query: "INSERT INTO logs VALUES (?)"
-  - python:
-      script: "print('Post-processing complete')"
+  - component:
+      name: python
+      with:
+        script: "print('Post-processing complete')"
 ```
 
 ## Supported resource types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `python`, `exec`, `agent`, `component`, `embedding`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `agent`, `component`, `embedding`, `codeIntelligence`, `loader`, `vectorStore`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+
+`exec:` and `python:` are not available inline: shell steps call the `exec` component (`component: {name: exec, with: {command: ...}}`) and scripts call the `python` component, the same as anywhere else in a workflow.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 
@@ -46,8 +52,8 @@ When `apiResponse` is the only primary block and the resource has `before:` or `
 direction: down
 
 A: "expressions in before:\nset() / get() statements"
-B: "inline resources in before:\nhttpClient, exec, etc."
-C: "main action\nchat, sql, python, exec..."
+B: "inline resources in before:\nhttpClient, component, etc."
+C: "main action\nchat, sql, component..."
 D: "inline resources in after:\nhttpClient, sql, etc."
 E: "expressions in after:\nset() / get() statements"
 
@@ -96,8 +102,10 @@ Send alerts after completion:
 
 ```yaml
 # resources/example.yaml
-python:
-  script: "process_data.py"
+component:
+  name: python
+  with:
+    script: "process_data.py"
 
 after:
   - httpClient:
@@ -115,17 +123,25 @@ Prepare files or environment before execution:
 ```yaml
 # resources/example.yaml
 before:
-  - exec:
-      command: "mkdir -p /tmp/workspace"
-  - exec:
-      command: "cp config.json /tmp/workspace/"
+  - component:                     # the exec component runs each shell step
+      name: exec
+      with:
+        command: "mkdir -p /tmp/workspace"
+  - component:
+      name: exec
+      with:
+        command: "cp config.json /tmp/workspace/"
 
-python:
-  script: "process_with_config.py"
+component:
+  name: python
+  with:
+    script: "process_with_config.py"
 
 after:
-  - exec:
-      command: "rm -rf /tmp/workspace"
+  - component:
+      name: exec
+      with:
+        command: "rm -rf /tmp/workspace"
 ```
 
 ### 5. Caching
@@ -159,8 +175,10 @@ before:
   - httpClient:
       method: GET
       url: "https://api.example.com/user"
-  - exec:
-      command: "echo 'Starting...'"
+  - component:
+      name: exec
+      with:
+        command: "echo 'Starting...'"
 
 chat:
   prompt: "{{get('prompt')}}"
@@ -171,8 +189,10 @@ after:
       with:
         connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
         query: "INSERT INTO results VALUES (?)"
-  - python:
-      script: "send_metrics.py"
+  - component:
+      name: python
+      with:
+        script: "send_metrics.py"
   - httpClient:
       method: POST
       url: "https://api.example.com/complete"
@@ -279,26 +299,30 @@ Each inline resource supports the same configuration options as the standalone r
       timeout: 5s
 ```
 
-### Python
+### Python (component)
 ```yaml
 # resources/example.yaml
-- python:
-    script: |
-      import json
-      result = process_data()
-      print(json.dumps(result))
-    timeout: 30s
-    venvName: "myenv"
+- component:
+    name: python
+    with:
+      script: |
+        import json
+        result = process_data()
+        print(json.dumps(result))
+      timeout: 30s
+      venvName: "myenv"
 ```
 
-### Exec
+### Exec (component)
 ```yaml
 # resources/example.yaml
-- exec:
-    command: "process_file.sh"
-    args:
-      - "{{get('filename')}}"
-    timeout: 60s
+- component:
+    name: exec
+    with:
+      command: "process_file.sh"
+      args:
+        - "{{get('filename')}}"
+      timeout: 60s
 ```
 
 ### Chat (LLM)
@@ -337,7 +361,7 @@ Each inline resource supports the same configuration options as the standalone r
 # Single resource file
 before:
   - httpClient: { ... }  # Fetch config
-  - exec: { ... }        # Prepare env
+  - component: { name: exec, with: { ... } }  # Prepare env
 chat: { ... }            # Main processing
 after:
   - component: { name: sql, with: { ... } }   # Store results

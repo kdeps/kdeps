@@ -132,62 +132,66 @@ resources:
     name: save-analysis
     description: "Save analysis results to file"
     requires: ["analyze-activity", "generate-recommendations"]
-    exec:
-      command: "sh"
-      args:
-        - "-c"
-        - |
-          # Create output directory
-          mkdir -p ./output
+    component:
+      name: exec
+      with:
+        command: "sh"
+        args:
+          - "-c"
+          - |
+            # Create output directory
+            mkdir -p ./output
 
-          # Generate filename
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          REPO_NAME="{{get('owner')}}_{{get('repo')}}"
-          OUTPUT_FILE="./output/${REPO_NAME}_${TIMESTAMP}.json"
+            # Generate filename
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            REPO_NAME="{{get('owner')}}_{{get('repo')}}"
+            OUTPUT_FILE="./output/${REPO_NAME}_${TIMESTAMP}.json"
 
-          # Create JSON report
-          cat > "$OUTPUT_FILE" << 'EOF'
-          {
-            "repository": "{{get('owner') + '/' + get('repo')}}",
-            "analyzed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "stats": {
-              "stars": {{safe(get('fetch-repo-data'), 'data.stargazers_count')}},
-              "forks": {{safe(get('fetch-repo-data'), 'data.forks_count')}},
-              "open_issues": {{safe(get('fetch-repo-data'), 'data.open_issues_count')}},
-              "commits_analyzed": {{len(safe(get('fetch-commits'), 'data'))}},
-              "contributors": {{len(safe(get('fetch-contributors'), 'data'))}}
-            },
-            "analysis": {{get('analyze-activity')}},
-            "recommendations": {{get('generate-recommendations')}}
-          }
-          EOF
+            # Create JSON report
+            cat > "$OUTPUT_FILE" << 'EOF'
+            {
+              "repository": "{{get('owner') + '/' + get('repo')}}",
+              "analyzed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "stats": {
+                "stars": {{safe(get('fetch-repo-data'), 'data.stargazers_count')}},
+                "forks": {{safe(get('fetch-repo-data'), 'data.forks_count')}},
+                "open_issues": {{safe(get('fetch-repo-data'), 'data.open_issues_count')}},
+                "commits_analyzed": {{len(safe(get('fetch-commits'), 'data'))}},
+                "contributors": {{len(safe(get('fetch-contributors'), 'data'))}}
+              },
+              "analysis": {{get('analyze-activity')}},
+              "recommendations": {{get('generate-recommendations')}}
+            }
+            EOF
 
-          echo "Analysis saved to: $OUTPUT_FILE"
-          cat "$OUTPUT_FILE"
-      timeout: 30s
+            echo "Analysis saved to: $OUTPUT_FILE"
+            cat "$OUTPUT_FILE"
+        timeout: 30s
 
   # Step 8: Final report
   - actionId: final-report
     name: final-report
     description: "Generate final summary report"
     requires: ["save-analysis"]
-    exec:
-      command: "echo"
-      args:
-        - |
-          ═══════════════════════════════════════════
-          Repository Analysis Complete
-          ═══════════════════════════════════════════
+    component:
+      name: exec
+      with:
+        command: "echo"
+        args:
+          - |
+            ═══════════════════════════════════════════
+            Repository Analysis Complete
+            ═══════════════════════════════════════════
 
-          Repository: {{get('owner') + '/' + get('repo')}}
-          Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}} ⭐
-          Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}} 🔱
-          Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}} 📋
+            Repository: {{get('owner') + '/' + get('repo')}}
+            Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}} ⭐
+            Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}} 🔱
+            Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}} 📋
 
-          Analysis saved to ./output/
+            Analysis saved to ./output/
 
-          ═══════════════════════════════════════════
-      timeout: 10s
+            ═══════════════════════════════════════════
+        timeout: 10s
 
   # Step 9: API Response
   - actionId: api-response

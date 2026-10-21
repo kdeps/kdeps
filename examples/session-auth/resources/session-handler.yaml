@@ -11,17 +11,19 @@ validations:
     message: "Not logged in. Please login first."
 
 # Return session data using Python
-python:
-  script: |
-    import json
+component:
+  name: python
+  with:
+    script: |
+      import json
 
-    # Get all session data
-    session_data = {{ session() }}
-    print(json.dumps({
-        "message": "Session data retrieved",
-        "session": session_data
-    }))
-  timeout: 10s
+      # Get all session data
+      session_data = {{ session() }}
+      print(json.dumps({
+          "message": "Session data retrieved",
+          "session": session_data
+      }))
+    timeout: 10s
 
 apiResponse:
   success: true

@@ -85,10 +85,12 @@ validations:
   error:
     code: 400
     message: Data is required
-python:
-  script: |
-    data = get('data')
-    return process(data)
+component:
+  name: python
+  with:
+    script: |
+      data = get('data')
+      return process(data)
 ```
 
 ### Secure endpoint

@@ -255,7 +255,7 @@ Four environment variables limit how many bytes executor resources return to the
 
 | Variable | Applies to |
 |---|---|
-| `KDEPS_EXEC_MAX_OUTPUT_BYTES` | Shell / exec resource stdout |
+| `KDEPS_EXEC_MAX_OUTPUT_BYTES` | Shell command stdout (`exec` component) |
 | `KDEPS_HTTP_MAX_RESPONSE_BYTES` | HTTP resource response body |
 | `KDEPS_CHAT_MAX_OUTPUT_BYTES` | LLM chat response content |
 | `KDEPS_PYTHON_MAX_OUTPUT_BYTES` | Python resource stdout |

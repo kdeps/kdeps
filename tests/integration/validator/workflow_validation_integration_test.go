@@ -82,14 +82,16 @@ component:
 	pythonResource := `actionId: process-data
 name: Process Data
 requires: ["store-data"]
-python:
-  script: |
-    import json
-    import sys
+component:
+  name: python
+  with:
+    script: |
+      import json
+      import sys
 
-    # Read from stdin (simulated data)
-    data = {"processed": True, "timestamp": "2024-01-01"}
-    print(json.dumps(data))
+      # Read from stdin (simulated data)
+      data = {"processed": True, "timestamp": "2024-01-01"}
+      print(json.dumps(data))
 `
 
 	err = os.WriteFile(
@@ -184,7 +186,7 @@ settings:
 	require.True(t, exists)
 	assert.Equal(t, "Process Data", pythonRes.Name)
 	assert.Contains(t, pythonRes.Requires, "store-data")
-	assert.NotNil(t, pythonRes.Python)
+	assert.Equal(t, "python", pythonRes.Component.Name)
 
 	// Verify response resource
 	responseRes, exists := resourceMap["final-response"]
@@ -338,17 +340,21 @@ component:
 
 		"python-resource.yaml": `actionId: python-test
 name: Python Test
-python:
-  script: |
-    import json
-    result = {"status": "success", "data": [1, 2, 3]}
-    print(json.dumps(result))
+component:
+  name: python
+  with:
+    script: |
+      import json
+      result = {"status": "success", "data": [1, 2, 3]}
+      print(json.dumps(result))
 `,
 
 		"exec-resource.yaml": `actionId: exec-test
 name: Exec Test
-exec:
-  command: "echo Hello World"
+component:
+  name: exec
+  with:
+    command: "echo Hello World"
 `,
 
 		"response-resource.yaml": `actionId: response-test
@@ -401,8 +407,8 @@ settings:
 	// Verify each resource type
 	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
 	assert.Equal(t, "sql", resourceMap["sql-test"].Component.Name)
-	assert.NotNil(t, resourceMap["python-test"].Python)
-	assert.NotNil(t, resourceMap["exec-test"].Exec)
+	assert.Equal(t, "python", resourceMap["python-test"].Component.Name)
+	assert.Equal(t, "exec", resourceMap["exec-test"].Component.Name)
 	assert.NotNil(t, resourceMap["response-test"].APIResponse)
 
 	// Verify HTTP resource configuration
@@ -414,15 +420,15 @@ settings:
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
 	assert.Contains(t, sqlRes.Component.With["query"], "SELECT")
-	assert.Equal(t, []interface{}{"123"}, sqlRes.Component.With["params"])
+	assert.Equal(t, []any{"123"}, sqlRes.Component.With["params"])
 
-	// Verify Python resource has script
+	// Verify Python resource passes its script to the python component
 	pythonRes := resourceMap["python-test"]
-	assert.Contains(t, pythonRes.Python.Script, "import json")
+	assert.Contains(t, pythonRes.Component.With["script"], "import json")
 
-	// Verify Exec resource has command
+	// Verify the exec component receives its command
 	execRes := resourceMap["exec-test"]
-	assert.Equal(t, "echo Hello World", execRes.Exec.Command)
+	assert.Equal(t, "echo Hello World", execRes.Component.With["command"])
 
 	// Verify API Response resource
 	responseRes := resourceMap["response-test"]

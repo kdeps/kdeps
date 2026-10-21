@@ -64,13 +64,15 @@ Tools that reference other kdeps resources:
 ```yaml
 # The tool resource
 actionId: calcTool
-python:
-  script: |
-    import json
-    import math
-    expr = """{{ get('expression') }}"""
-    result = eval(expr, {"__builtins__": {}, "math": math})
-    print(json.dumps({"result": result}))
+component:
+  name: python
+  with:
+    script: |
+      import json
+      import math
+      expr = """{{ get('expression') }}"""
+      result = eval(expr, {"__builtins__": {}, "math": math})
+      print(json.dumps({"result": result}))
 
 ---
 # The LLM that uses the tool
@@ -227,7 +229,7 @@ LLM generates final response
 ## Use cases
 
 - Let the model do math, run code, or query a database mid-response instead of
-  guessing (`script:` pointing at a `python:` or `exec:` resource, or a component call).
+  guessing (`script:` pointing at a component call such as `python` or `exec`).
 - Give the model read access to a filesystem, an API, or another service
   through an external MCP server (`mcp:`).
 - Chain capabilities: the model calls a search tool, then a scraper tool, then

@@ -100,5 +100,5 @@ One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `in
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [Exec resource](/workflow/resources/exec) - shell commands (use for other CLI tools)
+- [exec component](/workflow/resources/exec) - shell commands (use for other CLI tools)
 - [Git component source](https://github.com/kdeps/kdeps/tree/main/assets/components/git) - the component and its tool asset

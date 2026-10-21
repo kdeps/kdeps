@@ -469,11 +469,13 @@ settings:
 	resourceContent := `
 actionId: process-data
 name: Process Data
-python:
-  script: |
-    import requests
-    import numpy as np
-    print("Processing data with Python")
+component:
+  name: python
+  with:
+    script: |
+      import requests
+      import numpy as np
+      print("Processing data with Python")
 `
 
 	resourcePath := filepath.Join(resourcesDir, "process-data.yaml")

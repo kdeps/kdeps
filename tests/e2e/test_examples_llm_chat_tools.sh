@@ -115,19 +115,19 @@ if $all_refs_ok; then
     test_passed "llm-chat-tools - all 10 tool actionIds referenced in chat resource"
 fi
 
-# T11: each tool resource has a python executor
+# T11: each tool resource runs Python through the python component
 python_tools=("$RES_DIR/01-calculator.yaml" "$RES_DIR/02-weather.yaml" "$RES_DIR/03-time.yaml" \
     "$RES_DIR/04-unit-converter.yaml" "$RES_DIR/05-text-analyzer.yaml" "$RES_DIR/06-json-formatter.yaml" \
     "$RES_DIR/07-base64.yaml" "$RES_DIR/08-url-parser.yaml" "$RES_DIR/09-hash.yaml" "$RES_DIR/10-random.yaml")
 all_python_ok=true
 for f in "${python_tools[@]}"; do
-    if [ -f "$f" ] && ! grep -q "python:" "$f"; then
-        test_failed "llm-chat-tools - $(basename $f) uses python executor" "python: not found in $f"
+    if [ -f "$f" ] && ! grep -q "name: python" "$f"; then
+        test_failed "llm-chat-tools - $(basename $f) calls the python component" "python component not found in $f"
         all_python_ok=false
     fi
 done
 if $all_python_ok; then
-    test_passed "llm-chat-tools - all tool resources use python executor"
+    test_passed "llm-chat-tools - all tool resources call the python component"
 fi
 
 # T12: chat resource has 10 tool definitions

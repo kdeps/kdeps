@@ -59,7 +59,8 @@ AP_URL="http://127.0.0.1:$AP_PORT"
 ap() {
     local home="$1"
     shift
-    (cd "$home/work" && env HOME="$home" USERPROFILE="$home" KDEPS_ASSETS_SRC='' KDEPS_ASSETS_DIR="$home/store" \
+    (cd "$home/work" && env HOME="$home" USERPROFILE="$home" KDEPS_ASSETS_SRC='' KDEPS_COMPONENT_DIR='' \
+        KDEPS_ASSETS_DIR="$home/store" \
         KDEPS_ASSETS_URL="${AP_URL_OVERRIDE:-$AP_URL}" KDEPS_CONFIG_PATH="$home/.kdeps/config.yaml" \
         KDEPS_DATA_DIR="$home/data" "$@" 2>&1 </dev/null)
 }
@@ -68,6 +69,7 @@ ap_loop() {
     local home="$1" input="$2"
     shift 2
     (cd "$home/work" && printf '%b' "$input" | env HOME="$home" USERPROFILE="$home" KDEPS_ASSETS_SRC='' \
+        KDEPS_COMPONENT_DIR='' \
         KDEPS_ASSETS_DIR="$home/store" KDEPS_ASSETS_URL="${AP_URL_OVERRIDE:-$AP_URL}" \
         KDEPS_CONFIG_PATH="$home/.kdeps/config.yaml" KDEPS_DATA_DIR="$home/data" "$@" \
         timeout 180 "$KDEPS_BIN" --new 2>&1) || true

@@ -40,7 +40,7 @@ _warm=$(mktemp -d)
 mkdir -p "$_warm/resources"
 printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: venv-warmup\n  version: "1.0.0"\n  targetActionId: hi\nsettings:\n  agentSettings:\n    pythonVersion: "3.12"\n' \
     > "$_warm/workflow.yaml"
-printf 'actionId: hi\nname: Hi\nexec:\n  command: echo hi\n' > "$_warm/resources/hi.yaml"
+printf 'actionId: hi\nname: Hi\ncomponent:\n  name: exec\n  with:\n    command: echo hi\n' > "$_warm/resources/hi.yaml"
 echo "Building the shared Python environment once (up to 15 minutes)..."
 if timeout 900 "$KDEPS_BIN" run "$_warm/workflow.yaml" >"$_warm/out.log" 2>&1; then
     grep -E "Python venv|Packages" "$_warm/out.log" || true

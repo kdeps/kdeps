@@ -138,12 +138,12 @@ else
         "expected connectionName: memory and no workflow sqlConnections in $BRAIN_WF"
 fi
 
-# ── Test 13: brain uses Python for memory operations ─────────────────────────
-if grep -q "python:" "$BRAIN_WF"; then
-    test_passed "Personal Assistant Agency - brain uses Python executor"
+# ── Test 13: brain runs Python through the python component ──────────────────
+if grep -q "name: python" "$BRAIN_WF"; then
+    test_passed "Personal Assistant Agency - brain calls the python component"
 else
-    test_failed "Personal Assistant Agency - brain uses Python executor" \
-        "python: resource not found in $BRAIN_WF"
+    test_failed "Personal Assistant Agency - brain calls the python component" \
+        "python component call not found in $BRAIN_WF"
 fi
 
 # ── Test 14: heartbeat is non-server (internal) ──────────────────────────────

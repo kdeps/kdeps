@@ -40,23 +40,25 @@ resources:
   # ── Memory: initialise SQLite storage ───────────────────────────────────────
   - actionId: init-db
     name: Init Memory DB
-    python:
-      script: |
-        import sqlite3, os
-        os.makedirs("/tmp/pa-memory", exist_ok=True)
-        conn = sqlite3.connect("/tmp/pa-memory/conversations.db")
-        conn.execute("""
-          CREATE TABLE IF NOT EXISTS conversations (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id  TEXT    NOT NULL,
-            role        TEXT    NOT NULL,
-            content     TEXT    NOT NULL,
-            created_at  TEXT    DEFAULT (datetime('now'))
-          )
-        """)
-        conn.commit()
-        conn.close()
-        print("ready")
+    component:
+      name: python
+      with:
+        script: |
+          import sqlite3, os
+          os.makedirs("/tmp/pa-memory", exist_ok=True)
+          conn = sqlite3.connect("/tmp/pa-memory/conversations.db")
+          conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+              id          INTEGER PRIMARY KEY AUTOINCREMENT,
+              session_id  TEXT    NOT NULL,
+              role        TEXT    NOT NULL,
+              content     TEXT    NOT NULL,
+              created_at  TEXT    DEFAULT (datetime('now'))
+            )
+          """)
+          conn.commit()
+          conn.close()
+          print("ready")
 
   # ── Memory: recall recent conversation turns ─────────────────────────────────
   - actionId: recall
@@ -123,90 +125,98 @@ resources:
   # Reads recent messages from the configured IMAP inbox via Python imaplib.
   - actionId: read-email-tool
     name: Read Email Tool
-    python:
-      script: |
-        import imaplib, email, json, os
-        host = os.environ.get("IMAP_HOST", "imap.gmail.com")
-        user = os.environ.get("SMTP_USER", "")
-        pwd  = os.environ.get("SMTP_PASS", "")
-        mailbox = get("mailbox", "INBOX")
-        try:
-            conn = imaplib.IMAP4_SSL(host)
-            conn.login(user, pwd)
-            conn.select(mailbox)
-            _, data = conn.search(None, "ALL")
-            ids = data[0].split()[-10:]
-            msgs = []
-            for mid in reversed(ids):
-                _, mdata = conn.fetch(mid, "(RFC822)")
-                msg = email.message_from_bytes(mdata[0][1])
-                msgs.append({"from": msg["From"], "subject": msg["Subject"], "date": msg["Date"]})
-            conn.logout()
-            print(json.dumps(msgs))
-        except Exception as ex:
-            print(json.dumps({"error": str(ex)}))
+    component:
+      name: python
+      with:
+        script: |
+          import imaplib, email, json, os
+          host = os.environ.get("IMAP_HOST", "imap.gmail.com")
+          user = os.environ.get("SMTP_USER", "")
+          pwd  = os.environ.get("SMTP_PASS", "")
+          mailbox = get("mailbox", "INBOX")
+          try:
+              conn = imaplib.IMAP4_SSL(host)
+              conn.login(user, pwd)
+              conn.select(mailbox)
+              _, data = conn.search(None, "ALL")
+              ids = data[0].split()[-10:]
+              msgs = []
+              for mid in reversed(ids):
+                  _, mdata = conn.fetch(mid, "(RFC822)")
+                  msg = email.message_from_bytes(mdata[0][1])
+                  msgs.append({"from": msg["From"], "subject": msg["Subject"], "date": msg["Date"]})
+              conn.logout()
+              print(json.dumps(msgs))
+          except Exception as ex:
+              print(json.dumps({"error": str(ex)}))
 
   # ── Tool 5: run shell command ────────────────────────────────────────────────
   # Safe read-only system queries. Restrict in production via allow-list.
   - actionId: run-command-tool
     name: Run Command Tool
-    exec:
-      command: sh
-      args:
-        - "-c"
-        - "{{ get('command') }}"
-      timeout: 15s
+    component:
+      name: exec
+      with:
+        command: sh
+        args:
+          - "-c"
+          - "{{ get('command') }}"
+        timeout: 15s
 
   # ── Tool 6: calculator ───────────────────────────────────────────────────────
   # Evaluates a mathematical expression safely (no arbitrary code execution).
   - actionId: calculator-tool
     name: Calculator Tool
-    python:
-      script: |
-        import math, json
-        expr = "{{ get('expression', '') }}"
-        allowed = {
-            "__builtins__": {},
-            "abs": abs, "round": round, "min": min, "max": max,
-            "sum": sum, "pow": pow, "int": int, "float": float,
-            "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
-            "tan": math.tan, "log": math.log, "log10": math.log10,
-            "exp": math.exp, "ceil": math.ceil, "floor": math.floor,
-            "pi": math.pi, "e": math.e,
-        }
-        try:
-            result = eval(expr, allowed, {})
-            print(json.dumps({"result": result, "expression": expr}))
-        except Exception as ex:
-            print(json.dumps({"error": str(ex), "expression": expr}))
+    component:
+      name: python
+      with:
+        script: |
+          import math, json
+          expr = "{{ get('expression', '') }}"
+          allowed = {
+              "__builtins__": {},
+              "abs": abs, "round": round, "min": min, "max": max,
+              "sum": sum, "pow": pow, "int": int, "float": float,
+              "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+              "tan": math.tan, "log": math.log, "log10": math.log10,
+              "exp": math.exp, "ceil": math.ceil, "floor": math.floor,
+              "pi": math.pi, "e": math.e,
+          }
+          try:
+              result = eval(expr, allowed, {})
+              print(json.dumps({"result": result, "expression": expr}))
+          except Exception as ex:
+              print(json.dumps({"error": str(ex), "expression": expr}))
 
   # ── Tool 7: calendar list ────────────────────────────────────────────────────
   # Lists upcoming events from /tmp/pa-memory/calendar.ics via Python icalendar.
   - actionId: calendar-list-tool
     name: Calendar List Tool
-    python:
-      script: |
-        import json, os
-        path = "/tmp/pa-memory/calendar.ics"
-        if not os.path.exists(path):
-            print(json.dumps([]))
-        else:
-            try:
-                from icalendar import Calendar
-                with open(path, "rb") as f:
-                    cal = Calendar.from_ical(f.read())
-                events = []
-                for component in cal.walk():
-                    if component.name == "VEVENT":
-                        events.append({
-                            "summary": str(component.get("SUMMARY", "")),
-                            "start": str(component.get("DTSTART").dt),
-                            "end": str(component.get("DTEND").dt),
-                            "description": str(component.get("DESCRIPTION", "")),
-                        })
-                print(json.dumps(events))
-            except Exception as ex:
-                print(json.dumps({"error": str(ex)}))
+    component:
+      name: python
+      with:
+        script: |
+          import json, os
+          path = "/tmp/pa-memory/calendar.ics"
+          if not os.path.exists(path):
+              print(json.dumps([]))
+          else:
+              try:
+                  from icalendar import Calendar
+                  with open(path, "rb") as f:
+                      cal = Calendar.from_ical(f.read())
+                  events = []
+                  for component in cal.walk():
+                      if component.name == "VEVENT":
+                          events.append({
+                              "summary": str(component.get("SUMMARY", "")),
+                              "start": str(component.get("DTSTART").dt),
+                              "end": str(component.get("DTEND").dt),
+                              "description": str(component.get("DESCRIPTION", "")),
+                          })
+                  print(json.dumps(events))
+              except Exception as ex:
+                  print(json.dumps({"error": str(ex)}))
 
   # ── Tool 8: calendar add ─────────────────────────────────────────────────────
   # Adds a new event to /tmp/pa-memory/calendar.ics.
@@ -225,27 +235,31 @@ resources:
   # Appends a timestamped note to /tmp/pa-memory/notes.md.
   - actionId: take-note-tool
     name: Take Note Tool
-    python:
-      script: |
-        import os, datetime
-        os.makedirs("/tmp/pa-memory", exist_ok=True)
-        note = "{{ get('note', '') }}"
-        ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-        with open("/tmp/pa-memory/notes.md", "a") as f:
-            f.write(f"\n## {ts}\n{note}\n")
-        print("Note saved.")
+    component:
+      name: python
+      with:
+        script: |
+          import os, datetime
+          os.makedirs("/tmp/pa-memory", exist_ok=True)
+          note = "{{ get('note', '') }}"
+          ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+          with open("/tmp/pa-memory/notes.md", "a") as f:
+              f.write(f"\n## {ts}\n{note}\n")
+          print("Note saved.")
 
   # ── Tool 10: read notes ──────────────────────────────────────────────────────
   # Returns all saved notes from /tmp/pa-memory/notes.md.
   - actionId: read-notes-tool
     name: Read Notes Tool
-    exec:
-      command: sh
-      args:
-        - "-c"
-        - |
-          FILE="/tmp/pa-memory/notes.md"
-          if [ -f "$FILE" ]; then cat "$FILE"; else echo "No notes yet."; fi
+    component:
+      name: exec
+      with:
+        command: sh
+        args:
+          - "-c"
+          - |
+            FILE="/tmp/pa-memory/notes.md"
+            if [ -f "$FILE" ]; then cat "$FILE"; else echo "No notes yet."; fi
 
   # ────────────────────────────────────────────────────────────────────────────
 
@@ -415,9 +429,11 @@ resources:
     requires: [think]
     after:
       - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
-    exec:
-      command: echo
-      args: ["{{ get('reply') }}"]
+    component:
+      name: exec
+      with:
+        command: echo
+        args: ["{{ get('reply') }}"]
 
   # ── Memory: persist user turn ────────────────────────────────────────────────
   - actionId: save-user-turn

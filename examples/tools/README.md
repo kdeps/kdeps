@@ -187,7 +187,7 @@ The system supports up to 5 iterations:
 This enables powerful agent workflows where LLMs can:
 - ✅ Query databases (via SQL resources)
 - ✅ Call external APIs (via HTTP resources)
-- ✅ Perform calculations (via Python/Exec resources)
+- ✅ Perform calculations (via Python and exec components)
 - ✅ Execute Python scripts (via Python resources)
 - ✅ Chain multiple tools together (automatic)
 

@@ -97,7 +97,7 @@ The workflow runs once and prints its result (the target resource's output) as J
 **Size limit.** The whole file is read into memory as `fileContent` - fine for
 documents, but a workflow that ingests bulk data (a large CSV, say) can spike
 memory well past the raw file size once a resource copies that content again
-(e.g. interpolating it into a `python:`/`exec:` argument, or a script that
+(e.g. interpolating it into a `python` component script or `exec` component argument, or a script that
 builds an in-memory row list). Past a certain size that risks an OOM kill from
 the OS - which, being a `SIGKILL`, leaves no error and no core dump, just a
 vanished process. `--file`/stdin input is capped at 256 MiB by default;
@@ -110,7 +110,7 @@ KDEPS_FILE_INPUT_MAX_BYTES=1073741824 kdeps run workflow.yaml --file big-export.
 ```
 
 If you hit this limit often, prefer having the workflow process the file in
-batches (e.g. a `python:`/`exec:` step that streams rows) over one step that
+batches (e.g. a `python` component or `exec` component step that streams rows) over one step that
 holds the whole dataset in memory - the limit is a safety net, not a size to
 build up to.
 

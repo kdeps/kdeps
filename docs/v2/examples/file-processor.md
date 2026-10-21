@@ -55,8 +55,10 @@ Create `resources/01-read.yaml`:
 actionId: readFile
 name: Read file content
 
-exec:
-  command: echo "file loaded"   # a no-op action; the real work is the response block
+component:
+  name: exec
+  with:
+    command: echo "file loaded"   # a no-op action; the real work is the response block
 apiResponse:
   success: true
   response:

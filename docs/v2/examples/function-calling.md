@@ -53,19 +53,21 @@ Create `resources/calc-tool.yaml`:
 # resources/calc-tool.yaml
 actionId: calcTool
 name: Calculator tool
-python:
-  script: |
-    import json, math
-    expression = "{{ get('expression', 'memory') }}"   # the tool argument
-    allowed = {
-        "__builtins__": {},
-        "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, "log": math.log,
-        "pi": math.pi, "e": math.e, "abs": abs, "round": round, "pow": pow,
-    }
-    try:
-        print(json.dumps({"result": eval(expression, allowed, {})}))
-    except Exception as exc:
-        print(json.dumps({"error": str(exc)}))
+component:
+  name: python
+  with:
+    script: |
+      import json, math
+      expression = "{{ get('expression', 'memory') }}"   # the tool argument
+      allowed = {
+          "__builtins__": {},
+          "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, "log": math.log,
+          "pi": math.pi, "e": math.e, "abs": abs, "round": round, "pow": pow,
+      }
+      try:
+          print(json.dumps({"result": eval(expression, allowed, {})}))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))
 ```
 
 </div>
@@ -188,5 +190,5 @@ both results.
 
 - [Function calling](/workflow/tools) - MCP tools, multiple tools, parameter types
 - [Function calling](/reference/tools) - tool chaining, debugging
-- [Python resource](/workflow/resources/python) - building tool scripts
+- [python component](/workflow/resources/python) - building tool scripts
 - [Agent mode](/agent/) - tools that are whole workflows

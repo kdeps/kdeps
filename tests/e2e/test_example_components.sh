@@ -306,9 +306,10 @@ except Exception as e:
 
 errors = []
 for r in (doc.get("resources") or []):
-    run = r.get("run") or {}
-    py = run.get("python") or {}
-    script = py.get("script") or ""
+    call = r.get("component") or {}
+    if call.get("name") != "python":
+        continue
+    script = (call.get("with") or {}).get("script") or ""
     if not script:
         continue
     try:

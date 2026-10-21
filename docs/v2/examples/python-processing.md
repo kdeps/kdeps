@@ -1,10 +1,10 @@
 # Process data with a Python script
 
 Build an API that runs a Python script to validate and
-convert data formats (JSON, YAML). It shows the `python:` resource: how it
+convert data formats (JSON, YAML). It shows the `python` component: how it
 receives request data, and how its printed output becomes the resource result.
 
-The `python:` resource runs a script and captures its stdout as the resource's
+The `python` component runs a script and returns its stdout as the resource's
 output. If the script prints a JSON object, downstream resources can read its
 fields. Expression placeholders are substituted into the script text before it
 runs, so wrap them in triple quotes to keep the script valid Python.
@@ -41,7 +41,7 @@ settings:
     pythonVersion: "3.12"
 ```
 
-## Step 3: the Python resource
+## Step 3: the python component call
 
 Create `resources/process.yaml`:
 
@@ -54,38 +54,40 @@ name: Format operations
 validations:
   methods: [POST]
   routes: [/format]
-python:
-  packages:
-    - pyyaml                      # installed into the script's environment
-  script: |
-    import json, sys
+component:
+  name: python
+  with:
+    packages:
+      - pyyaml                      # installed into the script's environment
+    script: |
+      import json, sys
 
-    data      = """{{ input('data') }}"""
-    fmt       = "{{ input('format', 'json') }}".lower()
-    operation = "{{ input('operation', 'validate') }}".lower()
+      data      = """{{ input('data') }}"""
+      fmt       = "{{ input('format', 'json') }}".lower()
+      operation = "{{ input('operation', 'validate') }}".lower()
 
-    def run():
-        if operation == "validate":
-            if fmt == "json":
-                json.loads(data)
-            elif fmt == "yaml":
-                import yaml; yaml.safe_load(data)
-            else:
-                return {"error": f"unsupported format: {fmt}"}
-            return {"valid": True}
+      def run():
+          if operation == "validate":
+              if fmt == "json":
+                  json.loads(data)
+              elif fmt == "yaml":
+                  import yaml; yaml.safe_load(data)
+              else:
+                  return {"error": f"unsupported format: {fmt}"}
+              return {"valid": True}
 
-        if operation == "convert":   # json -> yaml
-            import yaml
-            return {"output": yaml.dump(json.loads(data), default_flow_style=False).rstrip()}
+          if operation == "convert":   # json -> yaml
+              import yaml
+              return {"output": yaml.dump(json.loads(data), default_flow_style=False).rstrip()}
 
-        return {"error": f"unknown operation: {operation}"}
+          return {"error": f"unknown operation: {operation}"}
 
-    try:
-        result = run()
-    except Exception as exc:
-        result = {"valid": False, "error": str(exc)}
+      try:
+          result = run()
+      except Exception as exc:
+          result = {"valid": False, "error": str(exc)}
 
-    print(json.dumps(result))       # stdout becomes the resource output
+      print(json.dumps(result))       # stdout becomes the resource output
 apiResponse:
   success: true
   response:
@@ -128,7 +130,7 @@ Response:
 
 ## Next steps
 
-- [Python resource](/workflow/resources/python) - files, virtual environments, stdin
-- [Inline resources tutorial](/examples/inline-resources) - Python in `after:`
+- [python component](/workflow/resources/python) - script files, packages, virtualenvs
+- [Inline resources tutorial](/examples/inline-resources) - `component:` in `after:`
 - [Function calling tutorial](/examples/function-calling) - a Python script as an LLM tool
-- [Exec resource](/workflow/resources/exec) - plain shell commands
+- [exec component](/workflow/resources/exec) - plain shell commands

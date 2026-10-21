@@ -88,16 +88,20 @@ httpClient:
   method: GET
   headers: {}
 
-# Shell exec
+# Shell command (the exec component)
 actionId: my-resource
-exec:
-  command: "ls -la"
+component:
+  name: exec
+  with:
+    command: "ls -la"
 
-# Python
+# Python (the python component)
 actionId: my-resource
-python:
-  script: |
-    print("hello")
+component:
+  name: python
+  with:
+    script: |
+      print("hello")
 
 # API response (terminal resource — targetActionId must point here)
 actionId: my-resource
@@ -128,7 +132,7 @@ component:
 3. Every workflow needs at least one resource file under resources/.
 4. Use ` + "`component`" + ` when a component exists for the task (preferred over reimplementing).
 5. Keep actionId values lowercase with hyphens only.
-6. If the task involves shell commands, use ` + "`exec`" + `.
+6. If the task involves shell commands, use the ` + "`exec`" + ` component (` + "`component: {name: exec, with: {command: ...}}`" + `).
 7. If the task requires LLM reasoning, use ` + "`chat`" + `.
 8. For tasks that return data to the user, end with an ` + "`apiResponse`" + ` resource.
 9. Use ` + "`httpClient`" + ` (not ` + "`http`" + `) for HTTP requests.

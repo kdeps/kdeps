@@ -106,6 +106,18 @@ var componentBackedActions = []componentBackedAction{
 		Resource:  func(r *Resource) bool { return r.SearchLocal != nil },
 		Inline:    func(a *ActionConfig) bool { return a.SearchLocal != nil },
 	},
+	{
+		Name:      "exec",
+		Component: "exec",
+		Resource:  func(r *Resource) bool { return r.Exec != nil },
+		Inline:    func(a *ActionConfig) bool { return a.Exec != nil },
+	},
+	{
+		Name:      "python",
+		Component: "python",
+		Resource:  func(r *Resource) bool { return r.Python != nil },
+		Inline:    func(a *ActionConfig) bool { return a.Python != nil },
+	},
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be

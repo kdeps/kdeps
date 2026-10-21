@@ -1,10 +1,11 @@
-apiVersion: v2
+apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: exec
   name: Shell Command
   description: Execute shell commands
-run:
-  exec:
+component:
+  name: exec
+  with:
     command: "echo '{% raw %}{{ get('message', 'Hello World') }}{% endraw %}'"
-    timeout: "30s"
+    timeout: 30s

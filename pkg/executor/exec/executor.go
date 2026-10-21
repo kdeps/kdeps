@@ -101,3 +101,20 @@ func (e *Executor) Execute(
 
 	return e.runCommandWithTimeout(cmd, timeout, maxOutputBytes, fullCommand, stdout, stderr)
 }
+
+// Run executes an already-resolved config. The kdeps API calls it for the
+// exec component: component inputs arrive resolved, and a call route has no
+// workflow ExecutionContext to evaluate expressions against.
+func (e *Executor) Run(config *domain.ExecConfig) (interface{}, error) {
+	kdeps_debug.Log("enter: Run")
+	if strings.TrimSpace(config.Command) == "" {
+		return nil, errors.New("command cannot be empty")
+	}
+
+	timeout, maxOutputBytes := e.resolveExecutionLimits(config)
+	ctx := &executor.ExecutionContext{}
+	cmd, stdout, stderr := e.buildCommand(ctx, config, config.Command, config.Args)
+	fullCommand := e.formatFullCommand(config.Command, config.Args)
+
+	return e.runCommandWithTimeout(cmd, timeout, maxOutputBytes, fullCommand, stdout, stderr)
+}

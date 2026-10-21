@@ -169,8 +169,10 @@ loop:
   while: "true"          # run until maxIterations
   every: "30s"           # poll every 30 seconds
   maxIterations: 1440    # up to 12 hours (1440 × 30 s)
-exec:
-  command: "poll-service.sh"
+component:
+  name: exec
+  with:
+    command: "poll-service.sh"
 after:
   - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
 ```
@@ -236,8 +238,10 @@ loop:
   at:
     - "08:00"   # fire at 08:00 every morning (next occurrence)
     - "20:00"   # fire at 20:00 every evening
-exec:
-  command: "daily-report.sh"
+component:
+  name: exec
+  with:
+    command: "daily-report.sh"
 ```
 
 </div>
@@ -331,8 +335,10 @@ apiResponse:
 loop:
   while: "get('done') == nil"
   maxIterations: 100
-exec:
-  command: "check-condition.sh"
+component:
+  name: exec
+  with:
+    command: "check-condition.sh"
 after:
   - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
 apiResponse:

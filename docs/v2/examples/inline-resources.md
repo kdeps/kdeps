@@ -1,13 +1,14 @@
 # Run extra resources inline
 
-Attach `exec:`, `python:` and `component:` actions directly to
+Attach `httpClient:` and `component:` actions directly to
 one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
 
 `before:` and `after:` usually hold bare expressions. They can also hold whole
-resource actions - `chat:`, `httpClient:`, `python:`, `exec:`, `component:` - as list
-items. Use inline actions for one-off setup or teardown that only this resource
-needs; use a separate resource when other resources also depend on the result.
+resource actions - `chat:`, `httpClient:`, `component:` - as list
+items. Shell and Python steps call the `exec` and `python` components inline. Use inline actions for
+one-off setup or teardown that only this resource needs; use a separate
+resource when other resources also depend on the result.
 
 ## Step 1: create the project
 
@@ -72,9 +73,11 @@ validations:
 
 before:
   # setup: a shell command that only this resource needs
-  - exec:
-      command: "echo 'preparing'"
-      timeout: 5s
+  - component:
+      name: exec
+      with:
+        command: "echo 'preparing'"
+        timeout: 5s
 
 # main action
 chat:
@@ -93,10 +96,12 @@ after:
         params:
           - "{{ get('data') }}"
   # post-process
-  - python:
-      script: |
-        import json
-        print(json.dumps({"post": "done"}))
+  - component:
+      name: python
+      with:
+        script: |
+          import json
+          print(json.dumps({"post": "done"}))
 
 onError:
   action: continue
@@ -127,7 +132,7 @@ curl -X POST http://localhost:16396/api/v1/process \
   -d '{"data": "hey can you send me that file"}'
 ```
 
-The `before:` exec runs, then the chat, then the `after:` SQL insert and Python
+The `before:` exec component runs, then the chat, then the `after:` SQL insert and Python
 script - all within the `main` resource. The model's wording varies:
 
 ```json

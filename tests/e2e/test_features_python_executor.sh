@@ -59,19 +59,21 @@ cat > "$RESOURCE_FILE_PYTHON" <<'EOF'
 actionId: pythonProcessor
 name: Python Processor
 
-python:
-  script: |
-    import json
-    
-    # Simple Python script that outputs JSON
-    result = {
-        "processed": True,
-        "computation": 2 + 2,
-        "message": "Python script executed successfully"
-    }
-    
-    # Output as JSON string (stdout)
-    print(json.dumps(result))
+component:
+  name: python
+  with:
+    script: |
+      import json
+
+      # Simple Python script that outputs JSON
+      result = {
+          "processed": True,
+          "computation": 2 + 2,
+          "message": "Python script executed successfully"
+      }
+
+      # Output as JSON string (stdout)
+      print(json.dumps(result))
 EOF
 
 cat > "$RESOURCE_FILE_RESPONSE" <<'EOF'

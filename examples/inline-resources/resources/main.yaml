@@ -23,9 +23,11 @@ before:
       timeout: 5s
 
   # Execute a shell command to prepare environment
-  - exec:
-      command: "echo 'Preparing environment...'"
-      timeout: 5s
+  - component:
+      name: exec
+      with:
+        command: "echo 'Preparing environment...'"
+        timeout: 5s
 
 # Main resource: Process data with LLM
 chat:
@@ -47,13 +49,15 @@ after:
         timeout: 5s
 
   # Run Python script for post-processing
-  - python:
-      script: |
-        print("Post-processing completed")
-        import json
-        result = {"status": "success"}
-        print(json.dumps(result))
-      timeout: 10s
+  - component:
+      name: python
+      with:
+        script: |
+          print("Post-processing completed")
+          import json
+          result = {"status": "success"}
+          print(json.dumps(result))
+        timeout: 10s
 
   # Send notification via HTTP
   - httpClient:
