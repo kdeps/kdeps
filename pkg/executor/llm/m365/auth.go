@@ -75,8 +75,8 @@ func resolveFile(env, defaultName string) string {
 	return filepath.Join(dir, defaultName)
 }
 
-func cacheFile() string   { return resolveFile("M365_CACHE_FILE", "token-cache.json") }
-func secretsFile() string { return resolveFile("M365_SECRETS_FILE", "secrets.json") }
+func cacheFile() string   { return resolveFile("KDEPS_M365_CACHE_FILE", "token-cache.json") }
+func secretsFile() string { return resolveFile("KDEPS_M365_SECRETS_FILE", "secrets.json") }
 
 // cachedToken is one scoped access token with its absolute expiry.
 type cachedToken struct {
@@ -277,7 +277,7 @@ func loadSecrets() *Credentials {
 }
 
 // SecretsPath returns the on-disk path credentials are read from/written to
-// (M365_SECRETS_FILE, or the default under configDir).
+// (KDEPS_M365_SECRETS_FILE, or the default under configDir).
 func SecretsPath() string { return secretsFile() }
 
 // CredentialsReady reports whether kdeps can authenticate without prompting:

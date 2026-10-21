@@ -175,9 +175,10 @@ func (s *CopilotSession) Chat(ctx context.Context, token, text, model string) (*
 	params.Set("source", "officeweb")
 	params.Set("product", "office")
 	params.Set("agentHost", "Bizchat.FullScreen")
-	params.Set("licenseType", "Starter")
+	scenario, licenseType := scenarioForModel(model)
+	params.Set("licenseType", licenseType)
 	params.Set("agent", "web")
-	params.Set("scenario", "OfficeWebIncludedCopilot")
+	params.Set("scenario", scenario)
 
 	wsURL := fmt.Sprintf("%s/%s@%s?%s", chatWSBase, claims.OID, claims.TID, params.Encode())
 
@@ -211,10 +212,10 @@ func (s *CopilotSession) Chat(ctx context.Context, token, text, model string) (*
 // buildChatArgs assembles the arguments[0] object of the chat invocation.
 func (s *CopilotSession) buildChatArgs(requestID, text, model string, isFirst bool) map[string]any {
 	optionsSets := []string{}
-	if s.agentID == "" && !s.hasTools && os.Getenv("M365_NO_CODE_INTERPRETER") == "" {
+	if s.agentID == "" && !s.hasTools && os.Getenv("KDEPS_M365_NO_CODE_INTERPRETER") == "" {
 		optionsSets = append(optionsSets, codeInterpreterOptionsSets...)
 	}
-	if extra := os.Getenv("M365_EXTRA_OPTIONSSETS"); extra != "" {
+	if extra := os.Getenv("KDEPS_M365_EXTRA_OPTIONSSETS"); extra != "" {
 		for part := range strings.SplitSeq(extra, ",") {
 			if p := strings.TrimSpace(part); p != "" {
 				optionsSets = append(optionsSets, p)

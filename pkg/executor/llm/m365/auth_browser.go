@@ -48,7 +48,7 @@ var (
 	playwrightInstallFunc = playwright.Install
 )
 
-func browserProfileDir() string { return resolveFile("M365_BROWSER_PROFILE", "browser-profile") }
+func browserProfileDir() string { return resolveFile("KDEPS_M365_BROWSER_PROFILE", "browser-profile") }
 
 // missingHostDepsMarker is the stable substring Playwright's own launch
 // error uses when the OS is missing shared libraries Chromium needs to run

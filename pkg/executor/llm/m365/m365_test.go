@@ -20,7 +20,7 @@ func TestGetToneForModel(t *testing.T) {
 	cases := map[string]string{
 		"m365-copilot":       "magic",
 		"auto":               "magic",
-		"quick":              "Gpt_Quick",
+		"quick":              "Gpt_5_5_Chat",
 		"claude-opus":        "Claude_Opus",
 		"claude-sonnet-4.5":  "Claude_Sonnet",
 		"claude-anything-xy": "Claude_Sonnet", // unmapped claude-* falls back to Claude_Sonnet
@@ -923,7 +923,7 @@ func TestEmptyToNil(t *testing.T) {
 // --- backoff.go (the pacing controller itself is tested in toolguard) ---
 
 func TestBackoffDisabledEnv(t *testing.T) {
-	t.Setenv("M365_NO_BACKOFF", "1")
+	t.Setenv("KDEPS_M365_NO_BACKOFF", "1")
 	if !backoffDisabled() {
 		t.Error("should be disabled")
 	}
@@ -1006,7 +1006,7 @@ func TestAgentNamingAndCache(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(dir, "agent-id.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(dir, "agent-id.json"))
 	saveCachedAgent(
 		cachedAgent{AgentID: "A.b.gpt.default", BotID: "b", InstructionsHash: "hash1234"},
 	)
@@ -1057,7 +1057,7 @@ func TestScopeKeyStable(t *testing.T) {
 func TestLoadSecrets(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", path)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", path)
 
 	if loadSecrets() != nil {
 		t.Error("missing file should be nil")
@@ -1072,7 +1072,7 @@ func TestLoadSecrets(t *testing.T) {
 func TestSecretsPath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", path)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", path)
 	if got := SecretsPath(); got != path {
 		t.Errorf("SecretsPath() = %q, want %q", got, path)
 	}
@@ -1081,7 +1081,7 @@ func TestSecretsPath(t *testing.T) {
 func TestCachePath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cache.json")
-	t.Setenv("M365_CACHE_FILE", path)
+	t.Setenv("KDEPS_M365_CACHE_FILE", path)
 	if got := cacheFile(); got != path {
 		t.Errorf("cacheFile() = %q, want %q", got, path)
 	}
@@ -1100,7 +1100,7 @@ func TestConfigDir(t *testing.T) {
 func TestSaveCredentials(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", path)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", path)
 
 	if err := SaveCredentials("", "p", "m"); err == nil {
 		t.Error("empty email should error")
@@ -1133,8 +1133,8 @@ func TestSaveCredentials(t *testing.T) {
 }
 
 func TestCredentialsReady(t *testing.T) {
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
 	resetCache()
 	defer resetCache()
 
@@ -1150,7 +1150,7 @@ func TestCredentialsReady(t *testing.T) {
 	}
 
 	// A cached refresh token alone (no secrets file) is also ready.
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "still-none.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(t.TempDir(), "still-none.json"))
 	resetCache()
 	cacheMu.Lock()
 	cacheState = &tokenCache{RefreshToken: "rt", Access: map[string]cachedToken{}}
@@ -1162,12 +1162,12 @@ func TestCredentialsReady(t *testing.T) {
 
 func TestForceReauthNoCredentials(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
 	// Isolate from any real cached refresh token on the host (e.g.
 	// ~/.config/kdeps/m365/token-cache.json from actual prior M365 auth) --
 	// without this override the test's premise (no cache, no secrets) does
 	// not hold on a machine that has ever authenticated for real.
-	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
 	// No refresh token in cache and no secrets file -> cannot reauth.
 	if forceReauth(context.Background()) {
 		t.Error("forceReauth should fail without cache or secrets")
@@ -1195,17 +1195,109 @@ func TestParsedToolChoice(t *testing.T) {
 }
 
 func TestFingerprintStable(t *testing.T) {
-	a := fingerprint([]Message{{Role: "user", Content: "hello"}})
+	messages := []Message{{Role: "user", Content: "hello"}}
+	a := fingerprint(messages, []ToolDef{shellToolDef(), writeToolDef()})
 	b := fingerprint(
 		[]Message{{Role: "user", Content: "hello"}, {Role: "assistant", Content: "hi"}},
+		[]ToolDef{writeToolDef(), shellToolDef()},
 	)
 	if a != b {
-		t.Error("fingerprint should key on first user message only")
+		t.Error("fingerprint should ignore later messages and tool order")
+	}
+}
+
+func TestFingerprintIncludesToolNames(t *testing.T) {
+	messages := []Message{{Role: "user", Content: "hello"}}
+	withShell := fingerprint(messages, []ToolDef{shellToolDef()})
+	withWrite := fingerprint(messages, []ToolDef{writeToolDef()})
+	if withShell == withWrite {
+		t.Error("different tool names must produce different conversation fingerprints")
+	}
+}
+
+// Tones are entitlement-gated: the paid scenario is the only one that serves
+// Opus, Sonnet 5 and GPT-6, while Opus 4.8 is a paid tone with an included
+// model and Sonnet 5.5 a shared tone whose paid model lives on the model ID.
+func TestScenarioForModel(t *testing.T) {
+	cases := map[string]string{
+		"claude-sonnet-5.5":        paidScenario,
+		"claude-sonnet-5.5[1m]":    paidScenario,
+		"claude-sonnet-5":          paidScenario,
+		"claude-sonnet-5[1m]":      paidScenario,
+		"claude-sonnet-5-20260115": paidScenario,
+		"claude-opus":              paidScenario,
+		"claude-opus-5[1m]":        paidScenario,
+		"gpt-6-think-deeper":       paidScenario,
+		"claude":                   includedScenario,
+		"claude-sonnet":            includedScenario,
+		"claude-sonnet-4.5":        includedScenario,
+		"claude-sonnet-5.1":        includedScenario,
+		"claude-sonnet-50":         includedScenario,
+		"claude-opus-4.8":          includedScenario,
+		"claude-opus-4-5-20250929": includedScenario,
+		"gpt-5.5-think-deeper":     includedScenario,
+		"quick":                    includedScenario,
+		"m365-copilot":             includedScenario,
+		"gpt-sonnet-5.5":           includedScenario,
+	}
+	for model, want := range cases {
+		scenario, license := scenarioForModel(model)
+		if scenario != want {
+			t.Errorf("scenarioForModel(%q) scenario = %q, want %q", model, scenario, want)
+		}
+		wantLicense := defaultLicense
+		if want == paidScenario {
+			wantLicense = paidLicense
+		}
+		if license != wantLicense {
+			t.Errorf("scenarioForModel(%q) license = %q, want %q", model, license, wantLicense)
+		}
+	}
+}
+
+func TestScenarioForModelEnvOverrides(t *testing.T) {
+	t.Setenv("KDEPS_M365_SCENARIO", "CustomScenario")
+	if got, _ := scenarioForModel("claude-opus"); got != "CustomScenario" {
+		t.Errorf("scenario = %q, want the env override", got)
+	}
+	t.Setenv("KDEPS_M365_LICENSE_TYPE", "Enterprise")
+	if _, got := scenarioForModel("claude"); got != "Enterprise" {
+		t.Errorf("license = %q, want the env override", got)
+	}
+}
+
+func TestToneUsesToolAgent(t *testing.T) {
+	cases := map[string]bool{
+		"Claude_Opus":          true,
+		"Claude_Sonnet":        false,
+		"Claude_Sonnet_5":      false,
+		"Gpt_6_Reasoning":      false,
+		"Gpt_6_Sol_Reasoning":  false,
+		"Gpt_61_Sol_Reasoning": false,
+		"Gpt_5_5_Chat":         true,
+		"Gpt_5_6_Reasoning":    true,
+		"magic":                true,
+	}
+	for tone, want := range cases {
+		if got := toneUsesToolAgent(tone); got != want {
+			t.Errorf("toneUsesToolAgent(%q) = %v, want %v", tone, got, want)
+		}
+	}
+}
+
+func TestToolRequestUsesAgentForce(t *testing.T) {
+	t.Setenv("KDEPS_M365_FORCE_AGENT", "1")
+	if !toolRequestUsesAgent("Claude_Sonnet") {
+		t.Error("KDEPS_M365_FORCE_AGENT=1 must attach the agent")
+	}
+	t.Setenv("KDEPS_M365_FORCE_AGENT", "0")
+	if toolRequestUsesAgent("Gpt_5_5_Chat") {
+		t.Error("KDEPS_M365_FORCE_AGENT=0 must not attach the agent")
 	}
 }
 
 func TestOutputFinishReason(t *testing.T) {
-	t.Setenv("M365_OUTPUT_CHAR_CEILING", "10")
+	t.Setenv("KDEPS_M365_OUTPUT_CHAR_CEILING", "10")
 	if outputFinishReason("short") != "stop" {
 		t.Error("short -> stop")
 	}
@@ -1290,17 +1382,35 @@ func TestCompletionUsageThrottle(t *testing.T) {
 func TestSessionPoolResolve(t *testing.T) {
 	p := NewSessionPool(ModelSessionOptions{})
 	msgs := []Message{{Role: "user", Content: "hello"}}
-	first := p.resolve(msgs)
+	tools := []ToolDef{shellToolDef()}
+	first := p.resolve(msgs, tools)
 	first.sentMessageCount = 2
-	again := p.resolve(msgs)
+	again := p.resolve(msgs, tools)
 	if first != again {
-		t.Error("same first user message should reuse the conversation")
+		t.Error("same first user message and tools should reuse the conversation")
 	}
 	// A shorter transcript than sent means the client restarted -> reset.
 	again.sentMessageCount = 5
-	shrunk := p.resolve([]Message{{Role: "user", Content: "hello"}})
+	shrunk := p.resolve([]Message{{Role: "user", Content: "hello"}}, tools)
 	if shrunk.sentMessageCount != 0 {
 		t.Error("shrunk transcript should reset sentMessageCount")
+	}
+	if changedTools := p.resolve(msgs, []ToolDef{writeToolDef()}); changedTools == first {
+		t.Error("different tool names should create a distinct conversation")
+	}
+
+	// Re-sending the whole history at the same length is not a continuation.
+	again.sentMessageCount = 1
+	oldID := again.session.ConversationID()
+	resend := p.resolve(msgs, tools)
+	if resend != again {
+		t.Error("same fingerprint should reuse the conversation slot")
+	}
+	if resend.sentMessageCount != 0 {
+		t.Error("equal-length resend should reset sentMessageCount")
+	}
+	if resend.session.ConversationID() == oldID {
+		t.Error("equal-length resend must start a fresh M365 conversation")
 	}
 }
 
@@ -1400,7 +1510,7 @@ func TestMinMaxInt(t *testing.T) {
 }
 
 func TestBackoffDisabled(t *testing.T) {
-	t.Setenv("M365_NO_BACKOFF", "1")
+	t.Setenv("KDEPS_M365_NO_BACKOFF", "1")
 	if !backoffDisabled() {
 		t.Error("should be disabled")
 	}
@@ -1411,10 +1521,10 @@ func TestBackoffDisabled(t *testing.T) {
 
 func TestGetTokenNoCredentials(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
 	// See TestForceReauthNoCredentials for why the cache file also needs
 	// isolating from any real cached refresh token on the host.
-	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
 	if _, err := getToken(context.Background()); err == nil {
 		t.Error("getToken should fail without cache or secrets")
 	}
@@ -1426,7 +1536,7 @@ func TestGetTokenNoCredentials(t *testing.T) {
 }
 
 func TestAcquireSilentCacheHit(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
 	cacheMu.Lock()
 	cacheState = &tokenCache{Access: map[string]cachedToken{
 		scopeKey([]string{"s"}): {
@@ -1467,8 +1577,8 @@ func seedAccessToken(scopes []string, tok string) {
 }
 
 func TestGetOrCreateAgentFlow(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -1502,7 +1612,7 @@ func TestGetOrCreateAgentFlow(t *testing.T) {
 }
 
 func TestGetOrCreateAgentCacheFastPath(t *testing.T) {
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	saveCachedAgent(cachedAgent{AgentID: "cached.agent", InstructionsHash: getInstructionsHash()})
 	id, err := getOrCreateAgent(context.Background(), false)
 	if err != nil || id != "cached.agent" {
@@ -1531,7 +1641,7 @@ func TestGetEnvironmentURLBAP(t *testing.T) {
 }
 
 func TestExchangeCodeAndRefresh(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	resetCache()
 	defer resetCache()
 
@@ -1663,7 +1773,7 @@ func TestRenderFencedCallEditPair(t *testing.T) {
 }
 
 func TestCurrentFramingVariantEnvOverride(t *testing.T) {
-	t.Setenv("M365_FRAMING_VARIANT", "minimal")
+	t.Setenv("KDEPS_M365_FRAMING_VARIANT", "minimal")
 	if CurrentFramingVariant() != "minimal" {
 		t.Errorf("variant = %q", CurrentFramingVariant())
 	}
@@ -1724,7 +1834,7 @@ func TestPropNamesNilParameters(t *testing.T) {
 // --- coverage: session.go / stream.go small gaps ---
 
 func TestBuildChatArgsExtraOptionsSets(t *testing.T) {
-	t.Setenv("M365_EXTRA_OPTIONSSETS", "flagA, flagB ,,")
+	t.Setenv("KDEPS_M365_EXTRA_OPTIONSSETS", "flagA, flagB ,,")
 	s := NewCopilotSession(CopilotSessionOptions{})
 	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
 	opts, _ := args["optionsSets"].([]string)
@@ -1738,7 +1848,7 @@ func TestBuildChatArgsExtraOptionsSets(t *testing.T) {
 }
 
 func TestBuildChatArgsNoCodeInterpreterEnv(t *testing.T) {
-	t.Setenv("M365_NO_CODE_INTERPRETER", "1")
+	t.Setenv("KDEPS_M365_NO_CODE_INTERPRETER", "1")
 	s := NewCopilotSession(CopilotSessionOptions{})
 	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
 	opts, _ := args["optionsSets"].([]string)
@@ -1852,7 +1962,7 @@ func withTokenEndpoint(t *testing.T) {
 func TestLoginAutomatedSuccess(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	withTokenEndpoint(t)
 	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) {
 		return "auth-code", nil
@@ -1873,7 +1983,7 @@ func TestLoginAutomatedSuccess(t *testing.T) {
 func TestRunBrowserLoginRetriesThenSucceeds(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	withTokenEndpoint(t)
 
 	attempts := 0
@@ -1933,7 +2043,7 @@ func withStubHeadedBrowserLogin(
 func TestInteractiveLoginSuccess(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	withTokenEndpoint(t)
 
 	var gotAuthURL string
@@ -1967,7 +2077,7 @@ func TestInteractiveLoginBrowserFails(t *testing.T) {
 func TestInteractiveLoginExchangeFails(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	// No token endpoint stub: exchangeCode's request will fail against the
 	// real (unstubbed) authority, or return a non-200 -- either way an error.
 	old := authority
@@ -1986,9 +2096,9 @@ func TestInteractiveLoginExchangeFails(t *testing.T) {
 func TestGetTokenAutomatedLoginPath(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
 	withStubBrowserLogin(
@@ -2005,9 +2115,9 @@ func TestGetTokenAutomatedLoginPath(t *testing.T) {
 func TestGetTokenForScopeAutomatedLoginPath(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
 	withStubBrowserLogin(
@@ -2024,9 +2134,9 @@ func TestGetTokenForScopeAutomatedLoginPath(t *testing.T) {
 func TestForceReauthViaSecrets(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
 	withStubBrowserLogin(
@@ -2041,7 +2151,7 @@ func TestForceReauthViaSecrets(t *testing.T) {
 
 func TestLoadSecretsInvalidJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", path)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", path)
 	_ = os.WriteFile(path, []byte(`not json`), 0o600)
 	if loadSecrets() != nil {
 		t.Error("invalid JSON should yield nil secrets")
@@ -2050,7 +2160,7 @@ func TestLoadSecretsInvalidJSON(t *testing.T) {
 
 func TestLoadSecretsIncomplete(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "secrets.json")
-	t.Setenv("M365_SECRETS_FILE", path)
+	t.Setenv("KDEPS_M365_SECRETS_FILE", path)
 	_ = os.WriteFile(path, []byte(`{"email":"e"}`), 0o600)
 	if loadSecrets() != nil {
 		t.Error("incomplete secrets should yield nil")
@@ -2070,7 +2180,7 @@ func TestLoadCacheCorruptFile(t *testing.T) {
 	resetCache()
 	defer resetCache()
 	path := filepath.Join(t.TempDir(), "c.json")
-	t.Setenv("M365_CACHE_FILE", path)
+	t.Setenv("KDEPS_M365_CACHE_FILE", path)
 	_ = os.WriteFile(path, []byte(`not json`), 0o600)
 	c := loadCache()
 	if c == nil || c.Access == nil {
@@ -2081,7 +2191,7 @@ func TestLoadCacheCorruptFile(t *testing.T) {
 func TestPostTokenHTTPError(t *testing.T) {
 	resetCache()
 	defer resetCache()
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`not json`))
@@ -2099,8 +2209,8 @@ func TestPostTokenHTTPError(t *testing.T) {
 // --- coverage: agent.go remaining provisioning branches ---
 
 func TestGetOrCreateAgentFindsExisting(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -2132,8 +2242,8 @@ func TestGetOrCreateAgentFindsExisting(t *testing.T) {
 }
 
 func TestGetOrCreateAgentPublishFailsThenRecreates(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -2177,8 +2287,8 @@ func TestGetOrCreateAgentPublishFailsThenRecreates(t *testing.T) {
 }
 
 func TestGetOrCreateAgentPublishFailsPermanently(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -2213,8 +2323,8 @@ func TestGetOrCreateAgentPublishFailsPermanently(t *testing.T) {
 }
 
 func TestGetOrCreateAgentListBotsFails(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -2238,9 +2348,9 @@ func TestGetOrCreateAgentListBotsFails(t *testing.T) {
 }
 
 func TestGetOrCreateAgentNoBAPToken(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
 	resetCache()
 	defer resetCache()
 
@@ -2251,9 +2361,9 @@ func TestGetOrCreateAgentNoBAPToken(t *testing.T) {
 }
 
 func TestGetOrCreateAgentNoPowerPlatformToken(t *testing.T) {
-	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
-	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("KDEPS_M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
 	resetCache()
 	defer resetCache()
 	seedAccessToken([]string{bapScope}, "bap-tok")
@@ -2288,7 +2398,7 @@ func TestParseFencedToolCallsNoMatch(t *testing.T) {
 
 func TestBrowserProfileDirAndChromiumPath(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("M365_BROWSER_PROFILE", dir+"/profile")
+	t.Setenv("KDEPS_M365_BROWSER_PROFILE", dir+"/profile")
 	if browserProfileDir() != dir+"/profile" {
 		t.Errorf("browserProfileDir = %q", browserProfileDir())
 	}

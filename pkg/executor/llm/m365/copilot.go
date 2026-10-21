@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -30,19 +32,33 @@ var modelTones = map[string]string{
 	"m365-copilot": "magic",
 	"auto":         "magic",
 
-	// Reasoning depth toggles for the default model.
-	"quick":        "Gpt_Quick",
-	"think-deeper": "Gpt_Reasoning",
+	// Generic modes use versioned tones because the unversioned tones are retired.
+	"quick":        "Gpt_5_5_Chat",
+	"think-deeper": "Gpt_5_5_Reasoning",
 
 	// Anthropic-hosted models exposed through the service.
 	"Claude_Sonnet":              "Claude_Sonnet",
 	"claude":                     "Claude_Sonnet",
 	"claude-sonnet":              "Claude_Sonnet",
 	"claude-sonnet-4.5":          "Claude_Sonnet",
+	"claude-sonnet-4.6":          "Claude_Sonnet",
+	"claude-sonnet-5":            "Claude_Sonnet_5",
+	"claude-sonnet-5.5":          "Claude_Sonnet",
 	"claude-sonnet-think-deeper": "Claude_Sonnet_Reasoning",
 	"claude-opus":                "Claude_Opus",
+	"claude-opus-4.5":            "Claude_Opus",
+	"claude-opus-4.8":            "Claude_Opus",
+	"claude-opus-5":              "Claude_Opus",
+	"claude-opus-5.5":            "Claude_Opus",
 
-	// GPT-5.6 (reasoning only).
+	// GPT-6.
+	"gpt-6-think-deeper": "Gpt_6_Reasoning",
+	"gpt-6-sol":          "Gpt_6_Sol_Reasoning",
+	"gpt-6.1-sol":        "Gpt_61_Sol_Reasoning",
+
+	// GPT-5.6.
+	"gpt-5.6":              "Gpt_5_6_Chat",
+	"gpt-5.6-quick":        "Gpt_5_6_Chat",
 	"gpt-5.6-think-deeper": "Gpt_5_6_Reasoning",
 
 	// GPT-5.5.
@@ -53,30 +69,128 @@ var modelTones = map[string]string{
 	// GPT-5.4.
 	"gpt-5.4":              "Gpt_5_4_Reasoning",
 	"gpt-5.4-think-deeper": "Gpt_5_4_Reasoning",
-	"gpt-5.4-quick":        "Gpt_5_4_Quick",
+	"gpt-5.4-quick":        "Gpt_5_4_Chat",
 
 	// GPT-5.3.
-	"gpt-5.3":              "Gpt_5_3_Quick",
-	"gpt-5.3-quick":        "Gpt_5_3_Quick",
+	"gpt-5.3":              "Gpt_5_3_Chat",
+	"gpt-5.3-quick":        "Gpt_5_3_Chat",
 	"gpt-5.3-think-deeper": "Gpt_5_3_Reasoning",
 
 	// GPT-5.2.
-	"gpt-5.2":              "Gpt_5_2_Quick",
-	"gpt-5.2-quick":        "Gpt_5_2_Quick",
+	"gpt-5.2":              "Gpt_5_2_Chat",
+	"gpt-5.2-quick":        "Gpt_5_2_Chat",
 	"gpt-5.2-think-deeper": "Gpt_5_2_Reasoning",
 }
 
-var claudePrefix = regexp.MustCompile(`(?i)^claude`)
+var (
+	claudePrefix  = regexp.MustCompile(`(?i)^claude`)
+	opusModel     = regexp.MustCompile(`(?i)opus`)
+	sonnet5Model  = regexp.MustCompile(`(?i)sonnet[-_ ]?5([^0-9.]|$)`)
+	sonnet55Model = regexp.MustCompile(`(?i)sonnet[-_ ]?5[-_. ]5([^0-9]|$)`)
+	// The included scenario's Opus: Opus 4.8, or the legacy Opus 4.5 IDs.
+	includedOpusModel = regexp.MustCompile(`(?i)opus[-_ ]?4[-_. ][58]([^0-9]|$)`)
+)
 
-// GetToneForModel resolves a model name to a server tone. Unmapped names that
-// still look Claude-flavoured fall back to the Claude chat tone; anything else
-// falls back to the default model's tone.
+const (
+	// The scenario/licenseType pair the WS query carries. The included
+	// scenario caps which tones serve: entitlement-gated tones return M365's
+	// canned BotConnection apology there, so they must ask for the paid one.
+	includedScenario = "OfficeWebIncludedCopilot"
+	paidScenario     = "OfficeWebPaidCopilot"
+	defaultLicense   = "Starter"
+	paidLicense      = "Premium"
+)
+
+// paidScenarioTone reports tones that serve only under the paid scenario.
+func paidScenarioTone(tone string) bool {
+	switch tone {
+	case "Claude_Opus", "Claude_Sonnet_5", "Gpt_6_Reasoning":
+		return true
+	}
+	return false
+}
+
+// isSonnet55Model reports whether model names Sonnet 5.5, the paid model
+// behind the shared Claude_Sonnet tone.
+func isSonnet55Model(model string) bool {
+	if model == "claude-sonnet-5.5" {
+		return true
+	}
+	return GetToneForModel(model) == "Claude_Sonnet" && sonnet55Model.MatchString(model)
+}
+
+// isIncludedOpusModel reports whether model names the included scenario's
+// Opus, the one paid tone with an included model behind it.
+func isIncludedOpusModel(model string) bool {
+	if model == "claude-opus-4.8" || model == "claude-opus-4.5" {
+		return true
+	}
+	return GetToneForModel(model) == "Claude_Opus" && includedOpusModel.MatchString(model)
+}
+
+// toneUsesToolAgent reports whether a tool request on tone carries the
+// Copilot Studio tool agent. Claude tones tool-call reliably without it, and
+// their agent route is dead on a non-premium account, so only Claude_Opus
+// takes the agent. Gpt_6_Reasoning does not serve with the agent on any
+// account. The Sol tones' agent route serves only on a premium account, which
+// a token does not identify, so they default to agent-less; KDEPS_M365_FORCE_AGENT=1
+// overrides.
+func toneUsesToolAgent(tone string) bool {
+	switch tone {
+	case "Claude_Opus":
+		return true
+	case "Gpt_6_Reasoning", "Gpt_6_Sol_Reasoning", "Gpt_61_Sol_Reasoning":
+		return false
+	}
+	return !strings.HasPrefix(strings.ToLower(tone), "claude_")
+}
+
+// toolRequestUsesAgent applies the KDEPS_M365_FORCE_AGENT override to
+// toneUsesToolAgent: 1 always attaches, 0 never does.
+func toolRequestUsesAgent(tone string) bool {
+	switch os.Getenv("KDEPS_M365_FORCE_AGENT") {
+	case "1":
+		return true
+	case "0":
+		return false
+	}
+	return toneUsesToolAgent(tone)
+}
+
+// scenarioForModel returns the scenario and licenseType a chat request for
+// model must carry. KDEPS_M365_SCENARIO and KDEPS_M365_LICENSE_TYPE override either field.
+func scenarioForModel(model string) (string, string) {
+	paid := paidScenarioTone(GetToneForModel(model)) || isSonnet55Model(model)
+	if isIncludedOpusModel(model) {
+		paid = false
+	}
+	scenario, licenseType := includedScenario, defaultLicense
+	if paid {
+		scenario, licenseType = paidScenario, paidLicense
+	}
+	if v := os.Getenv("KDEPS_M365_SCENARIO"); v != "" {
+		scenario = v
+	}
+	if v := os.Getenv("KDEPS_M365_LICENSE_TYPE"); v != "" {
+		licenseType = v
+	}
+	return scenario, licenseType
+}
+
+// GetToneForModel resolves a model name to a server tone. Unmapped Claude model
+// variants retain their model family instead of silently falling back to GPT.
 func GetToneForModel(model string) string {
 	kdeps_debug.Log("enter: GetToneForModel")
 	if tone, ok := modelTones[model]; ok {
 		return tone
 	}
+	if opusModel.MatchString(model) {
+		return "Claude_Opus"
+	}
 	if claudePrefix.MatchString(model) {
+		if sonnet5Model.MatchString(model) && !sonnet55Model.MatchString(model) {
+			return "Claude_Sonnet_5"
+		}
 		return "Claude_Sonnet"
 	}
 	return modelTones["m365-copilot"]

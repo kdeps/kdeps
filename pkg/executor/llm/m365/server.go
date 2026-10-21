@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -91,7 +92,7 @@ func sketchForcePrompt(tools []ToolDef) string {
 	return base + noShellRetryHint
 }
 
-func outputCharCeiling() int { return intEnv("M365_OUTPUT_CHAR_CEILING", defaultOutputCeiling) }
+func outputCharCeiling() int { return intEnv("KDEPS_M365_OUTPUT_CHAR_CEILING", defaultOutputCeiling) }
 
 // outputFinishReason returns "length" when the answer is at/over the empirical
 // output ceiling (the service concludes early rather than truncating), else "stop".
@@ -141,8 +142,8 @@ type conversationState struct {
 	lastAccessed     time.Time
 }
 
-// SessionPool routes each client conversation (keyed by its first user message)
-// to a persistent ModelSession.
+// SessionPool routes each client conversation (keyed by its first user message
+// and available tool names) to a persistent ModelSession.
 type SessionPool struct {
 	mu            sync.Mutex
 	conversations map[string]*conversationState
@@ -154,7 +155,7 @@ func NewSessionPool(opts ModelSessionOptions) *SessionPool {
 	return &SessionPool{conversations: map[string]*conversationState{}, opts: opts}
 }
 
-func (p *SessionPool) resolve(messages []Message) *conversationState {
+func (p *SessionPool) resolve(messages []Message, tools []ToolDef) *conversationState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -165,10 +166,15 @@ func (p *SessionPool) resolve(messages []Message) *conversationState {
 		}
 	}
 
-	fp := fingerprint(messages)
+	fp := fingerprint(messages, tools)
 	if st, ok := p.conversations[fp]; ok {
-		if len(messages) < st.sentMessageCount {
-			st.session.reset()
+		// A request carrying no more messages than this conversation already
+		// sent is not its continuation (a harness re-sends the full history
+		// and only appends). Two sessions opened with the same prompt, or a
+		// re-sent request, need a fresh M365 conversation: the full prompt
+		// re-sends everything the harness holds.
+		if len(messages) <= st.sentMessageCount {
+			st.session.NewConversation()
 			st.sentMessageCount = 0
 		}
 		st.lastAccessed = now
@@ -182,7 +188,7 @@ func (p *SessionPool) resolve(messages []Message) *conversationState {
 	return st
 }
 
-func fingerprint(messages []Message) string {
+func fingerprint(messages []Message, tools []ToolDef) string {
 	text := ""
 	for _, m := range messages {
 		if m.Role == "user" {
@@ -190,6 +196,20 @@ func fingerprint(messages []Message) string {
 			break
 		}
 	}
+
+	names := make([]string, 0, len(tools))
+	seen := make(map[string]struct{}, len(tools))
+	for _, tool := range tools {
+		name := tool.Function.Name
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	text = strings.Join(names, ",") + "\n" + text
+
 	var hash int32
 	for _, c := range text {
 		hash = (hash << hashShift) - hash + c
@@ -300,13 +320,12 @@ type completion struct {
 }
 
 func newCompletion(pool *SessionPool, body *chatRequest) *completion {
-	conv := pool.resolve(body.Messages)
+	conv := pool.resolve(body.Messages, body.Tools)
 	tc := body.parsedToolChoice()
 	hasTools := len(body.Tools) > 0 && (tc == nil || tc.Mode != "none")
 
 	tone := GetToneForModel(body.Model)
-	isClaudeTone := strings.HasPrefix(tone, "Claude_")
-	useToolAgent := hasTools && (os.Getenv("M365_FORCE_AGENT") == "1" || !isClaudeTone)
+	useToolAgent := hasTools && toolRequestUsesAgent(tone)
 
 	c := &completion{
 		body:         body,
@@ -453,7 +472,7 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 		// low-override "softened" framing in a fresh conversation; otherwise fail fast
 		// to preserve the per-conversation quota.
 		if c.lastMessageType == "Disengaged" {
-			if c.hasTools && !disengageRetried && os.Getenv("M365_NO_DISENGAGE_RETRY") == "" {
+			if c.hasTools && !disengageRetried && os.Getenv("KDEPS_M365_NO_DISENGAGE_RETRY") == "" {
 				disengageRetried = true
 				c.session.NewConversation()
 				c.text = FormatMessages(
@@ -514,8 +533,8 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 	parsed := ParseToolCalls(fullText, c.body.Tools)
 
 	// Salvage turn-1 confabulation / hallucinated completion by forcing a retry.
-	maxConfab := intEnv("M365_CONFAB_RETRIES", 1)
-	if os.Getenv("M365_NO_CONFAB_RETRY") != "" {
+	maxConfab := intEnv("KDEPS_M365_CONFAB_RETRIES", 1)
+	if os.Getenv("KDEPS_M365_NO_CONFAB_RETRY") != "" {
 		maxConfab = 0
 	}
 	everActed := false
@@ -621,7 +640,7 @@ func (c *completion) toneFallback(
 	parsed ParseResult,
 	everActed bool,
 ) (string, *ParseResult, *produced) {
-	eligible := !parsed.HasToolCalls && os.Getenv("M365_NO_TONE_FALLBACK") == "" &&
+	eligible := !parsed.HasToolCalls && os.Getenv("KDEPS_M365_NO_TONE_FALLBACK") == "" &&
 		!strings.HasPrefix(GetToneForModel(c.runModel), "Claude_") &&
 		(LooksLikeConfabulation(parsed.TextContent) ||
 			(!everActed && LooksLikeHallucinatedCompletion(parsed.TextContent)))
@@ -782,7 +801,7 @@ func finalizeToolCalls(parsed *ParseResult, fullText string) *produced {
 	}
 	// One call per turn unless opted out: executing a batched plan runs later
 	// steps on guessed state.
-	if os.Getenv("M365_ALLOW_MULTI_TOOL") == "" && len(parsed.ToolCalls) > 1 {
+	if os.Getenv("KDEPS_M365_ALLOW_MULTI_TOOL") == "" && len(parsed.ToolCalls) > 1 {
 		parsed.ToolCalls = parsed.ToolCalls[:1]
 	}
 	return nil

@@ -41,8 +41,8 @@ func stubM365Login(t *testing.T, fn func(context.Context) (string, error)) {
 func setM365Env(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(dir, "secrets.json"))
-	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "cache.json"))
+	t.Setenv("KDEPS_M365_SECRETS_FILE", filepath.Join(dir, "secrets.json"))
+	t.Setenv("KDEPS_M365_CACHE_FILE", filepath.Join(dir, "cache.json"))
 }
 
 func TestEnsureM365Login_PublicWrapperAlreadyReady(t *testing.T) {

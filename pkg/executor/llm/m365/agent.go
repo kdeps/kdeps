@@ -79,9 +79,9 @@ func getAgentName() string {
 	return agentBaseName + "-" + getInstructionsHash()
 }
 
-// agentCacheFile returns the on-disk cache path, honouring M365_AGENT_CACHE_FILE.
+// agentCacheFile returns the on-disk cache path, honouring KDEPS_M365_AGENT_CACHE_FILE.
 func agentCacheFile() string {
-	if p := os.Getenv("M365_AGENT_CACHE_FILE"); p != "" {
+	if p := os.Getenv("KDEPS_M365_AGENT_CACHE_FILE"); p != "" {
 		return p
 	}
 	return filepath.Join(configDir(), "agent-id.json")

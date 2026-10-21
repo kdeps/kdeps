@@ -675,7 +675,7 @@ func TestServerChatCompletionDisengageRetry(t *testing.T) {
 }
 
 func TestServerChatCompletionDisengageNoRetryEnv(t *testing.T) {
-	t.Setenv("M365_NO_DISENGAGE_RETRY", "1")
+	t.Setenv("KDEPS_M365_NO_DISENGAGE_RETRY", "1")
 	frames := [][]string{
 		{`{"type":2,"item":{"messages":[{"author":"bot","messageType":"Disengaged"}],"turnState":"Completed"}}`},
 	}

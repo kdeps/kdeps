@@ -80,8 +80,8 @@ func TestM365Backend_LocalServerServesModels(t *testing.T) {
 // with a clear upstream error (via the same HTTP path a real chat resource
 // uses) rather than hang or panic.
 func TestM365Backend_ChatWithoutCredentialsFailsCleanly(t *testing.T) {
-	t.Setenv("M365_SECRETS_FILE", t.TempDir()+"/absent-secrets.json")
-	t.Setenv("M365_CACHE_FILE", t.TempDir()+"/absent-cache.json")
+	t.Setenv("KDEPS_M365_SECRETS_FILE", t.TempDir()+"/absent-secrets.json")
+	t.Setenv("KDEPS_M365_CACHE_FILE", t.TempDir()+"/absent-cache.json")
 
 	backend := &executorLLM.M365Backend{}
 	endpoint := backend.ChatEndpoint(backend.DefaultURL())
