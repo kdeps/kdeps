@@ -34,3 +34,9 @@ updates:
       - "github-actions"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      # init and analyze must run the same version in one workflow, so bump
+      # both in a single PR instead of one per action.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
