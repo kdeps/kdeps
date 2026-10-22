@@ -11,12 +11,19 @@ on:
     branches: [ "main" ]
     paths: [ "desktop/**", "pkg/desktop/**", ".github/workflows/desktop.yml" ]
 
+# A new push to a PR cancels its previous run: superseded commits must not
+# keep three runners busy.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      # One broken OS cancels the other two instead of letting them finish.
+      fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest

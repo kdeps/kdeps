@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# A new push to a PR cancels its previous run: superseded commits must not
+# keep two full runners busy. main pushes are never cancelled (a release
+# depends on the run finishing).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # security-scan, docker-scan, lint, test and test-windows are required status
 # checks on main. A skipped required job counts as passing, but a workflow that
 # never triggers leaves the check "expected" and blocks the PR forever. So the
@@ -92,6 +99,9 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write # cancel the run when a job fails
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run Trivy filesystem scan
@@ -104,6 +114,15 @@ jobs:
           trivyignores: .trivyignore
           skip-dirs: docs/v2/node_modules,kdeps-io,kdeps-io.bak,private,.git
           skip-files: coverage.out,coverage-integration.out
+      # GitHub keeps independent jobs running after a sibling fails, so a lint
+      # failure would let test and test-windows run to completion on a run that
+      # is already red. Cancel the whole run instead of paying for it.
+      - name: Cancel the run on failure
+        if: failure() && !cancelled()
+        continue-on-error: true # the run may have finished already
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   docker-scan:
     needs: changes
@@ -111,6 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write # cancel the run when a job fails
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Buildx
@@ -135,11 +155,20 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: 1
           trivyignores: .trivyignore
+      - name: Cancel the run on failure
+        if: failure() && !cancelled()
+        continue-on-error: true # the run may have finished already
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   lint:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write # cancel the run when a job fails
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -184,6 +213,12 @@ jobs:
             new_vulns=$(grep "^Vulnerability #" /tmp/govuln.txt | grep -v "GO-2026-4887\|GO-2026-4883" || true)
             if [ -n "$new_vulns" ]; then exit 1; fi
           fi
+      - name: Cancel the run on failure
+        if: failure() && !cancelled()
+        continue-on-error: true # the run may have finished already
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   test:
     needs: changes
@@ -192,6 +227,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      actions: write # cancel the run when a job fails
     env:
       UV_NO_CACHE: 1
     steps:
@@ -339,6 +375,13 @@ jobs:
       run: make test-e2e
       timeout-minutes: 25
 
+    - name: Cancel the run on failure
+      if: failure() && !cancelled()
+      continue-on-error: true # the run may have finished already
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+
   test-windows:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
@@ -349,6 +392,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+      actions: write # cancel the run when a job fails
     env:
       # github.com/mattn/go-sqlite3 needs cgo; without a C compiler on PATH,
       # CGO_ENABLED auto-disables and go-sqlite3 falls back to a stub that
@@ -419,6 +463,13 @@ jobs:
           KDEPS_MEMORY_DB_PATH: ":memory:"
         run: bash tests/e2e/e2e.sh
 
+      - name: Cancel the run on failure
+        if: failure() && !cancelled()
+        continue-on-error: true # the run may have finished already
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+
   coverage-badge:
     # Gated on `changes`, not `test`: a squash-merge of an already-green PR
     # skips `test` (already_tested), which used to skip the badge too - so the
@@ -429,6 +480,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write # cancel the run when a job fails
     steps:
       # Uses RELEASE_TOKEN (admin PAT) instead of the default github-actions[bot]
       # token: main's branch protection requires 5 status checks, which the
@@ -466,3 +518,10 @@ jobs:
         with:
           commit_message: "chore: update coverage badge [skip ci]"
           file_pattern: .github/coverage-badge.json
+
+      - name: Cancel the run on failure
+        if: failure() && !cancelled()
+        continue-on-error: true # the run may have finished already
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
