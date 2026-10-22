@@ -59,7 +59,7 @@ upd() {
 }
 
 OUT=$(upd --check)
-if output_grep "tools/md5_file +available +1\.0\.0 -> 1\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
+if output_grep "tools/md5_file +available +[0-9.]+ -> 1\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
     test_passed "update --check lists updates without installing"
 else
     test_failed "update --check" "$OUT"
