@@ -21,6 +21,13 @@ assert.throws(() => p.componentBody(inputs, {}), /who is required/);
 assert.throws(() => p.componentBody(inputs, { who: "a", n: "1.5" }), /whole number/);
 assert.throws(() => p.componentBody(inputs, { who: "a", x: "abc" }), /must be a number/);
 
+const defaulted = [
+  { name: "who", type: "string", required: true, hasDefault: true },
+  { name: "n", type: "integer", required: true, hasDefault: false },
+];
+assert.deepStrictEqual(p.componentBody(defaulted, { n: "2" }), { n: 2 }, "a declared default fills a required input");
+assert.throws(() => p.componentBody(defaulted, {}), /n is required/);
+
 const kind = { key: "chat", fields: [{ name: "model", type: "string" }, { name: "prompt", type: "text" }, { name: "tools", type: "yaml" }] };
 assert.deepStrictEqual(p.shownFields(kind, { prompt: "hi" }, ["model"]).map((f) => f.name), ["model", "prompt"]);
 assert.deepStrictEqual(p.addableFields(kind, { prompt: "hi" }).map((f) => f.name), ["model", "tools"]);

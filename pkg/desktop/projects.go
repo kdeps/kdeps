@@ -86,9 +86,13 @@ type Route struct {
 
 // Input is one declared component input.
 type Input struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Required    bool   `json:"required"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Required bool   `json:"required"`
+	// HasDefault reports whether the input declares a default. Leaving such
+	// an input empty is valid even when Required is true: the runtime
+	// injects the default.
+	HasDefault  bool   `json:"hasDefault"`
 	Description string `json:"description"`
 }
 
@@ -236,7 +240,13 @@ func describeProject(path, kind string) Project {
 			for _, in := range comp.Interface.Inputs {
 				p.Inputs = append(
 					p.Inputs,
-					Input{Name: in.Name, Type: in.Type, Required: in.Required, Description: in.Description},
+					Input{
+						Name:        in.Name,
+						Type:        in.Type,
+						Required:    in.Required,
+						HasDefault:  in.Default != nil,
+						Description: in.Description,
+					},
 				)
 			}
 		}

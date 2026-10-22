@@ -18,7 +18,9 @@ function componentBody(inputs, values) {
   for (const inp of inputs || []) {
     const raw = values[inp.name];
     if (raw === undefined || raw === "") {
-      if (inp.required) throw new Error(inp.name + " is required");
+      // A declared default fills the input at run time, so an empty field is
+      // valid even when the input is required.
+      if (inp.required && !inp.hasDefault) throw new Error(inp.name + " is required");
       continue;
     }
     if (inp.type === "integer" || inp.type === "number") {
