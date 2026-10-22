@@ -319,6 +319,17 @@ Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to m
 
 The cached content has a TTL set by Google AI (default 1 hour). Use `google_cache_delete` to remove it early and avoid storage charges.
 
+## Agent session tools on the API
+
+These tools read or change the state of the active agent session. The tools routes serve them, and the call runs the same closure the agent uses:
+
+- `goal_task_complete`, `goal_task_fail`, `judge_verdict` - goal planner state
+- `identity_get`, `load_skill` - agent identity and skill loading
+- `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
+- `session_handshake` - session-integrity challenge
+
+A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.
+
 ## See also
 
 - [Function calling](/workflow/tools) - Core tool definition and syntax
