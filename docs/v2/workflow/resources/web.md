@@ -8,7 +8,7 @@ Works in workflow and agent mode.
 | :--- | :--- | :--- |
 | `component: http_request` | Call a JSON API, webhook, or REST endpoint | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Get the readable text of a static page | [Scraper](/workflow/resources/scraper) |
-| `component: browser` | A page that needs JavaScript, a login, or form interaction | [Browser](/workflow/resources/browser) |
+| `component: browser` | A page that needs JavaScript, a login, or form interaction | Browser |
 
 ## Which one
 

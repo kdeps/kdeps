@@ -2,7 +2,7 @@
 
 The judge panel is the eval. It reviews a turn's answer on its own.
 
-[Goal enforcement](/agent/goals) checks that the loop keeps moving; it says nothing about whether
+Goal enforcement checks that the loop keeps moving; it says nothing about whether
 the final answer is actually right. The panel is an independent review of
 that answer, run after the turn produces it - one or more reviewer personas, each
 with real tool access, check the output and can send it back for revision before
@@ -114,5 +114,5 @@ needed:
 ## See also
 
 - [Agent mode](/agent/) - overview and starting the REPL
-- [Goal-directed execution](/agent/goals) - the task cursor a judge's revision request feeds back into
+- Goal-directed execution - the task cursor a judge's revision request feeds back into
 - [REPL slash commands](/agent/commands) - full command reference

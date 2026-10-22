@@ -240,7 +240,7 @@ run:                      # steps run in order; the first failing step stops the
 
 - [Agent mode](/agent/) - overview and starting the REPL
 - [Built-in tools](/agent/tools) - tools available to the model
-- [Goal-directed execution](/agent/goals)
+- Goal-directed execution
 
 ## Declared commands on the API
 

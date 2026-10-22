@@ -6,7 +6,7 @@ Works in workflow and agent mode.
 
 | Resource | Channel | Reference |
 | :--- | :--- | :--- |
-| `component: email` | SMTP send, IMAP read / search / modify | [Email](/workflow/resources/email) |
+| `component: email` | SMTP send, IMAP read / search / modify | Email |
 | `component: twiml` | Voice calls - TwiML say, gather, dial, record for a phone webhook | [Telephony](/workflow/resources/telephony) |
 | `apiResponse:` (bot mode) | The workflow result is sent to the chat that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 

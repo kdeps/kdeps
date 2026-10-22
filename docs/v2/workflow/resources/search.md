@@ -7,7 +7,7 @@ Works in workflow and agent mode.
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
 | `component: search_local` | Walk a directory by filename glob and content keyword. Optional TF-IDF index for ranked results - a kdeps component, YAML only. | [search_local](/workflow/resources/search-local) |
-| `component: searchWeb` | Query the web. DuckDuckGo needs no key. Brave, Bing, and Tavily need a named connection. | [searchWeb](/workflow/resources/search-web) |
+| `component: searchWeb` | Query the web. DuckDuckGo needs no key. Brave, Bing, and Tavily need a named connection. | searchWeb |
 
 ## See also
 

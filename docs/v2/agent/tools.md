@@ -8,11 +8,11 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Memory and identity | `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `identity_get` | [Memory and identity](/agent/tools-memory) |
 | Knowledge vault | `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` (while the vault is on: the default) | [Knowledge vault](/agent/knowledge#tools) |
 | Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` | [Shell execution](/agent/shell) |
-| Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | [Web and search](/agent/tools-web) |
+| Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
-| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml`, `email_ops`, `browser_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony), [Email](/workflow/resources/email), [Browser](/workflow/resources/browser) |
-| Code | `code_search`, `code_definition`, and the other LSP tools | [Code intelligence](/workflow/resources/code-navigation) |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml`, `email_ops`, `browser_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony), Email, Browser |
+| Code | `code_search`, `code_definition`, and the other LSP tools | Code intelligence |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
@@ -301,10 +301,10 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [Edit rules](/agent/tools-edit-rules) - read-first, revision, syntax check
 - [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
 - [Shell execution](/agent/shell) - bash_exec, jobs, rtk
-- [Web and search](/agent/tools-web) - web_search, wikipedia, web_scraper
+- Web and search - web_search, wikipedia, web_scraper
 - [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer
-- [Code intelligence](/workflow/resources/code-navigation) - code_search and the other LSP tools
+- Code intelligence - code_search and the other LSP tools
 - [REPL slash commands](/agent/commands) - full command reference
 - [Tool execution monitoring](/agent/monitoring) - status lines and stall detection
 - [Agent registries](/agent/registries) - task_*/team_*/cron_* tools

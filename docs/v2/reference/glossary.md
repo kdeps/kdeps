@@ -11,10 +11,10 @@ mode and agent mode.
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
-| `browser` | A kdeps component (`component: browser`) for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/workflow/resources/browser) |
+| `browser` | A kdeps component (`component: browser`) for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | Browser |
 | `chat` | A resource action type for LLM chat completion. Sends a prompt and returns the response. The most common action type. | [LLM (chat)](/workflow/resources/llm) |
 | <a id="check"></a>`check` | A list of boolean expressions in `validations.check`. All must be true or the resource fails and the workflow stops. | [Validation and control flow](/workflow/validation) |
-| `code_search` | A component family for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics (the other `code_*` components). | [Code intelligence](/workflow/resources/code-navigation) |
+| `code_search` | A component family for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics (the other `code_*` components). | Code intelligence |
 | <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/agencies/components) |
 | `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/agencies/components) |
 | <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/start/why-kdeps#deterministic-by-design) |
@@ -45,7 +45,7 @@ mode and agent mode.
 | scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
 | `scraper` | A kdeps component (`component: scraper`) that fetches a page and returns its text, optionally narrowed by a CSS selector. | [Scraper](/workflow/resources/scraper) |
 | `search_local` | A kdeps component (`component: search_local`) that searches local files by keyword and glob, optionally with a TF-IDF index and graph boost. | [search_local](/workflow/resources/search-local) |
-| `searchWeb` | A kdeps component (`component: searchWeb`) for web search: DuckDuckGo, Brave, Bing, Tavily. | [searchWeb](/workflow/resources/search-web) |
+| `searchWeb` | A kdeps component (`component: searchWeb`) for web search: DuckDuckGo, Brave, Bing, Tavily. | searchWeb |
 | session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/workflow/sessions) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/workflow/data-access) |
 | <a id="shelf"></a>shelf | The engineering word an asset is filed under: `model`, `context`, `harness`, `tools`, `memory`, `rag`, `agent`, `guardrails`, `evals`, `workflow`, `deploy`. The path stays the id (`harness/safety`). `kdeps list <shelf>` shows one. Install profiles are a separate axis. | [Shelves](/agent/repl-updating#shelves) |

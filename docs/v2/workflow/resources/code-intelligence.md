@@ -7,7 +7,7 @@ Works in workflow and agent mode.
 
 | Components | What they do | Reference |
 | :--- | :--- | :--- |
-| `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics` | Live code navigation via a language server, falling back to ripgrep | [Code navigation](/workflow/resources/code-navigation) |
+| `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics` | Live code navigation via a language server, falling back to ripgrep | Code navigation |
 | `code_index_folder`, `code_graph_file`, `code_graph_topic`, `code_graph_all` | Build and query a persistent graph of which files link to which and share a topic | [Folder graph](/workflow/resources/code-graph) |
 
 ## See also
