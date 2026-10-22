@@ -73,6 +73,13 @@ interface:
     - name: who
       type: string
       required: true
+    - name: greeting
+      type: string
+      required: true
+      default: "hello"
+    - name: times
+      type: integer
+      required: false
 resources:
   - actionId: greet
     name: Greet
@@ -247,7 +254,11 @@ func TestProjects_ListsWorkspaceAndInstalled(t *testing.T) {
 	require.NotNil(t, c)
 	assert.Equal(t, desktop.ProjectComponent, c.Kind)
 	assert.Equal(t, "greeter", c.Name)
-	assert.Equal(t, []desktop.Input{{Name: "who", Type: "string", Required: true}}, c.Inputs)
+	assert.Equal(t, []desktop.Input{
+		{Name: "who", Type: "string", Required: true},
+		{Name: "greeting", Type: "string", Required: true, HasDefault: true},
+		{Name: "times", Type: "integer"},
+	}, c.Inputs)
 
 	b := findProject(ps, broken)
 	require.NotNil(t, b)
