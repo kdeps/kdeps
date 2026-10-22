@@ -91,59 +91,11 @@ func extractJSONObject(s string) string {
 	return s[start : end+1]
 }
 
-func categoryForTool(name string) toolBudgetCategory { return budgetToolCategories[name] }
-
-// evidenceCapableTools are tools whose result can serve as verification that
-// a claimed change actually happened -- inspecting files, running commands,
-// or querying stored state. Distinct from budgetToolCategories: that map
-// exists for rate-limiting, this one for RequireTaskEvidence's completion
-// gate, and conflating them would make budgetToolCategories's meaning
-// ambiguous.
-//
-//nolint:gochecknoglobals // static lookup table
-var evidenceCapableTools = map[string]bool{
-	toolNameBashExec:    true,
-	toolNameReadFile:    true,
-	toolNameListFiles:   true,
-	toolNameSearchLocal: true,
-	"md5_file":          true,
-	"tail_file":         true,
-	"sql_query":         true,
-	"memory_query":      true,
-	"code_search":       true,
-	"code_diagnostics":  true,
-}
-
-// cacheForCategory returns the convergence cache backing a category.
-func cacheForCategory(c toolBudgetCategory) *convergenceCache {
-	switch c {
-	case budgetWeb:
-		return globalWebCache
-	case budgetBash:
-		return globalBashCache
-	case budgetFile:
-		return globalFileCache
-	case budgetCode:
-		return globalCodeCache
-	case budgetNone:
-		return nil
-	default:
-		return nil
-	}
-}
-
-const (
-	budgetNone toolBudgetCategory = iota
-	budgetWeb
-	budgetBash
-	budgetFile
-	budgetCode
-)
-
-var budgetToolCategories = map[string]toolBudgetCategory{
+const trivialPromptMaxLen = 120
 
 const trivialShortLen = 32
 
-const trivialPromptMaxLen = 120
-
 var multiStepMarkers = []string{
+	" then ", " and then ", " after that ", " finally ", ";",
+	"step 1", "step one", " also ", " as well as ",
+}
