@@ -12,7 +12,6 @@ closest to what you are building.
 | [Document summarizer](/examples/file-processor) | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | `component: embedding` upsert and search, two routes in one workflow |
-| [Web scraper](/examples/web-scraper) | `component: scraper` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
 | [Shell command API](/examples/shell-command-api) | the `exec` component with a timeout, method scoping, `info()` |
 | [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
@@ -24,7 +23,6 @@ closest to what you are building.
 | [Authenticated API call](/examples/http-auth) | `component: http_request` bearer/API-key auth, `retry:`, `cache:` |
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
 | [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
-| [Phone assistant (IVR)](/examples/telephony-bot) | `twiml` component menu / say / gather, spoken input to LLM |
 | [Local file search](/examples/local-file-search) | `component: search_local` glob + content search |
 | [Python data processing](/examples/python-processing) | `python` component, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
@@ -84,17 +82,6 @@ Best for:
 - Learning `validations.routes` scoping
 
 [Build it step by step](/examples/rag-search)
-
-## Web scraper
-
-An API that takes a URL, fetches the page with the `scraper` component,
-and returns an LLM summary as JSON.
-
-Best for:
-- Turning a page into structured data
-- Feeding scraped text into a larger pipeline
-
-[Build it step by step](/examples/web-scraper)
 
 ## Login and sessions
 
@@ -218,18 +205,6 @@ Best for:
 - Keeping a small workflow in one file
 
 [Build it step by step](/examples/inline-resources)
-
-## Phone assistant (IVR)
-
-A voice menu: the caller presses a key or speaks, and the workflow reads a
-static answer or has an LLM answer the spoken question. Uses the `twiml` component with
-a provider like Twilio.
-
-Best for:
-- Phone support menus and voice bots
-- Learning webhook-driven call control
-
-[Build it step by step](/examples/telephony-bot)
 
 ## Local file search
 

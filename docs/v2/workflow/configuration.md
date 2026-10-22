@@ -9,7 +9,7 @@ direction: down
 
 A: incoming request {shape: oval}
 B: "apiServer\nHTTP server: TLS, auth, rate limit, routes"
-C: "resources/\nDAG pipeline: chat, sql, http, python, exec, file, git, code_search"
+C: "resources/\nDAG pipeline: chat, sql, http, python, exec, file, git"
 D: "apiResponse\nterminal resource; builds the HTTP response"
 E: HTTP response {shape: oval}
 

@@ -378,6 +378,6 @@ component:
 ## See also
 
 - [HTTP client examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
-- [Scraper component](/workflow/resources/scraper) - fetch and extract readable text from a page
+- Scraper component - fetch and extract readable text from a page
 - [SQL resource](/workflow/resources/sql) - database operations
 - [Unified API](/workflow/data-access) - data access patterns

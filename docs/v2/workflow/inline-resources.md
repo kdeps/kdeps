@@ -1,6 +1,6 @@
 # Inline resources
 
-Inline resources are full resource actions (chat, component, code_search) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+Inline resources are full resource actions (chat, component, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
 
@@ -22,7 +22,7 @@ before:
       with:
         command: "echo 'Preparing environment...'"
 
-# Main resource (chat, component, code_search, or file)
+# Main resource (chat, component, or file)
 chat:
   role: user
   prompt: "Process this data"
@@ -56,7 +56,7 @@ direction: down
 A: "expressions in before:\nset() / get() statements"
 B: "inline resources in before:\ncomponent, chat, etc."
 C: "main action\nchat, sql, component..."
-D: "inline resources in after:\ncomponent, code_search, etc."
+D: "inline resources in after:\ncomponent, file, etc."
 E: "expressions in after:\nset() / get() statements"
 
 A -> B -> C -> D -> E

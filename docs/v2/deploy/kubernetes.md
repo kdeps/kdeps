@@ -80,7 +80,7 @@ settings:
 
     # Opt in to a NetworkPolicy that restricts pod ingress to the
     # configured server ports. Egress stays unrestricted so chat, http,
-    # and sql resources (including components such as searchWeb) can reach external services.
+    # and sql resources (including components such as web_search) can reach external services.
     networkPolicy: true
 ```
 

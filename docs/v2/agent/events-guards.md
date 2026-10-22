@@ -52,7 +52,7 @@ Like the round-count cluster, each has its own sensible fallback (matching its b
 
 ## Call-budget events
 
-The convergence caps on `web_search`/`web_scraper`, `bash_exec`, `read_file`/`list_files`, and `search_local`/`code_search` (see [tools](/agent/tools)) are also events -- these fire on a *distinct-call count per turn*, so their `on:` clause uses `distinctCalls:`:
+The convergence caps on `web_search`/`web_scraper`, `bash_exec`, `read_file`/`list_files`, and `search_local` (see [tools](/agent/tools)) are also events -- these fire on a *distinct-call count per turn*, so their `on:` clause uses `distinctCalls:`:
 
 ```yaml
 # ~/.kdeps/events/web-call-budget.yaml
@@ -67,7 +67,7 @@ run: block
 | `web-call-budget` | distinct `web_search`/`web_scraper` calls per turn (they share one budget) | 20 |
 | `bash-call-budget` | distinct `bash_exec` commands per turn | 50 |
 | `file-call-budget` | distinct `read_file` windows (path plus offset/limit) and `list_files` paths per turn | 80 |
-| `code-call-budget` | distinct `search_local`/`code_search` queries per turn | 30 |
+| `code-call-budget` | distinct `search_local` queries per turn | 30 |
 
 These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls (same call, same result) stop after as many rounds as the tool's allocated budget; only tools without a budget use the `identical-tool-calls` threshold.
 

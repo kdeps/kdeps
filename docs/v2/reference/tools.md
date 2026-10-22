@@ -323,7 +323,7 @@ The cached content has a TTL set by Google AI (default 1 hour). Use `google_cach
 
 These tools read or change the state of the active agent session. The tools routes serve them, and the call runs the same closure the agent uses:
 
-- `goal_task_complete`, `goal_task_fail`, `judge_verdict` - goal planner state
+- `judge_verdict` - judge verdict state
 - `identity_get`, `load_skill` - agent identity and skill loading
 - `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 - `session_handshake` - session-integrity challenge

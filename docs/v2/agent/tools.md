@@ -11,8 +11,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
-| Structured operations | `file_ops`, `git_ops`, `sql_ops`, `twiml`, `email_ops`, `browser_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), [Telephony](/workflow/resources/telephony), Email, Browser |
-| Code | `code_search`, `code_definition`, and the other LSP tools | Code intelligence |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), Telephony, Email, Browser |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
@@ -38,8 +37,7 @@ parameters:
 
 Optional fields: `constraints` (limits and gotchas, shown inline), `outputFormat`
 (what the tool returns), `name` (the tool name the model sees, when it
-differs from the file name: goal mode's `goal_task_complete.yaml` registers as
-`task_complete`), and `aliases` (see below).
+differs from the file name), and `aliases` (see below).
 
 ## Tool aliases
 
@@ -153,17 +151,17 @@ Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlqu
 A tool can run one parameterized SQLite statement. The statement is fixed in the YAML. Each argument named in `params` is bound to a `?` placeholder in order. Arguments are never spliced into the text, so a value cannot change the statement.
 
 ```yaml
-# assets/tools/task_get.yaml
+# assets/tools/note_get.yaml
 version: 1.0.0
-description: Read one task by id.
+description: Read one note by id.
 parameters:
   id:
     type: string
     required: true
 sql:
-  dsn: KDEPS_STATE_DB            # environment variable holding the SQLite file path
-  query: SELECT id, title FROM tasks WHERE id = ?
-  params: [id]                    # bound to the ? placeholders, in order
+  dsn: KDEPS_NOTES_DB           # environment variable holding the SQLite file path
+  query: SELECT id, title FROM notes WHERE id = ?
+  params: [id]                  # bound to the ? placeholders, in order
 ```
 
 `mode: rows` (the default) returns a JSON array of row objects. `mode: exec` runs a write and returns `N rows changed`. The tool is registered only when the environment variable is set.
@@ -239,11 +237,9 @@ still has not acknowledged the failure after both, the turn does not settle on
 the bald claim unflagged: the response is followed by a notice naming the
 tool and its error, so the claim is kept but clearly marked unresolved. An
 honest admission at any point (in whatever words) is accepted immediately,
-no nudge needed. With a goal active, `task_complete` on such a task is
-refused, and a prose "done" records the task failed, not done.
+no nudge needed.
 
-Loop-generated notices - goal transitions, budget changes, forced task failures,
-context-window trims - are injected into the model's context as `[kdeps] ...`
+Loop-generated notices - budget changes, context-window trims - are injected into the model's context as `[kdeps] ...`
 messages, since the human at the REPL cannot act on them but the model can
 adjust.
 
@@ -304,8 +300,6 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - Web and search - web_search, wikipedia, web_scraper
 - [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer
-- Code intelligence - code_search and the other LSP tools
 - [REPL slash commands](/agent/commands) - full command reference
 - [Tool execution monitoring](/agent/monitoring) - status lines and stall detection
-- [Agent registries](/agent/registries) - task_*/team_*/cron_* tools
 - [Agent mode](/agent/) - overview and starting the REPL

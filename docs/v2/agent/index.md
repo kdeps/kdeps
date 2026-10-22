@@ -121,7 +121,6 @@ kdeps --resume abc123def456                      # resume a session
 | Task decomposition and forward-only goal enforcement | Goal-directed execution |
 | Independent review of the final answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
-| Task / team / cron registries (`task_*`, `team_*`, `cron_*`) | [Agent registries](/agent/registries) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |

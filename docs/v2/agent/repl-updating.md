@@ -109,7 +109,6 @@ tools (6/78 ticked; * required):
     1) [ ] approval_grant
     5) [x] bash_exec  ~159 tok
    ...
-   29) [x] goal_task_complete *  ~172 tok
 Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
 ```
 
@@ -160,7 +159,7 @@ The profile is respected afterwards. A command that loads a set the profile leav
 ```text
 $ KDEPS_PROFILE=minimum kdeps
 Installing the minimum profile...
-Installing harness/compaction-system, ..., tools/goal_task_complete, ..., commands/help, ..., themes/normal (needed by this command)...
+Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ..., themes/normal (needed by this command)...
 ```
 
 Switching to a smaller profile prunes: `kdeps profile minimum` after `agent` or `full` deletes every downloaded item the new profile does not cover (`commands/goal  remove  not in the profile`), and a set it leaves out entirely loses its required items too, except the base sets and the agent loop's. An item you install by name later is kept by `kdeps update`.
@@ -205,16 +204,16 @@ How a version is chosen:
 - A file may list other items it needs under `requires:`, each with the versions it accepts. Installing it installs those first, at their newest version in range, when they are missing, removed or too old - and theirs, recursively:
 
   ```yaml
-  # components/searchWeb/template.yaml (a bundle's header; a single-file item has these at its top)
+  # components/web_search/template.yaml (a bundle's header; a single-file item has these at its top)
   version: 1.0.1
   requires:
     schemas/v1: ">=1.0.3"   # its component.yaml uses connection:, added in schemas/v1 1.0.3
   ```
 
   ```text
-  $ kdeps update components/searchWeb
-    schemas/v1                           install   - -> 1.0.3  (required by components/searchWeb)
-    components/searchWeb                 install   - -> 1.0.1
+  $ kdeps update components/web_search
+    schemas/v1                           install   - -> 1.0.3  (required by components/web_search)
+    components/web_search                install   - -> 1.0.1
   ```
 
   An item whose requirement is not published for your kdeps, or is pinned to a version outside the range, fails instead of installing; update the pinned item by name to unpin it. Events require the action they run, presets the events and actions they tune, the `/frugal` and `/thorough` commands their preset, components the schema version their `component.yaml` needs. Publishing rejects a requirement no published version satisfies.
