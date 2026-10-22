@@ -39,6 +39,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
+	lcchroma "github.com/tmc/langchaingo/vectorstores/chroma"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -52,6 +53,7 @@ const (
 	opAddDocuments      = "add_documents"
 	providerAzureAI     = "azureaisearch"
 	providerChroma      = "chroma"
+	defaultChromaURL    = "http://localhost:8000"
 	providerDolt        = "dolt"
 	providerAlloyDB     = "alloydb"
 	providerGoogle      = "google"
@@ -262,7 +264,19 @@ func buildChromaStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvec
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newChromaStore(cfg, embedder), nil
+	url := cfg.URL
+	if url == "" {
+		url = defaultChromaURL
+	}
+	store, err := lcchroma.New(
+		lcchroma.WithChromaURL(url),
+		lcchroma.WithEmbedder(embedder),
+		lcchroma.WithNameSpace(cfg.Collection),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore chroma: %w", err)
+	}
+	return store, nil
 }
 
 func buildPineconeStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {

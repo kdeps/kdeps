@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"time"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -26,6 +27,7 @@ import (
 )
 
 func (e *Executor) retryFallbackRoutes(
+	ctx context.Context,
 	fallbackRoutes []kdepsconfig.ModelEntry,
 	cfg *domain.ChatConfig,
 	messages []map[string]interface{},
@@ -43,15 +45,12 @@ func (e *Executor) retryFallbackRoutes(
 		}
 		route := &fallbackRoutes[i]
 		applyRoute(cfg, route)
-		fb, fbURL, fbErr := e.resolveBackend(cfg, false)
+		backendName, baseURL, fbErr := e.resolveBackend(cfg, false)
 		if fbErr != nil {
 			continue
 		}
-		rb, rbErr := fb.BuildRequest(cfg.Model, messages, requestConfig)
-		if rbErr != nil {
-			continue
-		}
-		response, lastErr = e.callBackend(fb, fbURL, rb, timeout)
+		call := langchainChatCall(ctx, cfg, backendName, baseURL, cfg.Model, timeout)
+		response, lastErr = call(messages, requestConfig)
 		if lastErr != nil {
 			response = map[string]interface{}{fieldError: lastErr.Error()}
 		}

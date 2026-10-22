@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
@@ -50,13 +49,13 @@ func jsonParseErrorFallback(response map[string]interface{}, parseErr error) (in
 
 // resolveBackendAndBaseURL returns the backend instance and resolved base URL.
 // Resolution order: resource config > KDEPS_DEFAULT_BACKEND / KDEPS_LLM_BASE_URL > backend default.
-func (e *Executor) resolveBackendAndBaseURL(config *domain.ChatConfig) (Backend, string, error) {
+func (e *Executor) resolveBackendAndBaseURL(config *domain.ChatConfig) (string, string, error) {
 	return e.resolveBackend(config, true)
 }
 
 // resolveBackend resolves backend name and base URL from config.
 // When useEnvDefaults is true, KDEPS_DEFAULT_BACKEND and KDEPS_LLM_BASE_URL are consulted.
-func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool) (Backend, string, error) {
+func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool) (string, string, error) {
 	backendName := config.Backend
 	if isSystemSentinel(backendName) {
 		backendName = ""
@@ -67,19 +66,11 @@ func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool
 	if backendName == "" {
 		backendName = BackendFile
 	}
-	backend := e.backendRegistry.Get(backendName)
-	if backend == nil {
-		return nil, "", fmt.Errorf("unknown backend: %s", backendName)
-	}
-
 	baseURL := config.BaseURL
 	if baseURL == "" && useEnvDefaults {
 		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
 	}
-	if baseURL == "" {
-		baseURL = backend.DefaultURL()
-	}
-	return backend, baseURL, nil
+	return backendName, baseURL, nil
 }
 
 // resolveChatRequestConfig builds a ChatRequestConfig with resolved defaults

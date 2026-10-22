@@ -23,7 +23,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/schema"
@@ -274,108 +273,6 @@ func TestExecute_SimilaritySearch_WithDefaultTopK(t *testing.T) {
 }
 
 // --- Chroma store extra error paths ---
-
-func TestChromaStore_AddDocuments_EmbedError(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{err: errors.New("embed failed")},
-		client:     http.DefaultClient,
-	}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "embed")
-}
-
-func TestChromaStore_AddDocuments_EmptyDocs(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client:     http.DefaultClient,
-	}
-	ids, err := store.AddDocuments(context.Background(), nil)
-	require.NoError(t, err)
-	assert.Nil(t, ids)
-}
-
-func TestChromaStore_SimilaritySearch_EmbedError(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{err: errors.New("embed failed")},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "embed")
-}
-
-func TestChromaStore_SimilaritySearch_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("server error"))
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
-
-func TestChromaStore_AddDocuments_HTTPError(t *testing.T) {
-	collID := uuid.NewString()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.Method == http.MethodGet:
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"error":"not found"}`))
-		case strings.Contains(r.URL.Path, "/add"):
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte("add failed"))
-		default:
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
-}
-
-func TestChromaStore_SimilaritySearch_CollectionIDError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
 
 // --- Pinecone store extra error paths ---
 
@@ -703,18 +600,6 @@ func TestWeaviateStore_AddDocuments_WrongVectors(t *testing.T) {
 
 // --- doRequest request creation error ---
 
-func TestChromaStore_doRequest_CreateError(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client:     http.DefaultClient,
-	}
-	// An invalid method triggers NewRequestWithContext error.
-	_, err := store.doRequest(context.Background(), "\x00invalid", "http://localhost", nil)
-	require.Error(t, err)
-}
-
 func TestPineconeStore_doRequest_CreateError(t *testing.T) {
 	store := &pineconeStore{
 		host:      "http://localhost",
@@ -750,95 +635,7 @@ func TestWeaviateStore_doRequest_CreateError(t *testing.T) {
 
 // --- Chroma collectionID error paths ---
 
-func TestChromaStore_CollectionID_CreateStatusError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"error":"not found"}`))
-		case http.MethodPost:
-			w.WriteHeader(http.StatusConflict)
-			_, _ = w.Write([]byte(`{"error":"already exists"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "status 409")
-}
-
-func TestChromaStore_CollectionID_CreateParseError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{}`))
-		case http.MethodPost:
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`invalid json`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-}
-
-func TestChromaStore_CollectionID_CreateNoID(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{}`))
-		case http.MethodPost:
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-}
-
 // --- Chroma wrong number of vectors ---
-
-func TestChromaStore_AddDocuments_WrongVectors(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:9999",
-		collection: "test",
-		embedder:   &wrongCountEmbedder{},
-		client:     http.DefaultClient,
-	}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "a"},
-		{PageContent: "b"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "wrong number of vectors")
-}
 
 // --- OpenSearch wrong number of vectors ---
 
@@ -914,17 +711,6 @@ func TestSQLStore_SimilaritySearch_UnmarshalSkip(t *testing.T) {
 }
 
 // --- HTTP-level request errors ---
-
-func TestChromaStore_doRequest_HTTPError(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://127.0.0.1:1",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client:     http.DefaultClient,
-	}
-	_, err := store.doRequest(context.Background(), http.MethodGet, "http://127.0.0.1:1/", nil)
-	require.Error(t, err)
-}
 
 func TestPineconeStore_doRequest_HTTPError(t *testing.T) {
 	store := &pineconeStore{
@@ -1097,57 +883,6 @@ func TestWeaviateStore_SimilaritySearch_ParseError(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse graphql response")
 }
 
-func TestChromaStore_SimilaritySearch_StatusError(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`server error`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
-
-func TestChromaStore_SimilaritySearch_NoDocuments(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"documents":[],"metadatas":[],"distances":[]}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	assert.Empty(t, docs)
-}
-
 func TestOpenSearchStore_SimilaritySearch_StatusError(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1164,44 +899,6 @@ func TestOpenSearchStore_SimilaritySearch_StatusError(t *testing.T) {
 	}
 	_, err := store.SimilaritySearch(context.Background(), "query", 5)
 	require.Error(t, err)
-}
-
-func TestChromaStore_SimilaritySearch_EmbedQueryError(t *testing.T) {
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{err: errors.New("embed query failed")},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "embed query")
-}
-
-func TestChromaStore_SimilaritySearch_NoHits(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"documents":[[]],"metadatas":[[]],"distances":[[]]}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	assert.Empty(t, docs)
 }
 
 func TestOpenSearchStore_SimilaritySearch_EmbedQueryError(t *testing.T) {
@@ -1229,30 +926,6 @@ func TestPineconeStore_SimilaritySearch_StatusError(t *testing.T) {
 		namespace: "default",
 		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
 		client:    http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
-
-func TestChromaStore_SimilaritySearch_ParseError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`invalid json`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
 	}
 	_, err := store.SimilaritySearch(context.Background(), "query", 5)
 	require.Error(t, err)

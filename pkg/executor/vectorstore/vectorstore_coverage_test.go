@@ -39,56 +39,6 @@ func (f *failTransport) RoundTrip(*http.Request) (*http.Response, error) {
 
 // --- chroma collectionID error paths ---
 
-func TestChromaStore_CollectionID_GetRequestError(t *testing.T) {
-	t.Parallel()
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client:     &http.Client{Transport: &failTransport{}},
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "fail: connection refused")
-}
-
-func TestChromaStore_CollectionID_CreateRequestError(t *testing.T) {
-	t.Parallel()
-	// GET returns 404 (triggers create), then POST transport fails.
-	calledGet := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			calledGet = true
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{}`))
-			return
-		}
-		// POST - shouldn't be reached; handled by transport failure below.
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	// Build a store whose client uses failTransport for the POST request.
-	// We use a custom transport that succeeds on GET but fails on POST.
-	var postFailed bool
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client: &http.Client{
-			Transport: &methodFailTransport{
-				failMethod: http.MethodPost,
-				next:       http.DefaultTransport,
-				onFail:     func() { postFailed = true },
-			},
-		},
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-	assert.True(t, calledGet, "GET should have been called")
-	assert.True(t, postFailed, "POST should have failed")
-}
-
 // methodFailTransport fails RoundTrip for a specific HTTP method.
 type methodFailTransport struct {
 	failMethod string
@@ -106,108 +56,9 @@ func (m *methodFailTransport) RoundTrip(req *http.Request) (*http.Response, erro
 
 // --- chroma AddDocuments metadata nil branch ---
 
-func TestChromaStore_AddDocuments_NilMetadata(t *testing.T) {
-	t.Parallel()
-	collID := "coll-uuid-nil-meta"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.Method == http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		case strings.Contains(r.URL.Path, "/add"):
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{}`))
-		default:
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	// Document with nil Metadata.
-	ids, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "nil metadata doc", Metadata: nil},
-	})
-	require.NoError(t, err)
-	require.Len(t, ids, 1)
-	assert.NotEmpty(t, ids[0])
-}
-
 // --- chroma SimilaritySearch numDocuments=0 ---
 
-func TestChromaStore_SimilaritySearch_ZeroNumDocuments(t *testing.T) {
-	t.Parallel()
-	collID := "coll-zero-num"
-	respBody := `{
-		"documents": [["result"]],
-		"metadatas": [[{}]],
-		"distances": [[0.3]]
-	}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(respBody))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 0)
-	require.NoError(t, err)
-	require.Len(t, docs, 1)
-	assert.Equal(t, "result", docs[0].PageContent)
-}
-
 // --- chroma AddDocuments request error path ---
-
-func TestChromaStore_AddDocuments_RequestError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-add-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		// client that fails on POST to /add
-		client: &http.Client{
-			Transport: &pathFailTransport{
-				failPath: "/add",
-				next:     http.DefaultTransport,
-			},
-		},
-	}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "add")
-}
 
 // pathFailTransport fails RoundTrip for requests whose URL contains a substring.
 type pathFailTransport struct {
@@ -223,36 +74,6 @@ func (p *pathFailTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 // --- chroma SimilaritySearch request error paths ---
-
-func TestChromaStore_SimilaritySearch_QueryRequestError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-query-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client: &http.Client{
-			Transport: &pathFailTransport{
-				failPath: "/query",
-				next:     http.DefaultTransport,
-			},
-		},
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
 
 // --- opensearch AddDocuments with metadata ---
 
@@ -785,35 +606,6 @@ func TestWeaviateStore_SimilaritySearch_GraphQLRequestError(t *testing.T) {
 }
 
 // --- chroma SimilaritySearch query status error path ---
-
-func TestChromaStore_SimilaritySearch_ReadBodyError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-read-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.Header().Set("Content-Length", "100")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`partial`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	// May or may not error depending on io.ReadAll behavior.
-	if err != nil {
-		t.Logf("got error (expected on some platforms): %v", err)
-	}
-}
 
 // --- executeSimilaritySearch buildStore error ---
 

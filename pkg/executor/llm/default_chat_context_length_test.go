@@ -139,61 +139,6 @@ func TestBuildOpenAICompatRequest_MaxTokens_OmittedWhenUnset(t *testing.T) {
 		"max_tokens must be omitted entirely when unset, not sent as 0 or a kdeps-imposed default")
 }
 
-// TestWatsonXBuildRequest_MaxNewTokens_OmittedWhenUnset verifies the
-// watsonx backend fix: max_new_tokens must now be guarded the same way as
-// every other backend's max_tokens field -- previously it was sent
-// unconditionally, so a 0 ContextLength would have literally requested
-// "generate 0 tokens" instead of omitting the field.
-func TestWatsonXBuildRequest_MaxNewTokens_OmittedWhenUnset(t *testing.T) {
-	e := &Executor{}
-	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{}, nil, "watsonx")
-
-	b := &WatsonXBackend{}
-	req, err := b.BuildRequest("granite-3", []map[string]interface{}{
-		{"role": "user", "content": "write a long file"},
-	}, requestConfig)
-	require.NoError(t, err)
-
-	params, ok := req["parameters"].(map[string]interface{})
-	require.True(t, ok)
-	_, hasMaxNewTokens := params["max_new_tokens"]
-	assert.False(t, hasMaxNewTokens,
-		"max_new_tokens must be omitted, not sent as literal 0 (which would mean \"generate nothing\")")
-}
-
-// TestWatsonXBuildRequest_MaxNewTokens_ExplicitContextLengthStillSent
-// confirms the watsonx fix didn't break the case an explicit contextLength
-// is set -- it must still be sent through as before.
-func TestWatsonXBuildRequest_MaxNewTokens_ExplicitContextLengthStillSent(t *testing.T) {
-	b := &WatsonXBackend{}
-	req, err := b.BuildRequest("granite-3", []map[string]interface{}{
-		{"role": "user", "content": "write a long file"},
-	}, ChatRequestConfig{ContextLength: 4096})
-	require.NoError(t, err)
-
-	params, ok := req["parameters"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, 4096, params["max_new_tokens"])
-}
-
-// TestResolveChatRequestConfig_AnthropicBackend_NoExplicitContextLength
-// verifies the wire-level max_tokens sent to Anthropic (a required field
-// there, unlike OpenAI-compatible backends) reflects the raised default,
-// via Anthropic's own BuildRequest rather than buildOpenAICompatRequest.
-func TestResolveChatRequestConfig_AnthropicBackend_NoExplicitContextLength(t *testing.T) {
-	e := &Executor{}
-	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{}, nil, backendAnthropic)
-	assert.Equal(t, 8192, requestConfig.ContextLength)
-
-	b := &AnthropicBackend{}
-	req, err := b.BuildRequest("claude-sonnet-5", []map[string]interface{}{
-		{"role": "user", "content": "write a long file"},
-	}, requestConfig)
-	require.NoError(t, err)
-	assert.Equal(t, 8192, req["max_tokens"],
-		"Anthropic requires max_tokens; it must reflect the raised default, not the old flat 4096")
-}
-
 // TestResolveChatRequestConfig_KnownModel_UsesCatalogMaxOutputTokens
 // verifies a recognized model gets its real max output tokens from
 // KnownCloudModels instead of the generic per-backend fallback -- e.g.

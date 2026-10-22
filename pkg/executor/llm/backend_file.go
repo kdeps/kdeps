@@ -21,11 +21,8 @@ package llm
 import (
 	"fmt"
 	"io"
-	stdhttp "net/http"
 	"os"
 	"strings"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -38,69 +35,6 @@ const (
 // The model field is the path or URL to a .llamafile binary; the backend
 // downloads it if needed, makes it executable, and serves it as a local
 // OpenAI-compatible HTTP server.
-type FileBackend struct{}
-
-func (b *FileBackend) Name() string {
-	kdeps_debug.Log("enter: FileBackend.Name")
-	return BackendFile
-}
-
-// DefaultURL returns the default local server URL for a llamafile.
-// The actual port may differ when multiple instances are running;
-// the manager sets the resolved URL on the config before dispatching.
-func (b *FileBackend) DefaultURL() string {
-	kdeps_debug.Log("enter: FileBackend.DefaultURL")
-	return BackendFileHostURL
-}
-
-// ChatEndpoint returns the OpenAI-compatible chat completions endpoint.
-// llamafile exposes the same /v1/chat/completions path as OpenAI.
-func (b *FileBackend) ChatEndpoint(baseURL string) string {
-	kdeps_debug.Log("enter: FileBackend.ChatEndpoint")
-	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
-}
-
-// BuildRequest builds an OpenAI-compatible chat completion request body.
-// The model name is passed through but llamafile ignores it (it serves
-// the bundled model regardless).
-func (b *FileBackend) BuildRequest(
-	model string,
-	messages []map[string]interface{},
-	config ChatRequestConfig,
-) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: FileBackend.BuildRequest")
-	return buildOpenAICompatRequest(model, foldSystemMessages(messages), config), nil
-}
-
-// ParseResponse parses the OpenAI-compatible response from the llamafile server.
-func (b *FileBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: FileBackend.ParseResponse")
-	return parseLocalServerResponse(resp, "llamafile server")
-}
-
-// GetAPIKeyHeader returns empty strings - llamafile runs locally with no auth.
-func (b *FileBackend) GetAPIKeyHeader(_ string) (string, string) {
-	kdeps_debug.Log("enter: FileBackend.GetAPIKeyHeader")
-	return "", ""
-}
-
-func (b *FileBackend) APIKeyEnvVar() string { return "" }
-
-// convertOpenAICompatResponse normalises an OpenAI-compatible response map
-// into the internal {message: {role, content}} format used by the executor.
-func convertOpenAICompatResponse(resp map[string]interface{}) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAICompatResponse")
-	result := make(map[string]interface{})
-	message := firstChoiceMessage(resp)
-	if message == nil {
-		return result
-	}
-	if content, ok := message[jsonFieldContent].(string); ok {
-		message[jsonFieldContent] = stripTrailingSpecialTokens(content)
-	}
-	result[jsonFieldMessage] = message
-	return result
-}
 
 // firstChoiceMessage extracts choices[0].message from an OpenAI-compatible response.
 func firstChoiceMessage(resp map[string]interface{}) map[string]interface{} {

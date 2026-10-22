@@ -146,27 +146,20 @@ func (e *Executor) resolveModelForExecution(
 }
 
 // callBackendWithFallback calls the backend and retries remaining router fallback routes on error.
-func (e *Executor) callBackendWithFallback(
-	backend Backend,
-	baseURL string,
-	requestBody map[string]any,
-	timeout time.Duration,
+func (e *Executor) callWithFallback(
+	ctx context.Context,
+	call chatCall,
 	fallbackRoutes []kdepsconfig.ModelEntry,
 	cfg *domain.ChatConfig,
 	messages []map[string]any,
 	requestConfig ChatRequestConfig,
+	timeout time.Duration,
 ) map[string]any {
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
+	response, err := call(messages, requestConfig)
 	if err != nil {
 		response = map[string]any{fieldError: err.Error()}
 	}
-
-	response, err = e.retryFallbackRoutes(
-		fallbackRoutes, cfg, messages, requestConfig, response, timeout,
-	)
-	if _, hasErr := response[fieldError]; hasErr && err != nil {
-		return response
-	}
+	response, _ = e.retryFallbackRoutes(ctx, fallbackRoutes, cfg, messages, requestConfig, response, timeout)
 	return response
 }
 

@@ -18,13 +18,6 @@
 
 package llm
 
-import (
-	"fmt"
-	stdhttp "net/http"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-)
-
 const (
 	BackendGGUF        = "gguf"
 	BackendGGUFPort    = 8081
@@ -34,40 +27,3 @@ const (
 // GGUFBackend serves local .gguf model files via llama-server (llama.cpp).
 // It exposes the same OpenAI-compatible /v1/chat/completions endpoint as the
 // file (llamafile) backend, so the executor layer is identical.
-type GGUFBackend struct{}
-
-func (b *GGUFBackend) Name() string {
-	kdeps_debug.Log("enter: GGUFBackend.Name")
-	return BackendGGUF
-}
-
-func (b *GGUFBackend) DefaultURL() string {
-	kdeps_debug.Log("enter: GGUFBackend.DefaultURL")
-	return BackendGGUFHostURL
-}
-
-func (b *GGUFBackend) ChatEndpoint(baseURL string) string {
-	kdeps_debug.Log("enter: GGUFBackend.ChatEndpoint")
-	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
-}
-
-func (b *GGUFBackend) BuildRequest(
-	model string,
-	messages []map[string]interface{},
-	config ChatRequestConfig,
-) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: GGUFBackend.BuildRequest")
-	return buildOpenAICompatRequest(model, foldSystemMessages(messages), config), nil
-}
-
-func (b *GGUFBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: GGUFBackend.ParseResponse")
-	return parseLocalServerResponse(resp, "llama-server")
-}
-
-func (b *GGUFBackend) GetAPIKeyHeader(_ string) (string, string) {
-	kdeps_debug.Log("enter: GGUFBackend.GetAPIKeyHeader")
-	return "", ""
-}
-
-func (b *GGUFBackend) APIKeyEnvVar() string { return "" }

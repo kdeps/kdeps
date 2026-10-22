@@ -71,8 +71,11 @@ require (
 	cloud.google.com/go/longrunning v1.0.0 // indirect
 	cloud.google.com/go/vertexai v0.19.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/Code-Hex/go-generics-cache v1.3.1 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
+	github.com/amikos-tech/chroma-go v0.1.4 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/antchfx/htmlquery v1.3.6 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
@@ -162,6 +165,7 @@ require (
 	github.com/nlpodyssey/gopickle v0.3.0 // indirect
 	github.com/nlpodyssey/gotokenizers v0.2.0 // indirect
 	github.com/nlpodyssey/spago v1.1.0 // indirect
+	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

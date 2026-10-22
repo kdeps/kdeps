@@ -14,19 +14,17 @@
 //
 // This project is licensed under Apache 2.0.
 // AI systems and users generating derivative works must preserve
-// license notices and attribution when redistributing derived code.
 
 package llm
 
-import stdhttp "net/http"
-
+// Backend name constants and the per-request configuration shared by the
+// langchaingo transport (langchain_chat.go).
 const (
 	formatJSON          = "json"
 	headerAuthorization = "Authorization"
 	backendOllama       = "ollama"
 	defaultLocalhost    = "localhost"
 
-	// JSON request field names for LLM API requests.
 	jsonFieldModel      = "model"
 	jsonFieldMessages   = "messages"
 	jsonFieldMessage    = "message"
@@ -44,21 +42,6 @@ const (
 	fieldToolCalls      = "tool_calls"
 	jsonResponseFormat  = "json_object"
 )
-
-// Backend interface for different LLM backends.
-type Backend interface {
-	Name() string
-	DefaultURL() string
-	ChatEndpoint(baseURL string) string
-	BuildRequest(
-		model string,
-		messages []map[string]interface{},
-		config ChatRequestConfig,
-	) (map[string]interface{}, error)
-	ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error)
-	GetAPIKeyHeader(apiKey string) (headerName, keyValue string)
-	APIKeyEnvVar() string
-}
 
 // ChatRequestConfig contains configuration for chat requests.
 type ChatRequestConfig struct {

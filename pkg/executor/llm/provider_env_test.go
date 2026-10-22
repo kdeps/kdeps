@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 )
@@ -31,31 +30,4 @@ func TestProviderAPIKeyEnvVar_MatchesConfig(t *testing.T) {
 	for _, p := range kdepsconfig.CloudLLMProviders() {
 		assert.Equal(t, p.EnvVar, providerAPIKeyEnvVar(p.Name), "env var for %q", p.Name)
 	}
-}
-
-func TestBackendAPIKeyEnvVar_MatchesConfig(t *testing.T) {
-	envVars := make(map[string]string)
-	for _, p := range kdepsconfig.CloudLLMProviders() {
-		envVars[p.Name] = p.EnvVar
-	}
-	for _, b := range defaultRegistryBackends {
-		assert.Equal(t, envVars[b.Name()], b.APIKeyEnvVar(), "APIKeyEnvVar for %q", b.Name())
-	}
-}
-
-func TestDefaultRegistryBackendNames_CloudOrderMatchesConfig(t *testing.T) {
-	names := DefaultRegistryBackendNames()
-	require.GreaterOrEqual(t, len(names), 4)
-	assert.Equal(t, "ollama", names[0])
-	assert.Equal(t, "file", names[1])
-	assert.Equal(t, "gguf", names[2])
-
-	providers := kdepsconfig.CloudLLMProviders()
-	// Registry order: 3 local backends, then the cloud providers in config order,
-	// then m365 (a local-server-backed remote that uses no API key).
-	require.Len(t, names, 3+len(providers)+1)
-	for i, p := range providers {
-		assert.Equal(t, p.Name, names[i+3], "registry cloud order mismatch at index %d", i)
-	}
-	assert.Equal(t, "m365", names[len(names)-1], "m365 should be the trailing backend")
 }

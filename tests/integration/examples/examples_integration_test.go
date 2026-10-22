@@ -20,6 +20,8 @@ package examples_test
 
 import (
 	"log/slog"
+	nethttp "net/http"
+	"net/http/httptest"
 	"os"
 	"runtime"
 	"strings"
@@ -58,45 +60,34 @@ func setupExecutor() *executor.Engine {
 }
 
 // setupExecutorWithMockLLM creates an executor with a mocked LLM service for faster testing.
-func setupExecutorWithMockLLM() *executor.Engine {
+func setupExecutorWithMockLLM(t *testing.T) *executor.Engine {
+	t.Helper()
 	logger := slog.Default()
 	engine := executor.NewEngine(logger)
 
-	// Initialize executor registry
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
 	registry.SetExecExecutor(exec.NewAdapter())
 
-	// Set up LLM executor with mock service (no real model downloads)
-	// Use a non-existent URL so HTTP calls fail fast instead of trying to connect to Ollama
-	fakeOllamaURL := "http://non-existent-ollama-server:9999"
+	// Stub OpenAI-compatible server: the LLM transport goes through langchaingo,
+	// so the stub must speak /chat/completions. Every resource without a baseUrl
+	// resolves to this server through KDEPS_LLM_BASE_URL.
+	stub := httptest.NewServer(nethttp.HandlerFunc(func(w nethttp.ResponseWriter, _ *nethttp.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id": "chatcmpl-test",
+			"object": "chat.completion",
+			"model": "test-model",
+			"choices": [{"index": 0, "finish_reason": "stop",
+				"message": {"role": "assistant", "content": "{\"answer\": \"Paris\"}"}}],
+			"usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+		}`))
+	}))
+	t.Cleanup(stub.Close)
+	t.Setenv("KDEPS_LLM_BASE_URL", stub.URL+"/v1")
 
-	// Set up a mock HTTP client that returns a fast response instead of making real HTTP calls
-	mockResponse := `{
-		"model": "test-model",
-		"created_at": "2024-01-01T00:00:00Z",
-		"message": {
-			"role": "assistant",
-			"content": "{\"answer\": \"Paris\"}"
-		},
-		"done": true,
-		"total_duration": 1000000,
-		"load_duration": 500000,
-		"prompt_eval_count": 10,
-		"eval_count": 5,
-		"eval_duration": 500000
-	}`
-	mockClient := &llm.MockHTTPClient{
-		ResponseBody: mockResponse,
-		StatusCode:   200,
-	}
-
-	// Create LLM adapter with mock client to avoid real HTTP calls
-	llmAdapter := llm.NewAdapterWithMockClient(fakeOllamaURL, mockClient)
-
-	registry.SetLLMExecutor(llmAdapter)
-
+	registry.SetLLMExecutor(llm.NewAdapter(stub.URL))
 	engine.SetRegistry(registry)
 	return engine
 }
@@ -124,7 +115,7 @@ func TestChatbotExample(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor with mocked LLM for fast unit testing
-	engine := setupExecutorWithMockLLM()
+	engine := setupExecutorWithMockLLM(t)
 
 	// Create request context as described in README:
 	// curl -X POST http://localhost:16395/api/v1/chat \
@@ -227,7 +218,7 @@ func TestChatbotExample_ValidationError(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor with mocked LLM for fast testing
-	engine := setupExecutorWithMockLLM()
+	engine := setupExecutorWithMockLLM(t)
 
 	// Create request without 'q' parameter (should fail validation)
 	reqCtx := &executor.RequestContext{
@@ -522,7 +513,7 @@ func TestChatbotExample_MockedLLM(t *testing.T) {
 	require.NoError(t, err)
 
 	// Setup executor with mocked LLM service
-	engine := setupExecutorWithMockLLM()
+	engine := setupExecutorWithMockLLM(t)
 
 	// Enable debug mode to skip countdown logging and speed up tests
 	engine.SetDebugMode(true)
@@ -603,7 +594,7 @@ func TestCVMatcherExample(t *testing.T) {
 
 	// Attempt to execute the workflow with a mocked LLM.
 	// Most external steps will fail; we skip on any dependency error.
-	engine := setupExecutorWithMockLLM()
+	engine := setupExecutorWithMockLLM(t)
 	engine.SetDebugMode(true)
 
 	reqCtx := &executor.RequestContext{

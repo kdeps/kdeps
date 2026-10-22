@@ -523,6 +523,9 @@
         "openAILegacyMaxTokens": {
           "type": "boolean"
         },
+        "openAIWebSearch": {
+          "type": "boolean"
+        },
         "ollamaThink": {
           "type": "boolean"
         },

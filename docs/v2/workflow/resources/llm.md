@@ -181,6 +181,7 @@ chat:
 
   # openai-specific
   openAILegacyMaxTokens: false   # send max_tokens instead of max_completion_tokens
+  openAIWebSearch: false         # OpenAI server-side web search; search-capable models only
 
   # google-specific
   googleCachedContent: ""    # name of a Google AI CachedContent resource to attach
@@ -423,7 +424,7 @@ Requires `fewShotSelectK` to be set. Falls back to word-overlap if no embedding 
 
 Some `chat:` fields only apply to one backend - Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are all set per resource, not in `config.yaml`, and are documented with the backend they belong to:
 
-- [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, Ollama `streaming`
+- [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, `openAIWebSearch`, Ollama `streaming`
 - [LLM provider reference](/llm-server/providers) - per-provider config snippets and model names
 
 ## Sampling: candidate count

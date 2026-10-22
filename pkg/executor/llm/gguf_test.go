@@ -390,17 +390,6 @@ func TestStartGGUFServer_BadBinary(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to start llama-server")
 }
 
-func TestGGUFBackend_ParseResponse_DecodeError(t *testing.T) {
-	b := &GGUFBackend{}
-	resp := &stdhttp.Response{
-		StatusCode: stdhttp.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader([]byte("not-json"))),
-	}
-	_, err := b.ParseResponse(resp)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to decode llama-server response")
-}
-
 func TestLocalGGUFRegistryPath_HomeDirError(t *testing.T) {
 	orig := userHomeDirFunc
 	t.Cleanup(func() { userHomeDirFunc = orig })

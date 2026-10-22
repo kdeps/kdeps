@@ -1252,81 +1252,6 @@ func TestPineconeStore_SimilaritySearch_HTTPError(t *testing.T) {
 	assert.Contains(t, err.Error(), "503")
 }
 
-func TestChromaStore_SimilaritySearch_Success(t *testing.T) {
-	t.Parallel()
-	collID := "coll-uuid-123"
-	queryResp := `{
-		"documents": [["doc one", "doc two"]],
-		"metadatas": [[{"src": "a"}, {}]],
-		"distances": [[0.1, 0.4]]
-	}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			// collectionID: return existing collection
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			// query endpoint
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(queryResp))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Len(t, docs, 2)
-	assert.Equal(t, "doc one", docs[0].PageContent)
-	assert.Equal(t, "a", docs[0].Metadata["src"])
-	// distance 0.1 -> score 1/(1+0.1) = ~0.909
-	assert.InDelta(t, 0.909, float64(docs[0].Score), 0.01)
-}
-
-func TestChromaStore_AddDocuments_CreateCollection(t *testing.T) {
-	t.Parallel()
-	collID := "new-coll-id"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			// collection not found -- trigger create path
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"error":"not found"}`))
-		case http.MethodPost:
-			if r.URL.Path == "/api/v1/collections" {
-				// create collection
-				w.WriteHeader(http.StatusCreated)
-				_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-			} else {
-				// add documents
-				w.WriteHeader(http.StatusCreated)
-				_, _ = w.Write([]byte(`{}`))
-			}
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	ids, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello chroma"},
-	})
-	require.NoError(t, err)
-	require.Len(t, ids, 1)
-	assert.NotEmpty(t, ids[0])
-}
-
 func TestMySQLCreateTableSQL(t *testing.T) {
 	t.Parallel()
 	sql := mysqlCreateTableSQL("my_table")
@@ -1371,29 +1296,6 @@ func TestBuildStore_Dolt_WithURL(t *testing.T) {
 	store, err := buildStore(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, store)
-}
-
-func TestChromaStore_APIKey_Header(t *testing.T) {
-	t.Parallel()
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		apiKey:     "chroma-secret",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	// collectionID is called on AddDocuments; trigger it with an empty doc list (returns nil early)
-	// so we call it directly via SimilaritySearch with a query that will fail at query step
-	store.SimilaritySearch(context.Background(), "q", 1) //nolint:errcheck // only checking header
-	assert.Equal(t, "Bearer chroma-secret", gotAuth)
 }
 
 // sqliteCreateTableSQL returns a SQLite-compatible CREATE TABLE statement for testing.
