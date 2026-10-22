@@ -362,7 +362,11 @@ func TestInstructReminder_PersistsThroughTuning(t *testing.T) {
 }
 
 func TestValidInstructReminders_DedupsAndSorts(t *testing.T) {
-	assert.Equal(t, []string{"feedback", "files"}, validInstructReminders([]string{"feedback", "FILES", "feedback", "x"}))
+	assert.Equal(
+		t,
+		[]string{"feedback", "files"},
+		validInstructReminders([]string{"feedback", "FILES", "feedback", "x"}),
+	)
 	assert.Nil(t, validInstructReminders(nil))
 }
 

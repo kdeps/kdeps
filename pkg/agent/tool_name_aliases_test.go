@@ -36,10 +36,10 @@ import (
 
 func TestAliasesOf(t *testing.T) {
 	defs := map[string]toolDefinition{
-		"bash_exec":     {Aliases: []string{"bash", "Shell", "read_file"}},
-		"read_file":     {Aliases: []string{"cat", "shared"}},
-		"other":         {Aliases: []string{"shared"}},
-		"notepad":       {Name: "edit_file", Aliases: []string{"done"}},
+		"bash_exec": {Aliases: []string{"bash", "Shell", "read_file"}},
+		"read_file": {Aliases: []string{"cat", "shared"}},
+		"other":     {Aliases: []string{"shared"}},
+		"notepad":   {Name: "edit_file", Aliases: []string{"done"}},
 	}
 	got := aliasesOf(defs)
 	assert.Equal(t, "bash_exec", got["bash"])

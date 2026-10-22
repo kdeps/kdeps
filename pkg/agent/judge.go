@@ -159,13 +159,13 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	}
 
 	judgeLoop := New(l.engine, l.workflow, judgeRegistry, Config{
-		Model:           l.config.Model,
-		Backend:         l.config.Backend,
-		BaseURL:         l.config.BaseURL,
-		Role:            l.config.Role,
-		Streamer:        l.streamer,
-		SystemPrompt:    judgeSystemPrompt(spec),
-		MaxToolRounds:   maxRounds,
+		Model:         l.config.Model,
+		Backend:       l.config.Backend,
+		BaseURL:       l.config.BaseURL,
+		Role:          l.config.Role,
+		Streamer:      l.streamer,
+		SystemPrompt:  judgeSystemPrompt(spec),
+		MaxToolRounds: maxRounds,
 	})
 
 	// The error here is expected on the success path (see cancel() above), so
