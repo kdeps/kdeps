@@ -118,10 +118,10 @@ func TestInstall_NamedItemBringsItsRequires(t *testing.T) {
 		return out
 	}
 
-	changes, err := assets.Update(t.Context(), root, assets.NewClient(), []string{"components/searchWeb"}, false)
+	changes, err := assets.Update(t.Context(), root, assets.NewClient(), []string{"components/web_search"}, false)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"schemas/v1", "tools/http_request", "components/searchWeb"}, ids(changes))
-	assert.Equal(t, "required by components/searchWeb", changes[0].Note)
+	assert.Equal(t, []string{"schemas/v1", "tools/web_search", "components/web_search"}, ids(changes))
+	assert.Equal(t, "required by components/web_search", changes[0].Note)
 
 	changes, err = assets.Update(t.Context(), root, assets.NewClient(), []string{"commands/frugal"}, false)
 	require.NoError(t, err)
@@ -160,8 +160,8 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 
 	// A component a workflow calls is installed on first use, with its requires.
 	assets.SetOnDemand(agent.InstallComponentOnDemand(t.Context(), io.Discard))
-	assert.True(t, assets.InstallOnDemand("components/searchWeb"))
-	_, err = assets.Open("components").ReadFile("components/searchWeb/component.yaml")
+	assert.True(t, assets.InstallOnDemand("components/web_search"))
+	_, err = assets.Open("components").ReadFile("components/web_search/component.yaml")
 	require.NoError(t, err)
 
 	// A later command needing more sets installs just those.
@@ -187,7 +187,7 @@ func TestPublish_IndexCarriesContextTokens(t *testing.T) {
 	require.NoError(t, err)
 	assert.Positive(t, idx.Tokens("tools/bash_exec"), "a tool definition reaches the model")
 	assert.Positive(t, idx.Tokens("harness/safety"), "a prompt section reaches the model")
-	assert.Positive(t, idx.Tokens("components/searchWeb"), "a component is an agent tool")
+	assert.Positive(t, idx.Tokens("components/web_search"), "a component is an agent tool")
 	assert.Zero(t, idx.Tokens("themes/normal"), "themes never reach the model")
 	assert.Zero(t, idx.Tokens("schemas/v1"))
 }
