@@ -121,10 +121,6 @@ var itemShelf = map[string]string{
 	"tools/voyageai_rerank":     ShelfRAG,
 
 	// agent: goals, tasks, teams, skills, identity. Slash commands default here.
-	"harness/goal-confirm-system": ShelfAgent,
-	"harness/goal-plan-system":    ShelfAgent,
-	"tools/goal_task_complete":    ShelfAgent,
-	"tools/goal_task_fail":        ShelfAgent,
 	"tools/identity_get":          ShelfAgent,
 	"tools/instruct":              ShelfAgent,
 	"tools/load_skill":            ShelfAgent,

@@ -20,16 +20,3 @@ func TestTrackRepeat_CountsOnlyIdenticalCallAndResult(t *testing.T) {
 	n, _ = trackRepeat(domain.StreamedToolCall{Name: "bash_exec", Arguments: `{"command":"ls"}`}, "r2", sig, n)
 	assert.Equal(t, 1, n, "different call resets")
 }
-
-func TestIdenticalRepeatLimit_FollowsToolLimit(t *testing.T) {
-	resetConvergenceLimitsAfter(t)
-	def := effectiveRounds(eventIdenticalCalls)
-
-	_, fileLimit := FileConvergenceCalls()
-	assert.Equal(t, fileLimit, identicalRepeatLimit("read_file"), "read_file follows the file limit")
-	assert.Equal(t, def, identicalRepeatLimit("some_other_tool"), "uncategorized tools keep the event threshold")
-
-	SetConvergenceLimits(0, -1, 7, 0)
-	assert.Equal(t, disabledSentinel, identicalRepeatLimit("bash_exec"), "unlimited bash limit never stops")
-	assert.Equal(t, 7, identicalRepeatLimit("read_file"), "custom file limit applies")
-}

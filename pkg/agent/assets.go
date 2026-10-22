@@ -94,7 +94,7 @@ var requiredCommands = []string{"help", "exit", "clear", "model", "compact", "se
 //nolint:gochecknoglobals // fixed list
 var requiredHarness = []string{
 	"compaction-system", "compaction-user", "compaction-update-user", "branch-summary",
-	"goal-plan-system", "goal-confirm-system", "judge-roster-system", "judge-system",
+	"judge-roster-system", "judge-system",
 	"refine-system", "handshake", "handshake-ack",
 }
 
@@ -113,7 +113,7 @@ var requiredTools = []string{
 	"memory_save", "memory_search", "memory_query", "memory_delete",
 	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
 	"load_skill", "identity_get",
-	"goal_task_complete", "goal_task_fail", "judge_verdict", "session_handshake",
+	"judge_verdict", "session_handshake",
 }
 
 // harnessContext is a harness entry's model-facing text: its body, unless

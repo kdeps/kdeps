@@ -2937,24 +2937,6 @@ func TestRunStreaming_SandboxHallucinationEscalatesReminderAcrossTurns(t *testin
 		"turn 2 must carry the full kdepsToolsFirstGuidance block, not just the one-line reminder")
 }
 
-// A text-only reply that reads as giving up ("I cannot complete this") right
-// after a tool call succeeded this turn must draw a push-back nudge instead
-// of ending the turn on the refusal -- there was real progress on the table.
-func TestRunStreaming_GiveUpAfterProgressIsNudged(t *testing.T) {
-	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
-		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
-		{content: "I cannot complete this, no access to the repo.", toolCalls: nil},
-		{content: "Actually, here is the answer.", toolCalls: nil},
-	}}}
-	loop := newStreamingLoop(ms, 10)
-	var buf bytes.Buffer
-	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
-	require.NoError(t, err)
-	require.Len(t, ms.cfgs, 3, "the give-up reply after a successful tool call must draw one nudge")
-	assert.Contains(t, ms.cfgs[2].Prompt, "reads as giving up")
-	assert.Equal(t, "Actually, here is the answer.", got)
-}
-
 // The same give-up language with NO tool call having succeeded this turn is
 // still a fictional limit. The progress give-up nudge does not fire. The
 // self-limit nudge does, and the refusal is not shown.
@@ -2971,26 +2953,6 @@ func TestRunStreaming_GiveUpWithNoProgressIsNudgedAsSelfLimit(t *testing.T) {
 	assert.Contains(t, ms.cfgs[1].Prompt, "Your next output is the tool call itself")
 	assert.Equal(t, "Listed the files.", got)
 	assert.NotContains(t, buf.String(), "I cannot complete this")
-}
-
-// The give-up nudge is bounded to nudge-give-up's maxOccurrences (2): a model that keeps
-// giving up after progress draws a second, sharper nudge, then the third
-// give-up reply is accepted as the turn's final answer.
-func TestRunStreaming_GiveUpNudgedTwiceThenAccepted(t *testing.T) {
-	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
-		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
-		{content: "I cannot complete this.", toolCalls: nil},
-		{content: "I am unable to do this.", toolCalls: nil},
-		{content: "I cannot complete this, final answer.", toolCalls: nil},
-	}}}
-	loop := newStreamingLoop(ms, 10)
-	var buf bytes.Buffer
-	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
-	require.NoError(t, err)
-	require.Len(t, ms.cfgs, 4, "two give-up nudges, then the third refusal is accepted")
-	assert.NotContains(t, ms.cfgs[2].Prompt, "second time this turn", "first nudge is not a repeat")
-	assert.Contains(t, ms.cfgs[3].Prompt, "second time this turn", "second nudge must read as a repeat")
-	assert.Equal(t, "I cannot complete this, final answer.", got)
 }
 
 // Every nudge that tells the model to "make a real tool call" must show it

@@ -48,7 +48,7 @@ var (
 	wantStandaloneEntries = []string{
 		"m365-sandbox", "tools-reminder", "skills-preamble",
 		"compaction-system", "compaction-user", "compaction-update-user",
-		"goal-plan-system", "goal-confirm-system", "judge-roster-system",
+		"judge-roster-system",
 		"judge-system", "refine-system", "branch-summary", "handshake", "knowledge-extract-system",
 		"handshake-ack", "invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
