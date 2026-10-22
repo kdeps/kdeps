@@ -12,7 +12,7 @@ var generatedFlows = map[string]SetInfo{
 		Mode: "agent",
 		Flow: []FlowStep{
 			{Label: "an event's trigger is met"},
-			{Label: "its action runs: compact, truncate, block, cap, force an answer or fail a task", Here: true},
+			{Label: "its action runs: compact, truncate, block, cap or force an answer", Here: true},
 			{Label: "the agent loop continues"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/efficiency", "/konfig", "kdeps konfig export", "kdeps konfig import"},
