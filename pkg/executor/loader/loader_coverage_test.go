@@ -15,12 +15,10 @@
 package loader
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -114,19 +112,6 @@ func TestLoadNotionDirectory_UnreadableFile(t *testing.T) {
 	assert.Contains(t, docs[0].Content, "Good")
 }
 
-// lookupBin is a local helper because exec.LookPath is not imported directly
-// in this test file — we use the PATH env check.
-func lookupBin(name string) (string, error) {
-	path := os.Getenv("PATH")
-	for _, dir := range filepath.SplitList(path) {
-		full := filepath.Join(dir, name)
-		if _, err := os.Stat(full); err == nil {
-			return full, nil
-		}
-	}
-	return "", os.ErrNotExist
-}
-
 // TestRunCLIToFile_BinNotFound covers the lookErr != nil branch in runCLIToFile.
 func TestRunCLIToFile_BinNotFound(t *testing.T) {
 	t.Setenv("PATH", "")
@@ -208,23 +193,4 @@ func TestLoadDirectory_UnreadableFileInWalk(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, docs, 1)
 	assert.Contains(t, docs[0].Content, "good content")
-}
-
-// buildMinimalPDF creates a minimal valid PDF for testing.
-func buildMinimalPDF() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%%PDF-1.4\n")
-	obj1 := b.Len()
-	fmt.Fprintf(&b, "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-	obj2 := b.Len()
-	fmt.Fprintf(&b, "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-	fmt.Fprintf(&b, "3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n")
-	xrefOffset := b.Len()
-	fmt.Fprintf(&b, "xref\n0 3\n")
-	fmt.Fprintf(&b, "0000000000 65535 f \n")
-	fmt.Fprintf(&b, "%010d 00000 n \n", obj1)
-	fmt.Fprintf(&b, "%010d 00000 n \n", obj2)
-	fmt.Fprintf(&b, "trailer\n<< /Size 3 /Root 1 0 R >>\n")
-	fmt.Fprintf(&b, "startxref\n%d\n%%%%EOF", xrefOffset)
-	return b.String()
 }
