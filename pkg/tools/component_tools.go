@@ -57,10 +57,12 @@ func buildComponentToolParams(comp *domain.Component) map[string]domain.ToolPara
 		return params
 	}
 	for _, input := range comp.Interface.Inputs {
+		// A declared default fills the input at run time, so the model may
+		// omit it even when the interface marks it required.
 		params[input.Name] = domain.ToolParam{
 			Type:        input.Type,
 			Description: input.Description,
-			Required:    input.Required,
+			Required:    input.Required && input.Default == nil,
 		}
 	}
 	return params

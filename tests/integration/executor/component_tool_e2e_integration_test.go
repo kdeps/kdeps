@@ -215,6 +215,10 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 						{Name: "subject", Type: "string", Required: true, Description: "Email subject"},
 						{Name: "body", Type: "string", Required: true, Description: "Email body"},
 						{Name: "smtpPort", Type: "integer", Required: false, Description: "SMTP port"},
+						{
+							Name: "cc", Type: "string", Required: true,
+							Default: "archive@example.com", Description: "CC address",
+						},
 					},
 				},
 			},
@@ -262,6 +266,7 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 	require.Contains(t, properties, "subject")
 	require.Contains(t, properties, "body")
 	require.Contains(t, properties, "smtpPort")
+	require.Contains(t, properties, "cc")
 
 	toProp := properties["to"].(map[string]interface{})
 	assert.Equal(t, "string", toProp["type"])
@@ -270,7 +275,8 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 	smtpProp := properties["smtpPort"].(map[string]interface{})
 	assert.Equal(t, "integer", smtpProp["type"])
 
-	// Required fields: to, subject, body (smtpPort is optional).
+	// Required fields: to, subject, body. smtpPort is optional, and cc has a
+	// declared default, so the model may omit it.
 	required := params["required"].([]interface{})
 	requiredSet := make(map[string]bool)
 	for _, r := range required {
@@ -280,6 +286,7 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 	assert.True(t, requiredSet["subject"])
 	assert.True(t, requiredSet["body"])
 	assert.False(t, requiredSet["smtpPort"])
+	assert.False(t, requiredSet["cc"], "a declared default satisfies required")
 }
 
 // TestE2E_ComponentTools_DefaultDisabled verifies that when componentTools is

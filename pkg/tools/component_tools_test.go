@@ -62,6 +62,7 @@ func TestComponentToolDefs_WithInputs(t *testing.T) {
 			Inputs: []domain.ComponentInput{
 				{Name: "topic", Type: "string", Required: true, Description: "The topic"},
 				{Name: "count", Type: "integer", Required: false},
+				{Name: "format", Type: "string", Required: true, Default: "plain"},
 			},
 		},
 	}
@@ -90,6 +91,9 @@ func TestComponentToolDefs_WithInputs(t *testing.T) {
 	}
 	if _, ok = res[0].Parameters["count"]; !ok {
 		t.Error("expected 'count' parameter")
+	}
+	if res[0].Parameters["format"].Required {
+		t.Error("expected a declared default to satisfy required in the tool schema")
 	}
 }
 
