@@ -107,15 +107,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+    # The run's longest job is ~45 min; the watcher must never outlive it.
+    timeout-minutes: 60
     steps:
       - name: Cancel the run when any job fails
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
+          errs=0
           while true; do
-            jobs="$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
-              --jq '.jobs')" || { sleep 20; continue; }
+            if ! jobs="$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
+              --jq '.jobs' 2>/dev/null)"; then
+              errs=$((errs + 1))
+              # Ten failed polls in a row: stop watching rather than keep the
+              # run open; the jobs themselves still gate the PR.
+              if [ "$errs" -ge 10 ]; then
+                echo "cannot read the run; giving up"
+                exit 0
+              fi
+              sleep 20; continue
+            fi
+            errs=0
             failed="$(jq -r '[.[] | select(.conclusion == "failure") | .name] | join(", ")' <<<"$jobs")"
             if [ -n "$failed" ]; then
               echo "Job(s) failed ($failed) - cancelling the run"
