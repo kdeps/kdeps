@@ -35,3 +35,19 @@ func TestCollectComponentDirs_NoEnvNoHome(t *testing.T) {
 	dirs := collectComponentDirs()
 	assert.Empty(t, dirs)
 }
+
+func TestFormatInputSummary_DefaultSatisfiesRequired(t *testing.T) {
+	withDefault := struct {
+		Name        string `yaml:"name"`
+		Type        string `yaml:"type"`
+		Required    bool   `yaml:"required"`
+		Description string `yaml:"description"`
+		Default     any    `yaml:"default"`
+	}{Name: "mode", Type: "string", Required: true, Default: "fast"}
+	assert.NotContains(t, formatInputSummary(withDefault), "[required]",
+		"a declared default satisfies required")
+
+	noDefault := withDefault
+	noDefault.Default = nil
+	assert.Contains(t, formatInputSummary(noDefault), "[required]")
+}
