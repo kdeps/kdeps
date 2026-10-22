@@ -42,13 +42,6 @@ func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorSearchLocal)
 }
 
-func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) {
-	r.Register(ExecutorCodeIntel, exec)
-}
-func (r *Registry) GetCodeIntelligenceExecutor() ResourceExecutor {
-	return r.getExecutor(ExecutorCodeIntel)
-}
-
 func (r *Registry) SetLoaderExecutor(exec ResourceExecutor) { r.Register(ExecutorLoader, exec) }
 func (r *Registry) GetLoaderExecutor() ResourceExecutor     { return r.getExecutor(ExecutorLoader) }
 

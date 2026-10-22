@@ -109,21 +109,6 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Glob":        interpolatable(),
 		"IndexDBPath": interpolatable(),
 	},
-
-	"CodeIntelligenceConfig": {
-		"Operation":   interpolatable(), // named type CodeIntelligenceOperation, cast to/from string
-		"Path":        interpolatable(),
-		"Query":       interpolatable(),
-		"Symbol":      interpolatable(),
-		"Pattern":     interpolatable(),
-		"Language":    interpolatable(),
-		"LanguageID":  interpolatable(),
-		"Include":     interpolatable(),
-		"Exclude":     interpolatable(),
-		"Topic":       interpolatable(),
-		"Extensions":  interpolatable(),
-		"GraphDBPath": interpolatable(),
-	},
 }
 
 // interpolationCoveredTypes lists the Go values whose struct fields are
@@ -133,12 +118,11 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 // classified or the test below fails.
 func interpolationCoveredTypes() map[string]any {
 	return map[string]any{
-		"EmbeddingConfig":        EmbeddingConfig{},
-		"LoaderConfig":           LoaderConfig{},
-		"VectorStoreConfig":      VectorStoreConfig{},
-		"VectorStoreDocument":    VectorStoreDocument{},
-		"SearchLocalConfig":      SearchLocalConfig{},
-		"CodeIntelligenceConfig": CodeIntelligenceConfig{},
+		"EmbeddingConfig":     EmbeddingConfig{},
+		"LoaderConfig":        LoaderConfig{},
+		"VectorStoreConfig":   VectorStoreConfig{},
+		"VectorStoreDocument": VectorStoreDocument{},
+		"SearchLocalConfig":   SearchLocalConfig{},
 	}
 }
 

@@ -42,17 +42,16 @@ type Resource struct {
 	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
 
 	// Action types (set exactly one):
-	Chat             *ChatConfig             `yaml:"chat,omitempty"`
-	HTTPClient       *HTTPClientConfig       `yaml:"httpClient,omitempty"`
-	Python           *PythonConfig           `yaml:"python,omitempty"`
-	Exec             *ExecConfig             `yaml:"exec,omitempty"`
-	Agent            *AgentCallConfig        `yaml:"agent,omitempty"`
-	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
-	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
-	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
-	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
-	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
-	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
+	Chat        *ChatConfig          `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
+	Python      *PythonConfig        `yaml:"python,omitempty"`
+	Exec        *ExecConfig          `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
+	Component   *ComponentCallConfig `yaml:"component,omitempty"`
+	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
+	Loader      *LoaderConfig        `yaml:"loader,omitempty"`
+	VectorStore *VectorStoreConfig   `yaml:"vectorStore,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete

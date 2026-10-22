@@ -48,19 +48,18 @@ const DocsSite = "https://kdeps.com"
 //
 //nolint:gochecknoglobals // fixed key -> page table
 var ResourceDocs = map[string]string{
-	"chat":             "workflow/resources/llm.md",
-	"httpClient":       "workflow/resources/http-client.md",
-	"sql":              "workflow/resources/sql.md",
-	"python":           "workflow/resources/python.md",
-	"exec":             "workflow/resources/exec.md",
-	"agent":            "agencies/agent-resource.md",
-	"component":        "agencies/component-resource.md",
-	"embedding":        "workflow/resources/embedding.md",
-	"searchLocal":      "workflow/resources/search-local.md",
-	"codeIntelligence": "workflow/resources/code-intelligence.md",
-	"loader":           "workflow/resources/loader.md",
-	"vectorStore":      "workflow/resources/vector-store.md",
-	"apiResponse":      "workflow/resources/api-response.md",
+	"chat":        "workflow/resources/llm.md",
+	"httpClient":  "workflow/resources/http-client.md",
+	"sql":         "workflow/resources/sql.md",
+	"python":      "workflow/resources/python.md",
+	"exec":        "workflow/resources/exec.md",
+	"agent":       "agencies/agent-resource.md",
+	"component":   "agencies/component-resource.md",
+	"embedding":   "workflow/resources/embedding.md",
+	"searchLocal": "workflow/resources/search-local.md",
+	"loader":      "workflow/resources/loader.md",
+	"vectorStore": "workflow/resources/vector-store.md",
+	"apiResponse": "workflow/resources/api-response.md",
 }
 
 // ResourcePackageName is the registry package name of a resource key:

@@ -57,20 +57,6 @@ func (e *Engine) executeInlineSearchLocal(
 	)
 }
 
-// executeInlineCodeIntelligence executes an inline codeIntelligence resource.
-func (e *Engine) executeInlineCodeIntelligence(
-	config *domain.CodeIntelligenceConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	return e.executeRegistered(
-		"executeInlineCodeIntelligence",
-		e.registry.GetCodeIntelligenceExecutor,
-		"codeIntelligence",
-		ctx,
-		config,
-	)
-}
-
 // executeLoader executes a loader resource.
 func (e *Engine) executeLoader(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(

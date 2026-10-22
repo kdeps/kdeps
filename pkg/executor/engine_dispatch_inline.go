@@ -120,9 +120,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorSearchLocal: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineSearchLocal(inline.SearchLocal, ctx)
 		},
-		ExecutorCodeIntel: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
-		},
 		ExecutorLoader: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineLoader(inline.Loader, ctx)
 		},

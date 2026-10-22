@@ -52,7 +52,6 @@ func TestResourceDocs_CoverEveryAction(t *testing.T) {
 func TestResourcePackageName(t *testing.T) {
 	assert.Equal(t, "kdeps-resource-scraper", ResourcePackageName("scraper"))
 	assert.Equal(t, "kdeps-resource-http-client", ResourcePackageName("httpClient"))
-	assert.Equal(t, "kdeps-resource-code-intelligence", ResourcePackageName("codeIntelligence"))
 }
 
 func TestResourceDoc(t *testing.T) {

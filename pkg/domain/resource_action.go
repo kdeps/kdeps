@@ -26,18 +26,17 @@ type ActionConfig struct {
 	Tool string `yaml:"tool,omitempty"`
 	Expr string `yaml:"-"` // set when the YAML entry is a bare scalar expression
 
-	Chat             *ChatConfig             `yaml:"chat,omitempty"`
-	HTTPClient       *HTTPClientConfig       `yaml:"httpClient,omitempty"`
-	Python           *PythonConfig           `yaml:"python,omitempty"`
-	Exec             *ExecConfig             `yaml:"exec,omitempty"`
-	Agent            *AgentCallConfig        `yaml:"agent,omitempty"`
-	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
-	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
-	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
-	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
-	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
-	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
-	APIResponse      *APIResponseConfig      `yaml:"apiResponse,omitempty"`
+	Chat        *ChatConfig          `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
+	Python      *PythonConfig        `yaml:"python,omitempty"`
+	Exec        *ExecConfig          `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
+	Component   *ComponentCallConfig `yaml:"component,omitempty"`
+	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
+	Loader      *LoaderConfig        `yaml:"loader,omitempty"`
+	VectorStore *VectorStoreConfig   `yaml:"vectorStore,omitempty"`
+	APIResponse *APIResponseConfig   `yaml:"apiResponse,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.
