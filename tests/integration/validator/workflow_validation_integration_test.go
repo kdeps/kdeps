@@ -516,6 +516,95 @@ settings:
 	}
 }
 
+// A required component input with a declared default needs no with: entry:
+// the runtime injects the default, so validation must accept the call. A
+// required input without a default still fails.
+func TestWorkflowValidationIntegration_ComponentRequiredInputWithDefault(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	yamlParser := yaml.NewParser(schemaValidator, expression.NewParser())
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	tests := []struct {
+		name       string
+		hasDefault bool
+	}{
+		{name: "default satisfies required input", hasDefault: true},
+		{name: "required input without default fails", hasDefault: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+			tmpDir := t.TempDir()
+
+			inputs := `
+    - name: message
+      type: string
+      required: true`
+			if tt.hasDefault {
+				inputs += `
+      default: "Hello"`
+			}
+			componentYAML := `apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: greeter
+interface:
+  inputs:` + inputs + `
+resources:
+  - actionId: greet
+    name: Greet
+    apiResponse:
+      success: true
+      response:
+        message: "{{ get('greeter.message') }}"
+`
+			compDir := filepath.Join(tmpDir, "components", "greeter")
+			require.NoError(t, os.MkdirAll(compDir, 0o750))
+			require.NoError(t, os.WriteFile(
+				filepath.Join(compDir, "component.yaml"), []byte(componentYAML), 0o600,
+			))
+
+			resourceYAML := `actionId: final
+name: Final
+component:
+  name: greeter
+  with: {}
+`
+			resourcesDir := filepath.Join(tmpDir, "resources")
+			require.NoError(t, os.MkdirAll(resourcesDir, 0o750))
+			require.NoError(t, os.WriteFile(
+				filepath.Join(resourcesDir, "final.yaml"), []byte(resourceYAML), 0o600,
+			))
+
+			workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: component-default-test
+  version: "1.0.0"
+  targetActionId: final
+settings:
+  agentSettings:
+    timezone: "UTC"
+`
+			workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+			require.NoError(t, os.WriteFile(workflowPath, []byte(workflowYAML), 0o600))
+
+			workflow, parseErr := yamlParser.ParseWorkflow(workflowPath)
+			require.NoError(t, parseErr)
+
+			validateErr := workflowValidator.Validate(workflow)
+			if tt.hasDefault {
+				require.NoError(t, validateErr)
+				return
+			}
+			require.Error(t, validateErr)
+			assert.Contains(t, validateErr.Error(), `requires input "message"`)
+		})
+	}
+}
+
 // A workflow that still declares a removed or unknown settings key fails to
 // parse, naming the key, instead of the setting being silently ignored.
 func TestWorkflowValidationIntegration_RejectsUnknownSettings(t *testing.T) {

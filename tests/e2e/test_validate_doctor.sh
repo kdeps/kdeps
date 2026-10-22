@@ -74,6 +74,71 @@ else
   fi
 fi
 
+# A required component input with a declared default needs no with: entry;
+# a required input without a default must fail validation naming the input.
+make_component_fixture() {
+  local root="$1" default_line="$2"
+  mkdir -p "$root/components/greeter" "$root/resources"
+  cat >"$root/components/greeter/component.yaml" <<YAML
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: greeter
+interface:
+  inputs:
+    - name: message
+      type: string
+      required: true
+${default_line}
+resources:
+  - actionId: greet
+    name: Greet
+    apiResponse:
+      success: true
+      response:
+        message: "{{ get('greeter.message') }}"
+YAML
+  cat >"$root/resources/final.yaml" <<'YAML'
+actionId: final
+name: Final
+component:
+  name: greeter
+  with: {}
+YAML
+  cat >"$root/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: e2e-component-default
+  version: "1.0.0"
+  targetActionId: final
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16396
+    routes:
+      - path: /api/v1/x
+        methods: [POST]
+YAML
+}
+
+make_component_fixture "$TMP/comp-default" '      default: "Hello"'
+if "$KDEPS_BIN" validate "$TMP/comp-default/workflow.yaml" >/dev/null 2>&1; then
+  test_passed "validate - required component input with default"
+else
+  OUTPUT=$("$KDEPS_BIN" validate "$TMP/comp-default/workflow.yaml" 2>&1 || true)
+  test_failed "validate - required component input with default" "Output: $OUTPUT"
+fi
+
+make_component_fixture "$TMP/comp-required" ''
+OUTPUT=$("$KDEPS_BIN" validate "$TMP/comp-required/workflow.yaml" 2>&1)
+STATUS=$?
+if [ "$STATUS" -ne 0 ] && echo "$OUTPUT" | grep -qE 'requires input.*message'; then
+  test_passed "validate - missing required component input fails"
+else
+  test_failed "validate - missing required component input fails" "Status: $STATUS Output: $OUTPUT"
+fi
+
 OUTPUT=$("$KDEPS_BIN" doctor --help 2>&1 || true)
 if echo "$OUTPUT" | grep -qiE 'doctor|health|environment|check'; then
   test_passed "doctor - help"
