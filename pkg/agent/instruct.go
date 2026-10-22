@@ -101,13 +101,6 @@ memory_search only for a fuzzy text match. Call memory_save (or write
 recent keys are already in the prompt. There is no memory_list tool.
 Memory entries are permanent: write them for a future session, not this turn.`
 
-const instructGoalsBody = `When a goal is active the turn is a task list a cursor walks forward through --
-you cannot revisit a finished task. Close the active task with a tool call, not
-prose: task_complete{id, summary, evidence} when it is met, task_fail{id,
-reason} when it cannot be done. A task will not close as done while its most
-recent work tool is still failing. "/goal" shows the plan; it is off by
-default.`
-
 const instructFeedbackBody = `Every "[kdeps] ..." system note and every {"error": ...} result is feedback --
 read it and change what you do next. A step is not done until its tool returned
 a real success; a "[TOOL FAILED]" banner means nothing changed, so retry it or
@@ -129,7 +122,6 @@ func instructTopicList() []instructTopic {
 		{name: "tools", title: "How to call a tool", body: instructToolsBody},
 		{name: "available", title: "Tools available in this session", render: renderInstructTools},
 		{name: "memory", title: "Memory bridge (critical)", body: instructMemoryBody},
-		{name: "goals", title: "Goal-directed execution", body: instructGoalsBody},
 		{name: "feedback", title: "Reading runtime feedback", body: instructFeedbackBody},
 		{name: "files", title: "Filesystem and temp files", body: instructFilesBody},
 	}

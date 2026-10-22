@@ -58,12 +58,6 @@ type ToolTuning struct {
 	// writes false. A settings file that never set the key stays on: the YAML
 	// field has no omitempty, and a missing key unmarshals as true.
 	AutoJudges bool
-	// GoalEnforcementOff persists the /goal off|on choice, and GoalConfigured is
-	// its "was this ever set" sentinel -- without it a snapshot from before this
-	// field existed (GoalEnforcementOff unmarshals to false) would restore as
-	// SetGoalEnforcement(!false) == on, flipping the off-by-default.
-	GoalEnforcementOff bool
-	GoalConfigured     bool
 	// ToolsConfigured is the "was this section ever saved" sentinel for
 	// ToolsFullMode/AutoJudges/AutoContextDetect, the same role TuroLevel !=
 	// "" plays for the turo fields above -- without it, a snapshot saved
@@ -161,8 +155,6 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		TuroArrows:           TuroStage("arrows"),
 		ToolsFullMode:        r.toolsFullMode,
 		AutoJudges:           c.AutoJudges,
-		GoalEnforcementOff:   !c.GoalEnforcement,
-		GoalConfigured:       true,
 		ToolsConfigured:      true,
 		AutoContextDetect:    r.autoContextDetect,
 		PermissionMode:       string(c.PermissionMode),

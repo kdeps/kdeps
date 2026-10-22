@@ -15,7 +15,7 @@ q -> recall -> notes -> model
 card -> model
 ```
 
-Recall is the default step of every prompt kdeps sends a model: each agent-loop turn (terminal and desktop app) and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. The agent loop's own internal calls (compaction, prompt refinement, goal planning) skip it.
+Recall is the default step of every prompt kdeps sends a model: each agent-loop turn (terminal and desktop app) and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. The agent loop's own internal calls (compaction, prompt refinement) skip it.
 
 A vault of 2,000 notes holds about a million words. That's more than any model can read, and partial reads cost accuracy, time and money. With recall, a question typically reads a routing table, one card and a handful of notes.
 

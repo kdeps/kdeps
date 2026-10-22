@@ -55,8 +55,6 @@ func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
 	}{
 		{eventIdenticalCalls, 3, "force_answer"},
 		{eventConvergenceBlock, 1, "force_answer"},
-		{eventTaskRoundBudget, 25, "fail_task"},
-		{eventUnproductiveRound, 3, "fail_task"},
 		{eventHandshakeTimeout, 2, "fail_handshake"},
 	}
 	for _, c := range cases {
@@ -74,8 +72,6 @@ func TestEffectiveRounds_FallsBackToOneWhenEventUnset(t *testing.T) {
 func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
 	assert.Equal(t, 3, effectiveRounds(eventIdenticalCalls))
 	assert.Equal(t, 1, effectiveRounds(eventConvergenceBlock))
-	assert.Equal(t, 25, effectiveRounds(eventTaskRoundBudget))
-	assert.Equal(t, 3, effectiveRounds(eventUnproductiveRound))
 	assert.Equal(t, 2, effectiveRounds(eventHandshakeTimeout))
 }
 

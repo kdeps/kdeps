@@ -42,7 +42,7 @@ func TestStatusTracked(t *testing.T) {
 	assert.True(t, statusTracked("bash_exec"))
 	assert.True(t, statusTracked("edit_file"))
 	for _, n := range []string{
-		"task_complete", "task_fail", "memory_query", "memory_search", "memory_save", "memory_delete",
+		"memory_query", "memory_search", "memory_save", "memory_delete",
 	} {
 		assert.False(t, statusTracked(n), n)
 	}

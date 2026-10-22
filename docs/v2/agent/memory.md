@@ -98,13 +98,12 @@ Removes a single entry by key.
 
 ## Relational query (memory_query)
 
-For filtering by field, combining facts across sources, or correlating past tool calls with the task that triggered them, `memory_query` runs a relational query - select/project/join/union - over three relations built from agent state:
+For filtering by field, combining facts across sources, or correlating past tool calls, `memory_query` runs a relational query - select/project/join/union - over two relations built from agent state:
 
 | Relation | Fields | Source |
 |---|---|---|
 | `memory` | `key`, `value`, `namespace`, `type`, `references`, `createdAt`, `updatedAt` | Persistent memory entries |
 | `tool_calls` | `name`, `args`, `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
-| `tasks` | `id`, `desc`, `status`, `rounds`, `note` | The active goal's task list (empty when no goal is active) |
 
 The query language is [expr-lang](https://expr-lang.org/), the same engine `before:`/`after:` expressions use. `filter()`/`map()` are its own built-ins (select/project); `join()`/`union()` are added by `memory_query`:
 

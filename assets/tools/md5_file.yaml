@@ -1,6 +1,6 @@
-version: 1.0.0
+version: 1.0.1
 category: file
-description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed -- pair both hashes as evidence for task_complete rather than asserting the change happened.
+description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed -- pair both hashes as evidence rather than asserting the change happened.
 seeAlso: read_file, tail_file, list_files
 parameters:
   file_path:

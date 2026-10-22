@@ -52,9 +52,9 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/efficiency preset <name>` | Overwrite every efficiency value from `frugal`, `balanced` or `thorough` |
 | `/efficiency reset` | Restore the shipped defaults |
 | `/efficiency prompt [auto\|full\|summary]` | After the first full harness send, keep it (`full`), replace each section with its YAML `summary` (`summary`), or do that only on backends that do not cache prompts (`auto`, the default). Persists |
-| `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, goals, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
+| `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
-| `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files` |
+| `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files` |
 | `/instruct list` | Name the topics without briefing the model |
 | `/judges` | Show the judge panel. It is the eval and runs unless turned off (see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
@@ -88,7 +88,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/harness preset <name>` | Apply a preset: writes its bundled event overrides to `~/.kdeps/events/*.yaml` and reloads immediately - no restart |
 | `/harness reminders [list]` | List every harness section with its reminder on/off state (see [Harness reminders](/agent/tools-harness#harness-reminders)) |
 | `/harness reminders <name> on\|off` | Force that section's text onto every LLM prompt and every tool call result, independent of its own enabled/disabled state or normal trigger; persists to `~/.kdeps/harness/<name>.yaml`. A `reminder:<names>` segment appears in the status line (next to `turo:`) while any are active, and disappears when the last one is turned off |
-| `/harness reminders instruct:<topic> on\|off` | Same, for an `/instruct` topic (`overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files`); a bare topic name also works unless a harness section shares it (`tools`, `memory`). Persists to `~/.kdeps/agent-loop-settings.yaml` |
+| `/harness reminders instruct:<topic> on\|off` | Same, for an `/instruct` topic (`overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files`); a bare topic name also works unless a harness section shares it (`tools`, `memory`). Persists to `~/.kdeps/agent-loop-settings.yaml` |
 | `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/llm-server/m365)) |
 
@@ -235,7 +235,6 @@ run:                      # steps run in order; the first failing step stops the
 
 - [Agent mode](/agent/) - overview and starting the REPL
 - [Built-in tools](/agent/tools) - tools available to the model
-- Goal-directed execution
 
 ## Declared commands on the API
 

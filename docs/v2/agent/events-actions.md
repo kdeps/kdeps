@@ -15,7 +15,7 @@ description: >-
   whatever was gathered, instead of letting the model keep spinning.
 ```
 
-Ten actions ship today, one per distinct behavior in the codebase: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_task`, `fail_handshake`, `accept_last`. If an event's `run:` names anything else -- a typo, or a name that was renamed or removed -- kdeps prints a warning to stderr at startup naming the event and the unrecognized action, so a broken override is loud, never a silent no-op.
+Nine actions ship today, one per distinct behavior in the codebase: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. If an event's `run:` names anything else -- a typo, or a name that was renamed or removed -- kdeps prints a warning to stderr at startup naming the event and the unrecognized action, so a broken override is loud, never a silent no-op.
 
 ## Behavior stays Go code
 
@@ -23,7 +23,7 @@ The action's actual behavior stays Go code (these perform real side effects -- s
 
 ## Not every action is freely swappable
 
-Not every action is freely swappable onto any event with the same trigger shape: `task-round-budget`/`unproductive-rounds` (both `fail_task`) actually drive a 4-step escalation ladder in the goal-enforcement subsystem (reanchor, narrow tools, force close, then fail forward), not a single function call, and `handshake-timeout`/`judge-max-rounds` (both `force_answer`) work by setting a sub-loop's round budget and relying on the loop's own generic round-exhaustion behavior rather than a distinct dispatchable step. Renaming these two pairs' `run:` to something else would be validated (the name exists) but would not change what actually happens -- the call site only implements the one action it already names.
+Not every action is freely swappable onto any event with the same trigger shape: `handshake-timeout`/`judge-max-rounds` (both `force_answer`) work by setting a sub-loop's round budget and relying on the loop's own generic round-exhaustion behavior rather than a distinct dispatchable step. Renaming that pair's `run:` to something else would be validated (the name exists) but would not change what actually happens -- the call site only implements the one action it already names.
 
 ## Enforcement: hard vs. soft
 
@@ -32,7 +32,6 @@ None of this asks the model to cooperate. Every action is deterministic Go contr
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
 - **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. Once tools are not in the request schema, the model is structurally unable to call one -- not persuaded not to, incapable of it.
 - **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`; Go decides whether and when this fires, with no model input.
-- **`fail_task`** (the goal-enforcement escalation ladder: reanchor -> narrow -> force close -> fail forward) -- the force-close step (`refuseOffTask`) intercepts every non-task-state tool call and substitutes a refusal string for the real result; the fail-forward step (`failForward` -> `Goal.Advance`) is called automatically at the end of every round from `enforceGoalProgress`, moving the task cursor whether or not the model ever calls `task_fail`. No step in the ladder is a suggestion.
 - **`truncate`/`drop_oldest`/`cap`** -- unconditional string/slice mutation in Go, applied every time regardless of model behavior.
 
 ## Real OS-level enforcement, not just Go control flow

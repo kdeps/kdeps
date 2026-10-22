@@ -282,11 +282,11 @@ func TestResolveReminderName(t *testing.T) {
 		kind reminderKind
 		key  string
 	}{
-		{"instruct:goals", reminderInstruct, "goals"},
+		{"instruct:feedback", reminderInstruct, "feedback"},
 		{"INSTRUCT:Tools", reminderInstruct, "tools"},
 		{"tools", reminderHarness, "tools"},
 		{"memory", reminderHarness, "memory"},
-		{"goals", reminderInstruct, "goals"},
+		{"feedback", reminderInstruct, "feedback"},
 		{"files", reminderInstruct, "files"},
 		{"nonexistent", reminderHarness, "nonexistent"},
 	}
@@ -302,22 +302,22 @@ func TestInstructReminder_OnOffRoundTrip(t *testing.T) {
 	repl := newHarnessTestREPL(t)
 	l := repl.loop
 
-	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:goals on"))
-	assert.True(t, l.InstructReminderEnabled("goals"))
-	assert.Contains(t, l.reminderNames(), "instruct:goals")
-	assert.Contains(t, repl.modeline(), "instruct:goals")
-	assert.Contains(t, l.remindersBlock(), "Goal-directed execution")
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:feedback on"))
+	assert.True(t, l.InstructReminderEnabled("feedback"))
+	assert.Contains(t, l.reminderNames(), "instruct:feedback")
+	assert.Contains(t, repl.modeline(), "instruct:feedback")
+	assert.Contains(t, l.remindersBlock(), "Reading runtime feedback")
 	got := l.appendReminders("tool result")
 	assert.True(t, strings.HasPrefix(got, "tool result\n\n"))
-	assert.Contains(t, got, "task_complete")
+	assert.Contains(t, got, "[TOOL FAILED]")
 
 	require.NoError(t, repl.dispatchCommand("/harness reminders files on"))
 	assert.True(t, l.InstructReminderEnabled("files"))
 
-	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:goals off"))
-	assert.False(t, l.InstructReminderEnabled("goals"))
-	assert.NotContains(t, l.reminderNames(), "instruct:goals")
-	assert.NotContains(t, l.remindersBlock(), "Goal-directed execution")
+	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:feedback off"))
+	assert.False(t, l.InstructReminderEnabled("feedback"))
+	assert.NotContains(t, l.reminderNames(), "instruct:feedback")
+	assert.NotContains(t, l.remindersBlock(), "Reading runtime feedback")
 	assert.Contains(t, l.remindersBlock(), "Filesystem and temp files")
 }
 
@@ -362,7 +362,7 @@ func TestInstructReminder_PersistsThroughTuning(t *testing.T) {
 }
 
 func TestValidInstructReminders_DedupsAndSorts(t *testing.T) {
-	assert.Equal(t, []string{"files", "goals"}, validInstructReminders([]string{"goals", "FILES", "goals", "x"}))
+	assert.Equal(t, []string{"feedback", "files"}, validInstructReminders([]string{"feedback", "FILES", "feedback", "x"}))
 	assert.Nil(t, validInstructReminders(nil))
 }
 

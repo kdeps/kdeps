@@ -124,7 +124,7 @@ When extended reasoning is enabled (`/thinking`), the streamed reasoning is rend
 
 ## Custom harness
 
-Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, goal planning, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are installed by `kdeps update` (see [Updating assets](/agent/repl-updating#updating-assets)), and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are installed by `kdeps update` (see [Updating assets](/agent/repl-updating#updating-assets)), and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
@@ -150,7 +150,7 @@ A `preamble-section` entry is part of the system prompt. The first request of a 
 
 A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
 
-The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, and `edit-workflow`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `goal-plan-system`, `goal-confirm-system`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
+The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, and `edit-workflow`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
 
 `/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 

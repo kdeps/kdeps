@@ -148,10 +148,10 @@ func (l *Loop) efficiencyBeginTurn(chatCfg *domain.ChatConfig) {
 }
 
 // effClassify sorts a tool call into read-only exploration, an output action,
-// or neutral task/state bookkeeping that is never counted or refused.
+// or neutral state bookkeeping that is never counted or refused.
 func effClassify(tc domain.StreamedToolCall) effKind {
 	switch tc.Name {
-	case toolNameTaskComplete, toolNameTaskFail, toolNameCalculator:
+	case toolNameCalculator:
 		return effState
 	case toolNameReadFile, toolNameListFiles, toolNameSearchLocal,
 		toolNameWebSearch, toolNameWebScraper, "wikipedia", "sql_query":

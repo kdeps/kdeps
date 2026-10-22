@@ -13,7 +13,7 @@ llm:
     - llama3.2                            # one model, or several
 ```
 
-The desktop app is the agent loop in a window: a chat UI with history, search, drag-and-drop files and a settings modal. It is the same `pkg/agent` loop the terminal REPL runs, so tools, memory, sessions, goals and judges behave identically - only the front end differs. One codebase builds for macOS, Linux and Windows (a [Wails](https://wails.io) shell around the system WebView, no Electron).
+The desktop app is the agent loop in a window: a chat UI with history, search, drag-and-drop files and a settings modal. It is the same `pkg/agent` loop the terminal REPL runs, so tools, memory, sessions and judges behave identically - only the front end differs. One codebase builds for macOS, Linux and Windows (a [Wails](https://wails.io) shell around the system WebView, no Electron).
 
 ```d2
 direction: right

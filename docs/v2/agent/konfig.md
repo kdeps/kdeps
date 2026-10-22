@@ -31,7 +31,7 @@ Importing writes every section to where it already lives on disk -- harness entr
 
 | Section | Contents |
 |---|---|
-| `tuning` | Every `/model tool set` knob - rounds, retries, compaction/fold thresholds, memory-graph leaf limits, web/bash/file/code call limits, turo settings, goal/refine/handshake toggles |
+| `tuning` | Every `/model tool set` knob - rounds, retries, compaction/fold thresholds, memory-graph leaf limits, web/bash/file/code call limits, turo settings, refine/handshake toggles |
 | `harness` | Every tool-use/behavior-prompt section - all built-in sections plus any `~/.kdeps/harness/*.yaml` overrides, already merged by name |
 | `themes` | Every REPL theme - built-in plus any `~/.kdeps/themes/*.yaml` overrides, merged by name, with every palette color fully resolved (never left blank to inherit from `normal` on import) |
 | `events` | Every reactive LLM event (`auto-compact`, `fold`, and the round-count guards) - built-in plus any `~/.kdeps/events/*.yaml` overrides, merged by name. See [events](./events.md) |

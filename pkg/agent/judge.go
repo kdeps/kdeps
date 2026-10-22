@@ -34,8 +34,7 @@ import (
 // a judge may need real tool use (read a file, run a test) to verify a claim,
 // so a judge run is a second, ephemeral *Loop built via New() rather than a
 // synthetic single-shot engine call. Judges settle by calling the
-// judge_verdict tool — never by parsing prose — mirroring the
-// task_complete/task_fail pattern in goal_enforce.go.
+// judge_verdict tool — never by parsing prose.
 
 // maxJudgeConcurrency caps how many judges run at once. Independent judges
 // reviewing the same output have no reason to run sequentially, but an
@@ -167,7 +166,6 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		Streamer:        l.streamer,
 		SystemPrompt:    judgeSystemPrompt(spec),
 		MaxToolRounds:   maxRounds,
-		GoalEnforcement: false,
 	})
 
 	// The error here is expected on the success path (see cancel() above), so

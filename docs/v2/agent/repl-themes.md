@@ -57,7 +57,7 @@ Directly above the session counter, whenever the running model's context window 
 [session sent 1.2m | generated 30 | total 1.2m | this turn +47.2k sent +400 generated]
 ```
 
-`turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, `goal` the active task, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
+`turn A/B` is this prompt's size over the model's context window. The groups after it are that same prompt, split: `sys` system prompt, `mem` memory, `hist` conversation history, and one entry per tool name. Repeated calls to the same tool add to that one number. Past 5 groups the oldest collapse into `+N`. The line resets with each new prompt.
 
 ## The session row
 

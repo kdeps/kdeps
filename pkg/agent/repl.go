@@ -1638,7 +1638,6 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
-	// Goal-directed execution is off by default: it adds a plan call per turn.
 	// The judge panel is the eval and is on: a non-trivial turn grows a roster
 	// and reviews the answer. /judges off persists via applyToolTuning below.
 	// A settings file that never set auto_judges stays on.
@@ -5215,8 +5214,8 @@ const (
 	judgesRemoveMinArgs = 2
 )
 
-// toggleOff / toggleOn name the disabled / enabled state used by /judges auto,
-// /judges clear, and /goal on|off.
+// toggleOff / toggleOn name the disabled / enabled state used by /judges auto
+// and /judges clear.
 const (
 	toggleOff = "off"
 	toggleOn  = "on"

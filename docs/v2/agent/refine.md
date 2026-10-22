@@ -6,7 +6,7 @@ cheap LLM call before the turn starts that rewrites your prompt into a clearer,
 self-contained version, then runs the turn on the rewrite.
 
 ```text
-your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, goal, judges)
+your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, judges)
 ```
 
 **On by default.** It is a small pre-turn cost that makes the turn land better.
@@ -42,9 +42,8 @@ back essentially unchanged (and no `[refine]` line is printed).
 - The refine call errors, returns nothing, or returns a runaway expansion - the
   original prompt is used unchanged. Refinement can never block a turn.
 
-Refinement runs *before* goal decomposition and the
-[judge roster](/agent/judges), so the plan and the panel are built from the
-refined prompt.
+Refinement runs *before* the [judge roster](/agent/judges), so the panel
+is built from the refined prompt.
 
 ## From the REPL
 

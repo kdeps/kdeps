@@ -64,7 +64,7 @@ func TestCategory_Overrides(t *testing.T) {
 		"tools/cohere_rerank":       ShelfRAG,
 		"commands/judges":           ShelfAgent,
 		"tools/load_skill":          ShelfAgent,
-		"tools/task_create":         ShelfAgent,
+		"tools/identity_get":        ShelfAgent,
 		"themes/vim":                ShelfAgent,
 		"tools/approval_request":    ShelfGuardrails,
 		"tools/session_handshake":   ShelfGuardrails,

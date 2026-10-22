@@ -82,14 +82,15 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	ctx := context.Background()
 	var out bytes.Buffer
 
+	cur := toolDefinitions["md5_file"].Version
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{Check: true}))
 	assert.Contains(t, out.String(), "tools/md5_file")
-	assert.Contains(t, out.String(), "available 1.0.0 -> 1.1.0")
+	assert.Contains(t, out.String(), "available "+cur+" -> 1.1.0")
 	assert.False(t, assets.Initialized(root), "check changes nothing")
 
 	out.Reset()
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{}))
-	assert.Contains(t, out.String(), "install   1.0.0 -> 1.1.0")
+	assert.Contains(t, out.String(), "install   "+cur+" -> 1.1.0")
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description, "reloaded in place")
 
 	out.Reset()

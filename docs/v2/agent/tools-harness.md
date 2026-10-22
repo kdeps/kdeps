@@ -18,11 +18,11 @@ This is a blunt, session-wide instrument for a specific situation: a model that 
 
 ## Reminders for /instruct topics
 
-The same switch works for the [`/instruct`](/agent/commands) topics (`overview`, `modes`, `tools`, `available`, `memory`, `goals`, `feedback`, `files`). Turning one on forces that topic's briefing text onto every LLM prompt and every tool call result - handy for a model that keeps forgetting how to call a tool (`instruct:tools`) or what tools exist (`instruct:available`, rendered live from the session's tool catalog each time).
+The same switch works for the [`/instruct`](/agent/commands) topics (`overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files`). Turning one on forces that topic's briefing text onto every LLM prompt and every tool call result - handy for a model that keeps forgetting how to call a tool (`instruct:tools`) or what tools exist (`instruct:available`, rendered live from the session's tool catalog each time).
 
 ```
 /harness reminders instruct:tools on
-/harness reminders goals on        # bare name works when no harness section shares it
+/harness reminders feedback on     # bare name works when no harness section shares it
 /harness reminders instruct:tools off
 ```
 

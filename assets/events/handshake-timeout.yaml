@@ -1,4 +1,4 @@
-version: 1.0.2
+version: 1.0.3
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/fail_handshake: ""
@@ -25,7 +25,6 @@ on:
 #   drop_oldest     drop the oldest entries from a growing collection
 #   cap             bound a collection to a fixed count while building it
 #   force_answer    end the tool loop and force a final text answer
-#   fail_task       escalate and eventually close a stalled goal-directed task
 #   fail_handshake  end a session-integrity handshake challenge as failed
 #   accept_last     accept the last judge-panel response once the budget is spent
 # NOTE: this event works by setting the handshake sub-loop's MaxToolRounds

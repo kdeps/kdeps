@@ -235,7 +235,7 @@ kdeps run workflow.yaml --dev
 
 Agent mode is an interactive AI assistant you can use from your terminal.
 
-Give it a goal, and the AI can decide which available tools to call and what to do next.
+Give it a task, and the AI can decide which available tools to call and what to do next.
 
 For example, a coding agent might:
 

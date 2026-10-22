@@ -39,7 +39,6 @@ var canonicalToolNames = map[string]bool{
 	"sql_query": true, "sql_list_tables": true, "sql_describe_table": true,
 	"load_document": true, "transcribe_audio": true, "retrieve_context": true,
 	"memory_save": true, "memory_search": true, "memory_delete": true,
-	"task_complete": true, "task_fail": true,
 }
 
 func TestToolParamAliases_TargetsAreRealTools(t *testing.T) {
@@ -89,13 +88,6 @@ func TestNormalizeToolArgs_UnknownToolNoop(t *testing.T) {
 	args := map[string]any{"pattern": "x"}
 	normalizeToolArgs("no_such_tool", args)
 	assert.Equal(t, "x", args["pattern"], "no aliases for unknown tool")
-}
-
-func TestNormalizeToolArgs_TaskCompleteAcceptsTaskIDAlias(t *testing.T) {
-	args := map[string]any{"task_id": float64(1), "summary": "done"}
-	normalizeToolArgs("task_complete", args)
-	assert.Equal(t, float64(1), args["id"])
-	assert.NotContains(t, args, "task_id")
 }
 
 func TestCoerceToolArgTypes_StringToNumber(t *testing.T) {

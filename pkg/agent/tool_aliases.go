@@ -75,12 +75,6 @@ var toolParamAliases = map[string]map[string]string{
 	},
 	"sql_query":        {"sql": toolParamQuery, "statement": toolParamQuery, "q": toolParamQuery},
 	"retrieve_context": {"q": toolParamQuery, "search": toolParamQuery, "text": toolParamQuery},
-	toolNameTaskComplete: {
-		"task_id": "id", "taskId": "id", "task": "id",
-	},
-	toolNameTaskFail: {
-		"task_id": "id", "taskId": "id", "task": "id",
-	},
 }
 
 // normalizeToolArgs rewrites synonym parameter keys to the keys canonicalTool

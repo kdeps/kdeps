@@ -37,7 +37,7 @@ func TestPackageTypes(t *testing.T) {
 	}
 	assert.Empty(t, PackageType("nope"))
 	assert.False(t, IsPackageType("workflow"))
-	assert.Equal(t, "kdeps-tools-goal_task_complete", PackageName("tools/goal_task_complete"))
+	assert.Equal(t, "kdeps-tools-web_search", PackageName("tools/web_search"))
 }
 
 func TestWriteFormulas_LatestVersionOfEachItem(t *testing.T) {

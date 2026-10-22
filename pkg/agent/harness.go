@@ -38,7 +38,7 @@ var (
 // harnessText returns a harness entry's raw body, or "" if name is unknown
 // or the entry is disabled (see HarnessEnabled). Used for every
 // single-purpose instruction (m365-sandbox, tools-reminder, skills-preamble,
-// the compaction/goal/judge-roster/refine/branch-summary system prompts)
+// the compaction/judge-roster/refine/branch-summary system prompts)
 // that used to be a Go string constant.
 //
 //kdeps:flow harness: you type a prompt > the agent loop builds the request > [the harness sections become the system prompt] > the model answers > the loop runs tools or replies
