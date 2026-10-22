@@ -20,6 +20,20 @@ export KDEPS_API_LISTEN=127.0.0.1:9095
 kdeps run workflow.yaml
 ```
 
+## Loop data sets
+
+Five YAML sets configure the agent loop. They are configuration data, not callable work, so the API does not serve them. Each set is read by one loop code path, and a client that needs the active values reads the config path, not a route:
+
+| Set | Read by | What it configures |
+|---|---|---|
+| `harness/` | `pkg/agent/harness_yaml.go` | Prompt sections the loop sends to the model |
+| `events/` | `pkg/agent/events.go` | Governor triggers: conditions that start an efficiency action |
+| `actions/` | `pkg/agent/actions.go` | The governor's action vocabulary |
+| `presets/` | `pkg/agent/presets.go` | Named bundles of harness and efficiency settings (`/efficiency preset`) |
+| `themes/` | `pkg/agent/theme_yaml.go` | REPL colors and styles |
+
+Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
+
 ## Routes
 
 Every route requires the bearer token. A missing or wrong token is `401`.
