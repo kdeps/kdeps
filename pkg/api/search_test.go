@@ -20,25 +20,18 @@ package api
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestSearchProviders_StubbedCalls(t *testing.T) {
-	prevSerp, prevPerp := serpCall, perplexityCall
 	prevCreate, prevDelete, prevList := googleCacheCreateCall, googleCacheDeleteCall, googleCacheListCall
 	t.Cleanup(func() {
-		serpCall, perplexityCall = prevSerp, prevPerp
 		googleCacheCreateCall, googleCacheDeleteCall, googleCacheListCall = prevCreate, prevDelete, prevList
 	})
-	t.Setenv(envSerpAPIKey, "test-key")
-	t.Setenv(envPerplexityKey, "test-key")
 	t.Setenv(envGoogleAPIKey, "test-key")
 
-	serpCall = func(context.Context, string) (string, error) { return "SERP", nil }
-	perplexityCall = func(context.Context, string) (string, error) { return "PERP", nil }
 	var gotTTL time.Duration
 	googleCacheCreateCall = func(_ context.Context, _, _, _ string, ttl time.Duration) (string, error) {
 		gotTTL = ttl
@@ -49,15 +42,7 @@ func TestSearchProviders_StubbedCalls(t *testing.T) {
 		return []string{"cachedContents/abc"}, nil
 	}
 
-	got, err := SerpAPISearch(t.Context(), map[string]any{argQuery: "kdeps"})
-	if err != nil || got != "SERP" {
-		t.Fatalf("serp %v %q", err, got)
-	}
-	got, err = PerplexitySearch(t.Context(), map[string]any{argQuery: "kdeps"})
-	if err != nil || got != "PERP" {
-		t.Fatalf("perplexity %v %q", err, got)
-	}
-	got, err = GoogleCacheCreate(t.Context(), map[string]any{argModel: "gemini", argContent: "prompt"})
+	got, err := GoogleCacheCreate(t.Context(), map[string]any{argModel: "gemini", argContent: "prompt"})
 	if err != nil || got != "cachedContents/abc" {
 		t.Fatalf("create %v %q", err, got)
 	}
@@ -77,56 +62,6 @@ func TestSearchProviders_StubbedCalls(t *testing.T) {
 	got, err = GoogleCacheList(t.Context(), nil)
 	if err != nil || got != "null" {
 		t.Fatalf("empty list %v %q", err, got)
-	}
-}
-
-func TestSearchProviders_ValidationAndKey(t *testing.T) {
-	prevSerp, prevPerp := serpCall, perplexityCall
-	t.Cleanup(func() { serpCall, perplexityCall = prevSerp, prevPerp })
-	serpCall = func(context.Context, string) (string, error) {
-		t.Fatal("stub called")
-		return "", nil
-	}
-
-	t.Setenv(envSerpAPIKey, "")
-	if _, err := SerpAPISearch(t.Context(), map[string]any{}); err == nil ||
-		!strings.Contains(err.Error(), "serpapi_search: query is required") {
-		t.Fatal(err)
-	}
-	if _, err := SerpAPISearch(t.Context(), map[string]any{argQuery: "kdeps"}); err == nil ||
-		!strings.Contains(err.Error(), "disabled (SERPAPI_API_KEY is unset)") {
-		t.Fatal(err)
-	}
-
-	t.Setenv(envPerplexityKey, "test-key")
-	perplexityCall = func(context.Context, string) (string, error) { return "", errors.New("boom") }
-	if _, err := PerplexitySearch(t.Context(), map[string]any{argQuery: "kdeps"}); err == nil || err.Error() != "boom" {
-		t.Fatal(err)
-	}
-
-	var noCtx context.Context
-	if _, err := SerpAPISearch(noCtx, map[string]any{argQuery: "kdeps"}); err == nil ||
-		!strings.Contains(err.Error(), "nil context") {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if _, err := PerplexitySearch(ctx, map[string]any{argQuery: "kdeps"}); err == nil ||
-		!strings.Contains(err.Error(), "canceled") {
-		t.Fatal(err)
-	}
-
-	t.Setenv(envSerpAPIKey, "test-key")
-	if _, err := keyedQuery(
-		t.Context(),
-		toolSerpAPI,
-		envSerpAPIKey,
-		nil,
-		nil,
-		map[string]any{argQuery: "kdeps"},
-	); err == nil ||
-		!strings.Contains(err.Error(), "client is unavailable") {
-		t.Fatal(err)
 	}
 }
 

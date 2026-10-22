@@ -115,8 +115,8 @@ func rowsJSON(rows *sql.Rows) (string, error) {
 		}
 		out = append(out, row)
 	}
-	if err := rows.Err(); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", err
+	if rowsErr := rows.Err(); rowsErr != nil && !errors.Is(rowsErr, sql.ErrNoRows) {
+		return "", rowsErr
 	}
 	b, err := json.Marshal(out)
 	if err != nil {

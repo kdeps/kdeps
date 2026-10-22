@@ -281,8 +281,8 @@ elif kind == "tools":
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
         "knowledge_card_update", "knowledge_note_save", "knowledge_recall", "list_files", "load_document",
         "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
-        "ocr_image", "perplexity_search", "python", "read_file", "retrieve_context", "search_local",
-        "serpapi_search", "session_handshake", "sql_describe_table", "sql_list_tables", "sql_ops",
+        "ocr_image", "python", "read_file", "retrieve_context", "search_local",
+        "session_handshake", "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
         "task_get", "task_list", "task_stop", "team_add_task", "team_create", "team_delete", "team_get",
         "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml", "vector_store",
@@ -726,16 +726,6 @@ EOF
         test_passed "kdeps API - md5_file returns the checksum"
     else
         test_failed "kdeps API - md5_file returns the checksum" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{}' "${tools}/serpapi_search/call" || true)
-    if [ "$got" = "400" ] && grep -F "serpapi_search: query is required" "$body" >/dev/null \
-        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - serpapi_search requires query"
-    else
-        test_failed "kdeps API - serpapi_search requires query" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

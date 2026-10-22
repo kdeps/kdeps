@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.1.1
 name: internals
 kind: preamble-section
 order: 120
@@ -12,9 +12,9 @@ body: |-
   to track tokens yourself; the harness handles it.
 
   CONVERGENCE — {{if .WebUnlimited}}there is no web-call cap this turn. Use as many web_search,
-  web_scraper, wikipedia, serpapi, and perplexity calls as the question needs.
+  web_scraper, and wikipedia calls as the question needs.
   Never repeat an identical call; identical repeats are still stopped.{{else}}after {{.WebCallLimit}} distinct web calls in this turn, ALL
-  web_search, web_scraper, wikipedia, serpapi, and perplexity calls are
+  web_search, web_scraper, and wikipedia calls are
   BLOCKED for the rest of THIS TURN (the budget resets on your next turn).
   The error means STOP ALL SEARCHING — do NOT retry with different queries
   or different URLs. It is not a per-query failure; it is a turn-wide hard
