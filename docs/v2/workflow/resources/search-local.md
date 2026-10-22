@@ -200,5 +200,5 @@ Indexed-mode output rows add three fields on top of the base result shape:
 
 ## See also
 
-- [Search resources](/workflow/resources/search) - overview and `searchWeb`
-- [Graphing an indexed folder](/workflow/resources/code-graph) - the same kartographer graph `graphBoost` reuses
+- [Search resources](/workflow/resources/search) - overview and `web_search`
+- Graphing an indexed folder - the same kartographer graph `graphBoost` reuses

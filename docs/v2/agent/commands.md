@@ -42,11 +42,6 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/turo on\|off` | Enable or disable prompt reduction at runtime |
 | `/turo lite\|full\|ultra` | Set the turo compression level |
 | `/turo <stage> on\|off` | Toggle a pipeline stage: `filler`, `synonyms`, `gloss`, `defmatch`, `arrows` |
-| `/goal` | Show the active goal's task list and status |
-| `/goal on\|off` | Enable or disable goal-directed execution entirely; persists across sessions. `off` drops any active goal and runs turns as a plain tool loop |
-| `/goal new <text>` | Replace the active goal with a new plan |
-| `/goal skip` | Abandon the active task and advance to the next |
-| `/goal clear` | Drop the active goal (the next prompt starts a new one) |
 | `/auto-improve` | In the kdeps repo, start an instrumented session, run the fixed task list, then read the event log and fix product bugs before the next task |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |

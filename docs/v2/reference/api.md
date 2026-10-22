@@ -199,8 +199,8 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
 ```bash
 curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"args": ["new", "ship the release"]}' \
-  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands/goal/call
+  -d '{"args": [""]}' \
+  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands/help/call
 ```
 
 The call runs against the REPL that published it, so it acts on that session (`/clear` empties it). The response is the command's output, `text/plain`; a command that prints only to the terminal returns an empty body, and a command that fails is `400` with the error text. Arg decoding accepts a JSON array, a string (split on whitespace), or an `arguments` string. An unknown name is `404` with message `command not found`.

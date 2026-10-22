@@ -113,7 +113,7 @@ direction: down
 
 A: Request {shape: oval}
 B: "before:\nexpressions run in order\nvalues stored via set()"
-C: "Main Action\nchat, component, code_search, agent, apiResponse"
+C: "Main Action\nchat, component, agent, apiResponse"
 D: "after:\nexpressions run in order\noutput accessible via get()"
 E: response {shape: oval}
 

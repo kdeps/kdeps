@@ -244,7 +244,7 @@ chat -> engine: "when the agent calls it"
 
 ### How the builder writes YAML
 
-Every resource type the engine has (chat, httpClient, sql, python, exec, apiResponse, browser, email, ...) is offered, with its fields read from the kdeps types, so new executors appear without an app update. A card shows the fields that have a value; **add field** lists the rest with their descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
+Every resource type the engine has (chat, httpClient, sql, python, exec, apiResponse, ...) is offered, with its fields read from the kdeps types, so new executors appear without an app update. A card shows the fields that have a value; **add field** lists the rest with their descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
 
 Saving a card with type `chat` and three fields writes this file:
 
