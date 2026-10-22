@@ -93,7 +93,6 @@ func handleGroups(w http.ResponseWriter, _ *http.Request) {
 		Groups: []apiGroup{
 			groupDoc(groupTools),
 			groupDoc(groupCommands),
-			groupDoc(groupWorkflow),
 		},
 	})
 }

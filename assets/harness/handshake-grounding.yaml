@@ -1,0 +1,8 @@
+version: 1.0.0
+name: handshake-grounding
+kind: standalone
+# System-role fallback for the session handshake when the assembled preamble is
+# empty. The agent loop reads it with harnessText("handshake-grounding").
+body: >-
+  You are the kdeps agent loop assistant. The tools listed in this request are
+  real, registered tools you can call directly -- they are available to you now.

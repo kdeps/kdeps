@@ -34,18 +34,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// handshakeGroundingSystemMessage is a minimal fallback system-role message,
-// used only if the registry has no tool-use preamble to fall back to (see
-// performHandshake, which prefers reusing the exact harnessAssembledPreamble
-// tool-use guidance every normal turn already gets). A one-off, novel
-// one-liner here was not enough on at least one backend that otherwise makes
-// real tool calls fine on ordinary turns -- the model reasoned the bare,
-// minimal handshake request described "an external agent/runtime" rather
-// than itself. Reusing framing already proven to work is a stronger fix
-// than inventing new wording to re-prove.
-const handshakeGroundingSystemMessage = "You are the kdeps agent loop assistant. The tools listed in " +
-	"this request are real, registered tools you can call directly -- they are available to you now."
-
 // handshakeCtxKey marks a context as belonging to a handshake round-trip
 // (see performHandshake). Test doubles can check for it via
 // ctx.Value(handshakeCtxKey{}) to distinguish a handshake call from a real
@@ -676,7 +664,7 @@ func handshakeStrongRetryNudge(challenge string, misses int, plural string) stri
 func (l *Loop) handshakeGrounding(toolNames ...string) string {
 	grounding := renderAssembledPreamble(currentPreambleData())
 	if grounding == "" {
-		grounding = handshakeGroundingSystemMessage
+		grounding = harnessText("handshake-grounding")
 	}
 	// The generic preamble sections above never include the actual
 	// <available_tools> catalog (that is normally injected separately, once,

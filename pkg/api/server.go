@@ -42,7 +42,6 @@ const (
 	headerTimeout    = 5 * time.Second
 	contentTypeJSON  = "application/json"
 	groupTools       = "tools.kdeps.io"
-	groupWorkflow    = "workflow.kdeps.io"
 	versionV1        = "v1"
 	kindAPIVersions  = "APIVersions"
 	kindAPIGroupList = "APIGroupList"

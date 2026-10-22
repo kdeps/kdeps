@@ -148,6 +148,26 @@ http:
 
 Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
 
+## Declared SQL tools
+
+A tool can run one parameterized SQLite statement. The statement is fixed in the YAML. Each argument named in `params` is bound to a `?` placeholder in order. Arguments are never spliced into the text, so a value cannot change the statement.
+
+```yaml
+# assets/tools/task_get.yaml
+version: 1.0.0
+description: Read one task by id.
+parameters:
+  id:
+    type: string
+    required: true
+sql:
+  dsn: KDEPS_STATE_DB            # environment variable holding the SQLite file path
+  query: SELECT id, title FROM tasks WHERE id = ?
+  params: [id]                    # bound to the ? placeholders, in order
+```
+
+`mode: rows` (the default) returns a JSON array of row objects. `mode: exec` runs a write and returns `N rows changed`. The tool is registered only when the environment variable is set.
+
 ## Declared exec tools
 
 A tool whose definition has an `exec:` block runs one program directly (no shell) and needs no Go code. `ocr_image` and `transcribe_audio_offline` ship this way.

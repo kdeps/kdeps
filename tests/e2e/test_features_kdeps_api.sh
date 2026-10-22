@@ -229,9 +229,9 @@ elif kind == "groups":
     if doc.get("kind") != "APIGroupList" or doc.get("apiVersion") != "v1":
         die(repr(doc))
     groups = doc.get("groups")
-    if not isinstance(groups, list) or len(groups) != 3:
+    if not isinstance(groups, list) or len(groups) != 2:
         die("group count")
-    want = ["tools.kdeps.io", "commands.kdeps.io", "workflow.kdeps.io"]
+    want = ["tools.kdeps.io", "commands.kdeps.io"]
     for group, name in zip(groups, want):
         gv = name + "/v1"
         if group.get("name") != name:
@@ -274,19 +274,20 @@ elif kind == "tools":
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
         "bash_job_list", "bash_job_wait", "browser_ops", "calculator", "code_definition", "code_diagnostics",
         "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
-        "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create",
-        "cron_delete", "cron_list", "cron_pause", "cron_resume", "edit_file",
-        "email_ops", "embedding", "embedding_search", "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops",
-        "google_cache_create", "google_cache_delete",
-        "google_cache_list", "http_request", "instruct", "jina_rerank", "list_files",
-        "load_document", "md5_file", "memory_delete", "memory_query", "memory_save",
-        "memory_search", "ocr_image", "perplexity_search", "python", "read_file", "retrieve_context",
-        "search_local", "serpapi_search", "sql_describe_table", "sql_list_tables", "sql_ops", "sql_query",
-        "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
-        "task_get", "task_list", "task_stop", "team_add_task", "team_create",
-        "team_delete", "team_get", "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml",
-        "vector_store", "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha",
-        "write_file", "zapier_list_actions", "zapier_run_action",
+        "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create", "cron_delete",
+        "cron_list", "cron_pause", "cron_resume", "edit_file", "email_ops", "embedding", "embedding_search",
+        "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "goal_task_complete",
+        "goal_task_fail", "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
+        "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
+        "knowledge_card_update", "knowledge_note_save", "knowledge_recall", "list_files", "load_document",
+        "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
+        "ocr_image", "perplexity_search", "python", "read_file", "retrieve_context", "search_local",
+        "serpapi_search", "session_handshake", "sql_describe_table", "sql_list_tables", "sql_ops",
+        "sql_query", "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
+        "task_get", "task_list", "task_stop", "team_add_task", "team_create", "team_delete", "team_get",
+        "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml", "vector_store",
+        "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
+        "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:
         die(repr(names))
@@ -297,7 +298,7 @@ elif kind == "commands":
     names = [item.get("name") for item in items]
     if names != sorted(names):
         die("unsorted " + repr(names))
-    for want in ("clear", "goal", "instruct-now"):
+    for want in ("clear", "goal", "instruct-now", "explain", "frugal", "review", "thorough"):
         if want not in names:
             die("missing " + want)
     for item in items:
@@ -755,6 +756,16 @@ EOF
         test_passed "kdeps API - memory_save needs a store"
     else
         test_failed "kdeps API - memory_save needs a store" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/identity_get/call" || true)
+    if [ "$got" = "400" ] && grep -F "identity_get: no active agent session" "$body" >/dev/null \
+        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
+        test_passed "kdeps API - identity_get needs an agent session"
+    else
+        test_failed "kdeps API - identity_get needs an agent session" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

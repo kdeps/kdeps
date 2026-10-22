@@ -20,6 +20,20 @@ export KDEPS_API_LISTEN=127.0.0.1:9095
 kdeps run workflow.yaml
 ```
 
+## Loop data sets
+
+Five YAML sets configure the agent loop. They are configuration data, not callable work, so the API does not serve them. Each set is read by one loop code path, and a client that needs the active values reads the config path, not a route:
+
+| Set | Read by | What it configures |
+|---|---|---|
+| `harness/` | `pkg/agent/harness_yaml.go` | Prompt sections the loop sends to the model |
+| `events/` | `pkg/agent/events.go` | Governor triggers: conditions that start an efficiency action |
+| `actions/` | `pkg/agent/actions.go` | The governor's action vocabulary |
+| `presets/` | `pkg/agent/presets.go` | Named bundles of harness and efficiency settings (`/efficiency preset`) |
+| `themes/` | `pkg/agent/theme_yaml.go` | REPL colors and styles |
+
+Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
+
 ## Routes
 
 Every route requires the bearer token. A missing or wrong token is `401`.
@@ -27,12 +41,12 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | Method | Path | Body |
 | --- | --- | --- |
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
-| `GET` | `/apis` | Groups `tools.kdeps.io`, `commands.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
+| `GET` | `/apis` | Groups `tools.kdeps.io` and `commands.kdeps.io`, each at `v1`. Workflow execution is not an API group: a workflow runs through `kdeps run`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
 | `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `list_files`, `md5_file`, `tail_file`, `write_file`, `edit_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, the four `sql_*` tools, `serpapi_search`, `perplexity_search`, the three `google_cache_*` tools, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, the `code_*` tools, `http_request`, `exec`, `python`, `twiml`, `email_ops`, `browser_ops`, `file_ops`, `git_ops`, `sql_ops`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, `task_create`, `task_get`, `task_list`, `task_stop`, `task_complete`, `task_append_output`, `task_assign_team`, `team_create`, `team_get`, `team_list`, `team_add_task`, `team_delete`, the five `cron_*` tools, the four `approval_*` tools, `instruct`, and the tools whose implementation is declared in their own asset (`cohere_rerank`, `exa_search`, `jina_rerank`, `ocr_image`, `retrieve_context`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`). |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
 | `GET` | `/apis/commands.kdeps.io/v1/commands` | Slash-command list: each command's operation name (`name`), the name you type (`display`), its usage lines, and the first usage line as `description`. |
-| `POST` | `/apis/commands.kdeps.io/v1/commands/{name}/call` | Command output, `text/plain`. `name` is the operation id: the builtin command's `commands/<name>.yaml` file stem, which its `api:` field repeats. `{"args": ["new", "ship it"]}`, `{"args": "new ship it"}` and `{"arguments": "new ship it"}` are all accepted; args not as an array are split on whitespace. |
+| `POST` | `/apis/commands.kdeps.io/v1/commands/{name}/call` | Command output, `text/plain`. `name` is the operation id: the builtin command's `commands/<name>.yaml` file stem, which its `api:` field repeats. Declared prompt commands (`explain`, `frugal`, `review`, `thorough`, and any `commands/` asset with `run:`) use their own name and return each model reply, separated by a blank line. Their `command:` steps print to the REPL's output and are not returned. The call runs against the active REPL session. `{"args": ["new", "ship it"]}`, `{"args": "new ship it"}` and `{"arguments": "new ship it"}` are all accepted; args not as an array are split on whitespace. |
 
 ```bash
 curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \

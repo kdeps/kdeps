@@ -248,8 +248,16 @@ func commandHelpLines() []string {
 }
 
 // runDeclaredCommand runs a declared command's steps in order, stopping at
-// the first error.
+// the first error. The REPL prints each model reply as it arrives.
 func (r *REPL) runDeclaredCommand(c *slashCommand, args []string) error {
+	return r.runDeclaredCommandEmit(c, args, func(resp string) {
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
+	})
+}
+
+// runDeclaredCommandEmit runs the steps and hands each model reply to emit.
+// The kdeps API uses it to return the replies instead of printing them.
+func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(string)) error {
 	if r.commandDepth >= maxCommandDepth {
 		return fmt.Errorf("/%s: commands nested more than %d deep", c.Name, maxCommandDepth)
 	}
@@ -268,7 +276,7 @@ func (r *REPL) runDeclaredCommand(c *slashCommand, args []string) error {
 			return fmt.Errorf("/%s: %w", c.Name, err)
 		}
 		if resp != "" {
-			fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
+			emit(resp)
 		}
 	}
 	return nil
