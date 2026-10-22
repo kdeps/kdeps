@@ -92,6 +92,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolPython,
 		toolReadFile,
 		toolSearchLocal,
+		"session_handshake",
 		toolSQLDescribe,
 		toolSQLList,
 		toolSQLOps,
