@@ -66,7 +66,7 @@ func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {
 		return "", errors.New("memory_query: agent loop is not configured (memory_query is an agent-mode tool)")
 	}
 	query, _ := args[toolParamQuery].(string)
-	env := buildQueryEnv(activeLoop.MemoryStore(), activeLoop.ToolCallLog(), activeLoop.ActiveGoal())
+	env := buildQueryEnv(activeLoop.MemoryStore(), activeLoop.ToolCallLog())
 	program, err := expr.Compile(query, expr.Env(env))
 	if err != nil {
 		hint := infixOperatorHint(query)

@@ -242,7 +242,7 @@ func (l *Loop) iterateWithJudges(
 
 		directive := "The previous answer was rejected by the review panel. Revise it to address:\n- " +
 			strings.Join(feedback, "\n- ")
-		revised := withGoalDirective(chatCfg, directive)
+		revised := withReviewDirective(chatCfg, directive)
 		content, err := l.runToolRounds(ctx, revised, w)
 		if err != nil {
 			return response, finalContent
@@ -280,4 +280,28 @@ func (l *Loop) reportJudgeEvent(w io.Writer, msg string) {
 		return
 	}
 	fmt.Fprintf(pw, "\n[judge] %s\n", msg)
+}
+
+// reviewDirectiveMarker opens every review revision directive, so the next
+// revision replaces the previous one instead of stacking them.
+const reviewDirectiveMarker = "The previous answer was rejected by the review panel."
+
+// withReviewDirective attaches a review revision directive as its own system
+// scenario item. It is kept out of the cached system preamble, so rewriting it
+// each revision never invalidates the provider's cached prefix.
+func withReviewDirective(cfg *domain.ChatConfig, directive string) *domain.ChatConfig {
+	if cfg == nil || strings.TrimSpace(directive) == "" {
+		return cfg
+	}
+	out := *cfg
+	scenario := make([]domain.ScenarioItem, 0, len(cfg.Scenario)+1)
+	for _, item := range cfg.Scenario {
+		if strings.HasPrefix(item.Prompt, reviewDirectiveMarker) {
+			continue
+		}
+		scenario = append(scenario, item)
+	}
+	scenario = append(scenario, domain.ScenarioItem{Role: "system", Prompt: directive})
+	out.Scenario = scenario
+	return &out
 }

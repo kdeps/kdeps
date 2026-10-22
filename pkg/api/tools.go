@@ -92,8 +92,6 @@ func init() {
 	RegisterTool(loadToolSpec(toolTailFile, "Read the last lines of a file.", TailFile))
 	RegisterTool(loadToolSpec(toolWriteFile, "Write or overwrite a text file.", WriteFile))
 	RegisterTool(loadToolSpec(toolEditFile, "Edit a file.", EditFile))
-	RegisterTool(loadToolSpec(toolSerpAPI, "Search Google via SerpAPI.", SerpAPISearch))
-	RegisterTool(loadToolSpec(toolPerplexity, "Search the web using Perplexity AI.", PerplexitySearch))
 	RegisterTool(loadToolSpec(toolGoogleCacheCreate, "Create a Google AI cached content entry.", GoogleCacheCreate))
 	RegisterTool(loadToolSpec(toolGoogleCacheDelete, "Delete a Google AI cached content entry.", GoogleCacheDelete))
 	RegisterTool(loadToolSpec(toolGoogleCacheList, "List Google AI cached content entries.", GoogleCacheList))
@@ -101,34 +99,21 @@ func init() {
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
 	RegisterTool(loadToolSpec(toolMemoryQuery, "Run a relational query over agent state.", MemoryQuery))
-	registerCodeTools()
 	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolEmbedding, "Run one embedding operation.", EmbeddingOps))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
-	RegisterTool(loadToolSpec(toolTwiml, "Build a TwiML voice response.", TwiML))
-	RegisterTool(loadToolSpec(toolEmailOps, "Send email and work with IMAP mailboxes.", EmailOps))
-	RegisterTool(loadToolSpec(toolBrowserOps, "Drive a browser with Playwright.", BrowserOps))
 	RegisterTool(loadToolSpec(toolFileOps, "Run one structured filesystem operation.", FileOps))
 	RegisterTool(loadToolSpec(toolGitOps, "Run one structured git operation.", GitOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	RegisterTool(loadToolSpec(toolVectorStore, "Run one vector store operation.", VectorStore))
-	registerRegistryTools()
+	registerApprovalTools()
+	registerInstructTool()
 }
 
 // registerCodeTools registers the code intelligence tools.
 func registerCodeTools() {
-	RegisterTool(loadToolSpec(toolCodeSearch, "Search for a symbol or pattern.", CodeSearch))
-	RegisterTool(loadToolSpec(toolCodeDefinition, "Find the definition of a symbol.", CodeDefinition))
-	RegisterTool(loadToolSpec(toolCodeReferences, "Find references to a symbol.", CodeReferences))
-	RegisterTool(loadToolSpec(toolCodeSymbols, "List symbols in a file.", CodeSymbols))
-	RegisterTool(loadToolSpec(toolCodeHover, "Get documentation for a symbol.", CodeHover))
-	RegisterTool(loadToolSpec(toolCodeDiagnostics, "Get diagnostics for a file.", CodeDiagnostics))
-	RegisterTool(loadToolSpec(toolCodeIndexFolder, "Index the working directory into a graph.", CodeIndexFolder))
-	RegisterTool(loadToolSpec(toolCodeGraphFile, "Graph one indexed file.", CodeGraphFile))
-	RegisterTool(loadToolSpec(toolCodeGraphTopic, "Graph indexed files for a topic.", CodeGraphTopic))
-	RegisterTool(loadToolSpec(toolCodeGraphAll, "Graph the whole index.", CodeGraphAll))
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

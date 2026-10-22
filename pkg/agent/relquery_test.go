@@ -166,33 +166,3 @@ func TestToolCallRelation_ConvertsRecords(t *testing.T) {
 func TestToolCallRelation_EmptyLog(t *testing.T) {
 	assert.Equal(t, []relRow{}, toolCallRelation(nil))
 }
-
-func TestTaskRelation_NilGoal(t *testing.T) {
-	assert.Equal(t, []relRow{}, taskRelation(nil))
-}
-
-func TestTaskRelation_ConvertsTasks(t *testing.T) {
-	goal := &Goal{
-		Text: "ship it",
-		Tasks: []GoalTask{
-			{ID: 1, Desc: "write code", Status: "done", Rounds: 3, Note: "merged", Evidence: "ran go test, 12 passed"},
-		},
-	}
-	rows := taskRelation(goal)
-	require.Len(t, rows, 1)
-	assert.Equal(t, 1, rows[0]["id"])
-	assert.Equal(t, "write code", rows[0]["desc"])
-	assert.Equal(t, "done", rows[0]["status"])
-	assert.Equal(t, 3, rows[0]["rounds"])
-	assert.Equal(t, "merged", rows[0]["note"])
-	assert.Equal(t, "ran go test, 12 passed", rows[0]["evidence"])
-}
-
-func TestBuildQueryEnv_HasAllRelationsAndFuncs(t *testing.T) {
-	env := buildQueryEnv(nil, nil, nil)
-	assert.Contains(t, env, "memory")
-	assert.Contains(t, env, "tool_calls")
-	assert.Contains(t, env, "tasks")
-	assert.Contains(t, env, "join")
-	assert.Contains(t, env, "union")
-}

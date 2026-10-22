@@ -74,8 +74,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDeclaredTools(ctx, reg, webCache)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
-	registerTaskTeamTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
+	registerApprovalTokenTools(ctx, reg)
 	registerInstructTool(reg)
 }
 
@@ -84,9 +84,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 // and SQL. Each is served by the kdeps API; an agent call and the shipped
 // component reach the same handler.
 func registerStructuredTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "twiml", api.TwiML)
-	registerAPITool(ctx, reg, "email_ops", api.EmailOps)
-	registerAPITool(ctx, reg, "browser_ops", api.BrowserOps)
 	registerAPITool(ctx, reg, "file_ops", api.FileOps)
 	registerAPITool(ctx, reg, "git_ops", api.GitOps)
 	registerAPITool(ctx, reg, "sql_ops", api.SQLOps)
@@ -1026,16 +1023,6 @@ func pathWithinRoot(path, root string) bool {
 // registerCodeIntelligenceTools registers the code_* tools. The handler is the
 // kdeps API. LSP lookup and the folder graph run there.
 func registerCodeIntelligenceTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "code_search", api.CodeSearch)
-	registerAPITool(ctx, reg, "code_definition", api.CodeDefinition)
-	registerAPITool(ctx, reg, "code_references", api.CodeReferences)
-	registerAPITool(ctx, reg, "code_symbols", api.CodeSymbols)
-	registerAPITool(ctx, reg, "code_hover", api.CodeHover)
-	registerAPITool(ctx, reg, "code_diagnostics", api.CodeDiagnostics)
-	registerAPITool(ctx, reg, "code_index_folder", api.CodeIndexFolder)
-	registerAPITool(ctx, reg, "code_graph_file", api.CodeGraphFile)
-	registerAPITool(ctx, reg, "code_graph_topic", api.CodeGraphTopic)
-	registerAPITool(ctx, reg, "code_graph_all", api.CodeGraphAll)
 }
 
 // registerMemoryTools registers LLM-callable tools for persistent memory.

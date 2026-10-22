@@ -1,6 +1,0 @@
-version: 1.0.2
-# kdeps update installs these with this component: its schema and the kdeps
-# API tool it calls (array inputs)
-requires:
-  schemas/v1: ">=1.0.4"
-  tools/twiml: ""

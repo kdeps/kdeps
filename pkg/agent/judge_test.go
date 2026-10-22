@@ -31,6 +31,8 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // verdictStreamer calls judge_verdict with a fixed ruling whenever it is
@@ -365,4 +367,15 @@ func TestScopedRegistry_FiltersByName(t *testing.T) {
 	if len(scoped.List()) != 1 || scoped.Get("a") == nil {
 		t.Fatalf("expected only tool %q, got %v", "a", scoped.List())
 	}
+}
+
+func TestWithReviewDirective_ReplacesPreviousRevision(t *testing.T) {
+	base := &domain.ChatConfig{Scenario: []domain.ScenarioItem{{Role: "user", Prompt: "hi"}}}
+	first := withReviewDirective(base, reviewDirectiveMarker+"\n- fix a")
+	second := withReviewDirective(first, reviewDirectiveMarker+"\n- fix b")
+	require.Len(t, second.Scenario, 2, "one user item plus one directive")
+	assert.Equal(t, reviewDirectiveMarker+"\n- fix b", second.Scenario[1].Prompt)
+	assert.Len(t, base.Scenario, 1, "the input config is not mutated")
+	assert.Nil(t, withReviewDirective(nil, "x"))
+	assert.Same(t, base, withReviewDirective(base, "   "))
 }
