@@ -145,7 +145,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 			continue
 		}
 		for _, input := range comp.Interface.Inputs {
-			if !input.Required {
+			if !input.Required || input.Default != nil {
 				continue
 			}
 			if _, provided := cc.With[input.Name]; !provided {

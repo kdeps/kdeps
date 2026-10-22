@@ -21,7 +21,7 @@ interface:
       type: string             # Required: string, integer, number, boolean, array, object
       required: true           # Optional (default: false)
       description: "Message to greet with"
-      default: "Hello"         # Optional: default value if not required
+      default: "Hello"         # Optional: used when the caller omits this input
 resources:
   - actionId: greet
     name: Greet
@@ -46,7 +46,7 @@ resources:
 | `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean`, `array`, `object`. A `with:` list or map reaches the component as a list or map (strings inside are interpolated); other values arrive as strings |
 | `interface.inputs[].required` | bool | no | Whether input is required (default: false) |
 | `interface.inputs[].description` | string | no | Human-readable description |
-| `interface.inputs[].default` | any | no | Default value (only meaningful when required=false) |
+| `interface.inputs[].default` | any | no | Value used when the caller omits the input; a declared default satisfies `required: true` |
 | `resources` | array | no | Inline resource definitions (same as workflow resources) |
 
 ## Dependency lifecycle: `setup` and `teardown`
@@ -124,9 +124,9 @@ When a resource calls a component, kdeps validates `with:` against the interface
 
 | Condition | Behaviour |
 |---|---|
-| Required input missing | Error - execution stops |
+| Required input omitted, no default | Error - validation fails |
+| Input omitted, default declared | The declared default is applied |
 | Unknown key in `with:` | Warning logged; key is ignored |
-| Optional input omitted | Component default value is applied |
 | Scalar declared `integer`, `number` or `boolean` | Converted to that type before the component runs |
 
 ## Input scoping

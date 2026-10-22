@@ -369,6 +369,28 @@ func TestAnalyzeWorkflow_ComponentMissingRequiredInput(t *testing.T) {
 	assert.Contains(t, errs[0].Message, `"scraper"`)
 }
 
+func TestAnalyzeWorkflow_ComponentRequiredInputWithDefault(t *testing.T) {
+	// A default satisfies a required input: the runtime injects it, so static
+	// analysis must not demand the caller pass it in with:.
+	comp := &domain.Component{
+		Interface: &domain.ComponentInterface{
+			Inputs: []domain.ComponentInput{
+				{Name: "url", Required: true, Default: "https://example.com"},
+			},
+		},
+	}
+	r := mkResource("target")
+	r.Component = &domain.ComponentCallConfig{
+		Name: "scraper",
+		With: map[string]interface{}{}, // url not provided; default applies
+	}
+	w := mkWorkflow("target", r)
+	w.Components = map[string]*domain.Component{"scraper": comp}
+
+	wa := validator.AnalyzeWorkflow(w)
+	assert.Empty(t, wa.Errors())
+}
+
 func TestAnalyzeWorkflow_ComponentOptionalInputNotRequired(t *testing.T) {
 	comp := &domain.Component{
 		Interface: &domain.ComponentInterface{
