@@ -192,6 +192,20 @@ func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache 
 				Name:    id,
 				Execute: declaredExecExecute(ctx, id, d),
 			}))
+		case d.SQL != nil:
+			if _, ok := d.SQL.resolveDSN(); !ok {
+				continue
+			}
+			reg.Register(definedAs(id, &kdepstools.Tool{
+				Name: id,
+				Execute: func(args map[string]interface{}) (string, error) {
+					full, err := withParamDefaults(declaredName(id, d), d, args)
+					if err != nil {
+						return "", err
+					}
+					return runSQLTool(ctx, declaredName(id, d), d.SQL, full)
+				},
+			}))
 		}
 	}
 }
@@ -205,13 +219,16 @@ func (declaredToolAPIBackend) CallDeclaredTool(
 	ctx context.Context, id string, args map[string]any,
 ) (string, error) {
 	d, ok := toolDefinitions[id]
-	if !ok || (d.HTTP == nil && d.Exec == nil) {
+	if !ok || (d.HTTP == nil && d.Exec == nil && d.SQL == nil) {
 		return "", fmt.Errorf("%s: no declared implementation", id)
 	}
 	name := declaredName(id, d)
 	full, err := withParamDefaults(name, d, args)
 	if err != nil {
 		return "", err
+	}
+	if d.SQL != nil {
+		return runSQLTool(ctx, name, d.SQL, full)
 	}
 	if d.HTTP != nil {
 		env, envOK := d.HTTP.resolveEnv()
@@ -234,7 +251,7 @@ func registerDeclaredAPIRoutes() {
 	api.SetDeclaredToolBackend(declaredToolAPIBackend{})
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
-		if d.HTTP == nil && d.Exec == nil {
+		if d.HTTP == nil && d.Exec == nil && d.SQL == nil {
 			continue
 		}
 		api.RegisterDeclaredTool(id, d.Description, d.Parameters)
