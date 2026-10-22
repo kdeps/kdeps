@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -39,13 +38,10 @@ func (e *Executor) handleToolCalls(
 	ctx *executor.ExecutionContext,
 	cfg *domain.ChatConfig,
 	tools []domain.Tool,
-	modelStr string,
 	messages []map[string]interface{},
 	requestConfig ChatRequestConfig,
-	backend Backend,
-	baseURL string,
+	call chatCall,
 	response map[string]interface{},
-	timeout time.Duration,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: handleToolCalls")
 	maxIterations := defaultMaxToolRounds
@@ -64,7 +60,7 @@ func (e *Executor) handleToolCalls(
 		// A model that re-issues a call it already has the result of is looping
 		// (common with small models); stop and make it answer from the results.
 		if allExecuted(toolCalls, executed) {
-			return e.finalAnswer(cfg, backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
+			return e.finalAnswer(cfg, call, currentMessages, requestConfig)
 		}
 		markExecuted(toolCalls, executed)
 
@@ -75,7 +71,7 @@ func (e *Executor) handleToolCalls(
 
 		currentMessages = e.addToolResultsToMessages(currentMessages, toolCalls, toolResults)
 
-		nextResponse, err := e.chatFollowUp(cfg, backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
+		nextResponse, err := e.chatFollowUp(cfg, call, currentMessages, requestConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +80,7 @@ func (e *Executor) handleToolCalls(
 
 	// Rounds ran out with a call still pending: answer from the results so far.
 	if _, pending := e.pendingToolCalls(currentResponse, tools); pending {
-		return e.finalAnswer(cfg, backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
+		return e.finalAnswer(cfg, call, currentMessages, requestConfig)
 	}
 	return currentResponse, nil
 }
@@ -105,12 +101,9 @@ func (e *Executor) pendingToolCalls(
 // answer in text from the tool results already in messages.
 func (e *Executor) finalAnswer(
 	cfg *domain.ChatConfig,
-	backend Backend,
-	baseURL string,
-	modelStr string,
+	call chatCall,
 	messages []map[string]interface{},
 	requestConfig ChatRequestConfig,
-	timeout time.Duration,
 ) (map[string]interface{}, error) {
 	noTools := requestConfig
 	noTools.Tools = nil
@@ -118,7 +111,7 @@ func (e *Executor) finalAnswer(
 		"role":    "user",
 		"content": finalAnswerInstruction,
 	})
-	return e.chatFollowUp(cfg, backend, baseURL, modelStr, final, noTools, timeout)
+	return e.chatFollowUp(cfg, call, final, noTools)
 }
 
 // toolCallKey identifies a call by name and arguments, with the arguments
@@ -149,19 +142,12 @@ func markExecuted(calls []map[string]interface{}, executed map[string]bool) {
 
 func (e *Executor) chatFollowUp(
 	cfg *domain.ChatConfig,
-	backend Backend,
-	baseURL string,
-	modelStr string,
+	call chatCall,
 	messages []map[string]interface{},
 	requestConfig ChatRequestConfig,
-	timeout time.Duration,
 ) (map[string]interface{}, error) {
-	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build follow-up request: %w", err)
-	}
-	captureSentMessages(cfg, requestBody)
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
+	captureSentMessages(cfg, messages)
+	response, err := call(messages, requestConfig)
 	if err != nil {
 		return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
 	}

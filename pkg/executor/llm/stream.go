@@ -40,6 +40,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
 	lcbedrock "github.com/tmc/langchaingo/llms/bedrock"
+	lccache "github.com/tmc/langchaingo/llms/cache"
 	lccloudflare "github.com/tmc/langchaingo/llms/cloudflare"
 	lcernie "github.com/tmc/langchaingo/llms/ernie"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
@@ -156,8 +157,8 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 			)
 
 		case backendOllama:
-			// Use native Ollama path when Ollama-specific options are set;
-			// otherwise fall through to OpenAI-compat for full feature parity.
+			// The native client has no tool-call support in langchaingo, so the
+			// OpenAI-compatible endpoint is used unless Ollama-only options are set.
 			if cfg.OllamaThink || cfg.OllamaKeepAlive != "" || cfg.OllamaPullModel {
 				model, err = buildNativeOllamaLLM(cfg)
 			} else {
@@ -177,7 +178,11 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 	}
 	model = withObservability(model, cfg.Model)
 	if cfg.UseCache {
-		return &cachedLLM{inner: model}, nil
+		backend, cacheErr := responseCacheBackend(ctx)
+		if cacheErr != nil {
+			return nil, cacheErr
+		}
+		return lccache.New(model, backend), nil
 	}
 	return model, nil
 }
@@ -1183,6 +1188,9 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	}
 	if cfg.OpenAILegacyMaxTokens && backend != backendAnthropic && backend != backendGoogle {
 		opts = append(opts, lcopenai.WithLegacyMaxTokensField())
+	}
+	if cfg.OpenAIWebSearch && backend == backendOpenAI {
+		opts = append(opts, llms.WithWebSearch(nil))
 	}
 	if cfg.GoogleCachedContent != "" && backend == backendGoogle {
 		opts = append(opts, lcgoogleai.WithCachedContent(cfg.GoogleCachedContent))

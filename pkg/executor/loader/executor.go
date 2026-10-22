@@ -21,12 +21,11 @@
 package loader
 
 import (
+	"bytes"
 	"context"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -34,10 +33,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
-	"github.com/ledongthuc/pdf"
-	"github.com/microcosm-cc/bluemonday"
 	"github.com/spf13/afero"
+	"github.com/tmc/langchaingo/documentloaders"
+	"github.com/tmc/langchaingo/schema"
 	"github.com/tmc/langchaingo/textsplitter"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -119,6 +117,31 @@ type Document struct {
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
+// readSourceBytes reads a loader source through AppFS after the size guard.
+func readSourceBytes(source string) ([]byte, error) {
+	if err := checkFileSizeLimit(source); err != nil {
+		return nil, err
+	}
+	data, err := afero.ReadFile(AppFS, source)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", source, err)
+	}
+	return data, nil
+}
+
+// fromSchemaDocuments converts langchaingo documents to the loader result type.
+func fromSchemaDocuments(docs []schema.Document) []Document {
+	out := make([]Document, 0, len(docs))
+	for _, d := range docs {
+		meta := d.Metadata
+		if meta == nil {
+			meta = map[string]interface{}{}
+		}
+		out = append(out, Document{Content: d.PageContent, Metadata: meta})
+	}
+	return out
+}
+
 // Executor loads documents from various sources.
 type Executor struct{}
 
@@ -144,7 +167,11 @@ func (e *Executor) Execute(
 		return nil, errors.New("loader: source is required")
 	}
 
-	docs, err := loadDocuments(cfg)
+	var ctx context.Context
+	if execCtx != nil {
+		ctx = execCtx.Ctx
+	}
+	docs, err := loadDocuments(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +208,7 @@ func DetectTypeFromExtension(source string) string {
 	return "text"
 }
 
-func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
+func loadDocuments(ctx context.Context, cfg *domain.LoaderConfig) ([]Document, error) {
 	loaderType := strings.ToLower(cfg.Type)
 	if loaderType == "" {
 		loaderType = DetectTypeFromExtension(cfg.Source)
@@ -189,17 +216,13 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 
 	switch loaderType {
 	case "text":
-		return loadText(cfg.Source)
+		return loadText(ctx, cfg.Source)
 	case "html":
-		return loadHTML(cfg.Source)
+		return loadHTML(ctx, cfg.Source)
 	case "csv":
-		return loadCSV(cfg.Source, cfg.Columns)
+		return loadCSV(ctx, cfg.Source, cfg.Columns)
 	case "pdf":
-		return loadPDF(cfg.Source, cfg.Password)
-	case "pdf_pdftotext":
-		return loadPDFPopper(cfg.Source)
-	case "pdf_cpu":
-		return loadPDFCPU(cfg.Source)
+		return loadPDF(ctx, cfg.Source, cfg.Password)
 	case "html_lynx":
 		return loadHTMLLynx(cfg.Source)
 	case "pandoc":
@@ -220,88 +243,45 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 		return loadNotionDirectory(cfg.Source)
 	}
 	return nil, fmt.Errorf(
-		"loader: unknown type %q (use text, html, html_lynx, csv, pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, textutil, directory, notion)",
+		"loader: unknown type %q (use text, html, html_lynx, csv, pdf, pandoc, docx, epub, rtf, odt, textutil, directory, notion)",
 		loaderType,
 	)
 }
 
-func loadText(source string) ([]Document, error) {
-	if err := checkFileSizeLimit(source); err != nil {
+func loadText(ctx context.Context, source string) ([]Document, error) {
+	data, err := readSourceBytes(source)
+	if err != nil {
 		return nil, fmt.Errorf("loader text: %w", err)
 	}
-	data, err := afero.ReadFile(AppFS, source)
-	if err != nil {
-		return nil, fmt.Errorf("loader text: read %s: %w", source, err)
+	docs, loadErr := documentloaders.NewText(bytes.NewReader(data)).Load(ctx)
+	if loadErr != nil {
+		return nil, fmt.Errorf("loader text: %s: %w", source, loadErr)
 	}
-	return []Document{{Content: string(data), Metadata: map[string]interface{}{}}}, nil
+	return fromSchemaDocuments(docs), nil
 }
 
-func loadHTML(source string) ([]Document, error) {
-	if err := checkFileSizeLimit(source); err != nil {
+func loadHTML(ctx context.Context, source string) ([]Document, error) {
+	data, err := readSourceBytes(source)
+	if err != nil {
 		return nil, fmt.Errorf("loader html: %w", err)
 	}
-	f, err := os.Open(source)
-	if err != nil {
-		return nil, fmt.Errorf("loader html: open %s: %w", source, err)
+	docs, loadErr := documentloaders.NewHTML(bytes.NewReader(data)).Load(ctx)
+	if loadErr != nil {
+		return nil, fmt.Errorf("loader html: parse %s: %w", source, loadErr)
 	}
-	defer f.Close()
-
-	doc, err := goquery.NewDocumentFromReader(f)
-	if err != nil {
-		return nil, fmt.Errorf("loader html: parse %s: %w", source, err)
-	}
-
-	text := strings.TrimSpace(bluemonday.UGCPolicy().Sanitize(doc.Find("body").Text()))
-	return []Document{{Content: text, Metadata: map[string]interface{}{}}}, nil
+	return fromSchemaDocuments(docs), nil
 }
 
-func loadCSV(source string, columns []string) ([]Document, error) {
-	if err := checkFileSizeLimit(source); err != nil {
+func loadCSV(ctx context.Context, source string, columns []string) ([]Document, error) {
+	data, err := readSourceBytes(source)
+	if err != nil {
 		return nil, fmt.Errorf("loader csv: %w", err)
 	}
-	f, err := os.Open(source)
-	if err != nil {
-		return nil, fmt.Errorf("loader csv: open %s: %w", source, err)
+	docs, loadErr := documentloaders.NewCSV(bytes.NewReader(data), columns...).Load(ctx)
+	if loadErr != nil {
+		return nil, fmt.Errorf("loader csv: read: %w", loadErr)
 	}
-	defer f.Close()
-
-	rd := csv.NewReader(f)
-	var header []string
-	var docs []Document
-	var rowNum int
-
-	var row []string
-	var rerr error
-	for {
-		row, rerr = rd.Read()
-		if errors.Is(rerr, io.EOF) {
-			break
-		}
-		if rerr != nil {
-			return nil, fmt.Errorf("loader csv: read: %w", rerr)
-		}
-		if len(header) == 0 {
-			header = append(header, row...)
-			continue
-		}
-
-		var parts []string
-		for i, val := range row {
-			if i >= len(header) {
-				break
-			}
-			if len(columns) > 0 && !containsString(columns, header[i]) {
-				continue
-			}
-			parts = append(parts, header[i]+": "+val)
-		}
-		rowNum++
-		docs = append(docs, Document{
-			Content:  strings.Join(parts, "\n"),
-			Metadata: map[string]interface{}{"row": rowNum},
-		})
-	}
-	return docs, nil
+	return fromSchemaDocuments(docs), nil
 }
 
 func containsString(slice []string, s string) bool {
@@ -313,62 +293,20 @@ func containsString(slice []string, s string) bool {
 	return false
 }
 
-func loadPDF(source, password string) ([]Document, error) {
-	f, err := os.Open(source)
+func loadPDF(ctx context.Context, source, password string) ([]Document, error) {
+	data, err := readSourceBytes(source)
 	if err != nil {
-		return nil, fmt.Errorf("loader pdf: open %s: %w", source, err)
+		return nil, fmt.Errorf("loader pdf: %w", err)
 	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("loader pdf: stat %s: %w", source, err)
-	}
-	if limit := maxLoaderInputBytes(); limit > 0 && info.Size() > limit {
-		return nil, fmt.Errorf(
-			"loader pdf: file %s is %s, over the %s loader input limit "+
-				"(KDEPS_LOADER_MAX_BYTES to raise it, 0 to disable)",
-			source, formatByteSize(info.Size()), formatByteSize(limit),
-		)
-	}
-
-	var reader *pdf.Reader
+	var opts []documentloaders.PDFOptions
 	if password != "" {
-		passwd := password
-		reader, err = pdf.NewReaderEncrypted(
-			f,
-			info.Size(),
-			func() string { s := passwd; passwd = ""; return s },
-		)
-	} else {
-		reader, err = pdf.NewReader(f, info.Size())
+		opts = append(opts, documentloaders.WithPassword(password))
 	}
-	if err != nil {
-		return nil, fmt.Errorf("loader pdf: parse %s: %w", source, err)
+	docs, loadErr := documentloaders.NewPDF(bytes.NewReader(data), int64(len(data)), opts...).Load(ctx)
+	if loadErr != nil {
+		return nil, fmt.Errorf("loader pdf: parse %s: %w", source, loadErr)
 	}
-
-	numPages := reader.NumPage()
-	docs := make([]Document, 0, numPages)
-	fonts := make(map[string]*pdf.Font)
-
-	for i := 1; i <= numPages; i++ {
-		p := reader.Page(i)
-		for _, name := range p.Fonts() {
-			if _, ok := fonts[name]; !ok {
-				f := p.Font(name)
-				fonts[name] = &f
-			}
-		}
-		text, perr := p.GetPlainText(fonts)
-		if perr != nil {
-			return nil, fmt.Errorf("loader pdf: page %d: %w", i, perr)
-		}
-		docs = append(docs, Document{
-			Content:  text,
-			Metadata: map[string]interface{}{"page": i, "total_pages": numPages},
-		})
-	}
-	return docs, nil
+	return fromSchemaDocuments(docs), nil
 }
 
 func loadDirectory(source string) ([]Document, error) {
@@ -435,21 +373,10 @@ func loadNotionDirectory(source string) ([]Document, error) {
 	return docs, nil
 }
 
-// loadPDFPopper extracts text from a PDF using the pdftotext command-line tool
-// (from poppler-utils).
-func loadPDFPopper(source string) ([]Document, error) {
-	return runCLIToFile("pdf_pdftotext", "pdftotext", []string{"-layout"}, source)
-}
-
-// loadPDFCPU extracts text from a PDF using the pdfcpu command-line tool.
-func loadPDFCPU(source string) ([]Document, error) {
-	return runCLIToFile("pdf_cpu", "pdfcpu", []string{"extract", "-mode", "text"}, source)
-}
-
 // ---- Alternative document parsers via CLI tools ----
 
 // runCLIToFile runs a CLI tool that writes output to a file, reads it back.
-// Used by pdf_pdftotext, pdf_cpu, textutil, and similar extractors.
+// Used by pandoc, rtf, textutil, and similar extractors.
 func runCLIToFile(label, bin string, args []string, source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath(bin); lookErr != nil {
 		return nil, fmt.Errorf("loader %s: %s not found in PATH", label, bin)

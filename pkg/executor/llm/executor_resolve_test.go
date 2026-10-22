@@ -294,16 +294,3 @@ func TestResolveModelForExecution_SystemSentinelNoConfigFallsToBuiltin(t *testin
 	require.NoError(t, err)
 	assert.Equal(t, defaultBuiltinModel, model)
 }
-
-func TestResolveBackend_SystemSentinel(t *testing.T) {
-	e := NewExecutor("")
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "groq")
-	b, _, err := e.resolveBackendAndBaseURL(&domain.ChatConfig{Backend: "system"})
-	require.NoError(t, err)
-	assert.Equal(t, "groq", b.Name())
-
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
-	b, _, err = e.resolveBackendAndBaseURL(&domain.ChatConfig{Backend: "System"})
-	require.NoError(t, err)
-	assert.Equal(t, BackendFile, b.Name())
-}

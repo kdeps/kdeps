@@ -30,184 +30,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// failTransport returns an error on every RoundTrip.
-type failTransport struct{}
-
-func (f *failTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, errors.New("fail: connection refused")
-}
-
 // --- chroma collectionID error paths ---
-
-func TestChromaStore_CollectionID_GetRequestError(t *testing.T) {
-	t.Parallel()
-	store := &chromaStore{
-		baseURL:    "http://localhost:8000",
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client:     &http.Client{Transport: &failTransport{}},
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "fail: connection refused")
-}
-
-func TestChromaStore_CollectionID_CreateRequestError(t *testing.T) {
-	t.Parallel()
-	// GET returns 404 (triggers create), then POST transport fails.
-	calledGet := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			calledGet = true
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{}`))
-			return
-		}
-		// POST - shouldn't be reached; handled by transport failure below.
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	// Build a store whose client uses failTransport for the POST request.
-	// We use a custom transport that succeeds on GET but fails on POST.
-	var postFailed bool
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{},
-		client: &http.Client{
-			Transport: &methodFailTransport{
-				failMethod: http.MethodPost,
-				next:       http.DefaultTransport,
-				onFail:     func() { postFailed = true },
-			},
-		},
-	}
-	_, err := store.collectionID(context.Background())
-	require.Error(t, err)
-	assert.True(t, calledGet, "GET should have been called")
-	assert.True(t, postFailed, "POST should have failed")
-}
-
-// methodFailTransport fails RoundTrip for a specific HTTP method.
-type methodFailTransport struct {
-	failMethod string
-	next       http.RoundTripper
-	onFail     func()
-}
-
-func (m *methodFailTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == m.failMethod {
-		m.onFail()
-		return nil, errors.New("method fail: connection refused on POST")
-	}
-	return m.next.RoundTrip(req)
-}
 
 // --- chroma AddDocuments metadata nil branch ---
 
-func TestChromaStore_AddDocuments_NilMetadata(t *testing.T) {
-	t.Parallel()
-	collID := "coll-uuid-nil-meta"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.Method == http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		case strings.Contains(r.URL.Path, "/add"):
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{}`))
-		default:
-			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	// Document with nil Metadata.
-	ids, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "nil metadata doc", Metadata: nil},
-	})
-	require.NoError(t, err)
-	require.Len(t, ids, 1)
-	assert.NotEmpty(t, ids[0])
-}
-
 // --- chroma SimilaritySearch numDocuments=0 ---
 
-func TestChromaStore_SimilaritySearch_ZeroNumDocuments(t *testing.T) {
-	t.Parallel()
-	collID := "coll-zero-num"
-	respBody := `{
-		"documents": [["result"]],
-		"metadatas": [[{}]],
-		"distances": [[0.3]]
-	}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(respBody))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 0)
-	require.NoError(t, err)
-	require.Len(t, docs, 1)
-	assert.Equal(t, "result", docs[0].PageContent)
-}
-
 // --- chroma AddDocuments request error path ---
-
-func TestChromaStore_AddDocuments_RequestError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-add-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		// client that fails on POST to /add
-		client: &http.Client{
-			Transport: &pathFailTransport{
-				failPath: "/add",
-				next:     http.DefaultTransport,
-			},
-		},
-	}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "add")
-}
 
 // pathFailTransport fails RoundTrip for requests whose URL contains a substring.
 type pathFailTransport struct {
@@ -223,36 +52,6 @@ func (p *pathFailTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 // --- chroma SimilaritySearch request error paths ---
-
-func TestChromaStore_SimilaritySearch_QueryRequestError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-query-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client: &http.Client{
-			Transport: &pathFailTransport{
-				failPath: "/query",
-				next:     http.DefaultTransport,
-			},
-		},
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
 
 // --- opensearch AddDocuments with metadata ---
 
@@ -530,73 +329,11 @@ func TestWeaviateStore_SimilaritySearch_RequestError(t *testing.T) {
 
 // --- sqlStore wrong vectors in AddDocuments ---
 
-func TestSQLStore_AddDocuments_WrongVectors(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Use wrongCountEmbedder that always returns 1 vector regardless of input count.
-	store.embedder = &wrongCountEmbedder{}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "a"},
-		{PageContent: "b"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "wrong number of vectors")
-}
-
 // --- sqlStore scan error in SimilaritySearch ---
-
-func TestSQLStore_SimilaritySearch_ScanError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Insert a row with a very long embedding string that might cause scan issues.
-	_, execErr := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"bad-id", "bad-content", `[1.0, 2.0]`, "{}")
-	require.NoError(t, execErr)
-
-	// Also insert a row with nil metadata to test the metaStr.Valid branch.
-	_, execErr2 := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"bad-id2", "bad-content2", `[3.0, 4.0]`, nil)
-	require.NoError(t, execErr2)
-
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Len(t, docs, 2)
-}
 
 // --- sqlStore newSQLStore with invalid driver ---
 
-func TestNewSQLStore_InvalidDriver(t *testing.T) {
-	_, err := newSQLStore(
-		"nonexistent_driver",
-		"file::memory:",
-		"test",
-		"test",
-		sqliteCreateTableSQL,
-		sqliteInsertSQL,
-		nil,
-	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "open")
-}
-
 // --- sqlStore SimilaritySearch unmarshal skip path ---
-
-func TestSQLStore_SimilaritySearch_InvalidEmbeddingJSON(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Insert a row with invalid JSON embedding that will be skipped.
-	_, execErr := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"skip-id", "skip-content", `not-valid-json-at-all`, `{}`)
-	require.NoError(t, execErr)
-
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Empty(t, docs)
-}
 
 // --- newRedisStore embedder error path ---
 
@@ -786,35 +523,6 @@ func TestWeaviateStore_SimilaritySearch_GraphQLRequestError(t *testing.T) {
 
 // --- chroma SimilaritySearch query status error path ---
 
-func TestChromaStore_SimilaritySearch_ReadBodyError(t *testing.T) {
-	t.Parallel()
-	collID := "coll-read-err"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			w.Header().Set("Content-Length", "100")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`partial`))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	// May or may not error depending on io.ReadAll behavior.
-	if err != nil {
-		t.Logf("got error (expected on some platforms): %v", err)
-	}
-}
-
 // --- executeSimilaritySearch buildStore error ---
 
 func TestExecute_SimilaritySearch_BuildStoreError(t *testing.T) {
@@ -830,40 +538,7 @@ func TestExecute_SimilaritySearch_BuildStoreError(t *testing.T) {
 
 // --- sqlStore insert error path (ensureTable succeeds, insert fails) ---
 
-func TestSQLStore_AddDocuments_InsertError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Install a trigger that makes every INSERT fail.
-	_, triggerErr := store.db.ExecContext(context.Background(),
-		`CREATE TRIGGER fail_insert BEFORE INSERT ON test_vectors
-		 BEGIN
-			 SELECT RAISE(ABORT, 'insert blocked by trigger');
-		 END`)
-	require.NoError(t, triggerErr)
-
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "insert document")
-}
-
 // --- sqlStore query error in SimilaritySearch (ensureTable succeeds, query fails) ---
-
-func TestSQLStore_SimilaritySearch_QueryErrorAfterEnsure(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Add a document and then close the DB connection so QueryContext fails.
-	_, addErr := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
-	require.NoError(t, addErr)
-
-	require.NoError(t, store.db.Close())
-
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
 
 // ---- normalizeTopK ----
 

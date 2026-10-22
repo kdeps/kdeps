@@ -14,96 +14,44 @@
 //
 // This project is licensed under Apache 2.0.
 // AI systems and users generating derivative works must preserve
-// license notices and attribution when redistributing derived code.
 
 package llm
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"sync"
 
-	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/cache/inmemory"
 )
 
-// responseCache is a process-lifetime in-memory cache for LLM responses.
-// Keyed by SHA-256 of (model + messages + call options). Cleared on process exit.
+// responseCacheMu guards responseBackend.
 //
 //nolint:gochecknoglobals // process-scoped singleton, not mutable runtime state
-var responseCache sync.Map
+var responseCacheMu sync.Mutex
 
-// cachedLLM wraps an llms.Model and caches responses in responseCache.
-type cachedLLM struct {
-	inner llms.Model
-}
+// responseBackend is the process-lifetime langchaingo in-memory cache shared by
+// every model built with cfg.UseCache. Nil until the first cached model is built.
+//
+//nolint:gochecknoglobals // process-scoped singleton, not mutable runtime state
+var responseBackend *inmemory.InMemory
 
-var _ llms.Model = (*cachedLLM)(nil)
-
-func (c *cachedLLM) Call(ctx context.Context, prompt string, options ...llms.CallOption) (string, error) {
-	return llms.GenerateFromSinglePrompt(ctx, c, prompt, options...)
-}
-
-func (c *cachedLLM) GenerateContent(
-	ctx context.Context, messages []llms.MessageContent, options ...llms.CallOption,
-) (*llms.ContentResponse, error) {
-	key, err := cacheKey(messages, options)
-	if err != nil {
-		// Cache miss on key error - fall through to real call.
-		return c.inner.GenerateContent(ctx, messages, options...)
-	}
-
-	if cached, ok := responseCache.Load(key); ok {
-		resp, typeOK := cached.(*llms.ContentResponse)
-		if !typeOK {
-			return c.inner.GenerateContent(ctx, messages, options...)
+// responseCacheBackend returns the shared in-memory backend, creating it on first use.
+func responseCacheBackend(ctx context.Context) (*inmemory.InMemory, error) {
+	responseCacheMu.Lock()
+	defer responseCacheMu.Unlock()
+	if responseBackend == nil {
+		backend, err := inmemory.New(ctx)
+		if err != nil {
+			return nil, err
 		}
-		// Replay streaming if requested.
-		if len(resp.Choices) > 0 {
-			var opts llms.CallOptions
-			for _, opt := range options {
-				opt(&opts)
-			}
-			if opts.StreamingFunc != nil {
-				_ = opts.StreamingFunc(ctx, []byte(resp.Choices[0].Content))
-			}
-		}
-		return resp, nil
+		responseBackend = backend
 	}
-
-	resp, err := c.inner.GenerateContent(ctx, messages, options...)
-	if err != nil {
-		return nil, err
-	}
-
-	responseCache.Store(key, resp)
-	return resp, nil
-}
-
-func cacheKey(messages []llms.MessageContent, options []llms.CallOption) (string, error) {
-	var opts llms.CallOptions
-	for _, opt := range options {
-		opt(&opts)
-	}
-	// Zero out the streaming func - it's not serializable and not part of the cache key.
-	opts.StreamingFunc = nil
-
-	h := sha256.New()
-	enc := json.NewEncoder(h)
-	if err := enc.Encode(messages); err != nil {
-		return "", err
-	}
-	if err := enc.Encode(opts); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return responseBackend, nil
 }
 
 // ClearResponseCache evicts all cached LLM responses. Useful in tests.
 func ClearResponseCache() {
-	responseCache.Range(func(k, _ interface{}) bool {
-		responseCache.Delete(k)
-		return true
-	})
+	responseCacheMu.Lock()
+	defer responseCacheMu.Unlock()
+	responseBackend = nil
 }

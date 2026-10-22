@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
 )
 
@@ -123,70 +122,3 @@ func m365ContentError(backend, content string) error {
 }
 
 // M365Backend adapts the local M365 server to the Backend interface.
-type M365Backend struct{}
-
-// Name returns the backend identifier.
-func (b *M365Backend) Name() string {
-	kdeps_debug.Log("enter: Name")
-	return backendM365
-}
-
-// DefaultURL starts (once) and returns the local server base URL.
-func (b *M365Backend) DefaultURL() string {
-	kdeps_debug.Log("enter: DefaultURL")
-	url, err := sharedM365Server.baseURLOnce()
-	if err != nil {
-		return ""
-	}
-	return url
-}
-
-// ChatEndpoint returns the OpenAI-compatible chat-completions URL.
-func (b *M365Backend) ChatEndpoint(baseURL string) string {
-	kdeps_debug.Log("enter: ChatEndpoint")
-	if baseURL == "" {
-		baseURL = b.DefaultURL()
-	}
-	return baseURL + "/v1/chat/completions"
-}
-
-// BuildRequest builds an OpenAI-compatible request body.
-func (b *M365Backend) BuildRequest(
-	model string,
-	messages []map[string]any,
-	config ChatRequestConfig,
-) (map[string]any, error) {
-	kdeps_debug.Log("enter: BuildRequest")
-	return buildOpenAICompatRequest(model, messages, config), nil
-}
-
-// ParseResponse parses the local server's OpenAI-compatible response, turning
-// the local server's "[m365 error: ...]" content marker back into an error (see
-// m365ContentError).
-func (b *M365Backend) ParseResponse(resp *stdhttp.Response) (map[string]any, error) {
-	kdeps_debug.Log("enter: ParseResponse")
-	parsed, err := parseOpenAICompatHTTPResponse(resp, "M365 Copilot")
-	if err != nil {
-		return parsed, err
-	}
-	if msg, ok := parsed[jsonFieldMessage].(map[string]any); ok {
-		content, _ := msg[jsonFieldContent].(string)
-		if m365Err := m365ContentError(backendM365, content); m365Err != nil {
-			return nil, m365Err
-		}
-	}
-	return parsed, nil
-}
-
-// GetAPIKeyHeader returns no auth header; the local server needs no key.
-func (b *M365Backend) GetAPIKeyHeader(string) (string, string) {
-	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	return "", ""
-}
-
-// APIKeyEnvVar returns "" because M365 authenticates via a browser login and a
-// cached token, not an API-key environment variable.
-func (b *M365Backend) APIKeyEnvVar() string {
-	kdeps_debug.Log("enter: APIKeyEnvVar")
-	return ""
-}

@@ -19,10 +19,7 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
-	stdhttp "net/http"
-	"os"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -136,13 +133,11 @@ func firstTextPart(content []interface{}) (map[string]interface{}, string) {
 // requestBody -- after any backend-specific transformation such as
 // foldSystemMessages -- into cfg.MessagesOut, if the caller asked for it
 // (see domain.ChatConfig.MessagesOut). No-op otherwise.
-func captureSentMessages(cfg *domain.ChatConfig, requestBody map[string]interface{}) {
+func captureSentMessages(cfg *domain.ChatConfig, messages []map[string]interface{}) {
 	if cfg == nil || cfg.MessagesOut == nil {
 		return
 	}
-	if messages, ok := requestBody[jsonFieldMessages].([]map[string]interface{}); ok {
-		*cfg.MessagesOut = messages
-	}
+	*cfg.MessagesOut = messages
 }
 
 // captureSentTools records tools -- the exact, fully-merged tool
@@ -156,43 +151,6 @@ func captureSentTools(cfg *domain.ChatConfig, tools []domain.Tool) {
 		return
 	}
 	*cfg.ToolsOut = tools
-}
-
-// backendAPIError decodes the error body of a non-200 backend response into an error.
-func backendAPIError(resp *stdhttp.Response, apiName string) error {
-	var errorBody map[string]interface{}
-	_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-	return fmt.Errorf("%s API error (status %d): %v", apiName, resp.StatusCode, errorBody)
-}
-
-// parseBackendJSONResponse decodes a backend JSON response, returning an API error on non-200 status.
-func parseBackendJSONResponse(
-	resp *stdhttp.Response,
-	apiName string,
-) (map[string]interface{}, error) {
-	if resp.StatusCode != stdhttp.StatusOK {
-		return nil, backendAPIError(resp, apiName)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return response, nil
-}
-
-// parseOpenAICompatHTTPResponse parses an OpenAI-compatible HTTP response into the internal format.
-func parseOpenAICompatHTTPResponse(
-	resp *stdhttp.Response,
-	apiName string,
-) (map[string]interface{}, error) {
-	response, err := parseBackendJSONResponse(resp, apiName)
-	if err != nil {
-		return nil, err
-	}
-
-	return ensureMessageResult(convertOpenAICompatResponse(response), response, apiName)
 }
 
 // ensureMessageResult turns a 200 response whose body is actually an API error
@@ -219,72 +177,4 @@ func ensureMessageResult(
 		}
 	}
 	return result, nil
-}
-
-// parseLocalServerResponse decodes a local model server HTTP response.
-// serverLabel is used verbatim in error messages (e.g. "llamafile server", "llama-server").
-func parseLocalServerResponse(resp *stdhttp.Response, serverLabel string) (map[string]interface{}, error) {
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("%s error (status %d): %v", serverLabel, resp.StatusCode, errorBody)
-	}
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode %s response: %w", serverLabel, err)
-	}
-	return ensureMessageResult(convertOpenAICompatResponse(response), response, serverLabel)
-}
-
-// resolveAPIKey returns apiKey or falls back to the named environment variable.
-func resolveAPIKey(apiKey, envVar string) string {
-	if apiKey == "" {
-		return os.Getenv(envVar)
-	}
-	return apiKey
-}
-
-// bearerAuthAPIKeyHeader returns an Authorization Bearer header from apiKey or envVar.
-func bearerAuthAPIKeyHeader(apiKey, envVar string) (string, string) {
-	apiKey = resolveAPIKey(apiKey, envVar)
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
-}
-
-// rawAPIKeyHeader returns a raw API key header value from apiKey or envVar.
-func rawAPIKeyHeader(apiKey, envVar, headerName string) (string, string) {
-	apiKey = resolveAPIKey(apiKey, envVar)
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerName, apiKey
-}
-
-// assistantMessageResult builds the standard {message: {role, content}} response shape.
-func assistantMessageResult(content string) map[string]interface{} {
-	return map[string]interface{}{
-		jsonFieldMessage: map[string]interface{}{
-			jsonFieldRole:    roleAssistant,
-			jsonFieldContent: content,
-		},
-	}
-}
-
-// convertAnthropicResponse converts an Anthropic API response into the internal format.
-func convertAnthropicResponse(response map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	if content, ok := response[jsonFieldContent].([]interface{}); ok && len(content) > 0 {
-		if firstContent, okContent := content[0].(map[string]interface{}); okContent {
-			if text, okText := firstContent["text"].(string); okText {
-				result[jsonFieldMessage] = map[string]interface{}{
-					jsonFieldRole:    roleAssistant,
-					jsonFieldContent: text,
-				}
-			}
-		}
-	}
-
-	return result
 }

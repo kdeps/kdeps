@@ -19,8 +19,6 @@
 package llm
 
 import (
-	"fmt"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -51,25 +49,19 @@ func (e *Executor) Execute(
 		return nil, msgErr
 	}
 
-	backend, baseURL, backendErr := e.resolveBackendAndBaseURL(resolvedConfig)
+	backendName, baseURL, backendErr := e.resolveBackendAndBaseURL(resolvedConfig)
 	if backendErr != nil {
 		return nil, backendErr
 	}
 	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
-	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backend.Name())
-	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build request: %w", err)
-	}
-	captureSentMessages(resolvedConfig, requestBody)
+	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backendName)
+	captureSentMessages(resolvedConfig, messages)
 	captureSentTools(resolvedConfig, allTools)
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	response := e.callBackendWithFallback(
-		backend, baseURL, requestBody, timeout,
-		fallbackRoutes, resolvedConfig, messages, requestConfig,
-	)
+	call := langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout)
+	response := e.callWithFallback(ctx.Ctx, call, fallbackRoutes, resolvedConfig, messages, requestConfig, timeout)
 
 	// Run the tool dispatch loop when tools are present AND the executor can handle them.
 	// toolExecutor is needed for resource-based tools (workflow mode); Execute/MCP functions
@@ -79,13 +71,10 @@ func (e *Executor) Execute(
 			ctx,
 			resolvedConfig,
 			allTools,
-			modelStr,
 			messages,
 			requestConfig,
-			backend,
-			baseURL,
+			call,
 			response,
-			timeout,
 		)
 		if err != nil {
 			return nil, err

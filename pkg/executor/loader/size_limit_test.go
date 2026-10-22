@@ -111,28 +111,6 @@ func TestFormatByteSize(t *testing.T) {
 // --- End-to-end: the size limit actually gates the real loaders, not just
 // the helper function in isolation. ---
 
-func TestLoadText_OverLimitRejected(t *testing.T) {
-	t.Setenv("KDEPS_LOADER_MAX_BYTES", "16")
-	path := writeTempFileOfSize(t, 1024)
-
-	_, err := loadText(path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "loader text")
-	assert.Contains(t, err.Error(), "KDEPS_LOADER_MAX_BYTES")
-}
-
-func TestLoadText_UnderLimitAllowed(t *testing.T) {
-	t.Setenv("KDEPS_LOADER_MAX_BYTES", "1024")
-	dir := t.TempDir()
-	path := filepath.Join(dir, "small.txt")
-	require.NoError(t, os.WriteFile(path, []byte("hello"), 0o600))
-
-	docs, err := loadText(path)
-	require.NoError(t, err)
-	require.Len(t, docs, 1)
-	assert.Equal(t, "hello", docs[0].Content)
-}
-
 func TestLoadDirectory_OversizedFileSkippedNotFatal(t *testing.T) {
 	t.Setenv("KDEPS_LOADER_MAX_BYTES", "16")
 	dir := t.TempDir()

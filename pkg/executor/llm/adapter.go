@@ -74,9 +74,8 @@ func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter 
 func newMockClientExecutor(ollamaURL string, mockClient HTTPClient) *Executor {
 	kdeps_debug.Log("enter: newMockClientExecutor")
 	return &Executor{
-		ollamaURL:       ollamaURL,
-		client:          mockClient,
-		backendRegistry: NewBackendRegistry(),
+		ollamaURL: ollamaURL,
+		client:    mockClient,
 	}
 }
 

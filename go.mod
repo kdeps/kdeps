@@ -71,8 +71,12 @@ require (
 	cloud.google.com/go/longrunning v1.0.0 // indirect
 	cloud.google.com/go/vertexai v0.19.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/AssemblyAI/assemblyai-go-sdk v1.3.0 // indirect
+	github.com/Code-Hex/go-generics-cache v1.3.1 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
+	github.com/amikos-tech/chroma-go v0.1.4 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/antchfx/htmlquery v1.3.6 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
@@ -101,6 +105,7 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymanbagabas/go-udiff v0.3.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
@@ -136,11 +141,15 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/generative-ai-go v0.15.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.16 // indirect
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect
@@ -162,8 +171,10 @@ require (
 	github.com/nlpodyssey/gopickle v0.3.0 // indirect
 	github.com/nlpodyssey/gotokenizers v0.2.0 // indirect
 	github.com/nlpodyssey/spago v1.1.0 // indirect
+	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/pgvector/pgvector-go v0.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/redis/rueidis v1.0.76 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -188,6 +199,7 @@ require (
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a // indirect
 	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
+	go.mongodb.org/mongo-driver/v2 v2.4.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
@@ -213,6 +225,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	nhooyr.io/websocket v1.8.7 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 

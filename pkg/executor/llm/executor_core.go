@@ -42,12 +42,11 @@ type HTTPClient interface {
 
 // Executor executes LLM chat resources.
 type Executor struct {
-	ollamaURL       string
-	client          HTTPClient
-	toolExecutor    toolExecutorInterface
-	backendRegistry *BackendRegistry
-	modelManager    *ModelManager
-	logger          *slog.Logger
+	ollamaURL    string
+	client       HTTPClient
+	toolExecutor toolExecutorInterface
+	modelManager *ModelManager
+	logger       *slog.Logger
 }
 
 const (
@@ -87,9 +86,8 @@ func NewExecutor(ollamaURL string) *Executor {
 		// local gguf model still failed at ~60s ("Client.Timeout exceeded
 		// while awaiting headers") because http.Client.Timeout took the
 		// shorter of the two regardless of the context deadline.
-		client:          &stdhttp.Client{},
-		backendRegistry: NewBackendRegistry(),
-		logger:          logging.NewLogger(false),
+		client: &stdhttp.Client{},
+		logger: logging.NewLogger(false),
 	}
 }
 

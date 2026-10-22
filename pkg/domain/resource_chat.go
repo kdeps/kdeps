@@ -265,6 +265,9 @@ type ChatConfig struct {
 	// Useful when connecting to older OpenAI-compatible servers that don't support max_completion_tokens.
 	// Only applies to OpenAI-compat backends.
 	OpenAILegacyMaxTokens bool `yaml:"openAILegacyMaxTokens,omitempty"`
+	// OpenAIWebSearch enables OpenAI server-side web search for search-capable models
+	// (e.g. gpt-4o-search-preview). Only applies to the openai backend.
+	OpenAIWebSearch bool `yaml:"openAIWebSearch,omitempty"`
 
 	// OllamaThink enables reasoning mode for Ollama models that support it (Ollama 0.9.0+, e.g. deepseek-r1).
 	// Activates the native Ollama path instead of the OpenAI-compat path.

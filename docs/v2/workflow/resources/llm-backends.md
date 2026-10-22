@@ -4,6 +4,8 @@ kdeps separates two concerns: which model to call (set in the resource file) and
 
 Works in workflow and agent mode.
 
+Every backend is called through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1` (for example `http://localhost:8080/v1`); kdeps appends `/chat/completions`.
+
 Whichever backend you pick - cloud (OpenAI, Anthropic, Groq, ...) or local (llamafile, Ollama, GGUF) - the model is probabilistic. The [workflow pipeline](/workflow/) around it is what makes a kdeps agent deterministic, not the model.
 
 ## The default: llamafile (file backend)
@@ -268,6 +270,19 @@ chat:
   prompt: "{{ get('q') }}"
   openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
   maxTokens: 1000
+```
+
+## OpenAI: web search
+
+`openAIWebSearch: true` attaches langchaingo's `llms.WithWebSearch` to each request, so OpenAI runs its server-side web search. Use it with a search-capable model such as `gpt-4o-search-preview`; other models ignore the option. Only the `openai` backend applies it.
+
+```yaml
+# resources/example.yaml
+chat:
+  backend: openai
+  model: gpt-4o-search-preview
+  prompt: "{{ get('q') }}"
+  openAIWebSearch: true   # OpenAI performs web search before answering
 ```
 
 ## Anthropic: prompt caching and extended output

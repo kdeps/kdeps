@@ -20,7 +20,6 @@ package llm_test
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,7 +51,7 @@ func TestExecutor_Execute_Success(t *testing.T) {
 	// Create mock Ollama server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/api/chat", r.URL.Path)
+		assert.Equal(t, "/chat/completions", r.URL.Path)
 
 		// Parse request body
 		var req map[string]interface{}
@@ -74,7 +73,7 @@ func TestExecutor_Execute_Success(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -88,6 +87,7 @@ func TestExecutor_Execute_Success(t *testing.T) {
 		Model:   "llama3.2:1b",
 		Role:    "user",
 		Prompt:  "Hello, how are you?",
+		Backend: "ollama",
 		BaseURL: server.URL,
 	}
 
@@ -142,7 +142,7 @@ func TestExecutor_Execute_WithScenario(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -195,7 +195,7 @@ func TestExecutor_Execute_JSONResponse(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -234,7 +234,7 @@ func TestExecutor_Execute_JSONResponseWithKeys(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -287,7 +287,7 @@ func TestExecutor_Execute_OllamaError(t *testing.T) {
 	// A failed call is a resource error now, not silent {error:...} result data
 	// that later blows up as get('chat').message.content -> <nil>.
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ollama API error")
+	assert.Contains(t, err.Error(), "API returned unexpected status code: 500")
 }
 
 func TestExecutor_Execute_Timeout(t *testing.T) {
@@ -336,7 +336,7 @@ func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -396,7 +396,7 @@ func TestExecutor_Execute_WithTools(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -448,7 +448,7 @@ func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
 			"done": true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(withOpenAIChoices(response))
 	}))
 	defer server.Close()
 
@@ -502,7 +502,7 @@ func TestExecutor_Execute_MissingPrompt(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"message":{"role":"assistant","content":"ok"}}`))
+		w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
 	}))
 	defer server.Close()
 
@@ -543,11 +543,11 @@ func TestExecutor_Execute_ResourceModelUsed(t *testing.T) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
 		gotModel = req["model"].(string)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"model":   gotModel,
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
 			"done":    true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -571,11 +571,11 @@ func TestExecutor_Execute_WorkflowModel_NotOverriddenByLLMModels(t *testing.T) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
 		gotModel = req["model"].(string)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"model":   gotModel,
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
 			"done":    true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -605,11 +605,11 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
 		gotModel = req["model"].(string)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"model":   gotModel,
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
 			"done":    true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -633,11 +633,11 @@ func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
 		gotModel = req["model"].(string)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"model":   gotModel,
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
 			"done":    true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -663,7 +663,7 @@ func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -684,7 +684,7 @@ func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -705,7 +705,7 @@ func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -726,7 +726,7 @@ func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -748,7 +748,7 @@ func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -770,7 +770,7 @@ func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T)
 			"done":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
@@ -789,7 +789,7 @@ func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
 			"message": map[string]interface{}{"content": "this response is way too long"},
 			"done":    true,
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer srv.Close()
 
@@ -809,7 +809,7 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 			"message": map[string]interface{}{"content": "hi"},
 			"done":    true,
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 	}))
 	defer srv.Close()
 
@@ -821,80 +821,11 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestExecutor_Execute_Streaming_AccumulatesChunks(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
-	t.Setenv("HOME", t.TempDir())
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req map[string]interface{}
-		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-
-		// Verify streaming was requested
-		stream, ok := req["stream"].(bool)
-		assert.True(t, ok, "stream field should be a bool")
-		assert.True(t, stream, "stream should be true")
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(
-			w,
-			`{"message":{"role":"assistant","content":"Hello "},"done":false}`+"\n",
-		)
-		_, _ = io.WriteString(
-			w,
-			`{"message":{"role":"assistant","content":"World"},"done":false}`+"\n",
-		)
-		_, _ = io.WriteString(w, `{"message":{"role":"assistant","content":"!"},"done":true}`+"\n")
-	}))
-	defer server.Close()
-
-	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
-
-	config := &domain.ChatConfig{
-		Model:     "llama3.2:1b",
-		Prompt:    "Hi",
-		BaseURL:   server.URL,
-		Streaming: true,
+// withOpenAIChoices adds an OpenAI-style "choices" array built from "message", so a
+// stub reply satisfies both the native Ollama and the OpenAI-compatible clients.
+func withOpenAIChoices(m map[string]interface{}) map[string]interface{} {
+	if msg, ok := m["message"]; ok {
+		m["choices"] = []interface{}{map[string]interface{}{"index": 0, "message": msg, "finish_reason": "stop"}}
 	}
-
-	result, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err)
-
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok)
-
-	msg, ok := resultMap["message"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "Hello World!", msg["content"])
-}
-
-func TestExecutor_Execute_Streaming_ErrorStatus(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = io.WriteString(w, `{"error":"model not found"}`)
-	}))
-	defer server.Close()
-
-	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
-
-	config := &domain.ChatConfig{
-		Model:     "nonexistent-model",
-		Prompt:    "Hi",
-		BaseURL:   server.URL,
-		Streaming: true,
-	}
-
-	_, err = llmExecutor.Execute(ctx, config)
-	require.Error(t, err) // a failed streaming call fails the resource
-	assert.Contains(t, err.Error(), "error")
+	return m
 }

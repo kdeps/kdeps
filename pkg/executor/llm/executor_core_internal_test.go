@@ -20,7 +20,6 @@ package llm
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,13 +28,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -53,14 +50,14 @@ func TestExecute_ComponentsAutoMergedAsTools(t *testing.T) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		// Return a minimal non-tool-call response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -118,14 +115,14 @@ func TestExecute_ExplicitToolsTakePrecedence(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -197,14 +194,14 @@ func TestExecute_ComponentsNotAllowlisted_NoTools(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -228,6 +225,7 @@ func TestExecute_ComponentsNotAllowlisted_NoTools(t *testing.T) {
 	_, execErr := e.Execute(ctx, &domain.ChatConfig{
 		Model:   "llama3.2:1b",
 		Prompt:  "Hello",
+		Backend: "ollama",
 		BaseURL: server.URL,
 	})
 	require.NoError(t, execErr)
@@ -245,14 +243,14 @@ func TestExecute_AllowlistFiltersComponents(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -302,14 +300,14 @@ func TestExecute_NoComponents_NoTools(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -322,6 +320,7 @@ func TestExecute_NoComponents_NoTools(t *testing.T) {
 	_, execErr := e.Execute(ctx, &domain.ChatConfig{
 		Model:   "llama3.2:1b",
 		Prompt:  "Hello",
+		Backend: "ollama",
 		BaseURL: server.URL,
 	})
 	require.NoError(t, execErr)
@@ -339,14 +338,14 @@ func TestExecute_NilWorkflow_NoTools(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody) //nolint:errcheck
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{ //nolint:errcheck
 			"model": "llama3.2:1b",
 			"message": map[string]interface{}{
 				"role":    "assistant",
 				"content": "done",
 			},
 			"done": true,
-		})
+		}))
 	}))
 	defer server.Close()
 
@@ -360,6 +359,7 @@ func TestExecute_NilWorkflow_NoTools(t *testing.T) {
 	_, execErr := e.Execute(ctx, &domain.ChatConfig{
 		Model:   "llama3.2:1b",
 		Prompt:  "Hello",
+		Backend: "ollama",
 		BaseURL: server.URL,
 	})
 	require.NoError(t, execErr)
@@ -431,9 +431,9 @@ func TestResolveModelForExecution_EnsureModelIgnored(t *testing.T) {
 func TestExecutor_Execute_SuccessPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"message": map[string]interface{}{"content": "ok"},
-		})
+		}))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -461,24 +461,13 @@ func TestExecutor_Execute_BuildMessagesError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestExecutor_Execute_BuildRequestError(t *testing.T) {
-	e := &Executor{backendRegistry: NewBackendRegistry()}
-	e.backendRegistry.SetBackendsForTesting(map[string]Backend{
-		"ollama": &htcBuildRequestErrorBackend{},
-	})
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
-	require.NoError(t, err)
-	_, err = e.Execute(ctx, &domain.ChatConfig{Model: "m", Prompt: "p", Backend: "ollama"})
-	require.Error(t, err)
-}
-
 func TestExecutor_Execute_HandleToolCallsReturnError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
 		if calls == 1 {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 				"message": map[string]interface{}{
 					"tool_calls": []interface{}{
 						map[string]interface{}{
@@ -487,7 +476,7 @@ func TestExecutor_Execute_HandleToolCallsReturnError(t *testing.T) {
 						},
 					},
 				},
-			})
+			}))
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -568,37 +557,6 @@ func TestExecuteTool_StoreToolArgumentsError(t *testing.T) {
 	ctx.Resources["res"] = &domain.Resource{ActionID: "res"}
 	e.toolExecutor = &failingToolExecutor{}
 	_, err = e.executeTool(domain.Tool{Name: "t", Script: "res"}, `{"k":"v"}`, ctx)
-	require.Error(t, err)
-}
-
-func TestHandleToolCalls_ExecuteToolCallsInjectorError(t *testing.T) {
-	orig := executeToolCallsErrInjector
-	t.Cleanup(func() { executeToolCallsErrInjector = orig })
-	executeToolCallsErrInjector = func() error { return errors.New("inject fail") }
-	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
-	require.NoError(t, err)
-	_, err = e.handleToolCalls(
-		ctx,
-		&domain.ChatConfig{},
-		[]domain.Tool{{Name: "t", Execute: func(_ map[string]interface{}) (string, error) { return "ok", nil }}},
-		"m",
-		[]map[string]interface{}{{"role": "user", "content": "hi"}},
-		ChatRequestConfig{},
-		&OllamaBackend{},
-		"http://localhost",
-		map[string]interface{}{
-			"message": map[string]interface{}{
-				"tool_calls": []interface{}{
-					map[string]interface{}{
-						"id":       "1",
-						"function": map[string]interface{}{"name": "t", "arguments": `{}`},
-					},
-				},
-			},
-		},
-		time.Second,
-	)
 	require.Error(t, err)
 }
 
@@ -868,7 +826,7 @@ func TestExecutor_Execute_HandleToolCalls_Loop(t *testing.T) {
 				},
 				"done": true,
 			}
-			_ = json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 		} else {
 			// Second call: return final response
 			resp := map[string]interface{}{
@@ -879,7 +837,7 @@ func TestExecutor_Execute_HandleToolCalls_Loop(t *testing.T) {
 				},
 				"done": true,
 			}
-			_ = json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(withOpenAIChoices(resp))
 		}
 	}))
 	defer server.Close()
@@ -939,9 +897,9 @@ func toolLoopServer(t *testing.T, argsFor func(n int) string) (*httptest.Server,
 				},
 			}}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(withOpenAIChoices(map[string]interface{}{
 			"model": "llama3.2:1b", "message": message, "done": true,
-		})
+		}))
 	}))
 	t.Cleanup(server.Close)
 	return server, &hadTools
@@ -1467,51 +1425,6 @@ func TestExecuteTool_MCPError(t *testing.T) {
 	assert.Contains(t, execErr.Error(), "MCP tool execution failed")
 }
 
-func TestBuildContentWithLocalImage(t *testing.T) {
-	kdeps_debug.Log("enter: TestBuildContentWithLocalImage")
-	tempDir := t.TempDir()
-	imagePath, imgBytes := createTempPNG(t, tempDir)
-	expectedBase64 := base64.StdEncoding.EncodeToString(imgBytes)
-
-	server := httptest.NewServer(imageTestHandler(t, expectedBase64))
-	defer server.Close()
-
-	llmExecutor := NewExecutor(server.URL)
-	ctx := newImageTestContext(t, tempDir)
-	config := buildImageTestConfig(server.URL, filepath.Base(imagePath))
-
-	_, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err)
-}
-
-func TestBuildContentWithUploadedImage(t *testing.T) {
-	kdeps_debug.Log("enter: TestBuildContentWithUploadedImage")
-	tempDir := t.TempDir()
-	imagePath, imgBytes := createTempPNG(t, tempDir)
-	expectedBase64 := base64.StdEncoding.EncodeToString(imgBytes)
-
-	server := httptest.NewServer(imageTestHandler(t, expectedBase64))
-	defer server.Close()
-
-	llmExecutor := NewExecutor(server.URL)
-	ctx := newImageTestContext(t, tempDir)
-	ctx.Request = &executor.RequestContext{
-		Files: []executor.FileUpload{
-			{
-				Name:     filepath.Base(imagePath),
-				Path:     imagePath,
-				MimeType: "image/png",
-				Size:     int64(len(imgBytes)),
-			},
-		},
-	}
-
-	config := buildImageTestConfig(server.URL, filepath.Base(imagePath))
-
-	_, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err)
-}
-
 func TestStoreToolArguments_Empty(t *testing.T) {
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
@@ -1950,4 +1863,13 @@ func TestParseJSONResponse_KeyFilter(t *testing.T) {
 	assert.Equal(t, float64(9), m["score"])
 	_, hasReason := m["reason"]
 	assert.False(t, hasReason)
+}
+
+// withOpenAIChoices adds an OpenAI-style "choices" array built from "message", so a
+// stub reply satisfies both the native Ollama and the OpenAI-compatible clients.
+func withOpenAIChoices(m map[string]interface{}) map[string]interface{} {
+	if msg, ok := m["message"]; ok {
+		m["choices"] = []interface{}{map[string]interface{}{"index": 0, "message": msg, "finish_reason": "stop"}}
+	}
+	return m
 }

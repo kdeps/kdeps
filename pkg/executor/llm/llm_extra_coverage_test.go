@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
+	lccache "github.com/tmc/langchaingo/llms/cache"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -265,7 +266,7 @@ func TestBuildLangchainLLM_UseCache_OpenAI(t *testing.T) {
 	model, err := buildLangchainLLM(context.Background(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, model)
-	_, isCached := model.(*cachedLLM)
+	_, isCached := model.(*lccache.Cacher)
 	assert.True(t, isCached, "should return cachedLLM when UseCache is true")
 }
 
@@ -487,22 +488,6 @@ func TestBuildOpenAIResponseFormat_NoTitle(t *testing.T) {
 }
 
 // ---- backend_bedrock.go: BuildRequest with JSONResponse ----
-
-func TestBedrockBuildRequest_JSONResponse(t *testing.T) {
-	bb := &BedrockBackend{}
-	messages := []map[string]interface{}{
-		{"role": "user", "content": []interface{}{
-			map[string]interface{}{"text": "hello"},
-		}},
-	}
-	req, err := bb.BuildRequest("amazon.titan-text-lite-v1", messages, ChatRequestConfig{
-		JSONResponse: true,
-	})
-	require.NoError(t, err)
-	rf, ok := req["responseFormat"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, jsonResponseFormat, rf["type"])
-}
 
 // ---- output_parser.go: parseSimpleOutput success path ----
 // The Simple parser always returns success (no error branch to cover).

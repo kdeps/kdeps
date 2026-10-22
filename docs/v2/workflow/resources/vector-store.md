@@ -87,16 +87,18 @@ apiResponse:
 | `provider` | Connection via `url` |
 |---|---|
 | `qdrant` (default) | `http://localhost:6333` |
-| `chroma` | `http://localhost:8000` (default if `url` is empty) |
+| `chroma` | `http://localhost:8000` (default if `url` is empty). `apiKey` is not sent, so authenticated Chroma servers are not supported |
 | `pinecone` | `https://<index-host>.svc.<env>.pinecone.io` |
 | `azureaisearch` | `https://<service>.search.windows.net`, or `AZURE_AI_SEARCH_ENDPOINT` env var |
 | `opensearch` / `elasticsearch` | `http://localhost:9200` |
 | `weaviate` | `http://localhost:8080` |
-| `pgvector` / `postgres` / `postgresql` / `alloydb` / `cloudsql` | PostgreSQL DSN, e.g. `postgres://user:pass@localhost/db` |
+| `pgvector` / `postgres` / `postgresql` / `alloydb` / `cloudsql` | PostgreSQL DSN, e.g. `postgres://user:pass@localhost/db`. AlloyDB and Cloud SQL connect through the same PostgreSQL DSN |
 | `mariadb` / `dolt` / `mysql` | MySQL DSN, e.g. `user:pass@tcp(localhost:3306)/dbname` |
-| `mongodb` / `mongo` | MongoDB URI, e.g. `mongodb://localhost:27017` |
+| `mongodb` / `mongo` | MongoDB URI, e.g. `mongodb://localhost:27017`. Similarity search uses an Atlas Vector Search index named `vector_index` on the collection, so a self-hosted MongoDB without Atlas Vector Search cannot run `similarity_search` |
 | `redis` | Redis URI (default `redis://localhost:6379`). `collection` is the Redis index name |
 | `bedrock` | AWS Bedrock Knowledge Base - `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
+
+Each store connects when the resource runs. An unreachable `url` fails the resource with a `vectorstore` error instead of failing later on the first call.
 
 ## Output
 

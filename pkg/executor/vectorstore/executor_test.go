@@ -16,7 +16,6 @@ package vectorstore
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -399,13 +398,13 @@ func TestBuildStore_Chroma_DefaultURL(t *testing.T) {
 		EmbedModel:   "text-embedding-ada-002",
 		EmbedBackend: "openai",
 	}
-	store, err := buildStore(t.Context(), cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// No chroma server runs on the default port in tests, so the default URL is
+	// exercised through the connection error it produces.
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Skip("a chroma server is listening on localhost:8000")
 	}
-	if store == nil {
-		t.Fatal("expected non-nil store")
-	}
+	assert.Contains(t, err.Error(), "vectorstore chroma")
 }
 
 func TestBuildStore_Chroma_MissingCollection(t *testing.T) {
@@ -734,24 +733,6 @@ func TestBuildStore_MySQL_MissingCollection(t *testing.T) {
 	}
 }
 
-func TestBuildStore_MariaDB_WithURL(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg := &domain.VectorStoreConfig{
-		Provider:     "mariadb",
-		Collection:   "docs",
-		URL:          "user:pass@tcp(localhost:3306)/mydb",
-		EmbedModel:   "text-embedding-ada-002",
-		EmbedBackend: "openai",
-	}
-	store, err := buildStore(t.Context(), cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if store == nil {
-		t.Fatal("expected non-nil store")
-	}
-}
-
 func TestBuildStore_Postgres_MissingURL(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	cfg := &domain.VectorStoreConfig{
@@ -778,78 +759,6 @@ func TestBuildStore_Postgres_MissingCollection(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing postgres collection")
 	}
-}
-
-func TestBuildStore_Postgres_WithURL(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg := &domain.VectorStoreConfig{
-		Provider:     "pgvector",
-		Collection:   "docs",
-		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
-		EmbedModel:   "text-embedding-ada-002",
-		EmbedBackend: "openai",
-	}
-	store, err := buildStore(t.Context(), cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if store == nil {
-		t.Fatal("expected non-nil store")
-	}
-}
-
-func TestBuildStore_AlloyDB_WithURL(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg := &domain.VectorStoreConfig{
-		Provider:     "alloydb",
-		Collection:   "embeddings",
-		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
-		EmbedModel:   "text-embedding-ada-002",
-		EmbedBackend: "openai",
-	}
-	store, err := buildStore(t.Context(), cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if store == nil {
-		t.Fatal("expected non-nil store")
-	}
-}
-
-func TestBuildStore_Postgres_AliasPSQL(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	for _, alias := range []string{"postgresql", "cloudsql"} {
-		t.Run(alias, func(t *testing.T) {
-			cfg := &domain.VectorStoreConfig{
-				Provider:     alias,
-				Collection:   "docs",
-				URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
-				EmbedModel:   "text-embedding-ada-002",
-				EmbedBackend: "openai",
-			}
-			store, err := buildStore(t.Context(), cfg)
-			require.NoError(t, err, "alias %q should construct without error", alias)
-			assert.NotNil(t, store)
-		})
-	}
-}
-
-func TestPostgresCreateTableSQL(t *testing.T) {
-	t.Parallel()
-	sql := postgresCreateTableSQL("my_table")
-	assert.Contains(t, sql, "my_table")
-	assert.Contains(t, sql, "embedding JSONB")
-	assert.Contains(t, sql, "id TEXT")
-	assert.Contains(t, sql, "content TEXT")
-	assert.Contains(t, sql, "metadata JSONB")
-}
-
-func TestPostgresInsertSQL(t *testing.T) {
-	t.Parallel()
-	sql := postgresInsertSQL("my_table")
-	assert.Contains(t, sql, "my_table")
-	assert.Contains(t, sql, "$1")
-	assert.Contains(t, sql, "$4")
 }
 
 func TestBuildStore_AlloyDB_MissingURL(t *testing.T) {
@@ -937,32 +846,6 @@ func TestBuildStore_MongoDB_MissingCollection(t *testing.T) {
 	_, err := buildStore(t.Context(), cfg)
 	if err == nil {
 		t.Fatal("expected error for missing mongo collection")
-	}
-}
-
-func TestCosineSimilarity_SameVector(t *testing.T) {
-	v := []float32{0.1, 0.2, 0.3, 0.4}
-	score := cosineSimilarity(v, v)
-	if score < 0.999 {
-		t.Fatalf("expected near 1.0 cosine similarity for same vector, got %f", score)
-	}
-}
-
-func TestCosineSimilarity_ZeroVector(t *testing.T) {
-	a := []float32{0, 0, 0}
-	b := []float32{0, 0, 0}
-	score := cosineSimilarity(a, b)
-	if score != 0 {
-		t.Fatalf("expected 0 for zero vectors, got %f", score)
-	}
-}
-
-func TestCosineSimilarity_LengthMismatch(t *testing.T) {
-	a := []float32{1, 2, 3}
-	b := []float32{1, 2}
-	score := cosineSimilarity(a, b)
-	if score != 0 {
-		t.Fatalf("expected 0 for mismatched lengths, got %f", score)
 	}
 }
 
@@ -1252,299 +1135,22 @@ func TestPineconeStore_SimilaritySearch_HTTPError(t *testing.T) {
 	assert.Contains(t, err.Error(), "503")
 }
 
-func TestChromaStore_SimilaritySearch_Success(t *testing.T) {
-	t.Parallel()
-	collID := "coll-uuid-123"
-	queryResp := `{
-		"documents": [["doc one", "doc two"]],
-		"metadatas": [[{"src": "a"}, {}]],
-		"distances": [[0.1, 0.4]]
-	}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			// collectionID: return existing collection
-			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-		default:
-			// query endpoint
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(queryResp))
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Len(t, docs, 2)
-	assert.Equal(t, "doc one", docs[0].PageContent)
-	assert.Equal(t, "a", docs[0].Metadata["src"])
-	// distance 0.1 -> score 1/(1+0.1) = ~0.909
-	assert.InDelta(t, 0.909, float64(docs[0].Score), 0.01)
-}
-
-func TestChromaStore_AddDocuments_CreateCollection(t *testing.T) {
-	t.Parallel()
-	collID := "new-coll-id"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			// collection not found -- trigger create path
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"error":"not found"}`))
-		case http.MethodPost:
-			if r.URL.Path == "/api/v1/collections" {
-				// create collection
-				w.WriteHeader(http.StatusCreated)
-				_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
-			} else {
-				// add documents
-				w.WriteHeader(http.StatusCreated)
-				_, _ = w.Write([]byte(`{}`))
-			}
-		}
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	ids, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello chroma"},
-	})
-	require.NoError(t, err)
-	require.Len(t, ids, 1)
-	assert.NotEmpty(t, ids[0])
-}
-
-func TestMySQLCreateTableSQL(t *testing.T) {
-	t.Parallel()
-	sql := mysqlCreateTableSQL("my_table")
-	assert.Contains(t, sql, "my_table")
-	assert.Contains(t, sql, "embedding JSON")
-	assert.Contains(t, sql, "id VARCHAR(36)")
-	assert.Contains(t, sql, "content LONGTEXT")
-	assert.Contains(t, sql, "metadata JSON")
-}
-
-func TestMySQLInsertSQL(t *testing.T) {
-	t.Parallel()
-	sql := mysqlInsertSQL("my_table")
-	assert.Contains(t, sql, "my_table")
-	assert.Contains(t, sql, "?")
-	assert.Contains(t, sql, "id, content, embedding, metadata")
-}
-
-func TestBuildStore_MySQL_WithURL(t *testing.T) {
+// TestBuildStore_SQLProviders_UnreachableServerErrors pins that the langchaingo SQL
+// stores connect when constructed: an unreachable database is reported as a
+// vectorstore error instead of a store that fails later.
+func TestBuildStore_SQLProviders_UnreachableServerErrors(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg := &domain.VectorStoreConfig{
-		Provider:     "mysql",
-		Collection:   "docs",
-		URL:          "user:pass@tcp(localhost:3306)/mydb",
-		EmbedModel:   "text-embedding-ada-002",
-		EmbedBackend: "openai",
+	for _, provider := range []string{"pgvector", "mariadb", "mysql", "dolt"} {
+		cfg := &domain.VectorStoreConfig{
+			Provider:     provider,
+			Collection:   "docs",
+			URL:          "postgres://user:pass@127.0.0.1:1/mydb?sslmode=disable",
+			EmbedModel:   "text-embedding-ada-002",
+			EmbedBackend: "openai",
+		}
+		store, err := buildStore(t.Context(), cfg)
+		require.Error(t, err, provider)
+		assert.Nil(t, store, provider)
+		assert.Contains(t, err.Error(), "vectorstore", provider)
 	}
-	store, err := buildStore(t.Context(), cfg)
-	require.NoError(t, err)
-	assert.NotNil(t, store)
-}
-
-func TestBuildStore_Dolt_WithURL(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg := &domain.VectorStoreConfig{
-		Provider:     "dolt",
-		Collection:   "docs",
-		URL:          "user:pass@tcp(localhost:3306)/mydb",
-		EmbedModel:   "text-embedding-ada-002",
-		EmbedBackend: "openai",
-	}
-	store, err := buildStore(t.Context(), cfg)
-	require.NoError(t, err)
-	assert.NotNil(t, store)
-}
-
-func TestChromaStore_APIKey_Header(t *testing.T) {
-	t.Parallel()
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
-	}))
-	defer srv.Close()
-
-	store := &chromaStore{
-		baseURL:    srv.URL,
-		collection: "test",
-		apiKey:     "chroma-secret",
-		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
-		client:     http.DefaultClient,
-	}
-	// collectionID is called on AddDocuments; trigger it with an empty doc list (returns nil early)
-	// so we call it directly via SimilaritySearch with a query that will fail at query step
-	store.SimilaritySearch(context.Background(), "q", 1) //nolint:errcheck // only checking header
-	assert.Equal(t, "Bearer chroma-secret", gotAuth)
-}
-
-// sqliteCreateTableSQL returns a SQLite-compatible CREATE TABLE statement for testing.
-func sqliteCreateTableSQL(table string) string {
-	return "CREATE TABLE IF NOT EXISTS " + table + " (" +
-		"id TEXT NOT NULL PRIMARY KEY," +
-		"content TEXT NOT NULL," +
-		"embedding TEXT NOT NULL," +
-		"metadata TEXT" +
-		")"
-}
-
-// sqliteInsertSQL returns a SQLite-compatible INSERT statement for testing.
-func sqliteInsertSQL(table string) string {
-	return "INSERT INTO " + table + " (id, content, embedding, metadata) VALUES (?, ?, ?, ?)"
-}
-
-// newTestSQLiteStore creates a file-based SQLite sqlStore for testing.
-func newTestSQLiteStore(t *testing.T, embedder *stubVectorEmbedder) *sqlStore {
-	t.Helper()
-	dbPath := t.TempDir() + "/test.db"
-	store, err := newSQLStore(
-		"sqlite3",
-		dbPath,
-		"test_vectors",
-		"sqlite",
-		sqliteCreateTableSQL,
-		sqliteInsertSQL,
-		embedder,
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		_ = store.db.Close()
-	})
-	return store
-}
-
-func TestSQLStore_EnsureTable_CreatesTable(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	err := store.ensureTable(context.Background())
-	require.NoError(t, err)
-	// idempotent
-	err = store.ensureTable(context.Background())
-	require.NoError(t, err)
-}
-
-func TestSQLStore_AddDocuments_Empty(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	ids, err := store.AddDocuments(context.Background(), nil)
-	require.NoError(t, err)
-	assert.Nil(t, ids)
-}
-
-func TestSQLStore_AddDocuments_Success(t *testing.T) {
-	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}, {0.9, 0.1}}}
-	store := newTestSQLiteStore(t, emb)
-	docs := []schema.Document{
-		{PageContent: "hello world", Metadata: map[string]interface{}{"src": "a"}},
-		{PageContent: "foo bar", Metadata: map[string]interface{}{"src": "b"}},
-	}
-	ids, err := store.AddDocuments(context.Background(), docs)
-	require.NoError(t, err)
-	require.Len(t, ids, 2)
-	assert.NotEmpty(t, ids[0])
-	assert.NotEmpty(t, ids[1])
-}
-
-func TestSQLStore_AddDocuments_EmbedError(t *testing.T) {
-	embedErr := errors.New("embed failed")
-	emb := &stubVectorEmbedder{err: embedErr}
-	store := newTestSQLiteStore(t, emb)
-	_, err := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "embed")
-}
-
-func TestSQLStore_SimilaritySearch_Success(t *testing.T) {
-	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
-	store := newTestSQLiteStore(t, emb)
-
-	// add documents
-	docs := []schema.Document{
-		{PageContent: "alpha doc"},
-		{PageContent: "beta doc"},
-	}
-	_, err := store.AddDocuments(context.Background(), docs)
-	require.NoError(t, err)
-
-	results, err := store.SimilaritySearch(context.Background(), "alpha", 5)
-	require.NoError(t, err)
-	assert.Len(t, results, 2)
-}
-
-func TestSQLStore_SimilaritySearch_ZeroNumDocuments(t *testing.T) {
-	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
-	store := newTestSQLiteStore(t, emb)
-	docs := []schema.Document{{PageContent: "test doc"}}
-	_, addErr := store.AddDocuments(context.Background(), docs)
-	require.NoError(t, addErr)
-
-	// numDocuments=0 should default to 5
-	results, err := store.SimilaritySearch(context.Background(), "test", 0)
-	require.NoError(t, err)
-	assert.NotNil(t, results)
-}
-
-func TestSQLStore_SimilaritySearch_EmbedError(t *testing.T) {
-	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
-	store := newTestSQLiteStore(t, emb)
-	docs := []schema.Document{{PageContent: "test doc"}}
-	_, addErr := store.AddDocuments(context.Background(), docs)
-	require.NoError(t, addErr)
-
-	// Now set embed error
-	emb.err = errors.New("embed error")
-	_, err := store.SimilaritySearch(context.Background(), "test", 5)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "embed query")
-}
-
-func TestSQLStore_SimilaritySearch_LimitResults(t *testing.T) {
-	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
-	store := newTestSQLiteStore(t, emb)
-	docs := []schema.Document{
-		{PageContent: "doc one"},
-		{PageContent: "doc two"},
-		{PageContent: "doc three"},
-	}
-	_, err := store.AddDocuments(context.Background(), docs)
-	require.NoError(t, err)
-
-	results, err := store.SimilaritySearch(context.Background(), "query", 2)
-	require.NoError(t, err)
-	assert.Len(t, results, 2)
-}
-
-func TestCosineSimilarity_OrthogonalVectors(t *testing.T) {
-	a := []float32{1, 0}
-	b := []float32{0, 1}
-	score := cosineSimilarity(a, b)
-	assert.InDelta(t, 0.0, float64(score), 0.001)
-}
-
-func TestNewSQLStore_EmptyDSN(t *testing.T) {
-	_, err := newSQLStore("sqlite3", "", "table", "test", sqliteCreateTableSQL, sqliteInsertSQL, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "url (DSN) is required")
-}
-
-func TestNewSQLStore_EmptyTableName(t *testing.T) {
-	_, err := newSQLStore("sqlite3", "file::memory:", "", "test", sqliteCreateTableSQL, sqliteInsertSQL, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "collection")
 }

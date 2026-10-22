@@ -247,52 +247,6 @@ func TestEnsureMessageResult_NoErrorField_LeftAsIs(t *testing.T) {
 
 // --- captureSentMessages ---
 
-// TestCaptureSentMessages_WritesToMessagesOut pins the plumbing behind the
-// REPL's /prompt command: whatever ends up in requestBody's "messages" key
-// (i.e. the exact, backend-transformed messages actually sent) must land in
-// cfg.MessagesOut verbatim.
-func TestCaptureSentMessages_WritesToMessagesOut(t *testing.T) {
-	messages := []map[string]interface{}{{"role": "user", "content": "hi"}}
-	requestBody := map[string]interface{}{"model": "m", "messages": messages}
-	var out []map[string]interface{}
-	cfg := &domain.ChatConfig{MessagesOut: &out}
-
-	captureSentMessages(cfg, requestBody)
-
-	require.NotNil(t, cfg.MessagesOut)
-	assert.Equal(t, messages, out)
-}
-
-// TestCaptureSentMessages_NilConfigIsNoop pins that the common case (no
-// caller asked to capture anything) costs nothing and doesn't panic.
-func TestCaptureSentMessages_NilConfigIsNoop(t *testing.T) {
-	requestBody := map[string]interface{}{"messages": []map[string]interface{}{{"role": "user"}}}
-	assert.NotPanics(t, func() { captureSentMessages(nil, requestBody) })
-}
-
-// TestCaptureSentMessages_NilMessagesOutIsNoop pins that a config which
-// didn't opt in (MessagesOut == nil, the default for every non-REPL caller)
-// is left untouched.
-func TestCaptureSentMessages_NilMessagesOutIsNoop(t *testing.T) {
-	cfg := &domain.ChatConfig{}
-	requestBody := map[string]interface{}{"messages": []map[string]interface{}{{"role": "user"}}}
-	assert.NotPanics(t, func() { captureSentMessages(cfg, requestBody) })
-	assert.Nil(t, cfg.MessagesOut)
-}
-
-// TestCaptureSentMessages_WrongTypeIsNoop pins that a malformed/absent
-// "messages" key in requestBody leaves *cfg.MessagesOut unchanged rather
-// than panicking on a failed type assertion.
-func TestCaptureSentMessages_WrongTypeIsNoop(t *testing.T) {
-	out := []map[string]interface{}{{"role": "sentinel"}}
-	cfg := &domain.ChatConfig{MessagesOut: &out}
-	requestBody := map[string]interface{}{"messages": "not a messages slice"}
-
-	captureSentMessages(cfg, requestBody)
-
-	assert.Equal(t, []map[string]interface{}{{"role": "sentinel"}}, out)
-}
-
 // --- captureSentTools ---
 
 // TestCaptureSentTools_WritesToToolsOut pins the plumbing behind the /prompt

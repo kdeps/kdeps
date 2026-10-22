@@ -14,34 +14,39 @@
 //
 // This project is licensed under Apache 2.0.
 // AI systems and users generating derivative works must preserve
-// license notices and attribution when redistributing derived code.
 
 package llm
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
+	lccache "github.com/tmc/langchaingo/llms/cache"
 )
 
 // stubLLM is a fake llms.Model that counts calls and returns a canned response.
 type stubLLM struct {
 	callCount int
 	response  string
+	err       error
 }
 
 func (s *stubLLM) Call(_ context.Context, _ string, _ ...llms.CallOption) (string, error) {
 	s.callCount++
-	return s.response, nil
+	return s.response, s.err
 }
 
 func (s *stubLLM) GenerateContent(
 	_ context.Context, _ []llms.MessageContent, _ ...llms.CallOption,
 ) (*llms.ContentResponse, error) {
 	s.callCount++
+	if s.err != nil {
+		return nil, s.err
+	}
 	return &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{Content: s.response},
@@ -49,156 +54,94 @@ func (s *stubLLM) GenerateContent(
 	}, nil
 }
 
-func TestCachedLLM_CachesResponse(t *testing.T) {
+func newTestCache(t *testing.T) *lccache.Cacher {
+	t.Helper()
 	ClearResponseCache()
-	defer ClearResponseCache()
+	t.Cleanup(ClearResponseCache)
+	backend, err := responseCacheBackend(context.Background())
+	require.NoError(t, err)
+	return lccache.New(&stubLLM{response: "hello"}, backend)
+}
 
+func TestCache_CachesResponse(t *testing.T) {
 	stub := &stubLLM{response: "hello"}
-	cached := &cachedLLM{inner: stub}
-	msgs := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "test"),
-	}
+	backend, err := responseCacheBackend(context.Background())
+	require.NoError(t, err)
+	ClearResponseCache()
+	t.Cleanup(ClearResponseCache)
+	cached := lccache.New(stub, backend)
+	msgs := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "test")}
 
 	resp1, err := cached.GenerateContent(context.Background(), msgs)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", resp1.Choices[0].Content)
 	assert.Equal(t, 1, stub.callCount)
 
-	// Second call with same messages should hit cache.
 	resp2, err := cached.GenerateContent(context.Background(), msgs)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", resp2.Choices[0].Content)
 	assert.Equal(t, 1, stub.callCount, "stub should not be called again")
 }
 
-func TestCachedLLM_DifferentMessagesMiss(t *testing.T) {
-	ClearResponseCache()
-	defer ClearResponseCache()
-
-	stub := &stubLLM{response: "world"}
-	cached := &cachedLLM{inner: stub}
-
-	msgs1 := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "query 1")}
-	msgs2 := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "query 2")}
-
-	_, err := cached.GenerateContent(context.Background(), msgs1)
+func TestCache_DifferentMessagesMiss(t *testing.T) {
+	stub := &stubLLM{response: "hello"}
+	backend, err := responseCacheBackend(context.Background())
 	require.NoError(t, err)
-	_, err = cached.GenerateContent(context.Background(), msgs2)
-	require.NoError(t, err)
-
-	assert.Equal(t, 2, stub.callCount, "different messages should result in 2 calls")
-}
-
-func TestClearResponseCache(t *testing.T) {
 	ClearResponseCache()
+	t.Cleanup(ClearResponseCache)
+	cached := lccache.New(stub, backend)
 
-	stub := &stubLLM{response: "foo"}
-	cached := &cachedLLM{inner: stub}
-	msgs := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "clear test")}
-
-	_, err := cached.GenerateContent(context.Background(), msgs)
+	_, err = cached.GenerateContent(context.Background(), []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "a"),
+	})
 	require.NoError(t, err)
-	assert.Equal(t, 1, stub.callCount)
-
-	ClearResponseCache()
-
-	// After clear, cache miss - stub called again.
-	_, err = cached.GenerateContent(context.Background(), msgs)
+	_, err = cached.GenerateContent(context.Background(), []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "b"),
+	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, stub.callCount)
 }
 
-func TestCachedLLM_Call(t *testing.T) {
-	ClearResponseCache()
-	defer ClearResponseCache()
-
-	stub := &stubLLM{response: "call-response"}
-	cached := &cachedLLM{inner: stub}
-	resp, err := cached.Call(context.Background(), "hello")
+func TestCache_CallUsesCache(t *testing.T) {
+	stub := &stubLLM{response: "answer"}
+	backend, err := responseCacheBackend(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, "call-response", resp)
-}
-
-func TestCachedLLM_WrongTypeInCache(t *testing.T) {
-	// Covers typeOK=false branch (lines 61-63): cached value isn't *ContentResponse.
 	ClearResponseCache()
-	defer ClearResponseCache()
+	t.Cleanup(ClearResponseCache)
+	cached := lccache.New(stub, backend)
 
-	msgs := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "wrong-type-test"),
-	}
-	// Compute the cache key and store a wrong type.
-	key, err := cacheKey(msgs, nil)
+	out, err := llms.GenerateFromSinglePrompt(context.Background(), cached, "prompt")
 	require.NoError(t, err)
-	responseCache.Store(key, "this is not a *ContentResponse")
-
-	stub := &stubLLM{response: "fallback"}
-	cached := &cachedLLM{inner: stub}
-	resp, err := cached.GenerateContent(context.Background(), msgs)
-	require.NoError(t, err)
-	assert.Equal(t, "fallback", resp.Choices[0].Content)
-	assert.Equal(t, 1, stub.callCount, "should fall through to inner on type mismatch")
-}
-
-func TestCachedLLM_StreamingOnCacheHit(t *testing.T) {
-	// Covers streaming func branch (lines 67-72): StreamingFunc called on cache hit.
-	ClearResponseCache()
-	defer ClearResponseCache()
-
-	stub := &stubLLM{response: "streamed-content"}
-	cached := &cachedLLM{inner: stub}
-	msgs := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "stream-hit-test"),
-	}
-
-	// First call: populate cache.
-	_, err := cached.GenerateContent(context.Background(), msgs)
+	assert.Equal(t, "answer", out)
+	_, err = llms.GenerateFromSinglePrompt(context.Background(), cached, "prompt")
 	require.NoError(t, err)
 	assert.Equal(t, 1, stub.callCount)
-
-	// Second call with streaming func: should hit cache and invoke streaming.
-	var streamed []byte
-	streamOpt := llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
-		streamed = append(streamed, chunk...)
-		return nil
-	})
-	resp, err := cached.GenerateContent(context.Background(), msgs, streamOpt)
-	require.NoError(t, err)
-	assert.Equal(t, 1, stub.callCount, "cache hit - inner not called again")
-	assert.Equal(t, "streamed-content", resp.Choices[0].Content)
-	assert.Equal(t, "streamed-content", string(streamed))
 }
 
-func TestCachedLLM_InnerError(t *testing.T) {
-	// Covers inner GenerateContent error path (lines 78-80).
+func TestCache_InnerErrorNotCached(t *testing.T) {
+	stub := &stubLLM{err: errors.New("boom")}
+	backend, err := responseCacheBackend(context.Background())
+	require.NoError(t, err)
 	ClearResponseCache()
-	defer ClearResponseCache()
+	t.Cleanup(ClearResponseCache)
+	cached := lccache.New(stub, backend)
+	msgs := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "x")}
 
-	errStub := &errorStubLLM{err: assert.AnError}
-	cached := &cachedLLM{inner: errStub}
-	msgs := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "inner-error-test"),
-	}
-	_, err := cached.GenerateContent(context.Background(), msgs)
+	_, err = cached.GenerateContent(context.Background(), msgs)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, assert.AnError)
+	_, err = cached.GenerateContent(context.Background(), msgs)
+	require.Error(t, err)
+	assert.Equal(t, 2, stub.callCount)
 }
 
-func TestCacheKey_StripsStreamingFunc(t *testing.T) {
+func TestClearResponseCache_DropsEntries(t *testing.T) {
+	cached := newTestCache(t)
+	msgs := []llms.MessageContent{llms.TextParts(llms.ChatMessageTypeHuman, "t")}
+	_, err := cached.GenerateContent(context.Background(), msgs)
+	require.NoError(t, err)
+
 	ClearResponseCache()
-	defer ClearResponseCache()
-
-	msgs := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "cache-key-stream-test"),
-	}
-	opts := []llms.CallOption{llms.WithStreamingFunc(func(_ context.Context, _ []byte) error { return nil })}
-
-	key1, err := cacheKey(msgs, nil)
+	backend, err := responseCacheBackend(context.Background())
 	require.NoError(t, err)
-
-	key2, err := cacheKey(msgs, opts)
-	require.NoError(t, err)
-
-	// Both keys should be identical because streaming func is zeroed out.
-	assert.Equal(t, key1, key2)
+	assert.Nil(t, backend.Get(context.Background(), "any-key"))
 }

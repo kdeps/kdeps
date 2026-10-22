@@ -39,7 +39,14 @@ import (
 	"github.com/tmc/langchaingo/schema"
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
+	lcchroma "github.com/tmc/langchaingo/vectorstores/chroma"
+	lcdolt "github.com/tmc/langchaingo/vectorstores/dolt"
+	lcmariadb "github.com/tmc/langchaingo/vectorstores/mariadb"
+	lcmongovector "github.com/tmc/langchaingo/vectorstores/mongovector"
+	lcpgvector "github.com/tmc/langchaingo/vectorstores/pgvector"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -52,6 +59,7 @@ const (
 	opAddDocuments      = "add_documents"
 	providerAzureAI     = "azureaisearch"
 	providerChroma      = "chroma"
+	defaultChromaURL    = "http://localhost:8000"
 	providerDolt        = "dolt"
 	providerAlloyDB     = "alloydb"
 	providerGoogle      = "google"
@@ -262,7 +270,19 @@ func buildChromaStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvec
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newChromaStore(cfg, embedder), nil
+	url := cfg.URL
+	if url == "" {
+		url = defaultChromaURL
+	}
+	store, err := lcchroma.New(
+		lcchroma.WithChromaURL(url),
+		lcchroma.WithEmbedder(embedder),
+		lcchroma.WithNameSpace(cfg.Collection),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore chroma: %w", err)
+	}
+	return store, nil
 }
 
 func buildPineconeStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {
@@ -294,7 +314,31 @@ func buildMySQLStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvect
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newMySQLStore(cfg, embedder)
+	tables := []string{cfg.Collection, cfg.Collection + "_collections"}
+	if cfg.Provider == providerDolt {
+		store, storeErr := lcdolt.New(
+			ctx,
+			lcdolt.WithConnectionURL(cfg.URL),
+			lcdolt.WithEmbedder(embedder),
+			lcdolt.WithEmbeddingTableName(tables[0]),
+			lcdolt.WithCollectionTableName(tables[1]),
+		)
+		if storeErr != nil {
+			return nil, fmt.Errorf("vectorstore dolt: %w", storeErr)
+		}
+		return &store, nil
+	}
+	store, storeErr := lcmariadb.New(
+		ctx,
+		lcmariadb.WithConnectionURL(cfg.URL),
+		lcmariadb.WithEmbedder(embedder),
+		lcmariadb.WithEmbeddingTableName(tables[0]),
+		lcmariadb.WithCollectionTableName(tables[1]),
+	)
+	if storeErr != nil {
+		return nil, fmt.Errorf("vectorstore mariadb: %w", storeErr)
+	}
+	return &store, nil
 }
 
 func buildPostgresStore(
@@ -305,7 +349,16 @@ func buildPostgresStore(
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newPostgresStore(cfg, embedder)
+	store, storeErr := lcpgvector.New(
+		ctx,
+		lcpgvector.WithConnectionURL(cfg.URL),
+		lcpgvector.WithEmbedder(embedder),
+		lcpgvector.WithCollectionName(cfg.Collection),
+	)
+	if storeErr != nil {
+		return nil, fmt.Errorf("vectorstore pgvector: %w", storeErr)
+	}
+	return &store, nil
 }
 
 func buildMongoStore(
@@ -316,7 +369,19 @@ func buildMongoStore(
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newMongoStore(ctx, cfg, embedder)
+	if cfg.URL == "" {
+		return nil, errors.New("vectorstore mongodb: url is required")
+	}
+	client, connErr := mongo.Connect(options.Client().ApplyURI(cfg.URL))
+	if connErr != nil {
+		return nil, fmt.Errorf("vectorstore mongodb: connect: %w", connErr)
+	}
+	dbName := cfg.APIKey
+	if dbName == "" {
+		dbName = "kdeps"
+	}
+	store := lcmongovector.New(client.Database(dbName).Collection(cfg.Collection), embedder)
+	return &store, nil
 }
 
 func buildAzureAISearchStore(
