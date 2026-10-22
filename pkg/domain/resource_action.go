@@ -70,7 +70,7 @@ func (a *ActionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 //
 //	run:
 //	  component:
-//	    name: scraper
+//	    name: web_scraper
 //	    version: 1.2.0
 //	    with:
 //	      url: "https://example.com"
