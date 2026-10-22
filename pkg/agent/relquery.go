@@ -30,13 +30,12 @@ type relRow = map[string]interface{}
 
 // buildQueryEnv assembles the memory/tool_calls/tasks relations plus the
 // join/union helpers into an expr-lang environment for the memory_query
-// builtin tool. ms, toolLog, and goal may each be nil/empty; the
-// corresponding relation is then an empty (non-nil) slice.
-func buildQueryEnv(ms *MemoryStore, toolLog []ToolCallRecord, goal *Goal) map[string]interface{} {
+// builtin tool. ms and toolLog may each be nil/empty; the corresponding
+// relation is then an empty (non-nil) slice.
+func buildQueryEnv(ms *MemoryStore, toolLog []ToolCallRecord) map[string]interface{} {
 	return map[string]interface{}{
 		"memory":     memoryRelation(ms),
 		"tool_calls": toolCallRelation(toolLog),
-		"tasks":      taskRelation(goal),
 		"join":       relJoin,
 		"union":      relUnion,
 	}
@@ -90,26 +89,6 @@ func toolCallRelation(toolLog []ToolCallRecord) []relRow {
 			"args":      t.Args,
 			"result":    t.Result,
 			"timestamp": t.Timestamp,
-		}
-	}
-	return rows
-}
-
-// taskRelation converts the active goal's task list into a relation. A nil
-// goal (no active goal) yields an empty relation.
-func taskRelation(goal *Goal) []relRow {
-	if goal == nil {
-		return []relRow{}
-	}
-	rows := make([]relRow, len(goal.Tasks))
-	for i, t := range goal.Tasks {
-		rows[i] = relRow{
-			"id":       t.ID,
-			"desc":     t.Desc,
-			"status":   string(t.Status),
-			"rounds":   t.Rounds,
-			"note":     t.Note,
-			"evidence": t.Evidence,
 		}
 	}
 	return rows

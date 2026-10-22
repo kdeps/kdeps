@@ -333,9 +333,6 @@ type Loop struct {
 	sessionID     string        // store id for the current session (continuity across turns/exit)
 	memoryStore   *MemoryStore  // optional memory persistence
 	streamer      Streamer      // optional streaming LLM caller
-	// enforcer drives the active goal's task state machine. Set per turn when
-	// GoalEnforcement is on; nil means the plain round loop.
-	enforcer *goalEnforcer
 	// modelNotes are loop-generated notices (goal transitions, budget changes,
 	// forced task failures) queued to be injected into the model's next request
 	// as a [kdeps] system message. The human sees them on the terminal; the
@@ -1180,12 +1177,6 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
-	// Goal-directed execution: decompose the prompt (or resume the stored plan)
-	// and attach the active-task directive before the first round.
-	if directive := l.beginGoal(ctx, input, w); directive != "" {
-		chatCfg = withGoalDirective(chatCfg, directive)
-		recordContextSegment("goal", directive)
-	}
 
 	// Resolve the judge panel up front so an auto-generated roster prints
 	// before the main tool loop, not after the answer. The panel still runs
@@ -1406,7 +1397,6 @@ func (l *Loop) runToolRounds(
 
 	var finalContent string
 	capped := false
-	directiveDropped := false
 	var nudges turnNudges
 	// Repeat-block loop guard: a model that re-issues the exact same tool call
 	// every round (common once a tool is blocked by convergence or keeps
@@ -1441,13 +1431,6 @@ func (l *Loop) runToolRounds(
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
 		llmErr = nil
-		// A model that copies the goal directive back instead of answering it
-		// leaves the turn with no reply at all. Drop the directive, stop
-		// enforcing, and redo the round as a plain one.
-		if next, retry := l.dropEchoedDirective(chatCfg, content, directiveDropped); retry {
-			chatCfg, directiveDropped = next, true
-			continue
-		}
 		finalContent = content
 
 		if len(toolCalls) == 0 {
@@ -1564,7 +1547,6 @@ func (l *Loop) applyRoundOutcome(
 	forcedFinal bool,
 	w io.Writer,
 ) (*domain.ChatConfig, int, bool) {
-	l.enforceGoalProgress(&chatCfg, outcome, w)
 	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
@@ -2046,16 +2028,8 @@ func isConvergenceBlocked(result string) bool {
 }
 
 // identicalRepeatLimit is how many identical call+result rounds in a row end
-// the turn. A tool with a category limit (web/bash/file/code) uses its
-// allocated budget as it stands now (including adaptive changes), never a
-// fixed value: identical repeats are served from the cache for free, so the
-// tool limit is the one cap the user set, and an unlimited limit means no stop
-// at all. Uncategorized tools use the identical-tool-calls event threshold.
-func identicalRepeatLimit(toolName string) int {
-	if cache := cacheForCategory(categoryForTool(toolName)); cache != nil {
-		_, limit := cache.count()
-		return limit
-	}
+// the turn: the identical-tool-calls event threshold.
+func identicalRepeatLimit(_ string) int {
 	return effectiveRounds(eventIdenticalCalls)
 }
 
@@ -2388,9 +2362,6 @@ func (l *Loop) handleTextOnlyRound(
 	// could run anyway -- accept the text as the turn's answer.
 	if len(chatCfg.Tools) == 0 {
 		_, _ = io.WriteString(w, buffered)
-		if l.settleActiveFromText(content, w) {
-			return withGoalDirective(chatCfg, l.enforcer.directive()), true
-		}
 		return chatCfg, false
 	}
 	if harnessOccurrenceAllowed("nudge-action", nudges.action) &&
@@ -2411,12 +2382,6 @@ func (l *Loop) handleTextOnlyRound(
 		nudges.selfLimit++
 		return nudgeSelfLimitConfig(chatCfg, nudges.selfLimit > 1), true
 	}
-	if harnessOccurrenceAllowed("nudge-give-up", nudges.giveUp) &&
-		looksLikeGiveUp(content) && l.hasMadeProgressThisTurn() {
-		repeat := nudges.giveUp > 0
-		nudges.giveUp++
-		return nudgeGiveUpConfig(chatCfg, repeat), true
-	}
 	// giveUp == 0: once the progress give-up path has already argued this
 	// turn, do not start a second argument on the same refusal. A fictional
 	// limit with no successful tool never enters that path, so it is pushed
@@ -2436,9 +2401,6 @@ func (l *Loop) handleTextOnlyRound(
 		return nudgeContinueConfig(chatCfg, repeat), true
 	}
 	_, _ = io.WriteString(w, buffered)
-	if l.settleActiveFromText(content, w) {
-		return withGoalDirective(chatCfg, l.enforcer.directive()), true
-	}
 	return chatCfg, false
 }
 
@@ -2591,12 +2553,6 @@ func (l *Loop) executeToolCalls(
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
 		}
-		if l.enforcer.observeResult(tc.Name, result) {
-			outcome.productive = true
-		}
-		if isTaskStateTool(tc.Name) && !isToolErrorResult(result) {
-			outcome.advanced = true
-		}
 		content := l.toolResultMessage(ctx, tc, result)
 		briefed := l.takeBriefedFailure()
 		note := ""
@@ -2653,9 +2609,6 @@ func (l *Loop) buildToolResultMessage(
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
-	if isTaskStateTool(tc.Name) {
-		return turoReduce(ctx, capToolResult(result))
-	}
 	recordContextSegment("tool: "+tc.Name, result)
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
@@ -2699,28 +2652,10 @@ func (l *Loop) hasMadeProgressThisTurn() bool {
 	return l.successfulWorkToolCalls > l.turnStartWorkToolCalls && l.lastWorkFailure == nil
 }
 
-// dispatchOrRefuse runs a tool call unless it breaks a goal rule: repeating work
-// from a settled task, or doing anything other than closing the task once it is
-// under force-close. A refusal is returned as the tool's result and costs the
-// task a strike, so the rules carry a consequence instead of being advisory.
+// dispatchOrRefuse shows a tool call and runs it, returning the tool's result.
 func (l *Loop) dispatchOrRefuse(tc domain.StreamedToolCall, w io.Writer) string {
-	refusal, refused := l.enforcer.refuseBacktrack(tc.Name, tc.Arguments)
-	if !refused {
-		refusal, refused = l.enforcer.refuseOffTask(tc.Name)
-	}
 	l.displayToolCall(tc, w)
-	if refused {
-		l.closeToolCallLine(w, "refused (goal rule)")
-		return refusal
-	}
-	result := l.dispatchStreamToolCall(tc, w)
-	l.enforcer.recordCall(tc.Name, tc.Arguments)
-	return result
-}
-
-// isTaskStateTool reports whether a tool call advances the goal state machine.
-func isTaskStateTool(name string) bool {
-	return name == toolNameTaskComplete || name == toolNameTaskFail
+	return l.dispatchStreamToolCall(tc, w)
 }
 
 // emitNarration writes the model's inter-tool narration to the progress writer.

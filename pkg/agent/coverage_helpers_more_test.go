@@ -19,10 +19,7 @@
 package agent
 
 import (
-	"path/filepath"
 	"testing"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestTokenCounter(t *testing.T) {
@@ -85,59 +82,4 @@ func TestSetStartupNotices(t *testing.T) {
 	if len(r.startupNotices) != 1 || r.startupNotices[0] != "note-a" {
 		t.Fatalf("%v", r.startupNotices)
 	}
-}
-
-func TestClearGoalHelper(t *testing.T) {
-	clearGoal(nil)
-	dir := t.TempDir()
-	ms := NewMemoryStore(dir)
-	ms.SetCwd(filepath.Join(dir, "proj"))
-	t.Cleanup(func() { _ = ms.Close() })
-	goalJSON := `{"text":"t","tasks":[{"id":1,"desc":"a","status":"active"}],"cursor":0}`
-	if err := ms.Set(goalMemoryKey, goalJSON); err != nil {
-		t.Fatal(err)
-	}
-	clearGoal(ms)
-	if _, ok := ms.Get(goalMemoryKey); ok {
-		t.Fatal("goal should be deleted")
-	}
-}
-
-func TestGoalEnforcer_BudgetEscalation(t *testing.T) {
-	g := NewGoal("ship it", []string{"write tests"})
-	e := newGoalEnforcer(g, nil, 3, 10, false)
-	if e.takeBudgetNote() != "" {
-		t.Fatal("empty note")
-	}
-	e.budgetNote = "file budget → 5"
-	if e.takeBudgetNote() != "file budget → 5" {
-		t.Fatal("take note")
-	}
-	if e.takeBudgetNote() != "" {
-		t.Fatal("cleared")
-	}
-
-	if e.escalationNote(escalateNone) != "" {
-		t.Fatal("none")
-	}
-	if e.escalationNote(escalateReanchor) == "" {
-		t.Fatal("reanchor")
-	}
-	if e.escalationNote(escalateNarrow) == "" {
-		t.Fatal("narrow")
-	}
-	if e.escalationNote(escalateForceClose) == "" {
-		t.Fatal("force")
-	}
-	if (*goalEnforcer)(nil).escalationNote(escalateReanchor) != "" {
-		t.Fatal("nil enforcer")
-	}
-
-	cfg := &domain.ChatConfig{}
-	if e.applyEscalation(nil, escalateNarrow) != nil {
-		t.Fatal("nil cfg")
-	}
-	_ = e.applyEscalation(cfg, escalateNone)
-	_ = e.applyEscalation(cfg, escalateNarrow)
-	_ = e.applyEscalation(cfg, escalateForceClose)
 }

@@ -259,9 +259,6 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		c.AutoJudges = t.AutoJudges
 		r.autoContextDetect = t.AutoContextDetect
 	}
-	if t.GoalConfigured {
-		r.loop.SetGoalEnforcement(!t.GoalEnforcementOff)
-	}
 	if t.RefineConfigured {
 		r.loop.SetPromptRefine(!t.RefineOff)
 	}

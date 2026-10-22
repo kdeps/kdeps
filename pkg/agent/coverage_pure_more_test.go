@@ -26,43 +26,6 @@ import (
 	"time"
 )
 
-func TestGoal_RecordRound(t *testing.T) {
-	if (*Goal)(nil).RecordRound() != 0 {
-		t.Fatal("nil goal")
-	}
-	g := NewGoal("do things", []string{"task a", "task b"})
-	if g.RecordRound() != 1 {
-		t.Fatal("first round")
-	}
-	if g.RecordRound() != 2 {
-		t.Fatal("second round")
-	}
-}
-
-func TestLoop_ClearGoalActiveGoalSkipNil(t *testing.T) {
-	var l *Loop
-	l.ClearGoal()
-	if l.ActiveGoal() != nil {
-		t.Fatal("nil loop ActiveGoal")
-	}
-	if l.SkipActiveTask() != nil {
-		t.Fatal("nil loop SkipActiveTask")
-	}
-
-	dir := t.TempDir()
-	ms := NewMemoryStore(dir)
-	ms.SetCwd(filepath.Join(dir, "proj"))
-	t.Cleanup(func() { _ = ms.Close() })
-	loop := &Loop{memoryStore: ms, config: Config{}}
-	if loop.ActiveGoal() != nil {
-		t.Fatal("empty store goal")
-	}
-	loop.ClearGoal()
-	if loop.SkipActiveTask() != nil {
-		t.Fatal("no enforcer skip")
-	}
-}
-
 func TestRestoreSessionConfig(t *testing.T) {
 	RestoreSessionConfig(nil, &Config{})
 

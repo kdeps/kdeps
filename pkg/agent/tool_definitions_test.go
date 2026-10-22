@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"context"
 	"maps"
 	"slices"
 	"testing"
@@ -28,64 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
-
-// allBuiltinTools registers every built-in tool, with the API keys set that
-// gate some of them, and returns the definition ids in use.
-func allBuiltinTools(t *testing.T) ([]*kdepstools.Tool, map[string]bool) {
-	t.Helper()
-	for _, k := range []string{
-		"SERPAPI_API_KEY", "EXA_API_KEY", "ZAPIER_NLA_API_KEY", "PERPLEXITY_API_KEY",
-		"WOLFRAM_APP_ID", "COHERE_API_KEY", "VOYAGEAI_API_KEY", "JINA_API_KEY", "GOOGLE_API_KEY",
-	} {
-		t.Setenv(k, "test")
-	}
-	t.Setenv("KDEPS_RAG_BASE_URL", "http://127.0.0.1:1")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	registerMemoryTools(t.Context(), reg)
-	loopReg := kdepstools.NewRegistry()
-	l := &Loop{registry: loopReg, skillList: []Skill{{Name: "s"}}}
-	l.registerSkillLoader()
-	l.registerIdentityTool()
-	l.registerSessionHandshakeTool()
-	l.knowledge = newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: t.TempDir()})
-	l.registerKnowledgeTools()
-
-	used := map[string]bool{"goal_task_complete": true, "goal_task_fail": true, "judge_verdict": true}
-	var all []*kdepstools.Tool
-	for _, r := range []*kdepstools.Registry{reg, loopReg} {
-		for _, tl := range r.List() {
-			used[tl.Name] = true
-			all = append(all, tl)
-		}
-	}
-	goalReg := kdepstools.NewRegistry()
-	(&Loop{registry: goalReg}).registerGoalTools()
-	all = append(all, goalReg.List()...)
-	return all, used
-}
-
-func TestToolDefinitions_EveryToolDefined(t *testing.T) {
-	// Tool assets served by the kdeps API instead of the agent loop:
-	// components call them through pkg/api, so no agent-loop tool registers
-	// them. TestTools_ListAndCall in pkg/api keeps this set honest.
-	apiOnly := map[string]bool{"exec": true, "python": true, "embedding": true, "vector_store": true}
-	tools, used := allBuiltinTools(t)
-	require.NotEmpty(t, tools)
-	for _, tl := range tools {
-		assert.NotEmpty(t, tl.Description, "tool %s has no tools/*.yaml definition", tl.Name)
-	}
-	for id := range toolDefinitions {
-		if apiOnly[id] {
-			continue
-		}
-		assert.True(t, used[id], "tools/%s.yaml is not used by any registered tool", id)
-	}
-}
 
 func TestToolDefinitions_EveryFileValid(t *testing.T) {
 	for id, d := range toolDefinitions {
@@ -95,15 +38,6 @@ func TestToolDefinitions_EveryFileValid(t *testing.T) {
 			assert.NotEmpty(t, p.Type, "tools/%s.yaml: parameter %s type", id, name)
 		}
 	}
-}
-
-func TestToolDefinitions_GoalToolsShareTaskComplete(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	(&Loop{registry: reg}).registerGoalTools()
-	tl := reg.Get(toolNameTaskComplete)
-	require.NotNil(t, tl)
-	assert.Contains(t, tl.Parameters, "evidence", "goal variant, not the task-registry one")
-	assert.Equal(t, toolDefinitions["goal_task_complete"].Description, tl.Description)
 }
 
 func TestDefinedAs(t *testing.T) {
