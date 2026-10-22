@@ -124,4 +124,3 @@ Response:
 - [search_local component](/workflow/resources/search-local) - `index: true`, fuzzy matching, graph boost
 - [Document search tutorial](/examples/rag-search) - semantic search with the `embedding` component
 - Code intelligence - symbol search over a source tree
-- Web scraper tutorial - fetch remote pages instead

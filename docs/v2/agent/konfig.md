@@ -12,7 +12,7 @@ kdeps konfig export [path]     # default ./konfig.yaml, from a bare CLI invocati
 /konfig export [path]          # inside the REPL, exports the LIVE session's config
 ```
 
-The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/goal on`, etc. that has not necessarily been touched via a command that persists it elsewhere.
+The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/efficiency verbose on`, etc. that has not necessarily been touched via a command that persists it elsewhere.
 
 ## Importing
 

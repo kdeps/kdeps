@@ -195,7 +195,7 @@ Probes follow what the workflow serves: an `apiServer` workflow gets HTTP probes
 
 ## NetworkPolicy (opt-in)
 
-Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat` and the `http_request`, `searchWeb`, and `sql` components can reach external services.
+Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat` and the `http_request`, `web_search`, and `sql` components can reach external services.
 
 ```yaml
 # k8s.yaml (appended when networkPolicy is enabled)

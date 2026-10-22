@@ -11,7 +11,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
-| Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same handlers behind the `file`, `git`, `sql`, `twiml`, `email` and `browser` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql), Telephony, Email, Browser |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same handlers behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
@@ -265,7 +265,7 @@ The full tool catalog (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wi
 /tools          # show current mode and tool count
 ```
 
-The choice persists automatically across sessions - no flag needed - the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
+The choice persists automatically across sessions - no flag needed - the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
 
 `KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) start a session already in lean mode and take priority over the persisted `/tools` choice.
 

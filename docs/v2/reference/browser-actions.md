@@ -288,4 +288,3 @@ Pause execution for a duration or until a CSS selector appears.
 ## See also
 
 - Browser resource - Configuration, stealth mode, sessions, and examples
-- Scraper component - Text extraction from already-fetched pages

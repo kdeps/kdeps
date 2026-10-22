@@ -312,44 +312,6 @@ SCRAPER_TIMEOUT=30
 
 kdeps only reads a component's `.env`; it never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).
 
-## Complete example: scraper component
-
-<div v-pre>
-
-```yaml
-# resources/scrape-page.yaml
-actionId: scrape-page
-name: Scrape Article
-component:
-  name: scraper
-  with:
-    url: "https://news.example.com/article"
-    selector: ".article-body"
-    timeout: 30
-
----
-# resources/summarize.yaml
-actionId: summarize
-name: Summarize Article
-requires:
-  - scrape-page
-chat:
-  prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
-
----
-# resources/respond.yaml
-actionId: respond
-name: Return Summary
-requires:
-  - summarize
-apiResponse:
-  success: true
-  response:
-    summary: "{{ output('summarize') }}"
-```
-
-</div>
-
 ## Example: greeter component
 
 **`components/greeter/component.yaml`**

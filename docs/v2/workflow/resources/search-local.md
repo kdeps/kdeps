@@ -1,6 +1,6 @@
 # search_local component
 
-The `search_local` component searches a local directory by content keyword and/or filename glob and returns `{results, count}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `search_local` tool, which runs the native searchLocal executor. A workflow that uses `searchLocal:` directly - primary or in a `before:`/`after:` step - is rejected. See [Search resources](/workflow/resources/search) for how it relates to `searchWeb`.
+The `search_local` component searches a local directory by content keyword and/or filename glob and returns `{results, count}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `search_local` tool, which runs the native searchLocal executor. A workflow that uses `searchLocal:` directly - primary or in a `before:`/`after:` step - is rejected. See [Search resources](/workflow/resources/search) for how it relates to `web_search`.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 

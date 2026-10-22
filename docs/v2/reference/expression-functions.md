@@ -155,7 +155,7 @@ htmlText(output('fetchPage').body, '')            # the whole body
 ```
 
 ### htmlFind(html, selector)
-Returns one map per element matching a CSS selector: its trimmed text under `text`, plus each attribute (`href`, `class`, `data-*`). The searchWeb component maps DuckDuckGo's result links with it.
+Returns one map per element matching a CSS selector: its trimmed text under `text`, plus each attribute (`href`, `class`, `data-*`).
 
 - **html**: An HTML document or fragment.
 - **selector**: A CSS selector.

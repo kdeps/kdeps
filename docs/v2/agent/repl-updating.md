@@ -77,7 +77,7 @@ The `kdeps` binary contains none of these files: kdeps loads them only from `~/.
 $ kdeps
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
-  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, browser, email, ...)
+  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
   3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
   4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       ~19.4k tok   every asset set
@@ -162,7 +162,7 @@ Installing the minimum profile...
 Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ..., themes/normal (needed by this command)...
 ```
 
-Switching to a smaller profile prunes: `kdeps profile minimum` after `agent` or `full` deletes every downloaded item the new profile does not cover (`commands/goal  remove  not in the profile`), and a set it leaves out entirely loses its required items too, except the base sets and the agent loop's. An item you install by name later is kept by `kdeps update`.
+Switching to a smaller profile prunes: `kdeps profile minimum` after `agent` or `full` deletes every downloaded item the new profile does not cover (`commands/efficiency  remove  not in the profile`), and a set it leaves out entirely loses its required items too, except the base sets and the agent loop's. An item you install by name later is kept by `kdeps update`.
 
 Without a chosen profile (no terminal and no `KDEPS_PROFILE`), a command installs each set it loads whole the first time it needs it (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a component not installed downloads it on that call:
 
@@ -220,7 +220,7 @@ How a version is chosen:
 - Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
 - A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
 
-Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) the loop's control tools (`goal_task_complete`, `goal_task_fail`, `judge_verdict`, `session_handshake`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
+Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, goals, judges, prompt refinement, the session handshake) the loop's control tools (`judge_verdict`, `session_handshake`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
 
 Your own overrides still win: files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and the like are layered on top of whatever version is installed.
 

@@ -195,6 +195,5 @@ component:
 
 ## See also
 
-- Scraper component - fetch content to index
 - [Search resource](/workflow/resources/search) - search local files and the web
 - [LLM resource](/workflow/resources/llm) - use search results as context
