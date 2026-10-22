@@ -658,60 +658,6 @@ func TestOpenSearchStore_AddDocuments_WrongVectors(t *testing.T) {
 
 // --- sqlStore error paths ---
 
-func TestSQLStore_AddDocuments_EnsureTableError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Close the underlying DB to make ExecContext fail.
-	require.NoError(t, store.db.Close())
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-}
-
-func TestSQLStore_AddDocuments_ExecError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Close the DB so ExecContext fails during insert.
-	require.NoError(t, store.db.Close())
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-}
-
-func TestSQLStore_SimilaritySearch_EnsureTableError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.db.Close())
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
-
-func TestSQLStore_SimilaritySearch_QueryError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Add a document first.
-	_, addErr := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
-	require.NoError(t, addErr)
-	// Close DB to make QueryContext fail.
-	require.NoError(t, store.db.Close())
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
-
-func TestSQLStore_SimilaritySearch_UnmarshalSkip(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// ensureTable must be called before raw SQL operations.
-	require.NoError(t, store.ensureTable(context.Background()))
-	// Insert a row with invalid JSON embedding; the scan succeeds but
-	// json.Unmarshal fails and the code skips the row via continue.
-	_, execErr := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"bad-id", "bad-content", "not-valid-json", "{}")
-	require.NoError(t, execErr)
-
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Empty(t, docs)
-}
-
 // --- HTTP-level request errors ---
 
 func TestPineconeStore_doRequest_HTTPError(t *testing.T) {
@@ -807,21 +753,6 @@ func TestWeaviateStore_SimilaritySearch_ReadError(t *testing.T) {
 }
 
 // --- SQLStore rows iteration error ---
-
-func TestSQLStore_SimilaritySearch_RowsErr(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Add a document.
-	_, addErr := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
-	require.NoError(t, addErr)
-
-	// Close the DB to make rows iteration fail on Err.
-	require.NoError(t, store.db.Close())
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	// Iteration may or may not fail depending on how SQLite handles closed DB.
-	if err != nil {
-		t.Logf("got rows error (expected on some platforms): %v", err)
-	}
-}
 
 // --- Chroma SimilaritySearch parse error ---
 

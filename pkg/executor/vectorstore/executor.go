@@ -40,7 +40,10 @@ import (
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
 	lcchroma "github.com/tmc/langchaingo/vectorstores/chroma"
+	lcdolt "github.com/tmc/langchaingo/vectorstores/dolt"
+	lcmariadb "github.com/tmc/langchaingo/vectorstores/mariadb"
 	lcmongovector "github.com/tmc/langchaingo/vectorstores/mongovector"
+	lcpgvector "github.com/tmc/langchaingo/vectorstores/pgvector"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -311,7 +314,31 @@ func buildMySQLStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvect
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newMySQLStore(cfg, embedder)
+	tables := []string{cfg.Collection, cfg.Collection + "_collections"}
+	if cfg.Provider == providerDolt {
+		store, storeErr := lcdolt.New(
+			ctx,
+			lcdolt.WithConnectionURL(cfg.URL),
+			lcdolt.WithEmbedder(embedder),
+			lcdolt.WithEmbeddingTableName(tables[0]),
+			lcdolt.WithCollectionTableName(tables[1]),
+		)
+		if storeErr != nil {
+			return nil, fmt.Errorf("vectorstore dolt: %w", storeErr)
+		}
+		return &store, nil
+	}
+	store, storeErr := lcmariadb.New(
+		ctx,
+		lcmariadb.WithConnectionURL(cfg.URL),
+		lcmariadb.WithEmbedder(embedder),
+		lcmariadb.WithEmbeddingTableName(tables[0]),
+		lcmariadb.WithCollectionTableName(tables[1]),
+	)
+	if storeErr != nil {
+		return nil, fmt.Errorf("vectorstore mariadb: %w", storeErr)
+	}
+	return &store, nil
 }
 
 func buildPostgresStore(
@@ -322,7 +349,16 @@ func buildPostgresStore(
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newPostgresStore(cfg, embedder)
+	store, storeErr := lcpgvector.New(
+		ctx,
+		lcpgvector.WithConnectionURL(cfg.URL),
+		lcpgvector.WithEmbedder(embedder),
+		lcpgvector.WithCollectionName(cfg.Collection),
+	)
+	if storeErr != nil {
+		return nil, fmt.Errorf("vectorstore pgvector: %w", storeErr)
+	}
+	return &store, nil
 }
 
 func buildMongoStore(

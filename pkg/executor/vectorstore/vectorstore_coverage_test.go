@@ -351,73 +351,11 @@ func TestWeaviateStore_SimilaritySearch_RequestError(t *testing.T) {
 
 // --- sqlStore wrong vectors in AddDocuments ---
 
-func TestSQLStore_AddDocuments_WrongVectors(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	// Use wrongCountEmbedder that always returns 1 vector regardless of input count.
-	store.embedder = &wrongCountEmbedder{}
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "a"},
-		{PageContent: "b"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "wrong number of vectors")
-}
-
 // --- sqlStore scan error in SimilaritySearch ---
-
-func TestSQLStore_SimilaritySearch_ScanError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Insert a row with a very long embedding string that might cause scan issues.
-	_, execErr := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"bad-id", "bad-content", `[1.0, 2.0]`, "{}")
-	require.NoError(t, execErr)
-
-	// Also insert a row with nil metadata to test the metaStr.Valid branch.
-	_, execErr2 := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"bad-id2", "bad-content2", `[3.0, 4.0]`, nil)
-	require.NoError(t, execErr2)
-
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Len(t, docs, 2)
-}
 
 // --- sqlStore newSQLStore with invalid driver ---
 
-func TestNewSQLStore_InvalidDriver(t *testing.T) {
-	_, err := newSQLStore(
-		"nonexistent_driver",
-		"file::memory:",
-		"test",
-		"test",
-		sqliteCreateTableSQL,
-		sqliteInsertSQL,
-		nil,
-	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "open")
-}
-
 // --- sqlStore SimilaritySearch unmarshal skip path ---
-
-func TestSQLStore_SimilaritySearch_InvalidEmbeddingJSON(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Insert a row with invalid JSON embedding that will be skipped.
-	_, execErr := store.db.ExecContext(context.Background(),
-		"INSERT INTO test_vectors (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
-		"skip-id", "skip-content", `not-valid-json-at-all`, `{}`)
-	require.NoError(t, execErr)
-
-	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.NoError(t, err)
-	require.Empty(t, docs)
-}
 
 // --- newRedisStore embedder error path ---
 
@@ -622,40 +560,7 @@ func TestExecute_SimilaritySearch_BuildStoreError(t *testing.T) {
 
 // --- sqlStore insert error path (ensureTable succeeds, insert fails) ---
 
-func TestSQLStore_AddDocuments_InsertError(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Install a trigger that makes every INSERT fail.
-	_, triggerErr := store.db.ExecContext(context.Background(),
-		`CREATE TRIGGER fail_insert BEFORE INSERT ON test_vectors
-		 BEGIN
-			 SELECT RAISE(ABORT, 'insert blocked by trigger');
-		 END`)
-	require.NoError(t, triggerErr)
-
-	_, err := store.AddDocuments(context.Background(), []schema.Document{
-		{PageContent: "hello"},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "insert document")
-}
-
 // --- sqlStore query error in SimilaritySearch (ensureTable succeeds, query fails) ---
-
-func TestSQLStore_SimilaritySearch_QueryErrorAfterEnsure(t *testing.T) {
-	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
-	require.NoError(t, store.ensureTable(context.Background()))
-
-	// Add a document and then close the DB connection so QueryContext fails.
-	_, addErr := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
-	require.NoError(t, addErr)
-
-	require.NoError(t, store.db.Close())
-
-	_, err := store.SimilaritySearch(context.Background(), "query", 5)
-	require.Error(t, err)
-}
 
 // ---- normalizeTopK ----
 
