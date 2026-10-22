@@ -290,7 +290,7 @@ kdeps chat [flags]
 | Flag | Description | Default |
 |---|---|---|
 | `--model` | LLM model for workflow generation | From config |
-| `--base-url` | LLM backend base URL | `http://localhost:11434` |
+| `--base-url` | LLM backend base URL, including `/v1` | `http://localhost:11434/v1` |
 | `--session` | Resume a previous session by ID | New session |
 | `--no-execute` | Generate workflow but do not allow `/run` | `false` |
 

@@ -4,7 +4,15 @@ kdeps separates two concerns: which model to call (set in the resource file) and
 
 Works in workflow and agent mode.
 
-Every backend is called through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1` (for example `http://localhost:8080/v1`); kdeps appends `/chat/completions`.
+Every backend is called through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1`; kdeps appends `/chat/completions`. Without `/v1`, requests go to the wrong path and fail.
+
+| Backend | Default `baseUrl` | Set it to |
+|---|---|---|
+| `file` (llamafile) | `http://127.0.0.1:8080/v1` | the `/v1` base of your server |
+| `gguf` (llama.cpp) | `http://127.0.0.1:8081/v1` | the `/v1` base of your server |
+| `ollama` | `http://localhost:11434/v1` | `http://<host>:11434/v1` |
+
+Exception: `ollama` with `ollamaThink`, `ollamaKeepAlive`, or `ollamaPullModel` uses Ollama's native client, which takes the server root without `/v1`.
 
 Whichever backend you pick - cloud (OpenAI, Anthropic, Groq, ...) or local (llamafile, Ollama, GGUF) - the model is probabilistic. The [workflow pipeline](/workflow/) around it is what makes a kdeps agent deterministic, not the model.
 
@@ -67,7 +75,7 @@ Environment overrides: `KDEPS_LLAMA_SERVER_BIN` (binary path), `KDEPS_GGUF_CTX_S
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama
-  # base_url: http://custom-ollama:11434   # optional override
+  # base_url: http://custom-ollama:11434/v1   # optional override
 ```
 
 When building Docker images, Ollama is installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
@@ -106,7 +114,7 @@ Backend, base URL, and API keys go in `~/.kdeps/config.yaml`:
 llm:
   backend: file                # default: local llamafile, no server install
   # backend: ollama            # opt-in: requires the ollama server
-  # base_url: http://localhost:11434
+  # base_url: http://localhost:11434/v1
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...
   # groq_api_key: ...

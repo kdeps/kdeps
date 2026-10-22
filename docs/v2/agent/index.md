@@ -93,7 +93,7 @@ kdeps [path] [flags]
 # Environment variables (flags override these)
 KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
-KDEPS_AGENT_BASE_URL=http://localhost:11434
+KDEPS_AGENT_BASE_URL=http://localhost:11434/v1
 KDEPS_THEME=black                     # same as --theme
 ```
 

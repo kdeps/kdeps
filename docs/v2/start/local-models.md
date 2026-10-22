@@ -120,7 +120,7 @@ kdeps --model llama3.2 --backend ollama
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama
-  base_url: http://localhost:11434    # default Ollama address
+  base_url: http://localhost:11434/v1    # Ollama OpenAI-compatible endpoint
 ```
 
 **Use Ollama in a workflow resource:**
