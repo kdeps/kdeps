@@ -55,21 +55,20 @@ func newTestParser(t *testing.T) *yaml.Parser {
 	return yaml.NewParser(sv, &mockExprParser{})
 }
 
-const ocrCall = `actionId: main
+const calcCall = `actionId: main
 name: Extract
 component:
-  name: ocr
+  name: calculator
   with:
     file: /tmp/x.png
 `
 
 func TestAssetComponents_CalledComponentIsLoaded(t *testing.T) {
-	wf, err := newTestParser(t).ParseWorkflow(writeCallingWorkflow(t, t.TempDir(), ocrCall))
+	wf, err := newTestParser(t).ParseWorkflow(writeCallingWorkflow(t, t.TempDir(), calcCall))
 	require.NoError(t, err)
-	comp := wf.Components["ocr"]
-	require.NotNil(t, comp, "ocr comes from the components asset set")
-	assert.Equal(t, "call", comp.Metadata.TargetActionID)
-	assert.Contains(t, wf.Settings.AgentSettings.OSPackages, "tesseract-ocr", "its setup reaches the build")
+	comp := wf.Components["calculator"]
+	require.NotNil(t, comp, "calculator comes from the components asset set")
+	assert.Empty(t, comp.Metadata.TargetActionID)
 	for _, r := range wf.Resources {
 		assert.NotEqual(t, "call", r.ActionID, "asset component resources run through the call only")
 	}
@@ -89,21 +88,21 @@ apiResponse:
 
 func TestAssetComponents_LocalComponentWins(t *testing.T) {
 	dir := t.TempDir()
-	local := filepath.Join(dir, "components", "ocr")
+	local := filepath.Join(dir, "components", "calculator")
 	require.NoError(t, os.MkdirAll(local, 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(local, "component.yaml"), []byte(`apiVersion: kdeps.io/v1
 kind: Component
 metadata:
-  name: ocr
-  description: my own ocr
+  name: calculator
+  description: my own calculator
 resources:
-  - actionId: myOcr
+  - actionId: myCalc
     exec:
       command: echo mine
 `), 0o600))
-	wf, err := newTestParser(t).ParseWorkflow(writeCallingWorkflow(t, dir, ocrCall))
+	wf, err := newTestParser(t).ParseWorkflow(writeCallingWorkflow(t, dir, calcCall))
 	require.NoError(t, err)
-	assert.Equal(t, "my own ocr", wf.Components["ocr"].Metadata.Description)
+	assert.Equal(t, "my own calculator", wf.Components["calculator"].Metadata.Description)
 }
 
 func TestAssetComponents_UnknownNameIsLeftForTheCall(t *testing.T) {

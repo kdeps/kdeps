@@ -1,5 +1,0 @@
-version: 1.0.3
-# kdeps update installs these with this component: its schema and the kdeps API tool it calls
-requires:
-  schemas/v1: ">=1.0.3"
-  tools/http_request: ""
