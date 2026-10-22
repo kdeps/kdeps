@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.1.1
 description: 'Load a document file and return its content as text. Supports PDF (langchaingo pdf loader), DOCX/EPUB/RTF/ODT (pandoc), HTML (goquery, lynx), CSV, text, directory, notion, markdown (textutil). Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text - auto-detected from extension), columns (CSV column filter), password (encrypted PDF), chunkSize (split into chunks of N characters), chunkOverlap, chunkSplitter (recursive, token, markdown).'
 parameters:
   chunkOverlap:
