@@ -55,6 +55,9 @@ type toolDefinition struct {
 	HTTP *httpToolSpec `yaml:"http,omitempty"`
 	// Exec, when set, implements the tool as one program run (see execToolSpec).
 	Exec *execToolSpec `yaml:"exec,omitempty"`
+	// SQL, when set, implements the tool as one parameterized SQLite statement
+	// (see sqlToolSpec).
+	SQL *sqlToolSpec `yaml:"sql,omitempty"`
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its
