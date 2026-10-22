@@ -2220,8 +2220,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "chat.backend",
 			schemaType: "resource",
 			expected: []interface{}{
-				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "cohere", "mistral",
-				"together", "perplexity", "groq", "deepseek", "openrouter", "xai", "huggingface",
+				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "mistral",
+				"together", "perplexity", "cohere", "groq", "deepseek", "openrouter", "xai", "huggingface",
 				"cloudflare", "maritaca", "ernie", "bedrock", "watsonx",
 			},
 		},
@@ -2284,8 +2284,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "backend",
 			schemaType: "resource",
 			expected: []interface{}{
-				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "cohere", "mistral",
-				"together", "perplexity", "groq", "deepseek", "openrouter", "xai", "huggingface",
+				"file", "gguf", "ollama", "m365", "openai", "anthropic", "google", "mistral",
+				"together", "perplexity", "cohere", "groq", "deepseek", "openrouter", "xai", "huggingface",
 				"cloudflare", "maritaca", "ernie", "bedrock", "watsonx",
 			},
 		},

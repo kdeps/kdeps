@@ -76,7 +76,6 @@ var simpleTokenProviders = map[string]func(token, model string) (llms.Model, err
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
 var langchainBaseURLs = map[string]string{
-	"cohere":      "https://api.cohere.com/compatibility/v1",
 	"file":        "http://127.0.0.1:8080/v1",
 	"gguf":        "http://127.0.0.1:8081/v1",
 	"local":       "http://localhost:8080/v1",
