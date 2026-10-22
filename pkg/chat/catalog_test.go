@@ -54,6 +54,10 @@ interface:
     - name: limit
       type: integer
       required: false
+    - name: mode
+      type: string
+      required: true
+      default: fast
 `
 	require.NoError(t, os.WriteFile(filepath.Join(compDir, "component.yaml"), []byte(yaml), 0o644))
 
@@ -62,9 +66,12 @@ interface:
 	assert.Equal(t, "my-tool", entries[0].Name)
 	assert.Equal(t, "1.2.0", entries[0].Version)
 	assert.Equal(t, "Does something useful", entries[0].Description)
-	assert.Len(t, entries[0].Inputs, 2)
+	assert.Len(t, entries[0].Inputs, 3)
 	assert.Contains(t, entries[0].Inputs[0], "query")
 	assert.Contains(t, entries[0].Inputs[0], "[required]")
+	assert.Contains(t, entries[0].Inputs[2], "mode")
+	assert.NotContains(t, entries[0].Inputs[2], "[required]",
+		"a declared default satisfies required")
 }
 
 func TestScanCatalog_Deduplication(t *testing.T) {

@@ -251,6 +251,7 @@ The component's `interface.inputs` become the tool's parameter schema. Rules:
 - `componentTools:` absent or empty - no components are registered (default).
 - Names not installed are silently ignored.
 - Explicit `tools:` entries take precedence over `componentTools:` entries.
+- An input with a declared `default` is not marked required in the schema - the model may omit it, and the runtime applies the default.
 
 | Priority | Source |
 |---|---|

@@ -94,6 +94,13 @@ func TestComponentsToTools_WithInputs(t *testing.T) {
 						Required:    false,
 						Description: "Timeout in seconds",
 					},
+					{
+						Name:        "format",
+						Type:        "string",
+						Required:    true,
+						Default:     "markdown",
+						Description: "Output format",
+					},
 				},
 			},
 		},
@@ -106,7 +113,7 @@ func TestComponentsToTools_WithInputs(t *testing.T) {
 	assert.Equal(t, "scraper", tool.Name)
 	assert.Equal(t, "Scrape web pages", tool.Description)
 	assert.Equal(t, "scraper-run", tool.Script)
-	require.Len(t, tool.Parameters, 3)
+	require.Len(t, tool.Parameters, 4)
 
 	urlParam := tool.Parameters["url"]
 	assert.Equal(t, "string", urlParam.Type)
@@ -120,6 +127,9 @@ func TestComponentsToTools_WithInputs(t *testing.T) {
 	timeoutParam := tool.Parameters["timeout"]
 	assert.Equal(t, "integer", timeoutParam.Type)
 	assert.False(t, timeoutParam.Required)
+
+	assert.False(t, tool.Parameters["format"].Required,
+		"a declared default satisfies required in the tool schema")
 }
 
 func TestComponentsToTools_MultipleComponents(t *testing.T) {

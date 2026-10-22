@@ -49,6 +49,7 @@ type componentMeta struct {
 			Type        string `yaml:"type"`
 			Required    bool   `yaml:"required"`
 			Description string `yaml:"description"`
+			Default     any    `yaml:"default"`
 		} `yaml:"inputs"`
 	} `yaml:"interface"`
 }
@@ -103,9 +104,12 @@ func formatInputSummary(inp struct {
 	Type        string `yaml:"type"`
 	Required    bool   `yaml:"required"`
 	Description string `yaml:"description"`
+	Default     any    `yaml:"default"`
 }) string {
 	req := ""
-	if inp.Required {
+	// A declared default fills the input when the caller omits it, so it is
+	// not required in practice.
+	if inp.Required && inp.Default == nil {
 		req = " [required]"
 	}
 	desc := ""
