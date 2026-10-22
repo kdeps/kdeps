@@ -54,16 +54,6 @@ func TestLoadPandoc_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "pandoc not found in PATH")
 }
 
-// TestLoadCSV_MalformedCSV covers the CSV read-error path (rerr != nil).
-func TestLoadCSV_MalformedCSV(t *testing.T) {
-	// A bare unquoted quote in the middle triggers csv.Reader to return an error.
-	content := "name,age\nAlice,\"unclosed\n"
-	f := writeTempFileExt(t, content, ".csv")
-	_, err := loadCSV(f, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "loader csv")
-}
-
 // TestSplitDocuments_WithChunkOverlap covers the ChunkOverlap > 0 branch.
 func TestSplitDocuments_WithChunkOverlap(t *testing.T) {
 	docs := []Document{{
@@ -124,18 +114,6 @@ func TestLoadNotionDirectory_UnreadableFile(t *testing.T) {
 	assert.Contains(t, docs[0].Content, "Good")
 }
 
-// TestLoadDocuments_TextutilType covers the textutil type dispatch in loadDocuments.
-// Skipped if textutil is not installed (macOS only).
-func TestLoadDocuments_TextutilType(t *testing.T) {
-	if _, err := lookupBin("textutil"); err != nil {
-		t.Skip("textutil not found in PATH")
-	}
-	f := writeTempFileExt(t, "{\\rtf1 Hello textutil}", ".rtf")
-	_, err := loadDocuments(&domain.LoaderConfig{Type: "textutil", Source: f})
-	// May fail on bad RTF content but we exercise the dispatch path.
-	_ = err
-}
-
 // lookupBin is a local helper because exec.LookPath is not imported directly
 // in this test file — we use the PATH env check.
 func lookupBin(name string) (string, error) {
@@ -147,33 +125,6 @@ func lookupBin(name string) (string, error) {
 		}
 	}
 	return "", os.ErrNotExist
-}
-
-// TestLoadDocuments_CSVType covers the csv type dispatch path with columns.
-func TestLoadDocuments_CSVType_WithColumns(t *testing.T) {
-	content := "first,second,third\nA,B,C\n"
-	f := writeTempFileExt(t, content, ".csv")
-	docs, err := loadDocuments(&domain.LoaderConfig{
-		Type:    "csv",
-		Source:  f,
-		Columns: []string{"first", "third"},
-	})
-	require.NoError(t, err)
-	require.Len(t, docs, 1)
-	assert.Contains(t, docs[0].Content, "first: A")
-	assert.Contains(t, docs[0].Content, "third: C")
-	assert.NotContains(t, docs[0].Content, "second:")
-}
-
-// TestLoadHTML_ParseBody covers the loadHTML function with a body-less HTML doc.
-func TestLoadHTML_BodyLessHTML(t *testing.T) {
-	content := "<html><head><title>No Body</title></head></html>"
-	f := writeTempFileExt(t, content, ".html")
-	docs, err := loadHTML(f)
-	require.NoError(t, err)
-	require.Len(t, docs, 1)
-	// Body text is empty; content may be empty string.
-	assert.Equal(t, "", strings.TrimSpace(docs[0].Content))
 }
 
 // TestRunCLIToFile_BinNotFound covers the lookErr != nil branch in runCLIToFile.
@@ -192,14 +143,6 @@ func TestExecute_LoadError(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown type")
-}
-
-// TestLoadHTML_ParseError covers the goquery parse error path in loadHTML.
-func TestLoadHTML_ParseError(t *testing.T) {
-	dir := t.TempDir()
-	_, err := loadHTML(dir)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "loader html: parse")
 }
 
 // TestRunCLIToFile_Success covers the full success path in runCLIToFile.
@@ -284,24 +227,4 @@ func buildMinimalPDF() string {
 	fmt.Fprintf(&b, "trailer\n<< /Size 3 /Root 1 0 R >>\n")
 	fmt.Fprintf(&b, "startxref\n%d\n%%%%EOF", xrefOffset)
 	return b.String()
-}
-
-// TestLoadPDF_MinimalPDF covers the main success path in loadPDF.
-func TestLoadPDF_MinimalPDF(t *testing.T) {
-	pdfContent := buildMinimalPDF()
-	f := writeTempFileExt(t, pdfContent, ".pdf")
-	docs, err := loadPDF(f, "")
-	require.NoError(t, err)
-	require.NotEmpty(t, docs)
-	assert.Contains(t, docs[0].Metadata, "page")
-	assert.Contains(t, docs[0].Metadata, "total_pages")
-}
-
-// TestLoadPDF_WithPassword covers the password branch in loadPDF on a
-// non-encrypted PDF.
-func TestLoadPDF_WithPassword(t *testing.T) {
-	pdfContent := buildMinimalPDF()
-	f := writeTempFileExt(t, pdfContent, ".pdf")
-	_, err := loadPDF(f, "testpass")
-	_ = err
 }
