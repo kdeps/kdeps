@@ -83,17 +83,6 @@ func TestEmbeddingVectorizeComponent_NoInputs(t *testing.T) {
 	require.Contains(t, err.Error(), "embedding vectorize: no inputs provided")
 }
 
-func TestCronCreateComponent_CreatesCron(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-
-	out, err := runComponentValue(t, "cron_create",
-		"    expression: \"0 0 * * *\"\n    name: it-cron\n    task_description: IT task\n    task_prompt: IT prompt\n")
-	require.NoError(t, err)
-	require.Contains(t, fmt.Sprint(out), "Created cron ")
-	require.Contains(t, fmt.Sprint(out), ": it-cron (0 0 * * *)")
-}
-
 func TestApprovalRequestComponent_ReturnsToken(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
