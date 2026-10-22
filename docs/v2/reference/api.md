@@ -33,6 +33,38 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 | `themes/` | `pkg/agent/theme_yaml.go` | REPL colors and styles |
 
 Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
+## Traceability: API to component to YAML
+
+Every YAML file that runs reaches the kdeps API. A workflow reaches a tool through a component, a slash command reaches the REPL through the commands group, and a loop data set is read directly by the agent loop:
+
+```d2
+direction: right
+
+workflow: "workflow.yaml\nresource: component" {shape: oval}
+component: "components/X/component.yaml\nrequires: tools/X"
+tools: "POST /apis/tools.kdeps.io/v1/tools/X/call"
+spec: "ToolSpec (Go)" {shape: diamond}
+declared: "assets/tools/X.yaml\nhttp: or exec:" {shape: diamond}
+command: "/name" {shape: oval}
+commands: "POST /apis/commands.kdeps.io/v1/commands/X/call"
+cmdasset: "assets/commands/X.yaml"
+loop: "agent loop reads\nharness, events, actions,\npresets, themes" {shape: oval}
+
+workflow -> component
+component -> tools: "kdeps.api"
+tools -> spec: "Go tool"
+tools -> declared: "declared tool"
+command -> cmdasset
+cmdasset -> commands: "builtin: api:"
+loop -> cmdasset: "config data, not served"
+```
+
+Chains by asset set:
+
+- **Tools**: `tools/` assets with `http:` or `exec:` are served by the declared runner. Go-backed tools have a `ToolSpec`. Agent-session tools run the active loop's closure.
+- **Components**: each `components/` asset declares `requires:` and calls `kdeps.api`. The component invariant tests enforce this for workflow tools.
+- **Commands**: builtin commands name their operation in `api:`. Declared prompt commands are published under their own name.
+- **Loop data**: configuration only, see [Loop data sets](#loop-data-sets).
 
 ## Routes
 
