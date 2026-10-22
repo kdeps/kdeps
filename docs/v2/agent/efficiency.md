@@ -197,4 +197,4 @@ run: block         # placeholder - read by the efficiency governor, not fired as
 
 - [Reactive LLM events](/agent/events) - the event system the limits live in, and the presets
 - [REPL slash commands](/agent/commands) - full command reference
-- [Goal-directed execution](/agent/goals) - the other per-turn control
+- Goal-directed execution - the other per-turn control

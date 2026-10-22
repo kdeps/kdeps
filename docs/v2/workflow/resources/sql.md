@@ -54,7 +54,7 @@ sql_connections:
 | SQL Server | `sqlserver://user:pass@host:1433?database=db` |
 | Oracle | `oracle://user:pass@host:1521/service` |
 
-A connection missing from `config.yaml` is prompted for by `kdeps run` (interactive terminals only), or supplied with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See [Interactive setup on first run](/workflow/resources/email#interactive-setup-on-first-run).
+A connection missing from `config.yaml` is prompted for by `kdeps run` (interactive terminals only), or supplied with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See Interactive setup on first run.
 
 ## Placeholders
 

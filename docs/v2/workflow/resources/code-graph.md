@@ -1,6 +1,6 @@
 # Graphing an indexed folder
 
-The `code_index_folder`/`code_graph_file`/`code_graph_topic`/`code_graph_all` components are different from the LSP/rg operations of [Code intelligence](/workflow/resources/code-navigation): instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
+The `code_index_folder`/`code_graph_file`/`code_graph_topic`/`code_graph_all` components are different from the LSP/rg operations of Code intelligence: instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
 
 They work in both modes: as DAG steps in workflow mode, and as built-in capabilities in the agent loop.
 
@@ -111,4 +111,4 @@ apiResponse:
 
 ## See also
 
-- [Code intelligence](/workflow/resources/code-navigation) - the other LSP/rg-backed operations
+- Code intelligence - the other LSP/rg-backed operations

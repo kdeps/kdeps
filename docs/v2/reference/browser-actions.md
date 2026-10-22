@@ -1,6 +1,6 @@
 # Browser action types reference
 
-Complete reference for all action types in the `actions` input of the [`browser` component](/workflow/resources/browser).
+Complete reference for all action types in the `actions` input of the `browser` component.
 
 Works in workflow and agent mode.
 
@@ -287,5 +287,5 @@ Pause execution for a duration or until a CSS selector appears.
 
 ## See also
 
-- [Browser resource](/workflow/resources/browser) - Configuration, stealth mode, sessions, and examples
+- Browser resource - Configuration, stealth mode, sessions, and examples
 - [Scraper component](/workflow/resources/scraper) - Text extraction from already-fetched pages

@@ -9,7 +9,7 @@ component: scraper -> POST /apis/tools.kdeps.io/v1/tools/http_request/call
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool; the agent's own `web_scraper` [built-in tool](/agent/tools-web) is separate.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool; the agent's own `web_scraper` built-in tool is separate.
 
 ## Configuration
 
@@ -144,4 +144,4 @@ onError:
 - [Embedding component](/workflow/resources/embedding) - store and search scraped content
 - [LLM resource](/workflow/resources/llm) - feed scraped content into prompts
 - [HTTP client](/workflow/resources/http-client) - lower-level HTTP with auth, headers, caching
-- [Browser resource](/workflow/resources/browser) - pages that need JavaScript
+- Browser resource - pages that need JavaScript

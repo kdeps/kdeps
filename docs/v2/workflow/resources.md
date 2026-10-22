@@ -105,9 +105,9 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 |---|---|---|
 | `component: http_request` | HTTP requests - APIs, webhooks, auth, retry, cache - a kdeps component, YAML only | [HTTP client](/workflow/resources/http-client) |
 | `component: scraper` | Fetch a URL and extract text, optional CSS selector - a kdeps component, YAML only | [Scraper](/workflow/resources/scraper) |
-| `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | [Browser](/workflow/resources/browser) |
+| `component: browser` | Playwright browser - navigation, forms, JS, screenshots - a kdeps component, YAML only | Browser |
 | `component: search_local` | Glob + keyword search across local files - a kdeps component, YAML only | [search_local](/workflow/resources/search-local) |
-| `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | [searchWeb](/workflow/resources/search-web) |
+| `component: searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily - a kdeps component, YAML only | searchWeb |
 
 ## Data & system
 
@@ -118,13 +118,13 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 | `component: git` | Status, diff, log, commit, branch, push, pull - a kdeps component, YAML only | [Git](/workflow/resources/git) |
 | `component: python` | Run a Python script, stdout parsed as JSON - a kdeps component, YAML only | [Python](/workflow/resources/python) |
 | `component: exec` | Run a shell command, structured `{success, exitCode, stdout, stderr, ...}` - a kdeps component, YAML only | [Exec](/workflow/resources/exec) |
-| `component: code_search` | Symbol search, definitions, references, hover, diagnostics, folder graph - the ten `code_*` components, YAML only | [Code intelligence](/workflow/resources/code-navigation) · [folder graph](/workflow/resources/code-graph) |
+| `component: code_search` | Symbol search, definitions, references, hover, diagnostics, folder graph - the ten `code_*` components, YAML only | Code intelligence · [folder graph](/workflow/resources/code-graph) |
 
 ## Messaging
 
 | YAML key | Description | Page |
 |---|---|---|
-| `component: email` | SMTP send, IMAP read / search / modify - a kdeps component, YAML only | [Email](/workflow/resources/email) |
+| `component: email` | SMTP send, IMAP read / search / modify - a kdeps component, YAML only | Email |
 | `component: twiml` | Voice call TwiML (say, gather, dial, record) - a kdeps component, YAML only | [Telephony](/workflow/resources/telephony) |
 | `apiResponse` (bot mode) | The workflow result is sent to the chat platform that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
 

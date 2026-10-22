@@ -42,7 +42,7 @@ back essentially unchanged (and no `[refine]` line is printed).
 - The refine call errors, returns nothing, or returns a runaway expansion - the
   original prompt is used unchanged. Refinement can never block a turn.
 
-Refinement runs *before* [goal decomposition](/agent/goals) and the
+Refinement runs *before* goal decomposition and the
 [judge roster](/agent/judges), so the plan and the panel are built from the
 refined prompt.
 
@@ -60,6 +60,6 @@ next `kdeps` run.
 ## See also
 
 - [Agent mode](/agent/) - overview and starting the REPL
-- [Goal-directed execution](/agent/goals) - built from the refined prompt
+- Goal-directed execution - built from the refined prompt
 - [Judge panel](/agent/judges) - the other optional per-turn LLM call
 - [REPL slash commands](/agent/commands) - full command reference

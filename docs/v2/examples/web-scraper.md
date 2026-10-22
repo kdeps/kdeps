@@ -6,7 +6,7 @@ returns a short summary as JSON.
 
 The `scraper` component fetches a URL and returns its readable text - a plain
 HTTP GET, no browser, no external service. For pages that need JavaScript
-rendering, use the [`browser` component](/workflow/resources/browser) instead.
+rendering, use the `browser` component instead.
 
 **Needs:** Network access.
 
@@ -150,6 +150,6 @@ Response:
 ## Next steps
 
 - [Scraper component](/workflow/resources/scraper) - selectors, timeouts, output shape
-- [Browser component](/workflow/resources/browser) - JavaScript-rendered pages
+- Browser component - JavaScript-rendered pages
 - [LLM resource](/workflow/resources/llm) - JSON mode, streaming, tools
-- [searchWeb](/workflow/resources/search-web) - find pages to scrape
+- searchWeb - find pages to scrape

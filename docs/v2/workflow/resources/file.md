@@ -155,4 +155,4 @@ One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an
 - [exec component](/workflow/resources/exec) - shell commands
 - [Python resource](/workflow/resources/python) - complex data processing
 - [Git component](/workflow/resources/git) - version control operations
-- [Code intelligence resource](/workflow/resources/code-navigation) - code navigation and search
+- Code intelligence resource - code navigation and search

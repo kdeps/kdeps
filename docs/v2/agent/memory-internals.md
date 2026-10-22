@@ -105,4 +105,4 @@ Auto-extracted low-signal entries (types `note` and `fact`) are globally capped 
 
 - [Persistent memory](/agent/memory) - the memory tools and entry types
 - [Agent mode](/agent/) - how the agent loop works
-- [Goal-directed execution](/agent/goals) - task state that `memory_query` can read
+- Goal-directed execution - task state that `memory_query` can read

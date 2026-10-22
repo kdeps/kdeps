@@ -118,7 +118,7 @@ kdeps --resume abc123def456                      # resume a session
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
 | Rewriting each prompt for clarity before the turn | [Prompt refinement](/agent/refine) |
-| Task decomposition and forward-only goal enforcement | [Goal-directed execution](/agent/goals) |
+| Task decomposition and forward-only goal enforcement | Goal-directed execution |
 | Independent review of the final answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | Task / team / cron registries (`task_*`, `team_*`, `cron_*`) | [Agent registries](/agent/registries) |
