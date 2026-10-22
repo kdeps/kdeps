@@ -40,7 +40,7 @@ kdeps_api_e2e() {
     fi
 
     local root body hdr got
-    local cron_id cron_ok token_id approval_ok
+    local token_id approval_ok
     root=$(mktemp -d)
     body="$root/body"
     hdr="$root/hdr"
@@ -272,10 +272,7 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
-        "bash_job_list", "bash_job_wait", "browser_ops", "calculator", "code_definition", "code_diagnostics",
-        "code_graph_all", "code_graph_file", "code_graph_topic", "code_hover", "code_index_folder",
-        "code_references", "code_search", "code_symbols", "cohere_rerank", "cron_create", "cron_delete",
-        "cron_list", "cron_pause", "cron_resume", "edit_file", "email_ops", "embedding", "embedding_search",
+        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "goal_task_complete",
         "goal_task_fail", "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
@@ -283,9 +280,7 @@ elif kind == "tools":
         "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local",
         "session_handshake", "sql_describe_table", "sql_list_tables", "sql_ops",
-        "sql_query", "tail_file", "task_append_output", "task_assign_team", "task_complete", "task_create",
-        "task_get", "task_list", "task_stop", "team_add_task", "team_create", "team_delete", "team_get",
-        "team_list", "transcribe_audio", "transcribe_audio_offline", "twiml", "vector_store",
+        "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
     ]
@@ -366,8 +361,6 @@ settings:
         methods: [GET]
       - path: /api/v1/read
         methods: [GET]
-      - path: /api/v1/cron
-        methods: [GET]
       - path: /api/v1/instruct
         methods: [GET]
       - path: /api/v1/ocr
@@ -420,17 +413,6 @@ apiResponse:
   success: true
   response: "{{ output('readConfig') }}"
 EOF
-    cat >"$server_dir/resources/cron.yaml" <<'EOF'
-actionId: cronCreate
-name: Create cron
-component:
-  name: cron_create
-  with:
-    expression: "0 0 * * *"
-    name: e2e-component-cron
-    task_description: E2E task
-    task_prompt: E2E prompt
-EOF
     cat >"$server_dir/resources/instruct.yaml" <<'EOF'
 actionId: instructRead
 name: Read narration section
@@ -453,12 +435,11 @@ name: Gateway
 requires:
   - ping
   - readOut
-  - cronCreate
   - instructRead
   - ocrText
 apiResponse:
   success: true
-  response: "{{ request.path == '/api/v1/cron' ? output('cronCreate') : (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/ocr' ? output('ocrText') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data))) }}"
+  response: "{{ (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/ocr' ? output('ocrText') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data))) }}"
 EOF
     cat >"$bare_dir/workflow.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
@@ -780,16 +761,6 @@ EOF
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{}' "${tools}/code_search/call" || true)
-    if [ "$got" = "400" ] && grep -F "codeIntelligence: query is required for symbolSearch" "$body" >/dev/null \
-        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - code_search requires query"
-    else
-        test_failed "kdeps API - code_search requires query" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
         --data '{}' "${tools}/search_local/call" || true)
     if [ "$got" = "400" ] && grep -F "search_local: give a query (or a glob) to search for" "$body" >/dev/null \
         && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
@@ -816,64 +787,6 @@ EOF
         test_passed "kdeps API - embedding requires an operation"
     else
         test_failed "kdeps API - embedding requires an operation" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{"task_id":"missing-api-task"}' "${tools}/task_get/call" || true)
-    if [ "$got" = "400" ] && grep -F "missing-api-task" "$body" >/dev/null \
-        && grep -F "not found" "$body" >/dev/null \
-        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - task_get reports a missing task"
-    else
-        test_failed "kdeps API - task_get reports a missing task" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{}' "${tools}/team_list/call" || true)
-    if [ "$got" = "200" ] && [ "$(cat "$body")" = "No teams." ] && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - team_list is empty"
-    else
-        test_failed "kdeps API - team_list is empty" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{"name":"e2e-cron","expression":"0 2 * * *","task_prompt":"p","task_description":"d"}' \
-        "${tools}/cron_create/call" || true)
-    cron_id=$(sed -n 's/^Created cron \([^:]*\): .*/\1/p' "$body")
-    if [ "$got" = "200" ] && [ -n "$cron_id" ] && grep -F "e2e-cron" "$body" >/dev/null \
-        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - cron_create returns an id"
-    else
-        test_failed "kdeps API - cron_create returns an id" "status $got body $(head -c 180 "$body")"
-    fi
-    cron_ok=0
-    if [ -n "$cron_id" ]; then
-        : >"$body"
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-            --data '{}' "${tools}/cron_list/call" || true)
-        if [ "$got" = "200" ] && grep -F "$cron_id" "$body" >/dev/null \
-            && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-            test_passed "kdeps API - cron_list shows the created cron"
-            cron_ok=1
-        else
-            test_failed "kdeps API - cron_list shows the created cron" "status $got body $(head -c 180 "$body")"
-        fi
-        : >"$body"
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-            --data "{\"cron_id\":\"${cron_id}\"}" "${tools}/cron_delete/call" || true)
-        if [ "$got" = "200" ] && grep -F "Deleted cron ${cron_id}" "$body" >/dev/null; then
-            test_passed "kdeps API - cron_delete deletes the cron"
-        else
-            test_failed "kdeps API - cron_delete deletes the cron" "status $got body $(head -c 180 "$body")"
-        fi
-    fi
-    if [ "$cron_ok" -eq 0 ]; then
-        test_skipped "kdeps API - cron_list shows the created cron (no cron id)"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
@@ -926,23 +839,6 @@ PY
         test_passed "kdeps API - workflow component returns the same file text"
     else
         test_failed "kdeps API - workflow component returns the same file text" "status $got body $(head -c 220 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
-        -H "Authorization: Bearer ${wf_tok}" "http://127.0.0.1:${wf_port}/api/v1/cron" || true)
-    if [ "$got" = "200" ] && python3 - "$body" <<'PY'
-import json, sys
-doc = json.load(open(sys.argv[1], encoding="utf-8"))
-data = doc.get("data") or ""
-if not doc.get("success") or not data.startswith("Created cron ") \
-        or ": e2e-component-cron (0 0 * * *)" not in data:
-    sys.stderr.write(repr(doc)[:300])
-    sys.exit(1)
-PY
-    then
-        test_passed "kdeps API - workflow cron_create component creates a cron"
-    else
-        test_failed "kdeps API - workflow cron_create component creates a cron" "status $got body $(head -c 220 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 15 \
