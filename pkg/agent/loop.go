@@ -390,9 +390,6 @@ type Loop struct {
 	// sandbox onto the real filesystem," distinct from a plain work-tool
 	// failure recovery.
 	sandboxRecoveryPending bool
-	// goalToolsRegistered guards the lazy registration of task_complete /
-	// task_fail, which happens on the first enforced turn.
-	goalToolsRegistered bool
 	// lastReasoning holds the reasoning_content from the most recent LLM call
 	// until it is attached to that turn's assistant message.
 	lastReasoning string
@@ -1544,7 +1541,7 @@ func (l *Loop) applyRoundOutcome(
 	outcome roundOutcome,
 	convergenceBlocks int,
 	forcedFinal bool,
-	w io.Writer,
+	_ io.Writer,
 ) (*domain.ChatConfig, int, bool) {
 	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
@@ -1642,18 +1639,6 @@ func nudgeUnresolvedToolFailureConfig(cfg *domain.ChatConfig, f *toolFailure, re
 func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat bool) *domain.ChatConfig {
 	note := harnessRender("nudge-edit-unchanged", struct{ Path, MD5 string }{p.path, shortMD5(p.md5)})
 	return finishNudge(cfg, note, repeat)
-}
-
-// nudgeGiveUpConfig fires when a text-only reply reads as the model declining
-// to continue (looksLikeGiveUp) despite having made real progress this turn
-// with no open failure (hasMadeProgressThisTurn). Bounded like every other
-// nudge in this file -- a model that is genuinely stuck after two pushes is
-// allowed to stop; this exists to catch a premature "sorry, I can't" right
-// after a run of successful tool calls, not to argue with a model that has
-// actually hit a wall.
-// repeat is true on the second strike within this turn.
-func nudgeGiveUpConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	return finishNudge(cfg, harnessText("nudge-give-up"), repeat)
 }
 
 // nudgeContinueConfig fires when the user told the agent to keep working and
@@ -2408,10 +2393,6 @@ func (l *Loop) handleTextOnlyRound(
 type roundOutcome struct {
 	// blocked is true when a convergence budget rejected a call.
 	blocked bool
-	// productive is true when at least one call returned new, usable content.
-	productive bool
-	// advanced is true when the task state machine moved (task_complete/fail).
-	advanced bool
 	// resultSig fingerprints the last executed call's raw result, so the
 	// stuck-loop guard can tell a repeated call that keeps returning the same
 	// thing from one whose output is changing.

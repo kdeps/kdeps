@@ -95,6 +95,7 @@ const trivialPromptMaxLen = 120
 
 const trivialShortLen = 32
 
+//nolint:gochecknoglobals // fixed list of trivial-prompt markers
 var multiStepMarkers = []string{
 	" then ", " and then ", " after that ", " finally ", ";",
 	"step 1", "step one", " also ", " as well as ",

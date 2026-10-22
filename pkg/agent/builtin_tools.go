@@ -72,7 +72,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
 	registerDeclaredTools(ctx, reg, webCache)
-	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
 	registerApprovalTokenTools(ctx, reg)
@@ -1018,11 +1017,6 @@ func pathWithinRoot(path, root string) bool {
 	}
 	return canonical == rootCanonical ||
 		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
-}
-
-// registerCodeIntelligenceTools registers the code_* tools. The handler is the
-// kdeps API. LSP lookup and the folder graph run there.
-func registerCodeIntelligenceTools(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerMemoryTools registers LLM-callable tools for persistent memory.

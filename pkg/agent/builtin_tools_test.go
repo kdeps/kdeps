@@ -1796,17 +1796,6 @@ func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
 
 // --- registerCodeIntelligenceTools: graph tools ---
 
-func writeCodeGraphFixture(t *testing.T, root string) {
-	t.Helper()
-	files := map[string]string{
-		"a.md": "---\ntopics: [go]\n---\nSee [b](b.md).",
-		"b.md": "---\ntopics: [go]\n---\nNo links.",
-	}
-	for name, content := range files {
-		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o600))
-	}
-}
-
 // --- googleCacheListTool execute closure ---
 
 func TestGoogleCacheListTool_Execute_HelperInitError(t *testing.T) {
