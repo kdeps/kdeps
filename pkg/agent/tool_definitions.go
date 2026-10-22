@@ -36,8 +36,7 @@ import (
 // model sees (description, parameters, usage notes). The Go code registering
 // the tool supplies only its name and implementation. The file id is the
 // lookup key;
-// Name overrides the tool name the model sees when two tools share one
-// (goal_task_complete and task_complete are both "task_complete").
+// Name overrides the tool name the model sees.
 type toolDefinition struct {
 	Version      string                      `yaml:"version"`
 	Name         string                      `yaml:"name,omitempty"`

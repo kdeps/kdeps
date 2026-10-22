@@ -89,9 +89,9 @@ func TestListAssets_Tokens(t *testing.T) {
 
 func TestPickerShowsTokens(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
-		"tools/web_search":         {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 150}}},
-		"tools/goal_task_complete": {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 50}}},
-		"schemas/v1":               {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0"}}},
+		"tools/web_search":    {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 150}}},
+		"tools/judge_verdict": {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0", Tokens: 50}}},
+		"schemas/v1":          {Latest: "1.0.0", Versions: []assets.IndexVersion{{Version: "1.0.0"}}},
 	}}
 	assert.Equal(t, 200, selectionTokens([]string{"tools"}, idx))
 	assert.Equal(t, 150, selectionTokens([]string{"tools/web_search", "tools/web_search"}, idx))
@@ -113,5 +113,5 @@ func TestPickerShowsTokens(t *testing.T) {
 	out.Reset()
 	c.pickItems(&out, bufio.NewReader(strings.NewReader("\n")), "tools")
 	assert.Contains(t, out.String(), "web_search  ~150 tok")
-	assert.Contains(t, out.String(), "goal_task_complete *  ~50 tok")
+	assert.Contains(t, out.String(), "judge_verdict *  ~50 tok")
 }

@@ -156,56 +156,11 @@ var componentBackedActions = []componentBackedAction{
 		Inline:    func(a *ActionConfig) bool { return a.Loader != nil },
 	},
 	{
-		Name:      "codeIntelligence",
-		Component: "code_search",
-		ResourceComponent: func(r *Resource) string {
-			return codeIntelligenceComponent(r.CodeIntelligence)
-		},
-		InlineComponent: func(a *ActionConfig) string {
-			return codeIntelligenceComponent(a.CodeIntelligence)
-		},
-		Resource: func(r *Resource) bool { return r.CodeIntelligence != nil },
-		Inline:   func(a *ActionConfig) bool { return a.CodeIntelligence != nil },
-	},
-	{
 		Name:      "vectorStore",
 		Component: "vector_store",
 		Resource:  func(r *Resource) bool { return r.VectorStore != nil },
 		Inline:    func(a *ActionConfig) bool { return a.VectorStore != nil },
 	},
-}
-
-// codeIntelligenceComponent names the component for a codeIntelligence
-// operation. An unknown or missing operation falls back to code_search, the
-// component for the default symbolSearch operation.
-func codeIntelligenceComponent(config *CodeIntelligenceConfig) string {
-	if config == nil {
-		return "code_search"
-	}
-	switch config.Operation {
-	case CodeIntOpSymbolSearch:
-		return "code_search"
-	case CodeIntOpDefinition:
-		return "code_definition"
-	case CodeIntOpReferences:
-		return "code_references"
-	case CodeIntOpDocumentSymbols:
-		return "code_symbols"
-	case CodeIntOpHover:
-		return "code_hover"
-	case CodeIntOpDiagnostics:
-		return "code_diagnostics"
-	case CodeIntOpIndexFolder:
-		return "code_index_folder"
-	case CodeIntOpGraphFile:
-		return "code_graph_file"
-	case CodeIntOpGraphTopic:
-		return "code_graph_topic"
-	case CodeIntOpGraphAll:
-		return "code_graph_all"
-	default:
-		return "code_search"
-	}
 }
 
 // ComponentBackedAction reports the native action a resource uses that must be

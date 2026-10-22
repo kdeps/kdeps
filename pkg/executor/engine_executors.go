@@ -119,11 +119,3 @@ func (e *Engine) executeExec(resource *domain.Resource, ctx *ExecutionContext) (
 		e.registry.GetExecExecutor, "exec", "executeExec", ctx,
 	)
 }
-
-// executeCodeIntelligence executes a codeIntelligence resource.
-func (e *Engine) executeCodeIntelligence(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	return e.executeRegisteredResource(
-		resource, "codeIntelligence", resource.CodeIntelligence,
-		e.registry.GetCodeIntelligenceExecutor, "codeIntelligence", "executeCodeIntelligence", ctx,
-	)
-}

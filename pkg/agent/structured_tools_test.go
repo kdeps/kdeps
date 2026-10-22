@@ -52,9 +52,6 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 		name string
 		args map[string]any
 	}{
-		{"twiml", map[string]any{"verbs": []any{"say"}}},
-		{"email_ops", map[string]any{"action": "list"}},
-		{"browser_ops", map[string]any{"url": "about:blank"}},
 		{"file_ops", map[string]any{"operation": "exists", "path": "x"}},
 		{"git_ops", map[string]any{"operation": "status"}},
 		{"sql_ops", map[string]any{"connectionName": "main", "query": "SELECT 1"}},
@@ -74,7 +71,7 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 
 func TestStructuredTools_LeanExcluded(t *testing.T) {
 	kept := LeanModeToolFilter([]string{
-		"twiml", "email_ops", "browser_ops", "file_ops", "git_ops", "sql_ops", "read_file",
+		"file_ops", "git_ops", "sql_ops", "read_file",
 	})
 	require.Equal(t, []string{"read_file"}, kept)
 }

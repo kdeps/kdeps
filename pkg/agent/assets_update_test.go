@@ -224,7 +224,7 @@ func TestResolveProfileChoice(t *testing.T) {
 func TestPickSets_SetsAndItems(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
 		"recipes/vllm": {}, "recipes/tgi": {},
-		"tools/goal_task_complete": {}, "tools/web_search": {}, "tools/wikipedia": {},
+		"tools/judge_verdict": {}, "tools/web_search": {}, "tools/wikipedia": {},
 		"schemas/v1": {}, "providers/groq": {}, "providers/openai": {},
 	}}
 	sets := assets.Registered()
@@ -235,7 +235,7 @@ func TestPickSets_SetsAndItems(t *testing.T) {
 	in := strings.Join([]string{
 		num("recipes") + " " + num("schemas") + " 99 x",
 		"o" + num("tools"),
-		"2", // web_search (sorted: goal_task_complete, web_search, wikipedia)
+		"2", // web_search (sorted: judge_verdict, web_search, wikipedia)
 		"",
 		"o" + num("providers"),
 		"n",
@@ -248,28 +248,28 @@ func TestPickSets_SetsAndItems(t *testing.T) {
 	got := pickSets(&out, bufio.NewReader(strings.NewReader(in)), idx)
 	assert.Contains(t, got, "recipes", "a whole set by name")
 	assert.Contains(t, got, "tools/web_search")
-	assert.Contains(t, got, "tools/goal_task_complete", "required item follows any ticked item")
+	assert.Contains(t, got, "tools/judge_verdict", "required item follows any ticked item")
 	assert.NotContains(t, got, "tools/wikipedia")
 	assert.NotContains(t, got, "tools")
 	assert.Contains(t, got, "providers/openai")
 	assert.NotContains(t, got, "providers/groq")
 	assert.Contains(t, got, "schemas", "a base set cannot be emptied")
 	assert.Contains(t, out.String(), "(base)")
-	assert.Contains(t, out.String(), "goal_task_complete *")
+	assert.Contains(t, out.String(), "judge_verdict *")
 	assert.Regexp(t, `\[-\] tools\s+2/3`, out.String())
 	assert.Regexp(t, `\[x\] recipes\s+2/2`, out.String())
 }
 
 func TestChecklist_RequiredAndBaseRules(t *testing.T) {
 	idx := assets.Index{Items: map[string]assets.IndexItem{
-		"tools/goal_task_complete": {}, "tools/web_search": {}, "schemas/v1": {},
+		"tools/judge_verdict": {}, "tools/web_search": {}, "schemas/v1": {},
 	}}
 	c := newChecklist(idx)
 	c.toggle("tools", "web_search")
-	c.toggle("tools", "goal_task_complete") // required while web_search is ticked
-	assert.True(t, c.ticked["tools/goal_task_complete"])
+	c.toggle("tools", "judge_verdict") // required while web_search is ticked
+	assert.True(t, c.ticked["tools/judge_verdict"])
 	c.toggle("tools", "web_search")
-	c.toggle("tools", "goal_task_complete") // alone now: can be unticked
+	c.toggle("tools", "judge_verdict") // alone now: can be unticked
 	assert.Zero(t, c.count("tools"))
 	c.toggle("schemas", "v1") // the base set's only item
 	assert.True(t, c.ticked["schemas/v1"])

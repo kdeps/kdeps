@@ -526,10 +526,6 @@ func (r *REPL) modeline() string {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
-	if goal := r.loop.ActiveGoal(); goal != nil && !goal.Complete() {
-		settled, total := goal.Progress()
-		parts = append(parts, meta(fmt.Sprintf("task:%d/%d", settled+1, total)))
-	}
 	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
 		parts = append(parts, dim("turo:off"))
 	} else {
@@ -1644,9 +1640,8 @@ func (r *REPL) Run() error {
 	r.loop.config.AutoToolAllocation = true
 	// Goal-directed execution is off by default: it adds a plan call per turn.
 	// The judge panel is the eval and is on: a non-trivial turn grows a roster
-	// and reviews the answer. /goal on and /judges off persist via
-	// applyToolTuning below. A settings file that never set auto_judges stays on.
-	r.loop.config.GoalEnforcement = false
+	// and reviews the answer. /judges off persists via applyToolTuning below.
+	// A settings file that never set auto_judges stays on.
 	r.loop.config.AutoJudges = true
 	// Pre-turn prompt refinement is ON by default: one cheap synthetic call
 	// rewrites a terse prompt so the turn lands better. Disable with
@@ -1694,11 +1689,6 @@ func (r *REPL) Run() error {
 	for _, notice := range r.startupNotices {
 		fmt.Fprintln(os.Stdout, styleReplDim.Render("tip: "+notice))
 	}
-
-	// A goal persists across sessions, so one may be carried over from a
-	// previous run. Show it up front with how to steer or drop it, rather than
-	// silently resuming it on the next prompt.
-	r.printResumedGoal()
 
 	// Stale branch check - warn when branch is behind upstream.
 	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
@@ -3573,22 +3563,6 @@ func (r *REPL) startLocalModelServer(model string) error {
 	return nil
 }
 
-// printResumedGoal shows a persisted, unfinished goal at startup along with the
-// commands to act on it. No output when there is no active goal.
-func (r *REPL) printResumedGoal() {
-	goal := r.loop.ActiveGoal()
-	if goal == nil || goal.Complete() {
-		return
-	}
-	settled, total := goal.Progress()
-	fmt.Fprintln(os.Stdout, styleReplInfo.Render(
-		fmt.Sprintf("Resuming goal (%d/%d done): %s", settled, total, firstLine(goal.Text))))
-	fmt.Fprint(os.Stdout, goal.Summary())
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Type /goal to review · /goal new <text> to replace · /goal skip to drop the current task · /goal clear to abandon it",
-	))
-}
-
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.
 func (r *REPL) providerStatusLine() string {
 	var ready []string
@@ -5091,73 +5065,6 @@ func (r *REPL) cmdTuro(args []string) error {
 	}
 	r.persistTuning() // survive across sessions
 	return nil
-}
-
-// cmdGoal inspects and steers the active goal: the task list the loop is being
-// driven through.
-func (r *REPL) cmdGoal(args []string) error {
-	if len(args) == 0 {
-		return r.printGoalStatus()
-	}
-
-	switch args[0] {
-	case toggleOn, toggleOff:
-		r.setGoalEnforcementCmd(args[0] == toggleOn)
-	case "new":
-		text := strings.TrimSpace(strings.Join(args[1:], " "))
-		if text == "" {
-			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal new <what to accomplish>"))
-			return nil
-		}
-		goal := r.loop.SetGoal(r.ctx, text)
-		fmt.Fprint(os.Stdout, goal.Summary())
-	case "clear":
-		r.loop.ClearGoal()
-		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("goal cleared"))
-	case "skip":
-		next := r.loop.SkipActiveTask()
-		if next == nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("no task to skip — the goal is complete"))
-			return nil
-		}
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
-			fmt.Sprintf("skipped — active task is now %d: %s", next.ID, next.Desc)))
-	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [on|off|new <text>|skip|clear]"))
-	}
-	return nil
-}
-
-// printGoalStatus shows the active goal's task list, or that enforcement is off.
-func (r *REPL) printGoalStatus() error {
-	if !r.loop.GoalEnforcementEnabled() {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-			"goal-directed execution is off — /goal on to re-enable"))
-		return nil
-	}
-	goal := r.loop.ActiveGoal()
-	if goal == nil {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-			"no active goal — the next prompt starts one"))
-		return nil
-	}
-	fmt.Fprint(os.Stdout, goal.Summary())
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"/goal skip abandons the active task · /goal clear drops the goal · /goal off disables planning"))
-	return nil
-}
-
-// setGoalEnforcementCmd toggles goal-directed execution and persists the choice.
-func (r *REPL) setGoalEnforcementCmd(enabled bool) {
-	r.loop.SetGoalEnforcement(enabled)
-	r.persistTuning()
-	if enabled {
-		fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
-			"goal-directed execution enabled — the next prompt is decomposed into tasks"))
-		return
-	}
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
-		"goal-directed execution disabled — turns run as a plain tool loop"))
 }
 
 // cmdRefine inspects and toggles pre-turn prompt refinement.

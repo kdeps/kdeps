@@ -27,26 +27,6 @@ import (
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-func TestSerpAPIComponent_DisabledWithoutKey(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-	t.Setenv("SERPAPI_API_KEY", "")
-
-	_, err := runComponentValue(t, "serpapi_search", "    query: \"kdeps\"\n")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "serpapi_search: disabled (SERPAPI_API_KEY is unset)")
-}
-
-func TestPerplexityComponent_DisabledWithoutKey(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-	t.Setenv("PERPLEXITY_API_KEY", "")
-
-	_, err := runComponentValue(t, "perplexity_search", "    query: \"kdeps\"\n")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "perplexity_search: disabled (PERPLEXITY_API_KEY is unset)")
-}
-
 func TestGoogleCacheListComponent_DisabledWithoutKey(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())

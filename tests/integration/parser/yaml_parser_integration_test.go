@@ -892,57 +892,6 @@ component:
 		"/apis/tools.kdeps.io/v1/tools/load_document/call")
 }
 
-func TestYAMLParser_CodeIntelligenceComponentBacked(t *testing.T) {
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-	parser := yaml.NewParser(schemaValidator, expression.NewParser())
-
-	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755))
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
-	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: codeintel-component-backed
-  version: "1.0.0"
-  targetActionId: search
-settings:
-  agentSettings:
-    timezone: Etc/UTC
-`), 0o644))
-
-	resourcePath := filepath.Join(tmpDir, "resources", "search.yaml")
-	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: search
-name: Search
-codeIntelligence:
-  operation: definition
-  symbol: ParseConfig
-  path: /tmp/project/main.go
-`), 0o644))
-
-	_, err = parser.ParseWorkflow(workflowPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "call the code_definition component instead")
-
-	require.NoError(t, os.WriteFile(resourcePath, []byte(`actionId: search
-name: Search
-component:
-  name: code_search
-  with:
-    query: ParseConfig
-    path: /tmp/project
-`), 0o644))
-
-	workflow, err := parser.ParseWorkflow(workflowPath)
-	require.NoError(t, err)
-	comp := workflow.Components["code_search"]
-	require.NotNil(t, comp, "the shipped code_search component must resolve")
-	require.Len(t, comp.Resources, 1)
-	require.NotNil(t, comp.Resources[0].HTTPClient)
-	assert.Contains(t, comp.Resources[0].HTTPClient.URL,
-		"/apis/tools.kdeps.io/v1/tools/code_search/call")
-}
-
 func TestYAMLParser_VectorStoreComponentBacked(t *testing.T) {
 	schemaValidator, err := validator.NewSchemaValidator()
 	require.NoError(t, err)

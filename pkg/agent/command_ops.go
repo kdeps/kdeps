@@ -76,7 +76,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"recall":       func(r *REPL, a []string) error { r.cmdRecall(a); return nil },
 		"knowledge":    func(r *REPL, a []string) error { r.cmdKnowledge(a); return nil },
 		"turo":         func(r *REPL, a []string) error { return r.cmdTuro(a) },
-		"goal":         func(r *REPL, a []string) error { return r.cmdGoal(a) },
 		"auto-improve": func(r *REPL, _ []string) error { return r.cmdAutoImprove() },
 		"refine":       func(r *REPL, a []string) error { r.cmdRefine(a); return nil },
 		"efficiency":   func(r *REPL, a []string) error { r.cmdEfficiency(a); return nil },

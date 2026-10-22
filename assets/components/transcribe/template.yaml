@@ -1,7 +1,0 @@
-version: 1.0.3
-# kdeps update installs these with this component: its schema and the kdeps API tool it calls
-requires:
-  schemas/v1: ""
-  tools/http_request: ""
-  tools/transcribe_audio: ""
-  tools/transcribe_audio_offline: ""

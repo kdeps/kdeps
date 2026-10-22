@@ -24,38 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
-
-func TestRequestPlan_NoLocalServer(t *testing.T) {
-	for _, backend := range []string{"", "file", "gguf"} {
-		l := &Loop{config: Config{Backend: backend}}
-		if got := requestPlan(l, "do something", ""); got != nil {
-			t.Fatalf("backend %q: %v", backend, got)
-		}
-	}
-}
-
-func TestRegisterGoalToolsAndSettleNoEnforcer(t *testing.T) {
-	(*Loop)(nil).registerGoalTools()
-	(&Loop{}).registerGoalTools()
-
-	reg := kdepstools.NewRegistry()
-	l := &Loop{registry: reg, config: Config{}}
-	l.registerGoalTools()
-	l.registerGoalTools() // second call no-op
-	if reg.Get(toolNameTaskComplete) == nil {
-		t.Fatal("task_complete not registered")
-	}
-	if reg.Get(toolNameTaskFail) == nil {
-		t.Fatal("task_fail not registered")
-	}
-	msg, err := l.settleTask(map[string]any{"id": 1}, GoalTaskDone)
-	if err == nil {
-		t.Fatalf("expected error, got %q", msg)
-	}
-}
 
 func TestSessionStore_Close(t *testing.T) {
 	dir := t.TempDir()

@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -37,21 +36,4 @@ func TestIsNilConfig_TypedNil(t *testing.T) {
 
 func newTestEngineInternal() *Engine {
 	return NewEngine(nil)
-}
-
-func TestExecuteCodeIntelligence_NilConfig(t *testing.T) {
-	eng := newTestEngineInternal()
-	res := &domain.Resource{ActionID: "test", CodeIntelligence: nil}
-	_, err := eng.executeCodeIntelligence(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "codeIntelligence")
-}
-
-func TestExecuteCodeIntelligence_NoExecutor(t *testing.T) {
-	eng := newTestEngineInternal()
-	cfg := &domain.CodeIntelligenceConfig{}
-	res := &domain.Resource{ActionID: "test", CodeIntelligence: cfg}
-	_, err := eng.executeCodeIntelligence(res, &ExecutionContext{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "codeIntelligence executor not available")
 }

@@ -101,68 +101,6 @@ func TestTuroReduceCachedAndReduceToolOutput(t *testing.T) {
 	}
 }
 
-func TestPlanGoalAndLoopSetGoalTrivial(t *testing.T) {
-	g := planGoal(context.Background(), nil, "  ")
-	if g == nil {
-		t.Fatal("empty goal")
-	}
-	g2 := planGoal(context.Background(), &Loop{}, "fix the bug")
-	if g2 == nil {
-		t.Fatal("nil goal")
-	}
-
-	dir := t.TempDir()
-	ms := NewMemoryStore(dir)
-	ms.SetCwd(filepath.Join(dir, "p"))
-	t.Cleanup(func() { _ = ms.Close() })
-	loop := &Loop{memoryStore: ms, config: Config{}}
-	goal := loop.SetGoal(context.Background(), "ship feature")
-	if goal == nil {
-		t.Fatal("SetGoal")
-	}
-	if loop.ActiveGoal() == nil {
-		t.Fatal("ActiveGoal")
-	}
-	_ = loop.SkipActiveTask()
-	loop.ClearGoal()
-	if loop.enforcer != nil {
-		t.Fatal("enforcer cleared")
-	}
-}
-
-func TestPrintConvergenceAndCmdGoal(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{}}, ctx: context.Background()}
-
-	old := os.Stdout
-	rd, wr, pipeErr := os.Pipe()
-	if pipeErr != nil {
-		t.Fatal(pipeErr)
-	}
-	os.Stdout = wr
-	r.printConvergence("## web", "web_search", 2, 3, "ok")
-	r.printConvergence("## web", "web_search", 3, 3, "hit limit")
-	_ = r.cmdGoal(nil)
-	_ = r.cmdGoal([]string{"off"})
-	_ = r.cmdGoal([]string{"on"})
-	_ = r.cmdGoal([]string{"clear"})
-	_ = r.cmdGoal([]string{"skip"})
-	_ = r.cmdGoal([]string{"new"})
-	_ = r.cmdGoal([]string{"bogus"})
-	_ = r.cmdGoal([]string{"new", "do", "work"})
-	r.cmdRefine(nil)
-	r.cmdRefine([]string{"on"})
-	r.cmdRefine([]string{"off"})
-	r.cmdRefine([]string{"bogus"})
-	r.cmdHandshake(nil)
-	r.cmdHandshake([]string{"on"})
-	r.cmdHandshake(nil)
-	r.cmdHandshake([]string{"off"})
-	r.cmdHandshake([]string{"bogus"})
-	_ = wr.Close()
-	os.Stdout = old
-	_, _ = io.ReadAll(rd)
-}
-
 // captureOutput redirects the given *os.File pointer (os.Stdout or
 // os.Stderr) for the duration of fn and returns what it wrote.
 func captureOutput(t *testing.T, target **os.File, fn func()) string {

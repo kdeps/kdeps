@@ -15,13 +15,6 @@ func (m *mockResourceExec) Execute(_ *ExecutionContext, _ interface{}) (interfac
 	return nil, nil
 }
 
-func TestSetGetCodeIntelligenceExecutor(t *testing.T) {
-	reg := NewRegistry()
-	exec := &mockResourceExec{}
-	reg.SetCodeIntelligenceExecutor(exec)
-	assert.NotNil(t, reg.GetCodeIntelligenceExecutor())
-}
-
 func TestSetGetLoaderExecutor(t *testing.T) {
 	reg := NewRegistry()
 	exec := &mockResourceExec{}
@@ -44,9 +37,4 @@ func TestGetLoaderExecutor_Nil(t *testing.T) {
 func TestGetVectorStoreExecutor_Nil(t *testing.T) {
 	reg := NewRegistry()
 	assert.Nil(t, reg.GetVectorStoreExecutor())
-}
-
-func TestGetCodeIntelligenceExecutor_Nil(t *testing.T) {
-	reg := NewRegistry()
-	assert.Nil(t, reg.GetCodeIntelligenceExecutor())
 }

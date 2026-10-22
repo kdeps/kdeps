@@ -38,7 +38,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -136,8 +135,7 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	}
 	coreTools := []string{
 		"bash_exec", "bash_job_list", "bash_job_wait", "calculator",
-		"code_definition", "code_diagnostics", "code_hover", "code_references",
-		"code_search", "code_symbols", "edit_file", "http_request",
+		"edit_file", "http_request",
 		"list_files", "read_file", "search_local", "sql_describe_table",
 		"sql_list_tables", "sql_query", "web_scraper", "web_search",
 		"wikipedia", "write_file",
@@ -176,29 +174,6 @@ func TestRegisterBuiltinTools_PerplexityNotRegisteredWithoutKey(t *testing.T) {
 		reg.Get("perplexity_search"),
 		"perplexity_search should not register without PERPLEXITY_API_KEY",
 	)
-}
-
-func TestRegisterBuiltinTools_SerpAPIRegisteredWithKey(t *testing.T) {
-	t.Setenv("SERPAPI_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("serpapi_search")
-	require.NotNil(t, tool, "serpapi_search should register when SERPAPI_API_KEY is set")
-	assert.NotEmpty(t, tool.Description)
-	// Execute with empty query should return an error.
-	_, err := tool.Execute(map[string]any{"query": ""})
-	assert.Error(t, err)
-}
-
-func TestRegisterBuiltinTools_PerplexityRegisteredWithKey(t *testing.T) {
-	t.Setenv("PERPLEXITY_API_KEY", "test-key")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("perplexity_search")
-	require.NotNil(t, tool, "perplexity_search should register when PERPLEXITY_API_KEY is set")
-	assert.NotEmpty(t, tool.Description)
-	_, err := tool.Execute(map[string]any{"query": ""})
-	assert.Error(t, err)
 }
 
 func TestRegisterBuiltinTools_ExaNotRegisteredWithoutKey(t *testing.T) {
@@ -1819,248 +1794,7 @@ func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
 	assert.NoError(t, validateWorkspaceBoundary(subFile))
 }
 
-func TestRegisterCodeIntelligenceTools_AllRegistered(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	for _, name := range []string{"code_search", "code_definition", "code_references", "code_symbols", "code_hover", "code_diagnostics"} {
-		tool := reg.Get(name)
-		require.NotNil(t, tool, "%s should be registered", name)
-		assert.NotEmpty(t, tool.Description)
-		assert.NotNil(t, tool.Execute)
-		assert.NotEmpty(t, tool.Parameters)
-	}
-}
-
-func TestRegisterCodeIntelligenceTools_CodeSearch_MissingPath(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_search")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"query": "some_func"})
-	assert.Error(t, err)
-}
-
-func TestRegisterCodeIntelligenceTools_CodeDefinition_MissingSymbol(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_definition")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"path": "/some/file.go"})
-	assert.Error(t, err)
-}
-
-func TestRegisterCodeIntelligenceTools_CodeReferences_MissingSymbol(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_references")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"path": "/some/file.go"})
-	assert.Error(t, err)
-}
-
-func TestRegisterCodeIntelligenceTools_CodeSymbols_MissingPath(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_symbols")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-}
-
-func TestRegisterCodeIntelligenceTools_CodeHover_MissingParams(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_hover")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-}
-
-func TestRegisterCodeIntelligenceTools_CodeDefinition_WithSymbol(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_definition")
-	require.NotNil(t, tool)
-	// Exercises the "symbol" arg-extraction branch shared by all code_* tools;
-	// the outcome depends on whether rg/an LSP server is available in this env.
-	_, _ = tool.Execute(map[string]any{"symbol": "main", "path": t.TempDir()})
-}
-
-func TestRegisterCodeIntelligenceTools_CodeDiagnostics_MissingPath(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_diagnostics")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
-}
-
 // --- registerCodeIntelligenceTools: graph tools ---
-
-func writeCodeGraphFixture(t *testing.T, root string) {
-	t.Helper()
-	files := map[string]string{
-		"a.md": "---\ntopics: [go]\n---\nSee [b](b.md).",
-		"b.md": "---\ntopics: [go]\n---\nNo links.",
-	}
-	for name, content := range files {
-		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o600))
-	}
-}
-
-func TestRegisterCodeIntelligenceTools_GraphToolsRegistered(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	for _, name := range []string{"code_index_folder", "code_graph_file", "code_graph_topic", "code_graph_all"} {
-		tool := reg.Get(name)
-		require.NotNil(t, tool, "%s should be registered", name)
-		assert.NotEmpty(t, tool.Description)
-		assert.NotNil(t, tool.Execute)
-		assert.NotEmpty(t, tool.Parameters)
-	}
-}
-
-func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-	dbPath := datadir.File(root, "graph.db")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_index_folder")
-	require.NotNil(t, tool)
-
-	out, err := tool.Execute(map[string]any{
-		"graphDBPath": dbPath,
-		"extensions":  []any{".md"},
-	})
-	require.NoError(t, err)
-	assert.Contains(t, out, `"filesIndexed": 2`)
-}
-
-func TestRegisterCodeIntelligenceTools_IndexFolder_IgnoresPath(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-	dbPath := datadir.File(root, "graph.db")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_index_folder")
-	require.NotNil(t, tool)
-
-	// A "path" arg must be ignored: indexFolder only ever indexes the CWD.
-	out, err := tool.Execute(map[string]any{
-		"path":        t.TempDir(),
-		"graphDBPath": dbPath,
-	})
-	require.NoError(t, err)
-	assert.Contains(t, out, `"filesIndexed": 2`)
-}
-
-func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-	dbPath := datadir.File(root, "graph.db")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	indexTool := reg.Get("code_index_folder")
-	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
-	require.NoError(t, err)
-
-	graphFileTool := reg.Get("code_graph_file")
-	require.NotNil(t, graphFileTool)
-	out, err := graphFileTool.Execute(map[string]any{
-		"path":        filepath.Join(root, "a.md"),
-		"graphDBPath": dbPath,
-	})
-	require.NoError(t, err)
-	assert.Contains(t, out, "relatedByTopic")
-}
-
-func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-	dbPath := datadir.File(root, "graph.db")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	indexTool := reg.Get("code_index_folder")
-	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
-	require.NoError(t, err)
-
-	graphTopicTool := reg.Get("code_graph_topic")
-	require.NotNil(t, graphTopicTool)
-	out, err := graphTopicTool.Execute(map[string]any{
-		"topic":       "go",
-		"graphDBPath": dbPath,
-	})
-	require.NoError(t, err)
-	assert.Contains(t, out, `"topic": "go"`)
-}
-
-func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-	dbPath := datadir.File(root, "graph.db")
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	indexTool := reg.Get("code_index_folder")
-	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
-	require.NoError(t, err)
-
-	graphAllTool := reg.Get("code_graph_all")
-	require.NotNil(t, graphAllTool)
-	out, err := graphAllTool.Execute(map[string]any{"graphDBPath": dbPath})
-	require.NoError(t, err)
-	assert.Contains(t, out, "roots")
-}
-
-func TestRegisterCodeIntelligenceTools_GraphAll_DefaultsToCWD(t *testing.T) {
-	root := t.TempDir()
-	writeCodeGraphFixture(t, root)
-	t.Chdir(root)
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-
-	indexTool := reg.Get("code_index_folder")
-	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{})
-	require.NoError(t, err)
-
-	tool := reg.Get("code_graph_all")
-	require.NotNil(t, tool)
-	out, err := tool.Execute(map[string]any{})
-	require.NoError(t, err)
-	assert.Contains(t, out, "roots")
-	_, statErr := os.Stat(datadir.File(root, "graph.db"))
-	require.NoError(t, statErr, "expected graph.db under the CWD")
-}
-
-func TestRegisterCodeIntelligenceTools_IndexFolder_InvalidRootPath(t *testing.T) {
-	t.Setenv("KDEPS_ALLOW_ROOT", "")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("code_index_folder")
-	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"path": "/"})
-	assert.Error(t, err)
-}
 
 // --- googleCacheListTool execute closure ---
 
