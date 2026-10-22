@@ -40,7 +40,10 @@ import (
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
 	lcchroma "github.com/tmc/langchaingo/vectorstores/chroma"
+	lcmongovector "github.com/tmc/langchaingo/vectorstores/mongovector"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -330,7 +333,19 @@ func buildMongoStore(
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
-	return newMongoStore(ctx, cfg, embedder)
+	if cfg.URL == "" {
+		return nil, errors.New("vectorstore mongodb: url is required")
+	}
+	client, connErr := mongo.Connect(options.Client().ApplyURI(cfg.URL))
+	if connErr != nil {
+		return nil, fmt.Errorf("vectorstore mongodb: connect: %w", connErr)
+	}
+	dbName := cfg.APIKey
+	if dbName == "" {
+		dbName = "kdeps"
+	}
+	store := lcmongovector.New(client.Database(dbName).Collection(cfg.Collection), embedder)
+	return &store, nil
 }
 
 func buildAzureAISearchStore(
