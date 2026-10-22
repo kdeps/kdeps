@@ -1,0 +1,14 @@
+# OpenAI-compatible LLM provider: kdeps registers a chat backend named after
+# this file and reads its key from llm.cohere_api_key in ~/.kdeps/config.yaml.
+# Cohere serves its chat models at this OpenAI-compatible path.
+version: 1.0.0
+name: cohere
+label: Cohere
+order: 75                # position in provider lists and the setup prompt
+configKey: cohere_api_key
+envVar: COHERE_API_KEY
+defaultModel: command-r-plus
+url: https://api.cohere.com
+chatPath: /compatibility/v1/chat/completions
+embeddings: false         # embeddings use Cohere's native /embed API, not this path
+hosts: [cohere.com]

@@ -87,10 +87,6 @@ var (
 			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
 			defaultModel: "gemini-2.5-flash", order: 30,
 		},
-		{
-			name: "cohere", yamlKey: "cohere_api_key", envVar: "COHERE_API_KEY",
-			defaultModel: "command-r-plus", order: 40,
-		},
 		{name: "bedrock", yamlKey: "bedrock_api_key", envVar: "BEDROCK_API_KEY", order: 160},
 		{name: "watsonx", yamlKey: "watsonx_api_key", envVar: "WATSONX_API_KEY", order: 170},
 	}
