@@ -1135,21 +1135,6 @@ func TestPineconeStore_SimilaritySearch_HTTPError(t *testing.T) {
 	assert.Contains(t, err.Error(), "503")
 }
 
-// sqliteCreateTableSQL returns a SQLite-compatible CREATE TABLE statement for testing.
-func sqliteCreateTableSQL(table string) string {
-	return "CREATE TABLE IF NOT EXISTS " + table + " (" +
-		"id TEXT NOT NULL PRIMARY KEY," +
-		"content TEXT NOT NULL," +
-		"embedding TEXT NOT NULL," +
-		"metadata TEXT" +
-		")"
-}
-
-// sqliteInsertSQL returns a SQLite-compatible INSERT statement for testing.
-func sqliteInsertSQL(table string) string {
-	return "INSERT INTO " + table + " (id, content, embedding, metadata) VALUES (?, ?, ?, ?)"
-}
-
 // TestBuildStore_SQLProviders_UnreachableServerErrors pins that the langchaingo SQL
 // stores connect when constructed: an unreachable database is reported as a
 // vectorstore error instead of a store that fails later.

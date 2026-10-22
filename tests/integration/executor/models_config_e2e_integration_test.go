@@ -167,8 +167,14 @@ llm:
 		json.NewDecoder(r.Body).Decode(&req) //nolint:errcheck
 		capturedModel, _ = req["model"].(string)
 		resp := map[string]interface{}{
-			"model":   capturedModel,
-			"choices": []interface{}{map[string]interface{}{"index": 0, "finish_reason": "stop", "message": map[string]interface{}{"role": "assistant", "content": "ok"}}},
+			"model": capturedModel,
+			"choices": []interface{}{
+				map[string]interface{}{
+					"index":         0,
+					"finish_reason": "stop",
+					"message":       map[string]interface{}{"role": "assistant", "content": "ok"},
+				},
+			},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp) //nolint:errcheck
@@ -239,8 +245,14 @@ func TestE2E_APIKeyFromConfigOnly(t *testing.T) {
 		auth := r.Header.Get("Authorization")
 		assert.Equal(t, "Bearer sk-from-env", auth)
 		resp := map[string]interface{}{
-			"model":   "gpt-4o",
-			"choices": []interface{}{map[string]interface{}{"index": 0, "finish_reason": "stop", "message": map[string]interface{}{"role": "assistant", "content": "ok"}}},
+			"model": "gpt-4o",
+			"choices": []interface{}{
+				map[string]interface{}{
+					"index":         0,
+					"finish_reason": "stop",
+					"message":       map[string]interface{}{"role": "assistant", "content": "ok"},
+				},
+			},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp) //nolint:errcheck

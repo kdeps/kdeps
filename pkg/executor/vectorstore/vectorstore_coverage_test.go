@@ -30,29 +30,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// failTransport returns an error on every RoundTrip.
-type failTransport struct{}
-
-func (f *failTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, errors.New("fail: connection refused")
-}
-
 // --- chroma collectionID error paths ---
-
-// methodFailTransport fails RoundTrip for a specific HTTP method.
-type methodFailTransport struct {
-	failMethod string
-	next       http.RoundTripper
-	onFail     func()
-}
-
-func (m *methodFailTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == m.failMethod {
-		m.onFail()
-		return nil, errors.New("method fail: connection refused on POST")
-	}
-	return m.next.RoundTrip(req)
-}
 
 // --- chroma AddDocuments metadata nil branch ---
 
