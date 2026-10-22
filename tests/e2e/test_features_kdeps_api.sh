@@ -229,9 +229,9 @@ elif kind == "groups":
     if doc.get("kind") != "APIGroupList" or doc.get("apiVersion") != "v1":
         die(repr(doc))
     groups = doc.get("groups")
-    if not isinstance(groups, list) or len(groups) != 3:
+    if not isinstance(groups, list) or len(groups) != 2:
         die("group count")
-    want = ["tools.kdeps.io", "commands.kdeps.io", "workflow.kdeps.io"]
+    want = ["tools.kdeps.io", "commands.kdeps.io"]
     for group, name in zip(groups, want):
         gv = name + "/v1"
         if group.get("name") != name:

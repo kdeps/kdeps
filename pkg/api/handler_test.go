@@ -53,11 +53,10 @@ func TestDiscovery_Groups(t *testing.T) {
 	if err := json.NewDecoder(groups.Body).Decode(&list); err != nil {
 		t.Fatal(err)
 	}
-	if list.Kind != kindAPIGroupList || len(list.Groups) != 3 {
+	if list.Kind != kindAPIGroupList || len(list.Groups) != 2 {
 		t.Fatalf("groups %+v", list)
 	}
-	if list.Groups[0].Name != groupTools || list.Groups[1].Name != groupCommands ||
-		list.Groups[2].Name != groupWorkflow {
+	if list.Groups[0].Name != groupTools || list.Groups[1].Name != groupCommands {
 		t.Fatalf("names %+v", list.Groups)
 	}
 	wantGV := groupTools + "/" + versionV1
