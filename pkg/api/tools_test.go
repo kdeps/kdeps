@@ -53,6 +53,10 @@ func TestTools_ListAndCall(t *testing.T) {
 		}
 	}
 	wantNames := []string{
+		toolApprovalGrant,
+		toolApprovalList,
+		toolApprovalRequest,
+		toolApprovalRevoke,
 		toolBashExec,
 		toolBashJobList,
 		toolBashJobWait,
@@ -68,6 +72,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolGoogleCacheDelete,
 		toolGoogleCacheList,
 		toolHTTPRequest,
+		toolInstruct,
 		toolListFiles,
 		toolLoadDocument,
 		toolMD5File,

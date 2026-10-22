@@ -75,6 +75,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
+	registerApprovalTokenTools(ctx, reg)
 	registerInstructTool(reg)
 }
 
