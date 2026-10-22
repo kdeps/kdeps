@@ -59,6 +59,24 @@ const maxCommandDepth = 8
 type commandUsage struct {
 	Args string `yaml:"args"`
 	Help string `yaml:"help"`
+	// Alias, when set, is what a call with exactly Args expands to, e.g.
+	// args: frugal, alias: preset frugal.
+	Alias string `yaml:"alias"`
+}
+
+// expandCommandAlias rewrites args through the usage line whose args match
+// them exactly and that declares an alias. Other args pass through unchanged.
+func expandCommandAlias(c *slashCommand, args []string) []string {
+	if c == nil {
+		return args
+	}
+	joined := strings.Join(args, " ")
+	for _, u := range c.Usage {
+		if u.Alias != "" && u.Args == joined {
+			return strings.Fields(u.Alias)
+		}
+	}
+	return args
 }
 
 // commandStep is one step of a declared command: exactly one of a slash

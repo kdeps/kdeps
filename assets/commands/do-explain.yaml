@@ -1,5 +1,5 @@
 version: 1.0.0
-name: explain
+name: do explain
 order: 530
 usage:
   - args: "<file, symbol or topic>"

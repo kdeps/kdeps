@@ -2500,6 +2500,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 	command := strings.ToLower(parts[0])
 	args := parts[1:]
 	if op := builtinCommandOperation(strings.TrimPrefix(command, "/")); op != "" {
+		args = expandCommandAlias(builtinCommandAssetByOperation(op), args)
 		return builtinCommandOps()[op](r, args)
 	}
 	return r.dispatchUnknownCommand(command, args)
@@ -2512,6 +2513,11 @@ func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 	name := strings.TrimPrefix(command, "/")
 	if c := declaredCommand(name); c != nil {
 		return r.runDeclaredCommand(c, args)
+	}
+	if name == "do" && len(args) > 0 {
+		if c := declaredCommand("do " + strings.ToLower(args[0])); c != nil {
+			return r.runDeclaredCommand(c, args[1:])
+		}
 	}
 	if sk := r.loop.SkillByName(name); sk != nil {
 		return r.cmdInvokeSkill(sk, args)

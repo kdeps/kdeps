@@ -213,12 +213,31 @@ func TestShippedDeclaredCommands(t *testing.T) {
 		return "", nil
 	}
 	_ = testCaptureStdout(t, func() {
-		require.NoError(t, repl.dispatchCommand("/explain the asset store"))
+		require.NoError(t, repl.dispatchCommand("/do explain the asset store"))
 	})
 	assert.Contains(t, sent, "Explain how the asset store works")
 
 	_ = testCaptureStdout(t, func() {
-		require.NoError(t, repl.dispatchCommand("/review error handling"))
+		require.NoError(t, repl.dispatchCommand("/do review error handling"))
 	})
 	assert.Contains(t, sent, "Extra focus, if given: error handling")
+}
+
+func TestExpandCommandAlias_UsageDeclaresTheAlias(t *testing.T) {
+	c := &slashCommand{Usage: []commandUsage{
+		{Args: "preset <name>", Help: "h"},
+		{Args: "frugal", Alias: "preset frugal", Help: "h"},
+	}}
+	assert.Equal(t, []string{"preset", "frugal"}, expandCommandAlias(c, []string{"frugal"}))
+	assert.Equal(t, []string{"preset", "x"}, expandCommandAlias(c, []string{"preset", "x"}), "no alias: args pass through")
+	assert.Equal(t, []string{"frugal", "extra"}, expandCommandAlias(c, []string{"frugal", "extra"}), "exact match only")
+	assert.Equal(t, []string{"frugal"}, expandCommandAlias(nil, []string{"frugal"}))
+}
+
+func TestBuiltinEfficiencyAssetDeclaresPresetAliases(t *testing.T) {
+	c := builtinCommandAssetByOperation("efficiency")
+	require.NotNil(t, c)
+	for _, p := range []string{"frugal", "balanced", "thorough"} {
+		assert.Equal(t, []string{"preset", p}, expandCommandAlias(c, []string{p}), p)
+	}
 }

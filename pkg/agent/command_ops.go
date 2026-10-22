@@ -128,6 +128,7 @@ func builtinCommandAsset(name string) *slashCommand {
 // where the session a command acts on lives.
 func (r *REPL) RegisterCommandAPI() {
 	for op, method := range builtinCommandOps() {
+		asset := builtinCommandAssetByOperation(op)
 		spec := api.CommandSpec{
 			Name: op,
 			Call: func(ctx context.Context, args map[string]any) (string, error) {
@@ -136,7 +137,7 @@ func (r *REPL) RegisterCommandAPI() {
 						return "", fmt.Errorf("/%s: %w", op, err)
 					}
 				}
-				return "", method(r, api.CommandArgs(args))
+				return "", method(r, expandCommandAlias(asset, api.CommandArgs(args)))
 			},
 		}
 		if c := builtinCommandAssetByOperation(op); c != nil {

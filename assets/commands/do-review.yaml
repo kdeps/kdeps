@@ -1,9 +1,9 @@
 version: 1.0.0
-name: review
+name: do review
 order: 520
 usage:
   - args: "[focus]"
-    help: Review the uncommitted changes in this repository (optionally with a focus, e.g. /review error handling)
+    help: Review the uncommitted changes in this repository (optionally with a focus, e.g. /do review error handling)
 run:
   - prompt: |-
       Review the uncommitted changes in this repository. Run `git diff HEAD` (and `git status`

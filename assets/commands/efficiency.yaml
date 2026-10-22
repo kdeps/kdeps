@@ -8,3 +8,12 @@ api: efficiency
 usage:
   - args: "[on|off|verbose|<setting> <n>|preset <name>|reset]"
     help: Show or tune efficiency enforcement (soft stops on read-only loops; persists)
+  - args: frugal
+    alias: preset frugal
+    help: Shortcut for /efficiency preset frugal (fewer tokens)
+  - args: balanced
+    alias: preset balanced
+    help: Shortcut for /efficiency preset balanced
+  - args: thorough
+    alias: preset thorough
+    help: Shortcut for /efficiency preset thorough (more context)
