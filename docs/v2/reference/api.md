@@ -41,7 +41,7 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | Method | Path | Body |
 | --- | --- | --- |
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
-| `GET` | `/apis` | Groups `tools.kdeps.io`, `commands.kdeps.io` and `workflow.kdeps.io`, each at `v1`. |
+| `GET` | `/apis` | Groups `tools.kdeps.io` and `commands.kdeps.io`, each at `v1`. Workflow execution is not an API group: a workflow runs through `kdeps run`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
 | `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `read_file`, `list_files`, `md5_file`, `tail_file`, `write_file`, `edit_file`, `web_search`, `wikipedia`, `web_scraper`, `calculator`, the four `sql_*` tools, `serpapi_search`, `perplexity_search`, the three `google_cache_*` tools, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, the `code_*` tools, `http_request`, `exec`, `python`, `twiml`, `email_ops`, `browser_ops`, `file_ops`, `git_ops`, `sql_ops`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, `task_create`, `task_get`, `task_list`, `task_stop`, `task_complete`, `task_append_output`, `task_assign_team`, `team_create`, `team_get`, `team_list`, `team_add_task`, `team_delete`, the five `cron_*` tools, the four `approval_*` tools, `instruct`, and the tools whose implementation is declared in their own asset (`cohere_rerank`, `exa_search`, `jina_rerank`, `ocr_image`, `retrieve_context`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`). |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
