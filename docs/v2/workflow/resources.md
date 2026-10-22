@@ -64,7 +64,7 @@ component:           # call a shipped or installed component:
     url: https://api.example.com/data
 ```
 
-The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, `codeIntelligence:`, `vectorStore:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
+The tables under [Resource types](#resource-types) are the allowlist. An action listed there as `component:` is called only that way - a workflow that uses its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, `vectorStore:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
 
 ## actionId and requires
 
@@ -132,11 +132,10 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 ## Registry components (installable via `kdeps install`)
 
-Some install names (`embedding`) also exist as kdeps components; the registry component is a separate package, and installing it takes the place of the shipped component. An installed `browser` registry component takes the place of the shipped `browser` component.
+Some install names (`embedding`) also exist as kdeps components; the registry component is a separate package, and installing it takes the place of the shipped component. 
 
 | Install name | Description |
 |-------------|-------------|
-| `browser` | Playwright browser with stealth mode, persistent sessions, and file upload |
 | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
 | `embedding` | Vector embeddings via OpenAI Embeddings API |
 | `search` | Web search via Tavily API |

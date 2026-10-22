@@ -28,7 +28,6 @@ load_document (load + chunk)  ->  embedding or vector_store component (index)  -
 ## See also
 
 - [Document search tutorial](/examples/rag-search) - `component: embedding` upsert and search
-- Scraper component - fetch content to index
 - [Search resources](/workflow/resources/search) - keyword file and web search
 - [LLM resource](/workflow/resources/llm) - answer with the retrieved context
 - [Resources overview](/workflow/resources) - all resource types

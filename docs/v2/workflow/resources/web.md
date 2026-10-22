@@ -19,6 +19,5 @@ Works in workflow and agent mode.
 ## See also
 
 - [Authenticated API call tutorial](/examples/http-auth) - `http_request` auth, retry, cache
-- Web scraper tutorial - the scraper component plus an LLM summary
 - [Search resources](/workflow/resources/search) - find pages to fetch
 - [Resources overview](/workflow/resources) - all resource types

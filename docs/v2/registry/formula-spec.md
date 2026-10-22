@@ -47,7 +47,7 @@ A reusable resource bundle invoked via `component:` in any workflow. Manifest: `
 type: component
 ```
 
-Example: `scraper`, `search`, `browser`, `tts`, `email`
+Example: `search`, `tts`
 
 ### Workflow
 
@@ -74,14 +74,14 @@ Example: `cv-matcher`, `research-pipeline`
 kdeps publishes its own versioned assets (harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, providers) through the same registry. CI writes one formula per item, named `kdeps-<set>-<name>`; the `tarball` is the item's YAML file in `kdeps/packages`, not an archive. These are installed and updated with `kdeps update`, not `kdeps install`, which also installs what an item lists under `requires:` ([how](/agent/repl-updating)). The formula carries those as `dependencies`. The asset index also records each item's [shelf](/reference/glossary#shelf) as `category`. The formula name stays `kdeps-<set>-<name>`.
 
 ```yaml
-# formulas/kdeps-components-searchWeb.yaml  (written by kdeps CI, not by hand)
-name: kdeps-components-searchWeb
+# formulas/kdeps-components-web_search.yaml  (written by kdeps CI, not by hand)
+name: kdeps-components-web_search
 version: 1.0.1
 type: kdeps-component    # harness | event | action | preset | theme | tool | command | recipe | model | template | ...
 github: kdeps/packages
-tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/components/searchWeb/1.0.1.yaml
+tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/components/web_search/1.0.1.yaml
 sha256: 5a2844c4...      # SHA256 of that YAML file
-description: 'kdeps kdeps-component: searchWeb'
+description: 'kdeps kdeps-component: web_search'
 tags: [kdeps, kdeps-component]
 license: Apache-2.0
 dependencies:            # the item's requires:, as package names; omitted when it has none

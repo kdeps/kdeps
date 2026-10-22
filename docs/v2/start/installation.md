@@ -109,7 +109,7 @@ The binary ships no prompts, schemas, templates or tool definitions; the first c
 ```text
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
-  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, browser, email, ...)
+  2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
   3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
   4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       ~19.4k tok   every asset set

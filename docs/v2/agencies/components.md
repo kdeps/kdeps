@@ -15,10 +15,8 @@ Components encapsulate resources, configuration, and dependencies into a single 
 Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow:
 
 ```bash
-kdeps install scraper     # web/doc text extraction
 kdeps install search      # web search
 kdeps install embedding   # vector embeddings
-kdeps install browser     # browser automation
 ```
 
 Invoke with `component:`:
@@ -52,7 +50,7 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
-7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql), email, browser, twiml, scraper, searchWeb); one is loaded only when a workflow calls it and does not provide a component of that name itself
+7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql), web_search and web_scraper are tools, not components); one is loaded only when a workflow calls it and does not provide a component of that name itself
 
 A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs, and `validations.check` fails the call with its `error.message` when a condition is false:
 
@@ -74,7 +72,7 @@ resources:
 An input whose value names a connection in `~/.kdeps/config.yaml` declares its kind with `connection:` (`search`, `sql`, `smtp`, `imap`, `http`). `kdeps run` then asks for a missing connection before the workflow starts, as it does for a resource's `connectionName`:
 
 ```yaml
-# components/searchWeb/component.yaml (interface, abridged)
+# components/web_search/component.yaml (interface, abridged)
 interface:
   inputs:
     - name: connectionName
@@ -111,7 +109,7 @@ setup:
 A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
-# components/searchWeb/template.yaml (as shipped)
+# components/web_search/template.yaml (as shipped)
 version: 1.0.3
 requires:
   schemas/v1: ">=1.0.3"   # the schema that accepts connection: on an input
