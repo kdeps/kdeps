@@ -8,5 +8,5 @@ global install.
 To use a component in a real project, install it from the registry, e.g.:
 
 ```bash
-kdeps install kdeps-scraper-example
+kdeps install kdeps-web-scraper
 ```
