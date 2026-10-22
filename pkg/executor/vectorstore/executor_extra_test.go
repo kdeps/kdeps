@@ -73,17 +73,19 @@ func TestBuildEmbedder_Bedrock(t *testing.T) {
 
 // --- buildStore extra error paths (not duplicates of executor_test.go) ---
 
-func TestBuildStore_Chroma_DefaultsToLocalhost(t *testing.T) {
+func TestBuildStore_Chroma_UnreachableServerErrors(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	cfg := &domain.VectorStoreConfig{
 		Provider:     "chroma",
+		URL:          "http://127.0.0.1:1",
 		Collection:   "test",
 		EmbedModel:   "text-embedding-ada-002",
 		EmbedBackend: "openai",
 	}
 	store, err := buildStore(t.Context(), cfg)
-	require.NoError(t, err)
-	require.NotNil(t, store)
+	require.Error(t, err)
+	assert.Nil(t, store)
+	assert.Contains(t, err.Error(), "vectorstore chroma")
 }
 
 func TestBuildStore_Qdrant_WithURL(t *testing.T) {
