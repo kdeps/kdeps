@@ -1177,7 +1177,6 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
-
 	// Resolve the judge panel up front so an auto-generated roster prints
 	// before the main tool loop, not after the answer. The panel still runs
 	// against the final output below.
