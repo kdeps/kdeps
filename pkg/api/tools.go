@@ -112,10 +112,6 @@ func init() {
 	registerInstructTool()
 }
 
-// registerCodeTools registers the code intelligence tools.
-func registerCodeTools() {
-}
-
 // loadToolSpec builds a call spec from the tool asset. A missing or empty
 // asset keeps the fallback description.
 func loadToolSpec(name, fallback string, call func(context.Context, map[string]any) (string, error)) ToolSpec {
