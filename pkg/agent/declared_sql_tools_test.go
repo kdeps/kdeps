@@ -27,25 +27,36 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func sqlTestDB(t *testing.T) string {
+func sqlTestDB(t *testing.T) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "state.db")
-	t.Setenv("KDEPS_TEST_STATE_DB", path)
-	spec := &sqlToolSpec{DSN: "KDEPS_TEST_STATE_DB", Query: "CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT)", Mode: "exec"}
+	t.Setenv("KDEPS_TEST_STATE_DB", filepath.Join(t.TempDir(), "state.db"))
+	spec := &sqlToolSpec{
+		DSN:   "KDEPS_TEST_STATE_DB",
+		Query: "CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT)",
+		Mode:  "exec",
+	}
 	_, err := runSQLTool(context.Background(), "setup", spec, nil)
 	require.NoError(t, err)
-	return path
 }
 
 func TestRunSQLTool_ExecThenRows(t *testing.T) {
 	sqlTestDB(t)
 	ctx := context.Background()
-	insert := &sqlToolSpec{DSN: "KDEPS_TEST_STATE_DB", Query: "INSERT INTO tasks (id, title) VALUES (?, ?)", Params: []string{"id", "title"}, Mode: "exec"}
+	insert := &sqlToolSpec{
+		DSN:    "KDEPS_TEST_STATE_DB",
+		Query:  "INSERT INTO tasks (id, title) VALUES (?, ?)",
+		Params: []string{"id", "title"},
+		Mode:   "exec",
+	}
 	out, err := runSQLTool(ctx, "task_create", insert, map[string]any{"id": "t1", "title": "ship it"})
 	require.NoError(t, err)
 	assert.Equal(t, "1 rows changed", out)
 
-	list := &sqlToolSpec{DSN: "KDEPS_TEST_STATE_DB", Query: "SELECT id, title FROM tasks WHERE id = ?", Params: []string{"id"}}
+	list := &sqlToolSpec{
+		DSN:    "KDEPS_TEST_STATE_DB",
+		Query:  "SELECT id, title FROM tasks WHERE id = ?",
+		Params: []string{"id"},
+	}
 	out, err = runSQLTool(ctx, "task_get", list, map[string]any{"id": "t1"})
 	require.NoError(t, err)
 	assert.JSONEq(t, `[{"id":"t1","title":"ship it"}]`, out)
@@ -55,11 +66,20 @@ func TestRunSQLTool_ArgumentsAreBoundNotSpliced(t *testing.T) {
 	sqlTestDB(t)
 	ctx := context.Background()
 	hostile := "x'); DROP TABLE tasks; --"
-	insert := &sqlToolSpec{DSN: "KDEPS_TEST_STATE_DB", Query: "INSERT INTO tasks (id, title) VALUES (?, ?)", Params: []string{"id", "title"}, Mode: "exec"}
+	insert := &sqlToolSpec{
+		DSN:    "KDEPS_TEST_STATE_DB",
+		Query:  "INSERT INTO tasks (id, title) VALUES (?, ?)",
+		Params: []string{"id", "title"},
+		Mode:   "exec",
+	}
 	_, err := runSQLTool(ctx, "task_create", insert, map[string]any{"id": "t2", "title": hostile})
 	require.NoError(t, err)
 
-	read := &sqlToolSpec{DSN: "KDEPS_TEST_STATE_DB", Query: "SELECT title FROM tasks WHERE id = ?", Params: []string{"id"}}
+	read := &sqlToolSpec{
+		DSN:    "KDEPS_TEST_STATE_DB",
+		Query:  "SELECT title FROM tasks WHERE id = ?",
+		Params: []string{"id"},
+	}
 	out, err := runSQLTool(ctx, "task_get", read, map[string]any{"id": "t2"})
 	require.NoError(t, err)
 	assert.JSONEq(t, `[{"title":"x'); DROP TABLE tasks; --"}]`, out, "value stored as data; table still exists")

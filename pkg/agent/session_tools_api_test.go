@@ -49,7 +49,13 @@ func TestSessionToolBridge_RunsRegisteredTool(t *testing.T) {
 		},
 	})
 	loop := &Loop{registry: reg}
-	out, err := sessionToolBridge{loop: loop}.CallSessionTool(context.Background(), "identity_get", map[string]any{"k": "v"})
+	out, err := sessionToolBridge{
+		loop: loop,
+	}.CallSessionTool(
+		context.Background(),
+		"identity_get",
+		map[string]any{"k": "v"},
+	)
 	require.NoError(t, err)
 	assert.Equal(t, "id:v", out)
 }

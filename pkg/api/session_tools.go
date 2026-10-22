@@ -60,9 +60,11 @@ var sessionToolNames = []string{ //nolint:gochecknoglobals // fixed list of serv
 //nolint:gochecknoinits // the routes exist in workflow mode, before any agent loop starts
 func init() {
 	for _, name := range sessionToolNames {
-		RegisterTool(loadToolSpec(name, "Agent session tool.", func(ctx context.Context, args map[string]any) (string, error) {
-			return callSessionTool(ctx, name, args)
-		}))
+		RegisterTool(
+			loadToolSpec(name, "Agent session tool.", func(ctx context.Context, args map[string]any) (string, error) {
+				return callSessionTool(ctx, name, args)
+			}),
+		)
 	}
 }
 

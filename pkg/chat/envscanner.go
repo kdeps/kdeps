@@ -148,8 +148,6 @@ func saasHints() []envHint {
 			}},
 		{[]string{"api.serper.dev", "serper"},
 			[]EnvVar{{"SERPER_API_KEY", "Serper.dev web search API key"}}},
-		{[]string{"serpapi.com"},
-			[]EnvVar{{"SERPAPI_KEY", "SerpAPI key"}}},
 		{[]string{"maps.googleapis.com", "google maps"},
 			[]EnvVar{{"GOOGLE_MAPS_API_KEY", "Google Maps API key"}}},
 		{[]string{"calendar.google.com", "google calendar"},

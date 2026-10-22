@@ -6,7 +6,7 @@ metadata:
   description: Search the web or local files and return URLs for use with the scraper resource
 run:
   search:
-    provider: brave         # brave | serpapi | duckduckgo | tavily | local
+    provider: brave         # brave | duckduckgo | tavily | local
     query: "{{ get('q') }}"
     # apiKey: "{{ env('BRAVE_API_KEY') }}"
     # limit: 10

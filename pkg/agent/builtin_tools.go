@@ -43,7 +43,7 @@ const (
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
-// calculator and optional API-key tools: serpapi_search, perplexity_search, google_cache_*)
+// calculator and optional API-key tools: google_cache_*)
 // plus every tool asset that declares an http: block (exa_search, wolfram_alpha, zapier_*,
 // the rerankers, retrieve_context, ...) to the registry. API-key tools are registered only
 // when the corresponding env var is set.
@@ -68,8 +68,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWriteFile(ctx, reg)
 	registerEditFile(ctx, reg)
 	registerStructuredTools(ctx, reg)
-	registerSerpAPI(ctx, reg, webCache)
-	registerPerplexity(ctx, reg, webCache)
 	registerGoogleCacheTools(ctx, reg)
 	registerDeclaredTools(ctx, reg, webCache)
 	registerResourceTools(ctx, reg)
@@ -741,32 +739,6 @@ func jsonArgs(args map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
-}
-
-// registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
-// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
-func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	if os.Getenv("SERPAPI_API_KEY") == "" {
-		return
-	}
-	registerCachedAPITool(ctx, reg, cache, "serpapi_search", toolParamQuery, builtinSearchTimeout, api.SerpAPISearch)
-}
-
-// registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.
-// The handler is the kdeps API. This wrapper keeps the search timeout and the cache.
-func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	if os.Getenv("PERPLEXITY_API_KEY") == "" {
-		return
-	}
-	registerCachedAPITool(
-		ctx,
-		reg,
-		cache,
-		"perplexity_search",
-		toolParamQuery,
-		builtinSearchTimeout,
-		api.PerplexitySearch,
-	)
 }
 
 // Network tool timeouts: a hung remote endpoint must not stall the agent

@@ -107,8 +107,6 @@ var toolRequiredPermission = map[string]PermissionMode{
 	"sql_describe_table":  PermissionReadOnly,
 	"wolfram_alpha":       PermissionReadOnly,
 	"retrieve_context":    PermissionReadOnly,
-	"serpapi_search":      PermissionReadOnly,
-	"perplexity_search":   PermissionReadOnly,
 	"exa_search":          PermissionReadOnly,
 	"cohere_rerank":       PermissionReadOnly,
 	"voyageai_rerank":     PermissionReadOnly,

@@ -117,8 +117,6 @@ func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 
 func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	// Clear API key env vars so we get exactly the no-key tools.
-	t.Setenv("SERPAPI_API_KEY", "")
-	t.Setenv("PERPLEXITY_API_KEY", "")
 	t.Setenv("EXA_API_KEY", "")
 	t.Setenv("METAPHOR_API_KEY", "")
 	t.Setenv("GOOGLE_API_KEY", "")
@@ -152,28 +150,6 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 		assert.NotEmpty(t, lt.Description)
 		assert.NotNil(t, lt.Execute)
 	}
-}
-
-func TestRegisterBuiltinTools_SerpAPINotRegisteredWithoutKey(t *testing.T) {
-	t.Setenv("SERPAPI_API_KEY", "")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(
-		t,
-		reg.Get("serpapi_search"),
-		"serpapi_search should not register without SERPAPI_API_KEY",
-	)
-}
-
-func TestRegisterBuiltinTools_PerplexityNotRegisteredWithoutKey(t *testing.T) {
-	t.Setenv("PERPLEXITY_API_KEY", "")
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(
-		t,
-		reg.Get("perplexity_search"),
-		"perplexity_search should not register without PERPLEXITY_API_KEY",
-	)
 }
 
 func TestRegisterBuiltinTools_ExaNotRegisteredWithoutKey(t *testing.T) {
@@ -210,8 +186,6 @@ func TestRegisterBuiltinTools_ExaRegisteredWithMetaphorKey(t *testing.T) {
 }
 
 func TestRegisterBuiltinTools_WebScraperAlwaysRegistered(t *testing.T) {
-	t.Setenv("SERPAPI_API_KEY", "")
-	t.Setenv("PERPLEXITY_API_KEY", "")
 	t.Setenv("EXA_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)

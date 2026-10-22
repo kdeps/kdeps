@@ -57,7 +57,7 @@ var (
 		"nudge-edit-unchanged",
 		"tool-call-early-praise", "tool-call-recovery-praise",
 		"tool-call-sandbox-recovery-praise", "handshake-evidence",
-		"handshake-evidence-retry", "handshake-evidence-praise",
+		"handshake-evidence-retry", "handshake-evidence-praise", "handshake-grounding",
 	}
 )
 

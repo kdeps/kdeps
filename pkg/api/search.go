@@ -28,18 +28,12 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
-	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
-	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
 )
 
 const (
-	toolSerpAPI           = "serpapi_search"
-	toolPerplexity        = "perplexity_search"
 	toolGoogleCacheCreate = "google_cache_create"
 	toolGoogleCacheDelete = "google_cache_delete"
 	toolGoogleCacheList   = "google_cache_list"
-	envSerpAPIKey         = "SERPAPI_API_KEY"
-	envPerplexityKey      = "PERPLEXITY_API_KEY"
 	envGoogleAPIKey       = "GOOGLE_API_KEY"
 	argModel              = "model"
 	argContent            = "content"
@@ -51,61 +45,10 @@ const (
 //
 //nolint:gochecknoglobals // test-replaceable provider calls
 var (
-	serpCall              textCall
-	perplexityCall        textCall
 	googleCacheCreateCall func(context.Context, string, string, string, time.Duration) (string, error)
 	googleCacheDeleteCall func(context.Context, string, string) error
 	googleCacheListCall   func(context.Context, string) ([]string, error)
 )
-
-// SerpAPISearch looks up query on Google through SerpAPI.
-func SerpAPISearch(ctx context.Context, args map[string]any) (string, error) {
-	return keyedQuery(ctx, toolSerpAPI, envSerpAPIKey, serpCall, serpLive, args)
-}
-
-// PerplexitySearch answers query through Perplexity.
-func PerplexitySearch(ctx context.Context, args map[string]any) (string, error) {
-	return keyedQuery(ctx, toolPerplexity, envPerplexityKey, perplexityCall, perplexityLive, args)
-}
-
-func keyedQuery(
-	ctx context.Context, name, envName string, stub, live textCall, args map[string]any,
-) (string, error) {
-	if err := ctxReady(ctx, name); err != nil {
-		return "", err
-	}
-	query := stringArg(args, argQuery)
-	if query == "" {
-		return "", errors.New(name + ": query is required")
-	}
-	if os.Getenv(envName) == "" {
-		return "", fmt.Errorf("%s: disabled (%s is unset)", name, envName)
-	}
-	call := stub
-	if call == nil {
-		call = live
-	}
-	if call == nil {
-		return "", fmt.Errorf("%s: client is unavailable", name)
-	}
-	return call(ctx, query)
-}
-
-func serpLive(ctx context.Context, query string) (string, error) {
-	tool, err := lcserpapi.New()
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", toolSerpAPI, err)
-	}
-	return tool.Call(ctx, query)
-}
-
-func perplexityLive(ctx context.Context, query string) (string, error) {
-	tool, err := lcperplexity.New()
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", toolPerplexity, err)
-	}
-	return tool.Call(ctx, query)
-}
 
 // GoogleCacheCreate stores content as Google AI cached content and returns its name.
 func GoogleCacheCreate(ctx context.Context, args map[string]any) (string, error) {

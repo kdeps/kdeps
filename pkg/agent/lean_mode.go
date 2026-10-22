@@ -68,8 +68,6 @@ func LeanModeToolFilter(names []string) []string {
 		toolNameWebSearch:     true,
 		toolNameWebScraper:    true,
 		"wikipedia":           true,
-		"serpapi_search":      true,
-		"perplexity_search":   true,
 		"exa_search":          true,
 		"zapier_list_actions": true,
 		"zapier_run_action":   true,

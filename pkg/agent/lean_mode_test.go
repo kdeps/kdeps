@@ -64,7 +64,7 @@ func TestLeanModeToolFilter(t *testing.T) {
 		"code_hover",
 		"code_diagnostics",
 		"list_files",
-		// Excluded: serpapi_search, perplexity_search, exa_search,
+		// Excluded: exa_search,
 		// zapier_list_actions, zapier_run_action, wolfram_alpha,
 		// cohere_rerank, voyageai_rerank, jina_rerank,
 		// google_cache_create, google_cache_delete, google_cache_list,
@@ -88,8 +88,6 @@ func TestLeanModeToolFilter(t *testing.T) {
 	assert.NotContains(t, filtered, "web_scraper")
 	assert.NotContains(t, filtered, "bash_job_list")
 	assert.NotContains(t, filtered, "bash_job_wait")
-	assert.NotContains(t, filtered, "serpapi_search")
-	assert.NotContains(t, filtered, "perplexity_search")
 	assert.NotContains(t, filtered, "exa_search")
 	assert.NotContains(t, filtered, "zapier_list_actions")
 	assert.NotContains(t, filtered, "zapier_run_action")
