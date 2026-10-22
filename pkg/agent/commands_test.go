@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"testing/fstest"
 
@@ -221,4 +222,39 @@ func TestShippedDeclaredCommands(t *testing.T) {
 		require.NoError(t, repl.dispatchCommand("/review error handling"))
 	})
 	assert.Contains(t, sent, "Extra focus, if given: error handling")
+}
+
+func TestDeclaredCommand_APICallReturnsReplies(t *testing.T) {
+	withCommands(t, map[string]string{
+		"sum": "name: sum\nusage: [{args: \"[topic]\", help: Summarize}]\nrun:\n" +
+			"  - prompt: \"Summarize $ARGUMENTS\"\n  - prompt: \"Then shorten it\"\n",
+	})
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	var sent []string
+	repl.runFn = func(_ context.Context, msg string) (string, error) {
+		sent = append(sent, msg)
+		return "reply " + strconv.Itoa(len(sent)), nil
+	}
+
+	spec := repl.declaredCommandSpec(declaredCommand("sum"))
+	assert.Equal(t, "sum", spec.Name)
+	require.Len(t, spec.Usage, 1)
+	out, err := spec.Call(context.Background(), map[string]any{"args": []any{"memory"}})
+	require.NoError(t, err)
+	assert.Equal(t, "reply 1\n\nreply 2", out)
+	assert.Equal(t, []string{"Summarize memory", "Then shorten it"}, sent)
+}
+
+func TestDeclaredCommand_APICallCanceledContext(t *testing.T) {
+	withCommands(t, map[string]string{
+		"sum": "name: sum\nusage: [{help: h}]\nrun: [{prompt: one}]\n",
+	})
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) { return "x", nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := repl.declaredCommandSpec(declaredCommand("sum")).Call(ctx, nil)
+	require.ErrorIs(t, err, context.Canceled)
 }
