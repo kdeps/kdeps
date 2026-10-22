@@ -35,8 +35,6 @@ import (
 //
 //nolint:gochecknoinits // wires task and team tools before any call
 func init() {
-	api.SetTaskBackend(taskAPIBackend{})
-	api.SetTeamBackend(teamAPIBackend{})
 	api.SetCronBackend(cronAPIBackend{})
 	api.SetApprovalBackend(approvalAPIBackend{})
 	// Workflow mode has no agent registry; the agent loop replaces this with
@@ -47,126 +45,11 @@ func init() {
 // Approval token default duration.
 const approvalTokenDuration = 5 * time.Minute
 
-// registerTaskTeamTools registers task/team/cron/approval-token management tools.
-// These are always available in the agent loop (not filtered by lean mode).
-func registerTaskTeamTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerTaskTools(ctx, reg)
-	registerTeamTools(ctx, reg)
-	registerCronTools(ctx, reg)
-	registerApprovalTokenTools(ctx, reg)
-}
-
 // --- Task Tools ---
-
-func registerTaskTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "task_create", api.TaskCreate)
-	registerAPITool(ctx, reg, "task_get", api.TaskGet)
-	registerAPITool(ctx, reg, "task_list", api.TaskList)
-	registerAPITool(ctx, reg, "task_stop", api.TaskStop)
-	registerAPITool(ctx, reg, "task_complete", api.TaskComplete)
-	registerAPITool(ctx, reg, "task_append_output", api.TaskAppendOutput)
-	registerAPITool(ctx, reg, "task_assign_team", api.TaskAssignTeam)
-}
 
 // --- Team Tools ---
 
-func registerTeamTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "team_create", api.TeamCreate)
-	registerAPITool(ctx, reg, "team_get", api.TeamGet)
-	registerAPITool(ctx, reg, "team_list", api.TeamList)
-	registerAPITool(ctx, reg, "team_add_task", api.TeamAddTask)
-	registerAPITool(ctx, reg, "team_delete", api.TeamDelete)
-}
 
-type taskAPIBackend struct{}
-
-func (taskAPIBackend) CreateTask(prompt, description string) api.TaskView {
-	return taskView(GlobalTaskRegistry.Create(prompt, description))
-}
-
-func (taskAPIBackend) GetTask(id string) (api.TaskView, bool) {
-	task := GlobalTaskRegistry.Get(id)
-	if task == nil {
-		return api.TaskView{}, false
-	}
-	return taskView(task), true
-}
-
-func (taskAPIBackend) ListTasks() []api.TaskView {
-	tasks := GlobalTaskRegistry.List()
-	out := make([]api.TaskView, 0, len(tasks))
-	for _, task := range tasks {
-		out = append(out, taskView(task))
-	}
-	return out
-}
-
-func (taskAPIBackend) StopTask(id string) bool {
-	return GlobalTaskRegistry.Stop(id)
-}
-
-func (taskAPIBackend) CompleteTask(id string) bool {
-	return GlobalTaskRegistry.SetStatus(id, TaskCompleted)
-}
-
-func (taskAPIBackend) AppendTaskOutput(id, text string) bool {
-	return GlobalTaskRegistry.AppendOutput(id, text)
-}
-
-func (taskAPIBackend) AssignTaskTeam(taskID, teamID string) bool {
-	return GlobalTaskRegistry.AssignTeam(taskID, teamID)
-}
-
-func taskView(task *Task) api.TaskView {
-	return api.TaskView{
-		ID:          task.TaskID,
-		Status:      task.Status.String(),
-		Description: task.Description,
-		Output:      task.Output,
-		TeamID:      task.TeamID,
-		CreatedAt:   task.CreatedAt,
-	}
-}
-
-type teamAPIBackend struct{}
-
-func (teamAPIBackend) CreateTeam(name string) api.TeamView {
-	return teamView(GlobalTeamRegistry.Create(name))
-}
-
-func (teamAPIBackend) GetTeam(id string) (api.TeamView, bool) {
-	team := GlobalTeamRegistry.Get(id)
-	if team == nil {
-		return api.TeamView{}, false
-	}
-	return teamView(team), true
-}
-
-func (teamAPIBackend) ListTeams() []api.TeamView {
-	teams := GlobalTeamRegistry.List()
-	out := make([]api.TeamView, 0, len(teams))
-	for _, team := range teams {
-		out = append(out, teamView(team))
-	}
-	return out
-}
-
-func (teamAPIBackend) AddTeamTask(teamID, taskID string) bool {
-	return GlobalTeamRegistry.AddTask(teamID, taskID)
-}
-
-func (teamAPIBackend) DeleteTeam(id string) bool {
-	return GlobalTeamRegistry.Delete(id)
-}
-
-func teamView(team *Team) api.TeamView {
-	return api.TeamView{
-		ID:        team.TeamID,
-		Name:      team.Name,
-		Status:    team.Status.String(),
-		TaskCount: len(team.TaskIDs),
-	}
-}
 
 // --- Cron Tools ---
 

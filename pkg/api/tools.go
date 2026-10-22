@@ -114,7 +114,6 @@ func init() {
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	RegisterTool(loadToolSpec(toolVectorStore, "Run one vector store operation.", VectorStore))
-	registerRegistryTools()
 }
 
 // registerCodeTools registers the code intelligence tools.
