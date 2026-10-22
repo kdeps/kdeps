@@ -45,8 +45,6 @@ func SetSessionToolBackend(backend SessionToolBackend) {
 // sessionToolNames are the agent-loop tools served on the tools routes. Each
 // reads or changes the state of the active agent session.
 var sessionToolNames = []string{ //nolint:gochecknoglobals // fixed list of served tools
-	"goal_task_complete",
-	"goal_task_fail",
 	"judge_verdict",
 	"knowledge_recall",
 	"knowledge_card_get",

@@ -192,8 +192,6 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 // or change the active agent session, so they have no workflow caller and ship
 // no component.
 var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
-	"goal_task_complete":    true,
-	"goal_task_fail":        true,
 	"judge_verdict":         true,
 	"identity_get":          true,
 	"knowledge_card_get":    true,

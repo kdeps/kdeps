@@ -273,8 +273,8 @@ elif kind == "tools":
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
         "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "edit_file", "embedding", "embedding_search",
-        "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "goal_task_complete",
-        "goal_task_fail", "google_cache_create", "google_cache_delete", "google_cache_list", "http_request",
+        "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
+        "google_cache_delete", "google_cache_list", "http_request",
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
         "knowledge_card_update", "knowledge_note_save", "knowledge_recall", "list_files", "load_document",
         "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
@@ -293,7 +293,7 @@ elif kind == "commands":
     names = [item.get("name") for item in items]
     if names != sorted(names):
         die("unsorted " + repr(names))
-    for want in ("clear", "goal", "instruct-now", "explain", "frugal", "review", "thorough"):
+    for want in ("clear", "instruct-now", "explain", "frugal", "review", "thorough"):
         if want not in names:
             die("missing " + want)
     for item in items:

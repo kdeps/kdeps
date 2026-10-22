@@ -68,8 +68,6 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolExec,
 		toolFileOps,
 		toolGitOps,
-		"goal_task_complete",
-		"goal_task_fail",
 		toolGoogleCacheCreate,
 		toolGoogleCacheDelete,
 		toolGoogleCacheList,

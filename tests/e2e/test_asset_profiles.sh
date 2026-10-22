@@ -102,17 +102,17 @@ else
     test_failed "asset profiles - minimum install" "$OUT $(ls "$MN/store" 2>&1)"
 fi
 
-OUT=$(ap_loop "$MN" '/help\n/refine\n/goal\n/quit\n')
+OUT=$(ap_loop "$MN" '/help\n/refine\n/quit\n')
 INSTALL_LINE=$(printf '%s\n' "$OUT" | grep "needed by this command" | head -1)
 if [ -n "$INSTALL_LINE" ] && ! output_grep "Installing [a-z]+, " "$INSTALL_LINE" &&
-    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/goal"; then
+    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/refine"; then
     test_passed "asset profiles - the agent loop under minimum adds required items, never whole sets"
 else
     test_failed "asset profiles - agent loop install under minimum" "$INSTALL_LINE"
 fi
 if [ "$(set_count "$MN" commands)" = "8" ] && [ "$(set_count "$MN" themes)" = "1" ] && [ -f "$MN/store/themes/normal.yaml" ] &&
     [ ! -d "$MN/store/events" ] && [ ! -d "$MN/store/actions" ] && [ ! -d "$MN/store/presets" ] &&
-    [ ! -f "$MN/store/tools/web_search.yaml" ] && [ -f "$MN/store/tools/goal_task_complete.yaml" ]; then
+    [ ! -f "$MN/store/tools/web_search.yaml" ] && [ -f "$MN/store/tools/session_handshake.yaml" ]; then
     test_passed "asset profiles - minimum keeps 8 core commands, the normal theme, required tools; no events/actions/presets"
 else
     test_failed "asset profiles - minimum store contents" "commands=$(set_count "$MN" commands) themes=$(set_count "$MN" themes) $(ls "$MN/store" "$MN/store/tools" 2>&1 | head -40)"
@@ -123,8 +123,8 @@ if [ "$GOT" = "$CORE" ]; then
 else
     test_failed "asset profiles - /help under minimum" "got: $GOT"
 fi
-if output_grep "prompt refinement is (on|off)" "$OUT" && output_grep_i "goal" "$OUT" &&
-    ! output_grep "Unknown command: /refine" "$OUT" && ! output_grep "Unknown command: /goal" "$OUT"; then
+if output_grep "prompt refinement is (on|off)" "$OUT" &&
+    ! output_grep "Unknown command: /refine" "$OUT"; then
     test_passed "asset profiles - built-ins without their help file still run"
 else
     test_failed "asset profiles - unlisted built-ins" "$OUT"
@@ -157,7 +157,7 @@ OUT=$(ap "$MN" "$KDEPS_BIN" profile agent)
 HELP=$(ap_loop "$MN" '/help\n/quit\n')
 N=$(help_commands "$HELP" | wc -l | tr -d ' ')
 if [ "$(lock_field "$MN" profile)" = "agent" ] && [ "$(set_count "$MN" commands)" = "$TOTAL_COMMANDS" ] &&
-    help_commands "$HELP" | grep -qx "/recall" && help_commands "$HELP" | grep -qx "/goal" && [ "$N" -gt 20 ] &&
+    help_commands "$HELP" | grep -qx "/recall" && help_commands "$HELP" | grep -qx "/refine" && [ "$N" -gt 20 ] &&
     [ -f "$MN/store/tools/web_search.yaml" ] && [ "$(lock_field "$MN" empty)" = "None" ]; then
     test_passed "asset profiles - kdeps profile agent installs every command; /help lists them ($N)"
 else
@@ -166,9 +166,9 @@ fi
 
 # --- back to minimum: pruned -------------------------------------------------
 OUT=$(ap "$MN" "$KDEPS_BIN" profile minimum)
-if output_grep "commands/goal" "$OUT" && output_grep "not in the profile" "$OUT" &&
+if output_grep "commands/refine" "$OUT" && output_grep "not in the profile" "$OUT" &&
     [ "$(set_count "$MN" commands)" = "8" ] && [ ! -f "$MN/store/tools/web_search.yaml" ] &&
-    [ -f "$MN/store/tools/goal_task_complete.yaml" ] && [ ! -d "$MN/store/events" ] || [ "$(set_count "$MN" events)" = "0" ]; then
+    [ -f "$MN/store/tools/session_handshake.yaml" ] && [ ! -d "$MN/store/events" ] || [ "$(set_count "$MN" events)" = "0" ]; then
     test_passed "asset profiles - kdeps profile minimum prunes what agent added, keeps required items"
 else
     test_failed "asset profiles - prune to minimum" "commands=$(set_count "$MN" commands) $OUT"
@@ -179,30 +179,30 @@ if [ "$(help_commands "$HELP" | tr '\n' ' ' | sed 's/ $//')" = "$CORE" ]; then
 else
     test_failed "asset profiles - /help after pruning" "$(help_commands "$HELP" | tr '\n' ' ')"
 fi
-if ! grep -q '"commands/goal"' "$MN/store/lock.json"; then
+if ! grep -q '"commands/refine"' "$MN/store/lock.json"; then
     test_passed "asset profiles - pruned items are forgotten in the lock"
 else
     test_failed "asset profiles - lock after prune" "$(head -c 600 "$MN/store/lock.json")"
 fi
 
 # --- single items -------------------------------------------------------------
-OUT=$(ap "$MN" "$KDEPS_BIN" install commands/goal)
+OUT=$(ap "$MN" "$KDEPS_BIN" install commands/refine)
 HELP=$(ap_loop "$MN" '/help\n/quit\n')
-if [ -f "$MN/store/commands/goal.yaml" ] && help_commands "$HELP" | grep -qx "/goal" &&
+if [ -f "$MN/store/commands/refine.yaml" ] && help_commands "$HELP" | grep -qx "/refine" &&
     [ "$(help_commands "$HELP" | wc -l | tr -d ' ')" = "9" ]; then
     test_passed "asset profiles - installing one command file lists it in /help"
 else
     test_failed "asset profiles - install one command" "$OUT $(help_commands "$HELP" | tr '\n' ' ')"
 fi
 OUT=$(ap "$MN" "$KDEPS_BIN" update)
-if [ -f "$MN/store/commands/goal.yaml" ] && [ "$(set_count "$MN" commands)" = "9" ]; then
+if [ -f "$MN/store/commands/refine.yaml" ] && [ "$(set_count "$MN" commands)" = "9" ]; then
     test_passed "asset profiles - a bare update keeps an item installed by name, adds nothing else"
 else
     test_failed "asset profiles - bare update" "commands=$(set_count "$MN" commands) $OUT"
 fi
-OUT=$(ap "$MN" "$KDEPS_BIN" uninstall commands/goal)
-HELP=$(ap_loop "$MN" '/help\n/goal\n/quit\n')
-if ! help_commands "$HELP" | grep -qx "/goal" && ! output_grep "Unknown command: /goal" "$HELP"; then
+OUT=$(ap "$MN" "$KDEPS_BIN" uninstall commands/refine)
+HELP=$(ap_loop "$MN" '/help\n/refine\n/quit\n')
+if ! help_commands "$HELP" | grep -qx "/refine" && ! output_grep "Unknown command: /refine" "$HELP"; then
     test_passed "asset profiles - uninstalling a command file hides it from /help; the built-in still runs"
 else
     test_failed "asset profiles - uninstall one command" "$OUT $HELP"
