@@ -241,3 +241,7 @@ run:                      # steps run in order; the first failing step stops the
 - [Agent mode](/agent/) - overview and starting the REPL
 - [Built-in tools](/agent/tools) - tools available to the model
 - [Goal-directed execution](/agent/goals)
+
+## Declared commands on the API
+
+A declared command (a `commands/` asset with `run:`) is also served on the commands API under its own name. The call runs the same steps as `/name` in the REPL, against the active session, and returns each model reply in order. `command:` steps run in the REPL and print their output to the terminal rather than returning it.

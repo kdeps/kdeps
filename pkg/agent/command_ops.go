@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 )
@@ -148,6 +149,39 @@ func (r *REPL) RegisterCommandAPI() {
 		}
 		api.RegisterCommand(spec)
 	}
+	for _, c := range slashCommands {
+		if c.Builtin || len(c.Run) == 0 {
+			continue
+		}
+		api.RegisterCommand(r.declaredCommandSpec(c))
+	}
+}
+
+// declaredCommandSpec publishes a declared command (a prompt-only commands/
+// asset) on the API. The call runs its steps against this REPL and returns the
+// model replies in order.
+func (r *REPL) declaredCommandSpec(c *slashCommand) api.CommandSpec {
+	spec := api.CommandSpec{
+		Name:        c.Name,
+		Display:     c.Name,
+		Description: firstUsageHelp(c),
+		Call: func(ctx context.Context, args map[string]any) (string, error) {
+			if ctx != nil {
+				if err := ctx.Err(); err != nil {
+					return "", fmt.Errorf("/%s: %w", c.Name, err)
+				}
+			}
+			var replies []string
+			err := r.runDeclaredCommandEmit(c, api.CommandArgs(args), func(resp string) {
+				replies = append(replies, resp)
+			})
+			return strings.Join(replies, "\n\n"), err
+		},
+	}
+	for _, u := range c.Usage {
+		spec.Usage = append(spec.Usage, api.CommandUsage{Args: u.Args, Help: u.Help})
+	}
+	return spec
 }
 
 // builtinCommandAssetByOperation returns the builtin asset whose api: field

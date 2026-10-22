@@ -297,7 +297,7 @@ elif kind == "commands":
     names = [item.get("name") for item in items]
     if names != sorted(names):
         die("unsorted " + repr(names))
-    for want in ("clear", "goal", "instruct-now"):
+    for want in ("clear", "goal", "instruct-now", "explain", "frugal", "review", "thorough"):
         if want not in names:
             die("missing " + want)
     for item in items:
