@@ -49,6 +49,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -514,6 +515,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		streamer:      cfg.Streamer,
 	}
 
+	api.SetSessionToolBackend(sessionToolBridge{loop: l})
 	l.registerSkillLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()

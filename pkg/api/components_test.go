@@ -55,6 +55,9 @@ func TestEveryToolParameterIsUsableFromItsComponent(t *testing.T) {
 	toolsDir := filepath.Join("..", "..", "assets", "tools")
 	compsDir := filepath.Join("..", "..", "assets", "components")
 	for name := range toolReg {
+		if sessionOnlyTool(name) {
+			continue
+		}
 		dirName := componentName(name)
 		var tool struct {
 			Parameters map[string]struct {
@@ -93,6 +96,9 @@ func TestEveryToolParameterIsUsableFromItsComponent(t *testing.T) {
 func TestEveryToolHasShippedComponent(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "components")
 	for name := range toolReg {
+		if sessionOnlyTool(name) {
+			continue
+		}
 		dirName := componentName(name)
 		data, err := os.ReadFile(filepath.Join(dir, dirName, "component.yaml"))
 		require.NoError(t, err, "%s must ship a component", name)
@@ -181,3 +187,21 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 			"%s must not run an executor itself; move the work behind an API tool", entry.Name())
 	}
 }
+
+// sessionOnlyTools are agent-session tools served on the tools routes. They read
+// or change the active agent session, so they have no workflow caller and ship
+// no component.
+var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
+	"goal_task_complete":    true,
+	"goal_task_fail":        true,
+	"judge_verdict":         true,
+	"identity_get":          true,
+	"knowledge_card_get":    true,
+	"knowledge_card_update": true,
+	"knowledge_note_save":   true,
+	"knowledge_recall":      true,
+	"load_skill":            true,
+	"session_handshake":     true,
+}
+
+func sessionOnlyTool(name string) bool { return sessionOnlyTools[name] }
