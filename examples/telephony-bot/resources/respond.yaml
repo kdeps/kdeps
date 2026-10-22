@@ -1,9 +1,0 @@
-actionId: respond
-name: TwiML Response
-requires: [welcome, menuChoice, sayHours, askQuestion, speakAnswer]
-apiResponse:
-  success: true
-  headers:
-    Content-Type: text/xml       # Twilio reads the body as TwiML
-  # Exactly one twiml call ran - the one for this request's route.
-  response: "{{ (output('welcome') ?? output('menuChoice') ?? output('sayHours') ?? output('askQuestion') ?? output('speakAnswer')).twiml }}"
