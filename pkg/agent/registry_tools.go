@@ -35,7 +35,6 @@ import (
 //
 //nolint:gochecknoinits // wires task and team tools before any call
 func init() {
-	api.SetCronBackend(cronAPIBackend{})
 	api.SetApprovalBackend(approvalAPIBackend{})
 	// Workflow mode has no agent registry; the agent loop replaces this with
 	// a renderer backed by the live tool catalog.
@@ -52,45 +51,6 @@ const approvalTokenDuration = 5 * time.Minute
 
 
 // --- Cron Tools ---
-
-func registerCronTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "cron_create", api.CronCreate)
-	registerAPITool(ctx, reg, "cron_delete", api.CronDelete)
-	registerAPITool(ctx, reg, "cron_list", api.CronList)
-	registerAPITool(ctx, reg, "cron_pause", api.CronPause)
-	registerAPITool(ctx, reg, "cron_resume", api.CronResume)
-}
-
-type cronAPIBackend struct{}
-
-func (cronAPIBackend) CreateCron(name, expression, taskPrompt, taskDescription string) api.CronView {
-	return cronView(GlobalCronRegistry.Create(name, expression, taskPrompt, taskDescription))
-}
-
-func (cronAPIBackend) ListCrons() []api.CronView {
-	crons := GlobalCronRegistry.List()
-	out := make([]api.CronView, 0, len(crons))
-	for _, cron := range crons {
-		out = append(out, cronView(cron))
-	}
-	return out
-}
-
-func (cronAPIBackend) PauseCron(id string) bool  { return GlobalCronRegistry.Pause(id) }
-func (cronAPIBackend) ResumeCron(id string) bool { return GlobalCronRegistry.Resume(id) }
-func (cronAPIBackend) DeleteCron(id string) bool { return GlobalCronRegistry.Delete(id) }
-
-func cronView(cron *Cron) api.CronView {
-	return api.CronView{
-		ID:         cron.CronID,
-		Name:       cron.Name,
-		Expression: cron.Expression,
-		Status:     cron.Status.String(),
-		RunCount:   cron.RunCount,
-		LastRun:    cron.LastRun,
-		NextRun:    cron.NextRun,
-	}
-}
 
 // --- Approval Token Tools ---
 

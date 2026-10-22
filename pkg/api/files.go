@@ -34,7 +34,8 @@ const (
 	toolMD5File   = "md5_file"
 	toolTailFile  = "tail_file"
 	toolWriteFile = "write_file"
-	argText = "text"
+	argText       = "text"
+	argTopic      = "topic"
 	toolEditFile  = "edit_file"
 
 	// defaultTailLines is how many lines tail_file returns when lines is omitted.
