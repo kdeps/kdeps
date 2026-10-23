@@ -32,7 +32,6 @@ The E2E tests are modularized into separate shell scripts for each test scenario
 - **`test_features_items_iteration.sh`** - E2E tests for items iteration (processing arrays of items)
 - **`test_features_workflow_metadata.sh`** - E2E tests for workflow metadata access via `info()` functions
 - **`test_features_route_methods.sh`** - E2E tests for route method restrictions (GET, POST, PUT, DELETE, PATCH)
-- **`test_features_codeintelligence_graph.sh`** - E2E tests for the codeIntelligence indexFolder/graphAll folder-graph feature (kartographer-backed bbolt index)
 - **`test_features_search_local_graph_boost.sh`** - E2E tests for the search_local component's graphBoost re-ranking (kartographer-backed link/topic graph over the searched folder)
 
 ## Usage

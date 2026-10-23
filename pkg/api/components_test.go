@@ -188,12 +188,48 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 	}
 }
 
+// TestEveryToolAssetHasAPIRoute guards the YAML side of the API contract: a
+// tool asset nobody can reach is dead weight. Every asset must be a served
+// Go/session tool or declare its own http:/exec: spec.
+func TestEveryToolAssetHasAPIRoute(t *testing.T) {
+	dir := filepath.Join("..", "..", "assets", "tools")
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+		name := strings.TrimSuffix(entry.Name(), ".yaml")
+		if _, ok := toolReg[name]; ok {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
+		require.NoError(t, readErr, entry.Name())
+		var declared struct {
+			HTTP any `yaml:"http"`
+			Exec any `yaml:"exec"`
+		}
+		require.NoError(t, yaml.Unmarshal(data, &declared), entry.Name())
+		require.True(t, declared.HTTP != nil || declared.Exec != nil,
+			"%s tool asset has no API route and no declared http:/exec: spec", name)
+	}
+}
+
+// TestEveryAPIToolHasAnAsset is the reverse direction: every served tool must
+// ship the YAML asset the API reads its description and parameters from.
+func TestEveryAPIToolHasAnAsset(t *testing.T) {
+	dir := filepath.Join("..", "..", "assets", "tools")
+	for name := range toolReg {
+		_, err := os.Stat(filepath.Join(dir, name+".yaml"))
+		require.NoError(t, err, "%s tool is served but has no assets/tools/%s.yaml", name, name)
+	}
+}
+
 // sessionOnlyTools are agent-session tools served on the tools routes. They read
 // or change the active agent session, so they have no workflow caller and ship
 // no component.
 var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
-	"goal_task_complete":    true,
-	"goal_task_fail":        true,
 	"judge_verdict":         true,
 	"identity_get":          true,
 	"knowledge_card_get":    true,

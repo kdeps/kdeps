@@ -73,7 +73,7 @@ func TestEffClassify(t *testing.T) {
 		{effCall(toolNameBashExec, `{"command":"go build ./..."}`), effOutput},
 		{effCall(toolNameBashExec, `{"command":"ls > out.txt"}`), effOutput},
 		{effCall(toolNameBashExec, `{"command":"git commit -m x"}`), effOutput},
-		{effCall(toolNameTaskComplete, `{}`), effState},
+		{effCall(toolNameCalculator, `{}`), effState},
 		{effCall("memory_save", `{}`), effState},
 		{effCall("something_custom", `{}`), effOutput},
 	}

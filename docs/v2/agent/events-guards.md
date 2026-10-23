@@ -18,8 +18,6 @@ run: force_answer
 |---|---|---|
 | `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their allocated budget instead (`/model tool set <category>-limit <n>`; `0` = unlimited = never stops) | ends the turn as a stuck loop |
 | `convergence-block` | this many consecutive rounds end in a convergence-blocked tool call (the model kept trying once a web/bash/file/code budget ran out) | strips every tool and forces a text answer |
-| `task-round-budget` | a single goal-directed task spends this many tool rounds | force-closes the task |
-| `unproductive-rounds` | this many consecutive rounds produce no new tool result or state change | force-closes the task and fails it forward |
 | `handshake-timeout` | a session-handshake grounding challenge (see [session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)) spends this many tool rounds without resolving | fails the handshake |
 | `judge-max-rounds` | a single [judge](./judges.md)'s review spends this many tool rounds | ends that judge's review and forces its verdict |
 | `judge-iterations` | the revise-and-rejudge loop retries this many times after a judge rejection | accepts the last response regardless of outcome -- a judge panel must never block a turn indefinitely |

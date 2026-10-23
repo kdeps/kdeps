@@ -29,11 +29,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadBuiltinActions_HasAllTenActions(t *testing.T) {
+func TestLoadBuiltinActions_HasAllNineActions(t *testing.T) {
 	built := loadBuiltinActions()
 	want := []string{
 		actionCompact, actionTruncate, actionReject, actionBlock, actionDropOldest,
-		actionCap, actionForceAnswer, actionFailTask, actionFailHandshake, actionAcceptLast,
+		actionCap, actionForceAnswer, actionFailHandshake, actionAcceptLast,
 	}
 	require.Len(t, built, len(want))
 	for _, name := range want {

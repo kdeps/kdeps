@@ -50,7 +50,7 @@ import (
 // code or recompilation required.
 
 // Built-in event names, referenced from loop.go/compact.go/repl.go/
-// goal_enforce.go/handshake.go/tool_history_window.go/builtin_tools.go/
+// handshake.go/tool_history_window.go/builtin_tools.go/
 // context_detect.go/builtin_resource_tools.go instead of a literal string at
 // every call site.
 const (
@@ -58,8 +58,6 @@ const (
 	eventFold               = "fold"
 	eventIdenticalCalls     = "identical-tool-calls"
 	eventConvergenceBlock   = "convergence-block"
-	eventTaskRoundBudget    = "task-round-budget"
-	eventUnproductiveRound  = "unproductive-rounds"
 	eventHandshakeTimeout   = "handshake-timeout"
 	eventToolResultTruncate = "tool-result-truncate"
 	eventToolErrorTruncate  = "tool-error-truncate"
@@ -103,9 +101,7 @@ type EventTrigger struct {
 	// Rounds fires once a round/repeat counter reaches this value. What it
 	// counts is defined by which event it's on: consecutive identical tool
 	// calls ("identical-tool-calls"), consecutive convergence-blocked rounds
-	// ("convergence-block"), tool rounds spent on one task
-	// ("task-round-budget"), consecutive rounds with no new progress
-	// ("unproductive-rounds"), a handshake's own round budget
+	// ("convergence-block"), a handshake's own round budget
 	// ("handshake-timeout"), a single judge's tool-round budget
 	// ("judge-max-rounds"), or the revise-and-rejudge loop's iteration budget
 	// ("judge-iterations") -- each reads this same field for its own counter.
@@ -393,9 +389,9 @@ func eventMinTurns(name string) int {
 }
 
 // eventRounds reads a registered event's rounds trigger, or 0 for an
-// unregistered name. Called with five distinct event names across the
+// unregistered name. Called with three distinct event names across the
 // round/count cluster (identical-tool-calls, convergence-block,
-// task-round-budget, unproductive-rounds, handshake-timeout), so unlike
+// handshake-timeout), so unlike
 // autoCompactTokens/foldTokensSinceCheckpoint/foldItems it stays
 // parameterized rather than hardcoding one name.
 func eventRounds(name string) int {

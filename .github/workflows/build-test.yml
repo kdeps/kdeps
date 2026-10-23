@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# A new push to a PR cancels its previous run: superseded commits must not
+# keep two full runners busy. main pushes are never cancelled (a release
+# depends on the run finishing).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # security-scan, docker-scan, lint, test and test-windows are required status
 # checks on main. A skipped required job counts as passing, but a workflow that
 # never triggers leaves the check "expected" and blocks the PR forever. So the
@@ -88,10 +95,59 @@ jobs:
           done
           echo "already_tested=false" >> "$GITHUB_OUTPUT"
 
+  # GitHub keeps independent jobs running after a sibling fails, so a lint
+  # failure would let test and test-windows run to completion on an already-red
+  # run. This watchdog cancels the run as soon as any job records a failure.
+  # It cancels from here, not from the failing job: a run cancelled from inside
+  # a job rewrites that job's conclusion to "cancelled", and the check would
+  # stop showing the real failure.
+  fail-fast:
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    # The run's longest job is ~45 min; the watcher must never outlive it.
+    timeout-minutes: 60
+    steps:
+      - name: Cancel the run when any job fails
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          errs=0
+          while true; do
+            if ! jobs="$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
+              --jq '.jobs' 2>/dev/null)"; then
+              errs=$((errs + 1))
+              # Ten failed polls in a row: stop watching rather than keep the
+              # run open; the jobs themselves still gate the PR.
+              if [ "$errs" -ge 10 ]; then
+                echo "cannot read the run; giving up"
+                exit 0
+              fi
+              sleep 20; continue
+            fi
+            errs=0
+            failed="$(jq -r '[.[] | select(.conclusion == "failure") | .name] | join(", ")' <<<"$jobs")"
+            if [ -n "$failed" ]; then
+              echo "Job(s) failed ($failed) - cancelling the run"
+              gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}" || true
+              exit 0
+            fi
+            if [ "$(jq -r '[.[] | select(.status != "completed" and .name != "fail-fast")] | length' <<<"$jobs")" = "0" ]; then
+              echo "All jobs finished without a failure"
+              exit 0
+            fi
+            sleep 20
+          done
+
   security-scan:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run Trivy filesystem scan
@@ -140,6 +196,8 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,7 +1,7 @@
-version: 1.0.0
+version: 1.0.1
 category: agent
 aliases: [help] # other names a model may call it by; the model is shown only this tool's name
-description: 'Return the full text of one harness section or one instruct briefing. Use it when the system prompt shows a one-line summary and you need that section''s full instructions. topic is a harness section name (memory, tools, narration, autonomy, safety, errors, scope, accuracy, honesty, code, output, internals, use-kdeps-tools, edit-workflow, or any other harness section) or an instruct topic (overview, modes, tools, available, memory, goals, feedback, files). A name that is both a section and a topic returns the harness section. Prefix instruct: (instruct:tools, instruct:memory) to force the briefing.'
+description: 'Return the full text of one harness section or one instruct briefing. Use it when the system prompt shows a one-line summary and you need that section''s full instructions. topic is a harness section name (memory, tools, narration, autonomy, safety, errors, scope, accuracy, honesty, code, output, internals, use-kdeps-tools, edit-workflow, or any other harness section) or an instruct topic (overview, modes, tools, available, memory, feedback, files). A name that is both a section and a topic returns the harness section. Prefix instruct: (instruct:tools, instruct:memory) to force the briefing.'
 parameters:
   topic:
     type: string

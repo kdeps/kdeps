@@ -132,8 +132,8 @@ type Config struct {
 	// and sends the per-section summary on every other backend.
 	PromptMode string
 	// FoldOff disables automatic folding once FoldThreshold is crossed.
-	// Default: false (auto-fold on) -- inverted like GoalEnforcementOff so
-	// the zero value is the enabled default, not a silently-forced override.
+	// Default: false (auto-fold on), so the zero value is the enabled
+	// default, not a silently-forced override.
 	// See ToolTuning.FoldAuto/FoldConfigured for the persisted, user-facing
 	// (non-inverted) /fold auto|off setting.
 	FoldOff bool
@@ -233,11 +233,6 @@ type Config struct {
 	// CodeLimit caps search_local/code_search calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
-	// GoalEnforcement decomposes each prompt into a task list and drives the
-	// loop through it, refusing to revisit settled tasks and failing a task
-	// forward when it stops producing progress. Disable to get the plain
-	// round loop back.
-	GoalEnforcement bool
 	// PromptRefine runs a cheap pre-turn LLM call that rewrites the user's
 	// prompt into a clearer, self-contained version before the real turn.
 	// On by default in the REPL; /refine off disables it. Persisted via
@@ -250,17 +245,6 @@ type Config struct {
 	// fabricated in text. Off by default; /handshake on enables it.
 	// Persisted via ToolTuning.
 	HandshakeEnabled bool
-	// TaskRoundBudget caps tool rounds spent on a single task before it is
-	// force-closed (0=default 25).
-	TaskRoundBudget int
-	// MaxUnproductiveRounds is how many consecutive rounds may produce nothing
-	// new before the task is force-closed (0=default 3).
-	MaxUnproductiveRounds int
-	// RequireTaskEvidence, when true, refuses task_complete for any task that
-	// made tool calls but none of them verify the claimed result (see
-	// isEvidenceCapableTool). A task with zero tool calls is exempt -- nothing
-	// to verify. Opt-in: false preserves today's behavior.
-	RequireTaskEvidence bool
 	// Judges is an explicit review panel run against the final output of every
 	// turn. Takes priority over AutoJudges when non-empty.
 	Judges []JudgeSpec
@@ -270,7 +254,7 @@ type Config struct {
 	// JudgeMaxIterations caps the revise-and-rejudge loop when a judge rejects
 	// the output (0=default 2).
 	JudgeMaxIterations int
-	// ProgressWriter, when set, receives live "[goal]"/"[judge]" status notices
+	// ProgressWriter, when set, receives live "[kdeps]"/"[judge]" status notices
 	// instead of the writer passed to RunStreaming. RunStreaming's own writer
 	// carries raw streamed token content that the REPL buffers silently and
 	// only renders (as markdown) once the turn completes, so a notice written
@@ -346,10 +330,9 @@ type Loop struct {
 	// memory and status block (turnStateBlock), rebuilt every turn.
 	cachedSystemPromptSegmentTokens int
 	memorySegmentTokens             int
-	// lastWorkFailure records the most recent work tool (not task_complete /
-	// task_fail) whose result was an error and has not since succeeded. Nil once
-	// a later work tool succeeds. Drives the end-of-turn "did that actually
-	// work?" nudge.
+	// lastWorkFailure records the most recent work tool whose result was an
+	// error and has not since succeeded. Nil once a later work tool succeeds.
+	// Drives the end-of-turn "did that actually work?" nudge.
 	lastWorkFailure *toolFailure
 	// turnUserText is this turn's user message. Prompt is cleared into history
 	// after the first tool round, and a later text-only round still needs the
@@ -990,12 +973,6 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoToolAllocationIncrement <= 0 {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
-	if cfg.TaskRoundBudget <= 0 {
-		cfg.TaskRoundBudget = effectiveRounds(eventTaskRoundBudget)
-	}
-	if cfg.MaxUnproductiveRounds <= 0 {
-		cfg.MaxUnproductiveRounds = effectiveRounds(eventUnproductiveRound)
-	}
 	if cfg.JudgeMaxIterations <= 0 {
 		cfg.JudgeMaxIterations = effectiveRounds(eventJudgeIterations)
 	}
@@ -1021,8 +998,7 @@ const (
 
 	// syntheticCallTimeout is the deadline for the loop's synthetic
 	// single-chat-resource calls: the main turn's non-streaming path and the
-	// internal ones (compaction, goal planning, judge roster, refine, branch
-	// summaries). They would otherwise inherit the 60s default meant for a
+	// internal ones (compaction, judge roster, refine, branch summaries). They would otherwise inherit the 60s default meant for a
 	// user-authored chat: resource, which is too short for the same slow
 	// reasoning models the streaming path waits on without a deadline.
 	// Confirmed live: a judge-roster call against a slow reasoning model hit
@@ -1094,8 +1070,8 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	response := formatLoopResult(result)
 
-	// Extract [MEMORY:] markers into the store, then strip them (and any echoed
-	// goal-directive lines) before the answer is shown or stored.
+	// Extract [MEMORY:] markers into the store, then strip them before the
+	// answer is shown or stored.
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
 	}
@@ -1170,7 +1146,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
 	// into a clearer, self-contained version and run the turn on that. The
 	// refined string replaces input everywhere below (preamble, chat config,
-	// goal plan, judge roster, session history).
+	// judge roster, session history).
 	input = l.applyPromptRefine(ctx, input, w)
 
 	systemPreamble := l.cachedSystemPreamble()
@@ -1211,8 +1187,8 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	}
 
 	// Extract [MEMORY:] markers into the store while they are still present,
-	// then strip them (and any echoed goal-directive lines) so the visible
-	// answer and the transcript carry only real content.
+	// then strip them so the visible answer and the transcript carry only
+	// real content.
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
 	}
@@ -1535,9 +1511,7 @@ func (l *Loop) prepareRound(
 	return chatCfg, false
 }
 
-// applyRoundOutcome runs goal enforcement (which can advance the cursor past a
-// wedged task -- a better outcome than force-answering the whole turn) and then
-// the convergence guard.
+// applyRoundOutcome runs the convergence guard.
 func (l *Loop) applyRoundOutcome(
 	chatCfg *domain.ChatConfig,
 	outcome roundOutcome,
@@ -2180,8 +2154,8 @@ const sandboxUnverifiedBanner = "[kdeps: the response below describes a sandbox/
 // rewrite: by the time resolveEmptyToolRound reaches this branch,
 // handleTextOnlyRound has already written the model's claim to the writer
 // unconditionally, so there is nothing to prepend ahead of -- the notice
-// follows it instead, same as reportGoalEvent/queueModelNote's existing
-// follow-up-notice pattern.
+// follows it instead, same as queueModelNote's existing follow-up-notice
+// pattern.
 func toolFailureUnresolvedNotice(f *toolFailure) string {
 	return "\n[kdeps: the response above claims success, but the last " + f.tool +
 		" call actually failed (" + f.msg + ") and was never retried successfully.]\n"
@@ -2390,8 +2364,8 @@ func (l *Loop) handleTextOnlyRound(
 	return chatCfg, false
 }
 
-// roundOutcome reports what a tool round actually accomplished, so goal
-// enforcement can tell real progress from spinning in place.
+// roundOutcome reports what a tool round actually accomplished, so the
+// stuck-loop guard can tell real progress from spinning in place.
 type roundOutcome struct {
 	// blocked is true when a convergence budget rejected a call.
 	blocked bool
@@ -2485,8 +2459,8 @@ func (l *Loop) appendToolRoundTrip(
 		}
 	}
 
-	// Inject loop-generated notices (goal transitions, budget changes, forced
-	// task failures) into the model's context as one [kdeps] system message.
+	// Inject loop-generated notices (budget changes, forced stops) into the
+	// model's context as one [kdeps] system message.
 	if len(l.modelNotes) > 0 {
 		history = append(history, map[string]any{
 			"role":           RoleSystem,
@@ -3428,7 +3402,7 @@ func (l *Loop) memoryRulesPreamble() []string {
 			"When you finish a task, make a decision, or learn something the user " +
 			"corrected, record it with [MEMORY: key] value (no extra tool call) or " +
 			"memory_save. Skip turns where nothing changed. " +
-			"Save goals as 'prompt:*', decisions as 'decision:*', progress as " +
+			"Save prompts as 'prompt:*', decisions as 'decision:*', progress as " +
 			"'progress:*', and results as 'result:*'. " +
 			"Entries auto-link into a graph showing the workflow chain " +
 			"from prompt -> tool calls -> results -> status. " +
@@ -3628,8 +3602,8 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 }
 
 // syntheticCallMaxTokens returns an explicit output-token cap for a
-// standalone, tool-free LLM call (compaction, goal planning, judging,
-// refine, branch summaries) so it never falls back to whatever implicit
+// standalone, tool-free LLM call (compaction, judging, refine, branch
+// summaries) so it never falls back to whatever implicit
 // default the backend/provider applies -- confirmed on two fronts: a local
 // llama-server applies a smaller output cap than the model's real ceiling
 // unless told otherwise, and M365 Copilot's proxy has an undocumented
@@ -3671,15 +3645,15 @@ func (l *Loop) buildSyntheticWorkflow(
 		chatCfg.Timeout = syntheticCallTimeout.String()
 	}
 	// Every caller builds Prompt by concatenating Go-constructed instructions
-	// with conversation-derived text (compaction, goal planning, branch
-	// summaries, refine, judge roster) -- never a user-authored workflow. That
+	// with conversation-derived text (compaction, branch summaries, refine,
+	// judge roster) -- never a user-authored workflow. That
 	// embedded text can itself contain {{ }}-looking substrings (kdeps
 	// expression syntax the user discussed, Jinja/Django tags, anything
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
 	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
-	// its internal calls (compaction, refine, goals) must get none.
+	// its internal calls (compaction, refine) must get none.
 	off := false
 	chatCfg.Knowledge = &off
 	return &domain.Workflow{

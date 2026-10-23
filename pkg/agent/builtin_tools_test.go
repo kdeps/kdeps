@@ -92,9 +92,9 @@ func TestInstructTool_SectionTopicAndAlias(t *testing.T) {
 	assert.Contains(t, text, "LITERAL")
 	assert.NotContains(t, text, "<tools>")
 
-	text, err = tool.Execute(map[string]any{"topic": "goals"})
+	text, err = tool.Execute(map[string]any{"topic": "feedback"})
 	require.NoError(t, err)
-	assert.Contains(t, text, "task_complete")
+	assert.Contains(t, text, "[TOOL FAILED]")
 
 	_, err = tool.Execute(map[string]any{"topic": ""})
 	assert.Error(t, err)

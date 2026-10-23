@@ -37,14 +37,9 @@ func (l *Loop) progressWriter(w io.Writer) io.Writer {
 	return w
 }
 
-// looksTrivial reports whether input can skip decomposition entirely: a short,
-// single-line request with no multi-step markers -- a question, a greeting, or
-// a one-off task obvious enough that decomposing it into a task list of one
-// would just restate it. Keeps always-on enforcement from adding a planning
-// call to ordinary chat; skipping decomposition here does not skip task
-// enforcement itself, since NewGoal still wraps the raw input as a single
-// GoalTask that task_complete/task_fail apply to exactly as they would a
-// decomposed one.
+// looksTrivial reports whether input is too short and single-line to be worth
+// a judge roster or a prompt-refine call: a question, a greeting, or a one-off
+// task obvious enough that either synthetic call would just restate it.
 func looksTrivial(input string) bool {
 	input = strings.TrimSpace(input)
 	if input == "" {

@@ -28,7 +28,7 @@ out -> resume
 |---|---|---|
 | read | `read_file`, `list_files`, searches, web fetches, read-only `bash` (`ls`, `cat`, `git status`, ...) | yes - consecutive reads trigger a stop |
 | output | writes, edits, mutating `bash`, `sql` writes, workflow/component/agency tools | resets the read run and resolves an open stop |
-| state | `task_complete`, `task_fail`, `calculator`, `memory_*` | never counted |
+| state | `calculator`, `memory_*` | never counted |
 
 Besides consecutive reads, a turn also has per-turn caps: total tool calls (`actions`) and per-category call budgets (`web`, `bash`, `file`, `code`).
 
@@ -197,4 +197,3 @@ run: block         # placeholder - read by the efficiency governor, not fired as
 
 - [Reactive LLM events](/agent/events) - the event system the limits live in, and the presets
 - [REPL slash commands](/agent/commands) - full command reference
-- Goal-directed execution - the other per-turn control

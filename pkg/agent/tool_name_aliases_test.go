@@ -36,10 +36,10 @@ import (
 
 func TestAliasesOf(t *testing.T) {
 	defs := map[string]toolDefinition{
-		"bash_exec":     {Aliases: []string{"bash", "Shell", "read_file"}},
-		"read_file":     {Aliases: []string{"cat", "shared"}},
-		"other":         {Aliases: []string{"shared"}},
-		"goal_complete": {Name: "task_complete", Aliases: []string{"done"}},
+		"bash_exec": {Aliases: []string{"bash", "Shell", "read_file"}},
+		"read_file": {Aliases: []string{"cat", "shared"}},
+		"other":     {Aliases: []string{"shared"}},
+		"notepad":   {Name: "edit_file", Aliases: []string{"done"}},
 	}
 	got := aliasesOf(defs)
 	assert.Equal(t, "bash_exec", got["bash"])
@@ -47,7 +47,7 @@ func TestAliasesOf(t *testing.T) {
 	assert.NotContains(t, got, "read_file", "a real tool's name is never an alias")
 	assert.Equal(t, "read_file", got["cat"])
 	assert.NotContains(t, got, "shared", "an alias two tools claim goes to neither")
-	assert.Equal(t, "task_complete", got["done"], "an alias calls the name the tool registers under")
+	assert.Equal(t, "edit_file", got["done"], "an alias calls the name the tool registers under")
 }
 
 func TestResolveToolName(t *testing.T) {

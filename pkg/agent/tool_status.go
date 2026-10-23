@@ -54,12 +54,11 @@ type editedFile struct {
 	memID   string
 }
 
-// statusTracked reports whether a tool's calls get a status line. Task-state
-// and memory tools are excluded: their status would just point at itself.
+// statusTracked reports whether a tool's calls get a status line. Memory tools
+// are excluded: their status would just point at itself.
 func statusTracked(name string) bool {
 	switch name {
-	case toolNameTaskComplete, toolNameTaskFail,
-		"memory_query", "memory_search", "memory_save", "memory_delete":
+	case "memory_query", "memory_search", "memory_save", "memory_delete":
 		return false
 	}
 	return true

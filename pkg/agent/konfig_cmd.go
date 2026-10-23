@@ -54,7 +54,7 @@ func (r *REPL) cmdKonfig(args []string) error {
 }
 
 // cmdKonfigExport exports the live session's effective configuration --
-// including any in-session /model tool set, /theme, /goal on, etc. changes,
+// including any in-session /model tool set, /theme, /refine on, etc. changes,
 // via (*REPL).toolTuningSnapshot rather than the persisted-settings fallback
 // a bare CLI invocation would use.
 func (r *REPL) cmdKonfigExport(path string) error {

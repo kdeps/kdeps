@@ -62,8 +62,8 @@ func TestInstructAPITool(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	registerInstructTool(reg)
 
-	instructed, err := toolExec(t, reg, "instruct", map[string]any{"topic": "goals"})
-	if err != nil || !strings.Contains(instructed, "task_complete") {
+	instructed, err := toolExec(t, reg, "instruct", map[string]any{"topic": "feedback"})
+	if err != nil || !strings.Contains(instructed, "[TOOL FAILED]") {
 		t.Fatalf("instruct %q %v", instructed, err)
 	}
 	if _, err = toolExec(t, reg, "instruct", map[string]any{"topic": "no-such-topic"}); err == nil {

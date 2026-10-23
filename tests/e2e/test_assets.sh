@@ -226,10 +226,11 @@ fi
 serve plain
 RQ_HOME="$AS_DIR/requires"
 mkdir -p "$RQ_HOME"
-OUT=$(as_run "$RQ_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" install components/searchWeb)
-if output_grep "schemas/v1 +install .*\(required by components/searchWeb\)" "$OUT" &&
-    output_grep "components/searchWeb +install" "$OUT" &&
-    [ "$(echo "$OUT" | grep -n 'schemas/v1' | cut -d: -f1)" -lt "$(echo "$OUT" | grep -n 'components/searchWeb +install' -E | cut -d: -f1)" ] &&
+OUT=$(as_run "$RQ_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" install components/web_search)
+if output_grep "schemas/v1 +install .*\(required by components/web_search\)" "$OUT" &&
+    output_grep "tools/web_search +install .*\(required by components/web_search\)" "$OUT" &&
+    output_grep "components/web_search +install" "$OUT" &&
+    [ "$(echo "$OUT" | grep -n 'schemas/v1' | cut -d: -f1)" -lt "$(echo "$OUT" | grep -n 'components/web_search +install' -E | cut -d: -f1)" ] &&
     [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/themes" ]; then
     test_passed "assets - kdeps update <item> installs its requires first, nothing else"
 else
@@ -237,7 +238,7 @@ else
 fi
 
 # The install says what the item adds to the LLM context; a schema adds none.
-if output_grep "components/searchWeb +install .* ~[0-9.]+k? tok" "$OUT" &&
+if output_grep "components/web_search +install .* ~[0-9.]+k? tok" "$OUT" &&
     ! output_grep "schemas/v1 +install .* tok" "$OUT" &&
     output_grep "LLM context: these added about [0-9.]+k? tokens" "$OUT" &&
     output_grep "LLM context: installed prompts and tool definitions total about" \
