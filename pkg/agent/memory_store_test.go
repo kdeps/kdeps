@@ -1360,6 +1360,9 @@ func TestMemoryStore_FormatGraphNode_NoCwd(t *testing.T) {
 func setupMemoryStoreForTools(t *testing.T) *MemoryStore {
 	t.Helper()
 	dir := t.TempDir()
+	// memory_search falls back to a local file search of the working
+	// directory on a miss; an empty one keeps that fast.
+	t.Chdir(t.TempDir())
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
 	// Set package-level instance so tools can find it.

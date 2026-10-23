@@ -24,6 +24,8 @@ import (
 	"sync"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
+
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 const (
@@ -274,7 +276,7 @@ func tokenEncoding(model string) *tiktoken.Tiktoken {
 // silently to the gpt2 encoding or a chars/4 approximation.
 func countTokensSilent(model, text string) int {
 	if enc := tokenEncoding(model); enc != nil {
-		return len(enc.Encode(text, nil, nil))
+		return executorLLM.CountEncodedTokens(enc, text)
 	}
 	// Silent fallback: approximate 4 chars per token.
 	return len([]rune(text)) / charsPerToken

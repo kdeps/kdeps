@@ -246,6 +246,13 @@ jobs:
   test:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
+    # Go tests and E2E run side by side instead of one after the other. The go
+    # entry keeps the name "test", the required check.
+    name: ${{ matrix.suite == 'go' && 'test' || 'test-e2e' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [go, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -354,9 +361,11 @@ jobs:
         key: local-models-whisper-ggml-base.en-v1
 
     - name: Build
+      if: matrix.suite == 'e2e'
       run: make build
 
     - name: Test Unit
+      if: matrix.suite == 'go'
       run: make test-unit
       # make test-unit runs go test with -timeout=30m; the step must exceed that
       # so the Go timeout is the real guard and produces a goroutine dump on a
@@ -365,6 +374,7 @@ jobs:
       timeout-minutes: 35
 
     - name: Upload unit coverage artifact
+      if: matrix.suite == 'go'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: coverage-out
@@ -372,10 +382,12 @@ jobs:
         retention-days: 1
 
     - name: Test Integration
+      if: matrix.suite == 'go'
       run: make test-integration
       timeout-minutes: 15
 
     - name: Upload coverage reports to Codecov
+      if: matrix.suite == 'go'
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -385,6 +397,7 @@ jobs:
 
     # The transcribe: whisper-cpp backend's default model (cached above).
     - name: Pre-download default whisper.cpp model
+      if: matrix.suite == 'e2e'
       run: |
         mkdir -p ~/.kdeps/models
         FILE=~/.kdeps/models/ggml-base.en.bin
@@ -394,6 +407,7 @@ jobs:
         fi
 
     - name: Test E2E
+      if: matrix.suite == 'e2e'
       run: make test-e2e
       timeout-minutes: 25
 
@@ -404,6 +418,13 @@ jobs:
     # tests pass natively, not just that it cross-compiles. E2E is included too;
     # scripts needing ollama/python3/docker self-skip when the tool is missing
     # (see tests/e2e/*.sh `command -v` guards) rather than failing the job.
+    # Unit tests on one runner, integration + E2E on another. The unit entry
+    # keeps the name "test-windows", the required check.
+    name: ${{ matrix.suite == 'unit' && 'test-windows' || 'test-windows-e2e' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unit, e2e]
     runs-on: windows-latest
     permissions:
       contents: read
@@ -444,10 +465,12 @@ jobs:
         run: go build ./...
 
       - name: Vet
+        if: matrix.suite == 'unit'
         shell: bash
         run: go vet ./...
 
       - name: Test Unit
+        if: matrix.suite == 'unit'
         shell: bash
         env:
           KDEPS_MEMORY_DB_PATH: ":memory:"
@@ -459,6 +482,7 @@ jobs:
         run: go test -p 1 -short -failfast -parallel 1 -count=1 -timeout=20m ./pkg/... ./cmd/... ./
 
       - name: Test Integration
+        if: matrix.suite == 'e2e'
         shell: bash
         env:
           KDEPS_MEMORY_DB_PATH: ":memory:"
@@ -467,10 +491,12 @@ jobs:
         run: go test -p 1 -parallel 1 -count=1 -timeout=20m ./tests/integration/...
 
       - name: Build kdeps binary for e2e
+        if: matrix.suite == 'e2e'
         shell: bash
         run: go build -o kdeps .
 
       - name: Test E2E
+        if: matrix.suite == 'e2e'
         shell: bash
         timeout-minutes: 45
         env:

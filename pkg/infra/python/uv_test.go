@@ -236,6 +236,9 @@ func TestManager_EnsureVenv_WithPackages(t *testing.T) {
 }
 
 func TestManager_EnsureVenv_WithRequirements(t *testing.T) {
+	if testing.Short() {
+		t.Skip("installs real packages over the network")
+	}
 	manager := python.NewManager(t.TempDir())
 
 	// Create a temporary requirements file
@@ -439,6 +442,9 @@ func TestManager_EnsureVenv_RequirementsFileNotExist(t *testing.T) {
 }
 
 func TestManager_EnsureVenv_ComplexPackageList(t *testing.T) {
+	if testing.Short() {
+		t.Skip("installs real packages over the network")
+	}
 	manager := python.NewManager(t.TempDir())
 
 	packages := []string{
@@ -464,6 +470,9 @@ func TestManager_EnsureVenv_ComplexPackageList(t *testing.T) {
 }
 
 func TestManager_EnsureVenv_DifferentPythonVersions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("installs real packages over the network")
+	}
 	manager := python.NewManager(t.TempDir())
 
 	versions := []string{"3.8", "3.9", "3.10", "3.11", "3.12"}

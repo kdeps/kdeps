@@ -17,6 +17,7 @@ package llm
 import (
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
 
@@ -80,7 +81,31 @@ func approximateTokenCount(text string) int {
 
 func countEncodedTokens(enc *tiktoken.Tiktoken, text string) int {
 	kdeps_debug.Log("enter: countEncodedTokens")
-	return len(enc.Encode(text, nil, nil))
+	return CountEncodedTokens(enc, text)
+}
+
+// tokenChunkBytes bounds the text one Encode call sees. BPE merging is
+// quadratic in the length of a run with no whitespace, so a long unbroken run
+// (minified JSON, base64, a repeated character) took minutes to count. Each
+// chunk ends at whitespace where possible, so the count stays close.
+const tokenChunkBytes = 4096
+
+// CountEncodedTokens counts text's tokens with enc in bounded chunks, which
+// keeps the cost linear in the text's length.
+func CountEncodedTokens(enc *tiktoken.Tiktoken, text string) int {
+	total := 0
+	for len(text) > tokenChunkBytes {
+		cut := strings.LastIndexAny(text[:tokenChunkBytes], " \n\t")
+		if cut <= 0 {
+			cut = tokenChunkBytes
+			for cut > 0 && !utf8.RuneStart(text[cut]) {
+				cut--
+			}
+		}
+		total += len(enc.Encode(text[:cut], nil, nil))
+		text = text[cut:]
+	}
+	return total + len(enc.Encode(text, nil, nil))
 }
 
 // modelEncoding maps a model name to its tiktoken encoding.

@@ -16,7 +16,9 @@ package llm
 
 import (
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
 	"github.com/stretchr/testify/assert"
@@ -119,4 +121,31 @@ func TestCountTokens_CachesEncoding(t *testing.T) {
 	// load here would be the regression this test guards.
 	CountTokens("gpt-4-turbo", "hello")
 	assert.Equal(t, 1, calls)
+}
+
+func TestCountEncodedTokens_ChunksMatchOneEncode(t *testing.T) {
+	enc, err := resolveTokenEncoding("gpt-4o")
+	if err != nil {
+		t.Skip(err)
+	}
+	for _, text := range []string{
+		"",
+		"short text",
+		strings.Repeat("y", 3*tokenChunkBytes+17),
+		strings.Repeat("the quick brown fox ", 1000),
+		strings.Repeat("é", 3000), // multi-byte runes across a chunk edge
+	} {
+		assert.Equal(t, len(enc.Encode(text, nil, nil)), CountEncodedTokens(enc, text), "len %d", len(text))
+	}
+}
+
+func TestCountEncodedTokens_LongRunIsFast(t *testing.T) {
+	enc, err := resolveTokenEncoding("gpt-4o")
+	if err != nil {
+		t.Skip(err)
+	}
+	start := time.Now()
+	assert.Positive(t, CountEncodedTokens(enc, strings.Repeat("y", 256*1024)))
+	// One Encode of this run took minutes; chunked it is well under a second.
+	assert.Less(t, time.Since(start), 10*time.Second)
 }
