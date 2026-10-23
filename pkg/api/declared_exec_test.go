@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestCallDeclaredExecTool_RendersArgsAndResult(t *testing.T) {
