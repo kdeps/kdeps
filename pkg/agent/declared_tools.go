@@ -91,7 +91,9 @@ func registerDeclaredAPIRoutes() {
 		if !d.Declared() {
 			continue
 		}
-		api.RegisterDeclaredTool(id, d.Description, d.Parameters, d.DeclaredSpec)
+		api.RegisterDeclaredTool(id, d.Description, d.Parameters, func() api.DeclaredSpec {
+			return toolDefinitions[id].DeclaredSpec
+		})
 	}
 }
 

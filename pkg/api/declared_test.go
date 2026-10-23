@@ -36,7 +36,7 @@ func registerUnitDeclared(t *testing.T, name string, params map[string]domain.To
 		delete(toolReg, name)
 		toolMu.Unlock()
 	})
-	RegisterDeclaredTool(name, "test declared tool", params, spec)
+	RegisterDeclaredTool(name, "test declared tool", params, func() DeclaredSpec { return spec })
 }
 
 // A declared exec: block runs on its call route, with the declared default

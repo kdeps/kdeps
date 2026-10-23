@@ -72,9 +72,9 @@ func (s DeclaredSpec) run(ctx context.Context, name string, args map[string]any)
 
 // RegisterDeclaredTool serves one asset-declared tool on its call route. name
 // is the asset id callers use; description and params are the asset's own,
-// and spec is its implementation block. A call fills the declared defaults,
-// checks the required parameters and runs the block.
-func RegisterDeclaredTool(name, description string, params map[string]domain.ToolParam, spec DeclaredSpec) {
+// and spec returns its implementation block, read on each call. A call fills
+// the declared defaults, checks the required parameters and runs the block.
+func RegisterDeclaredTool(name, description string, params map[string]domain.ToolParam, spec func() DeclaredSpec) {
 	RegisterTool(ToolSpec{
 		Name:        name,
 		Description: description,
@@ -87,7 +87,7 @@ func RegisterDeclaredTool(name, description string, params map[string]domain.Too
 			if err != nil {
 				return "", err
 			}
-			return spec.run(ctx, name, full)
+			return spec().run(ctx, name, full)
 		},
 	})
 }
