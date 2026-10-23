@@ -52,129 +52,142 @@ rm -rf "$_warm"
 unset _warm
 echo ""
 
+# E2E_SHARD=k/n runs every n-th scenario starting at the k-th, so CI can
+# split the suite across runners. Unset runs them all.
+_scenario_idx=0
+scenario() {
+    local i=$_scenario_idx
+    _scenario_idx=$((i + 1))
+    if [ -n "${E2E_SHARD:-}" ] && [ $((i % ${E2E_SHARD#*/})) -ne $((${E2E_SHARD%/*} - 1)) ]; then
+        return 0
+    fi
+    # shellcheck disable=SC1090
+    source "$SCRIPT_DIR/$1"
+}
+
 # Run all test scenarios (source them so counters persist)
-source "$SCRIPT_DIR/test_e2e_helpers.sh"
-source "$SCRIPT_DIR/test_validation.sh"
-source "$SCRIPT_DIR/test_scaffolding.sh"
-source "$SCRIPT_DIR/test_packaging.sh"
-source "$SCRIPT_DIR/test_prepackage.sh"
-source "$SCRIPT_DIR/test_build.sh"
-source "$SCRIPT_DIR/test_docker_versions.sh"
-source "$SCRIPT_DIR/test_docker_services.sh"
+scenario test_e2e_helpers.sh
+scenario test_validation.sh
+scenario test_scaffolding.sh
+scenario test_packaging.sh
+scenario test_prepackage.sh
+scenario test_build.sh
+scenario test_docker_versions.sh
+scenario test_docker_services.sh
 # source "$SCRIPT_DIR/test_container_behavior.sh"
 # source "$SCRIPT_DIR/test_container_multiarch.sh"
-source "$SCRIPT_DIR/test_execution.sh"
-source "$SCRIPT_DIR/test_examples.sh"
+scenario test_execution.sh
+scenario test_examples.sh
 
 # Run feature tests
 echo "Testing additional features..."
-source "$SCRIPT_DIR/test_features_file_upload.sh"
-source "$SCRIPT_DIR/test_features_input_validation.sh"
-source "$SCRIPT_DIR/test_features_session.sh"
-source "$SCRIPT_DIR/test_features_error_handling.sh"
-source "$SCRIPT_DIR/test_features_cors.sh"
-source "$SCRIPT_DIR/test_features_health_check.sh"
-source "$SCRIPT_DIR/test_features_api_auth.sh"
-source "$SCRIPT_DIR/test_features_management_api.sh"
-source "$SCRIPT_DIR/test_features_kdeps_api.sh"
-source "$SCRIPT_DIR/test_features_memory_storage.sh"
-source "$SCRIPT_DIR/test_features_python_executor.sh"
-source "$SCRIPT_DIR/test_features_multi_resource.sh"
-source "$SCRIPT_DIR/test_features_expression_eval.sh"
-source "$SCRIPT_DIR/test_features_items_iteration.sh"
-source "$SCRIPT_DIR/test_features_loop_iteration.sh"
-source "$SCRIPT_DIR/test_features_workflow_metadata.sh"
-source "$SCRIPT_DIR/test_features_route_methods.sh"
-source "$SCRIPT_DIR/test_http_client.sh"
-source "$SCRIPT_DIR/test_features_edge_cases.sh"
-source "$SCRIPT_DIR/test_features_input_sources.sh"
-source "$SCRIPT_DIR/test_features_bot_sources.sh"
-source "$SCRIPT_DIR/test_features_tts.sh"
-source "$SCRIPT_DIR/test_features_git.sh"
-source "$SCRIPT_DIR/test_features_file_component.sh"
-source "$SCRIPT_DIR/test_features_whatsapp_template.sh"
-source "$SCRIPT_DIR/test_features_embedding.sh"
-source "$SCRIPT_DIR/test_features_exec.sh"
-source "$SCRIPT_DIR/test_features_calendar.sh"
-source "$SCRIPT_DIR/test_features_search_local.sh"
-source "$SCRIPT_DIR/test_features_search_local_graph_boost.sh"
-source "$SCRIPT_DIR/test_features_memory.sh"
-source "$SCRIPT_DIR/test_features_embedding_upsert.sh"
-source "$SCRIPT_DIR/test_features_events.sh"
-source "$SCRIPT_DIR/test_features_autopilot.sh"
-source "$SCRIPT_DIR/test_features_instrument.sh"
-source "$SCRIPT_DIR/test_features_search_local_executor.sh"
-source "$SCRIPT_DIR/test_embedding_component.sh"
-source "$SCRIPT_DIR/test_loader_component.sh"
-source "$SCRIPT_DIR/test_vector_store_component.sh"
-source "$SCRIPT_DIR/test_native_scraper.sh"
+scenario test_features_file_upload.sh
+scenario test_features_input_validation.sh
+scenario test_features_session.sh
+scenario test_features_error_handling.sh
+scenario test_features_cors.sh
+scenario test_features_health_check.sh
+scenario test_features_api_auth.sh
+scenario test_features_management_api.sh
+scenario test_features_kdeps_api.sh
+scenario test_features_memory_storage.sh
+scenario test_features_python_executor.sh
+scenario test_features_multi_resource.sh
+scenario test_features_expression_eval.sh
+scenario test_features_items_iteration.sh
+scenario test_features_loop_iteration.sh
+scenario test_features_workflow_metadata.sh
+scenario test_features_route_methods.sh
+scenario test_http_client.sh
+scenario test_features_edge_cases.sh
+scenario test_features_input_sources.sh
+scenario test_features_bot_sources.sh
+scenario test_features_tts.sh
+scenario test_features_git.sh
+scenario test_features_file_component.sh
+scenario test_features_whatsapp_template.sh
+scenario test_features_embedding.sh
+scenario test_features_exec.sh
+scenario test_features_calendar.sh
+scenario test_features_search_local.sh
+scenario test_features_search_local_graph_boost.sh
+scenario test_features_memory.sh
+scenario test_features_embedding_upsert.sh
+scenario test_features_events.sh
+scenario test_features_autopilot.sh
+scenario test_features_instrument.sh
+scenario test_features_search_local_executor.sh
+scenario test_embedding_component.sh
+scenario test_loader_component.sh
+scenario test_vector_store_component.sh
+scenario test_native_scraper.sh
 
 # CLI subcommand E2E tests
-source "$SCRIPT_DIR/test_bundle_export.sh"
-source "$SCRIPT_DIR/test_export_k8s.sh"
-source "$SCRIPT_DIR/test_chat_cmd.sh"
-source "$SCRIPT_DIR/test_chat_cmd_repl.sh"
-source "$SCRIPT_DIR/test_agent_theme.sh"
-source "$SCRIPT_DIR/test_agent_model_name.sh"
-source "$SCRIPT_DIR/test_agent_paste.sh"
-source "$SCRIPT_DIR/test_update.sh"
-source "$SCRIPT_DIR/test_assets.sh"
-source "$SCRIPT_DIR/test_asset_profiles.sh"
-source "$SCRIPT_DIR/test_asset_sets.sh"
-source "$SCRIPT_DIR/test_assets_defensive.sh"
-source "$SCRIPT_DIR/test_knowledge.sh"
-source "$SCRIPT_DIR/test_knowledge_session.sh"
-source "$SCRIPT_DIR/test_knowledge_defensive.sh"
-source "$SCRIPT_DIR/test_knowledge_folders.sh"
-source "$SCRIPT_DIR/test_knowledge_git.sh"
-source "$SCRIPT_DIR/test_declared_tools.sh"
-source "$SCRIPT_DIR/test_agent_self_limit.sh"
-source "$SCRIPT_DIR/test_agent_tool_budget.sh"
-source "$SCRIPT_DIR/test_tool_aliases.sh"
-source "$SCRIPT_DIR/test_agent_dsml.sh"
-source "$SCRIPT_DIR/test_providers.sh"
-source "$SCRIPT_DIR/test_publish_resources.sh"
-source "$SCRIPT_DIR/test_agent_refine.sh"
-source "$SCRIPT_DIR/test_agent_efficiency.sh"
-source "$SCRIPT_DIR/test_agent_prompt_summary.sh"
-source "$SCRIPT_DIR/test_agent_instruct.sh"
-source "$SCRIPT_DIR/test_agent_commands.sh"
-source "$SCRIPT_DIR/test_agent_edit_md5.sh"
-source "$SCRIPT_DIR/test_agent_sessions.sh"
-source "$SCRIPT_DIR/test_desktop.sh"
-source "$SCRIPT_DIR/test_repl_model_ollama_server_url.sh"
-source "$SCRIPT_DIR/test_completion_cmd.sh"
-source "$SCRIPT_DIR/test_features_clone_info.sh"
-source "$SCRIPT_DIR/test_examples_component_cli.sh"
-source "$SCRIPT_DIR/test_registry_install_local.sh"
-source "$SCRIPT_DIR/test_registry_uninstall_update.sh"
-source "$SCRIPT_DIR/test_example_components.sh"
-source "$SCRIPT_DIR/test_component_update.sh"
-source "$SCRIPT_DIR/test_examples_component_input_source.sh"
-source "$SCRIPT_DIR/test_examples_component_setup_teardown.sh"
-source "$SCRIPT_DIR/test_examples_file_processor.sh"
-source "$SCRIPT_DIR/test_examples_input_component.sh"
-source "$SCRIPT_DIR/test_examples_auto_env.sh"
-source "$SCRIPT_DIR/test_registry_verify.sh"
-source "$SCRIPT_DIR/test_install_exec.sh"
-source "$SCRIPT_DIR/test_global_config.sh"
-source "$SCRIPT_DIR/test_config_validation.sh"
-source "$SCRIPT_DIR/test_connection_prompt.sh"
-source "$SCRIPT_DIR/test_model_resolution.sh"
-source "$SCRIPT_DIR/test_doctor.sh"
-source "$SCRIPT_DIR/test_llm_cli.sh"
-source "$SCRIPT_DIR/test_m365_proxy.sh"
-source "$SCRIPT_DIR/test_env_cmd.sh"
-source "$SCRIPT_DIR/test_validate_doctor.sh"
-source "$SCRIPT_DIR/test_test_cmd.sh"
-source "$SCRIPT_DIR/test_component_version_pinning.sh"
+scenario test_bundle_export.sh
+scenario test_export_k8s.sh
+scenario test_chat_cmd.sh
+scenario test_chat_cmd_repl.sh
+scenario test_agent_theme.sh
+scenario test_agent_model_name.sh
+scenario test_agent_paste.sh
+scenario test_update.sh
+scenario test_assets.sh
+scenario test_asset_profiles.sh
+scenario test_asset_sets.sh
+scenario test_assets_defensive.sh
+scenario test_knowledge.sh
+scenario test_knowledge_session.sh
+scenario test_knowledge_defensive.sh
+scenario test_knowledge_folders.sh
+scenario test_knowledge_git.sh
+scenario test_declared_tools.sh
+scenario test_agent_self_limit.sh
+scenario test_agent_tool_budget.sh
+scenario test_tool_aliases.sh
+scenario test_agent_dsml.sh
+scenario test_providers.sh
+scenario test_publish_resources.sh
+scenario test_agent_refine.sh
+scenario test_agent_efficiency.sh
+scenario test_agent_prompt_summary.sh
+scenario test_agent_instruct.sh
+scenario test_agent_commands.sh
+scenario test_agent_edit_md5.sh
+scenario test_agent_sessions.sh
+scenario test_desktop.sh
+scenario test_repl_model_ollama_server_url.sh
+scenario test_completion_cmd.sh
+scenario test_features_clone_info.sh
+scenario test_examples_component_cli.sh
+scenario test_registry_install_local.sh
+scenario test_registry_uninstall_update.sh
+scenario test_example_components.sh
+scenario test_component_update.sh
+scenario test_examples_component_input_source.sh
+scenario test_examples_component_setup_teardown.sh
+scenario test_examples_file_processor.sh
+scenario test_examples_input_component.sh
+scenario test_examples_auto_env.sh
+scenario test_registry_verify.sh
+scenario test_install_exec.sh
+scenario test_global_config.sh
+scenario test_config_validation.sh
+scenario test_connection_prompt.sh
+scenario test_model_resolution.sh
+scenario test_doctor.sh
+scenario test_llm_cli.sh
+scenario test_m365_proxy.sh
+scenario test_env_cmd.sh
+scenario test_validate_doctor.sh
+scenario test_test_cmd.sh
+scenario test_component_version_pinning.sh
 
 # Run llamafile (default file backend) live test (skips when model not cached)
-source "$SCRIPT_DIR/test_llamafile_e2e.sh"
+scenario test_llamafile_e2e.sh
 
 # Run Ollama LLM tests (will skip if Ollama not available)
-source "$SCRIPT_DIR/test_ollama_e2e.sh"
-source "$SCRIPT_DIR/test_local_ollama_e2e.sh"
+scenario test_ollama_e2e.sh
+scenario test_local_ollama_e2e.sh
 
 # Summary
 echo "=========================================="
