@@ -62,7 +62,10 @@ func TestEvents_AreReadByCode(t *testing.T) {
 	src := packageSource(t)
 	events := loadBuiltinEvents()
 	require.NotEmpty(t, events)
-	for name := range events {
+	for name, ev := range events {
+		if len(ev.Tools) > 0 {
+			continue // a generic tool budget is read by toolBudgets, not by name
+		}
 		require.Containsf(t, src, `"`+name+`"`, "event %q is not read by any code", name)
 	}
 }

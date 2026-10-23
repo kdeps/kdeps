@@ -126,6 +126,11 @@ type EventTrigger struct {
 type Event struct {
 	Name string       `yaml:"name"`
 	On   EventTrigger `yaml:"on"`
+	// Tools makes this a generic tool budget that needs no Go code: with
+	// on.distinctCalls and run: block, a turn may make at most that many
+	// distinct calls to these tools (a repeat never counts twice). See
+	// toolBudgets.
+	Tools []string `yaml:"tools,omitempty"`
 	// Run is the action fired once On's condition is met -- a built-in verb
 	// ("compact", "fold") today; nothing currently dispatches an arbitrary
 	// slash-command string here, unlike the REPL's own command line.
@@ -228,6 +233,9 @@ func parseYAMLEvent(data []byte, source string) (Event, error) {
 	ev.Name = strings.ToLower(strings.TrimSpace(ev.Name))
 	if ev.Name == "" {
 		return Event{}, fmt.Errorf("%s: missing name", source)
+	}
+	if err := validateToolBudget(ev); err != nil {
+		return Event{}, fmt.Errorf("%s: %w", source, err)
 	}
 	return ev, nil
 }
