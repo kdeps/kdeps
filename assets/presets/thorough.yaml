@@ -1,11 +1,22 @@
-version: 1.0.1
-# kdeps update installs these with this preset: the events it tunes and the actions they run
+version: 1.0.2
+# kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
   actions/cap: ""
   actions/compact: ""
   actions/drop_oldest: ""
   actions/truncate: ""
+  components/bash_exec: ""
+  components/edit_file: ""
+  components/exec: ""
+  components/list_files: ""
+  components/memory_query: ""
+  components/memory_search: ""
+  components/read_file: ""
+  components/search_local: ""
+  components/web_scraper: ""
+  components/web_search: ""
+  components/write_file: ""
   events/auto-compact: ""
   events/bash-call-budget: ""
   events/code-call-budget: ""
