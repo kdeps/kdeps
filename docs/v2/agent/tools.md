@@ -202,7 +202,7 @@ A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the mode
 
 ## Declared python tools
 
-A tool whose definition has a `python:` block runs one Python script on the kdeps python runner, the same one behind the `python` tool, and needs no Go code. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
+A tool whose definition has a `python:` block runs one Python script and needs no Go code. With no `packages:`, the script runs directly on the system `python3` (or `python`), with no venv. With `packages:`, it runs on the kdeps python runner behind the `python` tool, which installs them into a venv with `uv`. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
 
 ```yaml
 # tools/word_count.yaml (or ~/.kdeps/tools/word_count.yaml)

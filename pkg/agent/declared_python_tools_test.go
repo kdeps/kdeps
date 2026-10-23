@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,4 +54,34 @@ func TestCallDeclaredPythonTool_RejectsRootPath(t *testing.T) {
 	s := &pythonToolSpec{Script: "print(1)", Paths: []string{"file"}}
 	_, err := callDeclaredPythonTool(t.Context(), "py", s, map[string]any{"file": "/"}, nil)
 	require.ErrorContains(t, err, "py:")
+}
+
+// A script with no packages runs on the system python: no uv, no venv.
+func TestCallDeclaredPythonTool_NoPackagesRunsSystemPython(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		if _, err = exec.LookPath("python"); err != nil {
+			t.Skip("no python interpreter in PATH")
+		}
+	}
+	s := &pythonToolSpec{Script: "import json, sys, os\nprint(json.loads(sys.argv[1])['w'].upper() + os.environ['K'])"}
+	out, err := callDeclaredPythonTool(t.Context(), "py", s, map[string]any{"w": "kdeps"}, map[string]string{"K": "!"})
+	require.NoError(t, err)
+	assert.Equal(t, "KDEPS!", out)
+
+	_, err = callDeclaredPythonTool(
+		t.Context(),
+		"py",
+		&pythonToolSpec{Script: "import sys; sys.exit('nope')"},
+		nil,
+		nil,
+	)
+	require.ErrorContains(t, err, "nope")
+}
+
+func TestCallDeclaredPythonTool_NoInterpreter(t *testing.T) {
+	orig := pythonCandidates
+	t.Cleanup(func() { pythonCandidates = orig })
+	pythonCandidates = []string{"kdeps-no-such-python"}
+	_, err := callDeclaredPythonTool(t.Context(), "py", &pythonToolSpec{Script: "print(1)"}, nil, nil)
+	require.ErrorContains(t, err, "no python interpreter found")
 }
