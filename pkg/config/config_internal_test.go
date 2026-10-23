@@ -349,8 +349,6 @@ func TestMergeConfig_ConnectionMaps(t *testing.T) {
 	src := &Config{
 		HTTPConnections:   map[string]HTTPConnectionConfig{"myhttp": {Proxy: "http://p"}},
 		SearchConnections: map[string]SearchConnectionConfig{"mysearch": {APIKey: "sk-search"}},
-		SMTPConnections:   map[string]SMTPConnectionConfig{"mysmtp": {Host: "smtp.example.com"}},
-		IMAPConnections:   map[string]IMAPConnectionConfig{"myimap": {Host: "imap.example.com"}},
 		SQLConnections: map[string]SQLConnectionConfig{
 			"mysql": {Connection: "postgres://localhost/db"},
 		},
@@ -358,8 +356,6 @@ func TestMergeConfig_ConnectionMaps(t *testing.T) {
 	mergeConfig(dst, src)
 	assert.Equal(t, "http://p", dst.HTTPConnections["myhttp"].Proxy)
 	assert.Equal(t, "sk-search", dst.SearchConnections["mysearch"].APIKey)
-	assert.Equal(t, "smtp.example.com", dst.SMTPConnections["mysmtp"].Host)
-	assert.Equal(t, "imap.example.com", dst.IMAPConnections["myimap"].Host)
 	assert.Equal(t, "postgres://localhost/db", dst.SQLConnections["mysql"].Connection)
 }
 
@@ -369,15 +365,11 @@ func TestMergeConfig_ConnectionMapsNilDst(t *testing.T) {
 	src := &Config{
 		HTTPConnections:   map[string]HTTPConnectionConfig{"h": {}},
 		SearchConnections: map[string]SearchConnectionConfig{"s": {}},
-		SMTPConnections:   map[string]SMTPConnectionConfig{"m": {}},
-		IMAPConnections:   map[string]IMAPConnectionConfig{"i": {}},
 		SQLConnections:    map[string]SQLConnectionConfig{"q": {}},
 	}
 	mergeConfig(dst, src)
 	assert.NotNil(t, dst.HTTPConnections)
 	assert.NotNil(t, dst.SearchConnections)
-	assert.NotNil(t, dst.SMTPConnections)
-	assert.NotNil(t, dst.IMAPConnections)
 	assert.NotNil(t, dst.SQLConnections)
 }
 

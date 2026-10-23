@@ -210,26 +210,6 @@ type SearchConnectionConfig struct {
 	APIKey string `yaml:"apiKey"`
 }
 
-// SMTPConnectionConfig holds SMTP server settings for a named outbound email connection.
-type SMTPConnectionConfig struct {
-	Host               string `yaml:"host"`
-	Port               int    `yaml:"port,omitempty"`
-	Username           string `yaml:"username,omitempty"`
-	Password           string `yaml:"password,omitempty"`
-	TLS                bool   `yaml:"tls,omitempty"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
-}
-
-// IMAPConnectionConfig holds IMAP server settings for a named inbound email connection.
-type IMAPConnectionConfig struct {
-	Host               string `yaml:"host"`
-	Port               int    `yaml:"port,omitempty"`
-	Username           string `yaml:"username,omitempty"`
-	Password           string `yaml:"password,omitempty"`
-	TLS                bool   `yaml:"tls,omitempty"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
-}
-
 // DiscordConnectionConfig holds Discord bot credentials.
 type DiscordConnectionConfig struct {
 	BotToken string `yaml:"botToken"`
@@ -261,7 +241,7 @@ type SQLConnectionConfig struct {
 
 // AccountConfig holds credentials for a named third-party account an agent
 // logs into (e.g. a CRM or a SaaS dashboard) -- distinct from
-// the SMTP/IMAP/bot connections above, which are for kdeps' own outbound
+// the HTTP/search/bot connections above, which are for kdeps' own outbound
 // integrations, not a general "the agent authenticates as this identity"
 // concept.
 type AccountConfig struct {
@@ -321,8 +301,6 @@ type Config struct {
 	ResourceDefaults  ResourceDefaults                  `yaml:"resource_defaults"`
 	HTTPConnections   map[string]HTTPConnectionConfig   `yaml:"http_connections,omitempty"`
 	SearchConnections map[string]SearchConnectionConfig `yaml:"search_connections,omitempty"`
-	SMTPConnections   map[string]SMTPConnectionConfig   `yaml:"smtp_connections,omitempty"`
-	IMAPConnections   map[string]IMAPConnectionConfig   `yaml:"imap_connections,omitempty"`
 	BotConnections    *BotConnectionConfig              `yaml:"bot_connections,omitempty"`
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`

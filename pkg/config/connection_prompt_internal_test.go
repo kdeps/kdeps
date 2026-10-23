@@ -31,8 +31,6 @@ import (
 
 func TestHasConnection(t *testing.T) {
 	cfg := &Config{
-		SMTPConnections:   map[string]SMTPConnectionConfig{"mail": {Host: "h"}},
-		IMAPConnections:   map[string]IMAPConnectionConfig{"inbox": {Host: "h"}},
 		SQLConnections:    map[string]SQLConnectionConfig{"db": {Connection: "dsn"}},
 		HTTPConnections:   map[string]HTTPConnectionConfig{"api": {}},
 		SearchConnections: map[string]SearchConnectionConfig{"web": {APIKey: "k"}},
@@ -42,8 +40,6 @@ func TestHasConnection(t *testing.T) {
 			Telegram: &TelegramConnectionConfig{BotToken: "tt"},
 		},
 	}
-	assert.True(t, HasConnection(cfg, ConnKindSMTP, "mail"))
-	assert.True(t, HasConnection(cfg, ConnKindIMAP, "inbox"))
 	assert.True(t, HasConnection(cfg, ConnKindSQL, "db"))
 	assert.True(t, HasConnection(cfg, ConnKindHTTP, "api"))
 	assert.True(t, HasConnection(cfg, ConnKindSearch, "web"))
@@ -52,9 +48,9 @@ func TestHasConnection(t *testing.T) {
 	assert.True(t, HasConnection(cfg, ConnKindBot, "telegram"))
 	assert.False(t, HasConnection(cfg, ConnKindBot, "whatsapp"), "no longer a bot platform")
 
-	assert.False(t, HasConnection(cfg, ConnKindSMTP, "missing"))
+	assert.False(t, HasConnection(cfg, ConnKindSQL, "missing"))
 	assert.False(t, HasConnection(cfg, "unknown", "mail"))
-	assert.False(t, HasConnection(nil, ConnKindSMTP, "mail"))
+	assert.False(t, HasConnection(nil, ConnKindSQL, "mail"))
 	assert.False(t, HasConnection(cfg, ConnKindBot, "nostromo"))
 }
 
@@ -64,16 +60,14 @@ func TestInjectConnection_NewFile(t *testing.T) {
 	AppFS = afero.NewMemMapFs()
 	path := "/home/u/.kdeps/config.yaml"
 
-	err := injectConnection(path, "smtp_connections", "mail", SMTPConnectionConfig{
-		Host: "smtp.example.com", Port: 587, Username: "u", Password: "p", TLS: true,
+	err := injectConnection(path, "sql_connections", "db", SQLConnectionConfig{
+		Connection: "postgres://user:pass@host/db",
 	})
 	require.NoError(t, err)
 
 	cfg := readConfigFile(t, path)
-	require.Contains(t, cfg.SMTPConnections, "mail")
-	assert.Equal(t, "smtp.example.com", cfg.SMTPConnections["mail"].Host)
-	assert.Equal(t, 587, cfg.SMTPConnections["mail"].Port)
-	assert.True(t, cfg.SMTPConnections["mail"].TLS)
+	require.Contains(t, cfg.SQLConnections, "db")
+	assert.Equal(t, "postgres://user:pass@host/db", cfg.SQLConnections["db"].Connection)
 }
 
 func TestInjectConnection_PreservesExistingContentAndComments(t *testing.T) {
@@ -86,15 +80,14 @@ func TestInjectConnection_PreservesExistingContentAndComments(t *testing.T) {
 llm:
   backend: "openai"
   openai_api_key: "sk-test"
-smtp_connections:
+sql_connections:
   existing:
-    host: keep.example.com
-    port: 25
+    connection: keep-dsn
 `
 	require.NoError(t, afero.WriteFile(AppFS, path, []byte(initial), 0o600))
 
-	err := injectConnection(path, "smtp_connections", "added", SMTPConnectionConfig{
-		Host: "new.example.com", Port: 465, TLS: true,
+	err := injectConnection(path, "sql_connections", "added", SQLConnectionConfig{
+		Connection: "new-dsn",
 	})
 	require.NoError(t, err)
 
@@ -105,9 +98,8 @@ smtp_connections:
 	cfg := readConfigFile(t, path)
 	assert.Equal(t, "openai", cfg.LLM.Backend)
 	assert.Equal(t, "sk-test", cfg.LLM.Keys["openai_api_key"])
-	assert.Equal(t, "keep.example.com", cfg.SMTPConnections["existing"].Host)
-	assert.Equal(t, "new.example.com", cfg.SMTPConnections["added"].Host)
-	assert.Equal(t, 465, cfg.SMTPConnections["added"].Port)
+	assert.Equal(t, "keep-dsn", cfg.SQLConnections["existing"].Connection)
+	assert.Equal(t, "new-dsn", cfg.SQLConnections["added"].Connection)
 }
 
 func TestInjectConnection_ReplaceExisting(t *testing.T) {
@@ -124,33 +116,6 @@ func TestInjectConnection_ReplaceExisting(t *testing.T) {
 	cfg := readConfigFile(t, path)
 	assert.Equal(t, "new-dsn", cfg.SQLConnections["db"].Connection)
 	assert.Len(t, cfg.SQLConnections, 1)
-}
-
-func TestPromptAndSaveConnection_SMTP(t *testing.T) {
-	origFS := AppFS
-	origTerm := isStdinTerminal
-	t.Cleanup(func() {
-		AppFS = origFS
-		isStdinTerminal = origTerm
-	})
-	AppFS = afero.NewMemMapFs()
-	isStdinTerminal = func() bool { return false } // read secrets from the fed reader
-
-	path := "/cfg/config.yaml"
-	t.Setenv("KDEPS_CONFIG_PATH", path)
-
-	in := bufio.NewReader(strings.NewReader("smtp.example.com\n587\nme@example.com\ns3cret\ny\n"))
-	var out testWriter
-	err := PromptAndSaveConnection(ConnKindSMTP, "mail", &out, in)
-	require.NoError(t, err)
-
-	cfg := readConfigFile(t, path)
-	conn := cfg.SMTPConnections["mail"]
-	assert.Equal(t, "smtp.example.com", conn.Host)
-	assert.Equal(t, 587, conn.Port)
-	assert.Equal(t, "me@example.com", conn.Username)
-	assert.Equal(t, "s3cret", conn.Password)
-	assert.True(t, conn.TLS)
 }
 
 func TestPromptAndSaveConnection_SQL(t *testing.T) {
@@ -249,18 +214,6 @@ func TestPromptAndSaveConnection_UnknownKind(t *testing.T) {
 	err := PromptAndSaveConnection("bogus", "x", &out, in)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown connection kind")
-}
-
-func TestPromptBool(t *testing.T) {
-	cases := map[string]bool{"y\n": true, "n\n": false, "\n": true}
-	for input, want := range cases {
-		in := bufio.NewReader(strings.NewReader(input))
-		var out testWriter
-		assert.Equalf(t, want, promptBool(&out, in, "?", true), "input %q", input)
-	}
-	in := bufio.NewReader(strings.NewReader("\n"))
-	var out testWriter
-	assert.False(t, promptBool(&out, in, "?", false))
 }
 
 func readConfigFile(t *testing.T, path string) *Config {

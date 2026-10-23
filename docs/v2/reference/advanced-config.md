@@ -365,7 +365,7 @@ See [Knowledge vault](/agent/knowledge).
 
 ## Agent identity
 
-An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like HTTP/search/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
 
 ```yaml
 # ~/.kdeps/config.yaml

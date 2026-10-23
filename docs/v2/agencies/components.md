@@ -69,7 +69,7 @@ resources:
     exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
 ```
 
-An input whose value names a connection in `~/.kdeps/config.yaml` declares its kind with `connection:` (`search`, `sql`, `smtp`, `imap`, `http`). `kdeps run` then asks for a missing connection before the workflow starts, as it does for a resource's `connectionName`:
+An input whose value names a connection in `~/.kdeps/config.yaml` declares its kind with `connection:` (`search`, `sql`, `http`). `kdeps run` then asks for a missing connection before the workflow starts, as it does for a resource's `connectionName`:
 
 ```yaml
 # components/web_search/component.yaml (interface, abridged)

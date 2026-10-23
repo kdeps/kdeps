@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -33,8 +32,6 @@ import (
 // Connection kinds referenced by workflow resources. Each maps to a top-level
 // map in config.yaml.
 const (
-	ConnKindSMTP   = "smtp"
-	ConnKindIMAP   = "imap"
 	ConnKindSQL    = "sql"
 	ConnKindHTTP   = "http"
 	ConnKindSearch = "search"
@@ -43,8 +40,6 @@ const (
 
 // connKindTopKey maps a connection kind to its config.yaml top-level key.
 var connKindTopKey = map[string]string{ //nolint:gochecknoglobals // static lookup table
-	ConnKindSMTP:   "smtp_connections",
-	ConnKindIMAP:   "imap_connections",
 	ConnKindSQL:    "sql_connections",
 	ConnKindHTTP:   "http_connections",
 	ConnKindSearch: "search_connections",
@@ -57,12 +52,6 @@ func HasConnection(cfg *Config, kind, name string) bool {
 		return false
 	}
 	switch kind {
-	case ConnKindSMTP:
-		_, ok := cfg.SMTPConnections[name]
-		return ok
-	case ConnKindIMAP:
-		_, ok := cfg.IMAPConnections[name]
-		return ok
 	case ConnKindSQL:
 		_, ok := cfg.SQLConnections[name]
 		return ok
@@ -140,10 +129,6 @@ func promptConnectionValue(
 	kind string, w *fmtWriter, out io.StringWriter, in *bufio.Reader,
 ) (any, error) {
 	switch kind {
-	case ConnKindSMTP:
-		return promptMailConnection(w, out, in, 587), nil //nolint:mnd // default SMTP submission port
-	case ConnKindIMAP:
-		return promptMailConnection(w, out, in, 993), nil //nolint:mnd // default IMAPS port
 	case ConnKindSQL:
 		dsn := promptLine(out, in, "  Connection string (DSN): ", "")
 		return SQLConnectionConfig{Connection: dsn}, nil
@@ -159,24 +144,6 @@ func promptConnectionValue(
 		return promptBotConnection(w, out, in)
 	default:
 		return nil, fmt.Errorf("unknown connection kind %q", kind)
-	}
-}
-
-// promptMailConnection collects SMTP/IMAP fields (identical shape).
-func promptMailConnection(
-	w *fmtWriter, out io.StringWriter, in *bufio.Reader, defaultPort int,
-) SMTPConnectionConfig {
-	host := promptLine(out, in, "  Host: ", "")
-	port := promptPort(out, in, defaultPort)
-	username := promptLine(out, in, "  Username: ", "")
-	password, _ := promptSecret(w, in, "  Password")
-	tls := promptBool(out, in, "  Use TLS?", true)
-	return SMTPConnectionConfig{
-		Host:     host,
-		Port:     port,
-		Username: username,
-		Password: password,
-		TLS:      tls,
 	}
 }
 
@@ -253,35 +220,6 @@ func promptBotConnection(
 		return BotConnectionConfig{Slack: slack}, nil
 	default:
 		return nil, fmt.Errorf("unknown bot platform %q", platform)
-	}
-}
-
-// promptPort reads a port number, falling back to def on blank or invalid input.
-func promptPort(out io.StringWriter, in *bufio.Reader, def int) int {
-	raw := promptLine(out, in, fmt.Sprintf("  Port [%d]: ", def), "")
-	if raw == "" {
-		return def
-	}
-	if n, err := strconv.Atoi(raw); err == nil {
-		return n
-	}
-	return def
-}
-
-// promptBool reads a yes/no answer, defaulting to def on blank input.
-func promptBool(out io.StringWriter, in *bufio.Reader, prompt string, def bool) bool {
-	suffix := " [Y/n]: "
-	if !def {
-		suffix = " [y/N]: "
-	}
-	raw := strings.ToLower(promptLine(out, in, prompt+suffix, ""))
-	switch raw {
-	case "":
-		return def
-	case "y", "yes", "true":
-		return true
-	default:
-		return false
 	}
 }
 

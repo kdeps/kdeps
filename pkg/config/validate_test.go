@@ -84,12 +84,6 @@ bad_key: true
 func TestValidate_ConnectionKeys_NotFlagged(t *testing.T) {
 	dir := t.TempDir()
 	writeTempConfig(t, dir, `
-smtp_connections:
-  default:
-    host: smtp.example.com
-imap_connections:
-  inbox:
-    host: imap.example.com
 sql_connections:
   main:
     connection: postgres://x
@@ -111,6 +105,22 @@ identity:
 	for _, w := range cfg.Validate("") {
 		assert.NotContains(t, w, "unknown top-level key", "unexpected top-level warning: %s", w)
 	}
+}
+
+func TestValidate_RemovedMailConnectionKeys_Warn(t *testing.T) {
+	dir := t.TempDir()
+	writeTempConfig(t, dir, `
+smtp_connections:
+  default:
+    host: smtp.example.com
+imap_connections:
+  inbox:
+    host: imap.example.com
+`)
+	cfg := loadCfg(t)
+	joined := strings.Join(cfg.Validate(""), "\n")
+	assert.Contains(t, joined, "smtp_connections")
+	assert.Contains(t, joined, "imap_connections")
 }
 
 func TestValidate_UnknownLLMKey(t *testing.T) {

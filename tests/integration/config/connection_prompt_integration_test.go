@@ -34,22 +34,18 @@ import (
 
 // A missing connection prompted at run time must be written to config.yaml and
 // then be loadable via the normal config path.
-func TestPromptAndSaveConnection_IMAPRoundTrip(t *testing.T) {
+func TestPromptAndSaveConnection_SQLRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 
-	in := bufio.NewReader(strings.NewReader("imap.example.com\n993\nme@example.com\nhunter2\ny\n"))
+	in := bufio.NewReader(strings.NewReader("postgres://user:pass@host/db\n"))
 	var out bytes.Buffer
-	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindIMAP, "inbox", &out, in))
+	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindSQL, "analytics", &out, in))
 
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
-	require.True(t, config.HasConnection(cfg, config.ConnKindIMAP, "inbox"))
-	assert.Equal(t, "imap.example.com", cfg.IMAPConnections["inbox"].Host)
-	assert.Equal(t, 993, cfg.IMAPConnections["inbox"].Port)
-	assert.Equal(t, "me@example.com", cfg.IMAPConnections["inbox"].Username)
-	assert.Equal(t, "hunter2", cfg.IMAPConnections["inbox"].Password)
-	assert.True(t, cfg.IMAPConnections["inbox"].TLS)
+	require.True(t, config.HasConnection(cfg, config.ConnKindSQL, "analytics"))
+	assert.Equal(t, "postgres://user:pass@host/db", cfg.SQLConnections["analytics"].Connection)
 }
 
 // Saving a second connection must not drop the first.
@@ -58,15 +54,15 @@ func TestPromptAndSaveConnection_AppendsWithoutClobbering(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 
 	var out bytes.Buffer
-	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindSMTP, "out", &out,
-		bufio.NewReader(strings.NewReader("smtp.example.com\n587\nu\npw\ny\n"))))
-	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindIMAP, "in", &out,
-		bufio.NewReader(strings.NewReader("imap.example.com\n993\nu\npw\ny\n"))))
+	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindSQL, "first", &out,
+		bufio.NewReader(strings.NewReader("postgres://h/first\n"))))
+	require.NoError(t, config.PromptAndSaveConnection(config.ConnKindSQL, "second", &out,
+		bufio.NewReader(strings.NewReader("postgres://h/second\n"))))
 
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
-	assert.True(t, config.HasConnection(cfg, config.ConnKindSMTP, "out"))
-	assert.True(t, config.HasConnection(cfg, config.ConnKindIMAP, "in"))
+	assert.True(t, config.HasConnection(cfg, config.ConnKindSQL, "first"))
+	assert.True(t, config.HasConnection(cfg, config.ConnKindSQL, "second"))
 }
 
 // A named connection supplied entirely via environment variables must load
@@ -74,19 +70,13 @@ func TestPromptAndSaveConnection_AppendsWithoutClobbering(t *testing.T) {
 func TestConnectionEnvOverride_RoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", path)
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_HOST", "smtp.example.com")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_PORT", "465")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_USERNAME", "bot@example.com")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_PASSWORD", "s3cret")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_TLS", "true")
+	t.Setenv("KDEPS_SQL_CONNECTIONS_ALERTS_CONNECTION", "postgres://u:p@h/db")
 
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
-	require.True(t, config.HasConnection(cfg, config.ConnKindSMTP, "alerts"))
-	assert.Equal(t, "smtp.example.com", cfg.SMTPConnections["alerts"].Host)
-	assert.Equal(t, 465, cfg.SMTPConnections["alerts"].Port)
-	assert.Equal(t, "s3cret", cfg.SMTPConnections["alerts"].Password)
-	assert.True(t, config.ConnectionInEnv(config.ConnKindSMTP, "alerts"))
+	require.True(t, config.HasConnection(cfg, config.ConnKindSQL, "alerts"))
+	assert.Equal(t, "postgres://u:p@h/db", cfg.SQLConnections["alerts"].Connection)
+	assert.True(t, config.ConnectionInEnv(config.ConnKindSQL, "alerts"))
 }
 
 // A missing cloud LLM key prompted at run time must be written to config.yaml

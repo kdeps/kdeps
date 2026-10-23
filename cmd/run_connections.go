@@ -37,7 +37,7 @@ type connRef struct {
 
 // ensureWorkflowRuntimeConfig prompts for and persists any runtime configuration
 // a workflow needs but that is missing from config.yaml: named connections
-// (smtp/imap/sql/http/search), cloud LLM API keys implied by the chat models,
+// (sql/http/search/bot), cloud LLM API keys implied by the chat models,
 // and the apiServer auth token. It is a no-op when stdin is not a terminal —
 // the usual "not found" errors then surface at execution time, exactly as
 // before.
