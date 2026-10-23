@@ -61,7 +61,7 @@ loop -> cmdasset: "config data, not served"
 
 Chains by asset set:
 
-- **Tools**: `tools/` assets with `http:` or `exec:` are served by the declared runner. Go-backed tools have a `ToolSpec`. Agent-session tools run the active loop's closure.
+- **Tools**: `tools/` assets with `http:`, `exec:`, `sql:` or `python:` are served by the declared runner. Go-backed tools have a `ToolSpec`. Agent-session tools run the active loop's closure; the tool list marks them `"agentOnly": true`, and in workflow mode, with no agent session, a call to one fails.
 - **Components**: each `components/` asset declares `requires:` and calls `kdeps.api`. The component invariant tests enforce this for workflow tools.
 - **Commands**: builtin commands name their operation in `api:`. Declared prompt commands are published under their own name.
 - **Loop data**: configuration only, see [Loop data sets](#loop-data-sets).

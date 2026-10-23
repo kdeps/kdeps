@@ -286,6 +286,11 @@ elif kind == "tools":
     ]
     if names != want:
         die(repr(names))
+    session = {"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
+               "knowledge_note_save", "knowledge_recall", "load_skill", "session_handshake"}
+    flagged = {item.get("name") for item in doc["items"] if item.get("agentOnly")}
+    if flagged != session:
+        die("agentOnly " + repr(sorted(flagged)))
 elif kind == "commands":
     if doc.get("kind") != "CommandList" or doc.get("apiVersion") != "commands.kdeps.io/v1":
         die(repr(doc))
