@@ -243,12 +243,37 @@ jobs:
             if [ -n "$new_vulns" ]; then exit 1; fi
           fi
 
+  # The required checks "test" and "test-windows" are these gates, not the
+  # matrix jobs: a skipped matrix job reports its unevaluated name, so a
+  # required name on it would never report on a docs-only PR. A gate passes
+  # when its suites passed or were skipped because nothing to test changed.
   test:
+    needs: [changes, test-linux]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Linux suites passed
+        run: |
+          echo "changes=${{ needs.changes.result }} suites=${{ needs.test-linux.result }}"
+          [ "${{ needs.changes.result }}" = success ] || exit 1
+          case "${{ needs.test-linux.result }}" in success|skipped) ;; *) exit 1 ;; esac
+
+  test-windows:
+    needs: [changes, test-windows-suites]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Windows suites passed
+        run: |
+          echo "changes=${{ needs.changes.result }} suites=${{ needs.test-windows-suites.result }}"
+          [ "${{ needs.changes.result }}" = success ] || exit 1
+          case "${{ needs.test-windows-suites.result }}" in success|skipped) ;; *) exit 1 ;; esac
+
+  test-linux:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
-    # Go tests and E2E run side by side instead of one after the other. The go
-    # entry keeps the name "test", the required check.
-    name: ${{ matrix.suite == 'go' && 'test' || format('test-e2e {0}', matrix.shard) }}
+    # Go tests and E2E run side by side instead of one after the other.
+    name: ${{ matrix.suite == 'go' && 'test-go' || format('test-e2e {0}', matrix.shard) }}
     strategy:
       fail-fast: false
       matrix:
@@ -416,16 +441,15 @@ jobs:
       run: make test-e2e
       timeout-minutes: 25
 
-  test-windows:
+  test-windows-suites:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     # Proves the Windows release binary actually builds and its unit + integration
     # tests pass natively, not just that it cross-compiles. E2E is included too;
     # scripts needing ollama/python3/docker self-skip when the tool is missing
     # (see tests/e2e/*.sh `command -v` guards) rather than failing the job.
-    # Unit, integration and three E2E shards each on their own runner. The
-    # unit entry keeps the name "test-windows", the required check.
-    name: ${{ matrix.suite == 'unit' && 'test-windows' || matrix.suite == 'integration' && 'test-windows-integration' || format('test-windows-e2e {0}', matrix.shard) }}
+    # Unit, integration and three E2E shards each on their own runner.
+    name: ${{ matrix.suite == 'unit' && 'test-windows-unit' || matrix.suite == 'integration' && 'test-windows-integration' || format('test-windows-e2e {0}', matrix.shard) }}
     strategy:
       fail-fast: false
       matrix:
