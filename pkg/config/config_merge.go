@@ -25,8 +25,6 @@ func mergeConfig(dst *Config, src *Config) {
 	mergeResourceDefaultsConfig(&dst.ResourceDefaults, &src.ResourceDefaults)
 	mergeMap(&dst.HTTPConnections, src.HTTPConnections)
 	mergeMap(&dst.SearchConnections, src.SearchConnections)
-	mergeMap(&dst.SMTPConnections, src.SMTPConnections)
-	mergeMap(&dst.IMAPConnections, src.IMAPConnections)
 	if src.BotConnections != nil {
 		dst.BotConnections = src.BotConnections
 	}

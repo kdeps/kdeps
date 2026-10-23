@@ -20,28 +20,19 @@ package config
 
 import (
 	"os"
-	"strconv"
 	"strings"
 )
 
 // Named-connection env prefixes. Everything after the prefix is
-// <NAME>_<FIELD>, e.g. KDEPS_SMTP_CONNECTIONS_DEFAULT_HOST. Names are matched
-// case-insensitively and stored lowercased, so reference them in lowercase in
-// resources (connectionName: default).
+// <NAME>_<FIELD>, e.g. KDEPS_SQL_CONNECTIONS_DEFAULT_CONNECTION. Names are
+// matched case-insensitively and stored lowercased, so reference them in
+// lowercase in resources (connectionName: default).
 const (
-	envPrefixSMTP   = "KDEPS_SMTP_CONNECTIONS_"
-	envPrefixIMAP   = "KDEPS_IMAP_CONNECTIONS_"
 	envPrefixSQL    = "KDEPS_SQL_CONNECTIONS_"
 	envPrefixSearch = "KDEPS_SEARCH_CONNECTIONS_"
 	envPrefixHTTP   = "KDEPS_HTTP_CONNECTIONS_"
 	envPrefixBot    = "KDEPS_BOT_CONNECTIONS_"
 )
-
-// mailFields are the SMTP/IMAP field suffixes, longest-first so multi-word
-// suffixes win over shorter ones during matching.
-//
-//nolint:gochecknoglobals // static lookup
-var mailFields = []string{"INSECURE_SKIP_VERIFY", "USERNAME", "PASSWORD", "HOST", "PORT", "TLS"}
 
 // applyConnectionEnvOverrides overlays connection values supplied via the
 // KDEPS_*_CONNECTIONS_* environment variables onto cfg, per field. Env values
@@ -55,10 +46,6 @@ func applyConnectionEnvOverrides(cfg *Config) {
 			continue
 		}
 		switch {
-		case strings.HasPrefix(key, envPrefixSMTP):
-			overlaySMTP(cfg, strings.TrimPrefix(key, envPrefixSMTP), val)
-		case strings.HasPrefix(key, envPrefixIMAP):
-			overlayIMAP(cfg, strings.TrimPrefix(key, envPrefixIMAP), val)
 		case strings.HasPrefix(key, envPrefixSQL):
 			overlaySQL(cfg, strings.TrimPrefix(key, envPrefixSQL), val)
 		case strings.HasPrefix(key, envPrefixSearch):
@@ -74,7 +61,7 @@ func applyConnectionEnvOverrides(cfg *Config) {
 // ConnEnvField describes one environment variable for a named connection,
 // used to generate env templates.
 type ConnEnvField struct {
-	Name    string // full env var, e.g. KDEPS_SMTP_CONNECTIONS_DEFAULT_HOST
+	Name    string // full env var, e.g. KDEPS_SQL_CONNECTIONS_DEFAULT_CONNECTION
 	Value   string // current value when a Config is supplied, else ""
 	Default string // suggested default for a blank template
 	Secret  bool   // password/token/DSN — left blank in templates
@@ -93,24 +80,6 @@ func ConnectionEnvFields(cfg *Config, kind, name string) []ConnEnvField {
 		return ConnEnvField{Name: base + field, Default: def, Secret: secret, Value: val}
 	}
 	switch kind {
-	case ConnKindSMTP:
-		c := lookupSMTP(cfg, name)
-		return []ConnEnvField{
-			mk("HOST", "", false, c.Host),
-			mk("PORT", "587", false, portStr(c.Port)),
-			mk("USERNAME", "", false, c.Username),
-			mk("PASSWORD", "", true, c.Password),
-			mk("TLS", "false", false, boolStr(c.TLS)),
-		}
-	case ConnKindIMAP:
-		c := lookupIMAP(cfg, name)
-		return []ConnEnvField{
-			mk("HOST", "", false, c.Host),
-			mk("PORT", "993", false, portStr(c.Port)),
-			mk("USERNAME", "", false, c.Username),
-			mk("PASSWORD", "", true, c.Password),
-			mk("TLS", "true", false, boolStr(c.TLS)),
-		}
 	case ConnKindSQL:
 		val := ""
 		if cfg != nil {
@@ -190,40 +159,10 @@ func httpEnvFields(
 	}
 }
 
-func lookupSMTP(cfg *Config, name string) SMTPConnectionConfig {
-	if cfg != nil {
-		return cfg.SMTPConnections[name]
-	}
-	return SMTPConnectionConfig{}
-}
-
-func lookupIMAP(cfg *Config, name string) IMAPConnectionConfig {
-	if cfg != nil {
-		return cfg.IMAPConnections[name]
-	}
-	return IMAPConnectionConfig{}
-}
-
-func portStr(p int) string {
-	if p == 0 {
-		return ""
-	}
-	return strconv.Itoa(p)
-}
-
-func boolStr(b bool) string {
-	if b {
-		return "true"
-	}
-	return ""
-}
-
 // connKindEnvPrefix maps a connection kind to its env var prefix.
 //
 //nolint:gochecknoglobals // static lookup
 var connKindEnvPrefix = map[string]string{
-	ConnKindSMTP:   envPrefixSMTP,
-	ConnKindIMAP:   envPrefixIMAP,
 	ConnKindSQL:    envPrefixSQL,
 	ConnKindSearch: envPrefixSearch,
 	ConnKindHTTP:   envPrefixHTTP,
@@ -256,52 +195,6 @@ func splitNameField(s string, fields []string) (string, string, bool) {
 		}
 	}
 	return "", "", false
-}
-
-func overlaySMTP(cfg *Config, rest, val string) {
-	name, field, ok := splitNameField(rest, mailFields)
-	if !ok {
-		return
-	}
-	if cfg.SMTPConnections == nil {
-		cfg.SMTPConnections = map[string]SMTPConnectionConfig{}
-	}
-	c := cfg.SMTPConnections[name]
-	setMailField(&c.Host, &c.Port, &c.Username, &c.Password, &c.TLS, &c.InsecureSkipVerify, field, val)
-	cfg.SMTPConnections[name] = c
-}
-
-func overlayIMAP(cfg *Config, rest, val string) {
-	name, field, ok := splitNameField(rest, mailFields)
-	if !ok {
-		return
-	}
-	if cfg.IMAPConnections == nil {
-		cfg.IMAPConnections = map[string]IMAPConnectionConfig{}
-	}
-	c := cfg.IMAPConnections[name]
-	setMailField(&c.Host, &c.Port, &c.Username, &c.Password, &c.TLS, &c.InsecureSkipVerify, field, val)
-	cfg.IMAPConnections[name] = c
-}
-
-// setMailField writes val into the addressed SMTP/IMAP field.
-func setMailField(host *string, port *int, username, password *string, tls, insecure *bool, field, val string) {
-	switch field {
-	case "HOST":
-		*host = val
-	case "PORT":
-		if n, err := strconv.Atoi(val); err == nil {
-			*port = n
-		}
-	case "USERNAME":
-		*username = val
-	case "PASSWORD":
-		*password = val
-	case "TLS":
-		*tls = parseBoolEnv(val)
-	case "INSECURE_SKIP_VERIFY":
-		*insecure = parseBoolEnv(val)
-	}
 }
 
 func overlaySQL(cfg *Config, rest, val string) {
@@ -412,14 +305,4 @@ func ensureSlack(cfg *Config) *SlackConnectionConfig {
 		cfg.BotConnections.Slack = &SlackConnectionConfig{}
 	}
 	return cfg.BotConnections.Slack
-}
-
-// parseBoolEnv treats the common truthy spellings as true.
-func parseBoolEnv(v string) bool {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
 }

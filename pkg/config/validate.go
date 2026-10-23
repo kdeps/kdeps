@@ -36,8 +36,6 @@ var (
 		"resource_defaults":  true,
 		"http_connections":   true,
 		"search_connections": true,
-		"smtp_connections":   true,
-		"imap_connections":   true,
 		"bot_connections":    true,
 		"sql_connections":    true,
 		"api_auth_token":     true,

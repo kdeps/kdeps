@@ -1,6 +1,6 @@
 # Workflow configuration
 
-`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` - not here.
+`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (HTTP auth, search API keys, bot tokens) live in `~/.kdeps/config.yaml` - not here.
 
 ## How the pieces fit together
 
@@ -22,7 +22,7 @@ settings: workflow.yaml settings {
 }
 
 global: "~/.kdeps/config.yaml" {
-  G1: "smtp_connections / imap_connections\nemail send + receive"
+  G1: "bot_connections\nchat-bot platform tokens"
   G2: "http_connections\nHTTP auth + proxy"
   G3: "search_connections\nweb search API keys"
   G4: "sql_connections\nnamed DB connections"
@@ -57,7 +57,7 @@ settings:
   session: { ... }         # session persistence settings
 ```
 
-Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 

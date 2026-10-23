@@ -25,16 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPortStr(t *testing.T) {
-	assert.Equal(t, "", portStr(0))
-	assert.Equal(t, "587", portStr(587))
-}
-
-func TestBoolStr(t *testing.T) {
-	assert.Equal(t, "true", boolStr(true))
-	assert.Equal(t, "", boolStr(false))
-}
-
 func TestSplitNameField(t *testing.T) {
 	name, field, ok := splitNameField("MAIN_HOST", []string{"HOST", "PORT"})
 	assert.True(t, ok)
@@ -43,30 +33,6 @@ func TestSplitNameField(t *testing.T) {
 
 	_, _, ok = splitNameField("MAIN_UNKNOWN", []string{"HOST", "PORT"})
 	assert.False(t, ok)
-}
-
-func TestApplyConnectionEnvOverrides_Mail(t *testing.T) {
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_HOST", "smtp.example.com")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_PORT", "587")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_USERNAME", "me@example.com")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_PASSWORD", "secret")
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_TLS", "true")
-	t.Setenv("KDEPS_IMAP_CONNECTIONS_INBOX_HOST", "imap.example.com")
-	t.Setenv("KDEPS_IMAP_CONNECTIONS_INBOX_INSECURE_SKIP_VERIFY", "yes")
-
-	cfg := &Config{}
-	applyConnectionEnvOverrides(cfg)
-
-	smtp := cfg.SMTPConnections["main"]
-	assert.Equal(t, "smtp.example.com", smtp.Host)
-	assert.Equal(t, 587, smtp.Port)
-	assert.Equal(t, "me@example.com", smtp.Username)
-	assert.Equal(t, "secret", smtp.Password)
-	assert.True(t, smtp.TLS)
-
-	imap := cfg.IMAPConnections["inbox"]
-	assert.Equal(t, "imap.example.com", imap.Host)
-	assert.True(t, imap.InsecureSkipVerify)
 }
 
 func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
@@ -112,48 +78,12 @@ func TestApplyConnectionEnvOverrides_EnvWinsOverConfig(t *testing.T) {
 	assert.Equal(t, "env-dsn", cfg.SQLConnections["db"].Connection)
 }
 
-func TestApplyConnectionEnvOverrides_MergesFields(t *testing.T) {
-	// Host from config.yaml, password from env — merge, not replace.
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_PASSWORD", "env-pass")
-	cfg := &Config{
-		SMTPConnections: map[string]SMTPConnectionConfig{"main": {Host: "cfg-host", Port: 25}},
-	}
-	applyConnectionEnvOverrides(cfg)
-	assert.Equal(t, "cfg-host", cfg.SMTPConnections["main"].Host)
-	assert.Equal(t, 25, cfg.SMTPConnections["main"].Port)
-	assert.Equal(t, "env-pass", cfg.SMTPConnections["main"].Password)
-}
-
 func TestConnectionInEnv(t *testing.T) {
-	t.Setenv("KDEPS_SMTP_CONNECTIONS_MAIN_HOST", "h")
-	assert.True(t, ConnectionInEnv(ConnKindSMTP, "main"))
-	assert.False(t, ConnectionInEnv(ConnKindSMTP, "other"))
-	assert.False(t, ConnectionInEnv(ConnKindIMAP, "main"))
+	t.Setenv("KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION", "dsn")
+	assert.True(t, ConnectionInEnv(ConnKindSQL, "main"))
+	assert.False(t, ConnectionInEnv(ConnKindSQL, "other"))
+	assert.False(t, ConnectionInEnv(ConnKindHTTP, "main"))
 	assert.False(t, ConnectionInEnv("bogus", "main"))
-}
-
-func TestParseBoolEnv(t *testing.T) {
-	for _, v := range []string{"1", "true", "TRUE", "yes", "on"} {
-		assert.Truef(t, parseBoolEnv(v), "value %q", v)
-	}
-	for _, v := range []string{"0", "false", "no", "off", ""} {
-		assert.Falsef(t, parseBoolEnv(v), "value %q", v)
-	}
-}
-
-func TestConnectionEnvFieldsSMTP(t *testing.T) {
-	cfg := &Config{SMTPConnections: map[string]SMTPConnectionConfig{
-		"mail": {Host: "smtp.example.com", Port: 465, Username: "u", Password: "p", TLS: true},
-	}}
-	fields := ConnectionEnvFields(cfg, ConnKindSMTP, "mail")
-	assert.Len(t, fields, 5)
-	assert.Equal(t, "KDEPS_SMTP_CONNECTIONS_MAIL_HOST", fields[0].Name)
-	assert.Equal(t, "smtp.example.com", fields[0].Value)
-	assert.False(t, fields[0].Secret)
-	assert.Equal(t, "KDEPS_SMTP_CONNECTIONS_MAIL_PASSWORD", fields[3].Name)
-	assert.Equal(t, "p", fields[3].Value)
-	assert.True(t, fields[3].Secret)
-	assert.Equal(t, "465", fields[1].Value) // portStr
 }
 
 func TestConnectionEnvFieldsSQL(t *testing.T) {

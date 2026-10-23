@@ -35,7 +35,7 @@ the appliance behaves differently. Your git history is the changelog of the
 agent's behavior.
 
 The one thing that lives *outside* the repo is the backend binding - the LLM
-backend, model names, API keys, and database or SMTP connections in
+backend, model names, API keys, and database connections in
 `~/.kdeps/config.yaml` and environment variables. That is deliberate: the same
 repo runs against a local llamafile on your laptop and a cloud model in
 production with no diff. Your agent's logic is in git; only its wiring to a

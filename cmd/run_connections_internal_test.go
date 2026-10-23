@@ -34,9 +34,6 @@ func TestReferencedConnections(t *testing.T) {
 			{ActionID: "q", Component: &domain.ComponentCallConfig{
 				Name: "sql", With: map[string]interface{}{"connectionName": "db"},
 			}},
-			{ActionID: "mail", Component: &domain.ComponentCallConfig{
-				Name: "email", With: map[string]interface{}{"smtpConnection": "out", "imapConnection": "in"},
-			}},
 			{ActionID: "api", HTTPClient: &domain.HTTPClientConfig{ConnectionName: "svc"}},
 			{ActionID: "web", Component: &domain.ComponentCallConfig{
 				Name: "searchWeb", With: map[string]interface{}{"connectionName": "brave", "query": "q"},
@@ -59,10 +56,6 @@ func TestReferencedConnections(t *testing.T) {
 			"sql": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
 				{Name: "connectionName", Type: "string", Connection: config.ConnKindSQL},
 			}}},
-			"email": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
-				{Name: "smtpConnection", Type: "string", Connection: config.ConnKindSMTP},
-				{Name: "imapConnection", Type: "string", Connection: config.ConnKindIMAP},
-			}}},
 			"searchWeb": {Interface: &domain.ComponentInterface{Inputs: []domain.ComponentInput{
 				{Name: "query", Type: "string"},
 				{Name: "connectionName", Type: "string", Connection: config.ConnKindSearch},
@@ -76,8 +69,6 @@ func TestReferencedConnections(t *testing.T) {
 	refs := referencedConnections(wf)
 
 	assert.Contains(t, refs, connRef{config.ConnKindSQL, "db"})
-	assert.Contains(t, refs, connRef{config.ConnKindSMTP, "out"})
-	assert.Contains(t, refs, connRef{config.ConnKindIMAP, "in"})
 	assert.Contains(t, refs, connRef{config.ConnKindHTTP, "svc"})
 	// A component input marked connection: search names a search connection;
 	// an expression value is only known at run time and is not prompted for.

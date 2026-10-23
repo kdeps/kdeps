@@ -136,24 +136,6 @@ defaults:
 #   tavily:
 #     apiKey: "${TAVILY_API_KEY}"
 
-# ── Named SMTP connections — outbound email send ────────────────────────────
-# smtp_connections:
-#   default:
-#     host: "${SMTP_HOST}"     # e.g. smtp.gmail.com
-#     port: 587                # 465 for implicit TLS, 587 for STARTTLS
-#     username: "${SMTP_USER}"
-#     password: "${SMTP_PASS}"
-#     tls: false               # false = STARTTLS on 587, true = implicit TLS on 465
-
-# ── Named IMAP connections — inbound email read/search/modify ───────────────
-# imap_connections:
-#   inbox:
-#     host: "${IMAP_HOST}"     # e.g. imap.gmail.com
-#     port: 993
-#     username: "${IMAP_USER}"
-#     password: "${IMAP_PASS}"
-#     tls: true
-
 # ── Bot credentials — tokens and secrets for chat-bot platform runners ───────
 # bot_connections:
 #   discord:
