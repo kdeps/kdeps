@@ -69,6 +69,21 @@ run: block
 
 These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls (same call, same result) stop after as many rounds as the tool's allocated budget; only tools without a budget use the `identical-tool-calls` threshold.
 
+## Your own tool budgets
+
+An event with a `tools:` list is a budget you define in YAML, with no Go code that knows its name: in one turn the model may make at most `on.distinctCalls` distinct calls to those tools. A repeat of a call already made does not count again. Once the turn is over the limit, a new call is blocked the same way the built-in call budgets block one, and the model answers with what it has.
+
+```yaml
+# ~/.kdeps/events/search-budget.yaml - loaded at start, no registry entry needed
+name: search-budget
+tools: [web_search, web_scraper, wikipedia]   # the tools this budget counts together
+on:
+  distinctCalls: 6      # at most 6 distinct calls to these tools per turn
+run: block              # the only action a tools: event takes
+```
+
+`/harness events disable search-budget` turns it off like any other event. A `tools:` event without `on.distinctCalls` or with any other `run:` is rejected when it loads.
+
 ## Memory events
 
 The [persistent memory](./memory.md) subsystem's injection/traversal caps are events too. `memory-prompt-limit` fires on a token measurement like `auto-compact`/`fold`; the rest are plain counts with no trigger condition at all -- they always apply, so they set `items:` directly instead of an `on:` clause:

@@ -360,6 +360,8 @@ type Loop struct {
 	// lifetime, so hasMadeProgressThisTurn diffs against this to tell "a call
 	// succeeded earlier THIS turn" from "one succeeded in some prior turn."
 	turnStartWorkToolCalls int
+	// toolBudgets counts this turn's calls against the generic budget events.
+	toolBudgets toolBudgets
 	// sandboxStrikes counts every round this session where the model produced
 	// text reading as a fabricated code-interpreter/sandbox session (see
 	// looksLikeSandboxHallucination), regardless of the per-turn nudge cap.
@@ -1367,6 +1369,7 @@ func (l *Loop) runToolRounds(
 	l.lastWorkFailure = nil
 	l.pendingEdit = nil
 	l.turnStartWorkToolCalls = l.successfulWorkToolCalls
+	l.toolBudgets.reset()
 	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
@@ -2769,6 +2772,29 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	return result
 }
 
+// gateToolCall returns the error result for a call the permission mode or a
+// tool budget event blocks, or "" when the call may run.
+func (l *Loop) gateToolCall(tc domain.StreamedToolCall) string {
+	// Permission check: block tools that don't meet the current mode.
+	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
+	// enforcer, so env-only configuration works too.
+	if denyReason, blocked := l.checkToolPermission(tc.Name, tc.Arguments); blocked {
+		if termW := l.config.ToolOutputWriter; termW != nil {
+			l.closeToolCallLine(termW, "... blocked: permission denied")
+		}
+		return toolErrorJSON(errors.New(denyReason))
+	}
+	// Generic budget events (an event with a tools: list) block a call once
+	// the turn has made their limit of distinct calls to those tools.
+	if reason := l.toolBudgets.check(tc.Name, tc.Arguments); reason != "" {
+		if termW := l.config.ToolOutputWriter; termW != nil {
+			l.closeToolCallLine(termW, "... blocked: tool budget")
+		}
+		return toolErrorJSON(errors.New(reason))
+	}
+	return ""
+}
+
 // runStreamToolCall runs tc (its Name resolved from an alias in place).
 func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) string {
 	tc := *tcp
@@ -2784,14 +2810,8 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
 
-	// Permission check: block tools that don't meet the current mode.
-	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
-	// enforcer, so env-only configuration works too.
-	if denyReason, blocked := l.checkToolPermission(tc.Name, tc.Arguments); blocked {
-		if termW := l.config.ToolOutputWriter; termW != nil {
-			l.closeToolCallLine(termW, "... blocked: permission denied")
-		}
-		return toolErrorJSON(errors.New(denyReason))
+	if blocked := l.gateToolCall(tc); blocked != "" {
+		return blocked
 	}
 
 	var args map[string]any
