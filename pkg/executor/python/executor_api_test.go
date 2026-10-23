@@ -214,7 +214,10 @@ func TestExecutor_Run_TimeoutAbortsPromptly(t *testing.T) {
 	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
-		return execpkg.Command("sh", "-c", "sleep 5")
+		// exec keeps the sleep in the killed process: a forked grandchild
+		// would hold the output pipe open and keep Wait blocked for the
+		// full 5s on shells that do not exec the last command (Ubuntu CI).
+		return execpkg.Command("sh", "-c", "exec sleep 5")
 	})
 
 	started := time.Now()
