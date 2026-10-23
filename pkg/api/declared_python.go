@@ -126,7 +126,7 @@ var pythonCandidates = []string{"python3", "python"}
 func runSystemPython(
 	ctx context.Context,
 	name string,
-	s *pythonToolSpec,
+	s *PythonToolSpec,
 	argJSON string,
 	env map[string]string,
 ) (string, error) {
