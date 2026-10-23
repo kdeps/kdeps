@@ -439,6 +439,8 @@ func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 			return "", fmt.Errorf("write_file: %w", err)
 		}
 		content, _ := args["content"].(string)
+		// Checked here too: the API call carries content in a size-capped
+		// request body, which would otherwise fail first with a less useful error.
 		if limit := maxFileReadBytes(); len(content) > limit {
 			return "", fmt.Errorf(
 				"write_file: content is %d bytes (max %d)",
@@ -967,27 +969,10 @@ func validateWorkspaceBoundary(path string) error {
 	if root == "" {
 		return nil
 	}
-	if pathWithinRoot(path, root) {
+	if api.PathWithinRoot(path, root) {
 		return nil
 	}
 	return fmt.Errorf("path %s escapes workspace root %s", path, root)
-}
-
-// pathWithinRoot reports whether path is root itself or lies under it,
-// resolving symlinks on both sides when possible so a symlinked escape
-// route is still caught. A path that doesn't exist yet (write_file creating
-// a new file) falls back to a lexical comparison.
-func pathWithinRoot(path, root string) bool {
-	canonical, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		canonical = filepath.Clean(path)
-	}
-	rootCanonical, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		rootCanonical = filepath.Clean(root)
-	}
-	return canonical == rootCanonical ||
-		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
 }
 
 // registerMemoryTools registers LLM-callable tools for persistent memory.
