@@ -46,6 +46,8 @@ Hand-tuning dozens of events one at a time to make a session cheaper (or more th
 
 Three presets ship today, all tuning the same events (`auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, plus the ten [efficiency](./efficiency.md) events) at three intensities:
 
+Each preset also requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset, and each one calls its tool through the kdeps API. Events that act on the loop as a whole (compaction, truncation, history, stop rules) require no component.
+
 | Preset | Use it for |
 |---|---|
 | `frugal` | cost-sensitive sessions or a small-context-window local model -- compacts and folds sooner, injects far less memory, truncates output harder, tighter call budgets |
