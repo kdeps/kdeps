@@ -89,6 +89,8 @@ func TestParseYAMLCommand_Errors(t *testing.T) {
 		"both in a step":      "name: x\nusage: [{help: h}]\nrun: [{command: /help, prompt: p}]\n",
 		"neither in a step":   "name: x\nusage: [{help: h}]\nrun: [{}]\n",
 		"command needs a /":   "name: x\nusage: [{help: h}]\nrun: [{command: help}]\n",
+		"tool and prompt":     "name: x\nusage: [{help: h}]\nrun: [{tool: calculator, prompt: p}]\n",
+		"args without tool":   "name: x\nusage: [{help: h}]\nrun: [{prompt: p, args: {a: b}}]\n",
 		"not yaml":            "name: [\n",
 	}
 	for label, data := range cases {
@@ -159,6 +161,38 @@ func TestDeclaredCommand_RunsCommandAndPromptSteps(t *testing.T) {
 	assert.Contains(t, out, "done")
 	assert.True(t, slices.Contains(commandNames(), "/b"), "aliases complete too")
 	assert.True(t, slices.Contains(repl.allCommandNames(), "/brief"))
+}
+
+func TestDeclaredCommand_RunsToolStep(t *testing.T) {
+	withCommands(t, map[string]string{
+		"calc": "name: calc\nusage: [{help: h}]\nrun:\n  - tool: calculator\n    args: {expression: \"$1\"}\n",
+	})
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	var got []string
+	c := declaredCommand("calc")
+	require.NotNil(t, c)
+	require.NoError(t, repl.runDeclaredCommandEmit(c, []string{"6*7"}, func(s string) { got = append(got, s) }))
+	require.Len(t, got, 1)
+	assert.Contains(t, got[0], "42", "the tool step calls the kdeps API tool with the command's argument")
+}
+
+func TestDeclaredCommand_ToolStepErrorStops(t *testing.T) {
+	withCommands(t, map[string]string{
+		"bad": "name: bad\nusage: [{help: h}]\nrun: [{tool: no_such_tool}, {prompt: never}]\n",
+	})
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		t.Fatal("a step after a failing tool step must not run")
+		return "", nil
+	}
+	require.ErrorContains(t, repl.dispatchCommand("/bad"), "/bad:")
+}
+
+func TestToolStepArgs_SubstitutesStringValues(t *testing.T) {
+	got := toolStepArgs(map[string]any{"q": "find $1", "n": 3}, []string{"kdeps"})
+	assert.Equal(t, map[string]any{"q": "find kdeps", "n": 3}, got)
 }
 
 func TestDeclaredCommand_StopsAtTheFirstError(t *testing.T) {
