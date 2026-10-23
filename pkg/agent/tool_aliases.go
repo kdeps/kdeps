@@ -47,11 +47,11 @@ var toolParamAliases = map[string]map[string]string{
 	},
 	"edit_file": {
 		toolParamPath: toolParamFilePath, "file": toolParamFilePath, "filepath": toolParamFilePath,
-		"old_string": "old_str", "old": "old_str", "search": "old_str", "find": "old_str",
-		"new_string": "new_str", "new": "new_str", "replace": "new_str", "replacement": "new_str",
-		"content": "new_str", "text": "new_str",
-		"cmd": "command", "operation": "command", "action": "command",
-		"line": "insert_line", "at": "insert_line", "after": "insert_line",
+		"old_str": "match", "old_string": "match", "old": "match", "search": "match", "find": "match",
+		"new_str": "text", "new_string": "text", "new": "text", "replace": "text", "replacement": "text",
+		"content":     "text",
+		"line_number": "line", "lineno": "line", "at": "line", "insert_line": "line",
+		"insert": "append", "add": "append",
 	},
 	"list_files": {
 		"dir": toolParamPath, "directory": toolParamPath, "folder": toolParamPath, toolParamFilePath: toolParamPath,

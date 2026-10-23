@@ -12,7 +12,7 @@ Always available. No environment variables required.
 |------|-------------|
 | `read_file` | Read file contents with a 1-based line number on every line (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
-| `edit_file` | `command`-dispatched editor: `view`, `str_replace`, `insert`, `patch`, `replace_symbol`, `undo_edit` |
+| `edit_file` | Replace or append on one line: `line` or `match`, then `text` or `append` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
@@ -53,4 +53,4 @@ Every `search_local` result that finds its query in the file carries `match_id`,
 
 A `match_id` is process-local and capped in count (oldest evicted first) - it is for chaining a search into a read within the same session, not a durable reference. An unresolvable one (evicted, or from a different process) is a clear error naming it; `file_path` given explicitly always takes priority over `match_id`.
 
-The six `edit_file` commands are on [Edit file](/agent/tools-edit).
+Line edits with `edit_file` are on [Edit file](/agent/tools-edit).

@@ -248,23 +248,10 @@ func missingPathContext(path string) string {
 // editFocusLine picks the 1-based line a failed edit aimed at: an explicit
 // line argument, else the closest match of the text it tried to locate.
 func editFocusLine(content string, args map[string]any) int {
-	if rng, isRange := args["view_range"].([]any); isRange && len(rng) > 0 {
-		if f, ok := rng[0].(float64); ok && f > 0 {
-			return int(f)
-		}
+	if n := api.ToInt(args["line"]); n > 0 {
+		return n
 	}
-	for _, k := range []string{"insert_line", "start_line"} {
-		if f, ok := args[k].(float64); ok && f > 0 {
-			return int(f)
-		}
-	}
-	for _, k := range []string{
-		"old_str", "anchor", "start_anchor", "insert_after_anchor", "insert_before_anchor", "symbol",
-	} {
-		s, _ := args[k].(string)
-		if strings.TrimSpace(s) == "" {
-			continue
-		}
+	if s, _ := args["match"].(string); strings.TrimSpace(s) != "" {
 		if _, at := api.ClosestMatch(content, s); at > 0 {
 			return at
 		}

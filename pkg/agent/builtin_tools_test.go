@@ -1964,10 +1964,9 @@ func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{
-		"command":    "str_replace",
-		"file_path":  outside,
-		"old_string": "x",
-		"new_string": "y",
+		"file_path": outside,
+		"line":      1,
+		"text":      "y",
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "escapes workspace root")
@@ -2223,38 +2222,6 @@ func TestWriteFileVerified_PermissionErrorAfterRetries(t *testing.T) {
 
 	err = api.WriteFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
 	assert.Error(t, err)
-}
-
-// TestEditFile_ReadAfterWriteVerification confirms edit_file's write now
-// goes through the same read-after-write path as write_file: the edited
-// file's on-disk content is verified to match what edit_file intended to
-// write, not just assumed from a successful WriteFile call.
-func TestEditFile_ReadAfterWriteVerification(t *testing.T) {
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-
-	tmpFile, err := os.CreateTemp("", "kdeps-editfile-verify-*.go")
-	require.NoError(t, err)
-	_, err = tmpFile.WriteString("package main\n\nvar debug = false\n")
-	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
-	defer os.Remove(tmpFile.Name())
-	markFileSeen(tmpFile.Name())
-
-	result, err := tool.Execute(map[string]any{
-		"command":    "str_replace",
-		"file_path":  tmpFile.Name(),
-		"old_string": "debug = false",
-		"new_string": "debug = true",
-	})
-	require.NoError(t, err)
-	assert.Contains(t, result, "Edited")
-
-	data, err := os.ReadFile(tmpFile.Name())
-	require.NoError(t, err)
-	assert.Equal(t, "package main\n\nvar debug = true\n", string(data))
 }
 
 // --- commandInvokesOtherToolAsShell ---

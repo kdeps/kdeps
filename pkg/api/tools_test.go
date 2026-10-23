@@ -61,7 +61,6 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolBashJobList,
 		toolBashJobWait,
 		toolCalculator,
-		toolEditFile,
 		toolEmbedding,
 		toolEmbeddingSearch,
 		toolEmbeddingVectorize,

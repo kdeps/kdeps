@@ -66,7 +66,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerMD5File(ctx, reg)
 	registerTailFile(ctx, reg)
 	registerWriteFile(ctx, reg)
-	registerEditFile(ctx, reg)
 	registerStructuredTools(ctx, reg)
 	registerGoogleCacheTools(ctx, reg)
 	registerDeclaredTools(ctx, reg, webCache)

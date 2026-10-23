@@ -50,13 +50,9 @@ func TestMutatingEditTarget(t *testing.T) {
 		path string
 		ok   bool
 	}{
-		{"str_replace", "edit_file", map[string]any{"command": "str_replace", "file_path": "/a.go"}, "/a.go", true},
-		{"path alias", "edit_file", map[string]any{"command": "insert", "path": "/b.go"}, "/b.go", true},
-		{"inferred", "edit_file", map[string]any{"old_str": "x", "file_path": "/c.go"}, "/c.go", true},
-		{"undo", "edit_file", map[string]any{"command": "undo_edit", "file_path": "/d.go"}, "/d.go", true},
-		{"view", "edit_file", map[string]any{"command": "view", "file_path": "/a.go"}, "", false},
-		{"dry run", "edit_file", map[string]any{"command": "patch", "file_path": "/a.go", "dry_run": true}, "", false},
-		{"no path", "edit_file", map[string]any{"command": "str_replace"}, "", false},
+		{"edit", "edit_file", map[string]any{"file_path": "/a.go", "line": 1, "text": "x"}, "/a.go", true},
+		{"path alias", "edit_file", map[string]any{"path": "/b.go", "append": "y"}, "/b.go", true},
+		{"no path", "edit_file", map[string]any{"line": 1, "text": "x"}, "", false},
 		{"other tool", "read_file", map[string]any{"file_path": "/a.go"}, "", false},
 	}
 	for _, c := range cases {

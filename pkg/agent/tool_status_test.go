@@ -65,7 +65,7 @@ func TestInvokeBlock(t *testing.T) {
 	assert.Less(t, strings.Index(plain, `name="a"`), strings.Index(plain, `name="b"`), "sorted")
 
 	ph := invokeBlock("demo", args, 50, true)
-	assert.Contains(t, ph, "<exact text copied from the view>")
+	assert.Contains(t, ph, "<words from that line, as read>")
 	assert.Contains(t, ph, `<parameter name="b">short</parameter>`)
 	assert.Contains(t, ph, strings.Repeat("d", 200), "file_path is never a placeholder")
 }
@@ -134,8 +134,7 @@ func TestToolStatusNote_EditAppliedRecordsMD5AndLedger(t *testing.T) {
 func TestToolStatusNote_EditUnchangedShowsErrorReadFirstAndRetry(t *testing.T) {
 	l := statusLoop(t)
 	args, _ := json.Marshal(map[string]any{
-		"command": "str_replace", "file_path": "/w/a.go",
-		"old_str": strings.Repeat("o", 120), "new_str": "n",
+		"file_path": "/w/a.go", "line": 4, "match": strings.Repeat("o", 120), "text": "n",
 	})
 	tc := domain.StreamedToolCall{Name: "edit_file", Arguments: string(args)}
 
@@ -143,9 +142,9 @@ func TestToolStatusNote_EditUnchangedShowsErrorReadFirstAndRetry(t *testing.T) {
 	assert.Contains(t, note, "[EDIT NOT APPLIED] md5 of /w/a.go is still cccc")
 	assert.Contains(t, note, "error: old_str not found")
 	assert.Contains(t, note, "read the file first")
-	assert.Contains(t, note, `<parameter name="command">view</parameter>`)
-	assert.Contains(t, note, `<parameter name="old_str"><exact text copied from the view></parameter>`)
-	assert.Contains(t, note, `<parameter name="new_str">n</parameter>`)
+	assert.Contains(t, note, `<invoke name="read_file">`)
+	assert.Contains(t, note, `<parameter name="match"><words from that line, as read></parameter>`)
+	assert.Contains(t, note, `<parameter name="text">n</parameter>`)
 	assert.Contains(t, note, "/w/a.go md5 cccc NOT applied")
 	assert.Contains(t, note, "memory id: status:edit_file:")
 	require.NotNil(t, l.pendingEdit)

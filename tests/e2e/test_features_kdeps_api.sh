@@ -770,6 +770,24 @@ EOF
     else
         test_skipped "kdeps API - python: tool (uv not installed)"
     fi
+    if command -v uv >/dev/null 2>&1; then
+        local edit_target
+        edit_target="$root/edit_me.txt"
+        printf 'alpha\nbeta\n' >"$edit_target"
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 120 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data "{\"file_path\":\"$(to_native_path "$edit_target")\",\"line\":2,\"match\":\"beta\",\"text\":\"BETA\"}" \
+            "${tools}/edit_file/call" || true)
+        if [ "$got" = "200" ] && grep -F "edited" "$body" >/dev/null \
+            && [ "$(sed -n 2p "$edit_target")" = "BETA" ]; then
+            test_passed "kdeps API - edit_file replaces words on a line"
+        else
+            test_failed "kdeps API - edit_file replaces words on a line" "status $got body $(head -c 180 "$body") file $(cat "$edit_target")"
+        fi
+    else
+        test_skipped "kdeps API - edit_file (uv not installed)"
+    fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \

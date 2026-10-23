@@ -16,7 +16,11 @@ package agent
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -65,6 +69,15 @@ func TestRememberMatch_EvictsOldestPastDepth(t *testing.T) {
 	}
 	_, ok := resolveMatchID(firstID)
 	assert.False(t, ok, "the oldest entry must be evicted once the cache exceeds its depth")
+}
+
+// writeSeenFile writes name under a temp dir and marks it read this turn.
+func writeSeenFile(t *testing.T, name, content string) string {
+	t.Helper()
+	f := filepath.Join(t.TempDir(), name)
+	require.NoError(t, os.WriteFile(f, []byte(content), 0o600))
+	markFileSeen(f)
+	return f
 }
 
 func TestFirstMatchLine_FindsCaseInsensitiveMatch(t *testing.T) {

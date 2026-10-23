@@ -36,7 +36,6 @@ const (
 	toolWriteFile = "write_file"
 	argText       = "text"
 	argTopic      = "topic"
-	toolEditFile  = "edit_file"
 
 	// defaultTailLines is how many lines tail_file returns when lines is omitted.
 	defaultTailLines = 20

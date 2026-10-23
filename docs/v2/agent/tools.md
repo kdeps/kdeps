@@ -335,8 +335,7 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [Harness reminders](/agent/tools-harness) - force a guidance section onto every turn
 - [Session-integrity handshake](/agent/tools-handshake) - prove the model makes a real tool call
 - [File tools](/agent/tools-files) - read, write, list
-- [Edit file](/agent/tools-edit) - the six `edit_file` commands
-- [Edit rules](/agent/tools-edit-rules) - read-first, revision, syntax check
+- [Edit file](/agent/tools-edit) - replace or append on one line
 - [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
 - [Shell execution](/agent/shell) - bash_exec, jobs, rtk
 - Web and search - web_search, wikipedia, web_scraper

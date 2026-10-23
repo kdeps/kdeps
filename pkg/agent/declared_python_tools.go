@@ -75,6 +75,9 @@ func callDeclaredPythonTool(
 			if err := ValidateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
+			if err := validateWorkspaceBoundary(v); err != nil {
+				return "", fmt.Errorf("%s: %w", name, err)
+			}
 		}
 	}
 	argJSON, err := json.Marshal(args)
