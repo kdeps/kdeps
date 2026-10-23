@@ -118,8 +118,8 @@ Each asset says what it is for and where kdeps runs it. `kdeps info <set>/<name>
 $ kdeps info tools/read_file
 # tools/read_file
 Read a file from the local filesystem. ...
-- Set: tools, used in agent mode
-- Loaded by: kdeps (agent loop), /reload, /settings
+- Set: tools, used in workflow and agent mode
+- Loaded by: kdeps (agent loop), kdeps run, /reload, /settings
 - Installed: 1.0.0
 - LLM context: ~631 tokens when loaded
 

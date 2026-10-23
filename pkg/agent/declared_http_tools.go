@@ -192,6 +192,16 @@ func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache 
 				Name:    id,
 				Execute: declaredExecExecute(ctx, id, d),
 			}))
+		case d.Python != nil:
+			if _, ok := d.Python.resolveEnv(); !ok {
+				continue
+			}
+			reg.Register(definedAs(id, &kdepstools.Tool{
+				Name: id,
+				Execute: func(args map[string]interface{}) (string, error) {
+					return declaredToolAPIBackend{}.CallDeclaredTool(ctx, id, args)
+				},
+			}))
 		case d.SQL != nil:
 			if _, ok := d.SQL.resolveDSN(); !ok {
 				continue
@@ -219,7 +229,7 @@ func (declaredToolAPIBackend) CallDeclaredTool(
 	ctx context.Context, id string, args map[string]any,
 ) (string, error) {
 	d, ok := toolDefinitions[id]
-	if !ok || (d.HTTP == nil && d.Exec == nil && d.SQL == nil) {
+	if !ok || (d.HTTP == nil && d.Exec == nil && d.SQL == nil && d.Python == nil) {
 		return "", fmt.Errorf("%s: no declared implementation", id)
 	}
 	name := declaredName(id, d)
@@ -229,6 +239,13 @@ func (declaredToolAPIBackend) CallDeclaredTool(
 	}
 	if d.SQL != nil {
 		return runSQLTool(ctx, name, d.SQL, full)
+	}
+	if d.Python != nil {
+		env, envOK := d.Python.resolveEnv()
+		if !envOK {
+			return "", fmt.Errorf("%s: required environment variables are not set", name)
+		}
+		return callDeclaredPythonTool(ctx, name, d.Python, full, env)
 	}
 	if d.HTTP != nil {
 		env, envOK := d.HTTP.resolveEnv()
@@ -251,7 +268,7 @@ func registerDeclaredAPIRoutes() {
 	api.SetDeclaredToolBackend(declaredToolAPIBackend{})
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
-		if d.HTTP == nil && d.Exec == nil && d.SQL == nil {
+		if d.HTTP == nil && d.Exec == nil && d.SQL == nil && d.Python == nil {
 			continue
 		}
 		api.RegisterDeclaredTool(id, d.Description, d.Parameters)

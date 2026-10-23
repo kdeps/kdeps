@@ -30,7 +30,7 @@ func TestAssetInfo(t *testing.T) {
 	text, ok := assetInfo("tools/read_file")
 	assert.True(t, ok)
 	assert.Contains(t, text, "# tools/read_file")
-	assert.Contains(t, text, "- Set: tools, used in agent mode")
+	assert.Contains(t, text, "- Set: tools, used in workflow and agent mode")
 	assert.Contains(t, text, "## Where it runs")
 	assert.Contains(t, text, "[ the tool definitions are sent to the model ]   <- tools/read_file",
 		"the story told on the function that uses the set")

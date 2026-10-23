@@ -200,9 +200,32 @@ exec:
 
 A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
 
+## Declared python tools
+
+A tool whose definition has a `python:` block runs one Python script on the kdeps python runner, the same one behind the `python` tool, and needs no Go code. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
+
+```yaml
+# tools/word_count.yaml (or ~/.kdeps/tools/word_count.yaml)
+version: 1.0.0
+description: Count the words in a text.
+parameters:
+  text:
+    type: string
+    required: true
+python:
+  script: |
+    import json, sys
+    args = json.loads(sys.argv[1])     # {"text": "..."}
+    print(len(args["text"].split()))   # printed text is the tool's answer
+  packages: []          # pip packages installed into the runner's venv first
+  timeout: 30s          # optional; the runner's default when empty
+```
+
+A tool declares at most one of `http:`, `exec:`, `sql:` or `python:`.
+
 ## Your own tools
 
-A tool you write yourself goes in `~/.kdeps/tools/`. A file with an `http:`, `exec:` or `sql:` block is a new tool: kdeps registers it for the agent and serves it on `/apis/tools.kdeps.io/v1/tools/<name>/call`, with no registry or lock entry and no Go code. A file named like a shipped tool replaces that tool's definition.
+A tool you write yourself goes in `~/.kdeps/tools/`. A file with an `http:`, `exec:`, `sql:` or `python:` block is a new tool: kdeps registers it for the agent and serves it on `/apis/tools.kdeps.io/v1/tools/<name>/call`, with no registry or lock entry and no Go code. A file named like a shipped tool replaces that tool's definition.
 
 ```yaml
 # ~/.kdeps/tools/git_version.yaml - the file name is the tool name

@@ -357,7 +357,7 @@ Installation and downloads: [Desktop app documentation](https://kdeps.com/agent/
 Kdeps also includes:
 
 - **Reusable components and providers** — Add tools and AI providers through configuration and shared assets.
-- **Your own tools and slash commands** — Drop a YAML file in `~/.kdeps/tools/` (an `http:`, `exec:` or `sql:` tool) or `~/.kdeps/commands/`; kdeps serves it on the kdeps API with no Go code and no registry entry.
+- **Your own tools and slash commands** — Drop a YAML file in `~/.kdeps/tools/` (an `http:`, `exec:`, `sql:` or `python:` tool) or `~/.kdeps/commands/`; kdeps serves it on the kdeps API with no Go code and no registry entry.
 - **Knowledge vault** — Help agents find useful notes and project knowledge.
 - **Search and retrieval** — Find relevant information in supported document collections.
 - **Session history and instrumentation** — Inspect agent sessions, tool calls, errors, and workflow events.

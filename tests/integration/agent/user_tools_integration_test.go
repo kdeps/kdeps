@@ -20,6 +20,7 @@ package agent_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -52,4 +53,35 @@ exec:
 	out, err := api.CallTool(t.Context(), "it_user_tool", map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, out, "git version")
+}
+
+// A python: tool runs its script on the kdeps python runner with the call's
+// arguments as JSON in sys.argv[1].
+func TestUserPythonTool_IsServedOnTheKdepsAPI(t *testing.T) {
+	if _, err := exec.LookPath("uv"); err != nil {
+		t.Skip("the kdeps python runner needs uv")
+	}
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".kdeps", "tools")
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "it_py_tool.yaml"), []byte(`version: 1.0.0
+description: Upper-case a word.
+parameters:
+  word:
+    type: string
+    required: true
+python:
+  script: |
+    import json, sys
+    print(json.loads(sys.argv[1])["word"].upper())
+`), 0o600))
+
+	agent.ReloadAssets()
+
+	out, err := api.CallTool(t.Context(), "it_py_tool", map[string]any{"word": "kdeps"})
+	require.NoError(t, err)
+	assert.Equal(t, "KDEPS", out)
 }
