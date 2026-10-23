@@ -230,7 +230,7 @@ type Config struct {
 	// FileLimit caps read_file/list_files calls per user request (0=use the
 	// "file-call-budget" event's default; <0=unlimited).
 	FileLimit int
-	// CodeLimit caps search_local/code_search calls per user request (0=use
+	// CodeLimit caps search_local calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
 	// PromptRefine runs a cheap pre-turn LLM call that rewrites the user's
