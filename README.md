@@ -186,6 +186,32 @@ The API returns a JSON response containing the AI's answer.
 
 The example token is for local testing only. Use a secure token and appropriate network protections for real deployments.
 
+### 5. Test the workflow
+
+Add `tests:` to `workflow.yaml` to check the response your workflow returns:
+
+```yaml
+tests:
+  - name: chat
+    request:
+      method: POST
+      path: /api/v1/chat
+      body:
+        q: "Say hi"
+    assert:
+      status: 200
+      body:
+        jsonPath:
+          - path: $.data.answer
+            exists: true
+```
+
+```bash
+kdeps test .
+```
+
+`kdeps test` runs each case in-process against the workflow's own router - the same auth, routes, and resources as `kdeps run` - with no port bound.
+
 More examples: [kdeps.com/examples](https://kdeps.com/examples/)
 
 ## How workflows work

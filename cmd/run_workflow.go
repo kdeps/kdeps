@@ -140,6 +140,24 @@ func ensureLLMBackendStep(workflow *domain.Workflow) error {
 		return nil
 	}
 	if domain.NeedsOllamaAtRuntime(workflow) {
+		return prepareLLMBackend(workflow)
+	}
+	if needsLlamafileWarmup(workflow) {
+		warmupLlamafiles(workflow)
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
+	return nil
+}
+
+// prepareLLMBackend starts the backend chat resources need when it is not
+// already running. kdeps test uses it without the step progress output.
+func prepareLLMBackend(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: prepareLLMBackend")
+	if llm.OverrideURL() != "" {
+		return nil
+	}
+	if domain.NeedsOllamaAtRuntime(workflow) {
 		if ollamaErr := ensureOllamaRunningFunc(getOllamaURL()); ollamaErr != nil {
 			return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
 		}
@@ -147,9 +165,7 @@ func ensureLLMBackendStep(workflow *domain.Workflow) error {
 	}
 	if needsLlamafileWarmup(workflow) {
 		warmupLlamafiles(workflow)
-		return nil
 	}
-	fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
 	return nil
 }
 

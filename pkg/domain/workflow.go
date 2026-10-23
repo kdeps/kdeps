@@ -52,7 +52,7 @@ type Workflow struct {
 	Metadata   WorkflowMetadata `yaml:"metadata"`
 	Settings   WorkflowSettings `yaml:"settings"`
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
-	Tests      []TestCase       `yaml:"tests,omitempty"`     // Inline self-test cases run with --self-test.
+	Tests      []TestCase       `yaml:"tests,omitempty"`     // Cases run by kdeps test.
 
 	// Components maps component name -> parsed Component definition.
 	// Populated by the parser when loading components alongside the workflow.
@@ -60,7 +60,7 @@ type Workflow struct {
 	Components map[string]*Component `yaml:"-"`
 }
 
-// TestCase defines a single self-test case executed against the live server.
+// TestCase defines one case run by kdeps test against the workflow router.
 type TestCase struct {
 	// Name is a human-readable label for the test (required).
 	Name string `yaml:"name"`
@@ -72,7 +72,7 @@ type TestCase struct {
 	Timeout string `yaml:"timeout,omitempty"`
 }
 
-// TestRequest describes the HTTP request to send for a self-test.
+// TestRequest describes the HTTP request a test case sends.
 type TestRequest struct {
 	// Method is the HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to GET.
 	Method string `yaml:"method,omitempty"`

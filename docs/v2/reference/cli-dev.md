@@ -119,6 +119,51 @@ Workflow validated successfully
 
 ---
 
+## `kdeps test`
+
+Run the `tests:` cases declared in `workflow.yaml` against the workflow's own router, in-process. No port is bound.
+
+```bash
+kdeps test [workflow.yaml | directory] [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `--fail-fast` | Stop at the first failing case | `false` |
+
+**Examples:**
+
+```bash
+export KDEPS_API_AUTH_TOKEN=dev-token   # Required when apiServer is configured
+kdeps test ./my-agent/                   # Every case in workflow.yaml
+kdeps test workflow.yaml                 # Single file
+kdeps test myapp.kdeps                   # Packaged workflow
+kdeps test . --fail-fast                 # Stop at the first failure
+```
+
+The request path is the same one a live client gets: middleware, bearer auth, route matching, executors, and `apiResponse` formatting. Cases that send no `Authorization` or `X-API-Key` header are sent with `KDEPS_API_AUTH_TOKEN` as a bearer token. Setup matches `kdeps run`: `.j2` rendering, schema validation, environment setup, and the LLM backend when a chat resource needs one.
+
+**Output:**
+
+```text
+Running 2 test(s) for my-agent
+
+  PASS  health (200, 0s)
+  FAIL  chat: expected status 200, got 500
+        status: 500
+        body: {"success":false,"error":{"code":"INTERNAL_ERROR",...}}
+
+1 passed, 1 failed
+```
+
+Exits `0` when every case passes and `1` when any case fails or the workflow defines no `tests:`. A failing case prints its status and the first 400 bytes of the response.
+
+See [Test a workflow](/workflow/testing) for the `tests:` format and assertion reference.
+
+---
+
 ## `kdeps new`
 
 Create a new AI agent with interactive prompts.

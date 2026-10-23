@@ -1153,6 +1153,67 @@ func TestValidateTestCases(t *testing.T) {
 			},
 			wantErr: "",
 		},
+		{
+			name: "valid timeout and jsonPath",
+			cases: []domain.TestCase{
+				{
+					Name:    "full",
+					Request: domain.TestRequest{Path: "/"},
+					Timeout: "5s",
+					Assert: domain.TestAssert{Body: &domain.TestBodyAssert{
+						JSONPath: []domain.TestJSONPath{
+							{Path: "$.data.items[0].name", Equals: "n"},
+							{Path: "$.ok", Contains: "tr"},
+							{Path: "$.absent", Exists: boolPointer(false)},
+						},
+					}},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "invalid timeout",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Timeout: "soon"},
+			},
+			wantErr: "invalid timeout",
+		},
+		{
+			name: "non-positive timeout",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Timeout: "0s"},
+			},
+			wantErr: "invalid timeout",
+		},
+		{
+			name: "invalid jsonPath",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Assert: domain.TestAssert{
+					Body: &domain.TestBodyAssert{JSONPath: []domain.TestJSONPath{{Path: "ok", Equals: 1}}},
+				}},
+			},
+			wantErr: "invalid jsonPath",
+		},
+		{
+			name: "jsonPath with no check",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Assert: domain.TestAssert{
+					Body: &domain.TestBodyAssert{JSONPath: []domain.TestJSONPath{{Path: "$.ok"}}},
+				}},
+			},
+			wantErr: "exactly one of equals, contains, or exists",
+		},
+		{
+			name: "jsonPath with two checks",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Assert: domain.TestAssert{
+					Body: &domain.TestBodyAssert{JSONPath: []domain.TestJSONPath{
+						{Path: "$.ok", Equals: true, Contains: "true"},
+					}},
+				}},
+			},
+			wantErr: "exactly one of equals, contains, or exists",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1350,3 +1411,5 @@ func TestWorkflowValidator_Validate_TestCasesError(t *testing.T) {
 		t.Fatal("expected error for invalid test case in Validate, got nil")
 	}
 }
+
+func boolPointer(v bool) *bool { return &v }

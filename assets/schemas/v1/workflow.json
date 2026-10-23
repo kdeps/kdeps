@@ -395,6 +395,112 @@
       "items": {
         "$ref": "#/$defs/resource"
       }
+    },
+    "tests": {
+      "type": "array",
+      "description": "Cases run by kdeps test against the workflow's own router.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "request"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Per-case timeout (e.g. 30s). Defaults to 30s."
+          },
+          "request": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "method": {
+                "type": "string",
+                "description": "HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to GET."
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "query": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "body": {
+                "description": "Request body, encoded as JSON."
+              }
+            },
+            "additionalProperties": false
+          },
+          "assert": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "body": {
+                "type": "object",
+                "properties": {
+                  "contains": {
+                    "type": "string"
+                  },
+                  "equals": {
+                    "type": "string"
+                  },
+                  "jsonPath": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "description": "JSONPath subset: $, .key, and [n] steps."
+                        },
+                        "equals": {},
+                        "contains": {
+                          "type": "string"
+                        },
+                        "exists": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "$defs": {

@@ -35,7 +35,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the component's own resources run", Here: true},
 			{Label: "its output goes back to the caller"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps bundle build"},
+		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
 	},
 	"defaults": {
@@ -122,7 +122,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps sends the request"},
 			{Label: "the reply comes back"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps validate", "kdeps doctor", "kdeps edit", "kdeps env", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps validate", "kdeps doctor", "kdeps edit", "kdeps env", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "llm.AutoRouterPick", "config.CloudLLMProviders", "config.assetProviders"},
 	},
 	"recipes": {
@@ -143,7 +143,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the schema checks it", Here: true},
 			{Label: "the workflow is accepted, or each error is named"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps bundle build"},
+		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "validator.NewSchemaValidator", "validator.schemaFS"},
 	},
 	"templates": {

@@ -38,6 +38,7 @@ kdeps run workflow.yaml
 | `kdeps run` | [Dev commands](/reference/cli-dev#kdeps-run) | Run a workflow locally |
 | `kdeps [path]` | [Dev commands](/reference/cli-dev#kdeps-path-agent-repl) | Agent mode REPL |
 | `kdeps validate` | [Dev commands](/reference/cli-dev#kdeps-validate) | Validate workflow config |
+| `kdeps test` | [Dev commands](/reference/cli-dev#kdeps-test) | Run the workflow's `tests:` in-process, no port bound |
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
 | `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
@@ -68,13 +69,16 @@ kdeps new my-agent
 cd my-agent
 kdeps validate workflow.yaml
 
-# 3. Run locally with hot reload
+# 3. Run the workflow's tests in-process
+kdeps test .
+
+# 4. Run locally with hot reload
 kdeps run workflow.yaml --dev
 
-# 4. Package for deployment
+# 5. Package for deployment
 kdeps bundle package . --output dist/
 
-# 5. Build Docker image (optional)
+# 6. Build Docker image (optional)
 kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 
@@ -84,15 +88,18 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 # 1. Validate before packaging
 kdeps validate workflow.yaml
 
-# 2. Package workflow
+# 2. Run the workflow's tests
+kdeps test .
+
+# 3. Package workflow
 kdeps bundle package . --output dist/
 
-# 3. Build Docker image
+# 4. Build Docker image
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --tag registry.com/my-agent:v1.0.0 \
   --gpu cuda
 
-# 4. Push to registry
+# 5. Push to registry
 docker push registry.com/my-agent:v1.0.0
 ```
 

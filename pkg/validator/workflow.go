@@ -87,7 +87,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 		}
 	}
 
-	// 8. Validate self-test cases (if any)
+	// 8. Validate test cases (if any)
 	if err := ValidateTestCases(workflow.Tests); err != nil {
 		return err
 	}
