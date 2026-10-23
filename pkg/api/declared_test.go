@@ -19,8 +19,8 @@
 package api
 
 import (
-	"context"
 	"net/http"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,51 +28,51 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// declaredStub records the call the API forwards to the backend.
-type declaredStub struct {
-	name string
-	args map[string]any
-}
-
-func (s *declaredStub) CallDeclaredTool(_ context.Context, name string, args map[string]any) (string, error) {
-	s.name = name
-	s.args = args
-	return "declared answer", nil
-}
-
 // registerUnitDeclared serves one test-only declared tool and removes it after.
-func registerUnitDeclared(t *testing.T, name string) {
+func registerUnitDeclared(t *testing.T, name string, params map[string]domain.ToolParam, spec DeclaredSpec) {
 	t.Helper()
 	t.Cleanup(func() {
 		toolMu.Lock()
 		delete(toolReg, name)
 		toolMu.Unlock()
 	})
-	RegisterDeclaredTool(name, "test declared tool", map[string]domain.ToolParam{"q": {Type: "string"}})
+	RegisterDeclaredTool(name, "test declared tool", params, func() DeclaredSpec { return spec })
 }
 
-func TestRegisterDeclaredTool_CallsBackend(t *testing.T) {
-	t.Cleanup(func() { SetDeclaredToolBackend(nil) })
-	backend := &declaredStub{}
-	SetDeclaredToolBackend(backend)
-	registerUnitDeclared(t, "unit_declared")
+// A declared exec: block runs on its call route, with the declared default
+// filling the missing argument.
+func TestRegisterDeclaredTool_RunsTheBlock(t *testing.T) {
+	registerUnitDeclared(t, "unit_goenv",
+		map[string]domain.ToolParam{"var": {Type: "string", Default: "GOOS"}},
+		DeclaredSpec{Exec: &ExecToolSpec{Command: "go", Args: []string{"env", "{{.args.var}}"}}})
 
 	s := startTest(t, "tool-token")
-	body := doJSON(t, s.Client(), toolCallURL("unit_declared"), map[string]any{"q": "hi"})
-	defer body.Body.Close()
-	require.Equal(t, http.StatusOK, body.StatusCode)
-	require.Equal(t, "declared answer", mustText(t, body.Body))
-	require.Equal(t, "unit_declared", backend.name)
-	require.Equal(t, map[string]any{"q": "hi"}, backend.args)
+	resp := doJSON(t, s.Client(), toolCallURL("unit_goenv"), map[string]any{})
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, runtime.GOOS, mustText(t, resp.Body))
 }
 
-func TestRegisterDeclaredTool_WithoutBackend(t *testing.T) {
-	SetDeclaredToolBackend(nil)
-	registerUnitDeclared(t, "unit_declared_nil")
+func TestRegisterDeclaredTool_RequiredParam(t *testing.T) {
+	registerUnitDeclared(t, "unit_req",
+		map[string]domain.ToolParam{"q": {Type: "string", Required: true}},
+		DeclaredSpec{Exec: &ExecToolSpec{Command: "go", Args: []string{"version"}}})
+	_, err := CallTool(t.Context(), "unit_req", map[string]any{})
+	require.ErrorContains(t, err, "unit_req: q is required")
+}
 
-	s := startTest(t, "tool-token")
-	body := doJSON(t, s.Client(), toolCallURL("unit_declared_nil"), map[string]any{})
-	defer body.Body.Close()
-	require.Equal(t, http.StatusBadRequest, body.StatusCode)
-	require.Contains(t, mustText(t, body.Body), msgDeclaredBackend)
+func TestRegisterDeclaredTool_MissingEnv(t *testing.T) {
+	t.Setenv("KDEPS_TEST_DECLARED_KEY", "")
+	registerUnitDeclared(t, "unit_env", nil, DeclaredSpec{Exec: &ExecToolSpec{
+		Command: "go", Args: []string{"version"},
+		Env: map[string][]string{"KEY": {"KDEPS_TEST_DECLARED_KEY"}},
+	}})
+	_, err := CallTool(t.Context(), "unit_env", map[string]any{})
+	require.ErrorContains(t, err, msgEnvUnset)
+}
+
+func TestRegisterDeclaredTool_NoBlock(t *testing.T) {
+	registerUnitDeclared(t, "unit_none", nil, DeclaredSpec{})
+	_, err := CallTool(t.Context(), "unit_none", map[string]any{})
+	require.ErrorContains(t, err, "no declared implementation")
 }

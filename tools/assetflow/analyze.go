@@ -87,6 +87,7 @@ func analyze(dir string, entries map[string]string) (map[string]Flow, *callgraph
 	fns := ssautil.AllFunctions(prog)
 	cg := vta.CallGraph(fns, cha.CallGraph(prog))
 	cg.DeleteSyntheticNodes()
+	addAPIHops(cg, fns)
 
 	slash := slashCommands(pkgs)
 	labelOf := func(fn *ssa.Function) (string, bool) {
@@ -727,4 +728,28 @@ func slashCommands(pkgs []*packages.Package) map[string]string {
 		out[k] = v[0]
 	}
 	return out
+}
+
+// apiHops are the kdeps API client calls and the route handler each reaches.
+// The client sends an in-process HTTP request, which has no static call edge
+// to the handler, so a set used behind a route would look unreachable from
+// every caller of the API.
+var apiHops = map[string]string{
+	module + "/pkg/api.CallTool":    module + "/pkg/api.handleToolCall",
+	module + "/pkg/api.CallCommand": module + "/pkg/api.handleCommandCall",
+}
+
+// addAPIHops adds an edge from each API client call to its route handler.
+func addAPIHops(cg *callgraph.Graph, fns map[*ssa.Function]bool) {
+	byName := map[string]*ssa.Function{}
+	for f := range fns {
+		byName[f.String()] = f
+	}
+	for client, handler := range apiHops {
+		c, h := byName[client], byName[handler]
+		if c == nil || h == nil {
+			continue
+		}
+		callgraph.AddEdge(cg.CreateNode(c), nil, cg.CreateNode(h))
+	}
 }

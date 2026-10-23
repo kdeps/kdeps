@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package api
 
 import (
 	"bytes"
@@ -36,14 +36,13 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// httpToolSpec is a tool asset's http: block: the HTTP call that implements
+// HTTPToolSpec is a tool asset's http: block: the HTTP call that implements
 // the tool, so a tool backed by a plain HTTP API needs no Go code. Every
 // string except method is a text/template over httpToolData.
-type httpToolSpec struct {
+type HTTPToolSpec struct {
 	// Env maps a name templates use (.env.NAME) to the environment variables
 	// that may hold it; the first non-empty one wins. The tool is registered
 	// only when every entry resolves; an entry whose list ends with "" is
@@ -74,10 +73,10 @@ type httpToolSpec struct {
 
 const defaultHTTPToolTimeout = 30 * time.Second
 
-// httpToolClient sends declared tools' requests (test-replaceable).
+// HTTPToolClient sends declared http: tools' requests. Tests replace it.
 //
 //nolint:gochecknoglobals // test-replaceable
-var httpToolClient = http.DefaultClient
+var HTTPToolClient = http.DefaultClient
 
 // declaredToolFuncs are the helpers http: and exec: block templates may call.
 //
@@ -98,8 +97,8 @@ var declaredToolFuncs = template.FuncMap{
 	"urlpath":    url.PathEscape,
 	"trimSuffix": strings.TrimSuffix,
 	"add":        func(a, b int) int { return a + b },
-	"int":        api.ToInt,
-	"min":        func(a, b any) int { return min(api.ToInt(a), api.ToInt(b)) },
+	"int":        ToInt,
+	"min":        func(a, b any) int { return min(ToInt(a), ToInt(b)) },
 	// get walks nested maps and lists by key or index, returning nil
 	// (not an error) where a level is missing.
 	"get": getPath,
@@ -110,8 +109,8 @@ func parseDeclaredTemplate(name, src string) (*template.Template, error) {
 	return template.New(name).Funcs(declaredToolFuncs).Option("missingkey=zero").Parse(src)
 }
 
-// validate checks the block's method and that every template parses.
-func (s *httpToolSpec) validate() error {
+// Validate checks the block's method and that every template parses.
+func (s *HTTPToolSpec) Validate() error {
 	switch strings.ToUpper(s.Method) {
 	case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 	default:
@@ -148,8 +147,8 @@ func (s *httpToolSpec) validate() error {
 	return nil
 }
 
-// resolveEnv returns the block's env values, or false when one is unset.
-func (s *httpToolSpec) resolveEnv() (map[string]string, bool) {
+// ResolveEnv returns the block's env values, or false when one is unset.
+func (s *HTTPToolSpec) ResolveEnv() (map[string]string, bool) {
 	out := make(map[string]string, len(s.Env))
 	for name, vars := range s.Env {
 		for _, v := range vars {
@@ -168,170 +167,15 @@ func (s *httpToolSpec) resolveEnv() (map[string]string, bool) {
 	return out, true
 }
 
-// registerDeclaredTools registers every tool asset implemented by its own
-// YAML: an http: block whose env resolves, or an exec: block. The call runs
-// through the kdeps API; the wrapper keeps the declared defaults and, for a
-// cached http: tool, the convergence cache.
-func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
-		d := toolDefinitions[id]
-		switch {
-		case d.HTTP != nil:
-			if _, ok := d.HTTP.resolveEnv(); !ok {
-				continue
-			}
-			reg.Register(definedAs(id, &kdepstools.Tool{
-				Name:    id,
-				Execute: declaredHTTPExecute(ctx, id, d, cache),
-			}))
-		case d.Exec != nil:
-			if _, ok := d.Exec.resolveEnv(); !ok {
-				continue
-			}
-			reg.Register(definedAs(id, &kdepstools.Tool{
-				Name:    id,
-				Execute: declaredExecExecute(ctx, id, d),
-			}))
-		case d.Python != nil:
-			if _, ok := d.Python.resolveEnv(); !ok {
-				continue
-			}
-			reg.Register(definedAs(id, &kdepstools.Tool{
-				Name: id,
-				Execute: func(args map[string]interface{}) (string, error) {
-					return declaredToolAPIBackend{}.CallDeclaredTool(ctx, id, args)
-				},
-			}))
-		case d.SQL != nil:
-			if _, ok := d.SQL.resolveDSN(); !ok {
-				continue
-			}
-			reg.Register(definedAs(id, &kdepstools.Tool{
-				Name: id,
-				Execute: func(args map[string]interface{}) (string, error) {
-					full, err := withParamDefaults(declaredName(id, d), d, args)
-					if err != nil {
-						return "", err
-					}
-					return runSQLTool(ctx, declaredName(id, d), d.SQL, full)
-				},
-			}))
-		}
-	}
-}
-
-// declaredToolAPIBackend runs asset-declared tools for the kdeps API. It is
-// the only implementation behind their call routes; the agent loop and a
-// workflow component both reach it through api.CallTool.
-type declaredToolAPIBackend struct{}
-
-func (declaredToolAPIBackend) CallDeclaredTool(
-	ctx context.Context, id string, args map[string]any,
-) (string, error) {
-	d, ok := toolDefinitions[id]
-	if !ok || (d.HTTP == nil && d.Exec == nil && d.SQL == nil && d.Python == nil) {
-		return "", fmt.Errorf("%s: no declared implementation", id)
-	}
-	name := declaredName(id, d)
-	full, err := withParamDefaults(name, d, args)
-	if err != nil {
-		return "", err
-	}
-	if d.SQL != nil {
-		return runSQLTool(ctx, name, d.SQL, full)
-	}
-	if d.Python != nil {
-		env, envOK := d.Python.resolveEnv()
-		if !envOK {
-			return "", fmt.Errorf("%s: required environment variables are not set", name)
-		}
-		return callDeclaredPythonTool(ctx, name, d.Python, full, env)
-	}
-	if d.HTTP != nil {
-		env, envOK := d.HTTP.resolveEnv()
-		if !envOK {
-			return "", fmt.Errorf("%s: required environment variables are not set", name)
-		}
-		return callDeclaredHTTPTool(ctx, name, d.HTTP, full, env)
-	}
-	env, envOK := d.Exec.resolveEnv()
-	if !envOK {
-		return "", fmt.Errorf("%s: required environment variables are not set", name)
-	}
-	return callDeclaredExecTool(ctx, name, d.Exec, full, env)
-}
-
-// registerDeclaredAPIRoutes serves every asset-declared tool on its call
-// route and installs the runner behind it. Runs at init and after an asset
-// update, so a newly downloaded tool becomes reachable without a restart.
-func registerDeclaredAPIRoutes() {
-	api.SetDeclaredToolBackend(declaredToolAPIBackend{})
-	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
-		d := toolDefinitions[id]
-		if d.HTTP == nil && d.Exec == nil && d.SQL == nil && d.Python == nil {
-			continue
-		}
-		api.RegisterDeclaredTool(id, d.Description, d.Parameters)
-	}
-}
-
-//nolint:gochecknoinits // the routes exist in workflow mode, before any agent loop starts
-func init() {
-	registerDeclaredAPIRoutes()
-}
-
-// declaredName is the tool name the model sees for definition id.
-func declaredName(id string, d toolDefinition) string {
-	if d.Name != "" {
-		return d.Name
-	}
-	return id
-}
-
-// declaredExecExecute builds the Execute func of a declared exec tool.
-func declaredExecExecute(
-	ctx context.Context, id string, d toolDefinition,
-) func(map[string]any) (string, error) {
-	name := declaredName(id, d)
-	return func(args map[string]any) (string, error) {
-		full, err := withParamDefaults(name, d, args)
-		if err != nil {
-			return "", err
-		}
-		return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(full))
-	}
-}
-
-// declaredHTTPExecute builds the Execute func of a declared HTTP tool.
-func declaredHTTPExecute(
-	ctx context.Context, id string, d toolDefinition, cache *webToolCache,
-) func(map[string]any) (string, error) {
-	name := declaredName(id, d)
-	return func(args map[string]any) (string, error) {
-		full, err := withParamDefaults(name, d, args)
-		if err != nil {
-			return "", err
-		}
-		run := func() (string, error) {
-			return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(full))
-		}
-		if !d.HTTP.Cache || cache == nil {
-			return run()
-		}
-		key, _ := json.Marshal(full)
-		return cache.call(name+":"+string(key), run)
-	}
-}
-
 // withParamDefaults copies args, fills declared defaults and checks that
 // every required parameter is present.
-func withParamDefaults(name string, d toolDefinition, args map[string]any) (map[string]any, error) {
+func withParamDefaults(name string, params map[string]domain.ToolParam, args map[string]any) (map[string]any, error) {
 	full := maps.Clone(args)
 	if full == nil {
 		full = map[string]any{}
 	}
-	for _, p := range slices.Sorted(maps.Keys(d.Parameters)) {
-		param := d.Parameters[p]
+	for _, p := range slices.Sorted(maps.Keys(params)) {
+		param := params[p]
 		if isEmptyValue(full[p]) && param.Default != nil {
 			full[p] = param.Default
 		}
@@ -364,7 +208,7 @@ func (r declaredRenderer) render(part, src string) (string, error) {
 }
 
 // newRequest renders the block's url, body and headers into a request.
-func (s *httpToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*http.Request, error) {
+func (s *HTTPToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*http.Request, error) {
 	reqURL, err := r.render("url", s.URL)
 	if err != nil {
 		return nil, err
@@ -405,7 +249,7 @@ func (s *httpToolSpec) newRequest(ctx context.Context, r declaredRenderer) (*htt
 }
 
 // timeout is the block's per-call limit.
-func (s *httpToolSpec) timeout() time.Duration {
+func (s *HTTPToolSpec) timeout() time.Duration {
 	if d, err := time.ParseDuration(s.Timeout); err == nil && s.Timeout != "" {
 		return d
 	}
@@ -415,11 +259,11 @@ func (s *httpToolSpec) timeout() time.Duration {
 // callDeclaredHTTPTool sends the request an http: block describes and
 // renders its answer.
 func callDeclaredHTTPTool(
-	ctx context.Context, name string, s *httpToolSpec, args map[string]any, env map[string]string,
+	ctx context.Context, name string, s *HTTPToolSpec, args map[string]any, env map[string]string,
 ) (string, error) {
 	for _, p := range s.Paths {
 		if v, _ := args[p].(string); v != "" {
-			if err := ValidateRootPath(v); err != nil {
+			if err := validateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
 		}
@@ -431,7 +275,7 @@ func callDeclaredHTTPTool(
 	if err != nil {
 		return "", err
 	}
-	resp, err := httpToolClient.Do(req)
+	resp, err := HTTPToolClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("%s: request: %w", name, err)
 	}
@@ -465,7 +309,7 @@ func getPath(v any, keys ...any) any {
 			ks, _ := k.(string)
 			v = c[ks]
 		case []any:
-			i := api.ToInt(k)
+			i := ToInt(k)
 			if i < 0 || i >= len(c) {
 				return nil
 			}
@@ -492,7 +336,7 @@ func isEmptyValue(v any) bool {
 }
 
 // multipartBody renders Files and Form into a multipart/form-data body.
-func (s *httpToolSpec) multipartBody(r declaredRenderer) (io.Reader, string, error) {
+func (s *HTTPToolSpec) multipartBody(r declaredRenderer) (io.Reader, string, error) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	for _, k := range slices.Sorted(maps.Keys(s.Form)) {

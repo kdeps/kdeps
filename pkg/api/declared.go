@@ -20,44 +20,61 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-const msgDeclaredBackend = "declared tool backend is not configured"
+const msgEnvUnset = "required environment variables are not set"
 
-// DeclaredToolBackend runs a tool whose implementation is declared in its own
-// asset (an http: or exec: block). The agent parses the assets and installs
-// the runner; every caller, the agent loop included, still reaches the tool
-// through this API.
-type DeclaredToolBackend interface {
-	CallDeclaredTool(ctx context.Context, name string, args map[string]any) (string, error)
+// DeclaredSpec is the implementation a tool asset declares in its own YAML:
+// exactly one of an http:, exec:, sql: or python: block. The kdeps API runs
+// it, so a declared tool needs no Go code.
+type DeclaredSpec struct {
+	HTTP   *HTTPToolSpec   `yaml:"http,omitempty"`
+	Exec   *ExecToolSpec   `yaml:"exec,omitempty"`
+	SQL    *SQLToolSpec    `yaml:"sql,omitempty"`
+	Python *PythonToolSpec `yaml:"python,omitempty"`
 }
 
-var (
-	declaredToolMu      sync.RWMutex        //nolint:gochecknoglobals // process-wide declared-tool runner
-	declaredToolBackend DeclaredToolBackend //nolint:gochecknoglobals // process-wide declared-tool runner
-)
-
-// SetDeclaredToolBackend installs the process declared-tool runner. A nil
-// backend makes every declared call return not configured.
-func SetDeclaredToolBackend(backend DeclaredToolBackend) {
-	declaredToolMu.Lock()
-	declaredToolBackend = backend
-	declaredToolMu.Unlock()
+// Declared reports whether the spec has an implementation block.
+func (s DeclaredSpec) Declared() bool {
+	return s.HTTP != nil || s.Exec != nil || s.SQL != nil || s.Python != nil
 }
 
-func currentDeclaredToolBackend() DeclaredToolBackend {
-	declaredToolMu.RLock()
-	defer declaredToolMu.RUnlock()
-	return declaredToolBackend
+// run executes the spec's block with args.
+func (s DeclaredSpec) run(ctx context.Context, name string, args map[string]any) (string, error) {
+	switch {
+	case s.SQL != nil:
+		return runSQLTool(ctx, name, s.SQL, args)
+	case s.Python != nil:
+		env, ok := s.Python.ResolveEnv()
+		if !ok {
+			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+		}
+		return callDeclaredPythonTool(ctx, name, s.Python, args, env)
+	case s.HTTP != nil:
+		env, ok := s.HTTP.ResolveEnv()
+		if !ok {
+			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+		}
+		return callDeclaredHTTPTool(ctx, name, s.HTTP, args, env)
+	case s.Exec != nil:
+		env, ok := s.Exec.ResolveEnv()
+		if !ok {
+			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+		}
+		return callDeclaredExecTool(ctx, name, s.Exec, args, env)
+	}
+	return "", errors.New(name + ": no declared implementation")
 }
 
 // RegisterDeclaredTool serves one asset-declared tool on its call route. name
-// is the asset id callers use; description and params are the asset's own.
-func RegisterDeclaredTool(name, description string, params map[string]domain.ToolParam) {
+// is the asset id callers use; description and params are the asset's own,
+// and spec returns its implementation block, read on each call. A call fills
+// the declared defaults, checks the required parameters and runs the block.
+func RegisterDeclaredTool(name, description string, params map[string]domain.ToolParam, spec func() DeclaredSpec) {
 	RegisterTool(ToolSpec{
 		Name:        name,
 		Description: description,
@@ -66,11 +83,11 @@ func RegisterDeclaredTool(name, description string, params map[string]domain.Too
 			if err := ctxReady(ctx, name); err != nil {
 				return "", err
 			}
-			backend := currentDeclaredToolBackend()
-			if backend == nil {
-				return "", fmt.Errorf("%s: %s", name, msgDeclaredBackend)
+			full, err := withParamDefaults(name, params, args)
+			if err != nil {
+				return "", err
 			}
-			return backend.CallDeclaredTool(ctx, name, args)
+			return spec().run(ctx, name, full)
 		},
 	})
 }

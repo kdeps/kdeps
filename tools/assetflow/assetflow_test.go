@@ -19,11 +19,19 @@
 package main
 
 import (
+	"go/ast"
+	"go/importer"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 func outerForTest() (func(), func() func()) {
@@ -90,4 +98,31 @@ func TestParseStory(t *testing.T) {
 
 func TestCodeOf(t *testing.T) {
 	assert.Equal(t, []string{rootLabel}, codeOf(rootLabel, nil))
+}
+
+func TestAddAPIHops(t *testing.T) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "api.go", `package api
+func CallTool() {}
+func handleToolCall() {}
+func CallCommand() {}
+func handleCommandCall() {}
+`, 0)
+	require.NoError(t, err)
+	pkg, _, err := ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset,
+		types.NewPackage(module+"/pkg/api", "api"), []*ast.File{f}, 0)
+	require.NoError(t, err)
+	fns := ssautil.AllFunctions(pkg.Prog)
+	cg := callgraph.New(nil)
+	addAPIHops(cg, fns)
+
+	callees := func(name string) []string {
+		var out []string
+		for _, e := range cg.Nodes[pkg.Func(name)].Out {
+			out = append(out, e.Callee.Func.Name())
+		}
+		return out
+	}
+	assert.Equal(t, []string{"handleToolCall"}, callees("CallTool"), "a tool call reaches its route handler")
+	assert.Equal(t, []string{"handleCommandCall"}, callees("CallCommand"))
 }
