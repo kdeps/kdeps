@@ -94,7 +94,6 @@ func init() {
 	RegisterTool(loadToolSpec(toolMD5File, "Compute the MD5 checksum of a file.", MD5File))
 	RegisterTool(loadToolSpec(toolTailFile, "Read the last lines of a file.", TailFile))
 	RegisterTool(loadToolSpec(toolWriteFile, "Write or overwrite a text file.", WriteFile))
-	RegisterTool(loadToolSpec(toolEditFile, "Edit a file.", EditFile))
 	RegisterTool(loadToolSpec(toolGoogleCacheCreate, "Create a Google AI cached content entry.", GoogleCacheCreate))
 	RegisterTool(loadToolSpec(toolGoogleCacheDelete, "Delete a Google AI cached content entry.", GoogleCacheDelete))
 	RegisterTool(loadToolSpec(toolGoogleCacheList, "List Google AI cached content entries.", GoogleCacheList))

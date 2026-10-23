@@ -100,7 +100,7 @@ What the brief carries depends on the failure:
 
 ```text
 [kdeps-efficiency] Soft stop (failure 1/5). Your last call failed and nothing changed: edit_file
-({"command":"str_replace","file_path":"/app/main.go",...}). Error: "old_str did not match ..."
+({"file_path":"/app/main.go","line":44,"match":"cfg",...}). Error: "edit_file: line 44 does not contain 'cfg'"
 
 Current content of /app/main.go, lines 40-80 of 212:
 40	func main() {

@@ -22,34 +22,24 @@ import (
 	"crypto/md5" //nolint:gosec // change detection only, not a security boundary
 	"encoding/hex"
 	"encoding/json"
-	"strings"
 
 	"github.com/spf13/afero"
-
-	"github.com/kdeps/kdeps/v2/pkg/api"
 )
 
 // md5DisplayLen is how many hex characters of a file's md5 the notices show.
 const md5DisplayLen = 12
 
-// pendingEdit remembers an edit_file mutation that left its file byte-for-byte
-// unchanged (an error, or a no-op such as old_str == new_str). The turn is not
-// allowed to end on it until a later edit actually changes the file.
+// pendingEdit remembers an edit_file call that left its file byte-for-byte
+// unchanged (an error, or a replacement equal to the original). The turn is
+// not allowed to end on it until a later edit actually changes the file.
 type pendingEdit struct {
 	path string
 	md5  string
 }
 
-// editMutatingCommands are the edit_file commands that write the file.
-//
-//nolint:gochecknoglobals // static lookup table
-var editMutatingCommands = map[string]bool{
-	"str_replace": true, "insert": true, "patch": true,
-	"replace_symbol": true, "undo_edit": true,
-}
-
 // mutatingEditTarget returns the file an edit_file call is about to modify, or
-// false for any other call (view, dry_run, other tools, unparseable args).
+// false for any other call (other tools, unparseable args, no file_path).
+// Every edit_file call writes its file.
 func mutatingEditTarget(name, arguments string) (string, bool) {
 	if name != toolNameEditFile {
 		return "", false
@@ -59,19 +49,8 @@ func mutatingEditTarget(name, arguments string) (string, bool) {
 		return "", false
 	}
 	normalizeToolArgs(toolNameEditFile, args)
-	if dry, _ := args["dry_run"].(bool); dry {
-		return "", false
-	}
-	cmd, _ := args["command"].(string)
-	cmd = strings.TrimSpace(cmd)
-	if cmd == "" {
-		cmd = api.InferEditCommand(args)
-	}
 	path, _ := args[toolParamFilePath].(string)
-	if !editMutatingCommands[cmd] || path == "" {
-		return "", false
-	}
-	return path, true
+	return path, path != ""
 }
 
 // fileMD5 returns the hex md5 of the file's current bytes ("" when unreadable

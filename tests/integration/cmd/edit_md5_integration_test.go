@@ -127,13 +127,10 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 
 	s := &scriptedStreamer{rounds: []scriptedRound{
 		{calls: []domain.StreamedToolCall{editToolCall(t, "1", map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "absent", "new_str": "x",
+			"file_path": path, "match": "absent", "text": "x",
 		})}},
 		{calls: []domain.StreamedToolCall{editToolCall(t, "2", map[string]any{
-			"command": "view", "file_path": path,
-		})}},
-		{calls: []domain.StreamedToolCall{editToolCall(t, "3", map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "hello", "new_str": "goodbye",
+			"file_path": path, "line": 1, "match": "hello", "text": "goodbye",
 		})}},
 		{content: "Edited: hello is now goodbye."},
 	}}
@@ -150,7 +147,7 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	hidden := strings.Join(s.prompts, "\n")
 	assert.Contains(t, hidden, "EDIT NOT APPLIED", "failed edit is flagged on the hidden channel")
 	assert.Contains(t, hidden, "read the file first", "failed edit says to read first")
-	assert.Contains(t, hidden, "Read the exact current text", "retry blocks are present")
+	assert.Contains(t, hidden, "Read the file for its current line numbers", "retry blocks are present")
 	assert.NotContains(t, all, "EDIT NOT APPLIED", "the failure brief stays out of history")
 	assert.Contains(t, all, "EDIT OK", "applied edit is confirmed with its md5")
 	assert.Contains(t, all, "files edited this session")
@@ -162,36 +159,5 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 			assert.Contains(t, all+hidden, e.Key, "the memory id shown matches a stored entry")
 		}
 	}
-	assert.Equal(t, 3, statusKeys, "one status entry per edit_file call")
-}
-
-// A revision echoed as bare hex (no "sha256:" prefix) is the same revision, not
-// a changed file: the edit must land instead of failing with a stale-revision error.
-func TestEditFile_BareHexRevisionIsAccepted(t *testing.T) {
-	dir := t.TempDir()
-	t.Chdir(dir)
-	t.Cleanup(agent.WaitForBackgroundIndexing) // lazy indexer writes .kdeps/ into dir
-	path := filepath.Join(dir, "a.txt")
-	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
-
-	reg := tools.NewRegistry()
-	agent.RegisterBuiltinTools(t.Context(), reg)
-	tool := reg.Get("edit_file")
-	require.NotNil(t, tool)
-
-	view, err := tool.Execute(map[string]any{"command": "view", "file_path": path})
-	require.NoError(t, err)
-	i := strings.Index(view, "[revision sha256:")
-	require.NotEqual(t, -1, i, view)
-	bare := strings.TrimSuffix(strings.TrimPrefix(view[i:], "[revision sha256:"), "]")
-	bare = strings.TrimSpace(strings.SplitN(bare, "]", 2)[0])
-
-	_, err = tool.Execute(map[string]any{
-		"command": "str_replace", "file_path": path,
-		"old_str": "hello", "new_str": "goodbye", "revision": bare,
-	})
-	require.NoError(t, err)
-	got, err := os.ReadFile(path)
-	require.NoError(t, err)
-	assert.Equal(t, "goodbye world\n", string(got))
+	assert.Equal(t, 2, statusKeys, "one status entry per edit_file call")
 }

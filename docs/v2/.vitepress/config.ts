@@ -127,7 +127,6 @@ export default defineConfig({
             { text: 'Session-integrity handshake', link: '/agent/tools-handshake' },
             { text: 'File tools', link: '/agent/tools-files' },
             { text: 'Edit file', link: '/agent/tools-edit' },
-            { text: 'Edit rules', link: '/agent/tools-edit-rules' },
             { text: 'Memory and identity', link: '/agent/tools-memory' },
             { text: 'Shell execution', link: '/agent/shell' },
             { text: 'Data tools', link: '/agent/tools-data' },

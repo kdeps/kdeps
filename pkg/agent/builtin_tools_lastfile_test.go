@@ -81,22 +81,3 @@ func TestReadFile_FilePathNotRequiredInSchema(t *testing.T) {
 		assert.False(t, p.Required, "%s file_path must not be schema-required (it defaults to the last file)", name)
 	}
 }
-
-func TestEditFile_RecordsLastFile(t *testing.T) {
-	lastFileState.mu.Lock()
-	lastFileState.path = ""
-	lastFileState.mu.Unlock()
-
-	dir := t.TempDir()
-	fpath := filepath.Join(dir, "code.go")
-	require.NoError(t, os.WriteFile(fpath, []byte("package main\n\nvar x = 1\n"), 0o600))
-	markFileSeen(fpath)
-
-	edit := toolByName(t, "edit_file")
-	_, err := edit.Execute(map[string]any{
-		"command":   "str_replace",
-		"file_path": fpath, "old_string": "var x = 1", "new_string": "var x = 2",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, fpath, lastFile(), "edit_file records the file it touched")
-}

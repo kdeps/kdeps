@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -154,7 +155,7 @@ func (r *reactiveStreamer) StreamChat(
 func TestEfficiency_RepeatedCallBriefsModelInvisiblyAndRetries(t *testing.T) {
 	r := &reactiveStreamer{}
 	loop, path := effIntegrationLoop(t, r)
-	r.call = editToolCall(t, "v", map[string]any{"command": "view", "file_path": path})
+	r.call = domain.StreamedToolCall{ID: "v", Name: "read_file", Arguments: `{"file_path":` + strconv.Quote(path) + `}`}
 	require.NoError(t, agent.SetEfficiencyValue("reads", 1000))
 	require.NoError(t, agent.SetEfficiencyValue("actions", 1000))
 
@@ -180,14 +181,11 @@ func TestEfficiency_FailedEditBriefedWithFileContextAndRetried(t *testing.T) {
 	s := &scriptedStreamer{}
 	loop, path := effIntegrationLoop(t, s)
 	s.rounds = []scriptedRound{
-		{calls: []domain.StreamedToolCall{editToolCall(t, "v", map[string]any{
-			"command": "view", "file_path": path,
-		})}},
 		{calls: []domain.StreamedToolCall{editToolCall(t, "bad", map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "hello world\nmore", "new_str": "x",
+			"file_path": path, "line": 1, "match": "more", "text": "x",
 		})}},
 		{calls: []domain.StreamedToolCall{editToolCall(t, "good", map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "hello", "new_str": "goodbye",
+			"file_path": path, "line": 1, "match": "hello", "text": "goodbye",
 		})}},
 		{content: "Edited: hello is now goodbye."},
 	}
@@ -200,12 +198,12 @@ func TestEfficiency_FailedEditBriefedWithFileContextAndRetried(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "goodbye world\n", string(got))
 
-	require.Len(t, s.prompts, 4)
-	brief := s.prompts[2]
+	require.Len(t, s.prompts, 3)
+	brief := s.prompts[1]
 	assert.Contains(t, brief, "[kdeps-efficiency] Soft stop (failure 1/")
 	assert.Contains(t, brief, "Current content of "+path+", lines 1-1 of 1:\n1\thello world")
 	assert.Contains(t, brief, "EDIT NOT APPLIED")
-	assert.NotContains(t, s.prompts[3], "Soft stop (failure", "the brief is one-shot")
+	assert.NotContains(t, s.prompts[2], "Soft stop (failure", "the brief is one-shot")
 	assert.NotContains(t, buf.String(), "kdeps-efficiency")
 	assert.NotContains(t, buf.String(), "EDIT NOT APPLIED")
 	history := strings.Join(s.msgs, "\n")

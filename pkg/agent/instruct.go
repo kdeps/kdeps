@@ -76,10 +76,10 @@ tag, nothing around it:
   </invoke>
 
   <invoke name="edit_file">
-  <parameter name="command">str_replace</parameter>
   <parameter name="file_path">pkg/agent/loop.go</parameter>
-  <parameter name="old_str">exact current text</parameter>
-  <parameter name="new_str">replacement text</parameter>
+  <parameter name="line">120</parameter>
+  <parameter name="match">words on that line</parameter>
+  <parameter name="text">replacement words</parameter>
   </invoke>
 
 kdeps parses that block at runtime, interprets it, and hands you the real output. The

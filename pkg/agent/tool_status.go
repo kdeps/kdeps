@@ -137,11 +137,11 @@ func (l *Loop) editStatusNote(
 	b.WriteString("\nerror: " + errText)
 	b.WriteString(memoryIDLines(id))
 	b.WriteString("\nTo retry, read the file first, then edit.")
-	b.WriteString("\n1. Read the exact current text:\n")
-	b.WriteString(invokeBlock(toolNameEditFile, map[string]any{
-		"command": "view", toolParamFilePath: path,
+	b.WriteString("\n1. Read the file for its current line numbers:\n")
+	b.WriteString(invokeBlock(toolNameReadFile, map[string]any{
+		toolParamFilePath: path,
 	}, statusArgValueMax, false))
-	b.WriteString("\n2. Then edit, copying the old text byte-for-byte from that view:\n")
+	b.WriteString("\n2. Then edit, using the line number and words from that read:\n")
 	b.WriteString(invokeBlock(toolNameEditFile, args, statusArgValueMax, true))
 	b.WriteString(l.editedFilesLedger())
 
@@ -252,7 +252,7 @@ func invokeBlock(name string, args map[string]any, maxVal int, placeholders bool
 			switch {
 			case k == toolParamFilePath:
 			case placeholders && len(v) >= statusEditPlaceholderMin:
-				val = "<exact text copied from the view>"
+				val = "<words from that line, as read>"
 			case len(v) > maxVal:
 				val = truncateEllipsis(v, maxVal)
 			}

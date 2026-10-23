@@ -94,6 +94,9 @@ func callDeclaredExecTool(
 			if err := ValidateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
+			if err := validateWorkspaceBoundary(v); err != nil {
+				return "", fmt.Errorf("%s: %w", name, err)
+			}
 		}
 	}
 	bin, err := lookExecTool(s.Command)

@@ -203,12 +203,14 @@ func TestEveryToolAssetHasAPIRoute(t *testing.T) {
 		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
 		require.NoError(t, readErr, entry.Name())
 		var declared struct {
-			HTTP any `yaml:"http"`
-			Exec any `yaml:"exec"`
+			HTTP   any `yaml:"http"`
+			Exec   any `yaml:"exec"`
+			SQL    any `yaml:"sql"`
+			Python any `yaml:"python"`
 		}
 		require.NoError(t, yaml.Unmarshal(data, &declared), entry.Name())
-		require.True(t, declared.HTTP != nil || declared.Exec != nil,
-			"%s tool asset has no API route and no declared http:/exec: spec", name)
+		require.True(t, declared.HTTP != nil || declared.Exec != nil || declared.SQL != nil || declared.Python != nil,
+			"%s tool asset has no API route and no declared http:/exec:/sql:/python: spec", name)
 	}
 }
 

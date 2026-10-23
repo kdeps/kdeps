@@ -128,9 +128,8 @@ func TestEditFileComponent_MatchesTool(t *testing.T) {
 	original := []byte("alpha\nbeta\n")
 	require.NoError(t, os.WriteFile(path, original, 0o600))
 
-	// The component has no session, so it edits without a prior read.
 	got, err := runComponentValue(t, "edit_file",
-		"    file_path: "+yamlPath(path)+"\n    command: str_replace\n    old_str: beta\n    new_str: BETA\n")
+		"    file_path: "+yamlPath(path)+"\n    line: 2\n    match: beta\n    text: BETA\n")
 	require.NoError(t, err)
 	edited, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -141,11 +140,7 @@ func TestEditFileComponent_MatchesTool(t *testing.T) {
 	agent.RegisterBuiltinTools(t.Context(), reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
-	_, err = tool.Execute(map[string]any{"command": "view", "file_path": path})
-	require.NoError(t, err)
-	want, err := tool.Execute(map[string]any{
-		"command": "str_replace", "file_path": path, "old_str": "beta", "new_str": "BETA",
-	})
+	want, err := tool.Execute(map[string]any{"file_path": path, "line": 2, "match": "beta", "text": "BETA"})
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

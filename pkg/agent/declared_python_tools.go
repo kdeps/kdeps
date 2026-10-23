@@ -19,10 +19,13 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -75,11 +78,17 @@ func callDeclaredPythonTool(
 			if err := ValidateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
+			if err := validateWorkspaceBoundary(v); err != nil {
+				return "", fmt.Errorf("%s: %w", name, err)
+			}
 		}
 	}
 	argJSON, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", name, err)
+	}
+	if len(s.Packages) == 0 {
+		return runSystemPython(ctx, name, s, string(argJSON), env)
 	}
 	call := map[string]any{"script": s.Script, "args": []string{string(argJSON)}}
 	if len(env) > 0 {
@@ -102,4 +111,52 @@ func callDeclaredPythonTool(
 		return strings.TrimSpace(text), nil
 	}
 	return out, nil
+}
+
+// defaultPythonToolTimeout bounds one run of a script with no packages.
+const defaultPythonToolTimeout = 60 * time.Second
+
+// pythonCandidates are the interpreters a script with no packages may run on,
+// in order (test-replaceable).
+//
+//nolint:gochecknoglobals // test-replaceable
+var pythonCandidates = []string{"python3", "python"}
+
+// runSystemPython runs a script that needs no packages directly on the
+// system python, so a tool like edit_file needs no uv or venv. The script
+// gets the call's arguments as JSON in sys.argv[1].
+func runSystemPython(
+	ctx context.Context,
+	name string,
+	s *pythonToolSpec,
+	argJSON string,
+	env map[string]string,
+) (string, error) {
+	timeout := defaultPythonToolTimeout
+	if d, err := time.ParseDuration(s.Timeout); err == nil && s.Timeout != "" {
+		timeout = d
+	}
+	var lastErr error
+	for _, bin := range pythonCandidates {
+		path, err := exec.LookPath(bin)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		runCtx, cancel := context.WithTimeout(ctx, timeout)
+		cmd := exec.CommandContext(runCtx, path, "-c", s.Script, argJSON)
+		cmd.Env = os.Environ()
+		for k, v := range env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &stdout, &stderr
+		runErr := cmd.Run()
+		cancel()
+		if runErr != nil {
+			return "", fmt.Errorf("%s: %w: %s", name, runErr, strings.TrimSpace(stderr.String()))
+		}
+		return strings.TrimSpace(stdout.String()), nil
+	}
+	return "", fmt.Errorf("%s: no python interpreter found in PATH: %w", name, lastErr)
 }

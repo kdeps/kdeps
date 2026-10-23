@@ -179,25 +179,6 @@ func TestExecComponent_FailingCommand(t *testing.T) {
 	require.Contains(t, err.Error(), "command failed")
 }
 
-// A boolean input reaches the kdeps API tool as a JSON boolean: without the
-// conversion dry_run would arrive as the string "true", the handler would not
-// see it, and a preview would write the file.
-func TestEditFileComponent_DryRunDoesNotWrite(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-	path := filepath.Join(t.TempDir(), "note.txt")
-	require.NoError(t, os.WriteFile(path, []byte("alpha\n"), 0o600))
-
-	out, err := runComponentValue(t, "edit_file",
-		"    file_path: "+yamlPath(path)+
-			"\n    command: str_replace\n    old_str: alpha\n    new_str: beta\n    dry_run: true\n")
-	require.NoError(t, err)
-	require.Contains(t, fmt.Sprint(out), "[dry_run] no changes written.")
-	content, readErr := os.ReadFile(path)
-	require.NoError(t, readErr)
-	require.Equal(t, "alpha\n", string(content))
-}
-
 // The http_request component exposes the tool's headers and data parameters;
 // a workflow sets them as objects and the handler receives the same request
 // an agent would send.

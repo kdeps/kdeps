@@ -202,7 +202,7 @@ A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the mode
 
 ## Declared python tools
 
-A tool whose definition has a `python:` block runs one Python script on the kdeps python runner, the same one behind the `python` tool, and needs no Go code. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
+A tool whose definition has a `python:` block runs one Python script and needs no Go code. With no `packages:`, the script runs directly on the system `python3` (or `python`), with no venv. With `packages:`, it runs on the kdeps python runner behind the `python` tool, which installs them into a venv with `uv`. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
 
 ```yaml
 # tools/word_count.yaml (or ~/.kdeps/tools/word_count.yaml)
@@ -335,8 +335,7 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [Harness reminders](/agent/tools-harness) - force a guidance section onto every turn
 - [Session-integrity handshake](/agent/tools-handshake) - prove the model makes a real tool call
 - [File tools](/agent/tools-files) - read, write, list
-- [Edit file](/agent/tools-edit) - the six `edit_file` commands
-- [Edit rules](/agent/tools-edit-rules) - read-first, revision, syntax check
+- [Edit file](/agent/tools-edit) - replace or append on one line
 - [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
 - [Shell execution](/agent/shell) - bash_exec, jobs, rtk
 - Web and search - web_search, wikipedia, web_scraper

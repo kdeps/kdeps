@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
@@ -60,9 +61,9 @@ func failEditArgs(t *testing.T, m map[string]any) string {
 func TestEfficiencyFailureStop_BriefsErrorAndEditContext(t *testing.T) {
 	l := effLoop(t)
 	path := numberedFile(t, 100)
-	// old_str's first line matches line 60, so the excerpt centers there.
+	// The call aimed at line 60, so the excerpt centers there.
 	tc := effCall(toolNameEditFile, failEditArgs(t, map[string]any{
-		"command": "str_replace", "file_path": path, "old_str": "line 60\nnot here", "new_str": "x",
+		"file_path": path, "line": 60, "match": "not here", "text": "x",
 	}))
 
 	require.True(t, l.efficiencyFailureStop(tc, `{"error":"old_str did not match"}`))
@@ -138,12 +139,12 @@ func TestEditFocusLine(t *testing.T) {
 		args map[string]any
 		want int
 	}{
-		{map[string]any{"view_range": []any{3.0, 4.0}}, 3},
-		{map[string]any{"insert_line": 2.0}, 2},
-		{map[string]any{"start_line": 4.0}, 4},
-		{map[string]any{"anchor": "c"}, 3},
-		{map[string]any{"old_str": "zzz", "symbol": "d"}, 4},
-		{map[string]any{"old_str": "  "}, 1},
+		{map[string]any{"line": 3.0}, 3},
+		{map[string]any{"line": "2"}, 2},
+		{map[string]any{"match": "c"}, 3},
+		{map[string]any{"line": 4.0, "match": "zzz"}, 4},
+		{map[string]any{"match": "zzz"}, 1},
+		{map[string]any{"match": "  "}, 1},
 		{map[string]any{}, 1},
 	}
 	for _, c := range cases {
@@ -216,6 +217,27 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 	t.Chdir(t.TempDir())
 	reg := tools.NewRegistry()
 	RegisterBuiltinTools(t.Context(), reg)
+	// A Go stand-in with edit_file's rules, so this test of the failure brief
+	// does not depend on the python runner being installed.
+	reg.Register(&tools.Tool{
+		Name: toolNameEditFile, Description: "edit one line", Parameters: map[string]domain.ToolParam{},
+		Execute: func(args map[string]any) (string, error) {
+			p, _ := args[toolParamFilePath].(string)
+			match, _ := args["match"].(string)
+			text, _ := args["text"].(string)
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return "", err
+			}
+			lines := strings.Split(string(data), "\n")
+			i := api.ToInt(args["line"]) - 1
+			if i < 0 || i >= len(lines) || !strings.Contains(lines[i], match) {
+				return "", fmt.Errorf("edit_file: line %d does not contain %q", i+1, match)
+			}
+			lines[i] = strings.Replace(lines[i], match, text, 1)
+			return "edited", os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o600)
+		},
+	})
 	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
@@ -231,12 +253,11 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 		}}
 	}
 	ms.inner = mockStreamer{responses: []mockStreamResponse{
-		call("v", failEditArgs(t, map[string]any{"command": "view", "file_path": path})),
 		call("bad", failEditArgs(t, map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "line 12\nline 99", "new_str": "X",
+			"file_path": path, "line": 12, "match": "line 99", "text": "X",
 		})),
 		call("good", failEditArgs(t, map[string]any{
-			"command": "str_replace", "file_path": path, "old_str": "line 12\n", "new_str": "LINE 12\n",
+			"file_path": path, "line": 12, "match": "line 12", "text": "LINE 12",
 		})),
 		{content: "edited line 12"},
 	}}
@@ -249,13 +270,12 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "LINE 12\n", "the retry applied the edit")
 
-	require.Len(t, ms.cfgs, 4)
-	assert.NotContains(t, ms.cfgs[1].Prompt, "Soft stop (failure")
-	assert.Contains(t, ms.cfgs[2].Prompt, "Soft stop (failure 1/5)")
-	assert.Contains(t, ms.cfgs[2].Prompt, "12\tline 12", "the file lines around the target are shown")
-	assert.Contains(t, ms.cfgs[2].Prompt, "[EDIT NOT APPLIED]", "the status note joins the brief")
-	assert.NotContains(t, ms.cfgs[2].Messages, "[EDIT NOT APPLIED]", "and stays out of history")
-	assert.NotContains(t, ms.cfgs[3].Prompt, "Soft stop (failure", "one-shot")
+	require.Len(t, ms.cfgs, 3)
+	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/5)")
+	assert.Contains(t, ms.cfgs[1].Prompt, "12\tline 12", "the file lines around the target are shown")
+	assert.Contains(t, ms.cfgs[1].Prompt, "[EDIT NOT APPLIED]", "the status note joins the brief")
+	assert.NotContains(t, ms.cfgs[1].Messages, "[EDIT NOT APPLIED]", "and stays out of history")
+	assert.NotContains(t, ms.cfgs[2].Prompt, "Soft stop (failure", "one-shot")
 	assert.NotContains(t, buf.String(), efficiencyMark)
 	assert.NotContains(t, buf.String(), "Current content of")
 	assert.NotContains(t, buf.String(), "[EDIT NOT APPLIED]")
