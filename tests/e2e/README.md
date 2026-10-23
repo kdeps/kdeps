@@ -42,6 +42,12 @@ The E2E tests are modularized into separate shell scripts for each test scenario
 ./tests/e2e/e2e.sh
 ```
 
+Run one shard of the suite (CI splits it across runners this way):
+
+```bash
+E2E_SHARD=1/3 ./tests/e2e/e2e.sh  # every 3rd scenario, starting with the 1st
+```
+
 ### Run individual test scenarios
 
 Each test script can be run independently:
@@ -92,7 +98,7 @@ To add a new test scenario:
    - `wait_for_kdeps_port "$PORT" 20` then `fail_server_startup "label" "$SERVER_LOG"` if it fails
 4. Add the script to `e2e.sh`:
    ```bash
-   source "$SCRIPT_DIR/test_<scenario>.sh"
+   scenario test_<scenario>.sh
    ```
 
 ## Notes
