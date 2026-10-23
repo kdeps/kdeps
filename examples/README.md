@@ -96,18 +96,6 @@ Vision model integration with image analysis.
 cd vision && kdeps run workflow.yaml --dev
 ```
 
-### 📞 [Telephony Bot](./telephony-bot/)
-AI phone IVR: Twilio webhooks answered with TwiML from the `twiml` component.
-- Keypad menu routed by `Digits`, static opening-hours line
-- Speech `gather`; a local LLM answers the question out loud
-
-**Prerequisites**: `ollama pull llama3.2:1b` (for the answer route)
-
-**Run:**
-```bash
-cd telephony-bot && kdeps run workflow.yaml --dev
-```
-
 ### 🔧 [Tools](./tools/)
 LLM tool calling / function calling with automatic tool execution.
 - Tool/function definitions in ChatConfig
