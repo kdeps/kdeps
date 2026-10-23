@@ -18,15 +18,15 @@ An unregistered or corrupted event/harness name always fails open (enabled) -- a
 
 ## Occurrence caps on standalone harness text
 
-Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you said you can't, but tools just worked," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-give-up`, `nudge-continue`, `nudge-self-limit`), same as `tool-call-early-praise`'s positive-reinforcement text. These are not sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
+Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you have the tools, call one," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-continue`, `nudge-self-limit`), same as `tool-call-early-praise`'s positive-reinforcement text. These are not sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
 
 ```yaml
-# ~/.kdeps/harness/nudge-give-up.yaml (built-in default -- shown for reference)
-name: nudge-give-up
+# harness/nudge-self-limit.yaml (built-in default -- shown for reference)
+name: nudge-self-limit
 kind: standalone
-maxOccurrences: 2   # push back on a premature "sorry, I can't" at most twice per turn
+maxOccurrences: 4   # push back on an invented limit ("I can't", "no tools") at most 4 times per turn
 body: >-
-  Your reply reads as giving up, but tool calls just succeeded this turn...
+  You have the kdeps tools in this turn, including the filesystem and the shell...
 ```
 
 The count itself is tracked wherever it already lived before this existed -- a turn-scoped `turnNudges` field, or the session-scoped successful-tool-call counter behind `tool-call-early-praise` -- `maxOccurrences` only supplies the configurable ceiling that count is checked against. This is deliberately narrower than a generic "cadence" concept: a count-based cap fits naturally next to `disabled` on a standalone entry, but an *event-triggered* switch (like the sticky escalation from the short `tools-reminder` to the full `use-kdeps-tools` guidance once a sandbox hallucination has happened once this session) is a state transition, not a count, and stays as event/harness Go logic calling `harnessText`/`harnessRender` at the point the triggering event already fires -- the [events](/agent/events) system already owns "when does X happen," and duplicating that as a second cadence language on harness entries would just re-implement it worse.

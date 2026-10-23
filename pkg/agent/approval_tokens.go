@@ -95,7 +95,7 @@ func (s ApprovalTokenStatus) String() string {
 	case TokenRevoked:
 		return "revoked"
 	default:
-		return strUnknown
+		return "unknown"
 	}
 }
 

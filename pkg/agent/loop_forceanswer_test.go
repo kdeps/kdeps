@@ -69,10 +69,10 @@ func TestGatheredToolDigest_AllToolTypes(t *testing.T) {
 			"name":           "read_file",
 			toolParamContent: "convergence (40 calls): ALL file reads blocked — work with what you have already read",
 		},
-		{"role": "tool", "name": "code_search", toolParamContent: "loop.go:914 appendToolRoundTrip"},
+		{"role": "tool", "name": "search_local", toolParamContent: "loop.go:914 appendToolRoundTrip"},
 		{
 			"role":           "tool",
-			"name":           "code_search",
+			"name":           "search_local",
 			toolParamContent: "convergence (15 calls): ALL code searches blocked — narrow your approach and work with existing results",
 		},
 	})

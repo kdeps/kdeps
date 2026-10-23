@@ -1768,8 +1768,6 @@ func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
 	assert.NoError(t, validateWorkspaceBoundary(subFile))
 }
 
-// --- registerCodeIntelligenceTools: graph tools ---
-
 // --- googleCacheListTool execute closure ---
 
 func TestGoogleCacheListTool_Execute_HelperInitError(t *testing.T) {

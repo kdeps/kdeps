@@ -12,8 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/robfig/cron/v3"
-
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -200,34 +198,6 @@ func updateAvailabilityNotice(ctx context.Context) string {
 		return ""
 	}
 	return fmt.Sprintf("Update available: v%s -> v%s. Run /upgrade to update.", result.Current, result.Latest)
-}
-
-// runCronScheduler polls the cron registry every 60s and creates tasks for
-// due cron jobs. Runs in a background goroutine; returns when ctx is cancelled.
-func runCronScheduler(ctx context.Context) {
-	const cronTickInterval = 60 * time.Second
-	ticker := time.NewTicker(cronTickInterval)
-	defer ticker.Stop()
-	// Use robfig/cron/v3 for NextRun calculation.
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-ticker.C:
-			due := agent.GlobalCronRegistry.Tick(now)
-			for _, c := range due {
-				_ = agent.GlobalTaskRegistry.Create(
-					c.TaskPrompt, c.TaskDescription,
-				)
-				var nextRun time.Time
-				if sched, parseErr := parser.Parse(c.Expression); parseErr == nil {
-					nextRun = sched.Next(now)
-				}
-				agent.GlobalCronRegistry.MarkRun(c.CronID, nextRun)
-			}
-		}
-	}
 }
 
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
@@ -428,12 +398,6 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if err = startControlAPI(rootCtx); err != nil {
 		return err
 	}
-
-	// Start cron background scheduler: polls every 60s for due cron jobs.
-	// Each due job creates a task and advances its NextRun.
-	ctx, cancelCron := context.WithCancel(rootCtx)
-	defer cancelCron()
-	go runCronScheduler(ctx)
 
 	err = repl.Run()
 	return err

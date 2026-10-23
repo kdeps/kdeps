@@ -2132,7 +2132,6 @@ type turnNudges struct {
 	hallucination int // model wrote a <tool_response> block itself
 	sandbox       int // prose describing a failed sandbox/code-interpreter session
 	workFailure   int // turn ending while the last work tool is still failing
-	giveUp        int // reply reads as declining to continue despite real progress this turn
 	editUnchanged int // turn ending while the last edit_file left the file's md5 unchanged
 	keepGoing     int // user said continue (or saved that way of working) and the model stopped in text
 	selfLimit     int // text-only reply invents a limit ("I can't", "no tools") with tools registered
@@ -2298,9 +2297,7 @@ func (l *Loop) resolveEmptyToolRound(
 // going.
 //
 // A silent round (no text either) is nudged for a concrete action, up to
-// that entry's configured maxOccurrences. A reply that reads as giving up
-// despite real progress this turn (looksLikeGiveUp + hasMadeProgressThisTurn)
-// draws that bounded push-back. A fictional self-limit ("I can't", "no
+// that entry's configured maxOccurrences. A fictional self-limit ("I can't", "no
 // tools", "I can't emit an invoke") is pushed back even when nothing has
 // succeeded, unless the reply is a real safety stop. A reply that only
 // acknowledges the push-back itself ("the limit I named was not real", a
@@ -2333,22 +2330,15 @@ func (l *Loop) handleTextOnlyRound(
 	// A reply that only acknowledges the push-back ("the limit I named was not
 	// real", a promise to call the tool) is neither work nor an answer. It has
 	// no tool call and leaves the task where it was, so it draws the same
-	// self-limit push again, bounded by that entry's occurrence cap. Checked
-	// before the give-up path: such a reply can contain "blocked" and read as
-	// a give-up, but the right correction is "call the tool", not "try another
-	// approach".
+	// self-limit push again, bounded by that entry's occurrence cap.
 	if looksLikeNudgeAck(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
 		nudges.selfLimit++
 		return nudgeSelfLimitConfig(chatCfg, nudges.selfLimit > 1), true
 	}
-	// giveUp == 0: once the progress give-up path has already argued this
-	// turn, do not start a second argument on the same refusal. A fictional
-	// limit with no successful tool never enters that path, so it is pushed
-	// here. A reply that states the last tool failure ("was not able", "did
-	// not") is an honest admission, not a fictional limit.
-	if nudges.giveUp == 0 &&
-		(l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
+	// A reply that states the last tool failure ("was not able", "did not")
+	// is an honest admission, not a fictional limit.
+	if (l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
 		looksLikeSelfLimit(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
 		repeat := nudges.selfLimit > 0
@@ -2600,10 +2590,7 @@ func (l *Loop) buildToolResultMessage(
 }
 
 // hasMadeProgressThisTurn reports whether at least one work tool call has
-// succeeded since the turn began, with no unresolved failure since. Used by
-// the give-up nudge (handleTextOnlyRound) -- a "sorry, I can't" reply is only
-// pushed back on when there is real progress on the table, not accepted at
-// face value but not manufactured out of nothing either.
+// succeeded since the turn began, with no unresolved failure since.
 func (l *Loop) hasMadeProgressThisTurn() bool {
 	return l.successfulWorkToolCalls > l.turnStartWorkToolCalls && l.lastWorkFailure == nil
 }
