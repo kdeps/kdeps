@@ -195,7 +195,7 @@ Any other file *is* the command: kdeps runs its `run:` steps in order, so a new 
 direction: right
 input: "/review error handling" {shape: oval}
 lookup: "commands/review.yaml"
-step1: "step: command\n(another slash command)"
+step1: "step: command or tool\n(a slash command or a kdeps API tool)"
 step2: "step: prompt\n(sent to the model as a turn)"
 reply: "model reply" {shape: oval}
 input -> lookup: "name or alias"
@@ -217,6 +217,21 @@ run:                      # steps run in order; the first failing step stops the
   - command: /efficiency preset thorough   # any slash command, including other declared ones
   - prompt: |-                             # sent to the model as a user turn
       Review the uncommitted changes. Extra focus, if given: $ARGUMENTS
+```
+
+A step can also call a kdeps API tool directly. The tool's output is the step's output; the arguments go in `args:`, and their string values take the same placeholders.
+
+```yaml
+# ~/.kdeps/commands/calc.yaml - /calc 6*7 prints 42
+version: 1.0.0
+name: calc
+usage:
+  - args: "<expression>"
+    help: Evaluate an expression with the calculator tool
+run:
+  - tool: calculator          # any tool on /apis/tools.kdeps.io, shipped or your own
+    args:
+      expression: "$1"        # the first argument of /calc
 ```
 
 - `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).

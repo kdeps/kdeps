@@ -351,6 +351,19 @@ exec:
   command: git
   args: ["--version"]
 EOF
+    # A hand-written command in ~/.kdeps/commands whose step calls a kdeps API tool.
+    mkdir -p "$home/.kdeps/commands"
+    cat >"$home/.kdeps/commands/e2e_calc.yaml" <<'EOF'
+version: 1.0.0
+name: e2e_calc
+usage:
+  - args: "<expression>"
+    help: Evaluate an expression with the calculator tool
+run:
+  - tool: calculator
+    args:
+      expression: "$1"
+EOF
     local server_dir="$root/server"
     local bare_dir="$root/bare"
     mkdir -p "$server_dir/resources" "$bare_dir/resources"
@@ -1136,6 +1149,16 @@ PY
             test_passed "kdeps API - REPL runs a slash command"
         else
             test_failed "kdeps API - REPL runs a slash command" "status $got body $(head -c 180 "$body")"
+        fi
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"args":["6*7"]}' \
+            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/e2e_calc/call" || true)
+        if [ "$got" = "200" ] && grep -F "42" "$body" >/dev/null; then
+            test_passed "kdeps API - a ~/.kdeps/commands tool step calls the tool"
+        else
+            test_failed "kdeps API - a ~/.kdeps/commands tool step calls the tool" "status $got body $(head -c 180 "$body")"
         fi
         got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
             -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
