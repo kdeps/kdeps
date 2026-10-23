@@ -500,7 +500,7 @@ EOF
 
     # --- kdeps run with a public-style apiServer still isolates the control API ---
     log="$root/server.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         PATH="${fakebin}:${PATH}" \
         KDEPS_API_LISTEN="127.0.0.1:${ctrl_port}" \
         KDEPS_API_TOKEN="$ctrl_tok" \
@@ -984,7 +984,7 @@ PY
 
     # --- kdeps run with no apiServer still serves the control API ---
     log="$root/bare.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         KDEPS_API_LISTEN="127.0.0.1:${bare_port}" \
         KDEPS_API_TOKEN="$bare_tok" \
         "$KDEPS_BIN" run "$bare_dir" >"$log" 2>&1 &
@@ -1010,7 +1010,7 @@ PY
 
     # --- default bind is loopback, and an unset token is not printed ---
     log="$root/default.log"
-    HOME="$home" env -u KDEPS_API_TOKEN -u KDEPS_API_LISTEN \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" env -u KDEPS_API_TOKEN -u KDEPS_API_LISTEN \
         "$KDEPS_BIN" run "$bare_dir" >"$log" 2>&1 &
     pids+=("$!")
     local def_pid="${pids[0]}"
@@ -1086,7 +1086,7 @@ PY
 
     # --- REPL serves the same API and does not accept the run token ---
     log="$root/repl.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         KDEPS_API_LISTEN="127.0.0.1:${repl_port}" \
         KDEPS_API_TOKEN="$repl_tok" \
         python3 - "$KDEPS_BIN" "$log" <<'PY' &
