@@ -205,13 +205,13 @@ apiResponse:
 actionId: respond
 before:
   - component:
-      name: scraper
+      name: web_scraper
       with:
         url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
 chat:
   prompt: |
     Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
-    Data: {{ get('scraper') }}
+    Data: {{ get('web_scraper') }}
     Best flight option, hotel, and 3-day itinerary.
   jsonResponse: true
   jsonResponseKeys: [flight, hotel, itinerary]

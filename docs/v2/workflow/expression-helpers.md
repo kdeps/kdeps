@@ -273,10 +273,9 @@ urlencode(str)
 ```yaml
 # resources/example.yaml
 component:
-  name: browser
+  name: web_scraper
   with:
     url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
-    action: getText
 ```
 
 </div>
@@ -313,10 +312,9 @@ ternary(condition, trueVal, falseVal)
 ```yaml
 # resources/example.yaml
 component:
-  name: browser
+  name: web_scraper
   with:
     url: "https://example.com/jobs?remote={{ ternary(get('remote_only') == 'true', '2', '') }}"
-    action: getText
 ```
 
 </div>

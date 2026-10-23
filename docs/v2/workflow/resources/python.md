@@ -110,11 +110,11 @@ component:
     venvName: "datascience-env"
     packages: ["pandas", "numpy"]
 
-# resources/scraper.yaml -- separate venv, separate package set
+# resources/html-tools.yaml -- separate venv, separate package set
 component:
   name: python
   with:
-    venvName: "scraper-env"
+    venvName: "html-env"
     packages: ["requests", "beautifulsoup4"]
 ```
 

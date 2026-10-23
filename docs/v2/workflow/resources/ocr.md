@@ -1,6 +1,6 @@
 # OCR component
 
-The `ocr` component extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) - fully local, no API key, no network call. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The component is a thin client: the tesseract call itself is declared in the `ocr_image` tool asset and runs in the kdeps API.
+The `ocr_image` component extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) - fully local, no API key, no network call. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The component is a thin client: the tesseract call itself is declared in the `ocr_image` tool asset and runs in the kdeps API.
 
 ## Where it runs
 
@@ -8,14 +8,14 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the sa
 
 ## Requirements
 
-The `tesseract` binary on `PATH` (`apt install tesseract-ocr`, `brew install tesseract`). `kdeps build` installs `tesseract-ocr` in the image for you: the component's `setup.osPackages` lists it.
+The `tesseract` binary on `PATH` (`apt install tesseract-ocr`, `brew install tesseract`). When it is missing, kdeps installs `tesseract-ocr` from the tool asset's `exec.install` on the next run, and `kdeps build` bakes it into the image.
 
 ## Basic usage
 
 ```text
-component: ocr -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/ocr_image/call
-               -> tools/ocr_image.yaml exec: tesseract <file> stdout -l <language> --psm <psm> --oem <oem>
-               -> .stdout = the text
+component: ocr_image -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/ocr_image/call
+                    -> tools/ocr_image.yaml exec: tesseract <file> stdout -l <language> --psm <psm> --oem <oem>
+                    -> .stdout = the text
 ```
 
 ```yaml
@@ -23,7 +23,7 @@ component: ocr -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/ocr_image/c
 actionId: ocr
 name: Extract Text
 component:
-  name: ocr                        # from the components asset set; a components/ocr/ of your own wins
+  name: ocr_image                  # from the components asset set; a components/ocr_image/ of your own wins
   with:
     file: /data/scanned-invoice.png  # required
 ```
@@ -35,7 +35,7 @@ requires: [ocr]
 apiResponse:
   success: true
   response:
-    text: "{{ output('ocr').stdout }}"   # the component returns an exec result; the text is .stdout
+    text: "{{ output('ocr') }}"   # the component output is the extracted text
 ```
 
 ## Inputs
@@ -49,7 +49,7 @@ apiResponse:
 
 ```yaml
 component:
-  name: ocr
+  name: ocr_image
   with:
     file: /data/receipt.jpg
     psm: 6   # a single uniform block of text
@@ -57,38 +57,31 @@ component:
 
 ## Output
 
-The `exec` result shape the component always returned, built from the tool's text:
+The extracted text, as a string:
 
 ```json
-{"success": true, "exitCode": 0, "stdout": "kdeps OCR Sample\n", "stderr": ""}
+"kdeps OCR Sample\n"
 ```
 
 A missing `tesseract` binary fails the call: the API returns `400`, and the component's `failOnError: true` stops the workflow.
 
 ## The component itself
 
-`kdeps update components/ocr` refreshes it. To change how it runs, copy it into your project's `components/ocr/component.yaml` - a local component with the same name wins:
+`kdeps update components/ocr_image` refreshes it. To change how it runs, copy it into your project's `components/ocr_image/component.yaml` - a local component with the same name wins:
 
 ```yaml
-# components/ocr/component.yaml (as shipped, abridged)
+# components/ocr_image/component.yaml (as shipped, abridged)
 apiVersion: kdeps.io/v1
 kind: Component
 metadata:
-  name: ocr
+  name: ocr_image
 interface:
   inputs:
     - {name: file, type: string, required: true}
     - {name: language, type: string, default: eng}
     - {name: psm, type: integer, default: 3}
     - {name: oem, type: integer, default: 3}
-  output:
-    stdout: "{{ output('call').body }}"   # the tool returns the text
-    stderr: ""
-    exitCode: 0
-    success: true
-setup:
-  osPackages: [tesseract-ocr]   # installed by kdeps build
-  provides: [tesseract]         # already on PATH: no package manager runs
+  output: "{{ output('call').body }}"   # the tool returns the text
 resources:
   - actionId: call
     httpClient:
@@ -98,10 +91,10 @@ resources:
       failOnError: true
       timeout: 60s
       data:
-        file: "{{ get('ocr.file') }}"
-        language: "{{ get('ocr.language') }}"
-        psm: "{{ get('ocr.psm') }}"
-        oem: "{{ get('ocr.oem') }}"
+        file: "{{ get('ocr_image.file') }}"
+        language: "{{ get('ocr_image.language') }}"
+        psm: "{{ get('ocr_image.psm') }}"
+        oem: "{{ get('ocr_image.oem') }}"
 ```
 
 The tesseract command line lives in `tools/ocr_image.yaml`, the same tool the agent loop uses:
@@ -131,5 +124,5 @@ exec:
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [Transcribe component](/workflow/resources/transcribe) - the equivalent offline pattern for audio (`whisper-cpp` backend)
+- [Transcribe components](/workflow/resources/transcribe) - the equivalent pattern for audio
 - [Resources overview](/workflow/resources) - all resource types

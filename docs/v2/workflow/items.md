@@ -209,7 +209,7 @@ chat:
   classify each ticket, translate each string).
 - Generate a multi-section document one section at a time, using `get('prev')`
   and `get('next')` for continuity.
-- Fan a fixed list of URLs, files, or IDs through the `http_request`, `scraper`,
+- Fan a fixed list of URLs, files, or IDs through the `http_request`, `web_scraper`,
   or `sql` component and collect the results.
 
 ## See also

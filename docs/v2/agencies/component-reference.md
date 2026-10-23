@@ -136,7 +136,7 @@ Inputs from `with:` are injected under two scoped keys, so the same component ca
 | Key pattern | Example |
 |---|---|
 | `<callerActionId>.<inputName>` | `fetch-cv.url` |
-| `<componentName>.<inputName>` | `scraper.url` |
+| `<componentName>.<inputName>` | `web_scraper.url` |
 
 ## Accessing component output
 
@@ -149,10 +149,9 @@ After `component:` executes, results are stored under the caller resource's `act
 actionId: fetch-article
 name: Fetch Article
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "https://example.com/article"
-    selector: ".content"
 ```
 
 ```yaml
@@ -177,7 +176,7 @@ Inputs are scoped to the caller's `actionId`, so the same component works with d
 actionId: fetch-jd
 name: Fetch Job Description
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "{{ get('jd_url') }}"
 ```
@@ -187,10 +186,9 @@ component:
 actionId: fetch-company
 name: Fetch Company Page
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "{{ get('company_url') }}"
-    timeout: 60
 ```
 
 </div>
@@ -218,20 +216,18 @@ At parse time, kdeps scans for `components/<name>/component.yaml` files in the s
 ## Installing from the registry
 
 ```bash
-kdeps install scraper
-kdeps install search
-kdeps install embedding
-kdeps install browser
-kdeps install calculator       # evaluate arithmetic expressions
-kdeps install weather-converter # convert temperatures (C/F/K)
+kdeps install scraper-native
+kdeps install chatbot
+kdeps install embedding-rag
+kdeps install ./my-component-1.0.0.komponent
 # ... and more
 ```
 
 Installed components are placed in `components/` and auto-discovered.
 
 ```bash
-kdeps list              # List installed components
-kdeps uninstall scraper # Uninstall a component
+kdeps list                       # List installed components
+kdeps uninstall scraper-native   # Uninstall a component
 ```
 
 ## Components as LLM tools
@@ -243,8 +239,8 @@ Installed components can be exposed as LLM tools via `componentTools:` on `chat:
 chat:
   prompt: "Research {{ get('q') }} and summarize."
   componentTools:
-    - scraper
-    - search
+    - web_scraper
+    - web_search
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. Rules:
@@ -286,7 +282,7 @@ When a component executes, kdeps checks for a component-scoped env var before fa
 
 | Component name | `env('OPENAI_API_KEY')` checks first | then falls back to |
 |---|---|---|
-| `scraper` | `SCRAPER_OPENAI_API_KEY` | `OPENAI_API_KEY` |
+| `web_scraper` | `WEB_SCRAPER_OPENAI_API_KEY` | `OPENAI_API_KEY` |
 | `my-bot` | `MY_BOT_TELEGRAM_TOKEN` | `TELEGRAM_TOKEN` |
 
 ### `.env` file support
@@ -299,15 +295,15 @@ Components auto-load a `.env` file from their directory as a lowest-priority fal
 
 ```
 components/
-  scraper/
+  web_scraper/
     component.yaml
-    .env            ← auto-loaded when scraper runs
+    .env            ← auto-loaded when web_scraper runs
 ```
 
 Example `.env`:
 ```bash
 OPENAI_API_KEY=sk-my-key
-SCRAPER_TIMEOUT=30
+WEB_SCRAPER_TIMEOUT=30
 ```
 
 kdeps only reads a component's `.env`; it never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).

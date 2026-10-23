@@ -232,8 +232,8 @@ LLM generates final response
   guessing (`script:` pointing at a component call such as `python` or `exec`).
 - Give the model read access to a filesystem, an API, or another service
   through an external MCP server (`mcp:`).
-- Chain capabilities: the model calls a search tool, then a scraper tool, then
-  summarizes - each tool is a resource the model invokes on demand.
+- Chain capabilities: the model calls `web_search`, then `web_scraper` on a
+  result, then summarizes - each tool is a resource the model invokes on demand.
 
 ## See also
 

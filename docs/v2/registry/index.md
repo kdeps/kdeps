@@ -12,7 +12,7 @@ agent never touches the registry - it is purely a way to share work by name.
 
 ```bash
 kdeps search scraper            # find packages
-kdeps install scraper           # add one to the current project
+kdeps install scraper-native    # add one to the current project
 kdeps submit --tag v1.2.0       # generate a formula to publish yours via PR
 ```
 

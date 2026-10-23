@@ -105,7 +105,7 @@ A failed operation does not return this map: the call fails and `onError:` on th
 # Step 1: Scrape content
 actionId: fetch
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "{{ get('url') }}"
 
