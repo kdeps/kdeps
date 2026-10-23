@@ -18,9 +18,8 @@
 
 package agent
 
-// MINE-07/08/09: Task, Team, Cron, and Approval Token tools.
-// Wires the real in-memory registries (GlobalTaskRegistry, GlobalTeamRegistry,
-// GlobalCronRegistry, GlobalApprovalTokenRegistry) as callable LLM tools.
+// Approval token tools: the in-memory GlobalApprovalTokenRegistry as callable
+// LLM tools.
 
 import (
 	"context"
@@ -33,7 +32,7 @@ import (
 // The call route lives in pkg/api. This package owns the registries, so the
 // handler reaches them through the setters.
 //
-//nolint:gochecknoinits // wires task and team tools before any call
+//nolint:gochecknoinits // wires the approval and instruct backends before any call
 func init() {
 	api.SetApprovalBackend(approvalAPIBackend{})
 	// Workflow mode has no agent registry; the agent loop replaces this with
@@ -43,14 +42,6 @@ func init() {
 
 // Approval token default duration.
 const approvalTokenDuration = 5 * time.Minute
-
-// --- Task Tools ---
-
-// --- Team Tools ---
-
-// --- Cron Tools ---
-
-// --- Approval Token Tools ---
 
 func registerApprovalTokenTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "approval_grant", api.ApprovalGrant)

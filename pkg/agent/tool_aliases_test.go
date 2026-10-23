@@ -34,8 +34,6 @@ var canonicalToolNames = map[string]bool{
 	"search_local": true, "read_file": true, "write_file": true, "edit_file": true,
 	"list_files": true, "bash_exec": true, "web_search": true, "web_scraper": true,
 	"http_request": true, "calculator": true, "wikipedia": true,
-	"code_definition": true, "code_references": true, "code_hover": true,
-	"code_symbols": true, "code_diagnostics": true, "code_search": true,
 	"sql_query": true, "sql_list_tables": true, "sql_describe_table": true,
 	"load_document": true, "transcribe_audio": true, "retrieve_context": true,
 	"memory_save": true, "memory_search": true, "memory_delete": true,

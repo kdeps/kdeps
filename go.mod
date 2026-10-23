@@ -16,8 +16,6 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/chzyer/readline v1.5.1
 	github.com/creack/pty v1.1.24
-	github.com/emersion/go-imap/v2 v2.0.0-beta.8
-	github.com/emersion/go-message v0.18.2
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sql-driver/mysql v1.10.1
@@ -28,7 +26,6 @@ require (
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
-	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/minio/selfupdate v0.6.0
 	github.com/moby/moby/api v1.56.1
@@ -37,7 +34,6 @@ require (
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.30.1
 	github.com/spf13/afero v1.15.0
@@ -49,6 +45,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.etcd.io/bbolt v1.5.0
 	go.mongodb.org/mongo-driver v1.17.10
+	go.mongodb.org/mongo-driver/v2 v2.4.2
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.61.0
@@ -124,7 +121,6 @@ require (
 	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
@@ -159,6 +155,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.27 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -199,7 +196,6 @@ require (
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a // indirect
 	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
-	go.mongodb.org/mongo-driver/v2 v2.4.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect

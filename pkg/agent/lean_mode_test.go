@@ -48,7 +48,6 @@ func TestLeanModeToolFilter(t *testing.T) {
 		"edit_file",
 		"bash_exec",
 		"web_search",
-		"code_search",
 		"calculator",
 		"http_request",
 		"wikipedia",
@@ -58,11 +57,6 @@ func TestLeanModeToolFilter(t *testing.T) {
 		"load_document",
 		"transcribe_audio",
 		"search_local",
-		"code_definition",
-		"code_references",
-		"code_symbols",
-		"code_hover",
-		"code_diagnostics",
 		"list_files",
 		// Excluded: exa_search,
 		// zapier_list_actions, zapier_run_action, wolfram_alpha,
@@ -74,7 +68,7 @@ func TestLeanModeToolFilter(t *testing.T) {
 	filtered := LeanModeToolFilter(allTools)
 	assert.Contains(t, filtered, "read_file")
 	assert.Contains(t, filtered, "write_file")
-	assert.Contains(t, filtered, "code_search")
+	assert.Contains(t, filtered, "list_files")
 	assert.Contains(t, filtered, "calculator")
 	assert.Contains(t, filtered, "search_local")
 	assert.Contains(t, filtered, "load_document")
@@ -101,7 +95,7 @@ func TestLeanModeToolFilter(t *testing.T) {
 }
 
 func TestLeanModeToolFilter_AllAllowed(t *testing.T) {
-	names := []string{"read_file", "write_file", "edit_file", "code_search", "calculator"}
+	names := []string{"read_file", "write_file", "edit_file", "search_local", "calculator"}
 	filtered := LeanModeToolFilter(names)
 	assert.Equal(t, names, filtered)
 }

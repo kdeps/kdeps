@@ -46,8 +46,8 @@ func excluded(reason string) interpolationFieldStatus {
 
 // interpolationManifest is the hard list: one entry per resource action
 // config struct fixed for interpolation coverage in this pass (see
-// pkg/executor/{scraper,embedding,loader,vectorstore,searchlocal,searchweb,
-// codeintelligence}/executor_eval.go), naming every
+// pkg/executor/{embedding,loader,vectorstore,searchlocal}/executor_eval.go),
+// naming every
 // string/[]string field and classifying it interpolatable or excluded.
 //
 // TestInterpolationManifest_MatchesStructFields below reflects over each
@@ -55,9 +55,8 @@ func excluded(reason string) interpolationFieldStatus {
 // "-", i.e. actually authorable in a resource's YAML) is missing from its
 // entry here. Adding a field to one of these structs without updating this
 // manifest breaks the build -- that is the point: new fields cannot silently
-// end up unclassified and unresolved the way scraper/embedding/loader/
-// vectorstore/searchLocal/searchWeb/transcribe/codeIntelligence/git/file's
-// fields all were before this pass (confirmed live: a "file:" resource's
+// end up unclassified and unresolved the way embedding/loader/vectorstore/
+// searchLocal/git/file's fields all were before this pass (confirmed live: a "file:" resource's
 // path: field was passed to the OS as the literal unresolved "{{ ... }}"
 // string).
 //

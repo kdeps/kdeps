@@ -260,7 +260,7 @@ type SQLConnectionConfig struct {
 }
 
 // AccountConfig holds credentials for a named third-party account an agent
-// logs into (e.g. a CRM, a website for browser automation) -- distinct from
+// logs into (e.g. a CRM or a SaaS dashboard) -- distinct from
 // the SMTP/IMAP/bot connections above, which are for kdeps' own outbound
 // integrations, not a general "the agent authenticates as this identity"
 // concept.

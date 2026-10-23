@@ -94,27 +94,8 @@ func IsRecognizedResourceActionKey(name string) bool {
 type componentBackedAction struct {
 	Name      string
 	Component string
-	// ResourceComponent overrides Component when the target component depends
-	// on the resource config.
-	ResourceComponent func(*Resource) string
-	// InlineComponent is ResourceComponent for a before:/after: step.
-	InlineComponent func(*ActionConfig) string
-	Resource        func(*Resource) bool
-	Inline          func(*ActionConfig) bool
-}
-
-func (a componentBackedAction) componentForResource(r *Resource) string {
-	if a.ResourceComponent != nil {
-		return a.ResourceComponent(r)
-	}
-	return a.Component
-}
-
-func (a componentBackedAction) componentForInline(step *ActionConfig) string {
-	if a.InlineComponent != nil {
-		return a.InlineComponent(step)
-	}
-	return a.Component
+	Resource  func(*Resource) bool
+	Inline    func(*ActionConfig) bool
 }
 
 //nolint:gochecknoglobals // registry table
@@ -172,7 +153,7 @@ func ComponentBackedAction(r *Resource) (string, string, bool) {
 	}
 	for _, entry := range componentBackedActions {
 		if entry.Resource(r) {
-			return entry.Name, entry.componentForResource(r), true
+			return entry.Name, entry.Component, true
 		}
 	}
 	return "", "", false
@@ -185,7 +166,7 @@ func ComponentBackedInlineAction(a *ActionConfig) (string, string, bool) {
 	}
 	for _, entry := range componentBackedActions {
 		if entry.Inline(a) {
-			return entry.Name, entry.componentForInline(a), true
+			return entry.Name, entry.Component, true
 		}
 	}
 	return "", "", false
