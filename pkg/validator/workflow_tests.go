@@ -21,12 +21,14 @@ package validator
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/selftest"
 )
 
-// ValidateTestCases validates self-test case definitions.
+// ValidateTestCases validates test case definitions.
 func ValidateTestCases(tests []domain.TestCase) error {
 	kdeps_debug.Log("enter: ValidateTestCases")
 	for i, tc := range tests {
@@ -62,6 +64,70 @@ func ValidateTestCases(tests []domain.TestCase) error {
 				nil,
 			)
 		}
+		if err := validateCaseTimeout(tc); err != nil {
+			return err
+		}
+		if err := validateJSONPathAssertions(tc); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func validateCaseTimeout(tc domain.TestCase) error {
+	if tc.Timeout == "" {
+		return nil
+	}
+	d, err := time.ParseDuration(tc.Timeout)
+	if err != nil || d <= 0 {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf("test %q: invalid timeout %q (use a positive duration such as 30s)", tc.Name, tc.Timeout),
+			nil,
+		)
+	}
+	return nil
+}
+
+func validateJSONPathAssertions(tc domain.TestCase) error {
+	if tc.Assert.Body == nil {
+		return nil
+	}
+	for _, check := range tc.Assert.Body.JSONPath {
+		if !selftest.ValidJSONPath(check.Path) {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"test %q: invalid jsonPath %q (use $, .key, and [n] steps)",
+					tc.Name, check.Path,
+				),
+				nil,
+			)
+		}
+		if countJSONPathChecks(check) != 1 {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"test %q: jsonPath %q needs exactly one of equals, contains, or exists",
+					tc.Name, check.Path,
+				),
+				nil,
+			)
+		}
+	}
+	return nil
+}
+
+func countJSONPathChecks(check domain.TestJSONPath) int {
+	count := 0
+	if check.Equals != nil {
+		count++
+	}
+	if check.Contains != "" {
+		count++
+	}
+	if check.Exists != nil {
+		count++
+	}
+	return count
 }

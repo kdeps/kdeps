@@ -371,16 +371,28 @@ func validateWorkspace(path string) error {
 // PathWithinRoot reports whether path is root itself or lies under it,
 // resolving symlinks on both sides when possible so a symlinked escape
 // route is still caught. A path that doesn't exist yet (write_file creating
-// a new file) falls back to a lexical comparison.
+// a new file) resolves through its longest existing ancestor, so it is
+// compared against the real root rather than the lexical spelling.
 func PathWithinRoot(path, root string) bool {
-	canonical, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		canonical = filepath.Clean(path)
-	}
-	rootCanonical, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		rootCanonical = filepath.Clean(root)
-	}
+	canonical := resolveExistingPrefix(path)
+	rootCanonical := resolveExistingPrefix(root)
 	return canonical == rootCanonical ||
 		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
+}
+
+// resolveExistingPrefix canonicalizes path by resolving symlinks on its
+// longest existing ancestor and appending the missing remainder. EvalSymlinks
+// alone fails for a path that is about to be created, and falling back to
+// the lexical spelling misses a symlinked root - on macOS tempdir and /tmp
+// are both symlinks into /private, so every new file would look outside.
+func resolveExistingPrefix(path string) string {
+	clean := filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(clean); err == nil {
+		return resolved
+	}
+	parent := filepath.Dir(clean)
+	if parent == clean {
+		return clean
+	}
+	return filepath.Join(resolveExistingPrefix(parent), filepath.Base(clean))
 }

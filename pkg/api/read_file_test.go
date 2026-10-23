@@ -243,6 +243,36 @@ func TestReadFile_Workspace(t *testing.T) {
 	}
 }
 
+func TestPathWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	if !PathWithinRoot(root, root) {
+		t.Fatal("the root is inside itself")
+	}
+	// A path that does not exist yet is still inside: its longest existing
+	// ancestor is the root, which resolves through a symlink on macOS where
+	// the tempdir (and /tmp) live under /private.
+	if !PathWithinRoot(filepath.Join(root, "new.txt"), root) {
+		t.Fatal("a missing file directly under the root is inside it")
+	}
+	if !PathWithinRoot(filepath.Join(root, "a", "b", "new.txt"), root) {
+		t.Fatal("a missing nested path under the root is inside it")
+	}
+	if PathWithinRoot(filepath.Join(root, "..", "sibling.txt"), root) {
+		t.Fatal("a parent-relative escape is outside the root")
+	}
+	outside := t.TempDir()
+	if PathWithinRoot(filepath.Join(outside, "new.txt"), root) {
+		t.Fatal("a missing file in another tree is outside the root")
+	}
+	link := filepath.Join(root, "escape")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	if PathWithinRoot(filepath.Join(link, "new.txt"), root) {
+		t.Fatal("a missing file behind an escaping symlink is outside the root")
+	}
+}
+
 func TestReadFile_LimitHook(t *testing.T) {
 	restoreLimit(t)
 	path := writeTemp(t, "ab")

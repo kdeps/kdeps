@@ -230,6 +230,7 @@ export default defineConfig({
             { text: 'Function calling', link: '/workflow/tools' },
             { text: 'Error handling (onError)', link: '/workflow/error-handling' },
             { text: 'Validation and control', link: '/workflow/validation' },
+            { text: 'Test a workflow', link: '/workflow/testing' },
             { text: 'Items iteration', link: '/workflow/items' },
             { text: 'While-loop', link: '/workflow/loop' },
             { text: 'Inline resources', link: '/workflow/inline-resources' },
