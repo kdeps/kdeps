@@ -1,14 +1,14 @@
 # component-input-source
 
-Demonstrates the **`component` input source** - a workflow designed to be invoked exclusively via `run.component` from a parent workflow.
+A sub-workflow designed to be invoked from a parent workflow with a `component:` resource.
 
-When `sources: [component]` is declared, kdeps starts **no HTTP server, bot listener, or file reader**. The workflow is driven entirely by component calls from a parent.
+It declares `sources: [api]` and has no `settings.apiServer`, so kdeps starts no HTTP server, bot listener, or file reader. All input arrives through the calling resource's `with:` map.
 
 ## Structure
 
 ```
 component-input-source/
-├── workflow.yaml          # sources: [component]
+├── workflow.yaml          # sources: [api], no apiServer
 └── resources/
     └── transform.yaml     # transforms text via Python
 ```
@@ -33,27 +33,17 @@ Then access the result:
 "{{ output('myActionId') }}"  # {"original":"hello world","style":"title","result":"Hello World"}
 ```
 
-## The `component` Source
+## Input Settings
 
 ```yaml
 settings:
   input:
-    sources: [component]
-    component:
-      description: "Transforms text to uppercase, lowercase, or title case."
+    sources: [api]   # the only sources are api, bot and file
 ```
 
-- `sources: [component]` - no listener is started; the workflow only runs when called via `run.component`
-- `component.description` - surfaced by `kdeps component list` and `kdeps component info`
-
-## Difference from `sources: [api]`
-
-| | `api` | `component` |
-|---|---|---|
-| HTTP server started | Yes | No |
-| Callable via `run.component` | Yes | Yes |
-| Callable via HTTP request | Yes | No |
-| Listed by `kdeps component list` | Yes | Yes |
+- `sources: [api]` names the input kind; the HTTP server starts only when `settings.apiServer` is set.
+- With no `apiServer`, `webServer`, bot or file source, the workflow does not listen on anything; it runs when a parent calls it.
+- There is no `component` input source and no `component:` block under `settings.input`; a sub-workflow is identified by the parent's `component:` resource.
 
 ## Validate
 

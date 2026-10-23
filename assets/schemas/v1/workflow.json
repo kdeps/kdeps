@@ -121,52 +121,50 @@
                 "type": "string",
                 "enum": [
                   "api",
-                  "audio",
-                  "video",
-                  "telephony",
                   "bot",
-                  "file",
-                  "component",
-                  "llm"
+                  "file"
                 ]
               }
             },
-            "audio": {
+            "bot": {
               "type": "object",
               "properties": {
-                "device": {
-                  "type": "string"
-                }
-              }
-            },
-            "video": {
-              "type": "object",
-              "properties": {
-                "device": {
-                  "type": "string"
-                }
-              }
-            },
-            "telephony": {
-              "type": "object",
-              "required": [
-                "type"
-              ],
-              "properties": {
-                "type": {
+                "executionType": {
                   "type": "string",
                   "enum": [
-                    "local",
-                    "online"
+                    "polling",
+                    "stateless"
                   ]
                 },
-                "device": {
-                  "type": "string"
+                "discord": {
+                  "type": "object",
+                  "properties": {
+                    "guildId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 },
-                "provider": {
-                  "type": "string"
+                "slack": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "telegram": {
+                  "type": "object",
+                  "properties": {
+                    "pollIntervalSeconds": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "file": {
               "type": "object",
@@ -174,200 +172,11 @@
                 "path": {
                   "type": "string"
                 }
-              }
-            },
-            "component": {
-              "type": "object",
-              "properties": {
-                "description": {
-                  "type": "string"
-                }
-              }
-            },
-            "llm": {
-              "type": "object",
-              "properties": {
-                "executionType": {
-                  "type": "string",
-                  "enum": [
-                    "stdin",
-                    "apiServer"
-                  ]
-                },
-                "prompt": {
-                  "type": "string"
-                },
-                "sessionId": {
-                  "type": "string"
-                }
-              }
-            },
-            "transcriber": {
-              "type": "object",
-              "required": [
-                "mode"
-              ],
-              "properties": {
-                "mode": {
-                  "type": "string",
-                  "enum": [
-                    "online",
-                    "offline"
-                  ]
-                },
-                "output": {
-                  "type": "string",
-                  "enum": [
-                    "text",
-                    "media"
-                  ]
-                },
-                "language": {
-                  "type": "string"
-                },
-                "online": {
-                  "type": "object",
-                  "required": [
-                    "provider"
-                  ],
-                  "properties": {
-                    "provider": {
-                      "type": "string",
-                      "enum": [
-                        "openai-whisper",
-                        "google-stt",
-                        "aws-transcribe",
-                        "deepgram",
-                        "assemblyai"
-                      ]
-                    },
-                    "apiKey": {
-                      "type": "string"
-                    },
-                    "region": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "offline": {
-                  "type": "object",
-                  "required": [
-                    "engine"
-                  ],
-                  "properties": {
-                    "engine": {
-                      "type": "string",
-                      "enum": [
-                        "whisper",
-                        "faster-whisper",
-                        "vosk",
-                        "whisper-cpp"
-                      ]
-                    },
-                    "model": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            },
-            "activation": {
-              "type": "object",
-              "required": [
-                "phrase",
-                "mode"
-              ],
-              "properties": {
-                "phrase": {
-                  "type": "string"
-                },
-                "mode": {
-                  "type": "string",
-                  "enum": [
-                    "online",
-                    "offline"
-                  ]
-                },
-                "sensitivity": {
-                  "type": "number",
-                  "minimum": 0,
-                  "maximum": 1
-                },
-                "chunkSeconds": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "online": {
-                  "type": "object",
-                  "required": [
-                    "provider"
-                  ],
-                  "properties": {
-                    "provider": {
-                      "type": "string",
-                      "enum": [
-                        "openai-whisper",
-                        "google-stt",
-                        "aws-transcribe",
-                        "deepgram",
-                        "assemblyai"
-                      ]
-                    },
-                    "apiKey": {
-                      "type": "string"
-                    },
-                    "region": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "offline": {
-                  "type": "object",
-                  "required": [
-                    "engine"
-                  ],
-                  "properties": {
-                    "engine": {
-                      "type": "string",
-                      "enum": [
-                        "whisper",
-                        "faster-whisper",
-                        "vosk",
-                        "whisper-cpp"
-                      ]
-                    },
-                    "model": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
+              },
+              "additionalProperties": false
             }
           },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "sources": {
-                    "contains": {
-                      "const": "telephony"
-                    }
-                  }
-                }
-              },
-              "then": {
-                "required": [
-                  "telephony"
-                ]
-              }
-            }
-          ]
+          "additionalProperties": false
         },
         "certFile": {
           "type": "string"

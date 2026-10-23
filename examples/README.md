@@ -154,11 +154,10 @@ cd auto-env && kdeps run workflow.yaml
 ```
 
 ### 🔌 [Component Input Source](./component-input-source/)
-A sub-workflow designed to be called exclusively via `run.component`. Declares `sources: [component]` so no HTTP server or listener is started.
-- `sources: [component]` - no listener started, driven by parent
+A sub-workflow designed to be called from a parent workflow with a `component:` resource.
+- `sources: [api]` with no `apiServer` - no listener starts; the parent's `with:` map is the input
 - Reusable text-transformation sub-module
-- Access via `run.component` from any parent workflow
-- Demonstrates `component.description` field
+- Invoked from any parent workflow's `component:` resource
 
 **Invoke from a parent:**
 ```bash

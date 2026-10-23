@@ -21,8 +21,7 @@ settings:
     sources: [bot]
     bot:
       executionType: polling
-      telegram:
-        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+      telegram: {}   # presence enables the platform; credentials are in ~/.kdeps/config.yaml bot_connections
 ```
 
 ```yaml
