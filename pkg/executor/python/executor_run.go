@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"time"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -105,14 +106,25 @@ func (e *Executor) executeScript(
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	var timedOut atomic.Bool
 	cmdTimeout := time.AfterFunc(timeout, func() {
+		timedOut.Store(true)
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
 		}
 	})
 	defer cmdTimeout.Stop()
 
-	err := cmd.Run()
+	if startErr := cmd.Start(); startErr != nil {
+		return nil, fmt.Errorf("python execution failed: %w", startErr)
+	}
+	// The timer can fire before Start publishes cmd.Process, which is common
+	// on Windows for timeouts shorter than process creation. Kill here so the
+	// command still aborts instead of running to completion.
+	if timedOut.Load() {
+		_ = cmd.Process.Kill()
+	}
+	err := cmd.Wait()
 	cmdTimeout.Stop()
 
 	if maxOutputBytes > 0 && int64(stdout.Len()) > maxOutputBytes {

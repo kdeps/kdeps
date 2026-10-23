@@ -30,6 +30,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
@@ -62,11 +63,14 @@ type commandUsage struct {
 }
 
 // commandStep is one step of a declared command: exactly one of a slash
-// command to run or a prompt to send. Both take the command's arguments as
-// $1, $2, ..., $ARGUMENTS (see substituteArgs).
+// command to run, a prompt to send, or a kdeps API tool to call. Each takes
+// the command's arguments as $1, $2, ..., $ARGUMENTS (see substituteArgs); for
+// a tool step, in the string values of args.
 type commandStep struct {
-	Command string `yaml:"command,omitempty"`
-	Prompt  string `yaml:"prompt,omitempty"`
+	Command string         `yaml:"command,omitempty"`
+	Prompt  string         `yaml:"prompt,omitempty"`
+	Tool    string         `yaml:"tool,omitempty"` // a kdeps API tool, called with Args
+	Args    map[string]any `yaml:"args,omitempty"` // the tool's arguments
 }
 
 type slashCommand struct {
@@ -149,11 +153,19 @@ func (c *slashCommand) validateDeclared() error {
 		return errors.New("run is required")
 	}
 	for i, s := range c.Run {
+		set := 0
+		for _, v := range []string{s.Command, s.Prompt, s.Tool} {
+			if v != "" {
+				set++
+			}
+		}
 		switch {
-		case (s.Command == "") == (s.Prompt == ""):
-			return fmt.Errorf("run step %d needs exactly one of command or prompt", i+1)
+		case set != 1:
+			return fmt.Errorf("run step %d needs exactly one of command, prompt or tool", i+1)
 		case s.Command != "" && !strings.HasPrefix(s.Command, "/"):
 			return fmt.Errorf("run step %d: command must start with /", i+1)
+		case s.Args != nil && s.Tool == "":
+			return fmt.Errorf("run step %d: args belong to a tool step", i+1)
 		}
 	}
 	return nil
@@ -295,6 +307,16 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 			}
 			continue
 		}
+		if s.Tool != "" {
+			out, err := api.CallTool(r.ctx, s.Tool, toolStepArgs(s.Args, args))
+			if err != nil {
+				return fmt.Errorf("/%s: %w", c.Name, err)
+			}
+			if out != "" {
+				emit(out)
+			}
+			continue
+		}
 		r.history = append(r.history, "/"+c.Name)
 		resp, err := r.runWithThinking(r.ctx, substituteArgs(s.Prompt, args))
 		if err != nil {
@@ -305,4 +327,17 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 		}
 	}
 	return nil
+}
+
+// toolStepArgs is a tool step's args with the command's arguments substituted
+// into its string values.
+func toolStepArgs(stepArgs map[string]any, args []string) map[string]any {
+	out := make(map[string]any, len(stepArgs))
+	for k, v := range stepArgs {
+		if str, ok := v.(string); ok {
+			v = substituteArgs(str, args)
+		}
+		out[k] = v
+	}
+	return out
 }

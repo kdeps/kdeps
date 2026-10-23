@@ -23,6 +23,7 @@ import (
 	execpkg "os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -203,4 +204,25 @@ func TestExecutor_Run_Timeout(t *testing.T) {
 	_, err := exec.Run(&domain.PythonConfig{Script: "time.sleep(5)", Timeout: "10ms"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "python execution failed")
+}
+
+// TestExecutor_Run_TimeoutAbortsPromptly pins the timeout to process start:
+// a timer that fires before cmd.Process exists must still kill the command
+// instead of letting it run to completion (a Windows CI failure mode where
+// process creation outlasted a 10ms timeout).
+func TestExecutor_Run_TimeoutAbortsPromptly(t *testing.T) {
+	mgr := &recordingUVManager{venvPath: "/mock/venv", pythonBin: "/mock/venv/bin/python"}
+	exec := pythonexecutor.NewExecutor(mgr)
+	exec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
+		// exec keeps the sleep in the killed process: a forked grandchild
+		// would hold the output pipe open and keep Wait blocked for the
+		// full 5s on shells that do not exec the last command (Ubuntu CI).
+		return execpkg.Command("sh", "-c", "exec sleep 5")
+	})
+
+	started := time.Now()
+	_, err := exec.Run(&domain.PythonConfig{Script: "time.sleep(5)", Timeout: "1ms"}, "", nil)
+	require.Error(t, err)
+	assert.Less(t, time.Since(started), 2*time.Second,
+		"a timed-out command must abort instead of running to completion")
 }

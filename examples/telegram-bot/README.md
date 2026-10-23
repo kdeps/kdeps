@@ -105,12 +105,21 @@ scenario:
 Add a `discord` block to `workflow.yaml`:
 
 ```yaml
+# workflow.yaml
 bot:
   executionType: polling
+  discord: {}    # presence enables the platform
+  telegram: {}
+```
+
+Credentials live in `~/.kdeps/config.yaml`, not in the workflow:
+
+```yaml
+bot_connections:
   discord:
-    botToken: "{{ env('DISCORD_BOT_TOKEN') }}"
+    botToken: "${DISCORD_BOT_TOKEN}"
   telegram:
-    botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+    botToken: "${TELEGRAM_BOT_TOKEN}"
 ```
 
 ## See Also

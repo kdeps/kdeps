@@ -68,9 +68,9 @@ Access individual fields from the output:
 
 ## When to Use the `input` Component
 
-The `input` component is most useful in workflows that declare `sources: [component]` — i.e., sub-workflows designed to be called by a parent. The parent passes inputs via `with:`, the sub-workflow uses the `input` component to collect and normalize them, then proceeds with its logic.
+The `input` component is most useful in sub-workflows designed to be called by a parent. The parent passes inputs via the `component:` resource's `with:` map, the sub-workflow uses the `input` component to collect and normalize them, then proceeds with its logic.
 
-See the `component-input-source` example for a complete `sources: [component]` workflow.
+See the `component-input-source` example for a complete sub-workflow.
 
 ## Validate
 

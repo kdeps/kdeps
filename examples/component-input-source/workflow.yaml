@@ -5,18 +5,18 @@ metadata:
   name: component-input-source
   description: |
     A reusable text-transformation sub-workflow designed to be called via
-    run.component from a parent workflow.
+    a component: resource from a parent workflow.
 
-    Declares sources: [api] so no HTTP server, bot listener, or file
-    reader is started.  All input arrives through the calling resource's
-    with: map.
+    Declares sources: [api] with no apiServer, so no HTTP server, bot
+    listener, or file reader is started.  All input arrives through the
+    calling resource's with: map.
 
-    Inputs (passed by parent via run.component with:):
+    Inputs (passed by the parent's component: with: map):
       - text    (required) - the text to transform
       - style   (optional) - "uppercase" | "lowercase" | "title"  (default: uppercase)
 
     Output:
-      run.component result stored under the calling actionId;
+      component result stored under the calling actionId;
       access with output('<callerActionId>') or get('<callerActionId>').
 
     To invoke from a parent workflow:
@@ -32,6 +32,4 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    sources: [api]
-    component:
-      description: "Transforms text to uppercase, lowercase, or title case."
+    sources: [api]   # component calls deliver the with: map; no server starts without apiServer
