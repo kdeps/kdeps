@@ -60,6 +60,7 @@ func rtTool(id string, resultChars int) map[string]any {
 }
 
 func TestWindowToolHistory_UnderBudgetUnchanged(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	h := []map[string]any{
 		{"role": RoleUser, "content": "do a thing"},
 		rtAssistant("c1", 0),
@@ -72,6 +73,7 @@ func TestWindowToolHistory_UnderBudgetUnchanged(t *testing.T) {
 }
 
 func TestWindowToolHistory_DropsOldestKeepsHeadAndRecent(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	h := []map[string]any{
 		{"role": RoleUser, "content": "the question"},
 	}
@@ -116,6 +118,7 @@ func TestWindowToolHistory_DropsOldestKeepsHeadAndRecent(t *testing.T) {
 }
 
 func TestWindowToolHistory_AlwaysKeepsOneRoundTrip(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	h := []map[string]any{
 		{"role": RoleUser, "content": "q"},
 		rtAssistant("c1", 0), rtTool("c1", 120*1024), // each ~30k tokens, alone over budget
@@ -140,6 +143,7 @@ func TestWindowToolHistory_AlwaysKeepsOneRoundTrip(t *testing.T) {
 }
 
 func TestWindowToolHistory_TruncatesOldArgsKeepsValidJSON(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	h := []map[string]any{{"role": RoleUser, "content": "q"}}
 	for i := range 12 {
 		id := "c" + string(rune('A'+i))
@@ -185,6 +189,7 @@ func TestWindowToolHistory_TruncatesOldArgsKeepsValidJSON(t *testing.T) {
 }
 
 func TestWindowToolHistory_NoRoundTripsUnchanged(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	h := []map[string]any{
 		{"role": RoleUser, "content": strings.Repeat("q ", 20*1024)},
 		{"role": RoleAssistant, "content": strings.Repeat("a ", 20*1024)},
@@ -196,6 +201,7 @@ func TestWindowToolHistory_NoRoundTripsUnchanged(t *testing.T) {
 }
 
 func TestWindowToolHistory_Empty(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
 	out, dropped := windowToolHistory(nil, "")
 	if dropped != 0 || out != nil {
 		t.Fatalf("nil in, nil out expected")

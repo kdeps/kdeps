@@ -1720,7 +1720,7 @@ func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
 		Streamer:           ts,
 		MaxToolRounds:      3,
 		AutoRetryMax:       3,
-		AutoRetryBaseDelay: 0, // no delay in tests
+		AutoRetryBaseDelay: time.Millisecond, // 0 means the 2s default
 	})
 
 	var buf bytes.Buffer
@@ -1744,7 +1744,7 @@ func TestRunStreaming_AutoRetry_ExhaustedReturnsError(t *testing.T) {
 		Streamer:           es,
 		MaxToolRounds:      3,
 		AutoRetryMax:       2,
-		AutoRetryBaseDelay: 0,
+		AutoRetryBaseDelay: time.Millisecond,
 	})
 
 	var buf bytes.Buffer
@@ -1795,7 +1795,7 @@ func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 		Streamer:           ms,
 		MaxToolRounds:      5,
 		AutoRetryMax:       3,
-		AutoRetryBaseDelay: 0,
+		AutoRetryBaseDelay: time.Millisecond,
 	})
 
 	var buf bytes.Buffer
@@ -1816,7 +1816,7 @@ func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
 		Streamer:           es,
 		MaxToolRounds:      3,
 		AutoRetryMax:       3,
-		AutoRetryBaseDelay: 0,
+		AutoRetryBaseDelay: time.Millisecond,
 	})
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
@@ -1864,7 +1864,7 @@ func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
 		Streamer:           ts,
 		MaxToolRounds:      3,
 		AutoRetryMax:       3,
-		AutoRetryBaseDelay: 0,
+		AutoRetryBaseDelay: time.Millisecond,
 		ModelService:       svc,
 	})
 

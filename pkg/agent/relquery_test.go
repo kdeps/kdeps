@@ -129,15 +129,11 @@ func TestMemoryRelation_TruncatesToLimitKeepingMostRecent(t *testing.T) {
 	ms.SetCwd("/Users/test/Projects/truncation")
 
 	total := relMemoryLimit() + 5
+	// Filled in memory, not through Set (which writes the store to disk on
+	// every call), each with a distinct, increasing UpdatedAt.
 	for i := range total {
 		key := fmt.Sprintf("key-%04d", i)
-		require.NoError(t, ms.Set(key, "v"))
-		// Force a distinct, increasing UpdatedAt per entry -- Set() alone can
-		// land multiple entries in the same millisecond under a fast loop.
-		e, ok := ms.Get(key)
-		require.True(t, ok)
-		e.UpdatedAt = int64(i)
-		ms.entries[key] = e
+		ms.entries[key] = MemoryEntry{Key: key, Value: "v", CreatedAt: int64(i), UpdatedAt: int64(i)}
 	}
 
 	rows := memoryRelation(ms)
