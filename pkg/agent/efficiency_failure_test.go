@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
@@ -216,6 +217,27 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 	t.Chdir(t.TempDir())
 	reg := tools.NewRegistry()
 	RegisterBuiltinTools(t.Context(), reg)
+	// A Go stand-in with edit_file's rules, so this test of the failure brief
+	// does not depend on the python runner being installed.
+	reg.Register(&tools.Tool{
+		Name: toolNameEditFile, Description: "edit one line", Parameters: map[string]domain.ToolParam{},
+		Execute: func(args map[string]any) (string, error) {
+			p, _ := args[toolParamFilePath].(string)
+			match, _ := args["match"].(string)
+			text, _ := args["text"].(string)
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return "", err
+			}
+			lines := strings.Split(string(data), "\n")
+			i := api.ToInt(args["line"]) - 1
+			if i < 0 || i >= len(lines) || !strings.Contains(lines[i], match) {
+				return "", fmt.Errorf("edit_file: line %d does not contain %q", i+1, match)
+			}
+			lines[i] = strings.Replace(lines[i], match, text, 1)
+			return "edited", os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o600)
+		},
+	})
 	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
