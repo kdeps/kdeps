@@ -2950,7 +2950,7 @@ func (r *REPL) printToolSettings() {
 		{"file-limit", fmt.Sprintf(
 			"%s  (max read_file/list_files per request, 0=unlimited)", callLimitLabel(cfg.FileLimit))},
 		{"code-limit", fmt.Sprintf(
-			"%s  (max search_local/code_search per request, 0=unlimited)", callLimitLabel(cfg.CodeLimit))},
+			"%s  (max search_local per request, 0=unlimited)", callLimitLabel(cfg.CodeLimit))},
 		{"leaf-nodes", fmt.Sprintf(
 			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
 		{"leaf-chars", fmt.Sprintf(
@@ -4961,7 +4961,7 @@ func (r *REPL) cmdKartographer() error {
 	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
 		fmt.Sprintf("file-call-budget event=%d", fm))
 	cc, cm := CodeConvergenceCalls()
-	r.printConvergence("code", "search_local / code_search %s trackCodeCall()", cc, cm,
+	r.printConvergence("code", "search_local %s trackCodeCall()", cc, cm,
 		fmt.Sprintf("code-call-budget event=%d", cm))
 
 	// Compaction

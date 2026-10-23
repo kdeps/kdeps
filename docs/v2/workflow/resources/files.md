@@ -13,6 +13,5 @@ Works in workflow and agent mode.
 ## See also
 
 - [Document summarizer tutorial](/examples/file-processor) - the `file` input source
-- Code intelligence - navigate a source tree
 - [Scripting resources](/workflow/resources/scripting) - shell out to file tools directly
 - [Resources overview](/workflow/resources) - all resource types

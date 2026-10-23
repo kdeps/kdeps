@@ -1,39 +1,38 @@
-# Transcribe component
+# Transcribe components
 
-The `transcribe` component converts speech in an audio file to text with a Whisper model - OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline through a local `whisper-cli` binary with no API key. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its API and offline calls are the kdeps API's `transcribe_audio` and `transcribe_audio_offline` tools; the model download is its `http_request` tool.
+Two kdeps components turn audio into text: `transcribe_audio` calls a Whisper API (OpenAI, Groq, or a self-hosted OpenAI-compatible server), and `transcribe_audio_offline` runs a local `whisper-cli` binary with no API key and no network. Both come from the `components` asset set: call them with a `component:` resource, no install step. Each is a thin client over the kdeps API tools of the same name.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the same job is the two built-in tools `transcribe_audio` (the API backends, a [declared HTTP tool](/agent/tools#declared-http-tools)) and `transcribe_audio_offline` (whisper.cpp, a [declared exec tool](/agent/tools#declared-exec-tools)); the component calls the same two routes.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the same jobs are the built-in tools `transcribe_audio` (a [declared HTTP tool](/agent/tools#declared-http-tools)) and `transcribe_audio_offline` (a [declared exec tool](/agent/tools#declared-exec-tools)); the components call the same two routes.
 
 ## How it runs
 
 ```d2
 direction: right
-call: "component: transcribe" {shape: oval}
+apiCall: "component: transcribe_audio" {shape: oval}
 pick: "backend?" {shape: diamond}
-api: "POST /tools/transcribe_audio/call\nmultipart: file + fields"
-model: "POST /tools/http_request/call\nGET model, saveTo models dir\n(skipped when cached)"
+api: "POST /tools/transcribe_audio/call\nfile + backend + model"
+offlineCall: "component: transcribe_audio_offline" {shape: oval}
 cli: "POST /tools/transcribe_audio_offline/call\n-> exec whisper-cli\n-m model -f file -l lang"
-call -> pick
+apiCall -> pick
 pick -> api: "openai | groq | local"
-pick -> model: "whisper-cpp"
-model -> cli
+offlineCall -> cli
 ```
 
-Each step is a resource of the component gated by `validations.skip`, so only the chosen backend's steps run.
+Each component is one resource that posts to its tool route. The API tool picks the endpoint from `backend`; the offline tool runs `whisper-cli`.
 
-## Basic usage
+## Whisper API
 
 ```yaml
 # resources/transcribe.yaml
 actionId: transcribe
 name: Transcribe Audio
 component:
-  name: transcribe           # from the components asset set; a components/transcribe/ of your own wins
+  name: transcribe_audio        # from the components asset set; a components/transcribe_audio/ of your own wins
   with:
-    file: /data/meeting.mp3  # required
-    backend: openai          # openai (default) | groq | local | whisper-cpp
+    file: /data/meeting.mp3     # required
+    backend: openai             # openai (default) | groq | local
 ```
 
 ```yaml
@@ -43,80 +42,85 @@ requires: [transcribe]
 apiResponse:
   success: true
   response:
-    text: "{{ output('transcribe').body }}"   # the transcript, whichever backend ran
+    text: "{{ output('transcribe') }}"   # the transcript
 ```
 
 The API key comes from `OPENAI_API_KEY` (openai) or `GROQ_API_KEY` (groq); `local` sends `OPENAI_API_KEY` when it is set - some self-hosted servers check it - and no key otherwise. A non-2xx answer fails the resource with the status and body.
+
+| Input | Default | Description |
+|---|---|---|
+| `file` | (required) | Audio/video file: mp3, mp4, mpeg, mpga, m4a, wav, webm |
+| `backend` | `openai` | `openai`, `groq`, or `local` |
+| `model` | `whisper-1` | API model (Groq: `whisper-large-v3`) |
+| `baseURL` | per backend | Overrides the API base URL (`.../v1`) |
+| `language` | auto-detect | ISO-639-1 code |
+| `prompt` | | Spelling hints for names and terms |
+| `responseFormat` | `text` | `text`, `json`, `verbose_json`, `srt`, `vtt` |
+| `temperature` | | 0-1 |
 
 ## Offline with whisper.cpp
 
 ```yaml
 component:
-  name: transcribe
+  name: transcribe_audio_offline
   with:
-    file: /data/meeting.wav     # whisper-cpp takes flac, mp3, ogg, wav
-    backend: whisper-cpp        # no API key, no network after the model is cached
+    file: /data/meeting.wav     # whisper-cli takes flac, mp3, ogg, wav
     language: en                # default en
     # modelPath: /models/ggml-small.en.bin   # default: <models dir>/ggml-base.en.bin
 ```
 
-On first use the component downloads `ggml-base.en.bin` from Hugging Face into `$KDEPS_MODELS_DIR` (default `~/.kdeps/models`); later runs skip that step. `whisper-cli` must be on `PATH` (`brew install whisper-cpp`, or build whisper.cpp).
-
-## Inputs
+`whisper-cli` must be on `PATH` (`brew install whisper-cpp`, or build whisper.cpp); when it is missing, kdeps installs `whisper-cpp` from the tool asset's `exec.install`. The model must already be at `modelPath`, or at `ggml-base.en.bin` in the models directory (`$KDEPS_MODELS_DIR`, default `~/.kdeps/models`) - download it from [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) once.
 
 | Input | Default | Description |
 |---|---|---|
-| `file` | (required) | Audio/video file. API backends: mp3, mp4, mpeg, mpga, m4a, wav, webm |
-| `backend` | `openai` | `openai`, `groq`, `local` or `whisper-cpp` |
-| `model` | `whisper-1` | API model (Groq: `whisper-large-v3`) |
-| `baseURL` | per backend | Overrides the API base URL (`.../v1`) |
-| `language` | auto (`en` offline) | ISO-639-1 code |
-| `prompt` | | Spelling hints for names and terms (API) |
-| `responseFormat` | `text` | `text`, `json`, `verbose_json`, `srt`, `vtt` (API) |
-| `temperature` | | 0-1 (API) |
-| `modelPath` | `<models dir>/ggml-base.en.bin` | whisper-cpp GGML model |
+| `file` | (required) | Audio file: flac, mp3, ogg, wav |
+| `language` | `en` | ISO-639-1 code |
+| `modelPath` | `<models dir>/ggml-base.en.bin` | Absolute path to a GGML model file |
 
 ## Output
 
-Both backends return the `http_request` result - the transcript is `body` (and `data` when `responseFormat` is JSON). The model download step's own result is not returned.
+Both components return the transcript as a string:
+
+```json
+"the meeting transcript\n"
+```
+
+A missing `whisper-cli`, model file, or API key fails the resource with the reason in the error body.
 
 ## How it is built
 
-Three resources, each a POST to a kdeps API tool route, gated by `validations.skip`:
+`transcribe_audio` is one resource that posts the inputs to its tool route:
 
 <div v-pre>
 
 ```yaml
-# assets/components/transcribe/component.yaml (excerpt)
+# assets/components/transcribe_audio/component.yaml (excerpt)
+interface:
+  inputs:
+    - {name: file, type: string, required: true}
+    - {name: backend, type: string, default: openai}
+    - {name: model, type: string, default: whisper-1}
+    # language, baseURL, prompt, responseFormat, temperature
+  output: "{{ output('call').body }}"   # the transcript
 resources:
-  - actionId: transcribeAPI
-    name: Transcribe (Whisper API)
-    validations:
-      skip: ["get('transcribe.backend') == 'whisper-cpp'"]
+  - actionId: call
     httpClient:
       method: POST
       url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/transcribe_audio/call
-      headers:
-        Content-Type: application/json
+      headers: {Content-Type: application/json}
       timeout: 300s
       failOnError: true
       data:
-        file: "{{ get('transcribe.file') }}"
-        backend: "{{ get('transcribe.backend') }}"
-        model: "{{ get('transcribe.model') }}"
-        baseURL: "{{ get('transcribe.baseURL') }}"
-        language: "{{ get('transcribe.language') }}"
-        prompt: "{{ get('transcribe.prompt') }}"
-        responseFormat: "{{ get('transcribe.responseFormat') }}"
-        temperature: "{{ get('transcribe.temperature') }}"
+        file: "{{ get('transcribe_audio.file') }}"
+        backend: "{{ get('transcribe_audio.backend') }}"
 ```
 
 </div>
 
-The model download posts `{url, method: GET, saveTo, failOnError}` to the `http_request` tool, and the offline step posts `{file, language, modelPath}` to `transcribe_audio_offline`. Copy `components/transcribe/` into your project to change the backend set or the model source.
+`transcribe_audio_offline` has the same shape and posts `{file, language, modelPath}` to `transcribe_audio_offline`. Copy `components/transcribe_audio/` or `components/transcribe_audio_offline/` into your project to change the backend set or the model source.
 
 ## See also
 
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
-- [HTTP client component](/workflow/resources/http-client#file-upload-download-and-failing-on-errors) - `files`, `saveTo`, `failOnError`
 - [OCR component](/workflow/resources/ocr) - the same pattern for images
+- [Resources overview](/workflow/resources) - all resource types

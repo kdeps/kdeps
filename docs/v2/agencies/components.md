@@ -24,7 +24,7 @@ Invoke with `component:`:
 ```yaml
 # resources/component-resource.yaml
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "https://example.com"
 ```
@@ -100,7 +100,7 @@ interface:
 `setup.osPackages` are installed by `kdeps build` in the image and, at run time, by the machine's package manager (apk, apt-get, brew). List the programs they provide under `setup.provides`: when every one is already on `PATH`, no package manager runs - a run on a machine that has the tool costs nothing extra.
 
 ```yaml
-# components/ocr/component.yaml (as shipped)
+# components/my-tool/component.yaml
 setup:
   osPackages: [tesseract-ocr]   # apt/apk package name, installed in images
   provides: [tesseract]         # on PATH already: skip the install
@@ -125,10 +125,9 @@ Components cannot contain `settings` (no server modes, port bindings) - they are
 actionId: fetch-article
 name: Fetch Article
 component:
-  name: scraper
+  name: web_scraper
   with:
     url: "https://example.com/article"
-    selector: ".content"
 ```
 
 After execution, access results via `output('fetch-article')`.
@@ -142,16 +141,16 @@ Installed components can be exposed as LLM function-calling tools via `component
 chat:
   prompt: "Research {{ get('q') }} and summarize."
   componentTools:
-    - scraper
-    - search
+    - web_scraper
+    - web_search
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this to decide when and how to call the tool.
 
 ## Use cases
 
-- Pull in a pre-built capability (web scraping, search, embeddings, browser
-  automation) with one `kdeps install` instead of writing it.
+- Pull in a pre-built capability (web scraping, search, embeddings)
+  with one `kdeps install` instead of writing it.
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
 - Give an LLM a bounded, typed capability by exposing a component as a tool

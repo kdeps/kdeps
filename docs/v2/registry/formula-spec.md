@@ -152,8 +152,8 @@ The registry repo structure:
 ```
 registry/
   formulas/
-    scraper.yaml
-    search.yaml
+    scraper-native.yaml
+    search-web-native.yaml
     summarizer.yaml
     cv-matcher.yaml
     kdeps-harness-safety.yaml   # kdeps assets, written by kdeps CI

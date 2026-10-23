@@ -43,7 +43,7 @@ type ToolTuning struct {
 	WebLimit             int // max web_search/web_scraper calls per request (0=event default 20, <0=unlimited)
 	BashLimit            int // max bash_exec calls per request (0=event default 50, <0=unlimited)
 	FileLimit            int // max read_file/list_files calls per request (0=event default 80, <0=unlimited)
-	CodeLimit            int // max search_local/code_search calls per request (0=event default 30, <0=unlimited)
+	CodeLimit            int // max search_local calls per request (0=event default 30, <0=unlimited)
 	// turo reducer state (empty TuroLevel means turo was never configured).
 	TuroLevel    string
 	TuroOff      bool

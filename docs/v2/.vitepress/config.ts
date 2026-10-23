@@ -180,7 +180,6 @@ export default defineConfig({
             { text: 'Expression blocks', link: '/reference/expr-blocks' },
             { text: 'Items reference', link: '/reference/items' },
             { text: 'Function calling', link: '/reference/tools' },
-            { text: 'Browser actions', link: '/reference/browser-actions' },
             { text: 'Management API', link: '/reference/management-api' },
             { text: 'kdeps API', link: '/reference/api' },
             { text: 'Security', link: '/reference/security' },
@@ -267,6 +266,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'HTTP client', link: '/workflow/resources/http-client' },
+            { text: 'Web scraper', link: '/workflow/resources/web-scraper' },
             { text: 'Search', link: '/workflow/resources/search' },
             { text: 'search_local', link: '/workflow/resources/search-local' },
           ]
@@ -575,6 +575,8 @@ export default defineConfig({
       'reference/cli/packaging': '/deploy/cli',
       'reference/cli/registry': '/registry/cli',
       'reference/registry-formula-spec': '/registry/formula-spec',
+      // browser component removed (2026-10); the web scraper replaces page fetching.
+      'reference/browser-actions': '/workflow/resources/web-scraper',
     }
     for (const [from, to] of Object.entries(redirects)) {
       const file = join(siteConfig.outDir, from + '.html')

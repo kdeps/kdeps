@@ -95,7 +95,7 @@ type componentBackedAction struct {
 	Name      string
 	Component string
 	// ResourceComponent overrides Component when the target component depends
-	// on the resource config, such as the codeIntelligence operation.
+	// on the resource config.
 	ResourceComponent func(*Resource) string
 	// InlineComponent is ResourceComponent for a before:/after: step.
 	InlineComponent func(*ActionConfig) string

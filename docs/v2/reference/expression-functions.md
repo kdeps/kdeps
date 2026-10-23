@@ -143,7 +143,7 @@ fileExists(env('KDEPS_MODELS_DIR', env('HOME') + '/.kdeps/models') + '/ggml-base
 ```
 
 ### htmlText(html, selector)
-Returns the text of every element matching a CSS selector, one per line. An empty selector returns `html` unchanged. The scraper component uses it on an `httpClient` body.
+Returns the text of every element matching a CSS selector, one per line. An empty selector returns `html` unchanged. Use it on an `httpClient` body to pull fields out of an HTML response.
 
 - **html**: An HTML document or fragment.
 - **selector**: A CSS selector (`article.body`, `h1, h2`, `ul > li`).

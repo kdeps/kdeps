@@ -13,10 +13,9 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). See [Components](/ag
 actionId: scrape
 name: Extract Page Content
 component:
-  name: scraper                 # installed via `kdeps install scraper`
+  name: web_scraper             # from the components asset set
   with:
     url: "https://example.com"
-    selector: ".article"
 ```
 
 ```yaml

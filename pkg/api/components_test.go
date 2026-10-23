@@ -33,10 +33,6 @@ import (
 // components are named after their tool; a few are named for their domain.
 func componentName(tool string) string {
 	switch tool {
-	case "browser_ops":
-		return "browser"
-	case "email_ops":
-		return "email"
 	case "file_ops":
 		return "file"
 	case "git_ops":

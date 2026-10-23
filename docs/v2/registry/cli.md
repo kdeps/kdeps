@@ -23,9 +23,9 @@ Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`
 `kdeps install`, `kdeps update` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool in agent mode, so its name, description and input schema count:
 
 ```text
-$ kdeps install scraper
-✓ Component scraper @1.0.0 installed to ./components/scraper
-  Extracts text from web pages and documents.
+$ kdeps install scraper-native
+✓ Installed scraper-native (workflow) @1.0.0
+  Web scraping + AI summarization using the native scraper executor.
   LLM context: about 96 tokens as an agent-mode tool (its tool definition)
 ```
 
@@ -33,15 +33,14 @@ $ kdeps install scraper
 
 ```bash
 kdeps search scraper
-kdeps install scraper
-kdeps install scraper@2.1.0
-kdeps install jjuliano/kdeps-component-scraper
-kdeps install ./scraper-1.0.0.komponent
+kdeps install scraper-native
+kdeps install scraper-native@1.0.0
+kdeps install ./my-component-1.0.0.komponent
 kdeps list
-kdeps info scraper
+kdeps info scraper-native
 kdeps info tools/read_file           # an asset: its purpose, where kdeps runs it, its state
-kdeps uninstall scraper
-kdeps update scraper
+kdeps uninstall scraper-native
+kdeps update scraper-native
 kdeps submit --tag v1.2.0
 kdeps verify .
 

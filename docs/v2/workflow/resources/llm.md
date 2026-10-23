@@ -372,20 +372,15 @@ the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
 
 ### Component tools (opt-in allowlist)
 
-Expose installed components as LLM function-calling tools:
-
-```bash
-kdeps install scraper
-kdeps install search
-```
+Expose shipped or installed components as LLM function-calling tools:
 
 ```yaml
 # resources/example.yaml
 chat:
   prompt: "Research {{ get('q') }} and summarize the findings."
   componentTools:
-    - scraper
-    - search
+    - web_scraper
+    - web_search
 ```
 
 ## Chain-of-thought
