@@ -50,6 +50,9 @@ type ToolSpec struct {
 	Description string
 	Parameters  map[string]domain.ToolParam
 	Call        func(context.Context, map[string]any) (string, error)
+	// AgentOnly marks a tool that reads or changes a live agent session; a
+	// call without one (workflow mode) fails.
+	AgentOnly bool
 }
 
 var errBodyTooLarge = errors.New(msgBodyTooLarge)
@@ -165,6 +168,7 @@ func listToolItems() []toolItem {
 			Name:        spec.Name,
 			Description: spec.Description,
 			Parameters:  spec.Parameters,
+			AgentOnly:   spec.AgentOnly,
 		})
 	}
 	return items
@@ -246,4 +250,5 @@ type toolItem struct {
 	Name        string                      `json:"name"`
 	Description string                      `json:"description"`
 	Parameters  map[string]domain.ToolParam `json:"parameters,omitempty"`
+	AgentOnly   bool                        `json:"agentOnly,omitempty"`
 }

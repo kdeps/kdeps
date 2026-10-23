@@ -19,6 +19,7 @@ package api
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,5 +64,22 @@ func TestSessionToolsServedOnToolRoutes(t *testing.T) {
 	for _, name := range sessionToolNames {
 		_, ok := toolReg[name]
 		assert.True(t, ok, name)
+	}
+}
+
+// The tool list marks the session tools agent-only, and no other tool.
+func TestListToolItems_MarksSessionToolsAgentOnly(t *testing.T) {
+	flagged := map[string]bool{}
+	for _, item := range listToolItems() {
+		if item.AgentOnly {
+			flagged[item.Name] = true
+		}
+	}
+	want := map[string]bool{}
+	for _, name := range sessionToolNames {
+		want[name] = true
+	}
+	if !maps.Equal(flagged, want) {
+		t.Fatalf("agentOnly %v, want %v", flagged, want)
 	}
 }
