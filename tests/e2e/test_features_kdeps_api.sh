@@ -272,7 +272,7 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
-        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
+        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "e2e_py_tool", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
         "google_cache_delete", "google_cache_list", "http_request",
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
@@ -363,6 +363,18 @@ run:
   - tool: calculator
     args:
       expression: "$1"
+EOF
+    cat >"$home/.kdeps/tools/e2e_py_tool.yaml" <<'EOF'
+version: 1.0.0
+description: E2E python tool that upper-cases a word.
+parameters:
+  word:
+    type: string
+    required: true
+python:
+  script: |
+    import json, sys
+    print(json.loads(sys.argv[1])["word"].upper())
 EOF
     local server_dir="$root/server"
     local bare_dir="$root/bare"
@@ -739,6 +751,19 @@ EOF
         test_passed "kdeps API - a ~/.kdeps/tools YAML tool is served"
     else
         test_failed "kdeps API - a ~/.kdeps/tools YAML tool is served" "status $got body $(head -c 180 "$body")"
+    fi
+    if command -v uv >/dev/null 2>&1; then
+        : >"$body"
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 120 \
+            -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+            --data '{"word":"kdeps"}' "${tools}/e2e_py_tool/call" || true)
+        if [ "$got" = "200" ] && grep -F "KDEPS" "$body" >/dev/null; then
+            test_passed "kdeps API - a ~/.kdeps/tools python: tool runs its script"
+        else
+            test_failed "kdeps API - a ~/.kdeps/tools python: tool runs its script" "status $got body $(head -c 180 "$body")"
+        fi
+    else
+        test_skipped "kdeps API - python: tool (uv not installed)"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

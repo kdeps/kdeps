@@ -94,7 +94,7 @@ func TestValidateToolDefinition_ExecBlock(t *testing.T) {
 		[]byte("version: 1.0.0\ndescription: d\nexec:\n  args: [x]\n"), "t"), "command is required")
 	require.ErrorContains(t, validateToolDefinition(
 		[]byte("version: 1.0.0\ndescription: d\nexec:\n  command: go\nhttp:\n  method: GET\n  url: https://x\n"), "t"),
-		"not both")
+		"at most one of")
 }
 
 func TestDeclaredExecExecute_Defaults(t *testing.T) {

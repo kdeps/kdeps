@@ -57,6 +57,9 @@ type toolDefinition struct {
 	// SQL, when set, implements the tool as one parameterized SQLite statement
 	// (see sqlToolSpec).
 	SQL *sqlToolSpec `yaml:"sql,omitempty"`
+	// Python, when set, implements the tool as one Python script on the kdeps
+	// python runner (see pythonToolSpec).
+	Python *pythonToolSpec `yaml:"python,omitempty"`
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its

@@ -154,13 +154,21 @@ func validateToolDefinition(data []byte, _ string) error {
 			return fmt.Errorf("alias %q is not a tool name (letters, digits, _ . -)", a)
 		}
 	}
+	impls := 0
+	for _, set := range []bool{d.HTTP != nil, d.Exec != nil, d.SQL != nil, d.Python != nil} {
+		if set {
+			impls++
+		}
+	}
 	switch {
-	case d.HTTP != nil && d.Exec != nil:
-		return errors.New("a tool declares http: or exec:, not both")
+	case impls > 1:
+		return errors.New("a tool declares at most one of the http, exec, sql or python blocks")
 	case d.HTTP != nil:
 		return d.HTTP.validate()
 	case d.Exec != nil:
 		return d.Exec.validate()
+	case d.Python != nil:
+		return d.Python.validate()
 	}
 	return nil
 }
