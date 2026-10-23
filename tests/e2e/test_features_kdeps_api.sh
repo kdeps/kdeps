@@ -272,7 +272,7 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
-        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "edit_file", "embedding", "embedding_search",
+        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
         "google_cache_delete", "google_cache_list", "http_request",
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
@@ -341,6 +341,16 @@ PY
 
     local home="$root/home"
     mkdir -p "$home"
+    # A hand-written tool in ~/.kdeps/tools is served on the kdeps API with no
+    # registry or lock entry.
+    mkdir -p "$home/.kdeps/tools"
+    cat >"$home/.kdeps/tools/e2e_user_tool.yaml" <<'EOF'
+version: 1.0.0
+description: E2E hand-written tool that prints the git version.
+exec:
+  command: git
+  args: ["--version"]
+EOF
     local server_dir="$root/server"
     local bare_dir="$root/bare"
     mkdir -p "$server_dir/resources" "$bare_dir/resources"
@@ -490,7 +500,7 @@ EOF
 
     # --- kdeps run with a public-style apiServer still isolates the control API ---
     log="$root/server.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         PATH="${fakebin}:${PATH}" \
         KDEPS_API_LISTEN="127.0.0.1:${ctrl_port}" \
         KDEPS_API_TOKEN="$ctrl_tok" \
@@ -707,6 +717,15 @@ EOF
         test_passed "kdeps API - md5_file returns the checksum"
     else
         test_failed "kdeps API - md5_file returns the checksum" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/e2e_user_tool/call" || true)
+    if [ "$got" = "200" ] && grep -F "git version" "$body" >/dev/null; then
+        test_passed "kdeps API - a ~/.kdeps/tools YAML tool is served"
+    else
+        test_failed "kdeps API - a ~/.kdeps/tools YAML tool is served" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
@@ -965,7 +984,7 @@ PY
 
     # --- kdeps run with no apiServer still serves the control API ---
     log="$root/bare.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         KDEPS_API_LISTEN="127.0.0.1:${bare_port}" \
         KDEPS_API_TOKEN="$bare_tok" \
         "$KDEPS_BIN" run "$bare_dir" >"$log" 2>&1 &
@@ -991,7 +1010,7 @@ PY
 
     # --- default bind is loopback, and an unset token is not printed ---
     log="$root/default.log"
-    HOME="$home" env -u KDEPS_API_TOKEN -u KDEPS_API_LISTEN \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" env -u KDEPS_API_TOKEN -u KDEPS_API_LISTEN \
         "$KDEPS_BIN" run "$bare_dir" >"$log" 2>&1 &
     pids+=("$!")
     local def_pid="${pids[0]}"
@@ -1067,7 +1086,7 @@ PY
 
     # --- REPL serves the same API and does not accept the run token ---
     log="$root/repl.log"
-    HOME="$home" \
+    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
         KDEPS_API_LISTEN="127.0.0.1:${repl_port}" \
         KDEPS_API_TOKEN="$repl_tok" \
         python3 - "$KDEPS_BIN" "$log" <<'PY' &

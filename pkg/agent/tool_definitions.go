@@ -63,7 +63,7 @@ type toolDefinition struct {
 // parsed definition. Loaded at init and on asset reload.
 //
 //nolint:gochecknoglobals // parsed from the asset set
-var toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
+var toolDefinitions = loadToolDefinitions()
 
 // toolAliases maps each alias (lower case) to the tool name it calls, from
 // the definitions' aliases. Rebuilt with toolDefinitions.
@@ -132,6 +132,18 @@ func resolveToolName(name string, has func(string) bool) string {
 
 // loadToolDefinitionsFrom parses every tools/*.yaml file in fsys. A file that
 // cannot be read or parsed is skipped with a warning (see warnAsset).
+// loadToolDefinitions returns the shipped tool definitions with the
+// hand-written ones in ~/.kdeps/tools over them, by file name. A user file
+// with an http:, exec: or sql: block is a new tool, served on the kdeps API
+// like a shipped one.
+func loadToolDefinitions() map[string]toolDefinition {
+	out := loadToolDefinitionsFrom(assets.Open("tools"))
+	if user := userAssetFS("tools"); user != nil {
+		maps.Copy(out, loadToolDefinitionsFrom(user))
+	}
+	return out
+}
+
 func loadToolDefinitionsFrom(fsys themeFS) map[string]toolDefinition {
 	entries, err := fsys.ReadDir("tools")
 	if err != nil {
