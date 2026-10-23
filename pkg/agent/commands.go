@@ -167,24 +167,24 @@ var slashCommands []*slashCommand
 // or lock entry; a declared one is served on the commands API like a shipped
 // one.
 func initCommands() {
-	byName := map[string]*slashCommand{}
-	readCommandsInto(byName, assets.Open("commands"))
-	if user := userAssetFS("commands"); user != nil {
-		readCommandsInto(byName, user)
-	}
-	slashCommands = sortedCommands(byName)
+	slashCommands = loadCommandsFrom(assets.Open("commands"), userAssetFS("commands"))
 }
 
 //nolint:gochecknoinits // loads the commands asset set
 func init() { initCommands() }
 
-// loadCommandsFrom reads every commands/*.yaml in fsys, sorted by order then
-// name. A file that does not parse is skipped with a warning; a later name
-// replaces an earlier one.
-func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
+// loadCommandsFrom reads every commands/*.yaml in fsys, then in each non-nil
+// override, sorted by order then name. A file that does not parse is skipped
+// with a warning; a later name replaces an earlier one.
+func loadCommandsFrom(fsys assets.ReadFS, overrides ...assets.ReadFS) []*slashCommand {
 	byName := map[string]*slashCommand{}
 	if !readCommandsInto(byName, fsys) {
 		return nil
+	}
+	for _, o := range overrides {
+		if o != nil {
+			readCommandsInto(byName, o)
+		}
 	}
 	return sortedCommands(byName)
 }
