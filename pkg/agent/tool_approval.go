@@ -34,6 +34,8 @@ import (
 	"time"
 
 	"golang.org/x/term"
+
+	"github.com/kdeps/kdeps/v2/pkg/api"
 )
 
 // approvalDecision is the user's answer to a tool-approval prompt.
@@ -163,7 +165,7 @@ func (l *Loop) checkPathBoundary(args map[string]any) (string, bool) {
 		}
 		root = wd
 	}
-	if pathWithinRoot(abs, root) {
+	if api.PathWithinRoot(abs, root) {
 		return "", false
 	}
 

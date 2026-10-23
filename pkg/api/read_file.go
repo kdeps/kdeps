@@ -362,13 +362,17 @@ func validateWorkspace(path string) error {
 	if root == "" {
 		return nil
 	}
-	if pathWithinRoot(path, root) {
+	if PathWithinRoot(path, root) {
 		return nil
 	}
 	return fmt.Errorf(msgWorkspaceEscape, path, root)
 }
 
-func pathWithinRoot(path, root string) bool {
+// PathWithinRoot reports whether path is root itself or lies under it,
+// resolving symlinks on both sides when possible so a symlinked escape
+// route is still caught. A path that doesn't exist yet (write_file creating
+// a new file) falls back to a lexical comparison.
+func PathWithinRoot(path, root string) bool {
 	canonical, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		canonical = filepath.Clean(path)
