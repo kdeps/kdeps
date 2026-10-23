@@ -27,6 +27,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -50,16 +51,9 @@ type toolDefinition struct {
 	// bash_exec): a call to one runs the tool. The model is shown only the
 	// tool's own name.
 	Aliases []string `yaml:"aliases,omitempty"`
-	// HTTP, when set, implements the tool as one HTTP call (see httpToolSpec).
-	HTTP *httpToolSpec `yaml:"http,omitempty"`
-	// Exec, when set, implements the tool as one program run (see execToolSpec).
-	Exec *execToolSpec `yaml:"exec,omitempty"`
-	// SQL, when set, implements the tool as one parameterized SQLite statement
-	// (see sqlToolSpec).
-	SQL *sqlToolSpec `yaml:"sql,omitempty"`
-	// Python, when set, implements the tool as one Python script on the kdeps
-	// python runner (see pythonToolSpec).
-	Python *pythonToolSpec `yaml:"python,omitempty"`
+	// DeclaredSpec, when it has a block (http:, exec:, sql: or python:),
+	// implements the tool with no Go code; the kdeps API runs it.
+	api.DeclaredSpec `yaml:",inline"`
 }
 
 // toolDefinitions maps a definition id (file name without .yaml) to its

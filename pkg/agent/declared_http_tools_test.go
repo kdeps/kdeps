@@ -21,7 +21,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,11 +29,11 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -84,14 +83,14 @@ func newFakeAPI(t *testing.T, status int, body string) *fakeAPI {
 	t.Cleanup(srv.Close)
 	target, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	orig := httpToolClient
-	httpToolClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	orig := api.HTTPToolClient
+	api.HTTPToolClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		r = r.Clone(r.Context())
 		r.Header.Set("X-Orig-Host", r.URL.Host)
 		r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
 		return http.DefaultTransport.RoundTrip(r)
 	})}
-	t.Cleanup(func() { httpToolClient = orig })
+	t.Cleanup(func() { api.HTTPToolClient = orig })
 	return f
 }
 
@@ -120,7 +119,7 @@ func TestDeclaredHTTPTools_AssetsDeclareThem(t *testing.T) {
 		d, ok := toolDefinitions[id]
 		require.True(t, ok, id)
 		require.NotNil(t, d.HTTP, "%s has an http: block", id)
-		require.NoError(t, d.HTTP.validate(), id)
+		require.NoError(t, d.HTTP.Validate(), id)
 	}
 }
 
@@ -313,31 +312,6 @@ func TestDeclaredHTTPTool_CacheReusesAnswers(t *testing.T) {
 	assert.Equal(t, 1, api.count(), "cache: true answers repeats from the cache")
 }
 
-func TestDeclaredHTTPTool_RequestError(t *testing.T) {
-	orig := httpToolClient
-	httpToolClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("connection refused")
-	})}
-	t.Cleanup(func() { httpToolClient = orig })
-	_, err := callDeclaredHTTPTool(context.Background(), "t", &httpToolSpec{Method: "GET", URL: "http://x"}, nil, nil)
-	require.ErrorContains(t, err, "t: request:")
-}
-
-func TestHTTPToolSpec_Validate(t *testing.T) {
-	ok := httpToolSpec{Method: "post", URL: "https://x/{{.args.q}}", Result: "{{.response.a}}"}
-	require.NoError(t, ok.validate())
-	for name, s := range map[string]httpToolSpec{
-		"method":   {Method: "TRACE", URL: "https://x"},
-		"url":      {Method: "GET"},
-		"template": {Method: "GET", URL: "https://x/{{.args.q"},
-		"header":   {Method: "GET", URL: "https://x", Headers: map[string]string{"A": "{{end}}"}},
-		"env":      {Method: "GET", URL: "https://x", Env: map[string][]string{"K": nil}},
-		"timeout":  {Method: "GET", URL: "https://x", Timeout: "soon"},
-	} {
-		assert.Error(t, s.validate(), name)
-	}
-}
-
 func TestValidateToolDefinition_HTTPBlock(t *testing.T) {
 	require.NoError(
 		t,
@@ -345,92 +319,6 @@ func TestValidateToolDefinition_HTTPBlock(t *testing.T) {
 	)
 	require.ErrorContains(t, validateToolDefinition(
 		[]byte("version: 1.0.0\ndescription: d\nhttp:\n  method: GET\n"), "t"), "url is required")
-}
-
-func TestGetPath(t *testing.T) {
-	v := map[string]any{"a": []any{map[string]any{"b": "x"}}}
-	assert.Equal(t, "x", getPath(v, "a", 0, "b"))
-	assert.Nil(t, getPath(v, "a", 5))
-	assert.Nil(t, getPath(v, "a", 0, "b", "c"))
-	assert.Nil(t, getPath(nil, "a"))
-}
-
-func TestHTTPToolSpec_Timeout(t *testing.T) {
-	assert.Equal(t, defaultHTTPToolTimeout, (&httpToolSpec{}).timeout())
-	assert.Equal(t, 5*time.Second, (&httpToolSpec{Timeout: "5s"}).timeout())
-
-	release := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
-	t.Cleanup(func() { close(release); srv.Close() })
-	_, err := callDeclaredHTTPTool(context.Background(), "slow",
-		&httpToolSpec{Method: "GET", URL: srv.URL, Timeout: "50ms"}, nil, nil)
-	require.ErrorContains(t, err, "slow: request:")
-}
-
-func TestDeclaredHTTPTool_MultipartFilesAndForm(t *testing.T) {
-	var got struct{ model, lang, file, name, ctype, auth string }
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got.ctype, got.auth = r.Header.Get("Content-Type"), r.Header.Get("Authorization")
-		require.NoError(t, r.ParseMultipartForm(1<<20))
-		got.model, got.lang = r.FormValue("model"), r.FormValue("language")
-		f, hdr, err := r.FormFile("file")
-		require.NoError(t, err)
-		defer f.Close()
-		b, _ := io.ReadAll(f)
-		got.file, got.name = string(b), hdr.Filename
-		_, _ = w.Write([]byte("the transcript"))
-	}))
-	t.Cleanup(srv.Close)
-	audio := filepath.Join(t.TempDir(), "a.wav")
-	require.NoError(t, os.WriteFile(audio, []byte("RIFF"), 0o600))
-
-	s := &httpToolSpec{
-		Method:  "POST",
-		URL:     srv.URL + "/audio/transcriptions",
-		Headers: map[string]string{"Authorization": "{{with .env.KEY}}Bearer {{.}}{{end}}"},
-		Files:   map[string]string{"file": "{{.args.file}}"},
-		Form:    map[string]string{"model": "{{.args.model}}", "language": "{{.args.language}}"},
-		Paths:   []string{"file"},
-	}
-	out, err := callDeclaredHTTPTool(context.Background(), "tr", s,
-		map[string]any{"file": audio, "model": "whisper-1"}, map[string]string{"KEY": ""})
-	require.NoError(t, err)
-	assert.Equal(t, "the transcript", out)
-	assert.Contains(t, got.ctype, "multipart/form-data")
-	assert.Equal(t, "whisper-1", got.model)
-	assert.Empty(t, got.lang, "an empty form field is left out")
-	assert.Equal(t, "RIFF", got.file)
-	assert.Equal(t, "a.wav", got.name)
-	assert.Empty(t, got.auth, "a header that renders empty is not sent")
-
-	t.Setenv("KDEPS_ALLOW_ROOT", "")
-	_, err = callDeclaredHTTPTool(context.Background(), "tr", s, map[string]any{"file": "/"}, nil)
-	require.ErrorContains(t, err, "tr: operation on root directory")
-	_, err = callDeclaredHTTPTool(context.Background(), "tr", s,
-		map[string]any{"file": filepath.Join(t.TempDir(), "missing.wav")}, nil)
-	require.ErrorContains(t, err, "tr:")
-}
-
-func TestHTTPToolSpec_OptionalEnv(t *testing.T) {
-	t.Setenv("OPT_A", "")
-	t.Setenv("OPT_B", "")
-	s := &httpToolSpec{Env: map[string][]string{"A": {"OPT_A", ""}, "B": {"OPT_B"}}}
-	_, ok := s.resolveEnv()
-	assert.False(t, ok, "a required entry still gates registration")
-
-	t.Setenv("OPT_B", "b")
-	env, ok := s.resolveEnv()
-	require.True(t, ok, "an optional entry may stay empty")
-	assert.Empty(t, env["A"])
-	assert.Equal(t, "b", env["B"])
-
-	t.Setenv("OPT_A", "a")
-	env, _ = s.resolveEnv()
-	assert.Equal(t, "a", env["A"])
-	require.Error(
-		t,
-		(&httpToolSpec{Method: "POST", URL: "https://x", Files: map[string]string{"f": "{{.args.f"}}).validate(),
-	)
 }
 
 func TestTranscribeAudio_Declared(t *testing.T) {

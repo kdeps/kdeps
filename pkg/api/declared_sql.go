@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package api
 
 import (
 	"context"
@@ -26,15 +26,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	_ "github.com/mattn/go-sqlite3" // sqlite3 driver for declared sql tools
 )
 
-// sqlToolSpec implements a declared tool as one parameterized SQL statement
+// SQLToolSpec implements a declared tool as one parameterized SQL statement
 // against a SQLite database. The query text is fixed in the YAML. Arguments are
 // bound as parameters in the order listed in params; they are never spliced
 // into the text, so a value cannot change the statement.
-type sqlToolSpec struct {
+type SQLToolSpec struct {
 	// DSN names the environment variable that holds the SQLite file path,
 	// e.g. KDEPS_STATE_DB. The tool is registered only when it is set.
 	DSN string `yaml:"dsn"`
@@ -47,15 +45,15 @@ type sqlToolSpec struct {
 	Mode string `yaml:"mode,omitempty"`
 }
 
-// resolveDSN returns the database path from the named environment variable.
-func (s *sqlToolSpec) resolveDSN() (string, bool) {
+// ResolveDSN returns the database path from the named environment variable.
+func (s *SQLToolSpec) ResolveDSN() (string, bool) {
 	v := strings.TrimSpace(os.Getenv(s.DSN))
 	return v, v != ""
 }
 
 // runSQLTool executes spec with args bound to its placeholders.
-func runSQLTool(ctx context.Context, name string, spec *sqlToolSpec, args map[string]any) (string, error) {
-	path, ok := spec.resolveDSN()
+func runSQLTool(ctx context.Context, name string, spec *SQLToolSpec, args map[string]any) (string, error) {
+	path, ok := spec.ResolveDSN()
 	if !ok {
 		return "", fmt.Errorf("%s: %s is not set", name, spec.DSN)
 	}

@@ -45,32 +45,3 @@ func TestDeclaredTools_ShipComponents(t *testing.T) {
 	}
 	require.NotZero(t, covered)
 }
-
-func TestDeclaredToolAPIBackend_ExecutesDeclaredExec(t *testing.T) {
-	fakeWhisper(t)
-	models := t.TempDir()
-	t.Setenv("KDEPS_MODELS_DIR", models)
-	audio := filepath.Join(t.TempDir(), "a.wav")
-
-	ctx := t.Context()
-
-	out, err := declaredToolAPIBackend{}.CallDeclaredTool(
-		ctx, "transcribe_audio_offline", map[string]any{"file": audio},
-	)
-	require.NoError(t, err)
-	assert.Contains(t, out, "-m "+models+"/ggml-base.en.bin")
-}
-
-func TestDeclaredToolAPIBackend_MissingEnv(t *testing.T) {
-	t.Setenv("EXA_API_KEY", "")
-	t.Setenv("METAPHOR_API_KEY", "")
-	_, err := declaredToolAPIBackend{}.CallDeclaredTool(
-		t.Context(), "exa_search", map[string]any{"query": "x"},
-	)
-	require.ErrorContains(t, err, "required environment variables are not set")
-}
-
-func TestDeclaredToolAPIBackend_Unknown(t *testing.T) {
-	_, err := declaredToolAPIBackend{}.CallDeclaredTool(t.Context(), "no_such_tool", nil)
-	require.ErrorContains(t, err, "no declared implementation")
-}

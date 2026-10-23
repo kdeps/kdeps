@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -213,9 +214,9 @@ func TestOCRImageTool_Declared(t *testing.T) {
 }
 
 func TestOCRImageTool_MissingTesseract(t *testing.T) {
-	orig := lookExecTool
-	lookExecTool = func(string) (string, error) { return "", exec.ErrNotFound }
-	t.Cleanup(func() { lookExecTool = orig })
+	orig := api.LookExecTool
+	api.LookExecTool = func(string) (string, error) { return "", exec.ErrNotFound }
+	t.Cleanup(func() { api.LookExecTool = orig })
 	_, err := ocrImageTool(t).Execute(map[string]any{"file": t.TempDir() + "/a.png"})
 	require.ErrorContains(t, err, "ocr_image: tesseract not found in PATH (install tesseract-ocr)")
 }

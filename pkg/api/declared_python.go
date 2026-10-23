@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package api
 
 import (
 	"bytes"
@@ -28,14 +28,12 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/kdeps/kdeps/v2/pkg/api"
 )
 
-// pythonToolSpec is a python: block: the tool runs one Python script on the
+// PythonToolSpec is a python: block: the tool runs one Python script on the
 // kdeps python runner (the python API tool). The script reads the call's
 // arguments as a JSON object from sys.argv[1] and prints its answer.
-type pythonToolSpec struct {
+type PythonToolSpec struct {
 	// Env works as in an http: block; each resolved value is set as an
 	// environment variable of the same name for the script.
 	Env    map[string][]string `yaml:"env,omitempty"`
@@ -49,8 +47,8 @@ type pythonToolSpec struct {
 	Timeout string `yaml:"timeout,omitempty"`
 }
 
-// validate checks the block has a script and a parseable timeout.
-func (s *pythonToolSpec) validate() error {
+// Validate checks the block has a script and a parseable timeout.
+func (s *PythonToolSpec) Validate() error {
 	if strings.TrimSpace(s.Script) == "" {
 		return errors.New("python: script is required")
 	}
@@ -62,23 +60,23 @@ func (s *pythonToolSpec) validate() error {
 	return nil
 }
 
-// resolveEnv returns the block's env values, or false when a required one
-// is unset (see httpToolSpec.resolveEnv).
-func (s *pythonToolSpec) resolveEnv() (map[string]string, bool) {
-	return (&httpToolSpec{Env: s.Env}).resolveEnv()
+// ResolveEnv returns the block's env values, or false when a required one
+// is unset (see HTTPToolSpec.resolveEnv).
+func (s *PythonToolSpec) ResolveEnv() (map[string]string, bool) {
+	return (&HTTPToolSpec{Env: s.Env}).ResolveEnv()
 }
 
 // callDeclaredPythonTool runs a python: block's script through the python API
 // tool and returns what it printed.
 func callDeclaredPythonTool(
-	ctx context.Context, name string, s *pythonToolSpec, args map[string]any, env map[string]string,
+	ctx context.Context, name string, s *PythonToolSpec, args map[string]any, env map[string]string,
 ) (string, error) {
 	for _, p := range s.Paths {
 		if v, _ := args[p].(string); v != "" {
-			if err := ValidateRootPath(v); err != nil {
+			if err := validateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
-			if err := validateWorkspaceBoundary(v); err != nil {
+			if err := validateWorkspace(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
 		}
@@ -100,7 +98,7 @@ func callDeclaredPythonTool(
 	if s.Timeout != "" {
 		call["timeout"] = s.Timeout
 	}
-	out, err := api.PythonOps(ctx, call)
+	out, err := PythonOps(ctx, call)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", name, err)
 	}

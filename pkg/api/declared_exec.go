@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package api
 
 import (
 	"bytes"
@@ -28,11 +28,11 @@ import (
 	"time"
 )
 
-// execToolSpec is a tool asset's exec: block: the program that implements
+// ExecToolSpec is a tool asset's exec: block: the program that implements
 // the tool, run directly (no shell). Args and result are text/templates over
 // .args (the call's arguments with declared defaults); result also sees
 // .stdout.
-type execToolSpec struct {
+type ExecToolSpec struct {
 	// Env works as in an http: block: names templates read as .env.NAME,
 	// each from the first non-empty variable listed (a trailing "" makes it
 	// optional). The tool is registered only when every entry resolves.
@@ -54,13 +54,13 @@ type execToolSpec struct {
 
 const defaultExecToolTimeout = 60 * time.Second
 
-// lookExecTool finds a declared tool's program (test-replaceable).
+// LookExecTool finds a declared exec: tool's program. Tests replace it.
 //
 //nolint:gochecknoglobals // test-replaceable
-var lookExecTool = exec.LookPath
+var LookExecTool = exec.LookPath
 
-// validate checks the block's command, timeout and that every template parses.
-func (s *execToolSpec) validate() error {
+// Validate checks the block's command, timeout and that every template parses.
+func (s *ExecToolSpec) Validate() error {
 	if s.Command == "" {
 		return errors.New("exec: command is required")
 	}
@@ -77,7 +77,7 @@ func (s *execToolSpec) validate() error {
 	return nil
 }
 
-func (s *execToolSpec) timeout() time.Duration {
+func (s *ExecToolSpec) timeout() time.Duration {
 	if d, err := time.ParseDuration(s.Timeout); err == nil && s.Timeout != "" {
 		return d
 	}
@@ -87,19 +87,19 @@ func (s *execToolSpec) timeout() time.Duration {
 // callDeclaredExecTool runs the program an exec: block describes and renders
 // its answer.
 func callDeclaredExecTool(
-	ctx context.Context, name string, s *execToolSpec, args map[string]any, env map[string]string,
+	ctx context.Context, name string, s *ExecToolSpec, args map[string]any, env map[string]string,
 ) (string, error) {
 	for _, p := range s.Paths {
 		if v, _ := args[p].(string); v != "" {
-			if err := ValidateRootPath(v); err != nil {
+			if err := validateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
-			if err := validateWorkspaceBoundary(v); err != nil {
+			if err := validateWorkspace(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
 		}
 	}
-	bin, err := lookExecTool(s.Command)
+	bin, err := LookExecTool(s.Command)
 	if err != nil {
 		msg := fmt.Sprintf("%s: %s not found in PATH", name, s.Command)
 		if s.Install != "" {
@@ -137,8 +137,8 @@ func callDeclaredExecTool(
 	return strings.TrimSpace(out), nil
 }
 
-// resolveEnv returns the block's env values, or false when a required one
-// is unset (see httpToolSpec.resolveEnv).
-func (s *execToolSpec) resolveEnv() (map[string]string, bool) {
-	return (&httpToolSpec{Env: s.Env}).resolveEnv()
+// ResolveEnv returns the block's env values, or false when a required one
+// is unset (see HTTPToolSpec.resolveEnv).
+func (s *ExecToolSpec) ResolveEnv() (map[string]string, bool) {
+	return (&HTTPToolSpec{Env: s.Env}).ResolveEnv()
 }

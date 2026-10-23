@@ -167,7 +167,7 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.SetTheme"},
 	},
 	"tools": {
-		Mode: "both",
+		Mode: "agent",
 		Flow: []FlowStep{
 			{Label: "the agent loop builds the request"},
 			{Label: "the tool definitions are sent to the model", Here: true},
@@ -175,7 +175,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps runs it"},
 			{Label: "the result goes back to the model"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "/reload", "/settings", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "/reload", "/settings", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
 		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "agent.definedAs"},
 	},
 }

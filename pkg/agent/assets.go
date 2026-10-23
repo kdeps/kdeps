@@ -164,11 +164,11 @@ func validateToolDefinition(data []byte, _ string) error {
 	case impls > 1:
 		return errors.New("a tool declares at most one of the http, exec, sql or python blocks")
 	case d.HTTP != nil:
-		return d.HTTP.validate()
+		return d.HTTP.Validate()
 	case d.Exec != nil:
-		return d.Exec.validate()
+		return d.Exec.Validate()
 	case d.Python != nil:
-		return d.Python.validate()
+		return d.Python.Validate()
 	}
 	return nil
 }
