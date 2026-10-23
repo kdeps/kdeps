@@ -122,3 +122,64 @@ func TestRunStreaming_ToolBudgetEventBlocksTheNextDistinctCall(t *testing.T) {
 	assert.Equal(t, 1, runs, "the second distinct call is blocked by the budget event")
 	assert.Contains(t, result, "done")
 }
+
+func TestParseYAMLEvent_BuiltinBudgetNeedsTools(t *testing.T) {
+	_, err := parseYAMLEvent([]byte("name: web-call-budget\non: {distinctCalls: 5}\nrun: block\n"), "w.yaml")
+	require.ErrorContains(t, err, "needs a tools: list")
+}
+
+// withWebBudget replaces the web-call-budget event with one over tools and
+// applies its limit to the web cache, for one test.
+func withWebBudget(t *testing.T, limit int, tools ...string) {
+	t.Helper()
+	withEvent(t, Event{
+		Name: eventWebCallBudget, Tools: tools,
+		On: EventTrigger{DistinctCalls: limit}, Run: actionBlock,
+	})
+	applyConvergenceCacheDefaults()
+	globalWebCache.reset()
+	t.Cleanup(func() {
+		globalWebCache.reset()
+		applyConvergenceCacheDefaults()
+	})
+}
+
+func TestBudgetCacheFor_FollowsTheToolsList(t *testing.T) {
+	assert.Same(t, globalFileCache, budgetCacheFor(toolNameReadFile))
+	assert.Same(t, globalWebCache, budgetCacheFor("exa_search"))
+	assert.Nil(t, budgetCacheFor(toolNameCalculator))
+
+	withWebBudget(t, 3, toolNameCalculator)
+	assert.Same(t, globalWebCache, budgetCacheFor(toolNameCalculator), "a tool added to the list joins the budget")
+	assert.Nil(t, budgetCacheFor(toolNameWebSearch), "a tool removed from the list leaves it")
+}
+
+func TestTrackToolCall_UnlistedToolRunsWithoutBudget(t *testing.T) {
+	withWebBudget(t, 1, toolNameWikipedia)
+	runs := 0
+	for _, q := range []string{"a", "b", "c"} {
+		_, err := trackToolCall(toolNameWebSearch, q, func() (string, error) {
+			runs++
+			return "r", nil
+		})
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 3, runs)
+	calls, _ := globalWebCache.count()
+	assert.Zero(t, calls)
+}
+
+func TestToolBudgets_BuiltinBudgetCountsAnUntrackedTool(t *testing.T) {
+	withWebBudget(t, 1, toolNameCalculator, toolNameWebSearch)
+	var b toolBudgets
+
+	assert.Empty(t, b.check(toolNameCalculator, `{"expression":"1"}`))
+	assert.Empty(t, b.check(toolNameCalculator, `{"expression":"1"}`), "a repeat never counts twice")
+	reason := b.check(toolNameCalculator, `{"expression":"2"}`)
+	assert.Contains(t, reason, "ALL web/search calls blocked")
+	assert.True(t, isConvergenceBlocked(reason))
+
+	assert.Empty(t, b.check(toolNameWebSearch, `{"query":"x"}`), "a self-tracking tool is counted by its own code")
+	calls, _ := globalWebCache.count()
+	assert.Equal(t, 1, calls)
+}

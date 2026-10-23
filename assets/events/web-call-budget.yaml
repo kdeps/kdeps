@@ -1,8 +1,9 @@
-version: 1.0.3
+version: 1.1.0
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/block: ""
 name: web-call-budget
+tools: [web_search, wikipedia, web_scraper, exa_search, wolfram_alpha]  # the tools that share this budget; add or remove a tool here
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -13,8 +14,8 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # DISTINCT web_search + web_scraper calls per turn. The two share this
-  # budget, so it must leave room for a search plus a few source fetches.
+  # DISTINCT calls per turn to the tools above. They share this budget, so
+  # it must leave room for a search plus a few source fetches.
   # A repeat of an already-attempted call never counts twice.
   distinctCalls: 20
 # run: selects the action fired once the trigger above is met.

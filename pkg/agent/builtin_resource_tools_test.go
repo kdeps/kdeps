@@ -197,7 +197,7 @@ func TestRegisterSearchLocalTool_Execute_WithGlob(t *testing.T) {
 func ocrImageTool(t *testing.T) *kdepstools.Tool {
 	t.Helper()
 	reg := kdepstools.NewRegistry()
-	registerDeclaredTools(context.Background(), reg, nil)
+	registerDeclaredTools(context.Background(), reg)
 	tool := reg.Get("ocr_image")
 	require.NotNil(t, tool, "ocr_image is declared by its tool asset")
 	return tool

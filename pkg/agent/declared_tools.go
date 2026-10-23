@@ -31,8 +31,8 @@ import (
 // registerDeclaredTools registers every tool asset implemented by its own
 // YAML block (http:, exec:, sql: or python:) whose environment resolves. The
 // kdeps API runs the block (see api.DeclaredSpec); the agent tool calls it
-// through api.CallTool, and a cached http: tool keeps the convergence cache.
-func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
+// through api.CallTool, under the call budget whose tools: list names it.
+func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry) {
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
 		if !declaredReady(d.DeclaredSpec) {
@@ -40,7 +40,7 @@ func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry, cache 
 		}
 		reg.Register(definedAs(id, &kdepstools.Tool{
 			Name:    id,
-			Execute: declaredExecute(ctx, id, d, cache),
+			Execute: declaredExecute(ctx, id, d),
 		}))
 	}
 }
@@ -66,19 +66,13 @@ func declaredReady(s api.DeclaredSpec) bool {
 }
 
 // declaredExecute builds the Execute func of a declared tool: one call on the
-// kdeps API, behind the convergence cache when the http: block asks for it.
-func declaredExecute(
-	ctx context.Context, id string, d toolDefinition, cache *webToolCache,
-) func(map[string]any) (string, error) {
+// kdeps API, under the call budget whose tools: list names the tool.
+func declaredExecute(ctx context.Context, id string, d toolDefinition) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
-		run := func() (string, error) {
-			return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(args))
-		}
-		if d.HTTP == nil || !d.HTTP.Cache || cache == nil {
-			return run()
-		}
 		key, _ := json.Marshal(args)
-		return cache.call(declaredName(id, d)+":"+string(key), run)
+		return trackToolCall(declaredName(id, d), declaredName(id, d)+":"+string(key), func() (string, error) {
+			return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(args))
+		})
 	}
 }
 

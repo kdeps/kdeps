@@ -64,6 +64,7 @@ const (
 	toolNameListFiles   = "list_files"
 	toolNameWebScraper  = "web_scraper"
 	toolNameWebSearch   = "web_search"
+	toolNameWikipedia   = "wikipedia"
 	toolNameSearchLocal = "search_local"
 )
 

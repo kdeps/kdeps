@@ -1,8 +1,9 @@
-version: 1.0.3
+version: 1.1.0
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/block: ""
 name: file-call-budget
+tools: [read_file, list_files]  # the tools this budget counts; add or remove a tool here
 on:
   # --- All possible trigger fields (an event sets only the ones it uses) ---
   # tokens: <int>                 flat token-count threshold (session-wide measurement)
@@ -13,7 +14,7 @@ on:
   # bytes: <int>                  byte-length threshold (truncation-cluster events)
   # distinctCalls: <int>          distinct-call-count threshold (web/bash/file/code call-budget events)
 
-  # DISTINCT read_file/list_files paths per turn. Re-reading an already-seen
+  # DISTINCT paths per turn across the tools above. Re-reading an already-seen
   # file never counts twice.
   distinctCalls: 80
 # run: selects the action fired once the trigger above is met.

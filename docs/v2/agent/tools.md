@@ -82,7 +82,7 @@ model calls tool -> args + parameter defaults -> render url/headers/body -> HTTP
 
 ```yaml
 # tools/wolfram_alpha.yaml (shipped)
-version: 1.1.0
+version: 1.2.0
 description: Query Wolfram Alpha for factual computations ... Requires WOLFRAM_APP_ID.
 parameters:
   query:
@@ -93,8 +93,9 @@ http:
     APP_ID: [WOLFRAM_APP_ID]  # .env.APP_ID; first non-empty variable wins; unset -> tool not offered
   method: GET
   url: "https://api.wolframalpha.com/v1/result?i={{urlquery .args.query}}&appid={{urlquery .env.APP_ID}}"
-  cache: true                 # repeat calls with the same arguments reuse the answer for the run
 ```
+
+`wolfram_alpha` is on the `tools:` list of the `web-call-budget` event, so a repeat call with the same arguments reuses the answer for the turn and each distinct call counts against that budget. Add a declared tool to a budget's list to get the same; see [call-budget events](/agent/events-guards#call-budget-events).
 
 ```yaml
 # tools/cohere_rerank.yaml (shipped, abridged): JSON body and a templated result

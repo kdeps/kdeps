@@ -60,9 +60,6 @@ type HTTPToolSpec struct {
 	// Paths names the parameters that hold file paths; each is checked
 	// against the workspace boundary before the call.
 	Paths []string `yaml:"paths,omitempty"`
-	// Cache reuses an earlier answer for the same arguments within the run
-	// (the web-tool convergence cache).
-	Cache bool `yaml:"cache,omitempty"`
 	// Timeout bounds one call (Go duration; default 30s).
 	Timeout string `yaml:"timeout,omitempty"`
 	// Result renders the tool's answer from the parsed JSON response; empty

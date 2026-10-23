@@ -56,19 +56,41 @@ func (s *scriptedStreamer) StreamChat(
 // An event YAML with a tools: list, written by hand in ~/.kdeps/events, limits
 // a real agent turn with no Go code that knows its name.
 func TestToolBudgetEvent_FromUserYAML_LimitsATurn(t *testing.T) {
+	runs := runLookupTwice(t, "lookup-budget.yaml", `name: lookup-budget
+tools: [lookup]
+on:
+  distinctCalls: 1
+run: block
+`)
+	assert.Equal(t, 1, runs, "the second distinct lookup is over the event's budget")
+}
+
+// A tool added to a built-in call budget's tools: list counts against it.
+func TestBuiltinCallBudget_ToolsListFromUserYAML_LimitsATurn(t *testing.T) {
+	t.Cleanup(func() { agent.SetConvergenceLimits(0, 0, 0, 0); agent.ResetConvergence() })
+	runs := runLookupTwice(t, "web-call-budget.yaml", `name: web-call-budget
+tools: [lookup]
+on:
+  distinctCalls: 1
+run: block
+`)
+	assert.Equal(t, 1, runs, "the second distinct lookup is over the web-call-budget")
+}
+
+// runLookupTwice writes an event file to a fresh ~/.kdeps/events, runs one
+// agent turn whose model calls the lookup tool twice with different
+// arguments, and returns how many calls reached the tool.
+func runLookupTwice(t *testing.T, file, event string) int {
+	t.Helper()
 	t.Cleanup(agent.ReloadAssets)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	dir := filepath.Join(home, ".kdeps", "events")
 	require.NoError(t, os.MkdirAll(dir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "lookup-budget.yaml"), []byte(`name: lookup-budget
-tools: [lookup]
-on:
-  distinctCalls: 1
-run: block
-`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte(event), 0o600))
 	agent.ReloadAssets()
+	agent.ResetConvergence()
 	require.NoError(t, agent.SetEfficiencyEnabled(false))
 
 	runs := 0
@@ -98,6 +120,6 @@ run: block
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(t.Context(), "go", &buf)
 	require.NoError(t, err)
-	assert.Equal(t, 1, runs, "the second distinct lookup is over the event's budget")
 	assert.Contains(t, result, "done")
+	return runs
 }

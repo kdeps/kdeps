@@ -27,16 +27,16 @@ import (
 )
 
 func TestWebToolCache_SecondCallReturnsCached(t *testing.T) {
-	c := newWebToolCache()
+	c := newTestCache(builtinWebCallBudget)
 	calls := 0
 	fn := func() (string, error) {
 		calls++
 		return "result", nil
 	}
 
-	first, err := c.call("web_search:news", fn)
+	first, err := c.trackCall("web_search:news", fn)
 	require.NoError(t, err)
-	second, err := c.call("web_search:news", fn)
+	second, err := c.trackCall("web_search:news", fn)
 	require.NoError(t, err)
 
 	assert.Equal(t, "result", first)
@@ -45,24 +45,24 @@ func TestWebToolCache_SecondCallReturnsCached(t *testing.T) {
 }
 
 func TestWebToolCache_DifferentKeysNotShared(t *testing.T) {
-	c := newWebToolCache()
-	_, err := c.call("web_search:a", func() (string, error) { return "A", nil })
+	c := newTestCache(builtinWebCallBudget)
+	_, err := c.trackCall("web_search:a", func() (string, error) { return "A", nil })
 	require.NoError(t, err)
-	got, err := c.call("web_search:b", func() (string, error) { return "B", nil })
+	got, err := c.trackCall("web_search:b", func() (string, error) { return "B", nil })
 	require.NoError(t, err)
 	assert.Equal(t, "B", got)
 }
 
 func TestWebToolCache_ErrorNotCached(t *testing.T) {
-	c := newWebToolCache()
+	c := newTestCache(builtinWebCallBudget)
 	calls := 0
-	_, err := c.call("web_scraper:https://x", func() (string, error) {
+	_, err := c.trackCall("web_scraper:https://x", func() (string, error) {
 		calls++
 		return "", errors.New("context deadline exceeded")
 	})
 	require.Error(t, err)
 
-	got, err := c.call("web_scraper:https://x", func() (string, error) {
+	got, err := c.trackCall("web_scraper:https://x", func() (string, error) {
 		calls++
 		return "page content", nil
 	})
@@ -72,16 +72,16 @@ func TestWebToolCache_ErrorNotCached(t *testing.T) {
 }
 
 func TestWebToolCache_EmptyResultNotCached(t *testing.T) {
-	c := newWebToolCache()
+	c := newTestCache(builtinWebCallBudget)
 	calls := 0
-	got, err := c.call("web_search:q", func() (string, error) {
+	got, err := c.trackCall("web_search:q", func() (string, error) {
 		calls++
 		return "   \n", nil // whitespace-only counts as empty
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "   \n", got, "empty result passes through unmodified")
 
-	got, err = c.call("web_search:q", func() (string, error) {
+	got, err = c.trackCall("web_search:q", func() (string, error) {
 		calls++
 		return "real results", nil
 	})
@@ -91,13 +91,13 @@ func TestWebToolCache_EmptyResultNotCached(t *testing.T) {
 }
 
 func TestWebToolCache_ConcurrentAccess(t *testing.T) {
-	c := newWebToolCache()
+	c := newTestCache(builtinWebCallBudget)
 	var wg sync.WaitGroup
 	for range 20 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			got, err := c.call("k", func() (string, error) { return "v", nil })
+			got, err := c.trackCall("k", func() (string, error) { return "v", nil })
 			assert.NoError(t, err)
 			assert.Equal(t, "v", got)
 		}()

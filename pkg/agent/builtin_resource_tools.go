@@ -58,7 +58,7 @@ func registerSearchLocalTool(ctx context.Context, reg *kdepstools.Registry) {
 	}
 	tool.Execute = func(args map[string]any) (string, error) {
 		query, _ := args[toolParamQuery].(string)
-		return trackCodeCall(query, func() (string, error) {
+		return trackToolCall(toolNameSearchLocal, query, func() (string, error) {
 			callCtx := api.WithSearch(toolCallCtx(ctx, args), api.SearchOpts{
 				Roots: projectSearchRoots(),
 				Index: func(root string, paths []string) {

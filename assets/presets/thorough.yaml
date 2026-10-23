@@ -1,4 +1,4 @@
-version: 1.0.2
+version: 1.1.0
 # kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
@@ -95,18 +95,22 @@ events:
       bytes: 49152
     run: drop_oldest
   - name: web-call-budget
+    tools: [web_search, wikipedia, web_scraper, exa_search, wolfram_alpha]
     on:
       distinctCalls: 40
     run: block
   - name: bash-call-budget
+    tools: [bash_exec]
     on:
       distinctCalls: 100
     run: block
   - name: file-call-budget
+    tools: [read_file, list_files]
     on:
       distinctCalls: 160
     run: block
   - name: code-call-budget
+    tools: [search_local]
     on:
       distinctCalls: 60
     run: block

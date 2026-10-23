@@ -19,12 +19,15 @@ package agent
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 )
 
 // convergenceCache tracks distinct tool calls and enforces a session limit.
-// Used by web, bash, file, and code search tools.
+// One backs each built-in call-budget event (web, bash, file, code); the
+// event's tools: list names the tools it counts (see budgetCacheFor).
 //
 // Only the FIRST attempt of a distinct key consumes the budget. A repeat of a
 // key already attempted (whether it succeeded or failed) never counts again and
@@ -109,6 +112,61 @@ var (
 	}
 )
 
+// budgetEventCaches maps each built-in call-budget event to the cache that
+// enforces it.
+//
+//nolint:gochecknoglobals // fixed event -> cache table over the caches above
+var budgetEventCaches = map[string]*convergenceCache{
+	eventWebCallBudget:  globalWebCache,
+	eventBashCallBudget: globalBashCache,
+	eventFileCallBudget: globalFileCache,
+	eventCodeCallBudget: globalCodeCache,
+}
+
+// budgetCacheFor returns the cache of the built-in call-budget event whose
+// tools: list names tool, or nil when none does.
+func budgetCacheFor(tool string) *convergenceCache {
+	for _, name := range slices.Sorted(maps.Keys(budgetEventCaches)) {
+		if e := eventRegistry[name]; e != nil && slices.Contains(e.Tools, tool) {
+			return budgetEventCaches[name]
+		}
+	}
+	return nil
+}
+
+// trackToolCall runs fn for tool under the call budget whose tools: list
+// names it, with key as the distinct-call and cache key. A tool no budget
+// lists runs as is.
+func trackToolCall(tool, key string, fn func() (string, error)) (string, error) {
+	c := budgetCacheFor(tool)
+	if c == nil {
+		return fn()
+	}
+	return c.trackCall(key, fn)
+}
+
+// goTrackedTools are the built-in tools whose Go code calls trackToolCall
+// with its own key. Declared tools are tracked by declaredExecute.
+//
+//nolint:gochecknoglobals // fixed list of self-tracking tools
+var goTrackedTools = []string{
+	toolNameWebSearch, toolNameWikipedia, toolNameWebScraper,
+	toolNameBashExec, toolNameReadFile, toolNameListFiles, toolNameSearchLocal,
+}
+
+// trackedInGo reports whether tool's own Go code applies its call budget.
+func trackedInGo(tool string) bool {
+	if slices.Contains(goTrackedTools, tool) {
+		return true
+	}
+	for id, d := range toolDefinitions {
+		if d.Declared() && declaredName(id, d) == tool {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *convergenceCache) reset() {
 	c.mu.Lock()
 	c.m = make(map[string]string)
@@ -152,31 +210,6 @@ func WebConvergenceCalls() (int, int)  { return globalWebCache.count() }
 func BashConvergenceCalls() (int, int) { return globalBashCache.count() }
 func FileConvergenceCalls() (int, int) { return globalFileCache.count() }
 func CodeConvergenceCalls() (int, int) { return globalCodeCache.count() }
-
-// Backward-compat: webToolCache type alias for existing references in builtin_tools.go.
-// All caches now use the generic convergenceCache above.
-type webToolCache = convergenceCache
-
-func newWebToolCache() *webToolCache {
-	return &webToolCache{
-		m:   make(map[string]string),
-		max: effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget),
-		msg: "stop searching — synthesize from data already gathered",
-	}
-}
-
-// call is the legacy method name used by web tool registration.
-func (c *convergenceCache) call(key string, fn func() (string, error)) (string, error) {
-	return c.trackCall(key, fn)
-}
-
-func trackBashCall(command string, fn func() (string, error)) (string, error) {
-	return globalBashCache.trackCall(command, fn)
-}
-
-func trackFileCall(path string, fn func() (string, error)) (string, error) {
-	return globalFileCache.trackCall(path, fn)
-}
 
 // lastFileState remembers the most recent file a file tool touched this
 // process, so a read-only tool called without file_path can fall back to it --
@@ -228,8 +261,4 @@ func lastFile() string {
 	lastFileState.mu.Lock()
 	defer lastFileState.mu.Unlock()
 	return lastFileState.path
-}
-
-func trackCodeCall(query string, fn func() (string, error)) (string, error) {
-	return globalCodeCache.trackCall(query, fn)
 }

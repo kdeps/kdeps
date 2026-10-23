@@ -47,15 +47,10 @@ const (
 // plus every tool asset that declares an http: block (exa_search, wolfram_alpha, zapier_*,
 // the rerankers, retrieve_context, ...) to the registry. API-key tools are registered only
 // when the corresponding env var is set.
-//
-//nolint:gochecknoglobals // shared web convergence cache bound at registration time
-var webCache *webToolCache
-
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	webCache = globalWebCache
-	registerDuckDuckGo(ctx, reg, webCache)
-	registerWikipedia(ctx, reg, webCache)
-	registerWebScraper(ctx, reg, webCache)
+	registerDuckDuckGo(ctx, reg)
+	registerWikipedia(ctx, reg)
+	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerBashJobList(ctx, reg)
@@ -68,7 +63,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWriteFile(ctx, reg)
 	registerStructuredTools(ctx, reg)
 	registerGoogleCacheTools(ctx, reg)
-	registerDeclaredTools(ctx, reg, webCache)
+	registerDeclaredTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
 	registerApprovalTokenTools(ctx, reg)
@@ -242,7 +237,7 @@ func executeReadFile(ctx context.Context, args map[string]any) (string, error) {
 	if remembered == "" {
 		return call()
 	}
-	return trackFileCall(readFileCacheKey(remembered, args), call)
+	return trackToolCall(toolNameReadFile, readFileCacheKey(remembered, args), call)
 }
 
 // readFileCacheKey keys a read by the file and the window asked for. The
@@ -580,7 +575,7 @@ func registerListFiles(ctx context.Context, reg *kdepstools.Registry) {
 			if err != nil {
 				return "", err
 			}
-			return trackFileCall(dirPath, func() (string, error) {
+			return trackToolCall(toolNameListFiles, dirPath, func() (string, error) {
 				return api.CallTool(toolCallCtx(ctx, args), toolNameListFiles, map[string]any{
 					"path": dirPath,
 				})
@@ -623,17 +618,17 @@ func resolveListFilesDirPath(args map[string]any) (string, error) {
 	return dirPath, nil
 }
 
-func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	registerCachedAPITool(ctx, reg, cache, toolNameWebSearch, toolParamQuery, builtinSearchTimeout, api.WebSearch)
+func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
+	registerCachedAPITool(ctx, reg, toolNameWebSearch, toolParamQuery, builtinSearchTimeout, api.WebSearch)
 }
 
-func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	registerCachedAPITool(ctx, reg, cache, "wikipedia", toolParamQuery, builtinSearchTimeout, api.Wikipedia)
+func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
+	registerCachedAPITool(ctx, reg, toolNameWikipedia, toolParamQuery, builtinSearchTimeout, api.Wikipedia)
 }
 
 // registerWebScraper registers a URL scraping tool. The fetch runs in the kdeps API.
-func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
-	registerCachedAPITool(ctx, reg, cache, toolNameWebScraper, "url", builtinScrapeTimeout, api.WebScrape)
+func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
+	registerCachedAPITool(ctx, reg, toolNameWebScraper, "url", builtinScrapeTimeout, api.WebScrape)
 }
 
 // registerSQLTools registers three tools for interacting with a SQLite database:
@@ -672,13 +667,12 @@ func registerAPITool(
 	reg.Register(tool)
 }
 
-// registerCachedAPITool is registerAPITool with the web convergence cache
-// around the call. An empty argument skips the cache so a missing query does
+// registerCachedAPITool is registerAPITool with the call budget that lists
+// the tool (the web-call-budget event) around the call. An empty argument skips the cache so a missing query does
 // not consume a distinct-call slot.
 func registerCachedAPITool(
 	ctx context.Context,
 	reg *kdepstools.Registry,
-	cache *webToolCache,
 	name, arg string,
 	timeout time.Duration,
 	call func(context.Context, map[string]any) (string, error),
@@ -686,7 +680,7 @@ func registerCachedAPITool(
 	tool := defined(&kdepstools.Tool{
 		Name: name,
 		Execute: func(args map[string]any) (string, error) {
-			return executeCachedAPI(ctx, cache, name, arg, timeout, args)
+			return executeCachedAPI(ctx, name, arg, timeout, args)
 		},
 	})
 	if tool != nil {
@@ -701,11 +695,8 @@ func registerCachedAPITool(
 }
 
 func executeCachedAPI(
-	ctx context.Context, cache *webToolCache, name, arg string, timeout time.Duration, args map[string]any,
+	ctx context.Context, name, arg string, timeout time.Duration, args map[string]any,
 ) (string, error) {
-	if cache == nil {
-		cache = globalWebCache
-	}
 	raw, _ := stringArgFrom(args, arg)
 	body := map[string]any{}
 	if args != nil {
@@ -716,7 +707,7 @@ func executeCachedAPI(
 	if strings.TrimSpace(raw) == "" {
 		return api.CallTool(toolCallCtx(ctx, args), name, body)
 	}
-	return cache.call(name+":"+raw, func() (string, error) {
+	return trackToolCall(name, name+":"+raw, func() (string, error) {
 		callCtx, cancel := toolCallCtxTimeout(ctx, args, timeout)
 		defer cancel()
 		return api.CallTool(callCtx, name, body)
@@ -820,15 +811,15 @@ func executeBashAPI(
 	result, err := api.CallTool(bashCallContext(ctx, tool, args), toolNameBashExec, bashCallBody(args))
 	if err != nil {
 		if !bashSkipBudget(err) {
-			_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+			_, _ = trackToolCall(toolNameBashExec, command, func() (string, error) { return "", nil })
 		}
 		return "", err
 	}
 	if strings.TrimSpace(result) == "" {
-		_, _ = trackBashCall(command, func() (string, error) { return "", nil })
+		_, _ = trackToolCall(toolNameBashExec, command, func() (string, error) { return "", nil })
 		return result, nil
 	}
-	return trackBashCall(command, func() (string, error) { return result, nil })
+	return trackToolCall(toolNameBashExec, command, func() (string, error) { return result, nil })
 }
 
 func bashSkipBudget(err error) bool {

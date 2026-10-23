@@ -309,7 +309,21 @@ func TestDeclaredHTTPTool_CacheReusesAnswers(t *testing.T) {
 		_, err := tool.Execute(map[string]any{"query": "same"})
 		require.NoError(t, err)
 	}
-	assert.Equal(t, 1, api.count(), "cache: true answers repeats from the cache")
+	assert.Equal(t, 1, api.count(), "a tool on the web-call-budget list answers repeats from the cache")
+}
+
+func TestDeclaredHTTPTool_UnlistedToolIsNotCached(t *testing.T) {
+	api := newFakeAPI(t, http.StatusOK, `{"results":[]}`)
+	globalWebCache.reset()
+	t.Cleanup(globalWebCache.reset)
+	tool := declaredTool(t, "zapier_list_actions", map[string]string{"ZAPIER_NLA_API_KEY": "k"})
+	for range 2 {
+		_, err := tool.Execute(map[string]any{})
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 2, api.count(), "a tool no budget lists runs every call")
+	calls, _ := globalWebCache.count()
+	assert.Zero(t, calls)
 }
 
 func TestValidateToolDefinition_HTTPBlock(t *testing.T) {
