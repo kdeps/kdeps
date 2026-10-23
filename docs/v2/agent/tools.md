@@ -200,6 +200,25 @@ exec:
 
 A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the model. A tool declares `http:` or `exec:`, not both.
 
+## Your own tools
+
+A tool you write yourself goes in `~/.kdeps/tools/`. A file with an `http:`, `exec:` or `sql:` block is a new tool: kdeps registers it for the agent and serves it on `/apis/tools.kdeps.io/v1/tools/<name>/call`, with no registry or lock entry and no Go code. A file named like a shipped tool replaces that tool's definition.
+
+```yaml
+# ~/.kdeps/tools/git_version.yaml - the file name is the tool name
+version: 1.0.0
+description: Print the installed git version.
+exec:
+  command: git          # run directly, no shell
+  args: ["--version"]
+```
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $KDEPS_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{}' http://127.0.0.1:9095/apis/tools.kdeps.io/v1/tools/git_version/call
+# git version 2.47.0
+```
+
 ## The call runs in the kdeps API
 
 A declared `http:` or `exec:` tool is served by the kdeps API like every other tool. The tool asset declares the call; the handler runs it. The agent loop and a workflow component both reach it the same way.

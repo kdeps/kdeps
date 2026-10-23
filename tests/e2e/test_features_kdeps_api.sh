@@ -272,7 +272,7 @@ elif kind == "tools":
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
         "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
-        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "edit_file", "embedding", "embedding_search",
+        "bash_job_list", "bash_job_wait", "calculator", "cohere_rerank", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
         "google_cache_delete", "google_cache_list", "http_request",
         "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
@@ -341,6 +341,16 @@ PY
 
     local home="$root/home"
     mkdir -p "$home"
+    # A hand-written tool in ~/.kdeps/tools is served on the kdeps API with no
+    # registry or lock entry.
+    mkdir -p "$home/.kdeps/tools"
+    cat >"$home/.kdeps/tools/e2e_user_tool.yaml" <<'EOF'
+version: 1.0.0
+description: E2E hand-written tool that prints the git version.
+exec:
+  command: git
+  args: ["--version"]
+EOF
     local server_dir="$root/server"
     local bare_dir="$root/bare"
     mkdir -p "$server_dir/resources" "$bare_dir/resources"
@@ -707,6 +717,15 @@ EOF
         test_passed "kdeps API - md5_file returns the checksum"
     else
         test_failed "kdeps API - md5_file returns the checksum" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/e2e_user_tool/call" || true)
+    if [ "$got" = "200" ] && grep -F "git version" "$body" >/dev/null; then
+        test_passed "kdeps API - a ~/.kdeps/tools YAML tool is served"
+    else
+        test_failed "kdeps API - a ~/.kdeps/tools YAML tool is served" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

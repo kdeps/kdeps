@@ -224,6 +224,21 @@ run:                      # steps run in order; the first failing step stops the
 - A builtin file's `api:` must be its own file name, and that name must be one the binary implements. A mismatch is skipped with a warning instead of running another command's handler.
 - Built-in command files cannot be removed. Declared ones can, with `kdeps uninstall commands/<name>`, and `kdeps update commands/<name>` restores them.
 
+A command you write yourself goes in `~/.kdeps/commands/`. kdeps loads it at start (and after `kdeps update`), with no registry or lock entry, and serves it on the commands API like a shipped one. A file there with a shipped command's name replaces it.
+
+```yaml
+# ~/.kdeps/commands/standup.yaml - typed as /standup
+version: 1.0.0
+name: standup
+order: 900
+usage:
+  - args: "[since]"
+    help: Summarize my git activity for a standup
+run:
+  - prompt: |-
+      Run git log for my commits since ${1:-yesterday} and summarize them in three bullets.
+```
+
 | Shipped declared command | Runs |
 |---|---|
 | `/frugal` | `/efficiency preset frugal` |

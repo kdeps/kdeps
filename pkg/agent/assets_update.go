@@ -55,7 +55,7 @@ func ReloadAssets() {
 	initEvents()
 	initPresets()
 	initCommands()
-	toolDefinitions = loadToolDefinitionsFrom(assets.Open("tools"))
+	toolDefinitions = loadToolDefinitions()
 	toolAliases = aliasesOf(toolDefinitions)
 	registerDeclaredAPIRoutes()
 	executorLLM.ReloadRegistry()

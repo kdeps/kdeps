@@ -162,8 +162,18 @@ func (c *slashCommand) validateDeclared() error {
 //nolint:gochecknoglobals // loaded once at init and on asset reload
 var slashCommands []*slashCommand
 
-// initCommands loads the commands asset set.
-func initCommands() { slashCommands = loadCommandsFrom(assets.Open("commands")) }
+// initCommands loads the commands asset set, then the hand-written commands in
+// ~/.kdeps/commands over it by command name. A user command needs no registry
+// or lock entry; a declared one is served on the commands API like a shipped
+// one.
+func initCommands() {
+	byName := map[string]*slashCommand{}
+	readCommandsInto(byName, assets.Open("commands"))
+	if user := userAssetFS("commands"); user != nil {
+		readCommandsInto(byName, user)
+	}
+	slashCommands = sortedCommands(byName)
+}
 
 //nolint:gochecknoinits // loads the commands asset set
 func init() { initCommands() }
@@ -172,11 +182,21 @@ func init() { initCommands() }
 // name. A file that does not parse is skipped with a warning; a later name
 // replaces an earlier one.
 func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
-	entries, err := fsys.ReadDir("commands")
-	if err != nil {
+	byName := map[string]*slashCommand{}
+	if !readCommandsInto(byName, fsys) {
 		return nil
 	}
-	byName := map[string]*slashCommand{}
+	return sortedCommands(byName)
+}
+
+// readCommandsInto parses every commands/*.yaml in fsys into byName, a later
+// command replacing an earlier one of the same name. It reports false when
+// fsys has no commands folder.
+func readCommandsInto(byName map[string]*slashCommand, fsys assets.ReadFS) bool {
+	entries, err := fsys.ReadDir("commands")
+	if err != nil {
+		return false
+	}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
 			continue
@@ -197,6 +217,11 @@ func loadCommandsFrom(fsys assets.ReadFS) []*slashCommand {
 		}
 		byName[c.Name] = c
 	}
+	return true
+}
+
+// sortedCommands lists byName sorted by order, then name.
+func sortedCommands(byName map[string]*slashCommand) []*slashCommand {
 	out := make([]*slashCommand, 0, len(byName))
 	for _, c := range byName {
 		out = append(out, c)
