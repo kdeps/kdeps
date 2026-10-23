@@ -100,13 +100,24 @@ ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
 PY
 
 TB_PORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-: > "$TB_DIR/server.log"
+
 python3 "$TB_DIR/fake.py" "$TB_PORT" "$TB_DIR/server.log" >/dev/null 2>&1 &
 TB_SRV=$!
 for _ in $(seq 1 50); do
     python3 -c "import socket;socket.create_connection(('127.0.0.1',$TB_PORT),1)" 2>/dev/null && break
     sleep 0.1
 done
+
+# tb_run HOME runs one agent turn against the fake model with that HOME; the
+# model's view of the second calculator result lands in $TB_DIR/server.log.
+tb_run() {
+    : > "$TB_DIR/server.log"
+    OUT=$(printf '/refine off\n/judges auto off\nuse the calculator tool to add one plus one and then two plus two, and report both results\n/exit\n' \
+        | HOME="$1" USERPROFILE="$(to_native_path "$1")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+            timeout 180 "$KDEPS_BIN" --new --backend openai \
+            --base-url "http://127.0.0.1:$TB_PORT/v1" --model fake 2>&1 || true)
+    LOG=$(cat "$TB_DIR/server.log")
+}
 
 TB_HOME="$TB_DIR/home"
 mkdir -p "$TB_HOME/.kdeps/events"
@@ -117,18 +128,32 @@ on:
   distinctCalls: 1    # one distinct calculator call per turn
 run: block
 EOF
-
-OUT=$(printf '/refine off\n/judges auto off\nuse the calculator tool to add one plus one and then two plus two, and report both results\n/exit\n' \
-    | HOME="$TB_HOME" USERPROFILE="$(to_native_path "$TB_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
-        timeout 180 "$KDEPS_BIN" --new --backend openai \
-        --base-url "http://127.0.0.1:$TB_PORT/v1" --model fake 2>&1 || true)
-LOG=$(cat "$TB_DIR/server.log")
+tb_run "$TB_HOME"
 
 if output_grep_fixed "BUDGET_DONE" "$OUT" \
     && output_grep_fixed "SECOND" "$LOG" && output_grep_fixed "calc-budget" "$LOG"; then
     test_passed "tool budget - a ~/.kdeps/events tools: event blocks the second distinct call"
 else
     test_failed "tool budget - generic event" "out=$(printf '%s' "$OUT" | tail -c 400) log=$LOG"
+fi
+
+# A built-in call budget counts whatever its tools: list names.
+WB_HOME="$TB_DIR/webhome"
+mkdir -p "$WB_HOME/.kdeps/events"
+cat > "$WB_HOME/.kdeps/events/web-call-budget.yaml" << 'EOF'
+name: web-call-budget
+tools: [calculator]   # calculator joins the web budget
+on:
+  distinctCalls: 1
+run: block
+EOF
+tb_run "$WB_HOME"
+
+if output_grep_fixed "BUDGET_DONE" "$OUT" \
+    && output_grep_fixed "SECOND" "$LOG" && output_grep_fixed "web/search" "$LOG"; then
+    test_passed "tool budget - a tool added to web-call-budget's tools: list is counted"
+else
+    test_failed "tool budget - built-in budget tools: list" "out=$(printf '%s' "$OUT" | tail -c 400) log=$LOG"
 fi
 
 restore_llm_override

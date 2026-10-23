@@ -204,6 +204,7 @@ func TestApplyConvergenceCacheDefaults_SetsGlobalCachesFromEvents(t *testing.T) 
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "web-call-budget.yaml"), []byte(`
 name: web-call-budget
+tools: [web_search]
 on:
   distinctCalls: 7
 run: block

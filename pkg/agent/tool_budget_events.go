@@ -27,10 +27,15 @@ import (
 	"sync"
 )
 
-// toolBudgets enforces the generic budget events: an event whose tools: list
-// names the tools it limits. It counts, per turn and per event, the distinct
-// calls to those tools; a repeat of a call already made never counts twice.
-// Once the count reaches the event's on.distinctCalls, a new call is blocked.
+// toolBudgets enforces the budget events: an event whose tools: list names
+// the tools it limits. It counts, per turn and per event, the distinct calls
+// to those tools; a repeat of a call already made never counts twice. Once
+// the count reaches the event's on.distinctCalls, a new call is blocked.
+//
+// The built-in call-budget events (web, bash, file, code) count in their
+// convergence cache. A tool whose Go code tracks itself (trackToolCall) is
+// counted there; any other tool on their list is counted here, by its
+// arguments.
 type toolBudgets struct {
 	mu   sync.Mutex
 	seen map[string]map[string]bool // event name -> call key -> made this turn
@@ -52,6 +57,15 @@ func (b *toolBudgets) check(tool, args string) string {
 	for _, name := range slices.Sorted(maps.Keys(eventRegistry)) {
 		e := eventRegistry[name]
 		if len(e.Tools) == 0 || !EventEnabled(name) || !slices.Contains(e.Tools, tool) {
+			continue
+		}
+		if c, builtin := budgetEventCaches[name]; builtin {
+			if trackedInGo(tool) {
+				continue
+			}
+			if _, err := c.trackCall(key, func() (string, error) { return "", nil }); err != nil {
+				return err.Error()
+			}
 			continue
 		}
 		if b.seen == nil {
@@ -100,6 +114,9 @@ func canonicalArgs(args string) string {
 // validateToolBudget checks a generic budget event: it limits distinct calls
 // and blocks, the only behavior a tools: list has.
 func validateToolBudget(ev Event) error {
+	if _, builtin := budgetEventCaches[ev.Name]; builtin && len(ev.Tools) == 0 {
+		return fmt.Errorf("event %q: needs a tools: list (the tools this budget counts)", ev.Name)
+	}
 	if len(ev.Tools) == 0 {
 		return nil
 	}
