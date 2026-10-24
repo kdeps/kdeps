@@ -1,10 +1,9 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: memory
 order: 260
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: memory
 usage:
   - args: ""
     help: "Show memory store overview (entry count, most recent entries)"
@@ -14,3 +13,47 @@ usage:
     help: Search memory keys/values for a substring
   - args: "show <key>"
     help: "Show one entry's full value, type, and related keys"
+subcommands:
+  "":
+    run:
+      - tool: session_ops
+        args: {operation: memory_entries, order: recent, limit: 10}  # the 10 most recently updated
+        print: |-
+          {{if not .entries}}no memory entries yet{{else}}**Memory: {{.total}} entries**
+          Most recently updated:
+          {{range .entries}}
+          - {{.key}}{{if .type}} [{{.type}}]{{end}}: {{trunc 80 .value}}{{end}}
+          {{if .more}}
+          `/memory list` shows all entries · `/memory search <query>` filters by substring{{end}}{{end}}
+  list:
+    run:
+      - tool: session_ops
+        args: {operation: memory_entries}
+        print: |-
+          {{if not .entries}}no memory entries yet{{else}}**Memory: {{.total}} entries**
+          {{range .entries}}
+          - {{.key}}{{if .type}} [{{.type}}]{{end}}: {{trunc 80 .value}}{{end}}{{end}}
+  search:
+    run:
+      - tool: session_ops
+        args: {operation: memory_entries, query: "$@"}
+        print: |-
+          {{if not .entries}}no memory entries matching {{printf "%q" .query}}{{else}}**Memory: {{.total}} matches for {{printf "%q" .query}}**
+          {{range .entries}}
+          - {{.key}}{{if .type}} [{{.type}}]{{end}}: {{trunc 80 .value}}{{end}}{{end}}
+  show:
+    run:
+      - tool: session_ops
+        args: {operation: memory_entry, key: "$1"}
+        # graph is the <graph-node> block the model sees for this key
+        print: |-
+          **{{.key}}**
+          {{if .type}}type: {{.type}}
+          {{end}}updated: {{.updated}}
+          {{if .related}}related: {{join .related ", "}}
+          {{end}}
+          {{.value}}
+          {{if .graph}}
+          ```
+          {{.graph}}
+          ```{{end}}

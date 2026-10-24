@@ -44,12 +44,9 @@ type commandMethod func(*REPL, []string) error
 func builtinCommandOps() map[string]commandMethod {
 	return map[string]commandMethod{
 		"help":         func(r *REPL, _ []string) error { return r.cmdHelp() },
-		"skills":       func(r *REPL, _ []string) error { return r.cmdSkills() },
-		"prompts":      func(r *REPL, _ []string) error { return r.cmdPrompts() },
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
 		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
-		"reload":       func(r *REPL, _ []string) error { return r.cmdReload() },
 		"search":       func(r *REPL, a []string) error { return r.cmdSearch(a) },
 		"context":      func(r *REPL, a []string) error { return r.cmdContext(a) },
 		"kartographer": func(r *REPL, _ []string) error { return r.cmdKartographer() },
@@ -66,7 +63,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"auto-improve": func(r *REPL, _ []string) error { return r.cmdAutoImprove() },
 		"efficiency":   func(r *REPL, a []string) error { r.cmdEfficiency(a); return nil },
 		"judges":       func(r *REPL, a []string) error { r.cmdJudges(a); return nil },
-		"memory":       func(r *REPL, a []string) error { return r.cmdMemory(a) },
 		"instruct":     func(r *REPL, a []string) error { return r.cmdInstruct(false, a) },
 		"instruct-now": func(r *REPL, a []string) error { return r.cmdInstruct(true, a) },
 		"update":       func(r *REPL, a []string) error { r.cmdUpdate(a); return nil },

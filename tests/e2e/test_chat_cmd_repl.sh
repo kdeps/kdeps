@@ -128,6 +128,16 @@ else
     test_failed "REPL /thinking - budget event override" "Output: $OUTPUT"
 fi
 
+# /memory, /reload: YAML commands over session_ops
+OUTPUT=$(_repl '/memory' '/memory search' '/memory bogus' '/reload')
+if output_grep_fixed "give a query: /memory search" "$OUTPUT" \
+    && output_grep_fixed 'unknown /memory subcommand "bogus"' "$OUTPUT" \
+    && output_grep_fixed "Reloaded skills" "$OUTPUT"; then
+    test_passed "REPL /memory, /reload - print from their YAML"
+else
+    test_failed "REPL /memory, /reload" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then

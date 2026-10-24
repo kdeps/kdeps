@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/harness", "/knowledge", "/efficiency", "/konfig", "/reload", "/settings", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/harness", "/knowledge", "/efficiency", "/konfig", "/settings", "kdeps run", "kdeps konfig export"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {
@@ -175,7 +175,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps runs it"},
 			{Label: "the result goes back to the model"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "/reload", "/settings", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "/settings", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
 		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "agent.definedAs"},
 	},
 }

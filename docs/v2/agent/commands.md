@@ -273,6 +273,11 @@ run:
 | `checkpoint` | - | `id` (empty when the session has no messages) |
 | `goto` | `id`: an entry id | `id`, `found`, `turns` |
 | `branches` | - | `branches` (`branch`, `at`, `ids`) |
+| `skills` | - | `skills` (`name`, `description`): behind `/skills` |
+| `prompts` | - | `prompts` (`name`, `hint`, `description`): behind `/prompts` |
+| `memory_entries` | `query` (search; given but empty is an error), `order` (`recent`), `limit` | `total`, `more` (left out by `limit`), `query`, `entries` (`key`, `type`, `value`): behind `/memory`, `/memory list`, `/memory search` |
+| `memory_entry` | `key` | `key`, `type`, `value`, `related`, `updated`, `graph` (the `<graph-node>` block the model sees): behind `/memory show` |
+| `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |
 | `model_default` | `name` (optional) | `model`; with no name, `configured` |
