@@ -175,6 +175,11 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /judges auto: a judge roster generated per turn.
+	"auto-judges": {
+		get: func(r *REPL) map[string]any { return onOffState(r.loop.AutoJudges()) },
+		set: func(r *REPL, v string) error { r.loop.SetAutoJudges(v == toggleOn); return nil },
+	},
 	// /model name: how the modeline shows the model name. "auto" follows the theme.
 	"model-name": {
 		get: func(_ *REPL) map[string]any {

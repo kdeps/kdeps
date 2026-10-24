@@ -277,6 +277,11 @@ run:
 | `prompts` | - | `prompts` (`name`, `hint`, `description`): behind `/prompts` |
 | `memory_entries` | `query` (search; given but empty is an error), `order` (`recent`), `limit` | `total`, `more` (left out by `limit`), `query`, `entries` (`key`, `type`, `value`): behind `/memory`, `/memory list`, `/memory search` |
 | `memory_entry` | `key` | `key`, `type`, `value`, `related`, `updated`, `graph` (the `<graph-node>` block the model sees): behind `/memory show` |
+| `judges` | - | `judges` (`name`, `criteria`, `graders`: `kind`, `pattern`), `auto`, `last` (the last generated roster): behind `/judges` |
+| `judge_add` | `name`, `criteria` | `name` |
+| `judge_remove` | `name` | `name`, `removed` |
+| `judge_grade` | `name`, `kind` (`exact`, `contains`, `not_contains`, `regex`, `json`, `expr`), `pattern` | `name`, `kind` |
+| `judges_clear` | - | `cleared`: no roster and no auto roster, saved |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |

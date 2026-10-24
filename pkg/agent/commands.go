@@ -53,7 +53,7 @@ var goCommands = []string{
 	"help", "prompt",
 	"settings", "editor", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
-	"exit", "quit", "auto-improve", "efficiency", "judges",
+	"exit", "quit", "auto-improve", "efficiency",
 	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 

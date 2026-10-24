@@ -125,7 +125,7 @@ func TestPrintJudgesStatus_ShowsLastAutoRoster(t *testing.T) {
 	}
 	old := os.Stdout
 	os.Stdout = w
-	repl.printJudgesStatus()
+	_ = repl.dispatchCommand("/judges")
 	_ = w.Close()
 	os.Stdout = old
 	out, _ := io.ReadAll(r)
@@ -187,14 +187,20 @@ func TestDispatchCommand_JudgesGradeUsage(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	if err := repl.dispatchCommand("/judges grade correctness"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := repl.dispatchCommand(
+		"/judges grade correctness",
+	); err == nil ||
+		!strings.Contains(err.Error(), "give a name, a kind") {
+		t.Fatalf("expected a usage error, got %v", err)
 	}
 	if len(loop.Judges()) != 0 {
 		t.Fatalf("malformed grade must not add a judge, got %v", loop.Judges())
 	}
-	if err := repl.dispatchCommand("/judges grade correctness regex '('"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := repl.dispatchCommand(
+		"/judges grade correctness regex '('",
+	); err == nil ||
+		!strings.Contains(err.Error(), "regex:") {
+		t.Fatalf("expected a regex error, got %v", err)
 	}
 	if len(loop.Judges()) != 0 {
 		t.Fatalf("a bad regex must not add a grader, got %v", loop.Judges())
@@ -207,8 +213,11 @@ func TestDispatchCommand_JudgesAddUsageError(t *testing.T) {
 	defer repl.cancel()
 
 	// Missing criteria: name only.
-	if err := repl.dispatchCommand("/judges add onlyname"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := repl.dispatchCommand(
+		"/judges add onlyname",
+	); err == nil ||
+		!strings.Contains(err.Error(), "give a name and criteria") {
+		t.Fatalf("expected a usage error, got %v", err)
 	}
 	if len(loop.Judges()) != 0 {
 		t.Fatalf("expected no judge added on malformed usage, got %v", loop.Judges())
