@@ -293,3 +293,65 @@ func TestDeclaredCommand_APICallCanceledContext(t *testing.T) {
 	_, err := repl.declaredCommandSpec(declaredCommand("sum")).Call(ctx, nil)
 	require.ErrorIs(t, err, context.Canceled)
 }
+
+// subcommands: dispatch on the first argument, nest, and run "" with no
+// argument; an unknown word is an error naming the choices.
+func TestCommandSubcommands_DispatchAndNest(t *testing.T) {
+	withCommands(t, map[string]string{
+		"sub": `name: sub
+usage: [{help: h}]
+subcommands:
+  "":
+    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "bare {{.value}}"}]
+  show:
+    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "show {{.value}}"}]
+  deep:
+    subcommands:
+      one:
+        run:
+          - {tool: session_ops, args: {operation: get, key: refine}, as: first}
+          - {tool: session_ops, args: {operation: get, key: refine}, print: "deep {{.steps.first.value}}"}
+`,
+	})
+	r := NewREPL(t.Context(), makeTestLoop(nil))
+	defer r.cancel()
+	r.loop.SetPromptRefine(true)
+
+	run := func(line string) (string, error) {
+		var err error
+		out := captureStdout(t, func() { err = r.dispatchCommand(line) })
+		return out, err
+	}
+	out, err := run("/sub")
+	require.NoError(t, err)
+	assert.Contains(t, out, "bare on")
+	out, err = run("/sub SHOW")
+	require.NoError(t, err)
+	assert.Contains(t, out, "show on")
+	out, err = run("/sub deep one")
+	require.NoError(t, err)
+	assert.Contains(t, out, "deep on")
+	assert.NotContains(t, out, `"value"`, "a step with as: and no print: shows nothing")
+	_, err = run("/sub nope")
+	require.ErrorContains(t, err, `unknown /sub subcommand "nope" (deep, show)`)
+	_, err = run("/sub deep two")
+	require.ErrorContains(t, err, `unknown /sub deep subcommand "two" (one)`)
+}
+
+func TestCommandBody_Validate(t *testing.T) {
+	for body, want := range map[string]string{
+		"subcommands: {a: {}}\n":                    "exactly one of run, setting or subcommands",
+		"subcommands: {Up: {run: [{prompt: p}]}}\n": "one lowercase word",
+		"subcommands: {a: {run: [{prompt: p}], subcommands: {b: {run: [{prompt: p}]}}}}\n": "exactly one",
+		"subcommands: {a: {subcommands: {b: {run: [{tool: t, print: \"{{\"}]}}}}\n":        `subcommand "a": subcommand "b": run step 1`,
+		"subcommands: {a: {setting: {key: nope}}}\n":                                       "unknown key",
+	} {
+		_, err := parseYAMLCommand([]byte("name: x\nusage: [{help: h}]\n"+body), "x.yaml")
+		require.ErrorContains(t, err, want, body)
+	}
+	_, err := parseYAMLCommand(
+		[]byte("name: x\nusage: [{help: h}]\nsubcommands: {a: {run: [{prompt: p}]}}\n"),
+		"x.yaml",
+	)
+	require.NoError(t, err)
+}

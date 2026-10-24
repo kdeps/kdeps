@@ -93,12 +93,12 @@ func TestCmdFoldItems_InvalidatesCachedPreamble(t *testing.T) {
 	os.Stdout = wr
 	defer func() { os.Stdout = old; _ = wr.Close() }()
 
-	if foldErr := r.cmdFoldItems([]string{"items", "10"}); foldErr != nil {
+	if foldErr := r.dispatchCommand("/fold items 10"); foldErr != nil {
 		t.Fatal(foldErr)
 	}
 
 	if r.loop.systemPreambleBuilt {
-		t.Fatal("cmdFoldItems did not invalidate the cached system preamble")
+		t.Fatal("/fold items did not invalidate the cached system preamble")
 	}
 	if r.loop.config.FoldContextItems != 10 {
 		t.Fatalf("FoldContextItems = %d, want 10", r.loop.config.FoldContextItems)
@@ -116,15 +116,11 @@ func TestCmdFoldPreset_InvalidatesCachedPreamble(t *testing.T) {
 	os.Stdout = wr
 	defer func() { os.Stdout = old; _ = wr.Close() }()
 
-	names := foldPresetNames
-	if len(names) == 0 {
-		t.Skip("no fold presets registered")
-	}
-	if presetErr := r.cmdFoldPreset([]string{"preset", names[0]}); presetErr != nil {
+	if presetErr := r.dispatchCommand("/fold preset tight"); presetErr != nil {
 		t.Fatal(presetErr)
 	}
 
 	if r.loop.systemPreambleBuilt {
-		t.Fatal("cmdFoldPreset did not invalidate the cached system preamble")
+		t.Fatal("/fold preset did not invalidate the cached system preamble")
 	}
 }

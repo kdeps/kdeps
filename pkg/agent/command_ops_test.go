@@ -274,5 +274,5 @@ func TestSettingSpec_Validate(t *testing.T) {
 	require.ErrorContains(t, bad.validate(), "setting: set")
 	_, err := parseYAMLCommand([]byte("name: x\nusage: [{help: h}]\nrun: [{prompt: p}]\n"+
 		"setting: {key: refine, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
-	require.ErrorContains(t, err, "not both")
+	require.ErrorContains(t, err, "exactly one of run, setting or subcommands")
 }

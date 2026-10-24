@@ -95,10 +95,10 @@ in the prompt's memory block) and needs no setup.
 |---|---|
 | `/fold` | Show status: auto on/off, threshold, items cap, tokens accumulated since the last checkpoint |
 | `/fold now` | Force a fold immediately, regardless of the threshold or the compaction budget |
-| `/fold auto` / `/fold auto off` | Toggle automatic folding (default: on) |
-| `/fold threshold <n>` | Token delta since the last checkpoint that triggers a fold (e.g. `4k`) |
-| `/fold items <n>` | How many recent checkpoints stay in the active memory-prompt window |
-| `/fold preset tight\|balanced\|loose` | Named threshold+items bundles - `balanced` is the shipped default |
+| `/fold auto [on\|off]` | Show or set automatic folding (default: on) |
+| `/fold threshold <n\|default>` | Token delta since the last checkpoint that triggers a fold (e.g. `4k`); `default` uses the `fold` event's value |
+| `/fold items <n\|default>` | How many recent checkpoints stay in the active memory-prompt window |
+| `/fold preset tight\|balanced\|loose` | Named threshold+items bundles (1000/3, the `fold` event's values, 8000/10) |
 
 All four settings persist across sessions, the same way `/model tool set
 compact-threshold`/`compact-budget` already do.
@@ -107,8 +107,12 @@ compact-threshold`/`compact-budget` already do.
 budget entirely and always summarizes everything except the last few turns,
 same as `/compact`. The only way it comes back with nothing is too few turns
 to have anything beyond what it always keeps verbatim - it then prints the
-turn count needed and the current `sent`/`generated` token counter, a number to
-check instead of just an assertion.
+turn count and how many recent turns always stay.
+
+`/fold` is a YAML command (`commands/fold.yaml`) with
+[subcommands](/agent/commands#subcommands): the presets, their numbers and every
+line it prints are in that file. Copy it to `~/.kdeps/commands/` to add a
+preset of your own.
 
 Both `/compact` and `/fold` reset `sent` and `generated` to the context that
 remains. `sent` is that context (system prompt, memory, and the kept
