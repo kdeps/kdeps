@@ -263,6 +263,8 @@ run:
 | `clear` | `summarize_min_turns`: summarize the branch first when the session has at least this many turns (`0` never) | `turns` (before clearing), `summary` |
 | `compact` | - | `summary` (empty when there were too few turns), `turns`, `keep` (recent turns kept verbatim) |
 | `last_reply` | - | `text` (the latest assistant message, empty when there is none) |
+| `get` | `key`: a session setting (see [Setting commands](#setting-commands)) | the setting's state: `value` plus its extra fields |
+| `set` | `key`, `value`: one of the values the setting's command file lists | the new state; persisted across sessions |
 
 A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
 
@@ -311,7 +313,7 @@ run:
 
 ## Setting commands
 
-A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps owns the setting itself (the live REPL state and saving it across sessions); the accepted values and every line the command prints are in the file.
+A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps owns the setting itself (the live REPL state and saving it across sessions); the accepted values and every line the command prints are in the file. The block reads and writes through the `session_ops` tool's `get` and `set` operations, so any kdeps API caller can do the same, and `set` accepts only the values the command file lists.
 
 ```text
 /refine        -> prints show:     (current value)

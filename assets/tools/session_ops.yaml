@@ -1,14 +1,20 @@
-version: 1.1.0
+version: 1.2.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
 # history, copy); the model is not offered it. Each operation returns JSON.
-description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep})."
+description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep})."
 outputFormat: json
 parameters:
   operation:
     type: string
-    description: "messages, last_reply, clear or compact"
+    description: "messages, last_reply, get, set, clear or compact"
     required: true
   summarize_min_turns:
     type: integer
     description: "clear only: summarize the branch first when the session has at least this many turns; 0 never summarizes"
+  key:
+    type: string
+    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo)"
+  value:
+    type: string
+    description: "set only: one of the values the setting's command asset lists (commands/<name>.yaml setting: values)"

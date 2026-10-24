@@ -92,3 +92,44 @@ func TestSessionOps_LastReply(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"text":"a2"}`, out)
 }
+
+func TestSessionOps_GetSetFollowTheSettingAsset(t *testing.T) {
+	loop := makeTestLoop(nil)
+	r := NewREPL(context.Background(), loop)
+	defer r.cancel()
+	saved := 0
+	r.SetSaveTuningFn(func(ToolTuning) error { saved++; return nil })
+
+	out, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "OFF"})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"value":"off"}`, out)
+	assert.False(t, loop.PromptRefineEnabled())
+	assert.Equal(t, 1, saved, "a stored value persists")
+	out, err = r.sessionOps(t.Context(), map[string]any{"operation": "get", "key": "refine"})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"value":"off"}`, out)
+
+	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "maybe"})
+	require.ErrorContains(t, err, `"maybe" is not a value of setting "refine"`)
+	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "get", "key": "nope"})
+	require.ErrorContains(t, err, "unknown setting")
+	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "nope", "value": "x"})
+	require.ErrorContains(t, err, "unknown setting")
+}
+
+func TestSessionOps_SetNeedsTheSettingsCommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	r := NewREPL(context.Background(), loop)
+	defer r.cancel()
+	old := slashCommands
+	t.Cleanup(func() { slashCommands = old })
+	slashCommands = nil
+	_, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "off"})
+	require.ErrorContains(t, err, "no installed command declares setting")
+}
+
+func TestJoinList(t *testing.T) {
+	assert.Equal(t, "a, b", joinList([]string{"a", "b"}, ", "))
+	assert.Equal(t, "a, 2", joinList([]any{"a", 2}, ", "))
+	assert.Equal(t, "x", joinList("x", ", "))
+}

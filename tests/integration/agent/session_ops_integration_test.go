@@ -73,3 +73,24 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "the answer", string(data))
 }
+
+// Settings are session state on the kdeps API: session_ops set stores a value
+// the setting's command asset lists, and get reads it back.
+func TestSessionOps_SettingsThroughTheAPI(t *testing.T) {
+	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+
+	setOff := map[string]any{"operation": "set", "key": "refine", "value": "off"}
+	out, err := api.CallTool(t.Context(), "session_ops", setOff)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"value":"off"}`, out)
+	require.False(t, loop.PromptRefineEnabled())
+	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "refine"})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"value":"off"}`, out)
+	setOff["value"] = "maybe"
+	_, err = api.CallTool(t.Context(), "session_ops", setOff)
+	require.Error(t, err, "a value the command asset does not list is refused")
+}

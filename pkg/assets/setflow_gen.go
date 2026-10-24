@@ -19,13 +19,13 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
 	},
 	"commands": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "you type /name in kdeps"},
 			{Label: "the command runs: built in, or its declared steps", Here: true},
 			{Label: "prompts go to the model; the output is shown"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/help", "/update"},
+		UsedBy: []string{"kdeps (agent loop)", "/help", "/update", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.declaredCommand"},
 	},
 	"components": {
@@ -157,13 +157,13 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps new", "templates.(*Generator).GenerateProject"},
 	},
 	"themes": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "kdeps starts, or /theme"},
 			{Label: "the theme colors the terminal", Here: true},
 			{Label: "every reply and prompt"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list"},
 		Code:   []string{"kdeps (agent loop)", "agent.SetTheme"},
 	},
 	"tools": {
