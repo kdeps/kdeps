@@ -63,7 +63,7 @@ func TestCmdHarness_List(t *testing.T) {
 func TestCmdHarness_UnknownSubcommand(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness bogus"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness bogus"), "unknown /harness subcommand")
 }
 
 func TestCmdHarness_EnableDisableRoundTrip(t *testing.T) {
@@ -80,13 +80,13 @@ func TestCmdHarness_EnableDisableRoundTrip(t *testing.T) {
 func TestCmdHarness_DisableUnknownSectionReportsError(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness disable does-not-exist"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness disable does-not-exist"), "unknown section")
 }
 
 func TestCmdHarness_EnableNoNameShowsUsage(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness enable"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness enable"), "give a name")
 }
 
 func TestCmdHarnessEvents_NoArgsListsEvents(t *testing.T) {
@@ -104,7 +104,7 @@ func TestCmdHarnessEvents_List(t *testing.T) {
 func TestCmdHarnessEvents_UnknownSubcommand(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness events bogus"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness events bogus"), "unknown /harness events subcommand")
 }
 
 func TestCmdHarnessEvents_EnableDisableRoundTrip(t *testing.T) {
@@ -121,28 +121,24 @@ func TestCmdHarnessEvents_EnableDisableRoundTrip(t *testing.T) {
 func TestCmdHarnessEvents_DisableUnknownEventReportsError(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness events disable does-not-exist"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness events disable does-not-exist"), "unknown event")
 }
 
 func TestCmdHarnessEvents_DisableNoNameShowsUsage(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness events disable"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness events disable"), "give a name")
 }
 
-func TestSummarizeEventTrigger_TokenAndRoundKinds(t *testing.T) {
-	got := summarizeEventTrigger(Event{On: EventTrigger{Tokens: 30000, MinTurns: 4}})
-	assert.Contains(t, got, "tokens=30000")
-	assert.Contains(t, got, "minTurns=4")
-
-	got = summarizeEventTrigger(Event{On: EventTrigger{Rounds: 3}})
-	assert.Equal(t, "rounds=3", got)
-}
-
-func TestSummarizeEventTrigger_ItemsOnlyNotesNoTrigger(t *testing.T) {
-	got := summarizeEventTrigger(Event{Items: 5})
-	assert.Contains(t, got, "items=5")
-	assert.Contains(t, got, "no trigger")
+// /harness events prints each event's set trigger fields and items from its
+// YAML print: template.
+func TestCmdHarnessEvents_ShowsTriggerFields(t *testing.T) {
+	isolateHarnessAndEventsHome(t)
+	repl := newHarnessTestREPL(t)
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/harness events")) })
+	assert.Regexp(t, `auto-compact\s+on: .*ctxWindowFraction=`, out)
+	assert.Regexp(t, `memory-keys-limit\s+on: items=100`, out)
+	assert.Contains(t, out, "run: compact")
 }
 
 func TestCmdHarnessPreset_NoArgsListsPresets(t *testing.T) {
@@ -170,7 +166,7 @@ func TestCmdHarnessPreset_Apply(t *testing.T) {
 func TestCmdHarnessPreset_UnknownNameReportsErrorWithoutPanicking(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness preset does-not-exist"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness preset does-not-exist"), "unknown preset")
 }
 
 func TestCmdHarnessReminders_NoArgsListsReminders(t *testing.T) {
@@ -202,20 +198,20 @@ func TestCmdHarnessReminders_OnOffRoundTrip(t *testing.T) {
 func TestCmdHarnessReminders_UnknownNameReportsErrorWithoutPanicking(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness reminders does-not-exist on"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness reminders does-not-exist on"), "unknown section")
 }
 
 func TestCmdHarnessReminders_MissingStateShowsUsage(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness reminders tools-reminder"), "give on or off")
 	assert.False(t, HarnessReminderEnabled("tools-reminder"))
 }
 
 func TestCmdHarnessReminders_InvalidStateShowsUsage(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
-	require.NoError(t, repl.dispatchCommand("/harness reminders tools-reminder bogus"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness reminders tools-reminder bogus"), "give on or off")
 	assert.False(t, HarnessReminderEnabled("tools-reminder"))
 }
 
@@ -344,7 +340,7 @@ func TestInstructReminder_UnknownTopicErrors(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
 	require.Error(t, repl.loop.SetInstructReminder("nope", true))
-	require.NoError(t, repl.dispatchCommand("/harness reminders instruct:nope on"))
+	require.ErrorContains(t, repl.dispatchCommand("/harness reminders instruct:nope on"), "unknown instruct topic")
 	assert.Empty(t, repl.loop.config.InstructReminders)
 }
 

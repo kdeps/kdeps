@@ -282,6 +282,14 @@ run:
 | `judge_remove` | `name` | `name`, `removed` |
 | `judge_grade` | `name`, `kind` (`exact`, `contains`, `not_contains`, `regex`, `json`, `expr`), `pattern` | `name`, `kind` |
 | `judges_clear` | - | `cleared`: no roster and no auto roster, saved |
+| `harness_sections` | - | `sections` (`name`, `kind`, `order`, `max`, `preamble`, `enabled`): behind `/harness` |
+| `harness_set` | `name`, `enabled` (`on` or `off`) | `name`, `enabled`; saved to `~/.kdeps/harness/<name>.yaml` |
+| `harness_events` | - | `events` (`name`, `on`: the trigger fields that are set, `items`, `run`, `enabled`): behind `/harness events` |
+| `event_set` | `name`, `enabled` | `name`, `enabled`; saved to `~/.kdeps/events/<name>.yaml` |
+| `presets` | - | `presets` (`name`, `description`) |
+| `preset_apply` | `name` | `name`, `harness`, `events` (override counts) |
+| `harness_reminders` | - | `reminders` (`name`, `on`), harness sections and `instruct:<topic>` |
+| `reminder_set` | `name`, `enabled` | `name`, `enabled` |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |

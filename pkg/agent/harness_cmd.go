@@ -19,324 +19,156 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
-// cmdHarness implements "/harness" -- introspecting and toggling the two
-// registries that shape every turn's system prompt (harness sections) and
-// the loop's reactive thresholds (events, see events.go/docs/v2/agent/
-// events.md). Both share the same shape: list, enable <name>, disable
-// <name> -- events nested one level under "events" since they're a
-// different registry, not a different concept.
-func (r *REPL) cmdHarness(args []string) error {
-	sub := ""
-	if len(args) > 0 {
-		sub = strings.ToLower(args[0])
-	}
-	switch sub {
-	case "", "list":
-		return r.cmdHarnessList()
-	case "enable":
-		return r.cmdHarnessSetEnabled(args[1:], true)
-	case "disable":
-		return r.cmdHarnessSetEnabled(args[1:], false)
-	case "events":
-		return r.cmdHarnessEvents(args[1:])
-	case "preset":
-		return r.cmdHarnessPreset(args[1:])
-	case "reminders":
-		return r.cmdHarnessReminders(args[1:])
-	default:
-		fmt.Fprintln(
-			os.Stderr,
-			styleReplError.Render(
-				"Usage: /harness [list|enable <name>|disable <name>|events ...|preset [list|<name>]|reminders [list|<name> on|off]]",
-			),
-		)
-		return nil
-	}
+// harnessOps are the session_ops operations behind /harness: the harness
+// sections, the events, the presets and the reminders, each listed and
+// toggled. Every toggle is persisted and invalidates the cached preamble.
+//
+//nolint:gochecknoglobals // fixed operation table
+var harnessOps = map[string]func(r *REPL, args map[string]any) (map[string]any, error){
+	"harness_sections":  infallible(func(*REPL) map[string]any { return harnessSectionsOp() }),
+	"harness_set":       (*REPL).harnessSetOp,
+	"harness_events":    infallible(func(*REPL) map[string]any { return harnessEventsOp() }),
+	"event_set":         (*REPL).eventSetOp,
+	"presets":           infallible(func(*REPL) map[string]any { return presetsOp() }),
+	"preset_apply":      (*REPL).presetApplyOp,
+	"harness_reminders": infallible((*REPL).harnessRemindersOp),
+	"reminder_set":      (*REPL).reminderSetOp,
 }
 
-// cmdHarnessReminders implements "/harness reminders [list|<name> on|off]":
-// forcing a harness section's body onto every LLM prompt and every tool call
-// result (see appendHarnessReminders), independent of that section's own
-// normal enabled/disabled state or trigger condition.
-func (r *REPL) cmdHarnessReminders(args []string) error {
-	if len(args) == 0 || strings.ToLower(args[0]) == "list" {
-		return r.cmdHarnessRemindersList()
-	}
-	const remindersArity = 2 // <name> on|off
-	if len(args) < remindersArity {
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness reminders <name> on|off"))
-		return nil
-	}
-	name := args[0]
-	enabled, ok := parseOnOff(args[1])
-	if !ok {
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness reminders <name> on|off"))
-		return nil
-	}
-	if err := r.setReminder(name, enabled); err != nil {
-		fmt.Fprintln(os.Stdout, styleReplError.Render("Harness reminder failed: "+err.Error()))
-		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
-	}
-	r.loop.InvalidateSystemPreamble()
-	state := toggleOff
-	if enabled {
-		state = "on"
-	}
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
-		"Harness reminder %q %s (saved; fed to every prompt and tool result)", name, state)))
-	return nil
-}
-
-// setReminder routes a reminder toggle to a harness section or an /instruct
-// topic (see resolveReminderName), persisting the instruct-topic case with
-// the rest of the tool tuning.
-func (r *REPL) setReminder(name string, enabled bool) error {
-	kind, key := resolveReminderName(name)
-	if kind == reminderInstruct {
-		if err := r.loop.SetInstructReminder(key, enabled); err != nil {
-			return err
-		}
-		r.persistTuning()
-		return nil
-	}
-	return SetHarnessReminder(name, enabled)
-}
-
-// cmdHarnessRemindersList prints every harness section and every /instruct
-// topic (as instruct:<topic>) with its reminder on/off state, sorted by name.
-func (r *REPL) cmdHarnessRemindersList() error {
-	names := make([]string, 0, len(harnessRegistry))
-	for name := range harnessRegistry {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Harness reminders"))
-	for _, name := range names {
-		state := "off"
-		if harnessRegistry[name].remind {
-			state = styleReplSuccess.Render("on")
-		}
-		fmt.Fprintf(os.Stdout, "  %-28s %s\n", name, state)
-	}
-	for _, t := range instructTopicList() {
-		state := "off"
-		if r.loop.InstructReminderEnabled(t.name) {
-			state = styleReplSuccess.Render("on")
-		}
-		fmt.Fprintf(os.Stdout, "  %-28s %s\n", instructReminderPrefix+t.name, state)
-	}
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness reminders <name> on|off to toggle. Feeds that section's (or /instruct "+
-			"topic's) text to every LLM prompt and every tool call result until turned off. "+
-			"Persisted. A bare /instruct topic name works when no harness section shares it "+
-			"(tools and memory do - use instruct:tools / instruct:memory)."))
-	return nil
-}
-
-// cmdHarnessList prints every harness section (built-in plus user overrides,
-// already merged by name), sorted by name, with its kind, preamble order
-// (preamble-section entries only), and enabled/disabled state.
-func (r *REPL) cmdHarnessList() error {
-	names := make([]string, 0, len(harnessRegistry))
-	for name := range harnessRegistry {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Harness sections"))
-	for _, name := range names {
+// harnessSectionsOp lists every harness section by name: its kind, preamble
+// order or max occurrences, and whether it is enabled.
+func harnessSectionsOp() map[string]any {
+	list := []map[string]any{}
+	for _, name := range slices.Sorted(maps.Keys(harnessRegistry)) {
 		e := harnessRegistry[name]
-		state := "enabled"
-		if e.disabled {
-			state = styleReplError.Render("disabled")
-		}
-		detail := e.kind
-		switch {
-		case e.kind == harnessKindPreambleSection:
-			detail = fmt.Sprintf("%s, order %d", e.kind, e.order)
-		case e.maxOccurrences > 0:
-			detail = fmt.Sprintf("%s, max %dx", e.kind, e.maxOccurrences)
-		}
-		fmt.Fprintf(os.Stdout, "  %-28s %-16s %s\n", name, detail, state)
+		list = append(list, map[string]any{
+			"name": name, "kind": e.kind, "order": e.order, "max": e.maxOccurrences,
+			"preamble": e.kind == harnessKindPreambleSection, "enabled": !e.disabled,
+		})
 	}
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness enable|disable <name> to toggle. Persisted to ~/.kdeps/harness/<name>.yaml."))
-	return nil
+	return map[string]any{"sections": list}
 }
 
-// cmdHarnessSetEnabled toggles one harness section and persists the change
-// (see SetHarnessEnabled), then invalidates the running session's cached
-// system preamble so a disabled section drops out of the very next turn
-// instead of waiting for a restart.
-func (r *REPL) cmdHarnessSetEnabled(args []string, enabled bool) error {
-	verb := "disable"
-	if enabled {
-		verb = "enable"
+// toggleArgs reads args.name and args.enabled (on/off and its synonyms).
+func toggleArgs(args map[string]any) (string, bool, error) {
+	name := strings.TrimSpace(stringArgValue(args, "name"))
+	if name == "" {
+		return "", false, errors.New("give a name")
 	}
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness "+verb+" <name>"))
-		return nil
+	enabled, ok := parseOnOff(stringArgValue(args, "enabled"))
+	if !ok {
+		return "", false, fmt.Errorf("give on or off for %s", name)
 	}
-	name := args[0]
-	if err := SetHarnessEnabled(name, enabled); err != nil {
-		fmt.Fprintln(os.Stdout, styleReplError.Render("Harness "+verb+" failed: "+err.Error()))
-		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	return name, enabled, nil
+}
+
+func (r *REPL) harnessSetOp(args map[string]any) (map[string]any, error) {
+	name, enabled, err := toggleArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	if err = SetHarnessEnabled(name, enabled); err != nil {
+		return nil, err
 	}
 	r.loop.InvalidateSystemPreamble()
-	state := "disabled"
-	if enabled {
-		state = "enabled"
-	}
-	fmt.Fprintln(
-		os.Stdout,
-		styleReplSuccess.Render(fmt.Sprintf("Harness section %q %s (saved)", name, state)),
-	)
-	return nil
+	return map[string]any{"name": name, "enabled": enabled}, nil
 }
 
-// cmdHarnessEvents implements "/harness events [list|enable <name>|disable <name>]".
-func (r *REPL) cmdHarnessEvents(args []string) error {
-	sub := ""
-	if len(args) > 0 {
-		sub = strings.ToLower(args[0])
-	}
-	switch sub {
-	case "", "list":
-		return r.cmdHarnessEventsList()
-	case "enable":
-		return r.cmdHarnessEventSetEnabled(args[1:], true)
-	case "disable":
-		return r.cmdHarnessEventSetEnabled(args[1:], false)
-	default:
-		fmt.Fprintln(
-			os.Stderr,
-			styleReplError.Render("Usage: /harness events [list|enable <name>|disable <name>]"),
-		)
-		return nil
-	}
-}
-
-// cmdHarnessEventsList prints every registered event, sorted by name, with a
-// one-line trigger summary, its run action, and enabled/disabled state.
-func (r *REPL) cmdHarnessEventsList() error {
-	names := make([]string, 0, len(eventRegistry))
-	for name := range eventRegistry {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Events"))
-	for _, name := range names {
+// harnessEventsOp lists every event by name: its trigger fields that are
+// set (on), its items count, its run action, and whether it is enabled.
+func harnessEventsOp() map[string]any {
+	list := []map[string]any{}
+	for _, name := range slices.Sorted(maps.Keys(eventRegistry)) {
 		e := eventRegistry[name]
-		state := "enabled"
-		if e.Disabled {
-			state = styleReplError.Render("disabled")
+		on := map[string]any{}
+		for field, v := range map[string]float64{
+			"tokens": float64(e.On.Tokens), "ctxWindowFraction": e.On.CtxWindowFraction,
+			"tokensSinceCheckpoint": float64(e.On.TokensSinceCheckpoint), "minTurns": float64(e.On.MinTurns),
+			"rounds": float64(e.On.Rounds), "bytes": float64(e.On.Bytes), "distinctCalls": float64(e.On.DistinctCalls),
+		} {
+			if v != 0 {
+				on[field] = v
+			}
 		}
-		fmt.Fprintf(os.Stdout, "  %-24s on: %-40s run: %-14s %s\n",
-			name, summarizeEventTrigger(*e), e.Run, state)
+		list = append(list, map[string]any{
+			"name": name, "on": on, "items": e.Items, "run": e.Run, "enabled": !e.Disabled,
+		})
 	}
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness events enable|disable <name> to toggle. Persisted to ~/.kdeps/events/<name>.yaml.",
-	))
-	return nil
+	return map[string]any{"events": list}
 }
 
-// cmdHarnessEventSetEnabled toggles one event and persists the change (see
-// SetEventEnabled), then invalidates the running session's cached system
-// preamble -- an event's own trigger doesn't live in the preamble, but a
-// harness section can reference live event state (e.g. "internals"'s
-// WebCallLimit), so this keeps both toggles consistent instead of only one
-// of them refreshing the cache.
-func (r *REPL) cmdHarnessEventSetEnabled(args []string, enabled bool) error {
-	verb := "disable"
-	if enabled {
-		verb = "enable"
+// eventSetOp toggles one event. A harness section can show live event state,
+// so the cached preamble is invalidated too.
+func (r *REPL) eventSetOp(args map[string]any) (map[string]any, error) {
+	name, enabled, err := toggleArgs(args)
+	if err != nil {
+		return nil, err
 	}
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /harness events "+verb+" <name>"))
-		return nil
-	}
-	name := args[0]
-	if err := SetEventEnabled(name, enabled); err != nil {
-		fmt.Fprintln(os.Stdout, styleReplError.Render("Event "+verb+" failed: "+err.Error()))
-		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+	if err = SetEventEnabled(name, enabled); err != nil {
+		return nil, err
 	}
 	r.loop.InvalidateSystemPreamble()
-	state := "disabled"
-	if enabled {
-		state = "enabled"
-	}
-	fmt.Fprintln(
-		os.Stdout,
-		styleReplSuccess.Render(fmt.Sprintf("Event %q %s (saved)", name, state)),
-	)
-	return nil
+	return map[string]any{"name": name, "enabled": enabled}, nil
 }
 
-// cmdHarnessPreset implements "/harness preset [list|<name>]" -- applying a
-// named bundle of harness/event overrides in one step (see ApplyPreset),
-// e.g. "frugal" for minimal token usage or "thorough" for maximal context
-// retention.
-func (r *REPL) cmdHarnessPreset(args []string) error {
-	if len(args) == 0 || strings.ToLower(args[0]) == "list" {
-		return r.cmdHarnessPresetList()
+func presetsOp() map[string]any {
+	list := []map[string]any{}
+	for _, name := range PresetNames() {
+		p, _ := PresetByName(name)
+		list = append(list, map[string]any{"name": name, "description": p.Description})
 	}
-	name := args[0]
+	return map[string]any{"presets": list}
+}
+
+// presetApplyOp applies a named bundle of harness and event overrides.
+func (r *REPL) presetApplyOp(args map[string]any) (map[string]any, error) {
+	name := strings.TrimSpace(stringArgValue(args, "name"))
 	if err := ApplyPreset(name); err != nil {
-		fmt.Fprintln(os.Stdout, styleReplError.Render("Preset apply failed: "+err.Error()))
-		return nil //nolint:nilerr // reported to the user via styleReplError, not surfaced as a REPL-loop error
+		return nil, err
 	}
 	r.loop.InvalidateSystemPreamble()
 	p, _ := PresetByName(name)
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf(
-		"Applied preset %q: %d harness override(s), %d event override(s) (saved)",
-		name, len(p.Harness), len(p.Events))))
-	return nil
+	return map[string]any{"name": name, "harness": len(p.Harness), "events": len(p.Events)}, nil
 }
 
-// cmdHarnessPresetList prints every registered preset with its description.
-func (r *REPL) cmdHarnessPresetList() error {
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Presets"))
-	for _, name := range PresetNames() {
-		p, _ := PresetByName(name)
-		fmt.Fprintf(os.Stdout, "  %-12s %s\n", name, p.Description)
+// harnessRemindersOp lists every harness section and every /instruct topic
+// (as instruct:<topic>) with whether it is fed to every prompt and tool result.
+func (r *REPL) harnessRemindersOp() map[string]any {
+	list := []map[string]any{}
+	for _, name := range slices.Sorted(maps.Keys(harnessRegistry)) {
+		list = append(list, map[string]any{"name": name, "on": harnessRegistry[name].remind})
 	}
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Use /harness preset <name> to apply. Persisted like any other override."))
-	return nil
+	for _, t := range instructTopicList() {
+		list = append(list, map[string]any{
+			"name": instructReminderPrefix + t.name, "on": r.loop.InstructReminderEnabled(t.name),
+		})
+	}
+	return map[string]any{"reminders": list}
 }
 
-// summarizeEventTrigger renders an event's "on:" trigger fields (and, for
-// items-only events, its bare Items count) as a compact one-line summary
-// for /harness events' listing.
-func summarizeEventTrigger(e Event) string {
-	var parts []string
-	add := func(field string, v int) {
-		if v != 0 {
-			parts = append(parts, fmt.Sprintf("%s=%d", field, v))
+// reminderSetOp forces a harness section's (or /instruct topic's) text onto
+// every prompt and tool result, or stops it.
+func (r *REPL) reminderSetOp(args map[string]any) (map[string]any, error) {
+	name, enabled, err := toggleArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	kind, key := resolveReminderName(name)
+	if kind == reminderInstruct {
+		if err = r.loop.SetInstructReminder(key, enabled); err != nil {
+			return nil, err
 		}
+		r.persistTuning()
+	} else if err = SetHarnessReminder(name, enabled); err != nil {
+		return nil, err
 	}
-	add("tokens", e.On.Tokens)
-	if e.On.CtxWindowFraction != 0 {
-		parts = append(parts, fmt.Sprintf("ctxWindowFraction=%.2f", e.On.CtxWindowFraction))
-	}
-	add("tokensSinceCheckpoint", e.On.TokensSinceCheckpoint)
-	add("minTurns", e.On.MinTurns)
-	add("rounds", e.On.Rounds)
-	add("bytes", e.On.Bytes)
-	add("distinctCalls", e.On.DistinctCalls)
-	if len(parts) == 0 && e.Items != 0 {
-		return fmt.Sprintf("items=%d (no trigger)", e.Items)
-	}
-	if e.Items != 0 {
-		parts = append(parts, fmt.Sprintf("items=%d", e.Items))
-	}
-	return strings.Join(parts, " ")
+	r.loop.InvalidateSystemPreamble()
+	return map[string]any{"name": name, "enabled": enabled}, nil
 }
