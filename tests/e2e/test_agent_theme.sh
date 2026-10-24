@@ -21,7 +21,7 @@ trap 'rm -rf "$THEME_HOME"' EXIT
 
 # One session exercises the banner, /help, /theme list, and switching themes
 # both ways.
-OUTPUT=$(printf '/help\n/theme list\n/theme black\n/theme normal\n/quit\n' \
+OUTPUT=$(printf '/help\n/theme list\n/theme black\n/theme normal\n/theme bogus\n/quit\n' \
     | HOME="$THEME_HOME" timeout 60 "$KDEPS_BIN" --theme black 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
@@ -40,6 +40,12 @@ if output_grep_i "theme set to black" "$OUTPUT" && output_grep_i "theme set to n
     test_passed "theme - /theme <name> confirms both switches"
 else
     test_failed "theme - /theme switch did not confirm" "Output: $OUTPUT"
+fi
+
+if output_grep_i "Unknown theme: bogus. Valid:" "$OUTPUT"; then
+    test_passed "theme - an unknown name is rejected with the valid names"
+else
+    test_failed "theme - unknown name not rejected" "Output: $OUTPUT"
 fi
 
 if output_grep_i "built-in" "$OUTPUT" && output_grep_fixed "vim" "$OUTPUT" && output_grep_i "custom" "$OUTPUT"; then

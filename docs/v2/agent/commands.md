@@ -281,12 +281,12 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (on by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission or tools
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme or turo
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}
   set: "prompt refinement {{.value}}"     # after storing; .value is the new value
-  invalid: "Usage: /refine [on|off]"     # .arg is what was typed
+  invalid: "Usage: /refine [on|off]"     # .arg is what was typed; .values the accepted values
 ```
 
 </div>
@@ -298,6 +298,24 @@ setting:
 | `/autocontext` | `autocontext` | `on`, `off` | - |
 | `/permission` (alias `/permissions`) | `permission` | `read-only`, `workspace-write`, `danger-full-access`, `ask` | - |
 | `/tools` | `tools` | `full`, `lean` | `.count` (tools in the set), `.available` (false when lean mode trimmed nothing) |
+| `/thinking` | `thinking` | `off`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `auto` | `.budget` (token budget), `.return`, `.model`, `.supported` (false when the model may not reason) |
+| `/theme` | `theme` | every built-in and `~/.kdeps/themes` name (no `values:` needed) | `.builtin`, `.custom` (name lists) |
+| `/turo` | `turo` | `on`, `off`, `lite`, `full`, `ultra`, `wenyan`, `<stage> on`/`<stage> off` | `.available` (false when turo is not installed), `.level`, one field per stage (`.filler`, `.synonyms`, `.gloss`, `.defmatch`, `.arrows`) |
+
+Two more fields shape what the command accepts:
+
+```yaml
+setting:
+  key: turo
+  values: [on, off, "gloss on", "gloss off"]  # every argument typed is joined by one space: /turo gloss off
+  showOn: [list]                              # these arguments show the setting like a bare /turo
+```
+
+<div v-pre>
+
+Templates can call `join` (`{{join .builtin ", "}}`).
+
+</div>
 
 Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `key` kdeps does not have is skipped with a warning at load.
 
@@ -308,4 +326,4 @@ Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `
 
 ## Declared commands on the API
 
-A declared command (a `commands/` asset with `run:`) is also served on the commands API under its own name. The call runs the same steps as `/name` in the REPL, against the active session, and returns each model reply in order. `command:` steps run in the REPL and print their output to the terminal rather than returning it.
+A declared command (a `commands/` asset with `run:` or `setting:`) is also served on the commands API under its own name. The call runs the same steps as `/name` in the REPL, against the active session, and returns each model reply in order. `command:` steps run in the REPL and print their output to the terminal rather than returning it.

@@ -1,10 +1,16 @@
-version: 1.0.1
+version: 2.0.0
 name: thinking
 order: 110
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: thinking
 usage:
   - args: "[off|minimal|low|medium|high|xhigh|auto]"
     help: Show or set extended reasoning/thinking mode
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: thinking  # the model's reasoning mode; .budget is its token budget, .supported false when the model may not reason
+  values: [off, none, minimal, low, medium, high, xhigh, auto]  # off and none both disable thinking
+  show: >-
+    {{if eq .value "off"}}Thinking: off{{else}}Thinking: {{.value}} (budget {{.budget}} tokens, return={{.return}}){{end}}
+  set: |-
+    {{if eq .value "off"}}Thinking disabled.{{else}}{{if not .supported}}Warning: model {{printf "%q" .model}} may not support extended thinking.
+    {{end}}Thinking set to {{.value}} (budget {{.budget}} tokens).{{end}}
+  invalid: "Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"

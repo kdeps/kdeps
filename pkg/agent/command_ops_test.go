@@ -20,12 +20,14 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // TestBuiltinCommandAssetsNameTheirOperations guards both directions of the
@@ -179,6 +181,82 @@ func TestSettingCommands_RunFromTheirAssets(t *testing.T) {
 	require.NotNil(t, c.Setting)
 }
 
+func TestThinkingSetting_FromItsAsset(t *testing.T) {
+	loop := makeTestLoop(nil)
+	r := NewREPL(context.Background(), loop)
+	defer r.cancel()
+	var saved int
+	r.SetSaveTuningFn(func(ToolTuning) error { saved++; return nil })
+
+	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking high")) })
+	assert.Equal(t, domain.ThinkingModeHigh, loop.Thinking().Mode)
+	assert.Contains(t, out, "Thinking set to high (budget 16000 tokens).")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking")) })
+	assert.Contains(t, out, "Thinking: high (budget 16000 tokens, return=true)")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking none")) })
+	assert.Nil(t, loop.Thinking())
+	assert.Contains(t, out, "Thinking disabled.")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking")) })
+	assert.Contains(t, out, "Thinking: off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking bogus")) })
+	assert.Contains(t, out, "Usage: /thinking")
+	assert.Equal(t, 2, saved, "only stored values persist")
+
+	loop.config.Model = "no-reasoning-model"
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/thinking low")) })
+	assert.Contains(t, out, `Warning: model "no-reasoning-model" may not support extended thinking.`)
+}
+
+func TestThemeSetting_OptionsShowOnAndJoin(t *testing.T) {
+	t.Cleanup(func() { _ = SetTheme("normal") })
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme list")) })
+	assert.Contains(t, out, "Theme: normal")
+	assert.Contains(t, out, "Built-in: "+strings.Join(BuiltinThemeNames(), ", "))
+	assert.Contains(t, out, "Custom (~/.kdeps/themes): none")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme VIM")) })
+	assert.Equal(t, "vim", CurrentThemeName(), "theme names come from the setting's options")
+	assert.Contains(t, out, "Theme set to vim (saved)")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme bogus")) })
+	assert.Contains(t, out, "Unknown theme: bogus. Valid: "+strings.Join(ThemeNames(), ", "))
+}
+
+func TestTuroSetting_StagesLevelsAndState(t *testing.T) {
+	turoOnce.Do(func() {})
+	oldEnabled := turoEnabled
+	turoEnabled = true
+	t.Cleanup(func() {
+		turoEnabled = oldEnabled
+		SetTuroRuntimeOff(false)
+		SetTuroStage("gloss", true)
+	})
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo off")) })
+	assert.True(t, TuroRuntimeOff())
+	assert.Contains(t, out, "turo off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo ultra")) })
+	assert.False(t, TuroRuntimeOff(), "a level turns turo back on")
+	assert.Equal(t, "ultra", TuroLevel())
+	assert.Contains(t, out, "turo level: ultra")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss  OFF")) })
+	assert.False(t, TuroStage("gloss"))
+	assert.Contains(t, out, "turo gloss off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo")) })
+	assert.Contains(t, out, "level: ultra")
+	assert.Contains(t, out, "gloss: off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss")) })
+	assert.Contains(t, out, "Usage: /turo")
+
+	turoEnabled = false
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo on")) })
+	assert.Contains(t, out, "turo is not installed")
+	assert.False(t, TuroRuntimeOff())
+}
+
 func TestSettingSpec_Validate(t *testing.T) {
 	ok := settingSpec{Key: "refine", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
 	require.NoError(t, ok.validate())
@@ -188,6 +266,9 @@ func TestSettingSpec_Validate(t *testing.T) {
 	bad = ok
 	bad.Values = nil
 	require.ErrorContains(t, bad.validate(), "values is required")
+	bad.Key = "theme"
+	require.NoError(t, bad.validate(), "a setting with its own options needs no values")
+	bad = ok
 	bad = ok
 	bad.Set = "{{"
 	require.ErrorContains(t, bad.validate(), "setting: set")

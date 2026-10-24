@@ -1,10 +1,16 @@
-version: 1.0.1
+version: 2.0.0
 name: theme
 order: 180
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: theme
 usage:
   - args: "[name|list]"
     help: "Show or set the REPL's look (normal, black, linux, vim, emacs, or custom); list shows built-in vs custom"
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: theme      # accepts every built-in and ~/.kdeps/themes name (no values: needed); the choice is saved
+  showOn: [list]  # /theme list shows, like a bare /theme
+  show: |-
+    Theme: {{.value}}
+    Built-in: {{join .builtin ", "}}
+    Custom (~/.kdeps/themes): {{if .custom}}{{join .custom ", "}}{{else}}none{{end}}
+  set: "Theme set to {{.value}} (saved)"
+  invalid: "Unknown theme: {{.arg}}. Valid: {{join .values \", \"}}"
