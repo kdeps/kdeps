@@ -719,8 +719,8 @@ func memoryCallContext(ctx context.Context, args map[string]any) context.Context
 	return api.WithMemory(callCtx, api.MemoryOpts{
 		Store:      memoryAPIStore{store: memoryStoreInstance},
 		Fallback:   memorySearchLocalFileFallback,
-		ResultCap:  memorySearchResultCap,
-		ValueLimit: maxValueLength,
+		ResultCap:  memorySearchLimit(),
+		ValueLimit: memoryValueLimit(),
 	})
 }
 
@@ -750,18 +750,6 @@ func registerMemorySaveTool(ctx context.Context, reg *kdepstools.Registry) {
 	registerMemoryAPITool(ctx, reg, "memory_save", api.MemorySave)
 }
 
-// memorySearchResultCap bounds how many matching entries memory_search shows.
-// A broad query against a long-lived store ("save memory after every turn,"
-// "every tool call creates an entry") can match hundreds of entries; showing
-// all of them, each at full value length, is exactly the kind of unbounded
-// per-call cost that made memory_search "consume millions of tokens" over a
-// session where it's mandated before every action. Matches beyond the cap
-// are still real -- just not dumped in full. The ones shown are the best
-// matches (key hit, then more query words, then newer UpdatedAt). The model
-// is told how many more
-// exist and can narrow the query instead.
-const memorySearchResultCap = 20
-
 func registerMemorySearchTool(ctx context.Context, reg *kdepstools.Registry) {
 	registerMemoryAPITool(ctx, reg, "memory_search", api.MemorySearch)
 }
@@ -780,7 +768,7 @@ func memorySearchLocalFileFallback(query string) (string, error) {
 		Path:  wd,
 		Query: query,
 		Index: true,
-		Limit: memorySearchResultCap,
+		Limit: memorySearchLimit(),
 	})
 	if searchErr != nil {
 		return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails

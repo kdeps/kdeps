@@ -75,6 +75,9 @@ const (
 	eventMemoryFocusMax     = "memory-focus-max"
 	eventMemoryChainMax     = "memory-chain-max"
 	eventRelMemoryLimit     = "rel-memory-limit"
+	eventMemorySearchLimit  = "memory-search-limit"
+	eventMemoryValueLimit   = "memory-value-limit"
+	eventMemoryCaptureLimit = "memory-capture-limit"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -575,6 +578,26 @@ func memoryChainMax() int {
 func relMemoryLimit() int {
 	const fallback = 500
 	return effectiveItems(eventRelMemoryLimit, fallback)
+}
+
+// memorySearchLimit is how many matches memory_search shows.
+func memorySearchLimit() int {
+	const fallback = 20
+	return effectiveItems(eventMemorySearchLimit, fallback)
+}
+
+// memoryValueLimit is the byte length past which memory_search shows a value
+// cut, and a captured summary section is cut.
+func memoryValueLimit() int {
+	const fallback = 500
+	return effectiveBytes(eventMemoryValueLimit, fallback)
+}
+
+// memoryCaptureLimit is the byte length a tool result or thinking text
+// captured into memory is cut to.
+func memoryCaptureLimit() int {
+	const fallback = 300
+	return effectiveBytes(eventMemoryCaptureLimit, fallback)
 }
 
 // effectiveItems returns the registered event's Items count, floored at

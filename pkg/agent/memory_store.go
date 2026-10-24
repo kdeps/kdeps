@@ -42,16 +42,14 @@ const (
 	memoryFileName  = "memory.jsonl"
 	memoryMaxLine   = 1 << 20 // 1 MiB max line
 	memoryMaxTokens = 2000    // default max tokens for prompt injection
-	maxValueLength  = 500     // max characters for a single memory value
 
 	// Memory formatting constants.
-	memoryXMLOverhead     = 30  // bytes per entry for XML tags in prompt
-	memoryMaxKeyLength    = 80  // max chars for a memory key
-	memoryMaxFirstLine    = 40  // max chars for tool result first line
-	memoryMaxDerivedKey   = 30  // max chars for derived tool result key
-	memoryMaxValuePreview = 300 // max chars for value preview in search results
-	memoryPromptTokens    = 500 // default tokens for memory prompt injection
-	hoursPerDay           = 24  // for relative-age (J) day rollup
+	memoryXMLOverhead   = 30  // bytes per entry for XML tags in prompt
+	memoryMaxKeyLength  = 80  // max chars for a memory key
+	memoryMaxFirstLine  = 40  // max chars for tool result first line
+	memoryMaxDerivedKey = 30  // max chars for derived tool result key
+	memoryPromptTokens  = 500 // default tokens for memory prompt injection
+	hoursPerDay         = 24  // for relative-age (J) day rollup
 )
 
 // memoryStoreInstance is set during Loop construction so memory tools
@@ -1531,7 +1529,7 @@ func extractStructuredSections(response string, now int64, seen map[string]bool)
 			continue
 		}
 		// Truncate long values, marking the cut so the fragment isn't read as whole (N).
-		value := truncateValue(body, maxValueLength)
+		value := truncateValue(body, memoryValueLimit())
 		key := keyPrefix + ":" + slugify(header)
 		if seen[key] {
 			continue
@@ -1759,7 +1757,7 @@ func (m *MemoryStore) SaveThinking(text string) int {
 	now := time.Now().UnixMilli()
 	entry := MemoryEntry{
 		Key:       thinkingKey(text, now),
-		Value:     truncateValue(text, memoryMaxValuePreview),
+		Value:     truncateValue(text, memoryCaptureLimit()),
 		Type:      memTypeThinking,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -1829,7 +1827,7 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 	var entries []MemoryEntry
 
 	// 1. Always save the tool result itself as a memory entry, marking any cut (N).
-	value := truncateValue(result, memoryMaxValuePreview)
+	value := truncateValue(result, memoryCaptureLimit())
 	entries = append(entries, MemoryEntry{
 		Key:       toolResultKey(toolName, result),
 		Value:     value,

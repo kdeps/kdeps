@@ -1041,7 +1041,7 @@ func TestMemoryStore_ExtractToolResult_MarksTruncation(t *testing.T) {
 	store.SetCwd("/Users/test/Projects/foo")
 
 	// A worthy tool with an over-preview-length result is stored truncated + marked.
-	store.ExtractToolResult(toolNameBashExec, strings.Repeat("y", memoryMaxValuePreview+50))
+	store.ExtractToolResult(toolNameBashExec, strings.Repeat("y", memoryCaptureLimit()+50))
 
 	var toolVal string
 	for _, e := range store.List() {
@@ -1052,7 +1052,7 @@ func TestMemoryStore_ExtractToolResult_MarksTruncation(t *testing.T) {
 	}
 	require.NotEmpty(t, toolVal, "a tool_result entry was stored")
 	assert.True(t, strings.HasSuffix(toolVal, "..."), "the cut tool result is marked as a fragment")
-	assert.LessOrEqual(t, len(toolVal), memoryMaxValuePreview+len("..."), "value capped near the preview limit")
+	assert.LessOrEqual(t, len(toolVal), memoryCaptureLimit()+len("..."), "value capped near the preview limit")
 }
 
 // SaveThinking must persist a round's reasoning text as a searchable memory
@@ -1503,14 +1503,14 @@ func TestMemoryTools_Search_NoResults(t *testing.T) {
 
 // TestMemoryTools_Search_CapsResultCount guards the fix for "memory_search
 // consumes millions of tokens": a broad query against a store with more than
-// memorySearchResultCap matches must not dump every one of them -- only the
+// memory-search-limit matches must not dump every one of them -- only the
 // cap, plus a count of how many more exist.
 func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	total := memorySearchResultCap + 5
+	total := memorySearchLimit() + 5
 	for i := range total {
 		require.NoError(t, store.Set(fmt.Sprintf("match-%02d", i), "shared-query-term"))
 	}
@@ -1528,11 +1528,11 @@ func TestMemoryTools_Search_CapsResultCount(t *testing.T) {
 	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "shared-query-term"})
 	require.NoError(t, err)
 	assert.Contains(t, result, fmt.Sprintf("Found %d memory entries", total))
-	assert.Contains(t, result, fmt.Sprintf("showing %d", memorySearchResultCap))
+	assert.Contains(t, result, fmt.Sprintf("showing %d", memorySearchLimit()))
 	assert.Contains(t, result, "5 more")
 	assert.Contains(t, result, "match-24", "the newest match must be shown")
 	assert.NotContains(t, result, "match-00", "the oldest match must be past the cap")
-	assert.Equal(t, memorySearchResultCap, strings.Count(result, "shared-query-term"),
+	assert.Equal(t, memorySearchLimit(), strings.Count(result, "shared-query-term"),
 		"only the capped number of matches should have their value printed")
 }
 
@@ -1544,7 +1544,7 @@ func TestMemoryTools_Search_TruncatesLongValues(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	huge := strings.Repeat("x", maxValueLength*10)
+	huge := strings.Repeat("x", memoryValueLimit()*10)
 	require.NoError(t, store.Set("giant", huge))
 
 	result, err := reg.Get("memory_search").Execute(map[string]any{"query": "giant"})

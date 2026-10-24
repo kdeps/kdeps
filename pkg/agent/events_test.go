@@ -152,6 +152,7 @@ func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
 		{eventMemoryFocusMax, 5, "cap"},
 		{eventMemoryChainMax, 8, "cap"},
 		{eventRelMemoryLimit, 500, "cap"},
+		{eventMemorySearchLimit, 20, "cap"},
 	}
 	for _, c := range itemCases {
 		require.Contains(t, built, c.name)
@@ -311,6 +312,35 @@ run: compact
 	initEvents()
 
 	assert.Equal(t, 12345, autoCompactTokens())
+}
+
+// The memory caps memory_search and auto-capture apply are events: a user
+// override changes them, with no Go change.
+func TestInitEvents_MemoryLimitsFollowOverrides(t *testing.T) {
+	built := loadBuiltinEvents()
+	assert.Equal(t, 500, built[eventMemoryValueLimit].On.Bytes)
+	assert.Equal(t, 300, built[eventMemoryCaptureLimit].On.Bytes)
+	assert.Equal(t, "truncate", built[eventMemoryValueLimit].Run)
+	assert.Equal(t, "truncate", built[eventMemoryCaptureLimit].Run)
+
+	isolateEventsHome(t)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	dir := filepath.Join(home, ".kdeps", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	for name, body := range map[string]string{
+		"memory-search-limit.yaml":  "name: memory-search-limit\nitems: 3\nrun: cap\n",
+		"memory-value-limit.yaml":   "name: memory-value-limit\non:\n  bytes: 40\nrun: truncate\n",
+		"memory-capture-limit.yaml": "name: memory-capture-limit\non:\n  bytes: 60\nrun: truncate\n",
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644))
+	}
+	initEvents()
+	t.Cleanup(initEvents)
+
+	assert.Equal(t, 3, memorySearchLimit())
+	assert.Equal(t, 40, memoryValueLimit())
+	assert.Equal(t, 60, memoryCaptureLimit())
 }
 
 func TestInitEvents_UserFileAddsNewEvent(t *testing.T) {

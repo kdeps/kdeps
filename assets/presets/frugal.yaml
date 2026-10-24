@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 # kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
@@ -35,10 +35,13 @@ requires:
   events/fold: ""
   events/force-answer-digest: ""
   events/history-window-trim: ""
+  events/memory-capture-limit: ""
   events/memory-chain-max: ""
   events/memory-focus-max: ""
   events/memory-keys-limit: ""
   events/memory-prompt-limit: ""
+  events/memory-search-limit: ""
+  events/memory-value-limit: ""
   events/rel-memory-limit: ""
   events/tool-error-truncate: ""
   events/tool-result-truncate: ""
@@ -78,6 +81,17 @@ events:
   - name: rel-memory-limit
     items: 100
     run: cap
+  - name: memory-search-limit
+    items: 10
+    run: cap
+  - name: memory-value-limit
+    on:
+      bytes: 300
+    run: truncate
+  - name: memory-capture-limit
+    on:
+      bytes: 200
+    run: truncate
   - name: tool-result-truncate
     on:
       bytes: 4096
