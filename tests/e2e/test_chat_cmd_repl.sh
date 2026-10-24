@@ -118,7 +118,9 @@ fi
 # /thinking budgets are events: an override in ~/.kdeps/events sets the budget.
 mkdir -p "$TMP_HOME/.kdeps/events"
 printf 'name: thinking-budget-high\nitems: 24000\nrun: cap\n' > "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
-OUTPUT=$(_repl '/thinking high')
+# USERPROFILE too: Windows reads the home folder from it, not HOME.
+OUTPUT=$(printf '%s\n' '/thinking high' '/quit' \
+    | HOME="$TMP_HOME" USERPROFILE="$(to_native_path "$TMP_HOME")" timeout 15 "$KDEPS_BIN" 2>&1 || true)
 rm -f "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
 if output_grep_fixed "budget 24000 tokens" "$OUTPUT"; then
     test_passed "REPL /thinking - the thinking-budget-high event sets the budget"
