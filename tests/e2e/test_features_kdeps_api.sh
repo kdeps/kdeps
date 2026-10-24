@@ -1270,6 +1270,24 @@ PY
         fi
         got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
             -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"operation":"set","key":"handshake","value":"off"}' \
+            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
+        if [ "$got" = "200" ] && grep -F '"value"' "$body" | grep -F 'off' >/dev/null; then
+            test_passed "kdeps API - session_ops set stores a session setting"
+        else
+            test_failed "kdeps API - session_ops set stores a session setting" "status $got body $(head -c 300 "$body")"
+        fi
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"operation":"set","key":"handshake","value":"maybe"}' \
+            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
+        if [ "$got" = "400" ] && grep -F 'is not a value of setting' "$body" >/dev/null; then
+            test_passed "kdeps API - session_ops set refuses a value the command asset does not list"
+        else
+            test_failed "kdeps API - session_ops set refuses an unlisted value" "status $got body $(head -c 300 "$body")"
+        fi
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
             --data '{"args":[]}' \
             "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/history/call" || true)
         sleep 1

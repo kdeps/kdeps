@@ -35,6 +35,21 @@ func (r *REPL) sessionOps(ctx context.Context, args map[string]any) (string, err
 		out = r.sessionMessages()
 	case "last_reply":
 		out = map[string]any{"text": r.lastReply()}
+	case "get":
+		key, _ := args["key"].(string)
+		state, err := r.sessionGet(key)
+		if err != nil {
+			return "", err
+		}
+		out = state
+	case "set":
+		key, _ := args["key"].(string)
+		value, _ := args["value"].(string)
+		state, err := r.sessionSet(key, value)
+		if err != nil {
+			return "", err
+		}
+		out = state
 	case "clear":
 		// The session is summarized first only when it has at least
 		// summarize_min_turns turns; 0 never summarizes.
@@ -56,7 +71,7 @@ func (r *REPL) sessionOps(ctx context.Context, args map[string]any) (string, err
 		}
 		out = map[string]any{"summary": summary, "turns": r.loop.Session().TurnCount(), "keep": forceKeepTurns}
 	default:
-		return "", fmt.Errorf("session_ops: unknown operation %q (messages, last_reply, clear, compact)", op)
+		return "", fmt.Errorf("session_ops: unknown operation %q (messages, last_reply, get, set, clear, compact)", op)
 	}
 	data, err := json.Marshal(out)
 	return string(data), err

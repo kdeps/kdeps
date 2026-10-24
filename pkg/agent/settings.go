@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -26,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
@@ -206,7 +208,23 @@ func (s *settingSpec) validate() error {
 // commandFuncs are the functions setting and print: templates may call.
 //
 //nolint:gochecknoglobals // fixed template function table
-var commandFuncs = template.FuncMap{"join": strings.Join, "trunc": truncText}
+var commandFuncs = template.FuncMap{"join": joinList, "trunc": truncText}
+
+// joinList joins a list of strings or of JSON values (the join template
+// function), so a list decoded from a tool's JSON joins like a []string.
+func joinList(list any, sep string) string {
+	switch l := list.(type) {
+	case []string:
+		return strings.Join(l, sep)
+	case []any:
+		parts := make([]string, len(l))
+		for i, v := range l {
+			parts[i] = fmt.Sprint(v)
+		}
+		return strings.Join(parts, sep)
+	}
+	return fmt.Sprint(list)
+}
 
 // truncText cuts s to n bytes plus "..." (the trunc template function).
 func truncText(n int, s string) string {
@@ -217,27 +235,101 @@ func truncText(n int, s string) string {
 }
 
 // runSettingCommand shows the setting with no argument, stores a listed
-// value and persists it, or reports an unlisted one.
+// value and persists it, or reports an unlisted one. It reads and writes the
+// setting through session_ops get and set, the same kdeps API operations any
+// caller uses.
 func (r *REPL) runSettingCommand(c *slashCommand, args []string) error {
 	s := c.Setting
-	setting := sessionSettings[s.Key]
-	values := s.Values
-	if setting.options != nil {
-		values = append(slices.Clone(values), setting.options()...)
-	}
 	typed := strings.Join(args, " ")
 	arg := strings.ToLower(strings.Join(strings.Fields(typed), " "))
+	values := settingValues(s)
+	if arg != "" && !slices.Contains(s.ShowOn, arg) && !slices.Contains(values, arg) {
+		state, err := r.callSessionOps(map[string]any{"operation": "get", "key": s.Key})
+		if err != nil {
+			return err
+		}
+		return printSetting(s.Invalid, state, typed, values, styleReplError.Render)
+	}
 	if arg == "" || slices.Contains(s.ShowOn, arg) {
-		return printSetting(s.Show, setting.get(r), "", values, styleReplMeta.Render)
+		state, err := r.callSessionOps(map[string]any{"operation": "get", "key": s.Key})
+		if err != nil {
+			return err
+		}
+		return printSetting(s.Show, state, "", values, styleReplMeta.Render)
 	}
-	if !slices.Contains(values, arg) {
-		return printSetting(s.Invalid, setting.get(r), typed, values, styleReplError.Render)
-	}
-	if err := setting.set(r, arg); err != nil {
+	state, err := r.callSessionOps(map[string]any{"operation": "set", "key": s.Key, "value": arg})
+	if err != nil {
 		return err
 	}
+	return printSetting(s.Set, state, arg, values, styleReplSuccess.Render)
+}
+
+// callSessionOps calls the session_ops kdeps API tool on this REPL's session
+// and decodes its JSON result.
+func (r *REPL) callSessionOps(args map[string]any) (map[string]any, error) {
+	out, err := api.CallTool(api.WithSessionOps(r.ctx, r.sessionOps), "session_ops", args)
+	if err != nil {
+		return nil, err
+	}
+	var state map[string]any
+	if err = json.Unmarshal([]byte(out), &state); err != nil {
+		return nil, fmt.Errorf("session_ops: %w", err)
+	}
+	return state, nil
+}
+
+// settingValues are the values a setting: block accepts: its values, plus
+// the setting's own options (theme names).
+func settingValues(s *settingSpec) []string {
+	values := slices.Clone(s.Values)
+	if setting := sessionSettings[s.Key]; setting.options != nil {
+		values = append(values, setting.options()...)
+	}
+	return values
+}
+
+// settingFor is the installed command whose setting: block names key.
+func settingFor(key string) *settingSpec {
+	for _, c := range slashCommands {
+		if c.Setting != nil && c.Setting.Key == key {
+			return c.Setting
+		}
+	}
+	return nil
+}
+
+// sessionGet is session_ops get: the setting's state.
+func (r *REPL) sessionGet(key string) (map[string]any, error) {
+	setting, ok := sessionSettings[key]
+	if !ok {
+		return nil, fmt.Errorf("session_ops: unknown setting %q", key)
+	}
+	return setting.get(r), nil
+}
+
+// sessionSet is session_ops set: it stores value when the setting's command
+// asset accepts it, persists it, and returns the new state. The accepted
+// values are the asset's, so a direct API call cannot store what the command
+// would refuse.
+func (r *REPL) sessionSet(key, value string) (map[string]any, error) {
+	setting, ok := sessionSettings[key]
+	if !ok {
+		return nil, fmt.Errorf("session_ops: unknown setting %q", key)
+	}
+	spec := settingFor(key)
+	if spec == nil {
+		return nil, fmt.Errorf("session_ops: no installed command declares setting %q", key)
+	}
+	value = strings.ToLower(strings.Join(strings.Fields(value), " "))
+	if values := settingValues(spec); !slices.Contains(values, value) {
+		return nil, fmt.Errorf("session_ops: %q is not a value of setting %q (%s)",
+			value, key, strings.Join(values, ", "))
+	}
+	if err := setting.set(r, value); err != nil {
+		return nil, err
+	}
 	r.persistTuning() // survive across sessions
-	return printSetting(s.Set, setting.get(r), arg, values, styleReplSuccess.Render)
+	return setting.get(r), nil
 }
 
 func printSetting(src string, state map[string]any, arg string, values []string, style func(...string) string) error {
