@@ -77,16 +77,6 @@ const (
 	replModelCompletionMax         = 20 // max model name suggestions for /model <tab> with a partial filter
 	replModelCompletionMaxNoFilter = 10 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
 
-	// Default thinking token budgets per mode. These are explicit so langchaingo
-	// never falls back to CalculateThinkingBudget(mode, MaxTokens=0)=0 which
-	// silently disables thinking when no MaxTokens call option is set.
-	replThinkingBudgetMinimal = 512 // pi "minimal" — light reasoning pass
-	replThinkingBudgetLow     = 2048
-	replThinkingBudgetMedium  = 8192
-	replThinkingBudgetHigh    = 16000
-	replThinkingBudgetXHigh   = 32000 // pi "xhigh" — maximum reasoning, selected models only
-	replThinkingBudgetAuto    = 10000
-
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
 	replStatusWidth = 60    // minimum width for the REPL status separator line
@@ -306,12 +296,7 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		fmt.Fprintf(os.Stdout, "\n%s\n\n", line)
 	})
 	// Enable thinking in auto mode by default so reasoning models work out of the box.
-	loop.SetThinking(&domain.ThinkingConfig{
-		Mode:           domain.ThinkingModeAuto,
-		BudgetTokens:   replThinkingBudgetAuto,
-		ReturnOutput:   true,
-		StreamThinking: true,
-	})
+	loop.SetThinking(thinkingConfigForMode(domain.ThinkingModeAuto))
 	return r
 }
 
@@ -3433,21 +3418,28 @@ func (r *REPL) cmdSettings() error {
 	return nil
 }
 
-// thinkingBudgets maps mode -> explicit BudgetTokens so langchaingo never
-// falls back to CalculateThinkingBudget(mode, 0)=0 (which silently disables
-// thinking when MaxTokens=0). Shared by the thinking setting and applyToolTuning (the
-// persisted-settings restore path) so both build the identical config for a
-// given mode.
+// thinkingBudget is the reasoning token budget for mode, from its
+// thinking-budget-<mode> event. It is always explicit, so langchaingo never
+// falls back to CalculateThinkingBudget(mode, MaxTokens=0)=0, which silently
+// disables thinking when no MaxTokens call option is set.
+func thinkingBudget(mode domain.ThinkingMode) int {
+	// Used when the event is missing or disabled: a budget cannot be unlimited.
+	const fallback = 10000
+	e, _ := EventByName(thinkingBudgetEvents[mode])
+	return positiveOrFallback(e.Items, fallback)
+}
+
+// thinkingBudgetEvents names each mode's budget event.
 //
-//nolint:gochecknoglobals // static lookup table
-var thinkingBudgets = map[domain.ThinkingMode]int{
-	domain.ThinkingModeNone:    0,
-	domain.ThinkingModeMinimal: replThinkingBudgetMinimal,
-	domain.ThinkingModeLow:     replThinkingBudgetLow,
-	domain.ThinkingModeMedium:  replThinkingBudgetMedium,
-	domain.ThinkingModeHigh:    replThinkingBudgetHigh,
-	domain.ThinkingModeXHigh:   replThinkingBudgetXHigh,
-	domain.ThinkingModeAuto:    replThinkingBudgetAuto,
+//nolint:gochecknoglobals // fixed table of event names
+var thinkingBudgetEvents = map[domain.ThinkingMode]string{
+	domain.ThinkingModeNone:    "", // no reasoning: thinkingConfigForMode returns nil
+	domain.ThinkingModeMinimal: "thinking-budget-minimal",
+	domain.ThinkingModeLow:     "thinking-budget-low",
+	domain.ThinkingModeMedium:  "thinking-budget-medium",
+	domain.ThinkingModeHigh:    "thinking-budget-high",
+	domain.ThinkingModeXHigh:   "thinking-budget-xhigh",
+	domain.ThinkingModeAuto:    "thinking-budget-auto",
 }
 
 // thinkingConfigForMode builds the ThinkingConfig for mode, or nil for
@@ -3465,7 +3457,7 @@ func thinkingConfigForMode(mode domain.ThinkingMode) *domain.ThinkingConfig {
 		domain.ThinkingModeAuto:
 		return &domain.ThinkingConfig{
 			Mode:           mode,
-			BudgetTokens:   thinkingBudgets[mode],
+			BudgetTokens:   thinkingBudget(mode),
 			ReturnOutput:   true,
 			StreamThinking: true, // stream reasoning tokens in real-time via liveThinkingWriter
 		}
