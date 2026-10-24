@@ -44,12 +44,12 @@ const (
 	memoryMaxTokens = 2000    // default max tokens for prompt injection
 
 	// Memory formatting constants.
-	memoryXMLOverhead     = 30  // bytes per entry for XML tags in prompt
-	memoryMaxKeyLength    = 80  // max chars for a memory key
-	memoryMaxFirstLine    = 40  // max chars for tool result first line
-	memoryMaxDerivedKey   = 30  // max chars for derived tool result key
-	memoryPromptTokens    = 500 // default tokens for memory prompt injection
-	hoursPerDay           = 24  // for relative-age (J) day rollup
+	memoryXMLOverhead   = 30  // bytes per entry for XML tags in prompt
+	memoryMaxKeyLength  = 80  // max chars for a memory key
+	memoryMaxFirstLine  = 40  // max chars for tool result first line
+	memoryMaxDerivedKey = 30  // max chars for derived tool result key
+	memoryPromptTokens  = 500 // default tokens for memory prompt injection
+	hoursPerDay         = 24  // for relative-age (J) day rollup
 )
 
 // memoryStoreInstance is set during Loop construction so memory tools
