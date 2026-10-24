@@ -795,6 +795,7 @@ EOF
         mkdir -p "$lcd_dir"
         lcd_file="$lcd_dir/notes.txt"
         printf 'one\ntwo\nthree\n' >"$lcd_file"
+        python3 -c 'import sqlite3,sys; d=sqlite3.connect(sys.argv[1]); d.execute("create table pets(name text)"); d.execute("insert into pets values (?)", ("rex",)); d.commit()' "$lcd_dir/pets.db"
         while IFS='|' read -r lcd_name lcd_data lcd_want; do
             : >"$body"
             got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 120 \
@@ -811,6 +812,8 @@ md5_file|{"file_path":"$(to_native_path "$lcd_file")"}|deed54b823522e0525693b090
 tail_file|{"file_path":"$(to_native_path "$lcd_file")","lines":1}|three
 list_files|{"path":"$(to_native_path "$lcd_dir")"}|[file] notes.txt
 git_ops|{"operation":"init","workingDir":"$(to_native_path "$lcd_dir")","dryRun":true}|"initialized": false
+file_ops|{"operation":"exists","path":"$(to_native_path "$lcd_file")"}|"exists": true
+sql_query|{"db_path":"$(to_native_path "$lcd_dir/pets.db")","query":"SELECT name FROM pets"}|rex
 EOF
     else
         test_skipped "kdeps API - YAML python: tools (no python interpreter)"

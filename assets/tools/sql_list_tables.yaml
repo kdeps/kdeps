@@ -1,6 +1,24 @@
-version: 1.0.0
+version: 2.0.0
 description: List all tables in a SQLite database. Use this to discover available data before querying. Returns a newline-separated list of table names.
 parameters:
   db_path:
     type: string
     description: Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.
+python:
+  paths: [db_path]  # checked against the workspace boundary
+  env:
+    DB: [KDEPS_SQL_DB_PATH, ""]  # used when db_path is omitted
+  script: |
+    import json, os, pathlib, sqlite3, sys
+
+    path = json.loads(sys.argv[1]).get("db_path") or os.environ.get("DB")
+    if not path:
+        sys.exit("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+    try:
+        # mode=ro: the file is never created or written.
+        with sqlite3.connect(pathlib.Path(path).absolute().as_uri() + "?mode=ro", uri=True) as db:
+            rows = db.execute("SELECT name FROM sqlite_master WHERE type='table' "
+                              "AND name NOT LIKE 'sqlite_%' ORDER BY name").fetchall()
+    except sqlite3.Error as e:
+        sys.exit("sql_list_tables: %s" % e)
+    print("\n".join(r[0] for r in rows))

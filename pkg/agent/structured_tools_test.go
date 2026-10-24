@@ -52,7 +52,6 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 		name string
 		args map[string]any
 	}{
-		{"file_ops", map[string]any{"operation": "exists", "path": "x"}},
 		{"sql_ops", map[string]any{"connectionName": "main", "query": "SELECT 1"}},
 	}
 	for _, tc := range cases {

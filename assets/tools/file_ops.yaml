@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 2.0.0
 description: 'Run one structured filesystem operation and return its JSON result. Operations: read, write, patch, list, delete, exists, mkdir, copy, move, append. Requires: operation, and path (or source for copy and move). Optional: content, patch, encoding (text or base64), pattern, recursive, backup, dryRun, mode, appendNewline.'
 parameters:
   appendNewline:
@@ -38,3 +38,227 @@ parameters:
   source:
     type: string
     description: Source path for copy and move
+python:
+  paths: [path, source]  # both checked against the workspace boundary
+  script: |
+    import base64, datetime, errno, fnmatch, json, os, shutil, stat, sys
+
+    a = json.loads(sys.argv[1])
+
+    def arg(k):
+        v = a.get(k)
+        return "" if v is None else str(v)
+
+    def flag(k):
+        v = a.get(k)
+        return v is True or str(v).strip().lower() == "true"
+
+    def fail(msg):
+        sys.exit("file: " + msg)
+
+    def need(value, what, op):
+        if not value:
+            fail("%s is required for %s operation" % (what, op))
+
+    def perm(m):
+        return "-" + stat.filemode(m)[1:]
+
+    def mode(default):
+        try:
+            return int(arg("mode").strip(), 8) if arg("mode").strip() else default
+        except ValueError:
+            return default
+
+    def mtime(st):
+        return datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
+
+    def entry(p):
+        st = os.stat(p)
+        return {"name": os.path.basename(p), "path": p, "isDir": stat.S_ISDIR(st.st_mode),
+                "size": st.st_size, "mode": stat.filemode(st.st_mode), "modTime": mtime(st)}
+
+    def content():
+        c = arg("content")
+        return c + "\n" if flag("appendNewline") and not c.endswith("\n") else c
+
+    def copy_file(src, dst):
+        if os.path.dirname(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copyfile(src, dst)
+        shutil.copymode(src, dst)
+
+    def copy_any(src, dst):
+        if os.path.isdir(src):
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        else:
+            copy_file(src, dst)
+
+    def backup(p):
+        copy_file(p, p + ".bak")
+        return p + ".bak"
+
+    def read(p):
+        with open(p, "rb") as f:
+            data = f.read()
+        body, enc = data.decode("utf-8", "replace"), "text"
+        if arg("encoding") == "base64":
+            body, enc = base64.b64encode(data).decode(), "base64"
+        return {"content": body, "encoding": enc, "path": p, "exists": True,
+                "size": len(data), "lines": body.split("\n")}
+
+    def write(p):
+        data = content().encode()
+        exists = os.path.exists(p)
+        if flag("dryRun"):
+            return {"dryRun": True, "path": p, "size": len(data), "exists": exists, "written": False}
+        os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+        bak = backup(p) if flag("backup") and exists else None
+        m = mode(0o644)
+        with open(p, "wb") as f:
+            f.write(data)
+        os.chmod(p, m)
+        return {"path": p, "size": len(data), "written": True, "mode": perm(m),
+                "exists": exists, "backup": bak is not None, "backupPath": bak}
+
+    def apply_patch(original, diff):
+        # Applies a unified diff's hunks in order; each context and removal
+        # line must match the file exactly.
+        lines = original.split("\n")
+        trailing = original.endswith("\n")
+        if trailing:
+            lines.pop()
+        out, rest, applied = [], lines, False
+        dl = diff.split("\n")
+        for i, header in enumerate(dl):
+            if not header.startswith("@@"):
+                continue
+            parts = header.split()
+            try:
+                start = max(int(parts[1][1:].split(",")[0]) - 1, 0)
+            except (IndexError, ValueError):
+                raise ValueError("invalid hunk header: %s" % header)
+            start = min(start, len(rest))
+            out += rest[:start]
+            rest, pos = rest[start:], 0
+            for line in dl[i + 1:]:
+                if line.startswith(("@@", "---", "+++")):
+                    break
+                if line.startswith((" ", "-")):
+                    kind = "context" if line[0] == " " else "removal"
+                    if pos >= len(rest):
+                        raise ValueError("patch %s line out of range: %r" % (kind, line[1:]))
+                    if rest[pos] != line[1:]:
+                        raise ValueError("patch %s mismatch: expected %r, got %r" % (kind, line[1:], rest[pos]))
+                    if line[0] == " ":
+                        out.append(line[1:])
+                    pos += 1
+                elif line.startswith("+"):
+                    out.append(line[1:])
+            rest, applied = rest[pos:], True
+        if not applied:
+            raise ValueError("no valid hunks found in patch")
+        return "\n".join(out + rest) + ("\n" if trailing else "")
+
+    def patch(p):
+        diff = arg("patch")
+        need(diff, "patch content", "patch")
+        try:
+            with open(p, encoding="utf-8", newline="") as f:
+                original = f.read()
+        except OSError as e:
+            fail("failed to read target file for patch: %s" % e)
+        try:
+            patched = apply_patch(original, diff)
+        except ValueError as e:
+            fail("patch failed: %s" % e)
+        n = diff.count("\n") + 1
+        if flag("dryRun"):
+            return {"dryRun": True, "path": p, "patched": False, "patchLines": n}
+        if flag("backup"):
+            backup(p)
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(patched)
+        return {"path": p, "patched": True, "patchLines": n}
+
+    def listing(p):
+        if not os.path.exists(p):
+            fail("cannot access path: %s" % p)
+        pattern = arg("pattern")
+        match = lambda name: not pattern or fnmatch.fnmatchcase(name, pattern)
+        if not os.path.isdir(p):
+            found = [p]
+        elif flag("recursive"):
+            found = sorted(os.path.join(d, n) for d, ds, fs in os.walk(p) for n in ds + fs)
+            found = [f for f in found if match(os.path.basename(f))]
+        else:
+            found = [os.path.join(p, n) for n in sorted(os.listdir(p)) if match(n)]
+        entries = [entry(f) for f in found]
+        return {"path": p, "entries": entries, "count": len(entries)}
+
+    def delete(p):
+        if not os.path.lexists(p):
+            return {"path": p, "deleted": False, "reason": "not_found"}
+        if flag("dryRun"):
+            return {"path": p, "deleted": False, "dryRun": True}
+        if os.path.isdir(p) and not os.path.islink(p):
+            shutil.rmtree(p)
+        else:
+            os.remove(p)
+        return {"path": p, "deleted": True}
+
+    def exists(p):
+        if not os.path.exists(p):
+            return {"success": False, "exists": False, "path": p}
+        e = entry(p)
+        del e["name"]
+        return dict(e, exists=True)
+
+    def mkdir(p):
+        if flag("dryRun"):
+            return {"path": p, "created": False, "dryRun": True}
+        m = mode(0o755)
+        os.makedirs(p, m, exist_ok=True)
+        return {"path": p, "created": True, "mode": perm(m)}
+
+    def copy(dst):
+        src = arg("source")
+        need(src, "source", "copy")
+        if flag("dryRun"):
+            return {"source": src, "dest": dst, "copied": False, "dryRun": True}
+        if not os.path.exists(src):
+            fail("source not accessible: %s" % src)
+        copy_any(src, dst)
+        return {"source": src, "dest": dst, "copied": True}
+
+    def move(dst):
+        src = arg("source")
+        need(src, "source", "move")
+        if not os.path.exists(src):
+            fail("source does not exist: %s" % src)
+        if flag("dryRun"):
+            return {"source": src, "dest": dst, "moved": False, "dryRun": True}
+        target = os.path.join(dst, os.path.basename(src)) if os.path.isdir(dst) else dst
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        shutil.move(src, target)  # copies then removes across devices
+        return {"source": src, "dest": dst, "moved": True}
+
+    def append(p):
+        data = content().encode()
+        if flag("dryRun"):
+            return {"path": p, "size": len(data), "appended": False, "dryRun": True}
+        with open(p, "ab") as f:
+            f.write(data)
+        return {"path": p, "appended": True, "size": len(data)}
+
+    OPS = {"read": read, "write": write, "patch": patch, "list": listing, "delete": delete,
+           "exists": exists, "mkdir": mkdir, "copy": copy, "move": move, "append": append}
+    op, p = arg("operation"), arg("path")
+    if op not in OPS:
+        fail("unsupported operation '%s'" % op)
+    need(p, "path (destination)" if op in ("copy", "move") else "path", op)
+    try:
+        result = OPS[op](p)
+    except OSError as e:
+        fail(str(e))
+    result.setdefault("success", True)
+    print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))

@@ -11,7 +11,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
-| Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same handlers behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
+| Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same tools behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
@@ -28,7 +28,7 @@ agent session).
 
 | Implemented in YAML | Block |
 |---|---|
-| `web_search`, `web_scraper`, `wikipedia`, `calculator`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file` | `python:` (standard library only; runs on the system python) |
+| `web_search`, `web_scraper`, `wikipedia`, `calculator`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file`, `file_ops`, `sql_list_tables`, `sql_describe_table`, `sql_query` | `python:` (standard library only; runs on the system python) |
 | `google_cache_create`, `google_cache_delete`, `google_cache_list`, `exa_search`, `wolfram_alpha`, `zapier_*`, the rerankers, `retrieve_context`, `transcribe_audio` | `http:` |
 | `ocr_image`, `transcribe_audio_offline` | `exec:` |
 

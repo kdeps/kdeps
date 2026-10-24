@@ -108,7 +108,7 @@ func sqlConnectionDSN(name string) (string, error) {
 }
 
 func sqlRun(ctx context.Context, args map[string]any) (any, error) {
-	dsn, err := sqlConnectionDSN(strings.TrimSpace(fileArg(args, argConnectionName)))
+	dsn, err := sqlConnectionDSN(strings.TrimSpace(stringArg(args, argConnectionName)))
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +140,10 @@ func sqlRun(ctx context.Context, args map[string]any) (any, error) {
 	if err = sqlPrepareConn(ctx, conn, dialect, wait); err != nil {
 		return sqlConnectError(err), nil
 	}
-	if fileBool(args, argTransaction) {
+	if boolArg(args, argTransaction) {
 		return sqlRunTransaction(ctx, conn, dialect, queries, wait)
 	}
-	query := fileArg(args, argQuery)
+	query := stringArg(args, argQuery)
 	if strings.TrimSpace(query) == "" {
 		return nil, errors.New("sql: query is required")
 	}
@@ -152,7 +152,7 @@ func sqlRun(ctx context.Context, args map[string]any) (any, error) {
 		return nil, fmt.Errorf("sql: query execution failed: %w", err)
 	}
 	if rows != nil {
-		return sqlShape(rows, fileArg(args, argFormat)), nil
+		return sqlShape(rows, stringArg(args, argFormat)), nil
 	}
 	dml["success"] = true
 	return dml, nil

@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-None. The operations are served by the kdeps API's `file_ops` tool in the kdeps process; the component makes one call and returns the result.
+`python3` (or `python`) on `PATH`. The operations are the `file_ops` tool, a `python:` block in `tools/file_ops.yaml` served by the kdeps API in the kdeps process; the component makes one call and returns the result. `path` and `source` are checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard first.
 
 ## Basic usage
 
@@ -148,7 +148,7 @@ Listing a file (not a directory) returns one entry for it.
 component: file -> POST /apis/tools.kdeps.io/v1/tools/file_ops/call -> {success, ...operation fields}
 ```
 
-One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool does each operation with the Go standard library (`os`, `path/filepath`) and returns the same fields. Copy `components/file/` into your project to change an input default; the operations themselves live in the kdeps API.
+One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool does each operation with the Python standard library (`os`, `shutil`) and returns the same fields. Copy `components/file/` into your project to change an input default; copy `tools/file_ops.yaml` to `~/.kdeps/tools/` to change the operations themselves.
 
 ## See also
 

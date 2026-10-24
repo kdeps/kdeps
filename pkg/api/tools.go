@@ -50,6 +50,7 @@ const (
 	argContent    = "content"
 	argArgs       = "args"
 	argWorkingDir = "workingDir"
+	argOperation  = "operation"
 )
 
 // ToolSpec is one callable operation. Call runs in this process.
@@ -80,9 +81,6 @@ var openToolYAML = func(name string) ([]byte, error) {
 //nolint:gochecknoinits // these tools are served before RegisterBuiltinTools runs
 func init() {
 	RegisterTool(readFileSpec())
-	RegisterTool(loadToolSpec(toolSQLList, "List tables in a SQLite database.", SQLListTables))
-	RegisterTool(loadToolSpec(toolSQLDescribe, "Describe one SQLite table.", SQLDescribeTable))
-	RegisterTool(loadToolSpec(toolSQLQuery, "Run a read-only SQL query.", SQLQuery))
 	RegisterTool(loadToolSpec(toolSQLOps, "Run SQL against a named connection.", SQLOps))
 	RegisterTool(loadToolSpec(toolBashExec, "Execute a bash shell command.", BashExec))
 	RegisterTool(loadToolSpec(toolExec, "Run a shell command with structured output.", ExecOps))
@@ -98,7 +96,6 @@ func init() {
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolEmbedding, "Run one embedding operation.", EmbeddingOps))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
-	RegisterTool(loadToolSpec(toolFileOps, "Run one structured filesystem operation.", FileOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	RegisterTool(loadToolSpec(toolVectorStore, "Run one vector store operation.", VectorStore))
