@@ -45,7 +45,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/context", "/editor", "/instruct", "/knowledge", "kdeps run", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/context", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "config.GetDefaults"},
 	},
 	"docker": {
@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/knowledge", "/konfig", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {
@@ -153,7 +153,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the template is rendered", Here: true},
 			{Label: "the project or vault files are written"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps new", "kdeps knowledge build"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps new", "kdeps run", "kdeps knowledge build"},
 		Code:   []string{"kdeps new", "templates.(*Generator).GenerateProject"},
 	},
 	"themes": {
