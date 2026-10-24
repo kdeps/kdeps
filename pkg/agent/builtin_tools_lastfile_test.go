@@ -74,10 +74,7 @@ func TestReadFile_FallsBackToLastFile(t *testing.T) {
 }
 
 func TestReadFile_FilePathNotRequiredInSchema(t *testing.T) {
-	for _, name := range []string{"read_file", "tail_file", "md5_file"} {
-		tl := toolByName(t, name)
-		p, ok := tl.Parameters["file_path"]
-		require.True(t, ok, "%s has a file_path param", name)
-		assert.False(t, p.Required, "%s file_path must not be schema-required (it defaults to the last file)", name)
-	}
+	p, ok := toolByName(t, "read_file").Parameters["file_path"]
+	require.True(t, ok, "read_file has a file_path param")
+	assert.False(t, p.Required, "read_file file_path must not be schema-required (it defaults to the last file)")
 }

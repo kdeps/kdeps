@@ -1,11 +1,41 @@
-version: 1.0.0
+version: 2.0.0
 category: web
 description: Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.
 constraints: good for general knowledge; not for real-time/current information
-outputFormat: plain text encyclopedia article
+outputFormat: the title and introduction of the two best-matching articles
 seeAlso: web_search, web_scraper
 parameters:
   query:
     type: string
     description: The topic or question to look up on Wikipedia
     required: true
+python:
+  timeout: 30s
+  env:
+    WIKI_URL: [KDEPS_WIKIPEDIA_URL, ""]  # optional: a MediaWiki api.php endpoint (default en.wikipedia.org)
+  script: |
+    import json, os, sys, urllib.error, urllib.parse, urllib.request
+
+    query = json.loads(sys.argv[1])["query"]
+    base = os.environ.get("WIKI_URL") or "https://en.wikipedia.org/w/api.php"
+    # One request: the two best matches (generator=search) with the
+    # plain-text introduction of each (prop=extracts; several need exintro).
+    params = {
+        "action": "query", "format": "json", "formatversion": "2",
+        "generator": "search", "gsrsearch": query, "gsrlimit": "2",
+        "prop": "extracts", "exintro": "1", "explaintext": "1", "exlimit": "2",
+    }
+    req = urllib.request.Request(base + "?" + urllib.parse.urlencode(params),
+                                 headers={"User-Agent": "kdeps/agent"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as e:
+        sys.exit("wikipedia: responded with %d" % e.code)
+    except (urllib.error.URLError, ValueError) as e:
+        sys.exit("wikipedia: %s" % getattr(e, "reason", e))
+    pages = sorted((data.get("query") or {}).get("pages") or [], key=lambda p: p.get("index", 0))
+    if not pages:
+        print("no wikipedia pages found")
+    for p in pages:
+        print("%s\n%s\n" % (p.get("title", ""), (p.get("extract") or "").strip()))

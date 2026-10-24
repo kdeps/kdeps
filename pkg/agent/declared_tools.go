@@ -21,6 +21,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -69,9 +70,15 @@ func declaredReady(s api.DeclaredSpec) bool {
 // kdeps API, under the call budget whose tools: list names the tool.
 func declaredExecute(ctx context.Context, id string, d toolDefinition) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
-		key, _ := json.Marshal(args)
+		body := jsonArgs(args)
+		// Keyed on the arguments the API sees: args also carries the loop's
+		// _ctx, which does not marshal, and every call would share one key.
+		key, err := json.Marshal(body)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", id, err)
+		}
 		return trackToolCall(declaredName(id, d), declaredName(id, d)+":"+string(key), func() (string, error) {
-			return api.CallTool(toolCallCtx(ctx, args), id, jsonArgs(args))
+			return api.CallTool(toolCallCtx(ctx, args), id, body)
 		})
 	}
 }

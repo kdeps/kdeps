@@ -69,6 +69,12 @@ func TestCallDeclaredPythonTool_NoPackagesRunsSystemPython(t *testing.T) {
 		nil,
 	)
 	require.ErrorContains(t, err, "nope")
+
+	// What Windows python prints for "a\nb": the answer has \n line ends everywhere.
+	crlf := &PythonToolSpec{Script: "import sys; sys.stdout.buffer.write(b'a\\r\\nb\\r\\n')"}
+	out, err = callDeclaredPythonTool(t.Context(), "py", crlf, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "a\nb", out)
 }
 
 func TestCallDeclaredPythonTool_NoInterpreter(t *testing.T) {

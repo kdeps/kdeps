@@ -1,12 +1,46 @@
-version: 1.1.0
+version: 2.0.0
 category: file
 aliases: [tail]  # other names a model may call it by; the model is shown only this tool's name
 description: Read the last N lines of a file (default 20) -- for checking the end of a log or output file without knowing its total length upfront. Use as evidence that a command's output or a log ends the way a task claims it does.
+outputFormat: numbered lines (number, tab, text); a "[last N/M lines shown]" note when the file is longer
 seeAlso: read_file, md5_file, list_files
 parameters:
   file_path:
     type: string
-    description: Absolute (or cwd-relative) path to the file. Omit to tail the file most recently accessed this session.
+    description: Path to the file (absolute, or relative to the working directory)
+    required: true
   lines:
     type: number
     description: Number of lines from the end to return (default 20)
+python:
+  paths: [file_path]  # checked against the workspace boundary
+  script: |
+    import collections, json, os, sys
+
+    a = json.loads(sys.argv[1])
+    path = a["file_path"] if os.path.isabs(a["file_path"]) else os.path.abspath(a["file_path"])
+    if os.path.isdir(path):
+        sys.exit("tail_file: %s is a directory" % path)
+    try:
+        n = int(float(a.get("lines") or 0))
+    except ValueError:
+        n = 0
+    if n <= 0:
+        n = 20
+    total, last = 0, collections.deque(maxlen=n)
+    try:
+        with open(path, "rb") as f:
+            if b"\0" in f.read(512):
+                sys.exit("tail_file: %s appears to be a binary file" % path)
+            f.seek(0)
+            for line in f:  # streamed: a large log is never held in memory
+                total += 1
+                last.append(line)
+    except OSError as e:
+        sys.exit("tail_file: %s: %s" % (path, e.strerror or e))
+    start, width = total - len(last), len(str(total))
+    for i, line in enumerate(last):
+        text = line[:-1] if line.endswith(b"\n") else line
+        print("%*d\t%s" % (width, start + i + 1, text.decode("utf-8", "replace")))
+    if start > 0:
+        print("[last %d/%d lines shown]" % (len(last), total))

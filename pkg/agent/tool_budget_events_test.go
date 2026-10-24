@@ -170,16 +170,29 @@ func TestTrackToolCall_UnlistedToolRunsWithoutBudget(t *testing.T) {
 }
 
 func TestToolBudgets_BuiltinBudgetCountsAnUntrackedTool(t *testing.T) {
-	withWebBudget(t, 1, toolNameCalculator, toolNameWebSearch)
+	withWebBudget(t, 1, "memory_search", toolNameBashExec)
 	var b toolBudgets
 
-	assert.Empty(t, b.check(toolNameCalculator, `{"expression":"1"}`))
-	assert.Empty(t, b.check(toolNameCalculator, `{"expression":"1"}`), "a repeat never counts twice")
-	reason := b.check(toolNameCalculator, `{"expression":"2"}`)
+	assert.Empty(t, b.check("memory_search", `{"query":"1"}`))
+	assert.Empty(t, b.check("memory_search", `{"query":"1"}`), "a repeat never counts twice")
+	reason := b.check("memory_search", `{"query":"2"}`)
 	assert.Contains(t, reason, "ALL web/search calls blocked")
 	assert.True(t, isConvergenceBlocked(reason))
 
-	assert.Empty(t, b.check(toolNameWebSearch, `{"query":"x"}`), "a self-tracking tool is counted by its own code")
+	assert.Empty(t, b.check(toolNameBashExec, `{"command":"x"}`), "a self-tracking tool is counted by its own code")
 	calls, _ := globalWebCache.count()
 	assert.Equal(t, 1, calls)
+}
+
+func TestDeclaredExecute_LoopContextDoesNotMergeCalls(t *testing.T) {
+	withWebBudget(t, 5, "calculator")
+	tool := pythonTool(t, "calculator", nil)
+	ctx := t.Context()
+	for expr, want := range map[string]string{"1+1": "2", "2+2": "4"} {
+		out, err := tool.Execute(map[string]any{"expression": expr, "_ctx": ctx})
+		require.NoError(t, err)
+		assert.Equal(t, want, out, "each distinct call runs: %s", expr)
+	}
+	calls, _ := globalWebCache.count()
+	assert.Equal(t, 2, calls)
 }

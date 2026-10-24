@@ -8,7 +8,7 @@ Permission modes stay on [Built-in tools](/agent/tools).
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `calculator` | (none) | Evaluate math expressions |
+| `calculator` | (none) | Evaluate an arithmetic expression: numbers, `+ - * / // % **`, parentheses and the `math` module's functions and constants (`sqrt(16)`, `log(8, 2)`, `pi`). A `python:` block in `tools/calculator.yaml`; exponents above 10000 are rejected |
 | `wolfram_alpha` | `WOLFRAM_APP_ID` | Wolfram Alpha queries |
 
 ## Data and SQL

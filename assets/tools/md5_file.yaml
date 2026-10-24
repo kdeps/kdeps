@@ -1,8 +1,28 @@
-version: 1.0.1
+version: 2.0.0
 category: file
 description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed -- pair both hashes as evidence rather than asserting the change happened.
+outputFormat: the absolute path, two spaces, then the hex digest
 seeAlso: read_file, tail_file, list_files
 parameters:
   file_path:
     type: string
-    description: Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.
+    description: Path to the file to hash (absolute, or relative to the working directory)
+    required: true
+python:
+  paths: [file_path]  # checked against the workspace boundary
+  script: |
+    import hashlib, json, os, sys
+
+    path = json.loads(sys.argv[1])["file_path"]
+    # An absolute path comes back as given; a relative one is resolved.
+    path = path if os.path.isabs(path) else os.path.abspath(path)
+    if os.path.isdir(path):
+        sys.exit("md5_file: %s is a directory" % path)
+    h = hashlib.md5()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+    except OSError as e:
+        sys.exit("md5_file: %s: %s" % (path, e.strerror or e))
+    print("%s  %s" % (path, h.hexdigest()))

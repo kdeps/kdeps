@@ -1,12 +1,72 @@
-version: 1.1.0
+version: 2.0.0
 category: web
 aliases: [websearch, search_web, internet_search]  # other names a model may call it by; the model is shown only this tool's name
 description: Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.
 constraints: limit searches to 3 per topic; never repeat the same query; US-only results
-outputFormat: JSON with title, url, and snippet per result
+outputFormat: up to 5 results, each as Title, Description and URL lines
 seeAlso: web_scraper, wikipedia
 parameters:
   query:
     type: string
     description: The search query to look up
     required: true
+python:
+  timeout: 30s
+  env:
+    SEARCH_URL: [KDEPS_WEB_SEARCH_URL, ""]  # optional: a DuckDuckGo-compatible HTML endpoint (default lite.duckduckgo.com)
+  script: |
+    import json, os, sys, urllib.error, urllib.parse, urllib.request
+    from html.parser import HTMLParser
+
+    MAX_RESULTS = 5
+    query = json.loads(sys.argv[1])["query"]
+    base = os.environ.get("SEARCH_URL") or "https://lite.duckduckgo.com/lite/"
+    url = base + "?q=" + urllib.parse.quote_plus(query)
+    req = urllib.request.Request(url, headers={"User-Agent": "kdeps/agent"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            page = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        sys.exit("web_search: duckduckgo responded with %d" % e.code)
+    except urllib.error.URLError as e:
+        sys.exit("web_search: %s" % e.reason)
+
+    class Results(HTMLParser):
+        # Collects the title link and the snippet of each search result, in
+        # the lite page's markup (result-link, result-snippet) or the html
+        # page's (result__a, result__snippet).
+        def __init__(self):
+            super().__init__()
+            self.results, self.field, self.depth = [], None, 0
+
+        def handle_starttag(self, tag, attrs):
+            if self.field:
+                self.depth += 1
+                return
+            a = dict(attrs)
+            classes = (a.get("class") or "").split()
+            if "result-link" in classes or "result__a" in classes:
+                href = a.get("href") or ""
+                # Result links go through a redirect that carries the target in uddg.
+                target = urllib.parse.parse_qs(urllib.parse.urlparse(href).query).get("uddg")
+                self.results.append({"title": "", "info": "", "url": target[0] if target else href})
+                self.field, self.depth = "title", 0
+            elif ("result-snippet" in classes or "result__snippet" in classes) and self.results:
+                self.field, self.depth = "info", 0
+
+        def handle_endtag(self, tag):
+            if not self.field:
+                return
+            if self.depth == 0:
+                self.field = None
+            else:
+                self.depth -= 1
+
+        def handle_data(self, data):
+            if self.field:
+                self.results[-1][self.field] += data
+
+    parser = Results()
+    parser.feed(page)
+    for r in parser.results[:MAX_RESULTS]:
+        print("Title: %s\nDescription: %s\nURL: %s\n" % (r["title"].strip(), " ".join(r["info"].split()), r["url"]))

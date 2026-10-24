@@ -390,3 +390,50 @@ func TestTranscribeAudio_RegisteredWithoutKeys(t *testing.T) {
 	tool := declaredTool(t, "transcribe_audio", map[string]string{"OPENAI_API_KEY": "", "GROQ_API_KEY": ""})
 	assert.NotNil(t, tool, "keys are optional: local needs none")
 }
+
+func TestGoogleCacheTools_Declared(t *testing.T) {
+	for _, id := range []string{"google_cache_create", "google_cache_delete", "google_cache_list"} {
+		require.NotNil(t, toolDefinitions[id].HTTP, "%s has an http: block", id)
+	}
+	fake := newFakeAPI(t, http.StatusOK, `{"name":"cachedContents/abc"}`)
+	create := declaredTool(t, "google_cache_create", map[string]string{"GOOGLE_API_KEY": "gk"})
+	out, err := create.Execute(map[string]any{"model": "gemini-2.0-flash", "content": "system text"})
+	require.NoError(t, err)
+	assert.Equal(t, "cachedContents/abc", out)
+	req := fake.last(t)
+	assert.Equal(t, "generativelanguage.googleapis.com", req.Host)
+	assert.Equal(t, "/v1beta/cachedContents", req.Path)
+	assert.Equal(t, "gk", req.Header.Get("X-Goog-Api-Key"))
+	assert.JSONEq(t,
+		`{"model":"models/gemini-2.0-flash","systemInstruction":{"parts":[{"text":"system text"}]},"ttl":"3600s"}`,
+		req.Body)
+
+	_, err = create.Execute(map[string]any{"model": "models/gemini-2.0-flash", "content": "x", "ttl": "60s"})
+	require.NoError(t, err)
+	assert.Contains(t, fake.last(t).Body, `"model": "models/gemini-2.0-flash"`, "a models/ prefix is not doubled")
+	assert.Contains(t, fake.last(t).Body, `"ttl": "60s"`)
+
+	_, err = create.Execute(map[string]any{"model": "gemini-2.0-flash"})
+	require.ErrorContains(t, err, "content is required")
+}
+
+func TestGoogleCacheListAndDelete_Declared(t *testing.T) {
+	newFakeAPI(t, http.StatusOK, `{"cachedContents":[{"name":"cachedContents/a"},{"name":"cachedContents/b"}]}`)
+	list := declaredTool(t, "google_cache_list", map[string]string{"GOOGLE_API_KEY": "gk"})
+	out, err := list.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `["cachedContents/a","cachedContents/b"]`, out)
+
+	newFakeAPI(t, http.StatusOK, `{}`)
+	out, err = list.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.Equal(t, "[]", out, "an empty project lists no names")
+
+	fake := newFakeAPI(t, http.StatusOK, `{}`)
+	del := declaredTool(t, "google_cache_delete", map[string]string{"GOOGLE_API_KEY": "gk"})
+	out, err = del.Execute(map[string]any{"name": "cachedContents/a"})
+	require.NoError(t, err)
+	assert.Equal(t, "deleted", out)
+	assert.Equal(t, http.MethodDelete, fake.last(t).Method)
+	assert.Equal(t, "/v1beta/cachedContents/a", fake.last(t).Path)
+}

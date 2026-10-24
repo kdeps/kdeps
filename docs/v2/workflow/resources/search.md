@@ -30,7 +30,15 @@ apiResponse:
     results: "{{ output('find') }}"
 ```
 
-The output is the search engine's readable text - titles, URLs, and snippets. Feed a URL into `web_scraper` for the full page.
+The output is up to 5 results, each three lines and a blank line. Feed a URL into `web_scraper` for the full page.
+
+```text
+Title: Tutorial: Getting started with generics - The Go Programming Language
+Description: Learn how to use generics in Go to declare and call functions ...
+URL: https://go.dev/doc/tutorial/generics
+```
+
+The search is the `web_search` tool, a `python:` block in `tools/web_search.yaml` that reads DuckDuckGo's lite HTML page (`lite.duckduckgo.com`). Set `KDEPS_WEB_SEARCH_URL` to point it at another endpoint that serves the same page.
 
 In agent mode the same tool is the `web_search` built-in, and the loop caps `web_search`/`web_scraper` calls per user request (20 by default; `/model tool set web-limit <n>` changes it).
 

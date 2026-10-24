@@ -34,7 +34,7 @@ func TestGoogleCacheListComponent_DisabledWithoutKey(t *testing.T) {
 
 	_, err := runComponentValue(t, "google_cache_list", "    {}\n")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "google_cache_list: disabled (GOOGLE_API_KEY is unset)")
+	require.Contains(t, err.Error(), "google_cache_list: required environment variables are not set")
 }
 
 func TestGoogleCacheCreateComponent_EmptyModelMatchesTool(t *testing.T) {

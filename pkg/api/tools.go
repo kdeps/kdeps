@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -42,6 +43,13 @@ const (
 	msgBadJSON      = "invalid json"
 	msgBodyTooLarge = "body too large"
 	msgToolNotFound = "tool not found"
+
+	argQuery      = "query"
+	argURL        = "url"
+	argModel      = "model"
+	argContent    = "content"
+	argArgs       = "args"
+	argWorkingDir = "workingDir"
 )
 
 // ToolSpec is one callable operation. Call runs in this process.
@@ -72,15 +80,6 @@ var openToolYAML = func(name string) ([]byte, error) {
 //nolint:gochecknoinits // these tools are served before RegisterBuiltinTools runs
 func init() {
 	RegisterTool(readFileSpec())
-	initWebClients()
-	if webSearchCall != nil {
-		RegisterTool(loadToolSpec(toolWebSearch, "Search the web using DuckDuckGo.", WebSearch))
-	}
-	RegisterTool(loadToolSpec(toolWikipedia, "Look up a topic on Wikipedia.", Wikipedia))
-	if scrapeCall != nil {
-		RegisterTool(loadToolSpec(toolWebScraper, "Fetch readable text from a URL.", WebScrape))
-	}
-	RegisterTool(loadToolSpec(toolCalculator, "Evaluate a mathematical expression.", Calculator))
 	RegisterTool(loadToolSpec(toolSQLList, "List tables in a SQLite database.", SQLListTables))
 	RegisterTool(loadToolSpec(toolSQLDescribe, "Describe one SQLite table.", SQLDescribeTable))
 	RegisterTool(loadToolSpec(toolSQLQuery, "Run a read-only SQL query.", SQLQuery))
@@ -90,13 +89,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolPython, "Run a Python script with structured output.", PythonOps))
 	RegisterTool(loadToolSpec(toolBashJobList, "List background bash jobs.", BashJobList))
 	RegisterTool(loadToolSpec(toolBashJobWait, "Wait for a background bash job.", BashJobWait))
-	RegisterTool(loadToolSpec(toolListFiles, "List files and directories.", ListFiles))
-	RegisterTool(loadToolSpec(toolMD5File, "Compute the MD5 checksum of a file.", MD5File))
-	RegisterTool(loadToolSpec(toolTailFile, "Read the last lines of a file.", TailFile))
 	RegisterTool(loadToolSpec(toolWriteFile, "Write or overwrite a text file.", WriteFile))
-	RegisterTool(loadToolSpec(toolGoogleCacheCreate, "Create a Google AI cached content entry.", GoogleCacheCreate))
-	RegisterTool(loadToolSpec(toolGoogleCacheDelete, "Delete a Google AI cached content entry.", GoogleCacheDelete))
-	RegisterTool(loadToolSpec(toolGoogleCacheList, "List Google AI cached content entries.", GoogleCacheList))
 	RegisterTool(loadToolSpec(toolMemorySave, "Save a fact to persistent memory.", MemorySave))
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
@@ -106,12 +99,21 @@ func init() {
 	RegisterTool(loadToolSpec(toolEmbedding, "Run one embedding operation.", EmbeddingOps))
 	RegisterTool(loadToolSpec(toolHTTPRequest, "Make an HTTP request.", HTTPRequest))
 	RegisterTool(loadToolSpec(toolFileOps, "Run one structured filesystem operation.", FileOps))
-	RegisterTool(loadToolSpec(toolGitOps, "Run one structured git operation.", GitOps))
 	RegisterTool(loadToolSpec(toolLoadDocument, "Load a document as text.", LoadDocument))
 	RegisterTool(loadToolSpec(toolSearchLocal, "Search local files.", SearchLocal))
 	RegisterTool(loadToolSpec(toolVectorStore, "Run one vector store operation.", VectorStore))
 	registerApprovalTools()
 	registerInstructTool()
+}
+
+func ctxReady(ctx context.Context, name string) error {
+	if ctx == nil {
+		return fmt.Errorf("%s: nil context", name)
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	return nil
 }
 
 // loadToolSpec builds a call spec from the tool asset. A missing or empty

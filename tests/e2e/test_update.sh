@@ -23,7 +23,7 @@ mkdir -p "$UPD_PUB/tools/md5_file" "$UPD_PUB/harness/safety" "$UPD_PUB/models/gg
 
 sha() { python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 
-printf 'version: 1.1.0\ncategory: file\ndescription: Updated md5 description.\n' > "$UPD_PUB/tools/md5_file/1.1.0.yaml"
+printf 'version: 2.1.0\ncategory: file\ndescription: Updated md5 description.\n' > "$UPD_PUB/tools/md5_file/2.1.0.yaml"
 printf 'version: 1.0.0\nname: safety\nkind: preamble-section\norder: 50\nbody: published 1.0.0\n' > "$UPD_PUB/harness/safety/1.0.0.yaml"
 printf 'version: 1.2.0\nname: safety\nkind: preamble-section\norder: 50\nbody: published 1.2.0\n' > "$UPD_PUB/harness/safety/1.2.0.yaml"
 printf 'version: 9.0.0\nggufs:\n  - alias: e2e-fresh-model\n    url: https://example.com/e2e-fresh.gguf\n' > "$UPD_PUB/models/gguf/9.0.0.yaml"
@@ -31,8 +31,8 @@ cat > "$UPD_PUB/index.json" <<JSON
 {"items": {
   "models/gguf": {"latest": "9.0.0", "versions": [
     {"version": "9.0.0", "sha256": "$(sha "$UPD_PUB/models/gguf/9.0.0.yaml")", "date": "2026-10-09T00:00:00Z"}]},
-  "tools/md5_file": {"latest": "1.1.0", "versions": [
-    {"version": "1.1.0", "sha256": "$(sha "$UPD_PUB/tools/md5_file/1.1.0.yaml")", "date": "2026-10-09T00:00:00Z"}]},
+  "tools/md5_file": {"latest": "2.1.0", "versions": [
+    {"version": "2.1.0", "sha256": "$(sha "$UPD_PUB/tools/md5_file/2.1.0.yaml")", "date": "2026-10-09T00:00:00Z"}]},
   "harness/safety": {"latest": "1.2.0", "versions": [
     {"version": "1.0.0", "sha256": "$(sha "$UPD_PUB/harness/safety/1.0.0.yaml")", "date": "2026-10-09T00:00:00Z"},
     {"version": "1.2.0", "sha256": "$(sha "$UPD_PUB/harness/safety/1.2.0.yaml")", "date": "2026-10-09T00:00:00Z"}]}
@@ -59,7 +59,7 @@ upd() {
 }
 
 OUT=$(upd --check)
-if output_grep "tools/md5_file +available +[0-9.]+ -> 1\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
+if output_grep "tools/md5_file +available +[0-9.]+ -> 2\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
     test_passed "update --check lists updates without installing"
 else
     test_failed "update --check" "$OUT"

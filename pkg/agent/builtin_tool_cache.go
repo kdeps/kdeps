@@ -150,8 +150,7 @@ func trackToolCall(tool, key string, fn func() (string, error)) (string, error) 
 //
 //nolint:gochecknoglobals // fixed list of self-tracking tools
 var goTrackedTools = []string{
-	toolNameWebSearch, toolNameWikipedia, toolNameWebScraper,
-	toolNameBashExec, toolNameReadFile, toolNameListFiles, toolNameSearchLocal,
+	toolNameBashExec, toolNameReadFile, toolNameSearchLocal,
 }
 
 // trackedInGo reports whether tool's own Go code applies its call budget.

@@ -18,22 +18,42 @@ Permission modes and lean mode stay on this page. The calling rules are their ow
 
 ## Tool definitions
 
-Each built-in tool's model-facing text is a YAML definition in the `tools`
-asset set, installed by `kdeps update`: the description, category, usage
-notes and parameter schema the model sees. The tool's code only supplies its
-name and what it runs.
+Each built-in tool is a YAML definition in the `tools` asset set, installed
+by `kdeps update`: the description, category, usage notes and parameter
+schema the model sees. Most built-ins also carry their implementation in the
+same file, as an `http:` or `python:` block over one of the four kernel
+primitives (`http`, `exec`, `python`, `sql`); the rest are served by Go
+because they need kernel state (the file sandbox, memory, embeddings, the
+agent session).
+
+| Implemented in YAML | Block |
+|---|---|
+| `web_search`, `web_scraper`, `wikipedia`, `calculator`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file` | `python:` (standard library only; runs on the system python) |
+| `google_cache_create`, `google_cache_delete`, `google_cache_list`, `exa_search`, `wolfram_alpha`, `zapier_*`, the rerankers, `retrieve_context`, `transcribe_audio` | `http:` |
+| `ocr_image`, `transcribe_audio_offline` | `exec:` |
 
 ```yaml
 # tools/md5_file.yaml (built-in, shown for reference)
-version: 1.0.0       # bumped whenever the text the model sees changes
+version: 2.0.0       # bumped whenever the file changes
 category: file       # section header in the tool list sent to the model
 description: Compute the MD5 checksum of a file. Call once before and once after a change to prove whether the file's contents actually changed ...
 seeAlso: read_file, tail_file, list_files   # shown as "See also: ..."
 parameters:
   file_path:
     type: string
-    description: Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.
+    description: Path to the file to hash (absolute, or relative to the working directory)
+    required: true
+python:
+  paths: [file_path]  # checked against KDEPS_WORKSPACE_ROOT and the root-directory guard first
+  script: |
+    import hashlib, json, os, sys
+    path = os.path.abspath(json.loads(sys.argv[1])["file_path"])
+    ...                                   # hashes the file in 1 MiB chunks
+    print("%s  %s" % (path, h.hexdigest()))  # the printed text is the answer
 ```
+
+Copy one of these files to `~/.kdeps/tools/` and edit it to change what the
+tool does; see [Your own tools](#your-own-tools).
 
 Optional fields: `constraints` (limits and gotchas, shown inline), `outputFormat`
 (what the tool returns), `name` (the tool name the model sees, when it
@@ -220,6 +240,18 @@ python:
     print(len(args["text"].split()))   # printed text is the tool's answer
   packages: []          # pip packages installed into the runner's venv first
   timeout: 30s          # optional; the runner's default when empty
+```
+
+The script's output is UTF-8 on every platform (`PYTHONIOENCODING=utf-8`). An `env:` block works as in an `http:` block, and each resolved value is set as an environment variable of the same name for the script. The shipped `web_search` uses one to make its endpoint replaceable:
+
+```yaml
+# tools/web_search.yaml (shipped, abridged)
+python:
+  timeout: 30s
+  env:
+    SEARCH_URL: [KDEPS_WEB_SEARCH_URL, ""]  # trailing "" = optional; unset uses lite.duckduckgo.com
+  script: |
+    ...
 ```
 
 A tool declares at most one of `http:`, `exec:`, `sql:` or `python:`.

@@ -3,13 +3,13 @@ kind: Component
 metadata:
   name: calculator
   description: Evaluate a math expression through the kdeps API
-  version: "1.0.1"
+  version: "1.1.0"
 interface:
   inputs:
     - name: expression
       type: string
       required: true
-      description: Starlark numeric expression
+      description: Arithmetic expression (numbers, operators, math functions)
   # body is the result text. The HTTP envelope stays inside the call.
   output: "{{ output('call').body }}"
 resources:

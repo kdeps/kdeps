@@ -93,6 +93,7 @@ var declaredToolFuncs = template.FuncMap{
 	"urlquery":   url.QueryEscape,
 	"urlpath":    url.PathEscape,
 	"trimSuffix": strings.TrimSuffix,
+	"trimPrefix": strings.TrimPrefix,
 	"add":        func(a, b int) int { return a + b },
 	"int":        ToInt,
 	"min":        func(a, b any) int { return min(ToInt(a), ToInt(b)) },

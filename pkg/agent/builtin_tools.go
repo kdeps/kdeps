@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -42,27 +41,18 @@ const (
 	binaryCheckBytes = 512 // bytes to scan for binary detection
 )
 
-// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
-// calculator and optional API-key tools: google_cache_*)
-// plus every tool asset that declares an http: block (exa_search, wolfram_alpha, zapier_*,
-// the rerankers, retrieve_context, ...) to the registry. API-key tools are registered only
-// when the corresponding env var is set.
+// RegisterBuiltinTools adds the Go-served tools (sql_*, bash_exec, read_file, write_file, ...)
+// plus every tool asset that declares an http:, exec:, sql: or python: block (web_search,
+// wikipedia, list_files, git_ops, exa_search, google_cache_*, ...) to the registry. A declared
+// tool whose env: entries do not resolve is not registered.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerDuckDuckGo(ctx, reg)
-	registerWikipedia(ctx, reg)
-	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
-	registerListFiles(ctx, reg)
-	registerCalculator(ctx, reg)
 	registerReadFile(ctx, reg)
-	registerMD5File(ctx, reg)
-	registerTailFile(ctx, reg)
 	registerWriteFile(ctx, reg)
 	registerStructuredTools(ctx, reg)
-	registerGoogleCacheTools(ctx, reg)
 	registerDeclaredTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
@@ -71,11 +61,10 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerStructuredTools registers the structured operation tools:
-// filesystem operations, git operations and SQL. Each is served by the kdeps API; an agent call and the shipped
+// filesystem operations and SQL. Each is served by the kdeps API; an agent call and the shipped
 // component reach the same handler.
 func registerStructuredTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "file_ops", api.FileOps)
-	registerAPITool(ctx, reg, "git_ops", api.GitOps)
 	registerAPITool(ctx, reg, "sql_ops", api.SQLOps)
 }
 
@@ -100,12 +89,6 @@ type instructAPIBackend struct {
 
 func (b instructAPIBackend) Instruct(topic string) (string, error) {
 	return instructToolResult(topic, b.catalog)
-}
-
-// registerCalculator registers the langchain-go Calculator tool.
-// No API key required. Accepts any valid Starlark numeric expression.
-func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, toolNameCalculator, api.Calculator)
 }
 
 // maxFileReadBytes returns the "file-read-limit" event's byte cap on any
@@ -143,24 +126,6 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 		return "", fmt.Errorf("%s: %w", toolName, err)
 	}
 	return filePath, nil
-}
-
-// resolveReadFilePath is requireAbsFilePath for read-only file tools: when the
-// model omits file_path, it resolves from match_id (a prior search_local
-// hit) if given, else falls back to the last file any file tool touched
-// this session ("re-read what I was just looking at"). Never used for
-// write_file/edit_file -- guessing a path there could clobber the wrong file.
-func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
-	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) == "" {
-		if id, _ := args["match_id"].(string); id != "" {
-			if err := resolveMatchIDIntoArgs(toolName, id, args); err != nil {
-				return "", err
-			}
-		} else if lf := lastFile(); lf != "" {
-			args[toolParamFilePath] = lf
-		}
-	}
-	return requireAbsFilePath(toolName, args)
 }
 
 // resolveMatchIDIntoArgs resolves id to its file, filling file_path and --
@@ -351,68 +316,6 @@ func visibleWhitespace(line string) string {
 	return api.VisibleWhitespace(line)
 }
 
-// registerMD5File registers an evidence tool: the MD5 checksum of a file.
-// The handler hashes the file. This wrapper fills the session path
-// (match_id or the last file) and does not cache the hash.
-func registerMD5File(ctx context.Context, reg *kdepstools.Registry) {
-	api.SetFileReadLimit(maxFileReadBytes)
-	tool := defined(&kdepstools.Tool{
-		Name: "md5_file",
-		Execute: func(args map[string]any) (string, error) {
-			filePath, err := resolveReadFilePath("md5_file", args)
-			if err != nil {
-				return "", err
-			}
-			rememberFile(filePath)
-			// Deliberately not wrapped in trackFileCall: a cached hash would
-			// hide a change between the before and after calls.
-			return api.CallTool(toolCallCtx(ctx, args), "md5_file", map[string]any{
-				toolParamFilePath: filePath,
-			})
-		},
-	})
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        api.MD5File,
-		})
-	}
-	reg.Register(tool)
-}
-
-// registerTailFile registers an evidence tool: the last N lines of a file.
-// The handler reads the file. This wrapper fills the session path and does
-// not cache the tail.
-func registerTailFile(ctx context.Context, reg *kdepstools.Registry) {
-	api.SetFileReadLimit(maxFileReadBytes)
-	tool := defined(&kdepstools.Tool{
-		Name: "tail_file",
-		Execute: func(args map[string]any) (string, error) {
-			filePath, err := resolveReadFilePath("tail_file", args)
-			if err != nil {
-				return "", err
-			}
-			rememberFile(filePath)
-			body := map[string]any{toolParamFilePath: filePath}
-			if v, ok := args["lines"]; ok {
-				body["lines"] = v
-			}
-			return api.CallTool(toolCallCtx(ctx, args), "tail_file", body)
-		},
-	})
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        api.TailFile,
-		})
-	}
-	reg.Register(tool)
-}
-
 // registerWriteFile registers a local file write/overwrite tool.
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
@@ -565,72 +468,6 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 	return strings.TrimSuffix(sb.String(), "\n")
 }
 
-// registerListFiles registers a directory listing tool.
-// Lists files and directories at a given path. No API key required.
-func registerListFiles(ctx context.Context, reg *kdepstools.Registry) {
-	tool := defined(&kdepstools.Tool{
-		Name: toolNameListFiles,
-		Execute: func(args map[string]any) (string, error) {
-			dirPath, err := resolveListFilesDirPath(args)
-			if err != nil {
-				return "", err
-			}
-			return trackToolCall(toolNameListFiles, dirPath, func() (string, error) {
-				return api.CallTool(toolCallCtx(ctx, args), toolNameListFiles, map[string]any{
-					"path": dirPath,
-				})
-			})
-		},
-	})
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        api.ListFiles,
-		})
-	}
-	reg.Register(tool)
-}
-
-// resolveListFilesDirPath resolves list_files's path argument: empty
-// defaults to the cwd, relative resolves against it, and the result is
-// checked against ValidateRootPath before any filesystem read.
-func resolveListFilesDirPath(args map[string]any) (string, error) {
-	dirPath, _ := args["path"].(string)
-	if dirPath == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("list_files: resolve cwd: %w", err)
-		}
-		dirPath = wd
-	}
-	if !filepath.IsAbs(dirPath) {
-		abs, err := filepath.Abs(dirPath)
-		if err != nil {
-			return "", fmt.Errorf("list_files: resolve %s: %w", dirPath, err)
-		}
-		dirPath = abs
-	}
-	if err := ValidateRootPath(dirPath); err != nil {
-		return "", fmt.Errorf("list_files: %w", err)
-	}
-	return dirPath, nil
-}
-
-func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
-	registerCachedAPITool(ctx, reg, toolNameWebSearch, toolParamQuery, builtinSearchTimeout, api.WebSearch)
-}
-
-func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
-	registerCachedAPITool(ctx, reg, toolNameWikipedia, toolParamQuery, builtinSearchTimeout, api.Wikipedia)
-}
-
-// registerWebScraper registers a URL scraping tool. The fetch runs in the kdeps API.
-func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
-	registerCachedAPITool(ctx, reg, toolNameWebScraper, "url", builtinScrapeTimeout, api.WebScrape)
-}
-
 // registerSQLTools registers three tools for interacting with a SQLite database:
 //   - sql_list_tables: returns all user table names
 //   - sql_describe_table: returns column names and types for a table
@@ -667,53 +504,6 @@ func registerAPITool(
 	reg.Register(tool)
 }
 
-// registerCachedAPITool is registerAPITool with the call budget that lists
-// the tool (the web-call-budget event) around the call. An empty argument skips the cache so a missing query does
-// not consume a distinct-call slot.
-func registerCachedAPITool(
-	ctx context.Context,
-	reg *kdepstools.Registry,
-	name, arg string,
-	timeout time.Duration,
-	call func(context.Context, map[string]any) (string, error),
-) {
-	tool := defined(&kdepstools.Tool{
-		Name: name,
-		Execute: func(args map[string]any) (string, error) {
-			return executeCachedAPI(ctx, name, arg, timeout, args)
-		},
-	})
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        call,
-		})
-	}
-	reg.Register(tool)
-}
-
-func executeCachedAPI(
-	ctx context.Context, name, arg string, timeout time.Duration, args map[string]any,
-) (string, error) {
-	raw, _ := stringArgFrom(args, arg)
-	body := map[string]any{}
-	if args != nil {
-		if v, ok := args[arg]; ok {
-			body[arg] = v
-		}
-	}
-	if strings.TrimSpace(raw) == "" {
-		return api.CallTool(toolCallCtx(ctx, args), name, body)
-	}
-	return trackToolCall(name, name+":"+raw, func() (string, error) {
-		callCtx, cancel := toolCallCtxTimeout(ctx, args, timeout)
-		defer cancel()
-		return api.CallTool(callCtx, name, body)
-	})
-}
-
 func jsonArgs(args map[string]any) map[string]any {
 	out := map[string]any{}
 	for k, v := range args {
@@ -730,21 +520,6 @@ func jsonArgs(args map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
-}
-
-// Network tool timeouts: a hung remote endpoint must not stall the agent
-// turn indefinitely (Ctrl+C still cancels earlier via the injected _ctx).
-const (
-	builtinSearchTimeout = 30 * time.Second
-	builtinScrapeTimeout = 60 * time.Second
-)
-
-// toolCallCtxTimeout bounds toolCallCtx with a hard timeout so a hung
-// network call cannot stall the agent turn indefinitely.
-func toolCallCtxTimeout(
-	fallback context.Context, args map[string]any, d time.Duration,
-) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(toolCallCtx(fallback, args), d)
 }
 
 // toolCallCtx returns the per-turn context injected by the Loop dispatcher
@@ -926,17 +701,6 @@ func registerBashJobList(ctx context.Context, reg *kdepstools.Registry) {
 
 func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "bash_job_wait", api.BashJobWait)
-}
-
-// registerGoogleCacheTools registers google_cache_create, google_cache_delete, and
-// google_cache_list when GOOGLE_API_KEY is set. The handler is the kdeps API.
-func registerGoogleCacheTools(ctx context.Context, reg *kdepstools.Registry) {
-	if os.Getenv("GOOGLE_API_KEY") == "" {
-		return
-	}
-	registerAPITool(ctx, reg, "google_cache_create", api.GoogleCacheCreate)
-	registerAPITool(ctx, reg, "google_cache_delete", api.GoogleCacheDelete)
-	registerAPITool(ctx, reg, "google_cache_list", api.GoogleCacheList)
 }
 
 // isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.

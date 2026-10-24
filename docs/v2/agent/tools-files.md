@@ -1,8 +1,8 @@
 # File tools
 
-`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no YAML and no API key. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
+`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. `read_file` and `write_file` are served by Go (the file sandbox); `edit_file`, `list_files`, `md5_file` and `tail_file` are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)). Every path argument is checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard before the tool runs. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
 
-Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file and the read-before-edit check stay in the agent loop. A component call does not need a prior read.
+Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file stays in the agent loop.
 
 ## File operations
 
@@ -19,11 +19,11 @@ Always available. No environment variables required.
 
 ## Line numbers
 
-Every line `read_file` returns is prefixed with its 1-based line number, and the line itself is rendered `cat -A` style: tabs show as `^I`, other control characters as `^X`, and a `$` marks the true end of the line (`  42⇥code$`) - so indentation, trailing whitespace, and stray control characters are visible instead of silently hidden. Those line numbers are what `edit_file`'s `insert` and `view` commands point at.
+Every line `read_file` returns is prefixed with its 1-based line number, and the line itself is rendered `cat -A` style: tabs show as `^I`, other control characters as `^X`, and a `$` marks the true end of the line (`  42⇥code$`) - so indentation, trailing whitespace, and stray control characters are visible instead of silently hidden. Those line numbers are what `edit_file`'s `line` points at.
 
 ## Optional file_path
 
-`read_file`, `tail_file`, and `md5_file` treat `file_path` as optional: omit it and the tool operates on the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file` and `edit_file` always require an explicit path.
+`read_file` treats `file_path` as optional: omit it and it reads the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file`, `edit_file`, `md5_file` and `tail_file` always require an explicit path.
 
 ## Colored diff
 

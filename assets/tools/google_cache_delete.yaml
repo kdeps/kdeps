@@ -1,7 +1,15 @@
-version: 1.0.0
+version: 2.0.0
 description: Delete a Google AI cached content entry by name. Only available when GOOGLE_API_KEY is set.
 parameters:
   name:
     type: string
     description: The cached content name returned by google_cache_create (e.g. 'cachedContents/xyz123')
     required: true
+http:
+  env:
+    API_KEY: [GOOGLE_API_KEY]  # the tool is listed only when this is set
+  method: DELETE
+  url: 'https://generativelanguage.googleapis.com/v1beta/{{.args.name}}'
+  headers:
+    x-goog-api-key: "{{.env.API_KEY}}"
+  result: deleted  # the API answers {} on success

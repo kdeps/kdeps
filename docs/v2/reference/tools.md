@@ -317,7 +317,16 @@ Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to m
 5. Agent calls google_cache_delete when the cache is no longer needed
 ```
 
-The cached content has a TTL set by Google AI (default 1 hour). Use `google_cache_delete` to remove it early and avoid storage charges.
+The three tools are `http:` blocks in their tool assets: one call each to `https://generativelanguage.googleapis.com/v1beta/cachedContents`, with the key in the `x-goog-api-key` header. Without `GOOGLE_API_KEY` the agent does not list them and a kdeps API call returns `<tool>: required environment variables are not set`.
+
+```yaml
+# google_cache_create arguments
+model: gemini-2.5-flash   # "models/" is added when missing
+content: "<the long system prompt to cache>"   # Gemini rejects fewer than 1024 tokens
+ttl: 3600s                # seconds with an s suffix; default 3600s (one hour)
+```
+
+Use `google_cache_delete` to remove a cache before its `ttl` ends and avoid storage charges.
 
 ## Agent session tools on the API
 

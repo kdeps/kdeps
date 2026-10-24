@@ -33,7 +33,7 @@ func TestAssetsFS_DownloadAndRemoveReachLoaders(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_DIR", root)
 
 	// A newer downloaded tool definition replaces the source one.
-	def := []byte("version: 1.1.0\ncategory: file\ndescription: Updated md5 text.\n")
+	def := []byte("version: 2.1.0\ncategory: file\ndescription: Updated md5 text.\n")
 	require.NoError(t, assets.Install(root, "tools/md5_file", def, false))
 	defs := loadToolDefinitionsFrom(assets.Open("tools"))
 	assert.Equal(t, "Updated md5 text.", defs["md5_file"].Description)
@@ -65,7 +65,7 @@ func TestRequiredAssets_CannotBeRemoved(t *testing.T) {
 func TestAssetValidators_RejectBadDownloads(t *testing.T) {
 	root := t.TempDir()
 	cases := map[string]string{
-		"tools/md5_file": "version: 1.1.0\ncategory: file\n", // no description
+		"tools/md5_file": "version: 2.1.0\ncategory: file\n", // no description
 		"harness/safety": "version: 1.1.0\nkind: [\n",        // bad YAML
 		"events/x":       "version: 1.1.0\nname: [\n",
 		"actions/x":      "version: 1.1.0\nname: [\n",
@@ -75,7 +75,7 @@ func TestAssetValidators_RejectBadDownloads(t *testing.T) {
 	for id, body := range cases {
 		assert.Error(t, assets.Install(root, id, []byte(body), false), id)
 	}
-	require.NoError(t, assets.Install(root, "tools/md5_file", []byte("version: 1.1.0\ndescription: ok\n"), false))
+	require.NoError(t, assets.Install(root, "tools/md5_file", []byte("version: 2.1.0\ndescription: ok\n"), false))
 }
 
 func TestSourceFiles_HaveVersions(t *testing.T) {

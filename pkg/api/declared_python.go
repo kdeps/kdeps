@@ -143,7 +143,9 @@ func runSystemPython(
 		}
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
 		cmd := exec.CommandContext(runCtx, path, "-c", s.Script, argJSON)
-		cmd.Env = os.Environ()
+		// UTF-8 output on every platform (a Windows console code page cannot
+		// print most text a tool returns).
+		cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
 		for k, v := range env {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
@@ -154,7 +156,8 @@ func runSystemPython(
 		if runErr != nil {
 			return "", fmt.Errorf("%s: %w: %s", name, runErr, strings.TrimSpace(stderr.String()))
 		}
-		return strings.TrimSpace(stdout.String()), nil
+		// Python on Windows writes \r\n for every \n a script prints.
+		return strings.TrimSpace(strings.ReplaceAll(stdout.String(), "\r\n", "\n")), nil
 	}
 	return "", fmt.Errorf("%s: no python interpreter found in PATH: %w", name, lastErr)
 }

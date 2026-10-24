@@ -1,6 +1,6 @@
 # Web scraper component
 
-The `web_scraper` component fetches one URL and returns its readable text - title, headers, body, and links, with navigation and script noise removed. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The fetch itself is the `web_scraper` tool, implemented with langchain-go's scraper and served by the kdeps API.
+The `web_scraper` component fetches one URL and returns its readable text - title, headers, body, and links, with navigation and script noise removed. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The fetch itself is the `web_scraper` tool: a `python:` block in `tools/web_scraper.yaml` (standard library only) served by the kdeps API, which fetches the page once and keeps the title, meta description, headings, paragraphs and links.
 
 ## Where it runs
 

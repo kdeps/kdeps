@@ -75,22 +75,22 @@ func serveAssets(t *testing.T, files map[string]string) string {
 	return root
 }
 
-const newerMD5Def = "version: 1.1.0\ncategory: file\ndescription: Newer md5 text.\n"
+const newerMD5Def = "version: 2.1.0\ncategory: file\ndescription: Newer md5 text.\n"
 
 func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
-	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	root := serveAssets(t, map[string]string{"tools/md5_file@2.1.0": newerMD5Def})
 	ctx := context.Background()
 	var out bytes.Buffer
 
 	cur := toolDefinitions["md5_file"].Version
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{Check: true}))
 	assert.Contains(t, out.String(), "tools/md5_file")
-	assert.Contains(t, out.String(), "available "+cur+" -> 1.1.0")
+	assert.Contains(t, out.String(), "available "+cur+" -> 2.1.0")
 	assert.False(t, assets.Initialized(root), "check changes nothing")
 
 	out.Reset()
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{}))
-	assert.Contains(t, out.String(), "install   "+cur+" -> 1.1.0")
+	assert.Contains(t, out.String(), "install   "+cur+" -> 2.1.0")
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description, "reloaded in place")
 
 	out.Reset()
@@ -102,7 +102,7 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	assert.Contains(t, out.String(), "themes/vim")
 	out.Reset()
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{List: true}))
-	assert.Regexp(t, `tools/md5_file\s+1\.1\.0\s+downloaded\s+tools`, out.String())
+	assert.Regexp(t, `tools/md5_file\s+2\.1\.0\s+downloaded\s+tools`, out.String())
 	assert.Regexp(t, `themes/vim\s+1\.0\.0\s+removed\s+agent`, out.String())
 	assert.Regexp(t, `harness/safety\s+1\.1\.0\s+source\s+guardrails`, out.String())
 
@@ -119,7 +119,7 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{
-		"tools/md5_file@1.1.0": newerMD5Def,
+		"tools/md5_file@2.1.0": newerMD5Def,
 		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
 	})
 	var out bytes.Buffer
@@ -140,7 +140,7 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
 	emptyAssetSource(t)
 	root := serveAssets(t, map[string]string{
-		"tools/md5_file@1.1.0": newerMD5Def,
+		"tools/md5_file@2.1.0": newerMD5Def,
 		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
 	})
 	t.Setenv(ProfileEnv, "themes")
@@ -163,7 +163,7 @@ func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
 func TestEnsureSets_FirstRunPicker(t *testing.T) {
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
-	root := serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	root := serveAssets(t, map[string]string{"tools/md5_file@2.1.0": newerMD5Def})
 	var out bytes.Buffer
 	in := strings.NewReader("x\n1\n")
 	require.ErrorContains(t, EnsureSets(context.Background(), &out, in, []string{"tools"}), "kdeps update tools")
@@ -334,7 +334,7 @@ func TestEnsureAssets_OfflineAndDisabled(t *testing.T) {
 
 func TestAssetUpdateNotice(t *testing.T) {
 	root := serveAssets(t, map[string]string{
-		"tools/md5_file@1.1.0":   newerMD5Def,
+		"tools/md5_file@2.1.0":   newerMD5Def,
 		"tools/tail_file@9.1.0":  "version: 9.1.0\ndescription: t\n",
 		"tools/read_file@9.1.0":  "version: 9.1.0\ndescription: r\n",
 		"tools/write_file@9.1.0": "version: 9.1.0\ndescription: w\n",
@@ -354,7 +354,7 @@ func TestReloadAssets_KeepsTheme(t *testing.T) {
 }
 
 func TestCmdUpdate(t *testing.T) {
-	serveAssets(t, map[string]string{"tools/md5_file@1.1.0": newerMD5Def})
+	serveAssets(t, map[string]string{"tools/md5_file@2.1.0": newerMD5Def})
 	r, _ := newTestMemoryREPL(t)
 	r.loopCtx = context.Background()
 	for _, args := range [][]string{{"check"}, {"--list"}, {"remove"}, {"remove", "themes/vim"}, {}, {"nope/x"}} {

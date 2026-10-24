@@ -1004,7 +1004,7 @@ func TestFdBinPath_NotFound(t *testing.T) {
 	_ = path
 }
 
-// ---- builtin_tools.go: toolCallCtx / toolCallCtxTimeout ----
+// ---- builtin_tools.go: toolCallCtx ----
 
 func TestToolCallCtx_PrefersInjectedCtx(t *testing.T) {
 	t.Parallel()
@@ -1020,14 +1020,6 @@ func TestToolCallCtx_FallsBackToRegistrationCtx(t *testing.T) {
 	cancel()
 	got := toolCallCtx(fallback, map[string]any{})
 	assert.Error(t, got.Err())
-}
-
-func TestToolCallCtxTimeout_HasDeadline(t *testing.T) {
-	t.Parallel()
-	got, cancel := toolCallCtxTimeout(context.Background(), map[string]any{}, time.Minute)
-	defer cancel()
-	_, hasDeadline := got.Deadline()
-	assert.True(t, hasDeadline, "network tool contexts must carry a hard timeout")
 }
 
 // ---- loop.go: compactAndRetry (IsTaskCompleted branch) ----
