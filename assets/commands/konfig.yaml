@@ -1,10 +1,22 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: konfig
 order: 310
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: konfig
 usage:
   - args: "export [path]"
     help: "Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)"
+  - args: "import [path]"
+    help: "Apply a konfig file (default ./konfig.yaml)"
+subcommands:
+  export:
+    run:
+      - tool: session_ops
+        args: {operation: konfig_export, path: "${1:-./konfig.yaml}"}
+        print: "Exported {{.harness}} harness section(s), {{.themes}} theme(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) to {{.path}}"
+  import:
+    run:
+      - tool: session_ops
+        args: {operation: konfig_import, path: "${1:-./konfig.yaml}"}
+        print: "Imported {{.harness}} harness section(s), {{.themes}} theme(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) from {{.path}}{{if .skills}} (restart to pick up imported skills){{end}}"

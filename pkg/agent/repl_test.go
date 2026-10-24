@@ -1186,7 +1186,7 @@ func TestCmdHelp(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdHelp()
+	err := repl.dispatchCommand("/help")
 	assert.NoError(t, err)
 }
 

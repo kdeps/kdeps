@@ -1,10 +1,23 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: help
 order: 10
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: help
 usage:
   - args: ""
     help: Show this help message
+run:
+  - tool: session_ops
+    args: {operation: commands_help}  # every installed command's usage lines
+    print: |-
+      **Available commands:**
+      ```
+      {{range .commands}}{{printf "%-34s" .usage}} {{.help}}
+      {{end}}{{printf "%-34s" "/<skill-name> [..]"}} Invoke a loaded skill or prompt template by name
+      {{printf "%-34s" "! <cmd>"}} Run a shell command; the output becomes an agent turn (the model responds)
+      {{printf "%-34s" "!! <cmd>"}} Run a shell command silently - no LLM turn, nothing added to context
+      ```
+      Tips: `@file.txt` embeds text inline | `@photo.png` attaches image as multimodal input | `@https://...` attaches image URL
+
+      `/exit`, `/quit`, Ctrl+D to exit | Ctrl+C to cancel current line | Tab to complete commands

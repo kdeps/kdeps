@@ -43,13 +43,10 @@ type commandMethod func(*REPL, []string) error
 // would be an initialization cycle.
 func builtinCommandOps() map[string]commandMethod {
 	return map[string]commandMethod{
-		"help":         func(r *REPL, _ []string) error { return r.cmdHelp() },
-		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
-		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
-		"kartographer": func(r *REPL, _ []string) error { return r.cmdKartographer() },
-		"upgrade":      func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
-		"konfig":       func(r *REPL, a []string) error { return r.cmdKonfig(a) },
-		"login":        func(r *REPL, a []string) error { return r.cmdLogin(a) },
+		"settings": func(r *REPL, _ []string) error { return r.cmdSettings() },
+		"editor":   func(r *REPL, _ []string) error { return r.cmdEditor() },
+		"upgrade":  func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
+		"login":    func(r *REPL, a []string) error { return r.cmdLogin(a) },
 		"exit": func(r *REPL, _ []string) error {
 			r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 			return nil

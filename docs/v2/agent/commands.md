@@ -300,6 +300,10 @@ run:
 | `search_index` | - | `output`: the working project's folder indexes brought up to date |
 | `search_folders` | - | `project`, `places`, `folders` (`path`, `indexed`) |
 | `search_folder` | `action` (`add` or `remove`), `folder` | `output` |
+| `commands_help` | - | `commands` (`usage`, `help`): every installed command's usage lines, behind `/help` |
+| `konfig_export` | `path` | `path` and the `harness`, `themes`, `events`, `actions`, `skills` counts written |
+| `konfig_import` | `path` | the same counts, read and applied |
+| `pipelines` | - | `/kartographer`'s live numbers: `sent`, `generated`, `total`, `web`/`bash`/`file`/`code` (`calls`, `limit`, `reached`), `turns`, `threshold`, `memory` |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |

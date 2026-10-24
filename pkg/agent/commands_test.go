@@ -84,8 +84,8 @@ func TestParseYAMLCommand_Errors(t *testing.T) {
 		"unknown builtin":     "name: nope\nbuiltin: true\nusage: [{help: h}]\n",
 		"builtin without api": "name: help\nbuiltin: true\nusage: [{help: h}]\n",
 		"builtin bad api":     "name: help\nbuiltin: true\napi: nope\nusage: [{help: h}]\n",
-		"builtin with run":    "name: help\nbuiltin: true\nusage: [{help: h}]\nrun: [{command: /help}]\n",
-		"shadows a builtin":   "name: help\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"builtin with run":    "name: settings\nbuiltin: true\nusage: [{help: h}]\nrun: [{command: /help}]\n",
+		"shadows a builtin":   "name: settings\nusage: [{help: h}]\nrun: [{command: /help}]\n",
 		"alias shadows":       "name: x\naliases: [exit]\nusage: [{help: h}]\nrun: [{command: /help}]\n",
 		"no run":              "name: x\nusage: [{help: h}]\n",
 		"both in a step":      "name: x\nusage: [{help: h}]\nrun: [{command: /help, prompt: p}]\n",
@@ -134,10 +134,10 @@ func TestCommandHelpLines(t *testing.T) {
 	withCommands(t, map[string]string{
 		"x": "name: x\nusage: [{help: Show x}, {args: \"set <n>\", help: Set x}]\nrun: [{command: /help}]\n",
 	})
-	assert.Equal(t, []string{
-		"  /x                                 Show x",
-		"  /x set <n>                         Set x",
-	}, commandHelpLines())
+	assert.Equal(t, []map[string]any{
+		{"usage": "/x", "help": "Show x"},
+		{"usage": "/x set <n>", "help": "Set x"},
+	}, commandsHelpOp()["commands"])
 }
 
 func TestDeclaredCommand_RunsCommandAndPromptSteps(t *testing.T) {

@@ -50,9 +50,8 @@ import (
 //
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
-	"help",
-	"settings", "editor", "kartographer",
-	"upgrade", "konfig", "login",
+	"settings", "editor",
+	"upgrade", "login",
 	"exit", "quit", "auto-improve",
 	"instruct", "instruct!", "update",
 }
@@ -344,19 +343,6 @@ func commandNames() []string {
 		}
 	}
 	return out
-}
-
-// commandHelpLines is /help's command list, one line per usage.
-func commandHelpLines() []string {
-	const width = 34
-	var lines []string
-	for _, c := range slashCommands {
-		for _, u := range c.Usage {
-			left := strings.TrimSpace("/" + c.Name + " " + u.Args)
-			lines = append(lines, fmt.Sprintf("  %-*s %s", width, left, u.Help))
-		}
-	}
-	return lines
 }
 
 // runDeclaredCommand runs a declared command's steps in order, stopping at

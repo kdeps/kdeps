@@ -94,14 +94,15 @@ func TestOnPasteContentAndPasteClose(t *testing.T) {
 }
 
 func TestCmdKartographerSmoke(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{}, session: NewSession(0)}}
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
 	oldOut := os.Stdout
 	rd, wr, pipeErr := os.Pipe()
 	if pipeErr != nil {
 		t.Fatal(pipeErr)
 	}
 	os.Stdout = wr
-	if err := r.cmdKartographer(); err != nil {
+	if err := r.dispatchCommand("/kartographer"); err != nil {
 		t.Fatal(err)
 	}
 	_ = wr.Close()

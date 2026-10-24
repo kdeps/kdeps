@@ -2494,30 +2494,6 @@ func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 	return nil
 }
 
-func (r *REPL) cmdHelp() error {
-	heading := styleReplHeading.Render
-	dim := styleReplDim.Render
-	lines := append([]string{heading("Available commands:")}, commandHelpLines()...)
-	lines = append(
-		lines,
-		"  /<skill-name> [..]                 Invoke a loaded skill or prompt template by name",
-		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
-		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
-	)
-	for _, l := range lines {
-		fmt.Fprintln(os.Stdout, l)
-	}
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, dim(
-		"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
-	))
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, dim(
-		"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
-	))
-	return nil
-}
-
 // tagKeywords are the filter words the user may type for tag-based completion.
 // When a tag-only completion is selected (length=0), readline appends the full
 // model name after the typed keyword, giving e.g. "ggufgemma4". This list is
@@ -3535,91 +3511,6 @@ func parseTokenCount(s string) int {
 //	/search <term> — search the indexed directory and feed results to the LLM
 //
 // cmdKartographer renders a live map of kdeps internal data-flow pipelines.
-
-func (r *REPL) cmdKartographer() error {
-	heading := styleReplHeading.Render
-	meta := styleReplMeta.Render
-	dim := styleReplDim.Render
-	pipe := dim("│")
-	tee := dim("├─")
-	end := dim("└─")
-	arrow := dim("→")
-
-	const ruleWidth = 68
-	fmt.Fprintln(os.Stdout, heading("kdeps internal pipelines"))
-	fmt.Fprintln(os.Stdout, dim(strings.Repeat("─", ruleWidth)))
-
-	// Token counter
-	in := GlobalPromptCacheStats.TotalInputTokens()
-	out := GlobalPromptCacheStats.TotalOutputTokens()
-	fmt.Fprintln(os.Stdout, meta("token"))
-	fmt.Fprintf(os.Stdout, "  %s GenerateContent %s recordTokenUsage %s TokenRecorder\n", tee, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [session sent %s | generated %s | total %s]\n\n",
-		end, formatCompactCount(in), formatCompactCount(out), formatCompactCount(in+out))
-
-	// Convergence pipelines
-	wc, wm := WebConvergenceCalls()
-	r.printConvergence("converge", "web_search / web_scraper %s webToolCache.call()", wc, wm,
-		"system prompt <output> rule 24 (soft guidance)")
-	bc, bm := BashConvergenceCalls()
-	r.printConvergence("shell", "bash_exec %s trackBashCall()", bc, bm,
-		fmt.Sprintf("bash-call-budget event=%d", bm))
-	fc, fm := FileConvergenceCalls()
-	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
-		fmt.Sprintf("file-call-budget event=%d", fm))
-	cc, cm := CodeConvergenceCalls()
-	r.printConvergence("code", "search_local %s trackCodeCall()", cc, cm,
-		fmt.Sprintf("code-call-budget event=%d", cm))
-
-	// Compaction
-	turns := r.loop.Session().TurnCount()
-	threshold := r.loop.config.AutoCompactThreshold
-	fmt.Fprintln(os.Stdout, meta("compact"))
-	fmt.Fprintf(os.Stdout, "  %s shouldAutoCompact() checks token threshold\n", tee)
-	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM() %s buildSyntheticWorkflow\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s engine.Execute(synthetic) %s LLM summary\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s formatLoopResult() extracts text\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s session.CompactWith(summary, toKeep)\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s Fallback: session.Compact() truncation\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s %d turns (threshold: %d)\n\n", end, turns, threshold)
-
-	// Memory bridge
-	fmt.Fprintln(os.Stdout, meta("memory"))
-	fmt.Fprintf(os.Stdout, "  %s memory_query when memory can help (not before every action)\n", tee)
-	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)
-	if r.loop.memoryStore != nil {
-		fmt.Fprintf(os.Stdout, "  %s %d entries saved this session\n\n", end, r.loop.memoryStore.Len())
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s (no memory store)\n\n", end)
-	}
-	return nil
-}
-
-// printConvergence renders one convergence-pipeline block for cmdKartographer.
-// toolLine embeds a single %s for the arrow; footer is the trailing summary line.
-func (r *REPL) printConvergence(section, toolLine string, calls, limit int, footer string) {
-	meta := styleReplMeta.Render
-	dim := styleReplDim.Render
-	pipe := dim("│")
-	tee := dim("├─")
-	end := dim("└─")
-	arrow := dim("→")
-
-	fmt.Fprintln(os.Stdout, meta(section))
-	fmt.Fprintf(os.Stdout, "  %s "+toolLine+"\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, calls, limit)
-	if calls >= limit {
-		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
-	}
-	fmt.Fprintf(os.Stdout, "  %s %s\n\n", end, footer)
-}
 
 // cmdInstruct delivers a kdeps briefing to the model. Without live it appends
 // the briefing to history as a settled turn (cheap, primes the next prompt);
