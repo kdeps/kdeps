@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,12 +20,8 @@ func TestDispatchCommand_Session(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	// Store must be nil so the "store == nil" branch in cmdSession is hit.
-	out := testCaptureStdout(t, func() {
-		err := repl.dispatchCommand("/session")
-		assert.NoError(t, err)
-	})
-	assert.Contains(t, out, "Session store not available")
+	// No store: the session_ops sessions operation fails.
+	require.ErrorContains(t, repl.dispatchCommand("/session"), "session store not available")
 }
 
 func TestDispatchCommand_Editor(t *testing.T) {
@@ -198,7 +195,7 @@ func TestCmdSession_ListSubcommand(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdSession([]string{"list"})
+		err := repl.dispatchCommand("/session " + strings.Join([]string{"list"}, " "))
 		assert.NoError(t, err)
 	})
 	assert.Contains(t, out, "No saved sessions")
@@ -212,11 +209,8 @@ func TestCmdSession_ImportSubcommand_MissingArg(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	out := testCaptureStdout(t, func() {
-		err := repl.cmdSession([]string{"import"})
-		assert.NoError(t, err)
-	})
-	assert.Contains(t, out, "Usage: /session import")
+	err := repl.dispatchCommand("/session import")
+	require.ErrorContains(t, err, "import needs path")
 }
 
 func TestCmdSession_ImportSubcommand_Success(t *testing.T) {
@@ -234,7 +228,7 @@ func TestCmdSession_ImportSubcommand_Success(t *testing.T) {
 	require.NoError(t, os.WriteFile(srcPath, []byte(content), 0600))
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdSession([]string{"import", srcPath})
+		err := repl.dispatchCommand("/session " + strings.Join([]string{"import", srcPath}, " "))
 		assert.NoError(t, err)
 	})
 	assert.Contains(t, out, "loaded")
@@ -249,7 +243,7 @@ func TestCmdSession_BranchesSubcommand(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdSession([]string{"branches"})
+		err := repl.dispatchCommand("/session " + strings.Join([]string{"branches"}, " "))
 		assert.NoError(t, err)
 	})
 	assert.Contains(t, out, "No stashed branches")
@@ -271,7 +265,7 @@ func TestCmdSessionBranches_WithStashesLoop(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdSessionBranches()
+		err := repl.dispatchCommand("/session branches")
 		assert.NoError(t, err)
 	})
 	assert.Contains(t, out, "stashed")
@@ -299,7 +293,7 @@ func TestCmdSessionList_StoreError(t *testing.T) {
 	require.NoError(t, os.WriteFile(basePath, []byte("not-a-dir"), 0600))
 	t.Cleanup(func() { _ = os.Remove(basePath) })
 
-	err := repl.cmdSessionList(store)
+	err := repl.withStore(store).dispatchCommand("/session list")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session list")
 }
@@ -321,7 +315,7 @@ func TestCmdSessionSave_StoreError(t *testing.T) {
 	require.NoError(t, os.Chmod(dir, 0500))
 	t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
 
-	err := repl.cmdSessionSave(store, "test")
+	err := repl.withStore(store).dispatchCommand("/session save " + "test")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session save")
 }
@@ -335,7 +329,7 @@ func TestCmdSessionLoad_StoreError(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSessionLoad(store, "nonexistent-id")
+	err := repl.withStore(store).dispatchCommand("/session load " + "nonexistent-id")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session load")
 }
@@ -349,12 +343,11 @@ func TestCmdSessionImport_TildeExpansion(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	// /session import ~/nonexistent should expand to $HOME/nonexistent
-	out := testCaptureStdout(t, func() {
-		err := repl.cmdSessionImport(store, "~/nonexistent-import-file")
-		assert.NoError(t, err)
-	})
-	assert.Contains(t, out, "File not found")
+	// /session import ~/nonexistent expands to $HOME/nonexistent
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	err = repl.withStore(store).dispatchCommand("/session import ~/nonexistent-import-file")
+	require.ErrorContains(t, err, "file not found: "+filepath.Join(home, "nonexistent-import-file"))
 }
 
 func TestCmdSessionImport_ImportError(t *testing.T) {
@@ -375,7 +368,7 @@ func TestCmdSessionImport_ImportError(t *testing.T) {
 	srcPath := filepath.Join(t.TempDir(), "valid.jsonl")
 	require.NoError(t, os.WriteFile(srcPath, []byte("{\"type\":\"session_meta\"}\n"), 0600))
 
-	err := repl.cmdSessionImport(store, srcPath)
+	err := repl.withStore(store).dispatchCommand("/session import " + srcPath)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "session import")
 }
@@ -435,4 +428,10 @@ func TestDispatchCommand_ModelList(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	assert.NotEmpty(t, out)
+}
+
+// withStore attaches store to the REPL's loop, as /session reads it there.
+func (r *REPL) withStore(store *SessionStore) *REPL {
+	r.loop.store = store
+	return r
 }

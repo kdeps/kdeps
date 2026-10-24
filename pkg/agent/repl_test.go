@@ -2025,8 +2025,8 @@ func TestCmdSession_NoStore(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession(nil)
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session")
+	assert.ErrorContains(t, err, "session store not available")
 }
 
 func TestCmdSession_UnknownSubcommand(t *testing.T) {
@@ -2042,8 +2042,8 @@ func TestCmdSession_UnknownSubcommand(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"bogus"})
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"bogus"}, " "))
+	assert.ErrorContains(t, err, `unknown /session subcommand "bogus"`)
 }
 
 func TestCmdSessionList_Empty(t *testing.T) {
@@ -2058,7 +2058,7 @@ func TestCmdSessionList_Empty(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSessionList(store)
+	err := repl.withStore(store).dispatchCommand("/session list")
 	assert.NoError(t, err)
 }
 
@@ -2074,7 +2074,7 @@ func TestCmdSessionSave_Success(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSessionSave(store, "my-session")
+	err := repl.withStore(store).dispatchCommand("/session save " + "my-session")
 	assert.NoError(t, err)
 }
 
@@ -2091,8 +2091,8 @@ func TestCmdSessionList_WithSessions(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	require.NoError(t, repl.cmdSessionSave(store, "test"))
-	err := repl.cmdSessionList(store)
+	require.NoError(t, repl.withStore(store).dispatchCommand("/session save "+"test"))
+	err := repl.withStore(store).dispatchCommand("/session list")
 	assert.NoError(t, err)
 }
 
@@ -2112,10 +2112,10 @@ func TestCmdSessionLoadDelete(t *testing.T) {
 	id, err := store.SaveAs(loop.session, "test", "model")
 	require.NoError(t, err)
 
-	err = repl.cmdSessionLoad(store, id)
+	err = repl.withStore(store).dispatchCommand("/session load " + id)
 	assert.NoError(t, err)
 
-	err = repl.cmdSessionDelete(store, id)
+	err = repl.withStore(store).dispatchCommand("/session delete " + id)
 	assert.NoError(t, err)
 }
 
@@ -2132,7 +2132,7 @@ func TestCmdSession_SaveSubcommand(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"save", "myname"})
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"save", "myname"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2149,8 +2149,8 @@ func TestCmdSession_LoadMissingArg(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"load"})
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"load"}, " "))
+	assert.ErrorContains(t, err, "load needs id")
 }
 
 func TestCmdSession_DeleteMissingArg(t *testing.T) {
@@ -2166,8 +2166,8 @@ func TestCmdSession_DeleteMissingArg(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"delete"})
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"delete"}, " "))
+	assert.ErrorContains(t, err, "delete needs id")
 }
 
 func TestCmdSession_LoadViaDispatcher(t *testing.T) {
@@ -2187,7 +2187,7 @@ func TestCmdSession_LoadViaDispatcher(t *testing.T) {
 	id, err := store.SaveAs(loop.session, "test-dispatch", "model")
 	require.NoError(t, err)
 
-	err = repl.cmdSession([]string{"load", id})
+	err = repl.dispatchCommand("/session " + strings.Join([]string{"load", id}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2208,7 +2208,7 @@ func TestCmdSession_DeleteViaDispatcher(t *testing.T) {
 	id, err := store.SaveAs(loop.session, "test-delete", "model")
 	require.NoError(t, err)
 
-	err = repl.cmdSession([]string{"delete", id})
+	err = repl.dispatchCommand("/session " + strings.Join([]string{"delete", id}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2230,7 +2230,7 @@ func TestCmdSession_GotoSuccess(t *testing.T) {
 	id := loop.Session().Checkpoint()
 	require.NotZero(t, id)
 
-	err := repl.cmdSession([]string{"goto", strconv.FormatInt(id, 10)})
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"goto", strconv.FormatInt(id, 10)}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2247,7 +2247,7 @@ func TestCmdSession_GotoNotFound(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"goto", "9999999999999"})
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"goto", "9999999999999"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2267,7 +2267,7 @@ func TestCmdSessionList_UnnamedAndNoModel(t *testing.T) {
 	_, err := store.SaveAs(loop.session, "", "")
 	require.NoError(t, err)
 	// List should show "(unnamed)" and "-" for model
-	err = repl.cmdSessionList(store)
+	err = repl.withStore(store).dispatchCommand("/session list")
 	assert.NoError(t, err)
 }
 
@@ -2283,7 +2283,7 @@ func TestCmdSessionSave_WithName(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSessionSave(store, "my-session-name")
+	err := repl.withStore(store).dispatchCommand("/session save " + "my-session-name")
 	assert.NoError(t, err)
 }
 
@@ -2299,7 +2299,7 @@ func TestCmdSessionDelete_NotFound(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSessionDelete(store, "nonexistent-id")
+	err := repl.withStore(store).dispatchCommand("/session delete " + "nonexistent-id")
 	assert.Error(t, err)
 }
 
@@ -2315,7 +2315,7 @@ func TestCmdSession_CheckpointEmpty(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"checkpoint"})
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"checkpoint"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2332,7 +2332,7 @@ func TestCmdSession_CheckpointWithMessages(t *testing.T) {
 	defer func() { w.Close(); os.Stdout = origOut }()
 
 	loop.Session().Append("hello", "world")
-	err := repl.cmdSession([]string{"checkpoint"})
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"checkpoint"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -2347,8 +2347,8 @@ func TestCmdSession_GotoMissingArg(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"goto"})
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"goto"}, " "))
+	assert.ErrorContains(t, err, "goto needs an entry id")
 }
 
 func TestCmdSession_GotoInvalidID(t *testing.T) {
@@ -2362,8 +2362,8 @@ func TestCmdSession_GotoInvalidID(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdSession([]string{"goto", "not-a-number"})
-	assert.NoError(t, err)
+	err := repl.dispatchCommand("/session " + strings.Join([]string{"goto", "not-a-number"}, " "))
+	assert.ErrorContains(t, err, `goto needs an entry id, got "not-a-number"`)
 }
 
 // --- /thinking ---
@@ -2517,7 +2517,7 @@ func TestCmdSessionLoad_RestoresModel(t *testing.T) {
 	// Switch model after saving
 	loop.config.Model = "different-model"
 
-	err = repl.cmdSessionLoad(store, id)
+	err = repl.withStore(store).dispatchCommand("/session load " + id)
 	require.NoError(t, err)
 
 	// Model should be restored to what was saved
@@ -2541,7 +2541,7 @@ func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
 	id, err := store.SaveAs(loop.session, "test", "")
 	require.NoError(t, err)
 
-	err = repl.cmdSessionLoad(store, id)
+	err = repl.withStore(store).dispatchCommand("/session load " + id)
 	require.NoError(t, err)
 
 	// Model should remain unchanged when metadata has no model
@@ -5026,7 +5026,7 @@ func TestCmdSessionBranches_Empty(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSessionBranches()
+	err := repl.dispatchCommand("/session branches")
 	assert.NoError(t, err)
 }
 
@@ -5041,7 +5041,7 @@ func TestCmdSessionBranches_WithStash(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSessionBranches()
+	err := repl.dispatchCommand("/session branches")
 	assert.NoError(t, err)
 }
 
@@ -5133,8 +5133,8 @@ func TestCmdSessionImport_FileNotFound(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSessionImport(store, "/nonexistent-file-xyz")
-	assert.NoError(t, err) // prints friendly message, not an error
+	err := repl.withStore(store).dispatchCommand("/session import " + "/nonexistent-file-xyz")
+	assert.ErrorContains(t, err, "file not found: /nonexistent-file-xyz")
 }
 
 func TestCmdSessionImport_Success(t *testing.T) {
@@ -5152,7 +5152,7 @@ func TestCmdSessionImport_Success(t *testing.T) {
 	content := `{"type":"session_meta","ts":1000,"sessionId":"test","turns":0}` + "\n"
 	require.NoError(t, os.WriteFile(srcPath, []byte(content), 0600))
 
-	err := repl.cmdSessionImport(store, srcPath)
+	err := repl.withStore(store).dispatchCommand("/session import " + srcPath)
 	assert.NoError(t, err)
 }
 
