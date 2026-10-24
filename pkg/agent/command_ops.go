@@ -44,11 +44,8 @@ type commandMethod func(*REPL, []string) error
 func builtinCommandOps() map[string]commandMethod {
 	return map[string]commandMethod{
 		"help":         func(r *REPL, _ []string) error { return r.cmdHelp() },
-		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
 		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
-		"search":       func(r *REPL, a []string) error { return r.cmdSearch(a) },
-		"context":      func(r *REPL, a []string) error { return r.cmdContext(a) },
 		"kartographer": func(r *REPL, _ []string) error { return r.cmdKartographer() },
 		"upgrade":      func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
 		"konfig":       func(r *REPL, a []string) error { return r.cmdKonfig(a) },

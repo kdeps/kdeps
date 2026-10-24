@@ -296,6 +296,10 @@ run:
 | `recall` | `query` (optional: the last turn's recall without it) | `seeds`, `hits` (`path`, `score`, `hops`, `via`, `summary`), `tokens`: behind `/recall` |
 | `knowledge` | - | `value` (on/off), `vault`, `graph`: behind `/knowledge` |
 | `knowledge_extract` | - | `output`: the local model reads the changed notes and the graph is rebuilt |
+| `last_request` | `raw` (`true` for the request as JSON) | `messages` (`index`, `role`, `tokens`, `content`), `tools` (`name`, `tokens`, `description`), `tool_tokens`, `tokens`; or `raw`: behind `/prompt` |
+| `search_index` | - | `output`: the working project's folder indexes brought up to date |
+| `search_folders` | - | `project`, `places`, `folders` (`path`, `indexed`) |
+| `search_folder` | `action` (`add` or `remove`), `folder` | `output` |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |
@@ -374,7 +378,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (on by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt or knowledge
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge or context
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}

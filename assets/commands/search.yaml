@@ -1,10 +1,10 @@
-version: 1.1.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
+  tools/search_local: ""
 name: search
 order: 320
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: search
 usage:
   - args: "<term>"
     help: Search the indexed directory and feed the results to the model
@@ -16,3 +16,38 @@ usage:
     help: Search a folder outside the project with it (docs, a shared library); indexes it now
   - args: "remove <folder>"
     help: Stop searching a folder with the project
+subcommands:
+  index:
+    run:
+      - tool: session_ops
+        args: {operation: search_index}
+        print: "{{.output}}"
+  folders:
+    run:
+      - tool: session_ops
+        args: {operation: search_folders}
+        print: |-
+          Project {{.project}} searches:
+          {{range .places}}
+          - {{.path}} (project){{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{range .folders}}
+          - {{.path}}{{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{if not .folders}}
+          - (no other folders: `/search add <folder>`, or `kdeps --index <folder>`){{end}}
+  add:
+    run:
+      - tool: session_ops
+        args: {operation: search_folder, action: add, folder: "$@"}
+        print: "{{.output}}"
+  remove:
+    run:
+      - tool: session_ops
+        args: {operation: search_folder, action: remove, folder: "$@"}
+        print: "{{.output}}"
+  "*":                    # /search <term>: the search_local tool over every folder the project searches
+    run:
+      - tool: search_local
+        args: {query: "$@", index: true, limit: 20}
+        print: |-
+          {{if not .results}}search: no results for this query{{else}}**Search results ({{.count}} files):**
+          {{range .results}}
+          - {{.path}} [match={{.matchCount}} score={{printf "%.2f" .score}}]{{if .snippet}}
+            `{{trunc 160 .snippet}}`{{end}}{{end}}{{end}}

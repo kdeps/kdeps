@@ -45,7 +45,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/context", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "config.GetDefaults"},
 	},
 	"docker": {
@@ -68,7 +68,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs"},
 			{Label: "the turn continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/context", "/prompt", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
 	},
 	"harness": {
@@ -101,7 +101,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the registry resolves it: download, local server or provider", Here: true},
 			{Label: "the model is called"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "/context", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall"},
 		Code:   []string{"kdeps (agent loop)", "llm.ReloadCloudModels", "llm.readModelRegistry"},
 	},
 	"presets": {

@@ -88,7 +88,7 @@ help_commands() {
 }
 lock_field() { python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2]))" "$1/store/lock.json" "$2"; }
 
-CORE="/clear /compact /efficiency /exit /fold /harness /help /judges /knowledge /memory /model /prompts /recall /reload /session /settings /skills /update"
+CORE="/clear /compact /context /efficiency /exit /fold /harness /help /judges /knowledge /memory /model /prompt /prompts /recall /reload /search /session /settings /skills /update"
 TOTAL_COMMANDS=$(find "$PROJECT_ROOT/assets/commands" -name '*.yaml' | wc -l | tr -d ' ')
 
 # --- minimum: base sets only ------------------------------------------------
@@ -105,15 +105,15 @@ fi
 OUT=$(ap_loop "$MN" '/help\n/context\n/quit\n')
 INSTALL_LINE=$(printf '%s\n' "$OUT" | grep "needed by this command" | head -1)
 if [ -n "$INSTALL_LINE" ] && ! output_grep "Installing [a-z]+, " "$INSTALL_LINE" &&
-    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/context"; then
+    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/review"; then
     test_passed "asset profiles - the agent loop under minimum adds required items, never whole sets"
 else
     test_failed "asset profiles - agent loop install under minimum" "$INSTALL_LINE"
 fi
-if [ "$(set_count "$MN" commands)" = "18" ] && [ "$(set_count "$MN" themes)" = "1" ] && [ -f "$MN/store/themes/normal.yaml" ] &&
+if [ "$(set_count "$MN" commands)" = "21" ] && [ "$(set_count "$MN" themes)" = "1" ] && [ -f "$MN/store/themes/normal.yaml" ] &&
     [ ! -d "$MN/store/events" ] && [ ! -d "$MN/store/actions" ] && [ ! -d "$MN/store/presets" ] &&
     [ ! -f "$MN/store/tools/web_search.yaml" ] && [ -f "$MN/store/tools/session_handshake.yaml" ]; then
-    test_passed "asset profiles - minimum keeps 8 core commands, the normal theme, required tools; no events/actions/presets"
+    test_passed "asset profiles - minimum keeps the core commands, the normal theme, required tools; no events/actions/presets"
 else
     test_failed "asset profiles - minimum store contents" "commands=$(set_count "$MN" commands) themes=$(set_count "$MN" themes) $(ls "$MN/store" "$MN/store/tools" 2>&1 | head -40)"
 fi
@@ -167,7 +167,7 @@ fi
 # --- back to minimum: pruned -------------------------------------------------
 OUT=$(ap "$MN" "$KDEPS_BIN" profile minimum)
 if output_grep "commands/refine" "$OUT" && output_grep "not in the profile" "$OUT" &&
-    [ "$(set_count "$MN" commands)" = "18" ] && [ ! -f "$MN/store/tools/web_search.yaml" ] &&
+    [ "$(set_count "$MN" commands)" = "21" ] && [ ! -f "$MN/store/tools/web_search.yaml" ] &&
     [ -f "$MN/store/tools/session_handshake.yaml" ] && [ ! -d "$MN/store/events" ] || [ "$(set_count "$MN" events)" = "0" ]; then
     test_passed "asset profiles - kdeps profile minimum prunes what agent added, keeps required items"
 else
@@ -189,13 +189,13 @@ fi
 OUT=$(ap "$MN" "$KDEPS_BIN" install commands/refine)
 HELP=$(ap_loop "$MN" '/help\n/quit\n')
 if [ -f "$MN/store/commands/refine.yaml" ] && help_commands "$HELP" | grep -qx "/refine" &&
-    [ "$(help_commands "$HELP" | wc -l | tr -d ' ')" = "19" ]; then
+    [ "$(help_commands "$HELP" | wc -l | tr -d ' ')" = "22" ]; then
     test_passed "asset profiles - installing one command file lists it in /help"
 else
     test_failed "asset profiles - install one command" "$OUT $(help_commands "$HELP" | tr '\n' ' ')"
 fi
 OUT=$(ap "$MN" "$KDEPS_BIN" update)
-if [ -f "$MN/store/commands/refine.yaml" ] && [ "$(set_count "$MN" commands)" = "19" ]; then
+if [ -f "$MN/store/commands/refine.yaml" ] && [ "$(set_count "$MN" commands)" = "22" ]; then
     test_passed "asset profiles - a bare update keeps an item installed by name, adds nothing else"
 else
     test_failed "asset profiles - bare update" "commands=$(set_count "$MN" commands) $OUT"
@@ -243,7 +243,7 @@ fu_left=""
 for set in templates components docker k8s recipes events actions presets; do
     [ "$(set_count "$FU" "$set")" = "0" ] || fu_left="$fu_left $set=$(set_count "$FU" "$set")"
 done
-if [ -z "$fu_left" ] && [ "$(set_count "$FU" schemas)" -gt 0 ] && [ "$(set_count "$FU" commands)" = "18" ]; then
+if [ -z "$fu_left" ] && [ "$(set_count "$FU" schemas)" -gt 0 ] && [ "$(set_count "$FU" commands)" = "21" ]; then
     test_passed "asset profiles - minimum after full prunes every non-base set, keeping required items"
 else
     test_failed "asset profiles - full to minimum" "left:$fu_left commands=$(set_count "$FU" commands)"
@@ -267,7 +267,7 @@ else
 fi
 HELP=$(ap_loop "$CU" '/help\n/quit\n')
 GOT=$(help_commands "$HELP" | tr '\n' ' ' | sed 's/ $//')
-if [ "$GOT" = "/clear /compact /efficiency /exit /fold /harness /help /judges /knowledge /memory /model /prompts /recall /reload /review /session /settings /skills /update" ]; then
+if [ "$GOT" = "/clear /compact /context /efficiency /exit /fold /harness /help /judges /knowledge /memory /model /prompt /prompts /recall /reload /review /search /session /settings /skills /update" ]; then
     test_passed "asset profiles - /help under a custom selection: the core plus the chosen command"
 else
     test_failed "asset profiles - /help under custom" "got: $GOT"

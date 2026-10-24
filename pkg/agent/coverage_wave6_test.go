@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -59,8 +60,8 @@ func TestCmdSearch_UsageAndIndex(t *testing.T) {
 	os.Stdout = wr
 	os.Stderr = wr
 
-	if err := r.cmdSearch(nil); err != nil {
-		t.Fatal(err)
+	if err := r.dispatchCommand("/search"); err == nil || !strings.Contains(err.Error(), "unknown /search subcommand") {
+		t.Fatalf("expected the subcommand choices, got %v", err)
 	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0o600); err != nil {
@@ -71,10 +72,10 @@ func TestCmdSearch_UsageAndIndex(t *testing.T) {
 		t.Fatal(chErr)
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
-	if err := r.cmdSearch([]string{"index"}); err != nil {
+	if err := r.dispatchCommand("/search " + strings.Join([]string{"index"}, " ")); err != nil {
 		t.Fatal(err)
 	}
-	_ = r.cmdSearch([]string{"main"})
+	_ = r.dispatchCommand("/search " + strings.Join([]string{"main"}, " "))
 
 	_ = wr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr

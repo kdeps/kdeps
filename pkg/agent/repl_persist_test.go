@@ -208,8 +208,8 @@ func TestDispatchCommand_ContextCloudBackendDoesNotPersist(t *testing.T) {
 		saveCalled = true
 		return nil
 	})
-	if err := repl.dispatchCommand("/context 65536"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := repl.dispatchCommand("/context 65536"); err == nil {
+		t.Fatal("expected a cloud backend to refuse /context")
 	}
 	if saveCalled {
 		t.Fatal("expected a cloud-backend /context call not to persist")
