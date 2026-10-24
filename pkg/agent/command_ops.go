@@ -52,7 +52,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"session":      func(r *REPL, a []string) error { return r.cmdSession(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
 		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
-		"copy":         func(r *REPL, _ []string) error { return r.cmdCopy() },
 		"reload":       func(r *REPL, _ []string) error { return r.cmdReload() },
 		"search":       func(r *REPL, a []string) error { return r.cmdSearch(a) },
 		"context":      func(r *REPL, a []string) error { return r.cmdContext(a) },

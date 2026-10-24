@@ -86,6 +86,14 @@ else
     test_failed "REPL /history - empty session message missing" "Output: $OUTPUT"
 fi
 
+# /copy (no reply yet): session_ops' last reply feeds clipboard_copy, whose print: reports it
+OUTPUT=$(_repl '/copy')
+if output_grep_i "Nothing to copy" "$OUTPUT"; then
+    test_passed "REPL /copy - an empty session prints from its YAML"
+else
+    test_failed "REPL /copy - empty session message missing" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then

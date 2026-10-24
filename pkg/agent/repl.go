@@ -2252,11 +2252,14 @@ func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, erro
 	return interrupted.Load(), err
 }
 
+// goosWindows is runtime.GOOS on Windows.
+const goosWindows = "windows"
+
 // newShellCommand builds the shell invocation for "! <cmd>" / "!! <cmd>".
 // Windows has no bash on PATH by default, so it runs through cmd.exe instead;
 // everywhere else keeps the existing bash -c invocation.
 func newShellCommand(ctx context.Context, cmd string) *exec.Cmd {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		return exec.CommandContext(ctx, "cmd", "/C", cmd)
 	}
 	return exec.CommandContext(ctx, "bash", "-c", cmd)
@@ -4579,52 +4582,6 @@ func (r *REPL) LlamaFitScores() map[string]float64 { return r.llmfitScore }
 
 // LlamaFitFitLevels returns the full llmfit fit levels map (alias -> level).
 func (r *REPL) LlamaFitFitLevels() map[string]string { return r.llmfitFitLevel }
-
-// cmdCopy copies the last assistant response to the system clipboard.
-// Matches pi's /copy command. Uses pbcopy (macOS), xclip/xsel (Linux), or clip.exe (Windows).
-func (r *REPL) cmdCopy() error {
-	msgs := r.loop.Session().Messages()
-	var last string
-	for i := len(msgs) - 1; i >= 0; i-- {
-		if msgs[i].Role == RoleAssistant {
-			last = msgs[i].Content
-			break
-		}
-	}
-	if last == "" {
-		fmt.Fprintln(
-			os.Stdout,
-			styleReplMeta.Render("Nothing to copy: no assistant response in session."),
-		)
-		return nil
-	}
-	if clipErr := copyToClipboard(r.loopCtx, last); clipErr != nil {
-		// Display clipboard errors but don't propagate them to the REPL dispatch loop.
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Copy failed: "+clipErr.Error()))
-	} else {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Copied last response to clipboard."))
-	}
-	return nil
-}
-
-// copyToClipboard writes text to the OS clipboard via the platform clipboard command.
-func copyToClipboard(ctx context.Context, text string) error {
-	cmds := [][]string{
-		{"pbcopy"},                           // macOS
-		{"xclip", "-selection", "clipboard"}, // Linux (xclip)
-		{"xsel", "--clipboard", "--input"},   // Linux (xsel)
-		{"clip"},                             // Windows
-	}
-	for _, argv := range cmds {
-		//nolint:gosec // controlled command list; argv comes from the hardcoded cmds table above
-		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		cmd.Stdin = strings.NewReader(text)
-		if err := cmd.Run(); err == nil {
-			return nil
-		}
-	}
-	return errors.New("no clipboard command found (tried pbcopy, xclip, xsel, clip)")
-}
 
 // cmdReload reloads skills, prompt templates, and instructions from disk.
 // Picks up changes to skills and prompt templates (global, the project's

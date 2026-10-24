@@ -1,13 +1,13 @@
-version: 1.0.0
+version: 1.1.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
-# history); the model is not offered it. Each operation returns JSON.
-description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep})."
+# history, copy); the model is not offered it. Each operation returns JSON.
+description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep})."
 outputFormat: json
 parameters:
   operation:
     type: string
-    description: "messages, clear or compact"
+    description: "messages, last_reply, clear or compact"
     required: true
   summarize_min_turns:
     type: integer

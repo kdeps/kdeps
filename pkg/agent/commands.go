@@ -51,7 +51,7 @@ import (
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
 	"help", "model", "skills", "prompts", "fold", "prompt", "session",
-	"settings", "editor", "copy", "reload", "search", "context", "kartographer",
+	"settings", "editor", "reload", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
 	"exit", "quit", "auto-improve", "efficiency", "judges", "memory",
 	"instruct", "instruct!", "update", "recall", "knowledge",
@@ -75,9 +75,12 @@ type commandStep struct {
 	Tool    string         `yaml:"tool,omitempty"` // a kdeps API tool, called with Args
 	Args    map[string]any `yaml:"args,omitempty"` // the tool's arguments
 	// Print is a template for a tool step's output: a JSON object result's
-	// fields, or .output for any other text. Without it the output is
-	// printed as is.
+	// fields, or .output for any other text, plus .steps. Without it the
+	// output is printed as is.
 	Print string `yaml:"print,omitempty"`
+	// As names a tool step's result for the steps after it: their args
+	// strings and print: templates read it as {{.steps.<as>.<field>}}.
+	As string `yaml:"as,omitempty"`
 }
 
 type slashCommand struct {
@@ -191,8 +194,8 @@ func (s *commandStep) validate() error {
 		return errors.New(" needs exactly one of command, prompt or tool")
 	case s.Command != "" && !strings.HasPrefix(s.Command, "/"):
 		return errors.New(": command must start with /")
-	case (s.Args != nil || s.Print != "") && s.Tool == "":
-		return errors.New(": args and print belong to a tool step")
+	case (s.Args != nil || s.Print != "" || s.As != "") && s.Tool == "":
+		return errors.New(": args, print and as belong to a tool step")
 	}
 	if s.Print != "" {
 		if _, err := template.New("print").Funcs(commandFuncs).Parse(s.Print); err != nil {
@@ -334,6 +337,7 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 	if c.Setting != nil {
 		return r.runSettingCommand(c, args)
 	}
+	steps := map[string]any{} // tool step results named by as:
 	for _, s := range c.Run {
 		if s.Command != "" {
 			if err := r.dispatchCommand(substituteArgs(s.Command, args)); err != nil {
@@ -342,7 +346,7 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 			continue
 		}
 		if s.Tool != "" {
-			if err := r.runToolStep(s, args, emit); err != nil {
+			if err := r.runToolStep(s, args, steps, emit); err != nil {
 				return fmt.Errorf("/%s: %w", c.Name, err)
 			}
 			continue
@@ -360,14 +364,24 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 }
 
 // runToolStep calls the step's kdeps API tool, on this REPL's session for
-// session_ops, and emits its output through the step's print: template.
-func (r *REPL) runToolStep(s commandStep, args []string, emit func(string)) error {
-	out, err := api.CallTool(api.WithSessionOps(r.ctx, r.sessionOps), s.Tool, toolStepArgs(s.Args, args))
+// session_ops, saves its result under as:, and emits its output through the
+// step's print: template.
+func (r *REPL) runToolStep(s commandStep, args []string, steps map[string]any, emit func(string)) error {
+	callArgs, err := renderStepArgs(toolStepArgs(s.Args, args), steps)
 	if err != nil {
 		return err
 	}
+	out, err := api.CallTool(api.WithSessionOps(r.ctx, r.sessionOps), s.Tool, callArgs)
+	if err != nil {
+		return err
+	}
+	result := toolStepResult(out)
+	if s.As != "" {
+		steps[s.As] = result
+	}
 	if s.Print != "" {
-		if out, err = printToolStep(s.Print, out); err != nil {
+		result["steps"] = steps
+		if out, err = renderCommandTemplate(s.Print, result); err != nil {
 			return err
 		}
 	}
@@ -377,15 +391,38 @@ func (r *REPL) runToolStep(s commandStep, args []string, emit func(string)) erro
 	return nil
 }
 
-// printToolStep renders a tool step's output through its print: template.
-func printToolStep(src, out string) (string, error) {
-	tmpl, err := template.New("print").Funcs(commandFuncs).Parse(src)
-	if err != nil {
-		return "", err
-	}
+// toolStepResult is a tool's output as template data: a JSON object's
+// fields, or .output for any other text.
+func toolStepResult(out string) map[string]any {
 	var data map[string]any
 	if json.Unmarshal([]byte(out), &data) != nil || data == nil {
 		data = map[string]any{"output": out}
+	}
+	return data
+}
+
+// renderStepArgs renders the string args that hold a template over the
+// earlier steps' results ({{.steps.<as>.<field>}}).
+func renderStepArgs(callArgs map[string]any, steps map[string]any) (map[string]any, error) {
+	for k, v := range callArgs {
+		str, ok := v.(string)
+		if !ok || !strings.Contains(str, "{{") {
+			continue
+		}
+		out, err := renderCommandTemplate(str, map[string]any{"steps": steps})
+		if err != nil {
+			return nil, fmt.Errorf("args %s: %w", k, err)
+		}
+		callArgs[k] = out
+	}
+	return callArgs, nil
+}
+
+// renderCommandTemplate executes a command template over data.
+func renderCommandTemplate(src string, data map[string]any) (string, error) {
+	tmpl, err := template.New("step").Funcs(commandFuncs).Parse(src)
+	if err != nil {
+		return "", err
 	}
 	var sb strings.Builder
 	if err = tmpl.Execute(&sb, data); err != nil {

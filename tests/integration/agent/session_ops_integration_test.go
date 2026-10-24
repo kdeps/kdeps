@@ -18,6 +18,9 @@
 package agent_test
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -45,4 +48,28 @@ func TestSessionOps_CommandsAndToolThroughTheAPI(t *testing.T) {
 	_, err = api.CallCommand(t.Context(), "clear", map[string]any{"args": []string{}})
 	require.NoError(t, err)
 	require.Zero(t, loop.Session().TurnCount(), "/clear over the commands API empties the session")
+}
+
+// /copy chains two kdeps API tools: session_ops' last reply, saved with as:,
+// becomes clipboard_copy's text. A fake pbcopy stands in for the clipboard.
+func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake clipboard is a shell script")
+	}
+	dir := t.TempDir()
+	got := filepath.Join(dir, "clip.txt")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pbcopy"), []byte("#!/bin/sh\ncat > "+got+"\n"), 0o700))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+	loop.Session().Append("q", "the answer")
+
+	_, err := api.CallCommand(t.Context(), "copy", map[string]any{"args": []string{}})
+	require.NoError(t, err)
+	data, err := os.ReadFile(got)
+	require.NoError(t, err)
+	require.Equal(t, "the answer", string(data))
 }
