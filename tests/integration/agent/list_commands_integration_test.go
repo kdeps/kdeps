@@ -65,3 +65,66 @@ func TestListCommands_ThroughTheAPI(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, out, `"total":1`)
 }
+
+// /judges is a YAML command: a judge added and graded through the commands
+// API is on the roster session_ops reports.
+func TestJudgesCommand_ThroughTheAPI(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	agent.ReloadAssets()
+
+	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+
+	_, err := api.CallCommand(
+		t.Context(),
+		"judges",
+		map[string]any{"args": []string{"add", "cites", "must", "cite", "a", "file"}},
+	)
+	require.NoError(t, err)
+	_, err = api.CallCommand(
+		t.Context(),
+		"judges",
+		map[string]any{"args": []string{"grade", "cites", "contains", "workflow.yaml"}},
+	)
+	require.NoError(t, err)
+	out, err := api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "judges"})
+	require.NoError(t, err)
+	require.Contains(t, out, `"criteria":"must cite a file"`)
+	require.Contains(t, out, `"pattern":"workflow.yaml"`)
+	_, err = api.CallCommand(t.Context(), "judges", map[string]any{"args": []string{"grade", "cites", "regex", "("}})
+	require.ErrorContains(t, err, "regex:")
+}
+
+// /harness is a YAML command: an event disabled through the commands API is
+// disabled in the events session_ops lists, and saved to ~/.kdeps/events.
+func TestHarnessCommand_ThroughTheAPI(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	agent.ReloadAssets()
+
+	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+
+	out, err := api.CallCommand(
+		t.Context(),
+		"harness",
+		map[string]any{"args": []string{"events", "disable", "identical-tool-calls"}},
+	)
+	require.NoError(t, err)
+	require.Contains(t, out, `Event "identical-tool-calls" disabled (saved)`)
+	require.FileExists(t, filepath.Join(home, ".kdeps", "events", "identical-tool-calls.yaml"))
+	listed, err := api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "harness_events"})
+	require.NoError(t, err)
+	require.Contains(t, listed, `"enabled":false,"items":0,"name":"identical-tool-calls"`)
+	_, err = api.CallCommand(t.Context(), "harness", map[string]any{"args": []string{"preset", "no-such-preset"}})
+	require.ErrorContains(t, err, "unknown preset")
+}

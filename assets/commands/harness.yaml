@@ -1,10 +1,9 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: harness
 order: 190
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: harness
 usage:
   - args: "[list]"
     help: List harness sections (system-prompt text) with their enabled/disabled state
@@ -14,3 +13,88 @@ usage:
     help: List reactive LLM events (see docs/v2/agent/events.md) with their enabled/disabled state
   - args: "events enable|disable <name>"
     help: "Toggle an event, persisted to ~/.kdeps/events/<name>.yaml"
+  - args: "preset [list|<name>]"
+    help: List presets, or apply one (a bundle of harness and event overrides)
+  - args: "reminders [list|<name> on|off]"
+    help: "Feed a harness section's (or instruct:<topic>'s) text to every prompt and tool result"
+subcommands:
+  "": &sections
+    run:
+      - tool: session_ops
+        args: {operation: harness_sections}
+        print: |-
+          **Harness sections**
+          ```
+          {{range .sections}}{{printf "%-28s" .name}} {{.kind}}{{if .preamble}}, order {{.order}}{{else if .max}}, max {{.max}}x{{end}} {{if .enabled}}enabled{{else}}disabled{{end}}
+          {{end}}```
+          Use `/harness enable|disable <name>` to toggle. Persisted to `~/.kdeps/harness/<name>.yaml`.
+  list: *sections
+  enable:
+    run:
+      - tool: session_ops
+        args: {operation: harness_set, name: "$1", enabled: "on"}
+        print: 'Harness section {{printf "%q" .name}} enabled (saved)'
+  disable:
+    run:
+      - tool: session_ops
+        args: {operation: harness_set, name: "$1", enabled: "off"}
+        print: 'Harness section {{printf "%q" .name}} disabled (saved)'
+  events:
+    subcommands:
+      "": &events
+        run:
+          - tool: session_ops
+            args: {operation: harness_events}
+            print: |-
+              **Events**
+              ```
+              {{range .events}}{{printf "%-24s" .name}} on: {{range $field, $v := .on}}{{$field}}={{$v}} {{end}}{{if .items}}items={{.items}}{{end}}  run: {{.run}}  {{if .enabled}}enabled{{else}}disabled{{end}}
+              {{end}}```
+              Use `/harness events enable|disable <name>` to toggle. Persisted to `~/.kdeps/events/<name>.yaml`.
+      list: *events
+      enable:
+        run:
+          - tool: session_ops
+            args: {operation: event_set, name: "$1", enabled: "on"}
+            print: 'Event {{printf "%q" .name}} enabled (saved)'
+      disable:
+        run:
+          - tool: session_ops
+            args: {operation: event_set, name: "$1", enabled: "off"}
+            print: 'Event {{printf "%q" .name}} disabled (saved)'
+  preset:
+    subcommands:
+      "": &presets
+        run:
+          - tool: session_ops
+            args: {operation: presets}
+            print: |-
+              **Presets**
+              {{range .presets}}
+              - `{{.name}}` {{.description}}{{end}}
+
+              Use `/harness preset <name>` to apply. Persisted like any other override.
+      list: *presets
+      "*":
+        run:
+          - tool: session_ops
+            args: {operation: preset_apply, name: "$1"}
+            print: 'Applied preset {{printf "%q" .name}}: {{.harness}} harness override(s), {{.events}} event override(s) (saved)'
+  reminders:
+    subcommands:
+      "": &reminders
+        run:
+          - tool: session_ops
+            args: {operation: harness_reminders}
+            print: |-
+              **Harness reminders**
+              ```
+              {{range .reminders}}{{printf "%-28s" .name}} {{if .on}}on{{else}}off{{end}}
+              {{end}}```
+              Use `/harness reminders <name> on|off` to toggle. Feeds that section's (or /instruct topic's) text to every LLM prompt and every tool call result until turned off. Persisted. A bare /instruct topic name works when no harness section shares it (tools and memory do - use `instruct:tools` / `instruct:memory`).
+      list: *reminders
+      "*":
+        run:
+          - tool: session_ops
+            args: {operation: reminder_set, name: "$1", enabled: "$2"}
+            print: 'Harness reminder {{printf "%q" .name}} {{if .enabled}}on{{else}}off{{end}} (saved; fed to every prompt and tool result)'

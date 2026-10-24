@@ -1,22 +1,22 @@
-version: 1.7.0
+version: 1.10.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
 # history, copy) and for the tools that live only in an agent session
 # (operation: tool); the model is not offered it. The REPL operations
 # return JSON; tool returns that tool's answer.
-description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep}); sessions lists this folder's saved sessions ({sessions: [{id, name, prompt, model, turns, updated}]}); save stores the session ({id, name}); load and import make a saved session (or a JSONL file at path) the live one ({id, turns}); delete removes one ({id}); checkpoint marks the current entry ({id}); goto returns to an entry, stashing the turns after it ({id, found, turns}); branches lists the stashed ones ({branches: [{branch, at, ids}]}); model switches the model (name: a model, a .gguf/.llamafile URL, or an OpenAI-compatible base URL; {model, registered?, ambiguous?, closest?}); model_pick opens the model picker ({model, picked}); model_default saves the startup model ({model}); models lists cloud models by backend and local ones ({current, cloud, local}); model_favorite stars a model (on: on|off); loop_settings reads the agent loop settings and loop_set changes one (setting, value); servers lists running local model servers and server_kill stops one (model); hf_download downloads a GGUF file from HuggingFace and registers it (repo, file; {path, alias}); skills and prompts list the loaded skills ({skills: [{name, description}]}) and prompt templates ({prompts: [{name, hint, description}]}); reload rereads them from disk ({skills, prompts}: counts); memory_entries lists memory entries, all or the matches of query, by key or (order recent) newest first, capped by limit ({total, more, query, entries: [{key, type, value}]}); memory_entry is one entry in full ({key, type, value, related, updated, graph}); tool runs one tool that exists only in the agent session (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake) with args and returns its answer."
+description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep}); sessions lists this folder's saved sessions ({sessions: [{id, name, prompt, model, turns, updated}]}); save stores the session ({id, name}); load and import make a saved session (or a JSONL file at path) the live one ({id, turns}); delete removes one ({id}); checkpoint marks the current entry ({id}); goto returns to an entry, stashing the turns after it ({id, found, turns}); branches lists the stashed ones ({branches: [{branch, at, ids}]}); model switches the model (name: a model, a .gguf/.llamafile URL, or an OpenAI-compatible base URL; {model, registered?, ambiguous?, closest?}); model_pick opens the model picker ({model, picked}); model_default saves the startup model ({model}); models lists cloud models by backend and local ones ({current, cloud, local}); model_favorite stars a model (on: on|off); loop_settings reads the agent loop settings and loop_set changes one (setting, value); servers lists running local model servers and server_kill stops one (model); hf_download downloads a GGUF file from HuggingFace and registers it (repo, file; {path, alias}); skills and prompts list the loaded skills ({skills: [{name, description}]}) and prompt templates ({prompts: [{name, hint, description}]}); reload rereads them from disk ({skills, prompts}: counts); memory_entries lists memory entries, all or the matches of query, by key or (order recent) newest first, capped by limit ({total, more, query, entries: [{key, type, value}]}); memory_entry is one entry in full ({key, type, value, related, updated, graph}); judges is the judge panel ({judges: [{name, criteria, graders}], auto, last}); judge_add (name, criteria), judge_remove (name), judge_grade (name, kind, pattern) and judges_clear change it; harness_sections, harness_events, presets and harness_reminders list the harness sections, events, presets and reminders, and harness_set, event_set, preset_apply and reminder_set change them (name, enabled: on|off); efficiency is enforcement's state ({value, verbose, prompt, limits}), efficiency_limit sets one limit (setting, value: a count or off) and efficiency_reset restores the defaults; tool runs one tool that exists only in the agent session (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake) with args and returns its answer."
 outputFormat: json
 parameters:
   operation:
     type: string
-    description: "messages, last_reply, get, set, clear, compact, sessions, save, load, delete, import, checkpoint, goto, branches, model, model_pick, model_default, models, model_favorite, loop_settings, loop_set, servers, server_kill, hf_download, skills, prompts, reload, memory_entries, memory_entry or tool"
+    description: "messages, last_reply, get, set, clear, compact, sessions, save, load, delete, import, checkpoint, goto, branches, model, model_pick, model_default, models, model_favorite, loop_settings, loop_set, servers, server_kill, hf_download, skills, prompts, reload, memory_entries, memory_entry, judges, judge_add, judge_remove, judge_grade, judges_clear, harness_sections, harness_set, harness_events, event_set, presets, preset_apply, harness_reminders, reminder_set, efficiency, efficiency_limit, efficiency_reset or tool"
     required: true
   summarize_min_turns:
     type: integer
     description: "clear only: summarize the branch first when the session has at least this many turns; 0 never summarizes"
   key:
     type: string
-    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name); memory_entry: a memory key"
+    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt); memory_entry: a memory key"
   value:
     type: string
     description: "set: one of the values the setting's command asset lists (commands/<name>.yaml setting: values); loop_set: the setting's new value"
@@ -62,3 +62,15 @@ parameters:
   limit:
     type: integer
     description: "memory_entries only: most entries to return"
+  criteria:
+    type: string
+    description: "judge_add only: what the judge checks"
+  kind:
+    type: string
+    description: "judge_grade only: exact, contains, not_contains, regex, json or expr"
+  pattern:
+    type: string
+    description: "judge_grade only: the grader's pattern (json needs none)"
+  enabled:
+    type: string
+    description: "harness_set, event_set, reminder_set only: on or off"

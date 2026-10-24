@@ -277,6 +277,22 @@ run:
 | `prompts` | - | `prompts` (`name`, `hint`, `description`): behind `/prompts` |
 | `memory_entries` | `query` (search; given but empty is an error), `order` (`recent`), `limit` | `total`, `more` (left out by `limit`), `query`, `entries` (`key`, `type`, `value`): behind `/memory`, `/memory list`, `/memory search` |
 | `memory_entry` | `key` | `key`, `type`, `value`, `related`, `updated`, `graph` (the `<graph-node>` block the model sees): behind `/memory show` |
+| `judges` | - | `judges` (`name`, `criteria`, `graders`: `kind`, `pattern`), `auto`, `last` (the last generated roster): behind `/judges` |
+| `judge_add` | `name`, `criteria` | `name` |
+| `judge_remove` | `name` | `name`, `removed` |
+| `judge_grade` | `name`, `kind` (`exact`, `contains`, `not_contains`, `regex`, `json`, `expr`), `pattern` | `name`, `kind` |
+| `judges_clear` | - | `cleared`: no roster and no auto roster, saved |
+| `harness_sections` | - | `sections` (`name`, `kind`, `order`, `max`, `preamble`, `enabled`): behind `/harness` |
+| `harness_set` | `name`, `enabled` (`on` or `off`) | `name`, `enabled`; saved to `~/.kdeps/harness/<name>.yaml` |
+| `harness_events` | - | `events` (`name`, `on`: the trigger fields that are set, `items`, `run`, `enabled`): behind `/harness events` |
+| `event_set` | `name`, `enabled` | `name`, `enabled`; saved to `~/.kdeps/events/<name>.yaml` |
+| `presets` | - | `presets` (`name`, `description`) |
+| `preset_apply` | `name` | `name`, `harness`, `events` (override counts) |
+| `harness_reminders` | - | `reminders` (`name`, `on`), harness sections and `instruct:<topic>` |
+| `reminder_set` | `name`, `enabled` | `name`, `enabled` |
+| `efficiency` | - | `value` (on/off), `verbose`, `prompt`, `limits` (`reads`, `actions`, `stops`, `failures`, `tighten`, `web`, `bash`, `file`, `code`; `off` when disabled): behind `/efficiency` |
+| `efficiency_limit` | `setting`, `value` (a count or `off`) | `setting`, `value`; saved to that limit's event |
+| `efficiency_reset` | - | `reset`: every efficiency event back to its shipped default |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |
@@ -355,7 +371,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (on by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold or fold-items
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose or efficiency-prompt
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}

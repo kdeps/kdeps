@@ -52,8 +52,8 @@ import (
 var goCommands = []string{
 	"help", "prompt",
 	"settings", "editor", "search", "context", "kartographer",
-	"upgrade", "konfig", "login", "harness",
-	"exit", "quit", "auto-improve", "efficiency", "judges",
+	"upgrade", "konfig", "login",
+	"exit", "quit", "auto-improve",
 	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 
