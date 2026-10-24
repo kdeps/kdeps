@@ -94,3 +94,27 @@ func TestSessionOps_SettingsThroughTheAPI(t *testing.T) {
 	_, err = api.CallTool(t.Context(), "session_ops", setOff)
 	require.Error(t, err, "a value the command asset does not list is refused")
 }
+
+// A tool that lives only in the agent session (here a stand-in identity_get)
+// is reached on the kdeps API through session_ops' tool operation; it has no
+// route of its own.
+func TestSessionOps_ToolOperationRunsASessionTool(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	reg.Register(&kdepstools.Tool{
+		Name: "identity_get",
+		Execute: func(args map[string]any) (string, error) {
+			return "agent:" + args["field"].(string), nil
+		},
+	})
+	agent.New(executor.NewEngine(nil), nil, reg, agent.Config{Model: "m"})
+	t.Cleanup(func() { api.SetSessionToolBackend(nil) })
+
+	out, err := api.CallTool(t.Context(), "session_ops", map[string]any{
+		"operation": "tool", "tool": "identity_get", "args": map[string]any{"field": "name"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "agent:name", out)
+
+	_, err = api.CallTool(t.Context(), "identity_get", map[string]any{})
+	require.Error(t, err, "the session tool has no route of its own")
+}

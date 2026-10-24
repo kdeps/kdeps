@@ -275,19 +275,17 @@ elif kind == "tools":
         "bash_job_list", "bash_job_wait", "calculator", "clipboard_copy", "cohere_rerank", "e2e_py_tool", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
         "google_cache_delete", "google_cache_list", "http_request",
-        "identity_get", "instruct", "jina_rerank", "judge_verdict", "knowledge_card_get",
-        "knowledge_card_update", "knowledge_note_save", "knowledge_recall", "list_files", "load_document",
-        "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
+        "instruct", "jina_rerank", "list_files", "load_document",
+        "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local",
-        "session_handshake", "session_ops", "sql_describe_table", "sql_list_tables", "sql_ops",
+        "session_ops", "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:
         die(repr(names))
-    session = {"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
-               "knowledge_note_save", "knowledge_recall", "load_skill", "session_handshake", "session_ops"}
+    session = {"session_ops"}
     flagged = {item.get("name") for item in doc["items"] if item.get("agentOnly")}
     if flagged != session:
         die("agentOnly " + repr(sorted(flagged)))
@@ -853,12 +851,30 @@ EOF
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{}' "${tools}/identity_get/call" || true)
+        --data '{"operation":"tool","tool":"identity_get"}' "${tools}/session_ops/call" || true)
     if [ "$got" = "400" ] && grep -F "identity_get: no active agent session" "$body" >/dev/null \
         && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - identity_get needs an agent session"
+        test_passed "kdeps API - session_ops tool identity_get needs an agent session"
     else
-        test_failed "kdeps API - identity_get needs an agent session" "status $got body $(head -c 180 "$body")"
+        test_failed "kdeps API - session_ops tool identity_get needs an agent session" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{"operation":"tool","tool":"bash_exec","args":{"command":"echo hi"}}' "${tools}/session_ops/call" || true)
+    if [ "$got" = "400" ] && grep -F "served on its own route" "$body" >/dev/null; then
+        test_passed "kdeps API - session_ops tool reaches only session tools"
+    else
+        test_failed "kdeps API - session_ops tool reaches only session tools" "status $got body $(head -c 180 "$body")"
+    fi
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data '{}' "${tools}/identity_get/call" || true)
+    if [ "$got" = "404" ]; then
+        test_passed "kdeps API - a session tool has no route of its own"
+    else
+        test_failed "kdeps API - a session tool has no route of its own" "status $got body $(head -c 180 "$body")"
     fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \

@@ -1,13 +1,15 @@
-version: 1.2.0
+version: 1.3.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
-# history, copy); the model is not offered it. Each operation returns JSON.
-description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep})."
+# history, copy) and for the tools that live only in an agent session
+# (operation: tool); the model is not offered it. The REPL operations
+# return JSON; tool returns that tool's answer.
+description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep}); tool runs one tool that exists only in the agent session (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake) with args and returns its answer."
 outputFormat: json
 parameters:
   operation:
     type: string
-    description: "messages, last_reply, get, set, clear or compact"
+    description: "messages, last_reply, get, set, clear, compact or tool"
     required: true
   summarize_min_turns:
     type: integer
@@ -18,3 +20,9 @@ parameters:
   value:
     type: string
     description: "set only: one of the values the setting's command asset lists (commands/<name>.yaml setting: values)"
+  tool:
+    type: string
+    description: "tool only: the session tool to run (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake)"
+  args:
+    type: object
+    description: "tool only: the session tool's arguments, as its own tool asset declares them"

@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -184,20 +185,35 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 	}
 }
 
+// sessionOpsTools are the tools that live only in an agent session. The kdeps
+// API reaches each through the session_ops tool operation, whose asset names
+// them.
+var sessionOpsTools = []string{ //nolint:gochecknoglobals // fixed list
+	"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
+	"knowledge_note_save", "knowledge_recall", "load_skill", "session_handshake",
+}
+
 // TestEveryToolAssetHasAPIRoute guards the YAML side of the API contract: a
 // tool asset nobody can reach is dead weight. Every asset must be a served
-// Go/session tool or declare its own http:/exec: spec.
+// Go tool, a session tool session_ops names, or declare its own
+// http:/exec:/sql:/python: spec.
 func TestEveryToolAssetHasAPIRoute(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "tools")
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
+	ops, err := os.ReadFile(filepath.Join(dir, "session_ops.yaml"))
+	require.NoError(t, err)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
 		if _, ok := toolReg[name]; ok {
+			continue
+		}
+		if slices.Contains(sessionOpsTools, name) {
+			require.Contains(t, string(ops), name, "session_ops.yaml must name the session tool %s", name)
 			continue
 		}
 		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
@@ -226,17 +242,9 @@ func TestEveryAPIToolHasAnAsset(t *testing.T) {
 
 // sessionOnlyTools are agent-session tools served on the tools routes. They read
 // or change the active agent session, so they have no workflow caller and ship
-// no component.
+// no component. session_ops also runs the tools that live only in a session.
 var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
-	"judge_verdict":         true,
-	"identity_get":          true,
-	"knowledge_card_get":    true,
-	"knowledge_card_update": true,
-	"knowledge_note_save":   true,
-	"knowledge_recall":      true,
-	"load_skill":            true,
-	"session_handshake":     true,
-	"session_ops":           true,
+	"session_ops": true,
 }
 
 func sessionOnlyTool(name string) bool { return sessionOnlyTools[name] }
