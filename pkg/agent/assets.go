@@ -103,7 +103,7 @@ var requiredHarness = []string{
 // model, so these are what a minimum install can work with. They are the
 // file, shell, search, memory and knowledge tools, and the loop's own
 // control tools (without those, goal mode, judges and the handshake cannot
-// finish). Web, code-intelligence, team and other tools are installed with
+// finish), and session_ops, which /clear, /compact and /history run. Web, code-intelligence, team and other tools are installed with
 // the tools set, or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list
@@ -113,7 +113,7 @@ var requiredTools = []string{
 	"memory_save", "memory_search", "memory_query", "memory_delete",
 	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
 	"load_skill", "identity_get",
-	"judge_verdict", "session_handshake",
+	"judge_verdict", "session_handshake", "session_ops",
 }
 
 // harnessContext is a harness entry's model-facing text: its body, unless

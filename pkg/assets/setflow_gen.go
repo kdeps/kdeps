@@ -39,13 +39,13 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
 	},
 	"defaults": {
-		Mode: "both",
+		Mode: "agent",
 		Flow: []FlowStep{
 			{Label: "a resource without a timeout (or another default) runs"},
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/clear", "/compact", "/editor", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/context", "/editor", "/fold", "/instruct", "/knowledge", "/model"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "config.GetDefaults"},
 	},
 	"docker": {
@@ -72,7 +72,7 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
 	},
 	"harness": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "you type a prompt"},
 			{Label: "the agent loop builds the request"},
@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/harness", "/clear", "/knowledge", "/efficiency", "/konfig", "/reload", "/settings"},
+		UsedBy: []string{"kdeps (agent loop)", "/harness", "/knowledge", "/efficiency", "/konfig", "/reload", "/settings", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {

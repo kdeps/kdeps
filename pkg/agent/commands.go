@@ -20,6 +20,7 @@ package agent
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"text/template"
 
 	"gopkg.in/yaml.v3"
 
@@ -48,7 +50,7 @@ import (
 //
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
-	"help", "clear", "model", "skills", "prompts", "compact", "fold", "history", "prompt", "session",
+	"help", "model", "skills", "prompts", "fold", "prompt", "session",
 	"settings", "editor", "copy", "reload", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
 	"exit", "quit", "auto-improve", "efficiency", "judges", "memory",
@@ -72,6 +74,10 @@ type commandStep struct {
 	Prompt  string         `yaml:"prompt,omitempty"`
 	Tool    string         `yaml:"tool,omitempty"` // a kdeps API tool, called with Args
 	Args    map[string]any `yaml:"args,omitempty"` // the tool's arguments
+	// Print is a template for a tool step's output: a JSON object result's
+	// fields, or .output for any other text. Without it the output is
+	// printed as is.
+	Print string `yaml:"print,omitempty"`
 }
 
 type slashCommand struct {
@@ -163,19 +169,34 @@ func (c *slashCommand) validateDeclared() error {
 		return errors.New("run or setting is required")
 	}
 	for i, s := range c.Run {
-		set := 0
-		for _, v := range []string{s.Command, s.Prompt, s.Tool} {
-			if v != "" {
-				set++
-			}
+		if err := s.validate(); err != nil {
+			return fmt.Errorf("run step %d%w", i+1, err)
 		}
-		switch {
-		case set != 1:
-			return fmt.Errorf("run step %d needs exactly one of command, prompt or tool", i+1)
-		case s.Command != "" && !strings.HasPrefix(s.Command, "/"):
-			return fmt.Errorf("run step %d: command must start with /", i+1)
-		case s.Args != nil && s.Tool == "":
-			return fmt.Errorf("run step %d: args belong to a tool step", i+1)
+	}
+	return nil
+}
+
+// validate checks the step sets exactly one of command, prompt or tool, and
+// that a print: template parses. Its errors start with the text that follows
+// "run step N".
+func (s *commandStep) validate() error {
+	set := 0
+	for _, v := range []string{s.Command, s.Prompt, s.Tool} {
+		if v != "" {
+			set++
+		}
+	}
+	switch {
+	case set != 1:
+		return errors.New(" needs exactly one of command, prompt or tool")
+	case s.Command != "" && !strings.HasPrefix(s.Command, "/"):
+		return errors.New(": command must start with /")
+	case (s.Args != nil || s.Print != "") && s.Tool == "":
+		return errors.New(": args and print belong to a tool step")
+	}
+	if s.Print != "" {
+		if _, err := template.New("print").Funcs(commandFuncs).Parse(s.Print); err != nil {
+			return fmt.Errorf(": print: %w", err)
 		}
 	}
 	return nil
@@ -321,12 +342,8 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 			continue
 		}
 		if s.Tool != "" {
-			out, err := api.CallTool(r.ctx, s.Tool, toolStepArgs(s.Args, args))
-			if err != nil {
+			if err := r.runToolStep(s, args, emit); err != nil {
 				return fmt.Errorf("/%s: %w", c.Name, err)
-			}
-			if out != "" {
-				emit(out)
 			}
 			continue
 		}
@@ -340,6 +357,41 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 		}
 	}
 	return nil
+}
+
+// runToolStep calls the step's kdeps API tool, on this REPL's session for
+// session_ops, and emits its output through the step's print: template.
+func (r *REPL) runToolStep(s commandStep, args []string, emit func(string)) error {
+	out, err := api.CallTool(api.WithSessionOps(r.ctx, r.sessionOps), s.Tool, toolStepArgs(s.Args, args))
+	if err != nil {
+		return err
+	}
+	if s.Print != "" {
+		if out, err = printToolStep(s.Print, out); err != nil {
+			return err
+		}
+	}
+	if out != "" {
+		emit(out)
+	}
+	return nil
+}
+
+// printToolStep renders a tool step's output through its print: template.
+func printToolStep(src, out string) (string, error) {
+	tmpl, err := template.New("print").Funcs(commandFuncs).Parse(src)
+	if err != nil {
+		return "", err
+	}
+	var data map[string]any
+	if json.Unmarshal([]byte(out), &data) != nil || data == nil {
+		data = map[string]any{"output": out}
+	}
+	var sb strings.Builder
+	if err = tmpl.Execute(&sb, data); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(sb.String()), nil
 }
 
 // toolStepArgs is a tool step's args with the command's arguments substituted

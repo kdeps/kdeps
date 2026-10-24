@@ -1,10 +1,18 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: history
 order: 90
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: history
 usage:
   - args: ""
     help: Show recent conversation turns
+run:
+  - tool: session_ops
+    args:
+      operation: messages
+    # one line per message: [turn] YOU/AGENT: the first 80 characters
+    print: |-
+      {{if not .messages}}No conversation history.{{else}}**Conversation history ({{.turns}} turns):**
+      {{range .messages}}
+      - [{{.turn}}] {{if eq .role "user"}}YOU{{else}}AGENT{{end}}: {{trunc 80 .content}}{{end}}{{end}}

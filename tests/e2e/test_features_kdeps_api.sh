@@ -279,7 +279,7 @@ elif kind == "tools":
         "knowledge_card_update", "knowledge_note_save", "knowledge_recall", "list_files", "load_document",
         "load_skill", "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local",
-        "session_handshake", "sql_describe_table", "sql_list_tables", "sql_ops",
+        "session_handshake", "session_ops", "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
@@ -287,7 +287,7 @@ elif kind == "tools":
     if names != want:
         die(repr(names))
     session = {"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
-               "knowledge_note_save", "knowledge_recall", "load_skill", "session_handshake"}
+               "knowledge_note_save", "knowledge_recall", "load_skill", "session_handshake", "session_ops"}
     flagged = {item.get("name") for item in doc["items"] if item.get("agentOnly")}
     if flagged != session:
         die("agentOnly " + repr(sorted(flagged)))
@@ -1258,6 +1258,25 @@ PY
             test_passed "kdeps API - /thinking is a setting: command from its YAML"
         else
             test_failed "kdeps API - /thinking is a setting: command from its YAML" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
+        fi
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"operation":"messages"}' \
+            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
+        if [ "$got" = "200" ] && grep -F '"turns"' "$body" >/dev/null && grep -F '"messages"' "$body" >/dev/null; then
+            test_passed "kdeps API - session_ops reads the live session"
+        else
+            test_failed "kdeps API - session_ops reads the live session" "status $got body $(head -c 300 "$body")"
+        fi
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"args":[]}' \
+            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/history/call" || true)
+        sleep 1
+        if [ "$got" = "200" ] && grep -E "Conversation history|No conversation history" "$body" "$log" >/dev/null; then
+            test_passed "kdeps API - /history is a YAML command over session_ops"
+        else
+            test_failed "kdeps API - /history is a YAML command over session_ops" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
         fi
         got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
             -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \

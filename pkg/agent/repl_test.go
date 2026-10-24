@@ -1188,7 +1188,7 @@ func TestCmdHelp(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- cmdClear ---
+// --- /clear ---
 
 func TestCmdClear(t *testing.T) {
 	loop := makeTestLoop(nil)
@@ -1196,7 +1196,7 @@ func TestCmdClear(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdClear()
+	err := repl.dispatchCommand("/clear")
 	assert.NoError(t, err)
 	assert.Zero(t, loop.session.TurnCount())
 }
@@ -1245,14 +1245,14 @@ func TestCmdSkills_WithSkills(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- cmdCompact ---
+// --- /compact ---
 
 func TestCmdCompact_NoHistory(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdCompact()
+	err := repl.dispatchCommand("/compact")
 	assert.NoError(t, err)
 }
 
@@ -1272,18 +1272,18 @@ func TestCmdCompact_WithHistory(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdCompact()
+	err := repl.dispatchCommand("/compact")
 	assert.NoError(t, err)
 }
 
-// --- cmdHistory ---
+// --- /history ---
 
 func TestCmdHistory_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdHistory()
+	err := repl.dispatchCommand("/history")
 	assert.NoError(t, err)
 }
 
@@ -1293,7 +1293,7 @@ func TestCmdHistory_WithMessages(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdHistory()
+	err := repl.dispatchCommand("/history")
 	assert.NoError(t, err)
 }
 
@@ -1307,7 +1307,7 @@ func TestCmdHistory_LongMessage(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdHistory()
+	err := repl.dispatchCommand("/history")
 	assert.NoError(t, err)
 }
 
@@ -3871,7 +3871,7 @@ func TestCmdCompact_ResetsCountersToContext(t *testing.T) {
 	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(123, 45)
-	captureStdout(t, func() { _ = repl.cmdCompact() })
+	captureStdout(t, func() { _ = repl.dispatchCommand("/compact") })
 
 	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
 	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
@@ -5140,7 +5140,7 @@ func TestCmdSessionImport_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- cmdClear with existing turns ---
+// --- /clear with existing turns ---
 
 func TestCmdClear_WithFewTurns(t *testing.T) {
 	loop := makeTestLoop(nil)
@@ -5148,7 +5148,7 @@ func TestCmdClear_WithFewTurns(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdClear()
+	err := repl.dispatchCommand("/clear")
 	assert.NoError(t, err)
 	assert.Zero(t, loop.session.TurnCount())
 }
@@ -5588,7 +5588,7 @@ func TestCmdClear_WithManyTurns(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdClear()
+	err := repl.dispatchCommand("/clear")
 	assert.NoError(t, err)
 	assert.Zero(t, loop.session.TurnCount())
 }
@@ -5602,7 +5602,7 @@ func TestCmdClear_WithSummary(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdClear()
+	err := repl.dispatchCommand("/clear")
 	assert.NoError(t, err)
 	assert.Zero(t, loop.session.TurnCount())
 }
