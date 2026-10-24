@@ -115,6 +115,42 @@ func getRenderer() (*glamour.TermRenderer, error) {
 	return r, nil
 }
 
+//nolint:gochecknoglobals // cached renderer for command output, by width
+var (
+	cachedCommandRenderer      *glamour.TermRenderer
+	cachedCommandRendererWidth int
+)
+
+// renderCommandOutput renders what a YAML command printed: markdown, with
+// every line break kept (a command's lines are its layout, not a paragraph).
+func renderCommandOutput(text string) string {
+	if strings.TrimSpace(text) == "" {
+		return ""
+	}
+	w := terminalWidth()
+	rendererMu.Lock()
+	if cachedCommandRenderer == nil || cachedCommandRendererWidth != w {
+		r, err := glamour.NewTermRenderer(
+			glamour.WithStyles(replStyleConfig()),
+			glamour.WithColorProfile(stealthColorProfile()),
+			glamour.WithWordWrap(w),
+			glamour.WithPreservedNewLines(),
+		)
+		if err != nil {
+			rendererMu.Unlock()
+			return text + "\n"
+		}
+		cachedCommandRenderer, cachedCommandRendererWidth = r, w
+	}
+	r := cachedCommandRenderer
+	rendererMu.Unlock()
+	out, err := r.Render(dedent(text))
+	if err != nil {
+		return text + "\n"
+	}
+	return strings.TrimRight(trimTrailingSpaces(out), "\n") + "\n"
+}
+
 // getThinkingRenderer returns a cached glamour renderer for thinking block style.
 func getThinkingRenderer() (*glamour.TermRenderer, error) {
 	w := terminalWidth()

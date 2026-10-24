@@ -364,7 +364,7 @@ func commandHelpLines() []string {
 func (r *REPL) runDeclaredCommand(c *slashCommand, args []string) error {
 	return r.runDeclaredCommandEmit(c, args, func(resp string) {
 		// A long answer (/model list) pages in an interactive terminal.
-		_ = r.pageLines(strings.Split(strings.TrimRight(renderREPLOutput(resp, false), "\n"), "\n"))
+		_ = r.pageLines(strings.Split(strings.TrimRight(renderCommandOutput(resp), "\n"), "\n"))
 	})
 }
 
