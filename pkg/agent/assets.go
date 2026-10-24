@@ -80,12 +80,16 @@ func init() {
 }
 
 // requiredCommands are the command files every agent loop keeps: the
-// commands to get help, switch model, manage the session and install more.
-// Every other built-in command still runs without its file; installing the
-// file lists it in /help and completion.
+// commands to get help, switch model, manage the session and install more,
+// and the former built-ins that are now YAML (a YAML command exists only
+// when its file is installed). Every other built-in command still runs
+// without its file; installing the file lists it in /help and completion.
 //
 //nolint:gochecknoglobals // fixed list
-var requiredCommands = []string{"help", "exit", "clear", "model", "compact", "session", "settings", "update"}
+var requiredCommands = []string{
+	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
+	"fold", "memory", "skills", "prompts", "reload",
+}
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,
 // prompt refinement and the session handshake are built on. They can be

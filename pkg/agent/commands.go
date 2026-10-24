@@ -50,10 +50,10 @@ import (
 //
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
-	"help", "skills", "prompts", "prompt",
-	"settings", "editor", "reload", "search", "context", "kartographer",
+	"help", "prompt",
+	"settings", "editor", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
-	"exit", "quit", "auto-improve", "efficiency", "judges", "memory",
+	"exit", "quit", "auto-improve", "efficiency", "judges",
 	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 

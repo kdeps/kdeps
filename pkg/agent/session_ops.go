@@ -48,6 +48,18 @@ func sessionOpTable() map[string]sessionOp {
 		},
 		"clear":   (*REPL).clearOp,
 		"compact": (*REPL).compactOp,
+		"skills":  infallibleOp(func(r *REPL, _ map[string]any) map[string]any { return r.skillsOp() }),
+		"prompts": infallibleOp(func(r *REPL, _ map[string]any) map[string]any { return r.promptsOp() }),
+		"memory_entries": func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
+			return r.memoryEntriesOp(args)
+		},
+		"memory_entry": func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
+			return r.memoryEntryOp(args)
+		},
+		"reload": infallibleOp(func(r *REPL, _ map[string]any) map[string]any {
+			r.loop.Reload()
+			return map[string]any{"skills": len(r.loop.skillList), "prompts": len(r.loop.prompts)}
+		}),
 	}
 	for _, op := range []string{"sessions", "save", "load", "delete", "import", "checkpoint", "goto", "branches"} {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
@@ -304,4 +316,32 @@ func stringArgValue(args map[string]any, key string) string {
 		return strconv.FormatInt(int64(v), 10)
 	}
 	return ""
+}
+
+// skillsOp lists the loaded skills: name and description (the source when
+// there is none).
+func (r *REPL) skillsOp() map[string]any {
+	list := []map[string]any{}
+	for _, sk := range r.loop.skillList {
+		desc := sk.Description
+		if desc == "" {
+			desc = sk.Source
+		}
+		list = append(list, map[string]any{"name": sk.Name, "description": desc})
+	}
+	return map[string]any{"skills": list}
+}
+
+// promptsOp lists the loaded prompt templates: name, argument hint and
+// description (the source when there is none).
+func (r *REPL) promptsOp() map[string]any {
+	list := []map[string]any{}
+	for _, pt := range r.loop.prompts {
+		desc := pt.Description
+		if desc == "" {
+			desc = pt.Source
+		}
+		list = append(list, map[string]any{"name": pt.Name, "hint": pt.ArgumentHint, "description": desc})
+	}
+	return map[string]any{"prompts": list}
 }

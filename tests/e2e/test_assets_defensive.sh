@@ -137,6 +137,17 @@ else
     test_failed "assets defensive - install an empty-on-purpose set" "$OUT | $OUT2"
 fi
 
+# Former built-ins that are now YAML commands stay in the minimum profile: their
+# files are required.
+OUT3=$(printf '/fold\n/memory\n/skills\n/prompts\n/reload\n/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' \
+    KDEPS_ASSETS_DIR="$H/store" KDEPS_ASSETS_URL=off KDEPS_CONFIG_PATH="$H/config.yaml" timeout 120 "$KDEPS_BIN" --new 2>&1))
+if nopanic "$OUT3" && ! output_grep_fixed "Unknown command" "$OUT3" && output_grep_fixed "threshold:" "$OUT3" \
+    && output_grep_fixed "Reloaded skills" "$OUT3"; then
+    test_passed "assets defensive - the minimum profile keeps the former built-in commands"
+else
+    test_failed "assets defensive - former built-ins in the minimum profile" "$OUT3"
+fi
+
 # --- kdeps info for unknown assets ------------------------------------------------------
 OUT=$(ad "$H" "$KDEPS_BIN" info tools/definitely_not_a_tool)
 if nopanic "$OUT" && output_grep "Installed: no" "$OUT"; then

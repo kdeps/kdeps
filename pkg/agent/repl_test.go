@@ -1231,7 +1231,7 @@ func TestCmdSkills_Empty(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSkills()
+	err := repl.dispatchCommand("/skills")
 	assert.NoError(t, err)
 }
 
@@ -1243,7 +1243,7 @@ func TestCmdSkills_WithSkills(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdSkills()
+	err := repl.dispatchCommand("/skills")
 	assert.NoError(t, err)
 }
 
@@ -1962,7 +1962,7 @@ func TestCmdPrompts_NoPrompts(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdPrompts()
+	err := repl.dispatchCommand("/prompts")
 	assert.NoError(t, err)
 }
 
@@ -1980,7 +1980,7 @@ func TestCmdPrompts_WithPrompts(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdPrompts()
+	err := repl.dispatchCommand("/prompts")
 	assert.NoError(t, err)
 }
 
@@ -2641,7 +2641,7 @@ func TestCmdReload_NoSkillPaths(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "mypkg", Description: "d", Content: "c"}})
 	repl := NewREPL(context.Background(), loop)
 	// With no skill paths configured, reload should not clear the existing skills.
-	err := repl.cmdReload()
+	err := repl.dispatchCommand("/reload")
 	require.NoError(t, err)
 }
 

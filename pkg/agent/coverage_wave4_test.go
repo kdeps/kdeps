@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -124,26 +125,36 @@ func newTestMemoryREPL(t *testing.T) (*REPL, *MemoryStore) {
 	ms := NewMemoryStore(dir)
 	ms.SetCwd(filepath.Join(dir, "p"))
 	t.Cleanup(func() { _ = ms.Close() })
-	return &REPL{loop: &Loop{memoryStore: ms, config: Config{}}, ctx: context.Background()}, ms
+	loop := makeTestLoop(nil)
+	loop.memoryStore = ms
+	r := NewREPL(context.Background(), loop)
+	t.Cleanup(r.cancel)
+	return r, ms
+}
+
+// memoryCmd runs a /memory line and returns what it printed and its error.
+func memoryCmd(t *testing.T, r *REPL, line string) (string, error) {
+	t.Helper()
+	var err error
+	out := captureOutput(t, &os.Stdout, func() { err = r.dispatchCommand(line) })
+	return out, err
 }
 
 func TestCmdMemoryNoStore(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{}}, ctx: context.Background()}
-	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
-	if !strings.Contains(out, "not available") {
-		t.Fatalf("expected not-available message, got %q", out)
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
+	if _, err := memoryCmd(t, r, "/memory"); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected not-available error, got %v", err)
 	}
 }
 
 func TestCmdMemoryEmptyStore(t *testing.T) {
 	r, _ := newTestMemoryREPL(t)
-	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
-	if !strings.Contains(out, "no memory entries") {
-		t.Fatalf("expected empty-store message, got %q", out)
-	}
-	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"list"}) })
-	if !strings.Contains(out, "no memory entries") {
-		t.Fatalf("expected empty list message, got %q", out)
+	for _, line := range []string{"/memory", "/memory list"} {
+		out, err := memoryCmd(t, r, line)
+		if err != nil || !strings.Contains(out, "no memory entries") {
+			t.Fatalf("%s: expected empty-store message, got %q %v", line, out, err)
+		}
 	}
 }
 
@@ -155,16 +166,21 @@ func TestCmdMemoryOverviewAndList(t *testing.T) {
 	if err := ms.Set("fact:beta", "grass is green"); err != nil {
 		t.Fatal(err)
 	}
-
-	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
-	if !strings.Contains(out, "2 entries") || !strings.Contains(out, "fact:alpha") ||
-		!strings.Contains(out, "the sky is blue") {
-		t.Fatalf("expected overview with entries and values, got %q", out)
+	for _, line := range []string{"/memory", "/memory list"} {
+		out, err := memoryCmd(t, r, line)
+		if err != nil || !strings.Contains(out, "2 entries") || !strings.Contains(out, "fact:alpha") ||
+			!strings.Contains(out, "the sky is blue") {
+			t.Fatalf("%s: expected entries and values, got %q %v", line, out, err)
+		}
 	}
-
-	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"list"}) })
-	if !strings.Contains(out, "fact:alpha") || !strings.Contains(out, "the sky is blue") {
-		t.Fatalf("expected list with values, got %q", out)
+	for i := range 12 {
+		if err := ms.Set(fmt.Sprintf("fact:%02d", i), "more"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, _ := memoryCmd(t, r, "/memory")
+	if !strings.Contains(out, "14 entries") || !strings.Contains(out, "/memory list") {
+		t.Fatalf("expected the overview to cap at 10 and point to /memory list, got %q", out)
 	}
 }
 
@@ -176,18 +192,14 @@ func TestCmdMemorySearch(t *testing.T) {
 	if err := ms.Set("fact:beta", "grass is green"); err != nil {
 		t.Fatal(err)
 	}
-
-	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"search", "blue"}) })
-	if !strings.Contains(out, "fact:alpha") || strings.Contains(out, "fact:beta") {
-		t.Fatalf("expected search to match only alpha, got %q", out)
+	out, err := memoryCmd(t, r, "/memory search blue")
+	if err != nil || !strings.Contains(out, "fact:alpha") || strings.Contains(out, "fact:beta") {
+		t.Fatalf("expected search to match only alpha, got %q %v", out, err)
 	}
-
-	errOut := captureOutput(t, &os.Stderr, func() { _ = r.cmdMemory([]string{"search"}) })
-	if !strings.Contains(errOut, "Usage: /memory search") {
-		t.Fatalf("expected search usage error, got %q", errOut)
+	if _, err = memoryCmd(t, r, "/memory search"); err == nil || !strings.Contains(err.Error(), "give a query") {
+		t.Fatalf("expected a query error, got %v", err)
 	}
-
-	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"search", "nope-nothing-matches"}) })
+	out, _ = memoryCmd(t, r, "/memory search nope-nothing-matches")
 	if !strings.Contains(out, "no memory entries matching") {
 		t.Fatalf("expected no-match message, got %q", out)
 	}
@@ -204,28 +216,27 @@ func TestCmdMemoryShowAndUnknown(t *testing.T) {
 	if err := ms.SetRelation("fact:alpha", "fact:beta"); err != nil {
 		t.Fatal(err)
 	}
-
-	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"bogus"}) })
-	if !strings.Contains(out, "Unknown /memory subcommand") {
-		t.Fatalf("expected unknown-subcommand message, got %q", out)
+	if _, err := memoryCmd(
+		t,
+		r,
+		"/memory bogus",
+	); err == nil ||
+		!strings.Contains(err.Error(), "unknown /memory subcommand") {
+		t.Fatalf("expected unknown-subcommand error, got %v", err)
 	}
-
-	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"show", "fact:alpha"}) })
-	if !strings.Contains(out, "fact:alpha") || !strings.Contains(out, "the sky is blue") {
-		t.Fatalf("expected show to print key and full value, got %q", out)
+	out, err := memoryCmd(t, r, "/memory show fact:alpha")
+	if err != nil || !strings.Contains(out, "fact:alpha") || !strings.Contains(out, "the sky is blue") {
+		t.Fatalf("expected show to print key and full value, got %q %v", out, err)
 	}
-	if !strings.Contains(out, "<graph-node") {
-		t.Fatalf("expected show to include the dependency graph node, got %q", out)
+	if !strings.Contains(out, "graph-node") || !strings.Contains(out, "related: fact:beta") {
+		t.Fatalf("expected show to include related keys and the graph node, got %q", out)
 	}
-
-	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"show", "no-such-key"}) })
-	if !strings.Contains(out, "no memory entry for key") {
-		t.Fatalf("expected show miss message, got %q", out)
+	if _, err = memoryCmd(t, r, "/memory show no-such-key"); err == nil ||
+		!strings.Contains(err.Error(), "no memory entry for key") {
+		t.Fatalf("expected show miss error, got %v", err)
 	}
-
-	errOut := captureOutput(t, &os.Stderr, func() { _ = r.cmdMemory([]string{"show"}) })
-	if !strings.Contains(errOut, "Usage: /memory show") {
-		t.Fatalf("expected show usage error, got %q", errOut)
+	if _, err = memoryCmd(t, r, "/memory show"); err == nil || !strings.Contains(err.Error(), "needs key") {
+		t.Fatalf("expected show key error, got %v", err)
 	}
 }
 
