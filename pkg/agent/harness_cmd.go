@@ -129,7 +129,7 @@ func presetsOp() map[string]any {
 
 // presetApplyOp applies a named bundle of harness and event overrides.
 func (r *REPL) presetApplyOp(args map[string]any) (map[string]any, error) {
-	name := strings.TrimSpace(stringArgValue(args, "name"))
+	name := strings.ToLower(strings.TrimSpace(stringArgValue(args, "name")))
 	if err := ApplyPreset(name); err != nil {
 		return nil, err
 	}

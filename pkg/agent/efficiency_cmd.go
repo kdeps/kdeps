@@ -19,9 +19,7 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -34,22 +32,27 @@ const (
 	effValDistinct
 )
 
-// efficiencyValues lists the tunable limits in the order /efficiency prints them.
+// efficiencyValues lists the tunable limits (what each means is in
+// commands/efficiency.yaml).
 //
 //nolint:gochecknoglobals // static lookup table
-var efficiencyValues = []struct {
-	key, event, help string
-	kind             effValueKind
-}{
-	{"reads", eventEfficiencyReads, "consecutive read-only calls before a stop", effValRounds},
-	{"actions", eventEfficiencyActions, "tool calls per turn before a stop", effValRounds},
-	{"stops", eventEfficiencyStops, "soft stops per turn before the turn ends", effValRounds},
-	{"failures", eventEfficiencyFailures, "failed tool/LLM calls briefed and retried per turn", effValRounds},
-	{"tighten", eventEfficiencyTighten, "reads budget lost per stop", effValItems},
-	{"web", eventEfficiencyWeb, "web calls per turn", effValDistinct},
-	{"bash", eventEfficiencyBash, "read-only bash calls per turn", effValDistinct},
-	{"file", eventEfficiencyFile, "file read/list/search calls per turn", effValDistinct},
-	{"code", eventEfficiencyCode, "sql/code-inspection calls per turn", effValDistinct},
+var efficiencyValues = []efficiencyValue{
+	{"reads", eventEfficiencyReads, effValRounds},
+	{"actions", eventEfficiencyActions, effValRounds},
+	{"stops", eventEfficiencyStops, effValRounds},
+	{"failures", eventEfficiencyFailures, effValRounds},
+	{"tighten", eventEfficiencyTighten, effValItems},
+	{"web", eventEfficiencyWeb, effValDistinct},
+	{"bash", eventEfficiencyBash, effValDistinct},
+	{"file", eventEfficiencyFile, effValDistinct},
+	{"code", eventEfficiencyCode, effValDistinct},
+}
+
+// efficiencyValue is one /efficiency limit: its key, the event that holds
+// it, and which of the event's fields is the number.
+type efficiencyValue struct {
+	key, event string
+	kind       effValueKind
 }
 
 func efficiencyEventNames() []string {
@@ -127,21 +130,14 @@ func persistEvent(e Event) error {
 	return nil
 }
 
-func efficiencyValueByKey(key string) (struct {
-	key, event, help string
-	kind             effValueKind
-}, bool,
-) {
+func efficiencyValueByKey(key string) (efficiencyValue, bool) {
 	key = strings.ToLower(strings.TrimSpace(key))
 	for _, v := range efficiencyValues {
 		if v.key == key {
 			return v, true
 		}
 	}
-	return struct {
-		key, event, help string
-		kind             effValueKind
-	}{}, false
+	return efficiencyValue{}, false
 }
 
 func onOffWord(on bool) string {
@@ -186,116 +182,63 @@ func backendCachesPrompt(backend string) bool {
 	}
 }
 
-const efficiencyUsage = "Usage: /efficiency [on|off|verbose on|off|prompt auto|full|summary|" +
-	"<setting> <n|off>|preset <name>|reset]"
-
-// cmdEfficiency inspects and configures efficiency enforcement. Every change
-// overwrites the stored value and persists across launches.
-func (r *REPL) cmdEfficiency(args []string) {
-	if len(args) == 0 {
-		r.cmdEfficiencyStatus()
-		return
-	}
-	sub := strings.ToLower(args[0])
-	var err error
-	var msg string
-	switch sub {
-	case "prompt":
-		msg, err = r.efficiencySetPrompt(args[1:])
-	case toggleOn, toggleOff:
-		err = SetEfficiencyEnabled(sub == toggleOn)
-		msg = "efficiency enforcement " + sub + " (saved)"
-	case "verbose":
-		on, ok := false, false
-		if len(args) > 1 {
-			on, ok = parseOnOff(args[1])
-		}
-		if !ok {
-			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /efficiency verbose on|off"))
-			return
-		}
-		err = SetEfficiencyVerbose(on)
-		msg = "efficiency verbose " + onOffWord(on) + " (saved)"
-	case "reset":
-		err = ResetEfficiency()
-		msg = "efficiency settings reset to defaults (saved)"
-	case "preset":
-		if len(args) < 2 { //nolint:mnd // preset needs a name
-			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /efficiency preset frugal|balanced|thorough"))
-			return
-		}
-		err = ApplyPreset(strings.ToLower(args[1]))
-		msg = "preset " + strings.ToLower(args[1]) + " applied: all harness and efficiency values overwritten (saved)"
-	default:
-		msg, err = efficiencySetValue(sub, args[1:])
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, styleReplError.Render(err.Error()))
-		return
-	}
-	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(msg))
+// efficiencyOps are the session_ops operations behind /efficiency; its
+// on/off, verbose and prompt mode are settings.
+//
+//nolint:gochecknoglobals // fixed operation table
+var efficiencyOps = map[string]func(r *REPL, args map[string]any) (map[string]any, error){
+	"efficiency":       infallible((*REPL).efficiencyState),
+	"efficiency_limit": func(_ *REPL, args map[string]any) (map[string]any, error) { return efficiencyLimitOp(args) },
+	"efficiency_reset": func(_ *REPL, _ map[string]any) (map[string]any, error) {
+		return map[string]any{"reset": true}, ResetEfficiency()
+	},
 }
 
-func efficiencySetValue(key string, rest []string) (string, error) {
+// efficiencyState is enforcement's state: on/off, verbose, the prompt mode,
+// and each limit's value ("off" when its event is disabled).
+func (r *REPL) efficiencyState() map[string]any {
+	values := map[string]any{}
+	for _, v := range efficiencyValues {
+		values[v.key] = efficiencyLimit(v)
+	}
+	return map[string]any{
+		"value": onOffWord(EfficiencyEnabled()), "verbose": onOffWord(EfficiencyVerbose()),
+		"prompt": r.loop.PromptMode(), "limits": values,
+	}
+}
+
+func efficiencyLimit(v efficiencyValue) string {
+	if !EventEnabled(v.event) {
+		return toggleOff
+	}
+	e, _ := EventByName(v.event)
+	switch v.kind {
+	case effValRounds:
+		return strconv.Itoa(e.On.Rounds)
+	case effValItems:
+		return strconv.Itoa(e.Items)
+	case effValDistinct:
+		return strconv.Itoa(e.On.DistinctCalls)
+	}
+	return ""
+}
+
+// efficiencyLimitOp sets one limit to a count, or off (it never triggers).
+func efficiencyLimitOp(args map[string]any) (map[string]any, error) {
+	key := strings.ToLower(strings.TrimSpace(stringArgValue(args, "setting")))
+	value := strings.TrimSpace(stringArgValue(args, "value"))
 	if _, ok := efficiencyValueByKey(key); !ok {
-		return "", fmt.Errorf("unknown efficiency setting %q. %s", key, efficiencyUsage)
+		return nil, fmt.Errorf("unknown efficiency setting %q", key)
 	}
-	if len(rest) == 0 {
-		return "", fmt.Errorf("usage: /efficiency %s <n|off>", key)
+	if strings.EqualFold(value, toggleOff) {
+		return map[string]any{"setting": key, "value": toggleOff}, SetEfficiencyLimitOff(key)
 	}
-	if strings.EqualFold(rest[0], toggleOff) {
-		if err := SetEfficiencyLimitOff(key); err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("efficiency %s limit off (saved)", key), nil
-	}
-	n, err := strconv.Atoi(rest[0])
+	n, err := strconv.Atoi(value)
 	if err != nil {
-		return "", fmt.Errorf("usage: /efficiency %s <n|off>", key)
+		return nil, fmt.Errorf("give a count or off: /efficiency %s <n|off>", key)
 	}
 	if err = SetEfficiencyValue(key, n); err != nil {
-		return "", err
+		return nil, err
 	}
-	return fmt.Sprintf("efficiency %s = %d (saved)", key, n), nil
-}
-
-func (r *REPL) efficiencySetPrompt(rest []string) (string, error) {
-	if r == nil || r.loop == nil {
-		return "", errors.New("efficiency: no agent loop")
-	}
-	if len(rest) == 0 {
-		return "efficiency prompt " + r.loop.PromptMode(), nil
-	}
-	if err := r.loop.SetPromptMode(rest[0]); err != nil {
-		return "", errors.New("usage: /efficiency prompt auto|full|summary")
-	}
-	r.persistTuning()
-	return "efficiency prompt " + r.loop.PromptMode() + " (saved)", nil
-}
-
-func (r *REPL) cmdEfficiencyStatus() {
-	mode := promptModeAuto
-	if r != nil && r.loop != nil {
-		mode = r.loop.PromptMode()
-	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Efficiency enforcement"))
-	fmt.Fprintf(os.Stdout, "  %-8s %s\n", "state", onOffWord(EfficiencyEnabled()))
-	fmt.Fprintf(os.Stdout, "  %-8s %s\n", "verbose", onOffWord(EfficiencyVerbose()))
-	fmt.Fprintf(os.Stdout, "  %-8s %-8s %s\n", "prompt", mode, "harness text after the first send")
-	for _, v := range efficiencyValues {
-		val := toggleOff
-		if EventEnabled(v.event) {
-			e, _ := EventByName(v.event)
-			switch v.kind {
-			case effValRounds:
-				val = strconv.Itoa(e.On.Rounds)
-			case effValItems:
-				val = strconv.Itoa(e.Items)
-			case effValDistinct:
-				val = strconv.Itoa(e.On.DistinctCalls)
-			}
-		}
-		fmt.Fprintf(os.Stdout, "  %-8s %-4s %s\n", v.key, val, v.help)
-	}
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render(efficiencyUsage))
+	return map[string]any{"setting": key, "value": strconv.Itoa(n)}, nil
 }

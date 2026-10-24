@@ -15,7 +15,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs: compact, truncate, block, cap or force an answer", Here: true},
 			{Label: "the agent loop continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/efficiency", "/konfig", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
 	},
 	"commands": {
@@ -68,7 +68,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs"},
 			{Label: "the turn continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/efficiency", "/context", "/prompt", "/konfig", "/update", "kdeps run", "kdeps konfig export"},
+		UsedBy: []string{"kdeps (agent loop)", "/context", "/prompt", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
 	},
 	"harness": {
@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/knowledge", "/efficiency", "/konfig", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build"},
+		UsedBy: []string{"kdeps (agent loop)", "/knowledge", "/konfig", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {
@@ -111,8 +111,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/efficiency", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.PresetByName"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.mergeUserPresets"},
 	},
 	"providers": {
 		Mode: "both",

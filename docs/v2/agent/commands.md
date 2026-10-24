@@ -290,6 +290,9 @@ run:
 | `preset_apply` | `name` | `name`, `harness`, `events` (override counts) |
 | `harness_reminders` | - | `reminders` (`name`, `on`), harness sections and `instruct:<topic>` |
 | `reminder_set` | `name`, `enabled` | `name`, `enabled` |
+| `efficiency` | - | `value` (on/off), `verbose`, `prompt`, `limits` (`reads`, `actions`, `stops`, `failures`, `tighten`, `web`, `bash`, `file`, `code`; `off` when disabled): behind `/efficiency` |
+| `efficiency_limit` | `setting`, `value` (a count or `off`) | `setting`, `value`; saved to that limit's event |
+| `efficiency_reset` | - | `reset`: every efficiency event back to its shipped default |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
 | `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
 | `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |
@@ -368,7 +371,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (on by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold or fold-items
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose or efficiency-prompt
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}

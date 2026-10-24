@@ -175,6 +175,19 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /efficiency on|off, verbose and prompt mode.
+	"efficiency": {
+		get: func(_ *REPL) map[string]any { return onOffState(EfficiencyEnabled()) },
+		set: func(_ *REPL, v string) error { return SetEfficiencyEnabled(v == toggleOn) },
+	},
+	"efficiency-verbose": {
+		get: func(_ *REPL) map[string]any { return onOffState(EfficiencyVerbose()) },
+		set: func(_ *REPL, v string) error { return SetEfficiencyVerbose(v == toggleOn) },
+	},
+	"efficiency-prompt": {
+		get: func(r *REPL) map[string]any { return map[string]any{"value": r.loop.PromptMode()} },
+		set: func(r *REPL, v string) error { return r.loop.SetPromptMode(v) },
+	},
 	// /judges auto: a judge roster generated per turn.
 	"auto-judges": {
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.AutoJudges()) },
