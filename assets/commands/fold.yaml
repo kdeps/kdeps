@@ -1,10 +1,88 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: fold
 order: 80
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: fold
 usage:
-  - args: "[now|auto [off]|threshold <n>|items <n>|preset <name>]"
-    help: "Lighter, more frequent checkpoint-only summarize+archive (default: auto on, 2000 tokens, 5 items)"
+  - args: ""
+    help: "Show fold status: auto on/off, threshold, items, last fold, tokens since"
+  - args: now
+    help: Fold now, whatever the threshold
+  - args: "auto [on|off]"
+    help: "Automatic folding: a lighter, checkpoint-only summarize+archive (default on)"
+  - args: "threshold <n|default>"
+    help: "Tokens since the last checkpoint that trigger a fold (e.g. 2000, 2k)"
+  - args: "items <n|default>"
+    help: Checkpoints kept in the memory prompt
+  - args: "preset <tight|balanced|loose>"
+    help: Set threshold and items together
+subcommands:
+  "":
+    run:
+      - tool: session_ops
+        args:
+          operation: get
+          key: fold
+        print: |-
+          **Fold**
+            auto: {{.value}}
+            threshold: {{.threshold}} tokens
+            context items: {{.items}}
+            last fold: {{.last}}
+            accumulated since: {{.accumulated}} / {{.threshold}} tokens
+  now:
+    run:
+      - tool: session_ops
+        args:
+          operation: compact
+        # .summary is empty when there were too few turns; .keep is how many recent turns stay
+        print: |-
+          {{if .summary}}**Fold summary:**
+
+          {{.summary}}{{else}}Nothing to fold yet: the session has {{.turns}} turn(s); the last {{.keep}} always stay verbatim, so it needs more than {{.keep}} plus one.{{end}}
+  auto:
+    setting:
+      key: fold
+      values: [on, off]
+      show: "Auto-fold: {{.value}}"
+      set: "Auto-fold {{.value}} (saved)"
+      invalid: "Usage: /fold auto [on|off]"
+  threshold:
+    setting:
+      key: fold-threshold
+      show: "Fold threshold: {{.value}} tokens"
+      set: "Fold threshold set to {{.value}} tokens (saved)"
+      invalid: "threshold must be a positive token count (e.g. 2000, 2k) or default"
+  items:
+    setting:
+      key: fold-items
+      show: "Fold context-items cap: {{.value}}"
+      set: "Fold context-items cap set to {{.value}} (saved)"
+      invalid: "items must be a positive integer or default"
+  preset:
+    subcommands:
+      tight:
+        run:
+          - tool: session_ops
+            args: {operation: set, key: fold-threshold, value: "1000"}
+            as: threshold
+          - tool: session_ops
+            args: {operation: set, key: fold-items, value: "3"}
+            print: "Fold preset tight applied: threshold={{.steps.threshold.value}}, items={{.value}} (saved)"
+      balanced:  # the "fold" event's own threshold and items
+        run:
+          - tool: session_ops
+            args: {operation: set, key: fold-threshold, value: default}
+            as: threshold
+          - tool: session_ops
+            args: {operation: set, key: fold-items, value: default}
+            print: "Fold preset balanced applied: threshold={{.steps.threshold.value}}, items={{.value}} (saved)"
+      loose:
+        run:
+          - tool: session_ops
+            args: {operation: set, key: fold-threshold, value: "8000"}
+            as: threshold
+          - tool: session_ops
+            args: {operation: set, key: fold-items, value: "10"}
+            print: "Fold preset loose applied: threshold={{.steps.threshold.value}}, items={{.value}} (saved)"

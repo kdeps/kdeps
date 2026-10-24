@@ -3719,8 +3719,8 @@ func TestCmdFold_ThresholdAndItemsPersist(t *testing.T) {
 	defer repl.cancel()
 
 	captureStdout(t, func() {
-		_ = repl.cmdFold([]string{"threshold", "4k"})
-		_ = repl.cmdFold([]string{"items", "8"})
+		_ = repl.dispatchCommand("/fold threshold 4k")
+		_ = repl.dispatchCommand("/fold items 8")
 	})
 	assert.Equal(t, 4*1024, loop.config.FoldThreshold)
 	assert.Equal(t, 8, loop.config.FoldContextItems)
@@ -3742,7 +3742,7 @@ func TestCmdFold_AutoToggleAndPersist(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	captureStdout(t, func() { _ = repl.cmdFold([]string{"auto", "off"}) })
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold auto off") })
 	assert.True(t, loop.config.FoldOff)
 
 	snap := repl.toolTuningSnapshot()
@@ -3755,7 +3755,7 @@ func TestCmdFold_AutoToggleAndPersist(t *testing.T) {
 	repl2.applyToolTuning(snap)
 	assert.True(t, loop2.config.FoldOff, "restored snapshot must keep auto-fold off")
 
-	captureStdout(t, func() { _ = repl.cmdFold([]string{"auto"}) })
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold auto on") })
 	assert.False(t, loop.config.FoldOff)
 }
 
@@ -3777,13 +3777,19 @@ func TestCmdFold_Preset(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "tight"}) })
-	assert.Equal(t, foldPresets()["tight"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets()["tight"].items, loop.config.FoldContextItems)
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold preset tight") })
+	assert.Equal(t, 1000, loop.config.FoldThreshold)
+	assert.Equal(t, 3, loop.config.FoldContextItems)
 
-	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "loose"}) })
-	assert.Equal(t, foldPresets()["loose"].threshold, loop.config.FoldThreshold)
-	assert.Equal(t, foldPresets()["loose"].items, loop.config.FoldContextItems)
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold preset loose") })
+	assert.Equal(t, 8000, loop.config.FoldThreshold)
+	assert.Equal(t, 10, loop.config.FoldContextItems)
+
+	// balanced clears both overrides: the fold event's values apply.
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold preset balanced")) })
+	assert.Zero(t, loop.config.FoldThreshold)
+	assert.Zero(t, loop.config.FoldContextItems)
+	assert.Contains(t, out, fmt.Sprintf("threshold=%d, items=%d", foldTokensSinceCheckpoint(), foldItems()))
 }
 
 func TestCmdFold_ThresholdRejectsMissingArgAndInvalidValue(t *testing.T) {
@@ -3792,10 +3798,10 @@ func TestCmdFold_ThresholdRejectsMissingArgAndInvalidValue(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"threshold"})) })
+	captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold threshold")) })
 	assert.Equal(t, 999, loop.config.FoldThreshold, "missing arg must not change config")
 
-	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"threshold", "0"})) })
+	captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold threshold 0")) })
 	assert.Equal(t, 999, loop.config.FoldThreshold, "non-positive threshold must be rejected")
 }
 
@@ -3805,13 +3811,13 @@ func TestCmdFold_ItemsRejectsMissingArgAndInvalidValue(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items"})) })
+	captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold items")) })
 	assert.Equal(t, 9, loop.config.FoldContextItems, "missing arg must not change config")
 
-	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items", "not-a-number"})) })
+	captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold items not-a-number")) })
 	assert.Equal(t, 9, loop.config.FoldContextItems, "non-numeric items must be rejected")
 
-	captureStdout(t, func() { require.NoError(t, repl.cmdFold([]string{"items", "-1"})) })
+	captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold items -1")) })
 	assert.Equal(t, 9, loop.config.FoldContextItems, "non-positive items must be rejected")
 }
 
@@ -3825,7 +3831,7 @@ func TestCmdFold_UnknownPresetRejectedNoPartialChange(t *testing.T) {
 	// The rejection message goes to stderr; captureStdout only observes
 	// stdout, so the meaningful assertion here is the config staying
 	// unchanged, not the printed text.
-	captureStdout(t, func() { _ = repl.cmdFold([]string{"preset", "nonexistent"}) })
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold preset nonexistent") })
 	assert.Equal(t, 999, loop.config.FoldThreshold, "an unknown preset must not partially apply")
 	assert.Equal(t, 9, loop.config.FoldContextItems)
 }
@@ -3839,7 +3845,7 @@ func TestCmdFoldStatus_NoCheckpointYet(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	out := captureStdout(t, func() { require.NoError(t, repl.cmdFold(nil)) })
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold")) })
 
 	assert.Contains(t, out, "auto: on")
 	assert.Contains(t, out, fmt.Sprintf("threshold: %d tokens", foldTokensSinceCheckpoint()))
@@ -3860,7 +3866,7 @@ func TestCmdFoldStatus_WithCheckpoint(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldStatus()) })
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold")) })
 
 	assert.Contains(t, out, "auto: off")
 	assert.NotContains(t, out, "last fold: never")
@@ -3903,7 +3909,7 @@ func TestCmdFoldNow_ResetsCountersToContext(t *testing.T) {
 	llm.ResetSessionTokens(99999, 88888)
 
 	GlobalPromptCacheStats.RecordCacheUsageFromTokens(77, 33)
-	captureStdout(t, func() { _ = repl.cmdFoldNow() })
+	captureStdout(t, func() { _ = repl.dispatchCommand("/fold now") })
 
 	assert.Less(t, repl.tokenCounter.InputTokens(), int64(99999))
 	assert.Equal(t, llm.SessionInputTokens(), repl.tokenCounter.InputTokens())
@@ -3925,11 +3931,11 @@ func TestCmdFoldNow_ExplainsTooFewTurns(t *testing.T) {
 	repl.tokenCounter.AddInput(5)
 	repl.tokenCounter.AddOutput(2)
 
-	out := captureStdout(t, func() { require.NoError(t, repl.cmdFoldNow()) })
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/fold now")) })
 
 	assert.Contains(t, out, "Nothing to fold yet")
-	assert.Contains(t, out, fmt.Sprintf("turns: 0 (need at least %d", forceKeepTurns+2))
-	assert.Contains(t, out, "token counter: sent 5, generated 2")
+	assert.Contains(t, out, fmt.Sprintf("the last %d always stay verbatim", forceKeepTurns))
+	assert.Equal(t, int64(5), repl.tokenCounter.InputTokens(), "nothing folded: the counter is untouched")
 }
 
 func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {

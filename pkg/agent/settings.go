@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -57,6 +59,9 @@ type sessionSetting struct {
 	get     func(r *REPL) map[string]any
 	set     func(r *REPL, value string) error
 	options func() []string
+	// accepts, when set, takes a value of a form (a count) on top of the
+	// listed values.
+	accepts func(value string) bool
 }
 
 // sessionSettings are the settings a command asset's setting: block may name.
@@ -170,6 +175,72 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /fold: auto on/off with the fold status, the token threshold, and the
+	// checkpoint items cap. "default" clears an override, so the "fold"
+	// event's value applies.
+	"fold": {
+		get: func(r *REPL) map[string]any { return r.foldState() },
+		set: func(r *REPL, v string) error { r.loop.config.FoldOff = v == toggleOff; return nil },
+	},
+	"fold-threshold": {
+		get: func(r *REPL) map[string]any { return map[string]any{"value": r.foldThresholdInForce()} },
+		set: func(r *REPL, v string) error {
+			r.loop.config.FoldThreshold = max(parseTokenCount(v), 0)
+			r.loop.InvalidateSystemPreamble()
+			return nil
+		},
+		accepts: func(v string) bool { return v == settingDefault || parseTokenCount(v) > 0 },
+	},
+	"fold-items": {
+		get: func(r *REPL) map[string]any { return map[string]any{"value": r.foldItemsInForce()} },
+		set: func(r *REPL, v string) error {
+			n, _ := strconv.Atoi(v) // "default" is 0: the event's value
+			r.loop.config.FoldContextItems = n
+			// The cap is baked into the cached system preamble.
+			r.loop.InvalidateSystemPreamble()
+			return nil
+		},
+		accepts: func(v string) bool { n, err := strconv.Atoi(v); return v == settingDefault || (err == nil && n > 0) },
+	},
+}
+
+// settingDefault is the value that clears a numeric setting's override.
+const settingDefault = "default"
+
+// foldThresholdInForce is the fold token threshold in force: the override, or the
+// "fold" event's.
+func (r *REPL) foldThresholdInForce() int {
+	if n := r.loop.config.FoldThreshold; n > 0 {
+		return n
+	}
+	return foldTokensSinceCheckpoint()
+}
+
+// foldItemsInForce is the checkpoint items cap in force.
+func (r *REPL) foldItemsInForce() int {
+	if n := r.loop.config.FoldContextItems; n > 0 {
+		return n
+	}
+	return foldItems()
+}
+
+// foldState is the fold setting's state: auto on/off, the threshold and
+// items in force, when the last fold ran, and the tokens since it.
+func (r *REPL) foldState() map[string]any {
+	cfg := &r.loop.config
+	threshold, items := r.foldThresholdInForce(), r.foldItemsInForce()
+	var sinceNanos int64
+	last := "never"
+	if r.loop.memoryStore != nil {
+		if cp, ok := r.loop.memoryStore.Get(checkpointSummaryKey); ok {
+			sinceNanos = cp.UpdatedAt * int64(time.Millisecond)
+			last = formatRelativeAge(memoryNow().UnixMilli() - cp.UpdatedAt)
+		}
+	}
+	return map[string]any{
+		"value": onOffState(!cfg.FoldOff)["value"], "threshold": threshold, "items": items, "last": last,
+		"accumulated": tokensSinceCheckpoint(r.loop.Session().RawMessages(), sinceNanos, cfg.Model),
+	}
 }
 
 // turoStages are the lossy turo pipeline stages the turo setting reports.
@@ -191,7 +262,7 @@ func (s *settingSpec) validate() error {
 	if !ok {
 		return fmt.Errorf("setting: unknown key %q", s.Key)
 	}
-	if len(s.Values) == 0 && setting.options == nil {
+	if len(s.Values) == 0 && setting.options == nil && setting.accepts == nil {
 		return errors.New("setting: values is required")
 	}
 	for name, src := range map[string]string{"show": s.Show, "set": s.Set, "invalid": s.Invalid} {
@@ -238,12 +309,11 @@ func truncText(n int, s string) string {
 // value and persists it, or reports an unlisted one. It reads and writes the
 // setting through session_ops get and set, the same kdeps API operations any
 // caller uses.
-func (r *REPL) runSettingCommand(c *slashCommand, args []string) error {
-	s := c.Setting
+func (r *REPL) runSettingCommand(s *settingSpec, args []string) error {
 	typed := strings.Join(args, " ")
 	arg := strings.ToLower(strings.Join(strings.Fields(typed), " "))
 	values := settingValues(s)
-	if arg != "" && !slices.Contains(s.ShowOn, arg) && !slices.Contains(values, arg) {
+	if arg != "" && !slices.Contains(s.ShowOn, arg) && !settingAccepts(s, values, arg) {
 		state, err := r.callSessionOps(map[string]any{"operation": "get", "key": s.Key})
 		if err != nil {
 			return err
@@ -288,11 +358,34 @@ func settingValues(s *settingSpec) []string {
 	return values
 }
 
-// settingFor is the installed command whose setting: block names key.
+// settingAccepts reports whether value is one the setting takes: listed, or
+// of the form the kernel setting accepts.
+func settingAccepts(s *settingSpec, values []string, value string) bool {
+	if slices.Contains(values, value) {
+		return true
+	}
+	accepts := sessionSettings[s.Key].accepts
+	return accepts != nil && accepts(value)
+}
+
+// settingFor is the installed command (or subcommand) whose setting: block
+// names key.
 func settingFor(key string) *settingSpec {
 	for _, c := range slashCommands {
-		if c.Setting != nil && c.Setting.Key == key {
-			return c.Setting
+		if s := bodySetting(&c.commandBody, key); s != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+func bodySetting(b *commandBody, key string) *settingSpec {
+	if b.Setting != nil && b.Setting.Key == key {
+		return b.Setting
+	}
+	for _, sub := range b.Subcommands {
+		if s := bodySetting(sub, key); s != nil {
+			return s
 		}
 	}
 	return nil
@@ -321,7 +414,7 @@ func (r *REPL) sessionSet(key, value string) (map[string]any, error) {
 		return nil, fmt.Errorf("session_ops: no installed command declares setting %q", key)
 	}
 	value = strings.ToLower(strings.Join(strings.Fields(value), " "))
-	if values := settingValues(spec); !slices.Contains(values, value) {
+	if values := settingValues(spec); !settingAccepts(spec, values, value) {
 		return nil, fmt.Errorf("session_ops: %q is not a value of setting %q (%s)",
 			value, key, strings.Join(values, ", "))
 	}

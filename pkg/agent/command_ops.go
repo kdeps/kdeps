@@ -47,7 +47,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"model":        func(r *REPL, a []string) error { return r.cmdModel(a) },
 		"skills":       func(r *REPL, _ []string) error { return r.cmdSkills() },
 		"prompts":      func(r *REPL, _ []string) error { return r.cmdPrompts() },
-		"fold":         func(r *REPL, a []string) error { return r.cmdFold(a) },
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
 		"session":      func(r *REPL, a []string) error { return r.cmdSession(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
@@ -137,7 +136,7 @@ func (r *REPL) RegisterCommandAPI() {
 		api.RegisterCommand(spec)
 	}
 	for _, c := range slashCommands {
-		if c.Builtin || (len(c.Run) == 0 && c.Setting == nil) {
+		if c.Builtin || !c.declared() {
 			continue
 		}
 		api.RegisterCommand(r.declaredCommandSpec(c))

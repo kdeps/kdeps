@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"slices"
@@ -50,7 +51,7 @@ import (
 //
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
-	"help", "model", "skills", "prompts", "fold", "prompt", "session",
+	"help", "model", "skills", "prompts", "prompt", "session",
 	"settings", "editor", "reload", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
 	"exit", "quit", "auto-improve", "efficiency", "judges", "memory",
@@ -79,7 +80,8 @@ type commandStep struct {
 	// output is printed as is.
 	Print string `yaml:"print,omitempty"`
 	// As names a tool step's result for the steps after it: their args
-	// strings and print: templates read it as {{.steps.<as>.<field>}}.
+	// strings and print: templates read it as {{.steps.<as>.<field>}}. A
+	// step with as: and no print: shows nothing.
 	As string `yaml:"as,omitempty"`
 }
 
@@ -92,15 +94,65 @@ type slashCommand struct {
 	// API is the kdeps API operation that runs a builtin command. It must be
 	// this file's name (see loadCommandsFrom) and an entry in
 	// builtinCommandOps, so the asset names the one function that runs it.
-	API     string         `yaml:"api"`
-	Aliases []string       `yaml:"aliases"`
-	Usage   []commandUsage `yaml:"usage"`
-	Run     []commandStep  `yaml:"run"`
-	// Setting makes the command show or set one session setting instead of
-	// running steps (see settingSpec).
-	Setting *settingSpec `yaml:"setting"`
+	API         string         `yaml:"api"`
+	Aliases     []string       `yaml:"aliases"`
+	Usage       []commandUsage `yaml:"usage"`
+	commandBody `yaml:",inline"`
 	// Requires is the asset header's requires: (read by kdeps update, not here).
 	Requires map[string]string `yaml:"requires"`
+}
+
+// commandBody is what a command (or one of its subcommands) does: run
+// steps, one session setting, or a dispatch on its first argument.
+type commandBody struct {
+	Run []commandStep `yaml:"run,omitempty"`
+	// Setting shows or sets one session setting instead of running steps
+	// (see settingSpec).
+	Setting *settingSpec `yaml:"setting,omitempty"`
+	// Subcommands dispatch on the first argument (matched without case): the
+	// matching entry runs with the remaining arguments. The "" entry runs
+	// when no argument is given.
+	Subcommands map[string]*commandBody `yaml:"subcommands,omitempty"`
+}
+
+// declared reports whether the body does anything.
+func (b *commandBody) declared() bool {
+	return len(b.Run) > 0 || b.Setting != nil || len(b.Subcommands) > 0
+}
+
+// validate checks the body sets exactly one of run, setting or subcommands,
+// all the way down.
+func (b *commandBody) validate() error {
+	set := 0
+	for _, v := range []bool{len(b.Run) > 0, b.Setting != nil, len(b.Subcommands) > 0} {
+		if v {
+			set++
+		}
+	}
+	if set != 1 {
+		return errors.New("give exactly one of run, setting or subcommands")
+	}
+	if b.Setting != nil {
+		return b.Setting.validate()
+	}
+	for _, name := range slices.Sorted(maps.Keys(b.Subcommands)) {
+		sub := b.Subcommands[name]
+		if strings.ContainsAny(name, " \t") || name != strings.ToLower(name) {
+			return fmt.Errorf("subcommand %q: a subcommand is one lowercase word", name)
+		}
+		if sub == nil {
+			return fmt.Errorf("subcommand %q: %w", name, errors.New("give exactly one of run, setting or subcommands"))
+		}
+		if err := sub.validate(); err != nil {
+			return fmt.Errorf("subcommand %q: %w", name, err)
+		}
+	}
+	for i, s := range b.Run {
+		if err := s.validate(); err != nil {
+			return fmt.Errorf("run step %d%w", i+1, err)
+		}
+	}
+	return nil
 }
 
 // names is the command's name and aliases.
@@ -144,8 +196,8 @@ func (c *slashCommand) validateBuiltin() error {
 	if !slices.Contains(goCommands, c.Name) {
 		return fmt.Errorf("builtin: kdeps has no command /%s", c.Name)
 	}
-	if len(c.Run) > 0 {
-		return errors.New("a builtin command has no run steps")
+	if c.declared() {
+		return errors.New("a builtin command has no run, setting or subcommands")
 	}
 	if c.API == "" {
 		return errors.New("api is required: the kdeps API operation that runs this command")
@@ -162,21 +214,10 @@ func (c *slashCommand) validateDeclared() error {
 			return fmt.Errorf("/%s is a built-in command", n)
 		}
 	}
-	if c.Setting != nil {
-		if len(c.Run) > 0 {
-			return errors.New("give run or setting, not both")
-		}
-		return c.Setting.validate()
+	if !c.declared() {
+		return errors.New("run, setting or subcommands is required")
 	}
-	if len(c.Run) == 0 {
-		return errors.New("run or setting is required")
-	}
-	for i, s := range c.Run {
-		if err := s.validate(); err != nil {
-			return fmt.Errorf("run step %d%w", i+1, err)
-		}
-	}
-	return nil
+	return c.commandBody.validate()
 }
 
 // validate checks the step sets exactly one of command, prompt or tool, and
@@ -334,11 +375,25 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 	}
 	r.commandDepth++
 	defer func() { r.commandDepth-- }()
-	if c.Setting != nil {
-		return r.runSettingCommand(c, args)
+	return r.runCommandBody(c.Name, &c.commandBody, args, emit)
+}
+
+// runCommandBody runs a command's body: its setting, the subcommand its first
+// argument names, or its steps.
+func (r *REPL) runCommandBody(name string, b *commandBody, args []string, emit func(string)) error {
+	if b.Setting != nil {
+		return r.runSettingCommand(b.Setting, args)
 	}
+	if len(b.Subcommands) > 0 {
+		subName, sub, rest, err := resolveSubcommand(name, b, args)
+		if err != nil {
+			return err
+		}
+		return r.runCommandBody(subName, sub, rest, emit)
+	}
+	c := &slashCommand{Name: name}
 	steps := map[string]any{} // tool step results named by as:
-	for _, s := range c.Run {
+	for _, s := range b.Run {
 		if s.Command != "" {
 			if err := r.dispatchCommand(substituteArgs(s.Command, args)); err != nil {
 				return fmt.Errorf("/%s: %w", c.Name, err)
@@ -363,6 +418,31 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 	return nil
 }
 
+// resolveSubcommand picks the subcommand args' first word names ("" when
+// there is none) and returns its full name and the remaining arguments.
+func resolveSubcommand(name string, b *commandBody, args []string) (string, *commandBody, []string, error) {
+	word := ""
+	if len(args) > 0 {
+		word, args = strings.ToLower(args[0]), args[1:]
+	}
+	sub, ok := b.Subcommands[word]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("unknown /%s subcommand %q (%s)", name, word, subcommandList(b))
+	}
+	return strings.TrimSpace(name + " " + word), sub, args, nil
+}
+
+// subcommandList names a body's subcommands for an error message.
+func subcommandList(b *commandBody) string {
+	names := make([]string, 0, len(b.Subcommands))
+	for _, n := range slices.Sorted(maps.Keys(b.Subcommands)) {
+		if n != "" {
+			names = append(names, n)
+		}
+	}
+	return strings.Join(names, ", ")
+}
+
 // runToolStep calls the step's kdeps API tool, on this REPL's session for
 // session_ops, saves its result under as:, and emits its output through the
 // step's print: template.
@@ -378,6 +458,9 @@ func (r *REPL) runToolStep(s commandStep, args []string, steps map[string]any, e
 	result := toolStepResult(out)
 	if s.As != "" {
 		steps[s.As] = result
+		if s.Print == "" {
+			return nil // a named result is for the steps after it, not the screen
+		}
 	}
 	if s.Print != "" {
 		result["steps"] = steps

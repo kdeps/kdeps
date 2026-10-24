@@ -1,4 +1,4 @@
-version: 1.3.0
+version: 1.4.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
 # history, copy) and for the tools that live only in an agent session
@@ -16,7 +16,7 @@ parameters:
     description: "clear only: summarize the branch first when the session has at least this many turns; 0 never summarizes"
   key:
     type: string
-    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo)"
+    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items)"
   value:
     type: string
     description: "set only: one of the values the setting's command asset lists (commands/<name>.yaml setting: values)"

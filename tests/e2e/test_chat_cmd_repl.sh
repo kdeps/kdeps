@@ -94,6 +94,16 @@ else
     test_failed "REPL /copy - empty session message missing" "Output: $OUTPUT"
 fi
 
+# /fold: a YAML command with subcommands
+OUTPUT=$(_repl '/fold threshold 3k' '/fold preset nope' '/fold')
+if output_grep_fixed "Fold threshold set to 3072 tokens" "$OUTPUT" \
+    && output_grep_fixed "threshold: 3072 tokens" "$OUTPUT" \
+    && output_grep_fixed 'unknown /fold preset subcommand "nope"' "$OUTPUT"; then
+    test_passed "REPL /fold - subcommands set, show and reject from its YAML"
+else
+    test_failed "REPL /fold - subcommands" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then

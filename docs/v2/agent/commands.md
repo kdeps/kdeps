@@ -332,7 +332,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (on by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme or turo
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold or fold-items
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}
@@ -369,6 +369,56 @@ Templates can call `join` (`{{join .builtin ", "}}`).
 </div>
 
 Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `key` kdeps does not have is skipped with a warning at load.
+
+A numeric setting takes a value of its form instead of a list: `fold-threshold` takes a token count (`3000`, `3k`) and `fold-items` a positive integer, both or `default`, which clears the override so the `fold` event's value applies. Their blocks need no `values:`.
+
+## Subcommands
+
+A command file with `subcommands:` (instead of `run:` or `setting:`) dispatches on its first argument. Each entry is itself a `run:`, a `setting:` or more `subcommands:`, and gets the remaining arguments. The `""` entry runs when no argument is given; an unknown word is an error that names the choices.
+
+```text
+/fold                -> subcommands."" (status)
+/fold threshold 3k   -> subcommands.threshold: setting fold-threshold, value "3k"
+/fold preset tight   -> subcommands.preset.subcommands.tight: two run steps
+/fold preset huge    -> error: unknown /fold preset subcommand "huge" (balanced, loose, tight)
+```
+
+<div v-pre>
+
+```yaml
+# commands/fold.yaml (shipped, abridged)
+version: 2.0.0
+name: fold
+usage:
+  - args: "threshold <n|default>"
+    help: "Tokens since the last checkpoint that trigger a fold (e.g. 2000, 2k)"
+subcommands:
+  "":                                  # bare /fold
+    run:
+      - tool: session_ops
+        args: {operation: get, key: fold}
+        print: "auto: {{.value}}, threshold: {{.threshold}} tokens"
+  threshold:
+    setting:
+      key: fold-threshold              # a token count, or default
+      show: "Fold threshold: {{.value}} tokens"
+      set: "Fold threshold set to {{.value}} tokens (saved)"
+      invalid: "threshold must be a positive token count (e.g. 2000, 2k) or default"
+  preset:
+    subcommands:
+      tight:
+        run:
+          - tool: session_ops
+            args: {operation: set, key: fold-threshold, value: "1000"}
+            as: threshold              # named for the next step; not printed
+          - tool: session_ops
+            args: {operation: set, key: fold-items, value: "3"}
+            print: "threshold={{.steps.threshold.value}}, items={{.value}}"
+```
+
+</div>
+
+A tool step with `as:` and no `print:` prints nothing: its result is for the steps after it.
 
 ## See also
 
