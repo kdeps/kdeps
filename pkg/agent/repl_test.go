@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -2578,28 +2579,37 @@ func testCaptureStdout(_ *testing.T, fn func()) string {
 	return out
 }
 
-func TestCmdCopy_NoSession(t *testing.T) {
+func TestCopyCommand_NoReply(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdCopy()
-		require.NoError(t, err)
+		require.NoError(t, repl.dispatchCommand("/copy"))
 	})
 	assert.Contains(t, out, "Nothing to copy")
 }
 
-func TestCmdCopy_HasResponse(t *testing.T) {
+// TestCopyCommand_CopiesTheLastReply runs /copy's steps: session_ops hands the
+// last reply to clipboard_copy, which pipes it to the first clipboard command
+// on PATH (a fake pbcopy here, so the real clipboard is untouched).
+func TestCopyCommand_CopiesTheLastReply(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("fake clipboard is a shell script")
+	}
+	dir := t.TempDir()
+	got := filepath.Join(dir, "clip.txt")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pbcopy"), []byte("#!/bin/sh\ncat > "+got+"\n"), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	loop := makeTestLoop(nil)
 	loop.session.Append("hello", "world response")
 	repl := NewREPL(context.Background(), loop)
 
-	// copyToClipboard may fail in test env; cmdCopy just prints error, no return error
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdCopy()
-		require.NoError(t, err)
+		require.NoError(t, repl.dispatchCommand("/copy"))
 	})
-	// Either "Copied" or clipboard error, not "Nothing to copy"
-	assert.NotContains(t, out, "Nothing to copy")
+	assert.Contains(t, out, "Copied last response to clipboard.")
+	data, err := os.ReadFile(got)
+	require.NoError(t, err)
+	assert.Equal(t, "world response", string(data))
 }
 
 func TestDispatchCommand_Copy(t *testing.T) {

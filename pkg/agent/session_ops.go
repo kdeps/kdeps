@@ -33,6 +33,8 @@ func (r *REPL) sessionOps(ctx context.Context, args map[string]any) (string, err
 	switch op, _ := args["operation"].(string); op {
 	case "messages":
 		out = r.sessionMessages()
+	case "last_reply":
+		out = map[string]any{"text": r.lastReply()}
 	case "clear":
 		// The session is summarized first only when it has at least
 		// summarize_min_turns turns; 0 never summarizes.
@@ -54,7 +56,7 @@ func (r *REPL) sessionOps(ctx context.Context, args map[string]any) (string, err
 		}
 		out = map[string]any{"summary": summary, "turns": r.loop.Session().TurnCount(), "keep": forceKeepTurns}
 	default:
-		return "", fmt.Errorf("session_ops: unknown operation %q (messages, clear, compact)", op)
+		return "", fmt.Errorf("session_ops: unknown operation %q (messages, last_reply, clear, compact)", op)
 	}
 	data, err := json.Marshal(out)
 	return string(data), err
@@ -68,6 +70,17 @@ func (r *REPL) sessionMessages() map[string]any {
 		list = append(list, map[string]any{"turn": i / sessionMsgsPer, "role": m.Role, "content": m.Content})
 	}
 	return map[string]any{"turns": r.loop.Session().TurnCount(), "messages": list}
+}
+
+// lastReply is the session's latest assistant message, or "".
+func (r *REPL) lastReply() string {
+	msgs := r.loop.Session().Messages()
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == RoleAssistant {
+			return msgs[i].Content
+		}
+	}
+	return ""
 }
 
 // intArgValue reads a whole-number tool argument given as a number or text.

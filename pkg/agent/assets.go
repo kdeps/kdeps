@@ -103,7 +103,7 @@ var requiredHarness = []string{
 // model, so these are what a minimum install can work with. They are the
 // file, shell, search, memory and knowledge tools, and the loop's own
 // control tools (without those, goal mode, judges and the handshake cannot
-// finish), and session_ops, which /clear, /compact and /history run. Web, code-intelligence, team and other tools are installed with
+// finish), and session_ops, which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
 // the tools set, or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list

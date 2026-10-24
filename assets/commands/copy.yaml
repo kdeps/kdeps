@@ -1,10 +1,20 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
+  tools/clipboard_copy: ""
 name: copy
 order: 160
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: copy
 usage:
   - args: ""
     help: Copy the last assistant response to the system clipboard
+run:
+  - tool: session_ops
+    args:
+      operation: last_reply
+    as: reply                         # later steps read {{.steps.reply.text}}
+  - tool: clipboard_copy
+    args:
+      text: "{{.steps.reply.text}}"   # empty when the session has no reply yet
+    print: >-
+      {{if .copied}}Copied last response to clipboard.{{else}}Nothing to copy: no assistant response in session.{{end}}

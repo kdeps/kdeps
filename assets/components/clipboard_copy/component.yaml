@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: clipboard_copy
+  description: Copy text to the system clipboard through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: The text to copy
+  # body is the tool's JSON result ({copied, tool}). The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Copy
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/clipboard_copy/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        text: "{{ get('clipboard_copy.text') }}"

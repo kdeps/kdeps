@@ -1,0 +1,24 @@
+version: 1.0.0
+category: system
+description: "Copy text to the user's system clipboard (pbcopy on macOS, xclip or xsel on Linux, clip on Windows). Use when the user asks to copy something. Returns {copied, tool}; copied is false when text is empty."
+outputFormat: json
+parameters:
+  text:
+    type: string
+    description: The text to copy.
+python:
+  script: |
+    import json, subprocess, sys
+
+    text = str(json.loads(sys.argv[1]).get("text") or "")
+    if not text:
+        print(json.dumps({"copied": False, "tool": ""}))
+        sys.exit(0)
+    for argv in (["pbcopy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"], ["clip"]):
+        try:
+            subprocess.run(argv, input=text.encode("utf-8"), check=True, capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        print(json.dumps({"copied": True, "tool": argv[0]}))
+        sys.exit(0)
+    sys.exit("no clipboard command found (tried pbcopy, xclip, xsel, clip)")

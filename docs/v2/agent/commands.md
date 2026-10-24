@@ -262,6 +262,23 @@ run:
 | `messages` | - | `turns`, `messages` (`turn`, `role`, `content`) |
 | `clear` | `summarize_min_turns`: summarize the branch first when the session has at least this many turns (`0` never) | `turns` (before clearing), `summary` |
 | `compact` | - | `summary` (empty when there were too few turns), `turns`, `keep` (recent turns kept verbatim) |
+| `last_reply` | - | `text` (the latest assistant message, empty when there is none) |
+
+A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
+
+```yaml
+# commands/copy.yaml (shipped)
+run:
+  - tool: session_ops
+    args:
+      operation: last_reply
+    as: reply                         # saves {"text": "..."} as .steps.reply
+  - tool: clipboard_copy              # a python: tool asset; the model can call it too
+    args:
+      text: "{{.steps.reply.text}}"   # an args string with {{ is rendered over the earlier steps
+    print: >-
+      {{if .copied}}Copied last response to clipboard.{{else}}Nothing to copy: no assistant response in session.{{end}}
+```
 
 </div>
 
