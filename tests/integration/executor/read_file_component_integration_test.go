@@ -52,3 +52,17 @@ func TestReadFileComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
+
+func TestWriteFileComponent_WritesThroughPythonTool(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+
+	path := filepath.Join(t.TempDir(), "out.txt")
+	got, err := runComponentValue(t, "write_file",
+		"    file_path: "+yamlPath(path)+"\n    content: hello\n")
+	require.NoError(t, err)
+	require.Equal(t, "Wrote 5 bytes to "+path, got)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "hello", string(data))
+}

@@ -32,11 +32,13 @@ import (
 // registerDeclaredTools registers every tool asset implemented by its own
 // YAML block (http:, exec:, sql: or python:) whose environment resolves. The
 // kdeps API runs the block (see api.DeclaredSpec); the agent tool calls it
-// through api.CallTool, under the call budget whose tools: list names it.
+// through api.CallTool, under the call budget whose tools: list names it. A
+// tool already registered (read_file and write_file keep session state in a
+// wrapper around the same API call) is left as is.
 func registerDeclaredTools(ctx context.Context, reg *kdepstools.Registry) {
 	for _, id := range slices.Sorted(maps.Keys(toolDefinitions)) {
 		d := toolDefinitions[id]
-		if !declaredReady(d.DeclaredSpec) {
+		if !declaredReady(d.DeclaredSpec) || reg.Get(declaredName(id, d)) != nil {
 			continue
 		}
 		reg.Register(definedAs(id, &kdepstools.Tool{

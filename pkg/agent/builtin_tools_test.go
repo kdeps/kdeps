@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -1283,20 +1282,16 @@ func TestReadFile_ShowsTabsSpacesAndControlChars(t *testing.T) {
 	assert.Equal(t, "1\t^Iindented$\n2\tno tab here  $\n3\tbell^Ghere$", result)
 }
 
-// TestVisibleWhitespace_LeavesUnicodeIntact ensures the rune-based transform
-// never corrupts valid multi-byte UTF-8 text -- only ASCII control
-// characters are ever rewritten.
-func TestVisibleWhitespace_LeavesUnicodeIntact(t *testing.T) {
-	assert.Equal(t, "héllo→wörld", visibleWhitespace("héllo→wörld"))
-}
-
-// TestVisibleWhitespace_EscapesTabAndControlChars is the direct unit test
-// for the helper.
-func TestVisibleWhitespace_EscapesTabAndControlChars(t *testing.T) {
-	assert.Equal(t, "a^Ib", visibleWhitespace("a\tb"))
-	assert.Equal(t, "a^Gb", visibleWhitespace("a\ab"))
-	assert.Equal(t, "a^?b", visibleWhitespace("a\x7fb"))
-	assert.Equal(t, "plain text", visibleWhitespace("plain text"))
+// TestReadFile_LeavesUnicodeIntactAndShowsDEL checks only ASCII controls are
+// rewritten: multi-byte UTF-8 text is kept and DEL is ^?.
+func TestReadFile_LeavesUnicodeIntactAndShowsDEL(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	path := filepath.Join(t.TempDir(), "u.txt")
+	require.NoError(t, os.WriteFile(path, []byte("héllo→wörld\na\x7fb\n"), 0o600))
+	out, err := reg.Get("read_file").Execute(map[string]any{"file_path": path})
+	require.NoError(t, err)
+	assert.Equal(t, "1\théllo→wörld$\n2\ta^?b$", out)
 }
 
 // TestReadFile_CRLFLineEndingShowsAsCaretM covers a CRLF file: splitting on
@@ -1783,36 +1778,17 @@ func TestReadFile_BinaryContent_Rejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "binary file")
 }
 
-// --- readLocalFile document-format dispatch (PDF/DOCX/EPUB/RTF/ODT) ---
+// --- documents (PDF/DOCX/EPUB/RTF/ODT) go to load_document ---
 
-func requirePandoc(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("pandoc"); err != nil {
-		t.Skipf("pandoc not found in PATH: %v", err)
-	}
-}
-
-func TestReadFile_DOCX_ExtractsText(t *testing.T) {
-	requirePandoc(t)
+func TestReadFile_DocumentPointsToLoadDocument(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("read_file")
-	require.NotNil(t, tool)
-
-	dir := t.TempDir()
-	docxPath := filepath.Join(dir, "test.docx")
-	cmd := exec.Command("pandoc", "-f", "markdown", "-o", docxPath)
-	cmd.Stdin = strings.NewReader("Hello from a DOCX file.")
-	require.NoError(t, cmd.Run())
-
-	result, err := tool.Execute(map[string]any{"file_path": docxPath})
-	require.NoError(t, err)
-	// Extracted text comes back through the same line-numbered format as
-	// plain text (e.g. "1\tHello from a DOCX file."), proving the dispatch
-	// and formatFileLines wiring -- not re-testing pandoc's own extraction
-	// accuracy, which pkg/executor/loader's own tests already cover.
-	assert.Contains(t, result, "Hello from a DOCX file.")
-	assert.Regexp(t, `^\s*1\t`, result)
+	for _, name := range []string{"a.pdf", "b.DOCX", "c.epub", "d.rtf", "e.odt"} {
+		path := filepath.Join(t.TempDir(), name)
+		require.NoError(t, os.WriteFile(path, []byte("x"), 0o600))
+		_, err := reg.Get("read_file").Execute(map[string]any{"file_path": path})
+		require.ErrorContains(t, err, "use load_document", name)
+	}
 }
 
 func TestReadFile_HTML_StaysPlainText(t *testing.T) {
@@ -1854,22 +1830,6 @@ func TestReadFile_CSV_StaysPlainText(t *testing.T) {
 	// Raw CSV rows, not the loader's "header: value" per-row reformatting.
 	assert.Contains(t, result, "a,b")
 	assert.Contains(t, result, "1,2")
-}
-
-func TestReadFile_DOCX_MissingPandoc_ClearError(t *testing.T) {
-	dir := t.TempDir()
-	docxPath := filepath.Join(dir, "test.docx")
-	require.NoError(t, os.WriteFile(docxPath, []byte("not a real docx"), 0o644))
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("read_file")
-	require.NotNil(t, tool)
-
-	t.Setenv("PATH", "")
-	_, err := tool.Execute(map[string]any{"file_path": docxPath})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "pandoc not found")
 }
 
 func TestWriteFile_ContentTooLarge(t *testing.T) {
@@ -2086,36 +2046,33 @@ func TestValidateWorkspaceBoundary_RootNoTrailingSlash(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- writeFileVerified ---
+// --- write_file ---
 
-func TestWriteFileVerified_RoundTripsSuccessfully(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "kdeps-writeverified-*.txt")
+func TestWriteFile_RoundTripsAndRefusesUnwritable(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "v.txt")
+	out, err := tool.Execute(map[string]any{"file_path": path, "content": "hello verified\r\n"})
 	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
-	defer os.Remove(tmpFile.Name())
-
-	err = api.WriteFileVerified(tmpFile.Name(), []byte("hello verified\n"))
+	assert.Equal(t, "Wrote 16 bytes to "+path, out)
+	data, err := os.ReadFile(path)
 	require.NoError(t, err)
+	assert.Equal(t, "hello verified\r\n", string(data), "bytes are written as given")
 
-	data, err := os.ReadFile(tmpFile.Name())
-	require.NoError(t, err)
-	assert.Equal(t, "hello verified\n", string(data))
-}
-
-func TestWriteFileVerified_PermissionErrorAfterRetries(t *testing.T) {
+	_, err = tool.Execute(map[string]any{"file_path": dir, "content": "x"})
+	require.ErrorContains(t, err, "is a directory")
+	_, err = tool.Execute(map[string]any{"file_path": filepath.Join(dir, "no", "such", "f.txt"), "content": "x"})
+	require.ErrorContains(t, err, "write_file:")
 	if runtime.GOOS == "windows" {
-		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+		return // chmod does not enforce POSIX permission bits on Windows
 	}
-	tmpDir, err := os.MkdirTemp("", "kdeps-writeverified-noperm-*")
-	require.NoError(t, err)
-	require.NoError(t, os.Chmod(tmpDir, 0o500))
-	defer func() {
-		_ = os.Chmod(tmpDir, 0o700)
-		os.RemoveAll(tmpDir)
-	}()
-
-	err = api.WriteFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
-	assert.Error(t, err)
+	locked := filepath.Join(dir, "locked")
+	require.NoError(t, os.Mkdir(locked, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	_, err = tool.Execute(map[string]any{"file_path": filepath.Join(locked, "f.txt"), "content": "x"})
+	require.ErrorContains(t, err, "write_file:")
 }
 
 // --- commandInvokesOtherToolAsShell ---

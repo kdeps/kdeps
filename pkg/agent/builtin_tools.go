@@ -39,10 +39,13 @@ import (
 
 const (
 	binaryCheckBytes = 512 // bytes to scan for binary detection
+	// argMaxBytes carries the file-read-limit event's cap to the read_file
+	// and write_file scripts; the model never sees it.
+	argMaxBytes = "max_bytes"
 )
 
-// RegisterBuiltinTools adds the Go-served tools (bash_exec, read_file, write_file, sql_ops, ...)
-// plus every tool asset that declares an http:, exec:, sql: or python: block (web_search,
+// RegisterBuiltinTools adds the Go-served tools (bash_exec, sql_ops, ...), the session
+// wrappers of read_file and write_file, plus every tool asset that declares an http:, exec:, sql: or python: block (web_search,
 // wikipedia, list_files, git_ops, sql_query, google_cache_*, ...) to the registry. A declared
 // tool whose env: entries do not resolve is not registered.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
@@ -150,25 +153,15 @@ func resolveMatchIDIntoArgs(toolName, id string, args map[string]any) error {
 }
 
 // registerReadFile registers a local file reading tool. The read itself is
-// the read_file call on the kdeps API. This wrapper only fills session state
-// (match_id, the last file) before that call.
+// the read_file python: tool on the kdeps API. This wrapper only fills session
+// state (match_id, the last file) before that call.
 func registerReadFile(ctx context.Context, reg *kdepstools.Registry) {
-	api.SetFileReadLimit(maxFileReadBytes)
-	tool := defined(&kdepstools.Tool{
+	reg.Register(defined(&kdepstools.Tool{
 		Name: toolNameReadFile,
 		Execute: func(args map[string]any) (string, error) {
 			return executeReadFile(ctx, args)
 		},
-	})
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        api.ReadFile,
-		})
-	}
-	reg.Register(tool)
+	}))
 }
 
 func executeReadFile(ctx context.Context, args map[string]any) (string, error) {
@@ -273,8 +266,10 @@ func stringArgFrom(args map[string]any, key string) (string, bool) {
 	return s, ok
 }
 
+// readCallBody is the read_file call: the window asked for and the
+// file-read-limit event's byte cap.
 func readCallBody(args map[string]any) map[string]any {
-	body := map[string]any{}
+	body := map[string]any{argMaxBytes: maxFileReadBytes()}
 	if args == nil {
 		return body
 	}
@@ -308,15 +303,9 @@ func indexReadFile(path string) {
 	indexInBackground(func() { execSearch.NewExecutor().IndexFile(path) })
 }
 
-// visibleWhitespace renders a line the way cat -A does. The kdeps API owns
-// the formatter; this name stays for callers in this package.
-func visibleWhitespace(line string) string {
-	return api.VisibleWhitespace(line)
-}
-
-// registerWriteFile registers a local file write/overwrite tool.
-// Creates or overwrites text files on the filesystem. Accepts absolute paths only.
-// No API key required.
+// registerWriteFile registers a local file write/overwrite tool. The write
+// itself is the write_file python: tool on the kdeps API. This wrapper keeps
+// the session's last file and shows the diff.
 func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 	tool := defined(&kdepstools.Tool{
 		Name: toolNameWriteFile,
@@ -324,14 +313,10 @@ func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 	if tool == nil {
 		return
 	}
-	api.SetFileReadLimit(maxFileReadBytes)
 	tool.Execute = func(args map[string]any) (string, error) {
 		filePath, err := requireAbsFilePath("write_file", args)
 		if err != nil {
 			return "", err
-		}
-		if err = validateWorkspaceBoundary(filePath); err != nil {
-			return "", fmt.Errorf("write_file: %w", err)
 		}
 		content, _ := args["content"].(string)
 		// Checked here too: the API call carries content in a size-capped
@@ -343,10 +328,6 @@ func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 				limit,
 			)
 		}
-		info, statErr := os.Stat(filePath)
-		if statErr == nil && info.IsDir() {
-			return "", fmt.Errorf("write_file: %s is a directory", filePath)
-		}
 		var oldContent string
 		if prev, rerr := os.ReadFile(filePath); rerr == nil {
 			oldContent = string(prev)
@@ -354,6 +335,7 @@ func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 		out, err := api.CallTool(toolCallCtx(ctx, args), toolNameWriteFile, map[string]any{
 			toolParamFilePath: filePath,
 			"content":         content,
+			argMaxBytes:       maxFileReadBytes(),
 		})
 		if err != nil {
 			return "", err
@@ -362,14 +344,6 @@ func registerWriteFile(ctx context.Context, reg *kdepstools.Registry) {
 		markFileSeen(filePath) // the model wrote it, so it may edit_file it without a re-read
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
 		return out, nil
-	}
-	if tool != nil {
-		api.RegisterTool(api.ToolSpec{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  tool.Parameters,
-			Call:        api.WriteFile,
-		})
 	}
 	reg.Register(tool)
 }

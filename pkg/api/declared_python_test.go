@@ -20,6 +20,8 @@ package api
 
 import (
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,6 +77,22 @@ func TestCallDeclaredPythonTool_NoPackagesRunsSystemPython(t *testing.T) {
 	out, err = callDeclaredPythonTool(t.Context(), "py", crlf, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "a\nb", out)
+
+	// An argument past the per-argument command-line limit (128 KiB on Linux,
+	// 32K characters on Windows) reaches the script: it travels on stdin.
+	big := strings.Repeat("é", 300_000)
+	length := &PythonToolSpec{Script: "import json, sys; print(len(json.loads(sys.argv[1])['c']))"}
+	out, err = callDeclaredPythonTool(t.Context(), "py", length, map[string]any{"c": big}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "300000", out)
+
+	// A relative path is checked and handed over as the absolute path it names.
+	echo := &PythonToolSpec{Script: "import json, sys; print(json.loads(sys.argv[1])['f'])", Paths: []string{"f"}}
+	out, err = callDeclaredPythonTool(t.Context(), "py", echo, map[string]any{"f": "rel.txt"}, nil)
+	require.NoError(t, err)
+	want, err := filepath.Abs("rel.txt")
+	require.NoError(t, err)
+	assert.Equal(t, want, out)
 }
 
 func TestCallDeclaredPythonTool_NoInterpreter(t *testing.T) {

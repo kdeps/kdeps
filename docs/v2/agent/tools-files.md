@@ -1,8 +1,8 @@
 # File tools
 
-`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. `read_file` and `write_file` are served by Go (the file sandbox); `edit_file`, `list_files`, `md5_file` and `tail_file` are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)). Every path argument is checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard before the tool runs. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
+`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)) and run on the system python. Every path argument is checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard before the tool runs; a relative path is checked, and handed to the script, as the absolute path it names in the working directory. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
 
-Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file stays in the agent loop.
+Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file, `match_id`, and the colored diff stay in the agent loop.
 
 ## File operations
 
@@ -10,8 +10,8 @@ Always available. No environment variables required.
 
 | Tool | Description |
 |------|-------------|
-| `read_file` | Read file contents with a 1-based line number on every line (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
-| `write_file` | Write or overwrite a file |
+| `read_file` | Read a text file with a 1-based line number on every line. PDF, DOCX, EPUB, RTF and ODT are refused with a pointer to `load_document`, which extracts their text |
+| `write_file` | Write or overwrite a file with the exact bytes given (no newline translation), then read it back to verify |
 | `edit_file` | Replace or append on one line: `line` or `match`, then `text` or `append` |
 | `list_files` | List directory contents |
 | `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
@@ -20,6 +20,18 @@ Always available. No environment variables required.
 ## Line numbers
 
 Every line `read_file` returns is prefixed with its 1-based line number, and the line itself is rendered `cat -A` style: tabs show as `^I`, other control characters as `^X`, and a `$` marks the true end of the line (`  42⇥code$`) - so indentation, trailing whitespace, and stray control characters are visible instead of silently hidden. Those line numbers are what `edit_file`'s `line` points at.
+
+## Size cap
+
+`read_file` refuses a file, and `write_file` refuses content, larger than the `file-read-limit` event (1 MiB by default). The agent loop passes the event's value to the script; a workflow component that calls the tool gets the 1 MiB default.
+
+```yaml
+# ~/.kdeps/events/file-read-limit.yaml
+name: file-read-limit
+on:
+  bytes: 4194304  # read_file and write_file refuse anything past 4 MiB
+run: reject
+```
 
 ## Optional file_path
 

@@ -23,12 +23,11 @@ by `kdeps update`: the description, category, usage notes and parameter
 schema the model sees. Most built-ins also carry their implementation in the
 same file, as an `http:` or `python:` block over one of the four kernel
 primitives (`http`, `exec`, `python`, `sql`); the rest are served by Go
-because they need kernel state (the file sandbox, memory, embeddings, the
-agent session).
+because they need kernel state (memory, embeddings, the agent session).
 
 | Implemented in YAML | Block |
 |---|---|
-| `web_search`, `web_scraper`, `wikipedia`, `calculator`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file`, `file_ops`, `sql_list_tables`, `sql_describe_table`, `sql_query` | `python:` (standard library only; runs on the system python) |
+| `web_search`, `web_scraper`, `wikipedia`, `calculator`, `read_file`, `write_file`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file`, `file_ops`, `sql_list_tables`, `sql_describe_table`, `sql_query` | `python:` (standard library only; runs on the system python) |
 | `google_cache_create`, `google_cache_delete`, `google_cache_list`, `exa_search`, `wolfram_alpha`, `zapier_*`, the rerankers, `retrieve_context`, `transcribe_audio` | `http:` |
 | `ocr_image`, `transcribe_audio_offline` | `exec:` |
 | `clipboard_copy` | `python:` |
@@ -224,7 +223,7 @@ A non-zero exit returns `<tool>: <command>: exit status N: <stderr>` to the mode
 
 ## Declared python tools
 
-A tool whose definition has a `python:` block runs one Python script and needs no Go code. With no `packages:`, the script runs directly on the system `python3` (or `python`), with no venv. With `packages:`, it runs on the kdeps python runner behind the `python` tool, which installs them into a venv with `uv`. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer.
+A tool whose definition has a `python:` block runs one Python script and needs no Go code. With no `packages:`, the script runs directly on the system `python3` (or `python`), with no venv. With `packages:`, it runs on the kdeps python runner behind the `python` tool, which installs them into a venv with `uv`. The script reads the call's arguments as a JSON object from `sys.argv[1]` and prints its answer. The script and its arguments reach python on stdin, so an argument of any size (a whole file's content) gets through.
 
 ```yaml
 # tools/word_count.yaml (or ~/.kdeps/tools/word_count.yaml)

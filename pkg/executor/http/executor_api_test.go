@@ -20,11 +20,10 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,15 +34,20 @@ import (
 
 func TestCreateRequest_KdepsAPIHost(t *testing.T) {
 	t.Setenv("KDEPS_HTTP_PROXY", "")
-	path := filepath.Join(t.TempDir(), "note.txt")
-	require.NoError(t, os.WriteFile(path, []byte("line 1\nline 2\n"), 0o600))
-	want, err := api.ReadFile(t.Context(), map[string]any{"file_path": path})
-	require.NoError(t, err)
+	// A Go-served tool, so the call needs no tool asset.
+	api.RegisterTool(api.ToolSpec{
+		Name: "http_test_echo",
+		Call: func(_ context.Context, args map[string]any) (string, error) {
+			return "echo " + args["file_path"].(string), nil
+		},
+	})
+	path := "note.txt"
+	want := "echo " + path
 
 	payload, err := json.Marshal(map[string]string{"file_path": path})
 	require.NoError(t, err)
 	e := NewExecutor()
-	callURL := "http://kdeps.api/apis/tools.kdeps.io/v1/tools/read_file/call"
+	callURL := "http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_test_echo/call"
 	req, client, err := e.createRequest(
 		&domain.HTTPClientConfig{},
 		http.MethodPost,

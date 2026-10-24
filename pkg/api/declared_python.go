@@ -21,11 +21,13 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -73,6 +75,12 @@ func callDeclaredPythonTool(
 ) (string, error) {
 	for _, p := range s.Paths {
 		if v, _ := args[p].(string); v != "" {
+			// A relative path is checked, and handed to the script, as the
+			// absolute path it names in the working directory.
+			if abs, err := filepath.Abs(v); err == nil && !filepath.IsAbs(v) {
+				v = abs
+				args[p] = v
+			}
 			if err := validateRootPath(v); err != nil {
 				return "", fmt.Errorf("%s: %w", name, err)
 			}
@@ -142,7 +150,11 @@ func runSystemPython(
 			continue
 		}
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
-		cmd := exec.CommandContext(runCtx, path, "-c", s.Script, argJSON)
+		// The program comes on stdin, not argv: a write_file content argument
+		// past 128 KiB (Linux) or 32K characters (Windows) does not fit on a
+		// command line. A prelude puts the arguments in sys.argv[1].
+		cmd := exec.CommandContext(runCtx, path, "-")
+		cmd.Stdin = strings.NewReader(pythonArgvPrelude(argJSON) + s.Script)
 		// UTF-8 output on every platform (a Windows console code page cannot
 		// print most text a tool returns).
 		cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
@@ -160,4 +172,12 @@ func runSystemPython(
 		return strings.TrimSpace(strings.ReplaceAll(stdout.String(), "\r\n", "\n")), nil
 	}
 	return "", fmt.Errorf("%s: no python interpreter found in PATH: %w", name, lastErr)
+}
+
+// pythonArgvPrelude is one line of ASCII that sets sys.argv to
+// ["-", argJSON]. The JSON travels base64-encoded, so no quoting is needed.
+func pythonArgvPrelude(argJSON string) string {
+	return `import sys as _s, base64 as _b; _s.argv = ["-", _b.b64decode("` +
+		base64.StdEncoding.EncodeToString([]byte(argJSON)) +
+		`").decode("utf-8")]; del _s, _b` + "\n"
 }
