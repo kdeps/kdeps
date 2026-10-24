@@ -1,10 +1,13 @@
-version: 1.0.1
+version: 2.0.0
 name: autocontext
 order: 120
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: autocontext
 usage:
   - args: "[on|off]"
     help: Show or toggle auto-detecting command/file mentions in chat input
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: autocontext   # live session state; the choice persists across sessions
+  values: [on, off]
+  show: "Auto-context detection: {{.value}}"
+  set: "Auto-context detection {{if eq .value \"on\"}}enabled{{else}}disabled{{end}}."
+  invalid: 'Unknown option {{printf "%q" .arg}}. Valid: on, off.'

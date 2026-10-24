@@ -1238,6 +1238,17 @@ PY
         else
             test_failed "kdeps API - a ~/.kdeps/commands tool step calls the tool" "status $got body $(head -c 180 "$body")"
         fi
+        # /refine is a setting: command; the line it prints is its asset's set: template.
+        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
+            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
+            --data '{"args":["off"]}' \
+            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/refine/call" || true)
+        sleep 1
+        if [ "$got" = "200" ] && grep -F "prompt refinement disabled" "$log" >/dev/null; then
+            test_passed "kdeps API - a setting: command sets and prints from its YAML"
+        else
+            test_failed "kdeps API - a setting: command sets and prints from its YAML" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
+        fi
         got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
             -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
             --data '{}' \

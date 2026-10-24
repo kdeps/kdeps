@@ -37,16 +37,16 @@ func TestCmdPermissionThinkingContext(t *testing.T) {
 	}
 	os.Stdout = wr
 
-	if err := r.cmdPermission(nil); err != nil {
+	if err := r.dispatchCommand("/permission"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.cmdPermission([]string{"read-only"}); err != nil {
+	if err := r.dispatchCommand("/permission read-only"); err != nil {
 		t.Fatal(err)
 	}
 	if r.loop.config.PermissionMode != PermissionReadOnly {
 		t.Fatalf("mode %q", r.loop.config.PermissionMode)
 	}
-	if err := r.cmdPermission([]string{"not-a-mode"}); err != nil {
+	if err := r.dispatchCommand("/permission not-a-mode"); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.cmdThinking(nil); err != nil {

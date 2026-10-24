@@ -102,10 +102,10 @@ else
     test_failed "asset profiles - minimum install" "$OUT $(ls "$MN/store" 2>&1)"
 fi
 
-OUT=$(ap_loop "$MN" '/help\n/refine\n/quit\n')
+OUT=$(ap_loop "$MN" '/help\n/thinking\n/quit\n')
 INSTALL_LINE=$(printf '%s\n' "$OUT" | grep "needed by this command" | head -1)
 if [ -n "$INSTALL_LINE" ] && ! output_grep "Installing [a-z]+, " "$INSTALL_LINE" &&
-    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/refine"; then
+    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/thinking"; then
     test_passed "asset profiles - the agent loop under minimum adds required items, never whole sets"
 else
     test_failed "asset profiles - agent loop install under minimum" "$INSTALL_LINE"
@@ -123,8 +123,8 @@ if [ "$GOT" = "$CORE" ]; then
 else
     test_failed "asset profiles - /help under minimum" "got: $GOT"
 fi
-if output_grep "prompt refinement is (on|off)" "$OUT" &&
-    ! output_grep "Unknown command: /refine" "$OUT"; then
+if output_grep "Thinking:" "$OUT" &&
+    ! output_grep "Unknown command: /thinking" "$OUT"; then
     test_passed "asset profiles - built-ins without their help file still run"
 else
     test_failed "asset profiles - unlisted built-ins" "$OUT"
@@ -202,8 +202,9 @@ else
 fi
 OUT=$(ap "$MN" "$KDEPS_BIN" uninstall commands/refine)
 HELP=$(ap_loop "$MN" '/help\n/refine\n/quit\n')
-if ! help_commands "$HELP" | grep -qx "/refine" && ! output_grep "Unknown command: /refine" "$HELP"; then
-    test_passed "asset profiles - uninstalling a command file hides it from /help; the built-in still runs"
+# /refine is a YAML setting: command, so without its file it does not exist.
+if ! help_commands "$HELP" | grep -qx "/refine" && output_grep "Unknown command: /refine" "$HELP"; then
+    test_passed "asset profiles - uninstalling a YAML command file removes the command"
 else
     test_failed "asset profiles - uninstall one command" "$OUT $HELP"
 fi
