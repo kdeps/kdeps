@@ -156,7 +156,8 @@ func runSystemPython(
 		if runErr != nil {
 			return "", fmt.Errorf("%s: %w: %s", name, runErr, strings.TrimSpace(stderr.String()))
 		}
-		return strings.TrimSpace(stdout.String()), nil
+		// Python on Windows writes \r\n for every \n a script prints.
+		return strings.TrimSpace(strings.ReplaceAll(stdout.String(), "\r\n", "\n")), nil
 	}
 	return "", fmt.Errorf("%s: no python interpreter found in PATH: %w", name, lastErr)
 }
