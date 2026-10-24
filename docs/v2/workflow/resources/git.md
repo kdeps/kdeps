@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-`git` on `PATH`. The operations are served by the kdeps API's `git_ops` tool in the kdeps process; the component makes one call and returns the result.
+`git` and `python3` (or `python`) on `PATH`. The operations are the `git_ops` tool, a `python:` block in `tools/git_ops.yaml` served by the kdeps API in the kdeps process; the component makes one call and returns the result.
 
 ## Basic usage
 
@@ -95,7 +95,7 @@ apiResponse:
 component: git -> POST /apis/tools.kdeps.io/v1/tools/git_ops/call -> {success, ...operation fields}
 ```
 
-One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool runs `git` with `GIT_PAGER=cat` and `GIT_TERMINAL_PROMPT=0` and parses the output into the same fields; a failing command returns `git <operation> failed: exit status N` with git's stderr. Copy `components/git/` into your project to change an input default; the operations themselves live in the kdeps API.
+One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool runs `git` with `GIT_PAGER=cat` and `GIT_TERMINAL_PROMPT=0` and parses the output into the same fields; a failing command returns `git <operation> failed: exit status N` with git's stderr. `workingDir` is checked against `KDEPS_WORKSPACE_ROOT` before git runs, and one call is stopped after 5 minutes. Copy `components/git/` into your project to change an input default; copy `tools/git_ops.yaml` to `~/.kdeps/tools/` to change the operations themselves.
 
 ## See also
 

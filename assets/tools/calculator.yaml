@@ -1,7 +1,49 @@
-version: 1.0.0
-description: Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.
+version: 2.0.0
+description: Evaluate a mathematical expression and return the result. Accepts numbers, + - * / // % **, parentheses and the math module's functions and constants (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)', 'log(8, 2)', 'pi').
+constraints: arithmetic only; no variables, strings or assignments; exponents above 10000 are rejected
+outputFormat: the result as a number
 parameters:
   expression:
     type: string
     description: The mathematical expression to evaluate
     required: true
+python:
+  script: |
+    import ast, json, math, operator, sys
+
+    a = json.loads(sys.argv[1])
+    expr = str(a.get("expression") or "").strip()
+    if not expr:
+        sys.exit("calculator: expression is required")
+
+    OPS = {
+        ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+        ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv,
+        ast.Mod: operator.mod, ast.Pow: operator.pow,
+        ast.USub: operator.neg, ast.UAdd: operator.pos,
+    }
+    NAMES = {k: getattr(math, k) for k in dir(math) if not k.startswith("_")}
+    NAMES.update(abs=abs, round=round, min=min, max=max, int=int, float=float)
+
+    def ev(n):
+        if isinstance(n, ast.Constant) and type(n.value) in (int, float):
+            return n.value
+        if isinstance(n, ast.BinOp) and type(n.op) in OPS:
+            left, right = ev(n.left), ev(n.right)
+            # 9**9**9 would run for hours; no real calculation needs it.
+            if isinstance(n.op, ast.Pow) and abs(right) > 10000:
+                raise ValueError("exponent %s is too large" % right)
+            return OPS[type(n.op)](left, right)
+        if isinstance(n, ast.UnaryOp) and type(n.op) in OPS:
+            return OPS[type(n.op)](ev(n.operand))
+        if isinstance(n, ast.Name) and n.id in NAMES and not callable(NAMES[n.id]):
+            return NAMES[n.id]
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and callable(NAMES.get(n.func.id)) and not n.keywords):
+            return NAMES[n.func.id](*[ev(x) for x in n.args])
+        raise ValueError("unsupported expression: %s" % ast.unparse(n))
+
+    try:
+        print(ev(ast.parse(expr, mode="eval").body))
+    except Exception as e:
+        sys.exit("calculator: %s" % e)

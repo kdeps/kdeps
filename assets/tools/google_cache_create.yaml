@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 2.0.0
 description: 'Create a Google AI server-side cached content entry from a text system prompt. Returns the cache name (e.g. ''cachedContents/xyz123'') for use in chat: googleCachedContent. Only available when GOOGLE_API_KEY is set.'
 parameters:
   content:
@@ -7,8 +7,20 @@ parameters:
     required: true
   model:
     type: string
-    description: Gemini model name (e.g. 'gemini-2.0-flash')
+    description: Gemini model name (e.g. 'gemini-2.5-flash')
     required: true
   ttl:
     type: string
-    description: 'Cache TTL as a Go duration string (e.g. ''1h'', ''30m''). Default: ''1h'''
+    description: 'Cache lifetime in seconds with an s suffix (e.g. ''3600s'' for an hour). Default: ''3600s'''
+    default: 3600s
+http:
+  env:
+    API_KEY: [GOOGLE_API_KEY]  # the tool is listed only when this is set
+  method: POST
+  url: https://generativelanguage.googleapis.com/v1beta/cachedContents
+  headers:
+    Content-Type: application/json
+    x-goog-api-key: "{{.env.API_KEY}}"
+  # The API names models as models/<name>; a name given either way works.
+  body: '{"model": {{json (print "models/" (trimPrefix .args.model "models/"))}}, "systemInstruction": {"parts": [{"text": {{json .args.content}}}]}, "ttl": {{json .args.ttl}}}'
+  result: '{{.response.name}}'

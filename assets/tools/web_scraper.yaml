@@ -1,12 +1,86 @@
-version: 1.1.0
+version: 2.0.0
 category: web
 aliases: [fetch, web_fetch, fetch_url, read_url]  # other names a model may call it by; the model is shown only this tool's name
 description: Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.
 constraints: 60s timeout; never scrape the same URL twice in a turn; fails on authenticated/private URLs; may be blocked by some sites
-outputFormat: HTML page converted to markdown text
+outputFormat: Page URL, Page Title, Page Description, then Headers, Content (paragraphs) and Link lines
 seeAlso: web_search, wikipedia, http_request
 parameters:
   url:
     type: string
     description: The full URL (including https://) to fetch and extract text from
     required: true
+python:
+  timeout: 60s
+  script: |
+    import json, sys, urllib.error, urllib.parse, urllib.request
+    from html.parser import HTMLParser
+
+    url = json.loads(sys.argv[1])["url"].strip()
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        sys.exit("web_scraper: %r is not an http(s) URL" % url)
+    req = urllib.request.Request(url, headers={"User-Agent": "kdeps/agent"})
+    try:
+        with urllib.request.urlopen(req, timeout=55) as resp:
+            final = resp.geturl()
+            charset = resp.headers.get_content_charset() or "utf-8"
+            page = resp.read().decode(charset, "replace")
+    except urllib.error.HTTPError as e:
+        sys.exit("web_scraper: %s responded with %d" % (url, e.code))
+    except (urllib.error.URLError, ValueError) as e:
+        sys.exit("web_scraper: %s" % getattr(e, "reason", e))
+
+    TEXT = {"title", "h1", "h2", "h3", "h4", "h5", "h6", "p"}
+    SKIP = {"script", "style", "noscript", "template"}
+
+    class Page(HTMLParser):
+        # Keeps the title, the meta description, each heading and paragraph
+        # as one line of text, and every distinct link.
+        def __init__(self):
+            super().__init__()
+            self.title, self.description = "", ""
+            self.headers, self.paragraphs, self.links = [], [], []
+            self.open, self.buf, self.skip = None, [], 0
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if tag in SKIP:
+                self.skip += 1
+            elif tag == "meta" and (a.get("name") or "").lower() == "description":
+                self.description = a.get("content") or ""
+            elif tag == "a" and a.get("href") and a["href"] not in self.links:
+                self.links.append(a["href"])
+            if tag in TEXT and self.open is None:
+                self.open, self.buf = tag, []
+
+        def handle_endtag(self, tag):
+            if tag in SKIP and self.skip:
+                self.skip -= 1
+            if tag != self.open:
+                return
+            text = " ".join("".join(self.buf).split())
+            if tag == "title":
+                self.title = self.title or text
+            elif tag == "p":
+                self.paragraphs.append(text)
+            else:
+                self.headers.append(text)
+            self.open = None
+
+        def handle_data(self, data):
+            if self.open and not self.skip:
+                self.buf.append(data)
+
+    p = Page()
+    p.feed(page)
+    out = ["Page URL: " + final]
+    if p.title:
+        out.append("Page Title: " + p.title)
+    if p.description:
+        out.append("Page Description: " + p.description)
+    out.append("Headers:")
+    out.extend(h for h in p.headers if h)
+    out.append("Content:")
+    out.extend(t for t in p.paragraphs if t)
+    out.extend("Link: " + l for l in p.links)
+    print("\n".join(out))

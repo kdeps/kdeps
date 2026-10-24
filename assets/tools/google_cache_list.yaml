@@ -1,3 +1,11 @@
-version: 1.0.0
+version: 2.0.0
 description: List all Google AI cached content entries. Returns a JSON array of cache names. Only available when GOOGLE_API_KEY is set.
 parameters: {}
+http:
+  env:
+    API_KEY: [GOOGLE_API_KEY]  # the tool is listed only when this is set
+  method: GET
+  url: https://generativelanguage.googleapis.com/v1beta/cachedContents?pageSize=1000
+  headers:
+    x-goog-api-key: "{{.env.API_KEY}}"
+  result: '[{{range $i, $c := .response.cachedContents}}{{if $i}}, {{end}}{{json $c.name}}{{end}}]'

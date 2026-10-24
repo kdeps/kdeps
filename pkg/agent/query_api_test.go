@@ -50,7 +50,7 @@ func TestWebSearch_ExecuteCallsHandler(t *testing.T) {
 	})}
 
 	reg := kdepstools.NewRegistry()
-	registerDuckDuckGo(api.WithClient(t.Context(), client), reg)
+	registerDeclaredTools(api.WithClient(t.Context(), client), reg)
 	tool := reg.Get("web_search")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"query": "phase3-cache"})
@@ -82,7 +82,7 @@ func TestCalculator_ExecuteCallsHandler(t *testing.T) {
 	})}
 	ctx := api.WithClient(t.Context(), client)
 	reg := kdepstools.NewRegistry()
-	registerCalculator(ctx, reg)
+	registerDeclaredTools(ctx, reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"expression": "2 + 2", "_ctx": ctx})
@@ -94,7 +94,7 @@ func TestCalculator_ExecuteCallsHandler(t *testing.T) {
 
 func TestCachedAPI_NilArgs(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerWikipedia(t.Context(), reg)
+	registerDeclaredTools(t.Context(), reg)
 	tool := reg.Get("wikipedia")
 	require.NotNil(t, tool)
 	_, err := tool.Execute(nil)

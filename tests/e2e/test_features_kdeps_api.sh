@@ -788,10 +788,37 @@ EOF
     else
         test_skipped "kdeps API - edit_file (no python interpreter)"
     fi
+    # Tools written in YAML over python: (no Go handler) answer on the same routes.
+    if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+        local lcd_dir lcd_file lcd_name lcd_data lcd_want
+        lcd_dir="$root/lcd"
+        mkdir -p "$lcd_dir"
+        lcd_file="$lcd_dir/notes.txt"
+        printf 'one\ntwo\nthree\n' >"$lcd_file"
+        while IFS='|' read -r lcd_name lcd_data lcd_want; do
+            : >"$body"
+            got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 120 \
+                -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+                --data "$lcd_data" "${tools}/${lcd_name}/call" || true)
+            if [ "$got" = "200" ] && grep -F -- "$lcd_want" "$body" >/dev/null; then
+                test_passed "kdeps API - ${lcd_name} runs its YAML python: block"
+            else
+                test_failed "kdeps API - ${lcd_name} runs its YAML python: block" "status $got body $(head -c 180 "$body")"
+            fi
+        done <<EOF
+calculator|{"expression":"2 + 3 * 4"}|14
+md5_file|{"file_path":"$(to_native_path "$lcd_file")"}|deed54b823522e0525693b090363f9df
+tail_file|{"file_path":"$(to_native_path "$lcd_file")","lines":1}|three
+list_files|{"path":"$(to_native_path "$lcd_dir")"}|[file] notes.txt
+git_ops|{"operation":"init","workingDir":"$(to_native_path "$lcd_dir")","dryRun":true}|"initialized": false
+EOF
+    else
+        test_skipped "kdeps API - YAML python: tools (no python interpreter)"
+    fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{}' "${tools}/google_cache_create/call" || true)
+        --data '{"content":"x"}' "${tools}/google_cache_create/call" || true)
     if [ "$got" = "400" ] && grep -F "google_cache_create: model is required" "$body" >/dev/null \
         && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
         test_passed "kdeps API - google_cache_create requires model"

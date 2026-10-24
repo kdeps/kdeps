@@ -1,7 +1,24 @@
-version: 1.1.0
+version: 2.0.0
 aliases: [ls, list_dir, list_directory, dir]  # other names a model may call it by; the model is shown only this tool's name
 description: List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Omit path to list the current working directory.
 parameters:
   path:
     type: string
-    description: Absolute path to the directory to list. Omit to list the current working directory.
+    description: Path to the directory to list (absolute, or relative to the working directory). Omit to list the current working directory.
+python:
+  paths: [path]  # checked against the workspace boundary
+  script: |
+    import json, os, sys
+
+    a = json.loads(sys.argv[1])
+    d = os.path.abspath(str(a.get("path") or "").strip() or os.getcwd())
+    # An omitted path is the working directory, which the paths: check skips.
+    if os.path.dirname(d) == d and os.environ.get("KDEPS_ALLOW_ROOT", "").strip().lower() != "true":
+        sys.exit("list_files: operation on root directory '/' is blocked (set KDEPS_ALLOW_ROOT=true to permit)")
+    try:
+        entries = sorted(os.scandir(d), key=lambda e: e.name)
+    except OSError as e:
+        sys.exit("list_files: read %s: %s" % (d, e.strerror or e))
+    print(d + ":")
+    for e in entries:
+        print("  [%s] %s" % ("dir" if e.is_dir(follow_symlinks=False) else "file", e.name))

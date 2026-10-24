@@ -143,7 +143,9 @@ func runSystemPython(
 		}
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
 		cmd := exec.CommandContext(runCtx, path, "-c", s.Script, argJSON)
-		cmd.Env = os.Environ()
+		// UTF-8 output on every platform (a Windows console code page cannot
+		// print most text a tool returns).
+		cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
 		for k, v := range env {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
