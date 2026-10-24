@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -390,4 +391,6 @@ func TestRenderCommandOutput_KeepsLines(t *testing.T) {
 	out := renderCommandOutput("**Fold**\n  auto: on\n  threshold: 2000 tokens")
 	assert.Regexp(t, `Fold\s*\n.*auto: on\s*\n.*threshold: 2000 tokens`, out)
 	assert.Empty(t, renderCommandOutput("  "))
+	long := "/a/very/long/path/" + strings.Repeat("segment/", 30) + "Billing decision.md"
+	assert.Contains(t, renderCommandOutput(long), "Billing decision.md", "a long line is not wrapped")
 }

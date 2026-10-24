@@ -127,7 +127,9 @@ func renderCommandOutput(text string) string {
 	if strings.TrimSpace(text) == "" {
 		return ""
 	}
-	w := terminalWidth()
+	// No word wrap: a path or a table row stays one line (the terminal wraps
+	// it on screen), as the lines a command prints are its layout.
+	const w = 0
 	rendererMu.Lock()
 	if cachedCommandRenderer == nil || cachedCommandRendererWidth != w {
 		r, err := glamour.NewTermRenderer(
