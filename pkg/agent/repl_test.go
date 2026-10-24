@@ -1186,7 +1186,7 @@ func TestCmdHelp(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdHelp()
+	err := repl.dispatchCommand("/help")
 	assert.NoError(t, err)
 }
 
@@ -1320,7 +1320,7 @@ func TestCmdPrompt_NoCallYet(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt(nil)
+	err := repl.dispatchCommand("/prompt")
 	assert.NoError(t, err)
 }
 
@@ -1333,7 +1333,7 @@ func TestCmdPrompt_ShowsLastSentMessages(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt(nil)
+	err := repl.dispatchCommand("/prompt")
 	assert.NoError(t, err)
 }
 
@@ -1349,7 +1349,7 @@ func TestCmdPrompt_ShowsToolsWithTokenEstimates(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt(nil)
+	err := repl.dispatchCommand("/prompt")
 	assert.NoError(t, err)
 }
 
@@ -1364,7 +1364,7 @@ func TestCmdPrompt_RawJSONIncludesTools(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt([]string{"raw"})
+	err := repl.dispatchCommand("/prompt " + strings.Join([]string{"raw"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -1382,7 +1382,7 @@ func TestCmdPrompt_RawJSON(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt([]string{"raw"})
+	err := repl.dispatchCommand("/prompt " + strings.Join([]string{"raw"}, " "))
 	assert.NoError(t, err)
 }
 
@@ -1394,7 +1394,7 @@ func TestCmdPrompt_MissingRole(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdPrompt(nil)
+	err := repl.dispatchCommand("/prompt")
 	assert.NoError(t, err)
 }
 

@@ -148,3 +148,36 @@ func TestKnowledgeCommands_ThroughTheAPI(t *testing.T) {
 		require.ErrorContains(t, err, "knowledge.enabled: false", name)
 	}
 }
+
+// /prompt and /context are YAML commands: before any LLM call /prompt says
+// so, and a cloud backend refuses /context with the reason.
+func TestPromptAndContextCommands_ThroughTheAPI(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	agent.ReloadAssets()
+
+	loop := agent.New(
+		executor.NewEngine(nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m", Backend: "openai"},
+	)
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+
+	out, err := api.CallCommand(t.Context(), "prompt", map[string]any{"args": []string{}})
+	require.NoError(t, err)
+	require.Contains(t, out, "No LLM call has been made yet")
+	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "context"})
+	require.NoError(t, err)
+	require.Contains(t, out, `"backend":"openai"`)
+	_, err = api.CallTool(
+		t.Context(),
+		"session_ops",
+		map[string]any{"operation": "set", "key": "context", "value": "32k"},
+	)
+	require.ErrorContains(t, err, "managed server-side")
+}

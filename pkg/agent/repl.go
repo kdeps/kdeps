@@ -24,7 +24,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,7 +50,6 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 )
 
 //nolint:gochecknoglobals // overridable in tests for timing-sensitive spinner assertions
@@ -2496,30 +2494,6 @@ func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
 	return nil
 }
 
-func (r *REPL) cmdHelp() error {
-	heading := styleReplHeading.Render
-	dim := styleReplDim.Render
-	lines := append([]string{heading("Available commands:")}, commandHelpLines()...)
-	lines = append(
-		lines,
-		"  /<skill-name> [..]                 Invoke a loaded skill or prompt template by name",
-		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
-		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
-	)
-	for _, l := range lines {
-		fmt.Fprintln(os.Stdout, l)
-	}
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, dim(
-		"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
-	))
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, dim(
-		"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
-	))
-	return nil
-}
-
 // tagKeywords are the filter words the user may type for tag-based completion.
 // When a tag-only completion is selected (length=0), readline appends the full
 // model name after the typed keyword, giving e.g. "ggufgemma4". This list is
@@ -3158,10 +3132,11 @@ func (r *REPL) pageLines(lines []string) error {
 		pageSize = termH - pagerHeaderReserve
 	}
 
-	// Only page interactively in the REPL. Outside it (tests, pipes, non-TTY),
-	// print everything directly — a term.MakeRaw + stdin read here would grab the
-	// controlling terminal of a test runner and leave it in raw mode.
-	if len(lines) <= pageSize || !r.loop.config.InteractiveTTY {
+	// Only page interactively in the REPL with a terminal on stdin. Outside
+	// it (tests, pipes, a piped REPL), print everything directly: a
+	// term.MakeRaw + stdin read here would grab the controlling terminal of a
+	// test runner and leave it in raw mode, or eat piped input.
+	if len(lines) <= pageSize || !r.loop.config.InteractiveTTY || !stdinIsTerminal() {
 		for _, l := range lines {
 			fmt.Fprintln(os.Stdout, l)
 		}
@@ -3221,75 +3196,6 @@ func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
 	return nil
 }
 
-// cmdPrompt shows the exact messages array sent to the LLM on the most
-// recent call -- including any backend-specific transformation, such as
-// folding system-role messages for local chat templates (e.g. Gemma's)
-// that reject them outright. Useful for debugging why a model behaved
-// unexpectedly: what it actually saw may differ from the configured system
-// prompt once backend quirks are applied.
-func (r *REPL) cmdPrompt(args []string) error {
-	messages := r.loop.LastSentMessages()
-	tools := r.loop.LastSentTools()
-	if len(messages) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-			"No LLM call has been made yet this session.",
-		))
-		return nil
-	}
-
-	if len(args) > 0 && strings.EqualFold(args[0], "raw") {
-		return r.printPromptRaw(messages, tools)
-	}
-
-	model := r.loop.config.Model
-	msgTokens := make([]int, len(messages))
-	msgTotal := 0
-	for i, m := range messages {
-		msgTokens[i] = llm.CountTokens(model, promptMessageContentPreview(m))
-		msgTotal += msgTokens[i]
-	}
-	toolTokens := make([]int, len(tools))
-	toolTotal := 0
-	for i, tl := range tools {
-		toolTokens[i] = promptToolTokenCount(model, tl)
-		toolTotal += toolTokens[i]
-	}
-
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render(
-		fmt.Sprintf("Last request sent to the LLM (%d messages, %d tools, ~%d tokens estimated):",
-			len(messages), len(tools), msgTotal+toolTotal),
-	))
-	for i, m := range messages {
-		role, _ := m["role"].(string)
-		if role == "" {
-			role = "?"
-		}
-		fmt.Fprintf(os.Stdout, "  %s\n",
-			styleReplHeading.Render(fmt.Sprintf("[%d] %s (~%d tokens):", i, strings.ToUpper(role), msgTokens[i])),
-		)
-		fmt.Fprintln(os.Stdout, "    "+strings.ReplaceAll(promptMessageContentPreview(m), "\n", "\n    "))
-	}
-	if len(tools) > 0 {
-		fmt.Fprintln(os.Stdout, styleReplHeading.Render(
-			fmt.Sprintf("Tools (%d, ~%d tokens):", len(tools), toolTotal),
-		))
-		for i, tl := range tools {
-			fmt.Fprintf(os.Stdout, "  %s %s  %s\n",
-				styleReplHeading.Render(tl.Name),
-				styleReplDim.Render(fmt.Sprintf("(~%d tokens)", toolTokens[i])),
-				styleReplMeta.Render(tl.Description),
-			)
-		}
-	}
-	fmt.Fprintln(os.Stdout, styleReplDim.Render(
-		"Token counts are local tiktoken estimates of what was actually sent (post-fold, post-turo) -- "+
-			"they will not exactly match the provider's billed count for non-OpenAI-family models, "+
-			"but explain the relative weight of each part of the request.",
-	))
-	fmt.Fprintln(os.Stdout, styleReplDim.Render("(use /prompt raw for exact JSON, including full tool schemas)"))
-	return nil
-}
-
 // promptToolTokenCount estimates the token cost of a single tool definition
 // as it would be serialized in the request: name, description, and
 // parameter schema -- the fields that actually cost tokens on the wire,
@@ -3305,22 +3211,6 @@ func promptToolTokenCount(model string, tl domain.Tool) int {
 		fmt.Fprintf(&b, " %s:%s:%s", name, p.Type, p.Description)
 	}
 	return llm.CountTokens(model, b.String())
-}
-
-// printPromptRaw dumps messages and tools as raw JSON -- the exact request
-// shape (minus per-provider wrapping), for verifying precisely what a model
-// received, schemas included.
-func (r *REPL) printPromptRaw(messages []map[string]interface{}, tools []domain.Tool) error {
-	raw, err := json.MarshalIndent(map[string]interface{}{
-		"messages": messages,
-		"tools":    tools,
-	}, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal last sent request: %w", err)
-	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Last request sent to the LLM (raw JSON):"))
-	fmt.Fprintln(os.Stdout, string(raw))
-	return nil
 }
 
 // promptMessageContentPreview renders a message's content field for /prompt
@@ -3623,91 +3513,6 @@ func parseTokenCount(s string) int {
 //
 // cmdKartographer renders a live map of kdeps internal data-flow pipelines.
 
-func (r *REPL) cmdKartographer() error {
-	heading := styleReplHeading.Render
-	meta := styleReplMeta.Render
-	dim := styleReplDim.Render
-	pipe := dim("│")
-	tee := dim("├─")
-	end := dim("└─")
-	arrow := dim("→")
-
-	const ruleWidth = 68
-	fmt.Fprintln(os.Stdout, heading("kdeps internal pipelines"))
-	fmt.Fprintln(os.Stdout, dim(strings.Repeat("─", ruleWidth)))
-
-	// Token counter
-	in := GlobalPromptCacheStats.TotalInputTokens()
-	out := GlobalPromptCacheStats.TotalOutputTokens()
-	fmt.Fprintln(os.Stdout, meta("token"))
-	fmt.Fprintf(os.Stdout, "  %s GenerateContent %s recordTokenUsage %s TokenRecorder\n", tee, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s [session sent %s | generated %s | total %s]\n\n",
-		end, formatCompactCount(in), formatCompactCount(out), formatCompactCount(in+out))
-
-	// Convergence pipelines
-	wc, wm := WebConvergenceCalls()
-	r.printConvergence("converge", "web_search / web_scraper %s webToolCache.call()", wc, wm,
-		"system prompt <output> rule 24 (soft guidance)")
-	bc, bm := BashConvergenceCalls()
-	r.printConvergence("shell", "bash_exec %s trackBashCall()", bc, bm,
-		fmt.Sprintf("bash-call-budget event=%d", bm))
-	fc, fm := FileConvergenceCalls()
-	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
-		fmt.Sprintf("file-call-budget event=%d", fm))
-	cc, cm := CodeConvergenceCalls()
-	r.printConvergence("code", "search_local %s trackCodeCall()", cc, cm,
-		fmt.Sprintf("code-call-budget event=%d", cm))
-
-	// Compaction
-	turns := r.loop.Session().TurnCount()
-	threshold := r.loop.config.AutoCompactThreshold
-	fmt.Fprintln(os.Stdout, meta("compact"))
-	fmt.Fprintf(os.Stdout, "  %s shouldAutoCompact() checks token threshold\n", tee)
-	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM() %s buildSyntheticWorkflow\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s engine.Execute(synthetic) %s LLM summary\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s formatLoopResult() extracts text\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s session.CompactWith(summary, toKeep)\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s Fallback: session.Compact() truncation\n", pipe, arrow)
-	fmt.Fprintf(os.Stdout, "  %s %d turns (threshold: %d)\n\n", end, turns, threshold)
-
-	// Memory bridge
-	fmt.Fprintln(os.Stdout, meta("memory"))
-	fmt.Fprintf(os.Stdout, "  %s memory_query when memory can help (not before every action)\n", tee)
-	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)
-	if r.loop.memoryStore != nil {
-		fmt.Fprintf(os.Stdout, "  %s %d entries saved this session\n\n", end, r.loop.memoryStore.Len())
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s (no memory store)\n\n", end)
-	}
-	return nil
-}
-
-// printConvergence renders one convergence-pipeline block for cmdKartographer.
-// toolLine embeds a single %s for the arrow; footer is the trailing summary line.
-func (r *REPL) printConvergence(section, toolLine string, calls, limit int, footer string) {
-	meta := styleReplMeta.Render
-	dim := styleReplDim.Render
-	pipe := dim("│")
-	tee := dim("├─")
-	end := dim("└─")
-	arrow := dim("→")
-
-	fmt.Fprintln(os.Stdout, meta(section))
-	fmt.Fprintf(os.Stdout, "  %s "+toolLine+"\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, calls, limit)
-	if calls >= limit {
-		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
-	}
-	fmt.Fprintf(os.Stdout, "  %s %s\n\n", end, footer)
-}
-
 // cmdInstruct delivers a kdeps briefing to the model. Without live it appends
 // the briefing to history as a settled turn (cheap, primes the next prompt);
 // with live ("/instruct!") it runs a real turn now so the model reads the
@@ -3788,92 +3593,10 @@ const (
 	toggleOn  = "on"
 )
 
-func (r *REPL) cmdSearch(args []string) error {
-	exec := execSearch.NewExecutor()
-	wd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "search: getwd failed: %v\n", err)
-		return nil
-	}
-
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr,
-			"Usage: /search <query> | index | folders | add <folder> | remove <folder>\n")
-		return nil
-	}
-
-	if args[0] == "index" {
-		indexProjectFolders(os.Stdout, r.loop.knowledge, wd)
-		return nil
-	}
-	if r.cmdSearchFolders(args) {
-		return nil
-	}
-
-	// Search mode: run indexed search and inject results.
-	query := strings.Join(args, " ")
-	cfg := &domain.SearchLocalConfig{Path: wd, Query: query, Index: true}
-	result, searchErr := exec.Execute(nil, cfg)
-	if searchErr != nil {
-		fmt.Fprintf(os.Stderr, "search: %v\n", searchErr)
-		return nil
-	}
-
-	resultMap, ok := result.(map[string]interface{})
-	if !ok {
-		fmt.Fprintf(os.Stderr, "search: unexpected result type\n")
-		return nil
-	}
-
-	results, _ := resultMap["results"].([]map[string]interface{})
-	count, _ := resultMap["count"].(int)
-
-	if count == 0 {
-		fmt.Fprintf(os.Stderr, "search: no results for %q\n", query)
-		return nil
-	}
-
-	heading := styleReplHeading.Render
-	dim := styleReplDim.Render
-
-	// Print results to the terminal.
-	fmt.Fprintf(os.Stdout, "\n%s\n", heading(fmt.Sprintf("Search results for %q (%d files):", query, count)))
-	for i, r := range results {
-		path, _ := r["path"].(string)
-		score, _ := r["score"].(float64)
-		matchCount, _ := r["matchCount"].(int)
-		snippet, _ := r["snippet"].(string)
-		display := filepath.Base(path)
-		fmt.Fprintf(os.Stdout, "  %d. %s  %s\n", i+1, display,
-			dim(fmt.Sprintf("[match=%d score=%.2f]", matchCount, score)))
-		if snippet != "" {
-			fmt.Fprintf(os.Stdout, "     %s\n", dim(snippet))
-		}
-	}
-
-	// Results are printed above — the next prompt lets the LLM see and use them.
-	fmt.Fprintln(os.Stdout)
-
-	return nil
-}
-
-// cmdContext shows or sets the context window size for the current model.
-// For local backends (file, gguf) the running server is killed and restarted
-// with the new --ctx-size. For Ollama the size is passed as num_ctx on the
-// next request. Cloud backends do not support a user-controlled context size.
-func (r *REPL) cmdContext(args []string) error {
-	if len(args) == 0 {
-		currentSize := r.contextLimitForModel(r.loop.config.Model)
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Context window: %d tokens", currentSize)))
-		return nil
-	}
-
-	n := parseTokenCount(args[0])
-	if n <= 0 {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /context <size>  (e.g. 32768, 32k, 1m)"))
-		return nil
-	}
-
+// setContextSize sets a local model's context window to n tokens: a
+// llamafile/gguf server restarts with it, Ollama takes it on the next request.
+// The compaction budget and threshold follow, and the size is saved.
+func (r *REPL) setContextSize(n int) error {
 	backend := r.loop.config.Backend
 	model := r.loop.config.Model
 
@@ -3892,11 +3615,8 @@ func (r *REPL) cmdContext(args []string) error {
 		}
 	case "ollama":
 		llm.SetLocalContextSize(n)
-		msg := fmt.Sprintf("Ollama num_ctx set to %d (applies to next request)", n)
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
 	default:
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Context size is managed server-side for cloud backends."))
-		return nil
+		return errors.New("context size is managed server-side for cloud backends")
 	}
 
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
@@ -3906,9 +3626,6 @@ func (r *REPL) cmdContext(args []string) error {
 	r.loop.Session().SetTokenBudget(n, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.contextSize = n
-	r.persistTuning() // survive across sessions
-
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("Context window set to %d tokens", n)))
 	return nil
 }
 

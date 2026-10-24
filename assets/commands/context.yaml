@@ -1,12 +1,17 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: context
 order: 200
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: context
 usage:
   - args: ""
     help: Show current context window size
   - args: "<size>"
     help: Set context window size (e.g. 32768 or 32k); restarts local servers
+setting:
+  key: context     # a token count; cloud backends manage the window themselves
+  show: "Context window: {{.value}} tokens"
+  set: >-
+    {{if eq .backend "ollama"}}Ollama num_ctx set to {{.value}} (applies to next request){{else}}Context window set to {{.value}} tokens{{end}}
+  invalid: "Usage: /context <size>  (e.g. 32768, 32k, 1m)"

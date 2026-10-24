@@ -398,7 +398,7 @@ func TestCmdHelp_PrintsCommands(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdHelp()
+		err := repl.dispatchCommand("/help")
 		assert.NoError(t, err)
 	})
 	assert.Contains(t, out, "/help")

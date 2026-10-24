@@ -98,8 +98,8 @@ func TestCommandAliasesResolve(t *testing.T) {
 			t.Fatalf("without assets /%s resolves to %q, want %q", name, got, want)
 		}
 	}
-	if got := builtinCommandOperation("help"); got != "help" {
-		t.Fatalf("without assets /help resolves to %q", got)
+	if got := builtinCommandOperation("settings"); got != "settings" {
+		t.Fatalf("without assets /settings resolves to %q", got)
 	}
 	if got := builtinCommandOperation("not_a_command"); got != "" {
 		t.Fatalf("unknown name resolves to %q", got)
@@ -125,9 +125,6 @@ func TestDispatchCommandRunsTheBoundOperation(t *testing.T) {
 	}
 	if quit.loopCtx.Err() == nil {
 		t.Fatal("/quit did not cancel the loop")
-	}
-	if err := quit.dispatchCommand("/help"); err != nil {
-		t.Fatal(err)
 	}
 }
 

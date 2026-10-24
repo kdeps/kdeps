@@ -1,10 +1,62 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: kartographer
 order: 330
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: kartographer
 usage:
   - args: ""
     help: Show a live map of the internal data-flow pipelines
+run:
+  - tool: session_ops
+    args: {operation: pipelines}  # the live numbers; the map itself is this text
+    print: |-
+      **kdeps internal pipelines**
+      ```
+      token
+        ├─ GenerateContent → recordTokenUsage → TokenRecorder
+        │   → GlobalPromptCacheStats.RecordCacheUsageFromTokens
+        │   → syncTokenCounter → TokenCounter
+        │   → compactTokenStatus
+        └─ [session sent {{.sent}} | generated {{.generated}} | total {{.total}}]
+
+      converge
+        ├─ web_search / web_scraper → webToolCache.call()
+        │   → calls++ (now {{.web.calls}}/{{.web.limit}})
+        │   → {{if .web.reached}}LIMIT REACHED → convergence error{{else}}execute, cache result{{end}}
+        └─ system prompt <output> rule 24 (soft guidance)
+
+      shell
+        ├─ bash_exec → trackBashCall()
+        │   → calls++ (now {{.bash.calls}}/{{.bash.limit}})
+        │   → {{if .bash.reached}}LIMIT REACHED → convergence error{{else}}execute, cache result{{end}}
+        └─ bash-call-budget event={{.bash.limit}}
+
+      file
+        ├─ read_file / list_files → trackFileCall()
+        │   → calls++ (now {{.file.calls}}/{{.file.limit}})
+        │   → {{if .file.reached}}LIMIT REACHED → convergence error{{else}}execute, cache result{{end}}
+        └─ file-call-budget event={{.file.limit}}
+
+      code
+        ├─ search_local → trackCodeCall()
+        │   → calls++ (now {{.code.calls}}/{{.code.limit}})
+        │   → {{if .code.reached}}LIMIT REACHED → convergence error{{else}}execute, cache result{{end}}
+        └─ code-call-budget event={{.code.limit}}
+
+      compact
+        ├─ shouldAutoCompact() checks token threshold
+        │   → CompactWithLLM() → buildSyntheticWorkflow
+        │   → engine.Execute(synthetic) → LLM summary
+        │   → formatLoopResult() extracts text
+        │   → session.CompactWith(summary, toKeep)
+        │   → Fallback: session.Compact() truncation
+        └─ {{.turns}} turns (threshold: {{.threshold}})
+
+      memory
+        ├─ memory_query when memory can help (not before every action)
+        │   → RunStreaming → memoryStore.ExtractTurn()
+        │   → CompactWithLLM → memoryStore.AutoCapture()
+        │   → dispatchToTerminal → ExtractToolResult()
+        └─ {{if lt .memory 0.0}}(no memory store){{else}}{{.memory}} entries saved this session{{end}}
+      ```

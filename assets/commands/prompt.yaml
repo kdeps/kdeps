@@ -1,12 +1,38 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: prompt
 order: 100
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: prompt
 usage:
   - args: ""
     help: "Show the exact messages+tools sent to the LLM on the last call, with token estimates"
   - args: raw
     help: "Same, as raw JSON (exact request wire format, full tool schemas)"
+subcommands:
+  "":
+    run:
+      - tool: session_ops
+        args: {operation: last_request}
+        print: |-
+          {{if not .messages}}No LLM call has been made yet this session.{{else}}**Last request sent to the LLM ({{len .messages}} messages, {{len .tools}} tools, ~{{.tokens}} tokens estimated):**
+          {{range .messages}}
+          **[{{.index}}] {{.role}} (~{{.tokens}} tokens):**
+          ```
+          {{.content}}
+          ```{{end}}{{if .tools}}
+          **Tools ({{len .tools}}, ~{{.tool_tokens}} tokens):**
+          {{range .tools}}
+          - `{{.name}}` (~{{.tokens}} tokens) {{.description}}{{end}}{{end}}
+
+          Token counts are local tiktoken estimates of what was actually sent (post-fold, post-turo) -- they will not exactly match the provider's billed count for non-OpenAI-family models, but explain the relative weight of each part of the request.
+          (use `/prompt raw` for exact JSON, including full tool schemas){{end}}
+  raw:
+    run:
+      - tool: session_ops
+        args: {operation: last_request, raw: "true"}
+        print: |-
+          {{if not .messages}}No LLM call has been made yet this session.{{else}}**Last request sent to the LLM (raw JSON):**
+          ```json
+          {{.raw}}
+          ```{{end}}

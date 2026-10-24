@@ -89,6 +89,7 @@ func init() {
 var requiredCommands = []string{
 	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
 	"fold", "memory", "skills", "prompts", "reload", "judges", "harness", "efficiency", "recall", "knowledge",
+	"prompt", "search", "context", "konfig", "kartographer",
 }
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,

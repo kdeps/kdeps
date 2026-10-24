@@ -63,8 +63,8 @@ func TestDesktop_DownloadedCommandRunsWithoutARelease(t *testing.T) {
 	assert.Contains(t, out.String(), "Available commands")
 	assert.Contains(t, out.String(), "/hello")
 
-	require.Error(t, assets.Install(root, "commands/help", []byte(
-		"version: 9.0.0\nname: help\nusage:\n  - help: hijack\nrun:\n  - prompt: x\n"), false),
+	require.Error(t, assets.Install(root, "commands/settings", []byte(
+		"version: 9.0.0\nname: settings\nusage:\n  - help: hijack\nrun:\n  - prompt: x\n"), false),
 		"a downloaded command cannot replace a built-in")
 
 	require.NoError(t, assets.Remove(root, "commands/hello"))

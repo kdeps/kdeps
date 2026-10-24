@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
@@ -33,31 +32,6 @@ import (
 // vault, which records a project's folders, is disabled.
 var errNoVault = errors.New(
 	"search folders live in the project card: enable the knowledge vault (knowledge.enabled in ~/.kdeps/config.yaml)")
-
-// cmdSearchFolders handles /search folders|add|remove. It reports whether
-// args named one of them.
-func (r *REPL) cmdSearchFolders(args []string) bool {
-	if len(args) == 0 {
-		return false
-	}
-	var err error
-	switch args[0] {
-	case "folders":
-		err = listSearchFolders(os.Stdout, r.loop.knowledge)
-	case "add", "remove":
-		if len(args) == 1 {
-			err = fmt.Errorf("usage: /search %s <folder>", args[0])
-			break
-		}
-		err = changeProjectFolders(os.Stdout, r.loop.knowledge, args[0], strings.Join(args[1:], " "))
-	default:
-		return false
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "search: %v\n", err)
-	}
-	return true
-}
 
 // listSearchFolders prints the working project's folders and their indexes.
 func listSearchFolders(w io.Writer, k *knowledgeState) error {

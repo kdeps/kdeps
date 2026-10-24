@@ -175,6 +175,17 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /context: the context window, in tokens. Cloud backends manage it themselves.
+	"context": {
+		get: func(r *REPL) map[string]any {
+			return map[string]any{
+				"value":   r.contextLimitForModel(r.loop.config.Model),
+				"backend": r.loop.config.Backend,
+			}
+		},
+		set:     func(r *REPL, v string) error { return r.setContextSize(parseTokenCount(v)) },
+		accepts: func(v string) bool { return parseTokenCount(v) > 0 },
+	},
 	// /knowledge on|off: per-turn recall, session notes and the knowledge tools.
 	"knowledge": {
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.knowledgeOn()) },

@@ -15,7 +15,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs: compact, truncate, block, cap or force an answer", Here: true},
 			{Label: "the agent loop continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/konfig", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
 	},
 	"commands": {
@@ -25,7 +25,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the command runs: built in, or its declared steps", Here: true},
 			{Label: "prompts go to the model; the output is shown"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/help", "/update", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.declaredCommand"},
 	},
 	"components": {
@@ -45,7 +45,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/context", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "config.GetDefaults"},
 	},
 	"docker": {
@@ -68,7 +68,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs"},
 			{Label: "the turn continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/context", "/prompt", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
 	},
 	"harness": {
@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {
@@ -101,7 +101,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the registry resolves it: download, local server or provider", Here: true},
 			{Label: "the model is called"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "/context", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall"},
 		Code:   []string{"kdeps (agent loop)", "llm.ReloadCloudModels", "llm.readModelRegistry"},
 	},
 	"presets": {
@@ -111,7 +111,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.mergeUserPresets"},
 	},
 	"providers": {
@@ -163,7 +163,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the theme colors the terminal", Here: true},
 			{Label: "every reply and prompt"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall"},
 		Code:   []string{"kdeps (agent loop)", "agent.SetTheme"},
 	},
 	"tools": {

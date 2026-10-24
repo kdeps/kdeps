@@ -52,20 +52,21 @@ func TestCmdPermissionThinkingContext(t *testing.T) {
 	if err := r.dispatchCommand("/thinking"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.cmdContext(nil); err != nil {
+	if err := r.dispatchCommand("/context"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.cmdContext([]string{"nope"}); err != nil {
+	if err := r.dispatchCommand("/context " + strings.Join([]string{"nope"}, " ")); err != nil {
 		t.Fatal(err)
 	}
 	// cloud backend: no local server restart
 	r.loop.config.Backend = "openai"
-	if err := r.cmdContext([]string{"8k"}); err != nil {
-		t.Fatal(err)
+	if err := r.dispatchCommand("/context " + strings.Join([]string{"8k"}, " ")); err == nil ||
+		!strings.Contains(err.Error(), "managed server-side") {
+		t.Fatalf("expected the cloud backend refusal, got %v", err)
 	}
 	// ollama sets local ctx + session budget
 	r.loop.config.Backend = "ollama"
-	if err := r.cmdContext([]string{"16k"}); err != nil {
+	if err := r.dispatchCommand("/context " + strings.Join([]string{"16k"}, " ")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -93,14 +94,15 @@ func TestOnPasteContentAndPasteClose(t *testing.T) {
 }
 
 func TestCmdKartographerSmoke(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{}, session: NewSession(0)}}
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
 	oldOut := os.Stdout
 	rd, wr, pipeErr := os.Pipe()
 	if pipeErr != nil {
 		t.Fatal(pipeErr)
 	}
 	os.Stdout = wr
-	if err := r.cmdKartographer(); err != nil {
+	if err := r.dispatchCommand("/kartographer"); err != nil {
 		t.Fatal(err)
 	}
 	_ = wr.Close()

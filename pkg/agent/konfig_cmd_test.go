@@ -34,7 +34,7 @@ func TestCmdKonfig_NoArgsShowsUsage(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.dispatchCommand("/konfig"))
+	require.ErrorContains(t, repl.dispatchCommand("/konfig"), "unknown /konfig subcommand \"\" (export, import)")
 }
 
 func TestCmdKonfig_UnknownSubcommand(t *testing.T) {
@@ -43,7 +43,7 @@ func TestCmdKonfig_UnknownSubcommand(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.dispatchCommand("/konfig bogus"))
+	require.ErrorContains(t, repl.dispatchCommand("/konfig bogus"), "unknown /konfig subcommand")
 }
 
 func TestCmdKonfigExport_WritesFileAtDefaultPath(t *testing.T) {
@@ -119,13 +119,13 @@ func TestCmdKonfigImport_WithSkillsNotesRestartRequired(t *testing.T) {
 }
 
 // TestCmdKonfigImport_MissingFileReportsErrorWithoutPanicking covers the
-// ReadKonfig-fails branch: a nonexistent path must produce a clean error
-// message via cmdKonfigImport, not a REPL-loop error or a panic.
+// ReadKonfig-fails branch: a nonexistent path is an error naming the import.
 func TestCmdKonfigImport_MissingFileReportsErrorWithoutPanicking(t *testing.T) {
 	isolateKonfigHome(t)
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.dispatchCommand("/konfig import "+filepath.Join(t.TempDir(), "does-not-exist.yaml")))
+	require.ErrorContains(t, repl.dispatchCommand("/konfig import "+filepath.Join(t.TempDir(), "does-not-exist.yaml")),
+		"konfig import failed")
 }
