@@ -19,7 +19,11 @@
 package agent
 
 import (
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 )
@@ -75,9 +79,8 @@ func TestGoCommandsResolveToAnOperation(t *testing.T) {
 // and the fallback table used when the asset set is missing.
 func TestCommandAliasesResolve(t *testing.T) {
 	cases := map[string]string{
-		"permissions": "permission",
-		"quit":        "exit",
-		"instruct!":   "instruct-now",
+		"quit":      "exit",
+		"instruct!": "instruct-now",
 	}
 	for name, want := range cases {
 		if got := builtinCommandOperation(name); got != want {
@@ -138,8 +141,57 @@ func TestRegisterCommandAPI(t *testing.T) {
 	if repl.loop.Session().TurnCount() != 0 {
 		t.Fatal("api clear did not clear the session")
 	}
+	if _, err := api.CallCommand(t.Context(), "handshake", map[string]any{"args": []string{"on"}}); err != nil {
+		t.Fatalf("a setting: command is on the API: %v", err)
+	}
+	if !repl.loop.HandshakeEnabled() {
+		t.Fatal("api handshake on did not set the setting")
+	}
 	if _, err := api.CallCommand(t.Context(), "not_a_command", nil); err == nil ||
 		err.Error() != "command not found" {
 		t.Fatalf("unknown command: %v", err)
 	}
+}
+
+// TestSettingCommands_RunFromTheirAssets: a setting: command shows, sets and
+// persists its setting, and an alias reaches it.
+func TestSettingCommands_RunFromTheirAssets(t *testing.T) {
+	loop := makeTestLoop(nil)
+	r := NewREPL(context.Background(), loop)
+	defer r.cancel()
+	var saved []ToolTuning
+	r.SetSaveTuningFn(func(tt ToolTuning) error { saved = append(saved, tt); return nil })
+
+	require.NoError(t, r.dispatchCommand("/refine off"))
+	assert.False(t, loop.PromptRefineEnabled())
+	require.NoError(t, r.dispatchCommand("/refine ON"))
+	assert.True(t, loop.PromptRefineEnabled(), "values match without case")
+	require.NoError(t, r.dispatchCommand("/handshake on"))
+	assert.True(t, loop.HandshakeEnabled())
+	require.NoError(t, r.dispatchCommand("/permissions read-only"))
+	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode)
+	require.NoError(t, r.dispatchCommand("/permission bogus"))
+	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode, "an unlisted value changes nothing")
+	assert.Len(t, saved, 4, "each stored value persists")
+
+	c := declaredCommand("refine")
+	require.NotNil(t, c)
+	require.NotNil(t, c.Setting)
+}
+
+func TestSettingSpec_Validate(t *testing.T) {
+	ok := settingSpec{Key: "refine", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
+	require.NoError(t, ok.validate())
+	bad := ok
+	bad.Key = "nope"
+	require.ErrorContains(t, bad.validate(), "unknown key")
+	bad = ok
+	bad.Values = nil
+	require.ErrorContains(t, bad.validate(), "values is required")
+	bad = ok
+	bad.Set = "{{"
+	require.ErrorContains(t, bad.validate(), "setting: set")
+	_, err := parseYAMLCommand([]byte("name: x\nusage: [{help: h}]\nrun: [{prompt: p}]\n"+
+		"setting: {key: refine, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
+	require.ErrorContains(t, err, "not both")
 }

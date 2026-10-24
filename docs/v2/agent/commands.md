@@ -261,6 +261,46 @@ run:
 | `/review [focus]` | A prompt asking the model to review the uncommitted changes, without editing files |
 | `/explain <target>` | A prompt asking the model to read the code and explain how `<target>` works |
 
+## Setting commands
+
+A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps owns the setting itself (the live REPL state and saving it across sessions); the accepted values and every line the command prints are in the file.
+
+```text
+/refine        -> prints show:     (current value)
+/refine off    -> stores "off", saves it, prints set:
+/refine maybe  -> changes nothing, prints invalid:
+```
+
+<div v-pre>
+
+```yaml
+# commands/refine.yaml (shipped, wording abridged)
+version: 2.0.0
+name: refine
+usage:
+  - args: "[on|off]"
+    help: Show or toggle pre-turn prompt refinement (on by default)
+setting:
+  key: refine        # the session setting: refine, handshake, autocontext, permission or tools
+  values: [on, off]  # accepted arguments, matched without case
+  show: >-           # Go template; .value is the current value
+    {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}
+  set: "prompt refinement {{.value}}"     # after storing; .value is the new value
+  invalid: "Usage: /refine [on|off]"     # .arg is what was typed
+```
+
+</div>
+
+| Shipped setting command | Setting | Values | Extra template fields |
+|---|---|---|---|
+| `/refine` | `refine` | `on`, `off` | - |
+| `/handshake` | `handshake` | `on`, `off` | - |
+| `/autocontext` | `autocontext` | `on`, `off` | - |
+| `/permission` (alias `/permissions`) | `permission` | `read-only`, `workspace-write`, `danger-full-access`, `ask` | - |
+| `/tools` | `tools` | `full`, `lean` | `.count` (tools in the set), `.available` (false when lean mode trimmed nothing) |
+
+Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `key` kdeps does not have is skipped with a warning at load.
+
 ## See also
 
 - [Agent mode](/agent/) - overview and starting the REPL

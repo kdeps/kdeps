@@ -1,10 +1,15 @@
-version: 1.0.1
+version: 2.0.0
 name: handshake
 order: 300
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: handshake
 usage:
   - args: "[on|off]"
     help: Show or toggle the mandatory session-integrity tool-call check (off by default)
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: handshake     # live session state; the choice persists across sessions
+  values: [on, off]
+  show: >-
+    {{if eq .value "on"}}session-integrity handshake is on — model change, resume, and compaction/fold each force a verified tool call before the next prompt{{else}}session-integrity handshake is off — /handshake on to enable{{end}}
+  set: >-
+    {{if eq .value "on"}}session-integrity handshake enabled — verifying on the current model now, before your next prompt, and again on every model change, resume, and compaction/fold{{else}}session-integrity handshake disabled{{end}}
+  invalid: "Usage: /handshake [on|off]"

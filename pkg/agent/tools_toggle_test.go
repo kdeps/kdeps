@@ -31,8 +31,8 @@ func TestCmdTools_NilFilterFn_NoOp(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdTools(nil))
-	require.NoError(t, repl.cmdTools([]string{"full"}))
+	require.NoError(t, repl.dispatchCommand("/tools"))
+	require.NoError(t, repl.dispatchCommand("/tools full"))
 	assert.False(t, repl.toolsFullMode)
 }
 
@@ -42,7 +42,7 @@ func TestCmdTools_ShowState(t *testing.T) {
 	defer repl.cancel()
 
 	repl.SetToolsFilterFn(func(bool) int { return 0 }, 16)
-	require.NoError(t, repl.cmdTools(nil))
+	require.NoError(t, repl.dispatchCommand("/tools"))
 	assert.False(t, repl.toolsFullMode)
 	assert.Equal(t, 16, repl.toolsCount)
 }
@@ -53,8 +53,8 @@ func TestCmdTools_ShowState_FullMode(t *testing.T) {
 	defer repl.cancel()
 
 	repl.SetToolsFilterFn(func(bool) int { return 55 }, 16)
-	require.NoError(t, repl.cmdTools([]string{"full"}))
-	require.NoError(t, repl.cmdTools(nil))
+	require.NoError(t, repl.dispatchCommand("/tools full"))
+	require.NoError(t, repl.dispatchCommand("/tools"))
 	assert.True(t, repl.toolsFullMode)
 }
 
@@ -72,11 +72,11 @@ func TestCmdTools_ToggleFullAndLean(t *testing.T) {
 		return 16
 	}, 16)
 
-	require.NoError(t, repl.cmdTools([]string{"full"}))
+	require.NoError(t, repl.dispatchCommand("/tools full"))
 	assert.True(t, repl.toolsFullMode)
 	assert.Equal(t, 55, repl.toolsCount)
 
-	require.NoError(t, repl.cmdTools([]string{"lean"}))
+	require.NoError(t, repl.dispatchCommand("/tools lean"))
 	assert.False(t, repl.toolsFullMode)
 	assert.Equal(t, 16, repl.toolsCount)
 
@@ -89,7 +89,7 @@ func TestCmdTools_UnknownOption(t *testing.T) {
 	defer repl.cancel()
 
 	repl.SetToolsFilterFn(func(bool) int { return 0 }, 16)
-	require.NoError(t, repl.cmdTools([]string{"bogus"}))
+	require.NoError(t, repl.dispatchCommand("/tools bogus"))
 	assert.False(t, repl.toolsFullMode)
 }
 

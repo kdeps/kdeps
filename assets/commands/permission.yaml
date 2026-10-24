@@ -1,11 +1,19 @@
-version: 1.0.1
+version: 2.0.0
 name: permission
 order: 340
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: permission
 aliases: [permissions]
 usage:
   - args: "[read-only|workspace-write|danger-full-access|ask]"
     help: Show or set the tool permission mode for this session
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: permission    # the session's permission mode; persists across sessions
+  values: [read-only, workspace-write, danger-full-access, ask]
+  show: |-
+    Permission mode: {{.value}}
+      read-only          reads/searches only; writes and commands blocked
+      workspace-write    reads plus file writes and command execution
+      danger-full-access no restrictions (default)
+      ask                prompt before each mutating tool (allow once/always/deny)
+  set: "Permission mode: {{.value}}"
+  invalid: 'Unknown mode {{printf "%q" .arg}}. Valid: read-only, workspace-write, danger-full-access, ask.'

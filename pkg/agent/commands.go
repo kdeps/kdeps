@@ -39,7 +39,8 @@ import (
 // builtin command's file names the kdeps API operation that runs it in api:
 // (the file name, an entry in builtinCommandOps) and supplies its help,
 // aliases and completion; any other file defines the command entirely, as a
-// list of steps -- other slash commands and prompts sent to the model.
+// list of steps -- other slash commands and prompts sent to the model -- or
+// as a setting: block that shows or sets one session setting.
 
 // goCommands are the slash commands handled in Go: each has a builtin
 // commands/ asset naming its builtinCommandOps entry in api:, and a declared
@@ -49,8 +50,8 @@ import (
 var goCommands = []string{
 	"help", "clear", "model", "skills", "prompts", "compact", "fold", "history", "prompt", "session",
 	"settings", "thinking", "editor", "copy", "reload", "search", "context", "kartographer",
-	"permission", "permissions", "autocontext", "tools", "upgrade", "konfig", "login", "theme", "harness",
-	"exit", "quit", "turo", "auto-improve", "refine", "efficiency", "handshake", "judges", "memory",
+	"upgrade", "konfig", "login", "theme", "harness",
+	"exit", "quit", "turo", "auto-improve", "efficiency", "judges", "memory",
 	"instruct", "instruct!", "update", "recall", "knowledge",
 }
 
@@ -86,6 +87,9 @@ type slashCommand struct {
 	Aliases []string       `yaml:"aliases"`
 	Usage   []commandUsage `yaml:"usage"`
 	Run     []commandStep  `yaml:"run"`
+	// Setting makes the command show or set one session setting instead of
+	// running steps (see settingSpec).
+	Setting *settingSpec `yaml:"setting"`
 	// Requires is the asset header's requires: (read by kdeps update, not here).
 	Requires map[string]string `yaml:"requires"`
 }
@@ -149,8 +153,14 @@ func (c *slashCommand) validateDeclared() error {
 			return fmt.Errorf("/%s is a built-in command", n)
 		}
 	}
+	if c.Setting != nil {
+		if len(c.Run) > 0 {
+			return errors.New("give run or setting, not both")
+		}
+		return c.Setting.validate()
+	}
 	if len(c.Run) == 0 {
-		return errors.New("run is required")
+		return errors.New("run or setting is required")
 	}
 	for i, s := range c.Run {
 		set := 0
@@ -300,6 +310,9 @@ func (r *REPL) runDeclaredCommandEmit(c *slashCommand, args []string, emit func(
 	}
 	r.commandDepth++
 	defer func() { r.commandDepth-- }()
+	if c.Setting != nil {
+		return r.runSettingCommand(c, args)
+	}
 	for _, s := range c.Run {
 		if s.Command != "" {
 			if err := r.dispatchCommand(substituteArgs(s.Command, args)); err != nil {

@@ -1,10 +1,15 @@
-version: 1.0.1
+version: 2.0.0
 name: tools
 order: 130
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: tools
 usage:
   - args: "[full|lean]"
     help: Show or toggle the lean/full tool set for this session
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: tools         # the session's tool set; .count is its size, .available false when lean mode trimmed nothing
+  values: [full, lean]
+  show: >-
+    {{if .available}}Tool set: {{.value}} ({{.count}} tools). Use /tools full or /tools lean to switch.{{else}}Tool set: nothing to toggle (already at the full set for this session).{{end}}
+  set: >-
+    {{if .available}}Tool set: {{.value}} ({{.count}} tools).{{else}}Tool set: nothing to toggle (already at the full set for this session).{{end}}
+  invalid: 'Unknown option {{printf "%q" .arg}}. Valid: full, lean.'

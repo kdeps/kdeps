@@ -61,9 +61,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"search":       func(r *REPL, a []string) error { return r.cmdSearch(a) },
 		"context":      func(r *REPL, a []string) error { return r.cmdContext(a) },
 		"kartographer": func(r *REPL, _ []string) error { return r.cmdKartographer() },
-		"permission":   func(r *REPL, a []string) error { return r.cmdPermission(a) },
-		"autocontext":  func(r *REPL, a []string) error { return r.cmdAutoContext(a) },
-		"tools":        func(r *REPL, a []string) error { return r.cmdTools(a) },
 		"upgrade":      func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
 		"konfig":       func(r *REPL, a []string) error { return r.cmdKonfig(a) },
 		"login":        func(r *REPL, a []string) error { return r.cmdLogin(a) },
@@ -77,9 +74,7 @@ func builtinCommandOps() map[string]commandMethod {
 		"knowledge":    func(r *REPL, a []string) error { r.cmdKnowledge(a); return nil },
 		"turo":         func(r *REPL, a []string) error { return r.cmdTuro(a) },
 		"auto-improve": func(r *REPL, _ []string) error { return r.cmdAutoImprove() },
-		"refine":       func(r *REPL, a []string) error { r.cmdRefine(a); return nil },
 		"efficiency":   func(r *REPL, a []string) error { r.cmdEfficiency(a); return nil },
-		"handshake":    func(r *REPL, a []string) error { r.cmdHandshake(a); return nil },
 		"judges":       func(r *REPL, a []string) error { r.cmdJudges(a); return nil },
 		"memory":       func(r *REPL, a []string) error { return r.cmdMemory(a) },
 		"instruct":     func(r *REPL, a []string) error { return r.cmdInstruct(false, a) },
@@ -94,9 +89,8 @@ func builtinCommandOps() map[string]commandMethod {
 //
 //nolint:gochecknoglobals // fixed fallback table
 var builtinCommandAliases = map[string]string{
-	"permissions": "permission",
-	"quit":        "exit",
-	"instruct!":   "instruct-now",
+	"quit":      "exit",
+	"instruct!": "instruct-now",
 }
 
 // builtinCommandOperation resolves a typed command name (no slash) to the
@@ -149,14 +143,14 @@ func (r *REPL) RegisterCommandAPI() {
 		api.RegisterCommand(spec)
 	}
 	for _, c := range slashCommands {
-		if c.Builtin || len(c.Run) == 0 {
+		if c.Builtin || (len(c.Run) == 0 && c.Setting == nil) {
 			continue
 		}
 		api.RegisterCommand(r.declaredCommandSpec(c))
 	}
 }
 
-// declaredCommandSpec publishes a declared command (a prompt-only commands/
+// declaredCommandSpec publishes a declared command (a run: or setting: commands/
 // asset) on the API. The call runs its steps against this REPL and returns the
 // model replies in order.
 func (r *REPL) declaredCommandSpec(c *slashCommand) api.CommandSpec {

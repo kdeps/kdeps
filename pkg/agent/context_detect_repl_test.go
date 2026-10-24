@@ -202,7 +202,7 @@ func TestCmdAutoContext_ShowState(t *testing.T) {
 	defer repl.cancel()
 
 	assert.True(t, repl.autoContextDetect)
-	require.NoError(t, repl.cmdAutoContext(nil))
+	require.NoError(t, repl.dispatchCommand("/autocontext"))
 }
 
 func TestCmdAutoContext_ToggleOnOff(t *testing.T) {
@@ -210,13 +210,13 @@ func TestCmdAutoContext_ToggleOnOff(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdAutoContext([]string{"off"}))
+	require.NoError(t, repl.dispatchCommand("/autocontext off"))
 	assert.False(t, repl.autoContextDetect)
 
-	require.NoError(t, repl.cmdAutoContext([]string{"on"}))
+	require.NoError(t, repl.dispatchCommand("/autocontext on"))
 	assert.True(t, repl.autoContextDetect)
 
-	require.NoError(t, repl.cmdAutoContext([]string{"bogus"}))
+	require.NoError(t, repl.dispatchCommand("/autocontext bogus"))
 }
 
 func TestConfirmYesNo_NilReadlineDeclines(t *testing.T) {
