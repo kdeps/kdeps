@@ -13,7 +13,11 @@ python:
   script: |
     import hashlib, json, os, sys
 
-    path = os.path.abspath(json.loads(sys.argv[1])["file_path"])
+    path = json.loads(sys.argv[1])["file_path"]
+    # An absolute path comes back as given; a relative one is resolved.
+    path = path if os.path.isabs(path) else os.path.abspath(path)
+    if os.path.isdir(path):
+        sys.exit("md5_file: %s is a directory" % path)
     h = hashlib.md5()
     try:
         with open(path, "rb") as f:

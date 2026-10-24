@@ -18,7 +18,9 @@ python:
     import collections, json, os, sys
 
     a = json.loads(sys.argv[1])
-    path = os.path.abspath(a["file_path"])
+    path = a["file_path"] if os.path.isabs(a["file_path"]) else os.path.abspath(a["file_path"])
+    if os.path.isdir(path):
+        sys.exit("tail_file: %s is a directory" % path)
     try:
         n = int(float(a.get("lines") or 0))
     except ValueError:

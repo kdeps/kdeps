@@ -11,7 +11,8 @@ python:
     import json, os, sys
 
     a = json.loads(sys.argv[1])
-    d = os.path.abspath(str(a.get("path") or "").strip() or os.getcwd())
+    d = str(a.get("path") or "").strip() or os.getcwd()
+    d = d if os.path.isabs(d) else os.path.abspath(d)
     # An omitted path is the working directory, which the paths: check skips.
     if os.path.dirname(d) == d and os.environ.get("KDEPS_ALLOW_ROOT", "").strip().lower() != "true":
         sys.exit("list_files: operation on root directory '/' is blocked (set KDEPS_ALLOW_ROOT=true to permit)")
