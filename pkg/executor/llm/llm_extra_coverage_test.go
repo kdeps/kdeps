@@ -308,76 +308,6 @@ func TestBuildLangchainMessages_RetrieverPreamble_NoScenarioSystemMsg(t *testing
 
 // ---- downloadFile: non-200 status triggers error ----
 
-func TestDownloadFile_NonOKStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer srv.Close()
-
-	err := downloadFile(t.TempDir()+"/out.bin", srv.URL)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "404")
-}
-
-// ---- hfRequest: non-200 status triggers error ----
-
-func TestHFRequest_NonOKStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer srv.Close()
-
-	_, err := hfRequest(context.Background(), srv.URL)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "401")
-}
-
-// ---- hfSearchWithoutFilter: decode error returns nil ----
-
-func TestHFSearchWithoutFilter_DecodeError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("not json"))
-	}))
-	defer srv.Close()
-
-	params := map[string][]string{"search": {"query"}}
-	result := hfSearchWithoutFilter(context.Background(), srv.URL, params)
-	assert.Empty(t, result)
-}
-
-// ---- HFSearchGGUFWithBase: decode error ----
-
-func TestHFSearchGGUFWithBase_DecodeError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("not json"))
-	}))
-	defer srv.Close()
-
-	_, err := HFSearchGGUFWithBase(context.Background(), srv.URL, "test", 5)
-	assert.Error(t, err)
-}
-
-// ---- HFSearchGGUFWithBase: empty first results triggers hfSearchWithoutFilter retry ----
-
-func TestHFSearchGGUFWithBase_EmptyResultsRetries(t *testing.T) {
-	callCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		callCount++
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("[]"))
-	}))
-	defer srv.Close()
-
-	results, err := HFSearchGGUFWithBase(context.Background(), srv.URL, "query", 5)
-	require.NoError(t, err)
-	assert.Empty(t, results)
-	assert.Equal(t, 2, callCount, "should retry via hfSearchWithoutFilter on empty results")
-}
-
-// ---- hfDownloadWithToken: non-200 status triggers error ----
-
 func TestHFDownloadWithToken_NonOKStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
@@ -495,26 +425,6 @@ func TestBuildOpenAIResponseFormat_NoTitle(t *testing.T) {
 // ---- output_parser.go: parseBooleanOutput non-bool path (type assertion fails) ----
 
 // ---- llamafile_registry.go: LlamafileCachedPath empty basename ----
-
-func TestLlamafileCachedPath_EmptyBasename(t *testing.T) {
-	origMap := llamafileAliasMap
-	t.Cleanup(func() { llamafileAliasMap = origMap })
-	// "filepath.Base(\"/\")" returns "/" which triggers the empty/slash check.
-	llamafileAliasMap = map[string]string{
-		"test-alias": "/",
-	}
-	_, ok := LlamafileCachedPath("test-alias", "/models")
-	assert.False(t, ok)
-}
-
-// ---- hf_search.go: hfRequest invalid URL ----
-
-func TestHFRequest_InvalidURL(t *testing.T) {
-	_, err := hfRequest(context.Background(), "\n")
-	assert.Error(t, err)
-}
-
-// ---- hf_search.go: HFDownloadGGUF with nil logger (covers inner slog.Default) ----
 
 func TestHFDownloadGGUF_ModelsDirError(t *testing.T) {
 	// Make userHomeDirFunc fail so DefaultModelsDir returns an error

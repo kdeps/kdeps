@@ -1,0 +1,49 @@
+version: 1.0.0
+category: model
+description: List the GGUF files in one HuggingFace repo with their sizes, to pick one for /model hff download.
+outputFormat: "a table: FILE, SIZE for each .gguf file in the repo"
+seeAlso: hf_search
+parameters:
+  repo:
+    type: string
+    description: The repo id, e.g. Qwen/Qwen3-8B-GGUF
+    required: true
+python:
+  env:
+    HF_TOKEN: [HF_TOKEN, ""]           # optional: a HuggingFace token raises rate limits
+    HF_API: [KDEPS_HF_API_URL, ""]     # optional: another API base (tests)
+  timeout: 60s
+  script: |
+    import json, os, sys, urllib.parse, urllib.request
+
+    a = json.loads(sys.argv[1])
+    repo = (a.get("repo") or "").strip()
+    if not repo:
+        sys.exit("hf_repo_files: repo is required")
+    base = (os.environ.get("HF_API") or "https://huggingface.co/api").rstrip("/")
+    req = urllib.request.Request(base + "/models/" + urllib.parse.quote(repo, safe="/"),
+                                 headers={"Accept": "application/json"})
+    if os.environ.get("HF_TOKEN"):
+        req.add_header("Authorization", "Bearer " + os.environ["HF_TOKEN"])
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            info = json.load(resp)
+    except Exception as e:  # network, HTTP status, or a body that is not JSON
+        sys.exit("hf_repo_files: %s" % e)
+    files = [f for f in info.get("siblings") or [] if f.get("rfilename", "").lower().endswith(".gguf")]
+    if not files:
+        print("No GGUF files found in %s." % repo)
+        sys.exit(0)
+
+    def size(n):
+        if not n or n <= 0:
+            return "?"
+        return "%.1fGB" % (n / 2**30) if n >= 2**30 else "%.0fMB" % (n / 2**20)
+
+    print("GGUF files in %s:" % repo)
+    print("-" * 72)
+    print("%-50s %10s" % ("FILE", "SIZE"))
+    print("-" * 72)
+    for f in files:
+        name = f["rfilename"]
+        print("%-50s %10s" % (name if len(name) < 50 else name[:48] + "~", size(f.get("size"))))

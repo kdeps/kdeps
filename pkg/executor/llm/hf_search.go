@@ -2,162 +2,22 @@ package llm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	stdhttp "net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spf13/pathologize"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	hfAPIBase     = "https://huggingface.co/api"
 	hfResolveBase = "https://huggingface.co"
-	hfAPIModels   = hfAPIBase + "/models"
-	hfSearchLimit = 20
-	hfHTTPTimeout = 30 * time.Second
 	hfTokenEnvVar = "HF_TOKEN"
 )
-
-// HFModelResult is a single entry from the HuggingFace model search response.
-// Siblings is populated when the search is made with full=true.
-type HFModelResult struct {
-	ID        string        `json:"id"`
-	Downloads int           `json:"downloads"`
-	Likes     int           `json:"likes"`
-	Tags      []string      `json:"tags"`
-	Siblings  []HFFileEntry `json:"siblings"`
-}
-
-// HFFileEntry is a single file inside a HuggingFace repo.
-type HFFileEntry struct {
-	Filename string `json:"rfilename"`
-	Size     int64  `json:"size"`
-}
-
-// HFRepoInfo is the model-info API response.
-type HFRepoInfo struct {
-	ID       string        `json:"id"`
-	Siblings []HFFileEntry `json:"siblings"`
-}
-
-// hfRequest makes an authenticated GET request to the HuggingFace API.
-// Uses HF_TOKEN when present.
-func hfRequest(ctx context.Context, rawURL string) (*stdhttp.Response, error) {
-	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	if tok := os.Getenv(hfTokenEnvVar); tok != "" {
-		req.Header.Set("Authorization", "Bearer "+tok)
-	}
-	req.Header.Set("Accept", "application/json")
-	client := &stdhttp.Client{Timeout: hfHTTPTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("hf api: %w", err)
-	}
-	if resp.StatusCode != stdhttp.StatusOK {
-		_ = resp.Body.Close()
-		return nil, fmt.Errorf("hf api: HTTP %d for %s", resp.StatusCode, rawURL)
-	}
-	return resp, nil
-}
-
-// HFSearchGGUF queries HuggingFace for GGUF repos matching query.
-func HFSearchGGUF(ctx context.Context, query string, limit int) ([]HFModelResult, error) {
-	return HFSearchGGUFWithBase(ctx, hfAPIModels, query, limit)
-}
-
-// HFSearchGGUFWithBase is the testable form of HFSearchGGUF with an injectable base URL.
-func HFSearchGGUFWithBase(ctx context.Context, apiModelsURL, query string, limit int) ([]HFModelResult, error) {
-	if limit <= 0 {
-		limit = hfSearchLimit
-	}
-	params := url.Values{
-		"search":    {query},
-		"filter":    {"gguf"},
-		"sort":      {"downloads"},
-		"direction": {"-1"},
-		"limit":     {strconv.Itoa(limit)},
-		"full":      {"true"}, // include siblings (file list) in each result
-	}
-	resp, err := hfRequest(ctx, apiModelsURL+"?"+params.Encode())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	var results []HFModelResult
-	if decErr := json.NewDecoder(resp.Body).Decode(&results); decErr != nil {
-		return nil, fmt.Errorf("hf search: decode: %w", decErr)
-	}
-	// If nothing matched the gguf tag, retry without the tag filter so authors
-	// whose repos contain GGUF files but lack the tag are still found.
-	if len(results) == 0 {
-		results = hfSearchWithoutFilter(ctx, apiModelsURL, params)
-	}
-	return results, nil
-}
-
-// hfSearchWithoutFilter retries a search without filter=gguf and returns only
-// repos that have at least one .gguf sibling.
-func hfSearchWithoutFilter(ctx context.Context, apiModelsURL string, params url.Values) []HFModelResult {
-	params.Del("filter")
-	resp, err := hfRequest(ctx, apiModelsURL+"?"+params.Encode())
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-	var all []HFModelResult
-	if decErr := json.NewDecoder(resp.Body).Decode(&all); decErr != nil {
-		return nil
-	}
-	var out []HFModelResult
-	for _, m := range all {
-		if len(HFGGUFFiles(m.Siblings)) > 0 {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// HFRepoFiles returns info about a HuggingFace repo including its file list.
-func HFRepoFiles(ctx context.Context, repoID string) (HFRepoInfo, error) {
-	return HFRepoFilesWithBase(ctx, hfAPIModels, repoID)
-}
-
-// HFRepoFilesWithBase is the testable form of HFRepoFiles with an injectable base URL.
-func HFRepoFilesWithBase(ctx context.Context, apiModelsURL, repoID string) (HFRepoInfo, error) {
-	resp, err := hfRequest(ctx, apiModelsURL+"/"+repoID)
-	if err != nil {
-		return HFRepoInfo{}, err
-	}
-	defer resp.Body.Close()
-	var info HFRepoInfo
-	if decErr := json.NewDecoder(resp.Body).Decode(&info); decErr != nil {
-		return HFRepoInfo{}, fmt.Errorf("hf info: decode: %w", decErr)
-	}
-	return info, nil
-}
-
-// HFGGUFFiles returns only the .gguf entries from a file list.
-func HFGGUFFiles(files []HFFileEntry) []HFFileEntry {
-	var out []HFFileEntry
-	for _, f := range files {
-		if strings.HasSuffix(strings.ToLower(f.Filename), ".gguf") {
-			out = append(out, f)
-		}
-	}
-	return out
-}
 
 // HFDownloadURL returns the direct download URL for a file in a repo.
 func HFDownloadURL(repoID, filename string) string {

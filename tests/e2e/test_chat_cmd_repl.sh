@@ -104,6 +104,17 @@ else
     test_failed "REPL /fold - subcommands" "Output: $OUTPUT"
 fi
 
+# /model: a YAML command with subcommands and a "*" catch-all
+OUTPUT=$(_repl '/model tool set rounds 7' '/model tool' '/model tool set nonsense 1' '/model ps')
+if output_grep_fixed "rounds set to 7 (saved; applies from the next turn)" "$OUTPUT" \
+    && output_grep_fixed "max tool-call rounds per turn" "$OUTPUT" \
+    && output_grep_fixed 'unknown setting "nonsense"' "$OUTPUT" \
+    && output_grep_fixed "No local model servers running." "$OUTPUT"; then
+    test_passed "REPL /model - tool and ps subcommands print from their YAML"
+else
+    test_failed "REPL /model - tool and ps subcommands" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then
@@ -220,8 +231,8 @@ fi
 
 # /model hff (no subcommand - should print usage)
 OUTPUT=$(_repl '/model hff')
-if output_grep_i "usage.*model hff|model hff search|model hff info" "$OUTPUT"; then
-    test_passed "REPL /model hff - prints usage"
+if output_grep_fixed 'unknown /model hff subcommand "" (download, info, search)' "$OUTPUT"; then
+    test_passed "REPL /model hff - names its subcommands"
 elif output_grep_i "panic|runtime error" "$OUTPUT"; then
     test_failed "REPL /model hff - panicked" "Output: $OUTPUT"
 else

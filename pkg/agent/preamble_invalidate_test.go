@@ -51,7 +51,7 @@ func TestSetToolSetting_InvalidatesCachedPreamble(t *testing.T) {
 	os.Stdout = wr
 	defer func() { os.Stdout = old; _ = wr.Close() }()
 
-	r.setToolSetting("web-limit", "5")
+	r.dispatchCommand("/model tool set " + "web-limit" + " " + "5")
 
 	if r.loop.systemPreambleBuilt {
 		t.Fatal("setToolSetting did not invalidate the cached system preamble")
@@ -73,7 +73,7 @@ func TestSetToolSetting_UnknownSetting_DoesNotInvalidate(t *testing.T) {
 	os.Stdout = wr
 	defer func() { os.Stdout = old; _ = wr.Close() }()
 
-	r.setToolSetting("not-a-real-setting", "5")
+	r.dispatchCommand("/model tool set " + "not-a-real-setting" + " " + "5")
 
 	if !r.loop.systemPreambleBuilt {
 		t.Fatal("an unknown setting should not invalidate the cached preamble")

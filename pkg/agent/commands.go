@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"path"
 	"slices"
 	"sort"
@@ -51,7 +50,7 @@ import (
 //
 //nolint:gochecknoglobals // fixed list, kept in step with the commands asset set
 var goCommands = []string{
-	"help", "model", "skills", "prompts", "prompt",
+	"help", "skills", "prompts", "prompt",
 	"settings", "editor", "reload", "search", "context", "kartographer",
 	"upgrade", "konfig", "login", "harness",
 	"exit", "quit", "auto-improve", "efficiency", "judges", "memory",
@@ -111,7 +110,8 @@ type commandBody struct {
 	Setting *settingSpec `yaml:"setting,omitempty"`
 	// Subcommands dispatch on the first argument (matched without case): the
 	// matching entry runs with the remaining arguments. The "" entry runs
-	// when no argument is given.
+	// when no argument is given; "*" runs for any other first word, which it
+	// gets as its first argument.
 	Subcommands map[string]*commandBody `yaml:"subcommands,omitempty"`
 }
 
@@ -137,7 +137,7 @@ func (b *commandBody) validate() error {
 	}
 	for _, name := range slices.Sorted(maps.Keys(b.Subcommands)) {
 		sub := b.Subcommands[name]
-		if strings.ContainsAny(name, " \t") || name != strings.ToLower(name) {
+		if name != subcommandAny && (strings.ContainsAny(name, " \t*") || name != strings.ToLower(name)) {
 			return fmt.Errorf("subcommand %q: a subcommand is one lowercase word", name)
 		}
 		if sub == nil {
@@ -360,10 +360,11 @@ func commandHelpLines() []string {
 }
 
 // runDeclaredCommand runs a declared command's steps in order, stopping at
-// the first error. The REPL prints each model reply as it arrives.
+// the first error. The REPL prints each reply as it arrives.
 func (r *REPL) runDeclaredCommand(c *slashCommand, args []string) error {
 	return r.runDeclaredCommandEmit(c, args, func(resp string) {
-		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
+		// A long answer (/model list) pages in an interactive terminal.
+		_ = r.pageLines(strings.Split(strings.TrimRight(renderREPLOutput(resp, false), "\n"), "\n"))
 	})
 }
 
@@ -418,14 +419,25 @@ func (r *REPL) runCommandBody(name string, b *commandBody, args []string, emit f
 	return nil
 }
 
+// subcommandAny is the subcommands entry that takes any first word no other
+// entry names (/model <name>).
+const subcommandAny = "*"
+
 // resolveSubcommand picks the subcommand args' first word names ("" when
-// there is none) and returns its full name and the remaining arguments.
+// there is none, "*" for any other word) and returns its full name and the
+// remaining arguments.
 func resolveSubcommand(name string, b *commandBody, args []string) (string, *commandBody, []string, error) {
 	word := ""
 	if len(args) > 0 {
 		word, args = strings.ToLower(args[0]), args[1:]
 	}
 	sub, ok := b.Subcommands[word]
+	if !ok && word != "" {
+		// "*" takes any other first word, which stays its first argument.
+		if sub, ok = b.Subcommands[subcommandAny]; ok {
+			return name, sub, append([]string{word}, args...), nil
+		}
+	}
 	if !ok {
 		return "", nil, nil, fmt.Errorf("unknown /%s subcommand %q (%s)", name, word, subcommandList(b))
 	}
@@ -436,7 +448,7 @@ func resolveSubcommand(name string, b *commandBody, args []string) (string, *com
 func subcommandList(b *commandBody) string {
 	names := make([]string, 0, len(b.Subcommands))
 	for _, n := range slices.Sorted(maps.Keys(b.Subcommands)) {
-		if n != "" {
+		if n != "" && n != subcommandAny {
 			names = append(names, n)
 		}
 	}

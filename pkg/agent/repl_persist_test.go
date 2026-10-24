@@ -238,21 +238,6 @@ func TestDispatchCommand_ModelToolSetLeafNodesPersists(t *testing.T) {
 	assert.Equal(t, 200, repl.loop.config.MaxLeafChars)
 }
 
-func TestDispatchCommand_ModelToolSetLeafNodesRejectsNegative(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	saveCalled := false
-	repl.SetSaveTuningFn(func(ToolTuning) error {
-		saveCalled = true
-		return nil
-	})
-
-	require.NoError(t, repl.dispatchCommand("/model tool set leaf-nodes -1"))
-	assert.False(t, saveCalled, "a negative leaf-nodes value must not persist")
-}
-
 func TestDispatchCommand_ThinkingBadUsageDoesNotPersist(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

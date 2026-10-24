@@ -2,7 +2,6 @@ package llm
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -174,56 +173,6 @@ func TestHFDownloadFile_NoToken_NoAria2c(t *testing.T) {
 		dir,
 		slog.Default(),
 	)
-}
-
-func TestHFSearchWithoutFilter_FiltersNonGGUF(t *testing.T) {
-	all := []HFModelResult{
-		{ID: "org/has-gguf", Siblings: []HFFileEntry{{Filename: "model.gguf", Size: 100}}},
-		{ID: "org/no-gguf", Siblings: []HFFileEntry{{Filename: "model.bin", Size: 100}}},
-		{ID: "org/empty", Siblings: nil},
-	}
-	// Server: returns empty for tagged request, full list for untagged.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Query().Get("filter") == "gguf" {
-			_ = json.NewEncoder(w).Encode([]HFModelResult{})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(all)
-	}))
-	defer srv.Close()
-
-	got, err := HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "org", 10)
-	require.NoError(t, err)
-	require.Len(t, got, 1)
-	assert.Equal(t, "org/has-gguf", got[0].ID)
-}
-
-func TestHFSearchGGUFWithBase_EmptyResults_NoFallback(t *testing.T) {
-	callCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		callCount++
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("[]"))
-	}))
-	defer srv.Close()
-
-	got, err := HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "nonexistent", 5)
-	require.NoError(t, err)
-	assert.Empty(t, got)
-	assert.Equal(t, 2, callCount)
-}
-
-func TestHFRepoFilesWithBase_DecodeError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("invalid json"))
-	}))
-	defer srv.Close()
-
-	_, err := HFRepoFilesWithBase(context.Background(), srv.URL+"/api/models", "test/repo")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode")
 }
 
 func TestHFDownloadWithToken_RequestError(t *testing.T) {

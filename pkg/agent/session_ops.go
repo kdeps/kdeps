@@ -22,69 +22,92 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
+
+// sessionOp is one session_ops operation on this REPL's session.
+type sessionOp func(r *REPL, ctx context.Context, args map[string]any) (map[string]any, error)
+
+// sessionOpTable maps each session_ops operation to what runs it.
+func sessionOpTable() map[string]sessionOp {
+	ops := map[string]sessionOp{
+		"messages": infallibleOp(func(r *REPL, _ map[string]any) map[string]any { return r.sessionMessages() }),
+		"last_reply": infallibleOp(
+			func(r *REPL, _ map[string]any) map[string]any { return map[string]any{"text": r.lastReply()} },
+		),
+		"get": func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
+			return r.sessionGet(stringArgValue(args, "key"))
+		},
+		"set": func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
+			return r.sessionSet(stringArgValue(args, "key"), stringArgValue(args, "value"))
+		},
+		"clear":   (*REPL).clearOp,
+		"compact": (*REPL).compactOp,
+	}
+	for _, op := range []string{"sessions", "save", "load", "delete", "import", "checkpoint", "goto", "branches"} {
+		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) {
+			return r.sessionStoreOp(op, args)
+		}
+	}
+	for op, fn := range modelOps {
+		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
+	}
+	return ops
+}
+
+// infallibleOp adapts an operation that only reads state.
+func infallibleOp(fn func(r *REPL, args map[string]any) map[string]any) sessionOp {
+	return func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args), nil }
+}
 
 // sessionOps runs the session_ops kdeps API tool on this REPL's session. Each
 // operation returns JSON; a command's tool step prints it through its print:
 // template, so the wording lives in the command's YAML.
 func (r *REPL) sessionOps(ctx context.Context, args map[string]any) (string, error) {
-	var out map[string]any
-	switch op, _ := args["operation"].(string); op {
-	case "messages":
-		out = r.sessionMessages()
-	case "last_reply":
-		out = map[string]any{"text": r.lastReply()}
-	case "get":
-		key, _ := args["key"].(string)
-		state, err := r.sessionGet(key)
-		if err != nil {
-			return "", err
-		}
-		out = state
-	case "set":
-		key, _ := args["key"].(string)
-		value, _ := args["value"].(string)
-		state, err := r.sessionSet(key, value)
-		if err != nil {
-			return "", err
-		}
-		out = state
-	case "clear":
-		// The session is summarized first only when it has at least
-		// summarize_min_turns turns; 0 never summarizes.
-		out = map[string]any{"turns": r.loop.Session().TurnCount(), "summary": ""}
-		minTurns := intArgValue(args["summarize_min_turns"])
-		if minTurns > 0 && r.loop.Session().TurnCount() >= minTurns {
-			if summary, err := r.loop.SummarizeBranch(ctx); err == nil {
-				out["summary"] = summary
-			}
-		}
-		r.loop.Session().Clear()
-	case "compact":
-		summary, err := r.loop.ForceCompact(ctx)
-		if err != nil {
-			return "", fmt.Errorf("compact: %w", err)
-		}
-		if summary != "" {
-			r.copyContextCounters() // reset to the post-compact context inside ForceCompact
-		}
-		out = map[string]any{"summary": summary, "turns": r.loop.Session().TurnCount(), "keep": forceKeepTurns}
-	case "sessions", "save", "load", "delete", "import", "checkpoint", "goto", "branches":
-		state, err := r.sessionStoreOp(op, args)
-		if err != nil {
-			return "", err
-		}
-		out = state
-	default:
-		return "", fmt.Errorf("session_ops: unknown operation %q (messages, last_reply, get, set, clear, "+
-			"compact, sessions, save, load, delete, import, checkpoint, goto, branches)", op)
+	ops := sessionOpTable()
+	name := stringArgValue(args, "operation")
+	op, ok := ops[name]
+	if !ok {
+		return "", fmt.Errorf("session_ops: unknown operation %q (%s)",
+			name, strings.Join(slices.Sorted(maps.Keys(ops)), ", "))
+	}
+	out, err := op(r, ctx, args)
+	if err != nil {
+		return "", err
 	}
 	data, err := json.Marshal(out)
 	return string(data), err
+}
+
+// clearOp empties the history. The session is summarized first only when it
+// has at least summarize_min_turns turns; 0 never summarizes.
+func (r *REPL) clearOp(ctx context.Context, args map[string]any) (map[string]any, error) {
+	out := map[string]any{"turns": r.loop.Session().TurnCount(), "summary": ""}
+	minTurns := intArgValue(args["summarize_min_turns"])
+	if minTurns > 0 && r.loop.Session().TurnCount() >= minTurns {
+		if summary, err := r.loop.SummarizeBranch(ctx); err == nil {
+			out["summary"] = summary
+		}
+	}
+	r.loop.Session().Clear()
+	return out, nil
+}
+
+// compactOp folds older turns into a summary.
+func (r *REPL) compactOp(ctx context.Context, _ map[string]any) (map[string]any, error) {
+	summary, err := r.loop.ForceCompact(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("compact: %w", err)
+	}
+	if summary != "" {
+		r.copyContextCounters() // reset to the post-compact context inside ForceCompact
+	}
+	return map[string]any{"summary": summary, "turns": r.loop.Session().TurnCount(), "keep": forceKeepTurns}, nil
 }
 
 // sessionMessages lists the session's messages with the turn each belongs to.
