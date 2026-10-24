@@ -115,6 +115,17 @@ else
     test_failed "REPL /model - tool and ps subcommands" "Output: $OUTPUT"
 fi
 
+# /thinking budgets are events: an override in ~/.kdeps/events sets the budget.
+mkdir -p "$TMP_HOME/.kdeps/events"
+printf 'name: thinking-budget-high\nitems: 24000\nrun: cap\n' > "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
+OUTPUT=$(_repl '/thinking high')
+rm -f "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
+if output_grep_fixed "budget 24000 tokens" "$OUTPUT"; then
+    test_passed "REPL /thinking - the thinking-budget-high event sets the budget"
+else
+    test_failed "REPL /thinking - budget event override" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then

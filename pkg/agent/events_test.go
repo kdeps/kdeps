@@ -25,6 +25,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestLoadBuiltinEvents_HasAutoCompactAndFold(t *testing.T) {
@@ -433,4 +435,33 @@ func TestDisabledSentinel_GatesEveryAccessorKind(t *testing.T) {
 	assert.Equal(t, disabledSentinel, foldTokensSinceCheckpoint())
 	assert.Equal(t, disabledSentinel, foldItems())
 	assert.Equal(t, disabledSentinel, memoryPromptLimit())
+}
+
+// Each /thinking mode's reasoning budget is its thinking-budget-<mode> event.
+func TestThinkingBudget_ReadsEvents(t *testing.T) {
+	for _, c := range []struct {
+		mode domain.ThinkingMode
+		want int
+	}{
+		{domain.ThinkingModeMinimal, 512}, {domain.ThinkingModeLow, 2048}, {domain.ThinkingModeMedium, 8192},
+		{domain.ThinkingModeHigh, 16000}, {domain.ThinkingModeXHigh, 32000}, {domain.ThinkingModeAuto, 10000},
+	} {
+		require.Contains(t, loadBuiltinEvents(), thinkingBudgetEvents[c.mode])
+		assert.Equal(t, c.want, loadBuiltinEvents()[thinkingBudgetEvents[c.mode]].Items, c.mode)
+	}
+	assert.Empty(t, thinkingBudgetEvents[domain.ThinkingModeNone], "none has no budget")
+	assert.Nil(t, thinkingConfigForMode(domain.ThinkingModeNone))
+
+	isolateEventsHome(t)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	dir := filepath.Join(home, ".kdeps", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "thinking-budget-high.yaml"),
+		[]byte("name: thinking-budget-high\nitems: 24000\nrun: cap\n"), 0o644))
+	initEvents()
+	t.Cleanup(initEvents)
+
+	assert.Equal(t, 24000, thinkingConfigForMode(domain.ThinkingModeHigh).BudgetTokens)
+	assert.Equal(t, 10000, thinkingBudget("no-such-mode"), "a missing event falls back")
 }

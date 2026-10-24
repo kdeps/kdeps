@@ -116,3 +116,23 @@ on:
   bytes: 1000   # memory_search shows up to 1000 bytes of each value, then "..."
 run: truncate
 ```
+
+## Thinking budgets
+
+Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model may spend up to that many tokens reasoning before it answers; models that do not reason ignore it. A missing or disabled budget event uses 10000.
+
+| Event | `/thinking` mode | Default |
+|---|---|---|
+| `thinking-budget-minimal` | `minimal` | 512 |
+| `thinking-budget-low` | `low` | 2048 |
+| `thinking-budget-medium` | `medium` | 8192 |
+| `thinking-budget-high` | `high` | 16000 |
+| `thinking-budget-xhigh` | `xhigh` | 32000 |
+| `thinking-budget-auto` | `auto` (the default mode) | 10000 |
+
+```yaml
+# ~/.kdeps/events/thinking-budget-high.yaml
+name: thinking-budget-high
+items: 24000   # /thinking high lets the model reason for up to 24000 tokens
+run: cap
+```
