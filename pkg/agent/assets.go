@@ -88,7 +88,7 @@ func init() {
 //nolint:gochecknoglobals // fixed list
 var requiredCommands = []string{
 	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
-	"fold", "memory", "skills", "prompts", "reload",
+	"fold", "memory", "skills", "prompts", "reload", "judges", "harness", "efficiency",
 }
 
 // requiredHarness are the standalone prompts that compaction, goals, judges,
