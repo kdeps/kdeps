@@ -1,6 +1,6 @@
 # Data tools
 
-`calculator` and the local embedding store are always on. SQL tools register when a database path is set. Wolfram, remote RAG, and the rerankers register only when their key or URL is set; they are [declared HTTP tools](/agent/tools#declared-http-tools), defined entirely in their tool asset. `sql_query` text is HTML-unescaped before it runs, same as [`bash_exec`](/agent/shell).
+`calculator`, the SQLite tools and the local embedding store are always on; the SQLite tools take `db_path` or fall back to `KDEPS_SQL_DB_PATH`. Wolfram, remote RAG, and the rerankers register only when their key or URL is set; they are [declared HTTP tools](/agent/tools#declared-http-tools), defined entirely in their tool asset. `sql_query` text is HTML-unescaped before it runs, same as [`bash_exec`](/agent/shell).
 
 Permission modes stay on [Built-in tools](/agent/tools).
 
@@ -13,11 +13,13 @@ Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Data and SQL
 
+The three SQLite tools are `python:` blocks in their tool assets (Python's built-in `sqlite3`). Each opens the file read-only (`mode=ro`), so a query can never write it, and `db_path` is checked against `KDEPS_WORKSPACE_ROOT` first. `sql_ops` (named connections, any driver) stays in Go.
+
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `sql_list_tables` | `KDEPS_SQL_DB_PATH` or connection config | List tables in a database |
-| `sql_describe_table` | same | Describe a table's columns and types |
-| `sql_query` | same | Execute a SELECT query |
+| `sql_list_tables` | `db_path` or `KDEPS_SQL_DB_PATH` | List the tables in a SQLite file |
+| `sql_describe_table` | same | The table's `CREATE TABLE` statement |
+| `sql_query` | same | Run one `SELECT` or `WITH` query; tab-separated rows, column names first |
 
 ## Embeddings and reranking
 

@@ -64,7 +64,6 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolEmbeddingSearch,
 		toolEmbeddingVectorize,
 		toolExec,
-		toolFileOps,
 		toolHTTPRequest,
 		"identity_get",
 		toolInstruct,
@@ -83,10 +82,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolReadFile,
 		toolSearchLocal,
 		"session_handshake",
-		toolSQLDescribe,
-		toolSQLList,
 		toolSQLOps,
-		toolSQLQuery,
 		toolVectorStore,
 		toolWriteFile,
 	}

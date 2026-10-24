@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -227,4 +229,38 @@ func TestWikipedia_Declared(t *testing.T) {
 	out, err = tool.Execute(map[string]any{"query": "nothing"})
 	require.NoError(t, err)
 	assert.Equal(t, "no wikipedia pages found", out)
+}
+
+func TestSQLiteTools_Declared(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "shop.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE items (id INTEGER, name TEXT); INSERT INTO items VALUES (1, 'pen'), (2, NULL)`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	list := pythonTool(t, "sql_list_tables", map[string]string{"KDEPS_SQL_DB_PATH": dbPath})
+	out, err := list.Execute(map[string]any{})
+	require.NoError(t, err, "db_path falls back to KDEPS_SQL_DB_PATH")
+	assert.Equal(t, "items", out)
+
+	describe := pythonTool(t, "sql_describe_table", nil)
+	out, err = describe.Execute(map[string]any{"db_path": dbPath, "table": "items"})
+	require.NoError(t, err)
+	assert.Equal(t, "Table: items\nCREATE TABLE items (id INTEGER, name TEXT)", out)
+	_, err = describe.Execute(map[string]any{"db_path": dbPath, "table": "nope"})
+	require.ErrorContains(t, err, "not found")
+
+	query := pythonTool(t, "sql_query", nil)
+	out, err = query.Execute(map[string]any{"db_path": dbPath, "query": "SELECT * FROM items WHERE id &gt; 0"})
+	require.NoError(t, err)
+	assert.Equal(t, "id\tname\n1\tpen\n2", out, "HTML-escaped query; a trailing NULL is trimmed")
+	_, err = query.Execute(map[string]any{"db_path": dbPath, "query": "DELETE FROM items"})
+	require.ErrorContains(t, err, "only SELECT/WITH")
+	_, err = query.Execute(map[string]any{"db_path": dbPath,
+		"query": "WITH x AS (SELECT 1) INSERT INTO items SELECT 3, 'x' FROM x"})
+	require.ErrorContains(t, err, "readonly", "the database opens read-only")
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	_, err = query.Execute(map[string]any{"query": "SELECT 1"})
+	require.ErrorContains(t, err, "db_path is required")
 }

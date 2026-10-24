@@ -1,5 +1,6 @@
-version: 1.0.0
+version: 2.0.0
 description: Execute a SQL query against a SQLite database and return the results as formatted text. Use SELECT statements to retrieve data. Non-SELECT statements are rejected for safety.
+outputFormat: tab-separated rows, the column names first; NULL is empty
 parameters:
   db_path:
     type: string
@@ -8,3 +9,29 @@ parameters:
     type: string
     description: The SQL SELECT statement to execute
     required: true
+python:
+  paths: [db_path]  # checked against the workspace boundary
+  env:
+    DB: [KDEPS_SQL_DB_PATH, ""]  # used when db_path is omitted
+  script: |
+    import html, json, os, pathlib, sqlite3, sys
+
+    a = json.loads(sys.argv[1])
+    path = a.get("db_path") or os.environ.get("DB")
+    # Models often send the query HTML-escaped (&gt; for >).
+    query = html.unescape(a["query"])
+    if not query.lstrip().upper().startswith(("SELECT", "WITH")):
+        sys.exit("sql_query: only SELECT/WITH queries are allowed")
+    if not path:
+        sys.exit("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+    try:
+        # mode=ro also stops a WITH ... DELETE from writing.
+        with sqlite3.connect(pathlib.Path(path).absolute().as_uri() + "?mode=ro", uri=True) as db:
+            cur = db.execute(query)
+            cols = [d[0] for d in cur.description or []]
+            rows = cur.fetchall()
+    except sqlite3.Error as e:
+        sys.exit("sql_query: %s" % e)
+    out = ["\t".join(cols)]
+    out += ["\t".join("" if v is None else str(v) for v in r) for r in rows]
+    print("\n".join(out).strip())

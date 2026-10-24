@@ -19,12 +19,15 @@
 package executor_test
 
 import (
+	"database/sql"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
@@ -52,6 +55,13 @@ func TestLCDTools_ComponentMatchesAgentTool(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("KDEPS_WIKIPEDIA_URL", srv.URL)
 
+	dbPath := filepath.Join(t.TempDir(), "pets.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE pets (name TEXT); INSERT INTO pets VALUES ('rex')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
 	reg := kdepstools.NewRegistry()
 	agent.RegisterBuiltinTools(t.Context(), reg)
 	for _, tc := range []struct {
@@ -61,12 +71,16 @@ func TestLCDTools_ComponentMatchesAgentTool(t *testing.T) {
 	}{
 		{"calculator", "    expression: \"2 + 3 * 4\"\n", map[string]any{"expression": "2 + 3 * 4"}, "14"},
 		{"wikipedia", "    query: \"golang\"\n", map[string]any{"query": "golang"}, "Go\nA language."},
+		{"sql_list_tables", "    db_path: \"" + filepath.ToSlash(dbPath) + "\"\n",
+			map[string]any{"db_path": filepath.ToSlash(dbPath)}, "pets"},
+		{"sql_query", "    db_path: \"" + filepath.ToSlash(dbPath) + "\"\n    query: \"SELECT name FROM pets\"\n",
+			map[string]any{"db_path": filepath.ToSlash(dbPath), "query": "SELECT name FROM pets"}, "name\nrex"},
 	} {
-		got, err := reg.Get(tc.tool).Execute(tc.args)
-		require.NoError(t, err, tc.tool)
+		got, toolErr := reg.Get(tc.tool).Execute(tc.args)
+		require.NoError(t, toolErr, tc.tool)
 		require.Equal(t, tc.want, got, tc.tool)
-		comp, err := runComponentValue(t, tc.tool, tc.with)
-		require.NoError(t, err, tc.tool)
+		comp, compErr := runComponentValue(t, tc.tool, tc.with)
+		require.NoError(t, compErr, tc.tool)
 		require.Equal(t, tc.want, comp, tc.tool)
 	}
 }

@@ -1,5 +1,6 @@
-version: 1.0.0
+version: 2.0.0
 description: Return the schema (column names and types) for a table in a SQLite database. Use before writing queries to know the exact column names.
+outputFormat: "Table: <name>, then the table's CREATE TABLE statement"
 parameters:
   db_path:
     type: string
@@ -8,3 +9,23 @@ parameters:
     type: string
     description: Name of the table to describe
     required: true
+python:
+  paths: [db_path]  # checked against the workspace boundary
+  env:
+    DB: [KDEPS_SQL_DB_PATH, ""]  # used when db_path is omitted
+  script: |
+    import json, os, pathlib, sqlite3, sys
+
+    a = json.loads(sys.argv[1])
+    path, table = a.get("db_path") or os.environ.get("DB"), a["table"]
+    if not path:
+        sys.exit("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+    try:
+        with sqlite3.connect(pathlib.Path(path).absolute().as_uri() + "?mode=ro", uri=True) as db:
+            row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                             (table,)).fetchone()
+    except sqlite3.Error as e:
+        sys.exit("sql_describe_table: %s" % e)
+    if not row:
+        sys.exit("sql_describe_table: table %r not found" % table)
+    print("Table: %s\n%s" % (table, row[0].strip()))

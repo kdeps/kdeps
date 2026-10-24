@@ -41,12 +41,11 @@ const (
 	binaryCheckBytes = 512 // bytes to scan for binary detection
 )
 
-// RegisterBuiltinTools adds the Go-served tools (sql_*, bash_exec, read_file, write_file, ...)
+// RegisterBuiltinTools adds the Go-served tools (bash_exec, read_file, write_file, sql_ops, ...)
 // plus every tool asset that declares an http:, exec:, sql: or python: block (web_search,
-// wikipedia, list_files, git_ops, exa_search, google_cache_*, ...) to the registry. A declared
+// wikipedia, list_files, git_ops, sql_query, google_cache_*, ...) to the registry. A declared
 // tool whose env: entries do not resolve is not registered.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
@@ -60,11 +59,10 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerInstructTool(reg)
 }
 
-// registerStructuredTools registers the structured operation tools:
-// filesystem operations and SQL. Each is served by the kdeps API; an agent call and the shipped
-// component reach the same handler.
+// registerStructuredTools registers sql_ops, SQL against a named connection.
+// file_ops and git_ops are python: tools (registerDeclaredTools). An agent
+// call and the shipped component reach the same handler.
 func registerStructuredTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "file_ops", api.FileOps)
 	registerAPITool(ctx, reg, "sql_ops", api.SQLOps)
 }
 
@@ -466,18 +464,6 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 	}
 
 	return strings.TrimSuffix(sb.String(), "\n")
-}
-
-// registerSQLTools registers three tools for interacting with a SQLite database:
-//   - sql_list_tables: returns all user table names
-//   - sql_describe_table: returns column names and types for a table
-//   - sql_query: executes a read-only SQL statement and returns results as text
-//
-// The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
-func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "sql_list_tables", api.SQLListTables)
-	registerAPITool(ctx, reg, "sql_describe_table", api.SQLDescribeTable)
-	registerAPITool(ctx, reg, "sql_query", api.SQLQuery)
 }
 
 // registerAPITool registers one tool whose Execute only calls the kdeps API.
