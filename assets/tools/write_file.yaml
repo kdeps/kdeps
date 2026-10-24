@@ -1,8 +1,8 @@
-version: 1.1.0
+version: 2.0.0
 category: file
 aliases: [write, create_file, save_file, write_to_file]  # other names a model may call it by; the model is shown only this tool's name
-description: Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.
-constraints: overwrites entire file — use edit_file for targeted changes; must use absolute path
+description: Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Takes an absolute path.
+constraints: overwrites entire file — use edit_file for targeted changes; relative paths resolve against the working directory; the parent directory must exist
 outputFormat: confirmation message with bytes written
 seeAlso: edit_file, read_file
 parameters:
@@ -14,3 +14,36 @@ parameters:
     type: string
     description: Absolute path to the file to write
     required: true
+python:
+  paths: [file_path]  # checked against the workspace boundary
+  script: |
+    import json, os, sys
+
+    a = json.loads(sys.argv[1])
+    path = (a.get("file_path") or "").strip()
+    if not path:
+        sys.exit("write_file: file_path is required")
+    path = os.path.abspath(path)
+    data = (a.get("content") or "").encode("utf-8")
+    # max_bytes comes from the file-read-limit event in an agent session.
+    cap = int(a.get("max_bytes") or 0) or 1048576
+    if len(data) > cap:
+        sys.exit("write_file: content is %d bytes (max %d)" % (len(data), cap))
+    if os.path.isdir(path):
+        sys.exit("write_file: %s is a directory" % path)
+    err = None
+    for _ in range(2):  # written, read back, and written once more on a mismatch
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0), 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            with open(path, "rb") as f:
+                got = f.read()
+        except OSError as e:
+            err = "write_file: %s: %s" % (path, e.strerror or e)
+            continue
+        if got == data:
+            print("Wrote %d bytes to %s" % (len(data), path))
+            sys.exit(0)
+        err = "write_file: verify %s: wrote %d bytes but read back %d bytes" % (path, len(data), len(got))
+    sys.exit(err)

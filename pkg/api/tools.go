@@ -80,14 +80,12 @@ var openToolYAML = func(name string) ([]byte, error) {
 
 //nolint:gochecknoinits // these tools are served before RegisterBuiltinTools runs
 func init() {
-	RegisterTool(readFileSpec())
 	RegisterTool(loadToolSpec(toolSQLOps, "Run SQL against a named connection.", SQLOps))
 	RegisterTool(loadToolSpec(toolBashExec, "Execute a bash shell command.", BashExec))
 	RegisterTool(loadToolSpec(toolExec, "Run a shell command with structured output.", ExecOps))
 	RegisterTool(loadToolSpec(toolPython, "Run a Python script with structured output.", PythonOps))
 	RegisterTool(loadToolSpec(toolBashJobList, "List background bash jobs.", BashJobList))
 	RegisterTool(loadToolSpec(toolBashJobWait, "Wait for a background bash job.", BashJobWait))
-	RegisterTool(loadToolSpec(toolWriteFile, "Write or overwrite a text file.", WriteFile))
 	RegisterTool(loadToolSpec(toolMemorySave, "Save a fact to persistent memory.", MemorySave))
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))

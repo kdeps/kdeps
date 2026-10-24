@@ -78,7 +78,7 @@ func TestReadFile_ExecuteCallsHandler(t *testing.T) {
 func TestReadFile_NilArgs(t *testing.T) {
 	require.NoError(t, fillReadFileSession(nil))
 	require.Empty(t, sessionReadPath(nil))
-	require.Empty(t, readCallBody(nil))
+	require.Equal(t, map[string]any{argMaxBytes: maxFileReadBytes()}, readCallBody(nil))
 	view := readFileViewArgs("/tmp/x", nil)
 	require.Equal(t, map[string]any{"file_path": "/tmp/x"}, view)
 

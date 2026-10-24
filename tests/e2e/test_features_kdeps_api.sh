@@ -700,6 +700,18 @@ EOF
         test_failed "kdeps API - read_file returns the numbered file" "status $got body $(head -c 180 "$body")"
     fi
     cp "$body" "$root/control-read.txt"
+    local written="$root/control-written.txt"
+    payload=$(python3 -c 'import json,sys; print(json.dumps({"file_path": sys.argv[1], "content": "a\tb\n"}))' "$written")
+    : >"$body"
+    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
+        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
+        --data "$payload" "${tools}/write_file/call" || true)
+    if [ "$got" = "200" ] && grep -F "Wrote 4 bytes" "$body" >/dev/null \
+        && [ "$(python3 -c 'import sys; print(repr(open(sys.argv[1], "rb").read()))' "$written")" = "b'a\\tb\\n'" ]; then
+        test_passed "kdeps API - write_file (python: tool) writes the bytes given"
+    else
+        test_failed "kdeps API - write_file (python: tool) writes the bytes given" "status $got body $(head -c 180 "$body")"
+    fi
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \

@@ -26,13 +26,18 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestTools_ListAndCall(t *testing.T) {
+	registerTestReadTool(t)
 	s := startTest(t, "tool-token")
 	client := s.Client()
 	list := do(t, client, http.MethodGet, "http://kdeps.invalid"+toolsPrefix, "")
@@ -48,7 +53,7 @@ func TestTools_ListAndCall(t *testing.T) {
 	var read toolItem
 	for _, item := range doc.Items {
 		names = append(names, item.Name)
-		if item.Name == toolReadFile {
+		if item.Name == testReadTool {
 			read = item
 		}
 	}
@@ -79,13 +84,12 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolMemorySave,
 		toolMemorySearch,
 		toolPython,
-		toolReadFile,
 		toolSearchLocal,
 		"session_handshake",
 		"session_ops",
 		toolSQLOps,
+		testReadTool,
 		toolVectorStore,
-		toolWriteFile,
 	}
 	if doc.Kind != kindToolList || doc.APIVersion != groupTools+"/v1" || !slices.Equal(names, wantNames) {
 		t.Fatalf("names %v", names)
@@ -98,13 +102,13 @@ func TestTools_ListAndCall(t *testing.T) {
 	}
 
 	path := writeTemp(t, "line 1\n")
-	body := doJSON(t, client, toolCallURL(toolReadFile), map[string]any{argFilePath: path})
+	body := doJSON(t, client, toolCallURL(testReadTool), map[string]any{argFilePath: path})
 	defer body.Body.Close()
 	if body.StatusCode != http.StatusOK || body.Header.Get("Content-Type") != contentTypeText {
 		t.Fatalf("call %d %s", body.StatusCode, body.Header.Get("Content-Type"))
 	}
 	got := mustText(t, body.Body)
-	if got != "1\tline 1$" {
+	if got != "line 1" {
 		t.Fatalf("body %q", got)
 	}
 	if strings.Contains(got, "tool-token") {
@@ -113,10 +117,11 @@ func TestTools_ListAndCall(t *testing.T) {
 }
 
 func TestTools_AuthMethodAndUnknown(t *testing.T) {
+	registerTestReadTool(t)
 	s := startTest(t, "tool-token")
 	client := s.Client()
 	req, err := http.NewRequestWithContext(
-		t.Context(), http.MethodPost, toolCallURL(toolReadFile), strings.NewReader(`{}`),
+		t.Context(), http.MethodPost, toolCallURL(testReadTool), strings.NewReader(`{}`),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +136,7 @@ func TestTools_AuthMethodAndUnknown(t *testing.T) {
 		t.Fatalf("auth %d", denied.StatusCode)
 	}
 
-	getCall := do(t, client, http.MethodGet, toolCallURL(toolReadFile), "")
+	getCall := do(t, client, http.MethodGet, toolCallURL(testReadTool), "")
 	defer getCall.Body.Close()
 	if getCall.StatusCode != http.StatusMethodNotAllowed || getCall.Header.Get("Allow") != http.MethodPost {
 		t.Fatalf("GET call %d Allow %q", getCall.StatusCode, getCall.Header.Get("Allow"))
@@ -154,34 +159,35 @@ func TestTools_AuthMethodAndUnknown(t *testing.T) {
 }
 
 func TestTools_BadBodies(t *testing.T) {
+	registerTestReadTool(t)
 	s := startTest(t, "tool-token")
 	client := s.Client()
 	for _, raw := range []string{"{", "[]"} {
-		resp := postRaw(t, client, toolCallURL(toolReadFile), raw)
+		resp := postRaw(t, client, toolCallURL(testReadTool), raw)
 		text := mustText(t, resp.Body)
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest || !strings.Contains(text, msgBadJSON) {
 			t.Fatalf("raw %q status %d body %s", raw, resp.StatusCode, text)
 		}
 	}
-	nullBody := postRaw(t, client, toolCallURL(toolReadFile), "null")
+	nullBody := postRaw(t, client, toolCallURL(testReadTool), "null")
 	nullText := mustText(t, nullBody.Body)
 	nullBody.Body.Close()
 	if nullBody.StatusCode != http.StatusBadRequest || !strings.Contains(nullText, "file_path is required") {
 		t.Fatalf("null %d %s", nullBody.StatusCode, nullText)
 	}
-	empty := postRaw(t, client, toolCallURL(toolReadFile), "")
+	empty := postRaw(t, client, toolCallURL(testReadTool), "")
 	defer empty.Body.Close()
 	emptyText := mustText(t, empty.Body)
 	if empty.StatusCode != http.StatusBadRequest || !strings.Contains(emptyText, "file_path is required") {
 		t.Fatalf("empty %d %s", empty.StatusCode, emptyText)
 	}
-	big := postRaw(t, client, toolCallURL(toolReadFile), string(bytes.Repeat([]byte("a"), maxArgsBytes+1)))
+	big := postRaw(t, client, toolCallURL(testReadTool), string(bytes.Repeat([]byte("a"), maxArgsBytes+1)))
 	defer big.Body.Close()
 	if big.StatusCode != http.StatusBadRequest || !strings.Contains(mustText(t, big.Body), msgBodyTooLarge) {
 		t.Fatalf("big %d", big.StatusCode)
 	}
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, toolCallURL(toolReadFile), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, toolCallURL(testReadTool), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +232,32 @@ func TestTools_RegisterIgnoresEmpty(t *testing.T) {
 	}
 }
 
+// testReadTool is a Go-served tool the route tests call: it returns the
+// text of file_path.
+const testReadTool = "test_read"
+
+func registerTestReadTool(t *testing.T) {
+	t.Helper()
+	RegisterTool(ToolSpec{
+		Name:        testReadTool,
+		Description: "Read a file (test).",
+		Parameters:  map[string]domain.ToolParam{argFilePath: {Type: "string"}},
+		Call: func(_ context.Context, args map[string]any) (string, error) {
+			path := stringArg(args, argFilePath)
+			if path == "" {
+				return "", errors.New("test_read: file_path is required")
+			}
+			data, err := os.ReadFile(path)
+			return strings.TrimSuffix(string(data), "\n"), err
+		},
+	})
+	t.Cleanup(func() {
+		toolMu.Lock()
+		delete(toolReg, testReadTool)
+		toolMu.Unlock()
+	})
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) { return 0, errors.New("boom") }
@@ -254,17 +286,18 @@ func postRaw(t *testing.T, client *http.Client, url, raw string) *http.Response 
 }
 
 func TestCallTool_ClientPaths(t *testing.T) {
+	registerTestReadTool(t)
 	var noCtx context.Context
-	if _, err := CallTool(noCtx, toolReadFile, map[string]any{}); err == nil ||
+	if _, err := CallTool(noCtx, testReadTool, map[string]any{}); err == nil ||
 		!strings.Contains(err.Error(), "nil context") {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := CallTool(ctx, toolReadFile, map[string]any{}); err == nil {
+	if _, err := CallTool(ctx, testReadTool, map[string]any{}); err == nil {
 		t.Fatal("cancelled call")
 	}
-	if _, err := CallTool(t.Context(), toolReadFile, map[string]any{"bad": func() {}}); err == nil ||
+	if _, err := CallTool(t.Context(), testReadTool, map[string]any{"bad": func() {}}); err == nil ||
 		!strings.Contains(err.Error(), "encode") {
 		t.Fatal(err)
 	}
@@ -276,7 +309,7 @@ func TestCallTool_ClientPaths(t *testing.T) {
 	}
 
 	path := writeTemp(t, "via-call\n")
-	out, err := CallTool(t.Context(), toolReadFile, map[string]any{argFilePath: path})
+	out, err := CallTool(t.Context(), testReadTool, map[string]any{argFilePath: path})
 	if err != nil || !strings.Contains(out, "via-call") {
 		t.Fatalf("local %v %q", err, out)
 	}
@@ -285,7 +318,7 @@ func TestCallTool_ClientPaths(t *testing.T) {
 	if !Listening() {
 		t.Fatal("not listening")
 	}
-	out, err = CallTool(t.Context(), toolReadFile, map[string]any{argFilePath: path})
+	out, err = CallTool(t.Context(), testReadTool, map[string]any{argFilePath: path})
 	if err != nil || !strings.Contains(out, "via-call") {
 		t.Fatalf("published %v %q", err, out)
 	}
@@ -297,7 +330,7 @@ func TestCallTool_ClientPaths(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("FROM-HANDLER")),
 		}, nil
 	})}
-	out, err = CallTool(WithClient(t.Context(), fake), toolReadFile, map[string]any{argFilePath: path})
+	out, err = CallTool(WithClient(t.Context(), fake), testReadTool, map[string]any{argFilePath: path})
 	if err != nil || out != "FROM-HANDLER" {
 		t.Fatalf("override %v %q", err, out)
 	}
@@ -305,6 +338,7 @@ func TestCallTool_ClientPaths(t *testing.T) {
 }
 
 func TestCallTool_StatusErrors(t *testing.T) {
+	registerTestReadTool(t)
 	statusBody := `{"kind":"Status","status":"Failure","message":"read_file: nope","code":400}`
 	statusClient := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{
@@ -313,7 +347,7 @@ func TestCallTool_StatusErrors(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(statusBody)),
 		}, nil
 	})}
-	_, err := CallTool(WithClient(t.Context(), statusClient), toolReadFile, map[string]any{})
+	_, err := CallTool(WithClient(t.Context(), statusClient), testReadTool, map[string]any{})
 	if err == nil || err.Error() != "read_file: nope" {
 		t.Fatal(err)
 	}
@@ -324,7 +358,7 @@ func TestCallTool_StatusErrors(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("upstream down")),
 		}, nil
 	})}
-	_, err = CallTool(WithClient(t.Context(), plain), toolReadFile, map[string]any{})
+	_, err = CallTool(WithClient(t.Context(), plain), testReadTool, map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "upstream down") {
 		t.Fatal(err)
 	}
@@ -335,14 +369,14 @@ func TestCallTool_StatusErrors(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("  ")),
 		}, nil
 	})}
-	_, err = CallTool(WithClient(t.Context(), blank), toolReadFile, map[string]any{})
+	_, err = CallTool(WithClient(t.Context(), blank), testReadTool, map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "status 502") {
 		t.Fatal(err)
 	}
 	broken := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("dial failed")
 	})}
-	_, err = CallTool(WithClient(t.Context(), broken), toolReadFile, map[string]any{})
+	_, err = CallTool(WithClient(t.Context(), broken), testReadTool, map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "dial failed") {
 		t.Fatal(err)
 	}
@@ -353,25 +387,27 @@ func TestCallTool_StatusErrors(t *testing.T) {
 			Body:       errBody{},
 		}, nil
 	})}
-	_, err = CallTool(WithClient(t.Context(), badBody), toolReadFile, map[string]any{})
+	_, err = CallTool(WithClient(t.Context(), badBody), testReadTool, map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "body read") {
 		t.Fatal(err)
 	}
 }
 
 func TestCallTool_RequestBuildError(t *testing.T) {
+	registerTestReadTool(t)
 	prev := newCallRequest
 	t.Cleanup(func() { newCallRequest = prev })
 	newCallRequest = func(context.Context, string, string, io.Reader) (*http.Request, error) {
 		return nil, errors.New("bad url")
 	}
-	_, err := CallTool(t.Context(), toolReadFile, map[string]any{})
+	_, err := CallTool(t.Context(), testReadTool, map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "bad url") {
 		t.Fatalf("%v", err)
 	}
 }
 
 func TestLocalClient_EntropyFailure(t *testing.T) {
+	registerTestReadTool(t)
 	procMu.Lock()
 	prev := proc
 	proc = procState{}
@@ -388,7 +424,7 @@ func TestLocalClient_EntropyFailure(t *testing.T) {
 		t.Fatal("cleared server still listening")
 	}
 	path := writeTemp(t, "local\n")
-	out, err := CallTool(t.Context(), toolReadFile, map[string]any{argFilePath: path})
+	out, err := CallTool(t.Context(), testReadTool, map[string]any{argFilePath: path})
 	if err != nil || !strings.Contains(out, "local") {
 		t.Fatalf("fallback token %v %q", err, out)
 	}
@@ -420,3 +456,12 @@ type errBody struct{}
 
 func (errBody) Read([]byte) (int, error) { return 0, errors.New("body read") }
 func (errBody) Close() error             { return nil }
+
+func writeTemp(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "read.txt")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}

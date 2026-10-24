@@ -1,8 +1,8 @@
-version: 1.1.0
+version: 2.0.0
 category: file
 aliases: [read, cat, view_file, open_file, read_text_file]  # other names a model may call it by; the model is shown only this tool's name
-description: 'Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. IMPORTANT: ^I, ^X, and the trailing $ are a display convention this tool adds - the real file does NOT contain those literal characters. When quoting text back into edit_file''s old_str, write the real tab/control character (or match a whole line via view_range/anchor instead), never the literal caret sequence - copying "^I" as text will not match a real tab byte. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.'
-constraints: max ~2000 lines per read; use offset/limit for large files; must use absolute path; do not re-read a file already in this conversation unless it changed; you MUST read a file (here or via edit_file command:view) before edit_file str_replace/insert can change it; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool
+description: 'Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. IMPORTANT: ^I, ^X, and the trailing $ are a display convention this tool adds - the real file does NOT contain those literal characters. When quoting text back into edit_file''s old_str, write the real tab/control character (or match a whole line via view_range/anchor instead), never the literal caret sequence - copying "^I" as text will not match a real tab byte. Plain text, source code, configuration files, and documentation are read directly. For PDF, DOCX, EPUB, RTF, and ODT documents, CSV/HTML structured parsing, or RAG chunking, use load_document. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.'
+constraints: max ~2000 lines per read; use offset/limit for large files; must use absolute path; do not re-read a file already in this conversation unless it changed; binary files and PDF/DOCX/EPUB/RTF/ODT documents are refused (use load_document)
 outputFormat: text with a 1-based line number on each line; tabs shown as ^I, control chars as ^X, $ marks true end of line (display only - not literal file content)
 seeAlso: list_files, search_local, edit_file, load_document
 parameters:
@@ -24,3 +24,67 @@ parameters:
   offset:
     type: number
     description: Line number to start reading from (1-based). Optional; reads from beginning if omitted.
+python:
+  paths: [file_path]  # checked against the workspace boundary
+  script: |
+    import json, os, sys
+
+    a = json.loads(sys.argv[1])
+    path = (a.get("file_path") or "").strip()
+    if not path:
+        sys.exit("read_file: file_path is required")
+    path = os.path.abspath(path)
+    if os.path.isdir(path):
+        sys.exit("read_file: %s is a directory" % path)
+    if os.path.splitext(path)[1].lower() in (".pdf", ".docx", ".epub", ".rtf", ".odt"):
+        sys.exit("read_file: %s is a document; use load_document to extract its text" % path)
+    try:
+        size = os.path.getsize(path)
+        # max_bytes comes from the file-read-limit event in an agent session.
+        cap = int(a.get("max_bytes") or 0) or 1048576
+        if size > cap:
+            sys.exit("read_file: %s is %d bytes (max %d)" % (path, size, cap))
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        sys.exit("read_file: %s: %s" % (path, e.strerror or e))
+    if b"\0" in data[:512]:
+        sys.exit("read_file: %s appears to be a binary file" % path)
+
+    def number(v):
+        try:
+            n = int(float(v))
+        except (TypeError, ValueError):
+            return 0
+        return n if n > 0 else 0
+
+    def visible(line):
+        # cat -A: a tab is ^I, other C0 controls and DEL are caret notation.
+        out = []
+        for ch in line:
+            o = ord(ch)
+            if ch == "\t":
+                out.append("^I")
+            elif o == 0x7F:
+                out.append("^?")
+            elif o < 0x20:
+                out.append("^" + chr(o + 64))
+            else:
+                out.append(ch)
+        return "".join(out)
+
+    lines = data.decode("utf-8", "replace").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    total = len(lines)
+    start, end = 0, total
+    if number(a.get("offset")):
+        start = min(number(a.get("offset")) - 1, total)
+    if number(a.get("limit")):
+        end = min(start + number(a.get("limit")), total)
+    shown = lines[start:end]
+    width = len(str(start + len(shown)))
+    for i, line in enumerate(shown):
+        print("%*d\t%s$" % (width, start + i + 1, visible(line)))
+    if 0 < end - start < total:
+        print("[%d/%d lines shown]" % (end - start, total))
