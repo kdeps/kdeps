@@ -234,6 +234,37 @@ run:
       expression: "$1"        # the first argument of /calc
 ```
 
+<div v-pre>
+
+A tool step's `print:` is a Go template over the tool's result: the fields of a JSON object, or `.output` for any other text. It can call `join` and `trunc` (`{{trunc 80 .content}}` cuts to 80 characters plus `...`). `/clear`, `/compact` and `/history` are built this way, on the `session_ops` tool, which reads and changes the live session:
+
+```yaml
+# commands/history.yaml (shipped)
+version: 2.0.0
+requires:
+  tools/session_ops: ""     # kdeps update installs the tool with the command
+name: history
+usage:
+  - args: ""
+    help: Show recent conversation turns
+run:
+  - tool: session_ops       # served on /apis/tools.kdeps.io; not offered to the model
+    args:
+      operation: messages   # returns {"turns": 1, "messages": [{"turn": 0, "role": "user", "content": "..."}]}
+    print: |-
+      {{if not .messages}}No conversation history.{{else}}**Conversation history ({{.turns}} turns):**
+      {{range .messages}}
+      - [{{.turn}}] {{if eq .role "user"}}YOU{{else}}AGENT{{end}}: {{trunc 80 .content}}{{end}}{{end}}
+```
+
+| `session_ops` operation | Arguments | Result |
+|---|---|---|
+| `messages` | - | `turns`, `messages` (`turn`, `role`, `content`) |
+| `clear` | `summarize_min_turns`: summarize the branch first when the session has at least this many turns (`0` never) | `turns` (before clearing), `summary` |
+| `compact` | - | `summary` (empty when there were too few turns), `turns`, `keep` (recent turns kept verbatim) |
+
+</div>
+
 - `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
 - A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
 - A builtin file's `api:` must be its own file name, and that name must be one the binary implements. A mismatch is skipped with a warning instead of running another command's handler.

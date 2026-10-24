@@ -44,13 +44,10 @@ type commandMethod func(*REPL, []string) error
 func builtinCommandOps() map[string]commandMethod {
 	return map[string]commandMethod{
 		"help":         func(r *REPL, _ []string) error { return r.cmdHelp() },
-		"clear":        func(r *REPL, _ []string) error { return r.cmdClear() },
 		"model":        func(r *REPL, a []string) error { return r.cmdModel(a) },
 		"skills":       func(r *REPL, _ []string) error { return r.cmdSkills() },
 		"prompts":      func(r *REPL, _ []string) error { return r.cmdPrompts() },
-		"compact":      func(r *REPL, _ []string) error { return r.cmdCompact() },
 		"fold":         func(r *REPL, a []string) error { return r.cmdFold(a) },
-		"history":      func(r *REPL, _ []string) error { return r.cmdHistory() },
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
 		"session":      func(r *REPL, a []string) error { return r.cmdSession(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
@@ -118,6 +115,7 @@ func builtinCommandAsset(name string) *slashCommand {
 // display name and usage lines; the handler runs against this REPL, which is
 // where the session a command acts on lives.
 func (r *REPL) RegisterCommandAPI() {
+	api.SetSessionOps(r.sessionOps)
 	for op, method := range builtinCommandOps() {
 		spec := api.CommandSpec{
 			Name: op,

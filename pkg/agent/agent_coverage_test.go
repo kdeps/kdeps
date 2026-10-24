@@ -293,7 +293,7 @@ func TestHandleSignals_SIGTSTP(t *testing.T) {
 	_ = out
 }
 
-// ---- repl.go cmdCompact ----
+// ---- /compact ----
 
 func TestCmdCompact_NoCompactionNeeded(t *testing.T) {
 	loop := makeTestLoop(nil)
@@ -307,7 +307,7 @@ func TestCmdCompact_NoCompactionNeeded(t *testing.T) {
 	}
 
 	out := testCaptureStdout(t, func() {
-		err := repl.cmdCompact()
+		err := repl.dispatchCommand("/compact")
 		// May succeed or error; either is acceptable for this test
 		_ = err
 	})

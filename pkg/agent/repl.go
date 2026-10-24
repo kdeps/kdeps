@@ -2536,21 +2536,6 @@ func (r *REPL) cmdHelp() error {
 	return nil
 }
 
-func (r *REPL) cmdClear() error {
-	if r.loop.Session().TurnCount() >= compactMinTurns {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Summarizing branch before clearing..."))
-		if summary, err := r.loop.SummarizeBranch(r.ctx); err == nil && summary != "" {
-			fmt.Fprintf(os.Stdout, "%s\n\n%s\n\n",
-				styleReplHeading.Render("Branch summary:"),
-				summary,
-			)
-		}
-	}
-	r.loop.Session().Clear()
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Conversation history cleared."))
-	return nil
-}
-
 // tagKeywords are the filter words the user may type for tag-based completion.
 // When a tag-only completion is selected (length=0), readline appends the full
 // model name after the typed keyword, giving e.g. "ggufgemma4". This list is
@@ -3781,32 +3766,6 @@ func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
 	return nil
 }
 
-func (r *REPL) cmdCompact() error {
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Compacting conversation history..."))
-
-	summary, err := r.loop.ForceCompact(r.ctx)
-	if err != nil {
-		return fmt.Errorf("compact: %w", err)
-	}
-	if summary == "" {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf(
-			"Nothing to compact — the session has %d turn(s); need more than %d to fold any in. "+
-				"Note: /compact only shrinks the saved conversation, not a turn's own tool output.",
-			r.loop.Session().TurnCount(), forceKeepTurns)))
-		return nil
-	}
-	// Counters were reset to the post-compact context inside ForceCompact.
-	r.copyContextCounters()
-	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
-		styleReplHeading.Render("Compaction summary:"),
-		summary,
-	)
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-		fmt.Sprintf("History compacted. Session now has %d turns.", r.loop.Session().TurnCount()),
-	))
-	return nil
-}
-
 // foldPreset is one named /fold preset threshold size (tokens) and items cap
 // (checkpoints) bundle -- a shortcut over setting both individually.
 type foldPreset struct {
@@ -4023,33 +3982,6 @@ func (r *REPL) explainNothingToFold() {
 		fmt.Fprintf(os.Stdout, "  token counter: sent %s, generated %s\n",
 			formatCompactCount(tc.InputTokens()), formatCompactCount(tc.OutputTokens()))
 	}
-}
-
-func (r *REPL) cmdHistory() error {
-	turns := r.loop.Session().TurnCount()
-	if turns == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No conversation history."))
-		return nil
-	}
-	fmt.Fprintln(
-		os.Stdout,
-		styleReplHeading.Render(fmt.Sprintf("Conversation history (%d turns):", turns)),
-	)
-	for i, m := range r.loop.Session().Messages() {
-		label := "YOU"
-		if i%replLabelMod == 1 {
-			label = "AGENT"
-		}
-		preview := m.Content
-		if len(preview) > replPreviewMax {
-			preview = preview[:replPreviewMax] + "..."
-		}
-		fmt.Fprintf(os.Stdout, "  %s %s\n",
-			styleReplHeading.Render(fmt.Sprintf("[%d] %s:", i/replLabelMod, label)),
-			preview,
-		)
-	}
-	return nil
 }
 
 // cmdPrompt shows the exact messages array sent to the LLM on the most

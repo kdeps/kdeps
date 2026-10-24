@@ -52,10 +52,10 @@ fi
 
 # /clear
 OUTPUT=$(_repl '/clear')
-if output_grep_i "panic|runtime error" "$OUTPUT"; then
-    test_failed "REPL /clear - panicked" "Output: $OUTPUT"
+if output_grep_i "Conversation history cleared" "$OUTPUT"; then
+    test_passed "REPL /clear - prints from its YAML print: template"
 else
-    test_passed "REPL /clear - exits without error"
+    test_failed "REPL /clear - no confirmation" "Output: $OUTPUT"
 fi
 
 # /skills
@@ -80,18 +80,18 @@ fi
 
 # /history
 OUTPUT=$(_repl '/history')
-if output_grep_i "panic|runtime error" "$OUTPUT"; then
-    test_failed "REPL /history - panicked" "Output: $OUTPUT"
+if output_grep_i "No conversation history" "$OUTPUT"; then
+    test_passed "REPL /history - an empty session prints from its YAML"
 else
-    test_passed "REPL /history - exits without error"
+    test_failed "REPL /history - empty session message missing" "Output: $OUTPUT"
 fi
 
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
-if output_grep_i "panic|runtime error" "$OUTPUT"; then
-    test_failed "REPL /compact - panicked" "Output: $OUTPUT"
+if output_grep_i "Nothing to compact" "$OUTPUT"; then
+    test_passed "REPL /compact - too few turns prints from its YAML"
 else
-    test_passed "REPL /compact - exits without error"
+    test_failed "REPL /compact - no nothing-to-compact message" "Output: $OUTPUT"
 fi
 
 # /thinking (show current)

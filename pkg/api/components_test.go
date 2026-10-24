@@ -236,6 +236,7 @@ var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
 	"knowledge_recall":      true,
 	"load_skill":            true,
 	"session_handshake":     true,
+	"session_ops":           true,
 }
 
 func sessionOnlyTool(name string) bool { return sessionOnlyTools[name] }

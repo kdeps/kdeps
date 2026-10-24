@@ -65,7 +65,8 @@ func TestCommands_CoreItemsAreRequired(t *testing.T) {
 		require.NoError(t, err, "every required command ships a file")
 		c, err := parseYAMLCommand(data, name+".yaml")
 		require.NoError(t, err)
-		assert.True(t, c.Builtin, "%s is handled in Go", name)
+		// Required either way: a builtin's file, or a YAML command with no Go fallback.
+		assert.True(t, c.Builtin || len(c.Run) > 0, "%s runs from Go or from its run: steps", name)
 	}
 	assert.False(t, assets.Required("commands", "instruct-now"), "other built-ins run without their file")
 	assert.False(t, assets.Required("commands", "review"), "declared commands can be removed")

@@ -75,7 +75,7 @@ func TestListToolItems_MarksSessionToolsAgentOnly(t *testing.T) {
 			flagged[item.Name] = true
 		}
 	}
-	want := map[string]bool{}
+	want := map[string]bool{"session_ops": true}
 	for _, name := range sessionToolNames {
 		want[name] = true
 	}

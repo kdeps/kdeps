@@ -196,17 +196,25 @@ func (s *settingSpec) validate() error {
 		if strings.TrimSpace(src) == "" {
 			return fmt.Errorf("setting: %s is required", name)
 		}
-		if _, err := template.New(name).Funcs(settingFuncs).Parse(src); err != nil {
+		if _, err := template.New(name).Funcs(commandFuncs).Parse(src); err != nil {
 			return fmt.Errorf("setting: %s: %w", name, err)
 		}
 	}
 	return nil
 }
 
-// settingFuncs are the functions setting templates may call.
+// commandFuncs are the functions setting and print: templates may call.
 //
 //nolint:gochecknoglobals // fixed template function table
-var settingFuncs = template.FuncMap{"join": strings.Join}
+var commandFuncs = template.FuncMap{"join": strings.Join, "trunc": truncText}
+
+// truncText cuts s to n bytes plus "..." (the trunc template function).
+func truncText(n int, s string) string {
+	if n < 0 || len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
 
 // runSettingCommand shows the setting with no argument, stores a listed
 // value and persists it, or reports an unlisted one.
@@ -233,7 +241,7 @@ func (r *REPL) runSettingCommand(c *slashCommand, args []string) error {
 }
 
 func printSetting(src string, state map[string]any, arg string, values []string, style func(...string) string) error {
-	tmpl, err := template.New("setting").Funcs(settingFuncs).Parse(src)
+	tmpl, err := template.New("setting").Funcs(commandFuncs).Parse(src)
 	if err != nil {
 		return err
 	}

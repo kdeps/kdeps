@@ -1,10 +1,20 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: compact
 order: 70
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: compact
 usage:
   - args: ""
     help: Compact conversation history (keep recent turns)
+run:
+  - tool: session_ops
+    args:
+      operation: compact
+    # .summary is empty when there were too few turns; .keep is how many recent turns stay
+    print: |-
+      {{if .summary}}**Compaction summary:**
+
+      {{.summary}}
+
+      History compacted. Session now has {{.turns}} turns.{{else}}Nothing to compact — the session has {{.turns}} turn(s); need more than {{.keep}} to fold any in. Note: /compact only shrinks the saved conversation, not a turn's own tool output.{{end}}
