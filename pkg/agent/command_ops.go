@@ -44,7 +44,6 @@ type commandMethod func(*REPL, []string) error
 func builtinCommandOps() map[string]commandMethod {
 	return map[string]commandMethod{
 		"help":         func(r *REPL, _ []string) error { return r.cmdHelp() },
-		"model":        func(r *REPL, a []string) error { return r.cmdModel(a) },
 		"skills":       func(r *REPL, _ []string) error { return r.cmdSkills() },
 		"prompts":      func(r *REPL, _ []string) error { return r.cmdPrompts() },
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },

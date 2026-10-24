@@ -49,7 +49,7 @@ type Settings struct {
 	// sessions.
 	FavoriteModels []string `yaml:"favorite_models,omitempty"`
 
-	// AgentLoop persists the /model tool settings (rounds, stall timeout, autokill,
+	// AgentLoop persists the /model tool settings (rounds, stall timeout,
 	// retries, compaction, history caps). nil means "never customized — use
 	// built-in defaults".
 	AgentLoop *AgentLoopTuning `yaml:"agent_loop,omitempty"`

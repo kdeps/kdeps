@@ -1,0 +1,71 @@
+version: 1.0.0
+category: model
+description: Search HuggingFace for GGUF model repos (most downloaded first) and list each repo's GGUF files with their sizes. Use to find a local model to download with /model hff download.
+outputFormat: "a table: REPO, DOWNLOADS, LIKES per repo, then its GGUF files (those whose name contains the query, else all) with sizes"
+seeAlso: hf_repo_files
+parameters:
+  query:
+    type: string
+    description: Words to search for in repo names
+    required: true
+  limit:
+    type: integer
+    description: Most repos to return (default 20)
+python:
+  env:
+    HF_TOKEN: [HF_TOKEN, ""]           # optional: a HuggingFace token raises rate limits
+    HF_API: [KDEPS_HF_API_URL, ""]     # optional: another API base (tests)
+  timeout: 60s
+  script: |
+    import json, os, sys, urllib.parse, urllib.request
+
+    a = json.loads(sys.argv[1])
+    query = (a.get("query") or "").strip()
+    if not query:
+        sys.exit("hf_search: query is required")
+    try:
+        limit = int(float(a.get("limit") or 0)) or 20
+    except ValueError:
+        limit = 20
+    base = (os.environ.get("HF_API") or "https://huggingface.co/api").rstrip("/")
+
+    def get(params):
+        req = urllib.request.Request(base + "/models?" + urllib.parse.urlencode(params),
+                                     headers={"Accept": "application/json"})
+        if os.environ.get("HF_TOKEN"):
+            req.add_header("Authorization", "Bearer " + os.environ["HF_TOKEN"])
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)
+        except Exception as e:  # network, HTTP status, or a body that is not JSON
+            sys.exit("hf_search: %s" % e)
+
+    def gguf(files):
+        return [f for f in files or [] if f.get("rfilename", "").lower().endswith(".gguf")]
+
+    def size(n):
+        if not n or n <= 0:
+            return "?"
+        return "%.1fGB" % (n / 2**30) if n >= 2**30 else "%.0fMB" % (n / 2**20)
+
+    params = {"search": query, "filter": "gguf", "sort": "downloads", "direction": "-1",
+              "limit": str(limit), "full": "true"}
+    results = get(params)
+    if not results:
+        # Repos with GGUF files but no gguf tag are found without the filter.
+        del params["filter"]
+        results = [m for m in get(params) if gguf(m.get("siblings"))]
+    if not results:
+        print("No results found.")
+        sys.exit(0)
+    print("%-50s %10s %6s" % ("REPO", "DOWNLOADS", "LIKES"))
+    print("-" * 72)
+    for m in results:
+        rid = m.get("id", "")
+        print("%-50s %10d %6d" % (rid if len(rid) < 50 else rid[:48] + "~",
+                                  m.get("downloads") or 0, m.get("likes") or 0))
+        files = gguf(m.get("siblings"))
+        matched = [f for f in files if query.lower() in f["rfilename"].lower()] or files
+        for f in matched:
+            name = f["rfilename"]
+            print("  %-48s %10s" % (name if len(name) < 48 else name[:46] + "~", size(f.get("size"))))

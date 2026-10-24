@@ -16,9 +16,9 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/model ps switch <model>` | Switch the active model to a running local server |
 | `/model hff search <query>` | Search HuggingFace for GGUF repos (sorted by downloads) |
 | `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
-| `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
+| `/model hff download <repo> <file>` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
-| `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set web-limit 0` (also `bash-limit`/`file-limit`/`code-limit`; `0` removes that per-request call cap), `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
+| `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set web-limit 0` (also `bash-limit`/`file-limit`/`code-limit`; `0` removes that per-request call cap), `set retry-delay 5s`, `set stall-timeout 5m`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
 | `/model name [show\|hide\|abbreviate\|auto]` | Show or set how the modeline displays the model name, overriding the theme's default (see [Themes](/agent/repl-themes#themes)); persists |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
@@ -273,6 +273,16 @@ run:
 | `checkpoint` | - | `id` (empty when the session has no messages) |
 | `goto` | `id`: an entry id | `id`, `found`, `turns` |
 | `branches` | - | `branches` (`branch`, `at`, `ids`) |
+| `model` | `name`: a model, a `.gguf`/`.llamafile` URL, or an OpenAI-compatible base URL | `model`, and `registered`, `ambiguous` + `typed`, or `closest` + `typed` when the name resolved that way |
+| `model_pick` | `filter` (optional) | `model`, `picked`: opens the model picker when there is one |
+| `model_default` | `name` (optional) | `model`; with no name, `configured` |
+| `models` | - | `current`, `cloud` (`backend`, `env`, `ready`, `models`: `id`, `desc`, `current`), `local` (`id`, `downloaded`, `repo`, `current`) |
+| `model_favorite` | `name`, `on` (`on` or `off`) | `name`, `on`, `warning` when it could not be saved |
+| `loop_settings` | - | one field per `/model tool` setting |
+| `loop_set` | `setting`, `value` | `setting`, `value` as shown (`unlimited`, `disabled`, ...) |
+| `servers` | - | `servers` (`pid`, `port`, `backend`, `model`, `status`) |
+| `server_kill` | `model` | `model` |
+| `hf_download` | `repo`, `file` | `path`, `alias` |
 | `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `load_skill`, `identity_get`, `session_handshake`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
 
 A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
@@ -427,6 +437,34 @@ subcommands:
 </div>
 
 A tool step with `as:` and no `print:` prints nothing: its result is for the steps after it.
+
+A `"*"` entry takes any first word no other entry names, and gets that word as its first argument. `/model` uses it: `/model list` is the `list` entry, `/model gpt-4o` is the `"*"` entry switching to `gpt-4o`.
+
+```yaml
+# commands/model.yaml (shipped, abridged)
+subcommands:
+  "":                                   # bare /model: the picker
+    run:
+      - tool: session_ops
+        args: {operation: model_pick}
+  "*":                                  # /model <name or URL>
+    run:
+      - tool: session_ops
+        args: {operation: model, name: "$1"}
+  list:
+    run:
+      - tool: session_ops
+        args: {operation: models}
+        print: "..."                    # the table, from the JSON models returns
+  hff:
+    subcommands:
+      search:
+        run:
+          - tool: hf_search             # a python: tool asset, also offered to the model
+            args: {query: "$@"}
+```
+
+A long answer pages in an interactive terminal (Enter/Space for the next page, `q` to stop).
 
 ## See also
 

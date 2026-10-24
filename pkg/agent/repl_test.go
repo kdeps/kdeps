@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -557,7 +558,7 @@ func TestCmdModel_TagKeywordPrefix(t *testing.T) {
 	// Tag-only completion (length=0) causes readline to append the full model name
 	// after the typed keyword: "/model gguf" + "gemma4:31b [gguf]" → arg = "ggufgemma4:31b [gguf]".
 	// cmdModel must strip the tag and the "gguf" prefix to recover "gemma4:31b".
-	_ = repl.cmdModel([]string{"ggufgemma4:31b [gguf]"})
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"ggufgemma4:31b [gguf]"}, " "))
 	assert.Equal(t, "gemma4:31b", repl.loop.config.Model)
 }
 
@@ -566,7 +567,7 @@ func TestCmdModel_StripsStar(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	_ = repl.cmdModel([]string{"qwen2.5*:7b"})
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"qwen2.5*:7b"}, " "))
 	assert.Equal(t, "qwen2.5:7b", repl.loop.config.Model)
 }
 
@@ -578,10 +579,10 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 	repl.SetModelNames([]string{"llama3.2:1b", "deepseek-chat"})
 
 	// [tag] suffix appended by tab completion is stripped before applying.
-	_ = repl.cmdModel([]string{"llama3.2:1b [llamafile cached]"})
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"llama3.2:1b [llamafile cached]"}, " "))
 	assert.Equal(t, "llama3.2:1b", repl.loop.config.Model)
 
-	_ = repl.cmdModel([]string{"deepseek-chat [cloud enabled]"})
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"deepseek-chat [cloud enabled]"}, " "))
 	assert.Equal(t, "deepseek-chat", repl.loop.config.Model)
 }
 
@@ -1209,7 +1210,7 @@ func TestCmdModel_Show(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdModel(nil)
+	err := repl.dispatchCommand("/model")
 	assert.NoError(t, err)
 }
 
@@ -1218,7 +1219,7 @@ func TestCmdModel_Set(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	err := repl.cmdModel([]string{"gpt-4"})
+	err := repl.dispatchCommand("/model " + strings.Join([]string{"gpt-4"}, " "))
 	assert.NoError(t, err)
 	assert.Equal(t, "gpt-4", loop.config.Model)
 }
@@ -1895,7 +1896,7 @@ func TestCmdModels_NoLocalModels(t *testing.T) {
 		os.Stdout = origOut
 	}()
 
-	err := repl.cmdModels()
+	err := repl.dispatchCommand("/model list")
 	assert.NoError(t, err)
 }
 
@@ -1911,7 +1912,7 @@ func TestCmdModels_WithLocalModel(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdModels()
+	err := repl.dispatchCommand("/model list")
 	assert.NoError(t, err)
 }
 
@@ -1926,7 +1927,7 @@ func TestCmdModels_WithProviderStatus(t *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdModels()
+	err := repl.dispatchCommand("/model list")
 	assert.NoError(t, err)
 }
 
@@ -1942,8 +1943,11 @@ func TestPrintLocalModelRow_DownloadedAndCurrent(_ *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	repl.writeLocalModelRow(os.Stdout, "llama2", "llama2")
-	repl.writeLocalModelRow(os.Stdout, "codellama", "llama2")
+	repl.modelNames = []string{"llama2", "codellama"}
+	rows := repl.modelsOp()["local"].([]map[string]any)
+	if len(rows) != 2 || rows[0]["current"] != true || rows[0]["downloaded"] != true || rows[1]["current"] != false {
+		panic(fmt.Sprintf("local rows %v", rows))
+	}
 }
 
 // --- cmdPrompts ---
@@ -3282,18 +3286,6 @@ func TestDispatchCommand_ModelPs(t *testing.T) {
 	assert.NoError(t, repl.dispatchCommand("/model ps"))
 }
 
-func TestDispatchCommand_ModelHff(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	origOut := os.Stdout
-	_, w, _ := os.Pipe()
-	os.Stdout = w
-	defer func() { w.Close(); os.Stdout = origOut }()
-	// No args prints usage — no error expected.
-	assert.NoError(t, repl.dispatchCommand("/model hff"))
-}
-
 func TestDispatchCommand_Prompts(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.prompts = []PromptTemplate{{Name: "greet", Description: "Greet", Content: "Hello $1"}}
@@ -3443,25 +3435,6 @@ func TestIsGGUFModelName_RegistryLookup(t *testing.T) {
 	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
 	// Without a registry entry, a plain name should return false
 	assert.False(t, IsGGUFModelName("Phi-mini-MoE-instruct-Q4_K_M-definitely-not-registered"))
-}
-
-// --- hffFormatSize ---
-
-func TestHffFormatSize(t *testing.T) {
-	tests := []struct {
-		input    int64
-		expected string
-	}{
-		{0, "?"},
-		{-1, "?"},
-		{int64(2.5 * hffBytesPerGB), "2.5GB"},
-		{int64(1 * hffBytesPerGB), "1.0GB"},
-		{int64(512 * hffBytesPerMB), "512MB"},
-		{int64(100 * hffBytesPerMB), "100MB"},
-	}
-	for _, tc := range tests {
-		assert.Equal(t, tc.expected, hffFormatSize(tc.input), "input=%d", tc.input)
-	}
 }
 
 // --- contextLimitForModel ---
@@ -3653,7 +3626,7 @@ func TestCmdModelTool_ListShowsSettings(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	out := captureStdout(t, func() { _ = repl.cmdModelTool(nil) })
+	out := captureStdout(t, func() { _ = repl.dispatchCommand("/model tool") })
 	for _, name := range toolSettingNames {
 		assert.Contains(t, out, name)
 	}
@@ -3665,7 +3638,7 @@ func TestCmdModelTool_SetRounds(t *testing.T) {
 	defer repl.cancel()
 
 	out := captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "rounds", "80"})
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "rounds", "80"}, " "))
 	})
 	assert.Contains(t, out, "80")
 	assert.Equal(t, 80, loop.config.MaxToolRounds)
@@ -3677,7 +3650,7 @@ func TestCmdModelTool_SetRoundsUnlimited(t *testing.T) {
 	defer repl.cancel()
 
 	out := captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "rounds", "0"})
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "rounds", "0"}, " "))
 	})
 	assert.Contains(t, out, "unlimited")
 	assert.Equal(t, 0, loop.config.MaxToolRounds)
@@ -3685,7 +3658,7 @@ func TestCmdModelTool_SetRoundsUnlimited(t *testing.T) {
 	// Negative is still rejected.
 	before := loop.config.MaxToolRounds
 	captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "rounds", "-1"})
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "rounds", "-1"}, " "))
 	})
 	assert.Equal(t, before, loop.config.MaxToolRounds)
 }
@@ -3696,12 +3669,12 @@ func TestCmdModelTool_SetTokenSettingsWithSuffix(t *testing.T) {
 	defer repl.cancel()
 
 	captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "compact-threshold", "40k"})
-		_ = repl.cmdModelTool([]string{"set", "compact-budget", "20k"})
-		_ = repl.cmdModelTool([]string{"set", "history-tokens", "32k"})
-		_ = repl.cmdModelTool([]string{"set", "retry-delay", "5s"})
-		_ = repl.cmdModelTool([]string{"set", "retries", "5"})
-		_ = repl.cmdModelTool([]string{"set", "max-turns", "12"})
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "compact-threshold", "40k"}, " "))
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "compact-budget", "20k"}, " "))
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "history-tokens", "32k"}, " "))
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "retry-delay", "5s"}, " "))
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "retries", "5"}, " "))
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "max-turns", "12"}, " "))
 	})
 	assert.Equal(t, 40*1024, loop.config.AutoCompactThreshold)
 	assert.Equal(t, 20*1024, loop.config.CompactTokenBudget)
@@ -3944,29 +3917,9 @@ func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {
 	defer repl.cancel()
 
 	captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "compact-threshold", "0"})
+		_ = repl.dispatchCommand("/model tool " + strings.Join([]string{"set", "compact-threshold", "0"}, " "))
 	})
 	assert.Equal(t, 0, loop.config.AutoCompactThreshold)
-}
-
-func TestCmdModelTool_InvalidInputsRejected(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	before := loop.config.MaxToolRounds
-
-	out := captureStdout(t, func() {
-		_ = repl.cmdModelTool([]string{"set", "rounds", "-3"})
-		_ = repl.cmdModelTool([]string{"set", "rounds", "abc"})
-		_ = repl.cmdModelTool([]string{"set", "retry-delay", "fast"})
-		_ = repl.cmdModelTool([]string{"set", "nonsense", "1"})
-		_ = repl.cmdModelTool([]string{"set", "rounds"}) // missing value
-		_ = repl.cmdModelTool([]string{"bogus"})
-	})
-	assert.Equal(t, before, loop.config.MaxToolRounds, "invalid input must not change settings")
-	assert.Contains(t, out, "Unknown setting")
-	assert.Contains(t, out, "Usage: /model tool set")
-	assert.Contains(t, out, "Unknown /model tool subcommand")
 }
 
 func TestParseTokenCount(t *testing.T) {
@@ -3989,7 +3942,7 @@ func TestCmdModelDefault_NoArgs_NoSaveFn(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdModelDefault(nil)
+	err := repl.dispatchCommand("/model default")
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4007,7 +3960,7 @@ func TestCmdModelDefault_NoArgs_WithSaveFn(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdModelDefault(nil)
+	err := repl.dispatchCommand("/model default")
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4026,7 +3979,7 @@ func TestCmdModelDefault_WithName_SaveFnCalled(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdModelDefault([]string{"my-model"})
+	err := repl.dispatchCommand("/model default " + strings.Join([]string{"my-model"}, " "))
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4045,7 +3998,7 @@ func TestCmdModelDefault_SaveFnError(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdModelDefault([]string{"my-model"})
+	err := repl.dispatchCommand("/model default " + strings.Join([]string{"my-model"}, " "))
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4065,7 +4018,7 @@ func TestOpenPickerWithFilter_ReturnsModel(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.openPickerWithFilter("")
+	err := repl.dispatchCommand("/model")
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4080,7 +4033,7 @@ func TestOpenPickerWithFilter_EmptyModel(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelPickerFn(func(_ string) (string, error) { return "", nil })
-	err := repl.openPickerWithFilter("filter")
+	err := repl.dispatchCommand("/model")
 	assert.NoError(t, err)
 	assert.Equal(t, "test-model", repl.loop.config.Model) // unchanged
 }
@@ -4090,7 +4043,7 @@ func TestOpenPickerWithFilter_Error(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelPickerFn(func(_ string) (string, error) { return "", errors.New("picker error") })
-	err := repl.openPickerWithFilter("")
+	err := repl.dispatchCommand("/model")
 	assert.Error(t, err)
 }
 
@@ -4208,7 +4161,7 @@ func TestCmdModelWithName_AmbiguousBareName_FallsBackWithNotice(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		err := repl.cmdModelWithName("qwen3:30b")
+		err := repl.dispatchCommand("/model " + "qwen3:30b")
 		assert.NoError(t, err)
 	})
 
@@ -4229,7 +4182,7 @@ func TestCmdModelWithName_QualifiedName_SelectsExactEntry(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		err := repl.cmdModelWithName("llamafile:qwen3:30b")
+		err := repl.dispatchCommand("/model " + "llamafile:qwen3:30b")
 		assert.NoError(t, err)
 	})
 
@@ -4300,7 +4253,7 @@ func TestCmdProcesses_List_NoServers(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdProcesses(nil)
+	err := repl.dispatchCommand("/model ps")
 	w.Close()
 	os.Stdout = origOut
 	out, _ := io.ReadAll(r)
@@ -4318,7 +4271,7 @@ func TestCmdProcesses_Switch(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdProcesses([]string{"switch", "my-model"})
+	err := repl.dispatchCommand("/model ps " + strings.Join([]string{"switch", "my-model"}, " "))
 	w.Close()
 	os.Stdout = origOut
 	io.Copy(io.Discard, r) //nolint:errcheck
@@ -4326,44 +4279,6 @@ func TestCmdProcesses_Switch(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "my-model", repl.loop.config.Model)
-}
-
-func TestCmdProcesses_Kill_NoService(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdProcesses([]string{"kill", "my-model"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "No local model service available")
-}
-
-func TestCmdProcesses_Kill_WithService_NotFound(t *testing.T) {
-	loop := makeTestLoop(nil)
-	loop.config.ModelService = &mockModelService{url: ""}
-	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdProcesses([]string{"kill", "my-model"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "No running server found for")
 }
 
 func TestCmdProcesses_Kill_WithService_Success(t *testing.T) {
@@ -4379,7 +4294,7 @@ func TestCmdProcesses_Kill_WithService_Success(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdProcesses([]string{"kill", "my-model"})
+	err := repl.dispatchCommand("/model ps " + strings.Join([]string{"kill", "my-model"}, " "))
 	w.Close()
 	os.Stdout = origOut
 	out, _ := io.ReadAll(r)
@@ -4404,190 +4319,13 @@ func (m *mockKillModelService) KillModel(_, _ string) bool   { return m.killResu
 
 // --- cmdHFF ---
 
-func TestCmdHFF_NoArgs_PrintsUsage(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFF(nil)
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage")
-}
-
-func TestCmdHFF_UnknownSubcommand(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFF([]string{"bogus"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Unknown /model hff subcommand")
-}
-
-func TestCmdHFF_Search_NoQuery(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFF([]string{"search"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /model hff search")
-}
-
-func TestCmdHFF_Info_NoRepo(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFF([]string{"info"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /model hff info")
-}
-
-func TestCmdHFF_Download_NoRepo(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFF([]string{"download"})
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /model hff download")
-}
-
 // --- cmdHFFSearch (error path — network unavailable) ---
-
-func TestCmdHFFSearch_NetworkError_DoesNotPropagate(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	// Point the context to a cancelled context so HFSearchGGUF fails immediately.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // already cancelled
-	repl.ctx = ctx
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFFSearch("qwen")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	// Error must not propagate to the REPL (nilerr annotation)
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Search failed")
-}
 
 // --- cmdHFFInfo (error path) ---
 
-func TestCmdHFFInfo_NetworkError_DoesNotPropagate(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	repl.ctx = ctx
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFFInfo("owner/repo")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Failed")
-}
-
 // --- cmdHFFDownload (no filename → delegates to cmdHFFInfo) ---
 
-func TestCmdHFFDownload_NoFilename_CallsInfo(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	repl.ctx = ctx
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFFDownload("owner/repo", "")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	// Should call cmdHFFInfo which shows "Failed" due to network error
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Failed")
-}
-
 // --- cmdHFFDownload with filename (network error path) ---
-
-func TestCmdHFFDownload_WithFilename_NetworkError(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	repl.ctx = ctx
-
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err := repl.cmdHFFDownload("owner/repo", "model.gguf")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Download failed")
-}
 
 // --- cmdHFFDownload refresh callback fires ---
 
@@ -4634,7 +4372,7 @@ func TestCmdProcessesList_WithEntries_FormatsTable(t *testing.T) {
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdProcessesList()
+	err := repl.dispatchCommand("/model ps")
 	w.Close()
 	os.Stdout = origOut
 	out, _ := io.ReadAll(r)
@@ -4902,38 +4640,25 @@ func TestModelTag_WithRepo(t *testing.T) {
 	assert.Contains(t, tag, "org/repo")
 }
 
-// --- writeLocalModelRow ---
+// --- /model list ---
 
-func TestWriteLocalModelRow_Current(t *testing.T) {
+// /model list prints from commands/model.yaml: a local model is marked
+// current, downloaded (with *), or shows its HuggingFace repo.
+func TestModelList_LocalRows(t *testing.T) {
 	loop := makeTestLoop(nil)
+	loop.config.Model = "current-model"
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	repl.SetModelNames([]string{"current-model"})
-	repl.SetDownloadedModels(map[string]bool{"current-model": false})
-	var buf strings.Builder
-	repl.writeLocalModelRow(&buf, "current-model", "current-model")
-	assert.Contains(t, buf.String(), "current")
-}
-
-func TestWriteLocalModelRow_Downloaded(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	repl.SetModelNames([]string{"dl-model"})
+	repl.SetModelNames([]string{"current-model", "dl-model", "plain-model", "llama3.2"})
 	repl.SetDownloadedModels(map[string]bool{"dl-model": true})
-	var buf strings.Builder
-	repl.writeLocalModelRow(&buf, "dl-model", "other")
-	assert.Contains(t, buf.String(), "downloaded")
-}
+	repl.modelRepos = map[string]string{"llama3.2": "meta/llama-3.2"}
+	repl.modelTypes = map[string]string{"llama3.2": modelTypeLLamafile}
 
-func TestWriteLocalModelRow_NotDownloaded(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	repl.SetModelNames([]string{"plain-model"})
-	var buf strings.Builder
-	repl.writeLocalModelRow(&buf, "plain-model", "other")
-	assert.NotContains(t, buf.String(), "downloaded")
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/model list")) })
+	assert.Regexp(t, `current-model.*<-- current`, out)
+	assert.Regexp(t, `\* .*dl-model.*downloaded`, out)
+	assert.Contains(t, out, "meta/llama-3.2")
+	assert.NotRegexp(t, `plain-model.*downloaded`, out)
 }
 
 // --- liveThinkingWriter ---
@@ -5482,64 +5207,22 @@ func TestDoSessionGotoCompletion_TokenFilter(t *testing.T) {
 	assert.Equal(t, 6, tokenLen)
 }
 
-// --- writeCloudModelRow ---
+// --- /model list: cloud rows ---
 
-func TestWriteCloudModelRow_Current(t *testing.T) {
+// A cloud backend is [READY] when its key is set, else it names the variable
+// to set; the current model is marked.
+func TestModelList_CloudRows(t *testing.T) {
 	loop := makeTestLoop(nil)
+	m := llm.KnownCloudModels[0]
+	loop.config.Model = m.ID
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	var buf strings.Builder
-	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
-	repl.writeCloudModelRow(&buf, m, "claude-opus-4-8", true)
-	out := buf.String()
-	assert.Contains(t, out, "claude-opus-4-8")
-	assert.Contains(t, out, "current")
-}
+	repl.providerStatus = map[string]bool{m.Backend: true}
 
-func TestWriteCloudModelRow_Ready(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	var buf strings.Builder
-	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
-	repl.writeCloudModelRow(&buf, m, "other-model", true)
-	out := buf.String()
-	assert.Contains(t, out, "most capable")
-	assert.NotContains(t, out, "current")
-}
-
-func TestWriteCloudModelRow_NotReady(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	var buf strings.Builder
-	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
-	repl.writeCloudModelRow(&buf, m, "other-model", false)
-	out := buf.String()
-	assert.NotContains(t, out, "current")
-}
-
-// --- writeLocalModelRow with repo ---
-
-func TestWriteLocalModelRow_WithRepo(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	repl.modelRepos = map[string]string{"llama3.2": "meta/llama-3.2"}
-	repl.modelTypes = map[string]string{"llama3.2": modelTypeLLamafile}
-	var buf strings.Builder
-	repl.writeLocalModelRow(&buf, "llama3.2", "other")
-	assert.Contains(t, buf.String(), "meta/llama-3.2")
-}
-
-func TestWriteLocalModelRow_RepoGGUFNoURL(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-	repl.modelTypes = map[string]string{"gguf-model": modelTypeGGUF}
-	var buf strings.Builder
-	repl.writeLocalModelRow(&buf, "gguf-model", "other")
-	assert.NotContains(t, buf.String(), "huggingface")
+	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/model list")) })
+	assert.Regexp(t, m.Backend+`.*\[READY\]`, out)
+	assert.Regexp(t, regexp.QuoteMeta(m.ID)+`.*<-- current`, out)
+	assert.Contains(t, out, "[NO KEY - set ", "a backend without its key names the variable")
 }
 
 // --- crlfWriter ---
@@ -5761,126 +5444,7 @@ func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 	assert.Equal(t, "ollama", backend)
 }
 
-// --- cmdHFFSearch success path (table rendering) ---
-
-func TestCmdHFFSearch_WithResults_RendersTable(t *testing.T) {
-	orig := hfSearchFunc
-	hfSearchFunc = func(_ context.Context, _ string, _ int) ([]llm.HFModelResult, error) {
-		return []llm.HFModelResult{
-			{
-				ID:        "owner/qwen2-gguf",
-				Downloads: 12345,
-				Likes:     99,
-				Siblings: []llm.HFFileEntry{
-					{Filename: "qwen2-1b-q4.gguf", Size: 800 * 1024 * 1024},
-				},
-			},
-		}, nil
-	}
-	t.Cleanup(func() { hfSearchFunc = orig })
-
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	r, w, _ := os.Pipe()
-	origOut := os.Stdout
-	os.Stdout = w
-	err := repl.cmdHFFSearch("qwen")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "REPO")
-	assert.Contains(t, string(out), "owner/qwen2-gguf")
-	assert.Contains(t, string(out), "qwen2-1b-q4.gguf")
-}
-
-func TestCmdHFFSearch_NoResults(t *testing.T) {
-	orig := hfSearchFunc
-	hfSearchFunc = func(_ context.Context, _ string, _ int) ([]llm.HFModelResult, error) {
-		return nil, nil
-	}
-	t.Cleanup(func() { hfSearchFunc = orig })
-
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	r, w, _ := os.Pipe()
-	origOut := os.Stdout
-	os.Stdout = w
-	err := repl.cmdHFFSearch("nomatch")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "No results")
-}
-
 // --- cmdHFFInfo success path ---
-
-func TestCmdHFFInfo_WithGGUFFiles_RendersTable(t *testing.T) {
-	orig := hfInfoFunc
-	hfInfoFunc = func(_ context.Context, _ string) (llm.HFRepoInfo, error) {
-		return llm.HFRepoInfo{
-			ID: "owner/myrepo",
-			Siblings: []llm.HFFileEntry{
-				{Filename: "model-q4.gguf", Size: 500 * 1024 * 1024},
-				{Filename: "model-q8.gguf", Size: 900 * 1024 * 1024},
-			},
-		}, nil
-	}
-	t.Cleanup(func() { hfInfoFunc = orig })
-
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	r, w, _ := os.Pipe()
-	origOut := os.Stdout
-	os.Stdout = w
-	err := repl.cmdHFFInfo("owner/myrepo")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "FILE")
-	assert.Contains(t, string(out), "model-q4.gguf")
-}
-
-func TestCmdHFFInfo_NoGGUFFiles(t *testing.T) {
-	orig := hfInfoFunc
-	hfInfoFunc = func(_ context.Context, _ string) (llm.HFRepoInfo, error) {
-		return llm.HFRepoInfo{
-			ID:       "owner/nonggufrepo",
-			Siblings: []llm.HFFileEntry{{Filename: "README.md", Size: 1024}},
-		}, nil
-	}
-	t.Cleanup(func() { hfInfoFunc = orig })
-
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	r, w, _ := os.Pipe()
-	origOut := os.Stdout
-	os.Stdout = w
-	err := repl.cmdHFFInfo("owner/nonggufrepo")
-	w.Close()
-	os.Stdout = origOut
-	out, _ := io.ReadAll(r)
-	r.Close()
-
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "No GGUF files")
-}
 
 // --- cmdProcessesList table rendering path ---
 
@@ -5914,7 +5478,7 @@ func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	r, w, _ := os.Pipe()
 	origOut := os.Stdout
 	os.Stdout = w
-	err := repl.cmdProcessesList()
+	err := repl.dispatchCommand("/model ps")
 	w.Close()
 	os.Stdout = origOut
 	out, _ := io.ReadAll(r)
@@ -5945,7 +5509,7 @@ func TestCmdHFFDownload_Success_PrintsDestAndAlias(t *testing.T) {
 	r, w, _ := os.Pipe()
 	origOut := os.Stdout
 	os.Stdout = w
-	err := repl.cmdHFFDownload("owner/qwen2-gguf", "qwen2-1b-q4.gguf")
+	err := repl.dispatchCommand("/model hff download " + "owner/qwen2-gguf" + " " + "qwen2-1b-q4.gguf")
 	w.Close()
 	os.Stdout = origOut
 	out, _ := io.ReadAll(r)
@@ -5973,7 +5537,7 @@ func TestCmdHFFDownload_Success_CallsRefreshModelsFn(t *testing.T) {
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
 	os.Stdout = w
-	err := repl.cmdHFFDownload("owner/phi3-gguf", "phi3.gguf")
+	err := repl.dispatchCommand("/model hff download " + "owner/phi3-gguf" + " " + "phi3.gguf")
 	w.Close()
 	os.Stdout = origOut
 

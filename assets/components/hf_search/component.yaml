@@ -1,0 +1,31 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: hf_search
+  description: Search HuggingFace for GGUF repos through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Words to search for in repo names
+    - name: limit
+      type: number
+      description: Most repos to return. Empty uses 20
+  # body is the table. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Search HuggingFace
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/hf_search/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        query: "{{ get('hf_search.query') }}"
+        limit: "{{ get('hf_search.limit') }}"

@@ -172,7 +172,9 @@ Favorites are saved to `~/.kdeps/agent-loop-settings.yaml`, shown first (marked 
 /model Qwen2.5-VL-7B-Instruct-Q4_K_M
 ```
 
-`/model hff download <repo>` without a filename shows the available files (same as `/model hff info`). Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
+`/model hff download` needs both the repo and the file; `/model hff info <repo>` lists the files. Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
+
+`search` and `info` are the `hf_search` and `hf_repo_files` tools: `python:` blocks in their tool assets, which the model can also call. `KDEPS_HF_API_URL` points them at another HuggingFace API base.
 
 ## Managing running servers
 

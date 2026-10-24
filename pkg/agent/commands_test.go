@@ -355,3 +355,31 @@ func TestCommandBody_Validate(t *testing.T) {
 	)
 	require.NoError(t, err)
 }
+
+// A "*" entry takes any first word no other entry names, as its own first
+// argument; with no argument "" still runs.
+func TestCommandSubcommands_AnyWord(t *testing.T) {
+	withCommands(t, map[string]string{
+		"pick": `name: pick
+usage: [{help: h}]
+subcommands:
+  "":
+    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "bare"}]
+  list:
+    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "listed"}]
+  "*":
+    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "picked $1"}]
+`,
+	})
+	r := NewREPL(t.Context(), makeTestLoop(nil))
+	defer r.cancel()
+	for line, want := range map[string]string{"/pick": "bare", "/pick list": "listed", "/pick Other": "picked"} {
+		out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand(line)) })
+		assert.Contains(t, out, want, line)
+	}
+	_, err := parseYAMLCommand(
+		[]byte("name: x\nusage: [{help: h}]\nsubcommands: {\"**\": {run: [{prompt: p}]}}\n"),
+		"x.yaml",
+	)
+	require.ErrorContains(t, err, "one lowercase word")
+}

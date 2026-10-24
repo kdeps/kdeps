@@ -174,7 +174,7 @@ func TestCmdModelName_SetsAndPersists(t *testing.T) {
 	var saved []string
 	repl.SetSaveModelNameFn(func(mode string) error { saved = append(saved, mode); return nil })
 
-	require.NoError(t, repl.cmdModelName([]string{"hide"}))
+	require.NoError(t, repl.dispatchCommand("/model name "+strings.Join([]string{"hide"}, " ")))
 	assert.Equal(t, "hide", ModelNameDisplayMode())
 	assert.Equal(t, []string{"hide"}, saved)
 }
@@ -185,10 +185,10 @@ func TestCmdModelName_AutoRestoresThemeBasedDefault(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdModelName([]string{"show"}))
+	require.NoError(t, repl.dispatchCommand("/model name "+strings.Join([]string{"show"}, " ")))
 	assert.Equal(t, "show", ModelNameDisplayMode())
 
-	require.NoError(t, repl.cmdModelName([]string{"auto"}))
+	require.NoError(t, repl.dispatchCommand("/model name "+strings.Join([]string{"auto"}, " ")))
 	assert.Equal(t, "", ModelNameDisplayMode())
 }
 
@@ -200,7 +200,7 @@ func TestCmdModelName_SaveErrorPropagated(t *testing.T) {
 
 	repl.SetSaveModelNameFn(func(string) error { return errors.New("disk full") })
 
-	err := repl.cmdModelName([]string{"hide"})
+	err := repl.dispatchCommand("/model name " + strings.Join([]string{"hide"}, " "))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "persist model name display setting")
 	assert.Equal(t, "hide", ModelNameDisplayMode(), "the mode still switches even though persisting failed")
@@ -215,7 +215,7 @@ func TestCmdModelName_UnknownModeRejectedNoSave(t *testing.T) {
 	var saved []string
 	repl.SetSaveModelNameFn(func(mode string) error { saved = append(saved, mode); return nil })
 
-	require.NoError(t, repl.cmdModelName([]string{"bogus"}))
+	require.NoError(t, repl.dispatchCommand("/model name "+strings.Join([]string{"bogus"}, " ")))
 	assert.Equal(t, "", ModelNameDisplayMode(), "an unknown mode must not change the current one")
 	assert.Empty(t, saved, "an unknown mode must not be persisted")
 }
@@ -226,9 +226,9 @@ func TestCmdModelName_BareShowsCurrentMode(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdModelName(nil))
+	require.NoError(t, repl.dispatchCommand("/model name"))
 	_ = SetModelNameDisplay("abbreviate")
-	require.NoError(t, repl.cmdModelName(nil))
+	require.NoError(t, repl.dispatchCommand("/model name"))
 }
 
 func TestDispatchModelName(t *testing.T) {

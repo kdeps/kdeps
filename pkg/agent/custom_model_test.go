@@ -79,7 +79,7 @@ func TestHandleCustomModelURL_OpenAIEndpoint(t *testing.T) {
 		return nil
 	})
 
-	assert.True(t, repl.handleCustomModelURL("http://localhost:1234/v1"))
+	require.NoError(t, repl.dispatchCommand("/model http://localhost:1234/v1"))
 
 	assert.Equal(t, "api-localhost-1234", loop.config.Model)
 	assert.Equal(t, "openai", loop.config.Backend)
@@ -113,7 +113,7 @@ func TestCmdModelFavorite(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, repl.cmdModelFavorite("gpt-4o", true))
+	require.NoError(t, repl.dispatchCommand("/model favorite "+"gpt-4o"))
 	assert.True(t, repl.favorites["gpt-4o"])
 	assert.Equal(t, "gpt-4o", lastName)
 	assert.True(t, lastFav)
@@ -124,11 +124,11 @@ func TestCmdModelFavorite(t *testing.T) {
 	assert.Equal(t, "gpt-4o", got[0], "favorite must lead the default list")
 
 	// A favorited-but-unknown model becomes selectable.
-	require.NoError(t, repl.cmdModelFavorite("my-custom", true))
+	require.NoError(t, repl.dispatchCommand("/model favorite "+"my-custom"))
 	assert.True(t, repl.isModelName("my-custom"))
 
 	// Unfavorite removes it.
-	require.NoError(t, repl.cmdModelFavorite("gpt-4o", false))
+	require.NoError(t, repl.dispatchCommand("/model unfavorite "+"gpt-4o"))
 	assert.False(t, repl.favorites["gpt-4o"])
 	assert.False(t, lastFav)
 }
@@ -137,5 +137,7 @@ func TestHandleCustomModelURL_NonURLNotHandled(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	assert.False(t, repl.handleCustomModelURL("gpt-4o"))
+	alias, err := repl.registerModelURL("gpt-4o")
+	require.NoError(t, err)
+	assert.Empty(t, alias, "a model name is not a URL")
 }
