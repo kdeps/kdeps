@@ -19,6 +19,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -34,45 +35,28 @@ var (
 	sessionToolBackend SessionToolBackend //nolint:gochecknoglobals // process-wide session tool runner
 )
 
-// SetSessionToolBackend installs the runner behind the session tool routes.
-// A nil backend makes every session tool call fail with "no active agent session".
+// SetSessionToolBackend installs the runner behind the session_ops tool
+// operation. A nil backend makes every session tool call fail with "no
+// active agent session".
 func SetSessionToolBackend(backend SessionToolBackend) {
 	sessionToolMu.Lock()
 	sessionToolBackend = backend
 	sessionToolMu.Unlock()
 }
 
-// sessionToolNames are the agent-loop tools served on the tools routes. Each
-// reads or changes the state of the active agent session.
-var sessionToolNames = []string{ //nolint:gochecknoglobals // fixed list of served tools
-	"judge_verdict",
-	"knowledge_recall",
-	"knowledge_card_get",
-	"knowledge_card_update",
-	"knowledge_note_save",
-	"load_skill",
-	"identity_get",
-	"session_handshake",
-}
-
-//nolint:gochecknoinits // the routes exist in workflow mode, before any agent loop starts
-func init() {
-	for _, name := range sessionToolNames {
-		spec := loadToolSpec(
-			name,
-			"Agent session tool.",
-			func(ctx context.Context, args map[string]any) (string, error) {
-				return callSessionTool(ctx, name, args)
-			},
-		)
-		spec.AgentOnly = true
-		RegisterTool(spec)
-	}
-}
-
+// callSessionTool runs a tool that exists only in the active agent session
+// (judge_verdict, knowledge_*, load_skill, identity_get, session_handshake):
+// the session_ops tool operation. A tool the kdeps API serves on its own
+// route is refused, so session_ops reaches nothing else.
 func callSessionTool(ctx context.Context, name string, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, name); err != nil {
 		return "", err
+	}
+	if name == "" {
+		return "", errors.New("session_ops: tool is required")
+	}
+	if _, served := lookupTool(name); served {
+		return "", fmt.Errorf("session_ops: %s is served on its own route, not as a session tool", name)
 	}
 	sessionToolMu.RLock()
 	backend := sessionToolBackend

@@ -265,6 +265,7 @@ run:
 | `last_reply` | - | `text` (the latest assistant message, empty when there is none) |
 | `get` | `key`: a session setting (see [Setting commands](#setting-commands)) | the setting's state: `value` plus its extra fields |
 | `set` | `key`, `value`: one of the values the setting's command file lists | the new state; persisted across sessions |
+| `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `load_skill`, `identity_get`, `session_handshake`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
 
 A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
 

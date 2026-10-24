@@ -336,7 +336,7 @@ These tools read or change the state of the active agent session. The tools rout
 - `identity_get`, `load_skill` - agent identity and skill loading
 - `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 - `session_handshake` - session-integrity challenge
-- `session_ops` - read, clear or compact the live session, and get or set session settings; behind `/clear`, `/compact`, `/history`, `/copy` and every setting command (kdeps API only; not offered to the model)
+- `session_ops` - read, clear or compact the live session, get or set session settings, and run the tools that live only in the session (`tool` operation); behind `/clear`, `/compact`, `/history`, `/copy` and every setting command (kdeps API only; not offered to the model)
 
 A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.
 

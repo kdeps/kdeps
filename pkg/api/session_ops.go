@@ -60,6 +60,10 @@ func callSessionOps(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, "session_ops"); err != nil {
 		return "", err
 	}
+	if op, _ := args["operation"].(string); op == "tool" {
+		toolArgs, _ := args["args"].(map[string]any)
+		return callSessionTool(ctx, stringArg(args, "tool"), toolArgs)
+	}
 	fn, _ := ctx.Value(sessionOpsKey{}).(SessionOps)
 	if fn == nil {
 		sessionOpsMu.RLock()

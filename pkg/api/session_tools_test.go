@@ -36,23 +36,37 @@ func (f *fakeSessionBackend) CallSessionTool(_ context.Context, name string, arg
 	return "ok:" + name, nil
 }
 
-func TestCallSessionTool_NoBackend(t *testing.T) {
+func TestSessionOpsTool_NoBackend(t *testing.T) {
 	SetSessionToolBackend(nil)
-	_, err := callSessionTool(context.Background(), "identity_get", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no active agent session")
+	_, err := callSessionOps(t.Context(), map[string]any{"operation": "tool", "tool": "identity_get"})
+	require.ErrorContains(t, err, "identity_get: no active agent session")
 }
 
-func TestCallSessionTool_RoutesToBackend(t *testing.T) {
+func TestSessionOpsTool_RoutesToBackend(t *testing.T) {
 	backend := &fakeSessionBackend{}
 	SetSessionToolBackend(backend)
 	t.Cleanup(func() { SetSessionToolBackend(nil) })
 
-	out, err := callSessionTool(context.Background(), "load_skill", map[string]any{"name": "x"})
+	out, err := callSessionOps(t.Context(), map[string]any{
+		"operation": "tool", "tool": "load_skill", "args": map[string]any{"name": "x"},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "ok:load_skill", out)
 	assert.Equal(t, "load_skill", backend.name)
 	assert.Equal(t, "x", backend.args["name"])
+}
+
+// session_ops reaches only tools the API does not serve itself.
+func TestSessionOpsTool_RefusesServedAndUnnamed(t *testing.T) {
+	backend := &fakeSessionBackend{}
+	SetSessionToolBackend(backend)
+	t.Cleanup(func() { SetSessionToolBackend(nil) })
+
+	_, err := callSessionOps(t.Context(), map[string]any{"operation": "tool", "tool": toolBashExec})
+	require.ErrorContains(t, err, "served on its own route")
+	_, err = callSessionOps(t.Context(), map[string]any{"operation": "tool"})
+	require.ErrorContains(t, err, "tool is required")
+	assert.Empty(t, backend.name, "the backend never ran")
 }
 
 func TestCallSessionTool_NilContext(t *testing.T) {
@@ -60,26 +74,20 @@ func TestCallSessionTool_NilContext(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestSessionToolsServedOnToolRoutes(t *testing.T) {
-	for _, name := range sessionToolNames {
-		_, ok := toolReg[name]
-		assert.True(t, ok, name)
-	}
-}
-
-// The tool list marks the session tools agent-only, and no other tool.
-func TestListToolItems_MarksSessionToolsAgentOnly(t *testing.T) {
+// The session tools have no route of their own: session_ops is the one
+// agent-only tool on the list.
+func TestListToolItems_OnlySessionOpsAgentOnly(t *testing.T) {
 	flagged := map[string]bool{}
 	for _, item := range listToolItems() {
 		if item.AgentOnly {
 			flagged[item.Name] = true
 		}
 	}
-	want := map[string]bool{"session_ops": true}
-	for _, name := range sessionToolNames {
-		want[name] = true
+	if !maps.Equal(flagged, map[string]bool{"session_ops": true}) {
+		t.Fatalf("agentOnly %v", flagged)
 	}
-	if !maps.Equal(flagged, want) {
-		t.Fatalf("agentOnly %v, want %v", flagged, want)
+	for _, name := range []string{"identity_get", "judge_verdict", "load_skill", "session_handshake"} {
+		_, ok := lookupTool(name)
+		assert.False(t, ok, name)
 	}
 }
