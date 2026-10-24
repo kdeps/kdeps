@@ -102,10 +102,10 @@ else
     test_failed "asset profiles - minimum install" "$OUT $(ls "$MN/store" 2>&1)"
 fi
 
-OUT=$(ap_loop "$MN" '/help\n/thinking\n/quit\n')
+OUT=$(ap_loop "$MN" '/help\n/context\n/quit\n')
 INSTALL_LINE=$(printf '%s\n' "$OUT" | grep "needed by this command" | head -1)
 if [ -n "$INSTALL_LINE" ] && ! output_grep "Installing [a-z]+, " "$INSTALL_LINE" &&
-    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/thinking"; then
+    printf '%s' "$INSTALL_LINE" | grep -q "commands/help" && ! printf '%s' "$INSTALL_LINE" | grep -q "commands/context"; then
     test_passed "asset profiles - the agent loop under minimum adds required items, never whole sets"
 else
     test_failed "asset profiles - agent loop install under minimum" "$INSTALL_LINE"
@@ -123,8 +123,8 @@ if [ "$GOT" = "$CORE" ]; then
 else
     test_failed "asset profiles - /help under minimum" "got: $GOT"
 fi
-if output_grep "Thinking:" "$OUT" &&
-    ! output_grep "Unknown command: /thinking" "$OUT"; then
+if output_grep "Context window:" "$OUT" &&
+    ! output_grep "Unknown command: /context" "$OUT"; then
     test_passed "asset profiles - built-ins without their help file still run"
 else
     test_failed "asset profiles - unlisted built-ins" "$OUT"

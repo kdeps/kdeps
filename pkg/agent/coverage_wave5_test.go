@@ -49,7 +49,7 @@ func TestCmdPermissionThinkingContext(t *testing.T) {
 	if err := r.dispatchCommand("/permission not-a-mode"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.cmdThinking(nil); err != nil {
+	if err := r.dispatchCommand("/thinking"); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.cmdContext(nil); err != nil {

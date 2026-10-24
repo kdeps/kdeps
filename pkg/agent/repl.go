@@ -3135,48 +3135,6 @@ func (r *REPL) setToolSetting(name, value string) {
 // cmdModelDefault handles /model default [name].
 // With no name: prints the current default from settings.
 // With a name: saves it as the new default and switches to it.
-// cmdTheme handles /theme: bare (or "/theme list") shows the current theme
-// and the built-in and custom (~/.kdeps/themes/) names separately; /theme
-// <name> switches immediately (no separate on/off layer -- picking any
-// theme other than "normal" is what used to be a separate /stealth toggle),
-// persisted via saveThemeFn.
-func (r *REPL) cmdTheme(args []string) error {
-	if len(args) == 0 || strings.EqualFold(args[0], "list") {
-		r.printThemeList()
-		return nil
-	}
-
-	name := strings.ToLower(args[0])
-	if !SetTheme(name) {
-		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Unknown theme: "+name+". Valid: "+strings.Join(ThemeNames(), ", ")))
-		return nil
-	}
-	if r.saveThemeFn != nil {
-		if err := r.saveThemeFn(name); err != nil {
-			return fmt.Errorf("persist theme setting: %w", err)
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, r.modeline())
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Theme set to "+name+" (saved)"))
-	return nil
-}
-
-// printThemeList prints the current theme and the built-in and custom
-// theme names separately, so a custom ~/.kdeps/themes/*.yaml file is
-// distinguishable from a shipped one at a glance.
-func (r *REPL) printThemeList() {
-	fmt.Fprintf(os.Stdout, "Theme: %s\n", CurrentThemeName())
-	fmt.Fprintf(os.Stdout, "Built-in: %s\n", strings.Join(BuiltinThemeNames(), ", "))
-	custom := CustomThemeNames()
-	if len(custom) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Custom (~/.kdeps/themes): none"))
-		return
-	}
-	fmt.Fprintf(os.Stdout, "Custom (~/.kdeps/themes): %s\n", strings.Join(custom, ", "))
-}
-
 func (r *REPL) cmdModelDefault(args []string) error {
 	if len(args) == 0 {
 		// Show current default.
@@ -4257,7 +4215,7 @@ func (r *REPL) cmdSettings() error {
 
 // thinkingBudgets maps mode -> explicit BudgetTokens so langchaingo never
 // falls back to CalculateThinkingBudget(mode, 0)=0 (which silently disables
-// thinking when MaxTokens=0). Shared by cmdThinking and applyToolTuning (the
+// thinking when MaxTokens=0). Shared by the thinking setting and applyToolTuning (the
 // persisted-settings restore path) so both build the identical config for a
 // given mode.
 //
@@ -4274,7 +4232,7 @@ var thinkingBudgets = map[domain.ThinkingMode]int{
 
 // thinkingConfigForMode builds the ThinkingConfig for mode, or nil for
 // none/off/unknown. Extracted so applyToolTuning can rebuild the exact same
-// config cmdThinking would from a persisted mode string.
+// config the thinking setting would from a persisted mode string.
 func thinkingConfigForMode(mode domain.ThinkingMode) *domain.ThinkingConfig {
 	switch mode {
 	case domain.ThinkingModeNone:
@@ -4294,58 +4252,6 @@ func thinkingConfigForMode(mode domain.ThinkingMode) *domain.ThinkingConfig {
 	default:
 		return nil
 	}
-}
-
-func (r *REPL) cmdThinking(args []string) error {
-	if len(args) == 0 {
-		cur := r.loop.Thinking()
-		if cur == nil || cur.Mode == domain.ThinkingModeNone {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking: off"))
-		} else {
-			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
-				fmt.Sprintf("Thinking: %s (budget %d tokens, return=%v)",
-					cur.Mode, cur.BudgetTokens, cur.ReturnOutput),
-			))
-		}
-		return nil
-	}
-	mode := domain.ThinkingMode(strings.ToLower(args[0]))
-	switch mode {
-	case domain.ThinkingModeNone, "off":
-		r.loop.SetThinking(nil)
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking disabled."))
-	case domain.ThinkingModeMinimal,
-		domain.ThinkingModeLow,
-		domain.ThinkingModeMedium,
-		domain.ThinkingModeHigh,
-		domain.ThinkingModeXHigh,
-		domain.ThinkingModeAuto:
-		if !llm.ModelSupportsThinking(r.loop.config.Model) {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-				fmt.Sprintf(
-					"Warning: model %q may not support extended thinking.",
-					r.loop.config.Model,
-				),
-			))
-		}
-		cfg := thinkingConfigForMode(mode)
-		r.loop.SetThinking(cfg)
-		fmt.Fprintf(
-			os.Stdout,
-			"%s\n",
-			styleReplMeta.Render(
-				fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, cfg.BudgetTokens),
-			),
-		)
-	default:
-		fmt.Fprintln(
-			os.Stdout,
-			styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"),
-		)
-		return nil
-	}
-	r.persistTuning() // survive across sessions
-	return nil
 }
 
 // autoSaveOnExit saves the session on REPL exit if there are turns and a store is configured.
@@ -4913,61 +4819,6 @@ func (r *REPL) printConvergence(section, toolLine string, calls, limit int, foot
 	fmt.Fprintf(os.Stdout, "  %s %s\n\n", end, footer)
 }
 
-// cmdTuro shows or changes the turo reducer settings:
-//
-//	/turo                        show status
-//	/turo on | off               enable/disable reduction at runtime
-//	/turo lite|full|ultra|wenyan          set compression level
-//	/turo filler|synonyms|gloss|defmatch|arrows on|off  toggle a lossy pipeline stage
-func (r *REPL) cmdTuro(args []string) error {
-	if !turoAvailable(r.ctx) {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-			"turo is not installed. Install github.com/kdeps/turo to enable prompt reduction."))
-		return nil
-	}
-
-	if len(args) == 0 {
-		return r.printTuroStatus()
-	}
-
-	arg := strings.ToLower(strings.TrimSpace(args[0]))
-	switch arg {
-	case "on":
-		SetTuroRuntimeOff(false)
-		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("turo on"))
-	case "off":
-		SetTuroRuntimeOff(true)
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("turo off — content is sent to the LLM unreduced"))
-	case "lite", "full", "ultra", "wenyan":
-		SetTuroLevel(arg)
-		SetTuroRuntimeOff(false) // choosing a level re-enables turo
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
-	case "filler", "synonyms", "gloss", "defmatch", "arrows":
-		if len(args) == 1 { // stage given without an on/off value
-			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
-			return nil
-		}
-		on, ok := parseOnOff(args[1])
-		if !ok {
-			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
-			return nil
-		}
-		SetTuroStage(arg, on)
-		state := "off"
-		if on {
-			state = "on"
-		}
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo "+arg+": "+state))
-	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /turo [on|off|lite|full|ultra|wenyan|"+
-				"filler|synonyms|gloss|defmatch|arrows on|off]"))
-		return nil
-	}
-	r.persistTuning() // survive across sessions
-	return nil
-}
-
 // cmdInstruct delivers a kdeps briefing to the model. Without live it appends
 // the briefing to history as a settled turn (cheap, primes the next prompt);
 // with live ("/instruct!") it runs a real turn now so the model reads the
@@ -5364,30 +5215,6 @@ func printMemoryEntries(entries []MemoryEntry) {
 		}
 		fmt.Fprintf(os.Stdout, "  %s%s: %s\n", e.Key, typeTag, value)
 	}
-}
-
-// printTuroStatus prints the current turo settings.
-func (r *REPL) printTuroStatus() error {
-	meta := styleReplMeta.Render
-	state := "on"
-	if TuroRuntimeOff() {
-		state = "off"
-	}
-	onOff := func(b bool) string {
-		if b {
-			return "on"
-		}
-		return "off"
-	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render("turo"))
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("state:"), state)
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("level:"), TuroLevel())
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("filler:"), onOff(TuroStage("filler")))
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("synonyms:"), onOff(TuroStage("synonyms")))
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("gloss:"), onOff(TuroStage("gloss")))
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("defmatch:"), onOff(TuroStage("defmatch")))
-	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("arrows:"), onOff(TuroStage("arrows")))
-	return nil
 }
 
 func (r *REPL) cmdSearch(args []string) error {

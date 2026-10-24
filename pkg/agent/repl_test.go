@@ -2365,7 +2365,7 @@ func TestCmdSession_GotoInvalidID(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- cmdThinking ---
+// --- /thinking ---
 
 func TestCmdThinking_ShowDefault(t *testing.T) {
 	loop := makeTestLoop(nil)
@@ -2375,7 +2375,7 @@ func TestCmdThinking_ShowDefault(t *testing.T) {
 	r, w, _ := os.Pipe()
 	origOut := os.Stdout
 	os.Stdout = w
-	err := repl.cmdThinking(nil)
+	err := repl.dispatchCommand("/thinking")
 	w.Close()
 	os.Stdout = origOut
 
@@ -2396,7 +2396,7 @@ func TestCmdThinking_SetHigh(t *testing.T) {
 	os.Stdout = w2
 	defer func() { w2.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdThinking([]string{"high"})
+	err := repl.dispatchCommand("/thinking high")
 	assert.NoError(t, err)
 
 	cfg := loop.Thinking()
@@ -2415,7 +2415,7 @@ func TestCmdThinking_SetOff(t *testing.T) {
 	os.Stdout = w2
 	defer func() { w2.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdThinking([]string{"off"})
+	err := repl.dispatchCommand("/thinking off")
 	assert.NoError(t, err)
 	assert.Nil(t, loop.Thinking())
 }
@@ -2430,7 +2430,7 @@ func TestCmdThinking_InvalidMode(t *testing.T) {
 	os.Stdout = w2
 	defer func() { w2.Close(); os.Stdout = origOut }()
 
-	err := repl.cmdThinking([]string{"bogus"})
+	err := repl.dispatchCommand("/thinking bogus")
 	assert.NoError(t, err)
 	// Invalid mode leaves thinking unchanged (still auto from NewREPL default).
 	cfg := loop.Thinking()
@@ -2453,7 +2453,7 @@ func TestCmdThinking_AllModes(t *testing.T) {
 		_, w2, _ := os.Pipe()
 		os.Stdout = w2
 
-		err := repl.cmdThinking([]string{string(mode)})
+		err := repl.dispatchCommand("/thinking " + string(mode))
 		w2.Close()
 		os.Stdout = origOut
 

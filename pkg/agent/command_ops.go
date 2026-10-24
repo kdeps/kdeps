@@ -54,7 +54,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
 		"session":      func(r *REPL, a []string) error { return r.cmdSession(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
-		"thinking":     func(r *REPL, a []string) error { return r.cmdThinking(a) },
 		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
 		"copy":         func(r *REPL, _ []string) error { return r.cmdCopy() },
 		"reload":       func(r *REPL, _ []string) error { return r.cmdReload() },
@@ -64,7 +63,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"upgrade":      func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
 		"konfig":       func(r *REPL, a []string) error { return r.cmdKonfig(a) },
 		"login":        func(r *REPL, a []string) error { return r.cmdLogin(a) },
-		"theme":        func(r *REPL, a []string) error { return r.cmdTheme(a) },
 		"harness":      func(r *REPL, a []string) error { return r.cmdHarness(a) },
 		"exit": func(r *REPL, _ []string) error {
 			r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
@@ -72,7 +70,6 @@ func builtinCommandOps() map[string]commandMethod {
 		},
 		"recall":       func(r *REPL, a []string) error { r.cmdRecall(a); return nil },
 		"knowledge":    func(r *REPL, a []string) error { r.cmdKnowledge(a); return nil },
-		"turo":         func(r *REPL, a []string) error { return r.cmdTuro(a) },
 		"auto-improve": func(r *REPL, _ []string) error { return r.cmdAutoImprove() },
 		"efficiency":   func(r *REPL, a []string) error { r.cmdEfficiency(a); return nil },
 		"judges":       func(r *REPL, a []string) error { r.cmdJudges(a); return nil },

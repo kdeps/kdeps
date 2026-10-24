@@ -469,7 +469,7 @@ func wireREPL(
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
 	// Wire theme persistence for /theme. agent.SetTheme (already called by
-	// cmdTheme before this fires) pushes the new theme's colors into pkg/tui
+	// the theme setting before this fires) pushes the new theme's colors into pkg/tui
 	// on its own, so /model, /settings, and the resume picker already match
 	// by the time this only needs to persist the name.
 	repl.SetSaveThemeFn(tui.SaveTheme)

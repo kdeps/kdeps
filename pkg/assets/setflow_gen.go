@@ -163,7 +163,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the theme colors the terminal", Here: true},
 			{Label: "every reply and prompt"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/theme", "/konfig", "/update", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/konfig", "/update", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall"},
 		Code:   []string{"kdeps (agent loop)", "agent.SetTheme"},
 	},
 	"tools": {

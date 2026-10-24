@@ -248,8 +248,9 @@ func TestPageLinesNonInteractive(t *testing.T) {
 	}
 }
 
-func TestPrintTuroStatusAndCmdTuroUnavailable(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{}}, ctx: context.Background()}
+func TestTuroCommandUnavailable(t *testing.T) {
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
 	oldOut, oldErr := os.Stdout, os.Stderr
 	rd, wr, pipeErr := os.Pipe()
 	if pipeErr != nil {
@@ -257,9 +258,8 @@ func TestPrintTuroStatusAndCmdTuroUnavailable(t *testing.T) {
 	}
 	os.Stdout = wr
 	os.Stderr = wr
-	_ = r.printTuroStatus()
-	_ = r.cmdTuro(nil)
-	_ = r.cmdTuro([]string{"not-a-valid-flag-xyz"})
+	_ = r.dispatchCommand("/turo")
+	_ = r.dispatchCommand("/turo not-a-valid-flag-xyz")
 	_ = wr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr
 	_, _ = io.ReadAll(rd)

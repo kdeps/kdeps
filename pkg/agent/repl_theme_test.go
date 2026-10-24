@@ -40,7 +40,7 @@ func TestCmdTheme_SetsAndPersists(t *testing.T) {
 	var saved []string
 	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })
 
-	require.NoError(t, repl.cmdTheme([]string{"vim"}))
+	require.NoError(t, repl.dispatchCommand("/theme vim"))
 	assert.Equal(t, "vim", CurrentThemeName())
 	assert.Equal(t, []string{"vim"}, saved)
 }
@@ -53,7 +53,7 @@ func TestCmdTheme_SaveErrorPropagated(t *testing.T) {
 
 	repl.SetSaveThemeFn(func(string) error { return errors.New("disk full") })
 
-	err := repl.cmdTheme([]string{"vim"})
+	err := repl.dispatchCommand("/theme vim")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "persist theme setting")
 	assert.Equal(t, "vim", CurrentThemeName(), "the theme still switches even though persisting failed")
@@ -68,7 +68,7 @@ func TestCmdTheme_UnknownNameRejectedNoSave(t *testing.T) {
 	var saved []string
 	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })
 
-	require.NoError(t, repl.cmdTheme([]string{"bogus"}))
+	require.NoError(t, repl.dispatchCommand("/theme bogus"))
 	assert.Equal(t, "normal", CurrentThemeName(), "an unknown theme must not change the current one")
 	assert.Empty(t, saved, "an unknown theme must not be persisted")
 }
@@ -79,7 +79,7 @@ func TestCmdTheme_NoSaveFnStillSwitches(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdTheme([]string{"emacs"}))
+	require.NoError(t, repl.dispatchCommand("/theme emacs"))
 	assert.Equal(t, "emacs", CurrentThemeName())
 }
 
@@ -90,7 +90,7 @@ func TestCmdTheme_BareShowsCurrentTheme(t *testing.T) {
 	defer repl.cancel()
 
 	_ = SetTheme("linux")
-	require.NoError(t, repl.cmdTheme(nil))
+	require.NoError(t, repl.dispatchCommand("/theme"))
 }
 
 // TestCmdTheme_SwitchIsImmediatelyVisible is a regression guard for the
@@ -102,10 +102,10 @@ func TestCmdTheme_SwitchIsImmediatelyVisible(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdTheme([]string{"black"}))
+	require.NoError(t, repl.dispatchCommand("/theme black"))
 	assert.True(t, StealthActive(), "picking a non-normal theme must take effect immediately")
 
-	require.NoError(t, repl.cmdTheme([]string{"normal"}))
+	require.NoError(t, repl.dispatchCommand("/theme normal"))
 	assert.False(t, StealthActive(), "picking normal must turn the disguise off immediately")
 }
 
@@ -138,12 +138,12 @@ func TestCmdTheme_ListShowsBuiltinAndCustomSeparately(t *testing.T) {
 	defer repl.cancel()
 
 	// "/theme list" and bare "/theme" both print the listing without error.
-	require.NoError(t, repl.cmdTheme([]string{"list"}))
-	require.NoError(t, repl.cmdTheme(nil))
+	require.NoError(t, repl.dispatchCommand("/theme list"))
+	require.NoError(t, repl.dispatchCommand("/theme"))
 }
 
 // TestCmdTheme_ListShowsCustomThemeNames covers the non-empty branch of
-// printThemeList's "Custom" line, which the no-user-themes case above never
+// the theme setting's "Custom" line, which the no-user-themes case above never
 // exercises.
 func TestCmdTheme_ListShowsCustomThemeNames(t *testing.T) {
 	home := t.TempDir()
@@ -159,7 +159,7 @@ func TestCmdTheme_ListShowsCustomThemeNames(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	require.NoError(t, repl.cmdTheme([]string{"list"}))
+	require.NoError(t, repl.dispatchCommand("/theme list"))
 	assert.Contains(t, CustomThemeNames(), "mytheme")
 }
 
