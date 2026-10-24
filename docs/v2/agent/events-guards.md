@@ -105,3 +105,14 @@ run: cap
 | `memory-focus-max` | prompt-relevant entries force-kept when memory is truncated | 5 |
 | `memory-chain-max` | entries the active task chain force-keeps (its nearest ancestors) | 8 |
 | `rel-memory-limit` | base memory rows fed into a `memory_query` join, bounding its worst case | 500 |
+| `memory-search-limit` | matches `memory_search` shows (best first; the rest are counted) | 20 |
+| `memory-value-limit` (`on: bytes`) | bytes of one value `memory_search` shows, and of a summary section captured into memory | 500 |
+| `memory-capture-limit` (`on: bytes`) | bytes of a tool result or thinking text captured into memory automatically | 300 |
+
+```yaml
+# ~/.kdeps/events/memory-value-limit.yaml
+name: memory-value-limit
+on:
+  bytes: 1000   # memory_search shows up to 1000 bytes of each value, then "..."
+run: truncate
+```

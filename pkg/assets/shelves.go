@@ -105,9 +105,12 @@ var itemShelf = map[string]string{
 	"tools/memory_query":               ShelfMemory,
 	"tools/memory_save":                ShelfMemory,
 	"tools/memory_search":              ShelfMemory,
+	"events/memory-capture-limit":      ShelfMemory,
 	"events/memory-chain-max":          ShelfMemory,
 	"events/memory-focus-max":          ShelfMemory,
 	"events/memory-keys-limit":         ShelfMemory,
+	"events/memory-search-limit":       ShelfMemory,
+	"events/memory-value-limit":        ShelfMemory,
 	"events/rel-memory-limit":          ShelfMemory,
 
 	// rag: embeddings, local retrieval, document load, rerankers.

@@ -143,6 +143,7 @@ scenario test_knowledge_git.sh
 scenario test_declared_tools.sh
 scenario test_agent_self_limit.sh
 scenario test_agent_tool_budget.sh
+scenario test_memory_limits.sh
 scenario test_tool_aliases.sh
 scenario test_agent_dsml.sh
 scenario test_providers.sh
