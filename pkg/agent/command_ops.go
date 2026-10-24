@@ -48,7 +48,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"skills":       func(r *REPL, _ []string) error { return r.cmdSkills() },
 		"prompts":      func(r *REPL, _ []string) error { return r.cmdPrompts() },
 		"prompt":       func(r *REPL, a []string) error { return r.cmdPrompt(a) },
-		"session":      func(r *REPL, a []string) error { return r.cmdSession(a) },
 		"settings":     func(r *REPL, _ []string) error { return r.cmdSettings() },
 		"editor":       func(r *REPL, _ []string) error { return r.cmdEditor() },
 		"reload":       func(r *REPL, _ []string) error { return r.cmdReload() },

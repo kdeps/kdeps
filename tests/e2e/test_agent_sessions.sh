@@ -32,6 +32,18 @@ else
     test_failed "sessions - /session list did not list the session" "Output: $OUTPUT"
 fi
 
+# /session is a YAML command: each subcommand prints from commands/session.yaml.
+OUTPUT3=$(cd "$SESS_PROJ" && printf '/session checkpoint\n/session branches\n/session goto nope\n/session bogus\n/quit\n' \
+    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --new 2>&1 || true)
+if output_grep_fixed "No messages in session." "$OUTPUT3" \
+    && output_grep_fixed "No stashed branches." "$OUTPUT3" \
+    && output_grep_fixed 'goto needs an entry id, got "nope"' "$OUTPUT3" \
+    && output_grep_fixed 'unknown /session subcommand "bogus"' "$OUTPUT3"; then
+    test_passed "sessions - /session subcommands answer from their YAML"
+else
+    test_failed "sessions - /session subcommands" "Output: $OUTPUT3"
+fi
+
 # --new must start without hanging on the picker even though a session exists.
 OUTPUT2=$(cd "$SESS_PROJ" && printf '/quit\n' \
     | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --new 2>&1 || true)

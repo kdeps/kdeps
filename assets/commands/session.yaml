@@ -1,10 +1,72 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: session
 order: 140
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: session
 usage:
-  - args: "list|save|load|delete|import|checkpoint|goto"
-    help: Manage saved sessions
+  - args: "[list]"
+    help: List this folder's saved sessions
+  - args: "save [name]"
+    help: Save the session, optionally named
+  - args: "load <id>"
+    help: Load a saved session (its model too)
+  - args: "delete <id>"
+    help: Delete a saved session
+  - args: "import <path>"
+    help: Import a JSONL session file and load it
+  - args: checkpoint
+    help: Mark the current entry (for /session goto)
+  - args: "goto <entry-id>"
+    help: Go back to an entry; the turns after it become a branch
+  - args: branches
+    help: List the branches /session goto stashed
+subcommands:
+  "": &list
+    run:
+      - tool: session_ops
+        args: {operation: sessions}
+        print: |-
+          {{if not .sessions}}No saved sessions.{{else}}**Saved sessions for this folder:**
+          {{range .sessions}}
+          - `{{.id}}` {{.updated}} turns={{.turns}} model={{if .model}}{{.model}}{{else}}-{{end}}
+            {{if .name}}{{.name}}{{else if .prompt}}{{trunc 80 .prompt}}{{else}}(no preview){{end}}{{end}}{{end}}
+  list: *list
+  save:
+    run:
+      - tool: session_ops
+        args: {operation: save, name: "$@"}
+        print: 'Session saved as {{.id}}{{if .name}} ({{printf "%q" .name}}){{end}}'
+  load:
+    run:
+      - tool: session_ops
+        args: {operation: load, id: "$1"}
+        print: "Session {{.id}} loaded ({{.turns}} turns)."
+  delete:
+    run:
+      - tool: session_ops
+        args: {operation: delete, id: "$1"}
+        print: "Session {{.id}} deleted."
+  import:
+    run:
+      - tool: session_ops
+        args: {operation: import, path: "$1"}
+        print: "Session {{.id}} imported and loaded ({{.turns}} turns)."
+  checkpoint:
+    run:
+      - tool: session_ops
+        args: {operation: checkpoint}
+        print: "{{if .id}}Checkpoint: {{.id}}{{else}}No messages in session.{{end}}"
+  goto:
+    run:
+      - tool: session_ops
+        args: {operation: goto, id: "$1"}
+        print: "{{if .found}}Session restored to entry {{.id}} ({{.turns}} turns).{{else}}Entry ID {{.id}} not found in current session.{{end}}"
+  branches:
+    run:
+      - tool: session_ops
+        args: {operation: branches}
+        print: |-
+          {{if not .branches}}No stashed branches. Use /session goto to create a branch.{{else}}**{{len .branches}} stashed branch(es):**
+          {{range .branches}}
+          - branch {{.branch}}: branched at entry {{.at}}, {{len .ids}} turn(s). Entry IDs (use /session goto <id>): {{join .ids ", "}}{{end}}{{end}}
