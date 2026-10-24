@@ -1,10 +1,9 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: knowledge
 order: 71
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: knowledge
 usage:
   - args: ""
     help: Show whether the knowledge vault is on, and where it is
@@ -12,3 +11,36 @@ usage:
     help: Turn on per-turn recall, session notes and the knowledge tools (remembered)
   - args: "off"
     help: Turn them off for this and later sessions
+  - args: extract
+    help: Read the changed notes with the local model and update the graph
+subcommands:
+  "":
+    run:
+      - tool: session_ops
+        args: {operation: knowledge}
+        print: |-
+          knowledge vault is {{if eq .value "on"}}on{{else}}off - `/knowledge on` to enable{{end}}
+            vault: {{.vault}}
+            graph: {{.graph}}
+  state:
+    setting:
+      key: knowledge
+      values: ["on", "off"]
+      show: "knowledge vault is {{.value}}"
+      set: >-
+        {{if eq .value "on"}}knowledge vault on - each turn recalls related notes; this session writes its note{{else}}knowledge vault off - no recall, no session note, knowledge tools refuse{{end}}
+      invalid: "Usage: /knowledge [on|off|extract]"
+  "on":
+    run:
+      - command: /knowledge state on
+  "off":
+    run:
+      - command: /knowledge state off
+  extract:
+    run:
+      - tool: session_ops
+        args: {operation: knowledge}  # a quick first step, so this line shows before the long one
+        print: Reading changed notes with the local model...
+      - tool: session_ops
+        args: {operation: knowledge_extract}
+        print: "{{.output}}"

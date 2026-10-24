@@ -66,6 +66,9 @@ func sessionOpTable() map[string]sessionOp {
 			return r.sessionStoreOp(op, args)
 		}
 	}
+	for op, fn := range knowledgeOps {
+		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
+	}
 	for op, fn := range efficiencyOps {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
 	}

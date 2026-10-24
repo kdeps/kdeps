@@ -175,6 +175,20 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /knowledge on|off: per-turn recall, session notes and the knowledge tools.
+	"knowledge": {
+		get: func(r *REPL) map[string]any { return onOffState(r.loop.knowledgeOn()) },
+		set: func(r *REPL, v string) error {
+			if r.loop.knowledge == nil {
+				return errors.New("the knowledge vault is disabled in ~/.kdeps/config.yaml (knowledge.enabled: false)")
+			}
+			r.loop.SetKnowledge(v == toggleOn)
+			if v == toggleOn {
+				r.loop.knowledge.buildAsync()
+			}
+			return nil
+		},
+	},
 	// /efficiency on|off, verbose and prompt mode.
 	"efficiency": {
 		get: func(_ *REPL) map[string]any { return onOffState(EfficiencyEnabled()) },

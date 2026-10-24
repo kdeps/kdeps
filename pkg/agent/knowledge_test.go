@@ -133,7 +133,7 @@ func TestKnowledgeTools(t *testing.T) {
 	}
 	out, err := call("knowledge_recall", map[string]any{"query": "stripe webhooks"})
 	require.NoError(t, err)
-	assert.Contains(t, out, "Stripe gotcha.md")
+	assert.Contains(t, out, "Stripe gotcha")
 	out, err = call("knowledge_recall", map[string]any{"query": "zzz"})
 	require.NoError(t, err)
 	assert.Contains(t, out, "No notes")
@@ -248,19 +248,32 @@ func TestKnowledgeSessionNotes(t *testing.T) {
 	l.knowledge.waitBuilds()
 }
 
+// knowledgeREPL is a REPL over loop whose commands come from the YAML.
+func knowledgeREPL(t *testing.T, loop *Loop) (*REPL, func(string) (string, error)) {
+	t.Helper()
+	r := NewREPL(context.Background(), loop)
+	t.Cleanup(r.cancel)
+	return r, func(line string) (string, error) {
+		var err error
+		out := captureStdout(t, func() { err = r.dispatchCommand(line) })
+		return out, err
+	}
+}
+
 func TestCmdRecall(t *testing.T) {
-	r := &REPL{loop: &Loop{}}
-	out := captureStdout(t, func() { r.cmdRecall(nil) })
-	assert.Contains(t, out, "knowledge.enabled: false")
+	_, run := knowledgeREPL(t, makeTestLoop(nil))
+	_, err := run("/recall")
+	require.ErrorContains(t, err, "knowledge.enabled: false")
 
 	l, _ := knowledgeLoop(t)
-	r = &REPL{loop: l}
-	out = captureStdout(t, func() { r.cmdRecall(nil) })
+	_, run = knowledgeREPL(t, l)
+	out, err := run("/recall")
+	require.NoError(t, err)
 	assert.Contains(t, out, "Nothing recalled")
-	out = captureStdout(t, func() { r.cmdRecall([]string{"stripe", "webhooks"}) })
-	assert.Contains(t, out, "Stripe gotcha.md")
+	out, _ = run("/recall stripe webhooks")
+	assert.Contains(t, out, "Stripe gotcha")
 	assert.Regexp(t, `\d notes, ~\d+ tokens`, out)
-	out = captureStdout(t, func() { r.cmdRecall([]string{"bill", "monthly"}) })
+	out, _ = run("/recall bill monthly")
 	assert.True(t, strings.Contains(out, "hop from") || strings.Contains(out, "Billing decision"))
 }
 
@@ -303,27 +316,30 @@ func TestKnowledgeToggle(t *testing.T) {
 }
 
 func TestCmdKnowledge(t *testing.T) {
-	out := captureStdout(t, func() { (&REPL{loop: &Loop{}}).cmdKnowledge(nil) })
-	assert.Contains(t, out, "knowledge.enabled: false")
+	_, run := knowledgeREPL(t, makeTestLoop(nil))
+	_, err := run("/knowledge")
+	require.ErrorContains(t, err, "knowledge.enabled: false")
 
 	l, vault := knowledgeLoop(t)
 	var saved ToolTuning
-	r := &REPL{loop: l}
+	r, run := knowledgeREPL(t, l)
 	r.SetSaveTuningFn(func(tt ToolTuning) error { saved = tt; return nil })
-	out = captureStdout(t, func() { r.cmdKnowledge(nil) })
+	out, _ := run("/knowledge")
 	assert.Contains(t, out, "knowledge vault is on")
-	assert.Contains(t, out, vault)
-	out = captureStdout(t, func() { r.cmdKnowledge([]string{"off"}) })
+	assert.Contains(t, out, "vault: ")
+	assert.Contains(t, out, filepath.Base(vault), "a long vault path may wrap")
+	out, _ = run("/knowledge off")
 	assert.Contains(t, out, "knowledge vault off")
 	assert.True(t, saved.KnowledgeOff, "persisted")
-	out = captureStdout(t, func() { r.cmdKnowledge(nil) })
-	assert.Contains(t, out, "off - /knowledge on")
-	out = captureStdout(t, func() { r.cmdRecall(nil) })
-	assert.Contains(t, out, "is off (/knowledge on)")
-	out = captureStdout(t, func() { r.cmdKnowledge([]string{"on"}) })
+	out, _ = run("/knowledge")
+	assert.Contains(t, out, "/knowledge on")
+	_, err = run("/recall")
+	require.ErrorContains(t, err, "is off (/knowledge on)")
+	out, _ = run("/knowledge on")
 	assert.Contains(t, out, "knowledge vault on")
 	assert.False(t, saved.KnowledgeOff)
-	r.cmdKnowledge([]string{"bogus"})
+	_, err = run("/knowledge bogus")
+	require.ErrorContains(t, err, "unknown /knowledge subcommand")
 
 	r.applyToolTuning(ToolTuning{KnowledgeOff: true})
 	assert.False(t, l.KnowledgeEnabled(), "restored from the saved settings")
@@ -422,9 +438,10 @@ func TestExtractKnowledge(t *testing.T) {
 	l.ExtractKnowledge(t.Context(), &out, true)
 	assert.Empty(t, seen)
 
-	r := &REPL{loop: l, ctx: t.Context()}
 	l.knowledge.cfg.Extract.Enabled = nil
-	outStr := captureStdout(t, func() { r.cmdKnowledge([]string{"extract"}) })
+	_, run := knowledgeREPL(t, l)
+	outStr, err := run("/knowledge extract")
+	require.NoError(t, err)
 	assert.Contains(t, outStr, "Reading changed notes")
 }
 

@@ -1,12 +1,22 @@
-version: 1.0.1
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
 name: recall
 order: 72
-# builtin: kdeps handles this command itself; this file names the operation
-# that runs it in api:, and supplies its help, aliases and completion.
-builtin: true
-api: recall
 usage:
   - args: ""
     help: Show the knowledge vault notes recalled for the last turn, and why
   - args: "<query>"
     help: Recall notes from the knowledge vault for a query
+run:
+  - tool: session_ops
+    args: {operation: recall, query: "$@"}
+    # hops and via say how a note was reached from a matched seed
+    print: |-
+      {{if not .hits}}Nothing recalled.{{else}}matched: {{join .seeds ", "}}
+      ```
+      {{range .hits}}{{.path}}  (score {{printf "%.2f" .score}}{{if .via}}, {{.hops}} hop from {{.via}}{{end}})
+      {{if .summary}}    {{.summary}}
+      {{end}}{{end}}```
+      {{len .hits}} notes, ~{{.tokens}} tokens{{end}}

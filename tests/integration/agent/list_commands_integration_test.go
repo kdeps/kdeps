@@ -128,3 +128,23 @@ func TestHarnessCommand_ThroughTheAPI(t *testing.T) {
 	_, err = api.CallCommand(t.Context(), "harness", map[string]any{"args": []string{"preset", "no-such-preset"}})
 	require.ErrorContains(t, err, "unknown preset")
 }
+
+// /recall and /knowledge are YAML commands: with the vault disabled in config
+// both report why through the commands API.
+func TestKnowledgeCommands_ThroughTheAPI(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	agent.ReloadAssets()
+
+	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	repl := agent.NewREPL(t.Context(), loop)
+	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
+
+	for _, name := range []string{"recall", "knowledge"} {
+		_, err := api.CallCommand(t.Context(), name, map[string]any{"args": []string{}})
+		require.ErrorContains(t, err, "knowledge.enabled: false", name)
+	}
+}
