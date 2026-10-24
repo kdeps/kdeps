@@ -154,9 +154,7 @@ func applyReplStyles() {
 		BorderForeground(lipgloss.Color(p.bannerBorder))
 	styleModelName = bold(fg(p.modelName))
 
-	styleModelsReady = bold(fg(p.modelsReady))
 	styleModelsNoKey = fg(p.modelsNoKey)
-	styleModelsCurrent = bold(fg(p.modelsCurrent))
 }
 
 const historyDirName = ".kdeps"
@@ -166,10 +164,8 @@ var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
 //nolint:gochecknoglobals // test-replaceable network function hooks
 var (
-	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
-	hfInfoFunc           func(ctx context.Context, repoID string) (llm.HFRepoInfo, error)                = llm.HFRepoFiles
-	hfDownloadFunc                                                                                       = hfDownloadAdapter
-	listLocalServersFunc                                                                                 = llm.ListLocalServers
+	hfDownloadFunc       = hfDownloadAdapter
+	listLocalServersFunc = llm.ListLocalServers
 )
 
 func hfDownloadAdapter(ctx context.Context, repoID, filename string) (string, string, error) {
@@ -2585,103 +2581,6 @@ func (r *REPL) pickPreferredAmbiguous(candidates []string) string {
 	return candidates[0]
 }
 
-func (r *REPL) cmdModelWithName(arg string) error {
-	// A URL argument registers a custom model/endpoint before switching.
-	if r.handleCustomModelURL(arg) {
-		return nil
-	}
-	name := stripModelIndicators(arg)
-	if r.isModelName(name) {
-		r.applyModelSwitch(name)
-		return nil
-	}
-	// Tag-only TAB completion (length=0) prepends the typed keyword to the
-	// model name. Recover the real model by stripping the keyword prefix.
-	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
-		r.applyModelSwitch(resolved)
-		return nil
-	}
-	// A bare name that used to be unambiguous before collision-qualification
-	// split it across backends (e.g. "qwen3:30b" -> "llamafile:qwen3:30b" +
-	// "gguf:qwen3:30b"): auto-pick the historically-preferred backend and say
-	// so, rather than silently guessing or refusing the (very recognizable)
-	// input outright.
-	if ambiguous := r.resolveAmbiguousBareModel(name); len(ambiguous) > 0 {
-		chosen := r.pickPreferredAmbiguous(ambiguous)
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render(fmt.Sprintf(
-				"%q is ambiguous across backends (%s) -- using %s. Use the full name to pick a specific one.",
-				name, strings.Join(ambiguous, ", "), chosen,
-			)),
-		)
-		r.applyModelSwitch(chosen)
-		return nil
-	}
-	// Not a model name: treat as picker filter if available.
-	if r.modelPickerFn != nil {
-		return r.openPickerWithFilter(name)
-	}
-	// No picker: when model list is known, auto-switch to closest cached or enabled match.
-	if len(r.modelNames) > 0 {
-		if best := r.closestModelName(name); best != "" {
-			fmt.Fprintf(os.Stdout, "%s\n",
-				styleReplMeta.Render(fmt.Sprintf("No exact match for %q -- switching to closest: %s", name, best)),
-			)
-			r.applyModelSwitch(best)
-			return nil
-		}
-		msg := fmt.Sprintf("Unknown model %q -- use /model list or /model <tab> to see available models", name)
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(msg))
-		return nil
-	}
-	// No model list registered: apply directly (backward compat).
-	r.applyModelSwitch(name)
-	return nil
-}
-
-// handleCustomModelURL registers a "/model <url>" argument as a custom model.
-// A .gguf/.llamafile URL is downloaded immediately and added to the local
-// registry; an OpenAI-compatible base URL is persisted and its endpoint
-// recorded. Returns true when arg was a URL (handled), false otherwise so the
-// caller falls through to normal model resolution.
-func (r *REPL) handleCustomModelURL(arg string) bool {
-	kind, alias := classifyModelArg(arg)
-	if kind == kindNotURL || alias == "" {
-		return false
-	}
-	alias = r.uniqueModelAlias(alias)
-	switch kind {
-	case kindGGUFURL, kindLlamafileURL:
-		label := "GGUF"
-		reg := llm.RegisterGGUFURL
-		if kind == kindLlamafileURL {
-			label, reg = "llamafile", llm.RegisterLlamafileURL
-		}
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render("Downloading "+label+" model from "+arg+" ..."))
-		got, err := reg(r.ctx, arg, alias, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Registration failed: "+err.Error()))
-			return true // handled: error shown, don't fall through to model resolution
-		}
-		alias = got
-		if r.refreshModelsFn != nil {
-			r.refreshModelsFn() // repopulate lists from the updated registry
-		}
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render("Registered as "+alias+" -- use /model "+alias+" next time."))
-	case kindOpenAICompatURL:
-		r.registerCustomEndpoint(alias, arg)
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render("Registered OpenAI-compatible endpoint "+alias+" -> "+arg+
-				" -- use /model "+alias+" next time."))
-	case kindNotURL:
-		return false
-	}
-	r.applyModelSwitch(alias)
-	return true
-}
-
 // uniqueModelAlias returns base unchanged when no model already uses it, or
 // base with a "-2", "-3", ... suffix so re-registering a similar URL never
 // silently overwrites an existing model.
@@ -2748,114 +2647,6 @@ func (r *REPL) SetFavorites(names []string, save func(name string, fav bool) err
 	}
 }
 
-// cmdModelFavorite handles "/model favorite <name>" and
-// "/model unfavorite <name>", persisting the change.
-func (r *REPL) cmdModelFavorite(name string, fav bool) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /model favorite <model-name>"))
-		return nil
-	}
-	if r.favorites == nil {
-		r.favorites = make(map[string]bool)
-	}
-	if fav {
-		r.favorites[name] = true
-		if !r.isModelName(name) {
-			r.modelNames = append(r.modelNames, name)
-		}
-	} else {
-		delete(r.favorites, name)
-	}
-	if r.saveFavorite != nil {
-		if err := r.saveFavorite(name, fav); err != nil {
-			fmt.Fprintf(os.Stdout, "%s\n",
-				styleReplMeta.Render("(could not persist favorite: "+err.Error()+")"))
-		}
-	}
-	verb := "Favorited"
-	if !fav {
-		verb = "Unfavorited"
-	}
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(verb+" "+name))
-	return nil
-}
-
-// modelNameDisplayChoices lists the valid /model name arguments, in the
-// order shown in error messages and /help.
-//
-//nolint:gochecknoglobals // immutable command metadata
-var modelNameDisplayChoices = []string{
-	modelNameDisplayShow, modelNameDisplayHide, modelNameDisplayAbbreviate, "auto",
-}
-
-// cmdModelName handles /model name [show|hide|abbreviate|auto]. Bare shows
-// the current mode; an argument sets it and persists via saveModelNameFn.
-// "auto" restores the theme-based default (see DisplayModelName).
-func (r *REPL) cmdModelName(args []string) error {
-	if len(args) == 0 {
-		mode := ModelNameDisplayMode()
-		if mode == modelNameDisplayAuto {
-			mode = "auto"
-		}
-		fmt.Fprintf(os.Stdout, "Model name display: %s\n", mode)
-		fmt.Fprintf(os.Stdout, "Valid: %s\n", strings.Join(modelNameDisplayChoices, ", "))
-		return nil
-	}
-
-	mode := strings.ToLower(args[0])
-	if mode == "auto" {
-		mode = modelNameDisplayAuto
-	}
-	if !SetModelNameDisplay(mode) {
-		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Unknown /model name mode: "+args[0]+". Valid: "+strings.Join(modelNameDisplayChoices, ", ")))
-		return nil
-	}
-	if r.saveModelNameFn != nil {
-		if err := r.saveModelNameFn(mode); err != nil {
-			return fmt.Errorf("persist model name display setting: %w", err)
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, r.modeline())
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("Model name display set to "+args[0]+" (saved)"))
-	return nil
-}
-
-func (r *REPL) cmdModel(args []string) error {
-	if len(args) > 0 {
-		switch args[0] {
-		case "default":
-			return r.cmdModelDefault(args[1:])
-		case "list":
-			return r.cmdModels()
-		case "ps":
-			return r.cmdProcesses(args[1:])
-		case "hff":
-			return r.cmdHFF(args[1:])
-		case "tool":
-			return r.cmdModelTool(args[1:])
-		case "favorite", "fav", "star":
-			return r.cmdModelFavorite(strings.Join(args[1:], " "), true)
-		case "unfavorite", "unfav", "unstar":
-			return r.cmdModelFavorite(strings.Join(args[1:], " "), false)
-		case "name":
-			return r.cmdModelName(args[1:])
-		}
-	}
-	if len(args) > 0 {
-		return r.cmdModelWithName(args[0])
-	}
-	if r.modelPickerFn == nil {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
-		return nil
-	}
-	// readline has yielded the terminal (ReadLine already returned), so
-	// bubbletea can take over directly without closing readline first.
-	return r.openPickerWithFilter("")
-}
-
 // toolSettingNames lists the /model tool settings in display order.
 //
 //nolint:gochecknoglobals // immutable command metadata
@@ -2864,29 +2655,6 @@ var toolSettingNames = []string{
 	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
 	"web-limit", "bash-limit", "file-limit", "code-limit",
 	"leaf-nodes", "leaf-chars",
-}
-
-// cmdModelTool handles /model tool [list | set <setting> <value>].
-// It exposes the agent loop's per-turn knobs at runtime; changes apply to the
-// next turn and last for the session.
-func (r *REPL) cmdModelTool(args []string) error {
-	if len(args) == 0 || args[0] == "list" {
-		r.printToolSettings()
-		return nil
-	}
-	if args[0] != toolNameSet {
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplError.Render("Unknown /model tool subcommand: "+args[0]+". Use list or set <setting> <value>."))
-		return nil
-	}
-	const setArity = 3 // set <setting> <value>
-	if len(args) < setArity {
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplError.Render("Usage: /model tool set <setting> <value>  (see /model tool list)"))
-		return nil
-	}
-	r.setToolSetting(strings.ToLower(args[1]), args[2])
-	return nil
 }
 
 // parseOnOff parses an on/off (or true/false, yes/no, 1/0) toggle. The second
@@ -2917,41 +2685,8 @@ func callLimitLabel(n int) string {
 	}
 }
 
-// printToolSettings prints every tunable with its current value.
-func (r *REPL) printToolSettings() {
-	cfg := &r.loop.config
-	rows := [][2]string{
-		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn, 0 = unlimited)", cfg.MaxToolRounds)},
-		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
-		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
-		{"stall-timeout", fmt.Sprintf(
-			"%s  (kill a tool after this much silence, set 0 to disable)",
-			cfg.ToolStallTimeout)},
-		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
-		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
-		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
-		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf(
-			"%s  (max web_search/web_scraper per request, 0=unlimited)", callLimitLabel(cfg.WebLimit))},
-		{"bash-limit", fmt.Sprintf(
-			"%s  (max bash_exec per request, 0=unlimited)", callLimitLabel(cfg.BashLimit))},
-		{"file-limit", fmt.Sprintf(
-			"%s  (max read_file/list_files per request, 0=unlimited)", callLimitLabel(cfg.FileLimit))},
-		{"code-limit", fmt.Sprintf(
-			"%s  (max search_local per request, 0=unlimited)", callLimitLabel(cfg.CodeLimit))},
-		{"leaf-nodes", fmt.Sprintf(
-			"%d  (max memory-graph leaf entries kept in the prompt, 0 = unlimited)", cfg.MaxLeafNodes)},
-		{"leaf-chars", fmt.Sprintf(
-			"%d  (max characters kept per leaf entry, 0 = unlimited)", cfg.MaxLeafChars)},
-	}
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
-	for _, row := range rows {
-		fmt.Fprintf(os.Stdout, "  %-18s %s\n", row[0], styleReplMeta.Render(row[1]))
-	}
-}
-
 // toolSettingAppliers parses and applies each /model tool setting. An applier
-// returns (successMsg, "") on success or ("", errMsg) on invalid input.
+// returns (the value as shown, "") on success or ("", errMsg) on invalid input.
 // Token-count settings accept k/m suffixes (32k, 1m); retry-delay accepts a
 // Go duration (2s, 500ms).
 //
@@ -2963,10 +2698,7 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "rounds must be a non-negative integer (0 = unlimited)"
 		}
 		cfg.MaxToolRounds = n
-		if n == 0 {
-			return "Max tool rounds set to unlimited (Ctrl+C to stop a runaway turn)", ""
-		}
-		return fmt.Sprintf("Max tool rounds set to %d", n), ""
+		return countOrUnlimited(n), ""
 	},
 	"retries": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
@@ -2974,7 +2706,7 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "retries must be a non-negative integer"
 		}
 		cfg.AutoRetryMax = n
-		return fmt.Sprintf("Auto-retry max set to %d", n), ""
+		return strconv.Itoa(n), ""
 	},
 	"retry-delay": func(cfg *Config, v string) (string, string) {
 		d, err := time.ParseDuration(v)
@@ -2982,19 +2714,19 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "retry-delay must be a positive duration (e.g. 2s, 500ms)"
 		}
 		cfg.AutoRetryBaseDelay = d
-		return fmt.Sprintf("Auto-retry base delay set to %s", d), ""
+		return d.String(), ""
 	},
 	"stall-timeout": func(cfg *Config, v string) (string, string) {
 		if v == "0" {
 			cfg.ToolStallTimeout = -1 // negative disables; 0 would re-apply the default
-			return "Tool stall detection disabled", ""
+			return "disabled", ""
 		}
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
 			return "", "stall-timeout must be a duration (e.g. 10m, 90s) or 0 to disable"
 		}
 		cfg.ToolStallTimeout = d
-		return fmt.Sprintf("Tool stall timeout set to %s of silence", d), ""
+		return d.String(), ""
 	},
 	"compact-threshold": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)
@@ -3002,7 +2734,7 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "compact-threshold must be a token count (e.g. 40000, 40k) or 0 to disable"
 		}
 		cfg.AutoCompactThreshold = n
-		return fmt.Sprintf("Auto-compact threshold set to %d tokens", n), ""
+		return strconv.Itoa(n), ""
 	},
 	"compact-budget": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)
@@ -3010,7 +2742,7 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "compact-budget must be a positive token count (e.g. 20000, 20k)"
 		}
 		cfg.CompactTokenBudget = n
-		return fmt.Sprintf("Compact token budget set to %d tokens", n), ""
+		return strconv.Itoa(n), ""
 	},
 	"max-turns": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
@@ -3018,7 +2750,7 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "max-turns must be a non-negative integer (0 = unlimited)"
 		}
 		cfg.MaxTurns = n
-		return fmt.Sprintf("Max history turns set to %d", n), ""
+		return countOrUnlimited(n), ""
 	},
 	"history-tokens": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)
@@ -3026,63 +2758,19 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "history-tokens must be a token count (e.g. 32k) or 0 for unlimited"
 		}
 		cfg.MaxHistoryTokens = n
-		return fmt.Sprintf("History token cap set to %d", n), ""
+		return countOrUnlimited(n), ""
 	},
-	"web-limit": func(cfg *Config, v string) (string, string) {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return "", "web-limit must be a non-negative integer (0=unlimited)"
-		}
-		if n == 0 {
-			cfg.WebLimit = unlimitedCallLimit // 0 would re-apply the event default
-			return "Web call limit removed (unlimited per request)", ""
-		}
-		cfg.WebLimit = n
-		return fmt.Sprintf("Web call limit set to %d per request", n), ""
-	},
-	"bash-limit": func(cfg *Config, v string) (string, string) {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return "", "bash-limit must be a non-negative integer (0=unlimited)"
-		}
-		if n == 0 {
-			cfg.BashLimit = unlimitedCallLimit // 0 would re-apply the event default
-			return "Bash call limit removed (unlimited per request)", ""
-		}
-		cfg.BashLimit = n
-		return fmt.Sprintf("Bash call limit set to %d per request", n), ""
-	},
-	"file-limit": func(cfg *Config, v string) (string, string) {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return "", "file-limit must be a non-negative integer (0=unlimited)"
-		}
-		if n == 0 {
-			cfg.FileLimit = unlimitedCallLimit // 0 would re-apply the event default
-			return "File read limit removed (unlimited per request)", ""
-		}
-		cfg.FileLimit = n
-		return fmt.Sprintf("File read limit set to %d per request", n), ""
-	},
-	"code-limit": func(cfg *Config, v string) (string, string) {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return "", "code-limit must be a non-negative integer (0=unlimited)"
-		}
-		if n == 0 {
-			cfg.CodeLimit = unlimitedCallLimit // 0 would re-apply the event default
-			return "Code search limit removed (unlimited per request)", ""
-		}
-		cfg.CodeLimit = n
-		return fmt.Sprintf("Code search limit set to %d per request", n), ""
-	},
+	"web-limit":  callLimitApplier("web-limit", func(cfg *Config) *int { return &cfg.WebLimit }),
+	"bash-limit": callLimitApplier("bash-limit", func(cfg *Config) *int { return &cfg.BashLimit }),
+	"file-limit": callLimitApplier("file-limit", func(cfg *Config) *int { return &cfg.FileLimit }),
+	"code-limit": callLimitApplier("code-limit", func(cfg *Config) *int { return &cfg.CodeLimit }),
 	"leaf-nodes": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
 			return "", "leaf-nodes must be a non-negative integer (0=unlimited)"
 		}
 		cfg.MaxLeafNodes = n
-		return fmt.Sprintf("Memory-graph leaf-node cap set to %d", n), ""
+		return countOrUnlimited(n), ""
 	},
 	"leaf-chars": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
@@ -3090,77 +2778,31 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 			return "", "leaf-chars must be a non-negative integer (0=unlimited)"
 		}
 		cfg.MaxLeafChars = n
-		return fmt.Sprintf("Per-leaf character cap set to %d", n), ""
+		return countOrUnlimited(n), ""
 	},
 }
 
-// setToolSetting applies value to the named setting via toolSettingAppliers.
-func (r *REPL) setToolSetting(name, value string) {
-	apply, found := toolSettingAppliers[name]
-	if !found {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(
-			"Unknown setting: "+name+". Valid: "+strings.Join(toolSettingNames, ", ")))
-		return
+// callLimitApplier sets one per-request call limit; 0 removes the cap.
+func callLimitApplier(name string, field func(*Config) *int) func(*Config, string) (string, string) {
+	return func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", name + " must be a non-negative integer (0=unlimited)"
+		}
+		if n == 0 {
+			n = unlimitedCallLimit // 0 would re-apply the event default
+		}
+		*field(cfg) = n
+		return callLimitLabel(n), ""
 	}
-	msg, errMsg := apply(&r.loop.config, value)
-	if errMsg != "" {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(errMsg))
-		return
-	}
-	// Persist the change so it survives across sessions.
-	r.persistTuning()
-	// Some settings (e.g. web-limit, leaf-nodes, leaf-chars) are rendered into
-	// the system preamble text (WebCallLimit, memory leaf caps), which is built
-	// once per session and cached (cachedSystemPreamble). Without this the new
-	// value takes effect for enforcement immediately but the model keeps seeing
-	// the old value described in its prompt until a model switch or /harness
-	// toggle happens to invalidate the cache -- invalidate here so every
-	// /model tool set change is reflected on the very next turn.
-	r.loop.InvalidateSystemPreamble()
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (saved; applies from the next turn)"))
 }
 
-// cmdModelDefault handles /model default [name].
-// With no name: prints the current default from settings.
-// With a name: saves it as the new default and switches to it.
-func (r *REPL) cmdModelDefault(args []string) error {
-	if len(args) == 0 {
-		// Show current default.
-		if r.saveDefaultFn == nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("No default persistence configured."))
-			return nil
-		}
-		// We can't read back the setting here without a getter, so show the active model.
-		fmt.Fprintf(os.Stdout, "%s\n%s\n",
-			styleReplHeading.Render("Default model"),
-			"  Use /model default <name> to set the startup model.",
-		)
-		return nil
+// countOrUnlimited shows a count where 0 means no limit.
+func countOrUnlimited(n int) string {
+	if n == 0 {
+		return "unlimited"
 	}
-	name := stripModelIndicators(args[0])
-	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
-		name = resolved
-	} else if ambiguous := r.resolveAmbiguousBareModel(name); len(ambiguous) > 0 {
-		chosen := r.pickPreferredAmbiguous(ambiguous)
-		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render(fmt.Sprintf(
-				"%q is ambiguous across backends (%s) -- saving %s as default. "+
-					"Use the full name to pick a specific one.",
-				name, strings.Join(ambiguous, ", "), chosen,
-			)),
-		)
-		name = chosen
-	}
-	if r.saveDefaultFn != nil {
-		if err := r.saveDefaultFn(name); err != nil {
-			return fmt.Errorf("save default model: %w", err)
-		}
-	}
-	r.applyModelSwitch(name)
-	fmt.Fprintf(os.Stdout, "%s\n",
-		styleReplMeta.Render("Default model saved — will be used at next startup."),
-	)
-	return nil
+	return strconv.Itoa(n)
 }
 
 func (r *REPL) isModelName(name string) bool {
@@ -3206,17 +2848,6 @@ func (r *REPL) stripTagKeywordPrefix(name string) string {
 		}
 	}
 	return name
-}
-
-func (r *REPL) openPickerWithFilter(filter string) error {
-	model, err := r.modelPickerFn(filter)
-	if err != nil {
-		return err
-	}
-	if model != "" {
-		r.applyModelSwitch(stripModelIndicators(model))
-	}
-	return nil
 }
 
 var modelTagRe = regexp.MustCompile(` \[[^\]]+\]$`)
@@ -3523,38 +3154,10 @@ func (r *REPL) providerStatusLine() string {
 	return "Ready: " + strings.Join(ready, ", ") + "  |  /model list to browse all"
 }
 
-const modelsIDWidth = 46
-
-// /models output styles. (Re)built by applyReplStyles - see theme.go.
+// styleModelsNoKey styles a model warning. (Re)built by applyReplStyles - see theme.go.
 //
-//nolint:gochecknoglobals // runtime-swappable REPL styles (stealth mode)
-var (
-	styleModelsReady   lipgloss.Style
-	styleModelsNoKey   lipgloss.Style
-	styleModelsCurrent lipgloss.Style
-)
-
-// cmdModels collects all model lines into a buffer and displays them with pagination.
-func (r *REPL) cmdModels() error {
-	var buf strings.Builder
-	fmt.Fprintf(
-		&buf,
-		"%s\n\n",
-		styleReplHeading.Render("Available models  (use /model <id> to switch)"),
-	)
-	r.collectCloudModels(&buf)
-	r.collectLocalModels(&buf)
-	fmt.Fprintf(
-		&buf,
-		"\n%s\n",
-		styleReplMeta.Render(
-			"* = downloaded locally  |  /model default <name> to set startup model  |  /model <id> to switch",
-		),
-	)
-
-	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
-	return r.pageLines(lines)
-}
+//nolint:gochecknoglobals // runtime-swappable REPL style (stealth mode)
+var styleModelsNoKey lipgloss.Style
 
 const (
 	pagerDefaultPageSize = 20
@@ -3608,55 +3211,6 @@ func (r *REPL) pageLines(lines []string) error {
 	return nil
 }
 
-func (r *REPL) collectCloudModels(w io.Writer) {
-	currentModel := r.loop.config.Model
-	lastBackend := ""
-	for _, m := range llm.KnownCloudModels {
-		ready := r.providerStatus[m.Backend]
-		if m.Backend != lastBackend {
-			r.writeBackendHeader(w, m.Backend, m.EnvVar, ready, lastBackend != "")
-			lastBackend = m.Backend
-		}
-		r.writeCloudModelRow(w, m, currentModel, ready)
-	}
-}
-
-func (r *REPL) writeBackendHeader(w io.Writer, backend, envVar string, ready, addBlank bool) {
-	if addBlank {
-		fmt.Fprintln(w)
-	}
-	var statusLabel string
-	if ready {
-		statusLabel = styleModelsReady.Render("[READY]")
-	} else {
-		statusLabel = styleModelsNoKey.Render("[NO KEY - set " + envVar + "]")
-	}
-	fmt.Fprintf(w, "  %s  %s\n",
-		styleReplHeading.Render(strings.ToUpper(backend)),
-		statusLabel,
-	)
-}
-
-func (r *REPL) writeCloudModelRow(w io.Writer, m llm.CloudModel, currentModel string, ready bool) {
-	idField := fmt.Sprintf("%-*s", modelsIDWidth, m.ID)
-	isCurrent := m.ID == currentModel
-	switch {
-	case isCurrent:
-		fmt.Fprintf(w, "  %s  %s  %s\n",
-			styleModelsCurrent.Render(idField),
-			styleReplMeta.Render(m.Desc),
-			styleModelsCurrent.Render("<-- current"),
-		)
-	case ready:
-		fmt.Fprintf(w, "  %s  %s\n", idField, styleReplMeta.Render(m.Desc))
-	default:
-		fmt.Fprintf(w, "  %s  %s\n",
-			styleModelsNoKey.Render(idField),
-			styleModelsNoKey.Render(m.Desc),
-		)
-	}
-}
-
 // isCloudModelID returns true if name is a known cloud model ID.
 func isCloudModelID(name string) bool {
 	for _, m := range llm.KnownCloudModels {
@@ -3665,57 +3219,6 @@ func isCloudModelID(name string) bool {
 		}
 	}
 	return false
-}
-
-func (r *REPL) collectLocalModels(w io.Writer) {
-	currentModel := r.loop.config.Model
-	var localNames []string
-	for _, name := range r.modelNames {
-		if !isCloudModelID(name) {
-			localNames = append(localNames, name)
-		}
-	}
-	if len(localNames) == 0 {
-		return
-	}
-	fmt.Fprintf(w, "\n  %s\n",
-		styleReplHeading.Render("LOCAL  (ollama / llamafile / gguf)"),
-	)
-	for _, name := range localNames {
-		r.writeLocalModelRow(w, name, currentModel)
-	}
-}
-
-func (r *REPL) writeLocalModelRow(w io.Writer, name, currentModel string) {
-	downloaded := r.downloadedModels[name]
-	marker := "  "
-	if downloaded {
-		marker = "* "
-	}
-	idField := fmt.Sprintf("%-*s", modelsIDWidth, name)
-	isCurrent := name == currentModel
-
-	// Show HuggingFace repo id for llamafile/gguf models.
-	repo := ""
-	if t := r.modelTypes[name]; t == modelTypeLLamafile || t == modelTypeGGUF {
-		if r.modelRepos[name] != "" {
-			repo = "  " + styleReplMeta.Render(r.modelRepos[name])
-		}
-	}
-
-	switch {
-	case isCurrent:
-		fmt.Fprintf(w, "  %s%s%s  %s\n",
-			marker,
-			styleModelsCurrent.Render(idField),
-			repo,
-			styleModelsCurrent.Render("<-- current"),
-		)
-	case downloaded:
-		fmt.Fprintf(w, "  %s%s%s  %s\n", marker, idField, repo, styleReplMeta.Render("downloaded"))
-	default:
-		fmt.Fprintf(w, "  %s%s%s\n", marker, styleModelsNoKey.Render(idField), repo)
-	}
 }
 
 func (r *REPL) cmdSkills() error {
@@ -4778,251 +4281,6 @@ func (r *REPL) cmdContext(args []string) error {
 
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("Context window set to %d tokens", n)))
 	return nil
-}
-
-const (
-	processesSubCmdArity = 2  // /processes <sub> <model> needs at least 2 args
-	processesSepWidth    = 74 // width of the header separator line
-)
-
-// cmdProcesses handles /processes [kill|switch] [model].
-func (r *REPL) cmdProcesses(args []string) error {
-	svc := r.loop.config.ModelService
-	if len(args) >= processesSubCmdArity {
-		sub := strings.ToLower(args[0])
-		model := args[1]
-		switch sub {
-		case "kill":
-			return r.cmdProcessesKill(svc, model)
-		case "switch":
-			r.applyModelSwitch(model)
-			return nil
-		}
-	}
-	return r.cmdProcessesList()
-}
-
-func (r *REPL) cmdProcessesList() error {
-	entries := listLocalServersFunc()
-	if len(entries) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No local model servers running."))
-		return nil
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%-8s %-6s %-12s %-36s %s\n",
-		"PID", "PORT", "BACKEND", "MODEL", "STATUS")
-	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", processesSepWidth))
-	for _, e := range entries {
-		status := "healthy"
-		if !e.Healthy {
-			status = "loading"
-		}
-		model := e.Model
-		if model == "" {
-			model = filepath.Base(e.Path)
-		}
-		fmt.Fprintf(&sb, "%-8d %-6d %-12s %-36s %s\n",
-			e.PID, e.Port, e.Backend, model, status)
-	}
-	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
-	return r.pageLines(lines)
-}
-
-func (r *REPL) cmdProcessesKill(svc llm.ModelServiceInterface, model string) error {
-	backend := r.loop.config.Backend
-	if svc == nil || (backend != llm.BackendFile && backend != llm.BackendGGUF) {
-		fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("No local model service available."))
-		return nil
-	}
-	if !svc.KillModel(backend, model) {
-		fmt.Fprintf(
-			os.Stdout,
-			"%s\n",
-			styleModelsNoKey.Render("No running server found for: "+model),
-		)
-		return nil
-	}
-	if r.loop.config.BaseURL != "" && r.loop.config.Model == model {
-		r.loop.config.BaseURL = ""
-	}
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Killed server for: "+model))
-	return nil
-}
-
-const (
-	hffSearchDefaultLimit = 20
-	hffInfoSepWidth       = 72
-	hffBytesPerGB         = 1 << 30
-	hffBytesPerMB         = 1 << 20
-)
-
-// cmdHFF dispatches /hff subcommands: search, info, download.
-func (r *REPL) cmdHFF(args []string) error {
-	if len(args) == 0 {
-		fmt.Fprintln(
-			os.Stdout,
-			styleReplMeta.Render(
-				"Usage: /model hff search <query> | /model hff info <repo> | /model hff download <repo> [file]",
-			),
-		)
-		return nil
-	}
-	sub := strings.ToLower(args[0])
-	rest := args[1:]
-	switch sub {
-	case "search":
-		if len(rest) == 0 {
-			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /model hff search <query>"))
-			return nil
-		}
-		return r.cmdHFFSearch(strings.Join(rest, " "))
-	case "info":
-		if len(rest) == 0 {
-			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /model hff info <repo>"))
-			return nil
-		}
-		return r.cmdHFFInfo(rest[0])
-	case "download":
-		if len(rest) == 0 {
-			fmt.Fprintln(
-				os.Stdout,
-				styleModelsNoKey.Render("Usage: /model hff download <repo> [filename]"),
-			)
-			return nil
-		}
-		repo := rest[0]
-		filename := ""
-		if len(rest) > 1 {
-			filename = rest[1]
-		}
-		return r.cmdHFFDownload(repo, filename)
-	default:
-		fmt.Fprintf(
-			os.Stdout,
-			"%s\n",
-			styleModelsNoKey.Render(
-				"Unknown /model hff subcommand:"+sub+". Use search, info, or download.",
-			),
-		)
-		return nil
-	}
-}
-
-func (r *REPL) cmdHFFSearch(query string) error {
-	fmt.Fprintf(
-		os.Stdout,
-		"%s\n",
-		styleReplMeta.Render("Searching HuggingFace for GGUF: "+query+"..."),
-	)
-	results, err := hfSearchFunc(r.ctx, query, hffSearchDefaultLimit)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Search failed: "+err.Error()))
-		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
-	}
-	if len(results) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No results found."))
-		return nil
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%-50s %10s %6s\n", "REPO", "DOWNLOADS", "LIKES")
-	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
-	for _, m := range results {
-		id := m.ID
-		if len(id) > 49 { //nolint:mnd // column width
-			id = id[:48] + "~"
-		}
-		fmt.Fprintf(&sb, "%-50s %10d %6d\n", id, m.Downloads, m.Likes)
-		ql := strings.ToLower(query)
-		ggufFiles := llm.HFGGUFFiles(m.Siblings)
-		// show files matching the query; if none match, show all (repo itself matched)
-		var matched []llm.HFFileEntry
-		for _, f := range ggufFiles {
-			if strings.Contains(strings.ToLower(f.Filename), ql) {
-				matched = append(matched, f)
-			}
-		}
-		if len(matched) == 0 {
-			matched = ggufFiles
-		}
-		for _, f := range matched {
-			name := f.Filename
-			if len(name) > 47 { //nolint:mnd // indent(2)+column width
-				name = name[:46] + "~"
-			}
-			fmt.Fprintf(&sb, "  %-48s %10s\n", name, hffFormatSize(f.Size))
-		}
-	}
-	fmt.Fprintf(
-		&sb,
-		"\n%s",
-		styleReplDim.Render(
-			"Use /model hff download<repo> <file> to download.",
-		),
-	)
-	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
-	return r.pageLines(lines)
-}
-
-func (r *REPL) cmdHFFInfo(repoID string) error {
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Fetching repo info: "+repoID+"..."))
-	info, err := hfInfoFunc(r.ctx, repoID)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Failed: "+err.Error()))
-		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
-	}
-	ggufFiles := llm.HFGGUFFiles(info.Siblings)
-	if len(ggufFiles) == 0 {
-		fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("No GGUF files found in "+repoID+"."))
-		return nil
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "GGUF files in %s:\n", repoID)
-	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
-	fmt.Fprintf(&sb, "%-50s %10s\n", "FILE", "SIZE")
-	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
-	for _, f := range ggufFiles {
-		sizeStr := hffFormatSize(f.Size)
-		name := f.Filename
-		if len(name) > 49 { //nolint:mnd // column width
-			name = name[:48] + "~"
-		}
-		fmt.Fprintf(&sb, "%-50s %10s\n", name, sizeStr)
-	}
-	fmt.Fprintf(&sb, "\n%s",
-		styleReplDim.Render("Use /model hff download"+repoID+" <filename> to download."))
-	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
-	return r.pageLines(lines)
-}
-
-func (r *REPL) cmdHFFDownload(repoID, filename string) error {
-	if filename == "" {
-		// Show files and prompt user to specify one.
-		return r.cmdHFFInfo(repoID)
-	}
-	fmt.Fprintf(os.Stdout, "%s\n",
-		styleReplMeta.Render("Downloading "+repoID+"/"+filename+" from HuggingFace..."))
-	dest, alias, err := hfDownloadFunc(r.ctx, repoID, filename)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Download failed: "+err.Error()))
-		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
-	}
-	if r.refreshModelsFn != nil {
-		r.refreshModelsFn()
-	}
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
-		"Downloaded: "+dest+"\nRegistered as: "+alias+
-			"\nUse /model "+alias+" to switch to it."))
-	return nil
-}
-
-func hffFormatSize(bytes int64) string {
-	if bytes <= 0 {
-		return "?"
-	}
-	if bytes >= hffBytesPerGB {
-		return fmt.Sprintf("%.1fGB", float64(bytes)/hffBytesPerGB)
-	}
-	return fmt.Sprintf("%.0fMB", float64(bytes)/hffBytesPerMB)
 }
 
 // crlfWriter converts \n to \r\n before writing to the terminal.

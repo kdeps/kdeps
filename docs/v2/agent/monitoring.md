@@ -12,12 +12,7 @@ The monitor also detects hung tools. Staleness is measured by *silence*, not wal
 
 When a tool stalls, the default is auto-increase: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
 
-Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive - enabling one disables the other):
-
-- `autokill on` - a stalled tool is killed at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
-- `autokill off` - the default auto-increase-and-announce behavior.
-
-To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
+To be prompted interactively instead, turn auto-increase off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
 
 Tools marked "cached" in Web and search memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way ([Data tools](/agent/tools-data)).
 

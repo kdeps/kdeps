@@ -175,6 +175,29 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
+	// /model name: how the modeline shows the model name. "auto" follows the theme.
+	"model-name": {
+		get: func(_ *REPL) map[string]any {
+			mode := ModelNameDisplayMode()
+			if mode == modelNameDisplayAuto {
+				mode = "auto"
+			}
+			return map[string]any{"value": mode}
+		},
+		set: func(r *REPL, v string) error {
+			if v == "auto" {
+				v = modelNameDisplayAuto
+			}
+			SetModelNameDisplay(v)
+			if r.saveModelNameFn != nil {
+				if err := r.saveModelNameFn(v); err != nil {
+					return fmt.Errorf("persist model name display setting: %w", err)
+				}
+			}
+			fmt.Fprintln(os.Stdout, r.modeline()) // redrawn with the new name display
+			return nil
+		},
+	},
 	// /fold: auto on/off with the fold status, the token threshold, and the
 	// checkpoint items cap. "default" clears an override, so the "fold"
 	// event's value applies.

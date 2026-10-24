@@ -30,7 +30,7 @@ because they need kernel state (memory, embeddings, the agent session).
 | `web_search`, `web_scraper`, `wikipedia`, `calculator`, `read_file`, `write_file`, `list_files`, `md5_file`, `tail_file`, `git_ops`, `edit_file`, `file_ops`, `sql_list_tables`, `sql_describe_table`, `sql_query` | `python:` (standard library only; runs on the system python) |
 | `google_cache_create`, `google_cache_delete`, `google_cache_list`, `exa_search`, `wolfram_alpha`, `zapier_*`, the rerankers, `retrieve_context`, `transcribe_audio` | `http:` |
 | `ocr_image`, `transcribe_audio_offline` | `exec:` |
-| `clipboard_copy` | `python:` |
+| `clipboard_copy`, `hf_search`, `hf_repo_files` | `python:` |
 
 ```yaml
 # tools/md5_file.yaml (built-in, shown for reference)

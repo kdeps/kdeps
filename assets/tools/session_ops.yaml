@@ -1,25 +1,25 @@
-version: 1.5.0
+version: 1.6.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
 # history, copy) and for the tools that live only in an agent session
 # (operation: tool); the model is not offered it. The REPL operations
 # return JSON; tool returns that tool's answer.
-description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep}); sessions lists this folder's saved sessions ({sessions: [{id, name, prompt, model, turns, updated}]}); save stores the session ({id, name}); load and import make a saved session (or a JSONL file at path) the live one ({id, turns}); delete removes one ({id}); checkpoint marks the current entry ({id}); goto returns to an entry, stashing the turns after it ({id, found, turns}); branches lists the stashed ones ({branches: [{branch, at, ids}]}); tool runs one tool that exists only in the agent session (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake) with args and returns its answer."
+description: "Read or change the active agent session: messages lists every message ({turns, messages: [{turn, role, content}]}); last_reply is the latest assistant message ({text}); get returns a session setting's state ({value, ...}); set stores a value the setting's command asset lists and returns the new state; clear empties the history, summarizing it first when it has at least summarize_min_turns turns ({turns, summary}); compact folds older turns into a summary ({summary, turns, keep}); sessions lists this folder's saved sessions ({sessions: [{id, name, prompt, model, turns, updated}]}); save stores the session ({id, name}); load and import make a saved session (or a JSONL file at path) the live one ({id, turns}); delete removes one ({id}); checkpoint marks the current entry ({id}); goto returns to an entry, stashing the turns after it ({id, found, turns}); branches lists the stashed ones ({branches: [{branch, at, ids}]}); model switches the model (name: a model, a .gguf/.llamafile URL, or an OpenAI-compatible base URL; {model, registered?, ambiguous?, closest?}); model_pick opens the model picker ({model, picked}); model_default saves the startup model ({model}); models lists cloud models by backend and local ones ({current, cloud, local}); model_favorite stars a model (on: on|off); loop_settings reads the agent loop settings and loop_set changes one (setting, value); servers lists running local model servers and server_kill stops one (model); hf_download downloads a GGUF file from HuggingFace and registers it (repo, file; {path, alias}); tool runs one tool that exists only in the agent session (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake) with args and returns its answer."
 outputFormat: json
 parameters:
   operation:
     type: string
-    description: "messages, last_reply, get, set, clear, compact, sessions, save, load, delete, import, checkpoint, goto, branches or tool"
+    description: "messages, last_reply, get, set, clear, compact, sessions, save, load, delete, import, checkpoint, goto, branches, model, model_pick, model_default, models, model_favorite, loop_settings, loop_set, servers, server_kill, hf_download or tool"
     required: true
   summarize_min_turns:
     type: integer
     description: "clear only: summarize the branch first when the session has at least this many turns; 0 never summarizes"
   key:
     type: string
-    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items)"
+    description: "get and set: the session setting (refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name)"
   value:
     type: string
-    description: "set only: one of the values the setting's command asset lists (commands/<name>.yaml setting: values)"
+    description: "set: one of the values the setting's command asset lists (commands/<name>.yaml setting: values); loop_set: the setting's new value"
   tool:
     type: string
     description: "tool only: the session tool to run (judge_verdict, knowledge_recall, knowledge_card_get, knowledge_card_update, knowledge_note_save, load_skill, identity_get, session_handshake)"
@@ -31,7 +31,25 @@ parameters:
     description: "load, delete: a saved session id; goto: an entry id"
   name:
     type: string
-    description: "save only: an optional name for the saved session"
+    description: "save: an optional name for the saved session; model, model_default, model_favorite: a model name"
   path:
     type: string
     description: "import only: a JSONL session file"
+  filter:
+    type: string
+    description: "model_pick only: text the picker starts filtered by"
+  "on":
+    type: string
+    description: "model_favorite only: on stars, off unstars"
+  setting:
+    type: string
+    description: "loop_set only: rounds, retries, retry-delay, stall-timeout, compact-threshold, compact-budget, max-turns, history-tokens, web-limit, bash-limit, file-limit, code-limit, leaf-nodes or leaf-chars"
+  model:
+    type: string
+    description: "server_kill only: the model whose local server to stop"
+  repo:
+    type: string
+    description: "hf_download only: a HuggingFace repo id"
+  file:
+    type: string
+    description: "hf_download only: a .gguf file in the repo"

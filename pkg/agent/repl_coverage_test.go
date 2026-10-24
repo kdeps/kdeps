@@ -50,19 +50,6 @@ func TestDispatchCommand_Processes(t *testing.T) {
 	assert.Contains(t, out, "No local model servers")
 }
 
-func TestDispatchCommand_HFF(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(context.Background(), loop)
-	defer repl.cancel()
-
-	out := testCaptureStdout(t, func() {
-		err := repl.dispatchCommand("/model hff")
-		assert.NoError(t, err)
-	})
-	// /model hff with no args prints usage.
-	assert.Contains(t, out, "Usage:")
-}
-
 func TestDispatchCommand_PromptByName(t *testing.T) {
 	loop := makeTestLoop(nil)
 	// Register a prompt so the dispatch can find it.
@@ -92,7 +79,7 @@ func TestCmdModel_DefaultSubcommand(t *testing.T) {
 	saved := ""
 	repl.SetSaveDefaultFn(func(m string) error { saved = m; return nil })
 
-	err := repl.cmdModel([]string{"default", "my-model"})
+	err := repl.dispatchCommand("/model " + strings.Join([]string{"default", "my-model"}, " "))
 	assert.NoError(t, err)
 	assert.Equal(t, "my-model", saved)
 }
@@ -110,7 +97,7 @@ func TestCmdModel_PickerWithFilter(t *testing.T) {
 	})
 
 	// Unknown model name with pickerFn set: opens picker with the name as filter.
-	err := repl.cmdModel([]string{"unknown-model"})
+	err := repl.dispatchCommand("/model " + strings.Join([]string{"unknown-model"}, " "))
 	assert.NoError(t, err)
 	assert.Equal(t, "unknown-model", calledWith)
 }
@@ -127,7 +114,7 @@ func TestCmdModel_PickerNoArgs(t *testing.T) {
 		return "", nil
 	})
 
-	err := repl.cmdModel(nil)
+	err := repl.dispatchCommand("/model")
 	assert.NoError(t, err)
 	assert.True(t, called)
 }
@@ -144,7 +131,7 @@ func TestCmdModelDefault_WithTagKeywordPrefix(t *testing.T) {
 	repl.SetSaveDefaultFn(func(m string) error { saved = m; return nil })
 
 	// "ggufmy-model" should be resolved to "my-model" by stripTagKeywordPrefix.
-	err := repl.cmdModelDefault([]string{"ggufmy-model"})
+	err := repl.dispatchCommand("/model default " + strings.Join([]string{"ggufmy-model"}, " "))
 	assert.NoError(t, err)
 	assert.Equal(t, "my-model", saved)
 }
