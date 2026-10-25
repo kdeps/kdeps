@@ -380,3 +380,21 @@ func TestWithReviewDirective_ReplacesPreviousRevision(t *testing.T) {
 	assert.Nil(t, withReviewDirective(nil, "x"))
 	assert.Same(t, base, withReviewDirective(base, "   "))
 }
+
+func TestVerdictApproved(t *testing.T) {
+	cases := []struct {
+		v        any
+		feedback string
+		want     bool
+	}{
+		{true, "", true}, {false, "fix it", false},
+		{"true", "", true}, {"false", "", false}, {"yes", "", true}, {"no", "", false},
+		{nil, "", true}, {nil, "missing the sum", false},
+		{3, "", false},
+	}
+	for _, c := range cases {
+		if got := verdictApproved(c.v, c.feedback); got != c.want {
+			t.Errorf("verdictApproved(%v, %q) = %v, want %v", c.v, c.feedback, got, c.want)
+		}
+	}
+}

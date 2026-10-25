@@ -60,7 +60,7 @@ func packageContextTokens(dir string) int {
 		if yaml.Unmarshal(data, &w) != nil {
 			return 0
 		}
-		params, _ := yaml.Marshal(tools.AgentToolParameters())
+		params, _ := yaml.Marshal(tools.AgentToolParameters(nil))
 		return assets.EstimateTokens(w.Metadata.Name + "\n" + w.Metadata.Description + "\n" + string(params))
 	}
 	return 0

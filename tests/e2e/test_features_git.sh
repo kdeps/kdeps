@@ -55,7 +55,7 @@ gt_run() {
 INIT_OUT=$(gt_run "    operation: init")
 echo hello > "$GT_REPO/a.txt"
 OUT=$(gt_run "    operation: status")
-if output_grep "initialized:true" "$INIT_OUT" && output_grep "untracked:\[a\.txt\]" "$OUT"; then
+if output_grep '"initialized": true' "$INIT_OUT" && output_grep '"untracked": \[' "$OUT" && output_grep '"a\.txt"' "$OUT"; then
     test_passed "git component - init, then status returns structured untracked files"
 else
     test_failed "git component - init/status" "$INIT_OUT $OUT"
@@ -66,8 +66,8 @@ ADD_OUT=$(gt_run "    operation: add
 OUT=$(gt_run "    operation: commit
     message: \"e2e: first commit\"")
 OUT2=$(gt_run "    operation: log")
-if output_grep "staged:true" "$ADD_OUT" && output_grep "committed:true" "$OUT" \
-    && output_grep "count:1" "$OUT2" && output_grep_fixed "message:e2e: first commit" "$OUT2"; then
+if output_grep '"staged": true' "$ADD_OUT" && output_grep '"committed": true' "$OUT" \
+    && output_grep '"count": 1' "$OUT2" && output_grep_fixed '"message": "e2e: first commit' "$OUT2"; then
     test_passed "git component - add, commit and log"
 else
     test_failed "git component - add/commit/log" "$ADD_OUT $OUT $OUT2"

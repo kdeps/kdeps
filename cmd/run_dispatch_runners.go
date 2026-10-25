@@ -66,6 +66,13 @@ func StartFileRunner(
 // types is forwarded to the workflow engine as input("message") and the result is
 // printed back. Exiting the REPL (/quit, /exit, Ctrl+D) returns from this function;
 // the background dispatch goroutine is abandoned and cleaned up when the process exits.
+// wantsStdinREPL reports whether the workflow asks for the interactive stdin
+// REPL itself (settings.llm.executionType: stdin), the same as --interactive.
+func wantsStdinREPL(workflow *domain.Workflow) bool {
+	return workflow != nil && workflow.Settings.LLM != nil &&
+		workflow.Settings.LLM.ExecutionType == domain.LLMExecutionTypeStdin
+}
+
 func startInteractiveMode(
 	eng *executor.Engine,
 	workflow *domain.Workflow,
@@ -75,19 +82,20 @@ func startInteractiveMode(
 ) error {
 	kdeps_debug.Log("enter: startInteractiveMode")
 
-	// Start the normal workflow dispatch (server/bot/single-run/etc.) in background.
-	// Pass skipLLMRepl=true so the background goroutine does not start a second
-	// stdin REPL (the foreground already owns stdin via llminput.Run below).
-	go func() {
-		dispErr := dispatchExecutionWithEngineInteractiveFunc(
-			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
-		)
-		if dispErr != nil {
-			kdepslog.Error("workflow execution failed", "error", dispErr)
-		}
-	}()
-
-	fmt.Fprintf(os.Stdout, "  ✓ Workflow '%s' running in background\n", workflow.Metadata.Name)
+	// Start the normal workflow dispatch (server/bot/file) in background. A
+	// single-run workflow has nothing to keep running: the REPL is its run, and
+	// a background run would execute it once more with no message.
+	if executionModeForFunc(workflow) != execModeSingleRun {
+		go func() {
+			dispErr := dispatchExecutionWithEngineInteractiveFunc(
+				eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
+			)
+			if dispErr != nil {
+				kdepslog.Error("workflow execution failed", "error", dispErr)
+			}
+		}()
+		fmt.Fprintf(os.Stdout, "  ✓ Workflow '%s' running in background\n", workflow.Metadata.Name)
+	}
 	fmt.Fprintln(
 		os.Stdout,
 		"  ✓ Interactive prompt active — invoke workflows, tools, and components",

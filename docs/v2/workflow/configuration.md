@@ -76,6 +76,27 @@ agents:
 
 In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that do not match any installed workflow name (non-fatal).
 
+## Interactive stdin REPL
+
+`settings.llm.executionType: stdin` makes `kdeps run` an interactive prompt (workflow mode): each line you type runs the target resource with that line as `input('message')`, and the result prints back - a chat resource's reply as text, anything else as JSON. `--interactive` does the same for any workflow; a server or bot workflow keeps running in the background while you type.
+
+```yaml
+# workflow.yaml
+settings:
+  llm:
+    executionType: stdin   # each stdin line runs targetActionId with it as the message
+    prompt: "You: "        # the prompt shown before each line
+```
+
+```text
+$ kdeps run workflow.yaml
+You: What is 12 * 7?
+The answer is 84.
+You: /quit
+```
+
+`/list` shows the resources and components, `/run <actionId> key=value` runs one directly, and `/quit` (or Ctrl+D) exits.
+
 ## API server
 
 `apiServer` starts an HTTP server. TLS certificate paths go in `settings` (not under `apiServer`).

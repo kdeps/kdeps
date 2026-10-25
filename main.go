@@ -20,10 +20,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/kdeps/kdeps/v2/cmd"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -98,7 +98,9 @@ func runMain(config *AppConfig) {
 // RunMainWithConfig executes the main application logic with the given config and returns exit code.
 func RunMainWithConfig(config *AppConfig) int {
 	if err := config.ExecuteCmd(config.Version, config.Commit); err != nil {
-		kdepslog.Error("fatal", "error", err)
+		// The message as written: a log record would quote it and escape its
+		// newlines (a validation error lists one problem per line).
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
 	return 0

@@ -616,7 +616,7 @@ elif llm_server_crashed "$AP_OUT"; then
     # A failed LLM call now fails the resource (it used to be swallowed); on a
     # loaded runner the real 1B server stalls/times out - a CI flake, not a bug.
     test_skipped "autopilot component - local llm-server crashed/stalled on the runner (CI flake)"
-elif output_grep_i "fatal" "$AP_OUT"; then
+elif output_grep "^Error: " "$AP_OUT"; then
     test_failed "autopilot component - runs against local LLM backend" "$AP_OUT"
 elif [ -n "$AP_OUT" ]; then
     test_passed "autopilot component - runs against local LLM backend"

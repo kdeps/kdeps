@@ -29,7 +29,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -168,11 +167,9 @@ func validateWithParser(label, path string, parse func(*yaml.Parser) error) erro
 	fmt.Fprintf(os.Stdout, "Validating %s: %s\n\n", label, path)
 	yamlParser, err := newYamlParser()
 	if err != nil {
-		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
 	if parseErr := parse(yamlParser); parseErr != nil {
-		kdepslog.Error("validation failed", "error", parseErr)
 		return parseErr
 	}
 	printParseValidationSuccess()
@@ -194,13 +191,11 @@ func validateWorkflowFile(workflowPath string) error {
 
 	workflow, err := ParseWorkflowFile(workflowPath)
 	if err != nil {
-		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
 	printParseValidationSuccess()
 
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
-		kdepslog.Error("validation failed", "error", validateErr)
 		return validateErr
 	}
 	fmt.Fprintln(os.Stdout, "- Business rules validated")
@@ -233,7 +228,6 @@ func validateAgencyFile(agencyPath string) error {
 
 	agency, agentPaths, yamlParser, err := ParseAgencyFileWithParser(agencyPath)
 	if err != nil {
-		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
 	defer yamlParser.Cleanup()
@@ -246,12 +240,10 @@ func validateAgencyFile(agencyPath string) error {
 
 		workflow, parseErr := ParseWorkflowFile(agentPath)
 		if parseErr != nil {
-			kdepslog.Error("validation failed", "error", parseErr)
 			return parseErr
 		}
 
 		if validateErr := ValidateWorkflow(workflow); validateErr != nil {
-			kdepslog.Error("validation failed", "error", validateErr)
 			return validateErr
 		}
 

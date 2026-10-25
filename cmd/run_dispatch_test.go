@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -522,7 +523,7 @@ func TestStartInteractiveMode_DispatchLogsError(t *testing.T) {
 		return errors.New("bg dispatch fail")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
@@ -788,7 +789,7 @@ func TestStartInteractiveMode_DispatchErrorLog(t *testing.T) {
 		return errors.New("dispatch fail")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
@@ -809,7 +810,7 @@ func TestStartInteractiveMode_DispatchErrLogFinal(t *testing.T) {
 	t.Cleanup(func() { execSingleRunWithEngineFn = orig })
 	execSingleRunWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow) error { return errors.New("bg fail") }
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
@@ -845,7 +846,7 @@ func TestStartInteractiveMode_DispatchErrLogFinal2(t *testing.T) {
 		return errors.New("dispatch err")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
@@ -1285,4 +1286,62 @@ func TestStartWebServer_ShutdownErr(t *testing.T) {
 		},
 	}}
 	require.NoError(t, StartWebServer(wf, t.TempDir(), false))
+}
+
+// settings.llm.executionType: stdin starts the interactive REPL, as
+// --interactive does (it was not dispatched anywhere).
+func TestWantsStdinREPL(t *testing.T) {
+	wf := &domain.Workflow{}
+	if wantsStdinREPL(wf) || wantsStdinREPL(nil) {
+		t.Fatal("no settings.llm: no REPL")
+	}
+	wf.Settings.LLM = &domain.LLMInputConfig{ExecutionType: domain.LLMExecutionTypeStdin}
+	if !wantsStdinREPL(wf) {
+		t.Fatal("executionType stdin starts the REPL")
+	}
+	wf.Settings.LLM.ExecutionType = domain.LLMExecutionTypeAPIServer
+	if wantsStdinREPL(wf) {
+		t.Fatal("apiServer is not the REPL")
+	}
+}
+
+// A single run's structured output prints as JSON, not a Go map dump.
+func TestFormatRunOutput(t *testing.T) {
+	got := formatRunOutput(map[string]interface{}{"message": map[string]interface{}{"content": "hi"}})
+	if got != "{\n  \"message\": {\n    \"content\": \"hi\"\n  }\n}" {
+		t.Fatalf("got %q", got)
+	}
+	if formatRunOutput("text") != "text" {
+		t.Fatal("text passes through")
+	}
+}
+
+// In interactive mode a single-run workflow is not also run in the
+// background: the REPL is its run (a background run executed the target once
+// more with no message).
+func TestStartInteractiveMode_SingleRunIsNotDispatched(t *testing.T) {
+	orig := dispatchExecutionWithEngineInteractiveFunc
+	t.Cleanup(func() { dispatchExecutionWithEngineInteractiveFunc = orig })
+	var dispatched atomic.Bool
+	dispatchExecutionWithEngineInteractiveFunc = func(
+		_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool, _ string, _ bool,
+	) error {
+		dispatched.Store(true)
+		return nil
+	}
+	stubDispatchHooks(t)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	wf := &domain.Workflow{
+		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	origStdin := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = origStdin; _ = r.Close() })
+	_ = startInteractiveMode(executor.NewEngine(nil), wf, t.TempDir(), &RunFlags{}, false)
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, dispatched.Load(), "no background run for a single-run workflow")
 }
