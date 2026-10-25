@@ -858,7 +858,7 @@ func TestMemoryStore_PruneLowSignal(t *testing.T) {
 		Key: "result:build", Value: "compiles; tests pending",
 		Type: memTypeResult, UpdatedAt: 0,
 	}
-	total := memoryLowSignalCap + 10
+	total := memoryLowSignalLimit() + 10
 	for i := range total {
 		key := fmt.Sprintf("note:n%03d", i)
 		store.entries[key] = MemoryEntry{
@@ -875,7 +875,7 @@ func TestMemoryStore_PruneLowSignal(t *testing.T) {
 			noteCount++
 		}
 	}
-	assert.Equal(t, memoryLowSignalCap, noteCount, "notes capped at the limit")
+	assert.Equal(t, memoryLowSignalLimit(), noteCount, "notes capped at the limit")
 
 	_, keptNew := store.Get(fmt.Sprintf("note:n%03d", total-1))
 	assert.True(t, keptNew, "newest note retained")
@@ -896,8 +896,8 @@ func TestMemoryStore_SaveEntries_LowSignalCap(t *testing.T) {
 
 	require.NoError(t, store.Set("result:build", "compiles; tests pending"))
 
-	entries := make([]MemoryEntry, 0, memoryLowSignalCap+10)
-	for i := range memoryLowSignalCap + 10 {
+	entries := make([]MemoryEntry, 0, memoryLowSignalLimit()+10)
+	for i := range memoryLowSignalLimit() + 10 {
 		entries = append(entries, MemoryEntry{
 			Key: fmt.Sprintf("note:n%03d", i), Value: "misc", Type: memTypeNote,
 		})
@@ -910,7 +910,7 @@ func TestMemoryStore_SaveEntries_LowSignalCap(t *testing.T) {
 			noteCount++
 		}
 	}
-	assert.LessOrEqual(t, noteCount, memoryLowSignalCap, "note entries capped through the write path")
+	assert.LessOrEqual(t, noteCount, memoryLowSignalLimit(), "note entries capped through the write path")
 
 	_, ok := store.Get("result:build")
 	assert.True(t, ok, "structural result survives low-signal pruning")
@@ -1101,7 +1101,7 @@ func TestMemoryStore_SaveThinking_CapsRetention(t *testing.T) {
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
 
-	for i := range thinkingResultCap + 10 {
+	for i := range memoryThinkingLimit() + 10 {
 		store.SaveThinking(fmt.Sprintf("round %d reasoning about something distinct", i))
 	}
 
@@ -1111,7 +1111,7 @@ func TestMemoryStore_SaveThinking_CapsRetention(t *testing.T) {
 			count++
 		}
 	}
-	assert.LessOrEqual(t, count, thinkingResultCap, "thinking entries stay bounded")
+	assert.LessOrEqual(t, count, memoryThinkingLimit(), "thinking entries stay bounded")
 }
 
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {

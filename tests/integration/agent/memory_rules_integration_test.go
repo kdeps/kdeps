@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,4 +59,32 @@ func TestMemoryRules_AssetDrivesEntryTypes(t *testing.T) {
 
 	err = assets.Install(t.TempDir(), "memory/rules", []byte("version: 9.0.0\ntypes: [{prefix: a}]\n"), false)
 	require.Error(t, err, "a rules file the loader would reject is not installed")
+}
+
+// The per-tool capture cap is the memory-tool-results-limit event: an asset
+// with items: 2 keeps the two newest captures of a tool.
+func TestMemoryToolResultsLimit_AssetEvent(t *testing.T) {
+	src := t.TempDir()
+	copyTree(t, assets.Source(), src)
+	ev := filepath.Join(src, "events", "memory-tool-results-limit.yaml")
+	data, err := os.ReadFile(ev)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(ev, []byte(strings.Replace(string(data), "items: 20", "items: 2", 1)), 0o600))
+	t.Cleanup(agent.ReloadAssets)
+	t.Setenv(assets.SourceEnv, src)
+	agent.ReloadAssets()
+
+	store := agent.NewMemoryStore(t.TempDir())
+	store.SetCwd(t.TempDir())
+	for _, out := range []string{"first run", "second run", "third run", "fourth run"} {
+		store.ExtractToolResult("bash_exec", out)
+		time.Sleep(2 * time.Millisecond)
+	}
+	var kept []string
+	for _, e := range store.List() {
+		if strings.HasPrefix(e.Key, "tool:bash_exec:") {
+			kept = append(kept, e.Value)
+		}
+	}
+	assert.ElementsMatch(t, []string{"third run", "fourth run"}, kept)
 }

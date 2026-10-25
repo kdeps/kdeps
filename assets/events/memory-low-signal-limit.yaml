@@ -1,0 +1,8 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: memory-low-signal-limit
+# Low-signal entries (memory/rules low_signal types) kept; the oldest beyond this are dropped.
+items: 50
+run: cap

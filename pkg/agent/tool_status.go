@@ -32,8 +32,6 @@ import (
 const (
 	// statusKeyPrefix namespaces the memory entries the status ledger writes.
 	statusKeyPrefix = "status:"
-	// statusMaxKeys caps how many status entries stay in memory.
-	statusMaxKeys = 60
 	// statusArgValueMax truncates a parameter value shown in a retry block.
 	statusArgValueMax = 240
 	// statusEditPlaceholderMin: a string parameter at least this long is shown
@@ -167,7 +165,7 @@ func (l *Loop) saveStatus(tool, value string) string {
 		return ""
 	}
 	l.statusKeys = append(l.statusKeys, key)
-	for len(l.statusKeys) > statusMaxKeys {
+	for len(l.statusKeys) > memoryStatusLimit() {
 		_ = l.memoryStore.Delete(l.statusKeys[0])
 		l.statusKeys = l.statusKeys[1:]
 	}

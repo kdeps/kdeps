@@ -1,0 +1,8 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: memory-status-limit
+# Tool-call status entries (status:<tool>:<n>) kept; the oldest beyond this are dropped.
+items: 60
+run: cap
