@@ -97,9 +97,9 @@ The agent's full LLM config (model, backend, base URL) is saved to `session:conf
 
 ## Tool result filtering
 
-To prevent memory bloat, only the tools in the rules' `capture_tools` list produce memory entries (shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`). Each tool type is capped at 20 entries - the oldest are auto-deleted when the cap is reached. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
+To prevent memory bloat, only the tools in the rules' `capture_tools` list produce memory entries (shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`). Each tool keeps its newest 20 captures (the `memory-tool-results-limit` event); the oldest are deleted. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
 
-Auto-extracted low-signal entries (types `note` and `fact`) are globally capped at 50 combined - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+Auto-extracted low-signal entries (the rules' `low_signal` types, shipped `note` and `fact`) are globally capped at 50 combined (the `memory-low-signal-limit` event) - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
 
 ## Memory rules
 
@@ -118,6 +118,7 @@ parents:                         # a new entry links to the newest entry of this
   error: tool_result
 capture_tools: [write_file, edit_file, bash_exec]   # tool results saved into memory
 resume: [progress, status, result]                  # types a resumed session continues from, best first
+low_signal: [note, fact]         # pruned oldest-first beyond the memory-low-signal-limit event
 status_done:                     # a status with one of markers and none of not is finished
   not: [not done, in progress, blocked]
   markers: [done, complete, merged]

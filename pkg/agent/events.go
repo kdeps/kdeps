@@ -78,6 +78,10 @@ const (
 	eventMemorySearchLimit  = "memory-search-limit"
 	eventMemoryValueLimit   = "memory-value-limit"
 	eventMemoryCaptureLimit = "memory-capture-limit"
+	eventMemoryToolResults  = "memory-tool-results-limit"
+	eventMemoryThinking     = "memory-thinking-limit"
+	eventMemoryLowSignal    = "memory-low-signal-limit"
+	eventMemoryStatus       = "memory-status-limit"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -598,6 +602,30 @@ func memoryValueLimit() int {
 func memoryCaptureLimit() int {
 	const fallback = 300
 	return effectiveBytes(eventMemoryCaptureLimit, fallback)
+}
+
+// memoryToolResultsLimit is how many automatic captures are kept per tool.
+func memoryToolResultsLimit() int {
+	const fallback = 20
+	return effectiveItems(eventMemoryToolResults, fallback)
+}
+
+// memoryThinkingLimit is how many reasoning entries are kept.
+func memoryThinkingLimit() int {
+	const fallback = 20
+	return effectiveItems(eventMemoryThinking, fallback)
+}
+
+// memoryStatusLimit is how many tool-call status entries are kept.
+func memoryStatusLimit() int {
+	const fallback = 60
+	return effectiveItems(eventMemoryStatus, fallback)
+}
+
+// memoryLowSignalLimit is how many low-signal entries are kept.
+func memoryLowSignalLimit() int {
+	const fallback = 50
+	return effectiveItems(eventMemoryLowSignal, fallback)
 }
 
 // effectiveItems returns the registered event's Items count, floored at

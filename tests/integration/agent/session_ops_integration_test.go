@@ -19,8 +19,10 @@ package agent_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,6 +61,11 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 	dir := t.TempDir()
 	got := filepath.Join(dir, "clip.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "pbcopy"), []byte("#!/bin/sh\ncat > "+got+"\n"), 0o700))
+	// Run the new script once first: the OS's first-run check of a fresh
+	// executable can outlast the tool's 10s per-command timeout under load.
+	warm := exec.CommandContext(t.Context(), filepath.Join(dir, "pbcopy"))
+	warm.Stdin = strings.NewReader("")
+	require.NoError(t, warm.Run())
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})

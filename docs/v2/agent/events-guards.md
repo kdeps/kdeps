@@ -108,6 +108,10 @@ run: cap
 | `memory-search-limit` | matches `memory_search` shows (best first; the rest are counted) | 20 |
 | `memory-value-limit` (`on: bytes`) | bytes of one value `memory_search` shows, and of a summary section captured into memory | 500 |
 | `memory-capture-limit` (`on: bytes`) | bytes of a tool result or thinking text captured into memory automatically | 300 |
+| `memory-tool-results-limit` | automatic captures kept per tool (oldest dropped) | 20 |
+| `memory-thinking-limit` | reasoning (thinking) entries kept (oldest dropped) | 20 |
+| `memory-low-signal-limit` | entries of the low-signal types (`low_signal:` in [memory rules](/agent/memory-internals#memory-rules)) kept (oldest dropped) | 50 |
+| `memory-status-limit` | tool-call status entries (`status:<tool>:<n>`) kept (oldest dropped) | 60 |
 
 ```yaml
 # ~/.kdeps/events/memory-value-limit.yaml

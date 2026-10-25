@@ -2,7 +2,10 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,4 +112,33 @@ func TestDeclaredCommand_ToolStepSavesMemory(t *testing.T) {
 	require.True(t, ok, "a command's memory_save step writes the session's memory store")
 	assert.Equal(t, "use yaml", e.Value)
 	assert.Equal(t, memTypeDecision, e.Type)
+}
+
+func TestMemoryCaps_AreEvents(t *testing.T) {
+	assert.Equal(t, 20, memoryToolResultsLimit())
+	assert.Equal(t, 20, memoryThinkingLimit())
+	assert.Equal(t, 50, memoryLowSignalLimit())
+	assert.Equal(t, 60, memoryStatusLimit())
+	assert.Equal(t, []string{memTypeNote, memTypeFact}, memoryRules.LowSignal)
+
+	withEvent(t, Event{Name: eventMemoryLowSignal, Items: 3, Run: actionCap})
+	withEvent(t, Event{Name: eventMemoryToolResults, Items: 2, Run: actionCap})
+	m := NewMemoryStore(t.TempDir())
+	m.SetCwd(t.TempDir())
+	for i := range 5 {
+		k := fmt.Sprintf("n%d", i)
+		m.entries[k] = MemoryEntry{Key: k, Type: memTypeNote, UpdatedAt: int64(i)}
+	}
+	assert.Equal(t, 2, m.pruneLowSignal(), "the event's items: is the cap")
+	for range 4 {
+		m.ExtractToolResult("bash_exec", fmt.Sprintf("out %d", time.Now().UnixNano()))
+		time.Sleep(2 * time.Millisecond)
+	}
+	n := 0
+	for k := range m.entries {
+		if strings.HasPrefix(k, "tool:bash_exec:") {
+			n++
+		}
+	}
+	assert.Equal(t, 2, n, "captures per tool stay at the event's items:")
 }

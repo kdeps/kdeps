@@ -1002,7 +1002,7 @@ func focusScore(e MemoryEntry, toks []string) int {
 			score++
 		}
 	}
-	if score > 0 && e.Type != "" && !memoryLowSignalTypes[e.Type] {
+	if score > 0 && e.Type != "" && !slices.Contains(memoryRules.LowSignal, e.Type) {
 		score += focusStructuralBonus
 	}
 	return score
@@ -1667,12 +1667,6 @@ func isToolMemoryWorthy(toolName string) bool {
 	return slices.Contains(memoryRules.CaptureTools, toolName)
 }
 
-// thinkingResultCap bounds how many reasoning/chain-of-thought entries are
-// kept, same as ExtractToolResult's per-tool cap — thinking fires at least
-// once per round, so an unbounded session would otherwise bloat the store
-// fastest of any entry type.
-const thinkingResultCap = 20
-
 // SaveThinking saves the model's reasoning/chain-of-thought text for a round
 // as a memory entry, so a later turn (or a future session) can memory_search
 // for what the model was actually reasoning about, not just what it said or
@@ -1703,11 +1697,11 @@ func (m *MemoryStore) SaveThinking(text string) int {
 			thinkingKeys = append(thinkingKeys, k)
 		}
 	}
-	if len(thinkingKeys) >= thinkingResultCap {
+	if thinkingCap := memoryThinkingLimit(); len(thinkingKeys) >= thinkingCap {
 		sort.Slice(thinkingKeys, func(i, j int) bool {
 			return m.entries[thinkingKeys[i]].UpdatedAt < m.entries[thinkingKeys[j]].UpdatedAt
 		})
-		for _, k := range thinkingKeys[:len(thinkingKeys)-thinkingResultCap+1] {
+		for _, k := range thinkingKeys[:len(thinkingKeys)-thinkingCap+1] {
 			delete(m.entries, k)
 		}
 	}
@@ -1769,9 +1763,9 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 		UpdatedAt: now,
 	})
 
-	// Prune old tool-call entries of the same type to cap memory bloat.
-	// Keep the 20 most recent per tool; delete the oldest.
-	const toolResultCap = 20
+	// Prune old tool-call entries of the same type to cap memory bloat: keep
+	// the memory-tool-results-limit most recent per tool.
+	toolResultCap := memoryToolResultsLimit()
 	prefix := "tool:" + toolName + ":"
 	var toolKeys []string
 	for k := range m.entries {
@@ -1779,11 +1773,11 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 			toolKeys = append(toolKeys, k)
 		}
 	}
-	if len(toolKeys) > toolResultCap {
+	if len(toolKeys) >= toolResultCap { // room for the entry being saved
 		sort.Slice(toolKeys, func(i, j int) bool {
 			return m.entries[toolKeys[i]].UpdatedAt < m.entries[toolKeys[j]].UpdatedAt
 		})
-		for _, k := range toolKeys[:len(toolKeys)-toolResultCap] {
+		for _, k := range toolKeys[:len(toolKeys)-toolResultCap+1] {
 			delete(m.entries, k)
 		}
 	}
@@ -1852,39 +1846,25 @@ func (m *MemoryStore) resolveLinkTarget(entryType, batchPrevKey, entryKey string
 	return linkTarget
 }
 
-// memoryLowSignalCap bounds how many low-signal (note/fact) auto-extracted entries
-// are retained (K). These accumulate fastest and carry the least structural value,
-// so the oldest beyond the cap are pruned to keep the store and the injected prompt
-// from bloating over long-lived projects. Structural types (prompt/purpose/progress/
-// result/status/decision/context/tool_result/...) are never pruned here.
-const memoryLowSignalCap = 50
-
-// memoryLowSignalTypes are the auto-extracted types eligible for global retention
-// pruning. Deliberately narrow — only the noisiest, least-structural types.
-//
-//nolint:gochecknoglobals // static set
-var memoryLowSignalTypes = map[string]bool{
-	memTypeNote: true,
-	memTypeFact: true,
-}
-
-// pruneLowSignal deletes the oldest low-signal (note/fact) entries beyond
-// memoryLowSignalCap. The caller must hold m.mu. Returns the number pruned.
+// pruneLowSignal deletes the oldest low-signal entries (the memory rules'
+// low_signal types) beyond
+// memory-low-signal-limit. The caller must hold m.mu. Returns the number pruned.
 func (m *MemoryStore) pruneLowSignal() int {
 	var keys []string
 	for k, e := range m.entries {
-		if memoryLowSignalTypes[e.Type] {
+		if slices.Contains(memoryRules.LowSignal, e.Type) {
 			keys = append(keys, k)
 		}
 	}
-	if len(keys) <= memoryLowSignalCap {
+	limit := memoryLowSignalLimit()
+	if len(keys) <= limit {
 		return 0
 	}
 	sort.Slice(keys, func(i, j int) bool {
 		return m.entries[keys[i]].UpdatedAt < m.entries[keys[j]].UpdatedAt
 	})
 	pruned := 0
-	for _, k := range keys[:len(keys)-memoryLowSignalCap] {
+	for _, k := range keys[:len(keys)-limit] {
 		delete(m.entries, k)
 		pruned++
 	}

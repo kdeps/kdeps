@@ -19,7 +19,8 @@ const (
 
 // MemoryRules is how the memory store files what it saves: an entry's type
 // from its key, the type it links to, which tool results it captures, the
-// types a resumed session picks up from, and what reads as a finished status
+// types a resumed session picks up from, the low-signal types pruned first,
+// and what reads as a finished status
 // or a resolved error.
 type MemoryRules struct {
 	Types         []memoryTypeRule  `yaml:"types"`
@@ -27,6 +28,7 @@ type MemoryRules struct {
 	Parents       map[string]string `yaml:"parents"`
 	CaptureTools  []string          `yaml:"capture_tools"`
 	Resume        []string          `yaml:"resume"`
+	LowSignal     []string          `yaml:"low_signal"`
 	StatusDone    memoryMarkers     `yaml:"status_done"`
 	ErrorResolved memoryMarkers     `yaml:"error_resolved"`
 }

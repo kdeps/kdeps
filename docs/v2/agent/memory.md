@@ -144,8 +144,8 @@ Entries are auto-classified by key pattern, by the rules in the `memory/rules` a
 | `progress` | `progress`, `wip`, `in_progress` | Work in progress tracking |
 | `result` | `result`, `output`, `done` | Completed work results |
 | `status` | `status`, `state` | Current state information |
-| `tool_result` | `tool:*` | Tool call outputs (capped at 20) |
-| `thinking` | `thinking:*` | The model's reasoning text for a round, across every thinking-capable backend - searchable via `memory_search`. Capped at 20. |
+| `tool_result` | `tool:*` | Tool call outputs (20 per tool, the `memory-tool-results-limit` event) |
+| `thinking` | `thinking:*` | The model's reasoning text for a round, across every thinking-capable backend - searchable via `memory_search`. Capped at 20 (the `memory-thinking-limit` event). |
 | `decision` | `decision`, `decided` | Design decisions |
 | `preference` | `preference`, `prefer`, `like` | User preferences |
 | `context` | `context`, `env`, `config` | Environment context |

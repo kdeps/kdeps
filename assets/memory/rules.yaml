@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -55,6 +55,10 @@ capture_tools:
 # The entry types a resumed session picks up from, best first; a status that
 # reads as done is skipped.
 resume: [progress, status, result]
+
+# The low-signal types: entries of these types beyond memory-low-signal-limit
+# (an event) are pruned, oldest first. Other types are never pruned by it.
+low_signal: [note, fact]
 
 # A status is done when it has one of markers and none of not. A marker with
 # a space, hyphen or apostrophe matches as text; a short one (3 letters or

@@ -1,0 +1,8 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: memory-tool-results-limit
+# Automatic captures kept per tool; the oldest beyond this are dropped.
+items: 20
+run: cap
