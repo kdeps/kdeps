@@ -1,0 +1,70 @@
+version: 1.0.0
+# How the agent's memory store files what it saves: the type it gives an
+# entry, the entry it links each to, which tool results it captures, and
+# what it reads as a finished status or a resolved error.
+
+# An entry's type, from its key. The first rule that matches wins; an entry
+# no rule matches is a note.
+types:
+  - {prefix: "tool:", type: tool_result}
+  - {prefix: "thinking:", type: thinking}
+  - {equals: last_action, type: action}
+  - {equals: last_files, type: file}
+  - {contains: [prompt, goal, task], type: prompt}
+  - {contains: [purpose, why, reason], type: purpose}
+  - {contains: [progress, wip, in_progress], type: progress}
+  - {contains: [status, state], type: status}
+  - {contains: [decision, decided], type: decision}
+  - {contains: [preference, prefer, like], type: preference}
+  - {contains: [error, fail, bug], type: error}
+  - {contains: [file, path, dir], type: file}
+  - {contains: [context, env, config], type: context}
+  - {contains: [result, output, done], type: result}
+default_type: note
+
+# A new entry links to the newest entry of its parent type (else the newest
+# entry): the graph the model sees in its memory block. prompt is the root.
+parents:
+  purpose: prompt
+  progress: result
+  tool_result: progress
+  result: tool_result
+  action: tool_result
+  status: result
+  file: result
+  decision: result
+  error: tool_result
+  context: prompt
+  preference: prompt
+  fact: result
+  note: result
+
+# Tools whose results are captured into memory automatically.
+capture_tools:
+  - write_file
+  - edit_file
+  - bash_exec
+  - read_file
+  - search_local
+  - sql_query
+  - http_request
+  - web_search
+  - web_scraper
+  - wikipedia
+
+# The entry types a resumed session picks up from, best first; a status that
+# reads as done is skipped.
+resume: [progress, status, result]
+
+# A status is done when it has one of markers and none of not. A marker with
+# a space, hyphen or apostrophe matches as text; a short one (3 letters or
+# fewer) as a whole word; a longer one as a word prefix.
+status_done:
+  not: [not done, not complete, not finished, incomplete, unfinished, in progress, in-progress, pending, todo, to do, wip, blocked, failed]
+  markers: [done, complete, finished, success, shipped, merged, cancelled, canceled, abandoned, wontfix, "won't fix"]
+
+# An error is resolved the same way: the newest unresolved one is flagged in
+# the memory block.
+error_resolved:
+  not: [reopened, not fixed, not resolved, still failing, still broken, regressed]
+  markers: [resolved, fixed, closed, no longer, not an issue, works now, wontfix, "won't fix", cancelled, canceled, abandoned]

@@ -135,7 +135,7 @@ The result has `rows` (capped at `limit`, default 50, max 500), `count` (total m
 
 ## Memory entry types
 
-Entries are auto-classified by key pattern. The type controls where the entry sits in the [memory graph](/agent/memory-internals#memory-graph) and whether it can be pruned.
+Entries are auto-classified by key pattern, by the rules in the `memory/rules` asset (see [Memory rules](/agent/memory-internals#memory-rules)). The type controls where the entry sits in the [memory graph](/agent/memory-internals#memory-graph) and whether it can be pruned. The table lists the shipped rules.
 
 | Type | Key patterns | Description |
 |------|-------------|-------------|

@@ -24,6 +24,7 @@
 #   providers        a provider that exists only as an asset serves the agent
 #                    loop and workflow chat calls
 #   defaults         a workflow chat call uses the changed default timeout
+#   memory           a saved entry gets the type of a new memory rule
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -155,6 +156,11 @@ write("providers/e2eprov.yaml", "version: 1.0.0\nname: e2eprov\nlabel: E2E Provi
       "chatPath: /e2e/v1/chat/completions\n")
 s = bump("defaults/executors.yaml")
 open(p("defaults", "executors.yaml"), "w").write(s.replace('timeout: "60s"', 'timeout: "77s"', 1))
+s = bump("memory/rules.yaml")
+open(p("memory", "rules.yaml"), "w").write(s.replace("types:\n", "types:\n  - {contains: [e2emark], type: decision}\n", 1))
+write("commands/e2e-mem.yaml", "version: 1.0.0\nname: e2e-mem\norder: 999\nusage:\n"
+      "  - help: E2E-MEMORY-HELP\nrun:\n  - tool: memory_save\n    args: {key: e2emark_note, value: E2E-MEMORY-VALUE}\n"
+      "    as: saved\n  - command: /memory list\n")
 PY
 
 SA_PUB="$SA_DIR/pub"
@@ -256,13 +262,13 @@ LIST=$(sa "$KDEPS_BIN" list --assets)
 missing=""
 for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets/e2e-preset themes/e2e-theme \
     tools/read_file commands/e2e-cmd recipes/e2e-recipe models/gguf templates/api-service docker/image \
-    k8s/manifests schemas/v1 components/e2e-echo providers/e2eprov defaults/executors; do
+    k8s/manifests schemas/v1 components/e2e-echo providers/e2eprov defaults/executors memory/rules; do
     # A here-string, not printf | grep -q: grep -q exits at its first match,
     # and under pipefail printf's SIGPIPE on a long list fails the match.
     output_grep "^ *$id +[0-9]" "$LIST" || missing="$missing $id"
 done
 if [ -z "$missing" ]; then
-    test_passed "asset sets - kdeps list --assets shows the published item of all 16 sets"
+    test_passed "asset sets - kdeps list --assets shows the published item of all 17 sets"
 else
     test_failed "asset sets - list --assets" "missing:$missing $LIST"
 fi
@@ -299,14 +305,21 @@ if output_grep "<- events" "$OUT" && output_grep "events/e2e-marker +1\.0\.0" "$
 else
     test_failed "asset sets - kdeps info set" "$OUT"
 fi
-if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "16 E2E-TOOL-MARKER" ]; then
-    test_passed "asset sets - the published index says where all 16 sets run, and each item's purpose"
+if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "17 E2E-TOOL-MARKER" ]; then
+    test_passed "asset sets - the published index says where all 17 sets run, and each item's purpose"
 else
     test_failed "asset sets - index sets" "$(head -c 400 "$SA_PUB/index.json")"
 fi
 
 # --- agent loop: harness, tools, commands, providers, events, actions, presets, themes
 : > "$SA_LOG"
+OUT=$(sa_loop '/e2e-mem\n/quit\n')
+if output_grep "e2emark_note \\[decision\\]: E2E-MEMORY-VALUE" "$OUT"; then
+    test_passed "asset sets - memory: a saved entry gets the type of the published memory rule"
+else
+    test_failed "asset sets - memory: rule type" "$OUT"
+fi
+
 OUT=$(sa_loop '/help\nsay hi\n/e2e-cmd from the e2e\n/harness\n/harness events\n/harness preset list\n/harness preset e2e-preset\n/harness events\n/theme list\n/theme e2e-theme\n/quit\n')
 if output_grep_fixed "MOCK REPLY" "$OUT" && [ -n "$(requests_with "say hi")" ]; then
     test_passed "asset sets - providers: the agent loop talks to a provider that exists only as an asset"
