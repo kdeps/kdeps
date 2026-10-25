@@ -36,13 +36,14 @@ EOF
 
 OUT=$(cd "$SR_DIR" && printf 'first line\nsecond line\n/quit\n' | timeout 120 "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
 
-if output_grep_fixed '"stdout": "got first line' "$OUT" && output_grep_fixed '"stdout": "got second line' "$OUT"; then
+# Windows' echo keeps the quotes, so match the text anywhere in stdout.
+if output_grep '"stdout": .*got first line' "$OUT" && output_grep '"stdout": .*got second line' "$OUT"; then
     test_passed "stdin REPL - each line runs the target and prints JSON"
 else
     test_failed "stdin REPL - lines" "$(printf '%s' "$OUT" | tail -c 800)"
 fi
 
-if output_grep_fixed '"stdout": "got \n"' "$OUT" || output_grep_fixed "running in background" "$OUT" \
+if output_grep '"stdout": "\\?"?got \\?"?(\\r)?\\n"' "$OUT" || output_grep_fixed "running in background" "$OUT" \
     || output_grep_fixed "map[" "$OUT"; then
     test_failed "stdin REPL - no background run, no map dump" "$(printf '%s' "$OUT" | tail -c 800)"
 else
