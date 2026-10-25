@@ -18,6 +18,17 @@ kdeps runs the full workflow DAG
 
 The LLM never sees the resource YAML. It sees one tool, named `metadata.name`, and the tool's output (`apiResponse.response`).
 
+The tool's parameters are the keys the workflow's resources read with `input()`: a resource that reads `input('name')` gives the tool a `name` parameter, and the model's call fills it. A workflow that reads no named input takes a single `input` message.
+
+```yaml
+# resources/greet.yaml
+actionId: greet
+component:
+  name: exec
+  with:
+    command: echo "Hello, {{ input('name') }}"   # the tool gets a "name" parameter
+```
+
 ## Step 1: confirm the tool name
 
 Open `workflow.yaml` and read `metadata.name`. That string is the tool name. In the quickstart it is `my-agent`:

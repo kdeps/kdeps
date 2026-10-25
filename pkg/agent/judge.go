@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -142,8 +143,8 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	judgeRegistry.Register(defined(&kdepstools.Tool{
 		Name: "judge_verdict",
 		Execute: func(args map[string]any) (string, error) {
-			approved, _ := args["approved"].(bool)
 			feedback, _ := args["feedback"].(string)
+			approved := verdictApproved(args["approved"], feedback)
 			mu.Lock()
 			verdict = JudgeVerdict{Name: spec.Name, Approved: approved, Feedback: feedback}
 			settled = true
@@ -302,4 +303,24 @@ func withReviewDirective(cfg *domain.ChatConfig, directive string) *domain.ChatC
 	scenario = append(scenario, domain.ScenarioItem{Role: "system", Prompt: directive})
 	out.Scenario = scenario
 	return &out
+}
+
+// verdictApproved reads judge_verdict's approved argument the way models send
+// it: a boolean, or the string "true"/"false". With no approved at all, a
+// verdict with no feedback has nothing to fix and approves. (A model sent
+// {"approved": "true"} and {"feedback": ""}; both read as rejections and
+// re-ran the turn for nothing.)
+func verdictApproved(v any, feedback string) bool {
+	switch a := v.(type) {
+	case bool:
+		return a
+	case string:
+		if b, err := strconv.ParseBool(strings.TrimSpace(a)); err == nil {
+			return b
+		}
+		return strings.EqualFold(strings.TrimSpace(a), "yes")
+	case nil:
+		return strings.TrimSpace(feedback) == ""
+	}
+	return false
 }
