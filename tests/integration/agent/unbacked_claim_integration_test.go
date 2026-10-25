@@ -62,6 +62,12 @@ func (s *claimThenActStreamer) StreamChat(
 // the real call, on any backend: the tool runs and the turn ends on the real
 // result.
 func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
+	// SetEfficiencyEnabled persists an event override: keep it in a temp home,
+	// and reload once the real home is back.
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	writes := 0
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
@@ -89,6 +95,7 @@ func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
 // A caught refusal is saved in the model's record under ~/.kdeps, and /model
 // record shows it through the kdeps API; record clear deletes it.
 func TestModelRecord_RefusalReachesSlashModelRecord(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
