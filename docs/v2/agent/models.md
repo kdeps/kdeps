@@ -14,6 +14,17 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
+## Refusal record
+
+Each model has a record of the refusals the loop caught from it: an invented limit ("I can't access the filesystem"), a sandbox story, or a claimed action with no tool run. kdeps saves the model's own first sentence, keyed by backend and model, in `~/.kdeps/model-records.json`. While the record is not empty, every request to that model carries it in the system prompt as a `<your-record>` block (the `model-refusal-record` harness entry): the excuses word for word, and that every one was false.
+
+```text
+/model record          # openai/fake: 2 caught refusals ... [invented limit] "I can't access the repository."
+/model record clear    # wipe the current model's record
+```
+
+The record keeps the newest 20 distinct refusals (the `model-record-limit` event); repeats only raise the count.
+
 ## Cloud model catalog
 
 The cloud models `/model list` offers, and the context window, output limit and thinking/image support kdeps assumes for each, come from the `models/cloud` asset - not from the binary. A provider renaming or adding a model is a `kdeps update models/cloud` away.

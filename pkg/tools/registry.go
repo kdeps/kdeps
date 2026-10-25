@@ -93,13 +93,16 @@ func (r *Registry) Unregister(name string) {
 	delete(r.tools, name)
 }
 
-// List returns all registered tools.
+// List returns all registered tools, sorted by name: the tool list is part of
+// every model request, and a stable order keeps the request's cacheable
+// prefix identical from one call to the next.
 func (r *Registry) List() []*Tool {
 	kdeps_debug.Log("enter: List")
 	result := make([]*Tool, 0, len(r.tools))
 	for _, t := range r.tools {
 		result = append(result, t)
 	}
+	slices.SortFunc(result, func(a, b *Tool) int { return strings.Compare(a.Name, b.Name) })
 	return result
 }
 

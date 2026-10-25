@@ -82,6 +82,7 @@ const (
 	eventMemoryThinking     = "memory-thinking-limit"
 	eventMemoryLowSignal    = "memory-low-signal-limit"
 	eventMemoryStatus       = "memory-status-limit"
+	eventModelRecordLimit   = "model-record-limit"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -620,6 +621,12 @@ func memoryThinkingLimit() int {
 func memoryStatusLimit() int {
 	const fallback = 60
 	return effectiveItems(eventMemoryStatus, fallback)
+}
+
+// modelRecordLimit is how many distinct refusals a model's record keeps.
+func modelRecordLimit() int {
+	const fallback = 20
+	return effectiveItems(eventModelRecordLimit, fallback)
 }
 
 // memoryLowSignalLimit is how many low-signal entries are kept.

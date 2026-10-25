@@ -54,6 +54,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -1450,6 +1451,7 @@ func (l *Loop) runToolRounds(
 			l.queueModelNote(deferredToolCallsNote(toolCalls))
 		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		nudges.acted = true
 		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
@@ -1581,6 +1583,29 @@ var sandboxArtifactRe = regexp.MustCompile(`(?i)` +
 	// this is a fabricated result -- "Exact output: /bin/bash: line 4: cd:
 	// /repo: No such file or directory" about a directory that exists.
 	`|\b(?:/bin/)?(?:ba)?sh: line \d+:`)
+
+// unbackedClaimRe matches a reply reporting an action in the first person or as
+// a line led by the action ("Created notes.md", "Remembered: ...", "I've
+// remembered that ...", "I'll remember that"), beyond the completion claims
+// toolguard already matches.
+var unbackedClaimRe = regexp.MustCompile(`(?im)` +
+	`^\W*(?:created|updated|wrote|written|saved|fixed|deleted|removed|renamed|remembered|stored|recorded)\b` +
+	`|^\W*done\s*:` +
+	// A reported command run or its output ("Command run:", "exited with
+	// code 5", "git diff --stat returned:") and a reported save ("has been
+	// stored"): instrument session hunt7.
+	`|^\W*commands?\s+run\s*:|\bexited\s+with\s+\W*(?:code|status)\b|\breturned\s*:\s*$` +
+	`|\b(?:has|have)\s+been\s+(?:stored|saved|recorded|remembered|noted)\b` +
+	`|\bI(?:'ll|\s+will)\s+remember\b` +
+	`|\bI(?:'ve|\s+have)?\s+(?:remembered|stored|noted|recorded|memorized|saved|fixed|corrected|` +
+	`deleted|removed|renamed|moved|installed|ran|run|executed)\b`)
+
+// looksLikeUnbackedClaim reports whether a text-only reply claims it did
+// something. The caller asks only when no tool ran this turn, so the claim is
+// unbacked whatever backend or model wrote it.
+func looksLikeUnbackedClaim(content string) bool {
+	return toolguard.LooksLikeHallucinatedCompletion(content) || unbackedClaimRe.MatchString(content)
+}
 
 // looksLikeSandboxHallucination reports whether a text-only round reads as a
 // simulated sandbox session rather than a real answer.
@@ -2138,6 +2163,8 @@ type turnNudges struct {
 	editUnchanged int // turn ending while the last edit_file left the file's md5 unchanged
 	keepGoing     int // user said continue (or saved that way of working) and the model stopped in text
 	selfLimit     int // text-only reply invents a limit ("I can't", "no tools") with tools registered
+	unbacked      int // text-only reply reports an action while no tool ran this turn
+	acted         bool
 }
 
 // sandboxUnverifiedBanner is prepended to a turn's displayed/returned content
@@ -2220,7 +2247,9 @@ func (l *Loop) handleEmptyToolRound(
 		nudges.hallucination++
 		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
 	}
-	if looksLikeSandboxHallucination(content) {
+	sandbox := looksLikeSandboxHallucination(content)
+	if sandbox {
+		l.recordModelRefusal(refusalKindSandbox, content)
 		l.sandboxStrikes++
 		l.sandboxRecoveryPending = true
 		if harnessOccurrenceAllowed("nudge-sandbox-hallucination", nudges.sandbox) {
@@ -2233,6 +2262,15 @@ func (l *Loop) handleEmptyToolRound(
 		// it as an ordinary, trustworthy answer.
 		content = sandboxUnverifiedBanner + content
 		buffered = sandboxUnverifiedBanner + buffered
+	}
+	if !sandbox && !nudges.acted && len(chatCfg.Tools) > 0 && looksLikeUnbackedClaim(content) &&
+		harnessOccurrenceAllowed("nudge-unbacked-claim", nudges.unbacked) {
+		l.recordModelRefusal(refusalKindUnbacked, content)
+		repeat := nudges.unbacked > 0
+		nudges.unbacked++
+		note := harnessText("nudge-unbacked-claim") + invokeExample() + " " +
+			harnessText("nudge-sandbox-hallucination-qualifier")
+		return nil, emptyRoundResult{chatCfg: finishNudge(chatCfg, note, repeat)}
 	}
 	next, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, nudges, w)
 	return nil, emptyRoundResult{content: content, chatCfg: next, stop: !keepGoing}
@@ -2344,6 +2382,7 @@ func (l *Loop) handleTextOnlyRound(
 	if (l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
 		looksLikeSelfLimit(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
+		l.recordModelRefusal(refusalKindLimit, content)
 		repeat := nudges.selfLimit > 0
 		nudges.selfLimit++
 		return nudgeSelfLimitConfig(chatCfg, repeat), true
@@ -3250,6 +3289,10 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		// "use-kdeps-tools" preamble section (part of assembledPreamble above).
 		if l.config.Backend == backendM365 {
 			toolParts = append(toolParts, harnessText("m365-sandbox"))
+		}
+		// The current model's own record of caught refusals, any backend.
+		if rec := l.modelRecordPreamble(); rec != "" {
+			toolParts = append(toolParts, rec)
 		}
 	}
 

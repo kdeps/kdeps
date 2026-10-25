@@ -19,6 +19,8 @@
 package logging_test
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
@@ -46,4 +48,22 @@ func TestNewLogger_NonDebugMode(t *testing.T) {
 	// Test that debug messages might be disabled
 	logger.Info("Info message")
 	logger.Warn("Warn message")
+}
+
+// The agent loop's engine logs from Warn: Info stays off the terminal unless
+// debug is on (instrument session hunt7 showed "LLM resource configuration"
+// over the conversation on every prompt).
+func TestNewLoggerAt_WarnHidesInfoUnlessDebug(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "")
+	t.Setenv("DEBUG", "")
+	quiet := logging.NewLoggerAt(slog.LevelWarn, false)
+	if quiet.Enabled(context.Background(), slog.LevelInfo) {
+		t.Error("Info must be off at Warn")
+	}
+	if !quiet.Enabled(context.Background(), slog.LevelWarn) {
+		t.Error("Warn must stay on")
+	}
+	if !logging.NewLoggerAt(slog.LevelWarn, true).Enabled(context.Background(), slog.LevelDebug) {
+		t.Error("debug turns everything on")
+	}
 }

@@ -142,6 +142,8 @@ scenario test_knowledge_folders.sh
 scenario test_knowledge_git.sh
 scenario test_declared_tools.sh
 scenario test_agent_self_limit.sh
+scenario test_agent_unbacked_claim.sh
+scenario test_agent_judge_roster.sh
 scenario test_agent_tool_budget.sh
 scenario test_memory_limits.sh
 scenario test_tool_aliases.sh

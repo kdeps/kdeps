@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -227,5 +228,29 @@ func TestFlushGroup_Empty(t *testing.T) {
 	})
 	if got != "" {
 		t.Errorf("flushGroup(empty) wrote %q, want empty", got)
+	}
+}
+
+// An instrumented session's sink takes detail lines without them reaching
+// the terminal; without a sink they go to stderr only while enabled.
+func TestPrintf_SinkOnlyAndStderr(t *testing.T) {
+	var sinkBuf bytes.Buffer
+	SetSink(&sinkBuf, true)
+	got := captureStderr(t, func() { Printf("frame %d", 7) })
+	SetSink(nil, false)
+	if got != "" {
+		t.Errorf("a sink-only session must keep detail lines off stderr, got %q", got)
+	}
+	if !strings.HasSuffix(sinkBuf.String(), " frame 7\n") {
+		t.Errorf("sink got %q", sinkBuf.String())
+	}
+
+	t.Setenv("KDEPS_DEBUG", "true")
+	if out := captureStderr(t, func() { Printf("frame %d", 8) }); out != "frame 8\n" {
+		t.Errorf("stderr got %q", out)
+	}
+	t.Setenv("KDEPS_DEBUG", "")
+	if out := captureStderr(t, func() { Printf("frame %d", 9) }); out != "" {
+		t.Errorf("disabled Printf wrote %q", out)
 	}
 }

@@ -29,9 +29,16 @@ import (
 // If debug is true, or if KDEPS_DEBUG or DEBUG env var is set,
 // it sets the log level to Debug and enables source location.
 func NewLogger(debug bool) *slog.Logger {
+	return NewLoggerAt(slog.LevelInfo, debug)
+}
+
+// NewLoggerAt is NewLogger with level as the level below debug: the agent
+// loop logs at Warn, so its internal engine calls (prompt refinement, the
+// judge roster) do not print over the conversation.
+func NewLoggerAt(level slog.Level, debug bool) *slog.Logger {
 	kdeps_debug.Log("enter: NewLogger")
 	debug = resolveDebugEnabled(debug)
-	opts := buildPrettyHandlerOptions(slog.LevelInfo, debug)
+	opts := buildPrettyHandlerOptions(level, debug)
 	if debug {
 		opts.Level = slog.LevelDebug
 	}

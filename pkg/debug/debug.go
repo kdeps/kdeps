@@ -168,6 +168,24 @@ func Log(msg string) {
 	}
 }
 
+// Printf writes one detail line (wire content, not a function name) the way
+// trace lines go: to the session sink, and to stderr unless the sink is the
+// only output. It writes nothing when instrumentation is off.
+func Printf(format string, args ...any) {
+	if !Enabled() {
+		return
+	}
+	line := fmt.Sprintf(format, args...)
+	mu.Lock()
+	defer mu.Unlock()
+	if sink != nil {
+		fmt.Fprintf(sink, "%s %s\n", time.Now().UTC().Format("15:04:05.000"), line)
+	}
+	if !quiet {
+		fmt.Fprintf(os.Stderr, "%s\n", line)
+	}
+}
+
 // Flush writes any buffered partial group as a terminated line and resets state.
 // Call this after each logical execution unit completes.
 func Flush() {

@@ -104,12 +104,11 @@ func TestFormatBytes(t *testing.T) {
 }
 
 func TestRequestSizePreflightWarnings(t *testing.T) {
-	warnings := RequestSizePreflightWarnings()
-	require.GreaterOrEqual(t, len(warnings), 1)
+	warnings := RequestSizePreflightWarnings("dashscope")
+	require.Len(t, warnings, 1)
 	assert.Contains(t, warnings[0], "dashscope")
-	// xai limit is 50 MB — above the 10 MB threshold, so no warning
-	for _, w := range warnings {
-		assert.NotContains(t, w, "xai")
-		assert.NotContains(t, w, "openai")
-	}
+	// xai's limit is 50 MB, above the 10 MB threshold; another backend's
+	// limit is not shown (instrument session hunt7 warned about dashscope on m365)
+	assert.Empty(t, RequestSizePreflightWarnings("xai"))
+	assert.Empty(t, RequestSizePreflightWarnings("m365"))
 }

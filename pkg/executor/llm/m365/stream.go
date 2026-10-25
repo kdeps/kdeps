@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"os"
 	"strings"
 	"sync"
 
@@ -195,17 +194,15 @@ func (s *CopilotStream) advanceThinking(m botMessage) {
 	s.thinking <- m.Text
 }
 
-// logRawFrame prints the raw SignalR frame bytes when KDEPS_DEBUG is set. The
+// logRawFrame records the raw SignalR frame bytes when instrumentation is on
+// (to an instrumented session's trace.log only, else stderr). The
 // call-chain instrumentation (kdeps_debug.Log) only records function names,
 // not frame content, so this is the only way to see what the service
 // actually sent on the wire -- needed to diagnose content that silently
 // fails to surface (an unrecognized messageType, a genuinely empty
 // completion under a given tone, etc.) rather than guessing at it.
 func logRawFrame(frame string) {
-	if !kdeps_debug.Enabled() {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "m365 raw frame: %s\n", frame)
+	kdeps_debug.Printf("m365 raw frame: %s", frame)
 }
 
 // run drives the WebSocket: handshake, send chat, then fold frames until the

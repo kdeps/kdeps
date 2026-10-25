@@ -21,6 +21,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,8 +75,13 @@ func printRoutes(serverConfig *domain.APIServerConfig) {
 }
 
 func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
+	return setupEngineAt(slog.LevelInfo, debugMode)
+}
+
+// setupEngineAt is setupEngine logging from level up (debug when debugMode).
+func setupEngineAt(level slog.Level, debugMode bool) *executor.Engine {
 	kdeps_debug.Log("enter: setupEngine")
-	logger := logging.NewLogger(debugMode)
+	logger := logging.NewLoggerAt(level, debugMode)
 	engine := executor.NewEngine(logger)
 	engine.SetDebugMode(debugMode)
 	engine.SetRegistry(newExecutorRegistry())

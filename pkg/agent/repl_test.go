@@ -5805,3 +5805,20 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 	require.GreaterOrEqual(t, clearIdx, 0, "clear-line escape must appear")
 	assert.Greater(t, clearIdx, spinnerIdx, "clear must come after spinner frames")
 }
+
+// After a switch, the status line's window is the new model's even for the
+// loop's own calls before the next turn (instrument session hunt11 showed
+// prompt refinement on m365/quick with the previous model's 200k window).
+func TestApplyModelSwitch_StatusLineUsesTheNewModel(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Backend = "ollama"
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	resetContextSegments("old-model", "ollama")
+	testCaptureStdout(t, func() { repl.applyModelSwitch("my-model.gguf") })
+	contextSegmentsMu.Lock()
+	model, backend := contextPathModel, contextPathBackend
+	contextSegmentsMu.Unlock()
+	assert.Equal(t, "my-model.gguf", model)
+	assert.Equal(t, llm.BackendGGUF, backend)
+}

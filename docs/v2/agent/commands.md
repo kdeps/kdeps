@@ -9,6 +9,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/help` | Show available commands |
 | `/clear` | Summarize and clear the current conversation |
 | `/model [name]` | Show or switch LLM model mid-session (tab-complete shows up to 10 suggestions) |
+| `/model record [clear]` | Show the current model's record of caught refusals (sent to it each turn), or clear it |
 | `/model default [name]` | Show or set the default startup model, persisted to `~/.kdeps/agent-loop-settings.yaml` |
 | `/model list` | List all available models with provider status |
 | `/model ps` | List running local model servers (llamafile/gguf) with PID, port, and health |
