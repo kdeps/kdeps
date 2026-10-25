@@ -80,7 +80,7 @@ func resetContextSegments(model, backend string) {
 // the models this project cares most about supporting.
 func contextWindowForBackend(model, backend string) int {
 	switch backend {
-	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
+	case executorLLM.BackendFile, executorLLM.BackendGGUF, modelTypeOllama:
 		if n := executorLLM.LocalContextSize(); n > 0 {
 			return n
 		}

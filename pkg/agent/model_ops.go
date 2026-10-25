@@ -43,6 +43,24 @@ var modelOps = map[string]func(r *REPL, args map[string]any) (map[string]any, er
 	"servers":        infallible(func(*REPL) map[string]any { return serversOp() }),
 	"server_kill":    (*REPL).serverKillOp,
 	"hf_download":    (*REPL).hfDownloadOp,
+	"model_record":   infallible((*REPL).modelRecordOp),
+	"model_record_clear": infallible(func(r *REPL) map[string]any {
+		cfg := r.loop.config
+		return map[string]any{
+			"model":   modelRecordKey(cfg.Backend, cfg.Model),
+			"cleared": clearModelRecord(cfg.Backend, cfg.Model),
+		}
+	}),
+}
+
+// modelRecordOp returns the current model's refusal record.
+func (r *REPL) modelRecordOp() map[string]any {
+	cfg := r.loop.config
+	out := map[string]any{"model": modelRecordKey(cfg.Backend, cfg.Model), "count": 0, "refusals": []modelRefusal{}}
+	if rec := modelRecordFor(cfg.Backend, cfg.Model); rec != nil {
+		out["count"], out["refusals"] = rec.Count, rec.Refusals
+	}
+	return out
 }
 
 // infallible adapts a model operation that only reads state.

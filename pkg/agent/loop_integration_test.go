@@ -3039,3 +3039,60 @@ func TestAppendToolRoundTrip_SynthesizesIDsForSalvagedCalls(t *testing.T) {
 	}
 	require.NotEmpty(t, assistantID)
 }
+
+// A text-only reply that reports an action ("Created: notes.md", "I've
+// remembered ...") while no tool has run this turn draws a nudge to make the
+// real call, whatever backend wrote it. Instrument session hunt1: a model
+// answered "Created: [notes.md](...)" and "I've remembered that project
+// decision" with no tool call, and nothing happened on disk or in memory.
+func TestRunStreaming_UnbackedActionClaimNudged(t *testing.T) {
+	for _, claim := range []string{
+		"Created: [notes.md](https://example.invalid/notes.md) containing hello kdeps",
+		"I've remembered that project decision: keep calc.py dependency-free.",
+	} {
+		ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+			{content: claim, toolCalls: nil},
+			{content: "Nothing was saved yet; making the call now failed.", toolCalls: nil},
+		}}}
+		loop := newStreamingLoop(ms, 10)
+		var buf bytes.Buffer
+		got, err := loop.RunStreaming(context.Background(), "do it", &buf)
+		require.NoError(t, err)
+		require.Lenf(t, ms.cfgs, 2, "%q draws one nudge", claim)
+		assert.Contains(t, ms.cfgs[1].Prompt, "You made no tool call this turn")
+		assert.Contains(t, ms.cfgs[1].Prompt, `<invoke name="bash_exec">`)
+		assert.Equal(t, "Nothing was saved yet; making the call now failed.", got)
+	}
+}
+
+// After a tool has run in the turn, the closing report is not second-guessed.
+func TestRunStreaming_ClaimAfterARealToolCallIsAccepted(t *testing.T) {
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: `{}`}}},
+		{content: "I've saved the result: 2.", toolCalls: nil},
+	}}}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "add", &buf)
+	require.NoError(t, err)
+	assert.Len(t, ms.cfgs, 2, "no nudge once a tool ran")
+	assert.Equal(t, "I've saved the result: 2.", got)
+}
+
+func TestLooksLikeUnbackedClaim(t *testing.T) {
+	for _, s := range []string{
+		"Created: notes.md", "I've remembered it.", "I fixed the add function.", "Done: all set",
+		"Created [notes.md](https://example.invalid/notes.md) containing exactly: hello",
+		"Remembered: keep `calc.py` dependency-free.",
+		"Got it. I'll remember that the project decision is to keep calc.py dependency-free.",
+		"## Test result\n\nCommand run:\n\n```bash\npython3 -m pytest -q\n```",
+		"`pytest` exited with **code 5**, which means no tests were collected.",
+		"I can't show it because running:\n\n```bash\ngit diff --stat\n```\n\nreturned:\n\n```text\nwarning",
+		"This decision has been stored as a project preference.",
+	} {
+		assert.Truef(t, looksLikeUnbackedClaim(s), "%q", s)
+	}
+	for _, s := range []string{"What would you like me to create?", "The add function subtracts instead of adding.", "Use git status to check."} {
+		assert.Falsef(t, looksLikeUnbackedClaim(s), "%q", s)
+	}
+}

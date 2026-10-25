@@ -120,6 +120,7 @@ var itemShelf = map[string]string{
 	"events/memory-thinking-limit":     ShelfMemory,
 	"events/memory-low-signal-limit":   ShelfMemory,
 	"events/memory-status-limit":       ShelfMemory,
+	"events/model-record-limit":        ShelfGuardrails,
 	"events/memory-search-limit":       ShelfMemory,
 	"events/memory-value-limit":        ShelfMemory,
 	"events/rel-memory-limit":          ShelfMemory,

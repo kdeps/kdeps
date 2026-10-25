@@ -18,7 +18,7 @@ An unregistered or corrupted event/harness name always fails open (enabled) -- a
 
 ## Occurrence caps on standalone harness text
 
-Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you have the tools, call one," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-continue`, `nudge-self-limit`), same as `tool-call-early-praise`'s positive-reinforcement text. These are not sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
+Every corrective nudge the loop can send a model -- "make a real tool call instead of writing a fake result," "you have the tools, call one," and so on -- is a standalone harness entry (`nudge-action`, `nudge-fake-tool-response`, `nudge-sandbox-hallucination`, `nudge-unbacked-claim`, `nudge-unresolved-failure`, `nudge-edit-unchanged`, `nudge-continue`, `nudge-self-limit`), same as `tool-call-early-praise`'s positive-reinforcement text. These are not sent unboundedly: an optional `maxOccurrences:` field caps how many times a given entry's *caller-tracked* counter may let it fire before the loop stops nudging and falls back to its non-nudge behavior (accepting the reply, flagging it, or failing the task):
 
 ```yaml
 # harness/nudge-self-limit.yaml (built-in default -- shown for reference)

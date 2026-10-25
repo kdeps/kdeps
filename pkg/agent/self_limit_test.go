@@ -302,3 +302,10 @@ func TestRunStreaming_SelfLimitSkippedWhenToolsStripped(t *testing.T) {
 	assert.Empty(t, ms.cfgs[0].Tools)
 	assert.Equal(t, refusal, got)
 }
+
+// Instrument session hunt5: a no-tool reply blamed an environment it never
+// looked at.
+func TestLooksLikeSelfLimit_CouldNotAccessEnvironment(t *testing.T) {
+	assert.True(t, looksLikeSelfLimit("I couldn't complete the fix because `calc.py` is not accessible "+
+		"in the available project environment. Only `notes.md` is present."))
+}

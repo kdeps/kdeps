@@ -1,0 +1,11 @@
+version: 1.0.0
+name: nudge-unbacked-claim
+kind: standalone
+maxOccurrences: 2
+body: >-
+  You made no tool call this turn, so nothing you described happened: no
+  file was created or changed, no command ran, and nothing was saved to
+  memory. Do not report an action until a kdeps tool result confirms it.
+  Make the real kdeps tool call now (write_file, edit_file, bash_exec,
+  memory_save, list_files, ...) through the tool interface and wait for the
+  runtime's result.

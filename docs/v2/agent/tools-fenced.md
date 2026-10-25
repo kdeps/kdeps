@@ -10,6 +10,17 @@ Two instructions go into the system preamble for every model whenever tools are 
 
 Every capability the model has here is a kdeps tool - including `bash_exec` and the file tools. A model trained with a code-interpreter / "run code" / "analysis" habit will otherwise act against its own empty `/mnt/data`-style environment and conclude it "cannot access" anything. The rule is restated in one line on every turn after the first. Every turn also carries a line of facts kdeps measured itself in the real environment - date and time, OS/arch, how many files and directories are in the working directory, the git branch - so a model that suspects a sandbox can check a `list_files` result against them. M365 Copilot gets an extra, stronger version of this on top (its habit is the most persistent).
 
+## Claimed actions need a tool result
+
+On every backend, a reply that reports an action ("Created notes.md", "I've fixed it", "Remembered: ...") while no tool has run this turn draws the `nudge-unbacked-claim` push-back (at most twice a turn): nothing happened, so the model is told to make the real call. Once any tool has run in the turn, the closing report is accepted as written.
+
+```text
+model: "Created [notes.md](...)"          <- no tool ran this turn
+kdeps: nudge-unbacked-claim               <- "You made no tool call this turn..."
+model: <invoke name="write_file">...      <- the real call
+kdeps: write_file result -> model answers
+```
+
 ## Parser and interpreter
 
 The guidance also tells the model that kdeps is a parser and an interpreter: it parses a matched `<invoke>` block out of the message at runtime and interprets it. That is not the model's built-in code interpreter. Writing the block is the call, not an example. On a backend with no native tool channel, that block is a LITERAL invoke block: the characters `<invoke>` and `</invoke>` written as text in the message. One matched block does it -

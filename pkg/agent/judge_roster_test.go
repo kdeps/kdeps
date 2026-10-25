@@ -210,3 +210,19 @@ func TestLastAutoRoster_NilLoop(t *testing.T) {
 		t.Fatalf("nil loop LastAutoRoster = %v, want nil", got)
 	}
 }
+
+// A JSON-mode reply the engine already decoded into a map still yields the
+// roster (instrument session hunt11: a valid two-judge reply was reported as
+// "roster generation returned nothing").
+func TestJSONResultText_DecodedObjectStillParses(t *testing.T) {
+	decoded := map[string]any{"judges": []any{
+		map[string]any{"name": "exact-file-content", "criteria": "The reported line matches the file."},
+	}}
+	got := parseJudgeRoster(jsonResultText(decoded))
+	if len(got) != 1 || got[0].Name != "exact-file-content" {
+		t.Fatalf("roster from a decoded object = %+v", got)
+	}
+	if jsonResultText("plain") != "plain" || jsonResultText(nil) != "" {
+		t.Error("text and nil results pass through")
+	}
+}

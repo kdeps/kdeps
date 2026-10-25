@@ -2903,6 +2903,9 @@ func (r *REPL) applyModelSwitch(model string) {
 	// New model: rebuild the frozen system preamble so the commit trailer names
 	// the model now in use instead of the previous one.
 	r.loop.InvalidateSystemPreamble()
+	// The status line's window is the new model's from now on, including the
+	// loop's own calls (prompt refinement) that run before the next turn resets it.
+	resetContextSegments(r.loop.config.Model, r.loop.config.Backend)
 	// Mandatory session-integrity handshake: confirm the new model's
 	// tool-calling path actually works before its next prompt goes out.
 	r.loop.RequireHandshake()

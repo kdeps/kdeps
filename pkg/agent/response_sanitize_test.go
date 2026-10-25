@@ -79,3 +79,10 @@ func TestSanitizeLoopArtifacts_KeepsMemoryWordInProse(t *testing.T) {
 	in := "Memory is the bridge between models. The goal: keep it in sync."
 	assert.Equal(t, in, sanitizeLoopArtifacts(in))
 }
+
+// Instrument session hunt1: a reply carried private-use citation markers and
+// <File> wrappers, which reached the terminal as stray text.
+func TestSanitizeLoopArtifacts_StripsCitationMarkersAndFileTags(t *testing.T) {
+	in := "Keep `<File>calc.py</File>` dependency-free. citerecord_memory0\n\n- <File>notes.md</File> citeturn2file2"
+	assert.Equal(t, "Keep `calc.py` dependency-free.\n\n- notes.md", sanitizeLoopArtifacts(in))
+}

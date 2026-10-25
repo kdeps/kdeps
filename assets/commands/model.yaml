@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.1.0
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -9,6 +9,8 @@ order: 40
 usage:
   - args: "[name]"
     help: Show or set the LLM model (no name opens the picker)
+  - args: "record [clear]"
+    help: Show the current model's record of caught refusals (sent to it each turn), or clear it
   - args: "default [name]"
     help: Show or save the default startup model
   - args: list
@@ -56,6 +58,21 @@ subcommands:
           {{if .typed}}{{printf "%q" .typed}} is ambiguous across backends ({{join .ambiguous ", "}}) -- saving {{.model}} as default. Use the full name to pick a specific one.
           {{end}}{{if eq (printf "%v" .configured) "false"}}No default persistence configured.{{else if eq (printf "%v" .configured) "true"}}**Default model**
             Use `/model default <name>` to set the startup model.{{else}}Default model saved - will be used at next startup.{{end}}
+  record:
+    subcommands:
+      "":
+        run:
+          - tool: session_ops
+            args: {operation: model_record}
+            print: |-
+              {{if not .refusals}}{{.model}} has no refusals on record.{{else}}**{{.model}}: {{.count}} caught refusals** (sent to the model as its record)
+              {{range .refusals}}
+              - {{.at}} [{{.kind}}] {{.text}}{{end}}{{end}}
+      clear:
+        run:
+          - tool: session_ops
+            args: {operation: model_record_clear}
+            print: "{{if .cleared}}Cleared the refusal record of {{.model}}.{{else}}{{.model}} has no refusal record.{{end}}"
   list:
     run:
       - tool: session_ops

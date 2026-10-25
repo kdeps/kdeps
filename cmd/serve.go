@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -285,7 +286,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
 
-	eng := setupEngine(nil, flags.Debug)
+	// The terminal is the conversation: the engine behind the loop's own calls
+	// and the workflow tools logs warnings and errors only, unless --debug.
+	eng := setupEngineAt(slog.LevelWarn, flags.Debug)
 	llmAdapter := llm.NewAdapter(flags.BaseURL)
 
 	// Sessions and memory are stored under ~/.kdeps, partitioned by the
@@ -390,7 +393,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	defer llm.ShutdownLocalServers()
 
 	fmt.Fprintln(os.Stderr, "Loading model catalog...")
-	wireREPL(rootCtx, repl, registry, flags, excludedTools)
+	wireREPL(rootCtx, repl, registry, flags, excludedTools, loop.Config().Backend)
 
 	// Start the control API only after the REPL has published its slash
 	// commands and tools: a client that sees /api up must see the complete
@@ -429,6 +432,7 @@ func wireREPL(
 	registry *tools.Registry,
 	flags *agentLoopFlags,
 	excludedTools []*tools.Tool,
+	backend string,
 ) {
 	if len(excludedTools) > 0 {
 		repl.SetToolsFilterFn(buildToolsFilterFn(registry, excludedTools), len(registry.List()))
@@ -442,7 +446,7 @@ func wireREPL(
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 	// Merge optional-tool notices + preflight warnings for low-limit backends.
 	notices := optionalToolNotices()
-	notices = append(notices, agent.RequestSizePreflightWarnings()...)
+	notices = append(notices, agent.RequestSizePreflightWarnings(backend)...)
 	if notice := updateAvailabilityNotice(ctx); notice != "" {
 		notices = append(notices, notice)
 	}
