@@ -704,4 +704,25 @@ test_validation_error "$TEMP_DIR22/test.yaml" \
     "Must start with"
 rm -rf "$TEMP_DIR22"
 
+# Test 23: a missing block is reported once, plainly, with no borrowed example
+TEMP_DIR23=$(mktemp -d)
+cat > "$TEMP_DIR23/test.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test
+  version: "1.0.0"
+  targetActionId: test
+resources: []
+EOF
+V23_OUT=$("$KDEPS_BIN" validate "$TEMP_DIR23/test.yaml" 2>&1 || true)
+V23_COUNT=$(printf '%s\n' "$V23_OUT" | grep -c "settings is required")
+if [ "$V23_COUNT" = "1" ] && output_grep "^Error: " "$V23_OUT" \
+    && ! output_grep_fixed "/api/users" "$V23_OUT" && ! output_grep_fixed '\n' "$V23_OUT"; then
+    test_passed "Missing settings block reported once, plainly, without a route example"
+else
+    test_failed "Missing settings block error" "$V23_OUT"
+fi
+rm -rf "$TEMP_DIR23"
+
 echo ""

@@ -20,6 +20,7 @@ package main
 
 import (
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -210,4 +211,29 @@ func TestMainEntrypoint_Subprocess(t *testing.T) {
 		}
 	}
 	assert.NoError(t, err)
+}
+
+// A command's error prints once, as written (a log record quoted it and
+// escaped its newlines).
+func TestRunMainWithConfig_PrintsTheErrorPlainly(t *testing.T) {
+	config := NewAppConfig()
+	config.ExecuteCmd = func(_, _ string) error {
+		return errors.New("validation failed:\n  - settings is required")
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	orig := os.Stderr
+	os.Stderr = w
+	code := RunMainWithConfig(config)
+	os.Stderr = orig
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	if code != 1 {
+		t.Fatalf("exit code %d", code)
+	}
+	if string(out) != "Error: validation failed:\n  - settings is required\n" {
+		t.Fatalf("stderr = %q", out)
+	}
 }

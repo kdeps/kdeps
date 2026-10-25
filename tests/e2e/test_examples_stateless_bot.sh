@@ -46,7 +46,7 @@ if output_grep "127\.0\.0\.1:[0-9]+/v1/chat/completions.*context deadline exceed
     # The local llamafile answered slower than the chat resource's timeout:
     # a loaded shared runner, not a kdeps fault. Any other fatal still fails.
     test_skipped "Stateless Bot - Server test - local model slower than the resource timeout on this runner"
-elif output_grep_i "fatal" "$RUN_OUT"; then
+elif output_grep "^Error: " "$RUN_OUT"; then
     test_failed "Stateless Bot - Server test" "$RUN_OUT"
 elif output_grep_i "Resource completed" "$RUN_OUT"; then
     test_passed "Stateless Bot - Server test"

@@ -35,3 +35,16 @@ func TestLlmConfig_NonNull(t *testing.T) {
 	assert.Equal(t, "custom> ", cfg.Prompt)
 	assert.Equal(t, "custom-session", cfg.SessionID)
 }
+
+// A chat resource's reply prints the model's words, not a Go map dump; other
+// structured results print as JSON.
+func TestFormatResult_ChatReplyAndStructured(t *testing.T) {
+	reply := map[string]interface{}{
+		"done": true, "model": "m",
+		"message": map[string]interface{}{"role": "assistant", "content": "The answer is 93."},
+	}
+	assert.Equal(t, "The answer is 93.", formatResult(reply))
+	assert.Equal(t, "{\n  \"a\": 1\n}", formatResult(map[string]interface{}{"a": 1}))
+	assert.Equal(t, "[\n  1,\n  2\n]", formatResult([]int{1, 2}))
+	assert.Equal(t, "plain", formatResult("plain"))
+}

@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -138,7 +139,17 @@ func formatResult(result interface{}) string {
 	switch v := result.(type) {
 	case string:
 		return v
-	default:
-		return fmt.Sprintf("%v", v)
+	case map[string]interface{}:
+		// A chat resource's reply: show what the model said, not the envelope.
+		if msg, isMsg := v["message"].(map[string]interface{}); isMsg {
+			if content, isText := msg["content"].(string); isText {
+				return content
+			}
+		}
 	}
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", result)
+	}
+	return string(data)
 }

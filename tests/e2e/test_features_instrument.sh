@@ -158,6 +158,40 @@ else
     test_failed "instrument - validate --instrument=<name> still validates the workflow" "$VAL_OUT"
 fi
 
+# A chat resource's model call is recorded too (workflow mode had no
+# model_request/model_response events).
+if [ -n "${KDEPS_LLM_OVERRIDE_URL:-}" ]; then
+    CHAT_DIR=$(mktemp -d)
+    cat > "$CHAT_DIR/workflow.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: instrument-chat-e2e
+  version: "1.0.0"
+  targetActionId: ask
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+resources:
+  - actionId: ask
+    name: Ask
+    chat:
+      model: e2e-model
+      prompt: "say hello"
+EOF
+    KDEPS_INSTRUMENT_ROOT="$INST_ROOT" timeout 120 "$KDEPS_BIN" run "$CHAT_DIR/workflow.yaml" --instrument=e2e-chat >"$RUN_LOG" 2>&1 || true
+    CHAT_EV="$INST_ROOT/e2e-chat/events.ndjson"
+    if grep -q '"kind":"model_request"' "$CHAT_EV" 2>/dev/null && grep -q '"source":"workflow"' "$CHAT_EV" \
+        && grep -q '"kind":"model_response"' "$CHAT_EV"; then
+        test_passed "instrument - a chat resource's model call is recorded"
+    else
+        test_failed "instrument - chat resource model call" "$(tail -c 600 "$CHAT_EV" 2>&1) $(tail -20 "$RUN_LOG")"
+    fi
+    rm -rf "$CHAT_DIR"
+else
+    test_skipped "instrument - chat resource model call (no mock LLM)"
+fi
+
 rm -rf "$INST_ROOT" "$WF_DIR"
 rm -f "$RUN_LOG"
 echo ""

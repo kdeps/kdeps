@@ -163,7 +163,7 @@ func executeAgencyEntryPoint(
 	// Set up the engine with the full agent map so agent resource calls work.
 	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
 
-	if flags.Interactive {
+	if flags.Interactive || wantsStdinREPL(workflow) {
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
 	return dispatchExecutionWithEngine(

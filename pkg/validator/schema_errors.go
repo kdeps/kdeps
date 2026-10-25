@@ -103,7 +103,7 @@ func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ strin
 
 	// Required field suggestions
 	if strings.Contains(descStr, "required") || strings.Contains(descStr, "is required") {
-		return sv.getRequiredFieldSuggestion(normalizedField)
+		return sv.getRequiredFieldSuggestion(requiredFieldPath(normalizedField, descStr))
 	}
 
 	// Pattern/format suggestions
@@ -139,3 +139,20 @@ func (sv *SchemaValidator) normalizeFieldPath(field string) string {
 }
 
 // getTypeSuggestion provides type error suggestions.
+
+// requiredPropertyRe is the property a "<field>: <name> is required" error names.
+var requiredPropertyRe = regexp.MustCompile(`(\S+)\s+is required`)
+
+// requiredFieldPath is the missing field's own path: a required error is
+// reported on the parent object ("metadata", "(root)"), and the property is
+// only in the description ("metadata: targetActionId is required").
+func requiredFieldPath(parent, desc string) string {
+	m := requiredPropertyRe.FindStringSubmatch(desc)
+	if m == nil || dotSuffix(parent, m[1]) {
+		return parent
+	}
+	if parent == "" || parent == "(root)" {
+		return m[1]
+	}
+	return parent + "." + m[1]
+}
