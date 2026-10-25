@@ -248,3 +248,22 @@ func TestReadmeFromRegistryArchive_DownloadError(t *testing.T) {
 	result := readmeFromRegistryArchive(t.Context(), client, "test-pkg")
 	assert.Empty(t, result)
 }
+
+// A bare name that is both a local component and an asset set shows the
+// component; without the component it shows the set.
+func TestDoRegistryInfo_LocalComponentBeforeSameNamedSet(t *testing.T) {
+	compDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", compDir)
+
+	var out bytes.Buffer
+	c := &cobra.Command{}
+	c.SetOut(&out)
+	require.NoError(t, doRegistryInfo(c, "memory", "http://127.0.0.1:1"))
+	assert.Contains(t, out.String(), "memory store", "no component: the memory asset set")
+
+	require.NoError(t, os.MkdirAll(compDir+"/memory", 0750))
+	require.NoError(t, os.WriteFile(compDir+"/memory/README.md", []byte("# Memory Component\nKV store."), 0600))
+	out.Reset()
+	require.NoError(t, doRegistryInfo(c, "memory", "http://127.0.0.1:1"))
+	assert.Contains(t, out.String(), "Memory Component")
+}

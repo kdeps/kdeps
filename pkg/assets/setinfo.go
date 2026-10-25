@@ -63,6 +63,7 @@ var setPurposes = map[string]string{
 	"schemas":    "The JSON schemas a workflow, resource, component and agency must match.",
 	"components": "Ready-made workflow steps (sql, browser, email, git, ocr...) a resource calls by name; in agent mode they are also tools.",
 	"providers":  "OpenAI-compatible LLM providers: base URL, chat path, API key setting and default model.",
+	"memory":     "How the agent's memory store files what it saves: entry types by key, the graph links between them, which tool results it captures, and what reads as done or resolved.",
 	"defaults":   "The values a resource gets when it sets none: chat, HTTP, python and exec timeouts, context length, embedding store.",
 }
 

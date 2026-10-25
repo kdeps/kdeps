@@ -442,14 +442,15 @@ func subcommandList(b *commandBody) string {
 }
 
 // runToolStep calls the step's kdeps API tool, on this REPL's session for
-// session_ops, saves its result under as:, and emits its output through the
-// step's print: template.
+// session_ops and its memory store for the memory tools, saves its result
+// under as:, and emits its output through the step's print: template.
 func (r *REPL) runToolStep(s commandStep, args []string, steps map[string]any, emit func(string)) error {
 	callArgs, err := renderStepArgs(toolStepArgs(s.Args, args), steps)
 	if err != nil {
 		return err
 	}
-	out, err := api.CallTool(api.WithSessionOps(r.ctx, r.sessionOps), s.Tool, callArgs)
+	callCtx := memoryCallContext(api.WithSessionOps(r.ctx, r.sessionOps), nil)
+	out, err := api.CallTool(callCtx, s.Tool, callArgs)
 	if err != nil {
 		return err
 	}

@@ -97,9 +97,36 @@ The agent's full LLM config (model, backend, base URL) is saved to `session:conf
 
 ## Tool result filtering
 
-To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries - the oldest are auto-deleted when the cap is reached. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
+To prevent memory bloat, only the tools in the rules' `capture_tools` list produce memory entries (shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`). Each tool type is capped at 20 entries - the oldest are auto-deleted when the cap is reached. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
 
 Auto-extracted low-signal entries (types `note` and `fact`) are globally capped at 50 combined - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+
+## Memory rules
+
+The memory store's rules are the `memory/rules` asset: how an entry is typed, which entry it links to, which tool results are captured, where a resumed session picks up, and what reads as done or resolved. Change them by installing a newer `memory/rules` (see [Updating assets](/agent/repl-updating)); a file the loader rejects is not installed.
+
+```yaml
+version: 1.0.0
+types:                           # an entry's type from its key; the first match wins
+  - {prefix: "tool:", type: tool_result}
+  - {equals: last_action, type: action}
+  - {contains: [prompt, goal, task], type: prompt}
+  - {contains: [error, fail, bug], type: error}
+default_type: note               # a key no rule matches
+parents:                         # a new entry links to the newest entry of this type (else the newest entry)
+  progress: result
+  error: tool_result
+capture_tools: [write_file, edit_file, bash_exec]   # tool results saved into memory
+resume: [progress, status, result]                  # types a resumed session continues from, best first
+status_done:                     # a status with one of markers and none of not is finished
+  not: [not done, in progress, blocked]
+  markers: [done, complete, merged]
+error_resolved:                  # an error that reads as resolved is not flagged in the memory block
+  not: [reopened, still failing]
+  markers: [fixed, resolved, closed]
+```
+
+A marker with a space, hyphen or apostrophe matches as text; a marker of 3 letters or fewer matches a whole word (`wip` does not match `wiped`); a longer one also matches a word that starts with it (`complete` matches `completed`).
 
 ## See also
 

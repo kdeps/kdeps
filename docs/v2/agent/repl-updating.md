@@ -90,7 +90,7 @@ Choice [5]:
 |---|---|
 | `minimum` | `schemas`, `defaults`, `models`, `providers` (the base: every other profile includes it) |
 | `workflows` | base + `templates`, `components` |
-| `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, the loop's required tools and the file, shell, web and memory tools |
+| `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, `memory`, the loop's required tools and the file, shell, web and memory tools |
 | `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
 | `full` | every set |
 | `custom` | a checklist of every set and item: tick whole sets, or open a set to tick single items |

@@ -65,6 +65,7 @@ var setShelf = map[string]string{
 	"defaults":   ShelfWorkflow,
 	"docker":     ShelfDeploy,
 	"k8s":        ShelfDeploy,
+	"memory":     ShelfMemory,
 }
 
 // itemShelf files an item on a shelf other than its set's default, when one

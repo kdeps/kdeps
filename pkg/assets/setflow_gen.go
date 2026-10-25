@@ -94,6 +94,18 @@ var generatedFlows = map[string]SetInfo{
 		UsedBy: []string{"kdeps export k8s"},
 		Code:   []string{"kdeps export k8s", "k8s.(*Generator).GenerateManifests", "k8s.(*Generator).renderManifest"},
 	},
+	"memory": {
+		Mode: "agent",
+		Flow: []FlowStep{
+			{Label: "the agent saves a memory or a tool returns"},
+			{Label: "kdeps types the entry by its key and links it to its parent type"},
+			{Label: "the tool is in capture_tools", Here: true},
+			{Label: "its result is captured"},
+			{Label: "the memory block flags open errors and resumes from unfinished work"},
+		},
+		UsedBy: []string{"/update", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
+		Code:   []string{"/update", "agent.RunAssetUpdate", "agent.initMemoryRules"},
+	},
 	"models": {
 		Mode: "both",
 		Flow: []FlowStep{
