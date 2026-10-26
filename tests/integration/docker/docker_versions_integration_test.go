@@ -64,7 +64,7 @@ func TestDockerVersionsIntegration_GenerateDockerfilePins(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "kdeps/kdeps/v1.9.0/install.sh")
 	assert.Contains(t, dockerfile, strings.Join([]string{"-b", "/usr/local/bin", "v1.9.0"}, " "))
@@ -84,7 +84,7 @@ func TestDockerVersionsIntegration_RocmOllamaTag(t *testing.T) {
 		},
 	}
 
-	dockerfile, genErr := builder.GenerateDockerfile(workflow)
+	dockerfile, genErr := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, genErr)
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:rocm")
 }
@@ -100,7 +100,7 @@ func TestDockerVersionsIntegration_RejectDebianBaseOS(t *testing.T) {
 		},
 	}
 
-	_, genErr := builder.GenerateDockerfile(workflow)
+	_, genErr := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, genErr)
 	assert.Contains(t, genErr.Error(), "invalid baseOS")
 }

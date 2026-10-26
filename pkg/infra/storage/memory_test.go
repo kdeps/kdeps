@@ -313,7 +313,7 @@ func TestStorage_FilePermissions(t *testing.T) {
 
 	// Test session storage file
 	sessionPath := filepath.Join(tmpDir, "session.db")
-	sessionStorage, err := storage.NewSessionStorage(sessionPath, "test-session")
+	sessionStorage, err := storage.NewSessionStorage(t.Context(), sessionPath, "test-session")
 	require.NoError(t, err)
 	_ = sessionStorage.DB.Close()
 

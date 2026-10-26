@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,5 +36,5 @@ func TestIsNilConfig_TypedNil(t *testing.T) {
 }
 
 func newTestEngineInternal() *Engine {
-	return NewEngine(nil)
+	return NewEngine(context.Background(), nil)
 }

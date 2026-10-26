@@ -46,7 +46,7 @@ func TestBuilder_shouldInstallOllama_RouterEnv(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(t, dockerfile, "11434")
@@ -75,7 +75,7 @@ func TestBuilder_CreateBuildContext_RequirementsFileError(t *testing.T) {
 		},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "requirements file")
 }
@@ -108,7 +108,7 @@ func TestBuilder_Build_GenerateDockerfileError(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid baseOS")
 }
@@ -133,7 +133,7 @@ func TestBuilder_GenerateDockerfile_WebServerCustomPort(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Custom port 8080 must appear in EXPOSE
@@ -179,7 +179,7 @@ func TestBuilder_CreateBuildContext_WithRequirementsFile(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\n"
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	require.NotNil(t, contextReader)
 
@@ -237,7 +237,7 @@ func TestBuilder_Build_BaseOSEmptyDefault(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	// BaseOS should have been set to "alpine" before the Docker call failed
 	assert.Equal(t, "alpine", builder.BaseOS,
@@ -260,7 +260,7 @@ func TestBuilder_CreateBuildContext_MissingWorkflowYAML(t *testing.T) {
 		},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow.yaml")
 }
@@ -278,7 +278,7 @@ func TestBuilder_CreateBuildContext_GenerateEntrypointError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to generate entrypoint")
 }
@@ -299,7 +299,7 @@ func TestBuilder_CreateBuildContext_AddFileToTarEntrypointError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to add entrypoint.sh")
 }
@@ -320,7 +320,7 @@ func TestBuilder_CreateBuildContext_AddFileToTarSupervisordError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to add supervisord.conf")
 }
@@ -338,7 +338,7 @@ func TestBuilder_CreateBuildContext_GenerateSupervisordError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "supervisord config")
 }
@@ -364,7 +364,7 @@ func TestBuilder_CreateBuildContext_CloseTarWriterError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to close tar writer")
 }
@@ -394,7 +394,7 @@ func TestBuilder_CreateBuildContext_PrepackagedAddFileError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "prepackaged binary")
 }
@@ -415,7 +415,7 @@ func TestBuilder_CreateBuildContext_AddFileToTarDockerfileError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to add Dockerfile")
 }
@@ -452,7 +452,7 @@ func TestBuilder_GenerateDockerfile_Basic(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Template-based output
@@ -481,7 +481,7 @@ func TestBuilder_GenerateDockerfile_WithPackages(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine")
@@ -510,7 +510,7 @@ func TestBuilder_GenerateDockerfile_WithDatabase(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine")
@@ -534,7 +534,7 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine")
@@ -546,7 +546,7 @@ func TestBuilder_GenerateDockerfile_EmptyWorkflow(t *testing.T) {
 
 	workflow := &domain.Workflow{}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Should still generate a basic Dockerfile
@@ -585,7 +585,7 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
@@ -689,7 +689,7 @@ func TestBuilder_CreateBuildContext(t *testing.T) {
 
 	dockerfile := "FROM python:3.12\nWORKDIR /app\nCOPY . .\n"
 
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	assert.NotNil(t, contextReader)
 }
@@ -722,7 +722,7 @@ func TestBuilder_Build(t *testing.T) {
 		},
 	}
 
-	imageID, err := builder.Build(workflow, "test-output.tar", false)
+	imageID, err := builder.Build(t.Context(), workflow, "test-output.tar", false)
 	// Will fail during Docker build since Docker daemon may not be available
 	if err != nil {
 		t.Logf("Expected error during build: %v", err)
@@ -786,7 +786,7 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
@@ -822,7 +822,7 @@ func TestBuilder_GenerateDockerfile_WithInstallOllamaFlag(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
@@ -859,7 +859,7 @@ func TestBuilder_GenerateDockerfile_MultiplePythonVersions(t *testing.T) {
 				},
 			}
 
-			dockerfile, err := builder.GenerateDockerfile(workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 			require.NoError(t, err)
 
 			if tt.baseOS == "alpine" {
@@ -905,7 +905,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Check all components are included
@@ -932,7 +932,7 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Should generate basic Dockerfile with defaults
@@ -971,7 +971,7 @@ func TestBuilder_GenerateDockerfile_LargePackageList(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
@@ -1001,7 +1001,7 @@ func TestBuilder_GenerateDockerfile_SpecialCharactersInPackages(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
@@ -1015,7 +1015,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	// Test with nil workflow
-	_, err := builder.Build(nil, "output.tar", false)
+	_, err := builder.Build(t.Context(), nil, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow cannot be nil")
 
@@ -1024,7 +1024,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	_, err = builderInvalid.Build(workflow, "output.tar", false)
+	_, err = builderInvalid.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid base OS")
 
@@ -1032,7 +1032,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	workflowInvalid := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Version: "1.0.0"},
 	}
-	_, err = builder.Build(workflowInvalid, "output.tar", false)
+	_, err = builder.Build(t.Context(), workflowInvalid, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
@@ -1069,7 +1069,7 @@ func TestBuilder_Build_SuccessCase(t *testing.T) {
 
 	// This will likely fail due to Docker not being available in test environment,
 	// but we can test that the initial validation passes
-	_, err = builder.Build(workflow, "test-output.tar", false)
+	_, err = builder.Build(t.Context(), workflow, "test-output.tar", false)
 	// We expect this to fail at the Docker client creation or build step
 	if err != nil {
 		// Should not fail due to our validation, but due to Docker unavailability
@@ -1144,7 +1144,7 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 	}
 
 	// Test buildTemplateData function indirectly through GenerateDockerfile
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Verify template data was processed correctly
@@ -1249,7 +1249,7 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			}
 
 			// Test shouldInstallOllama indirectly through GenerateDockerfile
-			dockerfile, err := builder.GenerateDockerfile(workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 			require.NoError(t, err)
 
 			for _, expected := range tt.contains {
@@ -1291,7 +1291,7 @@ func TestBuilder_getDefaultModel(t *testing.T) {
 				},
 			}
 
-			dockerfile, err := builder.GenerateDockerfile(workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 			require.NoError(t, err)
 
 			// Verify Dockerfile was generated (we can't easily check the exact model
@@ -1338,7 +1338,7 @@ func TestBuilder_addFileToTar(t *testing.T) {
 
 	dockerfile := "FROM alpine:latest\nCOPY test.txt /app/\n"
 
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	assert.NotNil(t, contextReader)
 }
@@ -1382,7 +1382,7 @@ func TestBuilder_addDirectoryToTar(t *testing.T) {
 
 	dockerfile := "FROM alpine:latest\nCOPY testdir /app/testdir\n"
 
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	assert.NotNil(t, contextReader)
 
@@ -1404,7 +1404,7 @@ func TestBuilder_Build_PruneDanglingImages(t *testing.T) {
 	}
 
 	// This will fail due to Docker not being available, but we test the prune logic
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	// The error should be Docker-related, not about workflow validation
 	assert.NotContains(t, err.Error(), "workflow cannot be nil")
@@ -1434,7 +1434,7 @@ func TestBuilder_Build_DockerClientFailure(t *testing.T) {
 		},
 	}
 
-	_, err = builder.Build(workflow, "output.tar", false)
+	_, err = builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
@@ -1449,7 +1449,7 @@ func TestBuilder_Build_BaseOSValidation(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid base OS")
 }
@@ -1458,7 +1458,7 @@ func TestBuilder_Build_WorkflowValidation(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	// Test nil workflow
-	_, err := builder.Build(nil, "output.tar", false)
+	_, err := builder.Build(t.Context(), nil, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow cannot be nil")
 }
@@ -1473,7 +1473,7 @@ func TestBuilder_Build_WorkflowNameValidation(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
@@ -1596,7 +1596,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 			builder := &docker.Builder{BaseOS: tc.baseOS}
 
 			// Test generateDockerfile
-			dockerfile, err := builder.GenerateDockerfile(tc.workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), tc.workflow)
 			require.NoError(t, err)
 
 			for _, expected := range tc.expectedInDockerfile {
@@ -1622,7 +1622,7 @@ func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "EXPOSE 16395")
@@ -1643,7 +1643,7 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "EXPOSE 16395")
@@ -1659,7 +1659,7 @@ func TestBuilder_GenerateDockerfile_NoModesNoPorts(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.NotContains(t, dockerfile, "EXPOSE")
@@ -1672,7 +1672,7 @@ func TestBuilder_TemplateFunctions_ErrorCases(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := invalidBuilder.GenerateDockerfile(workflow)
+	_, err := invalidBuilder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid base OS")
 }
@@ -1700,7 +1700,7 @@ func TestBuilder_GenerateDockerfile_PrepackagedBothArches(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Should COPY both arch-specific prepackaged binaries.
@@ -1732,7 +1732,7 @@ func TestBuilder_GenerateDockerfile_PrepackagedAMD64Only(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "COPY kdeps-linux-amd64")
@@ -1767,7 +1767,7 @@ func TestBuilder_GenerateDockerfile_FallbackWithoutPrepackagedBinaries(t *testin
 		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Fallback path uses install.sh.
@@ -1812,7 +1812,7 @@ func TestBuilder_CreateBuildContext_PrepackagedBinaries(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\n"
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	require.NotNil(t, contextReader)
 
@@ -1872,7 +1872,7 @@ func TestBuilder_addPrepackagedBinariesToContext_ReadError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	_, err := builder.CreateBuildContext(wf, "FROM alpine\n")
+	_, err := builder.CreateBuildContext(t.Context(), wf, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amd64")
 }
@@ -1900,7 +1900,7 @@ func TestBuilder_buildTemplateData_resourcesDataDir(t *testing.T) {
 	}
 
 	// GenerateDockerfile exercises buildTemplateData internally.
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
 }
@@ -1925,7 +1925,7 @@ func TestBuilder_CreateBuildContext_PrepackagedBinariesSet(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	contextReader, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.NoError(t, err)
 
 	data, err := io.ReadAll(contextReader)
@@ -1968,7 +1968,7 @@ func TestBuilder_CreateBuildContext_EmptyPrepackagedBinaries(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 
-	contextReader, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, "FROM alpine\n")
 	require.NoError(t, err)
 
 	data, err := io.ReadAll(contextReader)
@@ -1997,7 +1997,7 @@ func TestBuilder_validateDockerEnv_rejectsUnsafeValues(t *testing.T) {
 		"BAD":  "quote\"break",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid docker env value")
 }
@@ -2011,7 +2011,7 @@ func TestBuilder_validateDockerEnv_rejectsInvalidKey(t *testing.T) {
 		"BAD KEY": "value",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid docker env key")
 }
@@ -2025,7 +2025,7 @@ func TestBuilder_validateDockerEnv_rejectsEmptyKey(t *testing.T) {
 		"": "value",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid docker env key")
 }
@@ -2039,7 +2039,7 @@ func TestBuilder_validateDockerEnv_acceptsKeyWithDigits(t *testing.T) {
 		"VAR1": "value",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 }
 
@@ -2052,7 +2052,7 @@ func TestBuilder_validateDockerEnv_rejectsExpansionChars(t *testing.T) {
 		"SAFE_VAR": "${PATH}",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 }
 
@@ -2065,7 +2065,7 @@ func TestBuilder_validateDockerEnv_rejectsBakedAuthToken(t *testing.T) {
 		"KDEPS_API_AUTH_TOKEN": "secret",
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "runtime")
 }
@@ -2082,7 +2082,7 @@ func TestBuilder_ShouldInstallUV_PythonResource(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	// When a Python resource exists, uv should be installed
 	assert.Contains(t, dockerfile, "uv")
@@ -2099,7 +2099,7 @@ func TestBuilder_ShouldInstallUV_RequirementsFile(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "uv")
 }
@@ -2112,7 +2112,7 @@ func TestBuilder_ShouldInstallUV_NoPython(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "simple", Version: "1.0.0"},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	// uv should not be mentioned in installation block when no Python usage
 	assert.NotContains(t, dockerfile, "uv pip")
@@ -2130,7 +2130,7 @@ func TestBuilder_GenerateDockerfile_UbuntuBase(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "ubuntu:latest")
 }
@@ -2153,7 +2153,7 @@ func TestBuilder_GenerateDockerfile_OllamaUbuntu(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	// For Ubuntu+Ollama, should use official ollama image
 	assert.Contains(t, dockerfile, "ollama/ollama:0.5.0")
@@ -2177,7 +2177,7 @@ func TestBuilder_GenerateDockerfile_OllamaAlpine(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "alpine/ollama")
 }
@@ -2203,7 +2203,7 @@ func TestBuilder_CreateBuildContext_Basic(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\nWORKDIR /app\n"
-	reader, err := builder.CreateBuildContext(workflow, dockerfile)
+	reader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -2244,10 +2244,10 @@ func TestBuilder_CreateBuildContext_WithAPIServer(t *testing.T) {
 		},
 	}
 
-	dockerfile, genErr := builder.GenerateDockerfile(workflow)
+	dockerfile, genErr := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, genErr)
 
-	reader, err := builder.CreateBuildContext(workflow, dockerfile)
+	reader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -2283,7 +2283,7 @@ func TestBuilder_CreateBuildContext_SupervisordContent(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\n"
-	reader, err := builder.CreateBuildContext(workflow, dockerfile)
+	reader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 
 	tr := tar.NewReader(reader)
@@ -2341,7 +2341,7 @@ func TestBuilder_CreateBuildContext_ResourcesWithFile(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\n"
-	reader, err := builder.CreateBuildContext(workflow, dockerfile)
+	reader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -2376,11 +2376,11 @@ func TestBuilder_CreateBuildContext_ResourcesWithFile(t *testing.T) {
 func TestBuilder_Build_NilWorkflow(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
-	_, err := builder.Build(nil, "output.tar", false)
+	_, err := builder.Build(t.Context(), nil, "output.tar", false)
 	assert.Error(t, err)
 }
 
-func TestBuilder_Build_EmptyName(_ *testing.T) {
+func TestBuilder_Build_EmptyName(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	workflow := &domain.Workflow{
@@ -2394,7 +2394,7 @@ func TestBuilder_Build_EmptyName(_ *testing.T) {
 
 	// Build will fail but should not panic - it may fail on Docker not available
 	// or on missing workflow name (depending on validation)
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	// Just ensure it doesn't panic
 	_ = err
 }
@@ -2433,7 +2433,7 @@ func TestBuilder_Build_WorkflowBaseOSOverride(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar", false)
+	_, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.NoError(t, err)
 	assert.Equal(t, "ubuntu", builder.BaseOS,
 		"Build should apply workflow BaseOS when builder BaseOS is empty")
@@ -2472,7 +2472,7 @@ func TestBuilder_Build_PruneSuccessWithSpace(t *testing.T) {
 		},
 	}
 
-	imageName, err := builder.Build(workflow, "output.tar", false)
+	imageName, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.NoError(t, err)
 	assert.Contains(t, imageName, "prune-space-test")
 }
@@ -2510,7 +2510,7 @@ func TestBuilder_Build_PruneError(t *testing.T) {
 		},
 	}
 
-	imageName, err := builder.Build(workflow, "output.tar", false)
+	imageName, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.NoError(t, err)
 	assert.Contains(t, imageName, "prune-error-test")
 }
@@ -2548,7 +2548,7 @@ func TestBuilder_Build_PruneZeroSpace(t *testing.T) {
 		},
 	}
 
-	imageName, err := builder.Build(workflow, "output.tar", false)
+	imageName, err := builder.Build(t.Context(), workflow, "output.tar", false)
 	require.NoError(t, err)
 	assert.Contains(t, imageName, "prune-zero-test")
 }
@@ -2581,7 +2581,7 @@ func TestNewBuilderWithOS_ShortMode_InvalidOS(t *testing.T) {
 
 func TestBuild_GenerateDockerfileError(t *testing.T) {
 	b := &docker.Builder{BaseOS: "nonexistent-os-12345"}
-	_, err := b.Build(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test", Version: "1"}}, "", false)
+	_, err := b.Build(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test", Version: "1"}}, "", false)
 	if err == nil {
 		t.Fatal("expected error for nonexistent base OS")
 	}
@@ -2633,7 +2633,7 @@ func TestBuilder_Build_SpaceReclaimedLogged(t *testing.T) {
 		},
 	}
 
-	imageName, err := builder.Build(workflow, "", false)
+	imageName, err := builder.Build(t.Context(), workflow, "", false)
 	require.NoError(t, err)
 	assert.Equal(t, "spacetest:1.0.0", imageName)
 }
@@ -2649,7 +2649,7 @@ func TestBuilder_GenerateDockerfile_ApplyImageProfileError(t *testing.T) {
 			Version: "1.0.0",
 		},
 	}
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "base OS")
 }

@@ -87,7 +87,7 @@ func TestHandshakeAck_PraisesTheRealCall(t *testing.T) {
 // without the code is a miss and must return an error.
 func TestSessionHandshakeTool_RejectsMissingCode(t *testing.T) {
 	reg := tools.NewRegistry()
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
 	loop.handshake = &handshakeState{challenge: "1234"}
 	loop.registerSessionHandshakeTool()
 
@@ -104,7 +104,7 @@ func TestSessionHandshakeTool_RejectsMissingCode(t *testing.T) {
 
 func TestSessionHandshakeTool_AcceptsCode(t *testing.T) {
 	reg := tools.NewRegistry()
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
 	loop.handshake = &handshakeState{challenge: "1234"}
 	loop.registerSessionHandshakeTool()
 
@@ -342,8 +342,8 @@ func TestHandshakeGrounding_OmitsFullCatalog(t *testing.T) {
 			},
 		})
 	}
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
 
 	baseline := loop.handshakeGrounding()
 	withNote := loop.handshakeGrounding("session_handshake")
@@ -366,8 +366,8 @@ func TestPerformHandshake_M365GetsSandboxReinforcement(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	initHarness()
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:         "test",
 		Backend:       backendM365,
 		Streamer:      cfgs,
@@ -398,6 +398,7 @@ func TestPerformHandshake_NonM365SkipsSandboxReinforcement(t *testing.T) {
 	initHarness()
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	loop := newStreamingLoop(cfgs, 5)
+	loop.config.Backend = "openai"
 	require.NoError(t, loop.performHandshake(context.Background()))
 
 	require.NotEmpty(t, cfgs.cfgs)
@@ -472,9 +473,9 @@ func TestPerformHandshake_EvidenceStepRunsBashExecBeforeChallenge(t *testing.T) 
 		},
 		Execute: func(_ map[string]any) (string, error) { return "ack", nil },
 	})
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	streamer := &evidenceThenHandshakeStreamer{}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      streamer,
 		MaxToolRounds: 5,
@@ -497,8 +498,8 @@ func TestHandshakeEvidence_SuccessAppendsPraiseToHistory(t *testing.T) {
 		Parameters: map[string]domain.ToolParam{},
 		Execute:    func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
 	})
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      &evidenceThenHandshakeStreamer{},
 		MaxToolRounds: 5,
@@ -522,8 +523,8 @@ func TestHandshakeEvidence_OnlyOffersBashExec(t *testing.T) {
 		Execute:    func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
 	})
 	var seenTools []domain.Tool
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test",
 		Streamer: &toolCapturingHandshakeStreamer{
 			capture: &seenTools,
@@ -585,9 +586,9 @@ func TestPerformHandshake_EvidenceStepGivesUpGracefullyAndChallengeStillSucceeds
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "/real/working/dir", nil },
 	})
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	streamer := &noEvidenceStreamer{}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      streamer,
 		MaxToolRounds: 5,

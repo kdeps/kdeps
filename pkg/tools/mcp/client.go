@@ -285,9 +285,9 @@ func (c *Client) Close() error {
 }
 
 // ExecuteTool starts an MCP server, calls the named tool, and returns the result.
-func ExecuteTool(cfg *domain.MCPConfig, toolName string, arguments map[string]interface{}) (string, error) {
+func ExecuteTool(ctx context.Context, cfg *domain.MCPConfig, toolName string, arguments map[string]interface{}) (string, error) {
 	kdeps_debug.Log("enter: ExecuteTool")
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
 	client, err := NewStdioClient(ctx, cfg)

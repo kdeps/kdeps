@@ -37,7 +37,7 @@ import (
 
 func newSearchLocalCtx(t *testing.T) *executor.ExecutionContext {
 	t.Helper()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	return ctx
 }

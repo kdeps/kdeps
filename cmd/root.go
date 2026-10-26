@@ -125,7 +125,7 @@ func createRootCommand() *cobra.Command {
 			if len(args) == 1 {
 				path = args[0]
 			}
-			return runAgentLoopCmd(path, flags)
+			return runAgentLoopCmd(processParent(cmd.Context()), path, flags)
 		},
 	}
 

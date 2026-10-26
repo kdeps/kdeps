@@ -19,6 +19,7 @@
 package examples_test
 
 import (
+	"context"
 	"log/slog"
 	nethttp "net/http"
 	"net/http/httptest"
@@ -41,11 +42,13 @@ import (
 )
 
 // setupExecutor creates an executor with all necessary adapters.
-func setupExecutor() *executor.Engine {
+func setupExecutor(t *testing.T) *executor.Engine {
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Initialize executor registry
+	), logger)
+
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())
@@ -53,7 +56,7 @@ func setupExecutor() *executor.Engine {
 
 	// Set up LLM executor with default Ollama URL
 	ollamaURL := "http://localhost:11434"
-	registry.SetLLMExecutor(llm.NewAdapter(ollamaURL))
+	registry.SetLLMExecutor(llm.NewAdapter(t.Context(), ollamaURL))
 
 	engine.SetRegistry(registry)
 	return engine
@@ -63,7 +66,7 @@ func setupExecutor() *executor.Engine {
 func setupExecutorWithMockLLM(t *testing.T) *executor.Engine {
 	t.Helper()
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
@@ -87,7 +90,7 @@ func setupExecutorWithMockLLM(t *testing.T) *executor.Engine {
 	t.Cleanup(stub.Close)
 	t.Setenv("KDEPS_LLM_BASE_URL", stub.URL+"/v1")
 
-	registry.SetLLMExecutor(llm.NewAdapter(stub.URL))
+	registry.SetLLMExecutor(llm.NewAdapter(t.Context(), stub.URL))
 	engine.SetRegistry(registry)
 	return engine
 }
@@ -288,7 +291,7 @@ func TestHTTPAdvancedExample_GET(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 
 	// Create request context for GET /api/v1/http-demo
 	// As described in README: curl "http://localhost:16395/api/v1/http-demo"
@@ -352,7 +355,7 @@ func TestHTTPAdvancedExample_POST(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 
 	// Create request context for POST /api/v1/http-demo
 	// As described in README:
@@ -419,7 +422,7 @@ func TestShellExecExample_GET(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 
 	// Create request context for GET /api/v1/exec
 	reqCtx := &executor.RequestContext{
@@ -467,7 +470,7 @@ func TestShellExecExample_POST(t *testing.T) {
 	// Note: ParseWorkflow already loads resources from resources/ directory
 
 	// Setup executor
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 
 	// Create request context for POST /api/v1/exec
 	reqCtx := &executor.RequestContext{
@@ -694,7 +697,7 @@ func TestComponentKomponentExample(t *testing.T) {
 	)
 
 	// Execute the workflow using the standard executor (no external deps needed)
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 	reqCtx := &executor.RequestContext{
 		Method: "GET",
 		Path:   "/",
@@ -755,7 +758,7 @@ func TestComponentsUnpackedExample(t *testing.T) {
 	assert.Len(t, actionIDs, 2, "should have exactly 2 resources")
 
 	// Execute the workflow
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 	reqCtx := &executor.RequestContext{
 		Method: "GET",
 		Path:   "/",
@@ -808,7 +811,7 @@ func TestComponentsAdvancedExample(t *testing.T) {
 	assert.Len(t, actionIDs, 5)
 
 	// Execute the workflow with a name parameter
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 	reqCtx := &executor.RequestContext{
 		Method: "POST",
 		Path:   "/process",
@@ -903,7 +906,7 @@ func TestConfigNamespaceExample_Execution(t *testing.T) {
 	workflow, err := yamlParser.ParseWorkflow(workflowPath)
 	require.NoError(t, err)
 
-	engine := setupExecutor()
+	engine := setupExecutor(t)
 	engine.SetDebugMode(true)
 
 	reqCtx := &executor.RequestContext{
@@ -1077,7 +1080,7 @@ func TestLlamafileChatExample_ValidationError(t *testing.T) {
 // for the LLM adapter (tests file backend routing without a real llamafile binary).
 func setupEngineWithMockClient(mockClient *llm.MockHTTPClient) *executor.Engine {
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(http.NewAdapter())
 	registry.SetPythonExecutor(python.NewAdapter())

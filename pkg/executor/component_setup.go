@@ -52,7 +52,7 @@ func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext
 	e.installComponentPackages(comp, setup, ctx)
 
 	for _, cmdStr := range setup.Commands {
-		if err := runShellCommand(cmdStr); err != nil {
+		if err := runShellCommand(ctx.Ctx, cmdStr); err != nil {
 			return fmt.Errorf("setup command %q failed: %w", cmdStr, err)
 		}
 	}
@@ -88,7 +88,7 @@ func (e *Engine) installComponentPackages(
 	}
 
 	if len(setup.OsPackages) > 0 && !allOnPath(setup.Provides) {
-		if err := installOSPackages(setup.OsPackages); err != nil {
+		if err := installOSPackages(ctx.Ctx, setup.OsPackages); err != nil {
 			e.logger.Warn("Component OS package installation failed",
 				"component", comp.Metadata.Name,
 				"packages", setup.OsPackages,
@@ -120,7 +120,7 @@ func (e *Engine) runComponentTeardown(comp *domain.Component) {
 		return
 	}
 	for _, cmdStr := range comp.Teardown.Commands {
-		if err := runShellCommand(cmdStr); err != nil {
+		if err := runShellCommand(e.ctx, cmdStr); err != nil {
 			e.logger.Warn("Component teardown command failed",
 				"component", comp.Metadata.Name,
 				"command", cmdStr,

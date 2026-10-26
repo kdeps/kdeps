@@ -103,7 +103,7 @@ func TestLastLineTracker_Silence(t *testing.T) {
 // live status line (name, elapsed, last output) while executing, and that
 // the spinner-suppression flag is held for the duration.
 func TestDispatchToTerminal_MonitorLine(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	var flagDuringRun bool
 	var loop *Loop
@@ -120,7 +120,7 @@ func TestDispatchToTerminal_MonitorLine(t *testing.T) {
 		},
 	})
 	var termBuf strings.Builder
-	loop = New(eng, newTestWorkflowForSession(), reg, Config{
+	loop = New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		Streamer:         &mockStreamer{},
 		ToolOutputWriter: &termBuf,
@@ -141,7 +141,7 @@ func TestDispatchToTerminal_MonitorLine(t *testing.T) {
 // attaches its completion to the open "[name -> args]" call line instead of
 // printing a detached "... done" line below blank lines.
 func TestDispatchToTerminal_SameLineDoneForFastTool(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "fast_tool",
@@ -150,7 +150,7 @@ func TestDispatchToTerminal_SameLineDoneForFastTool(t *testing.T) {
 		Execute:     func(_ map[string]any) (string, error) { return "ok", nil },
 	})
 	var termBuf strings.Builder
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		Streamer:         &mockStreamer{},
 		ToolOutputWriter: &termBuf,
@@ -172,7 +172,7 @@ func TestDispatchToTerminal_SameLineDoneForFastTool(t *testing.T) {
 // rewrites bare \r into a newline, so frames must bypass it and reach the
 // raw terminal writer.
 func TestDispatchToTerminal_FramesRewriteInPlaceThroughCrlfWriter(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "quiet_slow_tool",
@@ -184,7 +184,7 @@ func TestDispatchToTerminal_FramesRewriteInPlaceThroughCrlfWriter(t *testing.T) 
 		},
 	})
 	var under strings.Builder
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		Streamer:         &mockStreamer{},
 		ToolOutputWriter: &crlfWriter{w: &under},
@@ -247,7 +247,7 @@ func TestRawTerminalWriter_UnwrapsCrlfWriter(t *testing.T) {
 // output past ToolStallTimeout has its context canceled and returns a
 // structured error telling the LLM the command hung.
 func TestDispatchToTerminal_StallKillsHungTool(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "hung_tool",
@@ -264,7 +264,7 @@ func TestDispatchToTerminal_StallKillsHungTool(t *testing.T) {
 		},
 	})
 	var termBuf strings.Builder
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		Streamer:         &mockStreamer{},
 		ToolOutputWriter: &termBuf,
@@ -287,7 +287,7 @@ func TestDispatchToTerminal_StallKillsHungTool(t *testing.T) {
 // TestDispatchToTerminal_HealthyToolNotStallKilled verifies a tool that keeps
 // producing output is never treated as stalled even past the timeout.
 func TestDispatchToTerminal_HealthyToolNotStallKilled(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	var loop *Loop
 	reg.Register(&tools.Tool{
@@ -305,7 +305,7 @@ func TestDispatchToTerminal_HealthyToolNotStallKilled(t *testing.T) {
 		},
 	})
 	var termBuf strings.Builder
-	loop = New(eng, newTestWorkflowForSession(), reg, Config{
+	loop = New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		Streamer:         &mockStreamer{},
 		ToolOutputWriter: &termBuf,

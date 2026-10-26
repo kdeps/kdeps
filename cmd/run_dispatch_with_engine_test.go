@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ import (
 
 func TestDispatchExecutionWithEngine_AllModesViaHooks(t *testing.T) {
 	stubDispatchHooks(t)
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	tmp := t.TempDir()
 	wfs := []*domain.Workflow{
 		{
@@ -59,7 +60,7 @@ func TestDispatchExecutionWithEngine_AllModesViaHooks(t *testing.T) {
 }
 
 func TestDispatchExecution_SingleRun(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "ok", nil
 	})
@@ -75,7 +76,7 @@ func TestDispatchExecution_SingleRun(t *testing.T) {
 }
 
 func TestDispatchExecution_AllModes(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "ok", nil
 	})
@@ -114,8 +115,10 @@ func TestDispatchExecution_AllModes(t *testing.T) {
 }
 
 func TestDispatchExecutionWithEngine_DefaultNil(t *testing.T) {
-	eng := executor.NewEngine(nil)
-	// Workflow with no recognized mode — should hit default return nil.
+	eng := executor.NewEngine(context.
+		// Workflow with no recognized mode — should hit default return nil.
+		Background(), nil)
+
 	wf := &domain.Workflow{}
 	// Force unknown mode by using a workflow that doesn't match any case.
 	// executionModeFor always returns something, so test via empty workflow -> single run.

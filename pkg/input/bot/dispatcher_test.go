@@ -160,7 +160,7 @@ func TestBuildBotRunners_NewError(t *testing.T) {
 // the message came from.
 func TestHandleMessage_RepliesWithResult(t *testing.T) {
 	runner := &chanRunner{}
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return map[string]interface{}{"success": true, "data": "pong"}, nil
 	})
@@ -180,7 +180,7 @@ func TestHandleMessage_NoReplyOrReplyError(t *testing.T) {
 	runner := &chanRunner{}
 	results := []interface{}{nil}
 	errs := []error{errors.New("boom"), nil}
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		err := errs[0]
 		errs = errs[1:]
@@ -204,7 +204,7 @@ func TestHandleMessage_NoReplyOrReplyError(t *testing.T) {
 }
 
 func TestDispatcher_Run_MessageFromRunner(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	executed := make(chan struct{})
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		close(executed)

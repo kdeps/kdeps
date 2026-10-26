@@ -102,7 +102,7 @@ func startBothServersWithEngine(
 		return startSplitServers(httpServer, webServer, workflow, devMode)
 	}
 
-	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
+	webServer.RegisterRoutesOn(processRoot(), httpServer.Router)
 
 	addr, err := resolveServerBindAddress(workflow)
 	if err != nil {
@@ -122,7 +122,7 @@ func startBothServersWithEngine(
 			return httpServerShutdownFunc(httpServer, ctx)
 		},
 		"Server",
-		webServer.Stop,
+		func() { webServer.Stop(processRoot()) },
 	))
 }
 
@@ -145,7 +145,7 @@ func startSplitServers(
 		apiAddr, workflow.Settings.GetWebPortNum())
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
-	ctx := context.Background()
+	ctx := processRoot()
 	return runUntilSignalOrError(httpServerSignalServeConfig(
 		func() error {
 			serveErr := make(chan error, splitServerCount)
@@ -164,7 +164,7 @@ func startSplitServers(
 			return webErr
 		},
 		"Server",
-		webServer.Stop,
+		func() { webServer.Stop(processRoot()) },
 	))
 }
 

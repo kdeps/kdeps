@@ -70,7 +70,7 @@ func TestServeFileModelIfNeeded_SetsBaseURL(t *testing.T) {
 	mock := NewMockModelService()
 	mgr := NewModelManagerFromServiceInterface(mock)
 	cfg := &domain.ChatConfig{Model: "test.llamafile", Backend: backendOllama}
-	require.NoError(t, mgr.EnsureModel(cfg))
+	require.NoError(t, mgr.EnsureModel(t.Context(), cfg))
 }
 
 func TestApplyRoute_SetsAllFields(t *testing.T) {
@@ -183,7 +183,7 @@ func TestBuildOpenAICompatLLM_UnknownBackend(t *testing.T) {
 func TestBuildM365LLM_UsesLocalProxyWhenBaseURLEmpty(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 	cfg := &domain.ChatConfig{Model: "m365-copilot", Backend: backendM365}
-	model, err := buildM365LLM(cfg)
+	model, err := buildM365LLM(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, model)
 	// buildM365LLM must not mutate the caller's cfg in place.
@@ -192,7 +192,7 @@ func TestBuildM365LLM_UsesLocalProxyWhenBaseURLEmpty(t *testing.T) {
 
 func TestBuildM365LLM_RespectsExplicitBaseURL(t *testing.T) {
 	cfg := &domain.ChatConfig{Model: "m365-copilot", Backend: backendM365, BaseURL: "http://127.0.0.1:19999"}
-	model, err := buildM365LLM(cfg)
+	model, err := buildM365LLM(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, model)
 	assert.Equal(t, "http://127.0.0.1:19999", cfg.BaseURL)

@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -78,7 +79,7 @@ func printBotRequirements(input *domain.InputConfig) {
 }
 
 // SetupEnvironment sets up the execution environment.
-func SetupEnvironment(workflow *domain.Workflow) error {
+func SetupEnvironment(ctx context.Context, workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: SetupEnvironment")
 	// Apply workflow-declared env (agentSettings.env). Existing process env
 	// wins so users can override per invocation.
@@ -109,7 +110,7 @@ func SetupEnvironment(workflow *domain.Workflow) error {
 	manager := python.NewManager("")
 
 	// Ensure virtual environment exists (this will create it and install packages if needed)
-	venvPath, err := manager.EnsureVenv(pythonVersion, packages, requirementsFile, "")
+	venvPath, err := manager.EnsureVenv(ctx, pythonVersion, packages, requirementsFile, "")
 	if err != nil {
 		return fmt.Errorf("failed to setup Python environment: %w", err)
 	}

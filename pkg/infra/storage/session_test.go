@@ -38,7 +38,7 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -82,7 +82,7 @@ func TestSessionStorage_IsExpired_EdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -114,7 +114,7 @@ func TestSessionStorage_IsExpired_DatabaseError(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 
 	// Close database to simulate error
@@ -136,7 +136,7 @@ func TestNewSessionStorageWithTTL_HomeDirError(t *testing.T) {
 	t.Setenv("HOME", "")
 
 	// This should handle the error gracefully
-	storage, err := storage.NewSessionStorageWithTTL("", "test-session", time.Hour)
+	storage, err := storage.NewSessionStorageWithTTL(t.Context(), "", "test-session", time.Hour)
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	defer func() {
@@ -154,7 +154,7 @@ func TestNewSessionStorageWithTTL_InvalidDBPath(t *testing.T) {
 		invalidPath = filepath.Join(t.TempDir(), "NUL", "invalid.db")
 	}
 
-	storage, err := storage.NewSessionStorageWithTTL(invalidPath, "test-session", time.Hour)
+	storage, err := storage.NewSessionStorageWithTTL(t.Context(), invalidPath, "test-session", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, storage)
 	assert.Contains(t, err.Error(), "failed to create directory")
@@ -164,7 +164,7 @@ func TestSessionStorage_Get_JSONUnmarshalFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -186,7 +186,7 @@ func TestSessionStorage_Get_ExpiredEntry(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -208,7 +208,7 @@ func TestSessionStorage_SetWithTTL_NegativeTTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -237,7 +237,7 @@ func TestSessionStorage_PreExistingDB(t *testing.T) {
 	})
 	_ = db.Close()
 
-	store, err := storage.NewSessionStorage(dbPath, "old-session")
+	store, err := storage.NewSessionStorage(t.Context(), dbPath, "old-session")
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
 
@@ -257,7 +257,7 @@ func TestSessionStorage_GetAll_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -274,7 +274,7 @@ func TestSessionStorage_GetAll_SingleValue(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -295,7 +295,7 @@ func TestSessionStorage_GetAll_MultipleValues(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -322,7 +322,7 @@ func TestSessionStorage_GetAll_ComplexValues(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -361,7 +361,7 @@ func TestSessionStorage_GetAll_ExcludesExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -392,13 +392,13 @@ func TestSessionStorage_GetAll_IsolatedBySessions(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Create two storages with different session IDs
-	storage1, err := storage.NewSessionStorage(dbPath, "session-1")
+	storage1, err := storage.NewSessionStorage(t.Context(), dbPath, "session-1")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage1.Close()
 	}()
 
-	storage2, err := storage.NewSessionStorage(dbPath, "session-2")
+	storage2, err := storage.NewSessionStorage(t.Context(), dbPath, "session-2")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage2.Close()
@@ -432,7 +432,7 @@ func TestSessionStorage_GetAll_AfterClear(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -458,7 +458,7 @@ func TestSessionStorage_GetAll_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() {
 		_ = storage.Close()
@@ -482,7 +482,7 @@ func TestSessionStorage_GetAll_DatabaseClosed(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 
 	// Close the database
@@ -500,7 +500,7 @@ func TestNewSessionStorage(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 	sessionID := "test-session"
 
-	storage, err := storage.NewSessionStorage(dbPath, sessionID)
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, sessionID)
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	assert.NotNil(t, storage.DB)
@@ -529,7 +529,7 @@ func TestNewSessionStorage_EmptyPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	// Test with empty path (should use default)
 	sessionID := "default-session"
-	storage, err := storage.NewSessionStorage("", sessionID)
+	storage, err := storage.NewSessionStorage(t.Context(), "", sessionID)
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	assert.NotNil(t, storage.DB)
@@ -546,7 +546,7 @@ func TestNewSessionStorage_InvalidDirectory(t *testing.T) {
 		invalidPath = filepath.Join(t.TempDir(), "NUL", "parent", "directory", "sessions.db")
 	}
 	sessionID := "test-session"
-	storage, err := storage.NewSessionStorage(invalidPath, sessionID)
+	storage, err := storage.NewSessionStorage(t.Context(), invalidPath, sessionID)
 	require.Error(t, err)
 	assert.Nil(t, storage)
 	assert.Contains(t, err.Error(), "failed to create directory")
@@ -557,7 +557,7 @@ func TestNewSessionStorage_EmptySessionID(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
 	// Test with empty session ID (should generate a default)
-	storage, err := storage.NewSessionStorage(dbPath, "")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "")
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	assert.NotNil(t, storage.DB)
@@ -571,7 +571,7 @@ func TestSessionStorage_Get_EdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -597,7 +597,7 @@ func TestSessionStorage_Set_EdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -634,7 +634,7 @@ func TestSessionStorage_Delete_EdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -656,7 +656,7 @@ func TestSessionStorage_Clear_EmptySession(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "empty-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "empty-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -669,7 +669,7 @@ func TestSessionStorage_GetSet(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -702,7 +702,7 @@ func TestSessionStorage_NonExistentKey(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -714,7 +714,7 @@ func TestSessionStorage_SetWithTTL_ZeroTTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -732,7 +732,7 @@ func TestSessionStorage_SetWithTTL_CustomTTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -751,7 +751,7 @@ func TestSessionStorage_IsExpired_NoExpiration(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -768,7 +768,7 @@ func TestSessionStorage_IsExpired_WithExpiration(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -789,7 +789,7 @@ func TestSessionStorage_IsExpired_NonExistentKey(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -803,7 +803,7 @@ func TestSessionStorage_Delete(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -829,7 +829,7 @@ func TestSessionStorage_Clear(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer storage.DB.Close()
 
@@ -858,7 +858,7 @@ func TestSessionStorage_Close(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	storage, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 
 	// Close should not error
@@ -873,9 +873,9 @@ func TestSessionStorage_Close(t *testing.T) {
 func TestNewSessionStorage_SharedHandleRefcounted(t *testing.T) {
 	path := t.TempDir() + "/sessions.db"
 
-	a, err := storage.NewSessionStorage(path, "sess-a")
+	a, err := storage.NewSessionStorage(t.Context(), path, "sess-a")
 	require.NoError(t, err)
-	b, err := storage.NewSessionStorage(path, "sess-b")
+	b, err := storage.NewSessionStorage(t.Context(), path, "sess-b")
 	require.NoError(t, err)
 	if a.DB != b.DB {
 		t.Fatal("same path must share one bolt handle")
@@ -887,7 +887,7 @@ func TestNewSessionStorage_SharedHandleRefcounted(t *testing.T) {
 
 	// Last holder closes; a fresh open must not hang on a stale lock.
 	require.NoError(t, b.Close())
-	c, err := storage.NewSessionStorage(path, "sess-c")
+	c, err := storage.NewSessionStorage(t.Context(), path, "sess-c")
 	require.NoError(t, err)
 	_ = c.Close()
 }

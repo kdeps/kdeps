@@ -105,8 +105,8 @@ var isoBuilderBuildFunc = func(b *iso.Builder, ctx context.Context, imageName st
 // performISOBuildDockerFunc builds Docker images for ISO export (overridable in tests).
 //
 //nolint:gochecknoglobals // test-replaceable hook
-var performISOBuildDockerFunc = func(b *docker.Builder, wf *domain.Workflow, packagePath string, noCache bool) (string, error) {
-	return b.Build(wf, packagePath, noCache)
+var performISOBuildDockerFunc = func(ctx context.Context, b *docker.Builder, wf *domain.Workflow, packagePath string, noCache bool) (string, error) {
+	return b.Build(ctx, wf, packagePath, noCache)
 }
 
 // k8sGenerateManifestsFunc generates K8s manifests (overridable in tests).

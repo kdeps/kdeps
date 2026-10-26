@@ -64,7 +64,7 @@ func TestHTTPLLMClient_Chat_LazyLlamafileServe(t *testing.T) {
 	orig := serveLlamafileForChat
 	t.Cleanup(func() { serveLlamafileForChat = orig })
 	serves := 0
-	serveLlamafileForChat = func(_ string) (string, error) {
+	serveLlamafileForChat = func(_ context.Context, _ string) (string, error) {
 		serves++
 		return srv.URL + "/v1", nil
 	}
@@ -91,7 +91,7 @@ func TestHTTPLLMClient_Chat_ExplicitBaseURLSkipsServe(t *testing.T) {
 
 	orig := serveLlamafileForChat
 	t.Cleanup(func() { serveLlamafileForChat = orig })
-	serveLlamafileForChat = func(_ string) (string, error) {
+	serveLlamafileForChat = func(_ context.Context, _ string) (string, error) {
 		t.Fatal("must not serve a llamafile when a base URL is provided")
 		return "", nil
 	}
@@ -109,7 +109,7 @@ func TestHTTPLLMClient_Chat_OllamaDefaultURL(t *testing.T) {
 	// reference the ollama endpoint, proving no llamafile serve was attempted.
 	orig := serveLlamafileForChat
 	t.Cleanup(func() { serveLlamafileForChat = orig })
-	serveLlamafileForChat = func(_ string) (string, error) {
+	serveLlamafileForChat = func(_ context.Context, _ string) (string, error) {
 		t.Fatal("ollama backend must not serve a llamafile")
 		return "", nil
 	}
@@ -127,13 +127,13 @@ func TestHTTPLLMClient_Chat_OllamaDefaultBaseURL(_ *testing.T) {
 
 func TestServeLlamafileForChat_ManagerError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
-	_, err := serveLlamafileForChat("anything.llamafile")
+	_, err := serveLlamafileForChat(t.Context(), "anything.llamafile")
 	require.Error(t, err)
 }
 
 func TestServeLlamafileForChat_ResolveError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
-	_, err := serveLlamafileForChat("missing.llamafile")
+	_, err := serveLlamafileForChat(t.Context(), "missing.llamafile")
 	require.Error(t, err)
 }
 

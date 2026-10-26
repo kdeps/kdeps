@@ -126,11 +126,12 @@ func interleaveResults(lists [][]map[string]interface{}, limit int) []map[string
 
 // makeEmbeddingExecute builds an Execute closure for embedding tools.
 func makeEmbeddingExecute(
+	ctx context.Context,
 	exec *execEmbedding.Executor,
 	op string,
 ) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
-		return api.RunEmbedding(exec, op, args)
+		return api.RunEmbedding(ctx, exec, op, args)
 	}
 }
 

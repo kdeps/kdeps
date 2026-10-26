@@ -140,7 +140,7 @@ func TestGGUFManager_Serve_AlreadyRunning(t *testing.T) {
 	origStart := startGGUFServerFunc
 	t.Cleanup(func() { startGGUFServerFunc = origStart })
 	startCalled := false
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalled = true
 		return 0, nil
 	}
@@ -184,7 +184,7 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 		httpDefaultClientDo = origDo
 	})
 
-	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 
@@ -235,14 +235,14 @@ func TestServiceGGUF_DownloadModel(t *testing.T) {
 	// straight into the developer's real ~/.kdeps/models.
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	// Use a URL so it skips alias resolution.
 	err := svc.DownloadModel(context.Background(), "gguf", "http://example.com/mymodel.gguf")
 	require.NoError(t, err)
 }
 
 func TestServiceGGUF_DownloadModel_UnsupportedBackend(t *testing.T) {
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	err := svc.DownloadModel(context.Background(), "unknown-backend", "model")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
@@ -259,7 +259,7 @@ func TestServiceGGUF_ServeModel_DownloadError(t *testing.T) {
 		return nil, errors.New("network error")
 	}
 
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "gguf", "http://example.com/fail.gguf", "", 0)
 	require.Error(t, err)
 }
@@ -323,7 +323,7 @@ func TestGGUFManager_Resolve_AbsPath_NotFound(t *testing.T) {
 func TestGGUFManager_Serve_StartError(t *testing.T) {
 	origStart := startGGUFServerFunc
 	t.Cleanup(func() { startGGUFServerFunc = origStart })
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		return 0, errors.New("start failed")
 	}
 
@@ -360,7 +360,7 @@ func TestGGUFManager_Serve_StartErrorDoesNotMarkCPUFallback(t *testing.T) {
 	})
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		return 0, errors.New("start failed")
 	}
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
@@ -383,9 +383,9 @@ func TestGGUFManager_Serve_StartErrorDoesNotMarkCPUFallback(t *testing.T) {
 func TestStartGGUFServer_BadBinary(t *testing.T) {
 	orig := ggufLlamaServerBinaryFn
 	t.Cleanup(func() { ggufLlamaServerBinaryFn = orig })
-	ggufLlamaServerBinaryFn = func() string { return "/no/such/binary-xyz" }
+	ggufLlamaServerBinaryFn = func(context.Context) string { return "/no/such/binary-xyz" }
 
-	_, err := startGGUFServer("/tmp/model.gguf", 19997)
+	_, err := startGGUFServer(t.Context(), "/tmp/model.gguf", 19997)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start llama-server")
 }
@@ -492,8 +492,8 @@ func TestStartGGUFServer_Success(t *testing.T) {
 	// os.Args[0] (the test binary itself) always exists and is executable on
 	// any OS; it will exit with an unknown-flag error but cmd.Start() succeeds.
 	// "/bin/sh" doesn't exist on Windows, so it isn't a portable stand-in here.
-	ggufLlamaServerBinaryFn = func() string { return os.Args[0] }
-	_, err := startGGUFServer("/tmp/model.gguf", 29995)
+	ggufLlamaServerBinaryFn = func(context.Context) string { return os.Args[0] }
+	_, err := startGGUFServer(t.Context(), "/tmp/model.gguf", 29995)
 	require.NoError(t, err)
 }
 
@@ -541,7 +541,7 @@ func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
 
-	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 1 * time.Millisecond }
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		return nil, errors.New("server not ready")
@@ -571,7 +571,7 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 		httpDefaultClientDo = origDo
 	})
 
-	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
 	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 
@@ -621,7 +621,7 @@ func TestGGUFManager_Serve_VulkanFailureFallsBackToCPU(t *testing.T) {
 	ggufStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -689,7 +689,7 @@ func TestGGUFManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
 	_ = calls // all remediation hooks succeed (zero-value errs)
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		if startCalls == 1 {
 			return crashOnStart(startCalls), nil // first attempt crashes instantly
@@ -750,7 +750,7 @@ func TestGGUFManager_Serve_CrashRemediationFailsFallsBackToCPU(t *testing.T) {
 	calls.downloadVCRedistErr = errors.New("network down")
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return crashOnStart(startCalls), nil // every attempt crashes instantly
 	}
@@ -799,7 +799,7 @@ func TestGGUFManager_Serve_RemediationAttemptedAtMostOncePerCall(t *testing.T) {
 	ggufStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return crashOnStart(startCalls), nil // every attempt crashes instantly, on every retry
 	}
@@ -846,7 +846,7 @@ func TestGGUFManager_Serve_NoRetryWhenAlreadyOnCPUFallback(t *testing.T) {
 	markGGUFCPUFallback() // simulate a prior run that already hit the fallback
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -887,7 +887,7 @@ func TestGGUFManager_Serve_VulkanSuccessNeverMarksFallback(t *testing.T) {
 	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 
 	startCalls := 0
-	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -924,7 +924,7 @@ func TestServiceGGUF_PrepareGGUF_NewManagerError(t *testing.T) {
 		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
 	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "gguf", "any-model", "", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
@@ -964,7 +964,7 @@ func TestServiceGGUF_ServeModel_Success(t *testing.T) {
 		servedGGUFsMu.Unlock()
 	})
 
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	err = svc.ServeModel(context.Background(), "gguf", path, "", 0)
 	require.NoError(t, err)
 }

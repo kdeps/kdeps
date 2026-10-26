@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
@@ -189,6 +190,7 @@ func objectArg[T any](args map[string]any, key string) (*T, error) {
 // Exec nil uses the process executor. Index nil indexes in the background
 // on that executor.
 type SearchOpts struct {
+	Ctx   context.Context
 	Roots []string
 	Exec  *execSearch.Executor
 	Index func(root string, paths []string)
@@ -220,7 +222,9 @@ func SearchLocal(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, toolSearchLocal); err != nil {
 		return "", err
 	}
-	return SearchLocalWith(searchOpts(ctx), args)
+	opts := searchOpts(ctx)
+	opts.Ctx = ctx
+	return SearchLocalWith(opts, args)
 }
 
 // SearchLocalWith is SearchLocal with the options passed in. The agent uses
@@ -259,7 +263,7 @@ func searchOne(
 		}
 	}
 	exec := opts.executor()
-	result, err := exec.Execute(nil, searchLocalConfig(args, path, query, glob, limit))
+	result, err := exec.Execute(&executor.ExecutionContext{Ctx: opts.Ctx}, searchLocalConfig(args, path, query, glob, limit))
 	if err != nil {
 		return "", err
 	}
@@ -317,7 +321,7 @@ func searchRoots(
 	perRoot := make([][]map[string]any, 0, len(roots))
 	var errs []string
 	for _, root := range roots {
-		res, err := exec.Execute(nil, searchLocalConfig(args, root, query, glob, limit))
+		res, err := exec.Execute(&executor.ExecutionContext{Ctx: opts.Ctx}, searchLocalConfig(args, root, query, glob, limit))
 		if err != nil {
 			errs = append(errs, root+": "+err.Error())
 			continue
@@ -423,7 +427,7 @@ func LoadDocument(ctx context.Context, args map[string]any) (string, error) {
 			return "", fmt.Errorf("%s: %w", toolLoadDocument, err)
 		}
 	}
-	result, err := loaderExec.Execute(nil, config)
+	result, err := loaderExec.Execute(&executor.ExecutionContext{Ctx: ctx}, config)
 	if err != nil {
 		return "", err
 	}
@@ -459,11 +463,11 @@ func embeddingOp(ctx context.Context, name, op string, args map[string]any) (str
 	if err := ctxReady(ctx, name); err != nil {
 		return "", err
 	}
-	return RunEmbedding(nil, op, args)
+	return RunEmbedding(ctx, nil, op, args)
 }
 
 // RunEmbedding runs op on exec. A nil exec uses the process executor.
-func RunEmbedding(exec *execEmbedding.Executor, op string, args map[string]any) (string, error) {
+func RunEmbedding(ctx context.Context, exec *execEmbedding.Executor, op string, args map[string]any) (string, error) {
 	if exec == nil {
 		exec = embedExec
 	}
@@ -492,7 +496,7 @@ func RunEmbedding(exec *execEmbedding.Executor, op string, args map[string]any) 
 	if len(config.Inputs) == 0 {
 		config.Inputs = stringListArg(args, argTexts)
 	}
-	result, err := exec.Execute(nil, config)
+	result, err := exec.Execute(&executor.ExecutionContext{Ctx: ctx}, config)
 	if err != nil {
 		return "", err
 	}

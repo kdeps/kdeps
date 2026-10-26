@@ -78,7 +78,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	// Set workflow directory for resolving relative paths
 	webServer.SetWorkflowDir(workflowPath)
 
-	ctx := context.Background()
+	ctx := processRoot()
 	return runUntilSignalOrError(httpServerSignalServeConfig(
 		func() error {
 			return webServerStartFunc(webServer, ctx)

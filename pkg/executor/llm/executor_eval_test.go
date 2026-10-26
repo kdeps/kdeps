@@ -52,9 +52,7 @@ func TestShouldTreatAsLiteral_SlashNoExtOrSep(t *testing.T) {
 func TestBuildEnvironment_ReturnsNonNilMap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	env := e.buildEnvironment(ctx)
 	assert.NotNil(t, env)
@@ -63,9 +61,7 @@ func TestBuildEnvironment_ReturnsNonNilMap(t *testing.T) {
 func TestBuildScenarioMessages_SystemAndUser(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 
 	scenario := []domain.ScenarioItem{
@@ -83,9 +79,7 @@ func TestBuildScenarioMessages_SystemAndUser(t *testing.T) {
 func TestBuildScenarioMessages_Empty(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	before, after, err := e.buildScenarioMessages(nil, ctx, nil)
 	require.NoError(t, err)
@@ -96,9 +90,7 @@ func TestBuildScenarioMessages_Empty(t *testing.T) {
 func TestBuildScenarioMessages_PromptEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	// Expression syntax with nil evaluator triggers error.
 	scenario := []domain.ScenarioItem{
@@ -112,9 +104,7 @@ func TestBuildScenarioMessages_PromptEvalError(t *testing.T) {
 func TestBuildScenarioMessages_RoleEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	// Role is an expression but evaluator is nil.
 	scenario := []domain.ScenarioItem{
@@ -128,9 +118,7 @@ func TestBuildScenarioMessages_RoleEvalError(t *testing.T) {
 func TestBuildScenarioMessages_NameEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	// Prompt and Role are literal, but Name is an expression with nil evaluator.
 	scenario := []domain.ScenarioItem{

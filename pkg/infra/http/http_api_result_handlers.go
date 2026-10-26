@@ -158,7 +158,7 @@ func (s *Server) writeRawSuccessResponseBytes(
 	writeErrLabel string,
 ) {
 	if _, writeErr := writeRawOKBytes(w, payload); writeErr != nil {
-		s.logResponseWriteFailure(requestPath(r), writeErrLabel, writeErr)
+		s.logResponseWriteFailure(r.Context(), requestPath(r), writeErrLabel, writeErr)
 		return
 	}
 	flushResponse(w, requestPath(r), s.logger)
@@ -172,7 +172,7 @@ func (s *Server) writeSuccessResponseBytes(
 	flush bool,
 ) bool {
 	if writeErr := writeOKResponseBytes(w, payload); writeErr != nil {
-		s.logResponseWriteFailure(requestPath(r), writeErrLabel, writeErr)
+		s.logResponseWriteFailure(r.Context(), requestPath(r), writeErrLabel, writeErr)
 		return false
 	}
 	if flush {

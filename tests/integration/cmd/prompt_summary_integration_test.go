@@ -19,6 +19,7 @@
 package cmd_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,14 +40,14 @@ func TestPromptSummary_SecondTurnAndInstructTool(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	var captured []*domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = append(captured, wf)
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
 	agent.RegisterBuiltinTools(t.Context(), reg)
-	loop := agent.New(eng, &domain.Workflow{
+	loop := agent.New(t.Context(), eng, &domain.Workflow{
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
 	}, reg, agent.Config{Model: "test", Backend: "ollama"})

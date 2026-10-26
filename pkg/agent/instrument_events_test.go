@@ -80,7 +80,7 @@ func TestRunStreaming_RecordsPromptModelAndToolCalls(t *testing.T) {
 			{toolCalls: []domain.StreamedToolCall{{ID: "c1", Name: "bash", Arguments: `{"command":"echo 42"}`}}},
 			{content: "done"},
 		}}
-		loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+		loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 			Model: "m", Streamer: ms, MaxToolRounds: 5,
 		})
 		var buf bytes.Buffer

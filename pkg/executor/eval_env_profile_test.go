@@ -36,7 +36,7 @@ func TestBuildEvalEnv_NilContext(t *testing.T) {
 
 func TestBuildEvalEnv_BasicProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Method: "GET", Path: "/x"}
 	ctx.Outputs = map[string]interface{}{"prev": "ok"}
@@ -52,7 +52,7 @@ func TestBuildEvalEnv_BasicProfile(t *testing.T) {
 
 func TestBuildEvalEnv_RequestProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{
 		Method: "POST",
@@ -69,7 +69,7 @@ func TestBuildEvalEnv_RequestProfile(t *testing.T) {
 
 func TestBuildEvalEnv_ResourceProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Items = map[string]interface{}{
 		"item": map[string]interface{}{"name": "row"},
@@ -89,7 +89,7 @@ func TestBuildEvalEnv_ResourceProfile(t *testing.T) {
 
 func TestBuildEvalEnv_LLMProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.InputTranscript = "hello"
 	ctx.InputMediaFile = "/tmp/audio.wav"
@@ -103,7 +103,7 @@ func TestBuildEvalEnv_LLMProfile(t *testing.T) {
 
 func TestBuildEvalEnv_UnknownProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	env := BuildEvalEnv(ctx, EvalEnvProfile(99))
 	assert.Empty(t, env)
@@ -154,7 +154,7 @@ func (f *fakeMemoryStore) Save() error {
 
 func TestAddMemoryFunctions_NoStore(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Method: "GET", Path: "/x"}
 	env := BuildEvalEnv(ctx, EvalEnvEngine)
@@ -170,7 +170,7 @@ func TestAddMemoryFunctions_NoStore(t *testing.T) {
 
 func TestAddMemoryFunctions_WithStore(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Method: "GET", Path: "/x"}
 	ctx.AgentMemoryStore = &fakeMemoryStore{}
@@ -204,7 +204,7 @@ func TestAddMemoryFunctions_WithStore(t *testing.T) {
 
 func TestBuildEvalEnv_EngineProfile(t *testing.T) {
 	t.Parallel()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{
 		Method: "POST",

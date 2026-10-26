@@ -40,7 +40,7 @@ func TestModelService_DownloadOllamaModel_Success(t *testing.T) {
 	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	require.NoError(t, s.downloadOllamaModel(context.Background(), "m"))
 }
 
@@ -56,8 +56,8 @@ func TestModelService_ServeOllamaModel_SetenvWarn(t *testing.T) {
 	origSetenv := osSetenv
 	t.Cleanup(func() { osSetenv = origSetenv })
 	osSetenv = func(_ string, _ string) error { return errors.New("setenv fail") }
-	s := NewModelService(slog.Default())
-	require.NoError(t, s.serveOllamaModel("m", "127.0.0.1", 11434))
+	s := NewModelService(t.Context(), slog.Default())
+	require.NoError(t, s.serveOllamaModel(t.Context(), "m", "127.0.0.1", 11434))
 }
 
 func TestModelService_DownloadOllamaModel_Error(t *testing.T) {
@@ -66,7 +66,7 @@ func TestModelService_DownloadOllamaModel_Error(t *testing.T) {
 	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "false")
 	}
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	err := s.downloadOllamaModel(context.Background(), "m")
 	require.Error(t, err)
 }
@@ -84,8 +84,8 @@ func TestModelService_ServeOllamaModel_SetEnvError(t *testing.T) {
 	t.Cleanup(func() { osSetenv = origSetenv })
 	osSetenv = func(_ string, _ string) error { return errors.New("setenv fail") }
 
-	s := NewModelService(slog.Default())
-	err := s.serveOllamaModel("m", "127.0.0.1", 11434)
+	s := NewModelService(t.Context(), slog.Default())
+	err := s.serveOllamaModel(t.Context(), "m", "127.0.0.1", 11434)
 	require.NoError(t, err)
 }
 
@@ -99,7 +99,7 @@ func TestModelService_ServeModel_OllamaCase(t *testing.T) {
 		}
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
-	s := NewModelService(nil)
+	s := NewModelService(t.Context(), nil)
 	err := s.ServeModel(context.Background(), backendOllama, "m", "127.0.0.1", 11434)
 	require.NoError(t, err)
 }
@@ -110,12 +110,12 @@ func TestModelService_DownloadModel_OllamaCase(t *testing.T) {
 	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
-	s := NewModelService(nil)
+	s := NewModelService(t.Context(), nil)
 	require.NoError(t, s.DownloadModel(context.Background(), backendOllama, "m"))
 }
 
 func TestModelService_ServerURL_Default(t *testing.T) {
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL("openai", "gpt-4"))
 	assert.Equal(t, "", s.ServerURL("anthropic", "claude-3"))
 	assert.Equal(t, "", s.ServerURL("", "model"))
@@ -125,9 +125,9 @@ func TestModelService_ServerURL_Ollama_Reachable(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "")
 	orig := isOllamaReachable
 	t.Cleanup(func() { isOllamaReachable = orig })
-	isOllamaReachable = func(_ string) bool { return true }
+	isOllamaReachable = func(_ context.Context, _ string) bool { return true }
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "http://localhost:11434/v1", s.ServerURL(backendOllama, "llama3.2:1b"))
 }
 
@@ -135,9 +135,9 @@ func TestModelService_ServerURL_Ollama_NotReachable(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "")
 	orig := isOllamaReachable
 	t.Cleanup(func() { isOllamaReachable = orig })
-	isOllamaReachable = func(_ string) bool { return false }
+	isOllamaReachable = func(_ context.Context, _ string) bool { return false }
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL(backendOllama, "llama3.2:1b"))
 }
 
@@ -145,10 +145,10 @@ func TestModelService_ServerURL_Ollama_HonorsOllamaHost(t *testing.T) {
 	orig := isOllamaReachable
 	t.Cleanup(func() { isOllamaReachable = orig })
 	var gotURL string
-	isOllamaReachable = func(url string) bool { gotURL = url; return true }
+	isOllamaReachable = func(_ context.Context, url string) bool { gotURL = url; return true }
 	t.Setenv("OLLAMA_HOST", "http://127.0.0.1:9999")
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "http://127.0.0.1:9999/v1", s.ServerURL(backendOllama, "llama3.2:1b"))
 	assert.Equal(t, "http://127.0.0.1:9999", gotURL)
 }
@@ -170,37 +170,37 @@ func TestWaitForServerReady_CallsOverride(t *testing.T) {
 	assert.True(t, called)
 }
 
-func TestListLocalServers_DoesNotPanic(_ *testing.T) {
+func TestListLocalServers_DoesNotPanic(t *testing.T) {
 	// Global state may have entries from other tests; just verify it doesn't panic.
-	_ = ListLocalServers()
+	_ = ListLocalServers(t.Context())
 }
 
 func TestLlamafileServerURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-llamafile-test"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.llamafileServerURL("test-model"))
 }
 
 func TestGGUFServerURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-gguf-test"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ggufServerURL("test-model"))
 }
 
 func TestKillModel_UnknownBackend(t *testing.T) {
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.False(t, s.KillModel("unknown", "model"))
 }
 
 func TestKillModel_BackendFile_PrepareError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-kill-test"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.False(t, s.KillModel(BackendFile, "nonexistent-model"))
 }
 
 func TestKillModel_BackendGGUF_PrepareError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-kill-test"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.False(t, s.KillModel(BackendGGUF, "nonexistent-model"))
 }
 
@@ -219,7 +219,7 @@ func TestKillModel_BackendFile_NotRunning(t *testing.T) {
 		servedLlamafilesMu.Unlock()
 	})
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.False(t, s.KillModel(BackendFile, "test"))
 }
 
@@ -237,31 +237,31 @@ func TestKillModel_BackendGGUF_NotRunning(t *testing.T) {
 		servedGGUFsMu.Unlock()
 	})
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.False(t, s.KillModel(BackendGGUF, "test"))
 }
 
 func TestGGUFServerURL_ModelNotPrepared(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-gguf-url"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ggufServerURL("unknown-model"))
 }
 
 func TestLlamafileServerURL_ModelNotPrepared(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-llamafile-url"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.llamafileServerURL("unknown-model"))
 }
 
 func TestServerURL_BackendFile(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-srv-file"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendFile, "test-model"))
 }
 
 func TestServerURL_BackendGGUF(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-srv-gguf"))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendGGUF, "test-model"))
 }
 
@@ -293,7 +293,7 @@ func TestKillModel_BackendFile_Success(t *testing.T) {
 	removeServerPortFile = func(_ string) {}
 	t.Cleanup(func() { removeServerPortFile = origRemove })
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.True(t, s.KillModel(BackendFile, "kill-test.llamafile"))
 }
 
@@ -325,7 +325,7 @@ func TestKillModel_BackendGGUF_Success(t *testing.T) {
 	removeServerPortFile = func(_ string) {}
 	t.Cleanup(func() { removeServerPortFile = origRemove })
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.True(t, s.KillModel(BackendGGUF, "kill-test.gguf"))
 }
 
@@ -337,7 +337,7 @@ func TestGGUFServerURL_ModelPreparedNotRunning(t *testing.T) {
 	modelPath := filepath.Join(dir, modelName)
 	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ggufServerURL(modelName))
 }
 
@@ -367,7 +367,7 @@ func TestGGUFServerURL_ModelPreparedAndRunning(t *testing.T) {
 		}, nil
 	}
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.ggufServerURL(modelName)
 	assert.Equal(t, "http://127.0.0.1:19999/v1", result)
 }
@@ -380,7 +380,7 @@ func TestLlamafileServerURL_ModelPreparedNotRunning(t *testing.T) {
 	modelPath := filepath.Join(dir, modelName)
 	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.llamafileServerURL(modelName))
 }
 
@@ -410,7 +410,7 @@ func TestLlamafileServerURL_ModelPreparedAndRunning(t *testing.T) {
 		}, nil
 	}
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.llamafileServerURL(modelName)
 	assert.Equal(t, "http://127.0.0.1:19998/v1", result)
 }
@@ -423,7 +423,7 @@ func TestServerURL_BackendFile_ModelPreparedNotRunning(t *testing.T) {
 	modelPath := filepath.Join(dir, modelName)
 	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendFile, modelName))
 }
 
@@ -453,7 +453,7 @@ func TestServerURL_BackendFile_ModelPreparedAndRunning(t *testing.T) {
 		}, nil
 	}
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.ServerURL(BackendFile, modelName)
 	assert.Equal(t, "http://127.0.0.1:19997/v1", result)
 }
@@ -466,7 +466,7 @@ func TestServerURL_BackendGGUF_ModelPreparedNotRunning(t *testing.T) {
 	modelPath := filepath.Join(dir, modelName)
 	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendGGUF, modelName))
 }
 
@@ -496,7 +496,7 @@ func TestServerURL_BackendGGUF_ModelPreparedAndRunning(t *testing.T) {
 		}, nil
 	}
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.ServerURL(BackendGGUF, modelName)
 	assert.Equal(t, "http://127.0.0.1:19996/v1", result)
 }
@@ -520,10 +520,10 @@ func TestGGUFServerURL_ModelRunning(t *testing.T) {
 	})
 
 	origHealthy := isHealthy
-	isHealthy = func(_ string) bool { return true }
+	isHealthy = func(_ context.Context, _ string) bool { return true }
 	t.Cleanup(func() { isHealthy = origHealthy })
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.ggufServerURL("running-test.gguf")
 	assert.Contains(t, result, "9090")
 	assert.Contains(t, result, "/v1")
@@ -548,10 +548,10 @@ func TestLlamafileServerURL_ModelRunning(t *testing.T) {
 	})
 
 	origHealthy := isHealthy
-	isHealthy = func(_ string) bool { return true }
+	isHealthy = func(_ context.Context, _ string) bool { return true }
 	t.Cleanup(func() { isHealthy = origHealthy })
 
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.llamafileServerURL("running-llama.llamafile")
 	assert.Contains(t, result, "9091")
 	assert.Contains(t, result, "/v1")

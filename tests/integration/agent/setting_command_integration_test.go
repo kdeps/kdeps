@@ -19,6 +19,7 @@
 package agent_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,7 +54,7 @@ setting:
 `), 0o600))
 	agent.ReloadAssets()
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 
@@ -79,7 +80,7 @@ func TestThemeSettingCommand_AcceptsACustomTheme(t *testing.T) {
 	agent.ReloadAssets()
 	t.Cleanup(func() { agent.SetTheme("normal") })
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
 	repl := agent.NewREPL(t.Context(), loop)
 	var saved []string
 	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })

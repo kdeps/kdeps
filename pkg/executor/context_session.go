@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync/atomic"
@@ -67,6 +68,7 @@ func defaultSessionDBPath() string {
 }
 
 func createSessionStorage(
+	ctx context.Context,
 	workflow *domain.Workflow,
 	providedSessionID string,
 ) (*storage.SessionStorage, error) {
@@ -86,7 +88,7 @@ func createSessionStorage(
 		}
 	}
 
-	sessionStorage, err := storage.NewSessionStorageWithTTL(dbPath, useSessionID, ttl)
+	sessionStorage, err := storage.NewSessionStorageWithTTL(ctx, dbPath, useSessionID, ttl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session storage: %w", err)
 	}

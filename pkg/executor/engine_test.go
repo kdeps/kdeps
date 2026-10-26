@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -105,7 +106,7 @@ func (m *mockExecExecutor) Execute(
 
 func TestEngine_Execute_SingleResource(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -159,7 +160,7 @@ func TestEngine_Execute_SingleResource(t *testing.T) {
 
 func TestEngine_Execute_MultipleResources(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -216,7 +217,7 @@ func TestEngine_Execute_MultipleResources(t *testing.T) {
 
 func TestEngine_Execute_WithDependencies(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -276,7 +277,7 @@ print(result)
 
 func TestEngine_Execute_SkipConditions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	mockHTTP := &mockHTTPExecutor{result: "http result"}
@@ -361,7 +362,7 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 }
 
 func TestEngine_Execute_ErrorHandling(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -407,7 +408,7 @@ func TestEngine_Execute_ErrorHandling(t *testing.T) {
 }
 
 func TestEngine_Execute_InvalidRequestContext(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -443,7 +444,7 @@ func TestEngine_Execute_InvalidRequestContext(t *testing.T) {
 }
 
 func TestEngine_Execute_CyclicDependency(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -489,7 +490,7 @@ func TestEngine_Execute_CyclicDependency(t *testing.T) {
 }
 
 func TestEngine_Execute_AllResourceTypes(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up all mock executors
@@ -598,7 +599,7 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 }
 
 func TestEngine_buildGraph(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -651,7 +652,7 @@ func TestEngine_buildGraph(t *testing.T) {
 }
 
 func TestEngine_buildGraph_CyclicDependency(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -690,9 +691,9 @@ func TestEngine_buildGraph_CyclicDependency(t *testing.T) {
 }
 
 func TestEngine_runPreflightCheck(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
@@ -734,9 +735,9 @@ func TestEngine_runPreflightCheck(t *testing.T) {
 }
 
 func TestEngine_runPreflightCheck_Failing(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
@@ -784,9 +785,9 @@ func TestEngine_runPreflightCheck_Failing(t *testing.T) {
 
 // TestEngine_RunPreflightCheck_CompleteCoverage tests all branches of RunPreflightCheck.
 func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
@@ -934,9 +935,9 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 }
 
 func TestEngine_executeResource(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
@@ -980,9 +981,9 @@ func TestEngine_executeResource(t *testing.T) {
 }
 
 func TestEngine_executeWithItems(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
@@ -1024,7 +1025,7 @@ func TestEngine_executeWithItems(t *testing.T) {
 func TestEngine_ExecuteWithLoop(t *testing.T) {
 	t.Run("loop runs until while condition becomes false", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 		registry := executor.NewRegistry()
 		mockHTTP := &mockHTTPExecutor{result: "ok"}
 		registry.SetHTTPExecutor(mockHTTP)
@@ -1066,9 +1067,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop with zero while condition never runs", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-never", Version: "1.0.0"},
@@ -1093,9 +1094,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop with zero while condition and apiResponse returns empty slice", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-never-api", Version: "1.0.0"},
@@ -1123,9 +1124,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop respects maxIterations cap", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-cap", Version: "1.0.0"},
@@ -1161,9 +1162,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop with apiResponse produces streaming response per iteration", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-cap-api", Version: "1.0.0"},
@@ -1206,9 +1207,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop context callable methods are accessible inside body", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-ctx", Version: "1.0.0"},
@@ -1241,9 +1242,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		"loop.results() provides accumulated results from previous iterations",
 		func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
-			engine := executor.NewEngine(slog.Default())
+			engine := executor.NewEngine(context.Background(), slog.Default())
 
-			ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Workflow",
 				Metadata:   domain.WorkflowMetadata{Name: "loop-results", Version: "1.0.0"},
@@ -1273,9 +1274,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop storage type: set and get with 'loop' type hint", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-storage", Version: "1.0.0"},
@@ -1305,9 +1306,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 	t.Run("loop with invalid while expression returns error", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
 			Kind:       "Workflow",
 			Metadata:   domain.WorkflowMetadata{Name: "loop-err", Version: "1.0.0"},
@@ -1328,7 +1329,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 }
 
 func TestNewEngine(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	assert.NotNil(t, engine)
 	// Verify registry was initialized using exported getter
 	registry := engine.GetRegistryForTesting()
@@ -1336,7 +1337,7 @@ func TestNewEngine(t *testing.T) {
 }
 
 func TestEngine_SetRegistry(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	engine.SetRegistry(registry)
@@ -1346,7 +1347,7 @@ func TestEngine_SetRegistry(t *testing.T) {
 }
 
 func TestEngine_ShouldSkipResource_NoRestrictions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	resource := &domain.Resource{
 
@@ -1362,7 +1363,7 @@ func TestEngine_ShouldSkipResource_NoRestrictions(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_NoRestrictions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	resource := &domain.Resource{
 
@@ -1375,7 +1376,7 @@ func TestEngine_MatchesRestrictions_NoRestrictions(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_WithMethodRestriction(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	resource := &domain.Resource{
 
@@ -1394,7 +1395,7 @@ func TestEngine_MatchesRestrictions_WithMethodRestriction(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_MethodMismatch(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	resource := &domain.Resource{
 
@@ -1413,7 +1414,7 @@ func TestEngine_MatchesRestrictions_MethodMismatch(t *testing.T) {
 }
 
 func TestEngine_SetEvaluatorForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	evaluator := expression.NewEvaluator(nil)
 
 	engine.SetEvaluatorForTesting(evaluator)
@@ -1422,9 +1423,11 @@ func TestEngine_SetEvaluatorForTesting(t *testing.T) {
 }
 
 func TestEngine_GetEvaluatorForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(
 
 	// Initially should be nil
+	), slog.Default())
+
 	retrieved := engine.GetEvaluatorForTesting()
 	assert.Nil(t, retrieved)
 
@@ -1436,7 +1439,7 @@ func TestEngine_GetEvaluatorForTesting(t *testing.T) {
 }
 
 func TestEngine_SetAfterEvaluatorInitForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	called := false
 	callback := func(_ *executor.Engine, _ *executor.ExecutionContext) {
@@ -1454,7 +1457,7 @@ func TestEngine_SetAfterEvaluatorInitForTesting(t *testing.T) {
 }
 
 func TestEngine_ExecuteAPIResponseForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -1465,7 +1468,7 @@ func TestEngine_ExecuteAPIResponseForTesting(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -1493,7 +1496,7 @@ func TestEngine_ExecuteAPIResponseForTesting(t *testing.T) {
 }
 
 func TestEngine_EvaluateResponseValueForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -1504,7 +1507,7 @@ func TestEngine_EvaluateResponseValueForTesting(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Initialize evaluator
@@ -1535,9 +1538,11 @@ func TestEngine_EvaluateResponseValueForTesting(t *testing.T) {
 }
 
 func TestEngine_GetDebugModeForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(
 
 	// Initially should be false
+	), slog.Default())
+
 	debugMode := engine.GetDebugModeForTesting()
 	assert.False(t, debugMode)
 
@@ -1553,7 +1558,7 @@ func TestEngine_GetDebugModeForTesting(t *testing.T) {
 }
 
 func TestEngine_FormatDurationForTesting(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	tests := []struct {
 		name     string
@@ -1579,7 +1584,7 @@ func TestEngine_FormatDurationForTesting(t *testing.T) {
 
 // TestEngine_OnError_Continue_WithFallback_Expression tests continue action with expression fallback.
 func TestEngine_OnError_Continue_WithFallback_Expression(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -1625,7 +1630,7 @@ func TestEngine_OnError_Continue_WithFallback_Expression(t *testing.T) {
 
 // TestEngine_OnError_Continue_WithFallback_Map tests continue action with map fallback.
 func TestEngine_OnError_Continue_WithFallback_Map(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -1696,7 +1701,7 @@ func TestEngine_OnError_Continue_WithFallback_Map(t *testing.T) {
 }
 
 func TestEngine_FormatDuration(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	tests := []struct {
 		name     string
@@ -1731,7 +1736,7 @@ func TestEngine_FormatDuration(t *testing.T) {
 				},
 			}
 
-			ctx, err := executor.NewExecutionContext(workflow)
+			ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 			require.NoError(t, err)
 
 			// Test that the function doesn't panic and returns expected format
@@ -1768,9 +1773,11 @@ func TestEngine_FormatDuration(t *testing.T) {
 }
 
 func TestEngine_shouldHandleError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(
 
 	// Test workflows with error handling
+	), slog.Default())
+
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{
 		result: nil,
@@ -1962,7 +1969,7 @@ func TestEngine_shouldHandleError(t *testing.T) {
 }
 
 func TestEngine_evaluateFallback_Coverage(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 	// Test 1: String fallback (literal, not expression)
@@ -2014,7 +2021,7 @@ func TestEngine_evaluateFallback_Coverage(t *testing.T) {
 }
 
 func TestEngine_matchRoutePattern(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	tests := []struct {
 		name     string
@@ -2060,7 +2067,7 @@ func TestEngine_matchRoutePattern(t *testing.T) {
 }
 
 func TestEngine_executeOnErrorExpressions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -2113,7 +2120,7 @@ func TestEngine_executeOnErrorExpressions(t *testing.T) {
 }
 
 func TestEngine_executeOnErrorExpressions_AppError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an AppError
@@ -2173,7 +2180,7 @@ func TestEngine_executeOnErrorExpressions_AppError(t *testing.T) {
 }
 
 func TestEngine_executeOnErrorExpressions_ParseError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -2228,7 +2235,7 @@ func TestEngine_executeOnErrorExpressions_ParseError(t *testing.T) {
 }
 
 func TestEngine_executeOnErrorExpressions_EvaluationError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an error
@@ -2281,7 +2288,7 @@ func TestEngine_executeOnErrorExpressions_EvaluationError(t *testing.T) {
 }
 
 func TestEngine_convertToSlice(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	tests := []struct {
 		name     string
@@ -2313,7 +2320,7 @@ func TestEngine_convertToSlice(t *testing.T) {
 				},
 			}
 
-			ctx, err := executor.NewExecutionContext(workflow)
+			ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 			require.NoError(t, err)
 
 			resource := &domain.Resource{
@@ -2350,7 +2357,7 @@ func TestEngine_convertToSlice(t *testing.T) {
 
 func TestEngine_convertToSlice_DebugMode(t *testing.T) {
 	// Test convertToSlice with debug mode enabled to cover debug logging paths
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetDebugMode(true) // Enable debug mode to test logging paths
 
 	tests := []struct {
@@ -2378,7 +2385,7 @@ func TestEngine_convertToSlice_DebugMode(t *testing.T) {
 				},
 			}
 
-			ctx, err := executor.NewExecutionContext(workflow)
+			ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 			require.NoError(t, err)
 
 			resource := &domain.Resource{
@@ -2415,7 +2422,7 @@ func TestEngine_convertToSlice_DebugMode(t *testing.T) {
 
 // TestEngine_executeLLM_ErrorCases tests error paths in executeLLM function.
 func TestEngine_executeLLM_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -2426,7 +2433,7 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with nil chat config
@@ -2545,7 +2552,7 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 
 // TestEngine_executeLLM_CompleteCoverage tests all branches in executeLLM for 100% coverage.
 func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Create a mock LLM executor that supports the tool executor interface
@@ -2571,7 +2578,7 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set up request context for expression evaluation
@@ -2692,7 +2699,7 @@ func (m *mockLLMExecutorWithTools) SetOfflineMode(bool) {
 
 // TestEngine_executeHTTP_ErrorCases tests error paths in executeHTTP function.
 func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -2703,7 +2710,7 @@ func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with nil HTTP config
@@ -2738,7 +2745,7 @@ func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
 
 // TestEngine_executePython_ErrorCases tests error paths in executePython function.
 func TestEngine_executePython_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -2749,7 +2756,7 @@ func TestEngine_executePython_ErrorCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with nil Python config
@@ -2783,7 +2790,7 @@ func TestEngine_executePython_ErrorCases(t *testing.T) {
 
 // TestEngine_executeExec_ErrorCases tests error paths in executeExec function.
 func TestEngine_executeExec_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -2794,7 +2801,7 @@ func TestEngine_executeExec_ErrorCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with nil Exec config
@@ -2828,7 +2835,7 @@ func TestEngine_executeExec_ErrorCases(t *testing.T) {
 
 // TestEngine_executeAPIResponse_ErrorCases tests error paths in executeAPIResponse function.
 func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -2839,7 +2846,7 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with nil context
@@ -2921,14 +2928,14 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 
 // TestEngine_buildEvaluationEnvironment_CompleteCoverage tests all paths in buildEvaluationEnvironment.
 func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	t.Run("nil context returns empty environment", func(t *testing.T) {
 		// Test buildEvaluationEnvironment with nil context through various methods
 		// Since buildEvaluationEnvironment is private, we test it through public methods that call it
 
 		// Test through ShouldSkipResource - but we need a proper evaluator for this
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 		testEngine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 		resource := &domain.Resource{
@@ -2958,7 +2965,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up minimal request context
@@ -2999,7 +3006,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context with nil body
@@ -3036,7 +3043,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Don't set any outputs - test that accessor functions return appropriate defaults
@@ -3083,7 +3090,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up complex item context
@@ -3124,7 +3131,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up item values for a specific resource
@@ -3159,7 +3166,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 	})
 
 	t.Run("debug mode logging", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 		testEngine.SetDebugMode(true) // Enable debug mode
 
 		workflow := &domain.Workflow{
@@ -3171,7 +3178,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context to trigger debug logging in buildEvaluationEnvironment
@@ -3203,7 +3210,7 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 // TestEngine_Execute_EdgeCases tests additional edge cases for the Execute method.
 func TestEngine_Execute_EdgeCases(t *testing.T) {
 	t.Run("nil execution context creation", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		// Create a workflow that will cause NewExecutionContext to fail
 		// by providing invalid session data that would cause an error
@@ -3236,7 +3243,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("execution context creation failure", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		// Override the newExecutionContext function to simulate failure
 		engine.SetAfterEvaluatorInitForTesting(
@@ -3275,7 +3282,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("graph building failure", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		// Create a workflow with cyclic dependencies to cause graph building to fail
 		workflow := &domain.Workflow{
@@ -3317,7 +3324,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("execution order failure", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		// Create a workflow with a target action ID that doesn't exist
 		workflow := &domain.Workflow{
@@ -3349,7 +3356,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("target resource no output", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 		registry := executor.NewRegistry()
 
 		// Mock executor that doesn't set any output
@@ -3386,7 +3393,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("panic recovery", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		// Test panic recovery by creating a scenario that might cause a panic
 		// The Execute method has defer/recover logic to handle panics
@@ -3419,7 +3426,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("nil API context", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3450,7 +3457,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("missing target resource", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3480,7 +3487,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("validation error handling", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3519,7 +3526,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("custom validation error handling", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3559,7 +3566,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("API response unwrapping", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3601,7 +3608,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("non-API response target output", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3634,7 +3641,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("nil API context initialization", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3665,7 +3672,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("session ID propagation", func(t *testing.T) {
-		engine := executor.NewEngine(slog.Default())
+		engine := executor.NewEngine(context.Background(), slog.Default())
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -3705,7 +3712,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 
 // TestEngine_BuildGraph_ComplexScenarios tests BuildGraph with more complex scenarios.
 func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	t.Run("empty workflow", func(t *testing.T) {
 		workflow := &domain.Workflow{
@@ -3844,7 +3851,7 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 
 // TestEngine_ShouldSkipResource_ComplexConditions tests ShouldSkipResource with complex conditions.
 func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 	workflow := &domain.Workflow{
@@ -3856,7 +3863,7 @@ func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set up request context for testing
@@ -3962,7 +3969,7 @@ func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
 // TestEngine_buildEvaluationEnvironment_Coverage tests buildEvaluationEnvironment through existing public methods.
 // This enhances coverage by testing the various code paths that call buildEvaluationEnvironment.
 func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 	t.Run("should skip resource with complex expressions", func(t *testing.T) {
@@ -3975,7 +3982,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context to test request.* expressions
@@ -4017,7 +4024,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context
@@ -4056,7 +4063,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context for testing
@@ -4109,7 +4116,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context for expression evaluation
@@ -4141,7 +4148,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 	})
 
 	t.Run("nil execution context", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 		testEngine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 		// Test with nil context - should not panic and return empty env
@@ -4173,7 +4180,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context without body (nil body)
@@ -4212,7 +4219,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up item context with map value (tests item context preservation)
@@ -4248,7 +4255,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context
@@ -4297,7 +4304,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context
@@ -4331,7 +4338,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 	})
 
 	t.Run("on error expressions with error object", func(t *testing.T) {
-		errorEngine := executor.NewEngine(slog.Default())
+		errorEngine := executor.NewEngine(context.Background(), slog.Default())
 		registry := executor.NewRegistry()
 
 		// Mock executor that returns an AppError
@@ -4389,7 +4396,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 	})
 
 	t.Run("nil context - partial coverage", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 		testEngine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 		// Test buildEvaluationEnvironment with nil context through preflight check
@@ -4421,7 +4428,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up minimal request context (empty)
@@ -4460,7 +4467,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up complex item context
@@ -4504,7 +4511,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Don't set up any outputs - test error handling in accessor functions
@@ -4534,7 +4541,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up outputs for all resource types to test accessor functions
@@ -4589,7 +4596,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up complex nested request context
@@ -4644,7 +4651,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 	})
 
 	t.Run("debug logging in buildEvaluationEnvironment", func(t *testing.T) {
-		testEngine := executor.NewEngine(slog.Default())
+		testEngine := executor.NewEngine(context.Background(), slog.Default())
 		testEngine.SetDebugMode(true) // Enable debug mode to trigger debug logging
 		testEngine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
@@ -4657,7 +4664,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 		}
 
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set up request context
@@ -4688,7 +4695,7 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 
 // TestExecuteResource_EdgeCases tests ExecuteResource edge cases for better coverage.
 func TestExecuteResource_EdgeCases(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up all mock executors
@@ -4713,7 +4720,7 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Initialize evaluator for the engine
@@ -4831,7 +4838,7 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 
 // E2E test: Session function with set/get workflow.
 func TestEngine_SessionSetGet_E2E(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -4882,7 +4889,7 @@ func TestEngine_SessionSetGet_E2E(t *testing.T) {
 
 // E2E test: Empty session returns empty map.
 func TestEngine_EmptySession_E2E(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -4928,9 +4935,9 @@ func TestEngine_EmptySession_E2E(t *testing.T) {
 // bounded counter, demonstrating mutable state + conditional iteration.
 func TestLoop_TuringCompleteness_Counter(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-counter", Version: "1.0.0"},
@@ -4963,9 +4970,9 @@ func TestLoop_TuringCompleteness_Counter(t *testing.T) {
 // TestLoop_TuringCompleteness_Accumulator verifies sum 1+2+…+N via while-loop.
 func TestLoop_TuringCompleteness_Accumulator(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-accumulator", Version: "1.0.0"},
@@ -4996,9 +5003,9 @@ func TestLoop_TuringCompleteness_Accumulator(t *testing.T) {
 // pattern: loop iterates through distinct phases via a shared state variable.
 func TestLoop_TuringCompleteness_MutableStateTransition(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-state", Version: "1.0.0"},
@@ -5033,9 +5040,9 @@ func TestLoop_TuringCompleteness_MutableStateTransition(t *testing.T) {
 // output of one step feeds input of next).
 func TestLoop_TuringCompleteness_AccumulateResults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-accumulate", Version: "1.0.0"},
@@ -5065,9 +5072,9 @@ func TestLoop_TuringCompleteness_AccumulateResults(t *testing.T) {
 // variable inside the loop can cause it to exit before maxIterations.
 func TestLoop_TuringCompleteness_ConditionalEarlyExit(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-early-exit", Version: "1.0.0"},
@@ -5098,9 +5105,9 @@ func TestLoop_TuringCompleteness_ConditionalEarlyExit(t *testing.T) {
 // running per-iteration produces a streaming slice for a Turing-complete loop.
 func TestLoop_TuringCompleteness_StreamingAPIResponse(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-streaming", Version: "1.0.0"},
@@ -5140,9 +5147,9 @@ func TestLoop_TuringCompleteness_StreamingAPIResponse(t *testing.T) {
 // with {{ }} Mustache wrappers are normalised correctly before evaluation.
 func TestLoop_WhileExprWithBraceWrappers(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "brace-loop", Version: "1.0.0"},
@@ -5172,9 +5179,9 @@ func TestLoop_WhileExprWithBraceWrappers(t *testing.T) {
 // exactly once returns the single result directly (unwrapped from slice).
 func TestLoop_SingleIteration_ReturnsSingleValue(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "single-iter", Version: "1.0.0"},
@@ -5205,9 +5212,9 @@ func TestLoop_EvaluatorInitialisedFreshEngine(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	// NewEngine initialises engine but Execute() has not been called, so
 	// e.evaluator may still be nil the first time ExecuteWithLoop is invoked.
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "fresh-engine", Version: "1.0.0"},
@@ -5236,9 +5243,9 @@ func TestLoop_EvaluatorInitialisedFreshEngine(t *testing.T) {
 // propagated and loop context is cleaned up.
 func TestLoop_IterationBodyError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "body-err", Version: "1.0.0"},
@@ -5270,9 +5277,9 @@ func TestLoop_IterationBodyError(t *testing.T) {
 // uses the default cap (1000) rather than running forever.
 func TestLoop_DefaultMaxIterations(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "default-cap", Version: "1.0.0"},
@@ -5301,9 +5308,9 @@ func TestLoop_DefaultMaxIterations(t *testing.T) {
 // TestCtxLoop_AllPaths exercises all branches of ctx.Loop() for 100% coverage.
 func TestCtxLoop_AllPaths(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "ctx-loop-paths", Version: "1.0.0"},
@@ -5398,7 +5405,7 @@ func TestLoop_LoopAndSkipCondition(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	// 3 iterations with apiResponse → streaming slice.
@@ -5437,7 +5444,7 @@ func TestLoop_ViaToplevelExecute(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	// 2 iterations without apiResponse → slice.
@@ -5450,9 +5457,9 @@ func TestLoop_ViaToplevelExecute(t *testing.T) {
 // a fixed number of times and accumulate state (Turing-style mu-recursion demo).
 func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "tc-busybeaver", Version: "1.0.0"},
@@ -5484,7 +5491,7 @@ func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 
 // TestEngine_Execute_RestrictToHTTPMethods tests HTTP method restrictions.
 func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -5539,7 +5546,7 @@ func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
 
 // TestEngine_Execute_RestrictToRoutes tests route restrictions.
 func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -5594,7 +5601,7 @@ func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
 
 // TestEngine_Execute_CombinedRestrictions tests combined HTTP method and route restrictions.
 func TestEngine_Execute_CombinedRestrictions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 

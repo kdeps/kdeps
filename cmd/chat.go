@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -112,7 +111,7 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	executor := buildChatExecutor(flags.NoExecute)
 
 	repl := chat.NewREPL(session, generator, executor, os.Stdin, os.Stdout)
-	return repl.Run(context.Background())
+	return repl.Run(processRoot())
 }
 
 // resolveChatModel returns the effective LLM model for chat.

@@ -15,6 +15,7 @@
 package tools_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -66,7 +67,7 @@ func TestComponentToolDefs_WithInputs(t *testing.T) {
 			},
 		},
 	}
-	res := tools.ComponentToolDefs([]*domain.Component{comp}, &domain.Workflow{}, executor.NewEngine(nil))
+	res := tools.ComponentToolDefs([]*domain.Component{comp}, &domain.Workflow{}, executor.NewEngine(context.Background(), nil))
 	if len(res) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(res))
 	}
@@ -110,7 +111,7 @@ func TestComponentToolDefs_NilEng(t *testing.T) {
 
 func TestComponentToolDefs_NilWorkflow(t *testing.T) {
 	comp := &domain.Component{Metadata: domain.ComponentMetadata{Name: "nocallback"}}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	res := tools.ComponentToolDefs([]*domain.Component{comp}, nil, eng)
 	if len(res) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(res))
@@ -121,7 +122,7 @@ func TestComponentToolDefs_NilWorkflow(t *testing.T) {
 }
 
 func TestComponentToolDefs_Execute_Success(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "component result", nil
 	})
@@ -151,7 +152,7 @@ func TestComponentToolDefs_Execute_Success(t *testing.T) {
 }
 
 func TestComponentToolDefs_Execute_Error(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("component failure")
 	})
@@ -171,7 +172,7 @@ func TestComponentToolDefs_Execute_Error(t *testing.T) {
 }
 
 func TestComponentToolDefs_Execute_NilResult(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, nil //nolint:nilnil
 	})
@@ -194,7 +195,7 @@ func TestComponentToolDefs_Execute_NilResult(t *testing.T) {
 }
 
 func TestComponentToolDefs_Execute_StructResult(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return struct{ Key string }{"value"}, nil
 	})

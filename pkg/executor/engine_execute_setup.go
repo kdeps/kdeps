@@ -47,12 +47,7 @@ func (e *Engine) ensureNewExecutionContextFactory() {
 	if e.newExecutionContext != nil {
 		return
 	}
-	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-		if sessionID != "" {
-			return NewExecutionContext(workflow, sessionID)
-		}
-		return NewExecutionContext(workflow)
-	}
+	e.newExecutionContext = defaultExecutionContext
 }
 
 // setupExecutionContext wires request data, resources, file input, and agent

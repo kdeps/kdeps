@@ -132,7 +132,7 @@ type SessionStorage struct {
 }
 
 // NewSessionStorage creates a new session storage.
-func NewSessionStorage(dbPath string, sessionID string) (*SessionStorage, error) {
+func NewSessionStorage(ctx context.Context, dbPath string, sessionID string) (*SessionStorage, error) {
 	kdeps_debug.Log("enter: NewSessionStorage")
-	return NewSessionStorageWithTTL(dbPath, sessionID, 30*time.Minute)
+	return NewSessionStorageWithTTL(ctx, dbPath, sessionID, 30*time.Minute)
 }

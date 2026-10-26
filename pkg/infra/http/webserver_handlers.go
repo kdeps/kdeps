@@ -33,7 +33,7 @@ func (s *WebServer) HandleStaticRequest(
 	fullPath := appRouteWorkDir(s, route)
 
 	if !pathExists(fullPath) {
-		s.logAndRespondNotFound(w, fullPath)
+		s.logAndRespondNotFound(r.Context(), w, fullPath)
 		return
 	}
 
@@ -49,13 +49,13 @@ func (s *WebServer) HandleAppRequest(
 	debugEnter("HandleAppRequest")
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
-		s.logAndRespondMissingPort(w)
+		s.logAndRespondMissingPort(r.Context(), w)
 		return
 	}
 
 	targetURL, err := localAppProxyTarget(appPort)
 	if err != nil {
-		s.logAndRespondInvalidProxyURL(w, appPort, err)
+		s.logAndRespondInvalidProxyURL(r.Context(), w, appPort, err)
 		return
 	}
 

@@ -30,20 +30,18 @@ import (
 )
 
 func TestNewAdapter(t *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
 	assert.NotNil(t, adapter)
 }
 
 func TestNewAdapter_EmptyURL(t *testing.T) {
-	adapter := llm.NewAdapter("")
+	adapter := llm.NewAdapter(t.Context(), "")
 	assert.NotNil(t, adapter)
 }
 
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 
 	result, err := adapter.Execute(ctx, "invalid config")
@@ -53,10 +51,8 @@ func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 }
 
 func TestAdapter_Execute_ValidConfig(t *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -73,19 +69,19 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 	_ = err
 }
 
-func TestAdapter_SetModelService(_ *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
+func TestAdapter_SetModelService(t *testing.T) {
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
 
 	// Test setting a valid model service
-	modelService := llm.NewModelService(nil)
+	modelService := llm.NewModelService(t.Context(), nil)
 	adapter.SetModelService(modelService)
 
 	// Test setting an invalid service type (should not panic)
 	adapter.SetModelService("invalid service")
 }
 
-func TestAdapter_SetOfflineMode(_ *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
+func TestAdapter_SetOfflineMode(t *testing.T) {
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
 
 	// Test setting offline mode to true
 	adapter.SetOfflineMode(true)
@@ -99,7 +95,7 @@ func TestAdapter_SetOfflineMode(_ *testing.T) {
 }
 
 func TestAdapter_SetToolExecutor(t *testing.T) {
-	adapter := llm.NewAdapter("http://localhost:11434")
+	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
 
 	// Mock tool executor
 	mockToolExecutor := &mockToolExecutor{}

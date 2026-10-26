@@ -29,9 +29,8 @@ import (
 
 // ExecutionContext holds the runtime context for workflow execution.
 type ExecutionContext struct {
-	// Ctx is the root context for this execution. Derived from the engine's
-	// context so all I/O operations share a common cancel scope. Defaults to
-	// context.Background() when not explicitly set.
+	// Ctx is the root context for this execution: the request's own context, or
+	// the engine's (NewEngine), so all I/O operations share one cancel scope.
 	Ctx context.Context
 
 	// Workflow being executed.
@@ -128,6 +127,9 @@ type LLMMetadata struct {
 
 // RequestContext holds HTTP request data.
 type RequestContext struct {
+	// Ctx is the request's own context (an API request's); nil runs the
+	// workflow under the engine's context.
+	Ctx       context.Context
 	Method    string
 	Path      string
 	Headers   map[string]string

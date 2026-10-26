@@ -90,9 +90,9 @@ func (errStreamerJudge) StreamChat(
 }
 
 func newJudgeTestLoop(streamer Streamer) *Loop {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	return New(eng, newTestWorkflowForSession(), reg, Config{
+	return New(context.Background(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
 		Streamer: streamer,
 	})

@@ -48,7 +48,7 @@ func TestStartControlAPI(t *testing.T) {
 
 func TestRunAgentLoopCmd_APIListenFails(t *testing.T) {
 	t.Setenv("KDEPS_API_LISTEN", "bad-listen-addr")
-	err := runAgentLoopCmd("", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "", &agentLoopFlags{})
 	require.ErrorContains(t, err, "start kdeps api")
 }
 

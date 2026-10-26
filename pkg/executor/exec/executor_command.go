@@ -20,7 +20,6 @@ package exec
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -92,11 +91,11 @@ func (e *Executor) buildCommand(
 	var cmd *exec.Cmd
 	switch {
 	case len(args) > 0:
-		cmd = exec.CommandContext(context.Background(), commandStr, args...)
+		cmd = exec.CommandContext(ctx.Ctx, commandStr, args...)
 	case RuntimeOS == "windows":
-		cmd = exec.CommandContext(context.Background(), "cmd", "/C", commandStr)
+		cmd = exec.CommandContext(ctx.Ctx, "cmd", "/C", commandStr)
 	default:
-		cmd = exec.CommandContext(context.Background(), "sh", "-c", commandStr)
+		cmd = exec.CommandContext(ctx.Ctx, "sh", "-c", commandStr)
 	}
 
 	var stdout, stderr bytes.Buffer

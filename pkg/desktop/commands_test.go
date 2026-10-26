@@ -55,7 +55,7 @@ func newCmdHarness(t *testing.T) *cmdHarness {
 
 	svc, err := desktop.New(ctx, desktop.Options{
 		Emit:     h.log.emit,
-		Engine:   executor.NewEngine(nil),
+		Engine:   executor.NewEngine(context.Background(), nil),
 		Cwd:      t.TempDir(),
 		StateDir: t.TempDir(),
 		Model:    "alpha",

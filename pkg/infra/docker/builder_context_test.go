@@ -63,7 +63,7 @@ func TestSupervisord_PrepackagedBinary(t *testing.T) {
 	)
 
 	dockerfile := "FROM alpine:latest\n"
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 
 	data, err := io.ReadAll(contextReader)
@@ -110,7 +110,7 @@ func TestSupervisord_FallbackNoPrepackagedBinary(t *testing.T) {
 	}
 
 	dockerfile := "FROM alpine:latest\n"
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	contextReader, err := builder.CreateBuildContext(t.Context(), workflow, dockerfile)
 	require.NoError(t, err)
 
 	data, err := io.ReadAll(contextReader)

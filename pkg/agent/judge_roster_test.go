@@ -83,7 +83,7 @@ func TestResolveJudgeRoster_NoneConfigured(t *testing.T) {
 }
 
 func TestResolveJudgeRoster_SkipsTrivialPrompt(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	calls := 0
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		calls++
@@ -103,7 +103,7 @@ func TestResolveJudgeRoster_SkipsTrivialPrompt(t *testing.T) {
 
 func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
 	var gotActionID string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotActionID = wf.Metadata.TargetActionID
 		return `{"judges":[{"name":"correctness","criteria":"must be accurate"}]}`, nil
@@ -127,7 +127,7 @@ func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
 }
 
 func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return nil, errors.New("boom")
 	})
@@ -142,7 +142,7 @@ func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
 }
 
 func TestGenerateJudgeRoster_FallsBackOnUnparsableReply(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return "not json at all", nil
 	})

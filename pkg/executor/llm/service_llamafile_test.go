@@ -29,7 +29,7 @@ import (
 )
 
 func TestModelService_PrepareLlamafileErrors(t *testing.T) {
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	_, _, err := s.prepareLlamafile(context.Background(), "/nonexistent/model.llamafile")
 	require.Error(t, err)
 }

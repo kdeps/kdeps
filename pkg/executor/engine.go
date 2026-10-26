@@ -22,6 +22,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -48,7 +49,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	}
 
 	e.ensureNewExecutionContextFactory()
-	ctx, err := e.newExecutionContext(workflow, sessionID)
+	ctx, err := e.newExecutionContext(e.runContext(reqCtx), workflow, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution context: %w", err)
 	}
@@ -78,3 +79,12 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 // When LoopConfig.Every is set the engine sleeps for that duration between iterations,
 // turning the loop into a repeated scheduled task (ticker pattern).
 // When LoopConfig.At is set the engine fires the body at each specified date/time entry.
+
+// runContext is the context an execution runs under: the request's own when it
+// carries one (an API request), else the engine's.
+func (e *Engine) runContext(reqCtx *RequestContext) context.Context {
+	if reqCtx != nil && reqCtx.Ctx != nil {
+		return reqCtx.Ctx
+	}
+	return e.ctx
+}

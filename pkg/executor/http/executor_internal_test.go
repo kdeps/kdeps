@@ -29,7 +29,7 @@ import (
 
 func TestEvaluateData_MapFieldError(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	eval := expression.NewEvaluator(ctx.API)
 
@@ -42,7 +42,7 @@ func TestEvaluateData_MapFieldError(t *testing.T) {
 
 func TestResolveAccountAuth_ResolvesFromIdentity(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Config.Identity = &kdepsconfig.IdentityConfig{
 		Accounts: map[string]kdepsconfig.AccountConfig{
@@ -59,7 +59,7 @@ func TestResolveAccountAuth_ResolvesFromIdentity(t *testing.T) {
 
 func TestResolveAccountAuth_UnknownAccountReturnsNil(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Config.Identity = &kdepsconfig.IdentityConfig{
 		Accounts: map[string]kdepsconfig.AccountConfig{"crm": {Username: "salesbot"}},
@@ -70,7 +70,7 @@ func TestResolveAccountAuth_UnknownAccountReturnsNil(t *testing.T) {
 
 func TestResolveAccountAuth_NoAccountNameReturnsNil(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Config.Identity = &kdepsconfig.IdentityConfig{
 		Accounts: map[string]kdepsconfig.AccountConfig{"crm": {Username: "salesbot"}},
@@ -81,7 +81,7 @@ func TestResolveAccountAuth_NoAccountNameReturnsNil(t *testing.T) {
 
 func TestResolveAccountAuth_NoIdentityReturnsNil(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 
 	assert.Nil(t, e.resolveAccountAuth(ctx, &domain.HTTPClientConfig{AccountName: "crm"}))
@@ -89,7 +89,7 @@ func TestResolveAccountAuth_NoIdentityReturnsNil(t *testing.T) {
 
 func TestResolveConnectionAuth_ConnectionNameTakesPriorityOverAccount(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Config.HTTPConnections = map[string]kdepsconfig.HTTPConnectionConfig{
 		"api": {Auth: &kdepsconfig.HTTPAuthConfig{Type: "bearer", Token: "tok"}},
@@ -105,7 +105,7 @@ func TestResolveConnectionAuth_ConnectionNameTakesPriorityOverAccount(t *testing
 
 func TestResolveConnectionAuth_FallsBackToAccount(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Config.Identity = &kdepsconfig.IdentityConfig{
 		Accounts: map[string]kdepsconfig.AccountConfig{"crm": {Username: "salesbot", Password: "secret"}},
@@ -119,7 +119,7 @@ func TestResolveConnectionAuth_FallsBackToAccount(t *testing.T) {
 
 func TestPrepareRequest_DefaultMethod(t *testing.T) {
 	e := NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	eval := expression.NewEvaluator(ctx.API)
 

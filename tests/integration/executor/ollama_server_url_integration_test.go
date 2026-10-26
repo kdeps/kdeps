@@ -42,7 +42,7 @@ func TestE2E_ModelService_ServerURL_Ollama_Reachable(t *testing.T) {
 
 	t.Setenv("OLLAMA_HOST", server.URL)
 
-	svc := executorLLM.NewModelService(slog.Default())
+	svc := executorLLM.NewModelService(t.Context(), slog.Default())
 	url := svc.ServerURL("ollama", "llama3.2:1b")
 	assert.Equal(t, server.URL+"/v1", url)
 }
@@ -58,7 +58,7 @@ func TestE2E_ModelService_ServerURL_Ollama_NotRunning(t *testing.T) {
 
 	t.Setenv("OLLAMA_HOST", unusedURL)
 
-	svc := executorLLM.NewModelService(slog.Default())
+	svc := executorLLM.NewModelService(t.Context(), slog.Default())
 	url := svc.ServerURL("ollama", "llama3.2:1b")
 	assert.Empty(t, url)
 }

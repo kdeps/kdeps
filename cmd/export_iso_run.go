@@ -38,7 +38,7 @@ func enableISOOfflineMode() {
 }
 
 // exportISOInternal executes the export iso command.
-func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) error {
+func exportISOInternal(cmd *cobra.Command, args []string, flags *ExportFlags) error {
 	kdeps_debug.Log("enter: exportISOInternal")
 	packagePath := args[0]
 	fmt.Fprintf(os.Stdout, "Exporting workflow from: %s\n\n", packagePath)
@@ -63,7 +63,7 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 	}
 	defer builder.Client.Close()
 
-	return performISOBuild(builder, workflow, packagePath, originalDir, flags)
+	return performISOBuild(processParent(cmd.Context()), builder, workflow, packagePath, originalDir, flags)
 }
 
 // showLinuxKitConfig generates and prints the LinuxKit YAML config.
@@ -100,6 +100,7 @@ func resolveLinuxKitFormat(format string) (string, error) {
 
 // configureISOBuilderSize sets the disk image size on the ISO builder.
 func configureISOBuilderSize(
+	ctx context.Context,
 	isoBuilder *iso.Builder,
 	builder *docker.Builder,
 	imageName string,
@@ -110,7 +111,6 @@ func configureISOBuilderSize(
 		return
 	}
 
-	ctx := context.Background()
 	imgBytes, sizeErr := builder.Client.ImageSize(ctx, imageName)
 	if sizeErr != nil || imgBytes <= 0 {
 		return
@@ -125,6 +125,7 @@ func configureISOBuilderSize(
 
 // performISOBuild builds the Docker image and then the bootable image via LinuxKit.
 func performISOBuild(
+	ctx context.Context,
 	builder *docker.Builder,
 	workflow *domain.Workflow,
 	packagePath string,
@@ -134,7 +135,7 @@ func performISOBuild(
 	kdeps_debug.Log("enter: performISOBuild")
 	fmt.Fprintln(os.Stdout, "Step 1: Building Docker image...")
 
-	imageName, err := performISOBuildDockerFunc(builder, workflow, packagePath, flags.NoCache)
+	imageName, err := performISOBuildDockerFunc(ctx, builder, workflow, packagePath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build Docker image: %w", err)
 	}
@@ -148,7 +149,7 @@ func performISOBuild(
 
 	outputPath := resolveOutputPath(flags.Output, flags.Format, workflow, originalDir)
 
-	isoBuilder, err := newISOBuilderFunc()
+	isoBuilder, err := newISOBuilderFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to initialize LinuxKit builder: %w", err)
 	}
@@ -159,9 +160,8 @@ func performISOBuild(
 		isoBuilder.Arch = flags.Arch
 	}
 
-	configureISOBuilderSize(isoBuilder, builder, imageName, flags.Size)
+	configureISOBuilderSize(ctx, isoBuilder, builder, imageName, flags.Size)
 
-	ctx := context.Background()
 	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
 
 	if buildErr := isoBuilderBuildFunc(

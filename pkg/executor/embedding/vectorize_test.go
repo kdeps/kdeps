@@ -31,6 +31,7 @@ import (
 	lcemb "github.com/tmc/langchaingo/embeddings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // stub embedders for testing vectorizeInputs/embedQuery error paths.
@@ -470,7 +471,7 @@ func TestExecute_VectorizeOperation(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "vectorize",
 		Inputs:    []string{"test text"},
 		Model:     "test-model",
@@ -490,7 +491,7 @@ func TestExecute_EmbedQueryOperation(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "embed_query",
 		Text:      "test query",
 		Model:     "test-model",
@@ -520,7 +521,7 @@ func TestExecute_RerankOperation(t *testing.T) {
 	t.Setenv("COHERE_API_KEY", "test-key")
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation:       "rerank",
 		RerankQuery:     "test query",
 		RerankDocuments: []string{"doc1", "doc2"},

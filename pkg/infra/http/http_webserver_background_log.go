@@ -20,10 +20,10 @@ package http
 
 import "context"
 
-func (s *WebServer) logBackgroundError(msg string, attrs ...any) {
-	s.logger.ErrorContext(context.Background(), msg, attrs...)
+func (s *WebServer) logBackgroundError(ctx context.Context, msg string, attrs ...any) {
+	s.logger.ErrorContext(ctx, msg, attrs...)
 }
 
-func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
-	s.logger.InfoContext(context.Background(), msg, attrs...)
+func (s *WebServer) logBackgroundInfo(ctx context.Context, msg string, attrs ...any) {
+	s.logger.InfoContext(ctx, msg, attrs...)
 }

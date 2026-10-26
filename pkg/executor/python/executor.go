@@ -35,6 +35,7 @@ import (
 // UVManager interface for Python environment management (for testing).
 type UVManager interface {
 	EnsureVenv(
+		ctx context.Context,
 		pythonVersion string,
 		packages []string,
 		requirementsFile string,
@@ -83,7 +84,7 @@ func (e *Executor) ensurePythonRuntime(
 	pythonVersion := e.getPythonVersion(ctx)
 	packages, requirementsFile := e.getPythonDependencies(ctx)
 
-	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
+	venvPath, err := e.uvManager.EnsureVenv(ctx.Ctx, pythonVersion, packages, requirementsFile, venvName)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to ensure venv: %w", err)
 	}
@@ -131,6 +132,7 @@ func (e *Executor) Execute(
 	}
 
 	return e.executeScript(
+		ctx.Ctx,
 		pythonPath,
 		venvPath,
 		ctx.FSRoot,

@@ -55,7 +55,7 @@ var (
 // running build, i.e. a downgrade -- and takes priority over nightly if
 // both are somehow set.
 func runUpgradeCmd(w io.Writer, nightly bool, targetVersion string) error {
-	ctx := context.Background()
+	ctx := processRoot()
 	if targetVersion != "" {
 		return runUpgradeToVersionCmd(ctx, w, strings.TrimPrefix(targetVersion, "v"))
 	}

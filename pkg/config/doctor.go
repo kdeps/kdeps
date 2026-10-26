@@ -63,11 +63,11 @@ func (r *doctorRunner) add(name string, status HealthStatus, msg string) {
 }
 
 // RunDoctor runs all health checks and returns a report.
-func RunDoctor(cfg *Config) *DoctorReport {
+func RunDoctor(ctx context.Context, cfg *Config) *DoctorReport {
 	r := &doctorRunner{healthy: true}
 	r.configFile()
 	r.configValidation(cfg)
-	r.ollama(cfg)
+	r.ollama(ctx, cfg)
 	r.python()
 	r.backendKey(cfg)
 	r.agents(cfg)
@@ -122,7 +122,7 @@ func (r *doctorRunner) configValidation(cfg *Config) {
 		fmt.Sprintf("%d warning(s): %s", len(warnings), warnings[0]))
 }
 
-func (r *doctorRunner) ollama(cfg *Config) {
+func (r *doctorRunner) ollama(ctx context.Context, cfg *Config) {
 	backend := effectiveBackend(cfg)
 	if backend == fileBackendStr {
 		r.add("Ollama", HealthPass, "skipped — default backend is file (llamafile, self-serving)")
@@ -136,7 +136,7 @@ func (r *doctorRunner) ollama(cfg *Config) {
 
 	addr := ollamaDialAddr(cfg)
 	dialer := &net.Dialer{Timeout: ollamaDialTimeout}
-	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		r.add("Ollama", HealthWarn, fmt.Sprintf("not reachable at %s — %v", addr, err))
 		return

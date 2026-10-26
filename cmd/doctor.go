@@ -46,11 +46,15 @@ Exits with code 1 if any check fails.`,
 	}
 }
 
-func runDoctor(_ *cobra.Command, _ []string) error {
+func runDoctor(cmd *cobra.Command, _ []string) error {
 	kdeps_debug.Log("enter: runDoctor")
 
 	cfg := loadDoctorConfigFunc()
-	report := runDoctorCheckFunc(cfg)
+	ctx := processRoot()
+	if cmd != nil {
+		ctx = processParent(cmd.Context())
+	}
+	report := runDoctorCheckFunc(ctx, cfg)
 	fmt.Fprint(os.Stdout, report.FormatReport())
 
 	if report.Healthy {

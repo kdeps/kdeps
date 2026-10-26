@@ -79,9 +79,9 @@ type Builder struct {
 
 // NewBuilder creates a new LinuxKit-based image builder.
 // It locates or downloads the linuxkit binary automatically.
-func NewBuilder() (*Builder, error) {
+func NewBuilder(ctx context.Context) (*Builder, error) {
 	kdeps_debug.Log("enter: NewBuilder")
-	binaryPath, err := EnsureLinuxKit(context.Background())
+	binaryPath, err := EnsureLinuxKit(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("linuxkit not available: %w", err)
 	}

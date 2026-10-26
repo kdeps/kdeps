@@ -15,6 +15,7 @@
 package executor_test
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -181,9 +182,9 @@ llm:
 	}))
 	defer server.Close()
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
-	registry.SetLLMExecutor(executorLLM.NewAdapter(server.URL))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), server.URL))
 	engine.SetRegistry(registry)
 	// Disable model manager to avoid interfering with model selection
 	if adapter, ok := registry.GetLLMExecutor().(*executorLLM.Adapter); ok {
@@ -259,9 +260,9 @@ func TestE2E_APIKeyFromConfigOnly(t *testing.T) {
 	}))
 	defer server.Close()
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
-	registry.SetLLMExecutor(executorLLM.NewAdapter(server.URL))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), server.URL))
 	engine.SetRegistry(registry)
 
 	// Set Backend to openai so GetAPIKeyHeader reads OPENAI_API_KEY from env var.

@@ -96,7 +96,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := &docker.Builder{BaseOS: tt.baseOS}
-			dockerfile, err := builder.GenerateDockerfile(tt.workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), tt.workflow)
 			require.NoError(t, err)
 
 			for _, expected := range tt.contains {
@@ -118,7 +118,7 @@ func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
 					APIServer: &domain.APIServerConfig{PortNum: 8080},
 				},
 			}
-			dockerfile, err := builder.GenerateDockerfile(api)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), api)
 			require.NoError(t, err)
 			assert.Contains(t, dockerfile, "HEALTHCHECK")
 			assert.Contains(t, dockerfile, "http://localhost:8080/health")
@@ -130,7 +130,7 @@ func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
 					WebServer: &domain.WebServerConfig{PortNum: 9090},
 				},
 			}
-			dockerfile, err = builder.GenerateDockerfile(web)
+			dockerfile, err = builder.GenerateDockerfile(t.Context(), web)
 			require.NoError(t, err)
 			assert.Contains(t, dockerfile, "HEALTHCHECK")
 			assert.Contains(t, dockerfile, "/dev/tcp/127.0.0.1/9090")
@@ -140,7 +140,7 @@ func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
 			bot := &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "bot", Version: "1.0.0"},
 			}
-			dockerfile, err = builder.GenerateDockerfile(bot)
+			dockerfile, err = builder.GenerateDockerfile(t.Context(), bot)
 			require.NoError(t, err)
 			assert.NotContains(t, dockerfile, "HEALTHCHECK")
 		})
@@ -176,7 +176,7 @@ func TestBuilderTemplates_packageVersionPins(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "kdeps/kdeps/v2.0.0/install.sh")
 	assert.Contains(t, dockerfile, "ollama/ollama:0.5.4")
@@ -196,7 +196,7 @@ func TestBuilderTemplates_invalidPackageVersionPin(t *testing.T) {
 		},
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "versions.kdeps")
 }
@@ -221,7 +221,7 @@ func TestBuilderTemplates_installerRefPinned(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "kdeps/kdeps/v9.9.9/install.sh")
 	assert.Contains(t, dockerfile, "-b /usr/local/bin v9.9.9")
@@ -282,7 +282,7 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// We can't easily test the private generateEntrypoint function directly,
 			// but we can test that GenerateDockerfile includes entrypoint-related content
-			dockerfile, err := builder.GenerateDockerfile(tt.workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), tt.workflow)
 			require.NoError(t, err)
 
 			for _, expected := range tt.contains {
@@ -339,7 +339,7 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dockerfile, err := builder.GenerateDockerfile(tt.workflow)
+			dockerfile, err := builder.GenerateDockerfile(t.Context(), tt.workflow)
 			require.NoError(t, err)
 
 			for _, expected := range tt.contains {
@@ -361,7 +361,7 @@ func TestGenerateDockerfile_LlamafilePreBakeAndDedupe(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	assert.Contains(t, dockerfile, "KDEPS_MODELS_DIR=/app/.kdeps/models")

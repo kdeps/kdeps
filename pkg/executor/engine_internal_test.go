@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -67,7 +68,7 @@ func TestEngine_Execute_PanicRecovery(t *testing.T) {
 
 func TestEngine_Execute_ContextCreationFailure(t *testing.T) {
 	e := covTestEngine()
-	e.newExecutionContext = func(_ *domain.Workflow, _ string) (*ExecutionContext, error) {
+	e.newExecutionContext = func(_ context.Context, _ *domain.Workflow, _ string) (*ExecutionContext, error) {
 		return nil, errors.New("ctx create failed")
 	}
 	_, err := e.Execute(
@@ -83,7 +84,7 @@ func TestEngine_Execute_ContextCreationFailure(t *testing.T) {
 
 func TestEngine_Execute_InitEvaluatorFailure(t *testing.T) {
 	e := covTestEngine()
-	e.newExecutionContext = func(wf *domain.Workflow, _ string) (*ExecutionContext, error) {
+	e.newExecutionContext = func(_ context.Context, wf *domain.Workflow, _ string) (*ExecutionContext, error) {
 		return &ExecutionContext{Workflow: wf}, nil
 	}
 	_, err := e.Execute(covWorkflow(), nil)

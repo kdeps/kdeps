@@ -36,9 +36,7 @@ func TestNewAdapter(t *testing.T) {
 
 func TestAdapter_Execute_ValidConfig(t *testing.T) {
 	adapter := httpexecutor.NewAdapter()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -54,9 +52,7 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 	adapter := httpexecutor.NewAdapter()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 
 	result, err := adapter.Execute(ctx, "invalid config")

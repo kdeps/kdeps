@@ -159,7 +159,7 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		maxRounds = effectiveRounds(eventJudgeMaxRounds)
 	}
 
-	judgeLoop := New(l.engine, l.workflow, judgeRegistry, Config{
+	judgeLoop := New(ctx, l.engine, l.workflow, judgeRegistry, Config{
 		Model:         l.config.Model,
 		Backend:       l.config.Backend,
 		BaseURL:       l.config.BaseURL,

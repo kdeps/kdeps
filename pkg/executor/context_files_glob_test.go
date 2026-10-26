@@ -32,7 +32,7 @@ import (
 )
 
 func TestExecutionContext_File_GlobPattern_SelectorFirst(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -55,7 +55,7 @@ func TestExecutionContext_File_GlobPattern_SelectorFirst(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_SelectorLast(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -78,7 +78,7 @@ func TestExecutionContext_File_GlobPattern_SelectorLast(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_SelectorCount(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -100,7 +100,7 @@ func TestExecutionContext_File_GlobPattern_SelectorCount(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_SelectorAll(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -123,7 +123,7 @@ func TestExecutionContext_File_GlobPattern_SelectorAll(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_MimeFilter(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -152,7 +152,7 @@ func TestExecutionContext_File_GlobPattern_MimeFilter(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_MimeFilterWildcard(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -181,7 +181,7 @@ func TestExecutionContext_File_GlobPattern_MimeFilterWildcard(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_MimeFilterWithSelector(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -208,7 +208,7 @@ func TestExecutionContext_File_GlobPattern_MimeFilterWithSelector(t *testing.T) 
 }
 
 func TestExecutionContext_File_GlobPattern_MimeFilterWithCount(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -233,7 +233,7 @@ func TestExecutionContext_File_GlobPattern_MimeFilterWithCount(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_NoMatches(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -246,7 +246,7 @@ func TestExecutionContext_File_GlobPattern_NoMatches(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_EmptyMatchesWithCount(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -261,7 +261,7 @@ func TestExecutionContext_File_GlobPattern_EmptyMatchesWithCount(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_EmptyMatchesWithAll(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -276,7 +276,7 @@ func TestExecutionContext_File_GlobPattern_EmptyMatchesWithAll(t *testing.T) {
 }
 
 func TestExecutionContext_File_GlobPattern_MimeFilterNoMatches(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()

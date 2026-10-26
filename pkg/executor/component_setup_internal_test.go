@@ -31,43 +31,43 @@ import (
 
 func TestDetectPackageManager_NoPackageManagerFound(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	name, checkFn, installFn := detectPackageManager()
+	name, checkFn, installFn := detectPackageManager(t.Context())
 	assert.Empty(t, name)
 	assert.Nil(t, checkFn)
 	assert.Nil(t, installFn)
 }
 
 func TestInstallOSPackages_NoPackages(t *testing.T) {
-	require.NoError(t, installOSPackages(nil))
-	require.NoError(t, installOSPackages([]string{}))
+	require.NoError(t, installOSPackages(t.Context(), nil))
+	require.NoError(t, installOSPackages(t.Context(), []string{}))
 }
 
 func TestInstallOSPackages_NoSupportedPackageManager(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	err := installOSPackages([]string{"curl", "git"})
+	err := installOSPackages(t.Context(), []string{"curl", "git"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no supported package manager found")
 }
 
 func TestRunShellCommand_NonexistentCommand(t *testing.T) {
-	err := runShellCommand("nonexistent_command_xyz_123")
+	err := runShellCommand(t.Context(), "nonexistent_command_xyz_123")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "command failed")
 }
 
 func TestRunShellCommand_BashShell(t *testing.T) {
 	t.Setenv("SHELL", "/bin/bash")
-	require.NoError(t, runShellCommand("echo hello"))
+	require.NoError(t, runShellCommand(t.Context(), "echo hello"))
 }
 
 func TestRunShellCommand_SimpleEcho(t *testing.T) {
 	t.Setenv("SHELL", "")
-	require.NoError(t, runShellCommand("echo hello"))
+	require.NoError(t, runShellCommand(t.Context(), "echo hello"))
 }
 
 func TestRunShellCommand_EmptyCommand(t *testing.T) {
 	// sh -c "" returns success (exit 0), so this does not error.
-	require.NoError(t, runShellCommand(""))
+	require.NoError(t, runShellCommand(t.Context(), ""))
 }
 
 func TestCollectPythonPackages_Dedup(t *testing.T) {
@@ -109,6 +109,7 @@ func TestRunComponentTeardown_NilCommands(t *testing.T) {
 func TestRunComponentTeardown_CommandsRun(t *testing.T) {
 	t.Helper()
 	e := &Engine{}
+	e.ctx = t.Context()
 	e.runComponentTeardown(&domain.Component{
 		Teardown: &domain.ComponentTeardown{Commands: []string{"echo teardown-test"}},
 	})
@@ -116,7 +117,7 @@ func TestRunComponentTeardown_CommandsRun(t *testing.T) {
 
 func TestRunComponentTeardown_CommandError(t *testing.T) {
 	t.Helper()
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	e.logger = slog.Default()
 	e.runComponentTeardown(&domain.Component{
 		Teardown: &domain.ComponentTeardown{Commands: []string{"nonexistent_cmd_xyz"}},
@@ -124,7 +125,7 @@ func TestRunComponentTeardown_CommandError(t *testing.T) {
 }
 
 func TestRunShellCommand_ExitCode(t *testing.T) {
-	err := runShellCommand("exit 42")
+	err := runShellCommand(t.Context(), "exit 42")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "command failed")
 }
@@ -138,7 +139,7 @@ func TestCommandExists_Present(t *testing.T) {
 }
 
 func TestRunComponentSetup_NilSetupNoPythonPkgs(t *testing.T) {
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	e.logger = slog.Default()
 	err := e.runComponentSetup(
 		&domain.Component{Metadata: domain.ComponentMetadata{Name: "test-comp"}},
@@ -148,26 +149,27 @@ func TestRunComponentSetup_NilSetupNoPythonPkgs(t *testing.T) {
 }
 
 func TestRunComponentSetup_NoPythonPkgsWithSetupCommands(t *testing.T) {
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	e.logger = slog.Default()
 	err := e.runComponentSetup(
 		&domain.Component{
 			Metadata: domain.ComponentMetadata{Name: "test-comp-setup"},
 			Setup:    &domain.ComponentSetup{Commands: []string{"echo setup-ran"}},
 		},
-		&ExecutionContext{},
+		&ExecutionContext{Ctx: t.Context()},
 	)
 	require.NoError(t, err)
 }
 
 func TestRunComponentSetup_CacheHit(t *testing.T) {
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	e.logger = slog.Default()
 	comp := &domain.Component{
 		Metadata: domain.ComponentMetadata{Name: "test-comp-cached"},
 		Setup:    &domain.ComponentSetup{Commands: []string{"echo setup-ran"}},
 	}
-	ctx := &ExecutionContext{}
+	ctx := new(ExecutionContext)
+	ctx.Ctx = t.Context()
 	require.NoError(t, e.runComponentSetup(comp, ctx))
 	require.NoError(t, e.runComponentSetup(comp, ctx))
 }
@@ -175,7 +177,7 @@ func TestRunComponentSetup_CacheHit(t *testing.T) {
 // Running a component never writes into its folder: no .env or README.md
 // appears unless `kdeps component update` is run.
 func TestRunComponentSetup_WritesNothingIntoComponentDir(t *testing.T) {
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	e.logger = slog.Default()
 	tmpDir := t.TempDir()
 	comp := &domain.Component{
@@ -183,18 +185,20 @@ func TestRunComponentSetup_WritesNothingIntoComponentDir(t *testing.T) {
 		Dir:      tmpDir,
 		Setup:    &domain.ComponentSetup{Commands: []string{"true"}},
 	}
-	require.NoError(t, e.runComponentSetup(comp, &ExecutionContext{}))
+	ctx := new(ExecutionContext)
+	ctx.Ctx = t.Context()
+	require.NoError(t, e.runComponentSetup(comp, ctx))
 	entries, err := os.ReadDir(tmpDir)
 	require.NoError(t, err)
 	assert.Empty(t, entries)
 }
 
 func TestRunCommand_Simple(t *testing.T) {
-	require.NoError(t, runCommand("echo", []string{"hello"}))
+	require.NoError(t, runCommand(t.Context(), "echo", []string{"hello"}))
 }
 
 func TestRunCommand_Error(t *testing.T) {
-	err := runCommand("nonexistent_cmd_xyz_123", []string{})
+	err := runCommand(t.Context(), "nonexistent_cmd_xyz_123", []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed")
 }
@@ -210,8 +214,9 @@ func TestInstallComponentPythonPackages_Success(t *testing.T) {
 		return &pythonpkg.Manager{BaseDir: baseDir}
 	}
 	t.Setenv("HOME", t.TempDir())
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	ctx := &ExecutionContext{
+		Ctx: t.Context(),
 		Workflow: &domain.Workflow{
 			Metadata: domain.WorkflowMetadata{Name: "test"},
 			Settings: domain.WorkflowSettings{
@@ -236,8 +241,9 @@ func TestInstallComponentPythonPackages_DefaultVersion(t *testing.T) {
 		return &pythonpkg.Manager{BaseDir: baseDir}
 	}
 	t.Setenv("HOME", t.TempDir())
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	ctx := &ExecutionContext{
+		Ctx: t.Context(),
 		Workflow: &domain.Workflow{
 			Metadata: domain.WorkflowMetadata{Name: "test"},
 			Settings: domain.WorkflowSettings{
@@ -263,8 +269,9 @@ func TestInstallComponentPythonPackages_WithRequirements(t *testing.T) {
 	reqPath := filepath.Join(tmpDir, "requirements.txt")
 	require.NoError(t, os.WriteFile(reqPath, []byte("click\n"), 0644))
 
-	e := &Engine{}
+	e := &Engine{ctx: t.Context()}
 	ctx := &ExecutionContext{
+		Ctx: t.Context(),
 		Workflow: &domain.Workflow{
 			Metadata: domain.WorkflowMetadata{Name: "test"},
 			Settings: domain.WorkflowSettings{
@@ -290,7 +297,7 @@ func TestInstallComponentPackages_PythonPackages(t *testing.T) {
 	}
 	t.Setenv("HOME", t.TempDir())
 
-	e := &Engine{logger: slog.Default()}
+	e := &Engine{ctx: t.Context(), logger: slog.Default()}
 	comp := &domain.Component{
 		Metadata: domain.ComponentMetadata{Name: "test-comp-py"},
 	}
@@ -298,6 +305,7 @@ func TestInstallComponentPackages_PythonPackages(t *testing.T) {
 		PythonPackages: []string{"some-pkg"},
 	}
 	ctx := &ExecutionContext{
+		Ctx: t.Context(),
 		Workflow: &domain.Workflow{
 			Settings: domain.WorkflowSettings{
 				AgentSettings: domain.AgentSettings{
@@ -331,6 +339,7 @@ func TestInstallComponentPackages_OSPackages(t *testing.T) {
 		OsPackages: []string{"some-os-pkg"},
 	}
 	ctx := &ExecutionContext{
+		Ctx: t.Context(),
 		Workflow: &domain.Workflow{
 			Settings: domain.WorkflowSettings{
 				AgentSettings: domain.AgentSettings{
@@ -385,7 +394,7 @@ func TestInstallOSPackages_AllInstalled(t *testing.T) {
 		"exit 1\n"), 0755))
 	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+"/usr/bin:/bin")
 
-	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+	require.NoError(t, installOSPackages(t.Context(), []string{"some-pkg"}))
 }
 
 func TestInstallOSPackages_WithAPK(t *testing.T) {
@@ -403,7 +412,7 @@ func TestInstallOSPackages_WithAPK(t *testing.T) {
 	require.NoError(t, os.WriteFile(apkBin, []byte(content), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+	require.NoError(t, installOSPackages(t.Context(), []string{"some-pkg"}))
 }
 
 func TestInstallOSPackages_WithAptGet(t *testing.T) {
@@ -427,7 +436,7 @@ func TestInstallOSPackages_WithAptGet(t *testing.T) {
 		[]byte(aptGetContent), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+	require.NoError(t, installOSPackages(t.Context(), []string{"some-pkg"}))
 }
 
 // ---------------------------------------------------------------------------
@@ -446,7 +455,7 @@ func TestDetectPackageManager_APK(t *testing.T) {
 		[]byte("#!/bin/sh\nexit 0\n"), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	name, checkFn, installFn := detectPackageManager()
+	name, checkFn, installFn := detectPackageManager(t.Context())
 	assert.Equal(t, "apk", name)
 	assert.NotNil(t, checkFn)
 	assert.NotNil(t, installFn)
@@ -464,7 +473,7 @@ func TestDetectPackageManager_AptGet(t *testing.T) {
 		[]byte("#!/bin/sh\nexit 0\n"), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	name, checkFn, installFn := detectPackageManager()
+	name, checkFn, installFn := detectPackageManager(t.Context())
 	assert.Equal(t, "apt-get", name)
 	assert.NotNil(t, checkFn)
 	assert.NotNil(t, installFn)
@@ -486,7 +495,7 @@ func TestDetectPackageManager_Brew(t *testing.T) {
 		[]byte("#!/bin/sh\nexit 0\n"), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	name, checkFn, installFn := detectPackageManager()
+	name, checkFn, installFn := detectPackageManager(t.Context())
 	assert.Equal(t, "brew", name)
 	assert.NotNil(t, checkFn)
 	assert.NotNil(t, installFn)
@@ -512,7 +521,7 @@ func TestInstallOSPackages_WithBrewOverride(t *testing.T) {
 		[]byte(brewContent), 0755))
 	t.Setenv("PATH", tmpDir)
 
-	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+	require.NoError(t, installOSPackages(t.Context(), []string{"some-pkg"}))
 }
 
 // setup.provides: when every listed program is on PATH, the OS package
@@ -534,7 +543,9 @@ func TestInstallComponentPackages_ProvidesSkipsInstall(t *testing.T) {
 
 	e := &Engine{logger: slog.Default()}
 	comp := &domain.Component{Metadata: domain.ComponentMetadata{Name: "provides"}}
-	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+	ctx := new(ExecutionContext)
+	ctx.Ctx = t.Context()
+	ctx.Workflow = new(domain.Workflow)
 
 	e.installComponentPackages(comp, &domain.ComponentSetup{
 		OsPackages: []string{"fake-ocr-pkg"}, Provides: []string{"fake-ocr-tool"},

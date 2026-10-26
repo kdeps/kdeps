@@ -15,6 +15,7 @@
 package executor_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ import (
 )
 
 func TestInlineAPIResponse_Integration(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",

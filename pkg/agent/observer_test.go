@@ -167,7 +167,7 @@ func TestObserver_ToolStartEndAndNarration(t *testing.T) {
 		Execute:    func(map[string]any) (string, error) { return "", errors.New("kaboom") },
 	})
 	var evs []LoopEvent
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model:          "test",
 		Streamer:       &mockStreamer{},
 		Observer:       func(e LoopEvent) { evs = append(evs, e) },
@@ -205,7 +205,7 @@ func TestObserver_ToolArgsAreUnescaped(t *testing.T) {
 		Execute:    func(map[string]any) (string, error) { return "ok", nil },
 	})
 	var evs []LoopEvent
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model:          "test",
 		Streamer:       &mockStreamer{},
 		Observer:       func(e LoopEvent) { evs = append(evs, e) },

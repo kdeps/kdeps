@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"testing"
@@ -31,7 +32,7 @@ import (
 
 func newTestEngine() *Engine {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	e := NewEngine(logger)
+	e := NewEngine(context.Background(), logger)
 	if e == nil {
 		panic("NewEngine returned nil")
 	}

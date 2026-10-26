@@ -84,7 +84,7 @@ func fileWorkflow() *domain.Workflow {
 
 // fileEngine returns a plain executor engine with a logger.
 func fileEngine() *executor.Engine {
-	return executor.NewEngine(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	return executor.NewEngine(context.Background(), slog.New(slog.NewTextHandler(os.Stderr, nil)))
 }
 
 // writeTempFile writes content into a temp file and returns its path.
@@ -511,7 +511,7 @@ func TestE2E_FileInput_RequestBodyPopulated(t *testing.T) {
 		}
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetAfterEvaluatorInitForTesting(captureCallback)
 
 	origStdin := os.Stdin

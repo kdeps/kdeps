@@ -118,6 +118,7 @@ func TestPrintFindings_OutsideVault(t *testing.T) {
 
 func TestKnowledgeBuild_Extract(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
 	t.Setenv("OLLAMA_HOST", "http://127.0.0.1:1")
 	vault := t.TempDir()

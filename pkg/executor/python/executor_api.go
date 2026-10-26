@@ -19,6 +19,7 @@
 package python
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -32,6 +33,7 @@ import (
 // the python component: component inputs arrive resolved, and a call route has
 // no workflow ExecutionContext to read settings or expressions from.
 func (e *Executor) Run(
+	ctx context.Context,
 	config *domain.PythonConfig,
 	pythonVersion string,
 	packages []string,
@@ -44,7 +46,7 @@ func (e *Executor) Run(
 		pythonVersion = "3.12"
 	}
 
-	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, "", config.VenvName)
+	venvPath, err := e.uvManager.EnsureVenv(ctx, pythonVersion, packages, "", config.VenvName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure venv: %w", err)
 	}
@@ -65,6 +67,7 @@ func (e *Executor) Run(
 	}
 
 	return e.executeScript(
+		ctx,
 		pythonPath,
 		venvPath,
 		workDir,

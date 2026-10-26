@@ -208,7 +208,7 @@ func runKnowledgeExtract(
 		model, backend = kc.Extract.Model, kc.Extract.Backend
 	}
 	if model == "" {
-		model, backend = agent.ResolveModelAndBackend("", "")
+		model, backend = agent.ResolveModelAndBackend(cmd.Context(), "", "")
 	}
 	if model == "" {
 		return errors.New("no model for --extract: pass --model or set knowledge.extract.model")

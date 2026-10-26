@@ -19,6 +19,7 @@
 package docker
 
 import (
+	"context"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -33,7 +34,7 @@ const (
 )
 
 // generateDockerfile generates a Dockerfile using templates.
-func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) {
+func (b *Builder) generateDockerfile(ctx context.Context, workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateDockerfile")
 	if err := b.applyImageProfile(workflow); err != nil {
 		return "", err
@@ -42,7 +43,7 @@ func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	return b.renderWorkflowTemplate(tmplDockerfile, templateStr, workflow)
+	return b.renderWorkflowTemplate(ctx, tmplDockerfile, templateStr, workflow)
 }
 
 func resolveDockerfileTemplate(baseOS string) (string, error) {
@@ -60,19 +61,20 @@ func resolveDockerfileTemplate(baseOS string) (string, error) {
 }
 
 // generateEntrypoint generates the entrypoint script.
-func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) {
+func (b *Builder) generateEntrypoint(ctx context.Context, workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateEntrypoint")
-	return b.renderHookedTemplate(GenerateEntrypointHook, tmplEntrypoint, entrypointTemplate, workflow)
+	return b.renderHookedTemplate(ctx, GenerateEntrypointHook, tmplEntrypoint, entrypointTemplate, workflow)
 }
 
 // generateSupervisord generates the supervisord config.
-func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error) {
+func (b *Builder) generateSupervisord(ctx context.Context, workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateSupervisord")
-	return b.renderHookedTemplate(GenerateSupervisordHook, tmplSupervisord, supervisordTemplate, workflow)
+	return b.renderHookedTemplate(ctx, GenerateSupervisordHook, tmplSupervisord, supervisordTemplate, workflow)
 }
 
 // renderHookedTemplate runs the optional test hook before rendering a template.
 func (b *Builder) renderHookedTemplate(
+	ctx context.Context,
 	hook func() error,
 	name, file string,
 	workflow *domain.Workflow,
@@ -86,11 +88,11 @@ func (b *Builder) renderHookedTemplate(
 	if err != nil {
 		return "", err
 	}
-	return b.renderWorkflowTemplate(name, templateStr, workflow)
+	return b.renderWorkflowTemplate(ctx, name, templateStr, workflow)
 }
 
-func (b *Builder) renderWorkflowTemplate(name, templateStr string, workflow *domain.Workflow) (string, error) {
-	data, err := b.buildTemplateData(workflow)
+func (b *Builder) renderWorkflowTemplate(ctx context.Context, name, templateStr string, workflow *domain.Workflow) (string, error) {
+	data, err := b.buildTemplateData(ctx, workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to build template data: %w", err)
 	}

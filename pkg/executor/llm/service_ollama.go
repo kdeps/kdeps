@@ -50,14 +50,14 @@ func (s *ModelService) downloadOllamaModel(ctx context.Context, model string) er
 }
 
 // serveOllamaModel starts Ollama server with the specified model.
-func (s *ModelService) serveOllamaModel(model string, host string, port int) error {
+func (s *ModelService) serveOllamaModel(ctx context.Context, model string, host string, port int) error {
 	kdeps_debug.Log("enter: serveOllamaModel")
 	s.logger.Info("starting Ollama server", "model", model, "host", host, "port", port)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	testCmd := execCommandContext(ctx, "ollama", "list")
+	testCmd := execCommandContext(probeCtx, "ollama", "list")
 	if err := testCmd.Run(); err == nil {
 		s.logger.Info("Ollama server already running")
 		return nil
@@ -69,7 +69,7 @@ func (s *ModelService) serveOllamaModel(model string, host string, port int) err
 		}
 	}
 
-	cmd := execCommandContext(context.Background(), "ollama", "serve")
+	cmd := execCommandContext(context.WithoutCancel(ctx), "ollama", "serve")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -91,8 +91,8 @@ type OllamaModelEntry struct {
 // ListOllamaModels returns the names of models installed in the local Ollama
 // instance. Runs `ollama list` and parses the output. Returns nil if Ollama
 // is not installed or not running.
-func ListOllamaModels() []OllamaModelEntry {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func ListOllamaModels(parent context.Context) []OllamaModelEntry {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 
 	cmd := execCommandContext(ctx, "ollama", "list")

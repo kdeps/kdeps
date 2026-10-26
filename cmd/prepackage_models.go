@@ -52,7 +52,7 @@ const bundledModelMode = 0o755
 // cannot be resolved are skipped with a warning so cloud-backend workflows
 // keep working.
 // Returns the augmented archive path and a cleanup function.
-func augmentPackageWithModels(packageFile string) (string, func(), error) {
+func augmentPackageWithModels(ctx context.Context, packageFile string) (string, func(), error) {
 	kdeps_debug.Log("enter: augmentPackageWithModels")
 
 	tempDir, err := ExtractPackage(packageFile)
@@ -66,12 +66,12 @@ func augmentPackageWithModels(packageFile string) (string, func(), error) {
 		return "", nil, fmt.Errorf("no chat models found in %s; nothing to bundle", packageFile)
 	}
 
-	resolved, err := resolveModelsToFiles(models)
+	resolved, err := resolveModelsToFiles(ctx, models)
 	if err != nil {
 		return "", nil, err
 	}
 
-	if binPath := bundleLlamaServerBinary(resolved); binPath != "" {
+	if binPath := bundleLlamaServerBinary(ctx, resolved); binPath != "" {
 		resolved[llamaServerBundleKey()] = binPath
 	}
 
@@ -125,20 +125,20 @@ func collectPackageChatModels(dir string) []string {
 // (downloading registry aliases and URLs into the cache when missing).
 // Resolution order: llamafile registry first, then GGUF registry. Unresolvable
 // models are skipped with a warning. Returns archive basename -> local path.
-func resolveModelsToFiles(models []string) (map[string]string, error) {
+func resolveModelsToFiles(ctx context.Context, models []string) (map[string]string, error) {
 	llamaMgr, llamaErr := llm.NewLlamafileManager(nil)
 	ggufMgr, ggufErr := llm.NewGGUFManager(nil)
 
 	resolved := make(map[string]string, len(models))
 	for _, model := range models {
 		if llamaErr == nil {
-			if path, err := llamaMgr.Resolve(context.Background(), model); err == nil {
+			if path, err := llamaMgr.Resolve(ctx, model); err == nil {
 				resolved[filepath.Base(path)] = path
 				continue
 			}
 		}
 		if ggufErr == nil {
-			if path, err := ggufMgr.Resolve(context.Background(), model); err == nil {
+			if path, err := ggufMgr.Resolve(ctx, model); err == nil {
 				resolved[filepath.Base(path)] = path
 				continue
 			}
@@ -287,10 +287,10 @@ var ensureLlamaServerBinaryFn = llm.EnsureLlamaServerBinary
 
 // bundleLlamaServerBinary returns the host llama-server binary path when any
 // GGUF model is present in resolved, otherwise returns "".
-func bundleLlamaServerBinary(resolved map[string]string) string {
+func bundleLlamaServerBinary(ctx context.Context, resolved map[string]string) string {
 	for name := range resolved {
 		if strings.HasSuffix(strings.ToLower(name), ".gguf") {
-			binPath := ensureLlamaServerBinaryFn()
+			binPath := ensureLlamaServerBinaryFn(ctx)
 			if binPath != "" {
 				fmt.Fprintf(os.Stdout, "Bundling llama-server: %s\n", binPath)
 			} else {

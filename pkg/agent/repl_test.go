@@ -3328,7 +3328,7 @@ func TestRunWithThinking_StreamingPath(t *testing.T) {
 func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	// Covers lines 140-147: the SetOnAutoCompact closure set by NewREPL fires
 	// when auto-compaction triggers during RunStreaming.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ any) (any, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compact summary", nil
@@ -3339,7 +3339,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 		responses: []mockStreamResponse{{content: "response after compact"}},
 	}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
@@ -5261,7 +5261,7 @@ func TestCRLFWriter_ReturnLenOfInput(t *testing.T) {
 }
 
 func makeTestLoopWithEngine(result any) *Loop {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
 		return result, nil
 	})
@@ -5450,7 +5450,7 @@ func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 
 func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	orig := listLocalServersFunc
-	listLocalServersFunc = func() []llm.LocalServerEntry {
+	listLocalServersFunc = func(_ context.Context) []llm.LocalServerEntry {
 		return []llm.LocalServerEntry{
 			{
 				Model:   "qwen2-1b",

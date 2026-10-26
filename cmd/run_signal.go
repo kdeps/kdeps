@@ -75,7 +75,7 @@ func runUntilSignalOrError(cfg signalServeConfig) error {
 		if cfg.shutdown == nil {
 			return
 		}
-		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		stopCtx, cancel := context.WithTimeout(processRoot(), gracefulShutdownTimeout)
 		defer cancel()
 		if shutdownErr := cfg.shutdown(stopCtx); shutdownErr != nil && logErrors {
 			kdepslog.Error("error during shutdown", "error", shutdownErr)

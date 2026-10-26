@@ -56,7 +56,7 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 
 	repl := agent.NewREPL(
 		context.Background(),
-		agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}),
+		agent.New(t.Context(), nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}),
 	)
 	repl.SetModelNames([]string{
 		"llama3.2:1b-q4",

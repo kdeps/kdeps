@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -50,7 +51,7 @@ func makeComponentTestWorkflow(
 }
 
 func TestExecuteComponentCall_NilConfig(t *testing.T) {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	wf := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -67,7 +68,7 @@ func TestExecuteComponentCall_NilConfig(t *testing.T) {
 }
 
 func TestExecuteComponentCall_UnknownComponent(t *testing.T) {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	wf := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -102,7 +103,7 @@ func TestExecuteComponentCall_MissingRequiredInput(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("greeter", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name")
@@ -126,8 +127,10 @@ func TestExecuteComponentCall_RequiredInputWithDefault_NoError(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("greeter", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(
 	// Should not fail (required + default = ok)
+	), slog.Default())
+
 	_, err := eng.Execute(wf, nil)
 	assert.NoError(t, err)
 }
@@ -158,7 +161,7 @@ func TestExecuteComponentCall_InjectsCallerScopedKeys(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("echo", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	exec := executorExec.NewAdapter()
 	eng.GetRegistryForTesting().SetExecExecutor(exec)
 	_, err := eng.Execute(wf, nil)
@@ -179,7 +182,7 @@ func TestExecuteComponentCall_NoResources_ReturnsStatus(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("empty", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	result, err := eng.Execute(wf, nil)
 	require.NoError(t, err)
 	m, ok := result.(map[string]interface{})
@@ -206,13 +209,13 @@ func TestExecuteComponentCall_UnknownInputKey_NoError(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("simple", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	assert.NoError(t, err)
 }
 
 func TestExecuteComponentCall_EmptyName_Error(t *testing.T) {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	wf := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -264,7 +267,7 @@ func TestExecuteComponentCall_InlineComponent_Before(t *testing.T) {
 		Exec: &domain.ExecConfig{Command: "echo done"},
 	}
 	wf := makeComponentTestWorkflow("prep", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	exec := executorExec.NewAdapter()
 	eng.GetRegistryForTesting().SetExecExecutor(exec)
 	_, err := eng.Execute(wf, nil)
@@ -279,7 +282,7 @@ func TestExecuteComponentCall_AutoEnv_ScopedVarTakesPriority(t *testing.T) {
 	t.Setenv("ECHO_API_KEY", "plain_key")
 	t.Setenv("SCRAPER_ECHO_API_KEY", "scoped_key")
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Simulate being inside "scraper" component execution.
@@ -296,7 +299,7 @@ func TestExecuteComponentCall_AutoEnv_FallbackToPlain(t *testing.T) {
 	t.Setenv("ECHO_API_KEY", "plain_key")
 	os.Unsetenv("SCRAPER_ECHO_API_KEY") //nolint:errcheck // test cleanup
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.CurrentComponent = "scraper"
@@ -329,7 +332,7 @@ func TestExecuteComponentCall_AutoEnv_RestoredAfterExecution(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.GetRegistryForTesting().SetExecExecutor(executorExec.NewAdapter())
 	_, execErr := eng.Execute(wf, nil)
 	require.NoError(t, execErr)
@@ -349,7 +352,7 @@ func TestExecuteComponentCall_VersionMismatch(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version mismatch")
@@ -371,7 +374,7 @@ func TestExecuteComponentCall_VersionMatch(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.NoError(t, err)
 }
@@ -389,7 +392,7 @@ func TestExecuteComponentCall_VersionNotPinned(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.NoError(t, err)
 }
@@ -410,7 +413,7 @@ func TestExecuteComponentCall_VersionPinnedNoComponentVersion(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.NoError(t, err)
 }
@@ -442,7 +445,7 @@ func TestExecuteComponentCall_DotEnvMissingAndResourceFailure(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("missingfail", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	exec := executorExec.NewAdapter()
 	eng.GetRegistryForTesting().SetExecExecutor(exec)
 	_, err := eng.Execute(wf, nil)
@@ -472,7 +475,7 @@ func TestExecuteComponentCall_DotEnvSuccessAndSetupFailure(t *testing.T) {
 		},
 	}
 	wf := makeComponentTestWorkflow("setuperr", comp, callerRes)
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	_, err = eng.Execute(wf, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "setuperr")
@@ -506,7 +509,7 @@ func TestExecuteComponentCall_ResourcesHonorSkip(t *testing.T) {
 			ActionID:  "caller",
 			Component: &domain.ComponentCallConfig{Name: "pick", With: map[string]interface{}{"mode": mode}},
 		}
-		eng := executor.NewEngine(slog.Default())
+		eng := executor.NewEngine(context.Background(), slog.Default())
 		eng.GetRegistryForTesting().SetExecExecutor(executorExec.NewAdapter())
 		result, err := eng.Execute(makeComponentTestWorkflow("pick", comp, callerRes), nil)
 		require.NoError(t, err, mode)

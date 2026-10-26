@@ -81,30 +81,30 @@ func loadConfigDefaults(t *testing.T, yamlContent string) {
 }
 
 // newExecEngine creates an engine with the exec (and supporting) executors registered.
-func newExecEngine() *executor.Engine {
-	engine := executor.NewEngine(slog.Default())
+func newExecEngine(t *testing.T) *executor.Engine {
+	engine := executor.NewEngine(t.Context(), slog.Default())
 	registry := executor.NewRegistry()
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetLLMExecutor(executorLLM.NewAdapter("http://localhost:11434"))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), "http://localhost:11434"))
 	engine.SetRegistry(registry)
 	return engine
 }
 
 // newHTTPEngine creates an engine with the http (and supporting) executors registered.
-func newHTTPEngine() *executor.Engine {
-	return newExecEngine()
+func newHTTPEngine(t *testing.T) *executor.Engine {
+	return newExecEngine(t)
 }
 
 // newLLMEngine creates an engine with the LLM executor pointing to ollamaURL.
-func newLLMEngine(ollamaURL string) *executor.Engine {
-	engine := executor.NewEngine(slog.Default())
+func newLLMEngine(t *testing.T, ollamaURL string) *executor.Engine {
+	engine := executor.NewEngine(t.Context(), slog.Default())
 	registry := executor.NewRegistry()
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), ollamaURL))
 	engine.SetRegistry(registry)
 	return engine
 }
@@ -142,7 +142,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newExecEngine().Execute(workflow, nil)
+	result, err := newExecEngine(t).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -177,7 +177,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newExecEngine().Execute(workflow, nil)
+	result, err := newExecEngine(t).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -225,7 +225,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newHTTPEngine().Execute(workflow, nil)
+	result, err := newHTTPEngine(t).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -270,7 +270,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newHTTPEngine().Execute(workflow, nil)
+	result, err := newHTTPEngine(t).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -326,7 +326,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newLLMEngine(server.URL).Execute(workflow, nil)
+	result, err := newLLMEngine(t, server.URL).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -379,7 +379,7 @@ resource_defaults:
 		},
 	}
 
-	result, err := newLLMEngine(server.URL).Execute(workflow, nil)
+	result, err := newLLMEngine(t, server.URL).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -459,7 +459,7 @@ resource_defaults:
 			},
 		},
 	}
-	result, err := newExecEngine().Execute(workflow, nil)
+	result, err := newExecEngine(t).Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }

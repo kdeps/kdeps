@@ -31,7 +31,7 @@ func newTestCtx(t *testing.T) *executor.ExecutionContext {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test-wf", Version: "1.0"}}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	ctx.API = &domain.UnifiedAPI{
 		Get:             ctx.Get,

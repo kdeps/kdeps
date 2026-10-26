@@ -114,7 +114,7 @@ func TestRunStreaming_ToolBudgetEventBlocksTheNextDistinctCall(t *testing.T) {
 		{toolCalls: []domain.StreamedToolCall{{ID: "2", Name: "counted", Arguments: `{"n":2}`}}},
 		{content: "done"},
 	}}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{Model: "test", Streamer: ms})
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{Model: "test", Streamer: ms})
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)

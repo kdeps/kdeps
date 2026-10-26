@@ -36,5 +36,5 @@ func EmbeddingOps(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, toolEmbedding); err != nil {
 		return "", err
 	}
-	return RunEmbedding(nil, stringArg(args, argOperation), args)
+	return RunEmbedding(ctx, nil, stringArg(args, argOperation), args)
 }

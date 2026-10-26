@@ -78,7 +78,7 @@ func TestEnsureVenv_InstallsPackagesWithMockedUV(t *testing.T) {
 		return nil
 	}
 	m := NewManager(t.TempDir())
-	venvPath, err := m.EnsureVenv("3.12", []string{"pkg-a"}, "", "")
+	venvPath, err := m.EnsureVenv(t.Context(), "3.12", []string{"pkg-a"}, "", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, venvPath)
 }
@@ -100,7 +100,7 @@ func TestEnsureVenv_InstallsPackagesAndRequirementsWithMockedUV(t *testing.T) {
 	m := NewManager(t.TempDir())
 	req := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(req, []byte("pkg-b\n"), 0644))
-	venvPath, err := m.EnsureVenv("3.12", []string{"pkg-a"}, req, "")
+	venvPath, err := m.EnsureVenv(t.Context(), "3.12", []string{"pkg-a"}, req, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, venvPath)
 }
@@ -120,7 +120,7 @@ func TestEnsureVenv_InstallPackagesError(t *testing.T) {
 		return errors.New("pip install failed")
 	}
 	m := NewManager(t.TempDir())
-	_, err := m.EnsureVenv("3.12", []string{"pkg-a"}, "", "")
+	_, err := m.EnsureVenv(t.Context(), "3.12", []string{"pkg-a"}, "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to install packages")
 }
@@ -142,7 +142,7 @@ func TestEnsureVenv_InstallRequirementsError(t *testing.T) {
 	m := NewManager(t.TempDir())
 	req := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(req, []byte("pkg-a\n"), 0644))
-	_, err := m.EnsureVenv("3.12", nil, req, "")
+	_, err := m.EnsureVenv(t.Context(), "3.12", nil, req, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to install requirements")
 }
@@ -164,7 +164,7 @@ func TestEnsureVenv_InstallsRequirementsWithMockedUV(t *testing.T) {
 	m := NewManager(t.TempDir())
 	req := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(req, []byte("pkg-a\n"), 0644))
-	venvPath, err := m.EnsureVenv("3.12", nil, req, "")
+	venvPath, err := m.EnsureVenv(t.Context(), "3.12", nil, req, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, venvPath)
 }

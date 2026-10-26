@@ -80,7 +80,7 @@ func TestGenerateDockerfile_ApplyImageProfileError(t *testing.T) {
 			AgentSettings: domain.AgentSettings{BaseOS: "fedora"},
 		},
 	}
-	_, err := b.generateDockerfile(wf)
+	_, err := b.generateDockerfile(t.Context(), wf)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid baseOS")
 }

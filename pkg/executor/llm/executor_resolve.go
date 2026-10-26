@@ -39,7 +39,11 @@ func (e *Executor) applyRouterModel(
 	return modelStr, fallbackRoutes, nil
 }
 
-func (e *Executor) ensureModelAvailable(resolvedConfig *domain.ChatConfig, modelStr string) {
+func (e *Executor) ensureModelAvailable(
+	ctx context.Context,
+	resolvedConfig *domain.ChatConfig,
+	modelStr string,
+) {
 	if e.modelManager == nil {
 		return
 	}
@@ -49,7 +53,7 @@ func (e *Executor) ensureModelAvailable(resolvedConfig *domain.ChatConfig, model
 	if ensureModelForTest != nil {
 		ensureErr = ensureModelForTest(e.modelManager, &configCopy)
 	} else {
-		ensureErr = e.modelManager.EnsureModel(&configCopy)
+		ensureErr = e.modelManager.EnsureModel(ctx, &configCopy)
 	}
 	if ensureErr != nil {
 		_ = ensureErr

@@ -33,34 +33,31 @@ type ModelManager struct {
 	service     ModelServiceInterface
 	logger      *slog.Logger
 	offlineMode bool
-	ctx         context.Context
 }
 
 // NewModelManager creates a new model manager.
-func NewModelManager(logger *slog.Logger) *ModelManager {
+func NewModelManager(ctx context.Context, logger *slog.Logger) *ModelManager {
 	kdeps_debug.Log("enter: NewModelManager")
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ModelManager{
-		service:     NewModelService(logger),
+		service:     NewModelService(ctx, logger),
 		logger:      logger,
 		offlineMode: false,
-		ctx:         context.Background(),
 	}
 }
 
 // NewModelManagerWithOfflineMode creates a new model manager with offline mode setting.
-func NewModelManagerWithOfflineMode(logger *slog.Logger, offlineMode bool) *ModelManager {
+func NewModelManagerWithOfflineMode(ctx context.Context, logger *slog.Logger, offlineMode bool) *ModelManager {
 	kdeps_debug.Log("enter: NewModelManagerWithOfflineMode")
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ModelManager{
-		service:     NewModelService(logger),
+		service:     NewModelService(ctx, logger),
 		logger:      logger,
 		offlineMode: offlineMode,
-		ctx:         context.Background(),
 	}
 }
 
@@ -70,7 +67,6 @@ func NewModelManagerFromService(service *ModelService) *ModelManager {
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
-		ctx:     context.Background(),
 	}
 }
 
@@ -81,7 +77,6 @@ func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelMa
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
-		ctx:     context.Background(),
 	}
 }
 
@@ -93,8 +88,7 @@ func (m *ModelManager) SetOfflineMode(offline bool) {
 
 // EnsureModel ensures a model is downloaded and served for the given chat configuration.
 // This method is called automatically before LLM execution if model manager is configured.
-func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
-	ctx := m.ctx
+func (m *ModelManager) EnsureModel(ctx context.Context, config *domain.ChatConfig) error {
 	kdeps_debug.Log("enter: EnsureModel")
 	if config == nil || config.Model == "" {
 		return nil

@@ -177,12 +177,12 @@ func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "summary", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test-gguf",
 		Backend:            executorLLM.BackendGGUF,
 		CompactTokenBudget: 1,
@@ -200,12 +200,12 @@ func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 
 func TestCompactWithLLM_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "summary", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "totally-custom-unlisted-model",
 		Backend:            "openai",
 		CompactTokenBudget: 1,
@@ -225,12 +225,12 @@ func TestCompactWithLLM_MaxTokens_UnknownCloudModel(t *testing.T) {
 // implicit (and apparently much smaller) M365 proxy default.
 func TestCompactWithLLM_MaxTokens_M365Backend(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "claude-sonnet",
 		Backend:            backendM365,
 		CompactTokenBudget: 1,
@@ -253,12 +253,12 @@ func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:   "test-gguf",
 		Backend: executorLLM.BackendGGUF,
 	})
@@ -275,12 +275,12 @@ func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
 
 func TestSummarizeBranch_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:   "totally-custom-unlisted-model",
 		Backend: "openai",
 	})
@@ -300,7 +300,7 @@ func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
@@ -317,7 +317,7 @@ func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
 
 func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
@@ -333,7 +333,7 @@ func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
 
 func TestRefinePrompt_MaxTokens_KnownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "Add a --dry-run flag to the sync command and cover it with a unit test.", nil

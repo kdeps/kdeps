@@ -351,7 +351,7 @@ func TestCmdKnowledge(t *testing.T) {
 func stubEngines(reply string, seen *[]string) func() *executor.Engine {
 	var mu sync.Mutex
 	return func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 			c := wf.Resources[0].Chat
 			mu.Lock()
@@ -380,7 +380,7 @@ func TestKnowledgeAsk(t *testing.T) {
 	require.Error(t, err)
 
 	bad := func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) { return nil, errors.New("down") })
 		return eng
 	}

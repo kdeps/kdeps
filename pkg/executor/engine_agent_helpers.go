@@ -100,7 +100,7 @@ func buildAgentRequestContext(params map[string]interface{}) *RequestContext {
 
 func createAgentSubEngine(e *Engine, ctx *ExecutionContext) *Engine {
 	kdeps_debug.Log("enter: createAgentSubEngine")
-	subEngine := NewEngine(e.logger)
+	subEngine := NewEngine(ctx.Ctx, e.logger)
 	subEngine.SetRegistry(e.registry)
 	subEngine.SetDebugMode(e.debugMode)
 	subEngine.SetNewExecutionContextForAgency(ctx.AgentPaths)

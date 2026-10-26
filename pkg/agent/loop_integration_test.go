@@ -67,13 +67,13 @@ func (m *mockStreamer) StreamChat(
 
 func TestLoop_SessionPersistsAcrossTurns(t *testing.T) {
 	var capturedWorkflows []*domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		capturedWorkflows = append(capturedWorkflows, wf)
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
 
 	// First turn
 	_, err := loop.Run(context.Background(), "hello")
@@ -115,13 +115,13 @@ func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
 	t.Chdir(tmp)
 
 	var capturedWorkflows []*domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		capturedWorkflows = append(capturedWorkflows, wf)
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(
+	loop := New(t.Context(),
 		eng,
 		newTestWorkflowForSession(),
 		reg,
@@ -184,12 +184,12 @@ func TestLoop_ModelSwitchResendsSystemAndHistory(t *testing.T) {
 	t.Chdir(tmp)
 
 	var capturedWorkflows []*domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		capturedWorkflows = append(capturedWorkflows, wf)
 		return "ok", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(),
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(),
 		Config{Model: "model-a", SystemPrompt: "RULES-A"})
 
 	if _, err := loop.Run(context.Background(), "hello"); err != nil {
@@ -238,7 +238,7 @@ func TestLoop_SkillsInjected(t *testing.T) {
 	t.Chdir(tmp)
 
 	reg := tools.NewRegistry()
-	loop := New(nil, newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(t.Context(), nil, newTestWorkflowForSession(), reg, Config{Model: "test"})
 	if loop.Skills() != "" {
 		t.Fatalf("expected empty skills, got %q", loop.Skills())
 	}
@@ -270,8 +270,8 @@ func newStreamingRegistry() *tools.Registry {
 }
 
 func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
-	eng := executor.NewEngine(nil)
-	return New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	return New(context.Background(), eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:         "test",
 		Streamer:      streamer,
 		MaxToolRounds: maxRounds,
@@ -279,8 +279,8 @@ func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
 }
 
 func newStreamingLoopFinalOnly(streamer Streamer, maxRounds int) *Loop {
-	eng := executor.NewEngine(nil)
-	return New(eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	return New(context.Background(), eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:           "test",
 		Streamer:        streamer,
 		MaxToolRounds:   maxRounds,
@@ -508,7 +508,7 @@ func TestRunStreaming_LastRoundForcesAnswerWithoutTools(t *testing.T) {
 			},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -516,7 +516,7 @@ func TestRunStreaming_LastRoundForcesAnswerWithoutTools(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,
@@ -621,7 +621,7 @@ func TestCommitTrailer_IncompleteIdentityFallsBack(t *testing.T) {
 // TestBuildSystemPreamble_ContainsCommitTrailer verifies the preamble
 // instructs the model to co-author its git commits.
 func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -629,7 +629,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "deepseek-reasoner",
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
@@ -648,7 +648,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 // names and calling conventions. They must never pass through turoReduce,
 // where lexical rewriting could silently break tool calls.
 func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -656,7 +656,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "deepseek-reasoner",
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
@@ -680,7 +680,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 // preamble already has it; the model writes <invoke> from the latest system
 // message, so that message has to carry the names too.
 func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "noop",
@@ -690,7 +690,7 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 		},
 		Execute: func(_ map[string]any) (string, error) { return "ok", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -698,7 +698,7 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 
 	cfg := loop.buildChatConfig(context.Background(), "next", loop.buildSystemPreamble())
 	require.NotEmpty(t, cfg.Tools)
-	// New() also registers identity_get. Tool order follows map iteration,
+	// New(t.Context(), ) also registers identity_get. Tool order follows map iteration,
 	// so match by name instead of position.
 	var names []string
 	for _, tool := range cfg.Tools {
@@ -726,8 +726,8 @@ func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
 
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -748,8 +748,8 @@ func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
 func TestBuildChatConfig_NoReminderScenarioWhenNoneActive(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -767,8 +767,8 @@ func TestToolResultMessage_AppendsActiveHarnessReminder(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
 
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -791,7 +791,7 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 		SetConvergenceLimits(effectiveDistinctCalls(eventWebCallBudget, builtinWebCallBudget), 0, 0, 0)
 	})
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -799,7 +799,7 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "deepseek-reasoner",
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
@@ -815,7 +815,7 @@ func TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit(t *testing.T
 // for skills — previously the small-context path replaced the whole preamble
 // with a reduced copy of toolUseGuidance, so it wasn't actually protected.
 func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -823,7 +823,7 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "deepseek-reasoner",
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
@@ -944,7 +944,7 @@ func (e *errStreamer) StreamChat(
 }
 
 func TestRunStreaming_StreamerError(t *testing.T) {
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:         "test",
 		Streamer:      &errStreamer{err: errors.New("stream error")},
 		MaxToolRounds: 3,
@@ -957,9 +957,9 @@ func TestRunStreaming_StreamerError(t *testing.T) {
 }
 
 func TestNew_MaxHistoryTokens(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		MaxHistoryTokens: 1000,
 		Model:            "test-model",
 	})
@@ -969,11 +969,11 @@ func TestNew_MaxHistoryTokens(t *testing.T) {
 }
 
 func TestNew_ResumeSession(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	existing := NewSession(5)
 	existing.Append("q", "a")
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test-model",
 		ResumeSession: existing,
 	})
@@ -988,7 +988,7 @@ func TestRunStreaming_WithTools(t *testing.T) {
 			{content: "ok", toolCalls: nil},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -996,7 +996,7 @@ func TestRunStreaming_WithTools(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]interface{}) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,
@@ -1012,7 +1012,7 @@ func TestRunStreaming_WithTools(t *testing.T) {
 }
 
 func TestDispatchStreamToolCall_InvalidArgs(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "mytool",
@@ -1032,7 +1032,7 @@ func TestDispatchStreamToolCall_InvalidArgs(t *testing.T) {
 			{content: "done", toolCalls: nil},
 		},
 	}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,
@@ -1050,7 +1050,7 @@ func TestDispatchStreamToolCall_InvalidArgs(t *testing.T) {
 func TestRunStreaming_CtxCanceledDuringTool(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	var secondToolRan bool
 	reg.Register(&tools.Tool{
@@ -1084,7 +1084,7 @@ func TestRunStreaming_CtxCanceledDuringTool(t *testing.T) {
 			{content: "must not reach the second LLM round", toolCalls: nil},
 		},
 	}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,
@@ -1104,7 +1104,7 @@ func TestRunStreaming_CtxCanceledDuringTool(t *testing.T) {
 }
 
 func TestDispatchStreamToolCall_ToolError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "failing_tool",
@@ -1123,7 +1123,7 @@ func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 			{content: "recovered", toolCalls: nil},
 		},
 	}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,
@@ -1141,7 +1141,7 @@ func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 // and fed back to the LLM, and that the error result is valid JSON.
 func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
 	hugeErr := strings.Repeat("<html>duck challenge</html>", 400) // ~10KB
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "failing_tool",
@@ -1149,7 +1149,7 @@ func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "", errors.New(hugeErr) },
 	})
-	loop := New(
+	loop := New(t.Context(),
 		eng,
 		newTestWorkflowForSession(),
 		reg,
@@ -1229,7 +1229,7 @@ func TestRunToolRounds_FinalRoundCarriesBudgetPrompt(t *testing.T) {
 			},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "calc",
@@ -1237,7 +1237,7 @@ func TestRunToolRounds_FinalRoundCarriesBudgetPrompt(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 2,
@@ -1310,7 +1310,7 @@ func TestRunStreaming_AutoCompact_WithCallback(t *testing.T) {
 			{content: "streamed response", toolCalls: nil},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "compaction summary text", nil
 	})
@@ -1325,7 +1325,7 @@ func TestRunStreaming_AutoCompact_WithCallback(t *testing.T) {
 		)
 	}
 
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		Streamer:             ms,
 		MaxToolRounds:        1,
@@ -1362,9 +1362,9 @@ func TestBuildSystemPreamble_WithSkills(t *testing.T) {
 			{content: "ok", toolCalls: nil},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 1,
@@ -1431,7 +1431,7 @@ func TestRunStreaming_CompactAndRetryAlsoFails(t *testing.T) {
 	// When runToolRounds returns a context-overflow error AND the retry after
 	// compaction also errors, RunStreaming should propagate the retry error.
 	overflowErr := errors.New("prompt is too long: context_length_exceeded")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "summary", nil
@@ -1439,7 +1439,7 @@ func TestRunStreaming_CompactAndRetryAlsoFails(t *testing.T) {
 		return "", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		Streamer:           &alwaysErrorStreamer{err: overflowErr},
 		CompactTokenBudget: 1,
@@ -1457,7 +1457,7 @@ func TestRunStreaming_CompactAndRetryAlsoFails(t *testing.T) {
 func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
 	// Seeds a session that exceeds AutoCompactThreshold before RunStreaming;
 	// verifies that the onAutoCompact callback fires inside RunStreaming.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compaction summary", nil
@@ -1468,7 +1468,7 @@ func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
 		responses: []mockStreamResponse{{content: "done"}},
 	}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
@@ -1492,13 +1492,13 @@ func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
 
 func TestCompactWithLLM_WithFileOps(t *testing.T) {
 	// Covers the fileOps slice path (line 578-579 in loop.go) when session has file ops.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "summary of recent work", nil
 	})
 	ms := &mockStreamer{responses: []mockStreamResponse{{content: "ok"}}}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		Streamer:           ms,
 		CompactTokenBudget: 1,
@@ -1520,13 +1520,13 @@ func TestCompactWithLLM_WithFileOps(t *testing.T) {
 func TestCompactWithLLM_LLMFailNoFallback(t *testing.T) {
 	// LLM fails AND Compact() fallback returns "" (no maxTurns configured) ->
 	// CompactWithLLM must return an error (line 605 in loop.go).
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("LLM offline")
 	})
 	ms := &mockStreamer{responses: []mockStreamResponse{{content: "ok"}}}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		Streamer:           ms,
 		CompactTokenBudget: 1,
@@ -1546,7 +1546,7 @@ func TestCompactWithLLM_LLMFailNoFallback(t *testing.T) {
 }
 
 func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compaction summary", nil
@@ -1554,7 +1554,7 @@ func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
 		return "", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		CompactTokenBudget:   1,
 		AutoCompactThreshold: 1,
@@ -1571,12 +1571,12 @@ func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
 }
 
 func TestCompactWithLLM_LLMFailFallsBackToTruncation(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "", errors.New("LLM unavailable")
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		CompactTokenBudget: 1,
 	})
@@ -1600,12 +1600,12 @@ func TestCompactWithLLM_LLMFailFallsBackToTruncation(t *testing.T) {
 }
 
 func TestCompactWithLLM_EmptySummaryReturnsError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "", nil // returns empty string = empty summary
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		CompactTokenBudget: 1,
 	})
@@ -1623,7 +1623,7 @@ func TestCompactAndRetry_ContextOverflow(t *testing.T) {
 	// suppress it, attempt compaction, and succeed on the second call.
 	overflowErr := errors.New("prompt is too long: context_length_exceeded")
 	es := &errorStreamer{firstErr: overflowErr}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compaction summary", nil
@@ -1631,7 +1631,7 @@ func TestCompactAndRetry_ContextOverflow(t *testing.T) {
 		return "", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:              "test",
 		Streamer:           es,
 		MaxToolRounds:      3,
@@ -1715,7 +1715,7 @@ func TestIsTransientError(t *testing.T) {
 func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
 	// Streamer fails twice with a transient error, then succeeds.
 	ts := &transientStreamer{failCount: 2, response: "hello after retry"}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test",
 		Streamer:           ts,
 		MaxToolRounds:      3,
@@ -1739,7 +1739,7 @@ func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
 func TestRunStreaming_AutoRetry_ExhaustedReturnsError(t *testing.T) {
 	// Streamer always returns a transient error.
 	es := &errStreamer{err: errors.New("overloaded_error: please retry")}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test",
 		Streamer:           es,
 		MaxToolRounds:      3,
@@ -1790,7 +1790,7 @@ func (m *midTurnDropStreamer) StreamChat(
 // the failed attempt must not leak into the response.
 func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 	ms := &midTurnDropStreamer{}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), newStreamingRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), newStreamingRegistry(), Config{
 		Model:              "test",
 		Streamer:           ms,
 		MaxToolRounds:      5,
@@ -1811,7 +1811,7 @@ func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 
 func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
 	es := &errStreamer{err: errors.New("invalid API key")}
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test",
 		Streamer:           es,
 		MaxToolRounds:      3,
@@ -1857,7 +1857,7 @@ func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
 		return ""
 	}
 
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test-gguf",
 		Backend:            llm.BackendGGUF,
 		BaseURL:            "http://127.0.0.1:1111", // stale/dead port
@@ -1884,7 +1884,7 @@ func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
 // --- dispatchToTerminal ---
 
 func TestDispatchToTerminal_Success(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "echo_tool",
@@ -1895,7 +1895,7 @@ func TestDispatchToTerminal_Success(t *testing.T) {
 		},
 	})
 	var termBuf bytes.Buffer
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		ToolOutputWriter: &termBuf,
 	})
@@ -1906,7 +1906,7 @@ func TestDispatchToTerminal_Success(t *testing.T) {
 }
 
 func TestDispatchToTerminal_ToolError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "bad_tool",
@@ -1917,7 +1917,7 @@ func TestDispatchToTerminal_ToolError(t *testing.T) {
 		},
 	})
 	var termBuf bytes.Buffer
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		ToolOutputWriter: &termBuf,
 	})
@@ -1928,7 +1928,7 @@ func TestDispatchToTerminal_ToolError(t *testing.T) {
 }
 
 func TestDispatchToTerminal_ToolOutput(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "output_tool",
@@ -1940,7 +1940,7 @@ func TestDispatchToTerminal_ToolOutput(t *testing.T) {
 		OutputWriter: nil,
 	})
 	var termBuf bytes.Buffer
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:            "test",
 		ToolOutputWriter: &termBuf,
 	})
@@ -2076,11 +2076,11 @@ func TestRunStreaming_MemoryTools_SaveSearch(t *testing.T) {
 		},
 	}
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 5,
@@ -2123,11 +2123,11 @@ func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
 		},
 	}
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 5,
@@ -2164,11 +2164,11 @@ func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
 		},
 	}
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 5,
@@ -2193,11 +2193,11 @@ func TestRunStreaming_MemoryMarkerExtractedThenStripped(t *testing.T) {
 
 	ms := &mockStreamer{responses: []mockStreamResponse{{content: answer, toolCalls: nil}}}
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	registerMemoryTools(t.Context(), reg)
 
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 5,
@@ -2376,7 +2376,7 @@ func TestRunStreaming_EmitsToolRoundNarration(t *testing.T) {
 // tool, not end the turn on the raw XML.
 func TestRunStreaming_SalvagesTextToolCall(t *testing.T) {
 	var gotArgs map[string]any
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "probe",
@@ -2394,7 +2394,7 @@ func TestRunStreaming_SalvagesTextToolCall(t *testing.T) {
 		},
 		{content: "The probe returned: probe ran.", toolCalls: nil},
 	}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 5,
 	})
 	var buf bytes.Buffer
@@ -2410,7 +2410,7 @@ func TestRunStreaming_SalvagesTextToolCall(t *testing.T) {
 // The loop must nudge for a real call rather than accept the false completion.
 func TestRunStreaming_NudgesFabricatedToolResponse(t *testing.T) {
 	ran := false
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
@@ -2424,7 +2424,7 @@ func TestRunStreaming_NudgesFabricatedToolResponse(t *testing.T) {
 		{content: "", toolCalls: []domain.StreamedToolCall{{Name: "probe", Arguments: "{}"}}},
 		{content: "Now actually done: real result.", toolCalls: nil},
 	}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 5,
 	})
 	var buf bytes.Buffer
@@ -2439,7 +2439,7 @@ func TestRunStreaming_NudgesFabricatedToolResponse(t *testing.T) {
 // recovered and executed like a native one.
 func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	var got map[string]any
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
@@ -2452,7 +2452,7 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 		},
 		{content: "probe returned ok", toolCalls: nil},
 	}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 5,
 	})
 	var buf bytes.Buffer
@@ -2468,7 +2468,7 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 // deepseek-v4-flash) must be recovered and executed like a native tool call.
 func TestRunStreaming_SalvagesDSMLInvoke(t *testing.T) {
 	var got map[string]any
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "probe", Description: "probe", Parameters: map[string]domain.ToolParam{},
@@ -2485,7 +2485,7 @@ func TestRunStreaming_SalvagesDSMLInvoke(t *testing.T) {
 		},
 		{content: "probe returned ok", toolCalls: nil},
 	}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 5,
 	})
 	var buf bytes.Buffer
@@ -2521,7 +2521,7 @@ func TestRunStreaming_CappedRoundAnswerEndsTurn(t *testing.T) {
 // a real success or an honest failure.
 func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
@@ -2535,7 +2535,7 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 		{content: "Done. The file has been updated.", toolCalls: nil},
 		{content: "Actually the edit failed: old_string not found.", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2561,7 +2561,7 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 // to call a tool" mid-session to actually carry the correction forward.
 func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
@@ -2578,7 +2578,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "2", Name: "edit_file", Arguments: "{}"}}},
 		{content: "Done.", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2597,7 +2597,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 // calls early. TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit
 // below covers the far side of tool-call-early-praise's maxOccurrences.
 func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
@@ -2607,7 +2607,7 @@ func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
 		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "read_file", Arguments: "{}"}}},
 		{content: "Done.", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2626,7 +2626,7 @@ func TestRunStreaming_FirstToolCallsArePraised(t *testing.T) {
 // would carry a [GOOD] banner, constant noise rather than reinforcement.
 func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
 	limit := harnessOccurrenceLimit("tool-call-early-praise")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "read_file", Description: "read", Parameters: map[string]domain.ToolParam{},
@@ -2645,7 +2645,7 @@ func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
 	}
 	responses = append(responses, mockStreamResponse{content: "Done.", toolCalls: nil})
 	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: limit + 5,
 	})
 	var buf bytes.Buffer
@@ -2667,7 +2667,7 @@ func TestRunStreaming_LaterOrdinarySuccessNotPraisedAfterLimit(t *testing.T) {
 // turn silently accepting the repeat -- bounded to nudge-unresolved-failure's maxOccurrences, same as
 // the sandbox-hallucination nudge.
 func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
@@ -2681,7 +2681,7 @@ func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
 		{content: "All set, the change is in place.", toolCalls: nil},
 		{content: "I was not able to make that edit; old_string never matched.", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2700,7 +2700,7 @@ func TestRunStreaming_FailedToolNudgedTwiceThenAdmitsFailure(t *testing.T) {
 // success, the turn must not silently settle on it -- the returned content
 // (and the writer) carry toolFailureUnresolvedNotice instead.
 func TestRunStreaming_FailedToolExhaustedGetsNotice(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name: "edit_file", Description: "edit", Parameters: map[string]domain.ToolParam{},
@@ -2714,7 +2714,7 @@ func TestRunStreaming_FailedToolExhaustedGetsNotice(t *testing.T) {
 		{content: "All set, the change is in place.", toolCalls: nil},
 		{content: "Confirmed, everything looks good now.", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2731,7 +2731,7 @@ func TestRunStreaming_FailedToolExhaustedGetsNotice(t *testing.T) {
 // A queued model note (goal transition, budget change, forced failure) must be
 // injected into the next request as a [kdeps] system message.
 func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	var loop *Loop
 	reg.Register(&tools.Tool{
@@ -2745,7 +2745,7 @@ func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
 		{content: "", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}},
 		{content: "the answer", toolCalls: nil},
 	}}}
-	loop = New(eng, newTestWorkflowForSession(), reg, Config{
+	loop = New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2761,7 +2761,7 @@ func TestRunStreaming_ModelNoteReachesModel(t *testing.T) {
 // are absent from the replayed assistant turn, and without the note the model
 // never learns it still has to issue them.
 func TestRunStreaming_ExtraToolCallsInRoundReportedToModel(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	var ran []string
 	for _, name := range []string{"first_tool", "second_tool"} {
@@ -2780,7 +2780,7 @@ func TestRunStreaming_ExtraToolCallsInRoundReportedToModel(t *testing.T) {
 		}},
 		{content: "done", toolCalls: nil},
 	}}}
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	var buf bytes.Buffer
@@ -2962,11 +2962,17 @@ func TestRunStreaming_GiveUpWithNoProgressIsNudgedAsSelfLimit(t *testing.T) {
 func TestNudgeConfigs_IncludeInvokeExample(t *testing.T) {
 	base := &domain.ChatConfig{Prompt: "question"}
 	for name, nudge := range map[string]func(*domain.ChatConfig, bool) *domain.ChatConfig{
-		"nudgeForActionConfig":            nudgeForActionConfig,
-		"nudgeNoFakeToolResponseConfig":   nudgeNoFakeToolResponseConfig,
-		"nudgeSandboxHallucinationConfig": nudgeSandboxHallucinationConfig,
-		"nudgeContinueConfig":             nudgeContinueConfig,
-		"nudgeSelfLimitConfig":            nudgeSelfLimitConfig,
+		"nudgeForActionConfig": func(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+			return nudgeForActionConfig(t.Context(), cfg, repeat)
+		},
+		"nudgeNoFakeToolResponseConfig": func(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+			return nudgeNoFakeToolResponseConfig(t.Context(), cfg, repeat)
+		},
+		"nudgeSandboxHallucinationConfig": func(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+			return nudgeSandboxHallucinationConfig(t.Context(), cfg, repeat)
+		},
+		"nudgeContinueConfig":  nudgeContinueConfig,
+		"nudgeSelfLimitConfig": nudgeSelfLimitConfig,
 	} {
 		for _, repeat := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/repeat=%v", name, repeat), func(t *testing.T) {

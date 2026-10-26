@@ -53,11 +53,9 @@ var sharedM365Server = &m365Server{}
 
 // baseURLOnce starts the local server the first time it is needed and returns
 // its base URL (e.g. http://127.0.0.1:54321).
-func (s *m365Server) baseURLOnce() (string, error) {
+func (s *m365Server) baseURLOnce(ctx context.Context) (string, error) {
 	s.once.Do(func() {
-		// The local server outlives any single request, so it is rooted at
-		// Background like the other local model-server managers in this package.
-		ctx := context.Background()
+		// The local server derives its listener and BaseContext from the caller.
 		lc := net.ListenConfig{}
 		listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 		if err != nil {

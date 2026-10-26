@@ -22,6 +22,7 @@ import (
 	"context"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	execVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 )
 
@@ -49,7 +50,10 @@ func VectorStore(ctx context.Context, args map[string]any) (string, error) {
 	if err := ctxReady(ctx, toolVectorStore); err != nil {
 		return "", err
 	}
-	result, err := vectorExec.Execute(nil, vectorStoreConfig(args))
+	result, err := vectorExec.Execute(
+		&executor.ExecutionContext{Ctx: ctx},
+		vectorStoreConfig(args),
+	)
 	if err != nil {
 		return "", err
 	}

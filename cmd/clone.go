@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	stdhttp "net/http"
@@ -203,7 +202,7 @@ func downloadAndExtractGitHubArchive(owner, repo, destDir string) error {
 func downloadAndExtract(url, destDir string) error {
 	kdeps_debug.Log("enter: downloadAndExtract")
 	req, err := stdhttp.NewRequestWithContext(
-		context.Background(), stdhttp.MethodGet, url, nil,
+		processRoot(), stdhttp.MethodGet, url, nil,
 	)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)

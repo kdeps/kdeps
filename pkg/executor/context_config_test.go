@@ -36,7 +36,7 @@ func newConfigTestCtx(t *testing.T) *executor.ExecutionContext {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-wf", Version: "1.0"},
 	}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 
 	// Set a known config so tests are deterministic.

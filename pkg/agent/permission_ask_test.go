@@ -20,6 +20,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,7 +75,7 @@ func TestRequiredPermission(t *testing.T) {
 // and no interactive TTY. The returned pointer tracks whether write_file ran.
 func askModeLoop(t *testing.T) (*Loop, *bool) {
 	t.Helper()
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	executed := false
 	reg.Register(&tools.Tool{
@@ -90,7 +91,7 @@ func askModeLoop(t *testing.T) (*Loop, *bool) {
 		Parameters: map[string]domain.ToolParam{},
 		Execute:    func(_ map[string]any) (string, error) { return "contents", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:          "test",
 		Streamer:       &mockStreamer{},
 		PermissionMode: PermissionAsk,

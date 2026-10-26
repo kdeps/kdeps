@@ -64,7 +64,7 @@ func TestStreamChat_StripsLocalStopToken(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	content, toolCalls, err := llm.NewAdapter(srv.URL).StreamChat(t.Context(), cfg, &out)
+	content, toolCalls, err := llm.NewAdapter(t.Context(), srv.URL).StreamChat(t.Context(), cfg, &out)
 	if err != nil {
 		t.Fatalf("StreamChat: %v", err)
 	}

@@ -374,7 +374,7 @@ func newEfficiencyLoop(t *testing.T, ms Streamer) *Loop {
 			Execute: func(_ map[string]any) (string, error) { return "ok", nil },
 		})
 	}
-	return New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	return New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
 }

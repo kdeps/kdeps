@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestCohereRerank_MissingQuery(t *testing.T) {
@@ -31,7 +32,7 @@ func TestCohereRerank_MissingQuery(t *testing.T) {
 		Backend:         "cohere",
 		RerankDocuments: []string{"doc1"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rerankQuery is required")
 }
@@ -41,7 +42,7 @@ func TestCohereRerank_MissingDocuments(t *testing.T) {
 		Backend:     "cohere",
 		RerankQuery: "what is AI?",
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rerankDocuments must not be empty")
 }
@@ -53,7 +54,7 @@ func TestCohereRerank_MissingAPIKey(t *testing.T) {
 		RerankQuery:     "what is AI?",
 		RerankDocuments: []string{"doc1"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "COHERE_API_KEY is not set")
 }
@@ -96,7 +97,7 @@ func TestCohereRerank_Success(t *testing.T) {
 		RerankQuery:     "what is AI?",
 		RerankDocuments: []string{"doc about AI", "doc about cooking"},
 	}
-	result, err := cohereRerank(cfg)
+	result, err := cohereRerank(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "rerank-v3.5", result["model"])
 
@@ -126,7 +127,7 @@ func TestCohereRerank_HTTPError(t *testing.T) {
 		RerankQuery:     "query",
 		RerankDocuments: []string{"doc1"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 401")
 }
@@ -154,14 +155,14 @@ func TestCohereRerank_DefaultModel(t *testing.T) {
 		RerankDocuments: []string{"doc1"},
 		// Model intentionally omitted — should default to cohereDefaultRerankModel
 	}
-	result, err := cohereRerank(cfg)
+	result, err := cohereRerank(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, cohereDefaultRerankModel, result["model"])
 }
 
 func TestExecutor_Rerank_UnknownOp_ErrorMessage(t *testing.T) {
 	e := NewExecutor()
-	_, err := e.Execute(nil, &domain.EmbeddingConfig{Operation: "badop"})
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{Operation: "badop"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rerank")
 }

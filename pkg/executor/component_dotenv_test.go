@@ -134,7 +134,7 @@ func TestEnv_DotEnvFileFallback(t *testing.T) {
 		Components: map[string]*domain.Component{"mycomp": comp},
 	}
 
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 
 	// Load the .env explicitly via the engine's component call path (simulate).
@@ -156,7 +156,7 @@ func TestEnv_DotEnvFileLowerPriorityThanOsEnv(t *testing.T) {
 
 	t.Setenv("API_KEY", "from_os")
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	require.NoError(t, executor.LoadComponentDotEnvForTest(ctx, "mycomp", dir))
 
@@ -180,7 +180,7 @@ func TestEnv_DotEnvFile_KeyValueFormats(t *testing.T) {
 	}, "\n")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0o600))
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	require.NoError(t, executor.LoadComponentDotEnvForTest(ctx, "comp", dir))
 	ctx.CurrentComponent = "comp"
@@ -202,7 +202,7 @@ func TestEnv_NoDotEnvFile_NoError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir() // no .env file
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	require.NoError(t, executor.LoadComponentDotEnvForTest(ctx, "mycomp", dir))
 
@@ -560,7 +560,7 @@ func TestEnv_DotEnvFile_LineWithoutEquals(t *testing.T) {
 	content := "LINE_NO_EQUALS\nKEY=value\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0o600))
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	require.NoError(t, executor.LoadComponentDotEnvForTest(ctx, "comp", dir))
 	ctx.CurrentComponent = "comp"
