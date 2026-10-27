@@ -165,7 +165,7 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 			}
 
 		case backendM365:
-			model, err = buildM365LLM(cfg)
+			model, err = buildM365LLM(ctx, cfg)
 
 		default:
 			model, err = buildOpenAICompatLLM(cfg, backend)
@@ -230,9 +230,9 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 // local proxy, not a real OpenAI account, so there is no API key involved
 // -- without this, backend "m365" falls through buildOpenAICompatLLM's
 // default OpenAI base URL and demands OPENAI_API_KEY.
-func buildM365LLM(cfg *domain.ChatConfig) (llms.Model, error) {
+func buildM365LLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
 	if cfg.BaseURL == "" {
-		url, err := sharedM365Server.baseURLOnce()
+		url, err := sharedM365Server.baseURLOnce(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("m365: start local proxy: %w", err)
 		}

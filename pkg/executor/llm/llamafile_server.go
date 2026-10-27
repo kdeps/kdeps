@@ -139,9 +139,9 @@ var killLocalProcess = func(pid int) { //nolint:gochecknoglobals // test-replace
 	_ = proc.Kill()
 }
 
-func FindFreePort() (int, error) {
+func FindFreePort(ctx context.Context) (int, error) {
 	kdeps_debug.Log("enter: FindFreePort")
-	ln, err := netListenConfigListen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := netListenConfigListen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, fmt.Errorf("cannot find free port: %w", err)
 	}
@@ -167,7 +167,7 @@ type localProcessConfig struct {
 	mu          *sync.Mutex
 	served      map[string]int
 	pids        map[string]int // path -> PID for cleanup on exit
-	startServer func(string, int) (int, error)
+	startServer func(context.Context, string, int) (int, error)
 	timeout     func() time.Duration
 	label       string // used in log messages
 	defaultPort int    // probe this port before FindFreePort (0 = skip)
@@ -244,18 +244,18 @@ func serveLocalProcess(
 
 	// Reuse in-memory tracked server if still healthy.
 	if port == 0 {
-		if served, ok := cfg.served[path]; ok && isHealthy(localServerURL(served)) {
+		if served, ok := cfg.served[path]; ok && isHealthy(ctx, localServerURL(served)) {
 			logger.InfoContext(ctx, cfg.label+" already running", "url", localServerURL(served))
 			return served, nil
 		}
 		// Check cross-process state file: another kdeps process may already serve this model.
-		if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+		if saved := readServerPortFile(path); saved != 0 && isHealthy(ctx, localServerURL(saved)) {
 			logger.InfoContext(ctx, cfg.label+" already running (cross-process)", "url", localServerURL(saved))
 			cfg.served[path] = saved
 			return saved, nil
 		}
 		// Probe the backend's well-known port before allocating a random one.
-		if cfg.defaultPort != 0 && isHealthy(localServerURL(cfg.defaultPort)) {
+		if cfg.defaultPort != 0 && isHealthy(ctx, localServerURL(cfg.defaultPort)) {
 			logger.InfoContext(
 				ctx, cfg.label+" already running on default port",
 				"url", localServerURL(cfg.defaultPort),
@@ -264,21 +264,21 @@ func serveLocalProcess(
 			return cfg.defaultPort, nil
 		}
 		var err error
-		port, err = FindFreePort()
+		port, err = FindFreePort(ctx)
 		if err != nil {
 			return 0, err
 		}
 	}
 
 	serverURL := localServerURL(port)
-	if isHealthy(serverURL) {
+	if isHealthy(ctx, serverURL) {
 		logger.InfoContext(ctx, cfg.label+" already running", "url", serverURL)
 		cfg.served[path] = port
 		return port, nil
 	}
 
 	logger.InfoContext(ctx, "starting "+cfg.label, "path", path, "port", port)
-	pid, startErr := cfg.startServer(path, port)
+	pid, startErr := cfg.startServer(ctx, path, port)
 	if startErr != nil {
 		return 0, startErr
 	}
@@ -454,8 +454,7 @@ func newLlamafileCommand(ctx context.Context, path string, args ...string) (*exe
 	return exec.CommandContext(ctx, llamafileShell, shArgs...), nil
 }
 
-func startLlamafileServer(path string, port int) (int, error) {
-	ctx := context.Background()
+func startLlamafileServer(ctx context.Context, path string, port int) (int, error) {
 	args := []string{
 		"--server",
 		"--host", "127.0.0.1",
@@ -523,7 +522,7 @@ func (e *ServerCrashedError) Error() string {
 func waitForHealthy(ctx context.Context, serverURL string, port, pid int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if isHealthy(serverURL) {
+		if isHealthy(ctx, serverURL) {
 			return nil
 		}
 		if exited, exitErr := processExitedNow(pid); exited {
@@ -543,8 +542,8 @@ func waitForHealthy(ctx context.Context, serverURL string, port, pid int, timeou
 	return fmt.Errorf("%w within %s on port %d", errServerNotHealthy, timeout, port)
 }
 
-var isHealthy = func(baseURL string) bool { //nolint:gochecknoglobals // test-replaceable hook
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+var isHealthy = func(ctx context.Context, baseURL string) bool { //nolint:gochecknoglobals // test-replaceable hook
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, baseURL+llamafileHealthPath, nil)
 	if err != nil {
@@ -606,7 +605,7 @@ func waitForCompletionsReady(ctx context.Context, serverURL string) {
 // ResolvedLlamafileURL returns the base URL of a running llamafile server for the
 // given model. Checks the in-memory registry, cross-process port file, and default
 // port. Returns "" if no server is found.
-func ResolvedLlamafileURL(model string) string {
+func ResolvedLlamafileURL(ctx context.Context, model string) string {
 	modelsDir, err := modelsDir()
 	if err != nil {
 		return ""
@@ -617,17 +616,17 @@ func ResolvedLlamafileURL(model string) string {
 	}
 	// Check in-memory served map.
 	servedLlamafilesMu.Lock()
-	if savedPort, found := servedLlamafiles[path]; found && isHealthy(localServerURL(savedPort)) {
+	if savedPort, found := servedLlamafiles[path]; found && isHealthy(ctx, localServerURL(savedPort)) {
 		servedLlamafilesMu.Unlock()
 		return localServerURL(savedPort)
 	}
 	servedLlamafilesMu.Unlock()
 	// Check cross-process port file.
-	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+	if saved := readServerPortFile(path); saved != 0 && isHealthy(ctx, localServerURL(saved)) {
 		return localServerURL(saved)
 	}
 	// Probe default port.
-	if isHealthy(BackendFileHostURL) {
+	if isHealthy(ctx, BackendFileHostURL) {
 		return BackendFileHostURL
 	}
 	return ""

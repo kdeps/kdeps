@@ -85,7 +85,7 @@ func TestNewSessionStorageWithTTL_InitSchemaError(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(roDir, "session.db")
-	s, err := NewSessionStorageWithTTL(dbPath, "test", time.Hour)
+	s, err := NewSessionStorageWithTTL(t.Context(), dbPath, "test", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, s)
 	assert.True(t,
@@ -107,7 +107,7 @@ func TestSessionStorage_GetAll_ScanError(t *testing.T) {
 	})
 	_ = db.Close()
 
-	s, err := NewSessionStorage(dbPath, "test-session")
+	s, err := NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
 
@@ -128,7 +128,7 @@ func TestSessionStorage_InitSchema_TableError(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(roDir, "test.db")
-	s, err := NewSessionStorageWithTTL(dbPath, "test", time.Hour)
+	s, err := NewSessionStorageWithTTL(t.Context(), dbPath, "test", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, s)
 	assert.True(t,
@@ -137,7 +137,7 @@ func TestSessionStorage_InitSchema_TableError(t *testing.T) {
 }
 
 func TestSessionStorage_CorruptEntry(t *testing.T) {
-	s, err := NewSessionStorage(t.TempDir()+"/corrupt.db", "test-session")
+	s, err := NewSessionStorage(t.Context(), t.TempDir()+"/corrupt.db", "test-session")
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
 

@@ -126,7 +126,7 @@ func TestAugmentPackageWithModels_ExtractError(t *testing.T) {
 	bad := filepath.Join(t.TempDir(), "broken.kdeps")
 	require.NoError(t, os.WriteFile(bad, []byte("not a gzip archive"), 0o644))
 
-	_, _, err := augmentPackageWithModels(bad)
+	_, _, err := augmentPackageWithModels(t.Context(), bad)
 	require.Error(t, err)
 }
 
@@ -156,7 +156,7 @@ resources:
 `,
 	})
 
-	_, _, err := augmentPackageWithModels(archive)
+	_, _, err := augmentPackageWithModels(t.Context(), archive)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "none of the chat models resolved")
 }
@@ -333,7 +333,7 @@ func TestAugmentPackageWithModels_TempCreateError(t *testing.T) {
 	archive := filepath.Join(modelsDir, "bundle-test.kdeps")
 	writeTarGz(t, archive, map[string]string{"workflow.yaml": bundleTestWorkflow})
 
-	_, _, err := augmentPackageWithModels(archive)
+	_, _, err := augmentPackageWithModels(t.Context(), archive)
 	require.Error(t, err)
 }
 
@@ -343,7 +343,7 @@ func TestResolveModelsToFiles_ManagerError(t *testing.T) {
 		invalidModelsDir = filepath.Join(t.TempDir(), "NUL", "impossible")
 	}
 	t.Setenv("KDEPS_MODELS_DIR", invalidModelsDir)
-	_, err := resolveModelsToFiles([]string{"whatever.llamafile"})
+	_, err := resolveModelsToFiles(t.Context(), []string{"whatever.llamafile"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "model cache unavailable")
 }
@@ -364,7 +364,7 @@ func TestAugmentPackageWithModels_WriteAugmentedArchiveError(t *testing.T) {
 	writeTarGz(t, archive, map[string]string{"workflow.yaml": strings.Replace(bundleTestWorkflow,
 		"fake-model.llamafile", "locked-model.llamafile", 1)})
 
-	_, _, err := augmentPackageWithModels(archive)
+	_, _, err := augmentPackageWithModels(t.Context(), archive)
 	require.Error(t, err)
 }
 

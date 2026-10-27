@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -67,6 +68,7 @@ type Relation struct {
 type Extraction struct {
 	Hash      string     `json:"hash"`
 	Model     string     `json:"model,omitempty"`
+	At        time.Time  `json:"at,omitempty"`
 	Entities  []Entity   `json:"entities"`
 	Relations []Relation `json:"relations"`
 	Error     string     `json:"error,omitempty"`
@@ -169,6 +171,15 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 	return st, saveJSON(filepath.Join(dir, extractFile), cache)
 }
 
+// PendingExtractCount is how many notes still need a model pass.
+func PendingExtractCount(v Vault, dir string) (int, error) {
+	notes, err := v.Walk()
+	if err != nil {
+		return 0, err
+	}
+	return len(pendingNotes(notes, loadExtractCache(dir))), nil
+}
+
 // pendingNotes are the notes with a story whose current version has no
 // successful extraction.
 func pendingNotes(notes []*Note, cache extractCache) []*Note {
@@ -213,6 +224,9 @@ func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions
 			}
 		}
 		ex.Relations = append(ex.Relations, part.Relations...)
+	}
+	if ex.Error == "" {
+		ex.At = time.Now().UTC()
 	}
 	return ex
 }
@@ -313,7 +327,7 @@ func loadExtractCache(dir string) extractCache {
 // versions: each note mentions its entities, and the entities' relations
 // become inferred edges (ambiguous below 0.5 confidence or with an unknown
 // relation). An entity named like a note is that note.
-func (b *builder) addExtracted(dir string, notes []*Note, resolve *resolver) {
+func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolver) {
 	cache := loadExtractCache(dir)
 	for _, n := range notes {
 		ex, ok := cache.Notes[n.Path]
@@ -321,10 +335,12 @@ func (b *builder) addExtracted(dir string, notes []*Note, resolve *resolver) {
 			continue
 		}
 		ids := map[string]string{}
+		names := map[string]string{}
 		for _, e := range ex.Entities {
 			id := b.entityNode(e, resolve, n.Path)
 			ids[strings.ToLower(e.Name)] = id
-			b.inferred(noteID(n.Path), id, RelMentions, mentionConfidence)
+			names[id] = e.Name
+			b.inferred(noteID(n.Path), id, RelMentions, mentionConfidence, n.Path, evidenceLine(root, n.Path, e.Name))
 		}
 		for _, r := range ex.Relations {
 			from, to := ids[strings.ToLower(r.From)], ids[strings.ToLower(r.To)]
@@ -336,9 +352,35 @@ func (b *builder) addExtracted(dir string, notes []*Note, resolve *resolver) {
 				rel = RelRelatesTo
 				r.Confidence = min(r.Confidence, ambiguousBelow-0.01) //nolint:mnd // just under the cut
 			}
-			b.inferred(from, to, rel, r.Confidence)
+			b.inferred(from, to, rel, r.Confidence, n.Path, evidenceLine(root, n.Path, names[from], names[to]))
 		}
 	}
+}
+
+// evidenceLine is the first line of a note that contains one of the names.
+func evidenceLine(root, rel string, needles ...string) string {
+	var low []string
+	for _, n := range needles {
+		if n = strings.ToLower(strings.TrimSpace(n)); n != "" {
+			low = append(low, n)
+		}
+	}
+	if len(low) == 0 {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return ""
+	}
+	for i, line := range strings.Split(string(data), "\n") {
+		l := strings.ToLower(line)
+		for _, n := range low {
+			if strings.Contains(l, n) {
+				return lineRef(i + 1)
+			}
+		}
+	}
+	return ""
 }
 
 // entityNode is the node for an entity: the note of the same name, or an
@@ -353,8 +395,9 @@ func (b *builder) entityNode(e Entity, resolve *resolver, from string) string {
 }
 
 // inferred adds a model-found edge unless the same relation is already
-// extracted; a later, more confident guess replaces an earlier one.
-func (b *builder) inferred(from, to, rel string, conf float64) {
+// extracted; a later, more confident guess replaces an earlier one and keeps
+// that guess's source evidence.
+func (b *builder) inferred(from, to, rel string, conf float64, file, loc string) {
 	if from == to {
 		return
 	}
@@ -366,5 +409,8 @@ func (b *builder) inferred(from, to, rel string, conf float64) {
 	if e, ok := b.edges[key]; ok && (e.Provenance == ProvExtracted || e.Confidence >= conf) {
 		return
 	}
-	b.edges[key] = &Edge{From: from, To: to, Relation: rel, Provenance: prov, Confidence: conf}
+	b.edges[key] = &Edge{
+		From: from, To: to, Relation: rel, Provenance: prov, Confidence: conf,
+		SourceFile: file, SourceLocation: loc,
+	}
 }

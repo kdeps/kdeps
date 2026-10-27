@@ -83,6 +83,7 @@ func sessionKey(sessionID, key string) []byte {
 
 // NewSessionStorageWithTTL creates a new session storage with TTL.
 func NewSessionStorageWithTTL(
+	ctx context.Context,
 	dbPath string,
 	sessionID string,
 	defaultTTL time.Duration,
@@ -112,7 +113,7 @@ func NewSessionStorageWithTTL(
 		SessionID:       sessionID,
 		DefaultTTL:      defaultTTL,
 		cleanupInterval: defaultCleanupInterval,
-		ctx:             context.Background(),
+		ctx:             ctx,
 		stopCh:          make(chan struct{}),
 	}
 

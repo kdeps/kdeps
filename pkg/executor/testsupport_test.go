@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -39,7 +40,7 @@ func newIntegrationCtx(t *testing.T) *executor.ExecutionContext {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "integration-wf", Version: "2.0"},
 	}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	ctx.Config = &config.Config{
 		LLM: config.LLMKeys{
@@ -281,7 +282,7 @@ type MockUVManager struct {
 	CapturedVenvName string
 }
 
-func (m *MockUVManager) EnsureVenv(_ string, _ []string, _, venvName string) (string, error) {
+func (m *MockUVManager) EnsureVenv(_ context.Context, _ string, _ []string, _, venvName string) (string, error) {
 	m.CapturedVenvName = venvName
 	return "/tmp/venv", nil
 }

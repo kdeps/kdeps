@@ -441,7 +441,7 @@ func TestExecuteTool_Success(t *testing.T) {
 		Args:   []string{"-test.run=" + t.Name()},
 		Env:    map[string]string{testHelperEnv: "1"},
 	}
-	result, err := ExecuteTool(cfg, "echo", map[string]interface{}{"text": "hello world"})
+	result, err := ExecuteTool(t.Context(), cfg, "echo", map[string]interface{}{"text": "hello world"})
 	if err != nil {
 		t.Fatalf("ExecuteTool failed: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestExecuteTool_Success(t *testing.T) {
 
 func TestExecuteTool_ClientError(t *testing.T) {
 	cfg := &domain.MCPConfig{Server: "/nonexistent/binary"}
-	_, err := ExecuteTool(cfg, "echo", nil)
+	_, err := ExecuteTool(t.Context(), cfg, "echo", nil)
 	if err == nil {
 		t.Fatal("expected error from client creation failure")
 	}

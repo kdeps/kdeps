@@ -196,7 +196,7 @@ func TestStdioClient_Timeout(t *testing.T) {
 }
 
 func TestExecuteTool_Convenience(t *testing.T) {
-	got, err := mcp.ExecuteTool(serverCfg(), "echo", map[string]interface{}{"text": "convenience"})
+	got, err := mcp.ExecuteTool(t.Context(), serverCfg(), "echo", map[string]interface{}{"text": "convenience"})
 	if err != nil {
 		t.Fatalf("ExecuteTool: %v", err)
 	}

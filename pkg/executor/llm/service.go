@@ -56,16 +56,18 @@ type ModelServiceInterface interface {
 
 // ModelService handles model download and serving for different backends.
 type ModelService struct {
+	ctx    context.Context
 	logger *slog.Logger
 }
 
 // NewModelService creates a new model service.
-func NewModelService(logger *slog.Logger) *ModelService {
+func NewModelService(ctx context.Context, logger *slog.Logger) *ModelService {
 	kdeps_debug.Log("enter: NewModelService")
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ModelService{
+		ctx:    ctx,
 		logger: logger,
 	}
 }
@@ -90,7 +92,7 @@ func (s *ModelService) ServeModel(ctx context.Context, backend, model string, ho
 	kdeps_debug.Log("enter: ServeModel")
 	switch backend {
 	case backendOllama:
-		return s.serveOllamaModel(model, host, port)
+		return s.serveOllamaModel(ctx, model, host, port)
 	case BackendFile:
 		return s.serveLlamafileModel(ctx, model, port)
 	case BackendGGUF:
@@ -109,7 +111,7 @@ func (s *ModelService) ServerURL(backend, model string) string {
 	case BackendGGUF:
 		return s.ggufServerURL(model)
 	case backendOllama:
-		return ollamaServerURL()
+		return ollamaServerURL(s.ctx)
 	default:
 		return ""
 	}
@@ -117,12 +119,12 @@ func (s *ModelService) ServerURL(backend, model string) string {
 
 // ollamaServerURL returns the base URL of the Ollama server if it is reachable,
 // honoring OLLAMA_HOST, or "" if not running.
-func ollamaServerURL() string {
+func ollamaServerURL(ctx context.Context) string {
 	url := defaultOllamaURL
 	if host := os.Getenv("OLLAMA_HOST"); host != "" {
 		url = host
 	}
-	if !isOllamaReachable(url) {
+	if !isOllamaReachable(ctx, url) {
 		return ""
 	}
 	return url + "/v1"
@@ -132,8 +134,8 @@ func ollamaServerURL() string {
 // the server is up (Ollama has no dedicated /health endpoint).
 //
 //nolint:gochecknoglobals // test-replaceable hook
-var isOllamaReachable = func(baseURL string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+var isOllamaReachable = func(parent context.Context, baseURL string) bool {
+	ctx, cancel := context.WithTimeout(parent, time.Second)
 	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, baseURL, nil)
 	if err != nil {
@@ -170,7 +172,7 @@ type LocalServerEntry struct {
 
 // ListLocalServers returns all running llamafile and GGUF model servers
 // started by this process.
-func ListLocalServers() []LocalServerEntry {
+func ListLocalServers(ctx context.Context) []LocalServerEntry {
 	var out []LocalServerEntry
 
 	servedLlamafilesMu.Lock()
@@ -182,7 +184,7 @@ func ListLocalServers() []LocalServerEntry {
 			Backend: BackendFile,
 			Port:    port,
 			PID:     pid,
-			Healthy: isHealthy(localServerURL(port)),
+			Healthy: isHealthy(ctx, localServerURL(port)),
 		})
 	}
 	servedLlamafilesMu.Unlock()
@@ -196,7 +198,7 @@ func ListLocalServers() []LocalServerEntry {
 			Backend: BackendGGUF,
 			Port:    port,
 			PID:     pid,
-			Healthy: isHealthy(localServerURL(port)),
+			Healthy: isHealthy(ctx, localServerURL(port)),
 		})
 	}
 	servedGGUFsMu.Unlock()
@@ -220,7 +222,7 @@ func (s *ModelService) KillModel(backend, model string) bool {
 
 	switch backend {
 	case BackendFile:
-		_, p, err := s.prepareLlamafile(context.Background(), model)
+		_, p, err := s.prepareLlamafile(s.ctx, model)
 		if err != nil {
 			return false
 		}
@@ -230,7 +232,7 @@ func (s *ModelService) KillModel(backend, model string) bool {
 			pids: servedLlamafilePIDs, names: servedLlamafileNames,
 		}
 	case BackendGGUF:
-		_, p, err := s.prepareGGUF(context.Background(), model)
+		_, p, err := s.prepareGGUF(s.ctx, model)
 		if err != nil {
 			return false
 		}

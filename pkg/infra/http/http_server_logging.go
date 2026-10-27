@@ -29,8 +29,8 @@ func (s *Server) logMarshalFailure(r *stdhttp.Request, label string, err error) 
 	s.logger.ErrorContext(r.Context(), "failed to marshal "+label, logKeyError, err, logKeyPath, requestPath(r))
 }
 
-func (s *Server) logResponseWriteFailure(path, label string, writeErr error) {
-	s.logger.ErrorContext(context.Background(), label, logKeyError, writeErr, logKeyPath, path)
+func (s *Server) logResponseWriteFailure(ctx context.Context, path, label string, writeErr error) {
+	s.logger.ErrorContext(ctx, label, logKeyError, writeErr, logKeyPath, path)
 }
 
 func (s *Server) logAPIResultDetected(r *stdhttp.Request, success bool) {

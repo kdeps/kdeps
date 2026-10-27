@@ -54,7 +54,7 @@ settings:
 	require.NoError(t, err)
 	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
 	require.NoError(t, err)
-	result, err := newExecEngine().Execute(wf, nil)
+	result, err := newExecEngine(t).Execute(wf, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ settings:
 	require.NoError(t, err)
 	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
 	require.NoError(t, err)
-	return newExecEngine().Execute(wf, nil)
+	return newExecEngine(t).Execute(wf, nil)
 }
 
 // runGitComponent runs one git component call and returns its structured result.

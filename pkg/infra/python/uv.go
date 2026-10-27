@@ -131,11 +131,8 @@ var RunUVFunc = func(ctx context.Context, args []string, env []string) error {
 	return nil
 }
 
-// EnsureVenv ensures a virtual environment exists for the given Python version and packages.
-// A venv counts only once its packages are installed (readyMarker): one left
-// half-built by a killed or failed run is rebuilt, not trusted. A lock file
-// keeps two processes from building the same venv at once.
 func (m *Manager) EnsureVenv(
+	ctx context.Context,
 	pythonVersion string,
 	packages []string,
 	requirementsFile string,
@@ -166,7 +163,7 @@ func (m *Manager) EnsureVenv(
 	}
 
 	// Create virtual environment with uv
-	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	ctx, cancel := context.WithTimeout(ctx, UVTimeout)
 	defer cancel()
 
 	if err := RunUVFunc(ctx, []string{uvCmdVenv, uvFlagPython, pythonVersion, venvPath}, nil); err != nil {
@@ -175,14 +172,14 @@ func (m *Manager) EnsureVenv(
 
 	// Install packages if provided
 	if len(packages) > 0 {
-		if err := m.InstallPackages(venvPath, packages); err != nil {
+		if err := m.InstallPackages(ctx, venvPath, packages); err != nil {
 			return "", fmt.Errorf("failed to install packages: %w", err)
 		}
 	}
 
 	// Install from requirements file if provided
 	if requirementsFile != "" {
-		if err := m.InstallRequirements(venvPath, requirementsFile); err != nil {
+		if err := m.InstallRequirements(ctx, venvPath, requirementsFile); err != nil {
 			return "", fmt.Errorf("failed to install requirements: %w", err)
 		}
 	}
@@ -295,7 +292,7 @@ const venvHashLen = 8
 
 // InstallPackages installs packages using uv pip install.
 // extraArgs are appended after the package names (e.g. "--no-build-isolation").
-func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs ...string) error {
+func (m *Manager) InstallPackages(ctx context.Context, venvPath string, packages []string, extraArgs ...string) error {
 	kdeps_debug.Log("enter: InstallPackages")
 	pythonPath, err := findPythonExecutable(venvPath)
 	if err != nil {
@@ -306,7 +303,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 	args := append([]string{"pip", uvCmdInstall}, packages...)
 	args = append(args, extraArgs...)
 
-	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	ctx, cancel := context.WithTimeout(ctx, UVTimeout)
 	defer cancel()
 
 	if runErr := RunUVFunc(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
@@ -316,14 +313,14 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 }
 
 // InstallRequirements installs packages from requirements file.
-func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) error {
+func (m *Manager) InstallRequirements(ctx context.Context, venvPath string, requirementsFile string) error {
 	kdeps_debug.Log("enter: InstallRequirements")
 	pythonPath, err := findPythonExecutable(venvPath)
 	if err != nil {
 		pythonPath = pythonExecutableCandidates(venvPath)[0]
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	ctx, cancel := context.WithTimeout(ctx, UVTimeout)
 	defer cancel()
 
 	if runErr := RunUVFunc(
@@ -339,13 +336,13 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 // InstallTool installs a Python CLI tool globally using `uv tool install`.
 // It is a no-op when binaryName is already on PATH.
 // extraArgs are appended verbatim (e.g. "--no-build-isolation").
-func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error {
+func (m *Manager) InstallTool(ctx context.Context, binaryName, pkg string, extraArgs ...string) error {
 	kdeps_debug.Log("enter: InstallTool")
 	if _, err := exec.LookPath(binaryName); err == nil {
 		return nil // already installed
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	ctx, cancel := context.WithTimeout(ctx, UVTimeout)
 	defer cancel()
 
 	args := append([]string{"tool", uvCmdInstall, pkg}, extraArgs...)

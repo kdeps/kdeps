@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -35,14 +36,15 @@ func TestResolveLLMBackend_DefaultBackendEnv(t *testing.T) {
 }
 
 func TestResolveLLMBackend_FallbackToFile(t *testing.T) {
-	e := &Engine{}
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	e := new(Engine)
 	assert.Equal(t, "file", e.resolveLLMBackend(&domain.ChatConfig{}))
 }
 
 func TestEvaluateLLMModel_ParseAndEvalFallback(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	assert.Equal(t, "plain", e.evaluateLLMModel("plain", ctx))
@@ -53,7 +55,7 @@ func TestEvaluateLLMModel_ParseAndEvalFallback(t *testing.T) {
 }
 
 func TestResolveLLMBackend_EnvFallback(t *testing.T) {
-	e := NewEngine(nil)
+	e := NewEngine(context.Background(), nil)
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "groq")
 	assert.Equal(t, "groq", e.resolveLLMBackend(&domain.ChatConfig{}))
 

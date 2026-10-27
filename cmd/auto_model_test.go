@@ -83,6 +83,7 @@ func TestResolveAutoModel_FallsBackToInstalledPick(t *testing.T) {
 }
 
 func TestResolveAutoModel_FallsBackToFixedTiers(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	stubScoreModelEntries(t, func(context.Context, []kdepsconfig.ModelEntry) (*kdepsconfig.ModelEntry, bool) {
 		return nil, false
 	})
@@ -124,6 +125,7 @@ func TestResolveStartModelWithAutoPick_AutoRouterSentinel(t *testing.T) {
 }
 
 func TestResolveStartModelWithAutoPick_AutoRouterFallsBackToFixedTiers(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	stubAutoRouterPick(t, func(context.Context, afero.Fs) (string, string, bool) {
 		return "", "", false
 	})

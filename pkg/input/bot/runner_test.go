@@ -119,7 +119,7 @@ func TestNew_Telegram_WithCreds(t *testing.T) {
 }
 
 func TestHandleMessage_EngineExecuteError(_ *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("execution failed")
 	})

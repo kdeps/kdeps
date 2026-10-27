@@ -146,7 +146,7 @@ func TestSetupEnvironment_SetenvError(t *testing.T) {
 			},
 		},
 	}
-	require.Error(t, SetupEnvironment(wf))
+	require.Error(t, SetupEnvironment(t.Context(), wf))
 }
 
 func TestEnsureLLMBackendStep_OverrideURLStartsNoLocalModel(t *testing.T) {

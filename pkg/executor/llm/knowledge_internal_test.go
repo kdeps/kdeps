@@ -74,7 +74,10 @@ func TestKnowledgeRecall_Workflow(t *testing.T) {
 func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {
 	withVault(t, &config.KnowledgeConfig{})
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	msgs, err := e.buildMessages(expression.NewEvaluator(nil), ctx,
 		&domain.ChatConfig{Prompt: "how do we bill?", JSONResponse: true}, "how do we bill?")

@@ -19,6 +19,7 @@
 package http
 
 import (
+	"context"
 	stdhttp "net/http"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -63,8 +64,9 @@ func (s *WebServer) respondUnsupportedServerType(
 	respondPlainHTTPError(w, unsupportedServerTypeMessage, stdhttp.StatusInternalServerError)
 }
 
-func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
+func (s *WebServer) logWebRouteConfigured(ctx context.Context, route domain.WebRoute) {
 	s.logBackgroundInfo(
+		ctx,
 		"web server route configured",
 		"path",
 		route.Path,

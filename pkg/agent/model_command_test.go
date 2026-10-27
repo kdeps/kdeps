@@ -143,7 +143,7 @@ func TestModelCommand_Tool(t *testing.T) {
 func TestModelCommand_PS(t *testing.T) {
 	orig := listLocalServersFunc
 	t.Cleanup(func() { listLocalServersFunc = orig })
-	listLocalServersFunc = func() []llm.LocalServerEntry {
+	listLocalServersFunc = func(_ context.Context) []llm.LocalServerEntry {
 		return []llm.LocalServerEntry{{PID: 42, Port: 8081, Backend: "gguf", Path: "/m/qwen.gguf", Healthy: true}}
 	}
 	repl := NewREPL(context.Background(), makeTestLoop(nil))
@@ -151,7 +151,7 @@ func TestModelCommand_PS(t *testing.T) {
 
 	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/model ps")) })
 	assert.Regexp(t, `42\s+8081\s+gguf\s+qwen.gguf\s+healthy`, out)
-	listLocalServersFunc = func() []llm.LocalServerEntry { return nil }
+	listLocalServersFunc = func(_ context.Context) []llm.LocalServerEntry { return nil }
 	out = captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/model ps")) })
 	assert.Contains(t, out, "No local model servers running.")
 	require.ErrorContains(t, repl.dispatchCommand("/model ps kill qwen"), "no local model service available")

@@ -1,0 +1,14 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: side-call-max-tokens
+on:
+  # Output cap for refine, the judge roster, and a verdict-only judge.
+  # Compaction, the main turn, branch summaries, plan, confirm, and
+  # handshake keep the model output ceiling.
+  tokens: 512
+# run: selects the action fired once the trigger above is met.
+# Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
+#   truncate        shorten oversized content to a budget, marking what was cut
+run: truncate

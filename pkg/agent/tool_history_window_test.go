@@ -247,7 +247,7 @@ func TestRunStreaming_ToolLoopHistoryStaysBounded(t *testing.T) {
 	responses = append(responses, mockStreamResponse{content: "done"})
 
 	cs := &capturingStreamer{responses: responses}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "bigout",
@@ -256,7 +256,7 @@ func TestRunStreaming_ToolLoopHistoryStaysBounded(t *testing.T) {
 			return strings.Repeat("payload line\n", 4096), nil // ~48 KB per call
 		},
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: cs, MaxToolRounds: rounds + 2,
 	})
 

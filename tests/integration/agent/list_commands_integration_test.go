@@ -19,6 +19,7 @@
 package agent_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestListCommands_ThroughTheAPI(t *testing.T) {
 	store := agent.NewMemoryStore(t.TempDir())
 	store.SetCwd(filepath.Join(t.TempDir(), "p"))
 	require.NoError(t, store.Set("fact:sky", "the sky is blue"))
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(),
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(),
 		agent.Config{Model: "m", MemoryStore: store})
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
@@ -75,7 +76,13 @@ func TestJudgesCommand_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -109,7 +116,13 @@ func TestHarnessCommand_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -138,7 +151,13 @@ func TestKnowledgeCommands_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -158,8 +177,8 @@ func TestPromptAndContextCommands_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(
-		executor.NewEngine(nil),
+	loop := agent.New(t.Context(),
+		executor.NewEngine(context.Background(), nil),
 		nil,
 		kdepstools.NewRegistry(),
 		agent.Config{Model: "m", Backend: "openai"},

@@ -69,12 +69,20 @@ type Note struct {
 	Summary string         `json:"summary,omitempty"`
 	Tags    []string       `json:"tags,omitempty"`
 	Aliases []string       `json:"aliases,omitempty"`
+	// Canonical is an optional stable fact id (frontmatter canonical or fact_id).
+	Canonical string `json:"canonical,omitempty"`
 	// Links are wikilink targets in the body; MetaLinks those in frontmatter.
 	Links     []string `json:"links,omitempty"`
 	MetaLinks []string `json:"metaLinks,omitempty"`
 	MDLinks   []string `json:"mdLinks,omitempty"` // relative .md link targets
-	Body      string   `json:"-"`
-	Hash      string   `json:"hash"`
+	// LinkLine, MetaLine, MDLine and TagLine are the 1-based file line of the
+	// first occurrence of each link or tag.
+	LinkLine map[string]int `json:"linkLine,omitempty"`
+	MetaLine map[string]int `json:"metaLine,omitempty"`
+	MDLine   map[string]int `json:"mdLine,omitempty"`
+	TagLine  map[string]int `json:"tagLine,omitempty"`
+	Body     string         `json:"-"`
+	Hash     string         `json:"hash"`
 }
 
 // Vault is a folder of markdown notes.
@@ -133,6 +141,9 @@ func ParseNote(rel string, data []byte) *Note {
 	n.Summary = metaString(meta, "summary")
 	n.Tags = metaList(meta, "tags")
 	n.Aliases = metaList(meta, "aliases")
+	if n.Canonical = metaString(meta, "canonical"); n.Canonical == "" {
+		n.Canonical = metaString(meta, "fact_id")
+	}
 	for _, l := range metaList(meta, "links") {
 		if m := wikiLinkRe.FindAllStringSubmatch(l, -1); len(m) > 0 {
 			for _, x := range m {
@@ -151,7 +162,106 @@ func ParseNote(rel string, data []byte) *Note {
 			n.MDLinks = append(n.MDLinks, m[1])
 		}
 	}
+	n.indexLines(data)
 	return n
+}
+
+// indexLines records the file line of each link and tag, skipping fenced
+// code the way the link scan does.
+func (n *Note) indexLines(data []byte) {
+	n.LinkLine = map[string]int{}
+	n.MetaLine = map[string]int{}
+	n.MDLine = map[string]int{}
+	n.TagLine = map[string]int{}
+	inFM := false
+	seenFM := 0
+	fence := ""
+	for i, line := range strings.Split(string(data), "\n") {
+		num := i + 1
+		t := strings.TrimSpace(line)
+		if seenFM < 2 && t == frontDelim {
+			if !inFM {
+				inFM = true
+				seenFM = 1
+			} else {
+				inFM = false
+				seenFM = 2
+			}
+			continue
+		}
+		if inFM {
+			n.indexFrontmatterLine(line, num)
+			continue
+		}
+		if fence == "" && len(t) >= 3 && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
+			fence = t[:3]
+			continue
+		}
+		if fence != "" {
+			if strings.HasPrefix(t, fence) {
+				fence = ""
+			}
+			continue
+		}
+		n.indexBodyLine(inlineCodeRe.ReplaceAllString(line, ""), num)
+	}
+}
+
+func (n *Note) indexFrontmatterLine(line string, num int) {
+	for _, m := range wikiLinkRe.FindAllStringSubmatch(line, -1) {
+		target := strings.TrimSpace(m[1])
+		if _, ok := n.MetaLine[target]; !ok {
+			n.MetaLine[target] = num
+		}
+	}
+	low := strings.ToLower(line)
+	for _, tag := range n.Tags {
+		if n.TagLine[tag] == 0 && strings.Contains(low, strings.ToLower(tag)) {
+			n.TagLine[tag] = num
+		}
+	}
+}
+
+func (n *Note) indexBodyLine(line string, num int) {
+	for _, m := range wikiLinkRe.FindAllStringSubmatch(line, -1) {
+		target := strings.TrimSpace(m[1])
+		if _, ok := n.LinkLine[target]; !ok {
+			n.LinkLine[target] = num
+		}
+	}
+	for _, m := range mdLinkRe.FindAllStringSubmatch(line, -1) {
+		if strings.Contains(m[1], "://") {
+			continue
+		}
+		if _, ok := n.MDLine[m[1]]; !ok {
+			n.MDLine[m[1]] = num
+		}
+	}
+}
+
+// lineRef is a 1-based line as stored on an edge. Zero is unknown.
+func lineRef(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("L%d", n)
+}
+
+// lineInFile is the 1-based line of the first occurrence of needle.
+func lineInFile(path, needle string) int {
+	if needle == "" {
+		return 0
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	for i, line := range strings.Split(string(data), "\n") {
+		if strings.Contains(line, needle) {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // stripCode blanks fenced code blocks and inline code spans: a link inside
@@ -265,13 +375,40 @@ func DefaultVault() string {
 	return filepath.Join(home, ".kdeps", "notes")
 }
 
-// IndexFolder is the hidden vault folder holding the generated graph,
-// caches and report (never read as notes).
+// IndexFolder is the old hidden vault folder. A build reads an owned graph
+// there once, then removes those files. New graph state is not written there.
 const IndexFolder = ".index"
 
-// GraphDir is where kdeps keeps a vault's generated graph, report and
-// caches: <vault>/.index, so the index travels with the vault.
+// GraphDir is where kdeps keeps a vault's generated graph, caches and report:
+// ~/.kdeps/knowledge/<vault-id>, outside the vault. vault-id is a stable hash
+// of the canonical vault path. Under go test the directory is a temp folder.
 func GraphDir(vault string) string {
+	return filepath.Join(knowledgeStateRoot(), VaultID(vault))
+}
+
+func knowledgeStateRoot() string {
+	if testing.Testing() {
+		return filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-test-knowledge-%d", os.Getpid()))
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(os.TempDir(), "kdeps-knowledge")
+	}
+	return filepath.Join(home, ".kdeps", "knowledge")
+}
+
+// VaultID is the stable id of a vault path.
+func VaultID(vault string) string {
+	abs, err := filepath.Abs(vault)
+	if err != nil {
+		abs = vault
+	}
+	sum := sha256.Sum256([]byte(filepath.Clean(abs)))
+	return hex.EncodeToString(sum[:16])
+}
+
+// LegacyGraphDir is the old <vault>/.index location.
+func LegacyGraphDir(vault string) string {
 	return filepath.Join(vault, IndexFolder)
 }
 

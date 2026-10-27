@@ -9,8 +9,8 @@ self-contained version, then runs the turn on the rewrite.
 your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, judges)
 ```
 
-**On by default.** It is a small pre-turn cost that makes the turn land better.
-Turn it off with `/refine off` if you want prompts sent verbatim.
+**Off by default.** Turn it on with `/refine on`. The choice persists. A
+session that already stored refine-on stays on until `/refine off`.
 
 **You see the rewrite every turn.** When the prompt is changed, the REPL prints
 it before any work starts:

@@ -105,7 +105,7 @@ func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
 	require.NoError(t, os.MkdirAll(cacheParent, 0750))
 	require.NoError(t, os.WriteFile(filepath.Join(cacheParent, "linuxkit"), []byte("block"), 0644))
 
-	_, err := NewBuilder()
+	_, err := NewBuilder(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "linuxkit not available")
 }
@@ -129,7 +129,7 @@ func TestNewBuilder_CachedBinary(t *testing.T) {
 	cachedBinary := filepath.Join(cacheDir, "linuxkit-"+linuxkitVersion)
 	require.NoError(t, os.WriteFile(cachedBinary, []byte("cached"), 0o700))
 
-	builder, err := NewBuilder()
+	builder, err := NewBuilder(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, builder)
 	require.NotNil(t, builder.Runner)

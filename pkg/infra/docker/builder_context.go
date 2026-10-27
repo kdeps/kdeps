@@ -21,6 +21,7 @@ package docker
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -35,6 +36,7 @@ import (
 
 // CreateBuildContext creates a tar archive for Docker build context.
 func (b *Builder) CreateBuildContext(
+	ctx context.Context,
 	workflow *domain.Workflow,
 	dockerfile string,
 ) (io.Reader, error) {
@@ -48,7 +50,7 @@ func (b *Builder) CreateBuildContext(
 	}
 
 	// Generate and add entrypoint.sh
-	entrypoint, entrypointErr := b.generateEntrypoint(workflow)
+	entrypoint, entrypointErr := b.generateEntrypoint(ctx, workflow)
 	if entrypointErr != nil {
 		return nil, fmt.Errorf("failed to generate entrypoint: %w", entrypointErr)
 	}
@@ -57,7 +59,7 @@ func (b *Builder) CreateBuildContext(
 	}
 
 	// Generate and add supervisord.conf
-	supervisord, supervisordErr := b.generateSupervisord(workflow)
+	supervisord, supervisordErr := b.generateSupervisord(ctx, workflow)
 	if supervisordErr != nil {
 		return nil, fmt.Errorf("failed to generate supervisord config: %w", supervisordErr)
 	}

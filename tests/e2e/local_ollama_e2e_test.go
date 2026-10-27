@@ -301,10 +301,10 @@ resources:
 }
 
 // setupTestExecutor creates and configures the executor for testing.
-func setupTestExecutor() *executor.Engine {
+func setupTestExecutor(t *testing.T) *executor.Engine {
 	kdeps_debug.Log("enter: setupTestExecutor")
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(kdepsHTTP.NewAdapter())
@@ -312,7 +312,7 @@ func setupTestExecutor() *executor.Engine {
 	registry.SetExecExecutor(kdepsExec.NewAdapter())
 
 	ollamaURL := "http://localhost:11434"
-	registry.SetLLMExecutor(llm.NewAdapter(ollamaURL))
+	registry.SetLLMExecutor(llm.NewAdapter(t.Context(), ollamaURL))
 
 	engine.SetRegistry(registry)
 	return engine
@@ -406,7 +406,7 @@ func testCompleteWorkflowWithLLM(t *testing.T, model string) {
 	require.NoError(t, err)
 
 	// Setup executor
-	engine := setupTestExecutor()
+	engine := setupTestExecutor(t)
 
 	// Create test request
 	reqCtx := &executor.RequestContext{

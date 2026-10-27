@@ -42,8 +42,8 @@ import (
 )
 
 //nolint:gochecknoglobals // test-replaceable factory hook
-var newModelServiceFunc = func() executorLLM.ModelServiceInterface {
-	return executorLLM.NewModelService(nil)
+var newModelServiceFunc = func(ctx context.Context) executorLLM.ModelServiceInterface {
+	return executorLLM.NewModelService(ctx, nil)
 }
 
 // StartHTTPServer starts the HTTP API server (exported for testing).
@@ -82,9 +82,9 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 func setupEngineAt(level slog.Level, debugMode bool) *executor.Engine {
 	kdeps_debug.Log("enter: setupEngine")
 	logger := logging.NewLoggerAt(level, debugMode)
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(processRoot(), logger)
 	engine.SetDebugMode(debugMode)
-	engine.SetRegistry(newExecutorRegistry())
+	engine.SetRegistry(newExecutorRegistry(processRoot()))
 	return engine
 }
 
@@ -104,7 +104,7 @@ func setupEngineWithMemory(eng *executor.Engine, _ *domain.Workflow, debugMode b
 
 // newExecutorRegistry creates an executor registry with all adapters wired up.
 // Lives here (not in pkg/executor) to avoid import cycles with sub-packages.
-func newExecutorRegistry() *executor.Registry {
+func newExecutorRegistry(ctx context.Context) *executor.Registry {
 	kdeps_debug.Log("enter: newExecutorRegistry")
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
@@ -114,7 +114,7 @@ func newExecutorRegistry() *executor.Registry {
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())
-	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(ctx, getOllamaURL()))
 	return registry
 }
 
@@ -133,7 +133,7 @@ func prefetchModel(ctx context.Context, backend, model string) {
 			return
 		}
 	}
-	svc := newModelServiceFunc()
+	svc := newModelServiceFunc(ctx)
 	if err := svc.DownloadModel(ctx, backend, model); err != nil {
 		return
 	}

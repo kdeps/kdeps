@@ -49,6 +49,7 @@ func TestCreateRequest_KdepsAPIHost(t *testing.T) {
 	e := NewExecutor()
 	callURL := "http://kdeps.api/apis/tools.kdeps.io/v1/tools/http_test_echo/call"
 	req, client, err := e.createRequest(
+		t.Context(),
 		&domain.HTTPClientConfig{},
 		http.MethodPost,
 		callURL,
@@ -66,6 +67,7 @@ func TestCreateRequest_KdepsAPIHost(t *testing.T) {
 	require.Equal(t, want, string(body))
 
 	_, other, err := e.createRequest(
+		t.Context(),
 		&domain.HTTPClientConfig{},
 		http.MethodGet,
 		"http://example.com/",

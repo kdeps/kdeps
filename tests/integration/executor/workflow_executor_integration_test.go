@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -65,9 +66,11 @@ func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -141,9 +144,11 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -227,9 +232,11 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -281,9 +288,11 @@ func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute - APIResponse with Success=false should still succeed but return the response
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -315,9 +324,11 @@ func TestWorkflowExecutor_EmptyWorkflow(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute - should fail because there's no target resource
+	), logger)
+
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "target resource")
@@ -386,9 +397,11 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -466,9 +479,11 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -528,9 +543,11 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 
 	// Create executor
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Execute
+	), logger)
+
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)

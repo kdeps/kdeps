@@ -15,6 +15,7 @@
 package executor_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -26,7 +27,7 @@ import (
 )
 
 func TestInlineStreamingResponse_Integration(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -35,7 +36,7 @@ func TestInlineStreamingResponse_Integration(t *testing.T) {
 			Version: "1.0.0",
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{

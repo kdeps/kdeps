@@ -125,7 +125,7 @@ func (e *Executor) executeTool(
 
 	// MCP tool: delegate to MCP server via JSON-RPC 2.0 over stdio
 	if tool.MCP != nil {
-		result, mcpErr := mcpExecuteToolFunc(tool.MCP, tool.Name, args)
+		result, mcpErr := mcpExecuteToolFunc(ctx.Ctx, tool.MCP, tool.Name, args)
 		if mcpErr != nil {
 			return nil, fmt.Errorf("MCP tool execution failed: %w", mcpErr)
 		}

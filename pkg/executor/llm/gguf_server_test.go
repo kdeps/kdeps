@@ -61,13 +61,13 @@ func TestCachedLlamaServerPath(t *testing.T) {
 
 func TestResolvedGGUFURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-test-gguf"))
-	result := ResolvedGGUFURL("test-model")
+	result := ResolvedGGUFURL(t.Context(), "test-model")
 	assert.Equal(t, "", result)
 }
 
 func TestResolvedLlamafileURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-test-llamafile"))
-	result := ResolvedLlamafileURL("test-model")
+	result := ResolvedLlamafileURL(t.Context(), "test-model")
 	assert.Equal(t, "", result)
 }
 
@@ -85,7 +85,7 @@ func TestEnsureLlamaServerBinary_ReturnsCachedPath(t *testing.T) {
 	cachedBin := filepath.Join(binDir, llamaServerExeName())
 	require.NoError(t, os.WriteFile(cachedBin, []byte("fake"), 0o755))
 
-	result := EnsureLlamaServerBinary()
+	result := EnsureLlamaServerBinary(t.Context())
 	assert.Equal(t, cachedBin, result)
 }
 
@@ -99,7 +99,7 @@ func TestResolvedLlamafileURL_KnownModelNoServer(t *testing.T) {
 	}
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	// None of the healthy checks can succeed (no server running in tests).
-	result := ResolvedLlamafileURL(names[0])
+	result := ResolvedLlamafileURL(t.Context(), names[0])
 	assert.Equal(t, "", result)
 }
 
@@ -117,6 +117,6 @@ func TestEnsureLlamaServerBinary_UnsupportedPlatformReturnsEmpty(t *testing.T) {
 	testArch = "unsupportedarch"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 
-	result := EnsureLlamaServerBinary()
+	result := EnsureLlamaServerBinary(t.Context())
 	assert.Equal(t, "", result)
 }

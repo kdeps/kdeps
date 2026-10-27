@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -58,7 +59,7 @@ func stubTestHooks(t *testing.T, exec *fixedExecutor) {
 		setupEnvironmentFunc = origEnv
 		createHTTPServerWithEngineFunc = origServer
 	})
-	setupEnvironmentFunc = func(_ *domain.Workflow) error { return nil }
+	setupEnvironmentFunc = func(_ context.Context, _ *domain.Workflow) error { return nil }
 	createHTTPServerWithEngineFunc = func(
 		_ *executor.Engine,
 		workflow *domain.Workflow,
@@ -261,7 +262,7 @@ tests:
 func TestRunTestCmd_SetupEnvironmentError(t *testing.T) {
 	orig := setupEnvironmentFunc
 	t.Cleanup(func() { setupEnvironmentFunc = orig })
-	setupEnvironmentFunc = func(_ *domain.Workflow) error { return errors.New("env") }
+	setupEnvironmentFunc = func(_ context.Context, _ *domain.Workflow) error { return errors.New("env") }
 
 	path := writeTestWorkflow(t, passingTestWorkflow)
 	err := RunTestCmd(testCobraCommand(t), []string{path}, &TestFlags{})
@@ -276,7 +277,7 @@ func TestRunTestCmd_ServerError(t *testing.T) {
 		setupEnvironmentFunc = origEnv
 		createHTTPServerWithEngineFunc = origServer
 	})
-	setupEnvironmentFunc = func(_ *domain.Workflow) error { return nil }
+	setupEnvironmentFunc = func(_ context.Context, _ *domain.Workflow) error { return nil }
 	createHTTPServerWithEngineFunc = func(
 		_ *executor.Engine,
 		_ *domain.Workflow,

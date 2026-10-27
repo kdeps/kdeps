@@ -49,12 +49,12 @@ func TestDockerBuildContext_CarriesAssets(t *testing.T) {
 			Versions: &domain.PackageVersions{Kdeps: "2.0.0", Ollama: "0.5.4", UV: "0.6.3"},
 		}},
 	}
-	dockerfile, err := b.GenerateDockerfile(wf)
+	dockerfile, err := b.GenerateDockerfile(t.Context(), wf)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "COPY "+assets.ExportDir+"/ /app/.kdeps/assets/")
 	assert.Contains(t, dockerfile, "KDEPS_ASSETS_DIR=/app/.kdeps/assets")
 
-	ctx, err := b.CreateBuildContext(wf, dockerfile)
+	ctx, err := b.CreateBuildContext(t.Context(), wf, dockerfile)
 	require.NoError(t, err)
 	data, err := io.ReadAll(ctx)
 	require.NoError(t, err)

@@ -57,7 +57,7 @@ func TestDockerTemplates_NoAssets(t *testing.T) {
 	require.ErrorContains(t, err, "run kdeps update")
 	_, err = (&Builder{BaseOS: baseOSAlpine}).renderBackendInstall(false)
 	require.ErrorContains(t, err, "run kdeps update")
-	_, err = (&Builder{BaseOS: baseOSAlpine}).generateEntrypoint(&domain.Workflow{})
+	_, err = (&Builder{BaseOS: baseOSAlpine}).generateEntrypoint(t.Context(), &domain.Workflow{})
 	require.ErrorContains(t, err, "run kdeps update")
 }
 
@@ -69,7 +69,7 @@ func TestRenderWorkflowTemplate_BuildTemplateDataError(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	}
 
-	_, err := builder.renderWorkflowTemplate("dockerfile", "FROM alpine", workflow)
+	_, err := builder.renderWorkflowTemplate(t.Context(), "dockerfile", "FROM alpine", workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to build template data")
 }
@@ -124,7 +124,7 @@ func TestGenerateEntrypoint_HookError(t *testing.T) {
 		Kind:       "workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "test"},
 	}
-	_, err := b.generateEntrypoint(wf)
+	_, err := b.generateEntrypoint(t.Context(), wf)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "hook injected error")
 }
@@ -142,7 +142,7 @@ func TestGenerateSupervisord_HookError(t *testing.T) {
 		Kind:       "workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "test"},
 	}
-	_, err := b.generateSupervisord(wf)
+	_, err := b.generateSupervisord(t.Context(), wf)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "hook injected error")
 }

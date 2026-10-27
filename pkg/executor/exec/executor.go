@@ -19,6 +19,7 @@
 package exec
 
 import (
+	"context"
 	"errors"
 	"os/exec"
 	"runtime"
@@ -105,14 +106,14 @@ func (e *Executor) Execute(
 // Run executes an already-resolved config. The kdeps API calls it for the
 // exec component: component inputs arrive resolved, and a call route has no
 // workflow ExecutionContext to evaluate expressions against.
-func (e *Executor) Run(config *domain.ExecConfig) (interface{}, error) {
+func (e *Executor) Run(parent context.Context, config *domain.ExecConfig) (interface{}, error) {
 	kdeps_debug.Log("enter: Run")
 	if strings.TrimSpace(config.Command) == "" {
 		return nil, errors.New("command cannot be empty")
 	}
 
 	timeout, maxOutputBytes := e.resolveExecutionLimits(config)
-	ctx := &executor.ExecutionContext{}
+	ctx := &executor.ExecutionContext{Ctx: parent}
 	cmd, stdout, stderr := e.buildCommand(ctx, config, config.Command, config.Args)
 	fullCommand := e.formatFullCommand(config.Command, config.Args)
 

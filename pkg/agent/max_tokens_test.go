@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -159,17 +160,22 @@ func TestBuildChatConfig_MaxTokens_KnownCloudModel(t *testing.T) {
 	assert.Equal(t, executorLLM.ModelMaxOutputTokens("claude-opus-4-8"), *cfg.MaxTokens)
 }
 
-// The remaining call sites (compaction, branch summary, goal-plan request,
-// goal-plan confirm, judge roster) all use the exact same one-line
-// expression as buildChatConfig above:
-//
-//	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
-//
-// Each is still verified end-to-end below by capturing the real
-// *domain.Workflow passed to engine.Execute via Engine.SetExecuteFunc, so
-// the fix is confirmed wired all the way through the actual call path, not
-// just asserted at the shared-helper level. The m365 case is exercised
-// directly since it's the backend this fix was found on.
+func TestBuildChatConfig_OutputTokenCapWins(t *testing.T) {
+	loop := &Loop{
+		config: Config{
+			Model: "claude-opus-4-8", Backend: "anthropic", OutputTokenCap: 512,
+		},
+		session: NewSession(0),
+	}
+	cfg := loop.buildChatConfig(context.Background(), "write a file", "")
+	require.NotNil(t, cfg.MaxTokens)
+	assert.Equal(t, 512, *cfg.MaxTokens)
+}
+
+// Compaction, branch summary, goal-plan request, goal-plan confirm, and
+// handshake stay on syntheticCallMaxTokens (the model ceiling). Refine and
+// the judge roster use sideCallMaxTokens. Each path below captures the real
+// *domain.Workflow passed to engine.Execute.
 
 func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 	orig := executorLLM.LocalContextSize()
@@ -177,12 +183,12 @@ func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "summary", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "test-gguf",
 		Backend:            executorLLM.BackendGGUF,
 		CompactTokenBudget: 1,
@@ -200,12 +206,12 @@ func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 
 func TestCompactWithLLM_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "summary", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "totally-custom-unlisted-model",
 		Backend:            "openai",
 		CompactTokenBudget: 1,
@@ -225,12 +231,12 @@ func TestCompactWithLLM_MaxTokens_UnknownCloudModel(t *testing.T) {
 // implicit (and apparently much smaller) M365 proxy default.
 func TestCompactWithLLM_MaxTokens_M365Backend(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "claude-sonnet",
 		Backend:            backendM365,
 		CompactTokenBudget: 1,
@@ -253,12 +259,12 @@ func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:   "test-gguf",
 		Backend: executorLLM.BackendGGUF,
 	})
@@ -275,12 +281,12 @@ func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
 
 func TestSummarizeBranch_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:   "totally-custom-unlisted-model",
 		Backend: "openai",
 	})
@@ -300,7 +306,7 @@ func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
 	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
 
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
@@ -312,12 +318,12 @@ func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
 	generateJudgeRoster(l, "review this PR")
 	require.NotNil(t, captured, "judge-roster workflow was not captured")
 	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
-	assert.Equal(t, 16384, *captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
 }
 
 func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
@@ -328,12 +334,13 @@ func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
 
 	generateJudgeRoster(l, "review this PR")
 	require.NotNil(t, captured, "judge-roster workflow was not captured")
-	assert.Nil(t, captured.Resources[0].Chat.MaxTokens)
+	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
 }
 
 func TestRefinePrompt_MaxTokens_KnownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		captured = wf
 		return "Add a --dry-run flag to the sync command and cover it with a unit test.", nil
@@ -346,7 +353,33 @@ func TestRefinePrompt_MaxTokens_KnownCloudModel(t *testing.T) {
 	refinePrompt(context.Background(), l, "add a dry-run flag to the sync command and cover it with a unit test")
 	require.NotNil(t, captured, "refine workflow was not captured")
 	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
-	assert.Equal(t, executorLLM.ModelMaxOutputTokens("gpt-4o"), *captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
+}
+
+func TestSideCallMaxTokens_DisabledOrZeroFallsBack(t *testing.T) {
+	orig := eventRegistry
+	t.Cleanup(func() { eventRegistry = orig })
+
+	disabled := *orig[eventSideCallMaxTokens]
+	disabled.Disabled = true
+	reg := maps.Clone(orig)
+	reg[eventSideCallMaxTokens] = &disabled
+	eventRegistry = reg
+	assert.Nil(t, sideCallMaxTokens("openai", "totally-custom-unlisted-model"))
+
+	zero := *orig[eventSideCallMaxTokens]
+	zero.On.Tokens = 0
+	reg = maps.Clone(orig)
+	reg[eventSideCallMaxTokens] = &zero
+	eventRegistry = reg
+	assert.Nil(t, sideCallMaxTokens("openai", "totally-custom-unlisted-model"))
+
+	origSize := executorLLM.LocalContextSize()
+	executorLLM.SetLocalContextSize(16384)
+	t.Cleanup(func() { executorLLM.SetLocalContextSize(origSize) })
+	got := sideCallMaxTokens(executorLLM.BackendGGUF, "x")
+	require.NotNil(t, got)
+	assert.Equal(t, 16384, *got)
 }
 
 func TestBuildHandshakeChatCfg_MaxTokens_M365(t *testing.T) {

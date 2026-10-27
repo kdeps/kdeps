@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -38,8 +39,11 @@ type Engine struct {
 	registry            *Registry
 	inputValidator      inputValidator
 	exprValidator       exprValidator
-	newExecutionContext func(*domain.Workflow, string) (*ExecutionContext, error)
-	afterEvaluatorInit  func(*Engine, *ExecutionContext)
+	newExecutionContext func(context.Context, *domain.Workflow, string) (*ExecutionContext, error)
+	// ctx is the context the engine was created with: every execution derives
+	// from it unless the request carries its own (RequestContext.Ctx).
+	ctx                context.Context
+	afterEvaluatorInit func(*Engine, *ExecutionContext)
 	// executeFunc, when set via SetExecuteFunc, replaces the full Execute body.
 	// Used by tests (e.g. pkg/input/llm) to inject a stub engine without the
 	// full executor stack.
@@ -66,13 +70,15 @@ type exprValidator interface {
 	) error
 }
 
-// NewEngine creates a new execution engine.
-func NewEngine(logger *slog.Logger) *Engine {
+// NewEngine creates a new execution engine. ctx is the parent of every
+// execution it runs (a request's own context replaces it for that request).
+func NewEngine(ctx context.Context, logger *slog.Logger) *Engine {
 	kdeps_debug.Log("enter: NewEngine")
 	if logger == nil {
 		logger = slog.Default()
 	}
 	engine := &Engine{
+		ctx:            ctx,
 		graph:          NewGraph(),
 		logger:         logger,
 		registry:       NewRegistry(),
@@ -80,11 +86,16 @@ func NewEngine(logger *slog.Logger) *Engine {
 		exprValidator:  validator.NewExpressionValidator(),
 		emitter:        withInstrument(events.NopEmitter{}),
 	}
-	engine.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-		if sessionID != "" {
-			return NewExecutionContext(workflow, sessionID)
-		}
-		return NewExecutionContext(workflow)
-	}
+	engine.newExecutionContext = defaultExecutionContext
 	return engine
+}
+
+// defaultExecutionContext is the engine's execution-context factory.
+func defaultExecutionContext(
+	ctx context.Context, workflow *domain.Workflow, sessionID string,
+) (*ExecutionContext, error) {
+	if sessionID != "" {
+		return NewExecutionContext(ctx, workflow, sessionID)
+	}
+	return NewExecutionContext(ctx, workflow)
 }

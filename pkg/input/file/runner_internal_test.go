@@ -59,7 +59,7 @@ func minimalWorkflow() *domain.Workflow {
 
 // TestRunWithReader_Success tests the happy path: raw text via reader → engine succeeds.
 func TestRunWithReader_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	var out bytes.Buffer
@@ -85,7 +85,7 @@ func TestWriteResult(t *testing.T) {
 func TestRunWithReader_ReadInputError(t *testing.T) {
 	t.Setenv("KDEPS_FILE_PATH", "") // ensure no env fallback
 
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 	wf.Settings.Input = &domain.InputConfig{
 		Sources: []string{domain.InputSourceFile},
@@ -99,9 +99,11 @@ func TestRunWithReader_ReadInputError(t *testing.T) {
 
 // TestRunWithReader_EngineExecuteError tests that engine.Execute errors are wrapped correctly.
 func TestRunWithReader_EngineExecuteError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.
 
-	// Workflow with an unknown resource type causes engine.Execute to return an error.
+		// Workflow with an unknown resource type causes engine.Execute to return an error.
+		Background(), nil)
+
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{TargetActionID: "target"},
 		Settings: domain.WorkflowSettings{
@@ -131,7 +133,7 @@ func TestRunWithReader_EngineExecuteError(t *testing.T) {
 
 // TestRunWithReader_JSONInput tests that JSON input {"path":"...","content":"..."} works.
 func TestRunWithReader_JSONInput(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	json := `{"path":"/tmp/test.txt","content":"json content"}`
@@ -147,7 +149,7 @@ func TestRunWithReader_ArgPath(t *testing.T) {
 	_, _ = tmpFile.WriteString("from arg path")
 	tmpFile.Close()
 
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	// stdin is empty — content must come from argPath.
@@ -170,7 +172,7 @@ func TestRunWithArg_Success(t *testing.T) {
 	os.Stdin = r
 	w.Close() // empty stdin
 
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	runErr := RunWithArg(context.Background(), wf, engine, slog.Default(), tmpFile.Name())
@@ -220,7 +222,7 @@ func TestRun_Success(t *testing.T) {
 		w.Close()
 	}()
 
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	runErr := Run(context.Background(), wf, engine, slog.Default())

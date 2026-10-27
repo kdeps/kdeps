@@ -31,6 +31,7 @@ import (
 )
 
 func performDockerBuild(
+	ctx context.Context,
 	builder *docker.Builder,
 	workflow *domain.Workflow,
 	packagePath string,
@@ -41,15 +42,15 @@ func performDockerBuild(
 	fmt.Fprintln(os.Stdout, "✓ Dockerfile generated")
 	fmt.Fprintln(os.Stdout, "✓ Building image...")
 
-	imageName, err := dockerBuildImageFunc(builder, workflow, packagePath, flags.NoCache)
+	imageName, err := dockerBuildImageFunc(ctx, builder, workflow, packagePath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build image: %w", err)
 	}
 
 	// Tag image if custom tag provided
 	if flags.Tag != "" {
-		ctx := context.Background()
-		if tagErr := builder.Client.TagImage(ctx, imageName, flags.Tag); tagErr != nil {
+		tagCtx := processRoot()
+		if tagErr := builder.Client.TagImage(tagCtx, imageName, flags.Tag); tagErr != nil {
 			return fmt.Errorf("failed to tag image: %w", tagErr)
 		}
 		fmt.Fprintf(os.Stdout, "✓ Image tagged: %s\n", flags.Tag)
@@ -76,8 +77,8 @@ func performDockerBuild(
 // buildDockerImage is a variable so tests can replace it without running Docker.
 
 //nolint:gochecknoglobals // overridable in tests
-var dockerBuildImageFunc = func(builder *docker.Builder, workflow *domain.Workflow, packagePath string, noCache bool) (string, error) {
-	return builder.Build(workflow, packagePath, noCache)
+var dockerBuildImageFunc = func(ctx context.Context, builder *docker.Builder, workflow *domain.Workflow, packagePath string, noCache bool) (string, error) {
+	return builder.Build(ctx, workflow, packagePath, noCache)
 }
 
 // chdirToPackageDirFunc changes to absPackageDir (overridable in tests).

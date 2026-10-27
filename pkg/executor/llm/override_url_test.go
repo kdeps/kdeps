@@ -67,7 +67,10 @@ func TestExecute_OverrideURLTakesEveryChatCall(t *testing.T) {
 	defer srv.Close()
 	t.Setenv(OverrideURLEnv, srv.URL)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	// A resource that names the local file backend and a real model: with the
 	// override it never downloads or serves that model.

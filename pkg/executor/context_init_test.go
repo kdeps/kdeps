@@ -34,7 +34,7 @@ func TestExecutionContext_NewExecutionContext_EdgeCases(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.NotNil(t, ctx.Session) // Should still create session
 }

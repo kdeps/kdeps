@@ -234,11 +234,15 @@ type Config struct {
 	// CodeLimit caps search_local calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
-	// PromptRefine runs a cheap pre-turn LLM call that rewrites the user's
-	// prompt into a clearer, self-contained version before the real turn.
-	// On by default in the REPL; /refine off disables it. Persisted via
-	// ToolTuning.
+	// PromptRefine runs a pre-turn LLM call that rewrites the user's prompt
+	// into a clearer, self-contained version before the real turn.
+	// Off by default in the REPL; /refine on enables it. Persisted via
+	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
+	// OutputTokenCap, when positive, is max_tokens for this loop's model
+	// calls. Side loops set it from the side-call-max-tokens event. Zero
+	// uses the model output ceiling.
+	OutputTokenCap int
 	// HandshakeEnabled turns on the mandatory session-integrity handshake
 	// (see handshake.go): a forced challenge/response tool call on model
 	// change, session resume, and post-compaction/fold, verifying the
@@ -302,6 +306,7 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
+	ctx           context.Context
 	knowledge     *knowledgeState // nil when no vault is configured
 	knowledgeOff  bool            // /knowledge off
 	noteID        string          // session note id before the session is saved
@@ -464,7 +469,7 @@ func (l *Loop) recordToolCall(name, args, result string) {
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
 // then to sensible defaults.
-func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
+func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
 	cfg = applyConfigDefaults(cfg)
 	skillSlice, skillDirs := loadSkillSliceWithDirs(cfg.SkillPaths)
 
@@ -480,6 +485,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	l := &Loop{
+		ctx:           ctx,
 		engine:        eng,
 		registry:      reg,
 		workflow:      workflow,
@@ -507,6 +513,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 			}
 		}
 		l.registerKnowledgeTools()
+		l.knowledge.beforeBuild = func() { l.extractBackground() }
 		l.knowledge.buildAsync()
 	}
 
@@ -779,11 +786,11 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 
 // ResolveModelAndBackend applies the same model/backend resolution used by the
 // agent loop (flags/env -> auto-detect -> backend defaults -> builtin file model).
-func ResolveModelAndBackend(model, backend string) (string, string) {
-	return resolveModelAndBackend(model, backend)
+func ResolveModelAndBackend(ctx context.Context, model, backend string) (string, string) {
+	return resolveModelAndBackend(ctx, model, backend)
 }
 
-func resolveModelAndBackend(model, backend string) (string, string) {
+func resolveModelAndBackend(ctx context.Context, model, backend string) (string, string) {
 	// Determine backend first: explicit flag/env overrides auto-detection.
 	backend = envOrDefault("KDEPS_AGENT_BACKEND", backend)
 	if backend == "" {
@@ -798,26 +805,26 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 		model, backend = detectDefaultModelAndBackend()
 	case model == "":
 		// Backend is explicit — try to find a matching default model.
-		model = defaultModelForBackend(backend)
+		model = defaultModelForBackend(ctx, backend)
 	case backend == "":
 		backend = BackendForModel(model)
 	}
 	if model == "" && backend != "" {
-		model = defaultModelForBackend(backend)
+		model = defaultModelForBackend(ctx, backend)
 	}
 	return model, backend
 }
 
 // defaultModelForBackend returns a sensible default model for the given backend.
 // Returns "" when no obvious default exists (the REPL will prompt the user to pick).
-func defaultModelForBackend(backend string) string {
+func defaultModelForBackend(ctx context.Context, backend string) string {
 	switch backend {
 	case executorLLM.BackendFile:
 		return defaultModelName // first-run llamafile; confirm before download
 	case executorLLM.BackendGGUF:
 		return "" // needs .gguf files — let user pick
 	case "ollama":
-		if models := executorLLM.ListOllamaModels(); len(models) > 0 {
+		if models := executorLLM.ListOllamaModels(ctx); len(models) > 0 {
 			return models[0].Name
 		}
 		return "" // ollama has no models pulled
@@ -929,7 +936,7 @@ func detectDefaultModelAndBackend() (string, string) {
 }
 
 func applyConfigDefaults(cfg Config) Config {
-	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.Model, cfg.Backend)
+	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.KnowledgeCtx, cfg.Model, cfg.Backend)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
@@ -1393,7 +1400,7 @@ func (l *Loop) runToolRounds(
 	unlimited := l.config.MaxToolRounds <= 0
 	for i := 0; unlimited || i < l.config.MaxToolRounds; i++ {
 		var roundCapped bool
-		if chatCfg, roundCapped = l.prepareRound(chatCfg, i, unlimited, w); roundCapped {
+		if chatCfg, roundCapped = l.prepareRound(ctx, chatCfg, i, unlimited, w); roundCapped {
 			capped = true
 		}
 
@@ -1414,7 +1421,7 @@ func (l *Loop) runToolRounds(
 		if len(toolCalls) == 0 {
 			var stop bool
 			toolCalls, content, chatCfg, stop = l.resolveEmptyToolRound(
-				chatCfg, content, roundBuf.String(), &nudges, w)
+				ctx, chatCfg, content, roundBuf.String(), &nudges, w)
 			finalContent = content
 			if len(toolCalls) == 0 {
 				if stop {
@@ -1430,7 +1437,7 @@ func (l *Loop) runToolRounds(
 		case effDrop:
 			continue
 		case effEnd:
-			chatCfg = forceAnswerConfig(chatCfg)
+			chatCfg = forceAnswerConfig(ctx, chatCfg)
 			continue
 		case effAbort:
 			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
@@ -1474,7 +1481,7 @@ func (l *Loop) runToolRounds(
 			identicalRepeats, lastToolSig = 0, ""
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
-			chatCfg, outcome, convergenceBlocks, forcedFinal, w)
+			ctx, chatCfg, outcome, convergenceBlocks, forcedFinal, w)
 	}
 	if llmErr != nil {
 		return "", fmt.Errorf("agent loop stream: %w", llmErr)
@@ -1501,7 +1508,7 @@ func (l *Loop) ensureNonSilentFinal(finalContent string, capped bool, w io.Write
 // last allowed round -- stripping the tools so the model must produce a text
 // answer. It returns the config to use and whether this round was capped.
 func (l *Loop) prepareRound(
-	chatCfg *domain.ChatConfig, i int, unlimited bool, w io.Writer,
+	ctx context.Context, chatCfg *domain.ChatConfig, i int, unlimited bool, w io.Writer,
 ) (*domain.ChatConfig, bool) {
 	l.saveCheckpoint()
 	if unlimited {
@@ -1511,20 +1518,20 @@ func (l *Loop) prepareRound(
 		l.promptBudgetOptions(w, l.config.MaxToolRounds-i)
 	}
 	if i == l.config.MaxToolRounds-1 {
-		return forceAnswerConfig(chatCfg), i > 0
+		return forceAnswerConfig(ctx, chatCfg), i > 0
 	}
 	return chatCfg, false
 }
 
 // applyRoundOutcome runs the convergence guard.
 func (l *Loop) applyRoundOutcome(
-	chatCfg *domain.ChatConfig,
+	ctx context.Context, chatCfg *domain.ChatConfig,
 	outcome roundOutcome,
 	convergenceBlocks int,
 	forcedFinal bool,
 	_ io.Writer,
 ) (*domain.ChatConfig, int, bool) {
-	return convergenceStop(chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
+	return convergenceStop(ctx, chatCfg, outcome.blocked, convergenceBlocks, forcedFinal)
 }
 
 // nudgeForActionConfig returns a copy of cfg asking the model to commit to an
@@ -1539,8 +1546,8 @@ func (l *Loop) applyRoundOutcome(
 //
 // repeat is true on the second strike within this turn (see turnNudges) --
 // the wording gets sharper instead of silently repeating verbatim.
-func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := turoReduce(context.Background(), harnessText("nudge-action")) + invokeExample()
+func nudgeForActionConfig(ctx context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	note := turoReduce(ctx, harnessText("nudge-action")) + invokeExample()
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -1548,8 +1555,8 @@ func nudgeForActionConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfi
 // (or <tool_output>/<observation>) block itself. That is always a hallucination
 // -- nothing ran -- so tell it to make the real call and wait for the result.
 // repeat is true on the second strike within this turn.
-func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := turoReduce(context.Background(), harnessText("nudge-fake-tool-response")) + invokeExample()
+func nudgeNoFakeToolResponseConfig(ctx context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	note := turoReduce(ctx, harnessText("nudge-fake-tool-response")) + invokeExample()
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -1619,10 +1626,10 @@ func looksLikeSandboxHallucination(content string) bool {
 // no such sandbox and never emits those strings, so nothing ran -- tell the
 // model to make a real call.
 // repeat is true on the second strike within this turn.
-func nudgeSandboxHallucinationConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+func nudgeSandboxHallucinationConfig(ctx context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	// invokeExample() is appended after turoReduce, not passed through it --
 	// see invokeExample's own comment.
-	note := turoReduce(context.Background(), harnessText("nudge-sandbox-hallucination")) +
+	note := turoReduce(ctx, harnessText("nudge-sandbox-hallucination")) +
 		invokeExample() + " " + harnessText("nudge-sandbox-hallucination-qualifier")
 	return finishNudge(cfg, note, repeat)
 }
@@ -1708,13 +1715,13 @@ const digestEntryOverhead = 4
 // drop that tool-role history, so the model would answer blind. To guarantee
 // the gathered research reaches the model, the tool results are also inlined
 // into the prompt as plain text (bounded by the "force-answer-digest" event).
-func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+func forceAnswerConfig(ctx context.Context, cfg *domain.ChatConfig) *domain.ChatConfig {
 	if len(cfg.Tools) == 0 {
 		return cfg
 	}
 	capCfg := *cfg
 	capCfg.Tools = nil
-	prompt := turoReduce(context.Background(),
+	prompt := turoReduce(ctx,
 		"Tool budget exhausted. Answer the user's question now "+
 			"using only the information already gathered. Do not attempt any more "+
 			"tool calls and do not emit tool-call markup. If work remains, describe "+
@@ -2043,7 +2050,7 @@ func trackRepeat(
 // loop ends). Returns the possibly tool-stripped config, the updated
 // consecutive-block count, and whether the final answer has now been forced.
 func convergenceStop(
-	cfg *domain.ChatConfig,
+	ctx context.Context, cfg *domain.ChatConfig,
 	blocked bool,
 	blocks int,
 	forced bool,
@@ -2054,7 +2061,7 @@ func convergenceStop(
 		blocks = 0
 	}
 	if blocks >= effectiveRounds(eventConvergenceBlock) && !forced {
-		return forceAnswerConfig(cfg), blocks, true
+		return forceAnswerConfig(ctx, cfg), blocks, true
 	}
 	return cfg, blocks, forced
 }
@@ -2225,7 +2232,7 @@ func acknowledgesFailure(content string) bool {
 // hallucination and draws a nudge (up to that entry's configured
 // maxOccurrences); anything else falls through to handleTextOnlyRound.
 func (l *Loop) handleEmptyToolRound(
-	chatCfg *domain.ChatConfig,
+	ctx context.Context, chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
@@ -2245,7 +2252,7 @@ func (l *Loop) handleEmptyToolRound(
 	if fake && harnessOccurrenceAllowed("nudge-fake-tool-response", nudges.hallucination) {
 		repeat := nudges.hallucination > 0
 		nudges.hallucination++
-		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
+		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(ctx, chatCfg, repeat)}
 	}
 	sandbox := looksLikeSandboxHallucination(content)
 	if sandbox {
@@ -2255,7 +2262,7 @@ func (l *Loop) handleEmptyToolRound(
 		if harnessOccurrenceAllowed("nudge-sandbox-hallucination", nudges.sandbox) {
 			repeat := nudges.sandbox > 0
 			nudges.sandbox++
-			return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(chatCfg, repeat)}
+			return nil, emptyRoundResult{chatCfg: nudgeSandboxHallucinationConfig(ctx, chatCfg, repeat)}
 		}
 		// Retries exhausted and the model is still describing a fabricated
 		// sandbox session -- flag it rather than let handleTextOnlyRound settle
@@ -2272,7 +2279,7 @@ func (l *Loop) handleEmptyToolRound(
 			harnessText("nudge-sandbox-hallucination-qualifier")
 		return nil, emptyRoundResult{chatCfg: finishNudge(chatCfg, note, repeat)}
 	}
-	next, keepGoing := l.handleTextOnlyRound(chatCfg, content, buffered, nudges, w)
+	next, keepGoing := l.handleTextOnlyRound(ctx, chatCfg, content, buffered, nudges, w)
 	return nil, emptyRoundResult{content: content, chatCfg: next, stop: !keepGoing}
 }
 
@@ -2282,12 +2289,12 @@ func (l *Loop) handleEmptyToolRound(
 // unresolved work-tool failure, it injects a single push-back nudge instead of
 // stopping.
 func (l *Loop) resolveEmptyToolRound(
-	chatCfg *domain.ChatConfig,
+	ctx context.Context, chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
 ) ([]domain.StreamedToolCall, string, *domain.ChatConfig, bool) {
-	salvaged, res := l.handleEmptyToolRound(chatCfg, content, buffered, nudges, w)
+	salvaged, res := l.handleEmptyToolRound(ctx, chatCfg, content, buffered, nudges, w)
 	if len(salvaged) > 0 {
 		return salvaged, res.cleaned, chatCfg, false
 	}
@@ -2349,7 +2356,7 @@ func (l *Loop) resolveEmptyToolRound(
 // with no tools registered (the forced-text phase) is never nudged: it was
 // already told to answer in text.
 func (l *Loop) handleTextOnlyRound(
-	chatCfg *domain.ChatConfig,
+	ctx context.Context, chatCfg *domain.ChatConfig,
 	content, buffered string,
 	nudges *turnNudges,
 	w io.Writer,
@@ -2366,7 +2373,7 @@ func (l *Loop) handleTextOnlyRound(
 		strings.TrimSpace(stripContentToolCalls(content)) == "" {
 		repeat := nudges.action > 0
 		nudges.action++
-		return nudgeForActionConfig(chatCfg, repeat), true
+		return nudgeForActionConfig(ctx, chatCfg, repeat), true
 	}
 	// A reply that only acknowledges the push-back ("the limit I named was not
 	// real", a promise to call the tool) is neither work nor an answer. It has
@@ -3265,13 +3272,12 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
 	}
 
-	// Tool guidance (toolUseGuidance) and the tool catalog (ToolPrompt) are also
-	// built separately and kept out of turoReduce, for the same reason as the
-	// memory rules: they are the model's only source of exact tool names,
-	// parameter names, and calling conventions (kdeps has no native
-	// function-calling schema — this text block IS the tool interface), so
-	// lexical rewriting here can silently break tool calls. Always included
-	// when tools exist, even in small-context mode below.
+	// Tool guidance, and on backends with no native tool channel a short
+	// name/description/parameter catalog, stay out of turoReduce. Exact tool
+	// names must survive byte-for-byte. Cloud backends receive native schemas
+	// via ToLLMTools and omit the text catalog. The m365 proxy renders its
+	// own list from those schemas. Always included when tools exist, even in
+	// small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		// The "internals" harness section states the web-tool convergence
@@ -3279,8 +3285,8 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		// not a hardcoded number that would silently go stale the next time
 		// that limit changes.
 		toolParts = append(toolParts, harness)
-		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
-			toolParts = append(toolParts, toolPrompt)
+		if catalog := l.preambleToolCatalog(); catalog != "" {
+			toolParts = append(toolParts, catalog)
 		}
 		// M365 Copilot's "run code" / "Coding and executing" habit is the most
 		// aggressive -- confirmed live: a model fabricated a bash -lc action
@@ -3324,7 +3330,7 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 			preamble = essential
 		}
 	}
-	preamble = turoReduce(context.Background(), preamble)
+	preamble = turoReduce(l.ctx, preamble)
 
 	// Re-attach tool guidance/catalog and the memory rules, in that order,
 	// untouched by turoReduce and unaffected by the small-context truncation
@@ -3557,7 +3563,7 @@ func (l *Loop) buildChatConfig(
 		Thinking: l.config.Thinking,
 	}
 
-	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
+	chatCfg.MaxTokens = l.callMaxTokens()
 
 	// Inject conversation history as the messages field. When turo is active,
 	// route each message's content through it (cached, so only new messages
@@ -3586,23 +3592,20 @@ func (l *Loop) buildChatConfig(
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
 	}
 
-	// After the first turn, re-state the fenced-tools rule in one line and
-	// send the live tool list again. The full guidance and the catalog are
-	// in the cached preamble; the list is repeated here because that is the
-	// message the model is reading when it writes an <invoke> block. A model
-	// that has already hallucinated a sandbox session this session gets the
-	// full block resent instead -- the one-liner was evidently not enough
-	// reinforcement for it.
+	// After the first turn, restate the fenced-tools rule. The one-line
+	// reminder is enough when the model is already calling tools. A model
+	// that has drifted into a simulated sandbox gets the full use-kdeps-tools
+	// block instead. The tool list is not repeated here: it is in the
+	// preamble on a local backend, or in the native schema on a cloud backend.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
 		reminder := harnessText("tools-reminder")
 		if l.sandboxStrikes > 0 {
 			reminder = harnessText("use-kdeps-tools")
 		}
-		if catalog := l.registry.ToolPrompt(); catalog != "" {
-			reminder += "\n\n" + catalog
+		if reminder != "" {
+			chatCfg.Scenario = append(chatCfg.Scenario,
+				domain.ScenarioItem{Role: "system", Prompt: reminder})
 		}
-		chatCfg.Scenario = append(chatCfg.Scenario,
-			domain.ScenarioItem{Role: "system", Prompt: reminder})
 	}
 
 	// Any harness section forced on via "/harness reminders <name> on" goes
@@ -3651,9 +3654,40 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 	})
 }
 
-// syntheticCallMaxTokens returns an explicit output-token cap for a
-// standalone, tool-free LLM call (compaction, judging, refine, branch
-// summaries) so it never falls back to whatever implicit
+// preambleToolCatalog is the short text tool list for backends with no
+// native tool channel. Cloud backends and the m365 proxy omit it.
+func (l *Loop) preambleToolCatalog() string {
+	if l == nil || l.registry == nil || !needsTextToolCatalog(l.config.Backend) {
+		return ""
+	}
+	return l.registry.ToolPromptCompact()
+}
+
+// needsTextToolCatalog reports whether the system preamble should include
+// the short text tool list. Local and unset backends have no reliable native
+// tool channel. Cloud backends receive native schemas and omit the list.
+func needsTextToolCatalog(backend string) bool {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
+	case "", executorLLM.BackendFile, executorLLM.BackendGGUF, modelTypeOllama, "local", modelTypeLLamafile:
+		return true
+	default:
+		return false
+	}
+}
+
+// callMaxTokens is max_tokens for this loop's model calls. A positive
+// OutputTokenCap wins. Zero uses the model output ceiling.
+func (l *Loop) callMaxTokens() *int {
+	if l.config.OutputTokenCap > 0 {
+		n := l.config.OutputTokenCap
+		return &n
+	}
+	return syntheticCallMaxTokens(l.config.Backend, l.config.Model)
+}
+
+// syntheticCallMaxTokens returns the model output ceiling for the main turn
+// (when OutputTokenCap is zero), compaction, branch summaries, plan, confirm,
+// and handshake, so a call never falls back to whatever implicit
 // default the backend/provider applies -- confirmed on two fronts: a local
 // llama-server applies a smaller output cap than the model's real ceiling
 // unless told otherwise, and M365 Copilot's proxy has an undocumented
@@ -4047,8 +4081,10 @@ func (l *Loop) Skills() string {
 	return l.skills
 }
 
-// ToolCatalog returns the registered tools as the same grouped, human-readable
-// block that goes into the system preamble (empty if no tools are registered).
+// ToolCatalog returns the full grouped catalog (name, constraints, invoke
+// skeleton). Instruct and explicit catalog requests use this. The system
+// preamble uses the short list, and only on backends without a native tool
+// channel.
 func (l *Loop) ToolCatalog() string {
 	if l == nil || l.registry == nil {
 		return ""

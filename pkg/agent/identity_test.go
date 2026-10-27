@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -28,9 +29,9 @@ import (
 )
 
 func TestIdentityGet_NoneConfigured(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	New(eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
+	New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{Model: "test"})
 
 	tool := reg.Get("identity_get")
 	if tool == nil {
@@ -46,9 +47,9 @@ func TestIdentityGet_NoneConfigured(t *testing.T) {
 }
 
 func TestIdentityGet_ReturnsConfiguredFields(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	New(eng, newTestWorkflowForSession(), reg, Config{
+	New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model: "test",
 		Identity: &config.IdentityConfig{
 			Name:    "Sales Bot",

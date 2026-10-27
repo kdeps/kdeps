@@ -21,6 +21,7 @@
 package executor_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -133,9 +134,9 @@ func TestE2E_ComponentsAutoRegisteredAsLLMTools(t *testing.T) {
 
 	// Wire the LLM adapter to the mock server and register it with the engine.
 	reg := executor.NewRegistry()
-	reg.SetLLMExecutor(llm.NewAdapter(llmServer.URL))
+	reg.SetLLMExecutor(llm.NewAdapter(t.Context(), llmServer.URL))
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetRegistry(reg)
 
 	// Execute — the engine creates its own ExecutionContext (with Components populated).
@@ -237,9 +238,9 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 	}
 
 	reg := executor.NewRegistry()
-	reg.SetLLMExecutor(llm.NewAdapter(llmServer.URL))
+	reg.SetLLMExecutor(llm.NewAdapter(t.Context(), llmServer.URL))
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetRegistry(reg)
 	_, _ = eng.Execute(workflow, nil)
 
@@ -349,8 +350,8 @@ func TestE2E_ComponentTools_DefaultDisabled(t *testing.T) {
 	}
 
 	reg := executor.NewRegistry()
-	reg.SetLLMExecutor(llm.NewAdapter(llmServer.URL))
-	eng := executor.NewEngine(nil)
+	reg.SetLLMExecutor(llm.NewAdapter(t.Context(), llmServer.URL))
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetRegistry(reg)
 	_, _ = eng.Execute(workflow, nil)
 
@@ -417,8 +418,8 @@ func TestE2E_ComponentTools_AllowlistFilters(t *testing.T) {
 	}
 
 	reg := executor.NewRegistry()
-	reg.SetLLMExecutor(llm.NewAdapter(llmServer.URL))
-	eng := executor.NewEngine(nil)
+	reg.SetLLMExecutor(llm.NewAdapter(t.Context(), llmServer.URL))
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetRegistry(reg)
 	_, _ = eng.Execute(workflow, nil)
 

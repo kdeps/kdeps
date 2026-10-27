@@ -82,7 +82,7 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	defer builder.Client.Close()
 
 	if flags.ShowDockerfile {
-		return handleDockerfileShow(builder, workflow)
+		return handleDockerfileShow(cmd.Context(), builder, workflow)
 	}
 
 	if cleanupPrepackaged := attachPrepackagedBinaries(
@@ -90,7 +90,7 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	); cleanupPrepackaged != nil {
 		defer cleanupPrepackaged()
 	}
-	return performDockerBuild(builder, workflow, packagePath, flags)
+	return performDockerBuild(cmd.Context(), builder, workflow, packagePath, flags)
 }
 
 // ensureKdepsFile returns a path to a .kdeps file representing the workflow.

@@ -60,7 +60,7 @@ func TestApprovalAPITools_RoundTrip(t *testing.T) {
 
 func TestInstructAPITool(t *testing.T) {
 	reg := kdepstools.NewRegistry()
-	registerInstructTool(reg)
+	registerInstructTool(t.Context(), reg)
 
 	instructed, err := toolExec(t, reg, "instruct", map[string]any{"topic": "feedback"})
 	if err != nil || !strings.Contains(instructed, "[TOOL FAILED]") {

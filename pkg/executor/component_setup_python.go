@@ -54,6 +54,6 @@ func (e *Engine) installComponentPythonPackages(packages []string, ctx *Executio
 
 	m := pythonManagerFactory(pythonpkg.IOToolsBaseDir())
 	requirementsFile := ctx.Workflow.Settings.AgentSettings.RequirementsFile
-	_, err := m.EnsureVenv(pythonVersion, allPkgs, requirementsFile, "")
+	_, err := m.EnsureVenv(ctx.Ctx, pythonVersion, allPkgs, requirementsFile, "")
 	return err
 }

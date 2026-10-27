@@ -32,10 +32,10 @@ func TestEnsureNewExecutionContextFactory_Default(t *testing.T) {
 	e := &Engine{}
 	e.ensureNewExecutionContextFactory()
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}
-	ctx, err := e.newExecutionContext(wf, "custom-session")
+	ctx, err := e.newExecutionContext(t.Context(), wf, "custom-session")
 	require.NoError(t, err)
 	assert.NotNil(t, ctx)
-	ctx2, err := e.newExecutionContext(wf, "")
+	ctx2, err := e.newExecutionContext(t.Context(), wf, "")
 	require.NoError(t, err)
 	assert.NotNil(t, ctx2)
 }

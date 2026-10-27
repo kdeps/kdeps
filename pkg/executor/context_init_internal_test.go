@@ -45,14 +45,14 @@ func TestNewExecutionContext_SessionStorageError(t *testing.T) {
 			Session: &domain.SessionConfig{Path: filepath.Join(roDir, "sessions.db")},
 		},
 	}
-	_, err := NewExecutionContext(wf)
+	_, err := NewExecutionContext(t.Context(), wf)
 	require.Error(t, err)
 }
 
 func TestEvaluateAgentParams_EvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	_, err = evaluateAgentParams(e, &domain.AgentCallConfig{
@@ -65,7 +65,7 @@ func TestEvaluateAgentParams_EvalError(t *testing.T) {
 func TestHandleOnErrorContinue_FallbackSuccess(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	out, err := e.handleOnErrorContinue(
@@ -81,7 +81,7 @@ func TestHandleOnErrorContinue_FallbackSuccess(t *testing.T) {
 func TestShouldHandleError_EvalErrorSkips(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	on := &domain.OnErrorConfig{When: []domain.Expression{{Raw: "{{ unknown() }}"}}}
@@ -91,7 +91,7 @@ func TestShouldHandleError_EvalErrorSkips(t *testing.T) {
 func TestEvaluateFallback_ArrayError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	_, err = e.evaluateFallback([]interface{}{"{{ unknown() }}"}, ctx)
@@ -100,7 +100,7 @@ func TestEvaluateFallback_ArrayError(t *testing.T) {
 
 func TestBuildHTTPAccessorEnv_Success(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.SetOutput("http", map[string]interface{}{
 		"body":    "body",
@@ -117,7 +117,7 @@ func TestExecuteItemsIteration_ItemError(t *testing.T) {
 	reg := NewRegistry()
 	reg.SetLLMExecutor(&covMockExecutor{err: errors.New("item fail")})
 	e.SetRegistry(reg)
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	_, err = e.executeItemsIteration(
 		&domain.Resource{Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
@@ -130,7 +130,7 @@ func TestExecuteItemsIteration_ItemError(t *testing.T) {
 func TestResolveAPIResponseSuccess_NilSuccess(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	ok, err := e.resolveAPIResponseSuccess(&domain.APIResponseConfig{}, e.BuildEvaluationEnvironment(ctx))
@@ -141,7 +141,7 @@ func TestResolveAPIResponseSuccess_NilSuccess(t *testing.T) {
 func TestEvaluateResponseHeaders_StringMapBranch(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -152,7 +152,7 @@ func TestEvaluateResponseHeaders_StringMapBranch(t *testing.T) {
 func TestHandleOnErrorContinue_FallbackExpressionEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	out, err := e.handleOnErrorContinue(
@@ -168,7 +168,7 @@ func TestHandleOnErrorContinue_FallbackExpressionEvalError(t *testing.T) {
 func TestExecuteOnErrorExpressions_NoExprs(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	require.NoError(t, e.executeOnErrorExpressions(&domain.Resource{ActionID: "r"}, ctx, errors.New("e")))
 }
@@ -176,7 +176,7 @@ func TestExecuteOnErrorExpressions_NoExprs(t *testing.T) {
 func TestEvaluateLLMModel_ParseError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	assert.Equal(t, "{{", e.evaluateLLMModel("{{", ctx))
 }
@@ -184,7 +184,7 @@ func TestEvaluateLLMModel_ParseError(t *testing.T) {
 func TestEvaluatePreflightErrorMessage_EvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	msg := evaluatePreflightErrorMessage(e, "Error {{ unknown() }}", ctx)
@@ -194,7 +194,7 @@ func TestEvaluatePreflightErrorMessage_EvalError(t *testing.T) {
 func TestExecuteAPIResponse_SuccessEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	_, err = e.executeAPIResponse(&domain.Resource{
@@ -209,7 +209,7 @@ func TestExecuteAPIResponse_SuccessEvalError(t *testing.T) {
 func TestEvaluateResponseHeaders_InterfaceMap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -223,7 +223,7 @@ func TestNewExecutionContext_ConfigLoadError(t *testing.T) {
 	require.NoError(t, os.WriteFile(cfgPath, []byte("bad: [\n"), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
 
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "agent"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "agent"}})
 	require.NoError(t, err)
 	assert.NotNil(t, ctx.Config)
 }
@@ -240,14 +240,14 @@ func TestNewExecutionContext_MemoryStorageFailure(t *testing.T) {
 	// default path, which the suite runs as :memory: for isolation.
 	t.Setenv("KDEPS_MEMORY_DB_PATH", filepath.Join(roHome, "sub", "memory.db"))
 
-	_, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
+	_, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
 	require.Error(t, err)
 }
 
 func TestValidateResourceInput_NilEvaluator(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Body: map[string]interface{}{"x": 1}}
 	e.evaluator = nil
@@ -267,7 +267,7 @@ func TestRunWorkflowResource_RestrictionSkip(t *testing.T) {
 	reg := NewRegistry()
 	reg.SetLLMExecutor(&covMockExecutor{result: "ok"})
 	e.SetRegistry(reg)
-	ctx, err := NewExecutionContext(covWorkflow())
+	ctx, err := NewExecutionContext(t.Context(), covWorkflow())
 	require.NoError(t, err)
 
 	res := &domain.Resource{
@@ -285,7 +285,7 @@ func TestRunWorkflowResource_RestrictionSkip(t *testing.T) {
 func TestEvaluateAgentParams_MapFallback(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -299,7 +299,7 @@ func TestEvaluateAgentParams_MapFallback(t *testing.T) {
 func TestFinalizeResourceResult_APIResponseWithPrimary(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -318,7 +318,7 @@ func TestFinalizeResourceResult_APIResponseWithPrimary(t *testing.T) {
 func TestHandleOnErrorContinue_FallbackEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -336,7 +336,7 @@ func TestHandleOnErrorContinue_FallbackEvalError(t *testing.T) {
 func TestShouldHandleError_EvalFailureContinues(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -347,7 +347,7 @@ func TestShouldHandleError_EvalFailureContinues(t *testing.T) {
 func TestEvaluateFallback_ExpressionEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -358,7 +358,7 @@ func TestEvaluateFallback_ExpressionEvalError(t *testing.T) {
 func TestBuildEvaluationEnvironment_AccessorErrors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{
 		Body:    map[string]interface{}{},
@@ -380,7 +380,7 @@ func TestBuildEvaluationEnvironment_AccessorErrors(t *testing.T) {
 func TestResolveAPIResponseSuccess_InvalidBool(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -393,7 +393,7 @@ func TestResolveAPIResponseSuccess_InvalidBool(t *testing.T) {
 func TestEvaluateResponseHeaders_StringMap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -405,7 +405,7 @@ func TestEvaluateResponseHeaders_StringMap(t *testing.T) {
 func TestEvaluateResponseValue_ArrayError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -417,7 +417,7 @@ func TestEvaluateResponseValue_ArrayError(t *testing.T) {
 func TestEvaluatePreflightErrorMessage_Expression(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -428,7 +428,7 @@ func TestEvaluatePreflightErrorMessage_Expression(t *testing.T) {
 func TestEvaluateResponseHeaders_EvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	env := e.BuildEvaluationEnvironment(ctx)
@@ -439,7 +439,7 @@ func TestEvaluateResponseHeaders_EvalError(t *testing.T) {
 func TestEvaluatePreflightErrorMessage_Success(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	msg := evaluatePreflightErrorMessage(e, "Error {{ 'x' }}", ctx)
@@ -449,7 +449,7 @@ func TestEvaluatePreflightErrorMessage_Success(t *testing.T) {
 func TestEvaluateLLMModel_Expression(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	ctx.Set("modelName", "resolved-model", "memory")
@@ -460,7 +460,7 @@ func TestEvaluateLLMModel_Expression(t *testing.T) {
 func TestRunWorkflowResource_SkipCondition(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(covWorkflow())
+	ctx, err := NewExecutionContext(t.Context(), covWorkflow())
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 

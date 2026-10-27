@@ -30,7 +30,7 @@ import (
 
 // TestExecutionContext_GetRequestData_EdgeCases tests GetRequestData edge cases.
 func TestExecutionContext_GetRequestData_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nil request

@@ -18,10 +18,13 @@
 
 package http
 
-import stdhttp "net/http"
+import (
+	"context"
+	stdhttp "net/http"
+)
 
-func (s *WebServer) logAndRespondNotFound(w stdhttp.ResponseWriter, fullPath string) {
-	s.logBackgroundError(publicPathMissingLogMessage, logKeyPath, fullPath)
+func (s *WebServer) logAndRespondNotFound(ctx context.Context, w stdhttp.ResponseWriter, fullPath string) {
+	s.logBackgroundError(ctx, publicPathMissingLogMessage, logKeyPath, fullPath)
 	respondWebServerNotFound(w)
 }
 
@@ -31,6 +34,7 @@ func (s *WebServer) logAndRespondProxyError(
 	err error,
 ) {
 	s.logBackgroundError(
+		req.Context(),
 		proxyRequestFailedLogMessage,
 		"url",
 		req.URL.String(),
@@ -41,11 +45,13 @@ func (s *WebServer) logAndRespondProxyError(
 }
 
 func (s *WebServer) logAndRespondInvalidProxyURL(
+	ctx context.Context,
 	w stdhttp.ResponseWriter,
 	appPort int,
 	err error,
 ) {
 	s.logBackgroundError(
+		ctx,
 		invalidProxyURLLogMessage,
 		"host",
 		localAppProxyHost,
@@ -57,17 +63,19 @@ func (s *WebServer) logAndRespondInvalidProxyURL(
 	respondWebServerInternalError(w)
 }
 
-func (s *WebServer) logAndRespondMissingPort(w stdhttp.ResponseWriter) {
-	s.logBackgroundError(missingAppPortLogMessage)
+func (s *WebServer) logAndRespondMissingPort(ctx context.Context, w stdhttp.ResponseWriter) {
+	s.logBackgroundError(ctx, missingAppPortLogMessage)
 	respondWebServerInternalError(w)
 }
 
 func (s *WebServer) logAndRespondWSConnectFailed(
+	ctx context.Context,
 	w stdhttp.ResponseWriter,
 	targetURL string,
 	err error,
 ) {
 	s.logBackgroundError(
+		ctx,
 		webSocketConnectFailedLogMessage,
 		"url",
 		targetURL,
@@ -77,7 +85,7 @@ func (s *WebServer) logAndRespondWSConnectFailed(
 	respondBadGateway(w, proxyWebSocketConnectFailedMessage)
 }
 
-func (s *WebServer) logAndRespondWSHandshakeFailed(w stdhttp.ResponseWriter, statusCode int) {
-	s.logBackgroundError(webSocketHandshakeFailedLogMessage, "statusCode", statusCode)
+func (s *WebServer) logAndRespondWSHandshakeFailed(ctx context.Context, w stdhttp.ResponseWriter, statusCode int) {
+	s.logBackgroundError(ctx, webSocketHandshakeFailedLogMessage, "statusCode", statusCode)
 	respondBadGateway(w, proxyWebSocketHandshakeFailedMessage)
 }

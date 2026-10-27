@@ -40,7 +40,7 @@ func newTestWorkflow() *domain.Workflow {
 }
 
 func newTestEngine(result interface{}, err error) *executor.Engine {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return result, err
 	})
@@ -54,7 +54,7 @@ func TestNew_DefaultsFromEnv(t *testing.T) {
 
 	eng := newTestEngine("hello", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -74,7 +74,7 @@ func TestNew_ExplicitConfig(t *testing.T) {
 		SystemPrompt: "You are helpful.",
 		Role:         "user",
 	}
-	loop := agent.New(eng, newTestWorkflow(), reg, cfg)
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, cfg)
 	if loop == nil {
 		t.Fatal("expected non-nil loop")
 	}
@@ -83,7 +83,7 @@ func TestNew_ExplicitConfig(t *testing.T) {
 func TestLoop_Run_StringResult(t *testing.T) {
 	eng := newTestEngine("hello agent", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{Model: "llama3.2"})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{Model: "llama3.2"})
 
 	resp, err := loop.Run(context.Background(), "say hello")
 	if err != nil {
@@ -97,7 +97,7 @@ func TestLoop_Run_StringResult(t *testing.T) {
 func TestLoop_Run_NilResult(t *testing.T) {
 	eng := newTestEngine(nil, nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	resp, err := loop.Run(context.Background(), "ping")
 	if err != nil {
@@ -112,7 +112,7 @@ func TestLoop_Run_NonStringResult(t *testing.T) {
 	// An unrecognized map (not the {"message": {"content": ...}} shape) returns empty.
 	eng := newTestEngine(map[string]string{"key": "val"}, nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	resp, err := loop.Run(context.Background(), "data")
 	if err != nil {
@@ -132,7 +132,7 @@ func TestLoop_Run_MessageMapResult(t *testing.T) {
 	}
 	eng := newTestEngine(result, nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	resp, err := loop.Run(context.Background(), "hi")
 	if err != nil {
@@ -146,7 +146,7 @@ func TestLoop_Run_MessageMapResult(t *testing.T) {
 func TestLoop_Run_EngineError(t *testing.T) {
 	eng := newTestEngine(nil, errors.New("engine boom"))
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	_, err := loop.Run(context.Background(), "fail")
 	if err == nil {
@@ -156,13 +156,13 @@ func TestLoop_Run_EngineError(t *testing.T) {
 
 func TestLoop_Run_SystemPrompt(t *testing.T) {
 	var capturedWorkflow *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		capturedWorkflow = wf
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{
 		SystemPrompt: "Be concise.",
 	})
 
@@ -191,7 +191,7 @@ func TestLoop_Run_SystemPrompt(t *testing.T) {
 func TestLoop_CompactWithLLM_TooFewTurns(t *testing.T) {
 	eng := newTestEngine("summary text", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	// Only 2 turns - below compactMinTurns threshold, should return empty.
 	loop.Run(context.Background(), "q1") //nolint:errcheck
@@ -209,14 +209,14 @@ func TestLoop_CompactWithLLM_TooFewTurns(t *testing.T) {
 func TestLoop_CompactWithLLM_SummarizesAndReplaces(t *testing.T) {
 	const fakeSummary = "## Goal\nTest compaction.\n\n## Progress\n### Done\n- [x] Ran tests"
 	var callCount int
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		return fakeSummary, nil
 	})
 	reg := tools.NewRegistry()
 	// Use a tiny token budget so even short messages trigger compaction.
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 10, // very small: forces compaction after a few turns
 	})
@@ -248,7 +248,7 @@ func TestLoop_CompactWithLLM_SummarizesAndReplaces(t *testing.T) {
 
 func TestLoop_CompactWithLLM_NoToolsInCompactionCall(t *testing.T) {
 	var capturedWorkflow *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	callCount := 0
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
@@ -266,7 +266,7 @@ func TestLoop_CompactWithLLM_NoToolsInCompactionCall(t *testing.T) {
 		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
 	})
 	// Tiny budget to force compaction.
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{CompactTokenBudget: 10})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{CompactTokenBudget: 10})
 
 	for range 10 {
 		loop.Run(context.Background(), "prompt") //nolint:errcheck
@@ -286,7 +286,7 @@ func TestLoop_CompactWithLLM_NoToolsInCompactionCall(t *testing.T) {
 
 func TestLoop_CompactWithLLM_FallsBackOnEngineError(t *testing.T) {
 	callCount := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		if callCount > 10 {
@@ -297,7 +297,7 @@ func TestLoop_CompactWithLLM_FallsBackOnEngineError(t *testing.T) {
 	reg := tools.NewRegistry()
 	// MaxTurns=3 so truncation fallback has something to compact.
 	// CompactTokenBudget=10 forces compaction trigger.
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{
 		MaxTurns:           3,
 		CompactTokenBudget: 10,
 	})
@@ -321,7 +321,7 @@ func TestLoop_CompactWithLLM_FallsBackOnEngineError(t *testing.T) {
 
 func TestLoop_Run_ToolsWired(t *testing.T) {
 	var capturedWorkflow *domain.Workflow
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		capturedWorkflow = wf
 		return "done", nil
@@ -335,7 +335,7 @@ func TestLoop_Run_ToolsWired(t *testing.T) {
 			return "result", nil
 		},
 	})
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	_, err := loop.Run(context.Background(), "use tool")
 	if err != nil {
@@ -355,7 +355,7 @@ func TestLoop_Run_ToolsWired(t *testing.T) {
 
 func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
 	var callCount int
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		return "response", nil
@@ -363,7 +363,7 @@ func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
 	reg := tools.NewRegistry()
 
 	var autoCompactSummary string
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{
 		Model:                "test-model",
 		AutoCompactThreshold: 1,  // fire on first turn that exceeds 1 token
 		CompactTokenBudget:   10, // keep minimal recent context
@@ -395,7 +395,7 @@ func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
 func TestLoop_SummarizeBranch_TooFewTurns(t *testing.T) {
 	eng := newTestEngine("summary text", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	// Only 2 turns - below compactMinTurns threshold.
 	loop.Run(context.Background(), "q1") //nolint:errcheck
@@ -412,14 +412,14 @@ func TestLoop_SummarizeBranch_TooFewTurns(t *testing.T) {
 
 func TestLoop_SummarizeBranch_ReturnsPreambleAndContent(t *testing.T) {
 	const fakeBody = "## Goal\nFix bug\n\n## Progress\n### Done\n- [x] Fixed it"
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	callCount := 0
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		return fakeBody, nil
 	})
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	// Add enough turns to exceed compactMinTurns threshold.
 	for range 8 {
@@ -449,7 +449,7 @@ func TestLoop_SummarizeBranch_ReturnsPreambleAndContent(t *testing.T) {
 
 func TestLoop_SummarizeBranch_EngineError(t *testing.T) {
 	callCount := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		if callCount > 8 {
@@ -458,7 +458,7 @@ func TestLoop_SummarizeBranch_EngineError(t *testing.T) {
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	for range 8 {
 		loop.Run(context.Background(), "work") //nolint:errcheck
@@ -473,7 +473,7 @@ func TestLoop_SummarizeBranch_EngineError(t *testing.T) {
 func TestLoop_SummarizeBranch_NoToolsInCall(t *testing.T) {
 	var capturedWorkflow *domain.Workflow
 	callCount := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		if callCount > 8 {
@@ -488,7 +488,7 @@ func TestLoop_SummarizeBranch_NoToolsInCall(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
 	})
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	for range 8 {
 		loop.Run(context.Background(), "prompt") //nolint:errcheck
@@ -509,13 +509,13 @@ func TestLoop_SummarizeBranch_NoToolsInCall(t *testing.T) {
 func TestLoop_SummarizeBranch_EmptyResult(t *testing.T) {
 	// Tests the raw=="" path: engine returns empty string -> error
 	callCount := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		callCount++
 		return "", nil // empty result for summary call
 	})
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 
 	for range 8 {
 		loop.Run(context.Background(), "work") //nolint:errcheck
@@ -532,7 +532,7 @@ func TestLoop_Run_AutoCompact_Disabled(t *testing.T) {
 	reg := tools.NewRegistry()
 
 	callbackFired := false
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{
 		AutoCompactThreshold: -1, // disabled
 	})
 	loop.SetOnAutoCompact(func(_ string) {
@@ -600,7 +600,7 @@ func TestParseToolArguments_UnsupportedType(t *testing.T) {
 func TestLoop_Store_Nil(t *testing.T) {
 	eng := newTestEngine("ok", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 	if loop.Store() != nil {
 		t.Fatal("expected nil store when not configured")
 	}
@@ -609,7 +609,7 @@ func TestLoop_Store_Nil(t *testing.T) {
 func TestLoop_IsStreaming_False(t *testing.T) {
 	eng := newTestEngine("ok", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, agent.Config{})
 	if loop.IsStreaming() {
 		t.Fatal("expected IsStreaming() = false when no streamer configured")
 	}
@@ -620,7 +620,7 @@ func TestLoop_Config(t *testing.T) {
 	cfg := agent.Config{Model: "gpt-4", MaxTurns: 10}
 	eng := newTestEngine("ok", nil)
 	reg := tools.NewRegistry()
-	loop := agent.New(eng, newTestWorkflow(), reg, cfg)
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), reg, cfg)
 	if loop.Config().Model != "gpt-4" {
 		t.Fatalf("expected Model=gpt-4, got %s", loop.Config().Model)
 	}
@@ -634,11 +634,11 @@ func TestLoop_Config(t *testing.T) {
 // the REPL would (wrongly) report "no compaction needed".
 func TestLoop_ForceCompact_CompactsUnderBudget(t *testing.T) {
 	const fakeSummary = "## Progress\n- did things"
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return fakeSummary, nil
 	})
-	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 1_000_000, // effectively unlimited: auto-compact never fires
 	})
@@ -673,12 +673,12 @@ func TestLoop_ForceCompact_CompactsUnderBudget(t *testing.T) {
 func TestLoop_ForceCompact_UsesLiteralPrompt(t *testing.T) {
 	const fakeSummary = "## Progress\n- did things"
 	var gotLiteralPrompt bool
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotLiteralPrompt = wf.Resources[0].Chat.LiteralPrompt
 		return fakeSummary, nil
 	})
-	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 1_000_000,
 	})
@@ -703,12 +703,12 @@ func TestLoop_ForceCompact_UsesLiteralPrompt(t *testing.T) {
 // skipped. See syntheticCallTimeout.
 func TestLoop_ForceCompact_SyntheticCallTimeout(t *testing.T) {
 	var got string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		got = wf.Resources[0].Chat.Timeout
 		return "## Progress\n- did things", nil
 	})
-	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 1_000_000,
 	})
@@ -731,12 +731,12 @@ func TestLoop_ForceCompact_SyntheticCallTimeout(t *testing.T) {
 func TestLoop_ForceCompact_SyntheticCallTimeoutHonorsEnv(t *testing.T) {
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "90s")
 	var got string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		got = wf.Resources[0].Chat.Timeout
 		return "## Progress\n- did things", nil
 	})
-	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 1_000_000,
 	})
@@ -756,7 +756,7 @@ func TestLoop_ForceCompact_SyntheticCallTimeoutHonorsEnv(t *testing.T) {
 // ForceCompact still does nothing for a session too short to fold anything in.
 func TestLoop_ForceCompact_TooShort(t *testing.T) {
 	eng := newTestEngine("summary", nil)
-	loop := agent.New(eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{})
+	loop := agent.New(context.Background(), eng, newTestWorkflow(), tools.NewRegistry(), agent.Config{})
 	loop.Run(context.Background(), "q1") //nolint:errcheck
 	loop.Run(context.Background(), "q2") //nolint:errcheck
 	s, err := loop.ForceCompact(context.Background())

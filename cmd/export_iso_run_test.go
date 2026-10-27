@@ -60,7 +60,7 @@ func TestResolveLinuxKitFormat(t *testing.T) {
 
 func TestConfigureISOBuilderSize_Explicit(t *testing.T) {
 	isoBuilder := &iso.Builder{}
-	configureISOBuilderSize(isoBuilder, &docker.Builder{}, "img:tag", "2048M")
+	configureISOBuilderSize(t.Context(), isoBuilder, &docker.Builder{}, "img:tag", "2048M")
 	assert.Equal(t, "2048M", isoBuilder.Size)
 }
 
@@ -74,7 +74,7 @@ func TestConfigureISOBuilderSize_AutoFromImage(t *testing.T) {
 	})
 	isoBuilder := &iso.Builder{}
 	out := captureStdout(t, func() {
-		configureISOBuilderSize(isoBuilder, &docker.Builder{Client: mockClient}, "myimg:1.0", "")
+		configureISOBuilderSize(t.Context(), isoBuilder, &docker.Builder{Client: mockClient}, "myimg:1.0", "")
 	})
 	assert.NotEmpty(t, isoBuilder.Size)
 	assert.Contains(t, out, "Auto-computed disk image size")
@@ -85,6 +85,6 @@ func TestConfigureISOBuilderSize_ImageSizeError(t *testing.T) {
 		return nil, errors.New("inspect failed")
 	})
 	isoBuilder := &iso.Builder{}
-	configureISOBuilderSize(isoBuilder, &docker.Builder{Client: mockClient}, "myimg:1.0", "")
+	configureISOBuilderSize(t.Context(), isoBuilder, &docker.Builder{Client: mockClient}, "myimg:1.0", "")
 	assert.Empty(t, isoBuilder.Size)
 }

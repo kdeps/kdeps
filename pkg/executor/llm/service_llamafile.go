@@ -66,17 +66,17 @@ func (s *ModelService) serveLlamafileModel(ctx context.Context, model string, po
 // llamafileServerURL returns the base URL of a running llamafile server for the
 // given model, or "" if no server is running.
 func (s *ModelService) llamafileServerURL(model string) string {
-	_, path, err := s.prepareLlamafile(context.Background(), model)
+	_, path, err := s.prepareLlamafile(s.ctx, model)
 	if err != nil {
 		return ""
 	}
 	servedLlamafilesMu.Lock()
 	port := servedLlamafiles[path]
 	servedLlamafilesMu.Unlock()
-	if port != 0 && isHealthy(localServerURL(port)) {
+	if port != 0 && isHealthy(s.ctx, localServerURL(port)) {
 		return localServerURL(port) + "/v1"
 	}
-	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+	if saved := readServerPortFile(path); saved != 0 && isHealthy(s.ctx, localServerURL(saved)) {
 		return localServerURL(saved) + "/v1"
 	}
 	return ""

@@ -29,6 +29,7 @@ import (
 )
 
 func NewExecutionContext(
+	parent context.Context,
 	workflow *domain.Workflow,
 	sessionID ...string,
 ) (*ExecutionContext, error) {
@@ -38,7 +39,7 @@ func NewExecutionContext(
 		return nil, fmt.Errorf("failed to create memory storage: %w", err)
 	}
 
-	sessionStorage, err := createSessionStorage(workflow, providedSessionIDFromArgs(sessionID...))
+	sessionStorage, err := createSessionStorage(parent, workflow, providedSessionIDFromArgs(sessionID...))
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func NewExecutionContext(
 	}
 
 	ctx := &ExecutionContext{
-		Ctx:             context.Background(),
+		Ctx:             parent,
 		Workflow:        workflow,
 		Resources:       make(map[string]*domain.Resource),
 		Outputs:         make(map[string]interface{}),

@@ -58,7 +58,7 @@ func TestNewSessionStorageWithTTL_BoltOpenError(t *testing.T) {
 	}
 	t.Cleanup(func() { boltOpen = origBoltOpen })
 
-	s, err := NewSessionStorageWithTTL(sqliteMemoryDSN, "test", time.Hour)
+	s, err := NewSessionStorageWithTTL(t.Context(), sqliteMemoryDSN, "test", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, s)
 	assert.Contains(t, err.Error(), "failed to open database")

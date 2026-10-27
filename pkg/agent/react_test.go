@@ -210,7 +210,7 @@ func TestRunReact_MaxRoundsReturnsLastContent(t *testing.T) {
 
 func TestBuildReactSystemPreamble_ContainsFormat(t *testing.T) {
 	loop := newStreamingLoop(&mockStreamer{}, 5)
-	preamble := loop.buildReactSystemPreamble()
+	preamble := loop.buildReactSystemPreamble(t.Context())
 	if !strings.Contains(preamble, "Thought:") {
 		t.Errorf("preamble missing 'Thought:' format instruction, got: %q", preamble[:clampMax(200, len(preamble))])
 	}
@@ -238,15 +238,15 @@ func TestRunReact_StreamerError(t *testing.T) {
 
 func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 	// Covers lines 131-133: extra != "" branch when SystemPrompt is set.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
 		MaxToolRounds: 5,
 		SystemPrompt:  "You are a helpful assistant",
 	})
-	preamble := loop.buildReactSystemPreamble()
+	preamble := loop.buildReactSystemPreamble(t.Context())
 	if !strings.Contains(preamble, "You are a helpful assistant") {
 		t.Errorf("expected system prompt in preamble, got: %q", preamble[:clampMax(100, len(preamble))])
 	}
@@ -255,7 +255,7 @@ func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 func TestRunReact_AutoCompactFires(t *testing.T) {
 	// Seeds many turns so shouldAutoCompact returns true before RunReact;
 	// verifies that the onAutoCompact callback fires inside RunReact.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compaction summary", nil
@@ -266,7 +266,7 @@ func TestRunReact_AutoCompactFires(t *testing.T) {
 		responses: []mockStreamResponse{{content: "Final Answer: done"}},
 	}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		Streamer:             ms,
 		CompactTokenBudget:   1,
@@ -291,7 +291,7 @@ func TestRunReact_AutoCompactFires(t *testing.T) {
 
 func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 	// Covers the for-loop body: tool descriptions and name joining with ", ".
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "tool_alpha",
@@ -305,12 +305,12 @@ func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
 		MaxToolRounds: 5,
 	})
-	preamble := loop.buildReactSystemPreamble()
+	preamble := loop.buildReactSystemPreamble(t.Context())
 	// Both tool names should appear in the preamble
 	if !strings.Contains(preamble, "tool_alpha") {
 		t.Errorf("expected tool_alpha in preamble, got: %q", preamble[:clampMax(200, len(preamble))])
@@ -319,7 +319,7 @@ func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 		t.Errorf("expected tool_beta in preamble, got: %q", preamble[:clampMax(200, len(preamble))])
 	}
 	// The comma-joined "Action: ... one of [ ... ]" list is built from
-	// Registry.List(), which iterates an unordered map -- New() also
+	// Registry.List(), which iterates an unordered map -- New(t.Context(), ) also
 	// unconditionally registers an "identity_get" tool into the same
 	// registry (registerIdentityTool), so this list has 3 entries in
 	// non-deterministic order, not just tool_alpha/tool_beta adjacently.
@@ -368,9 +368,9 @@ func TestBuildReactChatConfig_WithHistory(t *testing.T) {
 	// Covers lines 168-170: history branch when session has turns.
 	existing := NewSession(0)
 	existing.Append("prior question", "prior answer")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      &mockStreamer{},
 		ResumeSession: existing,
@@ -383,7 +383,7 @@ func TestBuildReactChatConfig_WithHistory(t *testing.T) {
 
 func TestDispatchReactTool_NonJSONInput(t *testing.T) {
 	// Covers lines 218-222: non-JSON input treated as {input: toolInput}.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "test_tool",
@@ -391,7 +391,7 @@ func TestDispatchReactTool_NonJSONInput(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]interface{}) (string, error) { return "got it", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -403,7 +403,7 @@ func TestDispatchReactTool_NonJSONInput(t *testing.T) {
 
 func TestDispatchReactTool_ToolError(t *testing.T) {
 	// Covers lines 223-227: tool returns error.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{
 		Name:        "fail_tool",
@@ -413,7 +413,7 @@ func TestDispatchReactTool_ToolError(t *testing.T) {
 			return "", errors.New("tool exploded")
 		},
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
@@ -432,9 +432,9 @@ func TestRunReact_WithHistory(t *testing.T) {
 			{content: "Final Answer: history tested", toolCalls: nil},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 3,

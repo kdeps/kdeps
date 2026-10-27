@@ -45,15 +45,18 @@ func TestAssertImageRequest_ShortContentEarlyReturn(t *testing.T) {
 }
 
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
-	a := NewAdapter("")
+	a := NewAdapter(t.Context(), "")
 	_, err := a.Execute(&executor.ExecutionContext{}, "not-chat-config")
 	require.Error(t, err)
 }
 
 func TestAdapter_Execute_Success(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	a := NewAdapter("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	a := NewAdapter(t.Context(), "")
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	cfg, err := executor.AdaptConfig[domain.ChatConfig](&domain.ChatConfig{Model: "m", Prompt: "p"}, "LLM")
 	require.NoError(t, err)
@@ -81,7 +84,7 @@ func (f *failingToolExecutor) ExecuteResource(_ *domain.Resource, _ *executor.Ex
 func ptrFloat(v float64) *float64 { return &v }
 
 func TestModelService_ServeModel_UnsupportedBackend(t *testing.T) {
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	err := s.ServeModel(context.Background(), "unsupported", "m", "h", 1)
 	require.Error(t, err)
 }

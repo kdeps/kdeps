@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ import (
 
 // TestEngine_Execute_APIResponseUnwrap_WithoutData tests unwrapping when success is present but data is not.
 func TestEngine_Execute_APIResponseUnwrap_WithoutData(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{TargetActionID: "api"},
 		Settings: domain.WorkflowSettings{
@@ -51,7 +52,7 @@ func TestEngine_Execute_APIResponseUnwrap_WithoutData(t *testing.T) {
 	}
 
 	// Set output with success but no data key
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	ctx.SetOutput("api", map[string]interface{}{
 		"success": true,
@@ -75,7 +76,7 @@ func TestEngine_Execute_APIResponseUnwrap_WithoutData(t *testing.T) {
 
 // TestEngine_Execute_APIResponseUnwrap_WithSuccessButNoDataKey tests the edge case where result has success but no data.
 func TestEngine_Execute_APIResponseUnwrap_WithSuccessButNoDataKey(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{TargetActionID: "api"},
 		Settings: domain.WorkflowSettings{
@@ -104,7 +105,7 @@ func TestEngine_Execute_APIResponseUnwrap_WithSuccessButNoDataKey(t *testing.T) 
 
 // TestEngine_ExecuteAPIResponse_NilContext tests nil context error path.
 func TestEngine_ExecuteAPIResponse_NilContext(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetEvaluatorForTesting(nil) // Ensure evaluator is nil
 
 	resource := &domain.Resource{
@@ -121,7 +122,7 @@ func TestEngine_ExecuteAPIResponse_NilContext(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_MetaHeadersOnly tests meta with only headers.
 func TestEngine_ExecuteAPIResponse_MetaHeadersOnly(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -130,7 +131,7 @@ func TestEngine_ExecuteAPIResponse_MetaHeadersOnly(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
@@ -161,7 +162,7 @@ func TestEngine_ExecuteAPIResponse_MetaHeadersOnly(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_LLMMetadata_ExistingMeta tests LLM metadata added to existing meta.
 func TestEngine_ExecuteAPIResponse_LLMMetadata_ExistingMeta(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -170,7 +171,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_ExistingMeta(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.LLMMetadata = &executor.LLMMetadata{
@@ -206,7 +207,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_ExistingMeta(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_LLMMetadata_NewMeta tests LLM metadata creating new meta.
 func TestEngine_ExecuteAPIResponse_LLMMetadata_NewMeta(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -215,7 +216,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_NewMeta(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.LLMMetadata = &executor.LLMMetadata{
@@ -248,7 +249,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_NewMeta(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_LLMMetadata_Partial tests LLM metadata with only model or only backend.
 func TestEngine_ExecuteAPIResponse_LLMMetadata_Partial(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -257,7 +258,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_Partial(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.LLMMetadata = &executor.LLMMetadata{
@@ -291,7 +292,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_Partial(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride tests YAML meta overrides LLM metadata.
 func TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -300,7 +301,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.LLMMetadata = &executor.LLMMetadata{
@@ -335,7 +336,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride(t *testing.T) {
 
 // TestEngine_ExecuteAPIResponse_EmptyMetaMap tests empty meta map is not added.
 func TestEngine_ExecuteAPIResponse_EmptyMetaMap(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -344,7 +345,7 @@ func TestEngine_ExecuteAPIResponse_EmptyMetaMap(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
@@ -369,7 +370,7 @@ func TestEngine_ExecuteAPIResponse_EmptyMetaMap(t *testing.T) {
 
 // TestEngine_Execute_AfterEvaluatorInit tests afterEvaluatorInit callback.
 func TestEngine_Execute_AfterEvaluatorInit(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	initCalled := false
 	engine.SetAfterEvaluatorInitForTesting(func(_ *executor.Engine, _ *executor.ExecutionContext) {
 		initCalled = true
@@ -400,7 +401,7 @@ func TestEngine_Execute_AfterEvaluatorInit(t *testing.T) {
 
 // TestEngine_Execute_EvaluatorDebugMode tests evaluator debug mode is set.
 func TestEngine_Execute_EvaluatorDebugMode(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetDebugMode(true)
 
 	workflow := &domain.Workflow{
@@ -429,7 +430,7 @@ func TestEngine_Execute_EvaluatorDebugMode(t *testing.T) {
 
 // TestEngine_Execute_GetExecutionOrderError tests error getting execution order.
 func TestEngine_Execute_GetExecutionOrderError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{TargetActionID: "nonexistent"},
 		Settings: domain.WorkflowSettings{
@@ -454,7 +455,7 @@ func TestEngine_Execute_GetExecutionOrderError(t *testing.T) {
 
 // TestEngine_Execute_ResourceOutput_NotMap tests output that is not a map.
 func TestEngine_Execute_ResourceOutput_NotMap(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{TargetActionID: "test"},
 		Settings: domain.WorkflowSettings{
@@ -485,7 +486,7 @@ func TestEngine_Execute_ResourceOutput_NotMap(t *testing.T) {
 
 // TestEngine_evaluateResponseValue_PrimitiveValues tests primitive values in response.
 func TestEngine_evaluateResponseValue_PrimitiveValues(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -494,7 +495,7 @@ func TestEngine_evaluateResponseValue_PrimitiveValues(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))

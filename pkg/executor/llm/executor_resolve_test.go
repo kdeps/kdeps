@@ -160,7 +160,10 @@ func TestResolveModelForExecution_EmptyModelFallsBack(t *testing.T) {
 	t.Setenv("KDEPS_LLM_MODELS", "my-model")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	model, _, _, err := e.resolveModelForExecution(
@@ -178,7 +181,10 @@ func TestResolveModelForExecution_PromptWithBraceText_EvaluatedFails(t *testing.
 	t.Setenv("KDEPS_LLM_MODELS", "my-model")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, _, _, err = e.resolveModelForExecution(
@@ -197,7 +203,10 @@ func TestResolveModelForExecution_LiteralPrompt_SkipsEvaluation(t *testing.T) {
 	t.Setenv("KDEPS_LLM_MODELS", "my-model")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	const raw = "earlier the user asked about {{ not a real expr, and a django {% if x %} tag too"
@@ -217,7 +226,10 @@ func TestResolveModelForExecution_AutoRouterPicksLocal(t *testing.T) {
 	t.Cleanup(func() { autoRouterPickFunc = orig })
 
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	model, _, routes, err := e.resolveModelForExecution(
@@ -236,7 +248,10 @@ func TestResolveModelForExecution_AutoRouterFallsBackToBuiltin(t *testing.T) {
 	t.Cleanup(func() { autoRouterPickFunc = orig })
 
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	model, _, _, err := e.resolveModelForExecution(
@@ -250,7 +265,10 @@ func TestResolveModelForExecution_EmptyModelCloudErrors(t *testing.T) {
 	t.Setenv("KDEPS_LLM_MODELS", "")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "deepseek")
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, _, _, err = e.resolveModelForExecution(
@@ -264,7 +282,10 @@ func TestResolveModelForExecution_SystemSentinelResolvesLikeEmpty(t *testing.T) 
 	t.Setenv("KDEPS_LLM_MODELS", "cfg-model")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	for _, m := range []string{"system", "System", " system "} {
@@ -286,7 +307,10 @@ func TestResolveModelForExecution_SystemSentinelNoConfigFallsToBuiltin(t *testin
 	t.Cleanup(func() { bestInstalledModelByFitFunc = orig })
 
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	model, _, _, err := e.resolveModelForExecution(

@@ -41,7 +41,7 @@ func TestExecutionContext_Get_WithTypeHint(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set a value in outputs
@@ -63,7 +63,7 @@ func TestExecutionContext_GetParam_WithAllowedParams(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -97,7 +97,7 @@ func TestExecutionContext_GetParam_FromBody(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -122,7 +122,7 @@ func TestExecutionContext_GetHeader_WithAllowedHeaders(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -156,7 +156,7 @@ func TestExecutionContext_GetHeader_CaseInsensitive(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -181,7 +181,7 @@ func TestExecutionContext_GetParam_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -204,7 +204,7 @@ func TestExecutionContext_GetHeader_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -227,7 +227,7 @@ func TestExecutionContext_GetParam_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Request is nil
@@ -246,7 +246,7 @@ func TestExecutionContext_GetHeader_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Request is nil
@@ -265,7 +265,7 @@ func TestExecutionContext_GetRequestData_WithAllowedParams(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -295,7 +295,7 @@ func TestExecutionContext_GetRequestData_WithoutFilter(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -321,7 +321,7 @@ func TestExecutionContext_GetRequestData_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	data := ctx.GetRequestData()
@@ -340,7 +340,7 @@ func TestExecutionContext_GetUploadedFile_ArrayAccess(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -370,7 +370,7 @@ func TestExecutionContext_GetUploadedFile_ExactMatch(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -394,7 +394,7 @@ func TestExecutionContext_GetUploadedFile_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	_, err = ctx.GetUploadedFile("test.txt")
@@ -412,7 +412,7 @@ func TestExecutionContext_GetUploadedFile_NoFiles(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -434,7 +434,7 @@ func TestExecutionContext_GetSessionID(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with auto-generated session (should return empty string since it's not a "real" session ID)
@@ -461,7 +461,7 @@ func TestExecutionContext_GetRequestIP(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -489,7 +489,7 @@ func TestExecutionContext_GetRequestID(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -517,7 +517,7 @@ func TestExecutionContext_FilterByMimeType(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -556,7 +556,7 @@ func TestExecutionContext_Item(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set up items context - use the actual keys that Item() expects
@@ -602,7 +602,7 @@ func TestExecutionContext_IsFilePattern(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test wildcard pattern
@@ -631,7 +631,7 @@ func TestExecutionContext_Get_AutoDetection(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test Items priority (highest)
@@ -672,7 +672,7 @@ func TestExecutionContext_Get_RequestBody_WithAllowedParams(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -704,7 +704,7 @@ func TestExecutionContext_Get_QueryParams_WithAllowedParams(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -736,7 +736,7 @@ func TestExecutionContext_Get_Headers_WithAllowedHeaders(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -768,7 +768,7 @@ func TestExecutionContext_Get_Headers_CaseInsensitive(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -793,7 +793,7 @@ func TestExecutionContext_Get_MetadataField(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test metadata fields
@@ -817,7 +817,7 @@ func TestExecutionContext_Get_UploadedFile(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -847,7 +847,7 @@ func TestExecutionContext_Get_FilePattern(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -872,7 +872,7 @@ func TestExecutionContext_Get_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	_, err = ctx.Get("nonexistent-key")
@@ -891,7 +891,7 @@ func TestExecutionContext_Get_RequestBody_NoFilter(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -915,7 +915,7 @@ func TestExecutionContext_Get_QueryParams_NoFilter(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -939,7 +939,7 @@ func TestExecutionContext_Get_Headers_NoFilter(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -964,7 +964,7 @@ func TestNewExecutionContext_WithSessionID(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow, "test-session-id")
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow, "test-session-id")
 	require.NoError(t, err)
 	assert.NotNil(t, ctx)
 	if ctx.Session != nil {
@@ -986,7 +986,7 @@ func TestNewExecutionContext_WithSessionTTL(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.NotNil(t, ctx)
 }
@@ -1002,7 +1002,7 @@ func TestNewExecutionContext_SessionDisabled(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.NotNil(t, ctx)
 }
@@ -1017,7 +1017,7 @@ func TestExecutionContext_FilterByMimeType_MoreTypes(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1054,7 +1054,7 @@ func TestExecutionContext_HandleGlobPattern_WithMimeFilter(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Create temporary files for testing
@@ -1084,7 +1084,7 @@ func TestExecutionContext_ApplySelector_AllCases(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1132,7 +1132,7 @@ func TestExecutionContext_ApplySelector_EmptyMatches(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	matches := []string{}
@@ -1163,7 +1163,7 @@ func TestExecutionContext_GetPythonStdout_FromMap(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = map[string]interface{}{
@@ -1186,7 +1186,7 @@ func TestExecutionContext_GetPythonStdout_StringOutput(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = "direct string output"
@@ -1206,7 +1206,7 @@ func TestExecutionContext_GetPythonStdout_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	_, err = ctx.GetPythonStdout("nonexistent")
@@ -1224,7 +1224,7 @@ func TestExecutionContext_GetPythonStdout_NoStdoutField(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = map[string]interface{}{
@@ -1247,7 +1247,7 @@ func TestExecutionContext_Item_WithAliases(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Items["current"] = "current-item"
@@ -1289,7 +1289,7 @@ func TestExecutionContext_Item_NotInContext(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Not in iteration context - current item returns nil without error
@@ -1322,7 +1322,7 @@ func TestExecutionContext_GetRequestData_WithQueryParams(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1350,7 +1350,7 @@ func TestExecutionContext_IsMetadataField(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test various metadata fields
@@ -1380,7 +1380,7 @@ func TestExecutionContext_GetAllFilePaths(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1407,7 +1407,7 @@ func TestExecutionContext_GetAllFileNames(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1434,7 +1434,7 @@ func TestExecutionContext_GetAllFileTypes(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1461,7 +1461,7 @@ func TestExecutionContext_GetAllFilePaths_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	paths, err := ctx.GetAllFilePaths()
@@ -1479,7 +1479,7 @@ func TestExecutionContext_GetAllFileNames_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	names, err := ctx.GetAllFileNames()
@@ -1497,7 +1497,7 @@ func TestExecutionContext_GetAllFileTypes_NoRequest(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	types, err := ctx.GetAllFileTypes()
@@ -1515,7 +1515,7 @@ func TestExecutionContext_WalkFiles(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1544,7 +1544,7 @@ func TestExecutionContext_WalkFiles_Error(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1568,7 +1568,7 @@ func TestExecutionContext_GetRequestData_WithHeaders(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1592,7 +1592,7 @@ func TestExecutionContext_GetRequestData_WithAllowedHeaders(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1621,7 +1621,7 @@ func TestExecutionContext_GetFilesByType(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1649,7 +1649,7 @@ func TestExecutionContext_GetPythonStderr_FromMap(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = map[string]interface{}{
@@ -1671,7 +1671,7 @@ func TestExecutionContext_GetExecStdout_FromMap(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["exec-resource"] = map[string]interface{}{
@@ -1693,7 +1693,7 @@ func TestExecutionContext_GetExecStderr_FromMap(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["exec-resource"] = map[string]interface{}{
@@ -1796,7 +1796,7 @@ func TestExecutionContext_FilterByMimeType_EmptyPaths(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	result, err := ctx.FilterByMimeType([]string{}, "image/png")
@@ -1814,7 +1814,7 @@ func TestExecutionContext_HandleGlobPattern_NoSelector(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1839,7 +1839,7 @@ func TestExecutionContext_FilterByMimeType_Wildcard(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1873,7 +1873,7 @@ func TestExecutionContext_FilterByMimeType_UnknownExtension(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1904,7 +1904,7 @@ func TestExecutionContext_FilterByMimeType_WithCharset(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1931,7 +1931,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterWithSelector(t *testing.T)
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1960,7 +1960,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterEmpty(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1986,7 +1986,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterEmptyFirst(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2012,7 +2012,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterEmptyLast(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2038,7 +2038,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterEmptyAll(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2066,7 +2066,7 @@ func TestExecutionContext_HandleGlobPattern_MimeFilterEmptyDefault(t *testing.T)
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2094,7 +2094,7 @@ func TestExecutionContext_GetPythonExitCode_Float64(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = map[string]interface{}{
@@ -2116,7 +2116,7 @@ func TestExecutionContext_GetPythonExitCode_Int(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["python-resource"] = map[string]interface{}{
@@ -2138,7 +2138,7 @@ func TestExecutionContext_GetPythonExitCode_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	_, err = ctx.GetPythonExitCode("nonexistent")
@@ -2185,7 +2185,7 @@ func TestExecutionContext_HandleGlobPattern_GlobError(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Use invalid glob pattern that causes error
@@ -2245,7 +2245,7 @@ func TestExecutionContext_WalkFiles_WithSubdirs(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2278,7 +2278,7 @@ func TestExecutionContext_GetExecExitCode_Int(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["exec-resource"] = map[string]interface{}{
@@ -2300,7 +2300,7 @@ func TestExecutionContext_GetExecExitCode_Float64(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["exec-resource"] = map[string]interface{}{
@@ -2322,7 +2322,7 @@ func TestExecutionContext_GetHTTPResponseBody_FromBody(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["http-resource"] = map[string]interface{}{
@@ -2344,7 +2344,7 @@ func TestExecutionContext_GetHTTPResponseBody_FromData(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["http-resource"] = map[string]interface{}{
@@ -2366,7 +2366,7 @@ func TestExecutionContext_GetHTTPResponseHeader(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["http-resource"] = map[string]interface{}{
@@ -2390,7 +2390,7 @@ func TestExecutionContext_GetHTTPResponseHeader_NotFound(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Outputs["http-resource"] = map[string]interface{}{
@@ -2414,7 +2414,7 @@ func TestExecutionContext_GetFilesByType_WithMatchingFiles(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -2457,7 +2457,7 @@ func TestExecutionContext_WalkFiles_ErrorInCallback(t *testing.T) {
 			},
 		},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()

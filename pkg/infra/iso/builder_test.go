@@ -782,7 +782,7 @@ func TestNewBuilder_Integration(t *testing.T) {
 		t.Skip("Skipping integration test that may download linuxkit")
 	}
 
-	builder, err := iso.NewBuilder()
+	builder, err := iso.NewBuilder(t.Context())
 
 	if err != nil {
 		// Expected in environments without linuxkit
@@ -810,7 +810,7 @@ func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
 	cacheDirPath := filepath.Join(cacheParent, "linuxkit")
 	require.NoError(t, os.WriteFile(cacheDirPath, []byte("block"), 0644))
 
-	_, err := iso.NewBuilder()
+	_, err := iso.NewBuilder(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "linuxkit not available")
 }

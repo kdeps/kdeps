@@ -28,7 +28,7 @@ import (
 )
 
 func TestExecutionContext_GetExecStderr(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// GetExecStderr is not fully implemented (stderr not stored in output)

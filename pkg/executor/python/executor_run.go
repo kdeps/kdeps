@@ -52,14 +52,15 @@ func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 }
 
 func (e *Executor) buildPythonCommand(
+	ctx context.Context,
 	pythonPath, scriptContent, scriptFile string,
 	args []string,
 ) *exec.Cmd {
 	if scriptFile != "" {
 		cmdArgs := append([]string{scriptFile}, args...)
-		return e.newExecCommand(context.Background(), pythonPath, cmdArgs...)
+		return e.newExecCommand(ctx, pythonPath, cmdArgs...)
 	}
-	cmd := e.newExecCommand(context.Background(), pythonPath, "-c", scriptContent)
+	cmd := e.newExecCommand(ctx, pythonPath, "-c", scriptContent)
 	cmd.Args = append(cmd.Args, args...)
 	return cmd
 }
@@ -92,12 +93,13 @@ func (e *Executor) buildExecutionResult(
 
 // executeScript runs the Python script and returns the result.
 func (e *Executor) executeScript(
+	ctx context.Context,
 	pythonPath, venvPath, workDir, scriptContent, scriptFile string,
 	args []string, env map[string]string, timeout time.Duration, maxOutputBytes int64,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScript")
 	var stdout, stderr bytes.Buffer
-	cmd := e.buildPythonCommand(pythonPath, scriptContent, scriptFile, args)
+	cmd := e.buildPythonCommand(ctx, pythonPath, scriptContent, scriptFile, args)
 	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)

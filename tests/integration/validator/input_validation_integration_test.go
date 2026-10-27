@@ -19,6 +19,7 @@
 package validator_test
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 	"testing"
@@ -66,10 +67,12 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Test with missing required fields
-	ctx, err := executor.NewExecutionContext(workflow)
+	), logger)
+
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	if ctx.Request == nil {
 		ctx.Request = &executor.RequestContext{
@@ -100,7 +103,7 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 	}
 
 	// Test with all required fields
-	ctx, err = executor.NewExecutionContext(workflow)
+	ctx, err = executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	if ctx.Request == nil {
 		ctx.Request = &executor.RequestContext{
@@ -171,7 +174,7 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	testCases := []struct {
 		name          string
@@ -242,7 +245,7 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, err := executor.NewExecutionContext(workflow)
+			ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 			require.NoError(t, err)
 			if ctx.Request == nil {
 				ctx.Request = &executor.RequestContext{
@@ -360,7 +363,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	testCases := []struct {
 		name          string
@@ -401,7 +404,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, err := executor.NewExecutionContext(workflow)
+			ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 			require.NoError(t, err)
 			if ctx.Request == nil {
 				ctx.Request = &executor.RequestContext{
@@ -531,10 +534,12 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Valid data
-	ctx, err := executor.NewExecutionContext(workflow)
+	), logger)
+
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	if ctx.Request == nil {
 		ctx.Request = &executor.RequestContext{
@@ -551,7 +556,7 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 	assert.NotNil(t, result)
 
 	// Missing required field
-	ctx, err = executor.NewExecutionContext(workflow)
+	ctx, err = executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	if ctx.Request == nil {
 		ctx.Request = &executor.RequestContext{

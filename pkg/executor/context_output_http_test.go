@@ -30,7 +30,7 @@ import (
 
 // TestExecutionContext_Coverage_GetHTTPResponseHeader tests HTTP response header retrieval.
 func TestExecutionContext_Coverage_GetHTTPResponseHeader(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with headers map[string]interface{}

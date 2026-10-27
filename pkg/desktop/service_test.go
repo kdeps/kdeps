@@ -160,7 +160,7 @@ func newHarness(t *testing.T, responses ...scriptedResponse) *harness {
 
 	svc, err := desktop.New(ctx, desktop.Options{
 		Emit:     log.emit,
-		Engine:   executor.NewEngine(nil),
+		Engine:   executor.NewEngine(context.Background(), nil),
 		Cwd:      t.TempDir(),
 		StateDir: t.TempDir(),
 		Model:    "test",
@@ -172,7 +172,7 @@ func newHarness(t *testing.T, responses ...scriptedResponse) *harness {
 }
 
 func TestNew_Validation(t *testing.T) {
-	_, err := desktop.New(t.Context(), desktop.Options{Engine: executor.NewEngine(nil)})
+	_, err := desktop.New(t.Context(), desktop.Options{Engine: executor.NewEngine(context.Background(), nil)})
 	assert.ErrorContains(t, err, "Emit")
 	_, err = desktop.New(t.Context(), desktop.Options{Emit: func(desktop.Event) {}})
 	assert.ErrorContains(t, err, "Engine")
@@ -181,7 +181,7 @@ func TestNew_Validation(t *testing.T) {
 func TestNew_StartsAPI(t *testing.T) {
 	svc, err := desktop.New(t.Context(), desktop.Options{
 		Emit:     func(desktop.Event) {},
-		Engine:   executor.NewEngine(nil),
+		Engine:   executor.NewEngine(context.Background(), nil),
 		Cwd:      t.TempDir(),
 		StateDir: t.TempDir(),
 		Model:    "test",
@@ -200,7 +200,7 @@ func TestNew_APIListenFails(t *testing.T) {
 	t.Setenv("KDEPS_API_LISTEN", "bad-listen-addr")
 	_, err := desktop.New(t.Context(), desktop.Options{
 		Emit:   func(desktop.Event) {},
-		Engine: executor.NewEngine(nil),
+		Engine: executor.NewEngine(context.Background(), nil),
 	})
 	require.ErrorContains(t, err, "api listen")
 }
@@ -209,7 +209,7 @@ func TestNew_NilContext(t *testing.T) {
 	var ctx context.Context
 	_, err := desktop.New(ctx, desktop.Options{
 		Emit:   func(desktop.Event) {},
-		Engine: executor.NewEngine(nil),
+		Engine: executor.NewEngine(context.Background(), nil),
 	})
 	require.ErrorContains(t, err, "nil context")
 }
@@ -479,7 +479,7 @@ func TestRunTurn_StreamerErrorEmitsErrorEvent(t *testing.T) {
 func TestNew_DefaultsBuildRegistryAndAdapter(t *testing.T) {
 	svc, err := desktop.New(t.Context(), desktop.Options{
 		Emit:     func(desktop.Event) {},
-		Engine:   executor.NewEngine(nil),
+		Engine:   executor.NewEngine(context.Background(), nil),
 		StateDir: t.TempDir(),
 	})
 	require.NoError(t, err)
@@ -510,7 +510,7 @@ func TestStore_Unusable(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
 	svc, err := desktop.New(t.Context(), desktop.Options{
 		Emit:     func(desktop.Event) {},
-		Engine:   executor.NewEngine(nil),
+		Engine:   executor.NewEngine(context.Background(), nil),
 		StateDir: file,
 		Model:    "test",
 		Streamer: &scriptedStreamer{},
@@ -602,7 +602,7 @@ func TestInstructions_ReadWriteRemove(t *testing.T) {
 
 func TestInstructions_Errors(t *testing.T) {
 	svc, err := desktop.New(t.Context(), desktop.Options{
-		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(nil), StateDir: t.TempDir(),
+		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(context.Background(), nil), StateDir: t.TempDir(),
 		Cwd: filepath.Join(t.TempDir(), "missing-dir"), Model: "test",
 		Streamer: &scriptedStreamer{}, Registry: tools.NewRegistry(),
 	})
@@ -612,7 +612,7 @@ func TestInstructions_Errors(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "afile")
 	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
 	svc2, err := desktop.New(t.Context(), desktop.Options{
-		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(nil), StateDir: t.TempDir(),
+		Emit: func(desktop.Event) {}, Engine: executor.NewEngine(context.Background(), nil), StateDir: t.TempDir(),
 		Cwd: file, Model: "test", Streamer: &scriptedStreamer{}, Registry: tools.NewRegistry(),
 	})
 	require.NoError(t, err)

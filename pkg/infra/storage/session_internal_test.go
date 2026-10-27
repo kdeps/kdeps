@@ -31,7 +31,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 	defaultCleanupInterval = 10 * time.Millisecond
 	t.Cleanup(func() { defaultCleanupInterval = origInterval })
 
-	s, err := NewSessionStorageWithTTL(sqliteMemoryDSN, "test-session", 100*time.Millisecond)
+	s, err := NewSessionStorageWithTTL(t.Context(), sqliteMemoryDSN, "test-session", 100*time.Millisecond)
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
 
@@ -52,7 +52,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 }
 
 func TestSessionStorage_Get_ClosedDB(t *testing.T) {
-	s, err := NewSessionStorage(sqliteMemoryDSN, "test-session")
+	s, err := NewSessionStorage(t.Context(), sqliteMemoryDSN, "test-session")
 	require.NoError(t, err)
 
 	err = s.Close()
@@ -63,7 +63,7 @@ func TestSessionStorage_Get_ClosedDB(t *testing.T) {
 }
 
 func TestSessionStorage_SetWithTTL_JSONMarshalError(t *testing.T) {
-	s, err := NewSessionStorage(sqliteMemoryDSN, "test-session")
+	s, err := NewSessionStorage(t.Context(), sqliteMemoryDSN, "test-session")
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
 

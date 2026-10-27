@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // --- providerEnvKey ---
@@ -167,7 +168,7 @@ func TestExecute_AddDocuments_WithWeaviate(t *testing.T) {
 		Documents:    []domain.VectorStoreDocument{{Content: "hello world"}},
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 1, m["added"])
@@ -217,7 +218,7 @@ func TestExecute_SimilaritySearch_WithWeaviate(t *testing.T) {
 		TopK:         5,
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 1, m["count"])
@@ -268,7 +269,7 @@ func TestExecute_SimilaritySearch_WithDefaultTopK(t *testing.T) {
 		TopK:         0, // should default to 5
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 2, m["count"])
@@ -427,7 +428,7 @@ func TestExecute_BuildStoreError(t *testing.T) {
 		Documents: []domain.VectorStoreDocument{{Content: "test"}},
 		Provider:  "nonexistent",
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.Error(t, err)
 }
 

@@ -102,7 +102,7 @@ func (e *Executor) Execute(
 		return nil, resolveErr
 	}
 
-	ctx := context.Background()
+	ctx := execCtx.Ctx
 
 	// Vector embedding and reranking operations use the LLM API, not SQLite.
 	switch strings.ToLower(config.Operation) {
@@ -119,7 +119,7 @@ func (e *Executor) Execute(
 		}
 		return buildEmbeddingResult(result), nil
 	case "rerank":
-		result, err := cohereRerank(config)
+		result, err := cohereRerank(ctx, config)
 		if err != nil {
 			return nil, err
 		}
@@ -135,19 +135,19 @@ func (e *Executor) Execute(
 	}
 	defer db.Close()
 
-	if schemaErr := e.ensureSchema(db); schemaErr != nil {
+	if schemaErr := e.ensureSchema(ctx, db); schemaErr != nil {
 		return nil, fmt.Errorf("embedding: failed to ensure schema: %w", schemaErr)
 	}
 
 	switch strings.ToLower(config.Operation) {
 	case "index":
-		return e.index(db, resolved.collection, config.Text)
+		return e.index(ctx, db, resolved.collection, config.Text)
 	case "upsert":
-		return e.upsert(db, resolved.collection, config.Text)
+		return e.upsert(ctx, db, resolved.collection, config.Text)
 	case "search":
-		return e.search(db, resolved.collection, config.Text, resolved.limit)
+		return e.search(ctx, db, resolved.collection, config.Text, resolved.limit)
 	case "delete":
-		return e.delete(db, resolved.collection, config.Text)
+		return e.delete(ctx, db, resolved.collection, config.Text)
 	default:
 		return nil, fmt.Errorf(
 			"embedding: unknown operation %q (use index, search, upsert, delete, vectorize, embed_query, rerank)",
@@ -156,9 +156,9 @@ func (e *Executor) Execute(
 	}
 }
 
-func (e *Executor) ensureSchema(db *sql.DB) error {
+func (e *Executor) ensureSchema(ctx context.Context, db *sql.DB) error {
 	kdeps_debug.Log("enter: ensureSchema")
-	_, err := db.ExecContext(context.Background(), `CREATE TABLE IF NOT EXISTS embeddings (
+	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS embeddings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		collection TEXT NOT NULL,
 		text TEXT NOT NULL,

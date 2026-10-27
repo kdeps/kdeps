@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -62,8 +63,8 @@ func TestCoerceDeclaredInputs_DeclaredTypes(t *testing.T) {
 // The coerced value is what a component body reads, so the template renders a
 // number/boolean into its HTTP call instead of a quoted string.
 func TestInjectComponentInputs_CoercedValuesKeepTheirType(t *testing.T) {
-	e := NewEngine(slog.Default())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	e := NewEngine(context.Background(), slog.Default())
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	require.NoError(t, ctx.Set("caller.limit", "10"))
 	require.NoError(t, ctx.Set("caller.dry", "true"))
@@ -90,8 +91,8 @@ func TestInjectComponentInputs_CoercedValuesKeepTheirType(t *testing.T) {
 // not as raw "{{ ... }}" templates. This must hold without relying on the
 // interpolator re-scanning substituted output.
 func TestInjectComponentInputs_InterpolatesWithValues(t *testing.T) {
-	e := NewEngine(slog.Default())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	e := NewEngine(context.Background(), slog.Default())
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	require.NoError(t, ctx.Set("q", "hello"))
 
@@ -113,8 +114,8 @@ func TestInjectComponentInputs_InterpolatesWithValues(t *testing.T) {
 // type: object inputs), with the strings inside them interpolated and other
 // values unchanged; a top-level scalar stays a string.
 func TestInjectComponentInputs_KeepsListsAndMaps(t *testing.T) {
-	e := NewEngine(slog.Default())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	e := NewEngine(context.Background(), slog.Default())
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	require.NoError(t, ctx.Set("who", "bob@example.com"))
 	require.NoError(t, ctx.Set("n", 10))

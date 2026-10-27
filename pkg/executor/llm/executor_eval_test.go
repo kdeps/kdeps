@@ -53,6 +53,7 @@ func TestBuildEnvironment_ReturnsNonNilMap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -64,6 +65,7 @@ func TestBuildScenarioMessages_SystemAndUser(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -84,6 +86,7 @@ func TestBuildScenarioMessages_Empty(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -97,6 +100,7 @@ func TestBuildScenarioMessages_PromptEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -113,6 +117,7 @@ func TestBuildScenarioMessages_RoleEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -129,6 +134,7 @@ func TestBuildScenarioMessages_NameEvalError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)

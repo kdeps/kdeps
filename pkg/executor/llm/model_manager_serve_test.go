@@ -44,7 +44,7 @@ func TestServeFileModel_NewLlamafileManagerFailure(t *testing.T) {
 	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
-	m := NewModelManager(nil)
+	m := NewModelManager(t.Context(), nil)
 	_, err := m.serveFileModel(context.Background(), "test.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
@@ -56,7 +56,7 @@ func TestServeGGUFModel_NewGGUFManagerFailure(t *testing.T) {
 	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
-	m := NewModelManager(nil)
+	m := NewModelManager(t.Context(), nil)
 	_, err := m.serveGGUFModel(context.Background(), "test.gguf", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
@@ -65,7 +65,7 @@ func TestServeGGUFModel_NewGGUFManagerFailure(t *testing.T) {
 func TestServeGGUFModelIfNeeded_Error(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
-	m := NewModelManager(nil)
+	m := NewModelManager(t.Context(), nil)
 	config := &domainpkg.ChatConfig{Model: "test.gguf"}
 	m.serveGGUFModelIfNeeded(context.Background(), config, 0)
 	// On error, BaseURL stays empty
@@ -76,7 +76,7 @@ func TestServeGGUFModel_ResolveError(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
-	m := NewModelManager(nil)
+	m := NewModelManager(t.Context(), nil)
 	_, err := m.serveGGUFModel(context.Background(), "nonexistent-alias-xyz-abc", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in cache")
@@ -99,7 +99,7 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	})
 
 	AppFS = afero.NewOsFs()
-	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
+	startGGUFServerFunc = func(_ context.Context, _ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
@@ -122,7 +122,7 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
-	m := NewModelManager(nil)
+	m := NewModelManager(t.Context(), nil)
 	config := &domainpkg.ChatConfig{Model: modelPath}
 	m.serveGGUFModelIfNeeded(context.Background(), config, 0)
 	assert.NotEmpty(t, config.BaseURL)

@@ -30,7 +30,7 @@ import (
 
 func TestExecutionContext_GetAllSession(t *testing.T) {
 	t.Run("returns empty map when session is nil", func(t *testing.T) {
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+		ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 		require.NoError(t, err)
 
 		// Intentionally set Session to nil to test that code path
@@ -48,7 +48,7 @@ func TestExecutionContext_GetAllSession(t *testing.T) {
 				Session: &domain.SessionConfig{},
 			},
 		}
-		ctx, err := executor.NewExecutionContext(workflow)
+		ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 		require.NoError(t, err)
 
 		// Set some session data using the Session storage API

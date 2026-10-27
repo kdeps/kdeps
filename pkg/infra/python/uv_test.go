@@ -192,7 +192,7 @@ func TestManager_EnsureVenv_AlreadyExists(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(venvPath, "bin", "python"), []byte("#!/bin/sh\n"), 0o755))
 
 	// Try to ensure the same venv
-	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
+	resultPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, venvPath, resultPath)
@@ -202,7 +202,7 @@ func TestManager_EnsureVenv_CreatesDirectory(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
 	// Ensure base directory gets created
-	_, err := manager.EnsureVenv("3.12", []string{}, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 
 	// May succeed if uv is available, or fail if not
 	// Directory should be created in either case
@@ -222,7 +222,7 @@ func TestManager_EnsureVenv_CreatesDirectory(t *testing.T) {
 func TestManager_EnsureVenv_WithPackages(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
-	_, err := manager.EnsureVenv("3.12", []string{"requests", "pandas"}, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{"requests", "pandas"}, "", "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -245,7 +245,7 @@ func TestManager_EnsureVenv_WithRequirements(t *testing.T) {
 	reqFile := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(reqFile, []byte("requests==2.28.0\npandas==1.5.0"), 0644))
 
-	_, err := manager.EnsureVenv("3.12", []string{}, reqFile, "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, reqFile, "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -385,7 +385,7 @@ func TestManager_GetPythonPath_WindowsFallback(t *testing.T) {
 func TestManager_EnsureVenv_EmptyPackageList(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
-	_, err := manager.EnsureVenv("3.12", []string{}, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -401,7 +401,7 @@ func TestManager_EnsureVenv_EmptyPackageList(t *testing.T) {
 func TestManager_EnsureVenv_NilPackageList(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
-	_, err := manager.EnsureVenv("3.12", nil, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", nil, "", "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -419,7 +419,7 @@ func TestManager_EnsureVenv_BaseDirectoryCreationFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
 	manager := python.NewManager(filepath.Join(blocker, "venv"))
 
-	_, err := manager.EnsureVenv("3.12", []string{}, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create base directory")
@@ -429,7 +429,7 @@ func TestManager_EnsureVenv_RequirementsFileNotExist(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
 	// Try with non-existent requirements file
-	_, err := manager.EnsureVenv("3.12", []string{}, "/nonexistent/requirements.txt", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "/nonexistent/requirements.txt", "")
 
 	// Should fail - either at venv creation or requirements installation
 	require.Error(t, err)
@@ -455,7 +455,7 @@ func TestManager_EnsureVenv_ComplexPackageList(t *testing.T) {
 		"scikit-learn",
 	}
 
-	_, err := manager.EnsureVenv("3.12", packages, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", packages, "", "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -479,7 +479,7 @@ func TestManager_EnsureVenv_DifferentPythonVersions(t *testing.T) {
 
 	for _, version := range versions {
 		t.Run("Python_"+version, func(t *testing.T) {
-			_, err := manager.EnsureVenv(version, []string{"requests"}, "", "")
+			_, err := manager.EnsureVenv(t.Context(), version, []string{"requests"}, "", "")
 
 			// May succeed if uv is available, or fail if not
 			// Just verify it doesn't crash
@@ -501,7 +501,7 @@ func TestManager_EnsureVenv_MixedPackagesAndRequirements(t *testing.T) {
 	reqFile := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(reqFile, []byte("flask==2.3.0\nsqlalchemy"), 0644))
 
-	_, err := manager.EnsureVenv("3.12", []string{"requests", "pandas"}, reqFile, "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{"requests", "pandas"}, reqFile, "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -521,7 +521,7 @@ func TestManager_EnsureVenv_EmptyRequirementsFile(t *testing.T) {
 	reqFile := filepath.Join(t.TempDir(), "empty_requirements.txt")
 	require.NoError(t, os.WriteFile(reqFile, []byte(""), 0644))
 
-	_, err := manager.EnsureVenv("3.12", []string{}, reqFile, "")
+	_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, reqFile, "")
 
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
@@ -592,7 +592,7 @@ func TestManager_InstallPackages(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
 	// Create a real venv for the test if uv is available
-	venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "test-install-pkg")
+	venvPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "test-install-pkg")
 	if err != nil {
 		t.Logf(
 			"Skipping actual installation test as venv creation failed (likely no uv/python): %v",
@@ -601,7 +601,7 @@ func TestManager_InstallPackages(t *testing.T) {
 		return
 	}
 
-	err = manager.InstallPackages(venvPath, []string{"requests"})
+	err = manager.InstallPackages(t.Context(), venvPath, []string{"requests"})
 	// May succeed or fail depending on network/uv
 	if err != nil {
 		t.Logf("Installation failed (expected in some environments): %v", err)
@@ -612,7 +612,7 @@ func TestManager_InstallRequirements(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
 	// Create a real venv for the test if uv is available
-	venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "test-install-req")
+	venvPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "test-install-req")
 	if err != nil {
 		t.Logf(
 			"Skipping actual installation test as venv creation failed (likely no uv/python): %v",
@@ -625,7 +625,7 @@ func TestManager_InstallRequirements(t *testing.T) {
 	reqFile := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(reqFile, []byte("requests==2.28.0"), 0644))
 
-	err = manager.InstallRequirements(venvPath, reqFile)
+	err = manager.InstallRequirements(t.Context(), venvPath, reqFile)
 	// May succeed or fail depending on network/uv
 	if err != nil {
 		t.Logf("Installation failed (expected in some environments): %v", err)
@@ -638,7 +638,7 @@ func TestManager_EnsureVenv_InvalidPythonVersion(t *testing.T) {
 	manager := python.NewManager(t.TempDir())
 
 	// Python 99.99 does not exist, so uv venv will fail.
-	_, err := manager.EnsureVenv("99.99", nil, "", "")
+	_, err := manager.EnsureVenv(t.Context(), "99.99", nil, "", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create venv")
@@ -649,7 +649,7 @@ func TestManager_EnsureVenv_WithVenvName(t *testing.T) {
 
 	// Create venv with custom venv name
 	customVenvName := "my-custom-env"
-	venvPath1, err := manager.EnsureVenv("3.12", []string{}, "", customVenvName)
+	venvPath1, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", customVenvName)
 
 	// Will fail due to uv not being available, but should attempt to create with custom name
 	if err != nil {
@@ -664,7 +664,7 @@ func TestManager_EnsureVenv_WithVenvName(t *testing.T) {
 
 	// Test that different venv names create different venvs
 	customVenvName2 := "another-env"
-	venvPath2, err2 := manager.EnsureVenv("3.12", []string{}, "", customVenvName2)
+	venvPath2, err2 := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", customVenvName2)
 
 	if err2 != nil {
 		t.Logf(
@@ -684,10 +684,10 @@ func TestManager_EnsureVenv_VenvNameOverridesAutoGeneration(t *testing.T) {
 	packages := []string{"requests", "pandas"}
 
 	venvName1 := "env-1"
-	venvPath1, err1 := manager.EnsureVenv("3.12", packages, "", venvName1)
+	venvPath1, err1 := manager.EnsureVenv(t.Context(), "3.12", packages, "", venvName1)
 
 	venvName2 := "env-2"
-	venvPath2, err2 := manager.EnsureVenv("3.12", packages, "", venvName2)
+	venvPath2, err2 := manager.EnsureVenv(t.Context(), "3.12", packages, "", venvName2)
 
 	// If both succeed, paths should be different and contain the venv names
 	if err1 == nil && err2 == nil {
@@ -718,7 +718,7 @@ func TestManager_EnsureVenv_VenvNameReusesExisting(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(venvPath, ".kdeps-ready"), nil, 0o600))
 
 	// Try to ensure the same venv with venv name
-	resultPath, err := manager.EnsureVenv("3.12", []string{}, "", customVenvName)
+	resultPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", customVenvName)
 
 	require.NoError(t, err)
 	assert.Equal(t, venvPath, resultPath, "Should reuse existing venv with same venv name")
@@ -793,14 +793,14 @@ func TestEnsureVenv_RebuildsAHalfBuiltVenv(t *testing.T) {
 	}
 	t.Cleanup(func() { python.RunUVFunc = orig })
 
-	path, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	path, err := m.EnsureVenv(t.Context(), "3.12", []string{"requests"}, "", "")
 	require.NoError(t, err)
 	require.Len(t, calls, 2, "the half-built venv is rebuilt: uv venv, then pip install")
 	assert.Contains(t, calls[1], "requests")
 	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
 
 	calls = nil
-	_, err = m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	_, err = m.EnsureVenv(t.Context(), "3.12", []string{"requests"}, "", "")
 	require.NoError(t, err)
 	assert.Empty(t, calls, "a ready venv is reused as is")
 }
@@ -821,10 +821,10 @@ func TestEnsureVenv_FailedInstallIsNotTrustedNextTime(t *testing.T) {
 	}
 	t.Cleanup(func() { python.RunUVFunc = orig })
 
-	_, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	_, err := m.EnsureVenv(t.Context(), "3.12", []string{"requests"}, "", "")
 	require.Error(t, err)
 	failInstall = false
-	path, err := m.EnsureVenv("3.12", []string{"requests"}, "", "")
+	path, err := m.EnsureVenv(t.Context(), "3.12", []string{"requests"}, "", "")
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(path, ".kdeps-ready"))
 }
@@ -851,7 +851,7 @@ func TestEnsureVenv_RebuildsAVenvWhoseInterpreterDisappeared(t *testing.T) {
 	}
 	t.Cleanup(func() { python.RunUVFunc = orig })
 
-	path, err := m.EnsureVenv("3.12", []string{"playwright"}, "", "")
+	path, err := m.EnsureVenv(t.Context(), "3.12", []string{"playwright"}, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, venvPath, path)
 	require.Len(t, calls, 2, "a marker with no working interpreter is rebuilt")

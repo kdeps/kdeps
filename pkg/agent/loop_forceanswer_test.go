@@ -176,7 +176,7 @@ func TestForceAnswerConfig_InlinesGatheredResults(t *testing.T) {
 		Tools:    []domain.Tool{{Name: "web_search"}},
 		Messages: history,
 	}
-	got := forceAnswerConfig(cfg)
+	got := forceAnswerConfig(t.Context(), cfg)
 
 	if len(got.Tools) != 0 {
 		t.Fatal("forceAnswerConfig must strip tools")
@@ -191,7 +191,7 @@ func TestForceAnswerConfig_InlinesGatheredResults(t *testing.T) {
 
 func TestForceAnswerConfig_NoToolsNoOp(t *testing.T) {
 	cfg := &domain.ChatConfig{Prompt: "keep"}
-	if got := forceAnswerConfig(cfg); got != cfg {
+	if got := forceAnswerConfig(t.Context(), cfg); got != cfg {
 		t.Fatal("forceAnswerConfig should be a no-op when there are no tools")
 	}
 }

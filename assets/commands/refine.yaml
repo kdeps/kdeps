@@ -1,9 +1,9 @@
-version: 2.0.0
+version: 2.0.1
 name: refine
 order: 220
 usage:
   - args: "[on|off]"
-    help: Show or toggle pre-turn prompt refinement (on by default)
+    help: Show or toggle pre-turn prompt refinement (off by default)
 # setting: the command shows or sets one session setting; the text is here.
 setting:
   key: refine        # live session state; the choice persists across sessions

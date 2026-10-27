@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,14 +57,17 @@ func swapRuntimeDepsHooks(t *testing.T) *runtimeDepsHookCalls {
 		reinstallLlamaServerFn = origReinstallLlamaServer
 	})
 
-	downloadVCRedistFn = func(string) error { calls.downloadVCRedist++; return calls.downloadVCRedistErr }
-	runVCRedistInstallerFn = func(string) error { calls.runVCRedistInstaller++; return calls.runVCRedistInstallerErr }
+	downloadVCRedistFn = func(context.Context, string) error { calls.downloadVCRedist++; return calls.downloadVCRedistErr }
+	runVCRedistInstallerFn = func(context.Context, string) error {
+		calls.runVCRedistInstaller++
+		return calls.runVCRedistInstallerErr
+	}
 	lookPathFn = func(string) (string, error) { calls.lookPath++; return "", calls.lookPathErr }
-	installHomebrewFn = func() error { calls.installHomebrew++; return calls.installHomebrewErr }
-	brewInstallLibompFn = func() error { calls.brewInstallLibomp++; return calls.brewInstallLibompErr }
+	installHomebrewFn = func(context.Context) error { calls.installHomebrew++; return calls.installHomebrewErr }
+	brewInstallLibompFn = func(context.Context) error { calls.brewInstallLibomp++; return calls.brewInstallLibompErr }
 	detectLinuxVulkanPackageFn = func() (string, string) { calls.detectLinuxVulkanPackage++; return calls.pmName, calls.pkgName }
-	runSudoInstallFn = func(string, string) error { calls.runSudoInstall++; return calls.runSudoInstallErr }
-	reinstallLlamaServerFn = func() error { calls.reinstallLlamaServer++; return calls.reinstallLlamaServerErr }
+	runSudoInstallFn = func(context.Context, string, string) error { calls.runSudoInstall++; return calls.runSudoInstallErr }
+	reinstallLlamaServerFn = func(context.Context) error { calls.reinstallLlamaServer++; return calls.reinstallLlamaServerErr }
 
 	return calls
 }
@@ -89,7 +93,7 @@ type runtimeDepsHookCalls struct {
 
 func TestRemediateCrash_UnknownOS(t *testing.T) {
 	calls := swapRuntimeDepsHooks(t)
-	assert.False(t, remediateCrash("plan9", ""))
+	assert.False(t, remediateCrash(t.Context(), "plan9", ""))
 	assert.Zero(t, calls.downloadVCRedist+calls.lookPath+calls.detectLinuxVulkanPackage)
 }
 
@@ -99,7 +103,7 @@ func TestRemediateCrash_DispatchesToWindows(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return t.TempDir(), nil }
 
-	assert.True(t, remediateCrash(goosWindows, "irrelevant log text"),
+	assert.True(t, remediateCrash(t.Context(), goosWindows, "irrelevant log text"),
 		"Windows has no reliable log signature -- any crash triggers the attempt unconditionally")
 }
 
@@ -115,7 +119,7 @@ func TestRemediateWindowsCrash_CachedInstallerSkipsDownload(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
 	require.NoError(t, os.WriteFile(dest, []byte("fake"), 0755))
 
-	assert.True(t, remediateWindowsCrash())
+	assert.True(t, remediateWindowsCrash(t.Context()))
 	assert.Zero(t, calls.downloadVCRedist, "cached installer must not be re-downloaded")
 	assert.Equal(t, 1, calls.runVCRedistInstaller)
 }
@@ -127,7 +131,7 @@ func TestRemediateWindowsCrash_DownloadsWhenNotCached(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return dir, nil }
 
-	assert.True(t, remediateWindowsCrash())
+	assert.True(t, remediateWindowsCrash(t.Context()))
 	assert.Equal(t, 1, calls.downloadVCRedist)
 	assert.Equal(t, 1, calls.runVCRedistInstaller)
 }
@@ -140,7 +144,7 @@ func TestRemediateWindowsCrash_DownloadFailure(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return dir, nil }
 
-	assert.False(t, remediateWindowsCrash())
+	assert.False(t, remediateWindowsCrash(t.Context()))
 	assert.Zero(t, calls.runVCRedistInstaller, "must not attempt install after a failed download")
 }
 
@@ -152,7 +156,7 @@ func TestRemediateWindowsCrash_InstallFailure(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return dir, nil }
 
-	assert.False(t, remediateWindowsCrash())
+	assert.False(t, remediateWindowsCrash(t.Context()))
 }
 
 func TestRemediateWindowsCrash_NoHomeDir(t *testing.T) {
@@ -161,12 +165,12 @@ func TestRemediateWindowsCrash_NoHomeDir(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 
-	assert.False(t, remediateWindowsCrash())
+	assert.False(t, remediateWindowsCrash(t.Context()))
 }
 
 func TestRemediateMacCrash_GatedOnLogSignature(t *testing.T) {
 	calls := swapRuntimeDepsHooks(t)
-	assert.False(t, remediateMacCrash("some unrelated crash, e.g. bad model file"))
+	assert.False(t, remediateMacCrash(t.Context(), "some unrelated crash, e.g. bad model file"))
 	assert.Zero(t, calls.lookPath, "must not even check for brew when the signature doesn't match")
 }
 
@@ -175,7 +179,7 @@ func TestRemediateMacCrash_BrewAlreadyPresent(t *testing.T) {
 	calls.lookPathErr = nil // brew found
 	logTail := "dyld: Library not loaded: /opt/homebrew/opt/libomp/lib/libomp.dylib"
 
-	assert.True(t, remediateCrash("darwin", logTail))
+	assert.True(t, remediateCrash(t.Context(), "darwin", logTail))
 	assert.Equal(t, 1, calls.lookPath)
 	assert.Zero(t, calls.installHomebrew, "brew is present -- must not bootstrap it")
 	assert.Equal(t, 1, calls.brewInstallLibomp)
@@ -186,7 +190,7 @@ func TestRemediateMacCrash_BootstrapsHomebrewWhenMissing(t *testing.T) {
 	calls.lookPathErr = errors.New("brew: not found")
 	logTail := "dyld: Library not loaded: .../libomp.dylib"
 
-	assert.True(t, remediateMacCrash(logTail))
+	assert.True(t, remediateMacCrash(t.Context(), logTail))
 	assert.Equal(t, 1, calls.installHomebrew)
 	assert.Equal(t, 1, calls.brewInstallLibomp)
 }
@@ -197,7 +201,7 @@ func TestRemediateMacCrash_HomebrewBootstrapFailure(t *testing.T) {
 	calls.installHomebrewErr = errors.New("bootstrap failed")
 	logTail := "dyld: Library not loaded: .../libomp.dylib"
 
-	assert.False(t, remediateMacCrash(logTail))
+	assert.False(t, remediateMacCrash(t.Context(), logTail))
 	assert.Zero(t, calls.brewInstallLibomp, "must not attempt brew install libomp after a failed bootstrap")
 }
 
@@ -206,7 +210,7 @@ func TestRemediateMacCrash_BrewInstallFailure(t *testing.T) {
 	calls.brewInstallLibompErr = errors.New("formula not found")
 	logTail := "dyld: Library not loaded: .../libomp.dylib"
 
-	assert.False(t, remediateMacCrash(logTail))
+	assert.False(t, remediateMacCrash(t.Context(), logTail))
 }
 
 func TestRemediateMacCrash_OtherMissingDylibReinstallsLlamaServer(t *testing.T) {
@@ -214,7 +218,7 @@ func TestRemediateMacCrash_OtherMissingDylibReinstallsLlamaServer(t *testing.T) 
 	logTail := "dyld: Library not loaded: @rpath/libllama-common.0.dylib; " +
 		"Referenced from: /Users/joel/.kdeps/bin/llama-server"
 
-	assert.True(t, remediateMacCrash(logTail))
+	assert.True(t, remediateMacCrash(t.Context(), logTail))
 	assert.Equal(t, 1, calls.reinstallLlamaServer)
 	assert.Zero(t, calls.lookPath, "must not go down the libomp/brew path for an unrelated missing dylib")
 	assert.Zero(t, calls.brewInstallLibomp)
@@ -225,20 +229,20 @@ func TestRemediateMacCrash_OtherMissingDylibReinstallFailure(t *testing.T) {
 	calls.reinstallLlamaServerErr = errors.New("download failed")
 	logTail := "dyld: Library not loaded: @rpath/libllama-common.0.dylib"
 
-	assert.False(t, remediateMacCrash(logTail))
+	assert.False(t, remediateMacCrash(t.Context(), logTail))
 }
 
 func TestRemediateMacCrash_NonDylibLibraryNotLoadedGated(t *testing.T) {
 	calls := swapRuntimeDepsHooks(t)
 	logTail := "dyld: Library not loaded: some binary framework, not a dylib at all"
 
-	assert.False(t, remediateMacCrash(logTail))
+	assert.False(t, remediateMacCrash(t.Context(), logTail))
 	assert.Zero(t, calls.reinstallLlamaServer)
 }
 
 func TestRemediateLinuxCrash_GatedOnLogSignature(t *testing.T) {
 	calls := swapRuntimeDepsHooks(t)
-	assert.False(t, remediateLinuxCrash("some unrelated crash"))
+	assert.False(t, remediateLinuxCrash(t.Context(), "some unrelated crash"))
 	assert.Zero(t, calls.detectLinuxVulkanPackage)
 }
 
@@ -247,7 +251,7 @@ func TestRemediateLinuxCrash_InstallsDetectedPackage(t *testing.T) {
 	calls.pmName, calls.pkgName = "apt-get", "libvulkan1"
 	logTail := "error while loading shared libraries: libvulkan.so.1: cannot open shared object file"
 
-	assert.True(t, remediateLinuxCrash(logTail))
+	assert.True(t, remediateLinuxCrash(t.Context(), logTail))
 	assert.Equal(t, 1, calls.runSudoInstall)
 }
 
@@ -256,7 +260,7 @@ func TestRemediateLinuxCrash_NoPackageManagerFound(t *testing.T) {
 	calls.pmName, calls.pkgName = "", ""
 	logTail := "libvulkan.so.1: cannot open shared object file"
 
-	assert.False(t, remediateLinuxCrash(logTail))
+	assert.False(t, remediateLinuxCrash(t.Context(), logTail))
 	assert.Zero(t, calls.runSudoInstall)
 }
 
@@ -266,7 +270,7 @@ func TestRemediateLinuxCrash_InstallFailure(t *testing.T) {
 	calls.runSudoInstallErr = errors.New("permission denied")
 	logTail := "libvulkan.so.1: cannot open shared object file"
 
-	assert.False(t, remediateLinuxCrash(logTail))
+	assert.False(t, remediateLinuxCrash(t.Context(), logTail))
 }
 
 func TestDetectLinuxVulkanPackage_PicksFirstAvailableManager(t *testing.T) {
@@ -306,9 +310,9 @@ func TestRunSudoInstall_NoTTYFailsFastWithManualCommand(t *testing.T) {
 	})
 	stdinIsTerminalFn = func() bool { return false }
 	execCalled := false
-	execSudoInstallFn = func(string, string) error { execCalled = true; return nil }
+	execSudoInstallFn = func(context.Context, string, string) error { execCalled = true; return nil }
 
-	err := runSudoInstall("apt-get", "libvulkan1")
+	err := runSudoInstall(t.Context(), "apt-get", "libvulkan1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sudo apt-get install -y libvulkan1")
 	assert.False(t, execCalled, "must never attempt the real sudo exec when no TTY is attached")
@@ -323,12 +327,12 @@ func TestRunSudoInstall_HasTTYAttemptsInstall(t *testing.T) {
 	})
 	stdinIsTerminalFn = func() bool { return true }
 	var gotManager, gotPkg string
-	execSudoInstallFn = func(manager, pkg string) error {
+	execSudoInstallFn = func(_ context.Context, manager, pkg string) error {
 		gotManager, gotPkg = manager, pkg
 		return nil
 	}
 
-	require.NoError(t, runSudoInstall("apt-get", "libvulkan1"))
+	require.NoError(t, runSudoInstall(t.Context(), "apt-get", "libvulkan1"))
 	assert.Equal(t, "apt-get", gotManager)
 	assert.Equal(t, "libvulkan1", gotPkg)
 }
@@ -356,14 +360,14 @@ func TestRunSudoInstall_NoTTYMessageMatchesCommand(t *testing.T) {
 		execSudoInstallFn = origExecSudo
 	})
 	stdinIsTerminalFn = func() bool { return false }
-	execSudoInstallFn = func(string, string) error { return nil }
+	execSudoInstallFn = func(context.Context, string, string) error { return nil }
 
-	err := runSudoInstall("apk", "vulkan-loader")
+	err := runSudoInstall(t.Context(), "apk", "vulkan-loader")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sudo apk add vulkan-loader")
 	assert.NotContains(t, err.Error(), "apk install")
 
-	err = runSudoInstall("pacman", "vulkan-loader")
+	err = runSudoInstall(t.Context(), "pacman", "vulkan-loader")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sudo pacman -S --noconfirm vulkan-loader")
 }

@@ -91,7 +91,7 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	ctx := context.Background()
+	ctx := execCtx.Ctx
 
 	switch cfg.Operation {
 	case opAddDocuments:

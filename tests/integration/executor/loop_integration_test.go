@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func TestLoopIntegration_BasicCounter(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -125,7 +126,7 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -178,7 +179,7 @@ func TestLoopIntegration_TuringComplete_Accumulator(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -222,7 +223,7 @@ func TestLoopIntegration_TuringComplete_MuRecursion(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -271,7 +272,7 @@ func TestLoopIntegration_StreamingResponse_ExactCount(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -314,7 +315,7 @@ func TestLoopIntegration_LoopScoped_SetGet(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -359,7 +360,7 @@ func TestLoopIntegration_LoopResults_ChainedComputation(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -411,7 +412,7 @@ func TestLoopIntegration_LoopWithBeforeAndAfter(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -467,7 +468,7 @@ func TestLoopIntegration_Every_ShortDelay(t *testing.T) {
 	}
 
 	start := time.Now()
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	elapsed := time.Since(start)
 
@@ -516,7 +517,7 @@ func TestLoopIntegration_Every_InvalidDuration(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not-a-duration", "error should mention the bad value")
@@ -559,7 +560,7 @@ func TestLoopIntegration_Every_ZeroNoDelay(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -609,7 +610,7 @@ func TestLoopIntegration_Every_ScheduledTaskPattern(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -667,7 +668,7 @@ func TestLoopIntegration_At_PastTimestamps(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -716,7 +717,7 @@ func TestLoopIntegration_At_WhileStopsEarly(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -761,7 +762,7 @@ func TestLoopIntegration_At_InvalidEntry(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not-a-date-or-time", "error should mention the bad value")
@@ -802,7 +803,7 @@ func TestLoopIntegration_At_MutuallyExclusiveWithEvery(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mutually exclusive")
@@ -844,7 +845,7 @@ func TestLoopIntegration_NoWhile_RunsMaxIterations(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -890,7 +891,7 @@ func TestLoopIntegration_NoWhile_WithEvery(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 
@@ -938,7 +939,7 @@ func TestLoopIntegration_NoWhile_WithAt(t *testing.T) {
 		},
 	}
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
 

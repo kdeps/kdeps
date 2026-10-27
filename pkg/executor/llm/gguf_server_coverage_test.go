@@ -8,6 +8,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -34,12 +35,12 @@ func stubLlamaServerAsset(t *testing.T, url string) {
 	t.Helper()
 	orig := resolveLlamaServerAssetFn
 	t.Cleanup(func() { resolveLlamaServerAssetFn = orig })
-	resolveLlamaServerAssetFn = func(string) (string, error) { return url, nil }
+	resolveLlamaServerAssetFn = func(context.Context, string) (string, error) { return url, nil }
 }
 
 func TestGGufLlamaServerBinary_EnvVar(t *testing.T) {
 	t.Setenv("KDEPS_LLAMA_SERVER_BIN", "/custom/path/llama-server")
-	result := ggufLlamaServerBinary()
+	result := ggufLlamaServerBinary(t.Context())
 	if result != "/custom/path/llama-server" {
 		t.Errorf("expected /custom/path/llama-server, got %q", result)
 	}
@@ -47,7 +48,7 @@ func TestGGufLlamaServerBinary_EnvVar(t *testing.T) {
 
 func TestGGufLlamaServerBinary_NoEnvVar(t *testing.T) {
 	t.Setenv("KDEPS_LLAMA_SERVER_BIN", "")
-	result := ggufLlamaServerBinary()
+	result := ggufLlamaServerBinary(t.Context())
 	// Without env var, falls through to ensureLlamaServerBinary
 	if result == "" {
 		t.Error("expected non-empty result")
@@ -150,7 +151,7 @@ func TestEnsureLlamaServerBinary_Cached(t *testing.T) {
 	orig := userHomeDirFunc
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return dir, nil }
-	result := ensureLlamaServerBinary()
+	result := ensureLlamaServerBinary(t.Context())
 	if result != cachedPath {
 		t.Errorf("expected cached path %q, got %q", cachedPath, result)
 	}
@@ -170,7 +171,7 @@ func TestEnsureLlamaServerBinary_InstallFallback(t *testing.T) {
 		return nil, errors.New("mock download failure")
 	})
 
-	result := ensureLlamaServerBinary()
+	result := ensureLlamaServerBinary(t.Context())
 	assert.Equal(t, "llama-server", result)
 }
 
@@ -187,7 +188,7 @@ func TestDownloadFile_Success(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "output.zip")
-	err := downloadFile(dest, "https://example.com/test.zip")
+	err := downloadFile(t.Context(), dest, "https://example.com/test.zip")
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(dest)
@@ -202,7 +203,7 @@ func TestDownloadFile_TransportError(t *testing.T) {
 		return nil, errors.New("connection refused")
 	})
 
-	err := downloadFile(t.TempDir()+"/out.zip", "https://example.com/fail.zip")
+	err := downloadFile(t.Context(), t.TempDir()+"/out.zip", "https://example.com/fail.zip")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "connection refused")
 }
@@ -218,7 +219,7 @@ func TestDownloadFile_Non200Status(t *testing.T) {
 		}, nil
 	})
 
-	err := downloadFile(t.TempDir()+"/out.zip", "https://example.com/notfound.zip")
+	err := downloadFile(t.Context(), t.TempDir()+"/out.zip", "https://example.com/notfound.zip")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "download returned 404")
 }
@@ -234,7 +235,7 @@ func TestDownloadFile_CreateFileError(t *testing.T) {
 		}, nil
 	})
 
-	err := downloadFile("/nonexistent-parent-dir-xyz/output.zip", "https://example.com/test.zip")
+	err := downloadFile(t.Context(), "/nonexistent-parent-dir-xyz/output.zip", "https://example.com/test.zip")
 	require.Error(t, err)
 }
 
@@ -248,7 +249,7 @@ func TestInstallLlamaServer_DownloadError(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
-	err := installLlamaServer(dest)
+	err := installLlamaServer(t.Context(), dest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "download llama-server")
 }
@@ -269,7 +270,7 @@ func TestInstallLlamaServer_ExtractError(t *testing.T) {
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
 
-	err := installLlamaServer(dest)
+	err := installLlamaServer(t.Context(), dest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "extract llama-server")
 }
@@ -306,7 +307,7 @@ func TestInstallLlamaServer_CreatesMissingParentDir(t *testing.T) {
 	// Deliberately do NOT create filepath.Join(dir, ".kdeps", "bin").
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 
-	require.NoError(t, installLlamaServer(dest))
+	require.NoError(t, installLlamaServer(t.Context(), dest))
 
 	data, err := os.ReadFile(dest)
 	require.NoError(t, err)
@@ -338,7 +339,7 @@ func TestInstallLlamaServer_Success(t *testing.T) {
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
 
-	err = installLlamaServer(dest)
+	err = installLlamaServer(t.Context(), dest)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(dest)
@@ -402,7 +403,7 @@ func TestInstallLlamaServer_ExtractsSiblingLibraries(t *testing.T) {
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
 
-	require.NoError(t, installLlamaServer(dest))
+	require.NoError(t, installLlamaServer(t.Context(), dest))
 
 	binDir := filepath.Dir(dest)
 	data, err := os.ReadFile(dest)
@@ -498,7 +499,7 @@ func TestResolvedGGUFURL_ModelNotInCache(t *testing.T) {
 	t.Cleanup(ReloadGGUFRegistry)
 
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
-	result := ResolvedGGUFURL("nonexistent-model-xyz")
+	result := ResolvedGGUFURL(t.Context(), "nonexistent-model-xyz")
 	assert.Equal(t, "", result)
 }
 
@@ -532,7 +533,7 @@ func TestResolvedGGUFURL_InMemoryHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL(alias)
+	result := ResolvedGGUFURL(t.Context(), alias)
 	assert.Equal(t, "http://127.0.0.1:19999", result)
 }
 
@@ -561,7 +562,7 @@ func TestResolvedGGUFURL_CrossProcessHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL(alias)
+	result := ResolvedGGUFURL(t.Context(), alias)
 	assert.Equal(t, "http://127.0.0.1:19998", result)
 }
 
@@ -590,7 +591,7 @@ func TestResolvedGGUFURL_DefaultPortHit(t *testing.T) {
 		}, nil
 	}
 
-	result := ResolvedGGUFURL(alias)
+	result := ResolvedGGUFURL(t.Context(), alias)
 	assert.Equal(t, BackendGGUFHostURL, result)
 }
 
@@ -654,7 +655,7 @@ func TestEnsureLlamaServerBinary_InstallSuccess(t *testing.T) {
 		}, nil
 	})
 
-	result := ensureLlamaServerBinary()
+	result := ensureLlamaServerBinary(t.Context())
 	expected := filepath.Join(dir, ".kdeps", "bin", llamaServerExeName())
 	assert.Equal(t, expected, result)
 }
@@ -669,12 +670,12 @@ func TestResolvedGGUFURL_ModelsDirError(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 
-	result := ResolvedGGUFURL(testGGUFAlias(t))
+	result := ResolvedGGUFURL(t.Context(), testGGUFAlias(t))
 	assert.Equal(t, "", result)
 }
 
 func TestDownloadFile_InvalidRequest(t *testing.T) {
-	err := downloadFile(t.TempDir()+"/out.zip", "\n")
+	err := downloadFile(t.Context(), t.TempDir()+"/out.zip", "\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "build download request")
 }
@@ -906,7 +907,7 @@ func TestEnsureLlamaServerBinaryCPU_InstallSuccess(t *testing.T) {
 		}, nil
 	})
 
-	result := ensureLlamaServerBinaryCPU()
+	result := ensureLlamaServerBinaryCPU(t.Context())
 	expected := filepath.Join(dir, ".kdeps", "bin", "cpu-fallback", llamaServerExeName())
 	assert.Equal(t, expected, result)
 }
@@ -924,7 +925,7 @@ func TestEnsureLlamaServerBinaryCPU_InstallFailureFallsBackToPATH(t *testing.T) 
 		return nil, errors.New("mock download failure")
 	})
 
-	result := ensureLlamaServerBinaryCPU()
+	result := ensureLlamaServerBinaryCPU(t.Context())
 	assert.Equal(t, "llama-server", result)
 }
 
@@ -953,7 +954,7 @@ func TestGGufLlamaServerBinary_UsesCPUFallbackWhenMarked(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(cpuPath), 0750))
 	require.NoError(t, os.WriteFile(cpuPath, []byte("fake"), 0755))
 
-	assert.Equal(t, cpuPath, ggufLlamaServerBinary())
+	assert.Equal(t, cpuPath, ggufLlamaServerBinary(t.Context()))
 }
 
 func TestInstallLlamaServer_UnsupportedPlatform(t *testing.T) {
@@ -962,7 +963,7 @@ func TestInstallLlamaServer_UnsupportedPlatform(t *testing.T) {
 	testOS = "plan9"
 	testArch = "riscv64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
-	err := installLlamaServer("/tmp/llama-server")
+	err := installLlamaServer(t.Context(), "/tmp/llama-server")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported platform")
 }
@@ -998,7 +999,7 @@ func TestInstallLlamaServer_ChmodError(t *testing.T) {
 	// Create a non-writable parent condition: create the dest as a directory
 	require.NoError(t, os.MkdirAll(dest, 0555))
 
-	err = installLlamaServer(dest)
+	err = installLlamaServer(t.Context(), dest)
 	require.Error(t, err)
 	_ = os.Chmod(dest, 0755)
 }
@@ -1035,7 +1036,7 @@ const fakeLlamaCppReleaseJSON = `{
 func TestResolveLlamaServerAsset_FindsMatchByOSArchSuffix(t *testing.T) {
 	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
 
-	url, err := resolveLlamaServerAsset("macos-arm64")
+	url, err := resolveLlamaServerAsset(t.Context(), "macos-arm64")
 	require.NoError(t, err)
 	assert.Equal(t, "https://example.com/llama-b9852-bin-macos-arm64.tar.gz", url)
 }
@@ -1048,7 +1049,7 @@ func TestResolveLlamaServerAsset_DoesNotDependOnBuildTag(t *testing.T) {
 		{"name": "llama-b12345-bin-ubuntu-x64.tar.gz", "browser_download_url": "https://example.com/future-ubuntu-x64.tar.gz"}
 	]}`)
 
-	url, err := resolveLlamaServerAsset("ubuntu-x64")
+	url, err := resolveLlamaServerAsset(t.Context(), "ubuntu-x64")
 	require.NoError(t, err)
 	assert.Equal(t, "https://example.com/future-ubuntu-x64.tar.gz", url)
 }
@@ -1056,7 +1057,7 @@ func TestResolveLlamaServerAsset_DoesNotDependOnBuildTag(t *testing.T) {
 func TestResolveLlamaServerAsset_WindowsPicksZip(t *testing.T) {
 	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
 
-	url, err := resolveLlamaServerAsset("win-cpu-x64")
+	url, err := resolveLlamaServerAsset(t.Context(), "win-cpu-x64")
 	require.NoError(t, err)
 	assert.Equal(t, "https://example.com/llama-b9852-bin-win-cpu-x64.zip", url)
 }
@@ -1064,7 +1065,7 @@ func TestResolveLlamaServerAsset_WindowsPicksZip(t *testing.T) {
 func TestResolveLlamaServerAsset_NoMatchingAsset(t *testing.T) {
 	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
 
-	_, err := resolveLlamaServerAsset("freebsd-x64")
+	_, err := resolveLlamaServerAsset(t.Context(), "freebsd-x64")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no llama-server asset found")
 }
@@ -1076,7 +1077,7 @@ func TestResolveLlamaServerAsset_HTTPTransportError(t *testing.T) {
 		return nil, errors.New("connection refused")
 	})
 
-	_, err := resolveLlamaServerAsset("macos-arm64")
+	_, err := resolveLlamaServerAsset(t.Context(), "macos-arm64")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "fetch pinned release")
 }
@@ -1092,7 +1093,7 @@ func TestResolveLlamaServerAsset_Non200Status(t *testing.T) {
 		}, nil
 	})
 
-	_, err := resolveLlamaServerAsset("macos-arm64")
+	_, err := resolveLlamaServerAsset(t.Context(), "macos-arm64")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "fetch pinned release returned 404")
 }
@@ -1100,7 +1101,7 @@ func TestResolveLlamaServerAsset_Non200Status(t *testing.T) {
 func TestResolveLlamaServerAsset_InvalidJSON(t *testing.T) {
 	mockGithubReleaseJSON(t, "not json")
 
-	_, err := resolveLlamaServerAsset("macos-arm64")
+	_, err := resolveLlamaServerAsset(t.Context(), "macos-arm64")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "decode release")
 }
@@ -1256,7 +1257,7 @@ func TestInstallLlamaServer_TarGzSuccess(t *testing.T) {
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
 
-	err = installLlamaServer(dest)
+	err = installLlamaServer(t.Context(), dest)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(dest)

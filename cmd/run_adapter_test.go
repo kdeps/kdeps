@@ -19,6 +19,7 @@
 package cmd_test
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"testing"
@@ -34,7 +35,7 @@ import (
 )
 
 func TestRequestContextAdapter_Execute_NilRequest(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	adapter := &cmd.RequestContextAdapter{Engine: engine}
 
 	workflow := &domain.Workflow{
@@ -59,7 +60,7 @@ func TestRequestContextAdapter_Execute_NilRequest(t *testing.T) {
 }
 
 func TestRequestContextAdapter_Execute_InvalidType(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	adapter := &cmd.RequestContextAdapter{Engine: engine}
 
 	_, err := adapter.Execute(&domain.Workflow{}, "bad")
@@ -68,7 +69,7 @@ func TestRequestContextAdapter_Execute_InvalidType(t *testing.T) {
 }
 
 func TestRequestContextAdapter_Execute_PropagatesSessionID(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	adapter := &cmd.RequestContextAdapter{Engine: engine}
 
 	workflow := &domain.Workflow{

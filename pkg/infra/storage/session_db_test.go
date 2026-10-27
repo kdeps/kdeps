@@ -33,7 +33,7 @@ func TestNewSessionStorageWithTTL_ZeroTTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
-	storage, err := storage.NewSessionStorageWithTTL(dbPath, "test-session", 0)
+	storage, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "test-session", 0)
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	assert.Equal(t, time.Duration(0), storage.DefaultTTL)
@@ -55,7 +55,7 @@ func TestNewSessionStorageWithTTL_CustomTTL(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test_session.db")
 
 	customTTL := 10 * time.Minute
-	storage, err := storage.NewSessionStorageWithTTL(dbPath, "test-session", customTTL)
+	storage, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "test-session", customTTL)
 	require.NoError(t, err)
 	assert.NotNil(t, storage)
 	assert.Equal(t, customTTL, storage.DefaultTTL)

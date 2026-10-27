@@ -124,6 +124,19 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 	)
 }
 
+func TestKnowledgeRecallRefreshesExternalVaultChanges(t *testing.T) {
+	l, vault := knowledgeLoop(t)
+	note := filepath.Join(vault, "shared", "External edit.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nsummary: Obsidian external edit.\n---\n"), 0o600))
+
+	item := l.knowledgeRecallItem("Obsidian external edit", nil)
+	require.NotNil(t, item)
+	assert.Contains(t, item.Prompt, note)
+
+	require.NoError(t, os.Remove(note))
+	assert.Nil(t, l.knowledgeRecallItem("Obsidian external edit", nil))
+}
+
 func TestKnowledgeTools(t *testing.T) {
 	l, vault := knowledgeLoop(t)
 	call := func(name string, args map[string]any) (string, error) {
@@ -351,7 +364,7 @@ func TestCmdKnowledge(t *testing.T) {
 func stubEngines(reply string, seen *[]string) func() *executor.Engine {
 	var mu sync.Mutex
 	return func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 			c := wf.Resources[0].Chat
 			mu.Lock()
@@ -380,7 +393,7 @@ func TestKnowledgeAsk(t *testing.T) {
 	require.Error(t, err)
 
 	bad := func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) { return nil, errors.New("down") })
 		return eng
 	}

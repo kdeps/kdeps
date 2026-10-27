@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -46,7 +45,7 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 	kdeps_debug.Log("enter: resolvePackageInfo")
 	client := registryHTTPClient
 	rawURL := baseURL + "/api/v1/registry/packages/" + name
-	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
+	req, err := stdhttp.NewRequestWithContext(processRoot(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -105,7 +104,7 @@ func verifySHA256(filePath, expected string) error {
 func downloadArchive(rawURL, destPath string) (err error) {
 	kdeps_debug.Log("enter: downloadArchive")
 	client := &stdhttp.Client{Timeout: registryInstallTimeout}
-	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
+	req, err := stdhttp.NewRequestWithContext(processRoot(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}

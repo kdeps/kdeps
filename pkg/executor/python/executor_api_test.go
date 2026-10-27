@@ -19,6 +19,7 @@
 package python_test
 
 import (
+	"context"
 	"os"
 	execpkg "os/exec"
 	"path/filepath"
@@ -42,6 +43,7 @@ type recordingUVManager struct {
 }
 
 func (m *recordingUVManager) EnsureVenv(
+	_ context.Context,
 	pythonVersion string,
 	packages []string,
 	_ string,
@@ -72,7 +74,7 @@ func TestExecutor_Run_InlineScriptParsesJSON(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(shellCommand(`printf '%s' '{"ok":true,"n":2}'`))
 
-	result, err := exec.Run(&domain.PythonConfig{Script: "print('hi')"}, "", nil)
+	result, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print('hi')"}, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"ok": true, "n": float64(2)}, result)
 	assert.Equal(t, "3.12", mgr.version)
@@ -83,7 +85,7 @@ func TestExecutor_Run_PlainTextOutput(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(shellCommand(`printf '%s' hello`))
 
-	result, err := exec.Run(&domain.PythonConfig{Script: "print('hello')"}, "", nil)
+	result, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print('hello')"}, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", result)
 }
@@ -93,7 +95,7 @@ func TestExecutor_Run_ExplicitVersionPackagesVenv(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(shellCommand(`printf ok`))
 
-	_, err := exec.Run(
+	_, err := exec.Run(t.Context(),
 		&domain.PythonConfig{Script: "print('x')", VenvName: "shard"},
 		"3.11",
 		[]string{"pandas"},
@@ -110,7 +112,7 @@ func TestExecutor_Run_VersionFromEnv(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(shellCommand(`printf ok`))
 
-	_, err := exec.Run(&domain.PythonConfig{Script: "print('x')"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print('x')"}, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "3.13", mgr.version)
 }
@@ -128,7 +130,7 @@ func TestExecutor_Run_ScriptFileRelativeToWorkingDir(t *testing.T) {
 		return execpkg.Command("sh", "-c", "printf done")
 	})
 
-	_, err := exec.Run(&domain.PythonConfig{ScriptFile: "job.py", Args: []string{"--x"}}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{ScriptFile: "job.py", Args: []string{"--x"}}, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{filepath.Join(dir, "job.py"), "--x"}, gotArgs)
 }
@@ -145,28 +147,28 @@ func TestExecutor_Run_ScriptFileAbsolute(t *testing.T) {
 		return execpkg.Command("sh", "-c", "printf done")
 	})
 
-	_, err := exec.Run(&domain.PythonConfig{ScriptFile: path}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{ScriptFile: path}, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{path}, gotArgs)
 }
 
 func TestExecutor_Run_NoScript(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(&MockUVManager{})
-	_, err := exec.Run(&domain.PythonConfig{}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no script or scriptFile specified")
 }
 
 func TestExecutor_Run_EnsureVenvError(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(&ErrorEnsureVenvManager{})
-	_, err := exec.Run(&domain.PythonConfig{Script: "print(1)"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print(1)"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to ensure venv")
 }
 
 func TestExecutor_Run_GetPythonPathError(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(&ErrorGetPythonPathManager{})
-	_, err := exec.Run(&domain.PythonConfig{Script: "print(1)"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print(1)"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get python path")
 }
@@ -178,7 +180,7 @@ func TestExecutor_Run_FailingCommand(t *testing.T) {
 		return execpkg.Command("sh", "-c", "exit 1")
 	})
 
-	_, err := exec.Run(&domain.PythonConfig{Script: "raise SystemExit(1)"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "raise SystemExit(1)"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "python execution failed")
 }
@@ -189,7 +191,7 @@ func TestExecutor_Run_OutputLimit(t *testing.T) {
 	exec := pythonexecutor.NewExecutor(mgr)
 	exec.SetExecCommandForTesting(shellCommand(`printf 'far more than three bytes'`))
 
-	_, err := exec.Run(&domain.PythonConfig{Script: "print('x')"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "print('x')"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds output limit")
 }
@@ -201,7 +203,7 @@ func TestExecutor_Run_Timeout(t *testing.T) {
 		return execpkg.Command("sh", "-c", "sleep 5")
 	})
 
-	_, err := exec.Run(&domain.PythonConfig{Script: "time.sleep(5)", Timeout: "10ms"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "time.sleep(5)", Timeout: "10ms"}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "python execution failed")
 }
@@ -221,7 +223,7 @@ func TestExecutor_Run_TimeoutAbortsPromptly(t *testing.T) {
 	})
 
 	started := time.Now()
-	_, err := exec.Run(&domain.PythonConfig{Script: "time.sleep(5)", Timeout: "1ms"}, "", nil)
+	_, err := exec.Run(t.Context(), &domain.PythonConfig{Script: "time.sleep(5)", Timeout: "1ms"}, "", nil)
 	require.Error(t, err)
 	assert.Less(t, time.Since(started), 2*time.Second,
 		"a timed-out command must abort instead of running to completion")

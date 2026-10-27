@@ -37,6 +37,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -76,9 +77,9 @@ func setupDockerBuilderImpl(flags *BuildFlags) (*docker.Builder, error) {
 }
 
 // handleDockerfileShow shows the generated Dockerfile if requested.
-func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) error {
+func handleDockerfileShow(ctx context.Context, builder *docker.Builder, workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: handleDockerfileShow")
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(ctx, workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate Dockerfile: %w", err)
 	}

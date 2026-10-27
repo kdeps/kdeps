@@ -190,7 +190,7 @@ const fetchReadmeURLTimeout = 15 * time.Second
 // Returns an error for non-200 status codes.
 func fetchReadmeURL(rawURL string) (string, error) {
 	kdeps_debug.Log("enter: fetchReadmeURL")
-	ctx, cancel := context.WithTimeout(context.Background(), fetchReadmeURLTimeout)
+	ctx, cancel := context.WithTimeout(processRoot(), fetchReadmeURLTimeout)
 	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, rawURL, nil)
 	if err != nil {

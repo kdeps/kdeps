@@ -62,7 +62,7 @@ func validatePinnedVersion(name, pin string) error {
 }
 
 // buildTemplateData builds data for template rendering.
-func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
+func (b *Builder) buildTemplateData(ctx context.Context, workflow *domain.Workflow) (*DockerfileData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
 	installOllama := domain.ResolveInstallOllama(workflow)
 	installUV := b.shouldInstallUV(workflow)
@@ -103,7 +103,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		return nil, secretErr
 	}
 
-	resolved, err := resolvePackageVersions(context.Background(), workflow.Settings.AgentSettings.Versions)
+	resolved, err := resolvePackageVersions(ctx, workflow.Settings.AgentSettings.Versions)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,7 @@ func resolveModelSettings(
 }
 
 // GenerateDockerfile generates a Dockerfile (public method for --show-dockerfile).
-func (b *Builder) GenerateDockerfile(workflow *domain.Workflow) (string, error) {
+func (b *Builder) GenerateDockerfile(ctx context.Context, workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: GenerateDockerfile")
-	return b.generateDockerfile(workflow)
+	return b.generateDockerfile(ctx, workflow)
 }
