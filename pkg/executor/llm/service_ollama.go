@@ -52,20 +52,20 @@ func (s *ModelService) downloadOllamaModel(ctx context.Context, model string) er
 // serveOllamaModel starts Ollama server with the specified model.
 func (s *ModelService) serveOllamaModel(ctx context.Context, model string, host string, port int) error {
 	kdeps_debug.Log("enter: serveOllamaModel")
-	s.logger.Info("starting Ollama server", "model", model, "host", host, "port", port)
+	s.logger.InfoContext(ctx, "starting Ollama server", "model", model, "host", host, "port", port)
 
 	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	testCmd := execCommandContext(probeCtx, "ollama", "list")
 	if err := testCmd.Run(); err == nil {
-		s.logger.Info("Ollama server already running")
+		s.logger.InfoContext(ctx, "Ollama server already running")
 		return nil
 	}
 
 	if host != "" {
 		if err := osSetenv("OLLAMA_HOST", fmt.Sprintf("%s:%d", host, port)); err != nil {
-			s.logger.Warn("failed to set OLLAMA_HOST environment variable", "error", err)
+			s.logger.WarnContext(ctx, "failed to set OLLAMA_HOST environment variable", "error", err)
 		}
 	}
 
@@ -74,11 +74,11 @@ func (s *ModelService) serveOllamaModel(ctx context.Context, model string, host 
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		s.logger.Warn("failed to start Ollama server (may already be running)", "error", err)
+		s.logger.WarnContext(ctx, "failed to start Ollama server (may already be running)", "error", err)
 		return nil
 	}
 
-	s.logger.Info("Ollama server started", "pid", cmd.Process.Pid)
+	s.logger.InfoContext(ctx, "Ollama server started", "pid", cmd.Process.Pid)
 	_ = cmd.Process.Release()
 	return nil
 }

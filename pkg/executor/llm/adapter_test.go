@@ -45,7 +45,10 @@ func TestNewAdapter_EmptyURL(t *testing.T) {
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	result, err := adapter.Execute(ctx, "invalid config")
@@ -60,7 +63,10 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 		t.Skip("skipping test that connects to external services in short mode")
 	}
 	adapter := llm.NewAdapter(t.Context(), "http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{

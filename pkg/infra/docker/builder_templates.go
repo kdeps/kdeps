@@ -91,7 +91,11 @@ func (b *Builder) renderHookedTemplate(
 	return b.renderWorkflowTemplate(ctx, name, templateStr, workflow)
 }
 
-func (b *Builder) renderWorkflowTemplate(ctx context.Context, name, templateStr string, workflow *domain.Workflow) (string, error) {
+func (b *Builder) renderWorkflowTemplate(
+	ctx context.Context,
+	name, templateStr string,
+	workflow *domain.Workflow,
+) (string, error) {
 	data, err := b.buildTemplateData(ctx, workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to build template data: %w", err)

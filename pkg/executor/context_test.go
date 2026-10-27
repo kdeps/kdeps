@@ -1234,7 +1234,10 @@ func TestExecutionContext_IsFilePattern_Basic(t *testing.T) {
 }
 
 func TestExecutionContext_IsMetadataField_Basic(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test metadata fields through Info API

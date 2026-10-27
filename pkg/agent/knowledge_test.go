@@ -124,6 +124,19 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 	)
 }
 
+func TestKnowledgeRecallRefreshesExternalVaultChanges(t *testing.T) {
+	l, vault := knowledgeLoop(t)
+	note := filepath.Join(vault, "shared", "External edit.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nsummary: Obsidian external edit.\n---\n"), 0o600))
+
+	item := l.knowledgeRecallItem("Obsidian external edit", nil)
+	require.NotNil(t, item)
+	assert.Contains(t, item.Prompt, note)
+
+	require.NoError(t, os.Remove(note))
+	assert.Nil(t, l.knowledgeRecallItem("Obsidian external edit", nil))
+}
+
 func TestKnowledgeTools(t *testing.T) {
 	l, vault := knowledgeLoop(t)
 	call := func(name string, args map[string]any) (string, error) {

@@ -87,7 +87,13 @@ func TestHandshakeAck_PraisesTheRealCall(t *testing.T) {
 // without the code is a miss and must return an error.
 func TestSessionHandshakeTool_RejectsMissingCode(t *testing.T) {
 	reg := tools.NewRegistry()
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		reg,
+		Config{Model: "test"},
+	)
 	loop.handshake = &handshakeState{challenge: "1234"}
 	loop.registerSessionHandshakeTool()
 
@@ -104,7 +110,13 @@ func TestSessionHandshakeTool_RejectsMissingCode(t *testing.T) {
 
 func TestSessionHandshakeTool_AcceptsCode(t *testing.T) {
 	reg := tools.NewRegistry()
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{Model: "test"})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		reg,
+		Config{Model: "test"},
+	)
 	loop.handshake = &handshakeState{challenge: "1234"}
 	loop.registerSessionHandshakeTool()
 

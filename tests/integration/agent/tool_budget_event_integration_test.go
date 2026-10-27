@@ -115,7 +115,13 @@ func runLookupTwice(t *testing.T, file, event string) int {
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), wf, reg, agent.Config{Model: "test", Streamer: ms})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		wf,
+		reg,
+		agent.Config{Model: "test", Streamer: ms},
+	)
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(t.Context(), "go", &buf)

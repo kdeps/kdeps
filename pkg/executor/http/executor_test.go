@@ -237,7 +237,10 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 
 func TestExecutor_Execute_MissingURL(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -267,7 +270,10 @@ func TestExecutor_Execute_Success(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -314,7 +320,10 @@ func TestExecutor_Execute_POST_JSON(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -352,7 +361,10 @@ func TestExecutor_Execute_QueryParameters(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -377,7 +389,10 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -546,7 +561,10 @@ func TestExecutor_Execute_ServerError(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -565,7 +583,10 @@ func TestExecutor_Execute_ServerError(t *testing.T) {
 
 func TestExecutor_Execute_InvalidURL(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -606,7 +627,10 @@ func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add test data to context
@@ -647,7 +671,10 @@ func TestExecutor_Execute_FormURLEncoded(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -684,7 +711,10 @@ func TestExecutor_Execute_WithRetry(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -716,7 +746,10 @@ func TestExecutor_Execute_CacheHit(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use unique cache key to avoid cache pollution between test runs
@@ -771,7 +804,10 @@ func TestExecutor_Execute_Redirect(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	followRedirects := true
@@ -807,7 +843,10 @@ func TestExecutor_Execute_Redirect_DefaultBehavior(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// FollowRedirects is nil (not set) - should follow redirects by default
@@ -850,7 +889,10 @@ func TestExecutor_Execute_Redirect_ExplicitlyDisabled(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Explicitly disable redirects
@@ -893,7 +935,10 @@ func TestExecutor_Execute_Redirect_ExplicitlyEnabled(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Explicitly enable redirects
@@ -944,7 +989,10 @@ func TestExecutor_Execute_Redirect_MultipleRedirects(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Default behavior - should follow redirect chain
@@ -1005,7 +1053,10 @@ func TestExecutor_Execute_Redirect_DifferentStatusCodes(t *testing.T) {
 			defer server.Close()
 
 			exec := httpexecutor.NewExecutor()
-			ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+			ctx, err := executor.NewExecutionContext(
+				t.Context(),
+				&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+			)
 			require.NoError(t, err)
 
 			// Default behavior - should follow all redirect types
@@ -1034,7 +1085,10 @@ func TestExecutor_Execute_CustomTLS(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1070,7 +1124,10 @@ func TestExecutor_Execute_LargeResponse(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1094,7 +1151,10 @@ func TestExecutor_Execute_EmptyBody(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1122,7 +1182,10 @@ func TestExecutor_Execute_BinaryResponse(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1148,7 +1211,10 @@ func TestExecutor_Execute_InvalidMethod(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1291,7 +1357,10 @@ func TestExecutor_CalculateBackoffForTesting(t *testing.T) {
 
 func TestExecutor_ExecuteRequestWithRetryForTesting(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	t.Run("successful request no retry", func(t *testing.T) {
@@ -1465,7 +1534,10 @@ func TestExecutor_ProcessResponseForTesting(t *testing.T) {
 
 func TestExecutor_BuildEnvironment(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with basic context (no request, no items)
@@ -1514,7 +1586,10 @@ func TestExecutor_BuildEnvironment(t *testing.T) {
 // TestExecutor_evaluateExpression tests the evaluateExpression function directly.
 func TestExecutor_evaluateExpression(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -1610,7 +1685,10 @@ func TestExecutor_evaluateExpression(t *testing.T) {
 // TestExecutor_evaluateData tests the evaluateData function directly.
 func TestExecutor_evaluateData(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -1668,7 +1746,10 @@ func TestExecutor_evaluateData(t *testing.T) {
 // TestExecutor_evaluateStringOrLiteral tests the evaluateStringOrLiteral function directly.
 func TestExecutor_evaluateStringOrLiteral(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -1712,7 +1793,10 @@ func TestExecutor_Execute_CacheCustomKey(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use a unique cache key for this test to avoid cache pollution between test runs
@@ -1787,7 +1871,10 @@ func TestExecutor_Execute_TLSWithCerts(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with TLS config that has cert files (will fail to load, but tests the path)
@@ -1822,7 +1909,10 @@ func TestExecutor_Execute_RetryOnStatusCodes(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1859,7 +1949,10 @@ func TestExecutor_Execute_RetryWithCustomBackoff(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -1884,7 +1977,10 @@ func TestExecutor_Execute_RetryWithCustomBackoff(t *testing.T) {
 // TestExecutor_Execute_ExpressionEvaluation_Error tests expression evaluation errors.
 func TestExecutor_Execute_ExpressionEvaluation_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test invalid expression in URL
@@ -1911,7 +2007,10 @@ func TestExecutor_Execute_DataEvaluation_Error(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test invalid expression in request data
@@ -1947,7 +2046,10 @@ func TestExecutor_Execute_AuthEvaluation_Error(t *testing.T) {
 // TestExecutor_Execute_HeaderEvaluation_Error tests header evaluation errors.
 func TestExecutor_Execute_HeaderEvaluation_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test invalid expression in header
@@ -1975,7 +2077,10 @@ func TestExecutor_Execute_JSONMarshal_Error(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test data that cannot be marshaled to JSON
@@ -2005,7 +2110,10 @@ func TestExecutor_Execute_JSONMarshal_ExplicitContentType(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Explicit Content-Type: application/json with data that fails marshaling.
@@ -2036,7 +2144,10 @@ func TestExecutor_Execute_FormURLEncoded_Error(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test form data with complex nested structure that might cause issues
@@ -2082,7 +2193,10 @@ func TestExecutor_Execute_Proxy_Error(t *testing.T) {
 // TestExecutor_Execute_TLS_Error tests TLS configuration errors.
 func TestExecutor_Execute_TLS_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test TLS config with invalid cert files
@@ -2110,7 +2224,10 @@ func TestExecutor_Execute_Timeout_Config(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with custom timeout
@@ -2139,7 +2256,10 @@ func TestExecutor_Execute_Cache_Miss(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use unique cache key to ensure cache miss
@@ -2172,7 +2292,10 @@ func TestExecutor_Execute_Cache_DefaultKey(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2219,7 +2342,10 @@ func TestExecutor_Execute_Retry_MaxAttempts(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2255,7 +2381,10 @@ func TestExecutor_Execute_Retry_DefaultBackoff(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2286,7 +2415,10 @@ func TestExecutor_Execute_Retry_ZeroMaxAttempts(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2318,7 +2450,10 @@ func TestExecutor_Execute_Cache_WithTTL(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	uniqueKey := fmt.Sprintf("test_ttl_%d", time.Now().UnixNano())
@@ -2353,7 +2488,10 @@ func TestExecutor_Execute_Cache_WithTTL(t *testing.T) {
 // TestExecutor_HandleAuthForTesting tests the handleAuth function directly.
 func TestExecutor_HandleAuthForTesting(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -2567,7 +2705,10 @@ func TestExecutor_BuildCacheKeyForTesting(t *testing.T) {
 // TestExecutor_Execute_TLS_CAFile exercises the CAFile branch of resolveTLSConfig.
 func TestExecutor_Execute_TLS_CAFile(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// CAFile branch: non-empty CAFile with a literal value (no expression).
@@ -2592,7 +2733,10 @@ func TestExecutor_Execute_TLS_CAFile(t *testing.T) {
 // when the value contains expression syntax that fails evaluation.
 func TestExecutor_Execute_TLS_CAFile_Expression(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// CAFile with invalid expression syntax triggers the error return in resolveTLSConfig.
@@ -2619,7 +2763,10 @@ func TestExecutor_Execute_MaxResponseBytes(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	t.Setenv("KDEPS_HTTP_MAX_RESPONSE_BYTES", "5")
@@ -2638,7 +2785,10 @@ func TestExecutor_Execute_MaxResponseBytes(t *testing.T) {
 // resolveRetryConfig returns an error when Backoff contains an invalid expression.
 func TestExecutor_Execute_ResolveRetryConfig_BackoffExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2659,7 +2809,10 @@ func TestExecutor_Execute_ResolveRetryConfig_BackoffExpressionError(t *testing.T
 // resolveRetryConfig returns an error when MaxBackoff contains an invalid expression.
 func TestExecutor_Execute_ResolveRetryConfig_MaxBackoffExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2681,7 +2834,10 @@ func TestExecutor_Execute_ResolveRetryConfig_MaxBackoffExpressionError(t *testin
 // resolveCacheConfig returns an error when TTL contains an invalid expression.
 func TestExecutor_Execute_ResolveCacheConfig_TTLExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2701,7 +2857,10 @@ func TestExecutor_Execute_ResolveCacheConfig_TTLExpressionError(t *testing.T) {
 // resolveCacheConfig returns an error when Key contains an invalid expression.
 func TestExecutor_Execute_ResolveCacheConfig_KeyExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2721,7 +2880,10 @@ func TestExecutor_Execute_ResolveCacheConfig_KeyExpressionError(t *testing.T) {
 // resolveConfig returns an error when Timeout contains an invalid expression.
 func TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2739,7 +2901,10 @@ func TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError(t *testin
 // resolveTLSConfig returns an error when CertFile contains an invalid expression.
 func TestExecutor_Execute_TLS_CertFileExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2759,7 +2924,10 @@ func TestExecutor_Execute_TLS_CertFileExpressionError(t *testing.T) {
 // resolveTLSConfig returns an error when KeyFile contains an invalid expression.
 func TestExecutor_Execute_TLS_KeyFileExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2786,7 +2954,10 @@ func TestExecutor_Execute_NonexistentConnection(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2816,7 +2987,10 @@ func TestExecutor_Execute_Cache_AuthorizationInDefaultKey(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2859,7 +3033,10 @@ func TestExecutor_Execute_FormURLEncoded_NonMapData(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2883,7 +3060,10 @@ func TestExecutor_Execute_FormURLEncoded_NonMapData(t *testing.T) {
 // http.NewRequestWithContext fails due to an invalid method.
 func TestExecutor_Execute_NewRequestFail(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
@@ -2900,7 +3080,10 @@ func TestExecutor_Execute_NewRequestFail(t *testing.T) {
 // maxAttempts <= 0 branch in executeRequestWithRetry (executor.go:736-738).
 func TestExecutor_ExecuteRequestWithRetry_MaxAttemptsZero(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -2926,7 +3109,10 @@ func TestExecutor_ExecuteRequestWithRetry_MaxAttemptsZero(t *testing.T) {
 // maxAttempts <= 0 branch with a negative value.
 func TestExecutor_ExecuteRequestWithRetry_NegativeMaxAttempts(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -2953,7 +3139,10 @@ func TestExecutor_ExecuteRequestWithRetry_NegativeMaxAttempts(t *testing.T) {
 // closed server so client.Do returns a transport error, then retrying.
 func TestExecutor_ExecuteRequestWithRetry_RetryOnError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Create a server and close it immediately -- client.Do returns a transport error

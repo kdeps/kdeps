@@ -83,6 +83,7 @@ const (
 	eventMemoryLowSignal    = "memory-low-signal-limit"
 	eventMemoryStatus       = "memory-status-limit"
 	eventModelRecordLimit   = "model-record-limit"
+	eventSideCallMaxTokens  = "side-call-max-tokens"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -94,7 +95,9 @@ type EventTrigger struct {
 	// is unknown); "memory-prompt-limit" caps how many tokens of memory
 	// content are injected into the system preamble (converted to an
 	// approximate byte budget internally, same charsPerToken ratio the
-	// truncation cluster's Bytes fields use directly).
+	// truncation cluster's Bytes fields use directly);
+	// "side-call-max-tokens" caps refine, the judge roster, and a
+	// verdict-only judge.
 	Tokens int `yaml:"tokens,omitempty"`
 	// CtxWindowFraction fires when the session's estimated token count
 	// exceeds this fraction of the model's known context window --
@@ -555,8 +558,23 @@ func memoryPromptLimit() int {
 	return fallback
 }
 
-// tokensField reads the "Tokens" field, kept parameterized now that two
-// events (auto-compact, memory-prompt-limit) both use it.
+// sideCallMaxTokens is the output cap for refine, the judge roster, and a
+// verdict-only judge. The side-call-max-tokens event supplies it. A disabled
+// event or a zero tokens field falls back to the model ceiling. Compaction,
+// the main turn, branch summaries, plan, confirm, and handshake do not use
+// this helper.
+func sideCallMaxTokens(backend, model string) *int {
+	if !EventEnabled(eventSideCallMaxTokens) {
+		return syntheticCallMaxTokens(backend, model)
+	}
+	if n := tokensField(eventSideCallMaxTokens); n > 0 {
+		return &n
+	}
+	return syntheticCallMaxTokens(backend, model)
+}
+
+// tokensField reads the "Tokens" field. auto-compact, memory-prompt-limit,
+// and side-call-max-tokens use it.
 func tokensField(name string) int {
 	e, _ := EventByName(name)
 	return e.On.Tokens

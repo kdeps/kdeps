@@ -32,7 +32,10 @@ import (
 
 func historyTestContext(t *testing.T) *executor.ExecutionContext {
 	t.Helper()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	// ctx.Memory is a refcounted, process-wide cached handle (see
 	// storage.NewMemoryStorage); release this test's reference so a

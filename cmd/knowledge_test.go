@@ -76,8 +76,19 @@ func TestKnowledgeCmd(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
 		[]byte("---\nsummary: One home per fact.\n---\n"), 0o600))
 
-	_, err = runKnowledge(t, "recall", "graph")
-	require.ErrorContains(t, err, "no graph yet")
+	out, err = runKnowledge(t, "recall", "graph")
+	require.NoError(t, err)
+	assert.Contains(t, out, "shared/Graph recall.md")
+
+	out, err = runKnowledge(t, "check-update")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Graph is current.")
+
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
+		[]byte("---\nsummary: One canonical home per fact.\n---\n"), 0o600))
+	out, err = runKnowledge(t, "check-update")
+	require.NoError(t, err)
+	assert.Regexp(t, `\d+ notes \(1 changed\)`, out)
 
 	out, err = runKnowledge(t, "build")
 	require.NoError(t, err)
@@ -87,6 +98,10 @@ func TestKnowledgeCmd(t *testing.T) {
 	out, err = runKnowledge(t, "recall", "link", "graph")
 	require.NoError(t, err)
 	assert.Contains(t, out, "shared/Graph recall.md")
+
+	out, err = runKnowledge(t, "explain", "One home")
+	require.NoError(t, err)
+	assert.Contains(t, out, "shared/Graph recall.md:L")
 	assert.Contains(t, out, "One home.md")
 	out, err = runKnowledge(t, "recall", "zzz")
 	require.NoError(t, err)

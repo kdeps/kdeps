@@ -80,7 +80,9 @@ mkdir -p "$P"
 kd_vault "$V"
 OUT=$(kd_session "$P" 'hello there friend\n/quit\n')
 CARD=$(find "$V/projects" -mindepth 2 -maxdepth 2 -name '*.md' 2>/dev/null | head -1)
-if healthy "$OUT" && [ -n "$CARD" ] && [ -f "$V/.index/graph.json" ] &&
+if healthy "$OUT" && [ -n "$CARD" ] &&
+    find "$KD_HOME/.kdeps/knowledge" -name graph.json -type f 2>/dev/null | grep -q . &&
+    [ ! -e "$V/.index/graph.json" ] &&
     [ -n "$(find "$V/projects" -path '*/sessions/*.md' 2>/dev/null)" ]; then
     test_passed "knowledge defensive - spaces, unicode and punctuation in the vault and project paths"
 else
@@ -116,11 +118,13 @@ else
     test_failed "knowledge defensive - broken vault session" "$OUT"
 fi
 OUT=$(kd knowledge build --vault "$V")
-if ! output_grep "panic:" "$OUT" && [ -f "$V/graph.html" ] && ! grep -qF '</script><img' "$V/graph.html" &&
-    ! grep -q '"note": *"shared/Huge.md"' "$V/.index/graph.json"; then
+HTML=$(printf '%s\n' "$OUT" | sed -n 's/^Explore: //p' | head -1)
+GRAPH=$(printf '%s\n' "$OUT" | sed -n 's/^Graph:  //p' | head -1)
+if ! output_grep "panic:" "$OUT" && [ -n "$HTML" ] && [ -f "$HTML" ] && ! grep -qF '</script><img' "$HTML" &&
+    [ -n "$GRAPH" ] && ! grep -q '"note": *"shared/Huge.md"' "$GRAPH"; then
     test_passed "knowledge defensive - the graph page escapes markup and huge notes are skipped"
 else
-    test_failed "knowledge defensive - build of a broken vault" "$OUT $(grep -o '</script>[^"]*' "$V/graph.html" | head -3)"
+    test_failed "knowledge defensive - build of a broken vault" "$OUT $(grep -o '</script>[^"]*' "$HTML" 2>/dev/null | head -3)"
 fi
 
 # --- tool inputs: traversal, empty and oversized titles ------------------------------

@@ -263,7 +263,10 @@ func searchOne(
 		}
 	}
 	exec := opts.executor()
-	result, err := exec.Execute(&executor.ExecutionContext{Ctx: opts.Ctx}, searchLocalConfig(args, path, query, glob, limit))
+	result, err := exec.Execute(
+		&executor.ExecutionContext{Ctx: opts.Ctx},
+		searchLocalConfig(args, path, query, glob, limit),
+	)
 	if err != nil {
 		return "", err
 	}
@@ -321,7 +324,10 @@ func searchRoots(
 	perRoot := make([][]map[string]any, 0, len(roots))
 	var errs []string
 	for _, root := range roots {
-		res, err := exec.Execute(&executor.ExecutionContext{Ctx: opts.Ctx}, searchLocalConfig(args, root, query, glob, limit))
+		res, err := exec.Execute(
+			&executor.ExecutionContext{Ctx: opts.Ctx},
+			searchLocalConfig(args, root, query, glob, limit),
+		)
 		if err != nil {
 			errs = append(errs, root+": "+err.Error())
 			continue

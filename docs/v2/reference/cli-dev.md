@@ -377,21 +377,27 @@ Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown note
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
-kdeps knowledge build               # build the link graph (only changed notes and code files are re-read)
+kdeps knowledge build               # graph under ~/.kdeps/knowledge/<vault-id>; changed notes only
 kdeps knowledge build --extract     # a local model reads changed notes first: inferred edges with confidence
-kdeps knowledge check               # one home per fact: next steps outside cards, duplicate summaries, dangling links
-kdeps knowledge recall "why monthly billing"   # what recall would hand the agent
-kdeps knowledge report              # GRAPH_REPORT.md: god nodes, Louvain communities, surprising connections
+kdeps knowledge build --export      # also copy GRAPH_REPORT.md and graph.html into the vault
+kdeps knowledge check-update        # rebuild only when notes changed outside kdeps
+kdeps knowledge check               # structural one-home: duplicate summaries, canonical ids, dangling links
+kdeps knowledge recall "why monthly billing"   # what recall would hand the agent, with the relation chain
+kdeps knowledge explain "billing"   # matching edges, with the file and line each one came from
+kdeps knowledge report              # print GRAPH_REPORT.md (deterministic Louvain communities)
 ```
+
+The graph, `GRAPH_REPORT.md` and `graph.html` are written under `~/.kdeps/knowledge/<vault-id>/`. `<vault-id>` is a hash of the vault path.
 
 | Flag | Description | Default |
 |---|---|---|
 | `--vault` | Vault folder | `knowledge.vault` in `~/.kdeps/config.yaml`, else `~/.kdeps/notes` |
 | `--extract` (build) | Have a local model read changed notes first | `false` |
+| `--export` (build) | Copy the report and the explorer page into the vault | `false` |
 | `--model` (build) | Model for `--extract` | `knowledge.extract.model`, else the detected local model |
 | `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
 
-`check` exits non-zero when it reports anything.
+`check` exits non-zero when it reports anything. It reports structural duplicates. It does not decide that two different wordings are the same fact.
 
 ---
 

@@ -49,8 +49,8 @@ func performDockerBuild(
 
 	// Tag image if custom tag provided
 	if flags.Tag != "" {
-		ctx := processRoot()
-		if tagErr := builder.Client.TagImage(ctx, imageName, flags.Tag); tagErr != nil {
+		tagCtx := processRoot()
+		if tagErr := builder.Client.TagImage(tagCtx, imageName, flags.Tag); tagErr != nil {
 			return fmt.Errorf("failed to tag image: %w", tagErr)
 		}
 		fmt.Fprintf(os.Stdout, "✓ Image tagged: %s\n", flags.Tag)

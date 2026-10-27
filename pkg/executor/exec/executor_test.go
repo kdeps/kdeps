@@ -58,7 +58,10 @@ func TestNewExecutorWithRunner(t *testing.T) {
 
 func TestExecutor_Execute_SimpleCommand(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -79,7 +82,10 @@ func TestExecutor_Execute_SimpleCommand(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithTimeout(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -101,7 +107,10 @@ func TestExecutor_Execute_CommandWithTimeout(t *testing.T) {
 
 func TestExecutor_Execute_FailingCommand(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -122,7 +131,10 @@ func TestExecutor_Execute_FailingCommand(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithStderr(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -142,7 +154,10 @@ func TestExecutor_Execute_CommandWithStderr(t *testing.T) {
 
 func TestExecutor_Execute_InvalidTimeout(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -161,7 +176,10 @@ func TestExecutor_Execute_InvalidTimeout(t *testing.T) {
 
 func TestExecutor_Execute_EmptyCommand(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -175,7 +193,10 @@ func TestExecutor_Execute_EmptyCommand(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithWorkingDirectory(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use a real, OS-native directory instead of the POSIX-only "/tmp".
@@ -201,7 +222,10 @@ func TestExecutor_Execute_CommandWithWorkingDirectory(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithExpressionEvaluation(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add some data to context outputs
@@ -224,7 +248,10 @@ func TestExecutor_Execute_CommandWithExpressionEvaluation(t *testing.T) {
 }
 
 func TestExecutor_EvaluateExpression_SimpleString(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -235,7 +262,10 @@ func TestExecutor_EvaluateExpression_SimpleString(t *testing.T) {
 }
 
 func TestExecutor_EvaluateExpression_WithContextData(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["testKey"] = "testValue"
@@ -251,7 +281,10 @@ func TestExecutor_EvaluateExpression_WithContextData(t *testing.T) {
 func TestExecutor_BuildEnvironmen_Basic(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
 	_ = execInstance
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	_ = ctx
 }
@@ -262,7 +295,10 @@ func TestExecutor_Execute_LongRunningCommand(t *testing.T) {
 	}
 
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -285,7 +321,10 @@ func TestExecutor_Execute_LongRunningCommand(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithComplexOutput(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -310,7 +349,10 @@ func TestExecutor_Execute_CommandWithJSONLikeOutput(t *testing.T) {
 		t.Skip("shell command differs on windows")
 	}
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -333,7 +375,10 @@ func TestExecutor_Execute_CommandWithJSONLikeOutput(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithLargeOutput(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Generate a large output
@@ -358,7 +403,10 @@ func TestExecutor_Execute_CommandWithSpecialCharacters(t *testing.T) {
 		t.Skip("shell command differs on windows")
 	}
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -382,7 +430,10 @@ func TestExecutor_Execute_CommandWithUnicode(t *testing.T) {
 		t.Skip("shell command differs on windows")
 	}
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -405,7 +456,10 @@ func TestExecutor_Execute_CommandWithUnicode(t *testing.T) {
 func TestExecutor_Execute_WithItemContext(t *testing.T) {
 	// Test that item context is available in expression evaluation
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set item context (simulating items iteration)
@@ -441,7 +495,10 @@ func TestExecutor_Execute_WithItemContext(t *testing.T) {
 func TestExecutor_Execute_WithItemContext_NestedData(t *testing.T) {
 	// Test accessing nested data from item context
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set item context with nested HTTP response structure
@@ -481,7 +538,10 @@ func TestExecutor_Execute_WithItemContext_NestedData(t *testing.T) {
 func TestExecutor_Execute_WithItemContext_MissingData(t *testing.T) {
 	// Test that safe() and default() handle missing data gracefully
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set item context with missing data fields
@@ -515,7 +575,10 @@ func TestExecutor_Execute_WithItemContext_MissingData(t *testing.T) {
 func TestExecutor_Execute_WithInputContext(t *testing.T) {
 	// Test that input context is available in expression evaluation
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set request body (input)
@@ -548,7 +611,10 @@ func TestExecutor_Execute_WithInputContext(t *testing.T) {
 func TestExecutor_Execute_WithArgs(t *testing.T) {
 	// Test that Args are properly evaluated and passed to command
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["value"] = "test-value"
@@ -592,7 +658,10 @@ func TestExecutor_Execute_WithArgsAndExpressions(t *testing.T) {
 	}
 	// Test Args with complex expressions
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Items["item"] = map[string]interface{}{
@@ -672,7 +741,10 @@ func TestExecutor_EscapeForShell(t *testing.T) {
 
 func TestExecutor_EvaluateExpressionsInShellScript(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["name"] = "world"
@@ -698,7 +770,10 @@ echo "JSON: {{json(get('name'))}}"
 
 func TestExecutor_EvaluateExpressionsInShellScript_WithJSONEscaping(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["data"] = `{"key": "value", "nested": {"array": [1, 2, 3]}}`
@@ -717,7 +792,10 @@ func TestExecutor_EvaluateExpressionsInShellScript_WithJSONEscaping(t *testing.T
 
 func TestExecutor_EvaluateExpressionsInShellScript_EvaluationError(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -734,7 +812,10 @@ func TestExecutor_EvaluateExpressionsInShellScript_EvaluationError(t *testing.T)
 
 func TestExecutor_EvaluateExpressionsInShellScript_IncompleteExpression(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -751,7 +832,10 @@ func TestExecutor_EvaluateExpressionsInShellScript_IncompleteExpression(t *testi
 
 func TestExecutor_EvaluateExpressionsInShellScript_MultipleExpressions(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["first"] = "hello"
@@ -771,7 +855,10 @@ func TestExecutor_EvaluateExpressionsInShellScript_MultipleExpressions(t *testin
 
 func TestExecutor_Execute_WithShellScriptArgs(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Outputs["name"] = "test"
@@ -803,7 +890,10 @@ func TestExecutor_Execute_WithWindowsCommand(t *testing.T) {
 	}
 
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -821,7 +911,10 @@ func TestExecutor_Execute_WithWindowsCommand(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithExitCode1(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -841,7 +934,10 @@ func TestExecutor_Execute_CommandWithExitCode1(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithExitCode42(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -861,7 +957,10 @@ func TestExecutor_Execute_CommandWithExitCode42(t *testing.T) {
 
 func TestExecutor_Execute_CommandTimeoutKillsProcess(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use a command that ignores SIGTERM/SIGKILL to test process killing
@@ -890,7 +989,10 @@ func TestExecutor_Execute_CommandTimeoutKillsProcess(t *testing.T) {
 }
 
 func TestExecutor_EvaluateExpression_ParseError(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -902,7 +1004,10 @@ func TestExecutor_EvaluateExpression_ParseError(t *testing.T) {
 }
 
 func TestExecutor_EvaluateExpression_EvaluationError(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -941,7 +1046,10 @@ func TestExecutor_ValueToString_Map(t *testing.T) {
 
 func TestExecutor_Execute_WithNilOutputs(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Ensure ctx.Outputs is nil
@@ -1296,7 +1404,10 @@ func TestExecutor_Execute_WindowsCmdPath(t *testing.T) {
 	}
 
 	execInstance := execexecutor.NewExecutorWithRunner(mockRunner)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
@@ -1318,7 +1429,10 @@ func TestExecutor_Execute_WindowsCmdPath(t *testing.T) {
 
 func TestExecutor_Execute_CommandWithExpressionSuccess(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set output value that the expression will resolve via get()

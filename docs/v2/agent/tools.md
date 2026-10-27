@@ -332,7 +332,7 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ## Lean mode
 
-The full tool catalog (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool set (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is registered for every session. A cloud backend sends each tool as a native schema. A local backend (file, gguf, ollama, llamafile) also gets a short text list: name, one-line description, and parameter names. Trim the set when you want less prompt weight or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time

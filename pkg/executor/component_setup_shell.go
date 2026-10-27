@@ -41,7 +41,13 @@ func setupShell() string {
 }
 
 // runTimedCommand runs a command with a timeout and returns trimmed combined output on error.
-func runTimedCommand(parent context.Context, timeout time.Duration, name string, args []string, errPrefix string) error {
+func runTimedCommand(
+	parent context.Context,
+	timeout time.Duration,
+	name string,
+	args []string,
+	errPrefix string,
+) error {
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)

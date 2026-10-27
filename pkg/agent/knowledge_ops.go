@@ -37,8 +37,13 @@ var knowledgeOps = map[string]func(r *REPL, args map[string]any) (map[string]any
 		if err != nil {
 			return nil, err
 		}
+		pending := 0
+		if n, countErr := knowledge.PendingExtractCount(k.vault, k.dir); countErr == nil {
+			pending = n
+		}
 		return map[string]any{
 			"value": onOffWord(r.loop.knowledgeOn()), "vault": k.vault.Root, "graph": knowledge.GraphPath(k.dir),
+			"pending": pending,
 		}, nil
 	},
 	"knowledge_extract": func(r *REPL, _ map[string]any) (map[string]any, error) {
@@ -79,7 +84,7 @@ func (r *REPL) recallOp(args map[string]any) (map[string]any, error) {
 	for _, h := range rec.Hits {
 		hits = append(hits, map[string]any{
 			"path": filepath.Join(k.vault.Root, filepath.FromSlash(h.Note)), "score": h.Score,
-			"hops": h.Hops, "via": h.Via, "summary": h.Summary,
+			"hops": h.Hops, "via": h.Via, "summary": h.Summary, "chain": h.Chain(),
 		})
 	}
 	return map[string]any{"seeds": rec.Seeds, "hits": hits, "tokens": rec.Tokens}, nil

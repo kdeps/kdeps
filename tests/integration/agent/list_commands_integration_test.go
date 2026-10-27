@@ -76,7 +76,13 @@ func TestJudgesCommand_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -110,7 +116,13 @@ func TestHarnessCommand_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -139,7 +151,13 @@ func TestKnowledgeCommands_ThroughTheAPI(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	agent.ReloadAssets()
 
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })

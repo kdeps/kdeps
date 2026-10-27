@@ -43,7 +43,7 @@ ls -la && cat README.md
 
 ## The available_tools block
 
-The same preamble lists every registered tool in an `<available_tools>` block: name, parameters, and an `<invoke>` skeleton for each. That block is what the model copies a name from. Later turns repeat the list next to the one-line reminder. Backends with a native tool channel (Anthropic, OpenAI) also receive the tools as a native schema; kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway, including DeepSeek's DSML-wrapped form (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend emits as plain content.
+Local backends (file, gguf, ollama, llamafile) and an unset backend get one short `<available_tools>` list in the system preamble: name, one-line description, and parameter names. Cloud backends receive the tools as a native schema and omit that text list. The m365 proxy renders its own list from those schemas, so the preamble does not carry a second copy. Later turns restate a one-line reminder and do not repeat the list. kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway, including DeepSeek's DSML-wrapped form (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend emits as plain content.
 
 ## Simulated sandbox sessions are caught, and escalated
 

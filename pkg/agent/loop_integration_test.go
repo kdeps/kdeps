@@ -643,42 +643,42 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 }
 
 // TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim guards the tool
-// interface: kdeps has no native function-calling schema, so toolUseGuidance
-// and the tool catalog (ToolPrompt) are the model's only source of exact tool
-// names and calling conventions. They must never pass through turoReduce,
-// where lexical rewriting could silently break tool calls.
+// interface. Harness text and, on a local backend, the short catalog stay
+// out of turoReduce. A cloud backend receives native schemas and omits the
+// text catalog, including its invoke skeletons.
 func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
-	eng := executor.NewEngine(context.Background(), nil)
-	reg := tools.NewRegistry()
-	reg.Register(&tools.Tool{
-		Name:        "calc",
-		Description: "calculator",
-		Parameters:  map[string]domain.ToolParam{},
-		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
-	})
-	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
-		Model:    "deepseek-reasoner",
-		Backend:  "deepseek",
-		Streamer: &mockStreamer{},
-	})
+	for _, backend := range []string{"deepseek", "openai", "m365", "", "file", "gguf", "ollama"} {
+		t.Run(backend, func(t *testing.T) {
+			eng := executor.NewEngine(context.Background(), nil)
+			reg := tools.NewRegistry()
+			reg.Register(&tools.Tool{
+				Name:        "calc",
+				Description: "calculator",
+				Parameters:  map[string]domain.ToolParam{},
+				Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+			})
+			loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
+				Model:    "deepseek-reasoner",
+				Backend:  backend,
+				Streamer: &mockStreamer{},
+			})
 
-	preamble := loop.buildSystemPreamble()
-
-	// Exact phrases from toolUseGuidance's operating rules.
-	assert.Contains(t, preamble, "STOP ALL SEARCHING")
-	assert.Contains(
-		t,
-		preamble,
-		"Send independent tool calls in a single message to run them concurrently.",
-	)
-	// Exact rendering of the registered tool from ToolPrompt.
-	assert.Contains(t, preamble, "**calc**: calculator")
-	assert.Contains(t, preamble, `<invoke name="calc">`)
+			preamble := loop.buildSystemPreamble()
+			assert.Contains(t, preamble, "STOP ALL SEARCHING")
+			assert.Contains(t, preamble, "Send independent tool calls in a single message to run them concurrently.")
+			assert.NotContains(t, preamble, `<invoke name="calc">`)
+			if needsTextToolCatalog(backend) {
+				assert.Contains(t, preamble, "- calc: calculator")
+			} else {
+				assert.NotContains(t, preamble, "- calc: calculator")
+				assert.NotContains(t, preamble, "**calc**: calculator")
+			}
+		})
+	}
 }
 
-// Later turns repeat the live tool list next to the reminder. The cached
-// preamble already has it; the model writes <invoke> from the latest system
-// message, so that message has to carry the names too.
+// Later turns restate the one-line reminder. The short catalog stays in the
+// preamble on an unset backend and is not copied into the reminder.
 func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
@@ -713,9 +713,14 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, reminder, "turn 2 must restate the tool reminder")
-	assert.Contains(t, reminder, "<available_tools>")
-	assert.Contains(t, reminder, `<invoke name="noop">`)
-	assert.Contains(t, reminder, `<parameter name="target">`)
+	assert.Equal(t, harnessText("tools-reminder"), reminder)
+	assert.NotContains(t, reminder, "<available_tools>")
+	assert.NotContains(t, reminder, `<invoke name="noop">`)
+
+	require.NotEmpty(t, cfg.Scenario)
+	assert.Contains(t, cfg.Scenario[0].Prompt, "- noop: no-op test tool")
+	assert.Contains(t, cfg.Scenario[0].Prompt, "params: target (required)")
+	assert.NotContains(t, cfg.Scenario[0].Prompt, `<invoke name="noop">`)
 }
 
 // TestBuildChatConfig_IncludesActiveHarnessReminder covers /harness
@@ -835,7 +840,19 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
 
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")
-	assert.Contains(t, preamble, "**calc**: calculator")
+	assert.NotContains(t, preamble, "- calc: calculator")
+
+	local := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "local",
+		Backend:  "ollama",
+		Streamer: &mockStreamer{},
+	})
+	local.skills = "LARGE SKILL BLOCK"
+	local.config.CompactTokenBudget = 4096
+	localPreamble := local.buildSystemPreamble()
+	assert.NotContains(t, localPreamble, "LARGE SKILL BLOCK")
+	assert.Contains(t, localPreamble, "- calc: calculator")
+	assert.NotContains(t, localPreamble, `<invoke name="calc">`)
 }
 
 // TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
@@ -944,11 +961,17 @@ func (e *errStreamer) StreamChat(
 }
 
 func TestRunStreaming_StreamerError(t *testing.T) {
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:         "test",
-		Streamer:      &errStreamer{err: errors.New("stream error")},
-		MaxToolRounds: 3,
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		tools.NewRegistry(),
+		Config{
+			Model:         "test",
+			Streamer:      &errStreamer{err: errors.New("stream error")},
+			MaxToolRounds: 3,
+		},
+	)
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
 	if err == nil {
@@ -1715,13 +1738,18 @@ func TestIsTransientError(t *testing.T) {
 func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
 	// Streamer fails twice with a transient error, then succeeds.
 	ts := &transientStreamer{failCount: 2, response: "hello after retry"}
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:              "test",
-		Streamer:           ts,
-		MaxToolRounds:      3,
-		AutoRetryMax:       3,
-		AutoRetryBaseDelay: time.Millisecond, // 0 means the 2s default
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		tools.NewRegistry(),
+		Config{
+			Model:              "test",
+			Streamer:           ts,
+			MaxToolRounds:      3,
+			AutoRetryMax:       3,
+			AutoRetryBaseDelay: time.Millisecond, // 0 means the 2s default
+		})
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "hi", &buf)
@@ -1739,13 +1767,18 @@ func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
 func TestRunStreaming_AutoRetry_ExhaustedReturnsError(t *testing.T) {
 	// Streamer always returns a transient error.
 	es := &errStreamer{err: errors.New("overloaded_error: please retry")}
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:              "test",
-		Streamer:           es,
-		MaxToolRounds:      3,
-		AutoRetryMax:       2,
-		AutoRetryBaseDelay: time.Millisecond,
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		tools.NewRegistry(),
+		Config{
+			Model:              "test",
+			Streamer:           es,
+			MaxToolRounds:      3,
+			AutoRetryMax:       2,
+			AutoRetryBaseDelay: time.Millisecond,
+		})
 
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
@@ -1790,13 +1823,18 @@ func (m *midTurnDropStreamer) StreamChat(
 // the failed attempt must not leak into the response.
 func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 	ms := &midTurnDropStreamer{}
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), newStreamingRegistry(), Config{
-		Model:              "test",
-		Streamer:           ms,
-		MaxToolRounds:      5,
-		AutoRetryMax:       3,
-		AutoRetryBaseDelay: time.Millisecond,
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		newStreamingRegistry(),
+		Config{
+			Model:              "test",
+			Streamer:           ms,
+			MaxToolRounds:      5,
+			AutoRetryMax:       3,
+			AutoRetryBaseDelay: time.Millisecond,
+		})
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "implement phase 2", &buf)
@@ -1811,13 +1849,18 @@ func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
 
 func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
 	es := &errStreamer{err: errors.New("invalid API key")}
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:              "test",
-		Streamer:           es,
-		MaxToolRounds:      3,
-		AutoRetryMax:       3,
-		AutoRetryBaseDelay: time.Millisecond,
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		tools.NewRegistry(),
+		Config{
+			Model:              "test",
+			Streamer:           es,
+			MaxToolRounds:      3,
+			AutoRetryMax:       3,
+			AutoRetryBaseDelay: time.Millisecond,
+		})
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
 	if err == nil {
@@ -1857,16 +1900,21 @@ func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
 		return ""
 	}
 
-	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:              "test-gguf",
-		Backend:            llm.BackendGGUF,
-		BaseURL:            "http://127.0.0.1:1111", // stale/dead port
-		Streamer:           ts,
-		MaxToolRounds:      3,
-		AutoRetryMax:       3,
-		AutoRetryBaseDelay: time.Millisecond,
-		ModelService:       svc,
-	})
+	loop := New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		newTestWorkflowForSession(),
+		tools.NewRegistry(),
+		Config{
+			Model:              "test-gguf",
+			Backend:            llm.BackendGGUF,
+			BaseURL:            "http://127.0.0.1:1111", // stale/dead port
+			Streamer:           ts,
+			MaxToolRounds:      3,
+			AutoRetryMax:       3,
+			AutoRetryBaseDelay: time.Millisecond,
+			ModelService:       svc,
+		})
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "hello", &buf)
@@ -2447,7 +2495,8 @@ func TestRunStreaming_SalvagesAnthropicInvoke(t *testing.T) {
 	})
 	ms := &mockStreamer{responses: []mockStreamResponse{
 		{
-			content:   "Probing.\n<function_calls>\n<invoke name=\"probe\">\n<parameter name=\"target\">host-1</parameter>\n</invoke>\n</function_calls>",
+			content: "Probing.\n<function_calls>\n<invoke name=\"probe\">\n" +
+				"<parameter name=\"target\">host-1</parameter>\n</invoke>\n</function_calls>",
 			toolCalls: nil,
 		},
 		{content: "probe returned ok", toolCalls: nil},
@@ -3098,7 +3147,11 @@ func TestLooksLikeUnbackedClaim(t *testing.T) {
 	} {
 		assert.Truef(t, looksLikeUnbackedClaim(s), "%q", s)
 	}
-	for _, s := range []string{"What would you like me to create?", "The add function subtracts instead of adding.", "Use git status to check."} {
+	for _, s := range []string{
+		"What would you like me to create?",
+		"The add function subtracts instead of adding.",
+		"Use git status to check.",
+	} {
 		assert.Falsef(t, looksLikeUnbackedClaim(s), "%q", s)
 	}
 }

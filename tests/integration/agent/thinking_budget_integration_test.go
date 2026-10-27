@@ -45,7 +45,13 @@ func TestThinkingBudget_EventOverrideThroughTheAPI(t *testing.T) {
 		[]byte("name: thinking-budget-medium\nitems: 4321\nrun: cap\n"), 0o600))
 	agent.ReloadAssets()
 
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })

@@ -55,7 +55,13 @@ func (m *MockUVManager) GetPythonPath(_ string) (string, error) {
 // ErrorEnsureVenvManager returns an error from EnsureVenv.
 type ErrorEnsureVenvManager struct{}
 
-func (m *ErrorEnsureVenvManager) EnsureVenv(_ context.Context, _ string, _ []string, _ string, _ string) (string, error) {
+func (m *ErrorEnsureVenvManager) EnsureVenv(
+	_ context.Context,
+	_ string,
+	_ []string,
+	_ string,
+	_ string,
+) (string, error) {
 	return "", errors.New("venv creation failed")
 }
 
@@ -66,7 +72,13 @@ func (m *ErrorEnsureVenvManager) GetPythonPath(_ string) (string, error) {
 // ErrorGetPythonPathManager returns an error from GetPythonPath.
 type ErrorGetPythonPathManager struct{}
 
-func (m *ErrorGetPythonPathManager) EnsureVenv(_ context.Context, _ string, _ []string, _ string, _ string) (string, error) {
+func (m *ErrorGetPythonPathManager) EnsureVenv(
+	_ context.Context,
+	_ string,
+	_ []string,
+	_ string,
+	_ string,
+) (string, error) {
 	return "/mock/venv", nil
 }
 
@@ -99,7 +111,10 @@ func TestExecutor_Execute_InlineScript(t *testing.T) {
 
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -129,7 +144,10 @@ func TestExecutor_Execute_ErrorCase(t *testing.T) {
 
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -166,7 +184,10 @@ func TestExecutor_Execute_ScriptFile_Absolute(t *testing.T) {
 
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Create a temporary script file
@@ -195,7 +216,10 @@ func TestExecutor_Execute_ScriptFile_Absolute(t *testing.T) {
 func TestExecutor_Execute_ScriptFile(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Create a temporary Python script file
@@ -224,7 +248,10 @@ func TestExecutor_Execute_ScriptFile(t *testing.T) {
 func TestExecutor_Execute_ScriptFile_RelativePath(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set FSRoot for relative path resolution
@@ -256,7 +283,10 @@ func TestExecutor_Execute_ScriptFile_RelativePath(t *testing.T) {
 func TestExecutor_Execute_WithArgs(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -284,7 +314,10 @@ func TestExecutor_Execute_WithArgs(t *testing.T) {
 func TestExecutor_Execute_WithTimeout(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -302,7 +335,10 @@ func TestExecutor_Execute_WithTimeout(t *testing.T) {
 func TestExecutor_Execute_InvalidTimeout(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -331,7 +367,10 @@ func TestExecutor_Execute_NoScriptSpecified(t *testing.T) {
 	// Mock uv to succeed so we can test script validation
 	// For now, just test that the method exists and can be called
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -346,7 +385,10 @@ func TestExecutor_Execute_NoScriptSpecified(t *testing.T) {
 func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add test data to context
@@ -375,7 +417,10 @@ func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 func TestExecutor_Execute_WithRequestContext(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set up request context
@@ -409,7 +454,10 @@ func TestExecutor_Execute_WithRequestContext(t *testing.T) {
 func TestExecutor_Execute_DefaultPythonVersion(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Workflow with no Python version specified
@@ -436,7 +484,10 @@ func TestExecutor_Execute_DefaultPythonVersion(t *testing.T) {
 func TestExecutor_Execute_WithPackages(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set up workflow with Python packages
@@ -463,7 +514,10 @@ func TestExecutor_Execute_WithPackages(t *testing.T) {
 func TestExecutor_Execute_WithRequirementsFile(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Create a temporary requirements file
@@ -495,7 +549,10 @@ func TestExecutor_Execute_WithRequirementsFile(t *testing.T) {
 func TestExecutor_EvaluateExpression_SimpleString(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -508,7 +565,10 @@ func TestExecutor_EvaluateExpression_SimpleString(t *testing.T) {
 func TestExecutor_EvaluateExpression_WithContext(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add test data
@@ -524,7 +584,10 @@ func TestExecutor_EvaluateExpression_WithContext(t *testing.T) {
 func TestExecutor_EvaluateStringOrLiteral_Literal(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -537,7 +600,10 @@ func TestExecutor_EvaluateStringOrLiteral_Literal(t *testing.T) {
 func TestExecutor_EvaluateStringOrLiteral_Expression(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add test data
@@ -553,14 +619,20 @@ func TestExecutor_EvaluateStringOrLiteral_Expression(t *testing.T) {
 func TestExecutor_BuildEnvironmen_Basic(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	_ = pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	_ = ctx
 }
 func TestExecutor_BuildEnvironmen_WithRequest(t *testing.T) {
 	uvManager := python.NewManager(t.TempDir())
 	exec := pythonexecutor.NewExecutor(uvManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set up request context
@@ -1195,7 +1267,10 @@ func TestExecutor_GetPythonDependencies_WithRequirementsFile(t *testing.T) {
 func TestExecutor_ResolveConfig_VenvName_ExpressionError(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -1213,7 +1288,10 @@ func TestExecutor_ResolveConfig_VenvName_ExpressionError(t *testing.T) {
 func TestExecutor_ResolveConfig_TimeoutDuration_ExpressionError(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -1230,7 +1308,10 @@ func TestExecutor_ResolveConfig_TimeoutDuration_ExpressionError(t *testing.T) {
 func TestExecutor_ResolveConfig_Args_ExpressionError(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -1490,7 +1571,10 @@ func TestExecutor_NewExecCommand_CustomFunc(t *testing.T) {
 		return execpkg.Command(name, arg...)
 	})
 
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
@@ -1510,7 +1594,10 @@ func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
 		return execpkg.Command("sh", "-c", "echo 'this output is longer than three bytes'")
 	})
 
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	_, err = pyExec.Execute(ctx, &domain.PythonConfig{Script: "print('x')"})
 	require.Error(t, err)
@@ -1522,7 +1609,10 @@ func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
 func TestExecutor_ResolveConfig_VenvName_ExpressionSuccess(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Set up context so the expression can resolve
@@ -1546,7 +1636,10 @@ func TestExecutor_ResolveConfig_VenvName_ExpressionSuccess(t *testing.T) {
 func TestExecutor_EvaluateInterpolatedString_ParseError_UnevenBraces(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Script has both {{ and }} (enters interpolation branch) but
@@ -1567,7 +1660,10 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 		return execpkg.Command("echo", "hi")
 	})
 
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	result, err := pyExec.Execute(ctx, &domain.PythonConfig{Script: "print('hi')"})
 	require.NoError(t, err)

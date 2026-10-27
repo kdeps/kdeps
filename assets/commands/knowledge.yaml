@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.0.1
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -22,6 +22,7 @@ subcommands:
           knowledge vault is {{if eq .value "on"}}on{{else}}off - `/knowledge on` to enable{{end}}
             vault: {{.vault}}
             graph: {{.graph}}
+            {{if .pending}}{{.pending}} notes waiting for extraction (`/knowledge extract` or `kdeps knowledge build --extract`){{end}}
   state:
     setting:
       key: knowledge

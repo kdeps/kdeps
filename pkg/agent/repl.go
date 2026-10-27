@@ -1621,10 +1621,11 @@ func (r *REPL) Run() error {
 	// and reviews the answer. /judges off persists via applyToolTuning below.
 	// A settings file that never set auto_judges stays on.
 	r.loop.config.AutoJudges = true
-	// Pre-turn prompt refinement is ON by default: one cheap synthetic call
-	// rewrites a terse prompt so the turn lands better. Disable with
-	// /refine off; the choice persists via applyToolTuning below.
-	r.loop.config.PromptRefine = true
+	// Pre-turn prompt refinement is off by default. /refine on turns it on
+	// and the choice persists via applyToolTuning below. A settings file
+	// that already stored refine-on (RefineConfigured, RefineOff false)
+	// stays on.
+	r.loop.config.PromptRefine = false
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}

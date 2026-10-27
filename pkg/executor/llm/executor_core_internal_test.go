@@ -370,7 +370,10 @@ func TestExecute_NilWorkflow_NoTools(t *testing.T) {
 
 func TestExecutor_Execute_ResolveConfigError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, err = e.Execute(ctx, &domain.ChatConfig{
 		Model:  "m",
@@ -382,7 +385,10 @@ func TestExecutor_Execute_ResolveConfigError(t *testing.T) {
 
 func TestExecutor_Execute_UnknownBackend(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, err = e.Execute(ctx, &domain.ChatConfig{
 		Model:   "m",
@@ -394,7 +400,10 @@ func TestExecutor_Execute_UnknownBackend(t *testing.T) {
 
 func TestEvaluateStringOrLiteral_LiteralType(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	got, err := e.evaluateStringOrLiteral(expression.NewEvaluator(ctx.API), ctx, "/absolute/path/file.txt")
 	require.NoError(t, err)
@@ -403,7 +412,10 @@ func TestEvaluateStringOrLiteral_LiteralType(t *testing.T) {
 
 func TestExecuteTool_MCPPath(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, err = e.executeTool(domain.Tool{
 		Name: "mcp_tool",
@@ -419,7 +431,10 @@ func TestResolveModelForExecution_EnsureModelIgnored(t *testing.T) {
 	mgr := NewModelManagerFromServiceInterface(mock)
 	e := NewExecutor("")
 	e.SetModelManager(mgr)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, _, _, err = e.resolveModelForExecution(expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{
 		Model:  "m",
@@ -438,7 +453,10 @@ func TestExecutor_Execute_SuccessPath(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	e := NewExecutor(srv.URL)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	out, err := e.Execute(ctx, &domain.ChatConfig{
 		Model:   "m",
@@ -451,7 +469,10 @@ func TestExecutor_Execute_SuccessPath(t *testing.T) {
 
 func TestExecutor_Execute_BuildMessagesError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, err = e.Execute(ctx, &domain.ChatConfig{
 		Model:  "m",
@@ -485,7 +506,10 @@ func TestExecutor_Execute_HandleToolCallsReturnError(t *testing.T) {
 
 	e := NewExecutor(srv.URL)
 	e.SetToolExecutor(&failingToolExecutor{})
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, err = e.Execute(ctx, &domain.ChatConfig{
 		Model:   "m",
@@ -504,7 +528,10 @@ func TestExecutor_Execute_HandleToolCallsReturnError(t *testing.T) {
 
 func TestResolveModelForExecution_PromptError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, _, _, err = e.resolveModelForExecution(expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{
 		Model:  "m",
@@ -522,7 +549,10 @@ func TestResolveModelForExecution_EnsureModelErrorBranch(t *testing.T) {
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
 	e := NewExecutor("")
 	e.SetModelManager(mgr)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	_, _, _, err = e.resolveModelForExecution(expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{
 		Model:  "m",
@@ -538,7 +568,10 @@ func TestExecuteTool_MCPSuccess(t *testing.T) {
 		return `{"ok":true}`, nil
 	}
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	out, err := e.executeTool(domain.Tool{Name: "mcp", MCP: &domain.MCPConfig{Server: "mock"}}, `{}`, ctx)
 	require.NoError(t, err)
@@ -552,7 +585,10 @@ func TestExecuteTool_StoreToolArgumentsError(t *testing.T) {
 		return errors.New("store fail")
 	}
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	ctx.Resources["res"] = &domain.Resource{ActionID: "res"}
 	e.toolExecutor = &failingToolExecutor{}
@@ -572,7 +608,10 @@ func TestStoreToolArguments_UnprefixedSetError(t *testing.T) {
 		return ctx.Set(key, value, storage)
 	}
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	err = e.storeToolArguments(domain.Tool{Name: "t"}, map[string]interface{}{"k": "v"}, ctx)
 	require.Error(t, err)
@@ -580,7 +619,10 @@ func TestStoreToolArguments_UnprefixedSetError(t *testing.T) {
 
 func TestExecutor_Execute_ResolveAndBuildErrors(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, _, _, err = e.resolveModelForExecution(nil, ctx, &domain.ChatConfig{Model: "{{ x }}", Prompt: "p"})
@@ -589,7 +631,10 @@ func TestExecutor_Execute_ResolveAndBuildErrors(t *testing.T) {
 
 func TestResolveModelForExecution_RouterMissing(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	t.Setenv("KDEPS_LLM_ROUTER", "")
 
@@ -602,7 +647,10 @@ func TestResolveModelForExecution_RouterMissing(t *testing.T) {
 
 func TestResolveModelForExecution_ExplicitModelNeverOverridden(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	t.Setenv("KDEPS_LLM_MODELS", "allowed-only")
 
@@ -621,7 +669,10 @@ func TestResolveModelForExecution_EnsureModelErrorIgnored(t *testing.T) {
 
 	e := NewExecutor("")
 	e.SetModelManager(mgr)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, _, _, err = e.resolveModelForExecution(expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{
@@ -649,7 +700,10 @@ func TestFormatExecuteResult_JSONParseHardFail(t *testing.T) {
 
 func TestBuildMessages_ContentError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, err = e.buildMessages(expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{
@@ -660,7 +714,10 @@ func TestBuildMessages_ContentError(t *testing.T) {
 
 func TestBuildContent_ImageReadError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, err = e.buildContent("hi", []string{"/nonexistent/image.png"}, ctx, expression.NewEvaluator(ctx.API))
@@ -669,7 +726,10 @@ func TestBuildContent_ImageReadError(t *testing.T) {
 
 func TestEvaluateStringOrLiteral_Error(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 
 	_, err = e.evaluateStringOrLiteral(nil, ctx, "{{ x }}")
@@ -679,7 +739,10 @@ func TestEvaluateStringOrLiteral_Error(t *testing.T) {
 func TestExecuteTool_ResourceExecutorError(t *testing.T) {
 	e := NewExecutor("")
 	e.toolExecutor = &failingToolExecutor{}
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	ctx.Resources["res"] = &domain.Resource{ActionID: "res"}
 
@@ -689,7 +752,10 @@ func TestExecuteTool_ResourceExecutorError(t *testing.T) {
 
 func TestStoreToolArguments_SetError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	err = e.storeToolArguments(domain.Tool{Name: "t"}, map[string]interface{}{"k": make(chan int)}, ctx)
 	require.Error(t, err)
@@ -739,7 +805,10 @@ func TestApplyLLMRouter_NoEnvVar(t *testing.T) {
 
 func TestExecuteTool_ExecuteFunc(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	tool := domain.Tool{
@@ -756,7 +825,10 @@ func TestExecuteTool_ExecuteFunc(t *testing.T) {
 
 func TestExecuteTool_KdepsResourcePath(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Resources = map[string]*domain.Resource{
@@ -777,7 +849,10 @@ func TestExecuteTool_KdepsResourcePath(t *testing.T) {
 
 func TestExecuteTool_NoToolExecutor(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Resources = map[string]*domain.Resource{
@@ -839,7 +914,10 @@ func TestExecutor_Execute_HandleToolCalls_Loop(t *testing.T) {
 	executorLLM := NewExecutor(server.URL)
 	executorLLM.SetToolExecutor(&simpleMockToolExecutor{})
 
-	ctx, innerErr := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, innerErr := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, innerErr)
 
 	config := &domain.ChatConfig{
@@ -901,7 +979,10 @@ func runToolLoop(t *testing.T, server *httptest.Server) map[string]interface{} {
 	t.Helper()
 	executorLLM := NewExecutor(server.URL)
 	executorLLM.SetToolExecutor(&simpleMockToolExecutor{})
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	result, err := executorLLM.Execute(ctx, &domain.ChatConfig{
 		Model: "llama3.2:1b", Backend: "ollama", Prompt: "Use the tool", BaseURL: server.URL,
@@ -946,7 +1027,10 @@ func TestExecutor_Execute_HandleToolCalls_MaxIterationsEndsWithAnswer(t *testing
 
 func TestExecuteToolCalls_WithExecuteFunc(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	toolCalls := []map[string]interface{}{
@@ -1073,7 +1157,10 @@ func TestEvaluateStringOrLiteral_EvaluateError(t *testing.T) {
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	// Construct a minimal context so buildEnvironment succeeds.
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// A valid expression syntax that fails at compile/evaluation time
@@ -1085,7 +1172,10 @@ func TestEvaluateStringOrLiteral_EvaluateError(t *testing.T) {
 func TestExecuteTool_ParseError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	tool := domain.Tool{Name: "my_tool"}
@@ -1098,7 +1188,10 @@ func TestExecuteTool_ParseError(t *testing.T) {
 func TestExecuteTool_ExecuteFuncError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	tool := domain.Tool{
@@ -1116,7 +1209,10 @@ func TestExecuteTool_ExecuteFuncError(t *testing.T) {
 func TestExecuteTool_ResourceLookupFailure(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Tool with a script that doesn't exist in ctx.Resources (line 1364-1366)
@@ -1132,7 +1228,10 @@ func TestExecuteTool_ResourceLookupFailure(t *testing.T) {
 
 func TestExecuteTool_ExecuteResourceError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	ctx.Resources = map[string]*domain.Resource{
@@ -1155,7 +1254,10 @@ func TestBuildContent_FileExpressionError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// A file path that contains expression syntax that fails evaluation (line 700-701)
@@ -1168,7 +1270,10 @@ func TestBuildMessages_ScenarioPromptError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -1191,7 +1296,10 @@ func TestBuildMessages_ScenarioRoleError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -1214,7 +1322,10 @@ func TestBuildMessages_ScenarioNameError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -1238,7 +1349,10 @@ func TestBuildMessages_ScenarioWithName(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -1268,7 +1382,10 @@ func TestBuildMessages_ScenarioWithName(t *testing.T) {
 func TestStoreToolArguments_CtxSetError(t *testing.T) {
 	t.Parallel()
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Create a value that cannot be marshaled to JSON (e.g., a channel)
@@ -1373,7 +1490,10 @@ func TestParseJSONResponse_MissingContent(t *testing.T) {
 // but the MCP server binary does not exist -> error return.
 func TestExecuteTool_MCPError(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	tool := domain.Tool{

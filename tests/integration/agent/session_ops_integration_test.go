@@ -37,7 +37,13 @@ import (
 // /clear and /history are YAML commands whose steps call the session_ops
 // kdeps API tool; the same tool answers a direct call once the REPL is up.
 func TestSessionOps_CommandsAndToolThroughTheAPI(t *testing.T) {
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -69,7 +75,13 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 	require.NoError(t, warm.Run())
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -85,7 +97,13 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 // Settings are session state on the kdeps API: session_ops set stores a value
 // the setting's command asset lists, and get reads it back.
 func TestSessionOps_SettingsThroughTheAPI(t *testing.T) {
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })

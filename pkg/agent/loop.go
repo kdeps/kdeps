@@ -234,11 +234,15 @@ type Config struct {
 	// CodeLimit caps search_local calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
-	// PromptRefine runs a cheap pre-turn LLM call that rewrites the user's
-	// prompt into a clearer, self-contained version before the real turn.
-	// On by default in the REPL; /refine off disables it. Persisted via
-	// ToolTuning.
+	// PromptRefine runs a pre-turn LLM call that rewrites the user's prompt
+	// into a clearer, self-contained version before the real turn.
+	// Off by default in the REPL; /refine on enables it. Persisted via
+	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
+	// OutputTokenCap, when positive, is max_tokens for this loop's model
+	// calls. Side loops set it from the side-call-max-tokens event. Zero
+	// uses the model output ceiling.
+	OutputTokenCap int
 	// HandshakeEnabled turns on the mandatory session-integrity handshake
 	// (see handshake.go): a forced challenge/response tool call on model
 	// change, session resume, and post-compaction/fold, verifying the
@@ -509,6 +513,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 			}
 		}
 		l.registerKnowledgeTools()
+		l.knowledge.beforeBuild = func() { l.extractBackground() }
 		l.knowledge.buildAsync()
 	}
 
@@ -3267,13 +3272,12 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
 	}
 
-	// Tool guidance (toolUseGuidance) and the tool catalog (ToolPrompt) are also
-	// built separately and kept out of turoReduce, for the same reason as the
-	// memory rules: they are the model's only source of exact tool names,
-	// parameter names, and calling conventions (kdeps has no native
-	// function-calling schema — this text block IS the tool interface), so
-	// lexical rewriting here can silently break tool calls. Always included
-	// when tools exist, even in small-context mode below.
+	// Tool guidance, and on backends with no native tool channel a short
+	// name/description/parameter catalog, stay out of turoReduce. Exact tool
+	// names must survive byte-for-byte. Cloud backends receive native schemas
+	// via ToLLMTools and omit the text catalog. The m365 proxy renders its
+	// own list from those schemas. Always included when tools exist, even in
+	// small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		// The "internals" harness section states the web-tool convergence
@@ -3281,8 +3285,8 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		// not a hardcoded number that would silently go stale the next time
 		// that limit changes.
 		toolParts = append(toolParts, harness)
-		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
-			toolParts = append(toolParts, toolPrompt)
+		if catalog := l.preambleToolCatalog(); catalog != "" {
+			toolParts = append(toolParts, catalog)
 		}
 		// M365 Copilot's "run code" / "Coding and executing" habit is the most
 		// aggressive -- confirmed live: a model fabricated a bash -lc action
@@ -3559,7 +3563,7 @@ func (l *Loop) buildChatConfig(
 		Thinking: l.config.Thinking,
 	}
 
-	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
+	chatCfg.MaxTokens = l.callMaxTokens()
 
 	// Inject conversation history as the messages field. When turo is active,
 	// route each message's content through it (cached, so only new messages
@@ -3588,23 +3592,20 @@ func (l *Loop) buildChatConfig(
 		recordContextSegmentTokens("system prompt", l.cachedSystemPromptSegmentTokens)
 	}
 
-	// After the first turn, re-state the fenced-tools rule in one line and
-	// send the live tool list again. The full guidance and the catalog are
-	// in the cached preamble; the list is repeated here because that is the
-	// message the model is reading when it writes an <invoke> block. A model
-	// that has already hallucinated a sandbox session this session gets the
-	// full block resent instead -- the one-liner was evidently not enough
-	// reinforcement for it.
+	// After the first turn, restate the fenced-tools rule. The one-line
+	// reminder is enough when the model is already calling tools. A model
+	// that has drifted into a simulated sandbox gets the full use-kdeps-tools
+	// block instead. The tool list is not repeated here: it is in the
+	// preamble on a local backend, or in the native schema on a cloud backend.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
 		reminder := harnessText("tools-reminder")
 		if l.sandboxStrikes > 0 {
 			reminder = harnessText("use-kdeps-tools")
 		}
-		if catalog := l.registry.ToolPrompt(); catalog != "" {
-			reminder += "\n\n" + catalog
+		if reminder != "" {
+			chatCfg.Scenario = append(chatCfg.Scenario,
+				domain.ScenarioItem{Role: "system", Prompt: reminder})
 		}
-		chatCfg.Scenario = append(chatCfg.Scenario,
-			domain.ScenarioItem{Role: "system", Prompt: reminder})
 	}
 
 	// Any harness section forced on via "/harness reminders <name> on" goes
@@ -3653,9 +3654,40 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 	})
 }
 
-// syntheticCallMaxTokens returns an explicit output-token cap for a
-// standalone, tool-free LLM call (compaction, judging, refine, branch
-// summaries) so it never falls back to whatever implicit
+// preambleToolCatalog is the short text tool list for backends with no
+// native tool channel. Cloud backends and the m365 proxy omit it.
+func (l *Loop) preambleToolCatalog() string {
+	if l == nil || l.registry == nil || !needsTextToolCatalog(l.config.Backend) {
+		return ""
+	}
+	return l.registry.ToolPromptCompact()
+}
+
+// needsTextToolCatalog reports whether the system preamble should include
+// the short text tool list. Local and unset backends have no reliable native
+// tool channel. Cloud backends receive native schemas and omit the list.
+func needsTextToolCatalog(backend string) bool {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
+	case "", executorLLM.BackendFile, executorLLM.BackendGGUF, modelTypeOllama, "local", modelTypeLLamafile:
+		return true
+	default:
+		return false
+	}
+}
+
+// callMaxTokens is max_tokens for this loop's model calls. A positive
+// OutputTokenCap wins. Zero uses the model output ceiling.
+func (l *Loop) callMaxTokens() *int {
+	if l.config.OutputTokenCap > 0 {
+		n := l.config.OutputTokenCap
+		return &n
+	}
+	return syntheticCallMaxTokens(l.config.Backend, l.config.Model)
+}
+
+// syntheticCallMaxTokens returns the model output ceiling for the main turn
+// (when OutputTokenCap is zero), compaction, branch summaries, plan, confirm,
+// and handshake, so a call never falls back to whatever implicit
 // default the backend/provider applies -- confirmed on two fronts: a local
 // llama-server applies a smaller output cap than the model's real ceiling
 // unless told otherwise, and M365 Copilot's proxy has an undocumented
@@ -4049,8 +4081,10 @@ func (l *Loop) Skills() string {
 	return l.skills
 }
 
-// ToolCatalog returns the registered tools as the same grouped, human-readable
-// block that goes into the system preamble (empty if no tools are registered).
+// ToolCatalog returns the full grouped catalog (name, constraints, invoke
+// skeleton). Instruct and explicit catalog requests use this. The system
+// preamble uses the short list, and only on backends without a native tool
+// channel.
 func (l *Loop) ToolCatalog() string {
 	if l == nil || l.registry == nil {
 		return ""

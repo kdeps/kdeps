@@ -73,7 +73,7 @@ func TestSetupEnvironmentStep_WithPackages(t *testing.T) {
 		},
 	}
 	// May succeed or fail depending on uv availability; we only need branch coverage.
-	_ = setupEnvironmentStep(context.Background(), wf)
+	_ = setupEnvironmentStep(t.Context(), wf)
 }
 
 func TestSetupEnvironmentStep_Error(t *testing.T) {

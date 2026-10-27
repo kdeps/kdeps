@@ -67,7 +67,11 @@ func TestComponentToolDefs_WithInputs(t *testing.T) {
 			},
 		},
 	}
-	res := tools.ComponentToolDefs([]*domain.Component{comp}, &domain.Workflow{}, executor.NewEngine(context.Background(), nil))
+	res := tools.ComponentToolDefs(
+		[]*domain.Component{comp},
+		&domain.Workflow{},
+		executor.NewEngine(context.Background(), nil),
+	)
 	if len(res) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(res))
 	}

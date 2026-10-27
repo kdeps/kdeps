@@ -80,7 +80,13 @@ func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 	require.NoError(t, agent.SetEfficiencyEnabled(false))
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), wf, reg, agent.Config{Model: "test", Streamer: ms, MaxToolRounds: 10})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		wf,
+		reg,
+		agent.Config{Model: "test", Streamer: ms, MaxToolRounds: 10},
+	)
 
 	var buf bytes.Buffer
 	got, err := loop.RunStreaming(context.Background(), "create notes.md", &buf)

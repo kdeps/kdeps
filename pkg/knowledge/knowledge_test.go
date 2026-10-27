@@ -214,6 +214,20 @@ func TestCheck(t *testing.T) {
 	assert.NotContains(t, joined, "inbox/quick.md")
 	assert.NotContains(t, joined, "top.md")
 
+	root2 := writeVault(t, map[string]string{
+		"shared/Alpha.md": "---\nsummary: First wording.\ncanonical: ship-monthly\n---\n",
+		"shared/Beta.md":  "---\nsummary: Second wording.\nfact_id: ship-monthly\n---\n",
+	})
+	findings, err = Check(Vault{Root: root2})
+	require.NoError(t, err)
+	problems := make([]string, 0, len(findings))
+	for _, f := range findings {
+		problems = append(problems, f.Problem)
+	}
+	joined = strings.Join(problems, "\n")
+	assert.Contains(t, joined, "claims canonical id ship-monthly")
+	assert.Contains(t, joined, "Beta.md")
+
 	_, err = Check(Vault{Root: filepath.Join(root, "missing")})
 	require.Error(t, err)
 }

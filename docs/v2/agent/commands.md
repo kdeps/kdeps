@@ -45,7 +45,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/turo <stage> on\|off` | Toggle a pipeline stage: `filler`, `synonyms`, `gloss`, `defmatch`, `arrows` |
 | `/auto-improve` | In the kdeps repo, start an instrumented session, run the fixed task list, then read the event log and fix product bugs before the next task |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
-| `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
+| `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; off by default, persists across sessions. A session that already stored refine-on stays on |
 | `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
 | `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |
 | `/efficiency verbose on\|off` | Reveal the hidden model-facing channel for debugging; off by default, persists |
@@ -381,7 +381,7 @@ version: 2.0.0
 name: refine
 usage:
   - args: "[on|off]"
-    help: Show or toggle pre-turn prompt refinement (on by default)
+    help: Show or toggle pre-turn prompt refinement (off by default)
 setting:
   key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge or context
   values: [on, off]  # accepted arguments, matched without case

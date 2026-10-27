@@ -53,7 +53,10 @@ func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 func TestAdapter_Execute_Success(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	a := NewAdapter(t.Context(), "")
-	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := executor.NewExecutionContext(
+		t.Context(),
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}},
+	)
 	require.NoError(t, err)
 	cfg, err := executor.AdaptConfig[domain.ChatConfig](&domain.ChatConfig{Model: "m", Prompt: "p"}, "LLM")
 	require.NoError(t, err)

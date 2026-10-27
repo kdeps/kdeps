@@ -494,15 +494,21 @@ func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	assert.EqualValues(t, -1, r2.loop.config.ToolStallTimeout)
 }
 
-// Prompt refinement is ON by default; a pre-feature snapshot leaves it alone,
-// an explicit "/refine off" is restored.
-func TestToolTuning_RefineOnByDefault(t *testing.T) {
+// An old snapshot that never set RefineConfigured leaves PromptRefine
+// alone. A persisted /refine off or on is restored.
+func TestToolTuning_RefineLeavesUnconfiguredSnapshotAlone(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{PromptRefine: true}}}
 
-	// A snapshot from before RefineConfigured existed must not disable refine.
+	// A snapshot from before RefineConfigured existed must not change refine.
 	r.applyToolTuning(ToolTuning{ToolsConfigured: true})
 	if !r.loop.PromptRefineEnabled() {
-		t.Fatal("a pre-RefineConfigured snapshot must not disable refinement")
+		t.Fatal("a pre-RefineConfigured snapshot must leave refinement as it was")
+	}
+
+	off := &REPL{loop: &Loop{config: Config{PromptRefine: false}}}
+	off.applyToolTuning(ToolTuning{ToolsConfigured: true})
+	if off.loop.PromptRefineEnabled() {
+		t.Fatal("a pre-RefineConfigured snapshot must not turn refinement on")
 	}
 
 	// A persisted "/refine off" is restored.
