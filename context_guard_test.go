@@ -27,7 +27,7 @@ func TestProductionContextHasSingleRoot(t *testing.T) {
 		}
 		if entry.IsDir() {
 			switch rel {
-			case ".git", "private", "vendor", filepath.FromSlash("kdeps-io/node_modules"):
+			case ".git", "private", "vendor", "go-test-tmp", filepath.FromSlash("kdeps-io/node_modules"):
 				return filepath.SkipDir
 			}
 			return nil

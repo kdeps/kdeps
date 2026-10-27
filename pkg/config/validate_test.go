@@ -615,6 +615,8 @@ func TestValidateUnknownKeys_Knowledge(t *testing.T) {
 }
 
 func TestValidate_KnowledgeRecallHops(t *testing.T) {
+	// Validate returns nothing when no config file exists. CI has none.
+	writeTempConfig(t, t.TempDir(), "knowledge:\n  recall:\n    hops: 3\n")
 	cfg := &Config{Knowledge: &KnowledgeConfig{
 		Recall: KnowledgeRecallConfig{Hops: 3},
 	}}
