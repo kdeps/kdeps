@@ -385,6 +385,9 @@ type Loop struct {
 	// lastReasoning holds the reasoning_content from the most recent LLM call
 	// until it is attached to that turn's assistant message.
 	lastReasoning string
+	// freePace counts OpenRouter free-model calls so requests stay under the
+	// account per-minute cap.
+	freePace freeModelPace
 	// lastSentMessages holds the exact messages array included in the most
 	// recent outgoing LLM request, after any backend-specific transformation
 	// (e.g. folding system-role messages for chat templates that reject
@@ -1229,9 +1232,12 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 // streamChatWithRetry calls the streamer, retrying transient API errors
 // (connection resets, overloads, 5xx) with exponential backoff. Retrying at
-// the round level preserves the tool rounds already completed this turn — a
+// the round level preserves the tool rounds already completed this turn - a
 // dropped stream at round 30 must not discard the accumulated conversation.
 // Context overflow errors pass through immediately for compactAndRetry.
+// An OpenRouter free model waits so requests stay under the account
+// per-minute cap. A provider 429 moves to the next free id. An account 429
+// waits out the minute and retries the same id. The turn continues.
 func (l *Loop) streamChatWithRetry(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -1239,15 +1245,20 @@ func (l *Loop) streamChatWithRetry(
 ) (string, []domain.StreamedToolCall, error) {
 	// AutoRetryMax <= 0 is a config landmine, not "never call the LLM": it can
 	// reach here from a persisted settings snapshot saved before
-	// applyConfigDefaults ever ran (see applyToolTuning). `range 0` would skip
-	// the loop body entirely and return a silent empty success, so always try
-	// at least once regardless of the configured value.
+	// applyConfigDefaults ever ran (see applyToolTuning). A zero count would
+	// skip the loop body entirely and return a silent empty success, so always
+	// try at least once regardless of the configured value.
 	attempts := l.config.AutoRetryMax
 	if attempts < 1 {
 		attempts = 1
 	}
 	var lastErr error
-	for attempt := range attempts {
+	rateLimited := map[string]struct{}{}
+	accountWaited := false
+	for attempt := 0; attempt < attempts; {
+		if err := l.pauseFreeModel(ctx, chatCfg.Model); err != nil {
+			return "", nil, err
+		}
 		buf.Reset() // discard partial output from a failed attempt
 		recordModelRequest(chatCfg, attempt)
 		started := time.Now()
@@ -1255,6 +1266,13 @@ func (l *Loop) streamChatWithRetry(
 		recordModelResponse(chatCfg, content, toolCalls, err, time.Since(started))
 		if err == nil {
 			return content, toolCalls, nil
+		}
+		again, stop := l.onFreeModelLimit(ctx, chatCfg, err, rateLimited, &accountWaited)
+		if stop != nil {
+			return "", nil, stop
+		}
+		if again {
+			continue
 		}
 		if !isTransientError(err) || IsContextOverflowError(err) {
 			return "", nil, err
@@ -1265,6 +1283,7 @@ func (l *Loop) streamChatWithRetry(
 		}
 		l.reconnectLocalModel(ctx, chatCfg)
 		delay := l.config.AutoRetryBaseDelay * (1 << attempt)
+		attempt++
 		select {
 		case <-ctx.Done():
 			return "", nil, ctx.Err()

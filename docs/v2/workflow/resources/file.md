@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-`python3` (or `python`) on `PATH`. The operations are the `file_ops` tool, a `python:` block in `tools/file_ops.yaml` served by the kdeps API in the kdeps process; the component makes one call and returns the result. `path` and `source` are checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard first.
+`python3` (or `python`) on `PATH`. The operations are the `file_ops` tool, a `python:` block in `tools/file_ops.yaml` served by the kdeps API in the kdeps process; the component makes one call and returns the result. `path` and `source` are checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard first. Paths under `~/.kdeps` and `/tmp` are allowed.
 
 ## Basic usage
 

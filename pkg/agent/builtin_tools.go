@@ -669,17 +669,18 @@ func isBinaryContent(data []byte) bool {
 }
 
 // validateWorkspaceBoundary checks that path stays within KDEPS_WORKSPACE_ROOT when set.
-// Returns nil when no workspace root is configured (opt-in enforcement). This
-// is a hard, non-interactive check used as defense-in-depth wherever a tool's
-// Execute runs without dispatch context (workflow mode, direct calls, tests);
-// see checkPathBoundary (loop.go) for the interactive, cwd-defaulted version
-// used on the real streaming dispatch path.
+// Returns nil when no workspace root is configured (opt-in enforcement), and
+// when the path is inside ~/.kdeps or /tmp (the process temp directory on
+// Windows). This is a hard, non-interactive check used as defense-in-depth
+// wherever a tool's Execute runs without dispatch context (workflow mode,
+// direct calls, tests); see checkPathBoundary for the interactive,
+// cwd-defaulted version used on the real streaming dispatch path.
 func validateWorkspaceBoundary(path string) error {
 	root := os.Getenv("KDEPS_WORKSPACE_ROOT")
 	if root == "" {
 		return nil
 	}
-	if api.PathWithinRoot(path, root) {
+	if api.PathWithinRoot(path, root) || api.PathAutoApproved(path) {
 		return nil
 	}
 	return fmt.Errorf("path %s escapes workspace root %s", path, root)

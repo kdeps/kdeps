@@ -139,7 +139,7 @@ Run the binary. It opens on the last workspace you used, or your home folder on 
 
 ## Workspaces
 
-A workspace is a folder. Chat history and persistent memory are stored per folder, and the agent's file tools are confined to it - the same boundary `KDEPS_WORKSPACE_ROOT` sets for the terminal agent. Use the workspace button at the bottom of the sidebar to open another folder or pick one of the ten most recent. Switching starts a fresh chat and re-scopes history and memory; it is refused while a turn is running.
+A workspace is a folder. Chat history and persistent memory are stored per folder. File tools stay in that folder, and `~/.kdeps` and `/tmp` are always allowed. That is the same boundary `KDEPS_WORKSPACE_ROOT` sets for the terminal agent. Use the workspace button at the bottom of the sidebar to open another folder or pick one of the ten most recent. Switching starts a fresh chat and re-scopes history and memory; it is refused while a turn is running.
 
 Window state lives in `kdeps-desktop/state.json` under your OS config directory (`~/Library/Application Support`, `~/.config`, `%AppData%`).
 
@@ -151,7 +151,7 @@ Window state lives in `kdeps-desktop/state.json` under your OS config directory 
 | All folders | The **This folder / All folders** switch under the search box. All folders lists the chats of every workspace (terminal `kdeps` chats included), grouped by folder, newest first. Opening a chat from another folder switches the workspace to that folder. Search covers chat names, messages and folder names. The choice is remembered. |
 | Search | The sidebar search box matches the chat name, first prompt and every message (case-insensitive) and shows the matching snippet. |
 | Streaming | Tokens render as they arrive. Narration lines ("Reading config.yaml...") and tool cards show each call, its arguments and result. |
-| Approvals | In the default `ask` permission mode a modal shows each tool call or out-of-workspace path. Choose allow once, allow always, or deny. |
+| Approvals | In the default `ask` permission mode a modal shows each tool call or out-of-workspace path. Paths under `~/.kdeps` and `/tmp` do not ask. Choose allow once, allow always, or deny. |
 | Files | Drag files or folders onto the window, or use the attach button. Dropping onto an empty composer sends them at once and the agent analyzes them: what each file is, what it contains, and what you can do with it. Type a message first (or attach with the button) to give your own instruction instead. Images, audio, video and PDFs go to the model as multimodal parts; UTF-8 text up to 64 KiB is inlined; everything else (DOCX, CSV, large logs, binaries, folders) is listed by path and size, and the model opens it with the right tool (`read_file`, `load_document`, `list_files`). |
 | Stop | The send button becomes stop while a turn runs; cancelling is not an error. |
 

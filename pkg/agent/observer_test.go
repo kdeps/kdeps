@@ -123,7 +123,7 @@ func TestApprover_ToolAsk_ReadOnlyNeverAsks(t *testing.T) {
 func TestApprover_PathBoundary(t *testing.T) {
 	freshApprovalRegistry(t)
 	chdirTo(t, t.TempDir())
-	outside := filepath.Join(t.TempDir(), "x.txt")
+	outside := filepath.Join(string(filepath.Separator), "kdeps-not-approved", "x.txt")
 
 	var seen []ApprovalRequest
 	choice := ApproveDeny
