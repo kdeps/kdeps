@@ -90,20 +90,20 @@ func TestValidateWorkspace_AutoApproved(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
 	t.Setenv(envWorkspaceRoot, root)
 
-	if err := validateWorkspace(filepath.Join(home, ".kdeps", "never-written.txt")); err != nil {
+	if err = validateWorkspace(filepath.Join(home, ".kdeps", "never-written.txt")); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateWorkspace(filepath.Join(home, ".kdeps")); err != nil {
+	if err = validateWorkspace(filepath.Join(home, ".kdeps")); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateWorkspace(filepath.Join(home, ".kdeps-other", "x")); err == nil {
+	if err = validateWorkspace(filepath.Join(home, ".kdeps-other", "x")); err == nil {
 		t.Fatal("a sibling of .kdeps must stay outside the workspace")
 	}
 	if runtime.GOOS == "windows" {
-		if err := validateWorkspace(filepath.Join(os.TempDir(), "kdeps-approval", "x")); err != nil {
+		if err = validateWorkspace(filepath.Join(os.TempDir(), "kdeps-approval", "x")); err != nil {
 			t.Fatal(err)
 		}
-	} else if err := validateWorkspace("/tmp/kdeps-approval/x"); err != nil {
+	} else if err = validateWorkspace("/tmp/kdeps-approval/x"); err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS != "windows" && validateWorkspace("/tmp-evil/x") == nil {
@@ -146,7 +146,7 @@ func TestPathAutoApproved(t *testing.T) {
 	}
 	link := filepath.Join("/tmp", "kdeps-approval-escape")
 	_ = os.Remove(link)
-	if err := os.Symlink("/etc/passwd", link); err != nil {
+	if err = os.Symlink("/etc/passwd", link); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Remove(link) })
