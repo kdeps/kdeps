@@ -3649,17 +3649,38 @@ func TestContextFromParams_ResolvesModelName(t *testing.T) {
 // --- cmdModelTool ---
 
 // captureStdout redirects os.Stdout for fn and returns what it printed.
+// The pipe is drained while fn runs. A Windows pipe holds a few KB and a
+// Linux pipe holds 64KB. /model list writes more than that, so reading only
+// after fn returns blocks the write until the test timeout.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+	var buf bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(&buf, r)
+		close(done)
+	}()
 	fn()
-	w.Close()
-	os.Stdout = origOut
-	data, _ := io.ReadAll(r)
-	r.Close()
-	return string(data)
+	_ = w.Close()
+	<-done
+	_ = r.Close()
+	return buf.String()
+}
+
+func TestCaptureStdout_LargeWriteDoesNotBlock(t *testing.T) {
+	line := strings.Repeat("m", 400)
+	out := captureStdout(t, func() {
+		for range 200 {
+			fmt.Fprintln(os.Stdout, line)
+		}
+	})
+	assert.Contains(t, out, line)
+	assert.Equal(t, 200, strings.Count(out, line))
 }
 
 func TestCmdModelTool_ListShowsSettings(t *testing.T) {

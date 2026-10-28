@@ -147,7 +147,7 @@ func PathAutoApproved(path string) bool {
 }
 
 func autoApprovedRoots() []string {
-	roots := make([]string, 0, 2)
+	roots := make([]string, 0)
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		dir := filepath.Join(home, ".kdeps")
 		if !isFilesystemRoot(filepath.Clean(dir)) {
