@@ -68,6 +68,26 @@ func knowledgeLoop(t *testing.T) (*Loop, string) {
 	return l, vault
 }
 
+func TestRecallChain_RepeatsRecallPath(t *testing.T) {
+	vault := t.TempDir()
+	k := &knowledgeState{vault: knowledge.Vault{Root: vault}}
+	note := "shared/Stripe gotcha.md"
+	k.last = knowledge.Recall{Hits: []knowledge.Hit{{
+		Note: note,
+		Path: []knowledge.PathStep{{
+			From:     "note:projects/app/decisions/Billing decision.md",
+			To:       "note:" + note,
+			Relation: knowledge.RelReferences,
+		}},
+	}}}
+	abs := filepath.Join(vault, filepath.FromSlash(note))
+	assert.Equal(t,
+		"projects/app/decisions/Billing decision.md --references--> shared/Stripe gotcha.md",
+		k.recallChain(abs))
+	assert.Empty(t, k.recallChain(filepath.Join(t.TempDir(), "other.md")))
+	assert.Empty(t, (*knowledgeState)(nil).recallChain(abs))
+}
+
 func TestNewKnowledgeState(t *testing.T) {
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
 	assert.Nil(t, newKnowledgeState(t.Context(), nil), "library and test loops have no vault")

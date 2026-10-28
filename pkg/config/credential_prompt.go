@@ -75,6 +75,18 @@ func APITokenSource(cfg *Config) CredentialSource {
 	return SourceMissing
 }
 
+// UnsetProviderKeyError reports that backend's API key is unset, naming the
+// env var from its provider file. It returns nil when backend is not a keyed
+// cloud provider. Callers use it so an OpenAI-compatible client does not
+// report OPENAI_API_KEY for a different provider.
+func UnsetProviderKeyError(backend string) error {
+	p, ok := providerByName(backend)
+	if !ok || p.envVar == "" {
+		return nil
+	}
+	return fmt.Errorf("missing the %s API key, set it in the %s environment variable", backend, p.envVar)
+}
+
 // HasLLMKey reports whether a cloud backend's API key is available, in either
 // config.yaml or the environment. Non-cloud backends need no key, so they
 // always report true.

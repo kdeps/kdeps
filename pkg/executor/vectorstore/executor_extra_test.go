@@ -479,6 +479,18 @@ func TestBuildEmbedder_Cybertron_NoModel(t *testing.T) {
 	}
 }
 
+func TestBuildEmbedder_OpenRouterRequiresItsOwnKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "sk-openai-must-not-be-used")
+	_, err := buildEmbedder(t.Context(), &domain.VectorStoreConfig{
+		EmbedBackend: "openrouter",
+		EmbedModel:   "text-embedding-3-small",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
+}
+
 func TestBuildEmbedder_OpenAICompat_UnknownBackend(t *testing.T) {
 	cfg := &domain.VectorStoreConfig{
 		EmbedBackend: "unknown_backend",

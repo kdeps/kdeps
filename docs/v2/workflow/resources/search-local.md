@@ -47,7 +47,7 @@ component:
 | `fuzzy` | bool | no | `false` | Levenshtein fuzzy term matching (requires `index: true`) |
 | `maxDistance` | integer | no | `2` | Max edit distance for fuzzy matching |
 | `indexDBPath` | string | no | `~/.kdeps/projects/<folder>-<hash>/index.db` | Where the index is stored |
-| `graphBoost` | bool | no | `false` | Re-rank indexed results using the folder's reference/topic graph (requires `index: true`) |
+| `graphBoost` | bool | no | `false` | Re-rank indexed results from the vault graph when the folder is inside it, otherwise from the folder's link/topic graph (requires `index: true`) |
 
 When both `query` and `glob` are set, a file must match both to be included.
 
@@ -155,14 +155,18 @@ component:
     fuzzy: true                   # optional: Levenshtein fuzzy matching (requires index: true)
     maxDistance: 2                # optional: max edit distance for fuzzy matching, default 2
     indexDBPath: "/custom/index.db"  # optional: override the default ~/.kdeps/projects/<folder>-<hash>/index.db
-    graphBoost: true              # optional: re-rank using the folder's link/topic graph (requires index: true)
+    graphBoost: true              # optional: re-rank from the vault graph, or the folder's link/topic graph outside it (requires index: true)
 ```
 
 </div>
 
 ## How graphBoost ranks results
 
-Indexed search already ranks by TF-IDF. `graphBoost` additionally builds a graph of the folder - markdown links and shared `topics:`/`tags:` frontmatter - at `~/.kdeps/projects/<folder>-<hash>/graph.db` (kept separate from `indexDBPath`). A result linked from, or sharing a topic with, a top-5 TF-IDF match gets boosted 25% before the final sort, so a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one - useful when the top match is a short "index" page.
+Indexed search already ranks by TF-IDF. `graphBoost` then moves a document up when one of the top 5 matches connects to it.
+
+When `path` is the knowledge vault, or a folder inside it, kdeps brings that vault's structural graph current (links, tags, and frontmatter; no model call) and reads those edges. It does not write `graph.db`. An extracted reference is boosted 25%. A weaker edge is boosted by less: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that. A folder outside the vault builds a link/topic graph of the folder (markdown links and shared `topics:` / `tags:` frontmatter) at `~/.kdeps/projects/<folder>-<hash>/graph.db`, and every connected document gets the full 25%.
+
+A lower-scoring connected document can outrank a higher-scoring isolated one. That matters when the top match is a short index page.
 
 <div v-pre>
 
@@ -201,4 +205,4 @@ Indexed-mode output rows add three fields on top of the base result shape:
 ## See also
 
 - [Search resources](/workflow/resources/search) - overview and `web_search`
-- Graphing an indexed folder - the same kartographer graph `graphBoost` reuses
+- [Knowledge](/agent/knowledge) - the vault graph `graphBoost` reads when `path` is inside the vault

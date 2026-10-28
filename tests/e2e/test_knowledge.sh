@@ -97,6 +97,13 @@ else
 fi
 
 printf -- '---\nsummary: x\nnext: do it\n---\n' > "$KN_VAULT/shared/Stray status.md"
+OUT=$(kn check-update)
+if output_grep "1 changed" "$OUT"; then
+    test_passed "knowledge - check-update rebuilds after a note is added outside kdeps"
+else
+    test_failed "knowledge - check-update after an external note" "$OUT"
+fi
+
 if OUT=$(kn check); then
     test_failed "knowledge - check fails on findings" "$OUT"
 elif output_grep "Stray status.md: has a next step; it belongs in the project card" "$OUT" &&
@@ -126,13 +133,6 @@ if output_grep "Database choice.md:L" "$OUT"; then
     test_passed "knowledge - explain names the file and line an edge came from"
 else
     test_failed "knowledge - explain" "$OUT"
-fi
-
-OUT=$(kn check-update)
-if output_grep "1 changed" "$OUT"; then
-    test_passed "knowledge - check-update rebuilds after a note is added outside kdeps"
-else
-    test_failed "knowledge - check-update after an external note" "$OUT"
 fi
 
 # Default vault: no config, no folder argument -> ~/.kdeps/notes.

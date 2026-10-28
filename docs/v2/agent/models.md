@@ -12,6 +12,8 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 /model default                        # show the current default
 ```
 
+The model picker and `/model <tab>` tag each name with its backend: `[llamafile]`, `[gguf]`, `[ollama]`, `[openrouter]`, or `[openai enabled]` when that provider's key is set. The switched name stays the model id.
+
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
 ## Refusal record

@@ -46,6 +46,11 @@ request and names the few notes worth reading. It is on by default for agent
 sessions, in ~/.kdeps/notes (set up on first use); turn it off with
 knowledge.enabled: false in config.yaml, or /knowledge off in a session.
 
+The structural graph stays current on its own: an agent session, a workflow
+chat call, a search inside the vault, and skill linking when a skill file
+is a vault note. kdeps knowledge build runs that same build by hand. Model
+extraction stays off unless you ask for it.
+
   kdeps knowledge init [folder]     scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
   kdeps knowledge build             (re)build the link graph, changed notes only
   kdeps knowledge check-update      rebuild only when vault notes changed externally
@@ -405,6 +410,9 @@ into the vault, and never over a file of yours.`,
 				return err
 			}
 			dir := knowledge.GraphDir(v.Root)
+			if _, _, err = knowledge.CheckUpdate(cmd.Context(), v, dir, time.Now()); err != nil {
+				return err
+			}
 			if !knowledge.IsGeneratedReport(dir) {
 				return errors.New("no report yet: run kdeps knowledge build")
 			}
@@ -434,7 +442,11 @@ func newKnowledgeExplainCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			g, err := knowledge.Load(knowledge.GraphDir(v.Root))
+			dir := knowledge.GraphDir(v.Root)
+			if _, _, err = knowledge.CheckUpdate(cmd.Context(), v, dir, time.Now()); err != nil {
+				return err
+			}
+			g, err := knowledge.Load(dir)
 			if err != nil {
 				return errors.New("no graph yet: run kdeps knowledge build")
 			}

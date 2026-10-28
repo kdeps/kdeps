@@ -67,6 +67,14 @@ func TestHasAPIToken(t *testing.T) {
 	assert.True(t, HasAPIToken(&Config{}))
 }
 
+func TestUnsetProviderKeyError_OpenRouter(t *testing.T) {
+	err := UnsetProviderKeyError("openrouter")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
+	assert.NoError(t, UnsetProviderKeyError("file"))
+}
+
 func TestLLMKeySource(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
 	cfg := &Config{LLM: LLMKeys{Keys: map[string]string{"openai_api_key": "sk-openai"}}}

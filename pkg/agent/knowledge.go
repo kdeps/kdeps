@@ -342,6 +342,9 @@ func (k *knowledgeState) recallFiles(text string) string {
 			if p := strings.Join(strings.Fields(h.Preview), " "); p != "" {
 				fmt.Fprintf(&b, " - %s", liveLine(p))
 			}
+			if chain := k.recallChain(h.Path); chain != "" {
+				fmt.Fprintf(&b, " (%s)", chain)
+			}
 		}
 	}
 	if b.Len() == 0 {
@@ -355,6 +358,27 @@ func (k *knowledgeState) recallFiles(text string) string {
 
 // recallFileLimit is how many files each search index adds to recall.
 const recallFileLimit = 3
+
+// recallChain is the relation path recall already printed for abs, when abs
+// is a vault note in this turn's recall. Search hits and recall then name
+// the same edge.
+func (k *knowledgeState) recallChain(abs string) string {
+	if k == nil {
+		return ""
+	}
+	rel, ok := knowledge.NoteRel(k.vault.Root, abs)
+	if !ok {
+		return ""
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	for _, h := range k.last.Hits {
+		if h.Note == rel {
+			return h.Chain()
+		}
+	}
+	return ""
+}
 
 // prepareProject makes sure the working directory's project exists before
 // the turn, so the turn's status, memory and notes all have a home: it is

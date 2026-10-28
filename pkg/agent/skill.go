@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,8 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kartographer/graph"
+
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
 // Skill represents a loaded skill from a SKILL.md file.
@@ -235,20 +238,116 @@ func formatSkillsForPrompt(skills []Skill) string {
 	return sb.String()
 }
 
-// computeRelatedSkills builds a skill-name -> related-skill-names map using a
-// kartographer reference/topic graph over the skill-library root directories
-// (dirs, from loadSkillSliceWithDirs): a skill is related to another if its
-// SKILL.md links to it, or if they share a "topics:"/"tags:" frontmatter
-// entry. Each root is indexed as a whole (not each skill's own leaf
-// directory) so kartographer can resolve links between sibling skill
-// directories -- it only resolves a link if it stays inside the indexed
-// root. The graph db is a scratch temp file, removed once the map is
-// extracted -- nothing persists across calls.
-func computeRelatedSkills(skills []Skill, dirs []string) map[string][]string {
-	if len(skills) == 0 || len(dirs) == 0 {
+// computeRelatedSkills builds a skill-name -> related-skill-names map.
+// A skill whose file is a vault note takes its related names from that
+// graph's references and tagged edges. The structural graph is brought
+// current first, so this does not wait on a slash command or a prior
+// build. Every other skill uses a kartographer reference/topic graph over
+// the skill-library roots (dirs, from loadSkillSliceWithDirs): a skill is
+// related to another if its SKILL.md links to it, or if they share a
+// "topics:"/"tags:" frontmatter entry. Each root is indexed as a whole
+// (not each skill's own leaf directory) so kartographer can resolve links
+// between sibling skill directories -- it only resolves a link if it stays
+// inside the indexed root. The graph db is a scratch temp file, removed
+// once the map is extracted -- nothing persists across calls.
+func computeRelatedSkills(ctx context.Context, skills []Skill, dirs []string) map[string][]string {
+	if len(skills) == 0 {
 		return nil
 	}
+	nameByPath := make(map[string]string, len(skills))
+	for _, sk := range skills {
+		nameByPath[filepath.Clean(sk.Source)] = sk.Name
+	}
+	ensureVaultGraph(ctx, skills)
+	related, covered := vaultSkillLinks(skills, nameByPath)
+	var rest []Skill
+	for _, sk := range skills {
+		if !covered[filepath.Clean(sk.Source)] {
+			rest = append(rest, sk)
+		}
+	}
+	if len(rest) == 0 || len(dirs) == 0 {
+		return relatedOrNil(related)
+	}
+	karto := kartographerSkillLinks(rest, dirs, nameByPath)
+	if karto == nil {
+		return relatedOrNil(related)
+	}
+	if related == nil {
+		related = map[string][]string{}
+	}
+	for name, names := range karto {
+		related[name] = names
+	}
+	return relatedOrNil(related)
+}
 
+// ensureVaultGraph builds the structural graph when a skill file lives in
+// the vault. A failure leaves vaultSkillLinks with no index, and those
+// skills fall through to kartographer.
+func ensureVaultGraph(ctx context.Context, skills []Skill) {
+	if ctx == nil {
+		return
+	}
+	vault, _ := knowledge.Configured()
+	for _, sk := range skills {
+		if !knowledge.PathInVault(vault, sk.Source) {
+			continue
+		}
+		_ = knowledge.Ensure(ctx, vault)
+		return
+	}
+}
+
+func relatedOrNil(related map[string][]string) map[string][]string {
+	if len(related) == 0 {
+		return nil
+	}
+	return related
+}
+
+// vaultSkillLinks reads references and tagged edges for skills that are
+// vault notes. covered is every skill the vault graph has a note for, so
+// the caller does not also ask kartographer.
+func vaultSkillLinks(skills []Skill, nameByPath map[string]string) (map[string][]string, map[string]bool) {
+	vault, _ := knowledge.Configured()
+	ix := knowledge.SharedIndex(knowledge.GraphDir(vault))
+	if ix == nil {
+		return nil, nil
+	}
+	related := map[string][]string{}
+	covered := map[string]bool{}
+	for _, sk := range skills {
+		src := filepath.Clean(sk.Source)
+		if !ix.HasNote(vault, src) {
+			continue
+		}
+		covered[src] = true
+		if names := namesFromVaultLinks(ix.LinksFrom(vault, src), nameByPath, sk.Name); len(names) > 0 {
+			related[sk.Name] = names
+		}
+	}
+	return related, covered
+}
+
+func namesFromVaultLinks(links []knowledge.FileLink, nameByPath map[string]string, self string) []string {
+	seen := map[string]bool{self: true}
+	var names []string
+	for _, link := range links {
+		if link.Relation != knowledge.RelReferences && link.Relation != knowledge.RelTagged {
+			continue
+		}
+		name, ok := nameByPath[filepath.Clean(link.Path)]
+		if !ok || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	return names
+}
+
+func kartographerSkillLinks(skills []Skill, dirs []string, nameByPath map[string]string) map[string][]string {
 	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
 	ig, err := graph.NewIndexedGraph(AppFS, nil, dbPath)
 	if err != nil {
@@ -258,18 +357,12 @@ func computeRelatedSkills(skills []Skill, dirs []string) map[string][]string {
 		_ = ig.Close()
 		_ = os.Remove(dbPath)
 	}()
-
-	nameByPath := make(map[string]string, len(skills))
-	for _, sk := range skills {
-		nameByPath[sk.Source] = sk.Name
-	}
 	for _, dir := range dirs {
 		// An unreadable/missing skill root shouldn't cost every other root's
 		// skills their related-skill hints.
 		_, _ = ig.IndexFolder(dir, []string{".md"})
 	}
-
-	related := make(map[string][]string, len(skills))
+	related := map[string][]string{}
 	for _, sk := range skills {
 		if names := relatedSkillNames(ig, sk, nameByPath); len(names) > 0 {
 			related[sk.Name] = names
@@ -292,7 +385,7 @@ func relatedSkillNames(ig *graph.IndexedGraph, sk Skill, nameByPath map[string]s
 	seen := map[string]bool{sk.Name: true}
 	var names []string
 	for _, path := range append(append([]string{}, references[sk.Source]...), relatedByTopic...) {
-		name, ok := nameByPath[path]
+		name, ok := nameByPath[filepath.Clean(path)]
 		if !ok || seen[name] {
 			continue
 		}
