@@ -116,6 +116,7 @@ scenario test_features_embedding_upsert.sh
 scenario test_features_events.sh
 scenario test_features_autopilot.sh
 scenario test_features_instrument.sh
+scenario test_bug_hunt.sh
 scenario test_features_search_local_executor.sh
 scenario test_embedding_component.sh
 scenario test_loader_component.sh
