@@ -79,6 +79,7 @@ func TestAutoImproveTasks(t *testing.T) {
 	require.Contains(t, eval, "events.ndjson")
 	require.Contains(t, eval, "kind")
 	require.Contains(t, eval, "product bug")
+	require.Contains(t, eval, "do not page through the file")
 	require.Contains(t, eval, "1 of 3")
 	one := autoImproveEvalPrompt("/tmp/session", 2, 3, true)
 	require.Contains(t, one, "hunt 2 of 3")
