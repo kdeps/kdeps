@@ -1,4 +1,4 @@
-.PHONY: build desktop-build desktop-package test lint clean install run codeql codeql-db install-hooks harvest-llamafiles test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
+.PHONY: build desktop-build desktop-package test lint clean install run codeql codeql-db install-hooks harvest-llamafiles harvest-openrouter test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
 
 # Build variables
 VERSION ?= 2.0.0-dev
@@ -396,6 +396,13 @@ harvest-llamafiles:
 	@.venv-harvest/bin/python -m pip install -q --upgrade pip huggingface_hub
 	@.venv-harvest/bin/python tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs && \
 	echo "✓ llamafile + GGUF registries updated"
+
+# Harvest OpenRouter's free text models into assets/models/openrouter.yaml.
+# Stdlib only. A changed registry gets a version bump.
+harvest-openrouter:
+	@echo "Harvesting OpenRouter free models..."
+	@python3 tools/openrouter-harvester/harvest.py --write && \
+	echo "openrouter registry updated"
 help:
 	@echo "KDeps v2 - Makefile commands"
 	@echo ""
@@ -420,6 +427,7 @@ help:
 	@echo "  make fmt             Format code"
 	@echo "  make deps            Download dependencies"
 	@echo "  make harvest-llamafiles  Refresh llamafile YAML from HuggingFace"
+	@echo "  make harvest-openrouter Refresh the OpenRouter free-model catalog"
 	@echo "  make install-hooks   Install git pre-commit hooks"
 
 # Install git hooks

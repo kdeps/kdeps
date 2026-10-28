@@ -45,7 +45,7 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
-| `models` | A model registry: every llamafile or GGUF alias (harvested nightly from HuggingFace), or the cloud model catalog `models/cloud` (each provider's model IDs with context window, output limit, thinking and image support) | `models/gguf`, `models/cloud` |
+| `models` | A model registry: llamafile and GGUF aliases (harvested from HuggingFace), the cloud catalog `models/cloud`, or the OpenRouter free models `models/openrouter` (harvested daily from the public models API) | `models/gguf`, `models/openrouter` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
 | `schemas` | The JSON schemas `kdeps validate`, `run` and `package` check workflows, resources, components and agencies against (all four files) | `schemas/v1` |
 | `defaults` | Executor defaults (timeouts, SQL pool sizes, search limits) used when neither the resource nor `config.yaml` sets a value | `defaults/executors` |
@@ -220,7 +220,7 @@ How a version is chosen:
 - Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
 - A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
 
-Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, judges, prompt refinement, the session handshake) the loop's control tools (`judge_verdict`, `session_handshake`, `session_ops`) and the two model registries (`models/llamafile`, `models/gguf`). Turn a harness section off without removing it with `/harness disable <name>`.
+Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, judges, prompt refinement, the session handshake) the loop's control tools (`judge_verdict`, `session_handshake`, `session_ops`) and the model registries (`models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`). Turn a harness section off without removing it with `/harness disable <name>`.
 
 Your own overrides still win: files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and the like are layered on top of whatever version is installed.
 

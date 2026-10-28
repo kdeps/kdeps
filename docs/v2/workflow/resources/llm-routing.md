@@ -129,7 +129,7 @@ chat:
 Resolution order, with no config required:
 
 1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag is scored via `llmfit`, same as `auto`'s local tier. Requires `llmfit` on `PATH`; skipped entirely (no cost) when it is not installed.
-2. **Cloud fallback** - the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) do not participate in this fallback.
+2. **Cloud fallback** - the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) do not participate in this fallback. OpenRouter's free models are still listed, from `models/openrouter`.
 3. **Built-in default** - if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
 
 Agent mode has the same sentinel via `--model auto-router` - see [Local model management](/agent/models#-model-auto-router-zero-config-fully-automatic).

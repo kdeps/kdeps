@@ -45,6 +45,8 @@ models:
 
 A model missing from the catalog still works by name (`/model my-fine-tune`); kdeps just uses the provider's defaults for it.
 
+OpenRouter is its own backend. `/model list` shows its free text models from `models/openrouter` (prompt and completion price both zero), harvested daily by GitHub Actions (`make harvest-openrouter`) and refreshed with `kdeps update models/openrouter`. Naming a model yourself still works, including a paid id and the `openrouter/free` router. There is no single default model, so OpenRouter stays out of auto-router's cloud fallback.
+
 ## Same alias, different backends
 
 llamafile, GGUF, and Ollama registries can each have their own, unrelated

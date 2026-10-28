@@ -62,6 +62,16 @@ If a previous nightly release failed mid-upload, the workflow will automatically
 2. Select "Nightly Release" workflow
 3. Click "Run workflow"
 
+### harvest-openrouter.yml
+**Trigger**: Daily at 6:15 AM UTC, Manual via workflow_dispatch
+
+Refreshes the OpenRouter free-model catalog (`assets/models/openrouter.yaml`) from the public models API. No API key. When the list changes, the harvester bumps the registry version, the workflow commits that file to main, and Publish Assets ships it. `kdeps update models/openrouter` then installs it. An unchanged list does not commit.
+
+**Manual Trigger**:
+1. Go to Actions tab in GitHub
+2. Select "Harvest OpenRouter" workflow
+3. Click "Run workflow"
+
 ### docs.yml
 **Trigger**: Push to main (docs changes), Manual
 
@@ -72,7 +82,7 @@ Builds and deploys the documentation site.
 The workflows require the following secrets to be configured in the repository:
 
 - `RELEASE_TOKEN`: Personal Access Token with repo and packages write permissions
-  - Used by: release.yml, nightly-release.yml
+  - Used by: release.yml, nightly-release.yml, harvest-openrouter.yml
   - Purpose: Push commits, create releases, trigger other workflows
 
 ## Best Practices

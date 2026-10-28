@@ -46,9 +46,9 @@ type cloudCatalog struct {
 	Models []CloudModel `yaml:"models"`
 }
 
-// KnownCloudModels is the cloud model catalog (the models/cloud asset),
-// grouped by provider and ordered newest-first within each provider. Loaded
-// at init and on asset reload (ReloadCloudModels).
+// KnownCloudModels is the cloud model catalog: models/cloud, then the
+// harvested OpenRouter free models (models/openrouter). Loaded at init and
+// on asset reload (ReloadCloudModels). /model list groups this by backend.
 //
 //nolint:gochecknoglobals // parsed from the asset set
 var KnownCloudModels = loadCloudModels()
@@ -56,12 +56,19 @@ var KnownCloudModels = loadCloudModels()
 // ReloadCloudModels re-reads the catalog after kdeps update.
 func ReloadCloudModels() { KnownCloudModels = loadCloudModels() }
 
+// loadCloudModels reads the hand-maintained cloud catalog, then appends the
+// harvested OpenRouter free models. A missing or unreadable openrouter file
+// leaves the cloud list as it is.
 func loadCloudModels() []CloudModel {
-	c, err := parseCloudCatalog(readModelRegistry(cloudRegistryItem))
+	cloud, err := parseCloudCatalog(readModelRegistry(cloudRegistryItem))
 	if err != nil {
 		return nil
 	}
-	return c.Models
+	extra, err := parseCloudCatalog(readModelRegistry(openrouterRegistryItem))
+	if err != nil {
+		return cloud.Models
+	}
+	return append(cloud.Models, extra.Models...)
 }
 
 // parseCloudCatalog decodes a models/cloud file; every model needs an id
