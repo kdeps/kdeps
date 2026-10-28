@@ -44,7 +44,7 @@ parameters:
     description: Path to the file to hash (absolute, or relative to the working directory)
     required: true
 python:
-  paths: [file_path]  # checked against KDEPS_WORKSPACE_ROOT and the root-directory guard first
+  paths: [file_path]  # workspace root, plus ~/.kdeps and /tmp; the root directory stays blocked
   script: |
     import hashlib, json, os, sys
     path = os.path.abspath(json.loads(sys.argv[1])["file_path"])
@@ -145,7 +145,7 @@ http:
 | `cache` | Reuse the answer for identical arguments within the run |
 | `timeout` | Per-call limit (Go duration, default `30s`) |
 
-A block can upload files: `files` maps form fields to path templates and `form` holds text fields (empty ones are left out), sent as `multipart/form-data` instead of `body`. `paths` lists the parameters holding file paths, checked against the workspace boundary like `read_file`'s. An `env` entry whose variable list ends with `""` is optional (it may render empty, and the tool registers without it), and a header that renders empty is not sent:
+A block can upload files: `files` maps form fields to path templates and `form` holds text fields (empty ones are left out), sent as `multipart/form-data` instead of `body`. `paths` lists the parameters holding file paths, checked against the workspace boundary like `read_file`'s. `~/.kdeps` and `/tmp` are allowed. An `env` entry whose variable list ends with `""` is optional (it may render empty, and the tool registers without it), and a header that renders empty is not sent:
 
 ```yaml
 # tools/transcribe_audio.yaml (shipped, abridged)
@@ -201,7 +201,7 @@ parameters:
 exec:
   command: tesseract          # looked up on PATH when the tool runs
   install: tesseract-ocr      # the error names it when tesseract is missing
-  paths: [file]               # checked against the workspace boundary before running
+  paths: [file]               # workspace root, plus ~/.kdeps and /tmp
   args:                       # templates over .args; an arg that renders empty is dropped
     - "{{.args.file}}"
     - stdout

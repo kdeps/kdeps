@@ -108,6 +108,17 @@ func ModelContextWindow(modelID string) int {
 	return 0
 }
 
+// OpenRouterFreeModelIDs returns the harvested free-model ids in catalog order.
+func OpenRouterFreeModelIDs() []string {
+	ids := make([]string, 0)
+	for _, m := range KnownCloudModels {
+		if m.Backend == openrouterRegistryItem && m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
+}
+
 // BackendForModel returns the backend name for a known cloud model ID, or ""
 // if the model is not in the catalog (i.e. it is a local/custom model).
 func BackendForModel(modelID string) string {

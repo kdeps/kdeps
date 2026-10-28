@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -95,13 +96,17 @@ func TestCheckPathBoundary_CWDItselfAllowed(t *testing.T) {
 	assert.False(t, blocked)
 }
 
+// pathOutsideApproved is not the workspace, not ~/.kdeps, and not /tmp.
+func pathOutsideApproved(name string) string {
+	return filepath.Join(string(filepath.Separator), "kdeps-not-approved", name)
+}
+
 func TestCheckPathBoundary_OutsideCWD_NonInteractiveDenied(t *testing.T) {
 	dir := t.TempDir()
 	chdirTo(t, dir)
-	outside := t.TempDir() // a sibling temp dir, outside dir
 
 	l := &Loop{}
-	denyReason, blocked := l.checkPathBoundary(map[string]any{"file_path": filepath.Join(outside, "x.txt")})
+	denyReason, blocked := l.checkPathBoundary(map[string]any{"file_path": pathOutsideApproved("x.txt")})
 	assert.True(t, blocked)
 	assert.Contains(t, denyReason, "outside the working directory")
 	assert.Contains(t, denyReason, "no terminal available")
@@ -120,13 +125,12 @@ func TestBlockOnPathBoundary_NotBlockedReturnsEmpty(t *testing.T) {
 func TestBlockOnPathBoundary_BlockedClosesOpenToolCallLine(t *testing.T) {
 	dir := t.TempDir()
 	chdirTo(t, dir)
-	outside := t.TempDir()
 
 	var buf bytes.Buffer
 	l := &Loop{config: Config{ToolOutputWriter: &buf}}
 	l.toolLineOpen.Store(true)
 
-	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": filepath.Join(outside, "x.txt")})
+	result, blocked := l.blockOnPathBoundary(map[string]any{"file_path": pathOutsideApproved("x.txt")})
 	assert.True(t, blocked)
 	assert.Contains(t, result, "outside the working directory")
 	assert.Contains(t, buf.String(), "blocked:", "the open tool-call line must be closed with the deny reason")
@@ -134,7 +138,11 @@ func TestBlockOnPathBoundary_BlockedClosesOpenToolCallLine(t *testing.T) {
 }
 
 func TestCheckPathBoundary_ParentOfCWDIsOutside(t *testing.T) {
-	parent := t.TempDir()
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	parent, err := os.MkdirTemp(home, ".kdeps-approval-parent-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(parent) })
 	cwd := filepath.Join(parent, "acme")
 	require.NoError(t, os.MkdirAll(cwd, 0o700))
 	chdirTo(t, cwd)
@@ -165,7 +173,7 @@ func TestCheckPathBoundary_RespectsWorkspaceRootOverride(t *testing.T) {
 func TestCheckPathBoundary_PriorAlwaysGrantSkipsPrompt(t *testing.T) {
 	dir := t.TempDir()
 	chdirTo(t, dir)
-	outside := filepath.Join(t.TempDir(), "x.txt")
+	outside := pathOutsideApproved("x.txt")
 	abs, err := filepath.Abs(outside)
 	require.NoError(t, err)
 
@@ -184,10 +192,10 @@ func TestCheckPathBoundary_PriorAlwaysGrantSkipsPrompt(t *testing.T) {
 func TestCheckPathBoundary_AlwaysGrantIsPathScoped(t *testing.T) {
 	dir := t.TempDir()
 	chdirTo(t, dir)
-	grantedPath := filepath.Join(t.TempDir(), "granted.txt")
+	grantedPath := pathOutsideApproved("granted.txt")
 	grantedAbs, err := filepath.Abs(grantedPath)
 	require.NoError(t, err)
-	otherPath := filepath.Join(t.TempDir(), "other.txt")
+	otherPath := pathOutsideApproved("other.txt")
 
 	tok := GlobalApprovalTokenRegistry.Request(ApprovalScope{ToolName: pathBoundaryToolName, Action: grantedAbs}, 0)
 	GlobalApprovalTokenRegistry.Grant(tok.TokenID, "user", "", "test")
@@ -227,6 +235,45 @@ func TestPromptToolApproval_NoArgsSummary(t *testing.T) {
 	decision := l.promptToolApproval(&out, "noop_tool", "")
 	assert.Equal(t, approveDeny, decision)
 	assert.Contains(t, out.String(), `Approve tool "noop_tool" ?`)
+}
+
+func TestCheckPathBoundary_KdepsHomeAndTmpSkipPrompt(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	root, err := os.MkdirTemp(home, ".kdeps-approval-root-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Setenv("KDEPS_WORKSPACE_ROOT", root)
+
+	l := &Loop{}
+	var buf bytes.Buffer
+	l.config.ToolOutputWriter = &buf
+	l.config.InteractiveTTY = true
+	l.config.Approver = func(ApprovalRequest) ApprovalChoice {
+		t.Fatal("an approved directory must not ask")
+		return ApproveDeny
+	}
+
+	kdepsPath := filepath.Join(home, ".kdeps", "never-created-approval.txt")
+	_, blocked := l.checkPathBoundary(map[string]any{"file_path": kdepsPath})
+	assert.False(t, blocked)
+	_, blocked = l.checkPathBoundary(map[string]any{"path": filepath.Join(home, ".kdeps")})
+	assert.False(t, blocked)
+
+	tmpPath := filepath.Join(os.TempDir(), "kdeps-approval-never.txt")
+	if runtime.GOOS != "windows" {
+		tmpPath = "/tmp/kdeps-approval-never.txt"
+	}
+	_, blocked = l.checkPathBoundary(map[string]any{"file_path": tmpPath})
+	assert.False(t, blocked)
+
+	l.config.Approver = nil
+	_, blocked = l.checkPathBoundary(map[string]any{"file_path": filepath.Join(home, ".notkdeps", "x")})
+	assert.True(t, blocked)
+	if runtime.GOOS != "windows" {
+		_, blocked = l.checkPathBoundary(map[string]any{"file_path": "/tmp-evil/x"})
+		assert.True(t, blocked)
+	}
 }
 
 func TestPromptPathApproval_FailsClosedWithoutTTY(t *testing.T) {

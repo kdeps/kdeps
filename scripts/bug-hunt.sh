@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Daily bug hunt: run /auto-improve through kdeps on an OpenRouter free model.
 # A session that does not finish tries the next id from the free catalog.
+# Inside the session, free-model requests wait so they stay under the
+# account per-minute cap. A provider 429 moves to the next free id and the
+# turn continues. An account 429 waits out the minute and retries the same id.
 # A tree with edits is pushed as a pull request with auto-merge.
 #
 #   scripts/bug-hunt.sh models

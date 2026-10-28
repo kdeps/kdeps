@@ -141,6 +141,10 @@ func (l *Loop) blockOnPathBoundary(args map[string]any) (string, bool) {
 // project) is worth a prompt even in danger-full-access, since the working
 // directory is the project the user is actually pointed at.
 //
+// Paths inside the user's ~/.kdeps directory and inside /tmp (the process
+// temp directory on Windows) are allowed with no prompt. The filesystem
+// root stays blocked.
+//
 // Only args carrying "file_path" or "path" are checked, so a tool with
 // neither (most non-file tools) is unaffected. Returns (denyReason, blocked).
 func (l *Loop) checkPathBoundary(args map[string]any) (string, bool) {
@@ -165,7 +169,7 @@ func (l *Loop) checkPathBoundary(args map[string]any) (string, bool) {
 		}
 		root = wd
 	}
-	if api.PathWithinRoot(abs, root) {
+	if api.PathWithinRoot(abs, root) || api.PathAutoApproved(abs) {
 		return "", false
 	}
 

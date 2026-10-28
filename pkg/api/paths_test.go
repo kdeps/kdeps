@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -71,9 +72,86 @@ func TestValidateWorkspace(t *testing.T) {
 	if err := validateWorkspace(filepath.Join(root, "in.txt")); err != nil {
 		t.Fatal(err)
 	}
-	err := validateWorkspace(filepath.Join(t.TempDir(), "out.txt"))
+	err := validateWorkspace(filepath.Join(string(filepath.Separator), "kdeps-not-approved", "out.txt"))
 	if err == nil || !strings.Contains(err.Error(), "escapes workspace root") {
 		t.Fatal(err)
+	}
+}
+
+func TestValidateWorkspace_AutoApproved(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.MkdirTemp(home, ".kdeps-approval-ws-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Setenv(envWorkspaceRoot, root)
+
+	if err := validateWorkspace(filepath.Join(home, ".kdeps", "never-written.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateWorkspace(filepath.Join(home, ".kdeps")); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateWorkspace(filepath.Join(home, ".kdeps-other", "x")); err == nil {
+		t.Fatal("a sibling of .kdeps must stay outside the workspace")
+	}
+	if runtime.GOOS == "windows" {
+		if err := validateWorkspace(filepath.Join(os.TempDir(), "kdeps-approval", "x")); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := validateWorkspace("/tmp/kdeps-approval/x"); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && validateWorkspace("/tmp-evil/x") == nil {
+		t.Fatal("/tmp-evil must not match /tmp")
+	}
+}
+
+func TestPathAutoApproved(t *testing.T) {
+	if PathAutoApproved("/") || PathAutoApproved(string(filepath.Separator)) {
+		t.Fatal("the filesystem root is not approved")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !PathAutoApproved(filepath.Join(home, ".kdeps", "sessions", "x")) {
+		t.Fatal("~/.kdeps")
+	}
+	if PathAutoApproved(filepath.Join(home, ".kdeps-other", "x")) {
+		t.Fatal("lookalike directory")
+	}
+	outside := filepath.Join(string(filepath.Separator), "kdeps-not-approved", "x.txt")
+	if PathAutoApproved(outside) {
+		t.Fatal(outside)
+	}
+	if runtime.GOOS == "windows" {
+		if !PathAutoApproved(filepath.Join(os.TempDir(), "kdeps-approval", "x")) {
+			t.Fatal("windows temp")
+		}
+		return
+	}
+	if !PathAutoApproved("/tmp") || !PathAutoApproved("/tmp/kdeps-approval/x") {
+		t.Fatal("/tmp")
+	}
+	if PathAutoApproved("/tmp-evil/x") || PathAutoApproved("/tmp2/x") {
+		t.Fatal("tmp prefix")
+	}
+	if runtime.GOOS == "darwin" && !PathAutoApproved("/private/tmp/kdeps-approval/x") {
+		t.Fatal("/private/tmp")
+	}
+	link := filepath.Join("/tmp", "kdeps-approval-escape")
+	_ = os.Remove(link)
+	if err := os.Symlink("/etc/passwd", link); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(link) })
+	if PathAutoApproved(link) {
+		t.Fatal("a symlink that leaves /tmp is not approved")
 	}
 }
 
