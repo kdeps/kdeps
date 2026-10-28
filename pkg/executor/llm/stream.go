@@ -202,6 +202,11 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		backend == backendOllama || backend == "local" || backend == backendM365) {
 		apiKey = backendOllama
 	}
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(backend); err != nil {
+			return nil, err
+		}
+	}
 
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),
@@ -504,6 +509,11 @@ func buildFewShotEmbedder(_ context.Context, model, backend, baseURL string) (lc
 		}
 	}
 	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(backend); err != nil {
+			return nil, err
+		}
+	}
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),
 		lcopenai.WithModel(model),

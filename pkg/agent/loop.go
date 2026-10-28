@@ -317,7 +317,7 @@ type Loop struct {
 	session       SessionReadWriter
 	skills        string              // pre-formatted skill XML block for the system prompt
 	skillList     []Skill             // raw skill structs for name lookup (/skill-name invocation)
-	relatedSkills map[string][]string // skill name -> related skill names (kartographer link/topic graph)
+	relatedSkills map[string][]string // skill name -> related skill names (vault graph, else kartographer)
 	prompts       []PromptTemplate    // loaded prompt templates
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
@@ -493,7 +493,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		session:       session,
 		skills:        formatSkillsForPrompt(skillSlice),
 		skillList:     skillSlice,
-		relatedSkills: computeRelatedSkills(skillSlice, skillDirs),
+		relatedSkills: computeRelatedSkills(ctx, skillSlice, skillDirs),
 		prompts:       loadPromptTemplateSlice(cfg.PromptPaths),
 		store:         cfg.Store,
 		sessionID:     cfg.ResumeSessionID,
@@ -760,7 +760,7 @@ func (l *Loop) refreshSkills() {
 	if !added {
 		return
 	}
-	l.relatedSkills = computeRelatedSkills(l.skillList, dirs)
+	l.relatedSkills = computeRelatedSkills(l.ctx, l.skillList, dirs)
 	l.skills = formatSkillsForPrompt(l.skillList)
 	l.InvalidateSystemPreamble()
 }
@@ -4097,7 +4097,7 @@ func (l *Loop) ToolCatalog() string {
 func (l *Loop) ReloadSkills(skillPaths []string) {
 	slice, dirs := loadSkillSliceWithDirs(resolveAbsPaths(skillPaths))
 	l.skillList = slice
-	l.relatedSkills = computeRelatedSkills(slice, dirs)
+	l.relatedSkills = computeRelatedSkills(l.ctx, slice, dirs)
 	l.skills = formatSkillsForPrompt(slice)
 	l.config.SkillPaths = skillPaths
 	l.registerSkillLoader()      // (re)register load_skill for the new skill set

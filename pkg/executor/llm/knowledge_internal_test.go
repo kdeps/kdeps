@@ -54,21 +54,39 @@ func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 
 func TestKnowledgeRecall_Workflow(t *testing.T) {
 	vault := withVault(t, &config.KnowledgeConfig{})
-	got := knowledgeRecall(&domain.ChatConfig{}, "how do we bill?")
+	got := knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?")
 	assert.Contains(t, got, filepath.Join(vault, "shared", "Billing decision.md"))
 
 	off := false
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{Knowledge: &off}, "how do we bill?"), "per resource")
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "  "))
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "unrelated zzz"))
+	assert.Empty(
+		t,
+		knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: &off}, "how do we bill?"),
+		"per resource",
+	)
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "  "))
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "unrelated zzz"))
 
 	configuredVault = func() (string, *config.KnowledgeConfig) {
 		return vault, &config.KnowledgeConfig{Enabled: &off}
 	}
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "how do we bill?"), "turned off in config")
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?"), "turned off in config")
 
 	configuredVault = func() (string, *config.KnowledgeConfig) { return t.TempDir(), &config.KnowledgeConfig{} }
-	assert.Empty(t, knowledgeRecall(&domain.ChatConfig{}, "how do we bill?"), "a vault with no graph")
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?"), "an empty vault")
+}
+
+func TestKnowledgeRecall_BuildsMissingGraph(t *testing.T) {
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	vault := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(vault, "shared"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "Billing decision.md"),
+		[]byte("---\nsummary: Bill monthly, not per call.\n---\n"), 0o600))
+	orig := configuredVault
+	t.Cleanup(func() { configuredVault = orig })
+	configuredVault = func() (string, *config.KnowledgeConfig) { return vault, &config.KnowledgeConfig{} }
+
+	got := knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?")
+	assert.Contains(t, got, filepath.Join(vault, "shared", "Billing decision.md"))
 }
 
 func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {

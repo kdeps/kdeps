@@ -21,6 +21,7 @@ package searchlocal
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -48,6 +49,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/tokenizer"
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
 //nolint:gochecknoglobals // enables test injection for filesystem and output
@@ -128,15 +130,25 @@ const (
 	graphBoostSeedCount = 5
 )
 
-// boostByGraph re-ranks results using a kartographer reference/topic graph
-// over config.Path: documents linked from, or sharing a frontmatter topic
-// with, a top-ranked seed result get their score boosted before the final
-// sort. Never returns an error -- graph boosting is a ranking enhancement,
-// not a correctness requirement, so any graph failure just leaves the
-// TF-IDF ranking untouched.
-func boostByGraph(config *domain.SearchLocalConfig, results []index.SearchResult) []index.SearchResult {
+// boostByGraph re-ranks results before the final sort. When config.Path is
+// inside the knowledge vault, the structural graph is brought current (no
+// model call) and the boost reads those edges. It does not build graph.db:
+// an extracted reference multiplies the score by graphBoostFactor, and a
+// weaker edge multiplies by less (see knowledgeBoost). Any other folder, or
+// a vault graph that cannot be built, uses a kartographer reference/topic
+// graph, and every connected document gets the full factor. Never returns
+// an error -- graph boosting is a ranking enhancement, not a correctness
+// requirement, so any graph failure just leaves the TF-IDF ranking untouched.
+func boostByGraph(
+	ctx context.Context,
+	config *domain.SearchLocalConfig,
+	results []index.SearchResult,
+) []index.SearchResult {
 	if len(results) == 0 {
 		return results
+	}
+	if boosted, ok := boostByKnowledge(ctx, config, results); ok {
+		return boosted
 	}
 
 	dbPath := graphDBPath(config.Path)
@@ -161,14 +173,70 @@ func boostByGraph(config *domain.SearchLocalConfig, results []index.SearchResult
 		}
 	}
 
+	sortBoosted(results)
+	return results
+}
+
+// boostByKnowledge re-ranks results from the vault graph. ok is false when
+// this folder is outside the vault or the structural graph cannot be built,
+// so the caller falls back to kartographer.
+func boostByKnowledge(
+	ctx context.Context,
+	config *domain.SearchLocalConfig,
+	results []index.SearchResult,
+) ([]index.SearchResult, bool) {
+	vault, _ := knowledge.Configured()
+	if !knowledge.PathInVault(vault, config.Path) {
+		return nil, false
+	}
+	if err := knowledge.Ensure(ctx, vault); err != nil {
+		return nil, false
+	}
+	ix := knowledge.SharedIndex(knowledge.GraphDir(vault))
+	if ix == nil {
+		return nil, false
+	}
+	seedCount := graphBoostSeedCount
+	if seedCount > len(results) {
+		seedCount = len(results)
+	}
+	weight := map[string]float64{}
+	for _, seed := range results[:seedCount] {
+		for _, link := range ix.LinksFrom(vault, seed.Document.Path) {
+			if link.Weight > weight[link.Path] {
+				weight[link.Path] = link.Weight
+			}
+		}
+	}
+	for i := range results {
+		if w := weight[filepath.Clean(results[i].Document.Path)]; w > 0 {
+			results[i].Score *= knowledgeBoost(w)
+		}
+	}
+	sortBoosted(results)
+	return results, true
+}
+
+// knowledgeBoost scales graphBoostFactor by an edge weight. Weight 1 is the
+// full 25% boost. A tag edge (weight 0.3) or a low-confidence inferred edge
+// moves the score less.
+func knowledgeBoost(weight float64) float64 {
+	if weight <= 0 {
+		return 1
+	}
+	if weight > 1 {
+		weight = 1
+	}
+	return 1 + (graphBoostFactor-1)*weight
+}
+
+func sortBoosted(results []index.SearchResult) {
 	sort.Slice(results, func(i, j int) bool {
 		if results[i].MatchCount != results[j].MatchCount {
 			return results[i].MatchCount > results[j].MatchCount
 		}
 		return results[i].Score > results[j].Score
 	})
-
-	return results
 }
 
 // graphConnectedSet returns every document path linked from, or sharing a
@@ -1008,7 +1076,7 @@ func (e *Executor) Execute(
 	}
 
 	if config.Index {
-		return e.executeIndexed(config)
+		return e.executeIndexed(execCtx, config)
 	}
 
 	results, err := e.walk(config)
@@ -1019,8 +1087,18 @@ func (e *Executor) Execute(
 	return buildSearchResult(config.Path, results), nil
 }
 
+func execContext(execCtx *executor.ExecutionContext) context.Context {
+	if execCtx == nil {
+		return nil
+	}
+	return execCtx.Ctx
+}
+
 // executeIndexed builds or loads an inverted index and performs a ranked search.
-func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}, error) {
+func (e *Executor) executeIndexed(
+	execCtx *executor.ExecutionContext,
+	config *domain.SearchLocalConfig,
+) (interface{}, error) {
 	dbPath := config.IndexDBPath
 	if dbPath == "" {
 		dbPath = indexDBPath(config.Path)
@@ -1076,7 +1154,7 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 	}
 
 	if config.GraphBoost {
-		results = boostByGraph(config, results)
+		results = boostByGraph(execContext(execCtx), config, results)
 	}
 
 	// Apply limit

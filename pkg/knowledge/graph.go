@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -129,6 +130,22 @@ func NeedsBuild(v Vault, dir string) (bool, error) {
 	return true, nil
 }
 
+// graphMu serializes builds. Session startup, workflow recall, vault search,
+// and skill linking can all refresh the same graph.
+//
+//nolint:gochecknoglobals // one build at a time for the process
+var graphMu sync.Mutex
+
+// Ensure brings the structural graph current for vault. It does not run
+// model extraction. A nil context leaves the graph untouched.
+func Ensure(ctx context.Context, vault string) error {
+	if ctx == nil || strings.TrimSpace(vault) == "" {
+		return nil
+	}
+	_, _, err := CheckUpdate(ctx, Vault{Root: vault}, GraphDir(vault), time.Now())
+	return err
+}
+
 // CheckUpdate incrementally rebuilds a stale graph and reports whether it changed.
 func CheckUpdate(
 	ctx context.Context,
@@ -136,11 +153,13 @@ func CheckUpdate(
 	dir string,
 	now time.Time,
 ) (bool, BuildStats, error) {
+	graphMu.Lock()
+	defer graphMu.Unlock()
 	stale, err := NeedsBuild(v, dir)
 	if err != nil || !stale {
 		return false, BuildStats{}, err
 	}
-	_, stats, err := Build(ctx, v, dir, now)
+	_, stats, err := buildGraph(ctx, v, dir, now)
 	return err == nil, stats, err
 }
 
@@ -248,7 +267,14 @@ func (b *builder) link(from, to, rel, file, loc string) {
 // reusing cached parses of unchanged files, and writes graph.json to dir.
 // When dir is GraphDir, a graph left in <vault>/.index is read once and the
 // owned files there, plus a generated report at the vault root, are removed.
+// Callers that only need a current graph use CheckUpdate.
 func Build(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, BuildStats, error) {
+	graphMu.Lock()
+	defer graphMu.Unlock()
+	return buildGraph(ctx, v, dir, now)
+}
+
+func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, BuildStats, error) {
 	external := filepath.Clean(dir) == filepath.Clean(GraphDir(v.Root))
 	if external {
 		adoptLegacy(v.Root, dir)

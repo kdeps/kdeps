@@ -467,9 +467,19 @@ func TestTagForEntry(t *testing.T) {
 			entry: ModelEntry{ModelType: modelTypeGGUF, Repo: "org/model"},
 			want:  "[gguf org/model]",
 		},
-		// cloud variants
+		// cloud variants. An empty Backend keeps the generic tag.
 		{name: "cloud_enabled", entry: ModelEntry{Enabled: true}, want: "[cloud enabled]"},
 		{name: "cloud_disabled", entry: ModelEntry{}, want: "[cloud]"},
+		{
+			name:  "openrouter_enabled",
+			entry: ModelEntry{Backend: "openrouter", Enabled: true},
+			want:  "[openrouter enabled]",
+		},
+		{
+			name:  "openrouter_disabled",
+			entry: ModelEntry{Backend: "openrouter"},
+			want:  "[openrouter]",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

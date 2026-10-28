@@ -429,6 +429,18 @@ func TestProviderEnvKey_OpenRouter(t *testing.T) {
 	assert.Equal(t, "OPENROUTER_API_KEY", providerEnvKey("openrouter"))
 }
 
+func TestBuildOpenAICompatEmbedder_OpenRouterRequiresItsOwnKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "sk-openai-must-not-be-used")
+	_, err := buildOpenAICompatEmbedder(&domain.EmbeddingConfig{
+		Backend: "openrouter",
+		Model:   "text-embedding-3-small",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
+}
+
 func TestProviderEnvKey_Together(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "TOGETHER_API_KEY", providerEnvKey("together"))

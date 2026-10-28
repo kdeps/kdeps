@@ -432,10 +432,16 @@ func tagForEntry(e ModelEntry) string {
 	case modelTypeOllama:
 		return scoreTag + "[ollama]"
 	default:
-		if e.Enabled {
-			return scoreTag + "[cloud enabled]"
+		// Cloud rows name the kdeps backend (openrouter, openai, ...).
+		// An entry with no backend keeps the generic cloud tag.
+		label := "cloud"
+		if e.Backend != "" {
+			label = e.Backend
 		}
-		return scoreTag + "[cloud]"
+		if e.Enabled {
+			return scoreTag + "[" + label + " enabled]"
+		}
+		return scoreTag + "[" + label + "]"
 	}
 }
 

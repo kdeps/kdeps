@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -69,7 +70,11 @@ func (e *Executor) buildMessages(
 		}, messages...)
 	}
 
-	if recall := knowledgeRecall(config, promptStr); recall != "" {
+	var recallCtx context.Context
+	if ctx != nil {
+		recallCtx = ctx.Ctx
+	}
+	if recall := knowledgeRecall(recallCtx, config, promptStr); recall != "" {
 		at := 0
 		if systemPrompt != "" {
 			at = 1

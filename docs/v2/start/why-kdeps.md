@@ -128,7 +128,7 @@ kdeps is built on two small open-source projects developed alongside it. Both ar
 
 | Project | What it does | Where kdeps uses it |
 |---|---|---|
-| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library for resolving dependent nodes. | The `requires:` DAG that orders every workflow; the reference/topic graph behind `search_local` `graphBoost` and skill-library linking. |
+| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library for resolving dependent nodes. | The link/topic graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
 | [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for agent mode: when the `turo` binary is on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
 
 ## See also
