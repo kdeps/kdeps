@@ -1,4 +1,4 @@
-version: 1.0.2
+version: 1.0.3
 name: auto-improve
 order: 215
 # builtin: kdeps handles this command itself; this file names the operation
@@ -7,4 +7,57 @@ builtin: true
 api: auto-improve
 usage:
   - args: ""
-    help: Run the fixed task list in this kdeps repo, then fix product bugs from the instrument log. A daily workflow runs this with an OpenRouter free model and opens a pull request
+    help: Run the fixed task list in this kdeps repo, then fix product bugs from the instrument log
+  - args: "[focus]"
+    help: Same session, limited to one focus id from this file. A daily workflow runs each focus on its own and opens a pull request
+# focus: scheduled bug-hunt areas. List order is priority. Each id is its own
+# session and its own pull request. Tasks are look-only. Brief is the one fix.
+focus:
+  - id: token-efficiency
+    tasks:
+      - Use the code search tools to find where the agent system prompt is built. Quote the function and the file.
+      - Use the code search tools to find a token cap, a history window, or a tool-result truncation. Quote the symbol and the file.
+    brief: |
+      Fix one place that sends more tokens than the work needs: a repeated prompt block, a tool result with no cap, or a list dumped into the prompt in full. Keep the behavior. Add a test that locks the smaller bound. Do not drop a capability to save tokens. Do not change an event asset's count unless that count is the waste.
+  - id: ux-dx
+    tasks:
+      - Use the code search tools to find a slash command whose help text and behavior disagree. Quote both.
+      - Use the code search tools to find an error returned to the user that does not name the next step. Quote it.
+    brief: |
+      Fix one user-facing papercut: a help line that lies, an error that hides the next step, or a prompt for a value that already has a default. Add a test. Do not redesign the REPL.
+  - id: security
+    tasks:
+      - Use the code search tools to find a place a secret, token, or API key can be written to a log or a prompt. Quote the file.
+      - Use the code search tools to find a filesystem or shell boundary check. Quote the function.
+    brief: |
+      Fix one real exposure: a secret in a log or prompt, a path that escapes the workspace, or a command built from unsanitized input. Add a test. Do not weaken an existing check. Do not start a new hardening project.
+  - id: ergonomics
+    tasks:
+      - Use the code search tools to find a common command that requires a flag the default could cover. Quote it.
+      - Use the code search tools to find CLI output that is harder to scan than the data it shows. Quote the printer.
+    brief: |
+      Remove one extra step from a common task, or make one output easier to scan, without changing the result. Add a test when the change is Go. Do not rename a public flag.
+  - id: documentation
+    tasks:
+      - Use the read_file tool on README.md. Quote the sentence that describes agent mode.
+      - Use the code search tools to find a docs/v2 page that disagrees with the code, or an example a reader would paste. Quote the line.
+    brief: |
+      Fix one stale statement or one example a reader would paste. Edit README.md or a file under docs/v2. The example must match the code. Do not invent a flag, field, or route. Do not edit book/.
+  - id: reliability
+    tasks:
+      - Read session.md in this instrument session. Quote one error, loop, or repeated call. If none is there, say so.
+      - Use the code search tools to find a tool error string in pkg/agent. Quote the function.
+    brief: |
+      Fix one product bug: a panic, a tool error that is wrong, a loop, or a refusal of work the tools can do. Add a test. A model guess is not a bug. A shell rejection of a command the model wrote is not a bug.
+  - id: performance
+    tasks:
+      - Use the code search tools to find a startup path that reads every asset or model file before the first prompt. Quote it.
+      - Use the code search tools to find a hot loop that builds strings by concatenation or reads a file per item. Quote it.
+    brief: |
+      Fix one startup or hot-path cost that a normal command pays every time. Add a test or extend one that already covers that path. Leave token counts to the token-efficiency focus.
+  - id: tests
+    tasks:
+      - Use the code search tools to find a function in pkg/agent whose behavior has no test in that package. Quote it.
+      - Use the code search tools to find a scenario in tests/e2e that does not assert the command output. Quote it.
+    brief: |
+      Add or fix one test that locks a real behavior. Do not delete a test to go green. Do not change production code unless the test catches a defect.

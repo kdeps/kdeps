@@ -64,6 +64,14 @@ type commandUsage struct {
 	Help string `yaml:"help"`
 }
 
+// commandFocus is one bug-hunt area on /auto-improve. List order is priority.
+// Brief is the evaluate-turn instruction. Tasks are the look-only turns before it.
+type commandFocus struct {
+	ID    string   `yaml:"id"`
+	Tasks []string `yaml:"tasks"`
+	Brief string   `yaml:"brief"`
+}
+
 // commandStep is one step of a declared command: exactly one of a slash
 // command to run, a prompt to send, or a kdeps API tool to call. Each takes
 // the command's arguments as $1, $2, ..., $ARGUMENTS (see substituteArgs); for
@@ -95,6 +103,7 @@ type slashCommand struct {
 	API         string         `yaml:"api"`
 	Aliases     []string       `yaml:"aliases"`
 	Usage       []commandUsage `yaml:"usage"`
+	Focus       []commandFocus `yaml:"focus,omitempty"`
 	commandBody `yaml:",inline"`
 	// Requires is the asset header's requires: (read by kdeps update, not here).
 	Requires map[string]string `yaml:"requires"`
@@ -185,10 +194,56 @@ func (c *slashCommand) validate() error {
 			return errors.New("every usage needs help")
 		}
 	}
+	if err := c.validateFocus(); err != nil {
+		return err
+	}
 	if c.Builtin {
 		return c.validateBuiltin()
 	}
 	return c.validateDeclared()
+}
+
+func (c *slashCommand) validateFocus() error {
+	seen := map[string]struct{}{}
+	for i, f := range c.Focus {
+		if !validFocusID(f.ID) {
+			return fmt.Errorf("focus %d: id %q must be lowercase words separated by hyphens", i+1, f.ID)
+		}
+		if _, ok := seen[f.ID]; ok {
+			return fmt.Errorf("focus %q is repeated", f.ID)
+		}
+		seen[f.ID] = struct{}{}
+		if len(f.Tasks) == 0 {
+			return fmt.Errorf("focus %q: tasks is required", f.ID)
+		}
+		for j, task := range f.Tasks {
+			if strings.TrimSpace(task) == "" {
+				return fmt.Errorf("focus %q: task %d is empty", f.ID, j+1)
+			}
+		}
+		if strings.TrimSpace(f.Brief) == "" {
+			return fmt.Errorf("focus %q: brief is required", f.ID)
+		}
+	}
+	return nil
+}
+
+func validFocusID(id string) bool {
+	if id == "" || id[0] < 'a' || id[0] > 'z' {
+		return false
+	}
+	prevHyphen := false
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			prevHyphen = false
+		case r == '-' && !prevHyphen:
+			prevHyphen = true
+		default:
+			return false
+		}
+	}
+	return !prevHyphen
 }
 
 func (c *slashCommand) validateBuiltin() error {

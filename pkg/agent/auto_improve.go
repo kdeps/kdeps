@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -116,47 +117,148 @@ func autoImproveEvalPrompt(dir string, n, total int) string {
 	)
 }
 
+func autoImproveCommand() *slashCommand {
+	for _, c := range slashCommands {
+		if c.Builtin && c.API == "auto-improve" {
+			return c
+		}
+	}
+	return nil
+}
+
+func lookupAutoImproveFocus(id string) (commandFocus, error) {
+	c := autoImproveCommand()
+	if c == nil {
+		return commandFocus{}, errors.New("/auto-improve: focus list is not loaded")
+	}
+	ids := make([]string, len(c.Focus))
+	for i, f := range c.Focus {
+		ids[i] = f.ID
+		if f.ID == id {
+			return f, nil
+		}
+	}
+	return commandFocus{}, fmt.Errorf("/auto-improve: unknown focus %q (%s)", id, strings.Join(ids, ", "))
+}
+
+func focusTasks(root string, tasks []string) []string {
+	out := make([]string, len(tasks))
+	for i, task := range tasks {
+		out[i] = fmt.Sprintf(
+			"The kdeps repo root is %s.\n%s\nDo not edit files.",
+			root, strings.TrimSpace(task),
+		)
+	}
+	return out
+}
+
+func autoImproveFocusEval(dir, brief string) string {
+	return fmt.Sprintf(
+		"Read the instrument session in %s.\n"+
+			"Read session.md and events.ndjson. Each event has a kind field.\n"+
+			"Focus for this run:\n%s\n"+
+			"Fix one defect in that focus and add a test when the change is code.\n"+
+			"A model guess is not a defect. "+
+			"A shell rejection of a command the model wrote is not a defect.\n"+
+			"If there is nothing to fix, say so and do not edit files.",
+		dir, strings.TrimSpace(brief),
+	)
+}
+
 // ensureAutoImproveSession starts the auto-improve session, or keeps the
 // session this process is already recording.
-func ensureAutoImproveSession() (*instrument.Session, bool, error) {
+func ensureAutoImproveSession(name string, args []string) (*instrument.Session, bool, error) {
 	if s := instrument.Active(); s != nil {
 		return s, false, nil
 	}
-	s, err := instrument.Start(autoImproveSession, []string{"/auto-improve"}, time.Now())
+	s, err := instrument.Start(name, args, time.Now())
 	if err != nil {
 		return nil, false, fmt.Errorf("/auto-improve: %w", err)
 	}
 	return s, true, nil
 }
 
-func (r *REPL) cmdAutoImprove() error {
+func resolveAutoImprove(args []string) (*commandFocus, string, error) {
+	if len(args) > 1 {
+		return nil, "", errors.New("/auto-improve takes one focus id")
+	}
 	root, err := kdepsRepoRoot("")
 	if err != nil {
-		return err
+		return nil, "", err
 	}
-	session, started, err := ensureAutoImproveSession()
+	if len(args) == 0 {
+		return nil, root, nil
+	}
+	f, err := lookupAutoImproveFocus(args[0])
+	if err != nil {
+		return nil, "", err
+	}
+	return &f, root, nil
+}
+
+func autoImproveSessionName(focus *commandFocus) (string, []string, string) {
+	name := autoImproveSession
+	startArgs := []string{"/auto-improve"}
+	line := "/auto-improve"
+	if focus == nil {
+		return name, startArgs, line
+	}
+	name += "-" + focus.ID
+	startArgs = append(startArgs, focus.ID)
+	line += " " + focus.ID
+	return name, startArgs, line
+}
+
+func (r *REPL) cmdAutoImprove(args []string) error {
+	focus, root, err := resolveAutoImprove(args)
 	if err != nil {
 		return err
 	}
-	r.history = append(r.history, "/auto-improve")
+	name, startArgs, line := autoImproveSessionName(focus)
+	session, started, err := ensureAutoImproveSession(name, startArgs)
+	if err != nil {
+		return err
+	}
+	r.history = append(r.history, line)
 	if started {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording %s\n", session.Dir)
 	} else {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording continues at %s\n", session.Dir)
 	}
+	if focus != nil {
+		fmt.Fprintf(os.Stdout, "auto-improve: focus %s\n", focus.ID)
+	}
 	tasks := autoImproveTasks(root)
-	for i, task := range tasks {
-		fmt.Fprintf(os.Stdout, "auto-improve: task %d/%d\n", i+1, len(tasks))
-		if err = r.runAutoImproveTurn(task); err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stdout, "auto-improve: evaluate %d/%d\n", i+1, len(tasks))
-		if err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks))); err != nil {
-			return err
-		}
+	if focus != nil {
+		tasks = focusTasks(root, focus.Tasks)
+	}
+	if err = r.runAutoImproveTasks(session.Dir, tasks, focus); err != nil {
+		return err
 	}
 	fmt.Fprintln(os.Stdout, "auto-improve: done")
 	return nil
+}
+
+func (r *REPL) runAutoImproveTasks(dir string, tasks []string, focus *commandFocus) error {
+	for i, task := range tasks {
+		fmt.Fprintf(os.Stdout, "auto-improve: task %d/%d\n", i+1, len(tasks))
+		if err := r.runAutoImproveTurn(task); err != nil {
+			return err
+		}
+		if focus != nil {
+			continue
+		}
+		fmt.Fprintf(os.Stdout, "auto-improve: evaluate %d/%d\n", i+1, len(tasks))
+		prompt := autoImproveEvalPrompt(dir, i+1, len(tasks))
+		if err := r.runAutoImproveTurn(prompt); err != nil {
+			return err
+		}
+	}
+	if focus == nil {
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, "auto-improve: evaluate 1/1")
+	return r.runAutoImproveTurn(autoImproveFocusEval(dir, focus.Brief))
 }
 
 func (r *REPL) runAutoImproveTurn(prompt string) error {

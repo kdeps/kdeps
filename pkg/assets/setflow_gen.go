@@ -25,7 +25,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the command runs: built in, or its declared steps", Here: true},
 			{Label: "prompts go to the model; the output is shown"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "/auto-improve", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.declaredCommand"},
 	},
 	"components": {
@@ -45,7 +45,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
+		UsedBy: []string{"kdeps (agent loop)", "/editor", "/instruct", "/auto-improve", "kdeps run", "kdeps exec", "kdeps knowledge build"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "config.GetDefaults"},
 	},
 	"docker": {

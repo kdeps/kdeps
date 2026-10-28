@@ -174,11 +174,16 @@ The working directory must be this module, or a folder inside it. Another module
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
 
-A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs this command in the kdeps repository. It passes `--backend openrouter` and a model id from `assets/models/openrouter.yaml`. When the session does not print `auto-improve: done`, it tries the next id, up to four. A tree with edits is pushed as a pull request with auto-merge, which merges after the required checks pass. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets.
+`/auto-improve <focus>` runs the tasks and brief for that id in `assets/commands/auto-improve.yaml`. List order is priority. The look-only tasks run first, then one evaluate turn. An unknown id prints the ids and does not call the model.
+
+A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs each focus as its own job. Two jobs run at a time. One failure does not cancel the rest. Each job passes `--backend openrouter` and a model id from `assets/models/openrouter.yaml`. When the session does not print `auto-improve: done`, it tries the next id, up to four. A tree with edits is pushed as `bot/bug-hunt-<focus>-<timestamp>` with auto-merge, which merges after the required checks pass. An open pull request blocks only that focus. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets.
+
+Priority order: `token-efficiency`, `ux-dx`, `security`, `ergonomics`, `documentation`, `reliability`, `performance`, `tests`.
 
 ```bash
 id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
-printf '/auto-improve\n/exit\n' | kdeps --backend openrouter --model "$id"
+printf '/auto-improve token-efficiency\n/exit\n' | kdeps --backend openrouter --model "$id" --instrument=bug-hunt-token-efficiency
+bash scripts/bug-hunt.sh focuses
 ```
 
 ## Declared commands

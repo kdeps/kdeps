@@ -23,6 +23,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -117,7 +118,7 @@ func TestCmdAutoImprove_RunsEachTaskThenEvaluates(t *testing.T) {
 	require.Equal(t, []string{"/auto-improve"}, repl.history)
 
 	out = testCaptureStdout(t, func() {
-		require.NoError(t, repl.cmdAutoImprove())
+		require.NoError(t, repl.cmdAutoImprove(nil))
 	})
 	require.Contains(t, out, "auto-improve: recording continues at ")
 	require.Len(t, sent, 12)
@@ -151,14 +152,95 @@ func TestEnsureAutoImproveSession(t *testing.T) {
 		t.Skip("a session is already recording")
 	}
 	t.Setenv(instrument.RootEnv, t.TempDir())
-	s, started, err := ensureAutoImproveSession()
+	s, started, err := ensureAutoImproveSession(autoImproveSession, []string{"/auto-improve"})
 	require.NoError(t, err)
 	require.True(t, started)
 	require.Equal(t, autoImproveSession, s.Name)
 	t.Cleanup(func() { _ = s.Close(nil) })
 
-	again, started, err := ensureAutoImproveSession()
+	again, started, err := ensureAutoImproveSession(autoImproveSession, []string{"/auto-improve"})
 	require.NoError(t, err)
 	require.False(t, started)
 	require.Equal(t, s.Dir, again.Dir)
+}
+
+func TestShippedAutoImproveFocusOrder(t *testing.T) {
+	c := autoImproveCommand()
+	require.NotNil(t, c)
+	ids := make([]string, 0, len(c.Focus))
+	for _, f := range c.Focus {
+		require.NotEmpty(t, strings.TrimSpace(f.Brief), f.ID)
+		require.NotEmpty(t, f.Tasks, f.ID)
+		ids = append(ids, f.ID)
+	}
+	require.Equal(t, []string{
+		"token-efficiency",
+		"ux-dx",
+		"security",
+		"ergonomics",
+		"documentation",
+		"reliability",
+		"performance",
+		"tests",
+	}, ids)
+}
+
+func TestParseYAMLCommand_RejectsBadFocusID(t *testing.T) {
+	_, err := parseYAMLCommand([]byte(`
+version: 1.0.0
+name: auto-improve
+builtin: true
+api: auto-improve
+usage:
+  - args: ""
+    help: test
+focus:
+  - id: Bad
+    tasks:
+      - look
+    brief: fix
+`), "auto-improve.yaml")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "focus")
+}
+
+func TestCmdAutoImprove_UnknownFocus(t *testing.T) {
+	repl := NewREPL(t.Context(), makeTestLoop(nil))
+	t.Cleanup(repl.cancel)
+	err := repl.dispatchCommand("/auto-improve not-a-focus")
+	require.ErrorContains(t, err, "not-a-focus")
+	require.Empty(t, repl.history)
+}
+
+func TestCmdAutoImprove_FocusRunsTasksThenOneEval(t *testing.T) {
+	if instrument.Active() != nil {
+		t.Skip("a session is already recording")
+	}
+	t.Setenv(instrument.RootEnv, t.TempDir())
+	t.Cleanup(func() {
+		if s := instrument.Active(); s != nil {
+			_ = s.Close(nil)
+		}
+	})
+	focus, err := lookupAutoImproveFocus("token-efficiency")
+	require.NoError(t, err)
+	repl := NewREPL(t.Context(), makeTestLoop(nil))
+	t.Cleanup(repl.cancel)
+	var sent []string
+	repl.runFn = func(_ context.Context, msg string) (string, error) {
+		sent = append(sent, msg)
+		return "noted", nil
+	}
+	out := testCaptureStdout(t, func() {
+		require.NoError(t, repl.dispatchCommand("/auto-improve token-efficiency"))
+	})
+	require.Len(t, sent, len(focus.Tasks)+1)
+	require.Contains(t, sent[0], "Do not edit files.")
+	require.NotContains(t, sent[0], "instrument.Start")
+	require.Contains(t, sent[len(sent)-1], strings.TrimSpace(focus.Brief))
+	require.Contains(t, sent[len(sent)-1], "not a defect")
+	require.Contains(t, out, "auto-improve: focus token-efficiency")
+	require.Contains(t, out, "auto-improve: evaluate 1/1")
+	require.Contains(t, out, "auto-improve: done")
+	require.Equal(t, []string{"/auto-improve token-efficiency"}, repl.history)
 }

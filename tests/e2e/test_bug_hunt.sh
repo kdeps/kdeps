@@ -43,6 +43,31 @@ else
 	test_failed "bug-hunt models lists free catalog ids in order" "$MODELS"
 fi
 
+cat >"$ROOT/focus.yaml" <<'EOF'
+focus:
+  - id: token-efficiency
+    tasks:
+      - look
+    brief: tokens
+  - id: ux-dx
+    tasks:
+      - look
+    brief: ux
+  - id: security
+    tasks:
+      - look
+    brief: security
+EOF
+
+FOCUSES="$(BUG_HUNT_FOCUSES="$ROOT/focus.yaml" bash "$HUNT" focuses)"
+FOCUS_JSON="$(BUG_HUNT_FOCUSES="$ROOT/focus.yaml" bash "$HUNT" focuses-json)"
+if [ "$FOCUSES" = "$(printf '%s\n' token-efficiency ux-dx security)" ] \
+	&& [ "$FOCUS_JSON" = '["token-efficiency","ux-dx","security"]' ]; then
+	test_passed "bug-hunt focuses lists ids in priority order"
+else
+	test_failed "bug-hunt focuses lists ids in priority order" "$FOCUSES $FOCUS_JSON"
+fi
+
 cat >"$ROOT/fake-kdeps" <<'EOF'
 #!/bin/bash
 model=""
@@ -54,7 +79,8 @@ for a in "$@"; do
 	prev="$a"
 done
 echo "$model" >>"$BUG_HUNT_FAKE_LOG"
-cat >/dev/null
+printf 'args:%s\n' "$*" >>"$BUG_HUNT_FAKE_LOG"
+cat >>"$BUG_HUNT_FAKE_LOG"
 case "$model" in
 fail/*) exit 1 ;;
 edit/*)
@@ -76,7 +102,11 @@ cat >"$ROOT/gh" <<'EOF'
 echo "$*" >>"$GH_ARGS"
 if [ "$1" = "pr" ] && [ "$2" = "list" ]; then
 	if [ -n "${GH_OPEN_PR:-}" ]; then
-		printf '%s\n' '[{"headRefName":"bot/bug-hunt-existing"}]'
+		name="$GH_OPEN_PR"
+		if [ "$name" = "1" ]; then
+			name="bot/bug-hunt-existing"
+		fi
+		printf '%s\n' "[{\"headRefName\":\"${name}\"}]"
 	else
 		printf '%s\n' '[]'
 	fi
@@ -112,6 +142,25 @@ else
 	fi
 fi
 rm -f "$MISS"
+
+# An unknown focus exits before any model call.
+UOUT="$(mktemp)"
+UFAKE="$(mktemp)"
+if OPENROUTER_API_KEY=test \
+	BUG_HUNT_FOCUSES="$ROOT/focus.yaml" \
+	BUG_HUNT_FOCUS=nope \
+	BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
+	BUG_HUNT_FAKE_LOG="$UFAKE" \
+	bash "$HUNT" run >"$UOUT" 2>&1; then
+	test_failed "bug-hunt run rejects an unknown focus" "exit 0"
+else
+	if grep -q "unknown focus nope" "$UOUT" && [ ! -s "$UFAKE" ]; then
+		test_passed "bug-hunt run rejects an unknown focus"
+	else
+		test_failed "bug-hunt run rejects an unknown focus" "$(cat "$UOUT")"
+	fi
+fi
+rm -f "$UOUT" "$UFAKE"
 
 # First id fails, second finishes and edits. Publish is skipped.
 REPO="$(mktemp -d)"
@@ -217,6 +266,38 @@ else
 	test_failed "bug-hunt publish pushes a pull request and enables auto-merge" "$(cat "$POUT"; echo ---; cat "$GH_ARGS"; echo ---; echo "rc=$PUB_RC branch=$BRANCH")"
 fi
 
+# A focused run passes that id to kdeps and keeps the edit.
+EDIT_CAT="$ROOT/edit.yaml"
+cat >"$EDIT_CAT" <<'EOF'
+models:
+  - id: "edit/two:free"
+EOF
+HREPO="$(mktemp -d)"
+init_repo "$HREPO"
+FFAKE="$(mktemp)"
+FOUT2="$(mktemp)"
+(
+	cd "$HREPO"
+	OPENROUTER_API_KEY=test \
+		BUG_HUNT_CATALOG="$EDIT_CAT" \
+		BUG_HUNT_FOCUSES="$ROOT/focus.yaml" \
+		BUG_HUNT_FOCUS=token-efficiency \
+		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
+		BUG_HUNT_FAKE_LOG="$FFAKE" \
+		BUG_HUNT_RESET=1 \
+		BUG_HUNT_SKIP_PUBLISH=1 \
+		BUG_HUNT_TIMEOUT=30 \
+		bash "$HUNT" run >"$FOUT2" 2>&1
+)
+if [ $? -eq 0 ] \
+	&& grep -q "args:.*--instrument=bug-hunt-token-efficiency" "$FFAKE" \
+	&& grep -q "/auto-improve token-efficiency" "$FFAKE" \
+	&& [ "$(cat "$HREPO/hunted.txt" 2>/dev/null)" = "fixed" ]; then
+	test_passed "bug-hunt run passes the focus id to kdeps"
+else
+	test_failed "bug-hunt run passes the focus id to kdeps" "$(cat "$FOUT2"; echo ---; cat "$FFAKE")"
+fi
+
 # An open bug-hunt pull request is left alone.
 OREPO="$(mktemp -d)"
 init_repo "$OREPO"
@@ -236,7 +317,56 @@ else
 	test_failed "bug-hunt publish skips when a bug-hunt pull request is open" "$(cat "$OOUT"; echo ---; cat "$OH_ARGS")"
 fi
 
-rm -rf "$REPO" "$CREPO" "$FREPO" "$PREPO" "$OREPO" "$BARE" "$ROOT"
-rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$GH_ARGS" "$POUT" "$OH_ARGS" "$OOUT"
+# Another focus's open pull request does not block this focus.
+XBARE="$(mktemp -d)"
+git init -q --bare "$XBARE"
+XREPO="$(mktemp -d)"
+init_repo "$XREPO"
+git -C "$XREPO" remote add origin "$XBARE"
+echo dirty >"$XREPO/hunted.txt"
+XH_ARGS="$(mktemp)"
+XOUT="$(mktemp)"
+(
+	cd "$XREPO"
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$XH_ARGS" \
+		GH_OPEN_PR="bot/bug-hunt-security-existing" \
+		BUG_HUNT_FOCUSES="$ROOT/focus.yaml" \
+		BUG_HUNT_FOCUS=ux-dx \
+		bash "$HUNT" publish "edit/two:free" >"$XOUT" 2>&1
+)
+XRC=$?
+XBRANCH="$(git -C "$XREPO" rev-parse --abbrev-ref HEAD)"
+if [ "$XRC" -eq 0 ] \
+	&& printf '%s' "$XBRANCH" | grep -q '^bot/bug-hunt-ux-dx-' \
+	&& grep -q "pr create" "$XH_ARGS"; then
+	test_passed "bug-hunt publish keeps each focus independent"
+else
+	test_failed "bug-hunt publish keeps each focus independent" "$(cat "$XOUT"; echo ---; echo "rc=$XRC branch=$XBRANCH")"
+fi
+
+# The same focus's open pull request is left alone.
+SREPO="$(mktemp -d)"
+init_repo "$SREPO"
+echo dirty >"$SREPO/hunted.txt"
+SH_ARGS="$(mktemp)"
+SOUT="$(mktemp)"
+(
+	cd "$SREPO"
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$SH_ARGS" \
+		GH_OPEN_PR="bot/bug-hunt-security-existing" \
+		BUG_HUNT_FOCUSES="$ROOT/focus.yaml" \
+		BUG_HUNT_FOCUS=security \
+		bash "$HUNT" publish "edit/two:free" >"$SOUT" 2>&1
+)
+if [ $? -eq 0 ] && grep -q "already exists" "$SOUT" && ! grep -q "pr create" "$SH_ARGS"; then
+	test_passed "bug-hunt publish skips when that focus already has a pull request"
+else
+	test_failed "bug-hunt publish skips when that focus already has a pull request" "$(cat "$SOUT"; echo ---; cat "$SH_ARGS")"
+fi
+
+rm -rf "$REPO" "$CREPO" "$FREPO" "$PREPO" "$OREPO" "$BARE" "$HREPO" "$XBARE" "$XREPO" "$SREPO" "$ROOT"
+rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$GH_ARGS" "$POUT" "$OH_ARGS" "$OOUT" "$FFAKE" "$FOUT2" "$XH_ARGS" "$XOUT" "$SH_ARGS" "$SOUT"
 
 echo ""

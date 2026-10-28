@@ -75,7 +75,9 @@ Refreshes the OpenRouter free-model catalog (`assets/models/openrouter.yaml`) fr
 ### bug-hunt.yml
 **Trigger**: Daily at 7:30 AM UTC, Manual via workflow_dispatch
 
-Runs `/auto-improve` through the kdeps binary on an OpenRouter free model from `assets/models/openrouter.yaml`. A session that does not finish tries the next id, up to four. When the tree has edits, the job pushes branch `bot/bug-hunt-<timestamp>` and opens a pull request with auto-merge. The merge waits for the required checks. An open bug-hunt pull request blocks a second one. No edits, and no finished session, ends the job without a pull request.
+Runs `/auto-improve <focus>` through the kdeps binary, once per focus id in `assets/commands/auto-improve.yaml`. List order is priority. Two jobs run at a time. One failure does not cancel the others. Each job uses an OpenRouter free model from `assets/models/openrouter.yaml`. A session that does not finish tries the next id, up to four. When the tree has edits, the job pushes branch `bot/bug-hunt-<focus>-<timestamp>` and opens a pull request with auto-merge. The merge waits for the required checks. An open pull request blocks only that focus. No edits, and no finished session, ends that job without a pull request.
+
+`workflow_dispatch` takes an optional `focus` input. Empty runs every focus. A value that is not in the file fails the list job.
 
 Checkout and `gh` use `RELEASE_TOKEN`, so the pull request starts Build and Test. `OPENROUTER_API_KEY` is the OpenRouter key.
 

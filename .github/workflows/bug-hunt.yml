@@ -1,8 +1,10 @@
 name: Bug Hunt
 
 # kdeps runs /auto-improve against this repo on an OpenRouter free model,
-# fixes product bugs the instrument log shows, and opens a pull request.
-# Auto-merge lands it after the required checks pass.
+# once per focus id in assets/commands/auto-improve.yaml. List order is
+# priority. Each focus is its own job, session, and pull request. One
+# focus failing does not cancel the others. Two jobs run at a time so a
+# free-tier rate limit is not hit by every focus at once.
 #
 # Checkout and gh use RELEASE_TOKEN. A GITHUB_TOKEN push does not start
 # Build and Test, so the required checks would stay expected and the
@@ -17,6 +19,11 @@ on:
     # After the 06:15 UTC OpenRouter harvest, so the catalog is current.
     - cron: '30 7 * * *'
   workflow_dispatch:
+    inputs:
+      focus:
+        description: Focus id. Empty runs every focus, in priority order.
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -27,9 +34,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      focuses: ${{ steps.ids.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Focus ids
+        id: ids
+        env:
+          ONLY: ${{ github.event.inputs.focus }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ONLY" ]; then
+            if ! bash scripts/bug-hunt.sh focuses | grep -qx "$ONLY"; then
+              echo "bug-hunt: unknown focus ${ONLY}" >&2
+              exit 1
+            fi
+            json="[\"${ONLY}\"]"
+          else
+            json="$(bash scripts/bug-hunt.sh focuses-json)"
+          fi
+          if [ "$json" = "[]" ]; then
+            echo "bug-hunt: no focuses" >&2
+            exit 1
+          fi
+          echo "matrix=${json}" >> "$GITHUB_OUTPUT"
+
   hunt:
+    needs: list
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        focus: ${{ fromJson(needs.list.outputs.focuses) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,4 +94,5 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           BUG_HUNT_RESET: "1"
+          BUG_HUNT_FOCUS: ${{ matrix.focus }}
         run: bash scripts/bug-hunt.sh run

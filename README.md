@@ -293,7 +293,7 @@ kdeps ./my-agent/ --model llama3.2
 
 Agent mode is less predictable than a fixed workflow because the AI chooses its actions. Limit its permissions and review important changes.
 
-In this repository, `/auto-improve` runs an instrumented session and fixes product bugs the log shows. A daily workflow does that with an OpenRouter free model and opens a pull request that auto-merges after the required checks pass.
+In this repository, `/auto-improve` runs an instrumented session and fixes product bugs the log shows. A daily workflow runs one session per focus (token efficiency, UX and DX, security, ergonomics, documentation, then reliability, performance, and tests) on an OpenRouter free model. Each focus opens its own pull request, which auto-merges after the required checks pass.
 
 ## Connect agents with agencies
 
