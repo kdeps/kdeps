@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -123,19 +124,43 @@ func autoImproveTasks(root string) []string {
 	}
 }
 
-func autoImproveEvalPrompt(dir string, n, total int) string {
+func autoImproveEvalPrompt(dir string, n, total int, alone bool) string {
+	step := fmt.Sprintf("This is evaluate step %d of %d, after the task that just ran.\n", n, total)
+	if alone {
+		step = fmt.Sprintf("This session is hunt %d of %d and contains only that task.\n", n, total)
+	}
 	return fmt.Sprintf(
 		"Read the instrument session in %s.\n"+
 			"Read session.md and events.ndjson. Each event has a kind field.\n"+
-			"This is evaluate step %d of %d, after the task that just ran.\n"+
+			"%s"+
 			"Report product bugs shown in those events: a loop, a refusal of work "+
 			"the tools can do, a call to the wrong tool, or a tool error that is wrong.\n"+
 			"A model guess is not a product bug. "+
 			"A shell rejection of a command the model wrote is not a product bug.\n"+
 			"For each product bug, fix the code and add a test. "+
 			"If there is no product bug, say so and do not edit files.",
-		dir, n, total,
+		dir, step,
 	)
+}
+
+// autoImproveSelection is every task, or the one task number in args.
+// Numbers are 1-based. A bad number is refused before a session starts.
+func autoImproveSelection(args []string, n int) ([]int, error) {
+	if len(args) == 0 {
+		idx := make([]int, n)
+		for i := range n {
+			idx[i] = i
+		}
+		return idx, nil
+	}
+	if len(args) != 1 {
+		return nil, errors.New("/auto-improve takes one task number")
+	}
+	v, err := strconv.Atoi(args[0])
+	if err != nil || v < 1 || v > n {
+		return nil, fmt.Errorf("/auto-improve task is 1 through %d", n)
+	}
+	return []int{v - 1}, nil
 }
 
 // ensureAutoImproveSession starts the auto-improve session, or keeps the
@@ -151,8 +176,13 @@ func ensureAutoImproveSession() (*instrument.Session, bool, error) {
 	return s, true, nil
 }
 
-func (r *REPL) cmdAutoImprove() error {
+func (r *REPL) cmdAutoImprove(args []string) error {
 	root, err := kdepsRepoRoot("")
+	if err != nil {
+		return err
+	}
+	tasks := autoImproveTasks(root)
+	selected, err := autoImproveSelection(args, len(tasks))
 	if err != nil {
 		return err
 	}
@@ -163,22 +193,26 @@ func (r *REPL) cmdAutoImprove() error {
 	if r.loop != nil {
 		r.loop.bugCapture = true
 	}
-	r.history = append(r.history, "/auto-improve")
+	line := "/auto-improve"
+	if len(args) > 0 {
+		line += " " + strings.Join(args, " ")
+	}
+	r.history = append(r.history, line)
 	if started {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording %s\n", session.Dir)
 	} else {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording continues at %s\n", session.Dir)
 	}
-	tasks := autoImproveTasks(root)
-	for i, task := range tasks {
+	alone := len(args) > 0
+	for _, i := range selected {
 		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: task %d/%d\n", i+1, len(tasks))
-		if err = r.runAutoImproveTurn(task); err != nil {
+		if err = r.runAutoImproveTurn(tasks[i]); err != nil {
 			return r.finishAutoImprove(session.Dir, err)
 		}
 		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: evaluate %d/%d\n", i+1, len(tasks))
-		err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks)))
+		err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks), alone))
 		if err != nil {
 			return r.finishAutoImprove(session.Dir, err)
 		}

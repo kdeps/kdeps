@@ -75,11 +75,14 @@ func TestAutoImproveTasks(t *testing.T) {
 	require.Contains(t, tasks[0], "/repo")
 	require.Contains(t, tasks[1], "bash_exec")
 	require.Contains(t, tasks[2], "instrument.Start")
-	eval := autoImproveEvalPrompt("/tmp/session", 1, 3)
+	eval := autoImproveEvalPrompt("/tmp/session", 1, 3, false)
 	require.Contains(t, eval, "events.ndjson")
 	require.Contains(t, eval, "kind")
 	require.Contains(t, eval, "product bug")
 	require.Contains(t, eval, "1 of 3")
+	one := autoImproveEvalPrompt("/tmp/session", 2, 3, true)
+	require.Contains(t, one, "hunt 2 of 3")
+	require.Contains(t, one, "only that task")
 }
 
 func TestCmdAutoImprove_RunsEachTaskThenEvaluates(t *testing.T) {
@@ -122,10 +125,48 @@ func TestCmdAutoImprove_RunsEachTaskThenEvaluates(t *testing.T) {
 	require.Equal(t, []string{"/auto-improve"}, repl.history)
 
 	out = testCaptureStdout(t, func() {
-		require.NoError(t, repl.cmdAutoImprove())
+		require.NoError(t, repl.cmdAutoImprove(nil))
 	})
 	require.Contains(t, out, "auto-improve: recording continues at ")
 	require.Len(t, sent, 12)
+}
+
+func TestCmdAutoImprove_OneTask(t *testing.T) {
+	if instrument.Active() != nil {
+		t.Skip("a session is already recording")
+	}
+	stubBugCaptureIssue(t)
+	t.Setenv(instrument.RootEnv, t.TempDir())
+	t.Cleanup(func() {
+		if s := instrument.Active(); s != nil {
+			_ = s.Close(nil)
+		}
+	})
+	repl := NewREPL(t.Context(), makeTestLoop(nil))
+	t.Cleanup(repl.cancel)
+	var sent []string
+	repl.runFn = func(_ context.Context, msg string) (string, error) {
+		sent = append(sent, msg)
+		return "noted", nil
+	}
+	out := testCaptureStdout(t, func() {
+		require.NoError(t, repl.dispatchCommand("/auto-improve 2"))
+	})
+	require.Len(t, sent, 2)
+	require.Contains(t, sent[0], "bash_exec")
+	require.Contains(t, sent[1], "hunt 2 of 3")
+	require.Contains(t, sent[1], "only that task")
+	require.Contains(t, out, "auto-improve: task 2/3")
+	require.Contains(t, out, "auto-improve: evaluate 2/3")
+	require.NotContains(t, out, "auto-improve: task 1/3")
+	require.NotContains(t, out, "auto-improve: task 3/3")
+	require.Contains(t, out, "auto-improve: done")
+	require.Equal(t, []string{"/auto-improve 2"}, repl.history)
+
+	err := repl.dispatchCommand("/auto-improve 9")
+	require.ErrorContains(t, err, "/auto-improve task is 1 through 3")
+	err = repl.dispatchCommand("/auto-improve 1 2")
+	require.ErrorContains(t, err, "/auto-improve takes one task number")
 }
 
 func TestCmdAutoImprove_StopsWhenATurnFails(t *testing.T) {

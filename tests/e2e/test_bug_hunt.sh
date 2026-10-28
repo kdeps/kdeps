@@ -145,11 +145,13 @@ GH_ARGS="$(mktemp)"
 )
 if [ $? -eq 0 ] && grep -q "fail/one:free" "$FAKE_LOG" && grep -q "edit/two:free" "$FAKE_LOG" \
 	&& [ "$(head -n 1 "$FAKE_LOG")" = "fail/one:free" ] \
-	&& [ "$(cat "$REPO/hunted.txt" 2>/dev/null)" = "fixed" ] \
+	&& [ "$(grep -c '^fixed$' "$REPO/hunted.txt")" -eq 1 ] \
+	&& grep -q "bug-hunt: hunt 1/3" "$OUT" \
+	&& grep -q "bug-hunt: hunt 3/3" "$OUT" \
 	&& grep -q "trying the next free model" "$OUT" \
 	&& grep -q "skip publish" "$OUT" \
 	&& grep -q "auto-improve: issue https://example.test/issues/3" "$OUT" \
-	&& [ "$(grep -c 'issue create' "$GH_ARGS")" -eq 1 ]; then
+	&& [ "$(grep -c 'issue create' "$GH_ARGS")" -eq 3 ]; then
 	test_passed "bug-hunt run tries the next free model and keeps the fix"
 else
 	test_failed "bug-hunt run tries the next free model and keeps the fix" "$(cat "$OUT"; echo ---; cat "$FAKE_LOG"; echo ---; cat "$GH_ARGS")"
@@ -269,9 +271,12 @@ else
 	test_failed "bug-hunt publish pushes a pull request and enables auto-merge" "$(cat "$POUT"; echo ---; cat "$GH_ARGS"; echo ---; echo "rc=$PUB_RC branch=$BRANCH")"
 fi
 
-# An open bug-hunt pull request is left alone.
+# An already-open bug-hunt pull request does not block the next hunt's pull request.
+OBARE="$(mktemp -d)"
+git init -q --bare "$OBARE"
 OREPO="$(mktemp -d)"
 init_repo "$OREPO"
+git -C "$OREPO" remote add origin "$OBARE"
 echo dirty >"$OREPO/hunted.txt"
 OH_ARGS="$(mktemp)"
 OOUT="$(mktemp)"
@@ -280,15 +285,18 @@ OOUT="$(mktemp)"
 	PATH="$ROOT:$PATH" \
 		GH_ARGS="$OH_ARGS" \
 		GH_OPEN_PR=1 \
-		bash "$HUNT" publish "edit/two:free" >"$OOUT" 2>&1
+		bash "$HUNT" publish "edit/two:free" "2" >"$OOUT" 2>&1
 )
-if [ $? -eq 0 ] && grep -q "already exists" "$OOUT" && ! grep -q "pr create" "$OH_ARGS"; then
-	test_passed "bug-hunt publish skips when a bug-hunt pull request is open"
+ORC=$?
+OBRANCH="$(git -C "$OREPO" rev-parse --abbrev-ref HEAD)"
+if [ "$ORC" -eq 0 ] && printf '%s' "$OBRANCH" | grep -q '^bot/bug-hunt-.*-2$' \
+	&& grep -q "pr create" "$OH_ARGS" && ! grep -q "already exists" "$OOUT"; then
+	test_passed "bug-hunt publish opens a pull request while another is open"
 else
-	test_failed "bug-hunt publish skips when a bug-hunt pull request is open" "$(cat "$OOUT"; echo ---; cat "$OH_ARGS")"
+	test_failed "bug-hunt publish opens a pull request while another is open" "$(cat "$OOUT"; echo ---; cat "$OH_ARGS"; echo ---; echo "$OBRANCH")"
 fi
 
-rm -rf "$REPO" "$CREPO" "$FREPO" "$IREPO" "$PREPO" "$OREPO" "$BARE" "$ROOT"
+rm -rf "$REPO" "$CREPO" "$FREPO" "$IREPO" "$PREPO" "$OREPO" "$BARE" "$OBARE" "$ROOT"
 rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$IOUT" "$GH_ARGS" "$CGH" "$FGH" "$POUT" "$OH_ARGS" "$OOUT"
 
 echo ""

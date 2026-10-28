@@ -51,7 +51,7 @@ func builtinCommandOps() map[string]commandMethod {
 			r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 			return nil
 		},
-		"auto-improve": func(r *REPL, _ []string) error { return r.cmdAutoImprove() },
+		"auto-improve": func(r *REPL, a []string) error { return r.cmdAutoImprove(a) },
 		"instruct":     func(r *REPL, a []string) error { return r.cmdInstruct(false, a) },
 		"instruct-now": func(r *REPL, a []string) error { return r.cmdInstruct(true, a) },
 		"update":       func(r *REPL, a []string) error { r.cmdUpdate(a); return nil },
