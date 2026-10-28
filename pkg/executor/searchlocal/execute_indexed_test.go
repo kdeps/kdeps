@@ -38,7 +38,7 @@ func TestExecuteIndexed_EmptyQueryStats(t *testing.T) {
 		Index: true,
 		// empty query => stats payload
 	}
-	res, err := e.executeIndexed(cfg)
+	res, err := e.executeIndexed(nil, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,14 +47,14 @@ func TestExecuteIndexed_EmptyQueryStats(t *testing.T) {
 	}
 	// query with terms
 	cfg.Query = "hello"
-	res2, err2 := e.executeIndexed(cfg)
+	res2, err2 := e.executeIndexed(nil, cfg)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
 	_ = res2
 	// empty terms after tokenize
 	cfg.Query = "!!!"
-	_, err3 := e.executeIndexed(cfg)
+	_, err3 := e.executeIndexed(nil, cfg)
 	if err3 != nil {
 		t.Fatal(err3)
 	}

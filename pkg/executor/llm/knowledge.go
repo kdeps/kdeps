@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -37,14 +38,18 @@ var configuredVault = knowledge.Configured
 
 // knowledgeRecall is the knowledge vault's notes related to prompt, as a
 // system message, or "": every chat call recalls by default, unless the
-// resource sets knowledge: false, the config turns the vault off, or the
-// vault has no graph yet. No model is involved.
-func knowledgeRecall(cfg *domain.ChatConfig, prompt string) string {
+// resource sets knowledge: false or the config turns the vault off. The
+// structural graph is brought current first. No model is involved. A nil
+// context leaves an existing graph as it is.
+func knowledgeRecall(ctx context.Context, cfg *domain.ChatConfig, prompt string) string {
 	if (cfg.Knowledge != nil && !*cfg.Knowledge) || strings.TrimSpace(prompt) == "" {
 		return ""
 	}
 	vault, kc := configuredVault()
 	if kc.Enabled != nil && !*kc.Enabled {
+		return ""
+	}
+	if err := knowledge.Ensure(ctx, vault); err != nil {
 		return ""
 	}
 	ix := knowledge.SharedIndex(knowledge.GraphDir(vault))

@@ -188,11 +188,11 @@ knowledge:
   workflow_notes: true     # each chat call adds one line to its workflow's run note for the day
 ```
 
-A workflow's project is keyed by its `metadata.name`: the first logged run creates `projects/<name>/`, with a card whose `workflow` row is the folder it ran from; the same workflow run from anywhere else logs to the same project. Each chat call adds `- 14:02:11 <prompt> -> <reply>` to `sessions/<date> <name> runs.md`. A resource with `knowledge: false` neither recalls nor writes. Run notes join the graph on its next build (any agent session, or `kdeps knowledge build`).
+A workflow's project is keyed by its `metadata.name`: the first logged run creates `projects/<name>/`, with a card whose `workflow` row is the folder it ran from; the same workflow run from anywhere else logs to the same project. Each chat call adds `- 14:02:11 <prompt> -> <reply>` to `sessions/<date> <name> runs.md`. A resource with `knowledge: false` neither recalls nor writes. Run notes join the graph the next time a chat call, a vault search, or a session refreshes it.
 
 ## The graph
 
-`kdeps knowledge build` turns the vault into a graph:
+The structural graph is built and refreshed on its own: an agent session at start and before each recall, a workflow chat call before recall, a search inside the vault with `graphBoost`, and skill linking when a skill file is a vault note. No slash command is required. `kdeps knowledge build` runs that same build by hand:
 - **Nodes:** each note, each tag, and each Go package of every card's `repo` row.
 - **Edges:** wikilinks (`references`), frontmatter links (`relates_to`), tags (`tagged`) and Go imports (`depends_on`).
 - **Provenance:** every edge records how it was found. Edges from links and imports are `extracted`; code goes through the Go parser, never a model. A local model can add `inferred` edges (see [Model extraction](#model-extraction)).
@@ -261,7 +261,7 @@ kdeps knowledge report
 
 A surprising connection is a single link between two communities that otherwise never touch, ranked by the size of the smaller one: a lone bridge between two large groups is the least expected.
 
-Inside an agent session, kdeps rebuilds the graph in the background when the session starts and after it writes a note.
+Inside an agent session, kdeps rebuilds the graph in the background when the session starts and after it writes a note. A workflow chat call, a vault search, and skill linking refresh it too, before they read it. Model extraction stays off unless `knowledge.extract.on_background_build` is set, or you run `kdeps knowledge build --extract`.
 
 ## Recall
 
@@ -269,7 +269,7 @@ Before each model call, kdeps:
 1. Scores graph nodes on the request's words. Rarer words count more, a word that is part of a note's title counts double, and word forms meet (`billing` matches `bill`). Notes kdeps writes itself rank lower than notes you curate: session notes at 0.4x, memory notes at 0.6x. The session's own note is never recalled into that session.
 2. Walks at most 2 edges from the best matches, strongest edge first. An extracted edge counts fully, an inferred edge counts as its confidence, and an ambiguous edge counts as 0.3 times its confidence. A tag edge is then multiplied by 0.3. Each hop halves the score. `knowledge.recall.hops` above 2 is clamped to 2.
 3. Hands the model the best notes within `budget_tokens`, as paths it can open with `read_file`. A note reached through edges includes the relation chain, for example `projects/app/decisions/Billing decision.md --relates_to--> shared/Stripe gotcha.md`.
-4. When the project's places or [search folders](#search-folders) have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per folder, in a `<knowledge-files>` list headed by the folder and its index path. A file is listed once, even when two folders overlap. The model is told to open them with `read_file` or search further with `search_local`: path set to one folder, or no path for all of the project's folders. The index is only read, never built or changed, and a busy index is skipped.
+4. When the project's places or [search folders](#search-folders) have a search index (`/search index`), adds the files that match most of the request's words, up to 3 per folder, in a `<knowledge-files>` list headed by the folder and its index path. A file is listed once, even when two folders overlap. When that file is a vault note this turn's recall already reached, the line repeats that note's relation chain. The model is told to open them with `read_file` or search further with `search_local`: path set to one folder, or no path for all of the project's folders. The index is only read, never built or changed, and a busy index is skipped.
 
 ```text
 <knowledge-files>

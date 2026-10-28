@@ -161,6 +161,25 @@ func TestApplyLLMRouter_RoundRobinStrategy(t *testing.T) {
 	assert.Equal(t, "openai", cfg.Backend)
 }
 
+func TestBuildOpenAICompatLLM_OpenRouterRequiresItsOwnKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "sk-openai-must-not-be-used")
+	cfg := &domain.ChatConfig{Model: "liquid/lfm-2.5-2.6b:free", Backend: "openrouter"}
+	_, err := buildOpenAICompatLLM(cfg, "openrouter")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
+}
+
+func TestBuildOpenAICompatLLM_OpenRouterUsesItsKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "sk-or-test")
+	t.Setenv("OPENAI_API_KEY", "")
+	cfg := &domain.ChatConfig{Model: "liquid/lfm-2.5-2.6b:free", Backend: "openrouter"}
+	model, err := buildOpenAICompatLLM(cfg, "openrouter")
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
 func TestBuildOpenAICompatLLM_FileBackend(t *testing.T) {
 	cfg := &domain.ChatConfig{Model: "test-model", Backend: BackendFile}
 	model, err := buildOpenAICompatLLM(cfg, BackendFile)

@@ -24,8 +24,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kartographer/graph"
+
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
 func TestLoadSkillFromFile_WithFrontmatter(t *testing.T) {
@@ -316,7 +319,7 @@ func TestComputeRelatedSkills(t *testing.T) {
 		t.Fatalf("expected 7 skills discovered, got %d", len(skills))
 	}
 
-	related := computeRelatedSkills(skills, []string{root})
+	related := computeRelatedSkills(t.Context(), skills, []string{root})
 
 	// skillA links to skillB (known skill, kept) and notes.md (not a known
 	// skill, silently dropped) -- exercises the !ok branch.
@@ -342,11 +345,11 @@ func TestComputeRelatedSkills(t *testing.T) {
 }
 
 func TestComputeRelatedSkills_EmptyInputs(t *testing.T) {
-	if got := computeRelatedSkills(nil, []string{"/somewhere"}); got != nil {
+	if got := computeRelatedSkills(t.Context(), nil, []string{"/somewhere"}); got != nil {
 		t.Fatalf("expected nil for no skills, got %v", got)
 	}
 	skills := []Skill{{Name: "a", Source: "/a/SKILL.md"}}
-	if got := computeRelatedSkills(skills, nil); got != nil {
+	if got := computeRelatedSkills(t.Context(), skills, nil); got != nil {
 		t.Fatalf("expected nil for no dirs, got %v", got)
 	}
 }
@@ -363,8 +366,73 @@ func TestComputeRelatedSkills_NewIndexedGraphError(t *testing.T) {
 	defer os.Remove(dbPath) //nolint:errcheck
 
 	skills := []Skill{{Name: "a", Source: "/a/SKILL.md"}}
-	if got := computeRelatedSkills(skills, []string{"/a"}); got != nil {
+	if got := computeRelatedSkills(t.Context(), skills, []string{"/a"}); got != nil {
 		t.Fatalf("expected nil on bbolt open error, got %v", got)
+	}
+}
+
+func TestComputeRelatedSkills_VaultNoteUsesKnowledgeGraph(t *testing.T) {
+	t.Setenv("KDEPS_CONFIG_PATH", "")
+	vault := knowledge.DefaultVault()
+	writeSkillFixture(t, filepath.Join(vault, "skillA"), "skillA", "",
+		"See [skillB](../skillB/SKILL.md).")
+	writeSkillFixture(t, filepath.Join(vault, "skillB"), "skillB", "", "No links here.")
+	if _, _, err := knowledge.Build(
+		t.Context(), knowledge.Vault{Root: vault}, knowledge.GraphDir(vault), time.Now(),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// A corrupt scratch db would make the kartographer path return nothing.
+	// Vault notes must still resolve from the knowledge graph.
+	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
+	if err := os.WriteFile(dbPath, []byte("not a bbolt database"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(dbPath) })
+
+	skills := discoverSkillsInDir(vault)
+	related := computeRelatedSkills(t.Context(), skills, []string{vault})
+	if got := related["skillA"]; len(got) != 1 || got[0] != "skillB" {
+		t.Fatalf("expected skillA related to [skillB] from the vault graph, got %v", got)
+	}
+	if got := related["skillB"]; len(got) != 1 || got[0] != "skillA" {
+		t.Fatalf("expected the reference to count in both directions, got %v", got)
+	}
+}
+
+func TestComputeRelatedSkills_VaultNoteBuildsGraph(t *testing.T) {
+	vault := t.TempDir()
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("knowledge:\n  vault: "+vault+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
+	writeSkillFixture(t, filepath.Join(vault, "skillA"), "skillA", "",
+		"See [skillB](../skillB/SKILL.md).")
+	writeSkillFixture(t, filepath.Join(vault, "skillB"), "skillB", "", "No links here.")
+	graphPath := knowledge.GraphPath(knowledge.GraphDir(vault))
+	if _, err := os.Stat(graphPath); !os.IsNotExist(err) {
+		t.Fatalf("graph must not exist yet, stat err=%v", err)
+	}
+
+	// A corrupt scratch db would make the kartographer path return nothing.
+	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
+	if err := os.WriteFile(dbPath, []byte("not a bbolt database"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(dbPath) })
+
+	skills := discoverSkillsInDir(vault)
+	related := computeRelatedSkills(t.Context(), skills, []string{vault})
+	if _, err := os.Stat(graphPath); err != nil {
+		t.Fatalf("skill linking should build the vault graph: %v", err)
+	}
+	if got := related["skillA"]; len(got) != 1 || got[0] != "skillB" {
+		t.Fatalf("expected skillA related to [skillB] after an automatic build, got %v", got)
+	}
+	if got := related["skillB"]; len(got) != 1 || got[0] != "skillA" {
+		t.Fatalf("expected the reference to count in both directions, got %v", got)
 	}
 }
 

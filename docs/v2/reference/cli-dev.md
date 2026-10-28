@@ -369,13 +369,13 @@ kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, qu
 kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output. OpenRouter's free text models are a separate registry, `models/openrouter`, harvested daily from the public models API by `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) and installed with `kdeps update models/openrouter`.
 
 ---
 
 ## `kdeps knowledge`
 
-Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown notes the agent recalls from each turn without reading them. It is on by default in `~/.kdeps/notes` and set up by the first agent session.
+Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown notes the agent recalls from each turn without reading them. It is on by default in `~/.kdeps/notes` and set up by the first agent session. The structural graph refreshes itself when a session starts, before recall, on a workflow chat call, when a search inside the vault uses `graphBoost`, and when skill linking reads a vault note. `kdeps knowledge build` is that same build, run by hand. `--extract` is the step that calls a model, and it stays off unless set.
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)

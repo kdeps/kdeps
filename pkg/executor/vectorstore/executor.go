@@ -469,6 +469,11 @@ func buildOpenAICompatEmbedder(cfg *domain.VectorStoreConfig) (lcemb.Embedder, e
 	if baseURL == "" {
 		baseURL = openAICompatBaseURL(cfg.EmbedBackend)
 	}
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(cfg.EmbedBackend); err != nil {
+			return nil, fmt.Errorf("build openai compat embedder: %w", err)
+		}
+	}
 
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),

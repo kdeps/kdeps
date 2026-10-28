@@ -358,7 +358,8 @@ func (r *REPL) SetModelRepos(repos map[string]string) {
 }
 
 // SetCloudModelBackends registers the backend for each cloud model name.
-// Used by /model completion to show [backendName] for enabled cloud models.
+// /model completion shows it in the tag: [openai enabled] when the key is
+// set, [openai] when it is not. An unknown backend stays [cloud].
 func (r *REPL) SetCloudModelBackends(backends map[string]string) {
 	r.cloudModelBackends = backends
 }
@@ -857,7 +858,9 @@ func (r *REPL) modelNamesMatchingToken(lower string) ([]string, bool) {
 			continue
 		}
 		tag := strings.ToLower(strings.Trim(modelTag(r, name), " []"))
-		if strings.Contains(tag, lower) {
+		// The tag names the backend, so the word "cloud" is matched here.
+		matchesCloud := lower == "cloud" && r.cloudModelBackends[name] != ""
+		if strings.Contains(tag, lower) || matchesCloud {
 			tagged = append(tagged, name)
 			seen[name] = struct{}{}
 		}
@@ -1016,6 +1019,19 @@ func (r *REPL) topModelsByLLMFit(n int) []string {
 	return scored
 }
 
+// cloudModelTag names the kdeps backend in a cloud model's completion tag.
+// A model with no registered backend keeps the generic cloud label.
+func cloudModelTag(r *REPL, name, tagPrefix string) string {
+	label := "cloud"
+	if backend := r.cloudModelBackends[name]; backend != "" {
+		label = backend
+		if r.providerStatus[backend] {
+			return tagPrefix + label + " enabled]"
+		}
+	}
+	return tagPrefix + label + "]"
+}
+
 // modelTag returns a display tag appended to the model name in tab completion.
 // Shows type and availability at a glance; stripped before applying the model switch.
 func modelTag(r *REPL, name string) string {
@@ -1069,11 +1085,7 @@ func modelTag(r *REPL, name string) string {
 	case modelTypeOllama:
 		return tagPrefix + "ollama]"
 	default:
-		backend := r.cloudModelBackends[name]
-		if backend != "" && r.providerStatus[backend] {
-			return tagPrefix + "cloud enabled]"
-		}
-		return tagPrefix + "cloud]"
+		return cloudModelTag(r, name, tagPrefix)
 	}
 }
 
