@@ -178,11 +178,13 @@ The working directory must be this module, or a folder inside it. Another module
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
 
-A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs this command in the kdeps repository. It passes `--backend openrouter` and a model id from `assets/models/openrouter.yaml`. `scripts/bug-hunt.sh run` shuffles that list. `scripts/bug-hunt.sh models` stays in catalog order. Inside a session, free-model requests wait so they stay under the account per-minute cap (`openrouter-free-per-minute`, 20 calls, every free id together). An account 429 waits out the minute and retries the same id. When the session does not print `auto-improve: done`, it tries another id, up to four. If the log has no `auto-improve: issue http` line, the job files the issue. A tree with edits is pushed as a pull request with auto-merge, which merges after the required checks pass. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets.
+`/auto-improve 2` runs only task 2, then its evaluate, in the current session. The number is 1, 2, or 3.
+
+A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per process in the kdeps repository. It passes `--backend openrouter`, `--instrument=bug-hunt-N`, and a model id from `assets/models/openrouter.yaml`. `scripts/bug-hunt.sh run` shuffles that list. `scripts/bug-hunt.sh models` stays in catalog order. Each process is hunt N of 3: the task, then the evaluate. The instrument log holds only that hunt. Inside a hunt, free-model requests wait so they stay under the account per-minute cap (`openrouter-free-per-minute`, 20 calls, every free id together). An account 429 waits out the minute and retries the same id. When the process does not print `auto-improve: done`, it tries another id, up to four. If the log has no `auto-improve: issue http` line, the job files the issue. A tree with edits is pushed as its own pull request with auto-merge, which merges after the required checks pass. The job then checks out the branch it started on and runs the next hunt. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets.
 
 ```bash
 id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
-printf '/auto-improve\n/exit\n' | kdeps --backend openrouter --model "$id"
+printf '/auto-improve 1\n/exit\n' | kdeps --backend openrouter --model "$id" --instrument=bug-hunt-1
 ```
 
 ## Declared commands

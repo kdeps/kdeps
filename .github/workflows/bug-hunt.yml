@@ -9,10 +9,11 @@ name: Bug Hunt
 # pull request would never merge.
 #
 # OPENROUTER_API_KEY is the OpenRouter key. The model id comes from
-# assets/models/openrouter.yaml. run shuffles that list. The session
-# jumps to a random free model before each task and each evaluate turn
-# and files one GitHub issue. A session that does not finish tries
-# another id. If the process dies before the issue URL, the script files it.
+# assets/models/openrouter.yaml. run shuffles that list. Each hunt is one
+# task in its own process and instrument session. It evaluates that session,
+# files one GitHub issue, and opens a pull request when the tree changed,
+# then the next hunt starts. A hunt that does not finish tries another id.
+# If the process dies before the issue URL, the script files it.
 
 on:
   schedule:
@@ -32,7 +33,7 @@ concurrency:
 jobs:
   hunt:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

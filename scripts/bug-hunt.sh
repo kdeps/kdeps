@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# Daily bug hunt: run /auto-improve through kdeps on an OpenRouter free model.
+# Daily bug hunt: one task per process, then evaluate, fix, and a pull request.
 # run shuffles the free catalog. models prints catalog order.
 # BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
-# Inside the session, each task and each evaluate turn jumps to another
-# free model at random. A provider 429 during the capture does the same.
+# BUG_HUNT_TASKS is how many hunts to run (default 3, the /auto-improve list).
+# Each hunt is a new process and a new instrument session (bug-hunt-N), so the
+# log holds that task and its evaluate only. After a hunt finishes, a dirty
+# tree is pushed as its own pull request, then the next hunt starts on the
+# branch the job checked out.
+# Inside a hunt, the task and the evaluate turn jump to another free model
+# at random. A provider 429 during the capture does the same.
 # Free-model requests wait so they stay under the account per-minute cap.
 # An account 429 waits out the minute and retries the same id.
-# The command files one GitHub issue. If the process dies before printing
-# auto-improve: issue <url>, this script files that issue.
-# A tree with edits is pushed as a pull request with auto-merge.
+# The command files one GitHub issue per hunt. If the process dies before
+# printing auto-improve: issue <url>, this script files that issue.
 #
 #   scripts/bug-hunt.sh models
 #   scripts/bug-hunt.sh run
@@ -17,7 +21,8 @@
 # OPENROUTER_API_KEY is required for run.
 # BUG_HUNT_CATALOG overrides assets/models/openrouter.yaml.
 # BUG_HUNT_KDEPS overrides ./kdeps.
-# BUG_HUNT_MAX_MODELS caps how many ids are tried (default 4).
+# BUG_HUNT_MAX_MODELS caps how many ids are tried per hunt (default 4).
+# BUG_HUNT_TASKS is the number of hunts (default 3).
 # BUG_HUNT_RESET=1 discards a failed model's edits before the next id.
 # BUG_HUNT_SKIP_PUBLISH=1 leaves edits in the tree and does not open a pull request.
 # GH_TOKEN must be able to push the branch, open the pull request, and file issues.
@@ -29,6 +34,7 @@ set -euo pipefail
 catalog="${BUG_HUNT_CATALOG:-assets/models/openrouter.yaml}"
 kdeps_bin="${BUG_HUNT_KDEPS:-./kdeps}"
 max_models="${BUG_HUNT_MAX_MODELS:-4}"
+tasks="${BUG_HUNT_TASKS:-3}"
 
 models() {
 	grep -E '^[[:space:]]*- id: "' "$catalog" | sed -E 's/.*id: "([^"]+)".*/\1/'
@@ -57,12 +63,9 @@ discard_attempt() {
 	git clean -fd
 }
 
-open_bug_hunt() {
-	gh pr list --state open --json headRefName | grep -q 'bot/bug-hunt'
-}
-
 publish() {
 	local model="$1"
+	local task="${2:-}"
 	if [ -n "${BUG_HUNT_SKIP_PUBLISH:-}" ]; then
 		echo "bug-hunt: skip publish"
 		return 0
@@ -75,13 +78,12 @@ publish() {
 		echo "bug-hunt: gh is required to open the pull request" >&2
 		return 1
 	fi
-	if open_bug_hunt; then
-		echo "bug-hunt: an open bug-hunt pull request already exists"
-		return 0
-	fi
 	local day branch
 	day="$(date -u +%Y%m%d%H%M%S)"
 	branch="bot/bug-hunt-${day}"
+	if [ -n "$task" ]; then
+		branch="${branch}-${task}"
+	fi
 	git checkout -b "$branch" || return 1
 	git add -A -- . ':(exclude)private' ':(exclude).env' ':(exclude)*.env'
 	if git diff --cached --quiet; then
@@ -144,16 +146,17 @@ file_issue() {
 
 run_one() {
 	local model="$1"
+	local task="$2"
 	local log
 	log="$(mktemp)"
 	set +e
 	if command -v timeout >/dev/null 2>&1; then
-		printf '/auto-improve\n/exit\n' | timeout "${BUG_HUNT_TIMEOUT:-20m}" \
-			"$kdeps_bin" --backend openrouter --model "$model" --instrument=bug-hunt \
+		printf '/auto-improve %s\n/exit\n' "$task" | timeout "${BUG_HUNT_TIMEOUT:-20m}" \
+			"$kdeps_bin" --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
 			>"$log" 2>&1
 	else
-		printf '/auto-improve\n/exit\n' | \
-			"$kdeps_bin" --backend openrouter --model "$model" --instrument=bug-hunt \
+		printf '/auto-improve %s\n/exit\n' "$task" | \
+			"$kdeps_bin" --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
 			>"$log" 2>&1
 	fi
 	local code=$?
@@ -165,7 +168,7 @@ run_one() {
 	if grep -q 'auto-improve: done' "$log"; then
 		rm -f "$log"
 		if tree_dirty; then
-			publish "$model" || return 2
+			publish "$model" "$task" || return 2
 		else
 			echo "bug-hunt: no product fix"
 		fi
@@ -186,32 +189,58 @@ run_hunt() {
 		echo "bug-hunt: no OpenRouter free models in ${catalog}" >&2
 		return 1
 	fi
-	local id n=0 tried=0 rc
-	while IFS= read -r id; do
-		[ -n "$id" ] || continue
-		n=$((n + 1))
-		if [ "$n" -gt "$max_models" ]; then
-			break
-		fi
-		tried=1
-		echo "bug-hunt: trying ${id}"
-		set +e
-		run_one "$id"
-		rc=$?
-		set -e
-		if [ "$rc" -eq 0 ]; then
-			return 0
-		fi
-		if [ "$rc" -eq 2 ]; then
+	local base=""
+	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+		base="$(git rev-parse --abbrev-ref HEAD)"
+	fi
+	local task finished=0 failed=0
+	for task in $(seq 1 "$tasks"); do
+		echo "bug-hunt: hunt ${task}/${tasks}"
+		local id n=0 tried=0 rc done_task=0
+		while IFS= read -r id; do
+			[ -n "$id" ] || continue
+			n=$((n + 1))
+			if [ "$n" -gt "$max_models" ]; then
+				break
+			fi
+			tried=1
+			echo "bug-hunt: trying ${id}"
+			set +e
+			run_one "$id" "$task"
+			rc=$?
+			set -e
+			if [ "$rc" -eq 0 ]; then
+				done_task=1
+				finished=1
+				break
+			fi
+			if [ "$rc" -eq 2 ]; then
+				return 1
+			fi
+		done < <(shuffled_models)
+		if [ "$tried" -eq 0 ]; then
+			echo "bug-hunt: no OpenRouter free models in ${catalog}" >&2
 			return 1
 		fi
-	done < <(shuffled_models)
-	if [ "$tried" -eq 0 ]; then
-		echo "bug-hunt: no OpenRouter free models in ${catalog}" >&2
+		if [ "$done_task" -eq 0 ]; then
+			failed=1
+			echo "bug-hunt: hunt ${task}: every tried free model failed" >&2
+		fi
+		if [ -n "$base" ] && [ "$(git rev-parse --abbrev-ref HEAD)" != "$base" ]; then
+			if [ -z "$(git status --porcelain)" ]; then
+				git checkout "$base"
+			else
+				echo "bug-hunt: staying on $(git rev-parse --abbrev-ref HEAD); the tree still has edits"
+			fi
+		fi
+	done
+	if [ "$finished" -eq 0 ]; then
+		echo "bug-hunt: every tried free model failed" >&2
 		return 1
 	fi
-	echo "bug-hunt: every tried free model failed" >&2
-	return 1
+	if [ "$failed" -eq 1 ]; then
+		return 1
+	fi
 }
 
 case "${1:-}" in
@@ -222,7 +251,7 @@ publish)
 		echo "usage: scripts/bug-hunt.sh publish <model-id>" >&2
 		exit 1
 	fi
-	publish "$2"
+	publish "$2" "${3:-}"
 	;;
 *)
 	echo "usage: scripts/bug-hunt.sh models|run|publish <model-id>" >&2
