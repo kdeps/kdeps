@@ -107,6 +107,42 @@ func (p *freeModelPace) note(model string) {
 	p.calls[model] = append(pruneFreeModelCalls(p.calls[model], now), now)
 }
 
+func gapWait(last, now time.Time, gap time.Duration) time.Duration {
+	if gap <= 0 || last.IsZero() {
+		return 0
+	}
+	if elapsed := now.Sub(last); elapsed < gap {
+		return gap - elapsed
+	}
+	return 0
+}
+
+// minuteWait is how long a full free-model minute still has left. limit is
+// one under the account cap. Zero means the next call fits.
+func minuteWait(calls map[string][]time.Time, now time.Time, limit int) time.Duration {
+	if limit <= 0 {
+		return 0
+	}
+	cutoff := now.Add(-time.Minute)
+	var oldest time.Time
+	n := 0
+	for _, series := range calls {
+		for _, ts := range series {
+			if !ts.After(cutoff) {
+				continue
+			}
+			n++
+			if oldest.IsZero() || ts.Before(oldest) {
+				oldest = ts
+			}
+		}
+	}
+	if n < limit || oldest.IsZero() {
+		return 0
+	}
+	return oldest.Add(time.Minute).Sub(now) + time.Millisecond
+}
+
 // waitFor is how long the next free-model request has to wait. Calls stay
 // freeModelGap apart, and a full minute (one under the cap, any free id)
 // waits until the oldest call ages out.
@@ -119,34 +155,9 @@ func (p *freeModelPace) waitFor() time.Duration {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := p.clock()
-	wait := time.Duration(0)
-	if gap > 0 && !p.last.IsZero() {
-		if elapsed := now.Sub(p.last); elapsed < gap {
-			wait = gap - elapsed
-		}
-	}
-	if limit <= 0 {
-		return wait
-	}
-	cutoff := now.Add(-time.Minute)
-	var oldest time.Time
-	n := 0
-	for _, series := range p.calls {
-		for _, ts := range series {
-			if !ts.After(cutoff) {
-				continue
-			}
-			n++
-			if oldest.IsZero() || ts.Before(oldest) {
-				oldest = ts
-			}
-		}
-	}
-	if n >= limit && !oldest.IsZero() {
-		until := oldest.Add(time.Minute).Sub(now) + time.Millisecond
-		if until > wait {
-			wait = until
-		}
+	wait := gapWait(p.last, now, gap)
+	if until := minuteWait(p.calls, now, limit); until > wait {
+		return until
 	}
 	return wait
 }
