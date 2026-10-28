@@ -1,4 +1,4 @@
-version: 1.0.2
+version: 1.0.3
 name: auto-improve
 order: 215
 # builtin: kdeps handles this command itself; this file names the operation
@@ -7,4 +7,4 @@ builtin: true
 api: auto-improve
 usage:
   - args: ""
-    help: Run the fixed task list in this kdeps repo, then fix product bugs from the instrument log. A daily workflow runs this with an OpenRouter free model and opens a pull request
+    help: Run the fixed task list in this kdeps repo, jump across OpenRouter free models, fix product bugs from the instrument log, and file one GitHub issue. A daily workflow shuffles free-model ids and opens a pull request when the tree changes

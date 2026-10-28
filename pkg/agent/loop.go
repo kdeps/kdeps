@@ -388,6 +388,9 @@ type Loop struct {
 	// freePace counts OpenRouter free-model calls so requests stay under the
 	// account per-minute cap.
 	freePace freeModelPace
+	// bugCapture is set for /auto-improve. A provider 429 then continues on
+	// a random free id. Other sessions keep catalog order.
+	bugCapture bool
 	// lastSentMessages holds the exact messages array included in the most
 	// recent outgoing LLM request, after any backend-specific transformation
 	// (e.g. folding system-role messages for chat templates that reject
