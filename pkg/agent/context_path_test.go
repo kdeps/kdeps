@@ -20,8 +20,11 @@ package agent
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -150,17 +153,24 @@ func TestContextPathStatus_CloudBackendIgnoresLocalContextSize(t *testing.T) {
 	assert.Contains(t, status, "/128.0k", "a cloud backend must use the model's real window, not LocalContextSize")
 }
 
-func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
+func resetLiveStatus(t *testing.T) {
+	t.Helper()
 	liveStatus.mu.Lock()
 	liveStatus.rows = 0
 	liveStatus.w = nil
+	liveStatus.logged = ""
 	liveStatus.mu.Unlock()
 	t.Cleanup(func() {
 		liveStatus.mu.Lock()
 		liveStatus.rows = 0
 		liveStatus.w = nil
+		liveStatus.logged = ""
 		liveStatus.mu.Unlock()
 	})
+}
+
+func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
+	resetLiveStatus(t)
 
 	var buf strings.Builder
 	drawLiveStatus(&buf, "x")
@@ -171,6 +181,76 @@ func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
 	assert.Contains(t, got, "\033[0J")
 	assert.Equal(t, 1, strings.Count(got, "session sent "))
 	assert.Equal(t, 1, strings.Count(got, "generated "))
+}
+
+func TestRenderFrame_LongLinesStayTwoRows(t *testing.T) {
+	top := strings.Repeat("t", 400)
+	bottom := strings.Repeat("b", 400)
+	_, rows := renderFrame(0, top, bottom, 80)
+	assert.Equal(t, 2, rows)
+
+	seq, rows2 := renderFrame(rows, top, bottom, 80)
+	assert.Equal(t, 2, rows2)
+	assert.Contains(t, seq, "\033[1A")
+	plain := ansiStripRe.ReplaceAllString(seq, "")
+	plain = strings.ReplaceAll(plain, "\r", "")
+	for _, line := range strings.Split(plain, "\n") {
+		if line == "" {
+			continue
+		}
+		assert.LessOrEqual(t, utf8.RuneCountInString(line), 79)
+	}
+}
+
+func TestFitStatusLine_KeepsColorWhenItFits(t *testing.T) {
+	colored := "\033[32mabcd\033[0m"
+	assert.Equal(t, colored, fitStatusLine(colored, 10))
+	cut := fitStatusLine("\033[32m"+strings.Repeat("a", 50)+"\033[0m", 10)
+	visible := ansiStripRe.ReplaceAllString(cut, "")
+	assert.LessOrEqual(t, utf8.RuneCountInString(visible), 10)
+	assert.True(t, strings.HasSuffix(cut, ansiReset))
+	assert.Contains(t, visible, "...")
+}
+
+func TestFittedStatus_KeepsSpinnerWhenRowIsCut(t *testing.T) {
+	executorLLM.ResetSessionTokens(1_000_000, 22_700)
+	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
+	_, bottom := fittedStatus(30, "⠋")
+	assert.Contains(t, bottom, "⠋")
+	assert.LessOrEqual(t, statusCols(bottom), 29)
+}
+
+func TestDrawLiveStatus_CRLFWriterDoesNotStack(t *testing.T) {
+	resetLiveStatus(t)
+	var buf strings.Builder
+	cw := &crlfWriter{w: &buf}
+	drawLiveStatus(cw, "x")
+	buf.Reset()
+	drawLiveStatus(cw, "y")
+	got := buf.String()
+	assert.True(t, strings.HasPrefix(got, "\r"), "carriage return must survive crlfWriter")
+	assert.Contains(t, got, "\033[0J")
+	assert.Equal(t, 1, strings.Count(got, "session sent "))
+}
+
+func TestDrawLiveStatus_PipePrintsOnceUntilNumbersChange(t *testing.T) {
+	resetLiveStatus(t)
+	executorLLM.ResetSessionTokens(1000, 10)
+	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	drawLiveStatus(w, "⠋")
+	drawLiveStatus(w, "⠙")
+	executorLLM.ResetSessionTokens(2000, 10)
+	drawLiveStatus(w, "⠸")
+	require.NoError(t, w.Close())
+	body, err := io.ReadAll(r)
+	require.NoError(t, err)
+	got := string(body)
+	assert.Equal(t, 2, strings.Count(got, "session sent"))
+	assert.NotContains(t, got, "⠋")
+	assert.NotContains(t, got, "\033[")
 }
 
 func TestVisualRows_CountsWrapsWithoutANSI(t *testing.T) {
