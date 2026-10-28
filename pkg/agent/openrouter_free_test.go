@@ -295,10 +295,44 @@ func TestContinueOnFreeModelRateLimit_BugCapturePicksAtRandom(t *testing.T) {
 	loop := freeModelLoop(t, ids[0], &modelListStreamer{text: "x"})
 	loop.bugCapture = true
 	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
-	ok := loop.continueOnFreeModelRateLimit(cfg, map[string]struct{}{})
+	ok := loop.continueOnFreeModelRateLimit(cfg, map[string]struct{}{}, "was rate-limited")
 	require.True(t, ok)
 	assert.Equal(t, ids[len(ids)-1], cfg.Model)
 	assert.Equal(t, ids[len(ids)-1], loop.config.Model)
+}
+
+func TestStreamChatWithRetry_BugCaptureMovesOffRefusedFreeModel(t *testing.T) {
+	ids := executorLLM.OpenRouterFreeModelIDs()
+	require.GreaterOrEqual(t, len(ids), 2)
+	fail := map[string]error{
+		ids[0]: errors.New("API returned unexpected status code: 404: No endpoints found that support tool use"),
+	}
+	s := &modelListStreamer{fail: fail, text: "ok"}
+	loop := freeModelLoop(t, ids[0], s)
+	loop.bugCapture = true
+	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
+	var buf strings.Builder
+	content, _, err := loop.streamChatWithRetry(t.Context(), cfg, &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", content)
+	assert.NotEqual(t, ids[0], cfg.Model)
+	assert.Len(t, s.models, 2)
+}
+
+func TestStreamChatWithRetry_RefusedFreeModelStopsOutsideBugCapture(t *testing.T) {
+	ids := executorLLM.OpenRouterFreeModelIDs()
+	require.GreaterOrEqual(t, len(ids), 2)
+	fail := map[string]error{
+		ids[0]: errors.New("API returned unexpected status code: 400: Provider returned error"),
+	}
+	s := &modelListStreamer{fail: fail}
+	loop := freeModelLoop(t, ids[0], s)
+	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
+	var buf strings.Builder
+	_, _, err := loop.streamChatWithRetry(t.Context(), cfg, &buf)
+	require.Error(t, err)
+	assert.Equal(t, ids[0], cfg.Model)
+	assert.Len(t, s.models, 1)
 }
 
 func TestStreamChatWithRetry_RateLimitWalksEveryFreeModel(t *testing.T) {
