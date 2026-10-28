@@ -281,6 +281,26 @@ func TestStreamChatWithRetry_AccountLimitStopsAfterOneWait(t *testing.T) {
 	assert.Equal(t, 2, s.calls)
 }
 
+func TestContinueOnFreeModelRateLimit_BugCapturePicksAtRandom(t *testing.T) {
+	ids := executorLLM.OpenRouterFreeModelIDs()
+	require.GreaterOrEqual(t, len(ids), 3)
+	orig := pickFreeModelN
+	t.Cleanup(func() { pickFreeModelN = orig })
+	pickFreeModelN = func(n int) int {
+		if n <= 1 {
+			return 0
+		}
+		return n - 1
+	}
+	loop := freeModelLoop(t, ids[0], &modelListStreamer{text: "x"})
+	loop.bugCapture = true
+	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
+	ok := loop.continueOnFreeModelRateLimit(cfg, map[string]struct{}{})
+	require.True(t, ok)
+	assert.Equal(t, ids[len(ids)-1], cfg.Model)
+	assert.Equal(t, ids[len(ids)-1], loop.config.Model)
+}
+
 func TestStreamChatWithRetry_RateLimitWalksEveryFreeModel(t *testing.T) {
 	ids := executorLLM.OpenRouterFreeModelIDs()
 	require.GreaterOrEqual(t, len(ids), 2)

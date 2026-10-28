@@ -293,7 +293,7 @@ kdeps ./my-agent/ --model llama3.2
 
 Agent mode is less predictable than a fixed workflow because the AI chooses its actions. Limit its permissions and review important changes. File tools may always use `~/.kdeps` and `/tmp`. Any other path outside the working directory asks first, and the filesystem root stays blocked.
 
-In this repository, `/auto-improve` runs an instrumented session and fixes product bugs the log shows. A daily workflow does that with an OpenRouter free model and opens a pull request that auto-merges after the required checks pass. Free-model requests wait so they stay under the account per-minute cap. A provider 429 moves to the next free id and the turn continues. An account 429 waits out the minute and retries the same id.
+In this repository, `/auto-improve` runs an instrumented session and fixes product bugs the log shows. On OpenRouter it jumps to another free model at random before each task and each evaluate turn, and a provider 429 during that session does the same. The command files one GitHub issue. A daily workflow shuffles the free-model ids it tries, files the issue if the process dies first, and opens a pull request that auto-merges after the required checks pass. Free-model requests wait so they stay under the account per-minute cap. Outside this command, a provider 429 moves to the next free id and the turn continues. An account 429 waits out the minute and retries the same id.
 
 ## Connect agents with agencies
 

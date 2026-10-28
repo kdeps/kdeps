@@ -19,13 +19,35 @@
 package agent
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand/v2"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/instrument"
+)
+
+const bugCaptureMaxErrors = 40
+
+// freeModelIDs, pickFreeModelN, and bugCaptureIssue are replaced in tests.
+//
+//nolint:gochecknoglobals // test-replaceable hooks
+var (
+	freeModelIDs   = executorLLM.OpenRouterFreeModelIDs
+	pickFreeModelN = func(n int) int {
+		if n <= 0 {
+			return 0
+		}
+		return rand.IntN(n) //nolint:gosec // G404: picking a free model is not a secret
+	}
+	bugCaptureIssue = ghIssueCreate
 )
 
 const (
@@ -138,6 +160,9 @@ func (r *REPL) cmdAutoImprove() error {
 	if err != nil {
 		return err
 	}
+	if r.loop != nil {
+		r.loop.bugCapture = true
+	}
 	r.history = append(r.history, "/auto-improve")
 	if started {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording %s\n", session.Dir)
@@ -146,17 +171,197 @@ func (r *REPL) cmdAutoImprove() error {
 	}
 	tasks := autoImproveTasks(root)
 	for i, task := range tasks {
+		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: task %d/%d\n", i+1, len(tasks))
 		if err = r.runAutoImproveTurn(task); err != nil {
-			return err
+			return r.finishAutoImprove(session.Dir, err)
 		}
+		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: evaluate %d/%d\n", i+1, len(tasks))
-		if err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks))); err != nil {
-			return err
+		err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks)))
+		if err != nil {
+			return r.finishAutoImprove(session.Dir, err)
 		}
 	}
 	fmt.Fprintln(os.Stdout, "auto-improve: done")
-	return nil
+	return r.finishAutoImprove(session.Dir, nil)
+}
+
+// jumpAutoImproveModel moves an OpenRouter session onto another free id.
+// A local or other backend stays on the model it was started with.
+func (r *REPL) jumpAutoImproveModel() {
+	if r.loop == nil {
+		return
+	}
+	cfg := &r.loop.config
+	if cfg.Backend != openrouterBackend && !openRouterFreeID(cfg.Model) {
+		return
+	}
+	ids := freeModelIDs()
+	next := pickOtherFreeModel(cfg.Model, ids, pickFreeModelN(len(ids)))
+	if next == "" || next == cfg.Model {
+		return
+	}
+	cfg.Model = next
+	cfg.Backend = openrouterBackend
+	fmt.Fprintf(os.Stdout, "auto-improve: model %s\n", next)
+}
+
+// pickOtherFreeModel returns a free id other than current.
+// n selects among the others. When every id equals current, it returns ids[0].
+func pickOtherFreeModel(current string, ids []string, n int) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	others := make([]string, 0)
+	for _, id := range ids {
+		if id != "" && id != current {
+			others = append(others, id)
+		}
+	}
+	if len(others) == 0 {
+		return ids[0]
+	}
+	if n < 0 {
+		n = 0
+	}
+	return others[n%len(others)]
+}
+
+// randomBugCaptureID picks a free id that this turn has not already tried.
+func randomBugCaptureID(current string, skip map[string]struct{}) (string, bool) {
+	ids := freeModelIDs()
+	open := make([]string, 0)
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		if _, blocked := skip[id]; blocked {
+			continue
+		}
+		open = append(open, id)
+	}
+	next := pickOtherFreeModel(current, open, pickFreeModelN(len(open)))
+	if next == "" || next == current {
+		return "", false
+	}
+	return next, true
+}
+
+func (r *REPL) finishAutoImprove(dir string, runErr error) error {
+	model := ""
+	if r.loop != nil {
+		model = r.loop.config.Model
+	}
+	url, err := bugCaptureIssue(r.ctx, dir, model)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "auto-improve: issue failed: %s\n", err.Error())
+		return runErr
+	}
+	fmt.Fprintf(os.Stdout, "auto-improve: issue %s\n", url)
+	return runErr
+}
+
+func ghIssueCreate(ctx context.Context, dir, model string) (string, error) {
+	if ctx == nil {
+		return "", errors.New("bug capture has no context")
+	}
+	title := fmt.Sprintf("bug: capture %s %s", time.Now().UTC().Format(time.RFC3339), model)
+	bodyFile, err := os.CreateTemp("", "kdeps-bug-capture-*.md")
+	if err != nil {
+		return "", err
+	}
+	path := bodyFile.Name()
+	defer os.Remove(path)
+	if _, err = bodyFile.WriteString(bugCaptureBody(dir, model)); err != nil {
+		_ = bodyFile.Close()
+		return "", err
+	}
+	if err = bodyFile.Close(); err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, "gh", "issue", "create", "--title", title, "--body-file", path)
+	out, err := cmd.Output()
+	if err != nil {
+		msg := err.Error()
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			msg = strings.TrimSpace(string(exitErr.Stderr))
+		}
+		return "", errors.New(msg)
+	}
+	url := strings.TrimSpace(string(out))
+	if url == "" {
+		return "", errors.New("gh issue create returned no url")
+	}
+	return url, nil
+}
+
+func bugCaptureBody(dir, model string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Bug capture on model `%s`.\n\n", model)
+	fmt.Fprintf(&b, "Session: `%s`\n\n", dir)
+	lines := captureErrorLines(filepath.Join(dir, instrument.EventsFile), bugCaptureMaxErrors)
+	if len(lines) == 0 {
+		b.WriteString("No event in this session has an error field.\n")
+		return b.String()
+	}
+	b.WriteString("Events with an error field:\n\n")
+	for _, line := range lines {
+		fmt.Fprintf(&b, "- %s\n", line)
+	}
+	return b.String()
+}
+
+func captureErrorLines(path string, limit int) []string {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+	dec := json.NewDecoder(f)
+	lines := make([]string, 0)
+	for len(lines) < limit {
+		var raw map[string]json.RawMessage
+		if dec.Decode(&raw) != nil {
+			break
+		}
+		line, ok := captureErrorLine(raw)
+		if !ok {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func captureErrorLine(raw map[string]json.RawMessage) (string, bool) {
+	errRaw, ok := raw["error"]
+	if !ok || string(errRaw) == "null" {
+		return "", false
+	}
+	text := jsonFieldString(errRaw)
+	if text == "" {
+		return "", false
+	}
+	return fmt.Sprintf("%s kind=%s model=%s name=%s error=%s",
+		jsonFieldString(raw["ts"]),
+		jsonFieldString(raw["kind"]),
+		jsonFieldString(raw["model"]),
+		jsonFieldString(raw["name"]),
+		text,
+	), true
+}
+
+func jsonFieldString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return strings.TrimSpace(string(raw))
+	}
+	return s
 }
 
 func (r *REPL) runAutoImproveTurn(prompt string) error {

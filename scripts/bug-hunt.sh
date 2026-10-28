@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Daily bug hunt: run /auto-improve through kdeps on an OpenRouter free model.
-# A session that does not finish tries the next id from the free catalog.
-# Inside the session, free-model requests wait so they stay under the
-# account per-minute cap. A provider 429 moves to the next free id and the
-# turn continues. An account 429 waits out the minute and retries the same id.
+# run shuffles the free catalog. models prints catalog order.
+# BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
+# Inside the session, each task and each evaluate turn jumps to another
+# free model at random. A provider 429 during the capture does the same.
+# Free-model requests wait so they stay under the account per-minute cap.
+# An account 429 waits out the minute and retries the same id.
+# The command files one GitHub issue. If the process dies before printing
+# auto-improve: issue <url>, this script files that issue.
 # A tree with edits is pushed as a pull request with auto-merge.
 #
 #   scripts/bug-hunt.sh models
@@ -15,8 +19,8 @@
 # BUG_HUNT_KDEPS overrides ./kdeps.
 # BUG_HUNT_MAX_MODELS caps how many ids are tried (default 4).
 # BUG_HUNT_RESET=1 discards a failed model's edits before the next id.
-# BUG_HUNT_SKIP_PUBLISH=1 leaves edits in the tree and does not call gh.
-# GH_TOKEN must be able to push the branch and open the pull request.
+# BUG_HUNT_SKIP_PUBLISH=1 leaves edits in the tree and does not open a pull request.
+# GH_TOKEN must be able to push the branch, open the pull request, and file issues.
 # A GITHUB_TOKEN push does not start other workflows, so CI never goes green
 # and auto-merge never lands. Use a token that does start them (RELEASE_TOKEN).
 
@@ -28,6 +32,15 @@ max_models="${BUG_HUNT_MAX_MODELS:-4}"
 
 models() {
 	grep -E '^[[:space:]]*- id: "' "$catalog" | sed -E 's/.*id: "([^"]+)".*/\1/'
+}
+
+# shuffled_models is the try order for run. A new awk process seeds srand.
+shuffled_models() {
+	if [ "${BUG_HUNT_SHUFFLE:-1}" = "0" ]; then
+		models
+		return 0
+	fi
+	models | awk 'BEGIN { srand() } { printf "%s\t%s\n", rand(), $0 }' | sort -n | cut -f2-
 }
 
 tree_dirty() {
@@ -98,6 +111,37 @@ EOF
 	gh pr merge --auto --squash "$url" || echo "bug-hunt: auto-merge not enabled yet for ${url}"
 }
 
+# file_issue opens one issue when the process did not print an issue URL.
+# A printed auto-improve: issue http line means the command already filed it.
+file_issue() {
+	local model="$1"
+	local log="$2"
+	if grep -q 'auto-improve: issue http' "$log"; then
+		return 0
+	fi
+	if ! command -v gh >/dev/null 2>&1; then
+		echo "bug-hunt: gh is required to file the issue" >&2
+		return 1
+	fi
+	local title body errf url
+	title="bug: capture $(date -u +%Y-%m-%dT%H:%MZ) ${model}"
+	body="$(mktemp)"
+	errf="$(mktemp)"
+	{
+		printf 'Daily bug hunt on OpenRouter model `%s` ended without an issue URL.\n\n' "$model"
+		printf '```\n'
+		tail -n 80 "$log"
+		printf '```\n'
+	} >"$body"
+	url="$(gh issue create --title "$title" --body-file "$body" 2>"$errf")" || {
+		echo "bug-hunt: issue failed: $(tr '\n' ' ' <"$errf")" >&2
+		rm -f "$body" "$errf"
+		return 1
+	}
+	rm -f "$body" "$errf"
+	echo "bug-hunt: issue ${url}"
+}
+
 run_one() {
 	local model="$1"
 	local log
@@ -114,6 +158,10 @@ run_one() {
 	fi
 	local code=$?
 	cat "$log"
+	if ! file_issue "$model" "$log"; then
+		rm -f "$log"
+		return 2
+	fi
 	if grep -q 'auto-improve: done' "$log"; then
 		rm -f "$log"
 		if tree_dirty; then
@@ -157,7 +205,7 @@ run_hunt() {
 		if [ "$rc" -eq 2 ]; then
 			return 1
 		fi
-	done < <(models)
+	done < <(shuffled_models)
 	if [ "$tried" -eq 0 ]; then
 		echo "bug-hunt: no OpenRouter free models in ${catalog}" >&2
 		return 1

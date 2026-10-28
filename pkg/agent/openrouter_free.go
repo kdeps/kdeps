@@ -346,7 +346,13 @@ func (l *Loop) continueOnFreeModelRateLimit(chatCfg *domain.ChatConfig, tried ma
 		return false
 	}
 	tried[model] = struct{}{}
-	next, ok := nextOpenRouterFreeID(model, tried)
+	var next string
+	var ok bool
+	if l.bugCapture {
+		next, ok = randomBugCaptureID(model, tried)
+	} else {
+		next, ok = nextOpenRouterFreeID(model, tried)
+	}
 	if !ok {
 		return false
 	}

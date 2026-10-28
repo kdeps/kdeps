@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The daily bug-hunt script: free-model ids, fallback to the next id,
-# and a pull request with auto-merge when the tree changed.
+# The daily bug-hunt script: catalog order for models, shuffled run,
+# one GitHub issue per capture, and a pull request when the tree changed.
 
 set -uo pipefail
 
@@ -59,6 +59,7 @@ case "$model" in
 fail/*) exit 1 ;;
 edit/*)
 	echo "auto-improve: done"
+	echo "auto-improve: issue https://example.test/issues/3"
 	echo fixed >>hunted.txt
 	exit 0
 	;;
@@ -84,6 +85,14 @@ if [ "$1" = "pr" ] && [ "$2" = "list" ]; then
 fi
 if [ "$1" = "pr" ] && [ "$2" = "create" ]; then
 	echo "https://example.test/pull/9"
+	exit 0
+fi
+if [ "$1" = "issue" ] && [ "$2" = "create" ]; then
+	if [ -n "${GH_ISSUE_FAIL:-}" ]; then
+		echo "gh down" >&2
+		exit 1
+	fi
+	echo "https://example.test/issues/3"
 	exit 0
 fi
 exit 0
@@ -118,25 +127,32 @@ REPO="$(mktemp -d)"
 init_repo "$REPO"
 FAKE_LOG="$(mktemp)"
 OUT="$(mktemp)"
+GH_ARGS="$(mktemp)"
 (
 	cd "$REPO"
-	OPENROUTER_API_KEY=test \
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$GH_ARGS" \
+		OPENROUTER_API_KEY=test \
 		BUG_HUNT_CATALOG="$ROOT/catalog.yaml" \
 		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
 		BUG_HUNT_FAKE_LOG="$FAKE_LOG" \
 		BUG_HUNT_RESET=1 \
 		BUG_HUNT_SKIP_PUBLISH=1 \
+		BUG_HUNT_SHUFFLE=0 \
 		BUG_HUNT_MAX_MODELS=4 \
 		BUG_HUNT_TIMEOUT=30 \
 		bash "$HUNT" run >"$OUT" 2>&1
 )
 if [ $? -eq 0 ] && grep -q "fail/one:free" "$FAKE_LOG" && grep -q "edit/two:free" "$FAKE_LOG" \
+	&& [ "$(head -n 1 "$FAKE_LOG")" = "fail/one:free" ] \
 	&& [ "$(cat "$REPO/hunted.txt" 2>/dev/null)" = "fixed" ] \
 	&& grep -q "trying the next free model" "$OUT" \
-	&& grep -q "skip publish" "$OUT"; then
+	&& grep -q "skip publish" "$OUT" \
+	&& grep -q "auto-improve: issue https://example.test/issues/3" "$OUT" \
+	&& [ "$(grep -c 'issue create' "$GH_ARGS")" -eq 1 ]; then
 	test_passed "bug-hunt run tries the next free model and keeps the fix"
 else
-	test_failed "bug-hunt run tries the next free model and keeps the fix" "$(cat "$OUT"; echo ---; cat "$FAKE_LOG")"
+	test_failed "bug-hunt run tries the next free model and keeps the fix" "$(cat "$OUT"; echo ---; cat "$FAKE_LOG"; echo ---; cat "$GH_ARGS")"
 fi
 
 # A finished session with no edits does not publish.
@@ -148,20 +164,27 @@ EOF
 CREPO="$(mktemp -d)"
 init_repo "$CREPO"
 COUT="$(mktemp)"
+CGH="$(mktemp)"
 (
 	cd "$CREPO"
-	OPENROUTER_API_KEY=test \
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$CGH" \
+		OPENROUTER_API_KEY=test \
 		BUG_HUNT_CATALOG="$CLEAN_CAT" \
 		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
 		BUG_HUNT_FAKE_LOG="$FAKE_LOG" \
 		BUG_HUNT_RESET=1 \
+		BUG_HUNT_SHUFFLE=0 \
 		BUG_HUNT_TIMEOUT=30 \
 		bash "$HUNT" run >"$COUT" 2>&1
 )
-if [ $? -eq 0 ] && grep -q "no product fix" "$COUT" && [ ! -f "$CREPO/hunted.txt" ]; then
-	test_passed "bug-hunt run with no edits skips the pull request"
+if [ $? -eq 0 ] && grep -q "no product fix" "$COUT" && [ ! -f "$CREPO/hunted.txt" ] \
+	&& grep -q "bug-hunt: issue https://example.test/issues/3" "$COUT" \
+	&& grep -q "issue create" "$CGH" \
+	&& ! grep -q "pr create" "$CGH"; then
+	test_passed "bug-hunt run with no edits skips the pull request and files an issue"
 else
-	test_failed "bug-hunt run with no edits skips the pull request" "$(cat "$COUT")"
+	test_failed "bug-hunt run with no edits skips the pull request and files an issue" "$(cat "$COUT"; echo ---; cat "$CGH")"
 fi
 
 # Every id fails.
@@ -173,20 +196,49 @@ EOF
 FREPO="$(mktemp -d)"
 init_repo "$FREPO"
 FOUT="$(mktemp)"
+FGH="$(mktemp)"
 (
 	cd "$FREPO"
-	OPENROUTER_API_KEY=test \
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$FGH" \
+		OPENROUTER_API_KEY=test \
 		BUG_HUNT_CATALOG="$FAIL_CAT" \
 		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
 		BUG_HUNT_FAKE_LOG="$FAKE_LOG" \
 		BUG_HUNT_RESET=1 \
+		BUG_HUNT_SHUFFLE=0 \
 		BUG_HUNT_TIMEOUT=30 \
 		bash "$HUNT" run >"$FOUT" 2>&1
 )
-if [ $? -ne 0 ] && grep -q "every tried free model failed" "$FOUT"; then
+if [ $? -ne 0 ] && grep -q "every tried free model failed" "$FOUT" \
+	&& grep -q "bug-hunt: issue https://example.test/issues/3" "$FOUT" \
+	&& grep -q "issue create" "$FGH"; then
 	test_passed "bug-hunt run fails when every free model fails"
 else
-	test_failed "bug-hunt run fails when every free model fails" "$(cat "$FOUT")"
+	test_failed "bug-hunt run fails when every free model fails" "$(cat "$FOUT"; echo ---; cat "$FGH")"
+fi
+
+# A failed gh issue create stops the hunt.
+IREPO="$(mktemp -d)"
+init_repo "$IREPO"
+IOUT="$(mktemp)"
+(
+	cd "$IREPO"
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$FGH" \
+		GH_ISSUE_FAIL=1 \
+		OPENROUTER_API_KEY=test \
+		BUG_HUNT_CATALOG="$CLEAN_CAT" \
+		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
+		BUG_HUNT_FAKE_LOG="$FAKE_LOG" \
+		BUG_HUNT_SHUFFLE=0 \
+		BUG_HUNT_TIMEOUT=30 \
+		bash "$HUNT" run >"$IOUT" 2>&1
+)
+if [ $? -ne 0 ] && grep -q "issue failed" "$IOUT"; then
+	test_passed "bug-hunt run stops when filing the issue fails"
+else
+	test_failed "bug-hunt run stops when filing the issue fails" "$(cat "$IOUT")"
 fi
 
 # Publish commits, pushes, opens a PR, and turns on auto-merge.
@@ -236,7 +288,7 @@ else
 	test_failed "bug-hunt publish skips when a bug-hunt pull request is open" "$(cat "$OOUT"; echo ---; cat "$OH_ARGS")"
 fi
 
-rm -rf "$REPO" "$CREPO" "$FREPO" "$PREPO" "$OREPO" "$BARE" "$ROOT"
-rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$GH_ARGS" "$POUT" "$OH_ARGS" "$OOUT"
+rm -rf "$REPO" "$CREPO" "$FREPO" "$IREPO" "$PREPO" "$OREPO" "$BARE" "$ROOT"
+rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$IOUT" "$GH_ARGS" "$CGH" "$FGH" "$POUT" "$OH_ARGS" "$OOUT"
 
 echo ""
