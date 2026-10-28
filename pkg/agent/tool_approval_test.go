@@ -28,6 +28,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/api"
 )
 
 func TestParseApprovalKey(t *testing.T) {
@@ -101,6 +103,22 @@ func pathOutsideApproved(name string) string {
 	return filepath.Join(string(filepath.Separator), "kdeps-not-approved", name)
 }
 
+// mkdirOutsideApproved creates a directory file tools must still prompt for.
+// TestMain points HOME at os.MkdirTemp. On Linux that directory is under /tmp,
+// and on Windows it is os.TempDir, both of which PathAutoApproved allows. A
+// fixture under that home is allowed by the temp-dir rule, so it cannot stand
+// in for a path outside the working directory.
+func mkdirOutsideApproved(t *testing.T, pattern string) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	dir, err := os.MkdirTemp(filepath.Dir(file), pattern)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	require.False(t, api.PathAutoApproved(dir), "fixture %s is inside an auto-approved root", dir)
+	return dir
+}
+
 func TestCheckPathBoundary_OutsideCWD_NonInteractiveDenied(t *testing.T) {
 	dir := t.TempDir()
 	chdirTo(t, dir)
@@ -138,11 +156,7 @@ func TestBlockOnPathBoundary_BlockedClosesOpenToolCallLine(t *testing.T) {
 }
 
 func TestCheckPathBoundary_ParentOfCWDIsOutside(t *testing.T) {
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	parent, err := os.MkdirTemp(home, ".kdeps-approval-parent-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(parent) })
+	parent := mkdirOutsideApproved(t, ".kdeps-approval-parent-")
 	cwd := filepath.Join(parent, "acme")
 	require.NoError(t, os.MkdirAll(cwd, 0o700))
 	chdirTo(t, cwd)
@@ -238,8 +252,9 @@ func TestPromptToolApproval_NoArgsSummary(t *testing.T) {
 }
 
 func TestCheckPathBoundary_KdepsHomeAndTmpSkipPrompt(t *testing.T) {
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
+	home := mkdirOutsideApproved(t, "kdeps-approval-home-")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads this on Windows
 	root, err := os.MkdirTemp(home, ".kdeps-approval-root-")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
