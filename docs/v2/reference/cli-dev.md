@@ -268,6 +268,8 @@ trace.log       # every log line at debug level, and the call-chain trace
 
 Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, the next argument (the workflow path) is taken as the name.
 
+A daily workflow runs `/auto-improve` in this repository with `--backend openrouter` and an id from `assets/models/openrouter.yaml`. A session that does not finish tries the next id. Edits open a pull request with auto-merge. See [Auto-improve](/agent/commands#auto-improve).
+
 ---
 
 ## `kdeps --upgrade`

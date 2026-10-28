@@ -1,0 +1,52 @@
+name: Bug Hunt
+
+# kdeps runs /auto-improve against this repo on an OpenRouter free model,
+# fixes product bugs the instrument log shows, and opens a pull request.
+# Auto-merge lands it after the required checks pass.
+#
+# Checkout and gh use RELEASE_TOKEN. A GITHUB_TOKEN push does not start
+# Build and Test, so the required checks would stay expected and the
+# pull request would never merge.
+#
+# OPENROUTER_API_KEY is the OpenRouter key. The model id comes from
+# assets/models/openrouter.yaml. A session that does not finish tries
+# the next id.
+
+on:
+  schedule:
+    # After the 06:15 UTC OpenRouter harvest, so the catalog is current.
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bug-hunt
+  cancel-in-progress: false
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build kdeps
+        run: make build
+
+      - name: Hunt and open a pull request
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          BUG_HUNT_RESET: "1"
+        run: bash scripts/bug-hunt.sh run

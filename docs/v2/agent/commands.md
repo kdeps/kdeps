@@ -174,6 +174,13 @@ The working directory must be this module, or a folder inside it. Another module
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
 
+A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs this command in the kdeps repository. It passes `--backend openrouter` and a model id from `assets/models/openrouter.yaml`. When the session does not print `auto-improve: done`, it tries the next id, up to four. A tree with edits is pushed as a pull request with auto-merge, which merges after the required checks pass. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets.
+
+```bash
+id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
+printf '/auto-improve\n/exit\n' | kdeps --backend openrouter --model "$id"
+```
+
 ## Declared commands
 
 Every slash command is a `commands` [asset](/agent/repl-updating#updating-assets): one YAML file that `kdeps update` keeps current. For a command kdeps runs itself, the file supplies the `/help` text, aliases and tab completion and names the operation that runs it in `api:`:
