@@ -67,6 +67,10 @@ clean/*)
 	echo "auto-improve: done"
 	exit 0
 	;;
+refused/*)
+	echo "auto-improve: no issue (provider-only failures)"
+	exit 1
+	;;
 esac
 exit 1
 EOF
@@ -187,6 +191,35 @@ if [ $? -eq 0 ] && grep -q "no product fix" "$COUT" && [ ! -f "$CREPO/hunted.txt
 	test_passed "bug-hunt run with no edits skips the pull request and files an issue"
 else
 	test_failed "bug-hunt run with no edits skips the pull request and files an issue" "$(cat "$COUT"; echo ---; cat "$CGH")"
+fi
+
+# A provider-only failure prints no issue line, and the job does not file one.
+REF_CAT="$ROOT/refused.yaml"
+cat >"$REF_CAT" <<'EOF'
+models:
+  - id: "refused/four:free"
+EOF
+RGH="$(mktemp)"
+ROUT="$(mktemp)"
+(
+	cd "$REPO"
+	PATH="$ROOT:$PATH" \
+		GH_ARGS="$RGH" \
+		OPENROUTER_API_KEY=test \
+		BUG_HUNT_CATALOG="$REF_CAT" \
+		BUG_HUNT_KDEPS="$ROOT/fake-kdeps" \
+		BUG_HUNT_FAKE_LOG="$FAKE_LOG" \
+		BUG_HUNT_RESET=1 \
+		BUG_HUNT_SHUFFLE=0 \
+		BUG_HUNT_MAX_MODELS=1 \
+		BUG_HUNT_TASKS=1 \
+		BUG_HUNT_TIMEOUT=30 \
+		bash "$HUNT" run >"$ROUT" 2>&1
+) || true
+if grep -q "auto-improve: no issue" "$ROUT" && ! grep -q "issue create" "$RGH"; then
+	test_passed "bug-hunt does not file an issue for provider-only failures"
+else
+	test_failed "bug-hunt does not file an issue for provider-only failures" "$(cat "$ROUT"; echo ---; cat "$RGH")"
 fi
 
 # Every id fails.
