@@ -115,7 +115,7 @@ type freeQueueTransport struct {
 
 func (t *freeQueueTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	wait := t.queue.reserve(freeModelPerMinute())
-	if wait > 0 {
+	if wait >= time.Second {
 		fmt.Fprintf(os.Stderr, "openrouter: queued %s to stay under the free-model cap\n",
 			wait.Round(time.Second))
 		timer := time.NewTimer(wait)
