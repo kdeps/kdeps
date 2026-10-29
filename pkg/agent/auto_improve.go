@@ -131,7 +131,9 @@ func autoImproveEvalPrompt(dir string, n, total int, alone bool) string {
 	}
 	return fmt.Sprintf(
 		"Read the instrument session in %s.\n"+
-			"Read session.md and events.ndjson. Each event has a kind field.\n"+
+			"Read session.md and events.ndjson. Each event has a kind field. "+
+			"events.ndjson can run to thousands of lines: find the events with an error field "+
+			"by searching for it, and do not page through the file in chunks.\n"+
 			"%s"+
 			"Report product bugs shown in those events: a loop, a refusal of work "+
 			"the tools can do, a call to the wrong tool, or a tool error that is wrong.\n"+
