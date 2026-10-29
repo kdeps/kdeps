@@ -31,6 +31,9 @@ func (e *Engine) ExecuteResource(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ExecuteResource")
+	if err := checkStagePermission(resource); err != nil {
+		return nil, err
+	}
 	if result, handled, err := e.handleLoopDispatch(resource, ctx); handled {
 		return result, err
 	}

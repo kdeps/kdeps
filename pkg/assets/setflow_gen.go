@@ -117,15 +117,15 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "llm.ReloadCloudModels", "llm.readModelRegistry"},
 	},
 	"policy": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "a tool call is about to run"},
 			{Label: "the agent loop reads the permission policy"},
 			{Label: "its tool tier names a mode, or the default applies", Here: true},
 			{Label: "the call runs or is refused"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "desktop.(*Service).openLoop", "agent.(*Loop).RunStreaming", "agent.loadPermissionPolicy"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "agent.stageGate", "agent.loadPermissionPolicy"},
 	},
 	"presets": {
 		Mode: "both",

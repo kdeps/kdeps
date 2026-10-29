@@ -84,3 +84,11 @@ func TestPermissionPolicy_BrokenUserOverrideFailsClosed(t *testing.T) {
 
 	assert.Equal(t, "deny", loadPermissionPolicy().Default)
 }
+
+// writeUserPolicy writes a user policy override under home.
+func writeUserPolicy(t *testing.T, home, body string) {
+	t.Helper()
+	dir := filepath.Join(home, ".kdeps", "policy")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "permission.yaml"), []byte(body), 0o600))
+}

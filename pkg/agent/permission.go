@@ -89,9 +89,10 @@ func permissionLevel(m PermissionMode) int {
 // permissionPolicy is the assets/policy/permission.yaml file: the one tool
 // policy. Tiers name the mode each tier needs; tools name their tier.
 type permissionPolicy struct {
-	Default string            `yaml:"default"`
-	Tiers   map[string]string `yaml:"tiers"`
-	Tools   map[string]string `yaml:"tools"`
+	Default   string            `yaml:"default"`
+	Tiers     map[string]string `yaml:"tiers"`
+	Tools     map[string]string `yaml:"tools"`
+	Resources map[string]string `yaml:"resources"`
 }
 
 // parsePermissionPolicy reads the policy file. An unknown default is an error,
@@ -186,7 +187,13 @@ func readPermissionPolicy() permissionPolicy {
 // requiredPermissionIn returns the minimum mode a tool needs under policy.
 // A tier that names no known mode needs danger-full-access (fail closed).
 func requiredPermissionIn(policy permissionPolicy, toolName string) PermissionMode {
-	if tier, listed := policy.Tools[toolName]; listed {
+	return requiredIn(policy, policy.Tools, toolName)
+}
+
+// requiredIn resolves a name in one of the policy's tables (tools or
+// resources) to the mode its tier needs. An unlisted name follows the default.
+func requiredIn(policy permissionPolicy, table map[string]string, toolName string) PermissionMode {
+	if tier, listed := table[toolName]; listed {
 		if mode, ok := policy.Tiers[tier]; ok {
 			return PermissionMode(mode)
 		}
