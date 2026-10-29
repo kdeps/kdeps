@@ -173,6 +173,9 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		}
 	}
 	judgeLoop := New(ctx, l.engine, l.workflow, judgeRegistry, cfg)
+	// A judge that calls a tool it was not offered is not reviewing; end it
+	// here instead of letting it retry the missing tool until its rounds run out.
+	judgeLoop.onUnofferedTool = cancel
 
 	// The error here is expected on the success path (see cancel() above), so
 	// only the settled flag decides the outcome.
