@@ -38,3 +38,17 @@ func TestPermissionPolicy_RejectsBadDefaultAndMode(t *testing.T) {
 	_, err = parsePermissionPolicy([]byte("default: [\n"))
 	require.Error(t, err)
 }
+
+func TestPermissionPolicy_CachedUntilReload(t *testing.T) {
+	initPermissionPolicy()
+	first := loadPermissionPolicy()
+	second := loadPermissionPolicy()
+	assert.Equal(t, first, second)
+
+	initPermissionPolicy()
+	permissionPolicyCache.Lock()
+	cleared := permissionPolicyCache.policy == nil
+	permissionPolicyCache.Unlock()
+	assert.True(t, cleared, "reload drops the cached policy")
+	assert.Equal(t, first, loadPermissionPolicy(), "the reread policy matches")
+}

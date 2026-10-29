@@ -23,6 +23,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -114,12 +115,40 @@ func parsePermissionPolicy(data []byte) (permissionPolicy, error) {
 	return p, nil
 }
 
-// loadPermissionPolicy returns the policy from the policy asset set. A missing
-// or invalid file falls back to allow with workspace-write, the behaviour
-// before the file existed.
+// permissionPolicyCache holds the loaded policy until the assets are reloaded.
+//
+//nolint:gochecknoglobals // one parsed policy per process, reset by ReloadAssets
+var permissionPolicyCache struct {
+	sync.Mutex
+	policy *permissionPolicy
+}
+
+// initPermissionPolicy drops the cached policy so the next call reads the
+// assets again. ReloadAssets calls it.
+func initPermissionPolicy() {
+	permissionPolicyCache.Lock()
+	defer permissionPolicyCache.Unlock()
+	permissionPolicyCache.policy = nil
+}
+
+// loadPermissionPolicy returns the policy from the policy asset set, read once
+// and cached. A missing or invalid file falls back to allow with
+// workspace-write, the behaviour before the file existed.
 //
 //kdeps:flow policy: a tool call is about to run > the agent loop reads the permission policy > [its tool tier names a mode, or the default applies] > the call runs or is refused
 func loadPermissionPolicy() permissionPolicy {
+	permissionPolicyCache.Lock()
+	defer permissionPolicyCache.Unlock()
+	if permissionPolicyCache.policy != nil {
+		return *permissionPolicyCache.policy
+	}
+	p := readPermissionPolicy()
+	permissionPolicyCache.policy = &p
+	return p
+}
+
+// readPermissionPolicy reads and parses the policy asset.
+func readPermissionPolicy() permissionPolicy {
 	data, err := fs.ReadFile(assets.Open("policy"), "policy/permission.yaml")
 	if err != nil {
 		warnAsset(err)
