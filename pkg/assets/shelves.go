@@ -58,6 +58,7 @@ var setShelf = map[string]string{
 	"commands":   ShelfAgent,
 	"themes":     ShelfAgent,
 	"events":     ShelfGuardrails,
+	"policy":     ShelfGuardrails,
 	"actions":    ShelfGuardrails,
 	"schemas":    ShelfWorkflow,
 	"templates":  ShelfWorkflow,
