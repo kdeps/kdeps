@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -56,6 +57,11 @@ const (
 	// way to prompt, so Allow treats ask as read-only-only (mutating denied), and
 	// the loop falls back to the static env mode instead.
 	PermissionAsk PermissionMode = "ask"
+
+	// PermissionToken is the tier that needs a capability token: a valid,
+	// unexpired token for the tool or stage (see capability_token.go). It is
+	// not a rank; the enforcer checks for the token instead.
+	PermissionToken PermissionMode = "token"
 )
 
 // Numeric ranks for mode comparison. Unknown modes rank below read-only,
@@ -76,7 +82,7 @@ func permissionLevel(m PermissionMode) int {
 		return levelWorkspaceWrite
 	case PermissionDangerFullAccess:
 		return levelFullAccess
-	case PermissionAsk:
+	case PermissionAsk, PermissionToken:
 		// ask is an interactive policy, not a static rank; it never reaches the
 		// numeric ladder (the loop gate intercepts it). Rank it as unknown so any
 		// accidental comparison denies rather than allows.
@@ -107,7 +113,7 @@ func parsePermissionPolicy(data []byte) (permissionPolicy, error) {
 	}
 	for tier, mode := range p.Tiers {
 		switch PermissionMode(mode) {
-		case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
+		case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk, PermissionToken:
 		default:
 			return permissionPolicy{}, fmt.Errorf("permission policy: tier %s names unknown mode %q", tier, mode)
 		}
@@ -234,6 +240,9 @@ func resolvePermissionMode() PermissionMode {
 	switch raw {
 	case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
 		return raw
+	case PermissionToken:
+		// token is a policy tier, not a run mode: a run with it is unrestricted.
+		return PermissionDangerFullAccess
 	default:
 		return PermissionDangerFullAccess
 	}
@@ -260,6 +269,12 @@ func (e *PermissionEnforcer) Allow(toolName string) (bool, string) {
 	// by a static mode, so this check comes before every mode.
 	if requiredPermission(toolName) == PermissionAsk {
 		return false, fmt.Sprintf("tool %q requires approval", toolName)
+	}
+	if requiredPermission(toolName) == PermissionToken {
+		if _, ok := capabilityTokenFor(toolName, time.Now()); ok {
+			return true, ""
+		}
+		return false, fmt.Sprintf("tool %q requires a capability token: kdeps token grant %s", toolName, toolName)
 	}
 	if e.mode == PermissionDangerFullAccess {
 		return true, ""
