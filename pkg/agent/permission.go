@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -147,8 +148,30 @@ func loadPermissionPolicy() permissionPolicy {
 	return p
 }
 
-// readPermissionPolicy reads and parses the policy asset.
+// userPermissionPolicyPath is ~/.kdeps/policy/permission.yaml, the user's
+// override of the built-in policy.
+func userPermissionPolicyPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".kdeps", "policy", "permission.yaml"), nil
+}
+
+// readPermissionPolicy reads the user's override when it exists, else the
+// built-in policy asset. A user file that does not parse fails closed to deny:
+// a broken override must not widen what runs.
 func readPermissionPolicy() permissionPolicy {
+	if path, err := userPermissionPolicyPath(); err == nil {
+		if data, readErr := os.ReadFile(path); readErr == nil {
+			p, parseErr := parsePermissionPolicy(data)
+			if parseErr != nil {
+				warnAsset(parseErr)
+				return permissionPolicy{Default: "deny"}
+			}
+			return p
+		}
+	}
 	data, err := fs.ReadFile(assets.Open("policy"), "policy/permission.yaml")
 	if err != nil {
 		warnAsset(err)
