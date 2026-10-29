@@ -2863,6 +2863,19 @@ func (l *Loop) gateToolCall(tc domain.StreamedToolCall) string {
 	return ""
 }
 
+// offeredToolNames lists the registered tool names, so a "not found" error
+// tells the model which calls it can make instead of retrying a missing one.
+func (l *Loop) offeredToolNames() string {
+	names := make([]string, 0)
+	for _, t := range l.registry.List() {
+		names = append(names, t.Name)
+	}
+	if len(names) == 0 {
+		return "none"
+	}
+	return strings.Join(names, ", ")
+}
+
 // runStreamToolCall runs tc (its Name resolved from an alias in place).
 func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) string {
 	tc := *tcp
@@ -2875,7 +2888,8 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... failed: tool not found")
 		}
-		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
+		return toolErrorJSON(fmt.Errorf("tool %q not found; tools offered this turn: %s",
+			tc.Name, l.offeredToolNames()))
 	}
 
 	if blocked := l.gateToolCall(tc); blocked != "" {
