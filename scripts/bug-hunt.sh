@@ -115,10 +115,15 @@ EOF
 
 # file_issue opens one issue when the process did not print an issue URL.
 # A printed auto-improve: issue http line means the command already filed it.
+# auto-improve: no issue means every failure was a provider refusal: nothing to file.
 file_issue() {
 	local model="$1"
 	local log="$2"
 	if grep -q 'auto-improve: issue http' "$log"; then
+		return 0
+	fi
+	# The command prints this when every failure was a provider refusal.
+	if grep -q 'auto-improve: no issue' "$log"; then
 		return 0
 	fi
 	if ! command -v gh >/dev/null 2>&1; then

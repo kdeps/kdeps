@@ -397,3 +397,23 @@ func TestEnsureAutoImproveSession(t *testing.T) {
 	require.False(t, started)
 	require.Equal(t, s.Dir, again.Dir)
 }
+
+func TestShouldFileBugCapture(t *testing.T) {
+	write := func(lines ...string) string {
+		dir := t.TempDir()
+		body := strings.Join(lines, "\n") + "\n"
+		require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile), []byte(body), 0o600))
+		return dir
+	}
+	refusal := `{"ts":"t","kind":"model_response","model":"m","error":"API returned unexpected status code: 400: Provider returned error"}`
+	toolErr := `{"ts":"t","kind":"tool_call","name":"read_file","error":"tool \"read_file\" not found"}`
+	providerErr := errors.New("stream: generate: openai: " +
+		"API returned unexpected status code: 404: No endpoints found that support tool use")
+
+	require.False(t, shouldFileBugCapture(write(refusal, refusal), providerErr), "provider-only failures file nothing")
+	require.True(t, shouldFileBugCapture(write(refusal, toolErr), providerErr), "a kdeps tool error files an issue")
+	diskFull := errors.New("/auto-improve: disk full")
+	require.True(t, shouldFileBugCapture(write(refusal), diskFull), "a kdeps run error files an issue")
+	require.True(t, shouldFileBugCapture(write(), nil), "a clean run still files one")
+	require.False(t, shouldFileBugCapture(write(refusal), nil), "refused turns that recovered file nothing")
+}

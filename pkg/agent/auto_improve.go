@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -284,10 +285,36 @@ func randomBugCaptureID(current string, skip map[string]struct{}) (string, bool)
 	return next, true
 }
 
+// shouldFileBugCapture is false when every failure is a provider refusal or
+// rate limit: those are not kdeps bugs, so no issue is filed. A clean run
+// still files one, as before.
+func shouldFileBugCapture(dir string, runErr error) bool {
+	lines := captureErrorLines(filepath.Join(dir, instrument.EventsFile), math.MaxInt)
+	for _, line := range lines {
+		if !isProviderFailure(line) {
+			return true
+		}
+	}
+	if runErr != nil {
+		return !isProviderFailure(runErr.Error())
+	}
+	return len(lines) == 0
+}
+
+// isProviderFailure matches a refusal or rate limit from the provider, not a
+// kdeps failure.
+func isProviderFailure(text string) bool {
+	return freeModelUnusableRe.MatchString(text) || rateLimitErrRe.MatchString(text)
+}
+
 func (r *REPL) finishAutoImprove(dir string, runErr error) error {
 	model := ""
 	if r.loop != nil {
 		model = r.loop.config.Model
+	}
+	if !shouldFileBugCapture(dir, runErr) {
+		fmt.Fprintln(os.Stdout, "auto-improve: no issue (provider-only failures)")
+		return runErr
 	}
 	url, err := bugCaptureIssue(r.ctx, dir, model)
 	if err != nil {
