@@ -2770,6 +2770,17 @@ func printBufferedToolOutput(f *os.File, termW io.Writer, sameLine bool) bool {
 // a session-scoped approval token. On a non-interactive path ask falls back to
 // the static env mode so headless runs never block.
 func (l *Loop) checkToolPermission(canonical, rawArgs string) (string, bool) {
+	reason, blocked := l.checkToolPermissionRaw(canonical, rawArgs)
+	mode := l.config.PermissionMode
+	if mode == "" {
+		mode = resolvePermissionMode()
+	}
+	recordPermissionDecision(canonical, requiredPermission(canonical), mode, reason, blocked)
+	return reason, blocked
+}
+
+// checkToolPermissionRaw is checkToolPermission without the decision record.
+func (l *Loop) checkToolPermissionRaw(canonical, rawArgs string) (string, bool) {
 	mode := l.config.PermissionMode
 	if mode == "" {
 		mode = resolvePermissionMode()

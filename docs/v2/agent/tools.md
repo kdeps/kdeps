@@ -344,6 +344,8 @@ tools:
 
 Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
 
+Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
+
 ## Lean mode
 
 The full tool set (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is registered for every session. A cloud backend sends each tool as a native schema. A local backend (file, gguf, ollama, llamafile) also gets a short text list: name, one-line description, and parameter names. Trim the set when you want less prompt weight or a restricted surface for CI/automation:
