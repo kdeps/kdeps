@@ -468,16 +468,22 @@ func TestGHIssueCreate_ReusesOpenIssueWithSameTitle(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr), "no create call for a duplicate title")
 }
 
-func TestFreeModelSizeB(t *testing.T) {
-	require.Equal(t, 550.0, freeModelSizeB("nvidia/nemotron-3-ultra-550b-a55b:free"))
-	require.Equal(t, 2.6, freeModelSizeB("liquid/lfm-2.5-2.6b:free"))
-	require.Equal(t, 31.0, freeModelSizeB("google/gemma-4-31b-it:free"))
-	require.Equal(t, 0.0, freeModelSizeB("poolside/laguna-xs-2.1:free"))
-}
-
 func TestPreferLargeFreeModels(t *testing.T) {
-	ids := []string{"x/small-2b:free", "x/none:free", "x/big-400b:free", "x/mid-30b:free"}
-	require.Equal(t, []string{"x/big-400b:free", "x/mid-30b:free"}, preferLargeFreeModels(ids))
+	ids := executorLLM.OpenRouterFreeModelIDs()
+	sized := 0
+	for _, id := range ids {
+		if executorLLM.ModelParamsB(id) > 0 {
+			sized++
+		}
+	}
+	require.Greater(t, sized, 1)
+	preferred := preferLargeFreeModels(ids)
+	require.Len(t, preferred, (sized+1)/2)
+	for _, id := range preferred {
+		require.Positive(t, executorLLM.ModelParamsB(id), "only sized ids are preferred")
+	}
+	first := executorLLM.ModelParamsB(preferred[0])
+	require.GreaterOrEqual(t, first, executorLLM.ModelParamsB(preferred[len(preferred)-1]))
 	unsized := []string{"a", "b", "c"}
 	require.Equal(t, unsized, preferLargeFreeModels(unsized))
 }

@@ -33,26 +33,28 @@ models() {
 	grep -E '^[[:space:]]*- id: "' "$catalog" | sed -E 's/.*id: "([^"]+)".*/\1/'
 }
 
-# shuffled_models is the try order for run: the largest parameter count first
-# (the number before b in the id, such as 550b), so larger free models are tried
-# before small ones. Ids with no count keep catalog order after them.
-# BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
+# shuffled_models is the try order for run: the largest params count first.
+# The count is the params field the catalog holds for each id. Ids with no
+# params keep catalog order after the sized ones. BUG_HUNT_SHUFFLE=0 keeps
+# catalog order for run.
 shuffled_models() {
 	if [ "${BUG_HUNT_SHUFFLE:-1}" = "0" ]; then
 		models
 		return 0
 	fi
-	models | awk '{
-		best = 0
-		rest = $0
-		while (match(rest, /[0-9]+(\.[0-9]+)?b([^a-zA-Z]|$)/)) {
-			tok = substr(rest, RSTART, RLENGTH)
-			sub(/b.*/, "", tok)
-			if (tok + 0 > best) best = tok + 0
-			rest = substr(rest, RSTART + RLENGTH)
+	awk '
+		function flush() { if (id != "") printf "%012.4f\t%s\n", size, id; id = "" }
+		/^[[:space:]]*- id: "/ {
+			flush()
+			id = $0
+			sub(/^[^"]*"/, "", id)
+			sub(/".*/, "", id)
+			size = 0
+			next
 		}
-		printf "%012.4f\t%s\n", best, $0
-	}' | sort -s -r | cut -f2-
+		/^[[:space:]]*params: / { size = $2 + 0; next }
+		END { flush() }
+	' "$catalog" | sort -s -r | cut -f2-
 }
 
 tree_dirty() {

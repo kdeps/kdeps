@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -84,6 +85,9 @@ const (
 	eventMemoryStatus            = "memory-status-limit"
 	eventModelRecordLimit        = "model-record-limit"
 	eventOpenRouterFreePerMinute = "openrouter-free-per-minute"
+	eventOpenRouterRefusal       = "openrouter-refusal"
+	eventOpenRouterRateLimit     = "openrouter-rate-limit"
+	eventOpenRouterProviderLimit = "openrouter-provider-limit"
 	eventSideCallMaxTokens       = "side-call-max-tokens"
 )
 
@@ -156,6 +160,10 @@ type Event struct {
 	// "rel-memory-limit"'s base-relation count fed into a query join.
 	// Ignored by events that don't use it.
 	Items int `yaml:"items,omitempty"`
+	// Patterns is a list of regular expressions an error classifier matches
+	// against (case-insensitive, any one matches). Only events that classify
+	// errors set it; see eventPatternMatch.
+	Patterns []string `yaml:"patterns,omitempty"`
 	// Disabled turns the event's trigger off entirely -- false (the zero
 	// value) means enabled, so an override file that omits this field never
 	// accidentally disables anything. Set/unset via "/harness events
@@ -342,7 +350,27 @@ func init() { initEvents() }
 // EventByName returns the effective (built-in + user-merged) event
 // definition, or false if no event of that name is registered.
 //
+// eventPatternMatch reports whether text matches any of the event's patterns.
+// A missing event, no patterns, or a pattern that does not compile matches
+// nothing.
+//
 //kdeps:flow events: the agent loop runs a turn > kdeps measures tokens, rounds and calls > [an event's trigger is met] > its action runs > the turn continues
+func eventPatternMatch(name, text string) bool {
+	ev, ok := EventByName(name)
+	if !ok || len(ev.Patterns) == 0 {
+		return false
+	}
+	parts := make([]string, 0, len(ev.Patterns))
+	for _, p := range ev.Patterns {
+		parts = append(parts, "(?:"+p+")")
+	}
+	re, err := regexp.Compile("(?i)" + strings.Join(parts, "|"))
+	if err != nil {
+		return false
+	}
+	return re.MatchString(text)
+}
+
 func EventByName(name string) (Event, bool) {
 	e, ok := eventRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {

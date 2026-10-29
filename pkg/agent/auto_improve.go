@@ -29,7 +29,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -259,28 +258,13 @@ func (r *REPL) jumpAutoImproveModel() {
 	fmt.Fprintf(os.Stdout, "auto-improve: model %s\n", next)
 }
 
-// freeModelSizeRe finds a parameter count in a model id, such as 550b or 2.6b.
-var freeModelSizeRe = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)b\b`)
-
-// freeModelSizeB is the largest parameter count in the id, in billions. An id
-// with no count is 0.
-func freeModelSizeB(id string) float64 {
-	best := 0.0
-	for _, m := range freeModelSizeRe.FindAllStringSubmatch(id, -1) {
-		if v, err := strconv.ParseFloat(m[1], 64); err == nil && v > best {
-			best = v
-		}
-	}
-	return best
-}
-
 // preferLargeFreeModels keeps the larger half of the ids that name a size,
 // largest first. Ids with no size are left out. When no id names a size, ids
 // come back unchanged.
 func preferLargeFreeModels(ids []string) []string {
 	sized := make([]string, 0, len(ids))
 	for _, id := range ids {
-		if freeModelSizeB(id) > 0 {
+		if executorLLM.ModelParamsB(id) > 0 {
 			sized = append(sized, id)
 		}
 	}
@@ -288,7 +272,7 @@ func preferLargeFreeModels(ids []string) []string {
 		return ids
 	}
 	slices.SortStableFunc(sized, func(a, b string) int {
-		return cmp.Compare(freeModelSizeB(b), freeModelSizeB(a))
+		return cmp.Compare(executorLLM.ModelParamsB(b), executorLLM.ModelParamsB(a))
 	})
 	return sized[:(len(sized)+1)/2]
 }
@@ -359,7 +343,8 @@ func shouldFileBugCapture(dir string, runErr error) bool {
 // isProviderFailure matches a refusal or rate limit from the provider, not a
 // kdeps failure.
 func isProviderFailure(text string) bool {
-	return freeModelUnusableRe.MatchString(text) || rateLimitErrRe.MatchString(text)
+	return eventPatternMatch(eventOpenRouterRefusal, text) ||
+		eventPatternMatch(eventOpenRouterRateLimit, text)
 }
 
 func (r *REPL) finishAutoImprove(dir string, runErr error, conclusion string) error {

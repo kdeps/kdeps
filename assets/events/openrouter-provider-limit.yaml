@@ -1,0 +1,6 @@
+version: 1.0.0
+# An upstream provider 429 (a rate limit that names the provider). The account
+# free-model cap is a different message and is shared by every free id.
+name: openrouter-provider-limit
+patterns:
+  - 'provider returned error'
