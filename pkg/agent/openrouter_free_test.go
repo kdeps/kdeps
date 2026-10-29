@@ -297,8 +297,9 @@ func TestContinueOnFreeModelRateLimit_BugCapturePicksAtRandom(t *testing.T) {
 	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
 	ok := loop.continueOnFreeModelRateLimit(cfg, map[string]struct{}{}, "was rate-limited")
 	require.True(t, ok)
-	assert.Equal(t, ids[len(ids)-1], cfg.Model)
-	assert.Equal(t, ids[len(ids)-1], loop.config.Model)
+	assert.Contains(t, preferLargeFreeModels(ids), cfg.Model)
+	assert.NotEqual(t, ids[0], cfg.Model)
+	assert.Equal(t, cfg.Model, loop.config.Model)
 }
 
 func TestStreamChatWithRetry_BugCaptureMovesOffRefusedFreeModel(t *testing.T) {

@@ -33,13 +33,26 @@ models() {
 	grep -E '^[[:space:]]*- id: "' "$catalog" | sed -E 's/.*id: "([^"]+)".*/\1/'
 }
 
-# shuffled_models is the try order for run. A new awk process seeds srand.
+# shuffled_models is the try order for run: the largest parameter count first
+# (the number before b in the id, such as 550b), so larger free models are tried
+# before small ones. Ids with no count keep catalog order after them.
+# BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
 shuffled_models() {
 	if [ "${BUG_HUNT_SHUFFLE:-1}" = "0" ]; then
 		models
 		return 0
 	fi
-	models | awk 'BEGIN { srand() } { printf "%s\t%s\n", rand(), $0 }' | sort -n | cut -f2-
+	models | awk '{
+		best = 0
+		rest = $0
+		while (match(rest, /[0-9]+(\.[0-9]+)?b([^a-zA-Z]|$)/)) {
+			tok = substr(rest, RSTART, RLENGTH)
+			sub(/b.*/, "", tok)
+			if (tok + 0 > best) best = tok + 0
+			rest = substr(rest, RSTART + RLENGTH)
+		}
+		printf "%012.4f\t%s\n", best, $0
+	}' | sort -s -r | cut -f2-
 }
 
 tree_dirty() {
