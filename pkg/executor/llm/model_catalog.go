@@ -28,14 +28,15 @@ import (
 
 // CloudModel describes a well-known cloud LLM model.
 type CloudModel struct {
-	ID               string `yaml:"id"`                        // API model identifier, e.g. "claude-opus-4-8"
-	Backend          string `yaml:"backend"`                   // kdeps backend name, e.g. backendAnthropic
-	Desc             string `yaml:"desc,omitempty"`            // short human label, e.g. "most capable"
-	EnvVar           string `yaml:"envVar,omitempty"`          // API key env var, e.g. "ANTHROPIC_API_KEY"
-	SupportsThinking bool   `yaml:"thinking,omitempty"`        // supports extended thinking / reasoning
-	SupportsImages   bool   `yaml:"images,omitempty"`          // accepts image inputs
-	ContextWindow    int    `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
-	MaxOutputTokens  int    `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
+	ID               string  `yaml:"id"`                        // API model identifier, e.g. "claude-opus-4-8"
+	Backend          string  `yaml:"backend"`                   // kdeps backend name, e.g. backendAnthropic
+	Desc             string  `yaml:"desc,omitempty"`            // short human label, e.g. "most capable"
+	EnvVar           string  `yaml:"envVar,omitempty"`          // API key env var, e.g. "ANTHROPIC_API_KEY"
+	SupportsThinking bool    `yaml:"thinking,omitempty"`        // supports extended thinking / reasoning
+	SupportsImages   bool    `yaml:"images,omitempty"`          // accepts image inputs
+	ContextWindow    int     `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
+	MaxOutputTokens  int     `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
+	Params           float64 `yaml:"params,omitempty"`          // parameter count in billions, from the id (0 = unknown)
 }
 
 // cloudRegistryItem is the models asset holding the cloud model catalog.
@@ -103,6 +104,17 @@ func ModelContextWindow(modelID string) int {
 	for _, m := range KnownCloudModels {
 		if m.ID == modelID {
 			return m.ContextWindow
+		}
+	}
+	return 0
+}
+
+// ModelParamsB returns the parameter count in billions for a known cloud
+// model, or 0 if unknown. The catalog holds it; it is never parsed from the id.
+func ModelParamsB(modelID string) float64 {
+	for _, m := range KnownCloudModels {
+		if m.ID == modelID {
+			return m.Params
 		}
 	}
 	return 0

@@ -63,6 +63,16 @@ def is_free_model(model):
     return ctx > 0 and max_out > 0
 
 
+# A parameter count in a model id, such as 550b in nvidia/nemotron-3-ultra-550b-a55b.
+PARAMS_RE = re.compile(r"(?i)(\d+(?:\.\d+)?)b\b")
+
+
+def parameter_count(model_id):
+    """Largest parameter count in billions named in the id, or 0 when none is named."""
+    counts = [float(m.group(1)) for m in PARAMS_RE.finditer(model_id)]
+    return max(counts, default=0)
+
+
 def to_entry(model):
     """One models/openrouter.yaml row."""
     arch = model.get("architecture") or {}
@@ -77,6 +87,7 @@ def to_entry(model):
         "images": "image" in (arch.get("input_modalities") or []),
         "contextWindow": int(model["context_length"]),
         "maxOutputTokens": int(model["top_provider"]["max_completion_tokens"]),
+        "params": parameter_count(model["id"]),
     }
 
 
@@ -107,6 +118,8 @@ def entry_lines(entry):
         lines.append("    images: true")
     lines.append(f"    contextWindow: {entry['contextWindow']}")
     lines.append(f"    maxOutputTokens: {entry['maxOutputTokens']}")
+    if entry["params"]:
+        lines.append(f"    params: {entry['params']:g}")
     lines.append("")
     return lines
 

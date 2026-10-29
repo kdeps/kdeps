@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
@@ -47,34 +46,30 @@ func setFreeModelQueueCap() {
 	})
 }
 
-// rateLimitErrRe matches a rate-limit. It stays narrower than transientErrRe
-// so a 5xx still retries the same model.
-var rateLimitErrRe = regexp.MustCompile(`(?i)rate.?limit|too many requests|\b429\b`)
-
-// providerLimitRe matches an upstream provider 429. The account free-model
-// cap uses a different message and is shared by every free id.
-var providerLimitRe = regexp.MustCompile(`(?i)provider returned error`)
-
-// freeModelUnusableRe matches a provider refusal of one free id that another
-// id may accept: a 400 or 502 "Provider returned error", a 404 "No endpoints
-// found" (no provider for tool use), or a 403 "only available on agentic
-// harnesses". Bug capture moves to another id instead of stopping.
-var freeModelUnusableRe = regexp.MustCompile(
-	`(?i)provider returned error|no endpoints found|only available on agentic`,
-)
-
+// isRateLimitError matches a rate-limit, from the openrouter-rate-limit event.
+// It stays narrower than transientErrRe so a 5xx still retries the same model.
 func isRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return rateLimitErrRe.MatchString(err.Error())
+	return eventPatternMatch(eventOpenRouterRateLimit, err.Error())
 }
 
+// isProviderRateLimit is an upstream provider 429, from the
+// openrouter-provider-limit event. The account free-model cap uses a
+// different message and is shared by every free id.
 func isProviderRateLimit(err error) bool {
 	if !isRateLimitError(err) {
 		return false
 	}
-	return providerLimitRe.MatchString(err.Error())
+	return eventPatternMatch(eventOpenRouterProviderLimit, err.Error())
+}
+
+// isFreeModelRefusal is a provider refusal of one free id that another id may
+// accept (openrouter-refusal event). Bug capture moves to another id instead of
+// stopping.
+func isFreeModelRefusal(err error) bool {
+	return err != nil && eventPatternMatch(eventOpenRouterRefusal, err.Error())
 }
 
 // freeModelSwitchAfter is how many free-model calls, across every id, may
@@ -334,7 +329,7 @@ func (l *Loop) onFreeModelLimit(
 	tried map[string]struct{},
 	accountWaited *bool,
 ) (bool, error) {
-	if l.bugCapture && !IsContextOverflowError(err) && freeModelUnusableRe.MatchString(err.Error()) {
+	if l.bugCapture && !IsContextOverflowError(err) && isFreeModelRefusal(err) {
 		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was refused by its provider") {
 			return true, nil
 		}

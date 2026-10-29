@@ -81,5 +81,23 @@ class FreeModelsTest(unittest.TestCase):
             self.assertIn("# Entries: 2\n", changed)
 
 
+class ParameterCountTest(unittest.TestCase):
+    def test_largest_count_in_id(self):
+        import harvest
+
+        self.assertEqual(550.0, harvest.parameter_count("nvidia/nemotron-3-ultra-550b-a55b:free"))
+        self.assertEqual(2.6, harvest.parameter_count("liquid/lfm-2.5-2.6b:free"))
+        self.assertEqual(0, harvest.parameter_count("poolside/laguna-xs-2.1:free"))
+
+    def test_row_writes_params_only_when_known(self):
+        import harvest
+
+        row = "\n".join(harvest.entry_lines({
+            "id": "x/y-31b:free", "desc": "d", "thinking": False, "images": False,
+            "contextWindow": 1, "maxOutputTokens": 2, "params": 31,
+        }))
+        self.assertIn("    params: 31\n", row + "\n")
+
+
 if __name__ == "__main__":
     unittest.main()

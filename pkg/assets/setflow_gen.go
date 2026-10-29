@@ -69,7 +69,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the turn continues"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.eventPatternMatch"},
 	},
 	"harness": {
 		Mode: "both",

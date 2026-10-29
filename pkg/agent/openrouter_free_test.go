@@ -370,3 +370,11 @@ func TestStreamChatWithRetry_NonFreeRateLimitStaysOnModel(t *testing.T) {
 	assert.Equal(t, "gpt-4o", cfg.Model)
 	assert.Equal(t, 2, s.calls)
 }
+
+func TestFreeModelRefusalPatternsComeFromEvents(t *testing.T) {
+	assert.True(t, isFreeModelRefusal(errors.New("API returned unexpected status code: 404: No endpoints found")))
+	assert.True(t, isFreeModelRefusal(errors.New("403: only available on agentic harnesses")))
+	assert.False(t, isFreeModelRefusal(errors.New("tool \"read_file\" not found")))
+	assert.False(t, isFreeModelRefusal(nil))
+	assert.False(t, eventPatternMatch("no-such-event", "provider returned error"))
+}
