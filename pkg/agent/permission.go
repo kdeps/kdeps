@@ -106,9 +106,7 @@ func parsePermissionPolicy(data []byte) (permissionPolicy, error) {
 	}
 	for tier, mode := range p.Tiers {
 		switch PermissionMode(mode) {
-		case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess:
-		case PermissionAsk:
-			return permissionPolicy{}, fmt.Errorf("permission policy: tier %s cannot name ask", tier)
+		case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
 		default:
 			return permissionPolicy{}, fmt.Errorf("permission policy: tier %s names unknown mode %q", tier, mode)
 		}
@@ -251,6 +249,11 @@ func (e *PermissionEnforcer) Mode() PermissionMode { return e.mode }
 // Allow checks whether the given tool is allowed in the current permission mode.
 // Returns (true, "") if allowed, or (false, reason) if denied.
 func (e *PermissionEnforcer) Allow(toolName string) (bool, string) {
+	// A tier that needs a human is answered by the loop's approval gate, never
+	// by a static mode, so this check comes before every mode.
+	if requiredPermission(toolName) == PermissionAsk {
+		return false, fmt.Sprintf("tool %q requires approval", toolName)
+	}
 	if e.mode == PermissionDangerFullAccess {
 		return true, ""
 	}

@@ -342,7 +342,7 @@ tools:
   bash_exec: T1
 ```
 
-Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
+A tier can also name `ask` (T2 in the built-in file, unused by default): a tool on that tier needs a person to approve each call, in every permission mode. With no terminal and no approver, the call is refused. Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
 
 Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
 

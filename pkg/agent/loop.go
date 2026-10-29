@@ -2781,6 +2781,14 @@ func (l *Loop) checkToolPermission(canonical, rawArgs string) (string, bool) {
 
 // checkToolPermissionRaw is checkToolPermission without the decision record.
 func (l *Loop) checkToolPermissionRaw(canonical, rawArgs string) (string, bool) {
+	// A tool whose tier needs a human asks in every mode. With no one to answer,
+	// it is refused.
+	if requiredPermission(canonical) == PermissionAsk {
+		if denyReason, blocked, resolved := l.resolveAskPermission(canonical, rawArgs); resolved {
+			return denyReason, blocked
+		}
+		return "permission denied: " + canonical + " requires approval, and no interactive terminal is available", true
+	}
 	mode := l.config.PermissionMode
 	if mode == "" {
 		mode = resolvePermissionMode()
