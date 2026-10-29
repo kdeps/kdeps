@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # The daily bug-hunt script: catalog order for models, shuffled run,
-# one GitHub issue per capture, and a pull request when the tree changed.
+# one GitHub issue per evaluate reply, and no pull request.
 
 set -uo pipefail
 
@@ -79,6 +79,10 @@ chmod +x "$ROOT/fake-kdeps"
 cat >"$ROOT/gh" <<'EOF'
 #!/bin/bash
 echo "$*" >>"$GH_ARGS"
+if [ "$1" = "issue" ] && [ "$2" = "list" ]; then
+	printf '%s\n' '[]'
+	exit 0
+fi
 if [ "$1" = "pr" ] && [ "$2" = "list" ]; then
 	if [ -n "${GH_OPEN_PR:-}" ]; then
 		printf '%s\n' '[{"headRefName":"bot/bug-hunt-existing"}]'
@@ -126,7 +130,7 @@ else
 fi
 rm -f "$MISS"
 
-# First id fails, second finishes and edits. Publish is skipped.
+# First id fails, second finishes and edits. The edit is discarded.
 REPO="$(mktemp -d)"
 init_repo "$REPO"
 FAKE_LOG="$(mktemp)"
@@ -149,16 +153,16 @@ GH_ARGS="$(mktemp)"
 )
 if [ $? -eq 0 ] && grep -q "fail/one:free" "$FAKE_LOG" && grep -q "edit/two:free" "$FAKE_LOG" \
 	&& [ "$(head -n 1 "$FAKE_LOG")" = "fail/one:free" ] \
-	&& [ "$(grep -c '^fixed$' "$REPO/hunted.txt")" -eq 1 ] \
+	&& [ ! -f "$REPO/hunted.txt" ] \
 	&& grep -q "bug-hunt: hunt 1/3" "$OUT" \
 	&& grep -q "bug-hunt: hunt 3/3" "$OUT" \
 	&& grep -q "trying the next free model" "$OUT" \
-	&& grep -q "skip publish" "$OUT" \
+	&& grep -q "report only, discarded edits" "$OUT" \
 	&& grep -q "auto-improve: issue https://example.test/issues/3" "$OUT" \
 	&& [ "$(grep -c 'issue create' "$GH_ARGS")" -eq 3 ]; then
-	test_passed "bug-hunt run tries the next free model and keeps the fix"
+	test_passed "bug-hunt run tries the next free model and discards its edits"
 else
-	test_failed "bug-hunt run tries the next free model and keeps the fix" "$(cat "$OUT"; echo ---; cat "$FAKE_LOG"; echo ---; cat "$GH_ARGS")"
+	test_failed "bug-hunt run tries the next free model and discards its edits" "$(cat "$OUT"; echo ---; cat "$FAKE_LOG"; echo ---; cat "$GH_ARGS")"
 fi
 
 # A finished session with no edits does not publish.
@@ -184,13 +188,13 @@ CGH="$(mktemp)"
 		BUG_HUNT_TIMEOUT=30 \
 		bash "$HUNT" run >"$COUT" 2>&1
 )
-if [ $? -eq 0 ] && grep -q "no product fix" "$COUT" && [ ! -f "$CREPO/hunted.txt" ] \
+if [ $? -eq 0 ] && grep -q "report only, no edits" "$COUT" && [ ! -f "$CREPO/hunted.txt" ] \
 	&& grep -q "bug-hunt: issue https://example.test/issues/3" "$COUT" \
 	&& grep -q "issue create" "$CGH" \
 	&& ! grep -q "pr create" "$CGH"; then
-	test_passed "bug-hunt run with no edits skips the pull request and files an issue"
+	test_passed "bug-hunt run with no edits files an issue and no pull request"
 else
-	test_failed "bug-hunt run with no edits skips the pull request and files an issue" "$(cat "$COUT"; echo ---; cat "$CGH")"
+	test_failed "bug-hunt run with no edits files an issue and no pull request" "$(cat "$COUT"; echo ---; cat "$CGH")"
 fi
 
 # A provider-only failure prints no issue line, and the job does not file one.
@@ -276,60 +280,7 @@ else
 	test_failed "bug-hunt run stops when filing the issue fails" "$(cat "$IOUT")"
 fi
 
-# Publish commits, pushes, opens a PR, and turns on auto-merge.
-BARE="$(mktemp -d)"
-git init -q --bare "$BARE"
-PREPO="$(mktemp -d)"
-init_repo "$PREPO"
-git -C "$PREPO" remote add origin "$BARE"
-echo dirty >"$PREPO/hunted.txt"
-GH_ARGS="$(mktemp)"
-POUT="$(mktemp)"
-(
-	cd "$PREPO"
-	PATH="$ROOT:$PATH" \
-		GH_ARGS="$GH_ARGS" \
-		bash "$HUNT" publish "edit/two:free" >"$POUT" 2>&1
-)
-PUB_RC=$?
-BRANCH="$(git -C "$PREPO" rev-parse --abbrev-ref HEAD)"
-if [ "$PUB_RC" -eq 0 ] \
-	&& printf '%s' "$BRANCH" | grep -q '^bot/bug-hunt-' \
-	&& git --git-dir="$BARE" show-ref --verify --quiet "refs/heads/$BRANCH" \
-	&& grep -q "pr create" "$GH_ARGS" \
-	&& grep -q "pr merge --auto --squash" "$GH_ARGS" \
-	&& grep -q "opened https://example.test/pull/9" "$POUT"; then
-	test_passed "bug-hunt publish pushes a pull request and enables auto-merge"
-else
-	test_failed "bug-hunt publish pushes a pull request and enables auto-merge" "$(cat "$POUT"; echo ---; cat "$GH_ARGS"; echo ---; echo "rc=$PUB_RC branch=$BRANCH")"
-fi
-
-# An already-open bug-hunt pull request does not block the next hunt's pull request.
-OBARE="$(mktemp -d)"
-git init -q --bare "$OBARE"
-OREPO="$(mktemp -d)"
-init_repo "$OREPO"
-git -C "$OREPO" remote add origin "$OBARE"
-echo dirty >"$OREPO/hunted.txt"
-OH_ARGS="$(mktemp)"
-OOUT="$(mktemp)"
-(
-	cd "$OREPO"
-	PATH="$ROOT:$PATH" \
-		GH_ARGS="$OH_ARGS" \
-		GH_OPEN_PR=1 \
-		bash "$HUNT" publish "edit/two:free" "2" >"$OOUT" 2>&1
-)
-ORC=$?
-OBRANCH="$(git -C "$OREPO" rev-parse --abbrev-ref HEAD)"
-if [ "$ORC" -eq 0 ] && printf '%s' "$OBRANCH" | grep -q '^bot/bug-hunt-.*-2$' \
-	&& grep -q "pr create" "$OH_ARGS" && ! grep -q "already exists" "$OOUT"; then
-	test_passed "bug-hunt publish opens a pull request while another is open"
-else
-	test_failed "bug-hunt publish opens a pull request while another is open" "$(cat "$OOUT"; echo ---; cat "$OH_ARGS"; echo ---; echo "$OBRANCH")"
-fi
-
-rm -rf "$REPO" "$CREPO" "$FREPO" "$IREPO" "$PREPO" "$OREPO" "$BARE" "$OBARE" "$ROOT"
-rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$IOUT" "$GH_ARGS" "$CGH" "$FGH" "$POUT" "$OH_ARGS" "$OOUT"
+rm -rf "$REPO" "$CREPO" "$FREPO" "$IREPO" "$ROOT"
+rm -f "$FAKE_LOG" "$OUT" "$COUT" "$FOUT" "$IOUT" "$GH_ARGS" "$CGH" "$FGH" "$ROUT" "$RGH"
 
 echo ""

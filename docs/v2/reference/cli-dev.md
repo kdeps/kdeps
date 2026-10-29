@@ -268,7 +268,7 @@ trace.log       # every log line at debug level, and the call-chain trace
 
 Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, the next argument (the workflow path) is taken as the name.
 
-A daily workflow runs one `/auto-improve N` hunt at a time in this repository with `--backend openrouter` and a shuffled id from `assets/models/openrouter.yaml`. That process evaluates the hunt, files one GitHub issue, and opens a pull request when the tree changed, then the next hunt starts in a new process. A hunt that does not finish tries another id. See [Auto-improve](/agent/commands#auto-improve).
+A daily workflow runs one `/auto-improve N` hunt at a time in this repository with `--backend openrouter` and a shuffled id from `assets/models/openrouter.yaml`. That process evaluates the hunt, files one GitHub issue as the report arrives, and discards any edit, then the next hunt starts in a new process. A hunt that does not finish tries another id. See [Auto-improve](/agent/commands#auto-improve).
 
 ---
 

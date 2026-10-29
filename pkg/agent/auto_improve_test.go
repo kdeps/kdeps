@@ -204,7 +204,7 @@ func TestCmdAutoImprove_IssueFailureKeepsTheTurnError(t *testing.T) {
 		t.Skip("a session is already recording")
 	}
 	orig := bugCaptureIssue
-	bugCaptureIssue = func(context.Context, string, string) (string, error) {
+	bugCaptureIssue = func(context.Context, string, string, string) (string, error) {
 		return "", errors.New("gh down")
 	}
 	t.Cleanup(func() { bugCaptureIssue = orig })
@@ -260,7 +260,7 @@ func TestCmdAutoImprove_JumpsFreeModelsAndFilesOneIssue(t *testing.T) {
 	freeModelIDs = func() []string { return []string{"a", "b"} }
 	pickFreeModelN = func(int) int { return 0 }
 	var filed []string
-	bugCaptureIssue = func(_ context.Context, dir, model string) (string, error) {
+	bugCaptureIssue = func(_ context.Context, dir, model, _ string) (string, error) {
 		filed = append(filed, model+" "+dir)
 		return "https://example.test/issues/4", nil
 	}
@@ -279,7 +279,7 @@ func TestCmdAutoImprove_JumpsFreeModelsAndFilesOneIssue(t *testing.T) {
 	out := testCaptureStdout(t, func() {
 		require.NoError(t, repl.dispatchCommand("/auto-improve"))
 	})
-	require.Equal(t, 1, len(filed))
+	require.Equal(t, 3, len(filed), "one issue per evaluate reply, filed as it arrives")
 	require.Contains(t, filed[0], " ")
 	require.Equal(t, 6, strings.Count(out, "auto-improve: model "))
 	require.Contains(t, out, "auto-improve: model b")
@@ -316,7 +316,7 @@ func TestBugCaptureBody_CapsErrorLines(t *testing.T) {
 	b.WriteString("{\"kind\":\"prompt\",\"text\":\"ok\"}\n")
 	b.WriteString("{\"kind\":\"tool_call\",\"name\":\"read_file\",\"error\":\"missing\"}\n")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile), []byte(b.String()), 0o644))
-	body := bugCaptureBody(dir, "m")
+	body := bugCaptureBody(dir, "m", "")
 	require.Contains(t, body, "boom 0")
 	require.Contains(t, body, fmt.Sprintf("boom %d", bugCaptureMaxErrors-1))
 	require.NotContains(t, body, fmt.Sprintf("boom %d", bugCaptureMaxErrors))
@@ -324,7 +324,7 @@ func TestBugCaptureBody_CapsErrorLines(t *testing.T) {
 	require.Contains(t, body, "Bug capture on model `m`.")
 
 	empty := t.TempDir()
-	none := bugCaptureBody(empty, "m")
+	none := bugCaptureBody(empty, "m", "")
 	require.Contains(t, none, "No event in this session has an error field.")
 }
 
@@ -332,10 +332,12 @@ func TestGHIssueCreate(t *testing.T) {
 	bin := t.TempDir()
 	argsPath := filepath.Join(bin, "args")
 	if runtime.GOOS == "windows" {
-		script := "@echo off\r\necho %* > \"%GH_ARGS%\"\r\necho https://example.test/issues/7\r\n"
+		script := "@echo off\r\nif \"%1\"==\"issue\" if \"%2\"==\"list\" (echo []& exit /b 0)\r\n" +
+			"echo %* > \"%GH_ARGS%\"\r\necho https://example.test/issues/7\r\n"
 		require.NoError(t, os.WriteFile(filepath.Join(bin, "gh.cmd"), []byte(script), 0o644))
 	} else {
-		script := "#!/bin/sh\necho \"$*\" > \"$GH_ARGS\"\necho https://example.test/issues/7\n"
+		script := "#!/bin/sh\nif [ \"$1\" = issue ] && [ \"$2\" = list ]; then echo '[]'; exit 0; fi\n" +
+			"echo \"$*\" > \"$GH_ARGS\"\necho https://example.test/issues/7\n"
 		require.NoError(t, os.WriteFile(filepath.Join(bin, "gh"), []byte(script), 0o755))
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -343,14 +345,15 @@ func TestGHIssueCreate(t *testing.T) {
 	dir := t.TempDir()
 	event := "{\"kind\":\"model_response\",\"model\":\"m\",\"ts\":\"t\",\"name\":\"\",\"error\":\"429 boom\"}\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile), []byte(event), 0o644))
-	url, err := ghIssueCreate(t.Context(), dir, "m")
+	url, err := ghIssueCreate(t.Context(), dir, "m", "## Found it\n\nbody text")
 	require.NoError(t, err)
 	require.Equal(t, "https://example.test/issues/7", url)
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)
 	require.Contains(t, string(args), "issue")
 	require.Contains(t, string(args), "create")
-	require.Contains(t, string(args), "bug: capture")
+	require.Contains(t, string(args), "Found it")
+	require.NotContains(t, string(args), "bug: capture")
 }
 
 func TestRandomBugCaptureID_SkipsTried(t *testing.T) {
@@ -373,7 +376,7 @@ func stubBugCaptureIssue(t *testing.T) *int {
 	t.Helper()
 	orig := bugCaptureIssue
 	n := 0
-	bugCaptureIssue = func(context.Context, string, string) (string, error) {
+	bugCaptureIssue = func(context.Context, string, string, string) (string, error) {
 		n++
 		return "https://example.test/issues/1", nil
 	}
@@ -405,7 +408,8 @@ func TestShouldFileBugCapture(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile), []byte(body), 0o600))
 		return dir
 	}
-	refusal := `{"ts":"t","kind":"model_response","model":"m","error":"API returned unexpected status code: 400: Provider returned error"}`
+	refusal := `{"ts":"t","kind":"model_response","model":"m",` +
+		`"error":"API returned unexpected status code: 400: Provider returned error"}`
 	toolErr := `{"ts":"t","kind":"tool_call","name":"read_file","error":"tool \"read_file\" not found"}`
 	providerErr := errors.New("stream: generate: openai: " +
 		"API returned unexpected status code: 404: No endpoints found that support tool use")
@@ -416,4 +420,49 @@ func TestShouldFileBugCapture(t *testing.T) {
 	require.True(t, shouldFileBugCapture(write(refusal), diskFull), "a kdeps run error files an issue")
 	require.True(t, shouldFileBugCapture(write(), nil), "a clean run still files one")
 	require.False(t, shouldFileBugCapture(write(refusal), nil), "refused turns that recovered file nothing")
+}
+
+func TestBugCaptureBodyFilesConclusionVerbatim(t *testing.T) {
+	dir := t.TempDir()
+	conclusion := "## Findings\n\n- `read_file` said \"not found\" & _kept_ looping.\n\n> quoted"
+	body := bugCaptureBody(dir, "m", conclusion)
+	require.Contains(t, body, "## Conclusion\n\n"+conclusion+"\n\n")
+
+	none := bugCaptureBody(dir, "m", "")
+	require.Contains(t, none, "The evaluate turn returned no text.")
+}
+
+func TestBugCaptureTitle(t *testing.T) {
+	require.Equal(
+		t,
+		"read_file loops on not found",
+		bugCaptureTitle("## **read_file loops on not found**\n\ndetails", "m"),
+	)
+	long := strings.Repeat("x", bugCaptureTitleMax+10)
+	title := bugCaptureTitle(long, "m")
+	require.Len(t, []rune(title), bugCaptureTitleMax)
+	require.True(t, strings.HasSuffix(title, "..."))
+	require.Contains(t, bugCaptureTitle("", "m"), "bug: capture")
+}
+
+func TestGHIssueCreate_ReusesOpenIssueWithSameTitle(t *testing.T) {
+	bin := t.TempDir()
+	argsPath := filepath.Join(bin, "args")
+	if runtime.GOOS == "windows" {
+		t.Skip("gh stub is a POSIX shell script")
+	}
+	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = issue ] && [ \"$2\" = list ]; then\n" +
+		"  echo '[{\"title\":\"Read the file twice\",\"url\":\"https://example.test/issues/4\"}]'\n" +
+		"  exit 0\nfi\n" +
+		"echo \"$*\" > \"$GH_ARGS\"\necho https://example.test/issues/9\n"
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "gh"), []byte(script), 0o755))
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GH_ARGS", argsPath)
+	dir := t.TempDir()
+	url, err := ghIssueCreate(t.Context(), dir, "m", "read the file twice\n\nbody")
+	require.NoError(t, err)
+	require.Equal(t, "https://example.test/issues/4", url)
+	_, statErr := os.Stat(argsPath)
+	require.True(t, os.IsNotExist(statErr), "no create call for a duplicate title")
 }
