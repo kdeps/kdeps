@@ -391,6 +391,9 @@ type Loop struct {
 	// bugCapture is set for /auto-improve. A provider 429 then continues on
 	// a random free id. Other sessions keep catalog order.
 	bugCapture bool
+	// onUnofferedTool, when set, runs when the model calls a tool this loop was
+	// not offered. A judge sets it to end its review at once.
+	onUnofferedTool func()
 	// lastSentMessages holds the exact messages array included in the most
 	// recent outgoing LLM request, after any backend-specific transformation
 	// (e.g. folding system-role messages for chat templates that reject
@@ -2907,6 +2910,9 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 	if tool == nil {
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... failed: tool not found")
+		}
+		if l.onUnofferedTool != nil {
+			l.onUnofferedTool()
 		}
 		return toolErrorJSON(fmt.Errorf("tool %q not found; tools offered this turn: %s",
 			tc.Name, l.offeredToolNames()))
