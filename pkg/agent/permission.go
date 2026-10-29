@@ -20,8 +20,15 @@ package agent
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // PermissionMode controls which tools the agent is allowed to call.
@@ -79,55 +86,125 @@ func permissionLevel(m PermissionMode) int {
 	}
 }
 
-// toolRequiredPermission maps built-in tool names to the minimum permission
-// mode required. Tools not listed (including workflow/component/agency tools)
-// default to workspace-write: they may mutate state, so read-only blocks them.
-//
-//nolint:gochecknoglobals // immutable policy lookup
-var toolRequiredPermission = map[string]PermissionMode{
-	// Read-only tools
-	toolNameCalculator:    PermissionReadOnly,
-	toolNameReadFile:      PermissionReadOnly,
-	toolNameListFiles:     PermissionReadOnly,
-	toolNameWebSearch:     PermissionReadOnly,
-	toolNameWebScraper:    PermissionReadOnly,
-	"wikipedia":           PermissionReadOnly,
-	toolNameSearchLocal:   PermissionReadOnly,
-	"load_document":       PermissionReadOnly,
-	"transcribe_audio":    PermissionReadOnly,
-	"ocr_image":           PermissionReadOnly,
-	"sql_query":           PermissionReadOnly, // read-only statements enforced by the tool
-	"sql_list_tables":     PermissionReadOnly,
-	"sql_describe_table":  PermissionReadOnly,
-	"wolfram_alpha":       PermissionReadOnly,
-	"retrieve_context":    PermissionReadOnly,
-	"exa_search":          PermissionReadOnly,
-	"cohere_rerank":       PermissionReadOnly,
-	"voyageai_rerank":     PermissionReadOnly,
-	"jina_rerank":         PermissionReadOnly,
-	"zapier_list_actions": PermissionReadOnly,
-	"google_cache_list":   PermissionReadOnly,
-	"bash_job_list":       PermissionReadOnly,
-
-	// Workspace-write tools
-	toolNameBashExec:      PermissionWorkspaceWrite,
-	toolNameWriteFile:     PermissionWorkspaceWrite,
-	toolNameEditFile:      PermissionWorkspaceWrite,
-	"bash_job_wait":       PermissionWorkspaceWrite,
-	"http_request":        PermissionWorkspaceWrite, // can POST/mutate remote state
-	"zapier_run_action":   PermissionWorkspaceWrite,
-	"google_cache_create": PermissionWorkspaceWrite,
-	"google_cache_delete": PermissionWorkspaceWrite,
+// permissionPolicy is the assets/policy/permission.yaml file: the one tool
+// policy. Tiers name the mode each tier needs; tools name their tier.
+type permissionPolicy struct {
+	Default string            `yaml:"default"`
+	Tiers   map[string]string `yaml:"tiers"`
+	Tools   map[string]string `yaml:"tools"`
 }
 
-// requiredPermission returns the minimum permission mode a tool needs. Tools not
-// in the policy map (including workflow/component/agency tools) default to
-// workspace-write, since they may mutate state.
-func requiredPermission(toolName string) PermissionMode {
-	if req, ok := toolRequiredPermission[toolName]; ok {
-		return req
+// parsePermissionPolicy reads the policy file. An unknown default is an error,
+// so a typo cannot silently change what runs.
+func parsePermissionPolicy(data []byte) (permissionPolicy, error) {
+	var p permissionPolicy
+	if err := yaml.Unmarshal(data, &p); err != nil {
+		return permissionPolicy{}, err
+	}
+	if p.Default != "allow" && p.Default != "deny" {
+		return permissionPolicy{}, fmt.Errorf("permission policy: default must be allow or deny, got %q", p.Default)
+	}
+	for tier, mode := range p.Tiers {
+		switch PermissionMode(mode) {
+		case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess:
+		case PermissionAsk:
+			return permissionPolicy{}, fmt.Errorf("permission policy: tier %s cannot name ask", tier)
+		default:
+			return permissionPolicy{}, fmt.Errorf("permission policy: tier %s names unknown mode %q", tier, mode)
+		}
+	}
+	return p, nil
+}
+
+// permissionPolicyCache holds the loaded policy until the assets are reloaded.
+//
+//nolint:gochecknoglobals // one parsed policy per process, reset by ReloadAssets
+var permissionPolicyCache struct {
+	sync.Mutex
+	policy *permissionPolicy
+}
+
+// initPermissionPolicy drops the cached policy so the next call reads the
+// assets again. ReloadAssets calls it.
+func initPermissionPolicy() {
+	permissionPolicyCache.Lock()
+	defer permissionPolicyCache.Unlock()
+	permissionPolicyCache.policy = nil
+}
+
+// loadPermissionPolicy returns the policy from the policy asset set, read once
+// and cached. A missing or invalid file falls back to allow with
+// workspace-write, the behaviour before the file existed.
+//
+//kdeps:flow policy: a tool call is about to run > the agent loop reads the permission policy > [its tool tier names a mode, or the default applies] > the call runs or is refused
+func loadPermissionPolicy() permissionPolicy {
+	permissionPolicyCache.Lock()
+	defer permissionPolicyCache.Unlock()
+	if permissionPolicyCache.policy != nil {
+		return *permissionPolicyCache.policy
+	}
+	p := readPermissionPolicy()
+	permissionPolicyCache.policy = &p
+	return p
+}
+
+// userPermissionPolicyPath is ~/.kdeps/policy/permission.yaml, the user's
+// override of the built-in policy.
+func userPermissionPolicyPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".kdeps", "policy", "permission.yaml"), nil
+}
+
+// readPermissionPolicy reads the user's override when it exists, else the
+// built-in policy asset. A user file that does not parse fails closed to deny:
+// a broken override must not widen what runs.
+func readPermissionPolicy() permissionPolicy {
+	if path, err := userPermissionPolicyPath(); err == nil {
+		if data, readErr := os.ReadFile(path); readErr == nil {
+			p, parseErr := parsePermissionPolicy(data)
+			if parseErr != nil {
+				warnAsset(parseErr)
+				return permissionPolicy{Default: "deny"}
+			}
+			return p
+		}
+	}
+	data, err := fs.ReadFile(assets.Open("policy"), "policy/permission.yaml")
+	if err != nil {
+		warnAsset(err)
+		return permissionPolicy{Default: "allow"}
+	}
+	p, err := parsePermissionPolicy(data)
+	if err != nil {
+		warnAsset(err)
+		return permissionPolicy{Default: "allow"}
+	}
+	return p
+}
+
+// requiredPermissionIn returns the minimum mode a tool needs under policy.
+// A tier that names no known mode needs danger-full-access (fail closed).
+func requiredPermissionIn(policy permissionPolicy, toolName string) PermissionMode {
+	if tier, listed := policy.Tools[toolName]; listed {
+		if mode, ok := policy.Tiers[tier]; ok {
+			return PermissionMode(mode)
+		}
+		return PermissionDangerFullAccess
+	}
+	if policy.Default == "deny" {
+		return PermissionDangerFullAccess
 	}
 	return PermissionWorkspaceWrite
+}
+
+// requiredPermission returns the minimum permission mode a tool needs under
+// the loaded policy. Workflow, component and agency tools are unlisted, so
+// they follow the policy default.
+func requiredPermission(toolName string) PermissionMode {
+	return requiredPermissionIn(loadPermissionPolicy(), toolName)
 }
 
 // PermissionEnforcer checks whether a tool call is allowed in the current

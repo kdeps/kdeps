@@ -330,6 +330,22 @@ KDEPS_PERMISSION_MODE=danger-full-access ./kdeps # no restrictions (default)
 
 Blocked calls return a `permission denied` tool error to the model, which explains the restriction instead of executing. Tools not in the built-in policy - including workflow, component, and agency tools - require `workspace-write`, so `read-only` blocks anything that could mutate state.
 
+The tool-to-mode mapping is one YAML file, `policy/permission.yaml` in the policy asset set. Each tool names a tier, and each tier names the mode it needs:
+
+```yaml
+default: allow     # an unlisted tool needs workspace-write (the default); deny needs danger-full-access
+tiers:
+  T0: read-only
+  T1: workspace-write
+tools:
+  read_file: T0
+  bash_exec: T1
+```
+
+Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
+
+Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
+
 ## Lean mode
 
 The full tool set (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is registered for every session. A cloud backend sends each tool as a native schema. A local backend (file, gguf, ollama, llamafile) also gets a short text list: name, one-line description, and parameter names. Trim the set when you want less prompt weight or a restricted surface for CI/automation:

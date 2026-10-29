@@ -1,0 +1,41 @@
+version: 1.0.0
+name: permission
+# The one tool policy. Each tool names a tier; each tier names the permission
+# mode it needs. A tool not listed uses default.
+#   allow  unlisted tools need workspace-write (the behaviour before this file)
+#   deny   unlisted tools need danger-full-access, so only that mode runs them
+default: allow
+tiers:
+  T0: read-only        # reversible, self-contained: reads and searches
+  T1: workspace-write  # reversible, team-visible: writes, commands, requests
+tools:
+  calculator: T0
+  read_file: T0
+  list_files: T0
+  web_search: T0
+  web_scraper: T0
+  wikipedia: T0
+  search_local: T0
+  load_document: T0
+  transcribe_audio: T0
+  ocr_image: T0
+  sql_query: T0          # read-only statements are enforced by the tool
+  sql_list_tables: T0
+  sql_describe_table: T0
+  wolfram_alpha: T0
+  retrieve_context: T0
+  exa_search: T0
+  cohere_rerank: T0
+  voyageai_rerank: T0
+  jina_rerank: T0
+  zapier_list_actions: T0
+  google_cache_list: T0
+  bash_job_list: T0
+  bash_exec: T1
+  write_file: T1
+  edit_file: T1
+  bash_job_wait: T1
+  http_request: T1       # can POST or mutate remote state
+  zapier_run_action: T1
+  google_cache_create: T1
+  google_cache_delete: T1

@@ -127,6 +127,29 @@ func recordToolCall(called, tool, args, result string, took time.Duration) {
 	instrument.Event("tool_call", fields)
 }
 
+// recordPermissionDecision records one permission gate decision: the tool,
+// the mode it needs, the mode in force, and whether the call was allowed.
+// The governance audit record: it shows which rule decided each call.
+func recordPermissionDecision(tool string, required, mode PermissionMode, reason string, blocked bool) {
+	if instrument.Active() == nil {
+		return
+	}
+	decision := "allow"
+	if blocked {
+		decision = "deny"
+	}
+	fields := map[string]any{
+		"name":     tool,
+		"required": string(required),
+		"mode":     string(mode),
+		"decision": decision,
+	}
+	if reason != "" {
+		fields["reason"] = reason
+	}
+	instrument.Event("permission_decision", fields)
+}
+
 // recordPrompt records a request you typed.
 func recordPrompt(text string) {
 	instrument.Event("prompt", map[string]any{"text": text})
