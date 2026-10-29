@@ -487,3 +487,18 @@ func TestPreferLargeFreeModels(t *testing.T) {
 	unsized := []string{"a", "b", "c"}
 	require.Equal(t, unsized, preferLargeFreeModels(unsized))
 }
+
+func TestShouldFileBugCapture_NoiseIsNotAProductBug(t *testing.T) {
+	write := func(lines ...string) string {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile),
+			[]byte(strings.Join(lines, "\n")+"\n"), 0o600))
+		return dir
+	}
+	bash := `{"ts":"t","kind":"tool_call","name":"bash_exec","error":"{\"error\":\"bash_exec: exit status 1\"}"}`
+	bad502 := `{"ts":"t","kind":"model_response","model":"m","error":"API returned unexpected status code: 502: upstream"}`
+	empty := `{"ts":"t","kind":"model_response","model":"m","error":"empty response"}`
+
+	require.False(t, shouldFileBugCapture(write(bash, bad502), nil), "a failed model command and a 5xx are noise")
+	require.False(t, shouldFileBugCapture(write(empty), nil), "an empty reply is noise")
+}

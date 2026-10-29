@@ -88,6 +88,7 @@ const (
 	eventOpenRouterRefusal       = "openrouter-refusal"
 	eventOpenRouterRateLimit     = "openrouter-rate-limit"
 	eventOpenRouterProviderLimit = "openrouter-provider-limit"
+	eventOpenRouterNoise         = "openrouter-noise"
 	eventSideCallMaxTokens       = "side-call-max-tokens"
 )
 
