@@ -20,6 +20,7 @@ package agent
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -45,6 +46,15 @@ func stageGate(kind string) error {
 	name := "stage:" + kind
 	if required == PermissionAsk {
 		reason := fmt.Sprintf("stage %q requires approval, and a workflow run has no one to ask", kind)
+		recordPermissionDecision(name, required, mode, reason, true)
+		return fmt.Errorf("%s", reason)
+	}
+	if required == PermissionToken {
+		if tok, ok := capabilityTokenFor(name, time.Now()); ok {
+			recordPermissionDecision(name, required, mode, "capability token "+tok.ID, false)
+			return nil
+		}
+		reason := fmt.Sprintf("stage %q requires a capability token: kdeps token grant %s", kind, name)
 		recordPermissionDecision(name, required, mode, reason, true)
 		return fmt.Errorf("%s", reason)
 	}

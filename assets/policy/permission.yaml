@@ -9,6 +9,7 @@ tiers:
   T0: read-only        # reversible, self-contained: reads and searches
   T1: workspace-write  # reversible, team-visible: writes, commands, requests
   T2: ask              # irreversible: a person approves each call (no tool uses it by default)
+  T3: token            # regulated or external reach: needs a capability token from `kdeps token grant` (none by default)
 tools:
   calculator: T0
   read_file: T0
