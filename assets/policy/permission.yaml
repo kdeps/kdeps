@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
