@@ -40,3 +40,17 @@ tools:
   zapier_run_action: T1
   google_cache_create: T1
   google_cache_delete: T1
+# Workflow stages. Every run checks each stage's primary kind against these
+# tiers before the stage runs, so an operator's KDEPS_PERMISSION_MODE also
+# limits workflows. A kind not listed uses default.
+resources:
+  chat: T0
+  embedding: T0
+  searchLocal: T0
+  loader: T0
+  vectorStore: T0
+  httpClient: T1      # a request can change remote state
+  python: T1
+  exec: T1
+  agent: T1
+  component: T1

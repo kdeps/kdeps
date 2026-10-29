@@ -344,6 +344,8 @@ tools:
 
 A tier can also name `ask` (T2 in the built-in file, unused by default): a tool on that tier needs a person to approve each call, in every permission mode. With no terminal and no approver, the call is refused. Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
 
+Workflow stages use the same tiers. The file's `resources` table maps each primary resource kind (`exec`, `python`, `httpClient`, `sql`-style kinds, `chat`, `agent`, `component`, ...) to a tier. Every run checks each stage before it executes, including plain `kdeps run`, against `KDEPS_PERMISSION_MODE`: a stage whose tier needs a higher mode than the run's is refused and the workflow stops. A kind on the `ask` tier needs approval, and a workflow run has no one to ask, so it is refused. The default run mode is `danger-full-access`, so nothing changes until an operator sets a stricter mode.
+
 Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
 
 ## Lean mode
