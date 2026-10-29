@@ -32,6 +32,21 @@ import (
 
 const openrouterBackend = "openrouter"
 
+// defaultFreeModelPerMinute is the account cap when the event asset is missing.
+const defaultFreeModelPerMinute = 20
+
+// setFreeModelQueueCap hands the executor the account cap from the event asset.
+// Every OpenRouter free-model request in the process waits in one queue under it.
+func setFreeModelQueueCap() {
+	executorLLM.SetFreeModelPerMinute(func() int {
+		n := effectiveItems(eventOpenRouterFreePerMinute, defaultFreeModelPerMinute)
+		if n == disabledSentinel || n < 1 {
+			return 0
+		}
+		return n
+	})
+}
+
 // rateLimitErrRe matches a rate-limit. It stays narrower than transientErrRe
 // so a 5xx still retries the same model.
 var rateLimitErrRe = regexp.MustCompile(`(?i)rate.?limit|too many requests|\b429\b`)

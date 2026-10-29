@@ -221,6 +221,12 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		opts = append(opts, lcopenai.WithHTTPClient(newReasoningEchoClient(nil)))
 	}
 
+	// OpenRouter free ids share one per-minute cap, so every request to them
+	// waits its turn in the process-wide queue.
+	if isOpenRouterFree(backend, cfg.Model) {
+		opts = append(opts, lcopenai.WithHTTPClient(newFreeQueueClient(nil)))
+	}
+
 	if rf := buildOpenAIResponseFormat(cfg); rf != nil {
 		opts = append(opts, lcopenai.WithResponseFormat(rf))
 	}
