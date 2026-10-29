@@ -1,0 +1,9 @@
+version: 1.0.0
+# Failures that are not kdeps bugs, so a bug capture files no issue for them
+# alone: a provider 5xx, an empty model reply, or a shell command the model
+# wrote that exited non-zero. The model guessed or the provider failed.
+name: openrouter-noise
+patterns:
+  - 'status code: 5[0-9][0-9]'
+  - 'empty response'
+  - 'exit status [0-9]+'
