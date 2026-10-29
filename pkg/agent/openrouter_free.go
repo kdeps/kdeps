@@ -40,6 +40,14 @@ var rateLimitErrRe = regexp.MustCompile(`(?i)rate.?limit|too many requests|\b429
 // cap uses a different message and is shared by every free id.
 var providerLimitRe = regexp.MustCompile(`(?i)provider returned error`)
 
+// freeModelUnusableRe matches a provider refusal of one free id that another
+// id may accept: a 400 or 502 "Provider returned error", a 404 "No endpoints
+// found" (no provider for tool use), or a 403 "only available on agentic
+// harnesses". Bug capture moves to another id instead of stopping.
+var freeModelUnusableRe = regexp.MustCompile(
+	`(?i)provider returned error|no endpoints found|only available on agentic`,
+)
+
 func isRateLimitError(err error) bool {
 	if err == nil {
 		return false
@@ -311,11 +319,20 @@ func (l *Loop) onFreeModelLimit(
 	tried map[string]struct{},
 	accountWaited *bool,
 ) (bool, error) {
+	if l.bugCapture && !IsContextOverflowError(err) && freeModelUnusableRe.MatchString(err.Error()) {
+		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was refused by its provider") {
+			return true, nil
+		}
+		if l.openRouterFree(chatCfg.Model) {
+			return false, err
+		}
+		return false, nil
+	}
 	if !isRateLimitError(err) || IsContextOverflowError(err) {
 		return false, nil
 	}
 	if isProviderRateLimit(err) {
-		if l.continueOnFreeModelRateLimit(chatCfg, tried) {
+		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was rate-limited") {
 			return true, nil
 		}
 		if l.openRouterFree(chatCfg.Model) {
@@ -340,7 +357,11 @@ func (l *Loop) onFreeModelLimit(
 // False means the caller should keep its normal retry, or stop: a free
 // model with no remaining id returns false after the caller sees the model
 // is still free and returns the error.
-func (l *Loop) continueOnFreeModelRateLimit(chatCfg *domain.ChatConfig, tried map[string]struct{}) bool {
+func (l *Loop) continueOnFreeModelRateLimit(
+	chatCfg *domain.ChatConfig,
+	tried map[string]struct{},
+	reason string,
+) bool {
 	model := chatCfg.Model
 	if !l.openRouterFree(model) {
 		return false
@@ -356,6 +377,6 @@ func (l *Loop) continueOnFreeModelRateLimit(chatCfg *domain.ChatConfig, tried ma
 	if !ok {
 		return false
 	}
-	l.applyFreeModel(chatCfg, model, next, "was rate-limited")
+	l.applyFreeModel(chatCfg, model, next, reason)
 	return true
 }
