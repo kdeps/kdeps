@@ -477,6 +477,7 @@ func (l *Loop) recordToolCall(name, args, result string) {
 // then to sensible defaults.
 func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
 	cfg = applyConfigDefaults(cfg)
+	setFreeModelQueueCap()
 	skillSlice, skillDirs := loadSkillSliceWithDirs(cfg.SkillPaths)
 
 	var session SessionReadWriter
