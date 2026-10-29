@@ -302,9 +302,10 @@ func TestJumpAutoImproveModel_FreeIDWithoutBackend(t *testing.T) {
 	repl := NewREPL(t.Context(), &Loop{config: Config{Model: ids[0]}})
 	t.Cleanup(repl.cancel)
 	out := testCaptureStdout(t, func() { repl.jumpAutoImproveModel() })
-	require.Equal(t, ids[1], repl.loop.config.Model)
+	require.Contains(t, preferLargeFreeModels(ids), repl.loop.config.Model)
+	require.NotEqual(t, ids[0], repl.loop.config.Model)
 	require.Equal(t, openrouterBackend, repl.loop.config.Backend)
-	require.Contains(t, out, "auto-improve: model "+ids[1])
+	require.Contains(t, out, "auto-improve: model "+repl.loop.config.Model)
 }
 
 func TestBugCaptureBody_CapsErrorLines(t *testing.T) {
@@ -465,4 +466,18 @@ func TestGHIssueCreate_ReusesOpenIssueWithSameTitle(t *testing.T) {
 	require.Equal(t, "https://example.test/issues/4", url)
 	_, statErr := os.Stat(argsPath)
 	require.True(t, os.IsNotExist(statErr), "no create call for a duplicate title")
+}
+
+func TestFreeModelSizeB(t *testing.T) {
+	require.Equal(t, 550.0, freeModelSizeB("nvidia/nemotron-3-ultra-550b-a55b:free"))
+	require.Equal(t, 2.6, freeModelSizeB("liquid/lfm-2.5-2.6b:free"))
+	require.Equal(t, 31.0, freeModelSizeB("google/gemma-4-31b-it:free"))
+	require.Equal(t, 0.0, freeModelSizeB("poolside/laguna-xs-2.1:free"))
+}
+
+func TestPreferLargeFreeModels(t *testing.T) {
+	ids := []string{"x/small-2b:free", "x/none:free", "x/big-400b:free", "x/mid-30b:free"}
+	require.Equal(t, []string{"x/big-400b:free", "x/mid-30b:free"}, preferLargeFreeModels(ids))
+	unsized := []string{"a", "b", "c"}
+	require.Equal(t, unsized, preferLargeFreeModels(unsized))
 }

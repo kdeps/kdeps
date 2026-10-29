@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -246,7 +249,7 @@ func (r *REPL) jumpAutoImproveModel() {
 	if cfg.Backend != openrouterBackend && !openRouterFreeID(cfg.Model) {
 		return
 	}
-	ids := freeModelIDs()
+	ids := preferLargeFreeModels(freeModelIDs())
 	next := pickOtherFreeModel(cfg.Model, ids, pickFreeModelN(len(ids)))
 	if next == "" || next == cfg.Model {
 		return
@@ -254,6 +257,40 @@ func (r *REPL) jumpAutoImproveModel() {
 	cfg.Model = next
 	cfg.Backend = openrouterBackend
 	fmt.Fprintf(os.Stdout, "auto-improve: model %s\n", next)
+}
+
+// freeModelSizeRe finds a parameter count in a model id, such as 550b or 2.6b.
+var freeModelSizeRe = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)b\b`)
+
+// freeModelSizeB is the largest parameter count in the id, in billions. An id
+// with no count is 0.
+func freeModelSizeB(id string) float64 {
+	best := 0.0
+	for _, m := range freeModelSizeRe.FindAllStringSubmatch(id, -1) {
+		if v, err := strconv.ParseFloat(m[1], 64); err == nil && v > best {
+			best = v
+		}
+	}
+	return best
+}
+
+// preferLargeFreeModels keeps the larger half of the ids that name a size,
+// largest first. Ids with no size are left out. When no id names a size, ids
+// come back unchanged.
+func preferLargeFreeModels(ids []string) []string {
+	sized := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if freeModelSizeB(id) > 0 {
+			sized = append(sized, id)
+		}
+	}
+	if len(sized) == 0 {
+		return ids
+	}
+	slices.SortStableFunc(sized, func(a, b string) int {
+		return cmp.Compare(freeModelSizeB(b), freeModelSizeB(a))
+	})
+	return sized[:(len(sized)+1)/2]
 }
 
 // pickOtherFreeModel returns a free id other than current.
@@ -290,7 +327,13 @@ func randomBugCaptureID(current string, skip map[string]struct{}) (string, bool)
 		}
 		open = append(open, id)
 	}
-	next := pickOtherFreeModel(current, open, pickFreeModelN(len(open)))
+	// The larger ids go first. When they are all tried or none is left, any
+	// open id is used.
+	preferred := preferLargeFreeModels(open)
+	next := pickOtherFreeModel(current, preferred, pickFreeModelN(len(preferred)))
+	if next == "" || next == current {
+		next = pickOtherFreeModel(current, open, pickFreeModelN(len(open)))
+	}
 	if next == "" || next == current {
 		return "", false
 	}
