@@ -262,7 +262,7 @@ func (l *Loop) pauseFreeModel(ctx context.Context, model string) error {
 	wait := l.freePace.waitFor()
 	if wait > 0 {
 		if gap := freeModelGap(); wait > gap {
-			fmt.Fprintf(os.Stderr, "openrouter: waiting %s before the next free-model request\n",
+			freeModelNoticef("openrouter: waiting %s before the next free-model request\n",
 				wait.Round(time.Second))
 		}
 		if err := l.freePace.sleepFor(ctx, wait); err != nil {
@@ -298,7 +298,7 @@ func nextOpenRouterFreeID(current string, skip map[string]struct{}) (string, boo
 }
 
 func (l *Loop) applyFreeModel(chatCfg *domain.ChatConfig, from, to, why string) {
-	fmt.Fprintf(os.Stderr, "openrouter: %s %s, continuing with %s\n", from, why, to)
+	freeModelNoticef("openrouter: %s %s, continuing with %s\n", from, why, to)
 	l.config.Model = to
 	chatCfg.Model = to
 	chatCfg.Backend = openrouterBackend
@@ -313,9 +313,17 @@ func (l *Loop) waitOutFreeAccountLimit(ctx context.Context, model string) error 
 	if wait < time.Minute {
 		wait = time.Minute
 	}
-	fmt.Fprintf(os.Stderr, "openrouter: %s hit the account free-model limit, waiting %s\n",
+	freeModelNoticef("openrouter: %s hit the account free-model limit, waiting %s\n",
 		model, wait.Round(time.Second))
 	return l.freePace.sleepFor(ctx, wait)
+}
+
+// freeModelNotice prints an OpenRouter notice on its own row. The live status
+// frame is erased first, so the notice never overwrites a tool-call line or a
+// status row, and the frame is redrawn on the next tick.
+func freeModelNoticef(format string, args ...any) {
+	eraseLiveStatus(os.Stderr)
+	fmt.Fprintf(os.Stderr, format, args...)
 }
 
 // onFreeModelLimit decides how a free-model rate limit continues the turn.
