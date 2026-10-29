@@ -320,19 +320,36 @@ func TestStreamChatWithRetry_BugCaptureMovesOffRefusedFreeModel(t *testing.T) {
 	assert.Len(t, s.models, 2)
 }
 
-func TestStreamChatWithRetry_RefusedFreeModelStopsOutsideBugCapture(t *testing.T) {
+func TestStreamChatWithRetry_RefusedFreeModelMovesOnInEverySession(t *testing.T) {
 	ids := executorLLM.OpenRouterFreeModelIDs()
 	require.GreaterOrEqual(t, len(ids), 2)
 	fail := map[string]error{
 		ids[0]: errors.New("API returned unexpected status code: 400: Provider returned error"),
 	}
-	s := &modelListStreamer{fail: fail}
+	s := &modelListStreamer{fail: fail, text: "ok"}
 	loop := freeModelLoop(t, ids[0], s)
 	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
 	var buf strings.Builder
+	content, _, err := loop.streamChatWithRetry(t.Context(), cfg, &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", content)
+	assert.NotEqual(t, ids[0], cfg.Model)
+	assert.Len(t, s.models, 2)
+}
+
+func TestStreamChatWithRetry_RefusedPaidModelStops(t *testing.T) {
+	ids := executorLLM.OpenRouterFreeModelIDs()
+	require.GreaterOrEqual(t, len(ids), 1)
+	paid := "openai/gpt-paid"
+	s := &modelListStreamer{fail: map[string]error{
+		paid: errors.New("API returned unexpected status code: 400: Provider returned error"),
+	}}
+	loop := freeModelLoop(t, ids[0], s)
+	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: paid}
+	var buf strings.Builder
 	_, _, err := loop.streamChatWithRetry(t.Context(), cfg, &buf)
 	require.Error(t, err)
-	assert.Equal(t, ids[0], cfg.Model)
+	assert.Equal(t, paid, cfg.Model)
 	assert.Len(t, s.models, 1)
 }
 

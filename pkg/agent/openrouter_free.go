@@ -329,7 +329,9 @@ func (l *Loop) onFreeModelLimit(
 	tried map[string]struct{},
 	accountWaited *bool,
 ) (bool, error) {
-	if l.bugCapture && !IsContextOverflowError(err) && isFreeModelRefusal(err) {
+	// A provider refusal of one free id moves to another in every session, as a
+	// rate limit does, so one refusing model does not end the turn.
+	if !IsContextOverflowError(err) && isFreeModelRefusal(err) {
 		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was refused by its provider") {
 			return true, nil
 		}
