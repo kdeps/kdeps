@@ -1,33 +1,26 @@
 #!/usr/bin/env bash
-# Daily bug hunt: one task per process, then evaluate, fix, and a pull request.
-# run shuffles the free catalog. models prints catalog order.
-# BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
+# Daily bug hunt: one task per process. The evaluate reply is filed as a GitHub
+# issue as soon as it arrives. The hunt reports only: it never keeps an edit and
+# never opens a pull request. run shuffles the free catalog. models prints
+# catalog order. BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
 # BUG_HUNT_TASKS is how many hunts to run (default 3, the /auto-improve list).
-# Each hunt is a new process and a new instrument session (bug-hunt-N), so the
-# log holds that task and its evaluate only. After a hunt finishes, a dirty
-# tree is pushed as its own pull request, then the next hunt starts on the
-# branch the job checked out.
-# Inside a hunt, the task and the evaluate turn jump to another free model
-# at random. A provider 429 during the capture does the same.
+# Each hunt is a new process and a new instrument session (bug-hunt-N).
+# Inside a hunt, the task and the evaluate turn jump to another free model at
+# random. A provider 429 or refusal does the same.
 # Free-model requests wait so they stay under the account per-minute cap.
-# An account 429 waits out the minute and retries the same id.
-# The command files one GitHub issue per hunt. If the process dies before
-# printing auto-improve: issue <url>, this script files that issue.
+# The command files one GitHub issue per evaluate reply, unless an open issue
+# has the same title. If the process dies before printing auto-improve: issue
+# <url> or auto-improve: no issue, this script files that issue.
 #
 #   scripts/bug-hunt.sh models
 #   scripts/bug-hunt.sh run
-#   scripts/bug-hunt.sh publish <model-id>
 #
 # OPENROUTER_API_KEY is required for run.
 # BUG_HUNT_CATALOG overrides assets/models/openrouter.yaml.
 # BUG_HUNT_KDEPS overrides ./kdeps.
 # BUG_HUNT_MAX_MODELS caps how many ids are tried per hunt (default 4).
 # BUG_HUNT_TASKS is the number of hunts (default 3).
-# BUG_HUNT_RESET=1 discards a failed model's edits before the next id.
-# BUG_HUNT_SKIP_PUBLISH=1 leaves edits in the tree and does not open a pull request.
-# GH_TOKEN must be able to push the branch, open the pull request, and file issues.
-# A GITHUB_TOKEN push does not start other workflows, so CI never goes green
-# and auto-merge never lands. Use a token that does start them (RELEASE_TOKEN).
+# GH_TOKEN must be able to file issues.
 
 set -euo pipefail
 
@@ -53,64 +46,15 @@ tree_dirty() {
 	[ -n "$(git status --porcelain)" ]
 }
 
-# discard_attempt drops edits from a model that did not finish.
-discard_attempt() {
-	if [ "${BUG_HUNT_RESET:-}" != "1" ]; then
-		echo "bug-hunt: leaving the tree as the failed model left it (set BUG_HUNT_RESET=1 to discard)"
-		return 0
+# discard_edits drops any edit a model made: the hunt reports, it does not fix.
+discard_edits() {
+	if tree_dirty; then
+		git reset --hard
+		git clean -fd
+		echo "bug-hunt: report only, discarded edits"
+	else
+		echo "bug-hunt: report only, no edits"
 	fi
-	git reset --hard
-	git clean -fd
-}
-
-publish() {
-	local model="$1"
-	local task="${2:-}"
-	if [ -n "${BUG_HUNT_SKIP_PUBLISH:-}" ]; then
-		echo "bug-hunt: skip publish"
-		return 0
-	fi
-	if ! tree_dirty; then
-		echo "bug-hunt: no product fix"
-		return 0
-	fi
-	if ! command -v gh >/dev/null 2>&1; then
-		echo "bug-hunt: gh is required to open the pull request" >&2
-		return 1
-	fi
-	local day branch
-	day="$(date -u +%Y%m%d%H%M%S)"
-	branch="bot/bug-hunt-${day}"
-	if [ -n "$task" ]; then
-		branch="${branch}-${task}"
-	fi
-	git checkout -b "$branch" || return 1
-	git add -A -- . ':(exclude)private' ':(exclude).env' ':(exclude)*.env'
-	if git diff --cached --quiet; then
-		echo "bug-hunt: no product fix"
-		return 0
-	fi
-	git -c user.name='github-actions[bot]' \
-		-c user.email='github-actions[bot]@users.noreply.github.com' \
-		commit -m "fix: bug hunt ${day}" \
-		-m "Automated /auto-improve session on OpenRouter model ${model}." || return 1
-	git push -u origin "$branch" || return 1
-	local body url
-	body="$(mktemp)"
-	cat >"$body" <<EOF
-Daily bug hunt. kdeps ran /auto-improve with OpenRouter model \`${model}\` and edited the tree.
-
-Auto-merge is on. The pull request merges after the required checks pass.
-EOF
-	url="$(gh pr create --base main --head "$branch" --title "fix: bug hunt ${day}" --body-file "$body")" || {
-		rm -f "$body"
-		return 1
-	}
-	rm -f "$body"
-	echo "bug-hunt: opened ${url}"
-	# Enabling auto-merge fails while the PR is still "unstable". The required
-	# checks then merge it once they pass. A transient failure stays in the log.
-	gh pr merge --auto --squash "$url" || echo "bug-hunt: auto-merge not enabled yet for ${url}"
 }
 
 # file_issue opens one issue when the process did not print an issue URL.
@@ -172,16 +116,12 @@ run_one() {
 	fi
 	if grep -q 'auto-improve: done' "$log"; then
 		rm -f "$log"
-		if tree_dirty; then
-			publish "$model" "$task" || return 2
-		else
-			echo "bug-hunt: no product fix"
-		fi
+		discard_edits
 		return 0
 	fi
 	rm -f "$log"
 	echo "bug-hunt: ${model} did not finish (exit ${code}), trying the next free model"
-	discard_attempt
+	discard_edits
 	return 1
 }
 
@@ -251,15 +191,8 @@ run_hunt() {
 case "${1:-}" in
 models) models ;;
 run) run_hunt ;;
-publish)
-	if [ -z "${2:-}" ]; then
-		echo "usage: scripts/bug-hunt.sh publish <model-id>" >&2
-		exit 1
-	fi
-	publish "$2" "${3:-}"
-	;;
 *)
-	echo "usage: scripts/bug-hunt.sh models|run|publish <model-id>" >&2
+	echo "usage: scripts/bug-hunt.sh models|run" >&2
 	exit 1
 	;;
 esac

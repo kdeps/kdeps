@@ -36,7 +36,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/instrument"
 )
 
-const bugCaptureMaxErrors = 40
+const (
+	bugCaptureMaxErrors = 40
+	bugCaptureTitleMax  = 120
+)
 
 // freeModelIDs, pickFreeModelN, and bugCaptureIssue are replaced in tests.
 //
@@ -140,8 +143,8 @@ func autoImproveEvalPrompt(dir string, n, total int, alone bool) string {
 			"the tools can do, a call to the wrong tool, or a tool error that is wrong.\n"+
 			"A model guess is not a product bug. "+
 			"A shell rejection of a command the model wrote is not a product bug.\n"+
-			"For each product bug, fix the code and add a test. "+
-			"If there is no product bug, say so and do not edit files.",
+			"Report each product bug with the event that shows it. "+
+			"Do not edit files. If there is no product bug, say so.",
 		dir, step,
 	)
 }
@@ -207,21 +210,30 @@ func (r *REPL) cmdAutoImprove(args []string) error {
 		fmt.Fprintf(os.Stdout, "auto-improve: recording continues at %s\n", session.Dir)
 	}
 	alone := len(args) > 0
+	// conclusion is the latest evaluate reply, filed verbatim in the issue.
+	var conclusion string
+	filed := false
 	for _, i := range selected {
 		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: task %d/%d\n", i+1, len(tasks))
-		if err = r.runAutoImproveTurn(tasks[i]); err != nil {
-			return r.finishAutoImprove(session.Dir, err)
+		if _, err = r.runAutoImproveTurn(tasks[i]); err != nil {
+			return r.finishAutoImprove(session.Dir, err, conclusion)
 		}
 		r.jumpAutoImproveModel()
 		fmt.Fprintf(os.Stdout, "auto-improve: evaluate %d/%d\n", i+1, len(tasks))
-		err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks), alone))
+		conclusion, err = r.runAutoImproveTurn(autoImproveEvalPrompt(session.Dir, i+1, len(tasks), alone))
 		if err != nil {
-			return r.finishAutoImprove(session.Dir, err)
+			return r.finishAutoImprove(session.Dir, err, conclusion)
 		}
+		// File as soon as the evaluate reply is in, not at the end of the run.
+		r.fileAutoImproveIssue(session.Dir, nil, conclusion)
+		filed = true
 	}
 	fmt.Fprintln(os.Stdout, "auto-improve: done")
-	return r.finishAutoImprove(session.Dir, nil)
+	if !filed {
+		return r.finishAutoImprove(session.Dir, nil, conclusion)
+	}
+	return nil
 }
 
 // jumpAutoImproveModel moves an OpenRouter session onto another free id.
@@ -307,36 +319,70 @@ func isProviderFailure(text string) bool {
 	return freeModelUnusableRe.MatchString(text) || rateLimitErrRe.MatchString(text)
 }
 
-func (r *REPL) finishAutoImprove(dir string, runErr error) error {
+func (r *REPL) finishAutoImprove(dir string, runErr error, conclusion string) error {
+	r.fileAutoImproveIssue(dir, runErr, conclusion)
+	return runErr
+}
+
+// fileAutoImproveIssue files the bug capture issue, or prints why it did not.
+func (r *REPL) fileAutoImproveIssue(dir string, runErr error, conclusion string) {
 	model := ""
 	if r.loop != nil {
 		model = r.loop.config.Model
 	}
 	if !shouldFileBugCapture(dir, runErr) {
 		fmt.Fprintln(os.Stdout, "auto-improve: no issue (provider-only failures)")
-		return runErr
+		return
 	}
-	url, err := bugCaptureIssue(r.ctx, dir, model)
+	url, err := bugCaptureIssue(r.ctx, dir, model, conclusion)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "auto-improve: issue failed: %s\n", err.Error())
-		return runErr
+		return
 	}
 	fmt.Fprintf(os.Stdout, "auto-improve: issue %s\n", url)
-	return runErr
 }
 
-func ghIssueCreate(ctx context.Context, dir, model string) (string, error) {
+// existingIssueURL returns the URL of an open issue with the same title, or "".
+func existingIssueURL(ctx context.Context, title string) (string, error) {
+	out, err := exec.CommandContext(ctx, "gh", "issue", "list", "--state", "open",
+		"--limit", "500", "--json", "title,url").Output()
+	if err != nil {
+		return "", err
+	}
+	var issues []struct {
+		Title string `json:"title"`
+		URL   string `json:"url"`
+	}
+	if err = json.Unmarshal(out, &issues); err != nil {
+		return "", err
+	}
+	for _, is := range issues {
+		if strings.EqualFold(strings.TrimSpace(is.Title), strings.TrimSpace(title)) {
+			return is.URL, nil
+		}
+	}
+	return "", nil
+}
+
+func ghIssueCreate(ctx context.Context, dir, model, conclusion string) (string, error) {
 	if ctx == nil {
 		return "", errors.New("bug capture has no context")
 	}
-	title := fmt.Sprintf("bug: capture %s %s", time.Now().UTC().Format(time.RFC3339), model)
+	title := bugCaptureTitle(conclusion, model)
+	existing, err := existingIssueURL(ctx, title)
+	if err != nil {
+		return "", err
+	}
+	if existing != "" {
+		return existing, nil
+	}
 	bodyFile, err := os.CreateTemp("", "kdeps-bug-capture-*.md")
 	if err != nil {
 		return "", err
 	}
 	path := bodyFile.Name()
 	defer os.Remove(path)
-	if _, err = bodyFile.WriteString(bugCaptureBody(dir, model)); err != nil {
+	if _, err = bodyFile.WriteString(bugCaptureBody(dir, model, conclusion)); err != nil {
 		_ = bodyFile.Close()
 		return "", err
 	}
@@ -360,10 +406,35 @@ func ghIssueCreate(ctx context.Context, dir, model string) (string, error) {
 	return url, nil
 }
 
-func bugCaptureBody(dir, model string) string {
+// bugCaptureTitle is the first line of the conclusion, the bug's summary.
+// Without a conclusion it falls back to a timestamped capture name.
+func bugCaptureTitle(conclusion, model string) string {
+	for line := range strings.SplitSeq(conclusion, "\n") {
+		summary := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(line), "#*-> "))
+		summary = strings.Trim(summary, "*_` ")
+		if summary == "" {
+			continue
+		}
+		runes := []rune(summary)
+		if len(runes) > bugCaptureTitleMax {
+			return string(runes[:bugCaptureTitleMax-3]) + "..."
+		}
+		return summary
+	}
+	return fmt.Sprintf("bug: capture %s %s", time.Now().UTC().Format(time.RFC3339), model)
+}
+
+func bugCaptureBody(dir, model, conclusion string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Bug capture on model `%s`.\n\n", model)
 	fmt.Fprintf(&b, "Session: `%s`\n\n", dir)
+	b.WriteString("## Conclusion\n\n")
+	if conclusion == "" {
+		b.WriteString("The evaluate turn returned no text.\n\n")
+	} else {
+		b.WriteString(conclusion)
+		b.WriteString("\n\n")
+	}
 	lines := captureErrorLines(filepath.Join(dir, instrument.EventsFile), bugCaptureMaxErrors)
 	if len(lines) == 0 {
 		b.WriteString("No event in this session has an error field.\n")
@@ -427,13 +498,13 @@ func jsonFieldString(raw json.RawMessage) string {
 	return s
 }
 
-func (r *REPL) runAutoImproveTurn(prompt string) error {
+func (r *REPL) runAutoImproveTurn(prompt string) (string, error) {
 	resp, err := r.runWithThinking(r.ctx, prompt)
 	if err != nil {
-		return fmt.Errorf("/auto-improve: %w", err)
+		return "", fmt.Errorf("/auto-improve: %w", err)
 	}
 	if resp != "" {
 		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}
-	return nil
+	return resp, nil
 }

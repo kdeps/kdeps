@@ -1,19 +1,17 @@
 name: Bug Hunt
 
-# kdeps runs /auto-improve against this repo on an OpenRouter free model,
-# fixes product bugs the instrument log shows, and opens a pull request.
-# Auto-merge lands it after the required checks pass.
+# kdeps runs /auto-improve against this repo on an OpenRouter free model and
+# reports what the instrument log shows. Each evaluate reply is filed as a
+# GitHub issue as soon as it arrives, unless an open issue has the same title.
+# The hunt never edits code and never opens a pull request.
 #
-# Checkout and gh use RELEASE_TOKEN. A GITHUB_TOKEN push does not start
-# Build and Test, so the required checks would stay expected and the
-# pull request would never merge.
+# gh uses RELEASE_TOKEN to file issues.
 #
 # OPENROUTER_API_KEY is the OpenRouter key. The model id comes from
 # assets/models/openrouter.yaml. run shuffles that list. Each hunt is one
-# task in its own process and instrument session. It evaluates that session,
-# files one GitHub issue, and opens a pull request when the tree changed,
-# then the next hunt starts. A hunt that does not finish tries another id.
-# If the process dies before the issue URL, the script files it.
+# task in its own process and instrument session. A hunt that does not
+# finish tries another id. If the process dies before the issue URL, the
+# script files it.
 
 on:
   schedule:
@@ -22,8 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   issues: write
 
 concurrency:
@@ -48,9 +45,8 @@ jobs:
       - name: Build kdeps
         run: make build
 
-      - name: Hunt and open a pull request
+      - name: Hunt and file issues
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          BUG_HUNT_RESET: "1"
         run: bash scripts/bug-hunt.sh run
