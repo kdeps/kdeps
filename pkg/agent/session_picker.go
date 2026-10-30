@@ -31,13 +31,11 @@ const newSessionSentinel = "__new__"
 // PickStartupSession shows the resume picker for the sessions stored in this
 // project's .kdeps directory. It returns the chosen session id, or "" to start
 // a new session (also when there are no sessions, the terminal is
-// non-interactive, the full-screen view is on (KDEPS_TUI=1), or the user
-// cancels). ctrl+d deletes the highlighted
+// non-interactive, or the user cancels). ctrl+d deletes the highlighted
 // session in place (not the "Start a new session" row) without leaving the
 // picker, backed by SessionStore.Delete.
 func PickStartupSession(store *SessionStore) string {
-	// The full-screen view takes the keys itself, so the picker is skipped.
-	if store == nil || tuiEnabled() || !tui.IsInteractive() {
+	if store == nil || !tui.IsInteractive() {
 		return ""
 	}
 	metas, err := store.ListMeta()
