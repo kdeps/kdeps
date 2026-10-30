@@ -179,8 +179,7 @@ func TestDrawLiveStatus_UpdatesGeneratedInPlace(t *testing.T) {
 	drawLiveStatus(&buf, "y")
 	got := buf.String()
 	assert.Contains(t, got, "\033[0J")
-	assert.Equal(t, 1, strings.Count(got, "session sent "))
-	assert.Equal(t, 1, strings.Count(got, "generated "))
+	assert.Equal(t, 1, strings.Count(got, "session ↑"))
 }
 
 func TestRenderFrame_LongLinesStayTwoRows(t *testing.T) {
@@ -230,7 +229,7 @@ func TestDrawLiveStatus_CRLFWriterDoesNotStack(t *testing.T) {
 	got := buf.String()
 	assert.True(t, strings.HasPrefix(got, "\r"), "carriage return must survive crlfWriter")
 	assert.Contains(t, got, "\033[0J")
-	assert.Equal(t, 1, strings.Count(got, "session sent "))
+	assert.Equal(t, 1, strings.Count(got, "session ↑"))
 }
 
 func TestDrawLiveStatus_PipePrintsOnceUntilNumbersChange(t *testing.T) {
@@ -248,7 +247,7 @@ func TestDrawLiveStatus_PipePrintsOnceUntilNumbersChange(t *testing.T) {
 	body, err := io.ReadAll(r)
 	require.NoError(t, err)
 	got := string(body)
-	assert.Equal(t, 2, strings.Count(got, "session sent"))
+	assert.Equal(t, 2, strings.Count(got, "session ↑"))
 	assert.NotContains(t, got, "⠋")
 	assert.NotContains(t, got, "\033[")
 }
@@ -305,10 +304,11 @@ func TestContextPathStatus_TurnTotalIsMeasuredPromptSize(t *testing.T) {
 	assert.Contains(t, status, "other ")
 }
 
-func TestCompactTokenStatus_TotalIsSentPlusGenerated(t *testing.T) {
+func TestCompactTokenStatus_SentAndGeneratedArrows(t *testing.T) {
 	executorLLM.ResetSessionTokens(192500, 1000)
 	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
-	assert.Contains(t, compactTokenStatus(), "[session sent 192.5k | generated 1.0k | total 193.5k")
+	assert.Contains(t, compactTokenStatus(), "session ↑192.5k ↓1.0k")
+	assert.NotContains(t, compactTokenStatus(), "total")
 }
 
 func TestTurnTokenDelta(t *testing.T) {
@@ -318,13 +318,13 @@ func TestTurnTokenDelta(t *testing.T) {
 	in, out := turnTokenDelta()
 	assert.Equal(t, int64(0), in)
 	assert.Equal(t, int64(0), out)
-	assert.NotContains(t, compactTokenStatus(), "this turn")
+	assert.NotContains(t, compactTokenStatus(), "turn ↑")
 
 	executorLLM.ResetSessionTokens(192500, 1000)
 	in, out = turnTokenDelta()
 	assert.Equal(t, int64(47200), in)
 	assert.Equal(t, int64(400), out)
-	assert.Contains(t, compactTokenStatus(), "this turn +47.2k sent +400 generated")
+	assert.Contains(t, compactTokenStatus(), "turn ↑47.2k ↓400")
 
 	executorLLM.ResetSessionTokens(20000, 100) // compact mid-turn
 	in, out = turnTokenDelta()
