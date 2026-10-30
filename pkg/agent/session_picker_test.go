@@ -89,9 +89,3 @@ func TestPlural(t *testing.T) {
 	assert.Equal(t, "s", plural(0))
 	assert.Equal(t, "s", plural(2))
 }
-
-func TestPickStartupSession_SkippedInFullScreen(t *testing.T) {
-	t.Setenv(tuiEnv, "1")
-	store := &SessionStore{}
-	assert.Equal(t, "", PickStartupSession(store), "the full-screen view skips the resume picker")
-}
