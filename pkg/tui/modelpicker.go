@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 const (
@@ -218,7 +218,7 @@ func (m modelPickerModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m modelPickerModel) View() string {
+func (m modelPickerModel) render() string {
 	width := m.termWidth
 	if width < pickerMinWidth {
 		width = pickerMinWidth
@@ -457,7 +457,7 @@ func RunModelPicker(entries []ModelEntry, currentModel, preFilter string) (strin
 		return "", nil
 	}
 	m := newModelPickerModel(entries, currentModel, preFilter)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("model picker: %w", err)
@@ -471,4 +471,11 @@ func RunModelPicker(entries []ModelEntry, currentModel, preFilter string) (strin
 		return flat[fm.cursor].Name, nil
 	}
 	return "", nil
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m modelPickerModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
 }

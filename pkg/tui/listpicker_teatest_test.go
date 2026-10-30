@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/exp/teatest"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,19 +34,19 @@ func runPicker(t *testing.T, keys ...tea.KeyMsg) listPickerModel {
 }
 
 func TestTeatest_EnterOnTheFirstRowStartsANewSession(t *testing.T) {
-	final := runPicker(t, tea.KeyMsg{Type: tea.KeyEnter})
+	final := runPicker(t, tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.True(t, final.quitted)
 	assert.False(t, final.cancelled)
 	assert.Equal(t, "__new__", final.filtered()[final.cursor].ID)
 }
 
 func TestTeatest_DownThenEnterResumesThatSession(t *testing.T) {
-	final := runPicker(t, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter})
+	final := runPicker(t, tea.KeyPressMsg{Code: tea.KeyDown}, tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.True(t, final.quitted)
 	assert.Equal(t, "s1", final.filtered()[final.cursor].ID)
 }
 
 func TestTeatest_EscCancelsThePicker(t *testing.T) {
-	final := runPicker(t, tea.KeyMsg{Type: tea.KeyEsc})
+	final := runPicker(t, tea.KeyPressMsg{Code: tea.KeyEsc})
 	assert.True(t, final.cancelled)
 }

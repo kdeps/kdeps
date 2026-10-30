@@ -3,7 +3,12 @@ package statuswindow
 import (
 	"io"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
+)
+
+const (
+	statusWidth  = 200
+	statusHeight = 3
 )
 
 // Runner drives a status window program on a writer. It takes no keyboard
@@ -15,7 +20,10 @@ type Runner struct {
 
 // Start runs the status window on out until Stop.
 func Start(out io.Writer) *Runner {
-	p := tea.NewProgram(New(), tea.WithOutput(out), tea.WithInput(nil), tea.WithoutSignalHandler())
+	// A non-terminal writer reports no size, and v2 draws nothing without one.
+	// The status rows are two lines, so a fixed width only bounds the text.
+	p := tea.NewProgram(New(), tea.WithOutput(out), tea.WithInput(nil), tea.WithoutSignalHandler(),
+		tea.WithWindowSize(statusWidth, statusHeight))
 	r := &Runner{program: p, done: make(chan struct{})}
 	go func() {
 		_, _ = p.Run()

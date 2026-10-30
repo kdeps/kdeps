@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type textInputModel struct {
@@ -58,14 +58,14 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.value = m.value[:len(m.value)-1]
 		}
 	default:
-		if len(keyMsg.String()) == 1 {
-			m.value += keyMsg.String()
+		if t := keyMsg.Key().Text; t != "" {
+			m.value += t
 		}
 	}
 	return m, nil
 }
 
-func (m textInputModel) View() string {
+func (m textInputModel) render() string {
 	var b strings.Builder
 	b.WriteString(styleAccent.Render(m.title) + "\n\n")
 	if m.prompt != "" {
@@ -82,7 +82,7 @@ func RunTextInput(title, prompt, initial string) (string, error) {
 		return "", nil
 	}
 	m := newTextInputModel(title, prompt, initial)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("text input: %w", err)
@@ -92,4 +92,11 @@ func RunTextInput(title, prompt, initial string) (string, error) {
 		return "", nil
 	}
 	return strings.TrimSpace(fm.value), nil
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m textInputModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
 }

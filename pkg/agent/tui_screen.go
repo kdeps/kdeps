@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
@@ -43,7 +43,7 @@ func (r *REPL) runFullScreen() error {
 			program.Quit()
 		}
 	}
-	program = tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithOutput(origOut))
+	program = tea.NewProgram(m, tea.WithOutput(origOut))
 
 	done := make(chan struct{})
 	go func() {

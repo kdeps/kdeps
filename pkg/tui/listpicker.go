@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // ListItem is a row in a simple single-select list.
@@ -177,7 +177,7 @@ func removeItemByID(items []ListItem, id string) []ListItem {
 	return out
 }
 
-func (m listPickerModel) View() string {
+func (m listPickerModel) render() string {
 	var b strings.Builder
 	b.WriteString(styleAccent.Render(m.title) + "\n\n")
 	if m.filter != "" {
@@ -255,7 +255,7 @@ func runListPicker(title string, items []ListItem, onDelete func(id string) (boo
 		return "", nil
 	}
 	m := newListPickerModel(title, items, onDelete)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("list picker: %w", err)
@@ -269,4 +269,11 @@ func runListPicker(title string, items []ListItem, onDelete func(id string) (boo
 		return flat[fm.cursor].ID, nil
 	}
 	return "", nil
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m listPickerModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
 }

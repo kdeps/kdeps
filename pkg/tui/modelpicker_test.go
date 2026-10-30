@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -148,7 +148,7 @@ func TestModelPickerModel_Update_UnknownMsg(t *testing.T) {
 
 func TestHandleKey_CtrlC(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "a"}}, "", "")
-	updated, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlC})
+	updated, cmd := m.handleKey(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	pm := updated.(modelPickerModel)
 	assert.True(t, pm.cancelled)
 	assert.True(t, pm.quitted)
@@ -157,7 +157,7 @@ func TestHandleKey_CtrlC(t *testing.T) {
 
 func TestHandleKey_Esc(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "a"}}, "", "")
-	updated, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, cmd := m.handleKey(tea.KeyPressMsg{Code: tea.KeyEsc})
 	pm := updated.(modelPickerModel)
 	assert.True(t, pm.cancelled)
 	assert.True(t, pm.quitted)
@@ -166,7 +166,7 @@ func TestHandleKey_Esc(t *testing.T) {
 
 func TestHandleKey_Enter_WithItems(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "a"}}, "", "")
-	updated, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd := m.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	pm := updated.(modelPickerModel)
 	assert.True(t, pm.quitted)
 	assert.False(t, pm.cancelled)
@@ -175,7 +175,7 @@ func TestHandleKey_Enter_WithItems(t *testing.T) {
 
 func TestHandleKey_Enter_NoItems(t *testing.T) {
 	m := newModelPickerModel(nil, "", "nomatch_xyz")
-	updated, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd := m.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	pm := updated.(modelPickerModel)
 	assert.False(t, pm.quitted)
 	assert.Nil(t, cmd)
@@ -185,7 +185,7 @@ func TestHandleKey_Down(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}, {Name: "c"}}
 	m := newModelPickerModel(entries, "", "")
 	m.cursor = 0
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyDown})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, 1, pm.cursor)
 }
@@ -194,7 +194,7 @@ func TestHandleKey_Down_Wraps(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
 	m.cursor = 1
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyDown})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, 0, pm.cursor)
 }
@@ -203,7 +203,7 @@ func TestHandleKey_Up(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
 	m.cursor = 1
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyUp})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyUp})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, 0, pm.cursor)
 }
@@ -212,7 +212,7 @@ func TestHandleKey_Up_Wraps(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
 	m.cursor = 0
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyUp})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyUp})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, 1, pm.cursor)
 }
@@ -222,7 +222,7 @@ func TestHandleKey_Up_Wraps(t *testing.T) {
 func TestHandleKey_j_TypesToFilter(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "j", pm.filter)
 }
@@ -230,14 +230,14 @@ func TestHandleKey_j_TypesToFilter(t *testing.T) {
 func TestHandleKey_k_TypesToFilter(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "k", pm.filter)
 }
 
 func TestHandleKey_Backspace(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "a"}}, "", "abc")
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyBackspace})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "ab", pm.filter)
 	assert.Equal(t, 0, pm.cursor)
@@ -245,14 +245,14 @@ func TestHandleKey_Backspace(t *testing.T) {
 
 func TestHandleKey_Backspace_EmptyFilter(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "a"}}, "", "")
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyBackspace})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "", pm.filter)
 }
 
 func TestHandleKey_PrintableChar(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "llama"}}, "", "")
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "l", pm.filter)
 	assert.Equal(t, 0, pm.cursor)
@@ -262,7 +262,7 @@ func TestHandleKey_PrintableChar_ResetsCursor(t *testing.T) {
 	entries := []ModelEntry{{Name: "llama"}, {Name: "gemma"}}
 	m := newModelPickerModel(entries, "", "")
 	m.cursor = 1
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	updated, _ := m.handleKey(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, 0, pm.cursor)
 }
@@ -270,14 +270,14 @@ func TestHandleKey_PrintableChar_ResetsCursor(t *testing.T) {
 func TestModelPickerModel_View_NonEmpty(t *testing.T) {
 	entries := []ModelEntry{{Name: "llama3.2", ModelType: modelTypeGGUF}}
 	m := newModelPickerModel(entries, "llama3.2", "")
-	v := m.View()
+	v := m.render()
 	assert.NotEmpty(t, v)
 }
 
 func TestModelPickerModel_View_SmallTermWidth(t *testing.T) {
 	m := newModelPickerModel(nil, "", "")
 	m.termWidth = 10 // less than pickerMinWidth
-	v := m.View()
+	v := m.render()
 	assert.NotEmpty(t, v)
 }
 
@@ -491,7 +491,7 @@ func TestTagForEntry(t *testing.T) {
 
 func TestModelPickerModel_Update_KeyMsg(t *testing.T) {
 	m := newModelPickerModel([]ModelEntry{{Name: "llama"}}, "", "")
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	updated, cmd := m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	pm := updated.(modelPickerModel)
 	assert.Equal(t, "l", pm.filter)
 	assert.Nil(t, cmd)

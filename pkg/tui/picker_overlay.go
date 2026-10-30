@@ -1,7 +1,7 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // PickerOverlay is the list picker as an overlay for the full-screen view: it
@@ -30,7 +30,7 @@ func (p PickerOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View draws the picker.
-func (p PickerOverlay) View() string { return p.m.View() }
+func (p PickerOverlay) View() tea.View { return p.m.View() }
 
 // Done reports that the user picked a row or cancelled.
 func (p PickerOverlay) Done() bool { return p.m.quitted || p.m.cancelled }

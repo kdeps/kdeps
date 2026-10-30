@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestListPickerInitView(t *testing.T) {
@@ -33,14 +33,14 @@ func TestListPickerInitView(t *testing.T) {
 	if m.Init() != nil {
 		t.Fatal("Init should be nil cmd")
 	}
-	view := m.View()
+	view := m.render()
 	if !strings.Contains(view, "pick engine") || !strings.Contains(view, "Alpha") {
 		t.Fatalf("view %q", view)
 	}
 	// filter empty matches
 	m.filter = "zzz"
-	if !strings.Contains(m.View(), "no matches") {
-		t.Fatalf("empty filter view %q", m.View())
+	if !strings.Contains(m.render(), "no matches") {
+		t.Fatalf("empty filter view %q", m.render())
 	}
 	// window size msg
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120})
@@ -55,23 +55,23 @@ func TestTextInputModel(t *testing.T) {
 	if m.Init() != nil {
 		t.Fatal("Init")
 	}
-	if !strings.Contains(m.View(), "title") || !strings.Contains(m.View(), "hi") {
-		t.Fatalf("view %q", m.View())
+	if !strings.Contains(m.render(), "title") || !strings.Contains(m.render(), "hi") {
+		t.Fatalf("view %q", m.render())
 	}
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: '!', Text: "!"})
 	m = updated.(textInputModel)
 	if !strings.HasSuffix(m.value, "!") {
 		t.Fatalf("value %q", m.value)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	m = updated.(textInputModel)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = updated.(textInputModel)
 	if !m.quitted {
 		t.Fatal("enter should quit")
 	}
 	m2 := newTextInputModel("t", "", "")
-	updated, _ = m2.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ = m2.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m2 = updated.(textInputModel)
 	if !m2.cancelled {
 		t.Fatal("esc cancel")

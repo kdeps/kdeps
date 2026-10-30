@@ -26,9 +26,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
@@ -58,27 +58,6 @@ func stealthColorProfile() termenv.Profile {
 		return termenv.TrueColor
 	}
 	return replColorProfile()
-}
-
-// stealthForcedProfile records whether stealth pinned lipgloss to TrueColor, so
-// turning stealth back off only re-detects the profile if we changed it (never
-// on the initial non-stealth build).
-//
-//nolint:gochecknoglobals // paired with applyStealthColorProfile
-var stealthForcedProfile bool
-
-// applyStealthColorProfile pins lipgloss's global color profile to TrueColor
-// while stealth is on, and re-detects it when stealth turns off. Called by
-// rebuildTheme.
-func applyStealthColorProfile() {
-	switch {
-	case stealthEnabled():
-		lipgloss.SetColorProfile(termenv.TrueColor)
-		stealthForcedProfile = true
-	case stealthForcedProfile:
-		lipgloss.SetColorProfile(replColorProfile())
-		stealthForcedProfile = false
-	}
 }
 
 // cached glamour renderers — created once, recreated only on terminal resize.

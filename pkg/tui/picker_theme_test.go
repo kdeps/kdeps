@@ -21,9 +21,6 @@ package tui
 import (
 	"strings"
 	"testing"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
 
 func restoreDefaultPickerColors() { SetPickerColors(defaultPickerColors()) }
@@ -40,10 +37,8 @@ func TestSetPickerColors_UpdatesCurrentPickerColorsAndRebuilds(t *testing.T) {
 }
 
 func TestBuildSelectorStyles_ReflectsPickerColors(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
 		restoreDefaultPickerColors()
-		lipgloss.SetColorProfile(termenv.Ascii)
 	})
 
 	SetPickerColors(defaultPickerColors())
@@ -69,10 +64,8 @@ func TestBuildSelectorStyles_ReflectsPickerColors(t *testing.T) {
 }
 
 func TestStyleForFitLevel_ReflectsPickerColors(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
 		restoreDefaultPickerColors()
-		lipgloss.SetColorProfile(termenv.Ascii)
 	})
 
 	SetPickerColors(PickerColors{

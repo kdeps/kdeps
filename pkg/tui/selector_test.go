@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,36 +28,36 @@ func TestModel_Init(t *testing.T) {
 
 func TestModel_QuitKey(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	out, _ := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	assert.True(t, out.(model).quitted)
 }
 
 func TestModel_CtrlC(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	out, _ := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	assert.True(t, out.(model).quitted)
 }
 
 func TestModel_Enter(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	assert.False(t, out.(model).quitted)
 }
 
 func TestModel_TabNavigation(t *testing.T) {
 	m := newModel([numTabs][]Item{})
 	assert.Equal(t, 0, m.tab)
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	assert.Equal(t, 1, out.(model).tab)
-	out, _ = out.Update(tea.KeyMsg{Type: tea.KeyTab})
-	out, _ = out.Update(tea.KeyMsg{Type: tea.KeyTab})
-	out, _ = out.Update(tea.KeyMsg{Type: tea.KeyTab})
+	out, _ = out.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	out, _ = out.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	out, _ = out.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	assert.Equal(t, 0, out.(model).tab) // wraps around
 }
 
 func TestModel_ShiftTabNavigation(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
 	assert.Equal(t, numTabs-1, out.(model).tab)
 }
 
@@ -65,7 +65,7 @@ func TestModel_CursorDown(t *testing.T) {
 	var tabs [numTabs][]Item
 	tabs[0] = makeItems(3)
 	m := newModel(tabs)
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	out, _ := m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	assert.Equal(t, 1, out.(model).cursor)
 }
 
@@ -74,19 +74,19 @@ func TestModel_CursorUp(t *testing.T) {
 	tabs[0] = makeItems(3)
 	m := newModel(tabs)
 	m.cursor = 2
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	out, _ := m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	assert.Equal(t, 1, out.(model).cursor)
 }
 
 func TestModel_CursorBounds(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	assert.Equal(t, 0, out.(model).cursor) // empty tab, stays at 0
 
 	var tabs [numTabs][]Item
 	tabs[0] = makeItems(1)
 	m2 := newModel(tabs)
-	out2, _ := m2.Update(tea.KeyMsg{Type: tea.KeyDown})
+	out2, _ := m2.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	assert.Equal(t, 0, out2.(model).cursor) // only 1 item, stays at 0
 }
 
@@ -96,16 +96,16 @@ func TestModel_SpaceToggle(t *testing.T) {
 	m := newModel(tabs)
 	assert.False(t, m.tabs[0][0].Enabled)
 
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	assert.True(t, out.(model).tabs[0][0].Enabled)
 
-	out2, _ := out.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	out2, _ := out.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	assert.False(t, out2.(model).tabs[0][0].Enabled)
 }
 
 func TestModel_SpaceOnEmpty(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	// no panic, cursor stays at 0
 	assert.Equal(t, 0, out.(model).cursor)
 }
@@ -115,13 +115,13 @@ func TestModel_TabSwitchResetsCursor(t *testing.T) {
 	tabs[0] = makeItems(3)
 	m := newModel(tabs)
 	m.cursor = 2
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	out, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	assert.Equal(t, 0, out.(model).cursor)
 }
 
 func TestModel_View_Empty(t *testing.T) {
 	m := newModel([numTabs][]Item{})
-	v := m.View()
+	v := m.render()
 	assert.Contains(t, v, "none installed")
 }
 
@@ -129,7 +129,7 @@ func TestModel_View_Items(t *testing.T) {
 	var tabs [numTabs][]Item
 	tabs[0] = []Item{{Name: "my-workflow", Path: "/tmp/wf.yaml", Kind: KindWorkflow, Enabled: true}}
 	m := newModel(tabs)
-	v := m.View()
+	v := m.render()
 	assert.Contains(t, v, "my-workflow")
 	assert.Contains(t, v, "[x]")
 }

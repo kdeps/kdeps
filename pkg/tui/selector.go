@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/afero"
 )
 
@@ -126,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor < len(m.tabs[m.tab])-1 {
 			m.cursor++
 		}
-	case " ":
+	case " ", "space":
 		if len(m.tabs[m.tab]) > 0 {
 			m.tabs[m.tab][m.cursor].Enabled = !m.tabs[m.tab][m.cursor].Enabled
 		}
@@ -134,7 +134,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m model) render() string {
 	var sb strings.Builder
 	m.renderTabBar(&sb)
 	m.renderItems(&sb)
@@ -356,4 +356,11 @@ func hasFile(dir string, names ...string) bool {
 		}
 	}
 	return false
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = false
+	return v
 }

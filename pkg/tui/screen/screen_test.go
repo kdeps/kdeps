@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +22,7 @@ func resized(t *testing.T, m Model) Model {
 func TestView_FillsTheTerminal(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m.Status = "status"
-	lines := strings.Split(m.View(), "\n")
+	lines := strings.Split(m.render(), "\n")
 	require.Len(t, lines, 30)
 	for _, line := range lines {
 		assert.Equal(t, 100, lipgloss.Width(line))
@@ -33,11 +33,11 @@ func TestToggleFeed_GivesMainTheWholeWidth(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	assert.True(t, m.FeedOpen())
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ := m.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
 	closed := next.(Model)
 	assert.False(t, closed.FeedOpen())
 
-	next, _ = closed.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ = closed.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
 	assert.True(t, next.(Model).FeedOpen())
 }
 
@@ -45,14 +45,14 @@ func TestView_FeedShowsItsEntries(t *testing.T) {
 	var f feed.Feed
 	f.Add(feed.Entry{Kind: feed.KindResource, Title: "fetch.yaml"})
 	m := resized(t, New(&f))
-	assert.Contains(t, m.View(), "fetch.yaml")
+	assert.Contains(t, m.render(), "fetch.yaml")
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
-	assert.NotContains(t, next.(Model).View(), "fetch.yaml", "a closed feed is not drawn")
+	next, _ := m.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
+	assert.NotContains(t, next.(Model).render(), "fetch.yaml", "a closed feed is not drawn")
 }
 
 func TestView_BeforeResizeIsEmpty(t *testing.T) {
-	assert.Equal(t, "", New(nil).View())
+	assert.Equal(t, "", New(nil).render())
 }
 
 func typed(t *testing.T, m Model, msg tea.Msg) (Model, tea.Cmd) {
@@ -63,14 +63,16 @@ func typed(t *testing.T, m Model, msg tea.Msg) (Model, tea.Cmd) {
 
 func TestPrompt_TypingBackspaceAndSubmit(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hi")})
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyBackspace})
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ey")})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'i', Text: "i"})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'y', Text: "y"})
 	assert.Equal(t, "hey", m.Prompt())
 
 	var got []string
 	m.OnSubmit = func(line string) { got = append(got, line) }
-	m, cmd := typed(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd, "Enter on a non-empty prompt submits it")
 	cmd()
 	assert.Equal(t, []string{"hey"}, got)
@@ -79,20 +81,20 @@ func TestPrompt_TypingBackspaceAndSubmit(t *testing.T) {
 
 func TestPrompt_EmptyEnterDoesNothing(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
-	_, cmd := typed(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	assert.Nil(t, cmd)
 }
 
 func TestOutput_LinesAppearInTheMainPane(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: "first line\nsecond line"})
-	assert.Contains(t, m.View(), "first line")
-	assert.Contains(t, m.View(), "second line")
+	assert.Contains(t, m.render(), "first line")
+	assert.Contains(t, m.render(), "second line")
 }
 
 func TestCtrlC_Quits(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
-	_, cmd := typed(t, m, tea.KeyMsg{Type: tea.KeyCtrlC})
+	_, cmd := typed(t, m, tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	require.NotNil(t, cmd)
 	assert.Equal(t, tea.Quit(), cmd())
 }
@@ -100,7 +102,7 @@ func TestCtrlC_Quits(t *testing.T) {
 func TestStatusText_ReplacesTheStatusBox(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, StatusTextMsg{Text: "[turn 9k]"})
-	assert.Contains(t, m.View(), "[turn 9k]")
+	assert.Contains(t, m.render(), "[turn 9k]")
 }
 
 func manyLines(n int) string {
@@ -114,24 +116,24 @@ func manyLines(n int) string {
 func TestScroll_UpShowsOlderRowsAndEndReturnsToTheNewest(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
-	assert.Contains(t, m.View(), "row 99", "the tail is shown first")
-	assert.NotContains(t, m.View(), "row 50")
+	assert.Contains(t, m.render(), "row 99", "the tail is shown first")
+	assert.NotContains(t, m.render(), "row 50")
 
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyPgUp})
-	assert.Contains(t, m.View(), "row 75", "a page up scrolls back into history")
-	assert.NotContains(t, m.View(), "row 99")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Contains(t, m.render(), "row 75", "a page up scrolls back into history")
+	assert.NotContains(t, m.render(), "row 99")
 
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyEnd})
-	assert.Contains(t, m.View(), "row 99", "End returns to the newest rows")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd})
+	assert.Contains(t, m.render(), "row 99", "End returns to the newest rows")
 }
 
 func TestScroll_ClampsAtTheTop(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(5)})
 	for range 50 {
-		m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyUp})
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyUp})
 	}
-	assert.Contains(t, m.View(), "row 0", "scrolling past the top shows the first rows")
+	assert.Contains(t, m.render(), "row 0", "scrolling past the top shows the first rows")
 }
 
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
@@ -140,9 +142,9 @@ func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
 	}
 	m := resized(t, New(&f))
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyTab})
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyPgUp})
-	assert.NotContains(t, m.View(), "step 99", "the feed scrolled, not the main pane")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.NotContains(t, m.render(), "step 99", "the feed scrolled, not the main pane")
 }
 
 func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
@@ -154,7 +156,7 @@ func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
 
 	feedX := m.width - m.width/3 + 2
-	m, _ = typed(t, m, tea.MouseMsg{X: feedX, Y: 3, Action: tea.MouseActionPress, Button: tea.MouseButtonWheelUp})
-	assert.NotContains(t, m.View(), "step 99", "the wheel over the feed scrolls the feed")
-	assert.Contains(t, m.View(), "row 99", "the main pane did not move")
+	m, _ = typed(t, m, tea.MouseWheelMsg{X: feedX, Y: 3, Button: tea.MouseWheelUp})
+	assert.NotContains(t, m.render(), "step 99", "the wheel over the feed scrolls the feed")
+	assert.Contains(t, m.render(), "row 99", "the main pane did not move")
 }
