@@ -78,6 +78,18 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 }
 
 // loadResources loads and parses all resource files referenced by the workflow.
+// resourceLoaded is called with the path of each resource file that loads.
+//
+//nolint:gochecknoglobals // observer set once at startup through SetResourceLoaded
+var resourceLoaded func(path string)
+
+// SetResourceLoaded sets the observer that is called with the path of each
+// resource file that loads. The agent uses it so the full-screen feed can list
+// them. Nil turns it off.
+func SetResourceLoaded(fn func(path string)) {
+	resourceLoaded = fn
+}
+
 func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) error {
 	kdeps_debug.Log("enter: loadResources")
 	// Convert to absolute path to ensure correct resource directory resolution
@@ -129,6 +141,9 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 
 		// Add resource to workflow
 		workflow.Resources = append(workflow.Resources, resource)
+		if resourceLoaded != nil {
+			resourceLoaded(resourcePath)
+		}
 	}
 
 	return nil
