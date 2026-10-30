@@ -23,11 +23,20 @@ const maxMainLines = 2000
 // feedBorder is the cells the feed's rounded border takes on each axis.
 const feedBorder = 2
 
+// layoutBottomRows is the height of the status and prompt boxes together.
+const layoutBottomRows = 6
+
+// wheelStep is how many rows one mouse-wheel notch scrolls.
+const wheelStep = 3
+
 // Model is the full-screen view.
 type Model struct {
 	width, height int
 	feedOpen      bool
 	main          []string
+	mainOff       int  // rows scrolled up from the newest main line
+	feedOff       int  // rows scrolled up from the newest feed row
+	focusFeed     bool // arrow keys scroll the feed instead of the main pane
 	Status        string
 	input         []rune
 	Feed          *feed.Feed
@@ -56,10 +65,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.appendOutput(v.Text)
 	case StatusTextMsg:
 		m.Status = v.Text
+	case tea.MouseMsg:
+		return m.wheel(v), nil
 	case tea.KeyMsg:
 		return m.key(v)
 	}
 	return m, nil
+}
+
+// pageRows is how many rows a page key scrolls: the height of the boxes.
+func (m Model) pageRows() int {
+	return max(m.height-layoutBottomRows, 1)
+}
+
+// scroll moves the focused box by delta rows (positive is up, into history).
+func (m Model) scroll(delta int) Model {
+	if m.focusFeed {
+		m.feedOff = max(m.feedOff+delta, 0)
+	} else {
+		m.mainOff = max(m.mainOff+delta, 0)
+	}
+	return m
+}
+
+// wheel scrolls the box under the mouse pointer.
+func (m Model) wheel(v tea.MouseMsg) Model {
+	if v.Action != tea.MouseActionPress {
+		return m
+	}
+	var step int
+	//nolint:exhaustive // only the wheel buttons scroll; the rest are ignored
+	switch v.Button {
+	case tea.MouseButtonWheelUp:
+		step = wheelStep
+	case tea.MouseButtonWheelDown:
+		step = -wheelStep
+	default:
+		return m
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	prev := m.focusFeed
+	m.focusFeed = frame.Feed.W > 0 && v.X >= frame.Feed.X
+	m = m.scroll(step)
+	m.focusFeed = prev
+	return m
 }
 
 // key handles one keypress: the feed toggle, prompt editing, and submit.
@@ -70,6 +119,22 @@ func (m Model) key(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyCtrlF:
 		m.feedOpen = !m.feedOpen
+	case tea.KeyTab:
+		m.focusFeed = !m.focusFeed
+	case tea.KeyUp:
+		return m.scroll(1), nil
+	case tea.KeyDown:
+		return m.scroll(-1), nil
+	case tea.KeyPgUp:
+		return m.scroll(m.pageRows()), nil
+	case tea.KeyPgDown:
+		return m.scroll(-m.pageRows()), nil
+	case tea.KeyEnd:
+		if m.focusFeed {
+			m.feedOff = 0
+		} else {
+			m.mainOff = 0
+		}
 	case tea.KeyBackspace:
 		if n := len(m.input); n > 0 {
 			m.input = m.input[:n-1]
@@ -104,16 +169,17 @@ func (m Model) appendOutput(text string) Model {
 // Prompt is the text the user has typed so far.
 func (m Model) Prompt() string { return string(m.input) }
 
-// mainText is the last rows of output that fit the main pane.
-func (m Model) mainText(rows int) string {
-	if rows < 1 || len(m.main) == 0 {
+// window returns height rows of lines ending offset rows above the newest, so
+// offset 0 is the tail. An offset past the top clamps to the top.
+func window(lines []string, height, offset int) string {
+	if height < 1 || len(lines) == 0 {
 		return ""
 	}
-	start := len(m.main) - rows
-	if start < 0 {
-		start = 0
+	if top := len(lines) - height; offset > top {
+		offset = max(top, 0)
 	}
-	return strings.Join(m.main[start:], "\n")
+	end := len(lines) - max(offset, 0)
+	return strings.Join(lines[max(end-height, 0):end], "\n")
 }
 
 // FeedOpen reports whether the feed is shown.
@@ -126,10 +192,10 @@ func (m Model) View() string {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	mainText := m.mainText(frame.Main.H - feedBorder)
+	mainText := window(m.main, frame.Main.H-feedBorder, m.mainOff)
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
-		feedText = m.Feed.Render(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder)
+		feedText = m.Feed.RenderWindow(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder, m.feedOff)
 	}
 	return layout.Render(frame, mainText, feedText, m.Status, "> "+m.Prompt())
 }

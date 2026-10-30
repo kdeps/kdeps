@@ -43,7 +43,7 @@ func (r *REPL) runFullScreen() error {
 			program.Quit()
 		}
 	}
-	program = tea.NewProgram(m, tea.WithAltScreen(), tea.WithOutput(origOut))
+	program = tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithOutput(origOut))
 
 	done := make(chan struct{})
 	go func() {

@@ -1,6 +1,7 @@
 package screen
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -100,4 +101,60 @@ func TestStatusText_ReplacesTheStatusBox(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, StatusTextMsg{Text: "[turn 9k]"})
 	assert.Contains(t, m.View(), "[turn 9k]")
+}
+
+func manyLines(n int) string {
+	lines := make([]string, n)
+	for i := range lines {
+		lines[i] = "row " + strconv.Itoa(i)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestScroll_UpShowsOlderRowsAndEndReturnsToTheNewest(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	assert.Contains(t, m.View(), "row 99", "the tail is shown first")
+	assert.NotContains(t, m.View(), "row 50")
+
+	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyPgUp})
+	assert.Contains(t, m.View(), "row 75", "a page up scrolls back into history")
+	assert.NotContains(t, m.View(), "row 99")
+
+	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyEnd})
+	assert.Contains(t, m.View(), "row 99", "End returns to the newest rows")
+}
+
+func TestScroll_ClampsAtTheTop(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(5)})
+	for range 50 {
+		m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyUp})
+	}
+	assert.Contains(t, m.View(), "row 0", "scrolling past the top shows the first rows")
+}
+
+func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
+	var f feed.Feed
+	for i := range 100 {
+		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	m := resized(t, New(&f))
+	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyPgUp})
+	assert.NotContains(t, m.View(), "step 99", "the feed scrolled, not the main pane")
+}
+
+func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
+	var f feed.Feed
+	for i := range 100 {
+		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	m := resized(t, New(&f))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+
+	feedX := m.width - m.width/3 + 2
+	m, _ = typed(t, m, tea.MouseMsg{X: feedX, Y: 3, Action: tea.MouseActionPress, Button: tea.MouseButtonWheelUp})
+	assert.NotContains(t, m.View(), "step 99", "the wheel over the feed scrolls the feed")
+	assert.Contains(t, m.View(), "row 99", "the main pane did not move")
 }

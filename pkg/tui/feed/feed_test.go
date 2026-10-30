@@ -39,3 +39,14 @@ func TestRender_EmptyFeedAndZeroSize(t *testing.T) {
 	f.Add(Entry{Kind: KindAction, Title: "x"})
 	assert.Equal(t, "", f.Render(0, 10))
 }
+
+func TestRenderWindow_ScrollsBackAndClamps(t *testing.T) {
+	var f Feed
+	for _, name := range []string{"a", "b", "c", "d"} {
+		f.Add(Entry{Kind: KindResource, Title: name})
+	}
+	assert.Equal(t, "[resource] c\n[resource] d", f.RenderWindow(40, 2, 0))
+	assert.Equal(t, "[resource] a\n[resource] b", f.RenderWindow(40, 2, 2))
+	assert.Equal(t, "[resource] a\n[resource] b", f.RenderWindow(40, 2, 99), "offset past the top clamps")
+	assert.Equal(t, 4, f.Lines(40))
+}
