@@ -1595,6 +1595,9 @@ func historyPath() string {
 
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
+	if tuiEnabled() {
+		defer startTUIStatus(os.Stdout)()
+	}
 	defer r.loopCancel()
 	defer r.writeSessionNoteOnExit()
 	defer r.autoSaveOnExit()

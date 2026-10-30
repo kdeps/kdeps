@@ -425,6 +425,10 @@ func drawLiveStatusLocked(w io.Writer, trailer string) {
 		glyph = trailer
 	}
 	top, bottom := fittedStatus(width, glyph)
+	if setTUIStatus(top, bottom, glyph) {
+		// The status window owns the rows now.
+		return
+	}
 	if !statusIsTTY(w) {
 		writeStatusLog(w, top, bottom)
 		return
@@ -521,6 +525,9 @@ func eraseLiveStatus(w io.Writer) {
 }
 
 func eraseLiveStatusLocked(w io.Writer) {
+	if tuiRunning() {
+		return
+	}
 	if liveStatus.rows == 0 {
 		return
 	}
