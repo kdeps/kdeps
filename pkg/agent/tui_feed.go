@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 
+	parser "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 )
 
@@ -27,8 +28,17 @@ var tuiFeedSink struct {
 // setTUIFeed points the tool results at f. A nil feed turns feeding off.
 func setTUIFeed(f *feed.Feed) {
 	tuiFeedSink.Lock()
-	defer tuiFeedSink.Unlock()
 	tuiFeedSink.f = f
+	tuiFeedSink.Unlock()
+	if f != nil {
+		drainPendingResources(f)
+	}
+}
+
+// InstallResourceFeed makes every loaded resource file show in the feed. Called
+// once at process start, like InstallStagePermission.
+func InstallResourceFeed() {
+	parser.SetResourceLoaded(feedResourceLoaded)
 }
 
 // feedToolResult adds one tool call to the feed: a file edit as a diff, any

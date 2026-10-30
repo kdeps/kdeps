@@ -72,6 +72,7 @@ var runEmbeddedPackageFunc = cmd.RunEmbeddedPackage
 
 func main() {
 	agent.InstallStagePermission()
+	agent.InstallResourceFeed()
 	if exitCode, handled := tryRunEmbeddedPackageHook(); handled {
 		if exitCode != 0 {
 			osExitMain(exitCode)
