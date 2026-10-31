@@ -2,6 +2,7 @@ package agent
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,5 +28,27 @@ func TestDrawLiveStatus_IdleSendsTheCountersToTheScreen(t *testing.T) {
 	drawLiveStatus(io.Discard, "")
 	if assert.Len(t, got, 1, "the counters show before any turn runs") {
 		assert.Contains(t, got[0], "session")
+	}
+}
+
+func TestDrawLiveStatus_LeadsWithTheModel(t *testing.T) {
+	resetLiveStatus(t)
+	var got []string
+	setScreenStatusSink(func(text string) { got = append(got, text) })
+	t.Cleanup(func() {
+		setScreenStatusSink(nil)
+		setScreenModel("")
+	})
+
+	setScreenModel("llama-3.2-1b")
+	drawLiveStatus(io.Discard, "")
+	if assert.Len(t, got, 1) {
+		assert.True(t, strings.HasPrefix(got[0], "llama-3.2-1b  "), "the model leads the status: %q", got[0])
+	}
+
+	setScreenModel("")
+	drawLiveStatus(io.Discard, "")
+	if assert.Len(t, got, 2) {
+		assert.False(t, strings.Contains(got[1], "llama-3.2-1b"), "a cleared model leaves no label")
 	}
 }
