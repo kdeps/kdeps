@@ -25,6 +25,9 @@ const maxMainLines = 2000
 // feedBorder is the rows the boxes' rounded borders take on each axis.
 const feedBorder = 2
 
+// headerRule is the diagonal rule drawn between the product name and the title.
+const headerRule = "╱╱╱"
+
 // layoutBottomRows is the height of the status and prompt boxes together.
 const layoutBottomRows = 6
 
@@ -59,12 +62,14 @@ type Model struct {
 	feedOff       int  // rows scrolled up from the newest feed row
 	focusFeed     bool // arrow keys scroll the feed instead of the main pane
 	Status        string
-	input         []rune
-	cursor        int      // rune index of the prompt cursor
-	history       []string // submitted lines, oldest first
-	histAt        int      // history position while recalling; len(history) when not recalling
-	histDraft     string   // unsent prompt text kept while recalling
-	Feed          *feed.Feed
+	// Title is shown in the header row, after the product name (for example the folder).
+	Title     string
+	input     []rune
+	cursor    int      // rune index of the prompt cursor
+	history   []string // submitted lines, oldest first
+	histAt    int      // history position while recalling; len(history) when not recalling
+	histDraft string   // unsent prompt text kept while recalling
+	Feed      *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
 	OnSubmit func(line string)
 	// Complete lists the slash commands that start with a prefix. Tab completes
@@ -287,7 +292,7 @@ func (m Model) renderFrame() string {
 		// The empty prompt shows a hint, not text: draw it dimmed.
 		prompt = "> " + lipgloss.NewStyle().Faint(true).Render(m.promptText())
 	}
-	return layout.Render(frame, mainText, feedText, m.Status, prompt)
+	return layout.Render(frame, m.headerText(), mainText, feedText, m.Status, prompt)
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
@@ -301,4 +306,12 @@ func wrapRows(lines []string, width int) []string {
 		rows = append(rows, strings.Split(ansi.Hardwrap(line, width, true), "\n")...)
 	}
 	return rows
+}
+
+// headerText is the header row: the product name, a dim diagonal rule, and the title.
+func (m Model) headerText() string {
+	name := lipgloss.NewStyle().Bold(true).Render("kdeps")
+	rule := lipgloss.NewStyle().Faint(true).Render(headerRule)
+	title := lipgloss.NewStyle().Faint(true).Render(m.Title)
+	return " " + name + " " + rule + " " + title
 }
