@@ -1,6 +1,7 @@
 package screen
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -96,4 +97,17 @@ func TestPrompt_UpAndDownStillScrollTheMain(t *testing.T) {
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
 	m, _ = typed(t, m, keyPress(tea.KeyUp))
 	assert.Equal(t, 1, m.mainOff, "up scrolls the main pane, not the prompt history")
+}
+
+func TestPrompt_PasteInsertsOneLine(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, tea.PasteMsg{Content: "x\ny\r\nz"})
+	assert.Equal(t, "abx y z", m.Prompt(), "a paste keeps its text on one line and does not submit")
+}
+
+func TestMain_LongLineWrapsAndTheTailShows(t *testing.T) {
+	m := newPromptScreen(t)
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}) // feed closed: the main pane is full width
+	m, _ = typed(t, m, OutputMsg{Text: strings.Repeat("a", 150) + "END"})
+	assert.Contains(t, m.render(), "END", "the wrapped tail of a long line is on screen")
 }

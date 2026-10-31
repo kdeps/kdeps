@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -187,4 +188,18 @@ func TestFrameCache_OverlayIsNeverCached(t *testing.T) {
 	assert.Contains(t, m.render(), "ONE")
 	m = m.WithOverlay(fakeOverlay{text: "TWO"}, nil)
 	assert.Contains(t, m.render(), "TWO", "a new overlay is drawn, not the cached frame")
+}
+
+// TestFrame_FillsTheTerminalExactly checks the drawn frame is the terminal's
+// size at a few sizes: one row per terminal row, each row as wide as the terminal.
+func TestFrame_FillsTheTerminalExactly(t *testing.T) {
+	for _, size := range [][2]int{{80, 24}, {120, 40}, {40, 12}} {
+		m := New(&feed.Feed{})
+		m, _ = typed(t, m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		lines := strings.Split(m.render(), "\n")
+		assert.Len(t, lines, size[1], "rows at %dx%d", size[0], size[1])
+		for i, line := range lines {
+			assert.Equal(t, size[0], ansi.StringWidth(line), "row %d at %dx%d", i, size[0], size[1])
+		}
+	}
 }
