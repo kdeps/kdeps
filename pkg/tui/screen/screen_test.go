@@ -204,6 +204,14 @@ func TestFrame_FillsTheTerminalExactly(t *testing.T) {
 	}
 }
 
+// TestSidebar_HasAnActivityTitle checks the side panel opens with its title.
+func TestSidebar_HasAnActivityTitle(t *testing.T) {
+	var f feed.Feed
+	f.Add(feed.Entry{Kind: feed.KindResource, Title: "fetch.yaml"})
+	m := resized(t, New(&f))
+	assert.Contains(t, ansi.Strip(m.render()), "│ activity", "the side panel opens with its title")
+}
+
 // TestHeader_ShowsTheProductAndTheTitle checks the header row names the product
 // and carries the title, with nothing else in it.
 func TestHeader_ShowsTheProductAndTheTitle(t *testing.T) {
