@@ -45,7 +45,10 @@ type Model struct {
 	histDraft     string   // unsent prompt text kept while recalling
 	Feed          *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
-	OnSubmit    func(line string)
+	OnSubmit func(line string)
+	// Complete lists the slash commands that start with a prefix. Tab completes
+	// a slash command when the prompt starts with "/". Nil disables completion.
+	Complete    func(prefix string) []string
 	overlay     Overlay
 	overlayDone func(Overlay) tea.Cmd
 }
