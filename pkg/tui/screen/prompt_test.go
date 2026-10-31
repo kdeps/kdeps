@@ -183,11 +183,11 @@ func TestMain_LongLineWrapsAndTheTailShows(t *testing.T) {
 
 func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
 	m := newPromptScreen(t)
-	assert.Contains(t, m.render(), "/ for commands", "an empty prompt says what to type")
+	assert.Contains(t, m.render(), "? help", "the status row names the key help")
 	assert.Equal(t, "", m.Prompt(), "the hint is not part of the text")
 
 	m = typeText(t, m, "h")
-	assert.NotContains(t, m.render(), "/ for commands", "typing replaces the hint")
+	assert.Contains(t, m.render(), "> h|", "typing puts the text in the prompt")
 	assert.Contains(t, m.render(), "> h|")
 }
 
