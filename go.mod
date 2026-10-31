@@ -30,7 +30,7 @@ require (
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/minio/selfupdate v0.6.0
 	github.com/moby/moby/api v1.56.1
-	github.com/moby/moby/client v0.6.1
+	github.com/moby/moby/client v0.6.2
 	github.com/muesli/termenv v0.16.0
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/nikolalohinski/gonja/v2 v2.9.1
@@ -120,7 +120,7 @@ require (
 	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.2 // indirect
 	github.com/docker/docker v28.5.2+incompatible // indirect
-	github.com/docker/go-connections v0.8.1 // indirect
+	github.com/docker/go-connections v0.8.2 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
