@@ -163,7 +163,7 @@ require (
 	github.com/slack-go/slack v0.30.1 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/fileflow v0.1.0 // indirect
+	github.com/spf13/fileflow v0.2.0 // indirect
 	github.com/spf13/pathologize v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
