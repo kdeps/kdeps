@@ -96,6 +96,9 @@ type Config struct {
 	// ResumeSessionID is the store id ResumeSession was loaded from, so
 	// continuing the conversation updates that row instead of forking a new one.
 	ResumeSessionID string
+	// OfferSessionPicker opens the resume picker over the full-screen view at
+	// startup, instead of before it, when this folder has saved sessions.
+	OfferSessionPicker bool
 	// CompactTokenBudget is the approximate number of recent tokens to retain
 	// when compacting with CompactWithLLM. 0 uses the default (20000).
 	CompactTokenBudget int

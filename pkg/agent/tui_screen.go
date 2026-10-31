@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
@@ -35,6 +36,15 @@ func (r *REPL) runFullScreen() error {
 	var program *tea.Program
 	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
 	defer setScreenStatusSink(nil)
+	closed := make(chan struct{})
+	setScreenOverlaySink(func(msg screen.OpenOverlayMsg) { program.Send(msg) }, closed)
+	defer func() {
+		close(closed)
+		setScreenOverlaySink(nil, nil)
+	}()
+	if r.loop.config.OfferSessionPicker {
+		m = r.withSessionPicker(m)
+	}
 	m.OnSubmit = func(line string) {
 		if procErr := r.processInput(line); procErr != nil {
 			program.Send(screen.OutputMsg{Text: "error: " + procErr.Error()})
@@ -62,6 +72,86 @@ func (r *REPL) runFullScreen() error {
 		return nil
 	}
 	return runErr
+}
+
+// screenOverlay opens overlays in the running full-screen view. closed is
+// closed when the view ends, so a caller waiting on an overlay stops waiting.
+//
+//nolint:gochecknoglobals // one full-screen view per process
+var screenOverlay struct {
+	sync.Mutex
+	send   func(msg screen.OpenOverlayMsg)
+	closed chan struct{}
+}
+
+// setScreenOverlaySink sets (or with nil clears) how overlays reach the view.
+func setScreenOverlaySink(send func(msg screen.OpenOverlayMsg), closed chan struct{}) {
+	screenOverlay.Lock()
+	defer screenOverlay.Unlock()
+	screenOverlay.send = send
+	screenOverlay.closed = closed
+}
+
+// FullScreenEnabled reports whether the full-screen view is on (KDEPS_TUI=1).
+func FullScreenEnabled() bool { return tuiEnabled() }
+
+// RunInScreen opens o over the full-screen view and blocks until the user
+// closes it. It returns the finished overlay, or false when no full-screen view
+// is running. Call it from the REPL's command goroutine, never from Update.
+func RunInScreen(o screen.Overlay) (screen.Overlay, bool) {
+	screenOverlay.Lock()
+	send, closed := screenOverlay.send, screenOverlay.closed
+	screenOverlay.Unlock()
+	if send == nil {
+		return nil, false
+	}
+	finished := make(chan screen.Overlay, 1)
+	send(screen.OpenOverlayMsg{Overlay: o, Done: func(f screen.Overlay) tea.Cmd {
+		finished <- f
+		return nil
+	}})
+	select {
+	case f := <-finished:
+		return f, true
+	case <-closed:
+		return nil, false
+	}
+}
+
+// withSessionPicker opens the resume picker over the main pane when this
+// folder has saved sessions.
+func (r *REPL) withSessionPicker(m screen.Model) screen.Model {
+	store := r.loop.Store()
+	if store == nil {
+		return m
+	}
+	items := sessionPickerItems(store)
+	if items == nil {
+		return m
+	}
+	picker := tui.NewPickerOverlay("Resume a session in this folder?", items, sessionPickerOnDelete(store))
+	return m.WithOverlay(picker, r.resumeChosenSession(store))
+}
+
+// resumeChosenSession loads the session the user picked. Starting fresh and
+// cancelling load nothing; a load error is printed to the main pane.
+func (r *REPL) resumeChosenSession(store *SessionStore) func(screen.Overlay) tea.Cmd {
+	return func(o screen.Overlay) tea.Cmd {
+		picker, ok := o.(tui.PickerOverlay)
+		if !ok {
+			return nil
+		}
+		id, chosen := picker.Result()
+		if !chosen || id == newSessionSentinel {
+			return nil
+		}
+		return func() tea.Msg {
+			if err := r.loadSession(store, id); err != nil {
+				return screen.OutputMsg{Text: "error: " + err.Error()}
+			}
+			return nil
+		}
+	}
 }
 
 // screenStatusSink receives the status text while the full-screen view runs.

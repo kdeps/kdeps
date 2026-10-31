@@ -1,7 +1,7 @@
 package screen
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Overlay is a view that takes the keys and the main area until it is done,
@@ -14,10 +14,16 @@ type Overlay interface {
 	Done() bool
 }
 
-// WithOverlay opens o over the main pane. When o reports Done, the screen
-// closes it and calls done with the finished overlay, so the caller can read
-// its result.
-func (m Model) WithOverlay(o Overlay, done func(Overlay)) Model {
+// OpenOverlayMsg opens Overlay in the screen. Done runs once when the overlay
+// reports Done, with the finished overlay, and returns a command for any
+// follow-up work so the screen never does IO in Update.
+type OpenOverlayMsg struct {
+	Overlay Overlay
+	Done    func(Overlay) tea.Cmd
+}
+
+// WithOverlay opens o over the main pane. done runs when o reports Done.
+func (m Model) WithOverlay(o Overlay, done func(Overlay) tea.Cmd) Model {
 	m.overlay = o
 	m.overlayDone = done
 	return m
@@ -41,7 +47,7 @@ func (m Model) updateOverlay(msg tea.Msg) (Model, tea.Cmd) {
 	finished, done := m.overlay, m.overlayDone
 	m.overlay, m.overlayDone = nil, nil
 	if done != nil {
-		done(finished)
+		return m, tea.Batch(cmd, done(finished))
 	}
 	return m, cmd
 }

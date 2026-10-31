@@ -43,7 +43,7 @@ type Model struct {
 	// OnSubmit runs one submitted line. It runs off the UI loop.
 	OnSubmit    func(line string)
 	overlay     Overlay
-	overlayDone func(Overlay)
+	overlayDone func(Overlay) tea.Cmd
 }
 
 // New returns a screen with the feed open.
@@ -60,6 +60,9 @@ func (m Model) Init() tea.Cmd { return nil }
 // Update sizes the screen on a resize, toggles the feed on its key, edits the
 // prompt, and appends output to the main pane.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if open, ok := msg.(OpenOverlayMsg); ok {
+		return m.WithOverlay(open.Overlay, open.Done), nil
+	}
 	if m.overlay != nil {
 		// The overlay gets every message, resizes included.
 		if ws, ok := msg.(tea.WindowSizeMsg); ok {
@@ -207,7 +210,7 @@ func (m Model) render() string {
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
 	mainText := window(m.main, frame.Main.H-feedBorder, m.mainOff)
 	if m.overlay != nil {
-		mainText = m.overlay.View()
+		mainText = m.overlay.View().Content
 	}
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {

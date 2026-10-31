@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,17 +21,17 @@ type fakeOverlay struct {
 func (f fakeOverlay) Init() tea.Cmd { return nil }
 
 func (f fakeOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if k, ok := msg.(tea.KeyMsg); ok {
+	if k, ok := msg.(tea.KeyPressMsg); ok {
 		f.last = k.String()
-		if k.Type == tea.KeyEnter {
+		if k.Code == tea.KeyEnter {
 			f.done = true
 		}
 	}
 	return f, nil
 }
 
-func (f fakeOverlay) View() string { return f.text }
-func (f fakeOverlay) Done() bool   { return f.done }
+func (f fakeOverlay) View() tea.View { return tea.NewView(f.text) }
+func (f fakeOverlay) Done() bool     { return f.done }
 
 func TestOverlay_TakesTheKeysAndTheMainArea(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
@@ -39,22 +39,22 @@ func TestOverlay_TakesTheKeysAndTheMainArea(t *testing.T) {
 	m = m.WithOverlay(fakeOverlay{text: "PICK ONE"}, nil)
 
 	assert.True(t, m.HasOverlay())
-	assert.Contains(t, m.View(), "PICK ONE", "the overlay is drawn in the main area")
-	assert.NotContains(t, m.View(), "main text")
+	assert.Contains(t, m.render(), "PICK ONE", "the overlay is drawn in the main area")
+	assert.NotContains(t, m.render(), "main text")
 
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'x', Text: "x"})
 	assert.Equal(t, "", m.Prompt(), "keys go to the overlay, not the prompt")
 }
 
 func TestOverlay_DoneClosesItAndHandsBackTheResult(t *testing.T) {
 	var got Overlay
 	m := resized(t, New(&feed.Feed{}))
-	m = m.WithOverlay(fakeOverlay{text: "PICK"}, func(o Overlay) { got = o })
+	m = m.WithOverlay(fakeOverlay{text: "PICK"}, func(o Overlay) tea.Cmd { got = o; return nil })
 
-	m, _ = typed(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.False(t, m.HasOverlay(), "a done overlay closes")
 	require.NotNil(t, got, "the caller gets the finished overlay")
 	assert.True(t, got.Done())
 	assert.Equal(t, "enter", got.(fakeOverlay).last)
-	assert.True(t, strings.Contains(m.View(), "> "), "the prompt is back")
+	assert.True(t, strings.Contains(m.render(), "> "), "the prompt is back")
 }
