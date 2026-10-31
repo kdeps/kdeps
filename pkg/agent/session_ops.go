@@ -314,6 +314,7 @@ func (r *REPL) loadSession(store *SessionStore, id string) error {
 	r.loop.SetSessionID(id) // continue this stored session on exit
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
 		r.loop.config.Model = meta.Model
+		setScreenModel(meta.Model)
 		r.loop.InvalidateSystemPreamble()
 	}
 	if ms := r.loop.MemoryStore(); ms != nil {
