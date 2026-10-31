@@ -39,6 +39,10 @@ type Model struct {
 	focusFeed     bool // arrow keys scroll the feed instead of the main pane
 	Status        string
 	input         []rune
+	cursor        int      // rune index of the prompt cursor
+	history       []string // submitted lines, oldest first
+	histAt        int      // history position while recalling; len(history) when not recalling
+	histDraft     string   // unsent prompt text kept while recalling
 	Feed          *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
 	OnSubmit    func(line string)
@@ -121,6 +125,9 @@ func (m Model) wheel(v tea.MouseWheelMsg) Model {
 
 // key handles one keypress: the feed toggle, prompt editing, and submit.
 func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if next, handled := m.editKey(v.String()); handled {
+		return next, nil
+	}
 	switch v.String() {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -142,13 +149,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.mainOff = 0
 		}
-	case "backspace":
-		if n := len(m.input); n > 0 {
-			m.input = m.input[:n-1]
-		}
 	case "enter":
-		line := strings.TrimSpace(string(m.input))
-		m.input = nil
+		var line string
+		m, line = m.submitPrompt()
 		if line != "" && m.OnSubmit != nil {
 			submit := m.OnSubmit
 			return m, func() tea.Msg {
@@ -158,7 +161,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	default:
 		if v.Text != "" {
-			m.input = append(m.input, []rune(v.Text)...)
+			m = m.insertText(v.Text)
 		}
 	}
 	return m, nil
@@ -216,5 +219,5 @@ func (m Model) render() string {
 	if m.Feed != nil && frame.Feed.W > 0 {
 		feedText = m.Feed.RenderWindow(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder, m.feedOff)
 	}
-	return layout.Render(frame, mainText, feedText, m.Status, "> "+m.Prompt())
+	return layout.Render(frame, mainText, feedText, m.Status, "> "+m.promptText())
 }

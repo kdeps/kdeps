@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "puppeteer": "^25.14.0"
+    "puppeteer": "^25.16.0"
   },
   "scripts": {
     "test:browser": "node tests/e2e/browser/chatgpt-clone.test.js"

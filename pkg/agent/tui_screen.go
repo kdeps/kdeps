@@ -49,6 +49,8 @@ func (r *REPL) runFullScreen() error {
 		if procErr := r.processInput(line); procErr != nil {
 			program.Send(screen.OutputMsg{Text: "error: " + procErr.Error()})
 		}
+		// The status box only refreshes during a turn; show the counters after it too.
+		drawLiveStatus(origOut, "")
 		if r.loopCtx.Err() != nil {
 			program.Quit()
 		}
@@ -64,6 +66,9 @@ func (r *REPL) runFullScreen() error {
 		}
 	}()
 
+	// Show the counters before the first turn. Send blocks until the program
+	// runs, so it goes from a goroutine.
+	go drawLiveStatus(origOut, "")
 	_, runErr := program.Run()
 	// Other goroutines may still hold the write end, so closing ours does not
 	// end the scanner. Restore the streams and close the read end to unblock it.
