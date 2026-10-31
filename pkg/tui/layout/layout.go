@@ -8,6 +8,7 @@ type Rect struct{ X, Y, W, H int }
 
 // Frame is where each box goes for one terminal size.
 type Frame struct {
+	Header Rect // one row above the boxes
 	Main   Rect
 	Feed   Rect // zero when the feed is closed
 	Status Rect
@@ -15,6 +16,7 @@ type Frame struct {
 }
 
 const (
+	headerH   = 1 // the header row above the boxes
 	statusH   = 3 // one line of text inside a bordered box
 	promptH   = 3
 	minFeedW  = 30 // a feed narrower than this is not worth showing
@@ -28,20 +30,21 @@ func Compute(width, height int, feedOpen bool) Frame {
 	if width < 1 {
 		width = 1
 	}
-	if height < statusH+promptH+1 {
-		height = statusH + promptH + 1
+	if height < headerH+statusH+promptH+1 {
+		height = headerH + statusH + promptH + 1
 	}
-	mainH := height - statusH - promptH
+	mainH := height - headerH - statusH - promptH
 	f := Frame{
-		Status: Rect{X: 0, Y: mainH, W: width, H: statusH},
-		Prompt: Rect{X: 0, Y: mainH + statusH, W: width, H: promptH},
+		Header: Rect{X: 0, Y: 0, W: width, H: headerH},
+		Status: Rect{X: 0, Y: headerH + mainH, W: width, H: statusH},
+		Prompt: Rect{X: 0, Y: headerH + mainH + statusH, W: width, H: promptH},
 	}
 	feedW := width / feedShare
 	if feedOpen && feedW >= minFeedW && width-feedW >= minMainW {
-		f.Main = Rect{X: 0, Y: 0, W: width - feedW, H: mainH}
-		f.Feed = Rect{X: width - feedW, Y: 0, W: feedW, H: mainH}
+		f.Main = Rect{X: 0, Y: headerH, W: width - feedW, H: mainH}
+		f.Feed = Rect{X: width - feedW, Y: headerH, W: feedW, H: mainH}
 		return f
 	}
-	f.Main = Rect{X: 0, Y: 0, W: width, H: mainH}
+	f.Main = Rect{X: 0, Y: headerH, W: width, H: mainH}
 	return f
 }

@@ -203,3 +203,12 @@ func TestFrame_FillsTheTerminalExactly(t *testing.T) {
 		}
 	}
 }
+
+// TestHeader_ShowsTheProductAndTheTitle checks the header row names the product
+// and carries the title, with nothing else in it.
+func TestHeader_ShowsTheProductAndTheTitle(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.Title = "myproject"
+	header := ansi.Strip(m.headerText())
+	assert.Equal(t, " kdeps ╱╱╱ myproject", header)
+}
