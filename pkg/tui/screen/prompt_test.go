@@ -99,14 +99,22 @@ func TestPrompt_UpAndDownStillScrollTheMain(t *testing.T) {
 	assert.Equal(t, 1, m.mainOff, "up scrolls the main pane, not the prompt history")
 }
 
-func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
+func TestHelp_QuestionMarkOpensTheKeysAndEscCloses(t *testing.T) {
 	m := newPromptScreen(t)
-	assert.Contains(t, m.render(), "/ for commands", "an empty prompt says what to type")
-	assert.Equal(t, "", m.Prompt(), "the hint is not part of the text")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.True(t, m.HasOverlay(), "? in an empty prompt opens the help")
+	assert.Contains(t, m.render(), "ctrl+f")
 
-	m = typeText(t, m, "h")
-	assert.NotContains(t, m.render(), "/ for commands", "typing replaces the hint")
-	assert.Contains(t, m.render(), "> h|")
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.False(t, m.HasOverlay(), "esc closes the help")
+	assert.Equal(t, "", m.Prompt(), "the ? did not reach the prompt")
+}
+
+func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "why")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.False(t, m.HasOverlay())
+	assert.Equal(t, "why?", m.Prompt())
 }
 
 func TestCtrlC_ClearsThePromptBeforeQuitting(t *testing.T) {
@@ -171,4 +179,14 @@ func TestMain_LongLineWrapsAndTheTailShows(t *testing.T) {
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}) // feed closed: the main pane is full width
 	m, _ = typed(t, m, OutputMsg{Text: strings.Repeat("a", 150) + "END"})
 	assert.Contains(t, m.render(), "END", "the wrapped tail of a long line is on screen")
+}
+
+func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
+	m := newPromptScreen(t)
+	assert.Contains(t, m.render(), "/ for commands", "an empty prompt says what to type")
+	assert.Equal(t, "", m.Prompt(), "the hint is not part of the text")
+
+	m = typeText(t, m, "h")
+	assert.NotContains(t, m.render(), "/ for commands", "typing replaces the hint")
+	assert.Contains(t, m.render(), "> h|")
 }
