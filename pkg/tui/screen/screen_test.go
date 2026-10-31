@@ -160,3 +160,31 @@ func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
 	assert.NotContains(t, m.render(), "step 99", "the wheel over the feed scrolls the feed")
 	assert.Contains(t, m.render(), "row 99", "the main pane did not move")
 }
+
+// TestFrameCache_ChangesWhenTheScreenChanges checks a frame is reused only
+// while nothing it is drawn from has changed.
+func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {
+	var f feed.Feed
+	m := resized(t, New(&f))
+	first := m.render()
+	assert.Equal(t, first, m.render(), "an unchanged screen reuses its frame")
+
+	f.Add(feed.Entry{Kind: feed.KindAction, Title: "new step"})
+	assert.Contains(t, m.render(), "new step", "a feed change redraws the frame")
+
+	m, _ = typed(t, m, OutputMsg{Text: "fresh output"})
+	assert.Contains(t, m.render(), "fresh output", "new output redraws the frame")
+
+	m = typeText(t, m, "x")
+	assert.Contains(t, m.render(), "> x|", "a prompt edit redraws the frame")
+}
+
+// TestFrameCache_OverlayIsNeverCached checks an open overlay is drawn fresh
+// every time, since it changes without any cached key moving.
+func TestFrameCache_OverlayIsNeverCached(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m = m.WithOverlay(fakeOverlay{text: "ONE"}, nil)
+	assert.Contains(t, m.render(), "ONE")
+	m = m.WithOverlay(fakeOverlay{text: "TWO"}, nil)
+	assert.Contains(t, m.render(), "TWO", "a new overlay is drawn, not the cached frame")
+}
