@@ -28,12 +28,17 @@ type Entry struct {
 // Feed holds the entries in the order they happened.
 type Feed struct {
 	entries []Entry
+	version int // bumped by every change, so a renderer can cache a frame
 }
 
 // Add appends an entry.
 func (f *Feed) Add(e Entry) {
 	f.entries = append(f.entries, e)
+	f.version++
 }
+
+// Version changes whenever the feed changes.
+func (f *Feed) Version() int { return f.version }
 
 // Len returns the number of entries.
 func (f *Feed) Len() int { return len(f.entries) }
