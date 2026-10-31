@@ -2,10 +2,12 @@ package agent
 
 import (
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
@@ -70,4 +72,39 @@ func TestSetScreenModel_SendsTheNameToTheView(t *testing.T) {
 	setScreenModel("gpt-x")
 	assert.Equal(t, []screen.ModelMsg{{Name: "gpt-x"}}, got)
 	assert.Equal(t, "gpt-x", screenModelLabel())
+}
+
+func TestScreenPillNames_FromEnv(t *testing.T) {
+	t.Setenv("KDEPS_TUI_PILLS", "")
+	assert.Empty(t, screenPillNames(), "an empty setting shows no pills")
+	t.Setenv("KDEPS_TUI_PILLS", "tool, backend,bogus")
+	assert.Equal(t, []string{"backend", "tool"}, screenPillNames(),
+		"listed pills in their fixed order, unknown names ignored")
+	t.Setenv("KDEPS_TUI_PILLS", "")
+	require.NoError(t, os.Unsetenv("KDEPS_TUI_PILLS"))
+	assert.Equal(t, []string{"backend", "session", "tool"}, screenPillNames(), "unset shows all three")
+}
+
+func TestSendScreenPill_OnlyEnabledPillsReachTheView(t *testing.T) {
+	var got []screen.PillMsg
+	screenPillSend.Lock()
+	screenPillSend.send = func(msg screen.PillMsg) { got = append(got, msg) }
+	screenPillSend.enabled = map[string]bool{"backend": true}
+	screenPillSend.Unlock()
+	t.Cleanup(func() {
+		screenPillSend.Lock()
+		screenPillSend.send = nil
+		screenPillSend.enabled = nil
+		screenPillSend.Unlock()
+	})
+
+	sendScreenPill("backend", "openrouter")
+	sendScreenPill("tool", "bash_exec")
+	assert.Equal(t, []screen.PillMsg{{Name: "backend", Value: "openrouter"}}, got)
+}
+
+func TestSessionPillValue_NewThenShortID(t *testing.T) {
+	assert.Equal(t, "new", sessionPillValue(""))
+	assert.Equal(t, "abcdefgh", sessionPillValue("abcdefghijkl"))
+	assert.Equal(t, "abc", sessionPillValue("abc"))
 }

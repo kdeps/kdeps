@@ -2853,6 +2853,7 @@ func stripModelIndicators(name string) string {
 // applyModelSwitch applies a model selection and prints a confirmation.
 // A Ctrl+C during the model download/start reverts to the previous model.
 func (r *REPL) applyModelSwitch(model string) {
+	defer r.syncScreenPills()
 	// A backend-qualified name (e.g. "gguf:qwen3:30b", selected to disambiguate
 	// two registries that both use the same bare alias) carries its backend
 	// explicitly, bypassing the customEndpoints/BackendForModel/modelTypes

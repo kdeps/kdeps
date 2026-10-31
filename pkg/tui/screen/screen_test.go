@@ -238,3 +238,18 @@ func TestHeader_ShowsTheModelChip(t *testing.T) {
 	m, _ = typed(t, m, ModelMsg{Name: "llama-3.2"})
 	assert.Equal(t, " kdeps ╱╱╱  llama-3.2  ╱╱╱ proj", ansi.Strip(m.headerText()))
 }
+
+// TestPills_ShowConfiguredPillsWithValues checks pills show in PillNames order,
+// only once they have a value, and a cleared value hides the pill.
+func TestPills_ShowConfiguredPillsWithValues(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.PillNames = []string{"backend", "session", "tool"}
+	m, _ = typed(t, m, PillMsg{Name: "tool", Value: "bash_exec"})
+	m, _ = typed(t, m, PillMsg{Name: "backend", Value: "openrouter"})
+	text := ansi.Strip(m.pillsText())
+	assert.Contains(t, text, "backend: openrouter")
+	assert.Contains(t, text, "tool: bash_exec")
+	assert.Less(t, strings.Index(text, "backend:"), strings.Index(text, "tool:"), "pills follow PillNames order")
+	m, _ = typed(t, m, PillMsg{Name: "tool", Value: ""})
+	assert.NotContains(t, ansi.Strip(m.pillsText()), "tool:", "a cleared value hides the pill")
+}
