@@ -31,7 +31,26 @@ const layoutBottomRows = 6
 const wheelStep = 3
 
 // Model is the full-screen view.
+// frameCache holds the last drawn frame. The model copies share it, so a
+// frame is reused until the key below changes.
+type frameCache struct {
+	valid bool
+	key   frameKey
+	text  string
+}
+
+// frameKey is everything a frame depends on, except an open overlay (which
+// has no key and is never cached).
+type frameKey struct {
+	width, height, mainOff, feedOff int
+	mainVer, feedVer                int
+	feedOpen, focusFeed             bool
+	status, prompt                  string
+}
+
 type Model struct {
+	cache         *frameCache
+	mainVer       int
 	width, height int
 	feedOpen      bool
 	main          []string
@@ -46,7 +65,10 @@ type Model struct {
 	histDraft     string   // unsent prompt text kept while recalling
 	Feed          *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
-	OnSubmit    func(line string)
+	OnSubmit func(line string)
+	// Complete lists the slash commands that start with a prefix. Tab completes
+	// a slash command when the prompt starts with "/". Nil disables completion.
+	Complete    func(prefix string) []string
 	overlay     Overlay
 	overlayDone func(Overlay) tea.Cmd
 }
@@ -56,7 +78,7 @@ func New(f *feed.Feed) Model {
 	if f == nil {
 		f = &feed.Feed{}
 	}
-	return Model{feedOpen: true, Feed: f}
+	return Model{feedOpen: true, Feed: f, cache: &frameCache{}}
 }
 
 // Init has no startup command.
@@ -176,6 +198,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // appendOutput adds text to the main pane, one row per line.
 func (m Model) appendOutput(text string) Model {
+	m.mainVer++
 	m.main = append(m.main, strings.Split(strings.TrimRight(text, "\n"), "\n")...)
 	if extra := len(m.main) - maxMainLines; extra > 0 {
 		m.main = m.main[extra:]
@@ -214,6 +237,33 @@ func (m Model) View() tea.View {
 // render draws the frame at the current terminal size. Before the first resize
 // it draws nothing.
 func (m Model) render() string {
+	if m.overlay != nil || m.cache == nil {
+		return m.renderFrame()
+	}
+	key := m.frameKey()
+	if m.cache.valid && m.cache.key == key {
+		return m.cache.text
+	}
+	text := m.renderFrame()
+	m.cache.valid, m.cache.key, m.cache.text = true, key, text
+	return text
+}
+
+// frameKey is the state a frame is drawn from.
+func (m Model) frameKey() frameKey {
+	feedVer := -1
+	if m.Feed != nil {
+		feedVer = m.Feed.Version()
+	}
+	return frameKey{
+		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
+		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
+		status: m.Status, prompt: m.promptText(),
+	}
+}
+
+// renderFrame draws the frame at the current terminal size.
+func (m Model) renderFrame() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}

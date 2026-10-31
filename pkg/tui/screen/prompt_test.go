@@ -117,6 +117,47 @@ func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
 	assert.Equal(t, "why?", m.Prompt())
 }
 
+func completeFrom(items ...string) func(string) []string {
+	return func(string) []string { return items }
+}
+
+func TestComplete_UniqueMatchFillsTheCommand(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/help")
+	m = typeText(t, m, "/mo")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "/model ", m.Prompt())
+}
+
+func TestComplete_SharedPrefixExtendsThePrompt(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/session", "/settings")
+	m = typeText(t, m, "/s")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "/se", m.Prompt(), "both commands start with /se")
+	m = typeText(t, m, "s")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "/session ", m.Prompt(), "one match left fills the command")
+}
+
+func TestComplete_AmbiguousListsTheMatches(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/mesh")
+	m = typeText(t, m, "/m")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "/m", m.Prompt(), "the shared prefix is the prompt already: the prompt stays")
+	assert.Contains(t, strings.Join(m.main, "\n"), "/model  /mesh")
+}
+
+func TestComplete_NotASlashPromptKeepsTabForFocus(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model")
+	m = typeText(t, m, "mo")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.True(t, m.focusFeed, "tab toggles focus when the prompt is not a command")
+	assert.Equal(t, "mo", m.Prompt())
+}
+
 func TestPrompt_PasteInsertsOneLine(t *testing.T) {
 	m := typeText(t, newPromptScreen(t), "ab")
 	m, _ = typed(t, m, tea.PasteMsg{Content: "x\ny\r\nz"})
