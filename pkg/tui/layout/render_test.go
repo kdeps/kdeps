@@ -32,3 +32,12 @@ func TestRender_BottomBoxesKeepTheirHeight(t *testing.T) {
 	assert.Equal(t, strings.Count(short, "\n"), strings.Count(long, "\n"),
 		"a long main pane does not push the status or prompt down")
 }
+
+// TestRender_TextIsPaddedInsideTheBorder checks each box keeps one blank column
+// between its border and its text, so text never touches a border.
+func TestRender_TextIsPaddedInsideTheBorder(t *testing.T) {
+	frame := Compute(60, 10, true)
+	out := Render(frame, "hi", "", "", "")
+	first := strings.Split(out, "\n")[1]
+	assert.True(t, strings.HasPrefix(first, "│ hi"), "text starts one column inside the border: %q", first)
+}

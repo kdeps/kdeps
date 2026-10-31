@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
@@ -21,7 +22,7 @@ type StatusTextMsg struct{ Text string }
 // maxMainLines bounds the main pane's history.
 const maxMainLines = 2000
 
-// feedBorder is the cells the feed's rounded border takes on each axis.
+// feedBorder is the rows the boxes' rounded borders take on each axis.
 const feedBorder = 2
 
 // layoutBottomRows is the height of the status and prompt boxes together.
@@ -273,15 +274,20 @@ func (m Model) renderFrame() string {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	mainText := window(wrapRows(m.main, frame.Main.W-feedBorder), frame.Main.H-feedBorder, m.mainOff)
+	mainText := window(wrapRows(m.main, layout.InnerWidth(frame.Main.W)), frame.Main.H-feedBorder, m.mainOff)
 	if m.overlay != nil {
 		mainText = m.overlay.View().Content
 	}
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
-		feedText = m.Feed.RenderWindow(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder, m.feedOff)
+		feedText = m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder, m.feedOff)
 	}
-	return layout.Render(frame, mainText, feedText, m.Status, "> "+m.promptText())
+	prompt := "> " + m.promptText()
+	if len(m.input) == 0 {
+		// The empty prompt shows a hint, not text: draw it dimmed.
+		prompt = "> " + lipgloss.NewStyle().Faint(true).Render(m.promptText())
+	}
+	return layout.Render(frame, mainText, feedText, m.Status, prompt)
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
