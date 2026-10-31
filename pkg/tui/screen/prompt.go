@@ -42,6 +42,14 @@ func (m Model) editKey(name string) (Model, bool) {
 	return m, true
 }
 
+// commandList is every slash command the completion source knows, or nil.
+func (m Model) commandList() []string {
+	if m.Complete == nil {
+		return nil
+	}
+	return m.Complete("/")
+}
+
 // completeCommand completes the slash command before the cursor. A prompt
 // that does not start with "/" is not handled, so tab keeps moving focus.
 func (m Model) completeCommand() (Model, bool) {

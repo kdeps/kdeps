@@ -180,3 +180,10 @@ func TestMain_LongLineWrapsAndTheTailShows(t *testing.T) {
 	m, _ = typed(t, m, OutputMsg{Text: strings.Repeat("a", 150) + "END"})
 	assert.Contains(t, m.render(), "END", "the wrapped tail of a long line is on screen")
 }
+
+func TestHelp_ListsTheSlashCommands(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/session")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.Contains(t, m.render(), "/model  /session", "the help lists the slash commands")
+}
