@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,4 +16,16 @@ func TestScreenStatusSink_OnlyWhileTheScreenRuns(t *testing.T) {
 
 	assert.True(t, sendScreenStatus("[turn 1k]  [session 2k]"))
 	assert.Equal(t, []string{"[turn 1k]  [session 2k]"}, got)
+}
+
+func TestDrawLiveStatus_IdleSendsTheCountersToTheScreen(t *testing.T) {
+	resetLiveStatus(t)
+	var got []string
+	setScreenStatusSink(func(text string) { got = append(got, text) })
+	t.Cleanup(func() { setScreenStatusSink(nil) })
+
+	drawLiveStatus(io.Discard, "")
+	if assert.Len(t, got, 1, "the counters show before any turn runs") {
+		assert.Contains(t, got[0], "session")
+	}
 }
