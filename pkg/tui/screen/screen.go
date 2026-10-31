@@ -19,6 +19,9 @@ type OutputMsg struct{ Text string }
 // StatusTextMsg replaces the text of the status box.
 type StatusTextMsg struct{ Text string }
 
+// ModelMsg sets the model name shown as a chip in the header row.
+type ModelMsg struct{ Name string }
+
 // maxMainLines bounds the main pane's history.
 const maxMainLines = 2000
 
@@ -63,7 +66,9 @@ type Model struct {
 	focusFeed     bool // arrow keys scroll the feed instead of the main pane
 	Status        string
 	// Title is shown in the header row, after the product name (for example the folder).
-	Title     string
+	Title string
+	// Model is the active model name, shown as a chip in the header row.
+	Model     string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
 	history   []string // submitted lines, oldest first
@@ -110,6 +115,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.appendOutput(v.Text)
 	case StatusTextMsg:
 		m.Status = v.Text
+	case ModelMsg:
+		m.Model = v.Name
 	case tea.MouseWheelMsg:
 		return m.wheel(v), nil
 	case tea.KeyPressMsg:
@@ -322,5 +329,9 @@ func (m Model) headerText() string {
 	name := lipgloss.NewStyle().Bold(true).Render("kdeps")
 	rule := lipgloss.NewStyle().Faint(true).Render(headerRule)
 	title := lipgloss.NewStyle().Faint(true).Render(m.Title)
-	return " " + name + " " + rule + " " + title
+	chip := ""
+	if m.Model != "" {
+		chip = lipgloss.NewStyle().Reverse(true).Render(" "+m.Model+" ") + " " + rule + " "
+	}
+	return " " + name + " " + rule + " " + chip + title
 }

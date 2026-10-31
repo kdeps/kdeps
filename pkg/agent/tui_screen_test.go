@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
 
 func TestScreenStatusSink_OnlyWhileTheScreenRuns(t *testing.T) {
@@ -51,4 +53,21 @@ func TestDrawLiveStatus_LeadsWithTheModel(t *testing.T) {
 	if assert.Len(t, got, 2) {
 		assert.False(t, strings.Contains(got[1], "llama-3.2-1b"), "a cleared model leaves no label")
 	}
+}
+
+func TestSetScreenModel_SendsTheNameToTheView(t *testing.T) {
+	var got []screen.ModelMsg
+	screenModelSend.Lock()
+	screenModelSend.send = func(msg screen.ModelMsg) { got = append(got, msg) }
+	screenModelSend.Unlock()
+	t.Cleanup(func() {
+		screenModelSend.Lock()
+		screenModelSend.send = nil
+		screenModelSend.Unlock()
+		setScreenModel("")
+	})
+
+	setScreenModel("gpt-x")
+	assert.Equal(t, []screen.ModelMsg{{Name: "gpt-x"}}, got)
+	assert.Equal(t, "gpt-x", screenModelLabel())
 }
