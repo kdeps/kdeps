@@ -152,7 +152,7 @@ func (m Model) wheel(v tea.MouseWheelMsg) Model {
 // key handles one keypress: the feed toggle, prompt editing, and submit.
 func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
-		return m.WithOverlay(helpOverlay{}, nil), nil
+		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
 	}
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil

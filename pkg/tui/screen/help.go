@@ -1,6 +1,8 @@
 package screen
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -21,8 +23,11 @@ const helpText = `keys
 
 press esc, enter or q to close`
 
-// helpOverlay shows the key list until the user closes it.
-type helpOverlay struct{ done bool }
+// helpOverlay shows the key list and the slash commands until the user closes it.
+type helpOverlay struct {
+	commands []string
+	done     bool
+}
 
 // Init has no startup command.
 func (h helpOverlay) Init() tea.Cmd { return nil }
@@ -38,8 +43,13 @@ func (h helpOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return h, nil
 }
 
-// View draws the key list.
-func (h helpOverlay) View() tea.View { return tea.NewView(helpText) }
+// View draws the key list, then the slash commands.
+func (h helpOverlay) View() tea.View {
+	if len(h.commands) == 0 {
+		return tea.NewView(helpText)
+	}
+	return tea.NewView(helpText + "\n\ncommands\n  " + strings.Join(h.commands, "  "))
+}
 
 // Done reports that the user closed the help.
 func (h helpOverlay) Done() bool { return h.done }

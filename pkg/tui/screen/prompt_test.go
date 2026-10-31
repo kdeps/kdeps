@@ -190,3 +190,10 @@ func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
 	assert.NotContains(t, m.render(), "/ for commands", "typing replaces the hint")
 	assert.Contains(t, m.render(), "> h|")
 }
+
+func TestHelp_ListsTheSlashCommands(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/session")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.Contains(t, m.render(), "/model  /session", "the help lists the slash commands")
+}
