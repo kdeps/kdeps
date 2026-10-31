@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
@@ -17,7 +18,7 @@ func TestFeedToolResult_EditsAreDiffsAndOtherToolsAreActions(t *testing.T) {
 	feedToolResult("edit_file", "edited pkg/x.go")
 	feedToolResult("bash_exec", "ok")
 
-	out := f.Render(80, 10)
+	out := ansi.Strip(f.Render(80, 10))
 	assert.Contains(t, out, "[diff] edit_file")
 	assert.Contains(t, out, "[action] bash_exec")
 }
