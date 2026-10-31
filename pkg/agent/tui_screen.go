@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,11 +35,7 @@ func (r *REPL) runFullScreen() error {
 	os.Stdout, os.Stderr = pw, pw                              //nolint:reassign // the full-screen view owns the output
 	defer func() { os.Stdout, os.Stderr = origOut, origErr }() //nolint:reassign // restores the captured streams
 
-	m := screen.New(f)
-	m.Model = screenModelLabel()
-	if wd, wdErr := os.Getwd(); wdErr == nil {
-		m.Title = filepath.Base(wd)
-	}
+	m := newScreenModel(f)
 	m.Complete = func(string) []string { return commandNames() }
 	var program *tea.Program
 	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
@@ -64,6 +61,7 @@ func (r *REPL) runFullScreen() error {
 	}
 	program = tea.NewProgram(m, tea.WithOutput(origOut))
 	defer attachScreenModel(program)()
+	go r.syncScreenPills()
 
 	done := make(chan struct{})
 	go func() {
@@ -123,6 +121,67 @@ var screenModel struct {
 var screenModelSend struct {
 	sync.Mutex
 	send func(msg screen.ModelMsg)
+}
+
+// screenPillSend delivers pill values to the running full-screen program. Only
+// the pills named in KDEPS_TUI_PILLS are sent.
+//
+//nolint:gochecknoglobals // one full-screen view per process
+var screenPillSend struct {
+	sync.Mutex
+	send    func(msg screen.PillMsg)
+	enabled map[string]bool
+}
+
+// screenPillKinds are the pills the full-screen view can show.
+func screenPillKinds() []string { return []string{"backend", "session", "tool"} }
+
+// sessionPillIDLen is how many characters of a session id the session pill shows.
+const sessionPillIDLen = 8
+
+// newScreenModel is the full-screen view's starting state: the folder as its
+// title, the active model, and the pills to show.
+func newScreenModel(f *feed.Feed) screen.Model {
+	m := screen.New(f)
+	m.Model = screenModelLabel()
+	m.PillNames = screenPillNames()
+	if wd, wdErr := os.Getwd(); wdErr == nil {
+		m.Title = filepath.Base(wd)
+	}
+	return m
+}
+
+// screenPillNames is the pills to show, from KDEPS_TUI_PILLS: a comma-separated
+// list of backend, session and tool, in that order. Unset shows all three; an
+// empty value shows none. Unknown names are ignored.
+func screenPillNames() []string {
+	raw, set := os.LookupEnv("KDEPS_TUI_PILLS")
+	kinds := screenPillKinds()
+	if !set {
+		return kinds
+	}
+	want := map[string]bool{}
+	for _, name := range strings.Split(raw, ",") {
+		want[strings.TrimSpace(name)] = true
+	}
+	var out []string
+	for _, kind := range kinds {
+		if want[kind] {
+			out = append(out, kind)
+		}
+	}
+	return out
+}
+
+// sendScreenPill sets a pill's value in the running view. It does nothing when
+// the view is off or the pill is not enabled.
+func sendScreenPill(name, value string) {
+	screenPillSend.Lock()
+	send, on := screenPillSend.send, screenPillSend.enabled[name]
+	screenPillSend.Unlock()
+	if send != nil && on {
+		send(screen.PillMsg{Name: name, Value: value})
+	}
 }
 
 // setScreenModel records the active model for the full-screen status box and
@@ -241,9 +300,38 @@ func attachScreenModel(program *tea.Program) func() {
 	screenModelSend.Lock()
 	screenModelSend.send = func(msg screen.ModelMsg) { program.Send(msg) }
 	screenModelSend.Unlock()
+	screenPillSend.Lock()
+	screenPillSend.send = func(msg screen.PillMsg) { program.Send(msg) }
+	screenPillSend.enabled = map[string]bool{}
+	for _, name := range screenPillNames() {
+		screenPillSend.enabled[name] = true
+	}
+	screenPillSend.Unlock()
 	return func() {
 		screenModelSend.Lock()
 		screenModelSend.send = nil
 		screenModelSend.Unlock()
+		screenPillSend.Lock()
+		screenPillSend.send = nil
+		screenPillSend.Unlock()
 	}
+}
+
+// sessionPillValue is the session pill: "new" before a session is saved, else
+// the first sessionPillIDLen characters of its id.
+func sessionPillValue(id string) string {
+	if id == "" {
+		return "new"
+	}
+	if len(id) > sessionPillIDLen {
+		return id[:sessionPillIDLen]
+	}
+	return id
+}
+
+// syncScreenPills sends the backend and session pills from the REPL goroutine,
+// which is the one that changes the loop's config.
+func (r *REPL) syncScreenPills() {
+	sendScreenPill("backend", r.loop.config.Backend)
+	sendScreenPill("session", sessionPillValue(r.loop.SessionID()))
 }

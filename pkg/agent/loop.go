@@ -2859,6 +2859,8 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 // dispatchStreamToolCall executes a tool call from the streaming path,
 // recording it in an instrumented session.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
+	sendScreenPill("tool", tc.Name)
+	defer sendScreenPill("tool", "")
 	started := time.Now()
 	called := tc.Name
 	result := l.runStreamToolCall(&tc, w)

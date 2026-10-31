@@ -23,6 +23,9 @@ type StatusTextMsg struct{ Text string }
 // ModelMsg sets the model name shown as a chip in the header row.
 type ModelMsg struct{ Name string }
 
+// PillMsg sets one pill's value. An empty value hides the pill.
+type PillMsg struct{ Name, Value string }
+
 // maxMainLines bounds the main pane's history.
 const maxMainLines = 2000
 
@@ -69,7 +72,10 @@ type Model struct {
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
 	// Model is the active model name, shown as a chip in the header row.
-	Model     string
+	Model string
+	// PillNames are the pills to show, in order; PillMsg sets their values.
+	PillNames []string
+	pills     map[string]string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
 	history   []string // submitted lines, oldest first
@@ -118,6 +124,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Status = v.Text
 	case ModelMsg:
 		m.Model = v.Name
+	case PillMsg:
+		m.pills = withPill(m.pills, v.Name, v.Value)
 	case tea.MouseWheelMsg:
 		return m.wheel(v), nil
 	case tea.KeyPressMsg:
@@ -339,7 +347,31 @@ func (m Model) headerText() string {
 	if m.Model != "" {
 		chip = lipgloss.NewStyle().Reverse(true).Render(" "+m.Model+" ") + " " + rule + " "
 	}
-	return " " + name + " " + rule + " " + chip + title
+	return " " + name + " " + rule + " " + chip + title + m.pillsText()
+}
+
+// withPill returns pills with name set to value, copying the map.
+func withPill(pills map[string]string, name, value string) map[string]string {
+	out := make(map[string]string, len(pills)+1)
+	for k, v := range pills {
+		out[k] = v
+	}
+	out[name] = value
+	return out
+}
+
+// pillsText is the pills with a value, in PillNames order, as reversed chips.
+func (m Model) pillsText() string {
+	var out []string
+	for _, name := range m.PillNames {
+		if v := m.pills[name]; v != "" {
+			out = append(out, lipgloss.NewStyle().Reverse(true).Render(" "+name+": "+v+" "))
+		}
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "   " + strings.Join(out, " ")
 }
 
 // styled is a bold text style in a palette colour.
