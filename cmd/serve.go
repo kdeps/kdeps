@@ -360,8 +360,13 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 
 	resumeID := flags.Resume
 	if resumeID == "" && !flags.NewSession {
-		// No explicit --resume / --new: offer this folder's saved sessions.
-		resumeID = agent.PickStartupSession(store)
+		// No explicit --resume / --new: offer this folder's saved sessions. The
+		// full-screen view offers them as an overlay once it is up.
+		if agent.FullScreenEnabled() {
+			cfg.OfferSessionPicker = true
+		} else {
+			resumeID = agent.PickStartupSession(store)
+		}
 	}
 	if resumeID != "" {
 		saved, loadErr := store.Load(resumeID)
@@ -1014,6 +1019,16 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Score:     repl.LlamaFitScore(name),
 				FitLevel:  repl.LlamaFitFitLevel(name),
 			})
+		}
+		if agent.FullScreenEnabled() && len(entries) > 0 {
+			if done, ok := agent.RunInScreen(tui.NewModelPickerOverlay(entries, repl.CurrentModel(), filter)); ok {
+				picker, _ := done.(tui.ModelPickerOverlay)
+				name, chosen := picker.Result()
+				if !chosen {
+					return "", nil
+				}
+				return name, nil
+			}
 		}
 		return tui.RunModelPicker(entries, repl.CurrentModel(), filter)
 	}

@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // ListItem is a row in a simple single-select list.
@@ -49,6 +49,18 @@ type listPickerModel struct {
 	// deletion is disabled (RunListPicker's default, unchanged behavior).
 	onDelete  func(id string) (bool, error)
 	statusMsg string
+	// embedded is set when the picker runs as an overlay inside another
+	// program. Finishing then must not quit that program.
+	embedded bool
+}
+
+// finish is the command a finished picker returns: quit when standalone,
+// nothing when embedded (the host closes the overlay on Done).
+func (m listPickerModel) finish() tea.Cmd {
+	if m.embedded {
+		return nil
+	}
+	return tea.Quit
 }
 
 func newListPickerModel(title string, items []ListItem, onDelete func(id string) (bool, error)) listPickerModel {
@@ -94,11 +106,11 @@ func (m listPickerModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "esc", "q":
 		m.cancelled = true
 		m.quitted = true
-		return m, tea.Quit
+		return m, m.finish()
 	case "enter":
 		if total > 0 {
 			m.quitted = true
-			return m, tea.Quit
+			return m, m.finish()
 		}
 	case "up", "k":
 		if m.cursor > 0 {
@@ -165,7 +177,7 @@ func removeItemByID(items []ListItem, id string) []ListItem {
 	return out
 }
 
-func (m listPickerModel) View() string {
+func (m listPickerModel) render() string {
 	var b strings.Builder
 	b.WriteString(styleAccent.Render(m.title) + "\n\n")
 	if m.filter != "" {
@@ -243,7 +255,7 @@ func runListPicker(title string, items []ListItem, onDelete func(id string) (boo
 		return "", nil
 	}
 	m := newListPickerModel(title, items, onDelete)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("list picker: %w", err)
@@ -257,4 +269,11 @@ func runListPicker(title string, items []ListItem, onDelete func(id string) (boo
 		return flat[fm.cursor].ID, nil
 	}
 	return "", nil
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m listPickerModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
 }

@@ -6,7 +6,7 @@ package feed
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Kind is what an entry is about.

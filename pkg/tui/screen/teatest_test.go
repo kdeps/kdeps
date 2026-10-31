@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/exp/teatest"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,7 +28,7 @@ func TestTeatest_RunsTheScreenAsAProgram(t *testing.T) {
 		return bytes.Contains(b, []byte("hello from the agent")) && bytes.Contains(b, []byte("> hey"))
 	}, teatest.WithDuration(5*time.Second))
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(5*time.Second))
 
 	final, ok := tm.FinalModel(t).(Model)
@@ -47,8 +47,8 @@ func TestTeatest_FeedToggleChangesTheDrawnFrame(t *testing.T) {
 		return bytes.Contains(b, []byte("fetch.yaml"))
 	}, teatest.WithDuration(5*time.Second))
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlF})
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	tm.Send(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(5*time.Second))
 
 	final, ok := tm.FinalModel(t).(Model)

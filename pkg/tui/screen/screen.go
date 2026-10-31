@@ -5,7 +5,7 @@ package screen
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
@@ -41,7 +41,9 @@ type Model struct {
 	input         []rune
 	Feed          *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
-	OnSubmit func(line string)
+	OnSubmit    func(line string)
+	overlay     Overlay
+	overlayDone func(Overlay) tea.Cmd
 }
 
 // New returns a screen with the feed open.
@@ -58,6 +60,16 @@ func (m Model) Init() tea.Cmd { return nil }
 // Update sizes the screen on a resize, toggles the feed on its key, edits the
 // prompt, and appends output to the main pane.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if open, ok := msg.(OpenOverlayMsg); ok {
+		return m.WithOverlay(open.Overlay, open.Done), nil
+	}
+	if m.overlay != nil {
+		// The overlay gets every message, resizes included.
+		if ws, ok := msg.(tea.WindowSizeMsg); ok {
+			m.width, m.height = ws.Width, ws.Height
+		}
+		return m.updateOverlay(msg)
+	}
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = v.Width, v.Height
@@ -65,9 +77,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.appendOutput(v.Text)
 	case StatusTextMsg:
 		m.Status = v.Text
-	case tea.MouseMsg:
+	case tea.MouseWheelMsg:
 		return m.wheel(v), nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.key(v)
 	}
 	return m, nil
@@ -89,16 +101,12 @@ func (m Model) scroll(delta int) Model {
 }
 
 // wheel scrolls the box under the mouse pointer.
-func (m Model) wheel(v tea.MouseMsg) Model {
-	if v.Action != tea.MouseActionPress {
-		return m
-	}
+func (m Model) wheel(v tea.MouseWheelMsg) Model {
 	var step int
-	//nolint:exhaustive // only the wheel buttons scroll; the rest are ignored
 	switch v.Button {
-	case tea.MouseButtonWheelUp:
+	case tea.MouseWheelUp:
 		step = wheelStep
-	case tea.MouseButtonWheelDown:
+	case tea.MouseWheelDown:
 		step = -wheelStep
 	default:
 		return m
@@ -112,34 +120,33 @@ func (m Model) wheel(v tea.MouseMsg) Model {
 }
 
 // key handles one keypress: the feed toggle, prompt editing, and submit.
-func (m Model) key(v tea.KeyMsg) (tea.Model, tea.Cmd) {
-	//nolint:exhaustive // only these keys have an action; the rest are ignored
-	switch v.Type {
-	case tea.KeyCtrlC:
+func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch v.String() {
+	case "ctrl+c":
 		return m, tea.Quit
-	case tea.KeyCtrlF:
+	case "ctrl+f":
 		m.feedOpen = !m.feedOpen
-	case tea.KeyTab:
+	case "tab":
 		m.focusFeed = !m.focusFeed
-	case tea.KeyUp:
+	case "up":
 		return m.scroll(1), nil
-	case tea.KeyDown:
+	case "down":
 		return m.scroll(-1), nil
-	case tea.KeyPgUp:
+	case "pgup":
 		return m.scroll(m.pageRows()), nil
-	case tea.KeyPgDown:
+	case "pgdown":
 		return m.scroll(-m.pageRows()), nil
-	case tea.KeyEnd:
+	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
 		} else {
 			m.mainOff = 0
 		}
-	case tea.KeyBackspace:
+	case "backspace":
 		if n := len(m.input); n > 0 {
 			m.input = m.input[:n-1]
 		}
-	case tea.KeyEnter:
+	case "enter":
 		line := strings.TrimSpace(string(m.input))
 		m.input = nil
 		if line != "" && m.OnSubmit != nil {
@@ -149,10 +156,10 @@ func (m Model) key(v tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return nil
 			}
 		}
-	case tea.KeySpace:
-		m.input = append(m.input, ' ')
-	case tea.KeyRunes:
-		m.input = append(m.input, v.Runes...)
+	default:
+		if v.Text != "" {
+			m.input = append(m.input, []rune(v.Text)...)
+		}
 	}
 	return m, nil
 }
@@ -185,14 +192,26 @@ func window(lines []string, height, offset int) string {
 // FeedOpen reports whether the feed is shown.
 func (m Model) FeedOpen() bool { return m.feedOpen }
 
-// View draws the frame at the current terminal size. Before the first resize
+// View draws the frame on the alternate screen with mouse cell motion, so the
+// wheel scrolls the boxes and the shell history stays out of sight.
+func (m Model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+// render draws the frame at the current terminal size. Before the first resize
 // it draws nothing.
-func (m Model) View() string {
+func (m Model) render() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
 	mainText := window(m.main, frame.Main.H-feedBorder, m.mainOff)
+	if m.overlay != nil {
+		mainText = m.overlay.View().Content
+	}
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
 		feedText = m.Feed.RenderWindow(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder, m.feedOff)

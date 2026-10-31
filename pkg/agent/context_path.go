@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
+	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -475,9 +476,9 @@ func writeStatusLog(w io.Writer, top, bottom string) {
 	liveStatus.rows = 0
 	liveStatus.w = w
 	if top != "" {
-		fmt.Fprintln(w, top)
+		_, _ = lipgloss.Fprintln(w, top)
 	}
-	fmt.Fprintln(w, bottom)
+	_, _ = lipgloss.Fprintln(w, bottom)
 }
 
 // unwrapStatusWriter draws on the raw terminal. crlfWriter turns a bare

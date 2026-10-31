@@ -6,7 +6,7 @@ package statuswindow
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // LogMsg prints one line above the status rows.
@@ -45,10 +45,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View draws the two status rows, the second with the spinner.
-func (m Model) View() string {
+func (m Model) render() string {
 	second := m.session
 	if m.spinner != "" {
 		second += "  " + m.spinner
 	}
 	return strings.Join([]string{m.turn, second}, "\n")
+}
+
+// View draws the picker. It is a full-screen view on the alternate screen.
+func (m Model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = false
+	return v
 }
