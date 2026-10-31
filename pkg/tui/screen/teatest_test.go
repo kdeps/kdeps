@@ -24,8 +24,11 @@ func TestTeatest_RunsTheScreenAsAProgram(t *testing.T) {
 	tm.Send(OutputMsg{Text: "hello from the agent"})
 	tm.Type("hey")
 
+	// The renderer writes only the cells that changed, so "> hey" can arrive
+	// split across writes. Wait for the output, then check the prompt on the
+	// final model.
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return bytes.Contains(b, []byte("hello from the agent")) && bytes.Contains(b, []byte("> hey"))
+		return bytes.Contains(b, []byte("hello from the agent"))
 	}, teatest.WithDuration(5*time.Second))
 
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
