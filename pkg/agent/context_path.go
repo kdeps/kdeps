@@ -426,6 +426,10 @@ func drawLiveStatusLocked(w io.Writer, trailer string) {
 		glyph = trailer
 	}
 	top, bottom := fittedStatus(width, glyph)
+	if label := screenModelLabel(); label != "" {
+		// The full-screen status box leads with the model it is using.
+		top = label + "  " + top
+	}
 	if sendScreenStatus(strings.TrimSpace(top + "  " + bottom)) {
 		// The full-screen status box shows the rows now.
 		return
