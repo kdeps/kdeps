@@ -282,12 +282,7 @@ func (m Model) renderFrame() string {
 	if m.Feed != nil && frame.Feed.W > 0 {
 		feedText = m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder, m.feedOff)
 	}
-	prompt := "> " + m.promptText()
-	if len(m.input) == 0 {
-		// The empty prompt shows a hint, not text: draw it dimmed.
-		prompt = "> " + lipgloss.NewStyle().Faint(true).Render(m.promptText())
-	}
-	return layout.Render(frame, mainText, feedText, m.Status, prompt)
+	return layout.Render(frame, mainText, feedText, m.statusText(), "> "+m.promptText())
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
@@ -301,4 +296,15 @@ func wrapRows(lines []string, width int) []string {
 		rows = append(rows, strings.Split(ansi.Hardwrap(line, width, true), "\n")...)
 	}
 	return rows
+}
+
+// statusKeys is the key help shown after the counters in the status row.
+const statusKeys = "? help   tab complete   ctrl+f feed   ctrl+c quit"
+
+// statusText is the status row: the counters, then the key help, dimmed.
+func (m Model) statusText() string {
+	if m.Status == "" {
+		return lipgloss.NewStyle().Faint(true).Render(statusKeys)
+	}
+	return m.Status + "   " + lipgloss.NewStyle().Faint(true).Render(statusKeys)
 }

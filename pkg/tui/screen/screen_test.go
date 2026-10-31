@@ -203,3 +203,12 @@ func TestFrame_FillsTheTerminalExactly(t *testing.T) {
 		}
 	}
 }
+
+// TestStatusRow_CountersThenKeyHelp checks the status row shows the counters
+// first, then the key help.
+func TestStatusRow_CountersThenKeyHelp(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.Status = "[turn 5.6k]"
+	row := ansi.Strip(m.statusText())
+	assert.True(t, strings.HasPrefix(row, "[turn 5.6k]   ? help"), "counters first: %q", row)
+}
