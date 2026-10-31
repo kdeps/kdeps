@@ -212,3 +212,12 @@ func TestHeader_ShowsTheProductAndTheTitle(t *testing.T) {
 	header := ansi.Strip(m.headerText())
 	assert.Equal(t, " kdeps ╱╱╱ myproject", header)
 }
+
+// TestHeader_ShowsTheModelChip checks the header carries the model name as a
+// chip, between the rule and the title.
+func TestHeader_ShowsTheModelChip(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.Title = "proj"
+	m, _ = typed(t, m, ModelMsg{Name: "llama-3.2"})
+	assert.Equal(t, " kdeps ╱╱╱  llama-3.2  ╱╱╱ proj", ansi.Strip(m.headerText()))
+}

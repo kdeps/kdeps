@@ -35,6 +35,7 @@ func (r *REPL) runFullScreen() error {
 	defer func() { os.Stdout, os.Stderr = origOut, origErr }() //nolint:reassign // restores the captured streams
 
 	m := screen.New(f)
+	m.Model = screenModelLabel()
 	if wd, wdErr := os.Getwd(); wdErr == nil {
 		m.Title = filepath.Base(wd)
 	}
@@ -62,6 +63,7 @@ func (r *REPL) runFullScreen() error {
 		}
 	}
 	program = tea.NewProgram(m, tea.WithOutput(origOut))
+	defer attachScreenModel(program)()
 
 	done := make(chan struct{})
 	go func() {
@@ -115,11 +117,26 @@ var screenModel struct {
 	name string
 }
 
-// setScreenModel records the active model for the full-screen status box.
+// screenModelSend delivers model names to the running full-screen program.
+//
+//nolint:gochecknoglobals // one full-screen view per process
+var screenModelSend struct {
+	sync.Mutex
+	send func(msg screen.ModelMsg)
+}
+
+// setScreenModel records the active model for the full-screen status box and
+// sends it to the running view, when there is one.
 func setScreenModel(name string) {
 	screenModel.Lock()
-	defer screenModel.Unlock()
 	screenModel.name = name
+	screenModel.Unlock()
+	screenModelSend.Lock()
+	send := screenModelSend.send
+	screenModelSend.Unlock()
+	if send != nil {
+		send(screen.ModelMsg{Name: name})
+	}
 }
 
 // screenModelLabel is the active model's name, or "" before one is set.
@@ -216,4 +233,17 @@ func sendScreenStatus(text string) bool {
 	}
 	screenStatusSink.send(text)
 	return true
+}
+
+// attachScreenModel makes setScreenModel send names to program. The returned
+// function detaches it again.
+func attachScreenModel(program *tea.Program) func() {
+	screenModelSend.Lock()
+	screenModelSend.send = func(msg screen.ModelMsg) { program.Send(msg) }
+	screenModelSend.Unlock()
+	return func() {
+		screenModelSend.Lock()
+		screenModelSend.send = nil
+		screenModelSend.Unlock()
+	}
 }
