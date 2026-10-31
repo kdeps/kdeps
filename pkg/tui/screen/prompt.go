@@ -99,8 +99,15 @@ func longestCommonPrefix(items []string) string {
 	return prefix
 }
 
-// promptText is the prompt with the cursor drawn as a bar at its position.
+// promptHint is shown in an empty prompt: what to type and the keys that help.
+const promptHint = "message, or / for commands - tab completes - ctrl+f feed - ctrl+c clears"
+
+// promptText is the prompt with the cursor drawn as a bar at its position. An
+// empty prompt shows promptHint instead.
 func (m Model) promptText() string {
+	if len(m.input) == 0 {
+		return promptHint
+	}
 	return string(m.input[:m.cursor]) + "|" + string(m.input[m.cursor:])
 }
 
