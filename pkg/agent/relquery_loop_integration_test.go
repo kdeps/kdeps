@@ -61,8 +61,8 @@ func TestLoop_MemoryQueryToolEndToEnd(t *testing.T) {
 		},
 	}
 
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:       "test",
 		Streamer:    streamer,
 		MemoryStore: ms,
@@ -116,8 +116,8 @@ func TestLoop_MemoryQueryToolJoinsOwnCallLog(t *testing.T) {
 		},
 	}
 
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:       "test",
 		Streamer:    streamer,
 		MemoryStore: ms,

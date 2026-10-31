@@ -30,7 +30,7 @@ import (
 
 func TestStoreToolArguments_Basic(t *testing.T) {
 	e := NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	})
 	require.NoError(t, err)

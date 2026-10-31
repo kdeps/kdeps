@@ -38,7 +38,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
-		s.logAndRespondWSConnectFailed(w, targetWSURL.String(), err)
+		s.logAndRespondWSConnectFailed(r.Context(), w, targetWSURL.String(), err)
 		return
 	}
 	defer func() {
@@ -50,14 +50,14 @@ func (s *WebServer) HandleWebSocketProxy(
 			_ = resp.Body.Close()
 		}()
 		if !isWebSocketHandshakeOK(resp) {
-			s.logAndRespondWSHandshakeFailed(w, resp.StatusCode)
+			s.logAndRespondWSHandshakeFailed(r.Context(), w, resp.StatusCode)
 			return
 		}
 	}
 
 	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
-		s.logBackgroundError(webSocketUpgradeFailedLogMessage, logKeyError, err)
+		s.logBackgroundError(r.Context(), webSocketUpgradeFailedLogMessage, logKeyError, err)
 		return
 	}
 	defer func() {

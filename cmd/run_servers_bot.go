@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -79,7 +78,7 @@ func StartBotRunnersWithEngine(
 	}
 
 	if execType == domain.BotExecutionTypeStateless {
-		ctx := context.Background()
+		ctx := processRoot()
 		return bot.RunStateless(ctx, workflow, eng, logger)
 	}
 
@@ -97,7 +96,7 @@ func StartBotRunnersWithEngine(
 	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- botDispatcherRunFunc(context.Background(), dispatcher)
+		errChan <- botDispatcherRunFunc(processRoot(), dispatcher)
 	}()
 
 	select {
@@ -122,6 +121,6 @@ func startFileRunnerWithEngine(
 	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
 	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
 
-	ctx := context.Background()
+	ctx := processRoot()
 	return fileinput.RunWithArg(ctx, workflow, eng, logger, fileArg)
 }

@@ -1867,7 +1867,7 @@ func TestReadFile_WorkspaceBoundary_Allowed(t *testing.T) {
 func TestReadFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	outside := filepath.Join(t.TempDir(), "hostname")
+	outside := filepath.Join(string(filepath.Separator), "kdeps-not-approved", "hostname")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -1882,7 +1882,7 @@ func TestReadFile_WorkspaceBoundary_Denied(t *testing.T) {
 func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	outside := filepath.Join(t.TempDir(), "escaped-file.txt")
+	outside := filepath.Join(string(filepath.Separator), "kdeps-not-approved", "escaped-file.txt")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -1900,7 +1900,7 @@ func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
 func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	outside := filepath.Join(t.TempDir(), "escaped-file.txt")
+	outside := filepath.Join(string(filepath.Separator), "kdeps-not-approved", "escaped-file.txt")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2352,6 +2352,56 @@ func TestValidateWorkspaceBoundary_NonExistentPathInRoot(t *testing.T) {
 func TestIsBinaryContent_EmptySlice(t *testing.T) {
 	t.Parallel()
 	assert.False(t, isBinaryContent([]byte{}))
+}
+
+func TestValidateWorkspaceBoundary_AutoApproved(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	root, err := os.MkdirTemp(home, ".kdeps-approval-ws-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Setenv("KDEPS_WORKSPACE_ROOT", root)
+
+	assert.NoError(t, validateWorkspaceBoundary(filepath.Join(home, ".kdeps", "x")))
+	if runtime.GOOS == "windows" {
+		assert.NoError(t, validateWorkspaceBoundary(filepath.Join(os.TempDir(), "kdeps-approval", "x")))
+	} else {
+		assert.NoError(t, validateWorkspaceBoundary("/tmp/kdeps-approval/x"))
+		assert.Error(t, validateWorkspaceBoundary("/tmp-evil/x"))
+	}
+	err = validateWorkspaceBoundary(filepath.Join(string(filepath.Separator), "kdeps-not-approved", "x"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+func TestReadFile_TmpAllowedWhenWorkspaceSet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this case checks /tmp")
+	}
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	root, err := os.MkdirTemp(home, ".kdeps-approval-ws-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Setenv("KDEPS_WORKSPACE_ROOT", root)
+
+	tmpFile := filepath.Join("/tmp", fmt.Sprintf("kdeps-approval-%d.txt", os.Getpid()))
+	require.NoError(t, os.WriteFile(tmpFile, []byte("from-tmp"), 0o600))
+	t.Cleanup(func() { _ = os.Remove(tmpFile) })
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(t.Context(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile})
+	require.NoError(t, err)
+	assert.Contains(t, result, "from-tmp")
+
+	kdepsMissing := filepath.Join(home, ".kdeps", "kdeps-approval-does-not-exist.txt")
+	_, err = tool.Execute(map[string]any{"file_path": kdepsMissing})
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "escapes workspace root")
 }
 
 func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {

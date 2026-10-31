@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -42,10 +43,10 @@ func TestSetNewExecutionContextForAgency_Error(t *testing.T) {
 
 	e := covTestEngine()
 	e.SetNewExecutionContextForAgency(map[string]string{"a": "/tmp"})
-	e.newExecutionContext = func(_ *domain.Workflow, _ string) (*ExecutionContext, error) {
+	e.newExecutionContext = func(_ context.Context, _ *domain.Workflow, _ string) (*ExecutionContext, error) {
 		return nil, errors.New("ctx fail")
 	}
-	_, err := e.newExecutionContext(&domain.Workflow{}, "sess")
+	_, err := e.newExecutionContext(t.Context(), &domain.Workflow{}, "sess")
 	require.Error(t, err)
 }
 
@@ -53,7 +54,7 @@ func TestSetNewExecutionContextForAgency_Success(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
 	e.SetNewExecutionContextForAgency(map[string]string{"a": "/tmp"})
-	ctx, err := e.newExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}, "")
+	ctx, err := e.newExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}, "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"a": "/tmp"}, ctx.AgentPaths)
 }
@@ -72,7 +73,7 @@ func TestSetNewExecutionContextForAgency_CreateError(t *testing.T) {
 
 	e := covTestEngine()
 	e.SetNewExecutionContextForAgency(map[string]string{"a": "/tmp"})
-	_, err := e.newExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}, "sess")
+	_, err := e.newExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}, "sess")
 	require.Error(t, err)
 }
 
@@ -86,7 +87,7 @@ func (stubAgentMemoryStore) Search(string) []AgentMemoryEntry { return nil }
 func (stubAgentMemoryStore) Save() error                      { return nil }
 
 func TestSetAgentMemoryStore(t *testing.T) {
-	e := NewEngine(slog.Default())
+	e := NewEngine(context.Background(), slog.Default())
 	e.SetAgentMemoryStore(stubAgentMemoryStore{})
 	if e.agentMemoryStore == nil {
 		t.Fatal("store not set")

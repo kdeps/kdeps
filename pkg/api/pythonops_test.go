@@ -38,6 +38,7 @@ type fakeUVManager struct {
 }
 
 func (m *fakeUVManager) EnsureVenv(
+	_ context.Context,
 	pythonVersion string,
 	packages []string,
 	_ string,

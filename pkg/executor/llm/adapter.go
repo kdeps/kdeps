@@ -35,12 +35,12 @@ type Adapter struct {
 }
 
 // NewAdapter creates a new LLM executor adapter.
-func NewAdapter(ollamaURL string) *Adapter {
+func NewAdapter(ctx context.Context, ollamaURL string) *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
 	adapter := &Adapter{
 		executor: NewExecutor(ollamaURL),
 	}
-	modelService := NewModelService(nil)
+	modelService := NewModelService(ctx, nil)
 	adapter.modelService = modelService
 	wireModelManager(adapter, modelService)
 	return adapter

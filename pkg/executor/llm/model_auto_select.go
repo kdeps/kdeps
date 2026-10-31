@@ -47,7 +47,7 @@ type FitScore struct {
 // tags. Cloud models are excluded -- llmfit scores hardware fit, which is
 // meaningless for a remote API model. Returns nil (not an error) when the
 // models directory can't be resolved.
-func ListInstalledLocalCandidates(fs afero.Fs) []ScoredModelCandidate {
+func ListInstalledLocalCandidates(ctx context.Context, fs afero.Fs) []ScoredModelCandidate {
 	modelsDir, err := DefaultModelsDir()
 	if err != nil {
 		return nil
@@ -72,7 +72,7 @@ func ListInstalledLocalCandidates(fs afero.Fs) []ScoredModelCandidate {
 			MatchNames: []string{e.Repo, e.Filename, e.Description},
 		})
 	}
-	out = append(out, listInstalledOllamaCandidates()...)
+	out = append(out, listInstalledOllamaCandidates(ctx)...)
 	return out
 }
 
@@ -155,7 +155,7 @@ func BestInstalledModelByFit(
 	fs afero.Fs,
 	allowedBackends []string,
 ) (string, string, bool) {
-	candidates := ListInstalledLocalCandidates(fs)
+	candidates := ListInstalledLocalCandidates(ctx, fs)
 	if len(candidates) == 0 {
 		return "", "", false
 	}
@@ -172,7 +172,7 @@ func BestInstalledModelByFit(
 // when neither yields anything; callers supply their own final safety net.
 func AutoRouterPick(ctx context.Context, fs afero.Fs) (string, string, bool) {
 	if _, err := exec.LookPath("llmfit"); err == nil {
-		if candidates := ListInstalledLocalCandidates(fs); len(candidates) > 0 {
+		if candidates := ListInstalledLocalCandidates(ctx, fs); len(candidates) > 0 {
 			scores := RunLlamaFitCached(ctx, candidates)
 			if model, backend, ok := BestInstalled(candidates, scores, nil); ok {
 				return model, backend, true

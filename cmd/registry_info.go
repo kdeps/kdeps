@@ -113,7 +113,7 @@ func tryPrintLocalReadme(cmd *cobra.Command, ref string) bool {
 
 func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
 	client := registry.NewClient("", baseURL)
-	ctx, cancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+	ctx, cancel := context.WithTimeout(processRoot(), registryInfoTimeout)
 	defer cancel()
 
 	pkg, err := client.GetPackage(ctx, ref)
@@ -126,7 +126,7 @@ func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
 }
 
 func printRegistryReadmeFallback(cmd *cobra.Command, ref string, client *registry.Client) error {
-	archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+	archCtx, archCancel := context.WithTimeout(processRoot(), registryInfoTimeout)
 	defer archCancel()
 	if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
 		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))

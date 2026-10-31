@@ -268,7 +268,7 @@ for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets
     output_grep "^ *$id +[0-9]" "$LIST" || missing="$missing $id"
 done
 if [ -z "$missing" ]; then
-    test_passed "asset sets - kdeps list --assets shows the published item of all 17 sets"
+    test_passed "asset sets - kdeps list --assets shows the published item of all 18 sets"
 else
     test_failed "asset sets - list --assets" "missing:$missing $LIST"
 fi
@@ -305,8 +305,8 @@ if output_grep "<- events" "$OUT" && output_grep "events/e2e-marker +1\.0\.0" "$
 else
     test_failed "asset sets - kdeps info set" "$OUT"
 fi
-if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "17 E2E-TOOL-MARKER" ]; then
-    test_passed "asset sets - the published index says where all 17 sets run, and each item's purpose"
+if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "18 E2E-TOOL-MARKER" ]; then
+    test_passed "asset sets - the published index says where all 18 sets run, and each item's purpose"
 else
     test_failed "asset sets - index sets" "$(head -c 400 "$SA_PUB/index.json")"
 fi

@@ -51,7 +51,7 @@ func TestRun_ReadlineInitFallback(t *testing.T) {
 	os.Stdin = r
 	t.Cleanup(func() { os.Stdin = origStdin })
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "chat"}}
 
 	err = Run(context.Background(), wf, eng, nil)
@@ -78,7 +78,7 @@ func TestRun_CtxDoneAtLoopStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "chat"}}
 
 	err = Run(ctx, wf, eng, nil)
@@ -122,7 +122,7 @@ func TestRun_ReadlineStepError(t *testing.T) {
 		os.Stdout = origStdout
 	})
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "chat"}}
 
 	err = Run(context.Background(), wf, eng, nil)

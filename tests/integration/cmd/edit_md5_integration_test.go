@@ -91,7 +91,7 @@ func TestEditMD5_NoOpEditIsRetriedUntilFileChanges(t *testing.T) {
 		})}},
 		{content: "Edited: hello is now goodbye."},
 	}}
-	loop := agent.New(executor.NewEngine(nil), &domain.Workflow{
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), &domain.Workflow{
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
 	}, reg, agent.Config{Model: "test", Streamer: s, MaxToolRounds: 10})
@@ -134,7 +134,7 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 		})}},
 		{content: "Edited: hello is now goodbye."},
 	}}
-	loop := agent.New(executor.NewEngine(nil), &domain.Workflow{
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), &domain.Workflow{
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
 	}, reg, agent.Config{Model: "test", Streamer: s, MaxToolRounds: 10, MemoryStore: ms})

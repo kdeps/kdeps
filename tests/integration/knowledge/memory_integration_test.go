@@ -33,7 +33,7 @@ import (
 )
 
 // TestMemoryLivesInTheVault: memory saved by the agent becomes notes in the
-// configured vault, the graph indexes them in <vault>/.index, and recall
+// configured vault, the graph indexes them outside the vault, and recall
 // finds them.
 func TestMemoryLivesInTheVault(t *testing.T) {
 	vault := t.TempDir()
@@ -53,7 +53,8 @@ func TestMemoryLivesInTheVault(t *testing.T) {
 	v := knowledge.Vault{Root: vault}
 	_, _, err = knowledge.Build(t.Context(), v, knowledge.GraphDir(vault), time.Now())
 	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(vault, ".index", "graph.json"), "the index is in the vault")
+	assert.FileExists(t, knowledge.GraphPath(knowledge.GraphDir(vault)), "the index is outside the vault")
+	assert.NoFileExists(t, filepath.Join(vault, ".index", "graph.json"))
 
 	r := knowledge.SharedIndex(knowledge.GraphDir(vault)).Recall("why monthly billing", 0, 0)
 	require.NotEmpty(t, r.Hits)

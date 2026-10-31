@@ -21,6 +21,7 @@ package cmd
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,7 +78,7 @@ func TestAugmentPackageWithModels_BundlesCachedLlamafile(t *testing.T) {
 
 	archivePath := writeTestKdepsArchive(t, tmp)
 
-	augmented, cleanup, err := augmentPackageWithModels(archivePath)
+	augmented, cleanup, err := augmentPackageWithModels(t.Context(), archivePath)
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 
@@ -122,7 +123,7 @@ resources:
 	require.NoError(t, gz.Close())
 	require.NoError(t, f.Close())
 
-	_, _, err = augmentPackageWithModels(archivePath)
+	_, _, err = augmentPackageWithModels(t.Context(), archivePath)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no chat models")
 }
@@ -203,7 +204,7 @@ resources:
 	require.NoError(t, gz.Close())
 	require.NoError(t, f.Close())
 
-	augmented, cleanup, err := augmentPackageWithModels(archivePath)
+	augmented, cleanup, err := augmentPackageWithModels(t.Context(), archivePath)
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 
@@ -242,7 +243,7 @@ func TestBundleLlamaServerBinary_NoGGUF_ReturnsEmpty(t *testing.T) {
 	resolved := map[string]string{
 		"model.llamafile": "/some/path/model.llamafile",
 	}
-	result := bundleLlamaServerBinary(resolved)
+	result := bundleLlamaServerBinary(t.Context(), resolved)
 	assert.Empty(t, result, "should return empty when no GGUF models present")
 }
 
@@ -252,23 +253,23 @@ func TestBundleLlamaServerBinary_WithGGUF_ReturnsBinaryPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(fakeBin, []byte("fake binary"), 0o755))
 
 	orig := ensureLlamaServerBinaryFn
-	ensureLlamaServerBinaryFn = func() string { return fakeBin }
+	ensureLlamaServerBinaryFn = func(context.Context) string { return fakeBin }
 	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
 
 	resolved := map[string]string{
 		"model.gguf": "/some/path/model.gguf",
 	}
-	result := bundleLlamaServerBinary(resolved)
+	result := bundleLlamaServerBinary(t.Context(), resolved)
 	assert.Equal(t, fakeBin, result)
 }
 
 func TestBundleLlamaServerBinary_WithGGUF_BinaryUnavailable(t *testing.T) {
 	orig := ensureLlamaServerBinaryFn
-	ensureLlamaServerBinaryFn = func() string { return "" }
+	ensureLlamaServerBinaryFn = func(context.Context) string { return "" }
 	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
 
 	resolved := map[string]string{"model.gguf": "/path/model.gguf"}
-	result := bundleLlamaServerBinary(resolved)
+	result := bundleLlamaServerBinary(t.Context(), resolved)
 	assert.Empty(t, result, "should return empty when binary unavailable")
 }
 
@@ -317,7 +318,7 @@ func TestAugmentPackageWithModels_BundlesLlamaServerWithGGUF(t *testing.T) {
 	fakeBin := filepath.Join(tmp, "llama-server")
 	require.NoError(t, os.WriteFile(fakeBin, []byte("fake server"), 0o755))
 	orig := ensureLlamaServerBinaryFn
-	ensureLlamaServerBinaryFn = func() string { return fakeBin }
+	ensureLlamaServerBinaryFn = func(context.Context) string { return fakeBin }
 	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
 
 	archivePath := filepath.Join(tmp, "gguf-llama-1.0.0.kdeps")
@@ -352,7 +353,7 @@ resources:
 	require.NoError(t, gz.Close())
 	require.NoError(t, f.Close())
 
-	augmented, cleanup, err := augmentPackageWithModels(archivePath)
+	augmented, cleanup, err := augmentPackageWithModels(t.Context(), archivePath)
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 
@@ -381,7 +382,7 @@ func TestResolveModelsToFiles_PrefersCachedLlamafileOverGGUF(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "my-model.gguf"), []byte("gguf"), 0o644))
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
 
-	resolved, err := resolveModelsToFiles([]string{"my-model.llamafile"})
+	resolved, err := resolveModelsToFiles(t.Context(), []string{"my-model.llamafile"})
 	require.NoError(t, err)
 	require.Contains(t, resolved, "my-model.llamafile")
 }

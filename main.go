@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -70,6 +71,8 @@ var osExitMain = os.Exit
 var runEmbeddedPackageFunc = cmd.RunEmbeddedPackage
 
 func main() {
+	agent.InstallStagePermission()
+	agent.InstallResourceFeed()
 	if exitCode, handled := tryRunEmbeddedPackageHook(); handled {
 		if exitCode != 0 {
 			osExitMain(exitCode)

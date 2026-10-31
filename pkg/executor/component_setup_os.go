@@ -46,13 +46,13 @@ type (
 // installOSPackages installs OS-level packages using the system's package manager.
 // Detection order: apk (Alpine) -> apt-get (Debian/Ubuntu) -> brew (macOS).
 // Already-installed packages are skipped. Errors are returned for the caller to handle.
-func installOSPackages(packages []string) error {
+func installOSPackages(ctx context.Context, packages []string) error {
 	kdeps_debug.Log("enter: installOSPackages")
 	if len(packages) == 0 {
 		return nil
 	}
 
-	pm, checkFn, installFn := detectPackageManager()
+	pm, checkFn, installFn := detectPackageManager(ctx)
 	if pm == "" {
 		return errors.New("no supported package manager found (tried apk, apt-get, brew)")
 	}
@@ -78,36 +78,36 @@ func filterUninstalledPackages(packages []string, checkFn pkgCheckFn) []string {
 // detectPackageManager returns the package manager name, a function to check if a
 // package is installed, and a function to install a list of packages.
 // Returns empty string when no supported manager is found.
-func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
+func detectPackageManager(ctx context.Context) (string, pkgCheckFn, pkgInstallFn) {
 	switch {
 	case commandExists("apk"):
 		return "apk",
 			func(pkg string) bool {
-				return pkgInstalled("apk", []string{"info", "-e", pkg})
+				return pkgInstalled(ctx, "apk", []string{"info", "-e", pkg})
 			},
 			func(pkgs []string) error {
 				args := append([]string{"add", "--no-cache"}, pkgs...)
-				return runCommand("apk", args)
+				return runCommand(ctx, "apk", args)
 			}
 	case commandExists("apt-get"):
 		return "apt-get",
 			func(pkg string) bool {
-				return pkgInstalled("dpkg", []string{"-s", pkg})
+				return pkgInstalled(ctx, "dpkg", []string{"-s", pkg})
 			},
 			func(pkgs []string) error {
 				// Update index first, then install.
-				_ = runCommand("apt-get", []string{"update", "-qq"})
+				_ = runCommand(ctx, "apt-get", []string{"update", "-qq"})
 				args := append([]string{"install", "-y", "-q"}, pkgs...)
-				return runCommand("apt-get", args)
+				return runCommand(ctx, "apt-get", args)
 			}
 	case commandExists("brew") && componentGOOS == goOSDarwin:
 		return "brew",
 			func(pkg string) bool {
-				return pkgInstalled("brew", []string{"list", "--formula", pkg})
+				return pkgInstalled(ctx, "brew", []string{"list", "--formula", pkg})
 			},
 			func(pkgs []string) error {
 				args := append([]string{"install"}, pkgs...)
-				return runCommand("brew", args)
+				return runCommand(ctx, "brew", args)
 			}
 	default:
 		return "", nil, nil
@@ -121,8 +121,8 @@ func commandExists(name string) bool {
 }
 
 // pkgInstalled runs a package-manager check command and reports whether it succeeded.
-func pkgInstalled(name string, args []string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), pkgCheckTimeout)
+func pkgInstalled(parent context.Context, name string, args []string) bool {
+	ctx, cancel := context.WithTimeout(parent, pkgCheckTimeout)
 	defer cancel()
 	return exec.CommandContext(ctx, name, args...).Run() == nil
 }

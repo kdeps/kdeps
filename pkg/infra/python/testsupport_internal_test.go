@@ -30,7 +30,7 @@ import (
 func TestInstallPackages_FallbackPythonPath(t *testing.T) {
 	m := NewManager(t.TempDir())
 	venv := t.TempDir()
-	err := m.InstallPackages(venv, []string{"__kdeps_nonexistent_pkg_xyz__"})
+	err := m.InstallPackages(t.Context(), venv, []string{"__kdeps_nonexistent_pkg_xyz__"})
 	require.Error(t, err)
 }
 
@@ -39,7 +39,7 @@ func TestInstallRequirements_FallbackPythonPath(t *testing.T) {
 	venv := t.TempDir()
 	req := filepath.Join(t.TempDir(), "requirements.txt")
 	require.NoError(t, os.WriteFile(req, []byte("nonexistent-pkg-xyz\n"), 0644))
-	err := m.InstallRequirements(venv, req)
+	err := m.InstallRequirements(t.Context(), venv, req)
 	require.Error(t, err)
 }
 
@@ -47,13 +47,13 @@ func TestEnsureVenv_BaseDirCreateFailure(t *testing.T) {
 	blocker := filepath.Join(t.TempDir(), "blocker")
 	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
 	m := NewManager(filepath.Join(blocker, "venv"))
-	_, err := m.EnsureVenv("3.12", nil, "", "")
+	_, err := m.EnsureVenv(t.Context(), "3.12", nil, "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create base directory")
 }
 
 func TestInstallTool_WithExtraArgs(t *testing.T) {
 	m := NewManager(t.TempDir())
-	err := m.InstallTool("__kdeps_missing_bin_xyz__", "nonexistent-pkg", "--no-build-isolation")
+	err := m.InstallTool(t.Context(), "__kdeps_missing_bin_xyz__", "nonexistent-pkg", "--no-build-isolation")
 	require.Error(t, err)
 }

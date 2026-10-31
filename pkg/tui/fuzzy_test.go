@@ -22,11 +22,9 @@ func TestFuzzyMatchEntries_AllDelimiters(t *testing.T) {
 }
 
 func TestFuzzyMatchEntries_MatchesByBackendName(t *testing.T) {
-	// tagForEntry only ever renders a generic "[cloud]"/"[cloud enabled]" tag,
-	// never the backend name itself, so without Backend in the search text a
-	// query for "m365" would only match the one model literally named
-	// "m365-copilot" and hide the other m365-backed models that don't repeat
-	// the backend name in their own id (gpt-5.5, claude-sonnet, ...).
+	// The tag names the backend, and Backend is also in the search text, so
+	// "m365" matches every m365 model, including ids that do not repeat it
+	// (gpt-5.5, claude-sonnet, ...).
 	entries := []ModelEntry{
 		{Name: "m365-copilot", Backend: "m365"},
 		{Name: "gpt-5.5", Backend: "m365"},

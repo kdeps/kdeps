@@ -28,7 +28,7 @@ resource_defaults:
 `)
 
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 	assert.NotNil(t, report)
 	assert.GreaterOrEqual(t, len(report.Checks), 5) // At least 5 checks always run.
 
@@ -55,7 +55,7 @@ func TestRunDoctor_ConfigFileNotFound(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var configCheck *HealthCheck
 	for i := range report.Checks {
@@ -77,7 +77,7 @@ llm:
   openai_apikey: sk-typo
 `)
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var valCheck *HealthCheck
 	for i := range report.Checks {
@@ -100,7 +100,7 @@ llm:
   backend: %s
 `, p.name))
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var backendCheck *HealthCheck
 	for i := range report.Checks {
@@ -124,7 +124,7 @@ llm:
   %s: sk-test-key-12345678
 `, p.name, p.yamlKey))
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var backendCheck *HealthCheck
 	for i := range report.Checks {
@@ -150,7 +150,7 @@ llm:
   ollama_host: http://localhost:19999
 `)
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var ollamaCheck *HealthCheck
 	for i := range report.Checks {
@@ -174,7 +174,7 @@ llm:
   %s: sk-test
 `, p.name, p.yamlKey))
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var ollamaCheck *HealthCheck
 	for i := range report.Checks {
@@ -190,7 +190,7 @@ llm:
 
 func TestRunDoctor_PythonCheck(t *testing.T) {
 	cfg := &Config{}
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var pythonCheck *HealthCheck
 	for i := range report.Checks {
@@ -211,7 +211,7 @@ func TestRunDoctor_AgentsCheck_NoAgents(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentsDir, 0755))
 
 	cfg := &Config{}
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var agentsCheck *HealthCheck
 	for i := range report.Checks {
@@ -236,7 +236,7 @@ func TestRunDoctor_AgentsCheck_WithAgents(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(agentsDir, "agent2"), 0755))
 
 	cfg := &Config{}
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var agentsCheck *HealthCheck
 	for i := range report.Checks {
@@ -255,7 +255,7 @@ func TestRunDoctor_EnvVarsCheck_MissingVars(t *testing.T) {
 		t.Setenv(v, "")
 	}
 	cfg := &Config{}
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var envCheck *HealthCheck
 	for i := range report.Checks {
@@ -284,7 +284,7 @@ resource_defaults:
     timeout: "60s"
 `)
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 	assert.True(t, report.Healthy)
 }
 
@@ -308,7 +308,7 @@ func TestRunDoctor_NilConfig(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(dir, "nonexistent.yaml"))
 
-	report := RunDoctor(nil)
+	report := RunDoctor(t.Context(), nil)
 	assert.NotNil(t, report)
 	// With no config file and nil config, health check should find issues.
 	var valCheck *HealthCheck
@@ -438,7 +438,7 @@ llm:
   ollama_host: https://ollama.example.com
 `)
 	cfg := loadCfg(t)
-	report := RunDoctor(cfg)
+	report := RunDoctor(t.Context(), cfg)
 
 	var ollamaCheck *HealthCheck
 	for i := range report.Checks {
@@ -487,7 +487,7 @@ func TestRunCriticalEnvCheck_WarnThreshold(t *testing.T) {
 func TestDoctorOllama_FileBackendReportsModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "file")
 	r := &doctorRunner{healthy: true}
-	r.ollama(&Config{LLM: LLMKeys{ModelsDir: "/data/models"}})
+	r.ollama(t.Context(), &Config{LLM: LLMKeys{ModelsDir: "/data/models"}})
 
 	require.Len(t, r.checks, 2)
 	assert.Equal(t, "Ollama", r.checks[0].Name)

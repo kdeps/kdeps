@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -74,7 +75,7 @@ resources:
 // TestExecuteAgent_MissingAgencyContext verifies that executeAgent returns an
 // error when no AgentPaths are set on the execution context.
 func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
@@ -110,9 +111,11 @@ func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
 
 // TestExecuteAgent_AgentNotFound verifies the error when target agent name is not in AgentPaths.
 func TestExecuteAgent_AgentNotFound(t *testing.T) {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(
 
 	// Inject empty AgentPaths (no agents registered).
+	), slog.Default())
+
 	eng.SetNewExecutionContextForAgency(map[string]string{})
 
 	workflow := &domain.Workflow{
@@ -151,7 +154,7 @@ func TestExecuteAgent_SubAgentExecution(t *testing.T) {
 	helperWFPath := filepath.Join(dir, "helper-workflow.yml")
 	require.NoError(t, os.WriteFile(helperWFPath, []byte(minimalAgentWorkflow), 0o600))
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(map[string]string{
 		"helper-agent": helperWFPath,
 	})
@@ -193,7 +196,7 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 		"agent-b": "/path/to/b/workflow.yml",
 	}
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(agentPaths)
 
 	// The engine's newExecutionContext should now produce contexts with AgentPaths set.
@@ -236,7 +239,7 @@ func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(map[string]string{
 		"param-echo-agent": echoPath,
 	})
@@ -288,7 +291,7 @@ func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(map[string]string{
 		"param-echo-agent": echoPath,
 	})
@@ -330,7 +333,7 @@ func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(map[string]string{
 		"param-echo-agent": echoPath,
 	})

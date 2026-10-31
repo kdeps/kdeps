@@ -141,7 +141,7 @@ func TestCobraRunEHandlers(t *testing.T) {
 			t.Cleanup(func() { os.Stdin = orig; _ = r.Close() })
 			return newChatCmd().RunE(&cobra.Command{}, nil)
 		}},
-		{"agent-loop", func() error { return runAgentLoopCmd(tmp, &agentLoopFlags{}) }},
+		{"agent-loop", func() error { return runAgentLoopCmd(t.Context(), tmp, &agentLoopFlags{}) }},
 		{
 			"exec",
 			func() error { return newExecCmd().RunE(&cobra.Command{}, []string{"missing-agent"}) },
@@ -292,7 +292,7 @@ func TestBuildImageInternal_WithPrepackagedBinaries(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(b *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, b *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		assert.NotEmpty(t, b.PrepackagedBinaries)
 		return "img:1", nil
 	}

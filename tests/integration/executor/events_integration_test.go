@@ -33,6 +33,7 @@ package executor_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -54,7 +55,7 @@ func newEventEngine(t *testing.T) (*executor.Engine, *events.ChanEmitter) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	em := events.NewChanEmitter(64)
 	eng.SetEmitter(em)
 
@@ -181,7 +182,7 @@ func (m *mockEventHTTP) Execute(_ *executor.ExecutionContext, _ interface{}) (in
 // TestSetEmitter_NilSafe verifies SetEmitter(nil) doesn't panic and falls back to NopEmitter.
 func TestSetEmitter_NilSafe(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetEmitter(nil) // must not panic
 
 	reg := executor.NewRegistry()
@@ -195,7 +196,8 @@ func TestSetEmitter_NilSafe(t *testing.T) {
 // TestSetEmitter_DefaultIsNop verifies no events are emitted when no emitter is set.
 func TestSetEmitter_DefaultIsNop(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	eng := executor.NewEngine(slog.Default()) // no SetEmitter call
+	eng := executor.NewEngine(context.Background( // no SetEmitter call
+	), slog.Default())
 	reg := executor.NewRegistry()
 	reg.SetLLMExecutor(&mockEventLLM{result: "ok"})
 	eng.SetRegistry(reg)
@@ -233,7 +235,7 @@ func TestEmitter_WorkflowCompleted(t *testing.T) {
 // TestEmitter_WorkflowFailed verifies workflow.failed fires on error with classified failure.
 func TestEmitter_WorkflowFailed(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	em := events.NewChanEmitter(64)
 	eng.SetEmitter(em)
 
@@ -291,7 +293,7 @@ func TestEmitter_ResourceCompleted(t *testing.T) {
 // TestEmitter_ResourceFailed verifies resource.failed fires with actionId and failure class.
 func TestEmitter_ResourceFailed(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	em := events.NewChanEmitter(64)
 	eng.SetEmitter(em)
 
@@ -370,7 +372,7 @@ func TestEmitter_NDJSONOutput(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	var buf bytes.Buffer
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetEmitter(events.NewNDJSONEmitter(&buf))
 
 	reg := executor.NewRegistry()
@@ -404,7 +406,7 @@ func TestEmitter_MultiEmitter(t *testing.T) {
 	em2 := events.NewNDJSONEmitter(&buf2)
 	multi := events.NewMultiEmitter(em1, em2)
 
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetEmitter(multi)
 
 	reg := executor.NewRegistry()
@@ -422,7 +424,7 @@ func TestEmitter_MultiEmitter(t *testing.T) {
 // TestEmitter_FailedRunHasNoCompleted verifies workflow.completed is NOT emitted on failure.
 func TestEmitter_FailedRunHasNoCompleted(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	em := events.NewChanEmitter(64)
 	eng.SetEmitter(em)
 

@@ -40,7 +40,7 @@ func TestCreateSessionStorage_MemoryType(t *testing.T) {
 			Session: &domain.SessionConfig{TTL: "1h", Type: storageTypeMemory},
 		},
 	}
-	storage, err := createSessionStorage(wf, "sess-1")
+	storage, err := createSessionStorage(t.Context(), wf, "sess-1")
 	require.NoError(t, err)
 	require.NotNil(t, storage)
 }

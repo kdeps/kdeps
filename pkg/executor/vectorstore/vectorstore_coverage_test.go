@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // --- chroma collectionID error paths ---
@@ -380,7 +381,7 @@ func TestExecute_AddDocuments_StoreAddError(t *testing.T) {
 		Documents:    []domain.VectorStoreDocument{{Content: "hello world"}},
 	}
 	e := NewExecutor()
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "vectorstore add_documents")
 }
@@ -416,7 +417,7 @@ func TestExecute_SimilaritySearch_StoreSearchError(t *testing.T) {
 		TopK:         5,
 	}
 	e := NewExecutor()
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "vectorstore similarity_search")
 }
@@ -532,7 +533,7 @@ func TestExecute_SimilaritySearch_BuildStoreError(t *testing.T) {
 		Query:     "test query",
 		// No collection set -> buildStore fails.
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.Error(t, err)
 }
 

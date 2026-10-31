@@ -38,8 +38,8 @@ func TestServeOllamaModel_AlreadyRunning(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "mock")
 	}
 
-	s := NewModelService(slog.Default())
-	err := s.serveOllamaModel("test-model", "", 0)
+	s := NewModelService(t.Context(), slog.Default())
+	err := s.serveOllamaModel(t.Context(), "test-model", "", 0)
 	assert.NoError(t, err)
 }
 
@@ -51,8 +51,8 @@ func TestServeOllamaModel_StartFailed(t *testing.T) {
 		return exec.CommandContext(ctx, "false") // false always exits 1
 	}
 
-	s := NewModelService(slog.Default())
-	err := s.serveOllamaModel("test-model", "", 0)
+	s := NewModelService(t.Context(), slog.Default())
+	err := s.serveOllamaModel(t.Context(), "test-model", "", 0)
 	assert.NoError(t, err) // returns nil even when ollama start fails
 }
 
@@ -66,7 +66,7 @@ func TestServeOllamaModel_WithHost(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "mock")
 	}
 
-	s := NewModelService(slog.Default())
-	err := s.serveOllamaModel("test-model", "0.0.0.0", 11434)
+	s := NewModelService(t.Context(), slog.Default())
+	err := s.serveOllamaModel(t.Context(), "test-model", "0.0.0.0", 11434)
 	assert.NoError(t, err)
 }

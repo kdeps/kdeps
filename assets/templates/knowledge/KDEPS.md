@@ -19,7 +19,7 @@ kdeps. Nothing here needs to be set up by hand.
 | Knowledge across projects | `shared/` | `knowledge_note_save` with scope shared, or by hand |
 | Unsorted notes | `inbox/` | by hand |
 | Finished projects | `archive/<name>/` | kdeps moves the folder when the card says `status: archived` |
-| Connections between notes | `.index/` (the link graph) | kdeps |
+| Connections between notes | `~/.kdeps/knowledge/<vault-id>/` (outside this vault) | kdeps |
 | How to write cards and notes | `schema.md` | |
 
 ## Rules
@@ -30,8 +30,8 @@ kdeps. Nothing here needs to be set up by hand.
   tell the story.
 - Update a card with `knowledge_card_update`, never by copying status into a
   note.
-- `kdeps knowledge check` lists facts with more than one home, dangling links
-  and notes without a summary.
+- `kdeps knowledge check` lists structural duplicates (the same summary, or the
+  same `canonical` or `fact_id`), dangling links and notes without a summary.
 
 ## Status overview
 

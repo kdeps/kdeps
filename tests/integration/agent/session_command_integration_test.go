@@ -19,6 +19,7 @@
 package agent_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -42,7 +43,7 @@ func TestSessionCommand_SaveListLoadThroughTheAPI(t *testing.T) {
 
 	store := agent.NewSessionStore(t.TempDir())
 	t.Cleanup(func() { _ = store.Close() })
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(),
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, kdepstools.NewRegistry(),
 		agent.Config{Model: "m", Store: store})
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()

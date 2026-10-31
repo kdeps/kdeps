@@ -1002,7 +1002,7 @@ func TestWebServer_Stop(t *testing.T) {
 
 	// Call Stop on empty server - should not panic
 	assert.NotPanics(t, func() {
-		webServer.Stop()
+		webServer.Stop(t.Context())
 	})
 }
 
@@ -1061,7 +1061,7 @@ func TestWebServer_Stop_WithRunningCommands(t *testing.T) {
 
 	// Call Stop - should kill the running processes
 	assert.NotPanics(t, func() {
-		webServer.Stop()
+		webServer.Stop(t.Context())
 	})
 
 	// Give a moment for processes to be killed
@@ -1096,7 +1096,7 @@ func TestWebServer_Stop_CommandAlreadyTerminated(t *testing.T) {
 
 	// Call Stop - should handle nil process gracefully
 	assert.NotPanics(t, func() {
-		webServer.Stop()
+		webServer.Stop(t.Context())
 	})
 }
 
@@ -1321,7 +1321,7 @@ func TestWebServer_Stop_TerminatedProcess(t *testing.T) {
 
 	// Stop should not panic even though Kill returns an error
 	assert.NotPanics(t, func() {
-		webServer.Stop()
+		webServer.Stop(t.Context())
 	})
 }
 

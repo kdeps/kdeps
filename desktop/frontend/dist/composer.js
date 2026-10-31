@@ -29,7 +29,8 @@ function filterModels(models, type, query) {
   return models.filter((m) => {
     if (type && type !== "all" && m.type !== type) return false;
     if (!q) return true;
-    return m.name.toLowerCase().includes(q) || (m.repo || "").toLowerCase().includes(q);
+    const backend = (m.backend || "").toLowerCase();
+    return m.name.toLowerCase().includes(q) || (m.repo || "").toLowerCase().includes(q) || backend.includes(q);
   });
 }
 

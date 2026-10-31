@@ -30,7 +30,7 @@ import (
 
 // TestExecutionContext_Input_MediaTranscriptFile covers transcript/media/file branches.
 func TestExecutionContext_Input_MediaTranscriptFile(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// transcript type hint - not available yet
@@ -94,7 +94,7 @@ func TestExecutionContext_Input_MediaTranscriptFile(t *testing.T) {
 
 // TestExecutionContext_Input_AutoDetectNamedSpecials covers name-based auto-detect paths.
 func TestExecutionContext_Input_AutoDetectNamedSpecials(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// transcript by name - empty, falls through to not-found

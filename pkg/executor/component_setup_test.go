@@ -33,7 +33,7 @@ func TestRunComponentSetup_NilSetupWithLegacyPythonPackages(t *testing.T) {
 		Metadata:       domain.ComponentMetadata{Name: "legacy-py"},
 		PythonPackages: []string{"requests"}, //nolint:staticcheck
 	}
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "t"},
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.11"},

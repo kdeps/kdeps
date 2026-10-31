@@ -59,7 +59,7 @@ func CheckPortAvailable(host string, port int) error {
 		{"tcp6", fmt.Sprintf("[::]:%d", port)},
 	}
 	for _, a := range addrs {
-		ln, err := checkPortListenFunc(context.Background(), a.network, a.addr)
+		ln, err := checkPortListenFunc(processRoot(), a.network, a.addr)
 		if err != nil {
 			return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
 		}

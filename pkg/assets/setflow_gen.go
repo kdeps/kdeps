@@ -69,7 +69,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the turn continues"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.EventByName"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.eventPatternMatch"},
 	},
 	"harness": {
 		Mode: "both",
@@ -115,6 +115,17 @@ var generatedFlows = map[string]SetInfo{
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall"},
 		Code:   []string{"kdeps (agent loop)", "llm.ReloadCloudModels", "llm.readModelRegistry"},
+	},
+	"policy": {
+		Mode: "both",
+		Flow: []FlowStep{
+			{Label: "a tool call is about to run"},
+			{Label: "the agent loop reads the permission policy"},
+			{Label: "its tool tier names a mode, or the default applies", Here: true},
+			{Label: "the call runs or is refused"},
+		},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec", "kdeps knowledge build"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "agent.stageGate", "agent.loadPermissionPolicy"},
 	},
 	"presets": {
 		Mode: "both",

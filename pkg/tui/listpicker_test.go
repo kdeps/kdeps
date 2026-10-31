@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestListPickerFilter(t *testing.T) {
@@ -40,12 +40,12 @@ func TestListPickerFilter(t *testing.T) {
 
 func TestListPickerKeys(t *testing.T) {
 	m := newListPickerModel("t", []ListItem{{ID: "a", Title: "A"}, {ID: "b", Title: "B"}}, nil)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	m = updated.(listPickerModel)
 	if m.cursor != 1 {
 		t.Fatalf("cursor %d", m.cursor)
 	}
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = updated.(listPickerModel)
 	if !m.quitted {
 		t.Fatal("expected quit")
@@ -54,7 +54,7 @@ func TestListPickerKeys(t *testing.T) {
 
 func TestListPickerEsc(t *testing.T) {
 	m := newListPickerModel("t", []ListItem{{ID: "a"}}, nil)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(listPickerModel)
 	if !m.cancelled {
 		t.Fatal("expected cancel")
@@ -63,7 +63,7 @@ func TestListPickerEsc(t *testing.T) {
 
 func TestListPickerDelete_NilOnDeleteIsNoop(t *testing.T) {
 	m := newListPickerModel("t", []ListItem{{ID: "a"}, {ID: "b"}}, nil)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = updated.(listPickerModel)
 	if len(m.items) != 2 {
 		t.Fatalf("expected no deletion without onDelete, got %d items", len(m.items))
@@ -77,7 +77,7 @@ func TestListPickerDelete_RemovesHighlightedItem(t *testing.T) {
 		return true, nil
 	}
 	m := newListPickerModel("t", []ListItem{{ID: "a"}, {ID: "b"}}, onDelete)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = updated.(listPickerModel)
 	if deletedID != "a" {
 		t.Fatalf("expected onDelete called with the highlighted item, got %q", deletedID)
@@ -93,7 +93,7 @@ func TestListPickerDelete_RemovesHighlightedItem(t *testing.T) {
 func TestListPickerDelete_VetoedItemStays(t *testing.T) {
 	onDelete := func(string) (bool, error) { return false, nil }
 	m := newListPickerModel("t", []ListItem{{ID: "a"}}, onDelete)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = updated.(listPickerModel)
 	if len(m.items) != 1 {
 		t.Fatalf("a vetoed delete must not remove the item, got %+v", m.items)
@@ -103,7 +103,7 @@ func TestListPickerDelete_VetoedItemStays(t *testing.T) {
 func TestListPickerDelete_ErrorSurfacedAsStatus(t *testing.T) {
 	onDelete := func(string) (bool, error) { return false, errors.New("boom") }
 	m := newListPickerModel("t", []ListItem{{ID: "a"}}, onDelete)
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = updated.(listPickerModel)
 	if len(m.items) != 1 {
 		t.Fatal("a failed delete must not remove the item")
@@ -117,7 +117,7 @@ func TestListPickerDelete_CursorClampsAfterDeletingLast(t *testing.T) {
 	onDelete := func(string) (bool, error) { return true, nil }
 	m := newListPickerModel("t", []ListItem{{ID: "a"}, {ID: "b"}}, onDelete)
 	m.cursor = 1 // highlight the last item
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = updated.(listPickerModel)
 	if len(m.items) != 1 {
 		t.Fatalf("expected one item left, got %+v", m.items)

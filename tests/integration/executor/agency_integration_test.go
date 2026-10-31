@@ -23,6 +23,7 @@ package executor_test
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -171,7 +172,7 @@ func createKdepsPackageInteg(t *testing.T, sourceDir, destPath string) {
 
 // newTestEngine creates a fresh engine suitable for integration tests.
 func newTestEngine(agentPaths map[string]string) *executor.Engine {
-	eng := executor.NewEngine(slog.Default())
+	eng := executor.NewEngine(context.Background(), slog.Default())
 	eng.SetNewExecutionContextForAgency(agentPaths)
 	return eng
 }

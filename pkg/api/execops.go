@@ -50,7 +50,7 @@ func ExecOps(ctx context.Context, args map[string]any) (string, error) {
 	if strings.TrimSpace(config.Command) == "" {
 		return "", errors.New(msgExecNeed)
 	}
-	result, err := execx.NewExecutor().Run(config)
+	result, err := execx.NewExecutor().Run(ctx, config)
 	if err != nil {
 		return "", err
 	}

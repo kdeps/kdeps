@@ -91,7 +91,7 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	ctx := context.Background()
+	ctx := execCtx.Ctx
 
 	switch cfg.Operation {
 	case opAddDocuments:
@@ -468,6 +468,11 @@ func buildOpenAICompatEmbedder(cfg *domain.VectorStoreConfig) (lcemb.Embedder, e
 	baseURL := cfg.EmbedBaseURL
 	if baseURL == "" {
 		baseURL = openAICompatBaseURL(cfg.EmbedBackend)
+	}
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(cfg.EmbedBackend); err != nil {
+			return nil, fmt.Errorf("build openai compat embedder: %w", err)
+		}
 	}
 
 	opts := []lcopenai.Option{

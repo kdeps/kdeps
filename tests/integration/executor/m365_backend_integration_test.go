@@ -35,7 +35,7 @@ func TestM365_ChatWithoutCredentialsFailsCleanly(t *testing.T) {
 	t.Setenv("KDEPS_M365_SECRETS_FILE", t.TempDir()+"/absent-secrets.json")
 	t.Setenv("KDEPS_M365_CACHE_FILE", t.TempDir()+"/absent-cache.json")
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "m365-test"},
 	})
 	require.NoError(t, err)

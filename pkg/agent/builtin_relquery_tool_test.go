@@ -58,7 +58,7 @@ func TestRegisterMemoryQueryTool_Registers(t *testing.T) {
 
 func TestMemoryQuery_NoActiveLoop(t *testing.T) {
 	withActiveLoop(t, nil)
-	_, err := executeMemoryQuery(map[string]any{"query": "memory"})
+	_, err := executeMemoryQuery(t.Context(), map[string]any{"query": "memory"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "agent loop is not configured")
 }
@@ -66,7 +66,7 @@ func TestMemoryQuery_NoActiveLoop(t *testing.T) {
 func TestMemoryQuery_EmptyQuery(t *testing.T) {
 	loop, _ := newTestLoopWithMemory(t)
 	withActiveLoop(t, loop)
-	_, err := executeMemoryQuery(map[string]any{"query": ""})
+	_, err := executeMemoryQuery(t.Context(), map[string]any{"query": ""})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -74,7 +74,7 @@ func TestMemoryQuery_EmptyQuery(t *testing.T) {
 func TestMemoryQuery_InvalidExpression(t *testing.T) {
 	loop, _ := newTestLoopWithMemory(t)
 	withActiveLoop(t, loop)
-	_, err := executeMemoryQuery(map[string]any{"query": "filter(memory, "})
+	_, err := executeMemoryQuery(t.Context(), map[string]any{"query": "filter(memory, "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "compile")
 }
@@ -84,7 +84,7 @@ func TestMemoryQuery_InfixOperatorHint(t *testing.T) {
 	withActiveLoop(t, loop)
 	// expr-lang's string operators are infix; the function-call form is a
 	// parse error whose bare message never says so.
-	_, err := executeMemoryQuery(map[string]any{
+	_, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": `filter(memory, contains(lower(.value), "latency"))`,
 	})
 	require.Error(t, err)
@@ -105,7 +105,7 @@ func TestMemoryQuery_BackslashEscapeHint(t *testing.T) {
 	// A model that double-escapes quotes while building the JSON tool call
 	// sends a query whose parsed form contains a literal \" where expr expects
 	// a string; expr stops at the backslash with a message that never says so.
-	_, err := executeMemoryQuery(map[string]any{
+	_, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": `map(filter(tool_calls, .name == \"bash_exec\"), {name: .name})`,
 	})
 	require.Error(t, err)
@@ -129,7 +129,7 @@ func TestMemoryQuery_InfixContainsSelectsRows(t *testing.T) {
 	require.NoError(t, ms.Set("progress:other", "unrelated"))
 	withActiveLoop(t, loop)
 
-	out, err := executeMemoryQuery(map[string]any{
+	out, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": `filter(memory, .value contains "latency")`,
 	})
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestMemoryQuery_FilterOverMemory(t *testing.T) {
 	require.NoError(t, ms.Set("progress:two", "in progress"))
 	withActiveLoop(t, loop)
 
-	out, err := executeMemoryQuery(map[string]any{
+	out, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": `filter(memory, .type == "progress")`,
 	})
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestMemoryQuery_JoinToolCallsWithMemory(t *testing.T) {
 	}
 	withActiveLoop(t, loop)
 
-	out, err := executeMemoryQuery(map[string]any{
+	out, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": `join(tool_calls, memory, "name", "key")`,
 	})
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestMemoryQuery_LimitTruncates(t *testing.T) {
 	}
 	withActiveLoop(t, loop)
 
-	out, err := executeMemoryQuery(map[string]any{
+	out, err := executeMemoryQuery(t.Context(), map[string]any{
 		"query": "memory",
 		"limit": float64(2), // tool args arrive as JSON numbers
 	})

@@ -43,9 +43,9 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/turo on\|off` | Enable or disable prompt reduction at runtime |
 | `/turo lite\|full\|ultra` | Set the turo compression level |
 | `/turo <stage> on\|off` | Toggle a pipeline stage: `filler`, `synonyms`, `gloss`, `defmatch`, `arrows` |
-| `/auto-improve` | In the kdeps repo, start an instrumented session, run the fixed task list, then read the event log and fix product bugs before the next task |
+| `/auto-improve` | In the kdeps repo, record a session, jump across OpenRouter free models, report product bugs the event log shows, and file one GitHub issue as each report arrives |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
-| `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; on by default, persists across sessions |
+| `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; off by default, persists across sessions. A session that already stored refine-on stays on |
 | `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
 | `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |
 | `/efficiency verbose on\|off` | Reveal the hidden model-facing channel for debugging; off by default, persists |
@@ -149,30 +149,43 @@ Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 
 ## Auto-improve
 
-`/auto-improve` runs a fixed task list against this repo and fixes product bugs the instrument log shows.
+`/auto-improve` runs a fixed task list against this repo and reports product bugs the instrument log shows. It does not edit code.
 
 ```d2
 direction: down
 start: "/auto-improve" {shape: oval}
 repo: "module github.com/kdeps/kdeps/v2?" {shape: diamond}
 session: "record ~/.kdeps/instrument/auto-improve"
+jump: "OpenRouter: another free model"
 task: "model runs the next task"
-eval: "model reads events.ndjson\nand fixes product bugs"
+eval: "model reads events.ndjson\nand reports product bugs"
 more: "another task?" {shape: diamond}
+issue: "one GitHub issue"
 done: "done" {shape: oval}
 start -> repo
 repo -> session: "yes"
 repo -> done: "other folder"
-session -> task
+session -> jump
+jump -> task
 task -> eval
 eval -> more
-more -> task: "yes"
-more -> done: "no"
+more -> jump: "yes"
+more -> issue: "no"
+issue -> done
 ```
 
-The working directory must be this module, or a folder inside it. Another module stops the walk. When no session is recording, the command starts one named `auto-improve`. An existing session keeps recording. Each task asks for one tool use and does not edit files. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). It fixes a loop, a refusal of work the tools can do, a call to the wrong tool, or a wrong tool error, and adds a test. A model guess is left as a guess. The session stays open after the command finishes.
+The working directory must be this module, or a folder inside it. Another module stops the walk. When no session is recording, the command starts one named `auto-improve`. An existing session keeps recording. On an OpenRouter backend, or when the current model is an OpenRouter free id, each task and each evaluate turn starts by printing `auto-improve: model <id>` and switching to another free id at random. A local backend stays on the model it was started with. A provider 429 during the capture continues on a random free id. So does a free id the provider refuses (a 400 or 502 "Provider returned error", a 404 "No endpoints found" for tool use, or a 403 "only available on agentic harnesses"). Each task asks for one tool use and does not edit files. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). It reports a loop, a refusal of work the tools can do, a call to the wrong tool, or a wrong tool error, with the event that shows it. It does not edit files. A model guess is left as a guess. As soon as each evaluate reply arrives, the command files one GitHub issue and prints `auto-improve: issue <url>`. If an open issue has the same title, that issue's URL is printed and nothing new is filed. The issue title is the first line of the evaluate reply, which states the bug. The issue body holds that whole reply verbatim under `## Conclusion`. If every failure in the session was a provider refusal or rate limit, no issue is filed and it prints `auto-improve: no issue (provider-only failures)`. A kdeps error, a tool error, or a clean run still files one. The issue lists up to 40 events that have an error field. The session stays open after the command finishes.
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
+
+`/auto-improve 2` runs only task 2, then its evaluate, in the current session. The number is 1, 2, or 3.
+
+A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per process in the kdeps repository and reports only: it never keeps an edit and never opens a pull request. It passes `--backend openrouter`, `--instrument=bug-hunt-N`, and a model id from `assets/models/openrouter.yaml`. `scripts/bug-hunt.sh run` tries the largest parameter count first (the `550b` in `nvidia/nemotron-3-ultra-550b-a55b:free`), so larger free models come before small ones. `scripts/bug-hunt.sh models` stays in catalog order. Each process is hunt N of 3: the task, then the evaluate. The instrument log holds only that hunt. Inside a hunt, free-model requests wait so they stay under the account per-minute cap (`openrouter-free-per-minute`, 20 calls, every free id together). An account 429 waits out the minute and retries the same id. When the process does not print `auto-improve: done`, it tries another id, up to four. If the log has no `auto-improve: issue http` line and no `auto-improve: no issue` line, the job files the issue. Any edit a model made is discarded. The job then runs the next hunt. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets; `RELEASE_TOKEN` files the issues.
+
+```bash
+id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
+printf '/auto-improve 1\n/exit\n' | kdeps --backend openrouter --model "$id" --instrument=bug-hunt-1
+```
 
 ## Declared commands
 
@@ -381,7 +394,7 @@ version: 2.0.0
 name: refine
 usage:
   - args: "[on|off]"
-    help: Show or toggle pre-turn prompt refinement (on by default)
+    help: Show or toggle pre-turn prompt refinement (off by default)
 setting:
   key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge or context
   values: [on, off]  # accepted arguments, matched without case

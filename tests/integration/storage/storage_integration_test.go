@@ -102,7 +102,7 @@ func TestStorageIntegration_SessionStorage(t *testing.T) {
 	// Test session storage
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions.db")
-	store, err := storage.NewSessionStorage(dbPath, "test-session")
+	store, err := storage.NewSessionStorage(t.Context(), dbPath, "test-session")
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -188,7 +188,7 @@ func TestStorageIntegration_ErrorHandling(t *testing.T) {
 
 	// Test session storage errors
 	sessionDBPath := filepath.Join(tmpDir, "sessions.db")
-	sessionStore, err := storage.NewSessionStorage(sessionDBPath, "error-test")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), sessionDBPath, "error-test")
 	require.NoError(t, err)
 	defer sessionStore.Close()
 
@@ -213,13 +213,13 @@ func TestStorageIntegration_ConstructorErrorHandling(t *testing.T) {
 	require.Error(t, err, "Should fail when a path component is a file, not a directory")
 
 	// Test session storage constructor with invalid paths
-	_, err = storage.NewSessionStorage(filepath.Join(blockingFile, "sub", "sessions.db"), "test-session")
+	_, err = storage.NewSessionStorage(t.Context(), filepath.Join(blockingFile, "sub", "sessions.db"), "test-session")
 	require.Error(t, err, "Should fail when a path component is a file, not a directory")
 
 	// Test session storage constructor with empty session ID
 	tmpDir := t.TempDir()
 	validPath := filepath.Join(tmpDir, "sessions.db")
-	sessionStore, err := storage.NewSessionStorage(validPath, "")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), validPath, "")
 	require.NoError(t, err)
 	defer sessionStore.Close()
 	assert.NotNil(t, sessionStore)
@@ -267,7 +267,7 @@ func TestStorageIntegration_DatabaseOperations(t *testing.T) {
 
 	// Test session storage database operations
 	sessionPath := filepath.Join(tmpDir, "sessions.db")
-	sessionStore, err := storage.NewSessionStorage(sessionPath, "test-session")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), sessionPath, "test-session")
 	require.NoError(t, err)
 	defer sessionStore.Close()
 
@@ -294,7 +294,7 @@ func TestStorageIntegration_CleanupOperations(t *testing.T) {
 	sessionPath := filepath.Join(tmpDir, "sessions.db")
 
 	// Create session storage
-	sessionStore, err := storage.NewSessionStorage(sessionPath, "cleanup-test")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), sessionPath, "cleanup-test")
 	require.NoError(t, err)
 
 	// Add some data
@@ -358,7 +358,7 @@ func TestStorageIntegration_PathHandling(t *testing.T) {
 
 	// Test session storage with custom path
 	customSessionPath := filepath.Join(tmpDir, "custom", "sessions.db")
-	sessionStore, err := storage.NewSessionStorage(customSessionPath, "path-test")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), customSessionPath, "path-test")
 	require.NoError(t, err)
 	defer sessionStore.Close()
 
@@ -418,7 +418,7 @@ func TestStorageIntegration_Concurrency(t *testing.T) {
 
 	// Test session storage concurrency
 	sessionPath := filepath.Join(tmpDir, "concurrent_sessions.db")
-	sessionStore, err := storage.NewSessionStorage(sessionPath, "concurrent-session")
+	sessionStore, err := storage.NewSessionStorage(t.Context(), sessionPath, "concurrent-session")
 	require.NoError(t, err)
 	defer sessionStore.Close()
 

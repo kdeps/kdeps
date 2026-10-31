@@ -54,20 +54,20 @@ func TestRestoreSessionConfig(t *testing.T) {
 }
 
 func TestDefaultModelForBackend(t *testing.T) {
-	_ = defaultModelForBackend("file")
-	if m := defaultModelForBackend("gguf"); m != "" {
+	_ = defaultModelForBackend(t.Context(), "file")
+	if m := defaultModelForBackend(t.Context(), "gguf"); m != "" {
 		t.Fatalf("gguf should be empty, got %q", m)
 	}
-	_ = defaultModelForBackend("ollama")
-	_ = defaultModelForBackend("openai")
-	_ = defaultModelForBackend("unknown-backend")
+	_ = defaultModelForBackend(t.Context(), "ollama")
+	_ = defaultModelForBackend(t.Context(), "openai")
+	_ = defaultModelForBackend(t.Context(), "unknown-backend")
 }
 
 func TestResolveModelAndBackend_Explicit(t *testing.T) {
 	t.Setenv("KDEPS_AGENT_BACKEND", "")
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	t.Setenv("KDEPS_AGENT_MODEL", "")
-	m, b := ResolveModelAndBackend("llama3.2", "openai")
+	m, b := ResolveModelAndBackend(t.Context(), "llama3.2", "openai")
 	if m != "llama3.2" || b != "openai" {
 		t.Fatalf("got %q %q", m, b)
 	}

@@ -11,7 +11,7 @@ import (
 
 func newTestCtx(t *testing.T) *ExecutionContext {
 	t.Helper()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	return ctx
 }
@@ -45,7 +45,7 @@ func TestGetMemory_HitAndMiss(t *testing.T) {
 func TestGetSession_HitAndMiss(t *testing.T) {
 	t.Parallel()
 	wf := &domain.Workflow{Settings: domain.WorkflowSettings{Session: &domain.SessionConfig{}}}
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	require.NoError(t, ctx.Session.Set("sk", "sv"))
 

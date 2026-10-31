@@ -224,12 +224,12 @@ func TestFindCutIndex_RealOverflowStillCuts(t *testing.T) {
 
 func TestCompactWithLLM_DoesNotRepeatOnNextCall(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		calls++
 		return "## Goal\nShip it.\n\n## Progress\n### Done\n- [x] did the work", nil
 	})
-	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:              "llama3.2",
 		CompactTokenBudget: 400,
 	})

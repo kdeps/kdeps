@@ -94,7 +94,7 @@ func TestEnsureModelAvailable_CopiesServedBaseURLBack(t *testing.T) {
 	e.SetModelManager(NewModelManagerFromServiceInterface(NewMockModelService()))
 
 	config := &domain.ChatConfig{Model: "llama3.2:1b"}
-	e.ensureModelAvailable(config, "llama3.2:1b")
+	e.ensureModelAvailable(t.Context(), config, "llama3.2:1b")
 	assert.Equal(t, "http://127.0.0.1:54321", config.BaseURL,
 		"the served URL must propagate to the request config")
 }
@@ -111,7 +111,7 @@ func TestEnsureModelAvailable_KeepsExplicitBaseURL(t *testing.T) {
 	e.SetModelManager(NewModelManagerFromServiceInterface(NewMockModelService()))
 
 	config := &domain.ChatConfig{Model: "llama3.2:1b", BaseURL: "http://example.com/v1"}
-	e.ensureModelAvailable(config, "llama3.2:1b")
+	e.ensureModelAvailable(t.Context(), config, "llama3.2:1b")
 	assert.Equal(t, "http://example.com/v1", config.BaseURL)
 }
 
@@ -128,8 +128,8 @@ func TestEnsureModel_EmptyModelSkipsDownloadAndServe(t *testing.T) {
 		return nil
 	})
 	mgr := NewModelManagerFromServiceInterface(mock)
-	require.NoError(t, mgr.EnsureModel(&domain.ChatConfig{}))
-	require.NoError(t, mgr.EnsureModel(nil))
+	require.NoError(t, mgr.EnsureModel(t.Context(), &domain.ChatConfig{}))
+	require.NoError(t, mgr.EnsureModel(t.Context(), nil))
 	assert.False(t, downloaded)
 	assert.False(t, served)
 }
@@ -147,7 +147,7 @@ func TestEnsureModel_FileBackendSkipsWhenBaseURLSet(t *testing.T) {
 
 	mgr := NewModelManagerFromServiceInterface(mock)
 	config := &domain.ChatConfig{Model: "llama3.2:1b", BaseURL: "http://example.com/v1"}
-	require.NoError(t, mgr.EnsureModel(config))
+	require.NoError(t, mgr.EnsureModel(t.Context(), config))
 	assert.False(t, downloaded, "explicit base URL must skip llamafile download/serve")
 	assert.Equal(t, "http://example.com/v1", config.BaseURL)
 }
@@ -164,7 +164,7 @@ func TestEnsureModel_FileBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 	})
 
 	mgr := NewModelManagerFromServiceInterface(mock)
-	require.NoError(t, mgr.EnsureModel(&domain.ChatConfig{Model: "llama3.2:1b"}))
+	require.NoError(t, mgr.EnsureModel(t.Context(), &domain.ChatConfig{Model: "llama3.2:1b"}))
 	assert.False(t, downloaded)
 }
 
@@ -181,7 +181,7 @@ func TestEnsureModel_GGUFBackendSkipsWhenBaseURLSet(t *testing.T) {
 
 	mgr := NewModelManagerFromServiceInterface(mock)
 	config := &domain.ChatConfig{Model: "model.gguf", BaseURL: "http://example.com/v1"}
-	require.NoError(t, mgr.EnsureModel(config))
+	require.NoError(t, mgr.EnsureModel(t.Context(), config))
 	assert.False(t, downloaded, "explicit base URL must skip gguf download/serve")
 }
 
@@ -199,7 +199,7 @@ func TestEnsureModel_GGUFBackend_ExecutesBranchBody(t *testing.T) {
 
 	mgr := NewModelManagerFromServiceInterface(mock)
 	config := &domain.ChatConfig{Model: "model.gguf"}
-	require.NoError(t, mgr.EnsureModel(config))
+	require.NoError(t, mgr.EnsureModel(t.Context(), config))
 	assert.True(t, downloadCalled)
 }
 
@@ -215,7 +215,7 @@ func TestEnsureModel_GGUFBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 	})
 
 	mgr := NewModelManagerFromServiceInterface(mock)
-	require.NoError(t, mgr.EnsureModel(&domain.ChatConfig{Model: "model.gguf"}))
+	require.NoError(t, mgr.EnsureModel(t.Context(), &domain.ChatConfig{Model: "model.gguf"}))
 	assert.False(t, downloaded)
 }
 

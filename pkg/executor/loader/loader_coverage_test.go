@@ -31,7 +31,7 @@ import (
 // textutil is in PATH.
 func TestLoadRTF_NeitherFound(t *testing.T) {
 	t.Setenv("PATH", "")
-	_, err := loadRTF("/nonexistent/file.rtf")
+	_, err := loadRTF(t.Context(), "/nonexistent/file.rtf")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "neither pandoc nor textutil found in PATH")
 }
@@ -39,7 +39,7 @@ func TestLoadRTF_NeitherFound(t *testing.T) {
 // TestLoadHTMLLynx_NoBin covers the error path when lynx is not in PATH.
 func TestLoadHTMLLynx_NoBin(t *testing.T) {
 	t.Setenv("PATH", "")
-	_, err := loadHTMLLynx("/some/file.html")
+	_, err := loadHTMLLynx(t.Context(), "/some/file.html")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "lynx not found in PATH")
 }
@@ -47,7 +47,7 @@ func TestLoadHTMLLynx_NoBin(t *testing.T) {
 // TestLoadPandoc_NotFound covers the error path when pandoc is not in PATH.
 func TestLoadPandoc_NotFound(t *testing.T) {
 	t.Setenv("PATH", "")
-	_, err := loadPandoc("/nonexistent/file.md")
+	_, err := loadPandoc(t.Context(), "/nonexistent/file.md")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pandoc not found in PATH")
 }
@@ -115,7 +115,7 @@ func TestLoadNotionDirectory_UnreadableFile(t *testing.T) {
 // TestRunCLIToFile_BinNotFound covers the lookErr != nil branch in runCLIToFile.
 func TestRunCLIToFile_BinNotFound(t *testing.T) {
 	t.Setenv("PATH", "")
-	_, err := runCLIToFile("testlabel", "totally_nonexistent_bin_xyz", nil, "/file")
+	_, err := runCLIToFile(t.Context(), "testlabel", "totally_nonexistent_bin_xyz", nil, "/file")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in PATH")
 }
@@ -134,7 +134,7 @@ func TestExecute_LoadError(t *testing.T) {
 func TestRunCLIToFile_Success(t *testing.T) {
 	requireBin(t, "cp")
 	f := writeTempFile(t, "hello from cp")
-	docs, err := runCLIToFile("cp_test", "cp", nil, f)
+	docs, err := runCLIToFile(t.Context(), "cp_test", "cp", nil, f)
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 	assert.Contains(t, docs[0].Content, "hello from cp")
@@ -145,7 +145,7 @@ func TestRunCLIToFile_Success(t *testing.T) {
 func TestLoadPandoc_Success(t *testing.T) {
 	requireBin(t, "pandoc")
 	f := writeTempFileExt(t, "# Hello\nThis is a test.", ".md")
-	docs, err := loadPandoc(f)
+	docs, err := loadPandoc(t.Context(), f)
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
 	assert.Contains(t, docs[0].Content, "Hello")
@@ -160,14 +160,14 @@ func TestLoadRTF_TextutilFallback(t *testing.T) {
 	}
 	t.Setenv("PATH", filepath.Dir(textutilPath))
 	f := writeTempFileExt(t, "{\\rtf1 Hello textutil}", ".rtf")
-	_, err = loadRTF(f)
+	_, err = loadRTF(t.Context(), f)
 	_ = err
 }
 
 // TestLoadHTMLLynx_CmdError covers the cmdErr != nil path in loadHTMLLynx.
 func TestLoadHTMLLynx_CmdError(t *testing.T) {
 	requireBin(t, "lynx")
-	_, err := loadHTMLLynx("/nonexistent_path_for_lynx_test.html")
+	_, err := loadHTMLLynx(t.Context(), "/nonexistent_path_for_lynx_test.html")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "loader html_lynx")
 }

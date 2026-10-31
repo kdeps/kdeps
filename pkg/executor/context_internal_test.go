@@ -131,7 +131,7 @@ func TestNewExecutionContext_BasicWorkflow(t *testing.T) {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	}
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	assert.NoError(t, err)
 	assert.NotNil(t, ctx)
 	assert.Equal(t, wf, ctx.Workflow)
@@ -141,7 +141,7 @@ func TestNewExecutionContext_WithSessionID(t *testing.T) {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	}
-	ctx, err := NewExecutionContext(wf, "custom-session")
+	ctx, err := NewExecutionContext(t.Context(), wf, "custom-session")
 	assert.NoError(t, err)
 	assert.NotNil(t, ctx)
 }

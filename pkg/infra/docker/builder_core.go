@@ -103,7 +103,7 @@ func NewBuilderWithOS(baseOS string) (*Builder, error) {
 }
 
 // Build builds a Docker image from a workflow.
-func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (string, error) {
+func (b *Builder) Build(ctx context.Context, workflow *domain.Workflow, _ string, noCache bool) (string, error) {
 	kdeps_debug.Log("enter: Build")
 	// Validate workflow
 	if workflow == nil {
@@ -118,13 +118,13 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 	}
 
 	// Generate Dockerfile
-	dockerfile, err := b.generateDockerfile(workflow)
+	dockerfile, err := b.generateDockerfile(ctx, workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate Dockerfile: %w", err)
 	}
 
 	// Create build context
-	buildContext, err := b.CreateBuildContext(workflow, dockerfile)
+	buildContext, err := b.CreateBuildContext(ctx, workflow, dockerfile)
 	if err != nil {
 		return "", fmt.Errorf("failed to create build context: %w", err)
 	}
@@ -132,7 +132,6 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 	// Build image (Docker requires lowercase repository names, no spaces)
 	sanitizedName := strings.ToLower(strings.ReplaceAll(workflow.Metadata.Name, " ", "-"))
 	imageName := fmt.Sprintf("%s:%s", sanitizedName, workflow.Metadata.Version)
-	ctx := context.Background()
 
 	if buildErr := b.Client.BuildImage(ctx, "Dockerfile", imageName, buildContext, noCache); buildErr != nil {
 		return "", fmt.Errorf("failed to build image: %w", buildErr)

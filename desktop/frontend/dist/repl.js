@@ -52,7 +52,7 @@ function renderModels() {
     li.tabIndex = 0;
     li.append(el("span", "mname", (m.favorite ? "* " : "") + m.name));
     const badges = el("span", "badges");
-    badges.append(el("span", "badge", m.type));
+    badges.append(el("span", "badge", m.backend || m.type));
     if (m.current) badges.append(el("span", "badge ok", "current"));
     else if (action === "download") badges.append(el("span", "badge", "not downloaded"));
     else if (action === "needs-key") badges.append(el("span", "badge", "no api key"));

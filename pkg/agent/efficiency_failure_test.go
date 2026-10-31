@@ -203,7 +203,7 @@ func newFailingToolLoop(t *testing.T, ms Streamer, failUntil int) *Loop {
 			return "edited", nil
 		},
 	})
-	return New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	return New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
 }
@@ -238,7 +238,7 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 			return "edited", os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o600)
 		},
 	})
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
 	wd, err := os.Getwd()

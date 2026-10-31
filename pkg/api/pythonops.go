@@ -65,6 +65,7 @@ func PythonOps(ctx context.Context, args map[string]any) (string, error) {
 		return "", errors.New(msgPythonNeed)
 	}
 	result, err := pythonExecutor().Run(
+		ctx,
 		config,
 		stringArg(args, argPythonVer),
 		stringListArg(args, argPackages),

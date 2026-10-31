@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -32,7 +33,7 @@ import (
 func TestRunDoctor_Unhealthy(t *testing.T) {
 	orig := runDoctorCheckFunc
 	t.Cleanup(func() { runDoctorCheckFunc = orig })
-	runDoctorCheckFunc = func(_ *config.Config) *config.DoctorReport {
+	runDoctorCheckFunc = func(_ context.Context, _ *config.Config) *config.DoctorReport {
 		return &config.DoctorReport{Healthy: false}
 	}
 	err := runDoctor(&cobra.Command{}, nil)

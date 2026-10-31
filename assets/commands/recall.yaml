@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.0.1
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -16,7 +16,7 @@ run:
     print: |-
       {{if not .hits}}Nothing recalled.{{else}}matched: {{join .seeds ", "}}
       ```
-      {{range .hits}}{{.path}}  (score {{printf "%.2f" .score}}{{if .via}}, {{.hops}} hop from {{.via}}{{end}})
+      {{range .hits}}{{.path}}  (score {{printf "%.2f" .score}}{{if .chain}}, {{.chain}}{{else if .via}}, {{.hops}} hop from {{.via}}{{end}})
       {{if .summary}}    {{.summary}}
       {{end}}{{end}}```
       {{len .hits}} notes, ~{{.tokens}} tokens{{end}}

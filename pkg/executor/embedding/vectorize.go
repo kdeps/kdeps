@@ -143,6 +143,11 @@ func buildOpenAICompatEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, err
 	if apiKey == "" && isLocalBackend(cfg.Backend) {
 		apiKey = backendOllamaLocal
 	}
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(cfg.Backend); err != nil {
+			return nil, err
+		}
+	}
 
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),

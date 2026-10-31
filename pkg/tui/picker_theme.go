@@ -18,7 +18,11 @@
 
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // PickerColors is the small set of semantic colors the startup/model/session
 // pickers (/settings, /model, the resume picker) render with:
@@ -65,10 +69,10 @@ func SetPickerColors(c PickerColors) {
 // CurrentPickerColors returns the picker palette in effect.
 func CurrentPickerColors() PickerColors { return pickerColors }
 
-func accentColor() lipgloss.Color  { return lipgloss.Color(pickerColors.Accent) }
-func successColor() lipgloss.Color { return lipgloss.Color(pickerColors.Success) }
-func warningColor() lipgloss.Color { return lipgloss.Color(pickerColors.Warning) }
-func dimColor() lipgloss.Color     { return lipgloss.Color(pickerColors.Dim) }
+func accentColor() color.Color  { return lipgloss.Color(pickerColors.Accent) }
+func successColor() color.Color { return lipgloss.Color(pickerColors.Success) }
+func warningColor() color.Color { return lipgloss.Color(pickerColors.Warning) }
+func dimColor() color.Color     { return lipgloss.Color(pickerColors.Dim) }
 
 //nolint:gochecknoinits // build the picker styles once with the default palette
 func init() { buildSelectorStyles() }

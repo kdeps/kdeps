@@ -79,6 +79,7 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 	_, err = k8s.NewGenerator("img").GenerateManifests(&domain.Workflow{})
 	require.NoError(t, err, "k8s templates")
 	df, err := (&docker.Builder{BaseOS: "alpine"}).GenerateDockerfile(
+		t.Context(),
 		&domain.Workflow{Settings: domain.WorkflowSettings{AgentSettings: domain.AgentSettings{
 			// pinned: no GitHub releases/latest lookup (rate-limited on CI runners)
 			Versions: &domain.PackageVersions{Kdeps: "2.0.0", Ollama: "0.5.4", UV: "0.6.3"},

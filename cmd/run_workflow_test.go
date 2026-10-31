@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -41,6 +42,7 @@ func TestExecuteWorkflowStepsWithFlags_SetupError(t *testing.T) {
 		"pythonVersion: \"99.99.99\"\n    pythonPackages:\n      - nonexistent-pkg-xyz-123", 1)
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wf), 0644))
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	require.Error(t, err)
@@ -55,12 +57,13 @@ func TestExecuteWorkflowStepsWithFlags_LLMBackendError(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wf), 0644))
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	require.Error(t, err)
 }
 
-func TestSetupEnvironmentStep_WithPackages(_ *testing.T) {
+func TestSetupEnvironmentStep_WithPackages(t *testing.T) {
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{
@@ -70,7 +73,7 @@ func TestSetupEnvironmentStep_WithPackages(_ *testing.T) {
 		},
 	}
 	// May succeed or fail depending on uv availability; we only need branch coverage.
-	_ = setupEnvironmentStep(wf)
+	_ = setupEnvironmentStep(t.Context(), wf)
 }
 
 func TestSetupEnvironmentStep_Error(t *testing.T) {
@@ -83,7 +86,7 @@ func TestSetupEnvironmentStep_Error(t *testing.T) {
 			},
 		},
 	}
-	err := setupEnvironmentStep(wf)
+	err := setupEnvironmentStep(t.Context(), wf)
 	require.Error(t, err)
 }
 
@@ -93,6 +96,7 @@ func TestExecuteWorkflowStepsWithFlags_Interactive(t *testing.T) {
 	wfPath := filepath.Join(tmp, "workflow.yaml")
 	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML()), 0644))
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	// EOF on stdin exits interactive mode.
 	err := ExecuteWorkflowStepsWithFlags(cmd, wfPath, &RunFlags{Interactive: true})
@@ -107,6 +111,7 @@ func TestExecuteWorkflowStepsWithFlags_LLMBackendOK(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	t.Logf("llm backend: %v", err)
@@ -122,6 +127,7 @@ func TestExecuteWorkflowStepsWithFlags_LLMErrReturn(t *testing.T) {
 	ensureOllamaRunningFunc = func(_ string) error { return errors.New("ollama down") }
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	require.Error(t, ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{}))
 }
@@ -129,11 +135,12 @@ func TestExecuteWorkflowStepsWithFlags_LLMErrReturn(t *testing.T) {
 func TestExecuteWorkflowStepsWithFlags_SetupEnvError(t *testing.T) {
 	orig := setupEnvironmentFunc
 	t.Cleanup(func() { setupEnvironmentFunc = orig })
-	setupEnvironmentFunc = func(_ *domain.Workflow) error { return errors.New("setup") }
+	setupEnvironmentFunc = func(_ context.Context, _ *domain.Workflow) error { return errors.New("setup") }
 	tmp := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	require.Error(t, ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{}))
 }
@@ -165,6 +172,7 @@ resources:
 	ensureOllamaRunningFunc = func(_ string) error { return errors.New("ollama") }
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	require.Error(t, err)
@@ -187,7 +195,7 @@ func TestParseWorkflowStep_Success(t *testing.T) {
 
 func TestSetupEnvironmentStep_NoPython(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}, Settings: domain.WorkflowSettings{}}
-	require.NoError(t, setupEnvironmentStep(wf))
+	require.NoError(t, setupEnvironmentStep(t.Context(), wf))
 }
 
 func TestEnsureLLMBackendStep_NoOllama(t *testing.T) {
@@ -234,6 +242,7 @@ agents:
 		),
 	)
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteAgencyStepsWithFlags(cmd, filepath.Join(tmp, "agency.yaml"), &RunFlags{})
 	require.NoError(t, err)
@@ -270,6 +279,7 @@ resources:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(agentWF), 0644))
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "agency.yaml"), &RunFlags{})
 	require.NoError(t, err)
@@ -280,6 +290,7 @@ func TestExecuteWorkflowStepsWithFlags_InvalidWorkflow(t *testing.T) {
 	badPath := filepath.Join(tmp, "workflow.yaml")
 	require.NoError(t, os.WriteFile(badPath, []byte("invalid: ["), 0644))
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, badPath, &RunFlags{})
 	require.Error(t, err)
@@ -294,6 +305,7 @@ func TestExecuteWorkflowStepsWithFlags_LLMErr(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wf), 0644))
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
 	cmd.Flags().Bool("debug", false, "")
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	require.Error(t, err)
@@ -310,7 +322,7 @@ func TestSetupEnvironment_AppliesWorkflowEnv(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, SetupEnvironment(wf))
+	require.NoError(t, SetupEnvironment(t.Context(), wf))
 	assert.Equal(t, "from-workflow", os.Getenv("KDEPS_TEST_WORKFLOW_ENV"))
 }
 
@@ -324,7 +336,7 @@ func TestSetupEnvironment_ProcessEnvWinsOverWorkflowEnv(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, SetupEnvironment(wf))
+	require.NoError(t, SetupEnvironment(t.Context(), wf))
 	assert.Equal(t, "from-process", os.Getenv("KDEPS_TEST_WORKFLOW_ENV"))
 }
 

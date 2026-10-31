@@ -39,7 +39,7 @@ func TestSessionStorage_TTL(t *testing.T) {
 	// TTL 3s / wait 4s: sub-second TTLs flaked on a pathologically slow
 	// windows-latest run where a single test took 6s - the Set() bbolt commit
 	// plus scheduling jitter blew past the TTL before the assertion.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-test", 3*time.Second)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "ttl-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -79,7 +79,7 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 	// margin, pushing the wall-clock check past the TTL before the "still
 	// under TTL" assertion runs. Matches the seconds-scale margin already
 	// used successfully by TestSessionStorage_Cleanup for the same reason.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-extend-test", 3*time.Second)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "ttl-extend-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -115,7 +115,7 @@ func TestSessionStorage_Touch(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "sessions_touch.db")
 
 	// 3s TTL / half-second steps / 4s final wait -- see TestSessionStorage_TTL.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 3*time.Second)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "touch-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -155,7 +155,7 @@ func TestSessionStorage_TouchWithTTL(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "sessions_touch_custom.db")
 
 	// Create session storage with no default TTL (0 = no auto-extension)
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-custom-test", 0)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "touch-custom-test", 0)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -191,7 +191,7 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	// windows-latest run (whole test took 5s) - the Set() bbolt commit plus
 	// scheduling delay between Set and the "not expired immediately" check
 	// exceeded the TTL. Matches TestSessionStorage_Cleanup's 3s.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "expired-test", 3*time.Second)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "expired-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -227,7 +227,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 	// taking 15s+ for this whole test. A short TTL expired key0 before its
 	// verify-Get could touch it; 10s clears that with room to spare. The 15s
 	// wait then exceeds the post-verify (touched) TTL for the expiry check.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "cleanup-test", 10*time.Second)
+	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "cleanup-test", 10*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -266,7 +266,7 @@ func TestSessionStorage_NoTTL(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "sessions_no_ttl.db")
 
 	// Create session storage without explicit TTL (uses default)
-	store, err := storage.NewSessionStorage(dbPath, "no-ttl-test")
+	store, err := storage.NewSessionStorage(t.Context(), dbPath, "no-ttl-test")
 	require.NoError(t, err)
 	defer store.Close()
 

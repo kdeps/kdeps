@@ -496,8 +496,8 @@ func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
 	}
 	// With no text typed, only the enabled provider's model appears; the
 	// disabled-provider model is hidden until the user types a filter.
-	assert.Equal(t, []string{"gpt-4o [cloud enabled]"}, found)
-	assert.NotContains(t, found, "deepseek-chat [cloud]")
+	assert.Equal(t, []string{"gpt-4o [openai enabled]"}, found)
+	assert.NotContains(t, found, "deepseek-chat [deepseek]")
 }
 
 func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
@@ -519,12 +519,45 @@ func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
 		found = append(found, string(r))
 	}
 	// Suffixes contain model name + tag with ANSI bold on the matched keyword.
-	assert.Contains(t, found, "gpt-4o [cloud \033[1menabled\033[0m]")
-	assert.Contains(t, found, "gemini-2.5-flash [cloud \033[1menabled\033[0m]")
+	assert.Contains(t, found, "gpt-4o [openai \033[1menabled\033[0m]")
+	assert.Contains(t, found, "gemini-2.5-flash [gemini \033[1menabled\033[0m]")
 	// llama3.2:1b is not a cloud model, so "enabled" does not appear in its tag.
 	for _, s := range found {
 		assert.NotContains(t, s, "llama3.2:1b", "non-cloud model must not appear for 'enabled' filter")
 	}
+}
+
+func TestReplCompleter_TagFilter_CloudAndBackend(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"gpt-4o", "llama3.2:1b"})
+	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai"})
+	repl.SetProviderStatus(map[string]bool{"openai": true})
+	repl.SetModelTypes(map[string]string{"llama3.2:1b": "gguf"})
+
+	c := &replCompleter{repl: repl}
+	found := func(input string) ([]string, int) {
+		t.Helper()
+		runes := []rune(input)
+		results, length := c.Do(runes, len(runes))
+		out := make([]string, 0, len(results))
+		for _, r := range results {
+			out = append(out, string(r))
+		}
+		return out, length
+	}
+
+	cloudFound, cloudLen := found("/model cloud")
+	assert.Equal(t, 0, cloudLen)
+	assert.Contains(t, cloudFound, "gpt-4o [openai enabled]")
+	for _, s := range cloudFound {
+		assert.NotContains(t, s, "llama3.2:1b")
+	}
+
+	backendFound, backendLen := found("/model openai")
+	assert.Equal(t, 0, backendLen)
+	assert.Contains(t, backendFound, "gpt-4o [\033[1mopenai\033[0m enabled]")
 }
 
 func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
@@ -584,6 +617,14 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 
 	_ = repl.dispatchCommand("/model " + strings.Join([]string{"deepseek-chat [cloud enabled]"}, " "))
 	assert.Equal(t, "deepseek-chat", repl.loop.config.Model)
+
+	repl.SetModelNames([]string{"llama3.2:1b", "deepseek-chat", "gpt-4o"})
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"gpt-4o [openai enabled]"}, " "))
+	assert.Equal(t, "gpt-4o", repl.loop.config.Model)
+	// Typing "cloud" still selects a named-backend model: the keyword is
+	// prepended, then stripped, and the tag names the backend.
+	_ = repl.dispatchCommand("/model " + strings.Join([]string{"cloudgpt-4o [openai enabled]"}, " "))
+	assert.Equal(t, "gpt-4o", repl.loop.config.Model)
 }
 
 // --- expandFileRefs ---
@@ -3328,7 +3369,7 @@ func TestRunWithThinking_StreamingPath(t *testing.T) {
 func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	// Covers lines 140-147: the SetOnAutoCompact closure set by NewREPL fires
 	// when auto-compaction triggers during RunStreaming.
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ any) (any, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compact summary", nil
@@ -3339,7 +3380,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 		responses: []mockStreamResponse{{content: "response after compact"}},
 	}
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
 		Streamer:             &autoHandshakeStreamer{inner: ms},
 		CompactTokenBudget:   1,
@@ -3608,17 +3649,38 @@ func TestContextFromParams_ResolvesModelName(t *testing.T) {
 // --- cmdModelTool ---
 
 // captureStdout redirects os.Stdout for fn and returns what it printed.
+// The pipe is drained while fn runs. A Windows pipe holds a few KB and a
+// Linux pipe holds 64KB. /model list writes more than that, so reading only
+// after fn returns blocks the write until the test timeout.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+	var buf bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(&buf, r)
+		close(done)
+	}()
 	fn()
-	w.Close()
-	os.Stdout = origOut
-	data, _ := io.ReadAll(r)
-	r.Close()
-	return string(data)
+	_ = w.Close()
+	<-done
+	_ = r.Close()
+	return buf.String()
+}
+
+func TestCaptureStdout_LargeWriteDoesNotBlock(t *testing.T) {
+	line := strings.Repeat("m", 400)
+	out := captureStdout(t, func() {
+		for range 200 {
+			fmt.Fprintln(os.Stdout, line)
+		}
+	})
+	assert.Contains(t, out, line)
+	assert.Equal(t, 200, strings.Count(out, line))
 }
 
 func TestCmdModelTool_ListShowsSettings(t *testing.T) {
@@ -4556,7 +4618,14 @@ func TestModelTag_CloudModel(t *testing.T) {
 	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
 	repl.SetProviderStatus(map[string]bool{"openai": false})
 	tag := modelTag(repl, "mymodel")
-	assert.Contains(t, tag, "cloud")
+	assert.Equal(t, " [openai]", tag)
+}
+
+func TestModelTag_NoBackendStaysCloud(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	assert.Equal(t, " [cloud]", modelTag(repl, "unlisted"))
 }
 
 func TestModelTag_CloudEnabled(t *testing.T) {
@@ -4566,7 +4635,7 @@ func TestModelTag_CloudEnabled(t *testing.T) {
 	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
 	repl.SetProviderStatus(map[string]bool{"openai": true})
 	tag := modelTag(repl, "mymodel")
-	assert.Contains(t, tag, "enabled")
+	assert.Equal(t, " [openai enabled]", tag)
 }
 
 func TestModelTag_CachedGGUF(t *testing.T) {
@@ -5261,7 +5330,7 @@ func TestCRLFWriter_ReturnLenOfInput(t *testing.T) {
 }
 
 func makeTestLoopWithEngine(result any) *Loop {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
 		return result, nil
 	})
@@ -5450,7 +5519,7 @@ func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 
 func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	orig := listLocalServersFunc
-	listLocalServersFunc = func() []llm.LocalServerEntry {
+	listLocalServersFunc = func(_ context.Context) []llm.LocalServerEntry {
 		return []llm.LocalServerEntry{
 			{
 				Model:   "qwen2-1b",

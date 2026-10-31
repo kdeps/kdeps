@@ -48,6 +48,6 @@ func TestCreateSessionStorage_InvalidDBPath(t *testing.T) {
 			Session: &domain.SessionConfig{Path: filepath.Join(roDir, "sessions.db")},
 		},
 	}
-	_, err := createSessionStorage(wf, "")
+	_, err := createSessionStorage(t.Context(), wf, "")
 	require.Error(t, err)
 }

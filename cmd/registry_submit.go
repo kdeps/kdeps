@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -173,7 +172,7 @@ func printRegistryFormula(cmd *cobra.Command, packageName, formulaYAML string) {
 
 func detectGitHubRepo(dir string) (string, error) {
 	kdeps_debug.Log("enter: detectGitHubRepo")
-	out, err := exec.CommandContext(context.Background(), "git", "-C", dir, "remote", "get-url", "origin").Output()
+	out, err := exec.CommandContext(processRoot(), "git", "-C", dir, "remote", "get-url", "origin").Output()
 	if err != nil {
 		return "", fmt.Errorf("git remote get-url origin: %w", err)
 	}
@@ -216,7 +215,7 @@ func parseGitHubHTTPSRemote(remote string) (string, bool) {
 func computeRemoteSHA256(url string) (string, error) {
 	kdeps_debug.Log("enter: computeRemoteSHA256")
 	client := &http.Client{Timeout: registrySubmitTimeout}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(processRoot(), http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}

@@ -114,7 +114,7 @@ func TestReadStatelessInput_WhitespaceOnly(t *testing.T) {
 }
 
 func TestRunStateless_WritesResultAsReply(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return map[string]interface{}{"success": true, "data": "stdout reply"}, nil
 	})
@@ -170,7 +170,7 @@ func TestRunStateless_StdinParseError(t *testing.T) {
 	require.NoError(t, writeErr)
 	pw.Close()
 
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	workflow := &domain.Workflow{}
 
 	err = RunStateless(context.Background(), workflow, engine, nil)
@@ -179,7 +179,7 @@ func TestRunStateless_StdinParseError(t *testing.T) {
 }
 
 func TestRunStateless_ExecuteError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("execution failed")
 	})
@@ -203,7 +203,7 @@ func TestRunStateless_ExecuteError(t *testing.T) {
 }
 
 func TestRunStateless_Success(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	var capturedReq interface{}
 	engine.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
 		capturedReq = req

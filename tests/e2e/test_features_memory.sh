@@ -126,7 +126,12 @@ EOF
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
 
-if wait_for_kdeps_port "$API_PORT" 20; then KDEPS_STARTED=true; else KDEPS_STARTED=false; fi
+if wait_for_kdeps_port "$API_PORT" 20 "" "$LOG_FILE"; then
+    KDEPS_STARTED=true
+    API_PORT="$KDEPS_BOUND_PORT"
+else
+    KDEPS_STARTED=false
+fi
 
 if [ "$KDEPS_STARTED" = false ]; then
     fail_server_startup "Memory - server failed to start" "$LOG_FILE"

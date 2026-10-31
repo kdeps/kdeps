@@ -73,6 +73,10 @@ func TestExtractAndBuild(t *testing.T) {
 	m := edges["note:projects/app/decisions/Billing decision.md -> entity:stripe mentions"]
 	require.NotNil(t, m)
 	assert.Equal(t, ProvInferred, m.Provenance)
+	assert.Equal(t, "projects/app/decisions/Billing decision.md", m.SourceFile)
+	assert.NotEmpty(t, m.SourceLocation)
+	assert.Equal(t, "local", g.ExtractModel)
+	assert.False(t, g.ExtractedAt.IsZero())
 	d := edges["entity:monthly billing -> entity:stripe depends_on"]
 	require.NotNil(t, d)
 	assert.InDelta(t, 0.9, d.Confidence, 1e-9)
@@ -87,7 +91,7 @@ func TestExtractAndBuild(t *testing.T) {
 		}
 	}
 	assert.Equal(t, []string{"tool"}, kinds)
-	md, _ := os.ReadFile(ReportPath(v.Root))
+	md, _ := os.ReadFile(ReportPath(dir))
 	assert.Contains(t, string(md), "## Edges to review")
 	assert.Contains(t, string(md), "-[relates_to, 0.49]->")
 

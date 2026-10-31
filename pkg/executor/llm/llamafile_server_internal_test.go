@@ -40,7 +40,7 @@ func TestFindFreePort_UnexpectedAddrType(t *testing.T) {
 	netListenConfigListen = func(_ context.Context, _, _ string) (net.Listener, error) {
 		return badAddrListener{}, nil
 	}
-	_, err := FindFreePort()
+	_, err := FindFreePort(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected listener address type")
 }
@@ -99,7 +99,7 @@ func TestWaitForHealthy_StillRunningFallsThroughToTimeout(t *testing.T) {
 
 func TestFindFreePort_Basic(t *testing.T) {
 	t.Parallel()
-	port, err := FindFreePort()
+	port, err := FindFreePort(t.Context())
 	require.NoError(t, err)
 	assert.Greater(t, port, 0)
 }

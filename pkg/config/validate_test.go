@@ -614,6 +614,23 @@ func TestValidateUnknownKeys_Knowledge(t *testing.T) {
 	assert.Equal(t, "/v", cfg.Knowledge.Vault)
 }
 
+func TestValidate_KnowledgeRecallHops(t *testing.T) {
+	// Validate returns nothing when no config file exists. CI has none.
+	writeTempConfig(t, t.TempDir(), "knowledge:\n  recall:\n    hops: 3\n")
+	cfg := &Config{Knowledge: &KnowledgeConfig{
+		Recall: KnowledgeRecallConfig{Hops: 3},
+	}}
+	warnings := cfg.Validate("")
+	require.Contains(t, warnings, "knowledge.recall.hops 3 exceeds the supported range; use 1 or 2")
+
+	for _, hops := range []int{0, 1, 2} {
+		cfg.Knowledge.Recall.Hops = hops
+		for _, warning := range cfg.Validate("") {
+			assert.NotContains(t, warning, "knowledge.recall.hops")
+		}
+	}
+}
+
 func TestSaveKnowledgeVault(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", p)

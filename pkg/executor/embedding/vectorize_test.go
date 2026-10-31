@@ -31,6 +31,7 @@ import (
 	lcemb "github.com/tmc/langchaingo/embeddings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // stub embedders for testing vectorizeInputs/embedQuery error paths.
@@ -428,6 +429,18 @@ func TestProviderEnvKey_OpenRouter(t *testing.T) {
 	assert.Equal(t, "OPENROUTER_API_KEY", providerEnvKey("openrouter"))
 }
 
+func TestBuildOpenAICompatEmbedder_OpenRouterRequiresItsOwnKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "sk-openai-must-not-be-used")
+	_, err := buildOpenAICompatEmbedder(&domain.EmbeddingConfig{
+		Backend: "openrouter",
+		Model:   "text-embedding-3-small",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
+}
+
 func TestProviderEnvKey_Together(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "TOGETHER_API_KEY", providerEnvKey("together"))
@@ -470,7 +483,7 @@ func TestExecute_VectorizeOperation(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "vectorize",
 		Inputs:    []string{"test text"},
 		Model:     "test-model",
@@ -490,7 +503,7 @@ func TestExecute_EmbedQueryOperation(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "embed_query",
 		Text:      "test query",
 		Model:     "test-model",
@@ -520,7 +533,7 @@ func TestExecute_RerankOperation(t *testing.T) {
 	t.Setenv("COHERE_API_KEY", "test-key")
 
 	e := NewExecutor()
-	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+	res, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation:       "rerank",
 		RerankQuery:     "test query",
 		RerankDocuments: []string{"doc1", "doc2"},

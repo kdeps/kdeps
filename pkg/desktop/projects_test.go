@@ -189,7 +189,7 @@ func newProjectHarness(t *testing.T, withRunner bool) *projectHarness {
 	log := newEventLog()
 	h := &projectHarness{log: log, ws: ws, installed: installed, reg: reg}
 	opts := desktop.Options{
-		Emit: log.emit, Engine: executor.NewEngine(nil), Cwd: ws, StateDir: t.TempDir(),
+		Emit: log.emit, Engine: executor.NewEngine(context.Background(), nil), Cwd: ws, StateDir: t.TempDir(),
 		Model: "test", Streamer: &scriptedStreamer{}, Registry: reg,
 	}
 	if withRunner {

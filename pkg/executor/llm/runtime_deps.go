@@ -59,7 +59,7 @@ func maybeRemediateCrash(
 	if !errors.As(err, &crashErr) {
 		return servedPort, attempted, err
 	}
-	if !remediateCrash(effectiveGOOS(), tailServerLog(path)) {
+	if !remediateCrash(ctx, effectiveGOOS(), tailServerLog(path)) {
 		return servedPort, true, err // checked, no applicable fix -- don't check again
 	}
 	logger.WarnContext(ctx, "attempting to remediate a missing runtime dependency and retry", "error", err)
@@ -71,7 +71,7 @@ func maybeRemediateCrash(
 // captured crash. Returns true if a remediation action was taken (not
 // necessarily that it fixed anything -- the caller retries and lets the next
 // health check be the judge of that).
-func remediateCrash(goos, logTail string) bool {
+func remediateCrash(ctx context.Context, goos, logTail string) bool {
 	switch goos {
 	case goosWindows:
 		// An access-violation crash (the VC++ Redist scenario this targets)
@@ -82,11 +82,11 @@ func remediateCrash(goos, logTail string) bool {
 		// installer is idempotent and self-checking, so attempting it
 		// unconditionally on any early Windows crash is simpler and just as
 		// safe as trying to diagnose the exact cause first.
-		return remediateWindowsCrash()
+		return remediateWindowsCrash(ctx)
 	case "darwin":
-		return remediateMacCrash(logTail)
+		return remediateMacCrash(ctx, logTail)
 	case "linux":
-		return remediateLinuxCrash(logTail)
+		return remediateLinuxCrash(ctx, logTail)
 	default:
 		return false
 	}
@@ -113,11 +113,11 @@ func cachedVCRedistPath() string {
 	return filepath.Join(home, ".kdeps", "bin", "vc_redist.x64.exe")
 }
 
-func downloadVCRedist(dest string) error {
+func downloadVCRedist(ctx context.Context, dest string) error {
 	if mkdirErr := os.MkdirAll(filepath.Dir(dest), 0750); mkdirErr != nil {
 		return fmt.Errorf("create vc_redist dir: %w", mkdirErr)
 	}
-	return downloadFile(dest, vcRedistURL)
+	return downloadFile(ctx, dest, vcRedistURL)
 }
 
 // vcRedistInstallTimeout bounds the installer run. "/quiet" only suppresses
@@ -133,26 +133,26 @@ const vcRedistInstallTimeout = 30 * time.Second
 // runVCRedistInstaller runs the (already downloaded) installer silently. Its
 // own manifest requires admin and self-triggers the UAC prompt -- kdeps needs
 // no elevation code of its own here, just a bound on how long it can block.
-func runVCRedistInstaller(path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), vcRedistInstallTimeout)
+func runVCRedistInstaller(ctx context.Context, path string) error {
+	ctx, cancel := context.WithTimeout(ctx, vcRedistInstallTimeout)
 	defer cancel()
 	return exec.CommandContext(ctx, path, "/install", "/quiet", "/norestart").Run()
 }
 
 // remediateWindowsCrash downloads (if not already cached) and silently runs
 // the official VC++ Redistributable installer.
-func remediateWindowsCrash() bool {
+func remediateWindowsCrash(ctx context.Context) bool {
 	dest := cachedVCRedistPath()
 	if dest == "" {
 		return false
 	}
 	if _, statErr := os.Stat(dest); statErr != nil {
-		if dlErr := downloadVCRedistFn(dest); dlErr != nil {
+		if dlErr := downloadVCRedistFn(ctx, dest); dlErr != nil {
 			kdeps_debug.Log(fmt.Sprintf("vc_redist download failed: %v", dlErr))
 			return false
 		}
 	}
-	if err := runVCRedistInstallerFn(dest); err != nil {
+	if err := runVCRedistInstallerFn(ctx, dest); err != nil {
 		kdeps_debug.Log(fmt.Sprintf("vc_redist install failed: %v", err))
 		return false
 	}
@@ -165,8 +165,8 @@ func remediateWindowsCrash() bool {
 var (
 	lookPathFn          = exec.LookPath
 	installHomebrewFn   = installHomebrewNonInteractive
-	brewInstallLibompFn = func() error {
-		return runCommandInheritStdio("brew", "install", "libomp")
+	brewInstallLibompFn = func(ctx context.Context) error {
+		return runCommandInheritStdio(ctx, "brew", "install", "libomp")
 	}
 	reinstallLlamaServerFn = reinstallLlamaServer
 )
@@ -176,18 +176,18 @@ var (
 // symlinked sibling library (see extractTarGzSiblings) -- installLlamaServer
 // always re-downloads and overwrites, so this repairs an existing cache
 // entry without needing to delete it first.
-func reinstallLlamaServer() error {
-	return installLlamaServer(cachedLlamaServerPath())
+func reinstallLlamaServer(ctx context.Context) error {
+	return installLlamaServer(ctx, cachedLlamaServerPath())
 }
 
 // installHomebrewNonInteractive runs Homebrew's official installer in
 // non-interactive mode (Homebrew's install script explicitly supports
 // NONINTERACTIVE=1 for exactly this kind of automation; it prompts for sudo
 // itself internally if it needs to create /opt/homebrew or /usr/local).
-func installHomebrewNonInteractive() error {
+func installHomebrewNonInteractive(ctx context.Context) error {
 	const installScript = `NONINTERACTIVE=1 /bin/bash -c ` +
 		`"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
-	cmd := exec.CommandContext(context.Background(), "/bin/bash", "-c", installScript)
+	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", installScript)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -201,17 +201,17 @@ func installHomebrewNonInteractive() error {
 // re-downloads and re-extracts the llama-server release archive instead --
 // that signature means a sibling shared library llama-server itself ships
 // was never written to ~/.kdeps/bin, not a missing system dependency.
-func remediateMacCrash(logTail string) bool {
+func remediateMacCrash(ctx context.Context, logTail string) bool {
 	if !strings.Contains(logTail, "Library not loaded") {
 		return false
 	}
 	if strings.Contains(logTail, "libomp") {
-		return remediateMacLibompCrash()
+		return remediateMacLibompCrash(ctx)
 	}
 	if !strings.Contains(logTail, ".dylib") {
 		return false
 	}
-	if err := reinstallLlamaServerFn(); err != nil {
+	if err := reinstallLlamaServerFn(ctx); err != nil {
 		kdeps_debug.Log(fmt.Sprintf("llama-server reinstall failed: %v", err))
 		return false
 	}
@@ -220,14 +220,14 @@ func remediateMacCrash(logTail string) bool {
 
 // remediateMacLibompCrash installs libomp via Homebrew, bootstrapping
 // Homebrew itself first if missing.
-func remediateMacLibompCrash() bool {
+func remediateMacLibompCrash(ctx context.Context) bool {
 	if _, err := lookPathFn("brew"); err != nil {
-		if bootstrapErr := installHomebrewFn(); bootstrapErr != nil {
+		if bootstrapErr := installHomebrewFn(ctx); bootstrapErr != nil {
 			kdeps_debug.Log(fmt.Sprintf("homebrew bootstrap failed: %v", bootstrapErr))
 			return false
 		}
 	}
-	if err := brewInstallLibompFn(); err != nil {
+	if err := brewInstallLibompFn(ctx); err != nil {
 		kdeps_debug.Log(fmt.Sprintf("brew install libomp failed: %v", err))
 		return false
 	}
@@ -289,7 +289,7 @@ func sudoInstallArgs(manager, pkg string) []string {
 // with stdio inherited so an interactive password prompt is visible and can
 // be answered. If no terminal is attached, a password prompt would hang, so
 // this fails fast with the same command execSudoInstall would run.
-func runSudoInstall(manager, pkg string) error {
+func runSudoInstall(ctx context.Context, manager, pkg string) error {
 	manual := strings.Join(sudoInstallArgs(manager, pkg), " ")
 	if !stdinIsTerminalFn() {
 		return fmt.Errorf(
@@ -297,12 +297,12 @@ func runSudoInstall(manager, pkg string) error {
 			manual,
 		)
 	}
-	return execSudoInstallFn(manager, pkg)
+	return execSudoInstallFn(ctx, manager, pkg)
 }
 
-func execSudoInstall(manager, pkg string) error {
+func execSudoInstall(ctx context.Context, manager, pkg string) error {
 	//nolint:gosec // G204: argv is sudoInstallArgs, a fixed package-manager command, not a shell line
-	cmd := exec.CommandContext(context.Background(), "sudo", sudoInstallArgs(manager, pkg)...)
+	cmd := exec.CommandContext(ctx, "sudo", sudoInstallArgs(manager, pkg)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -328,8 +328,8 @@ func stdinIsTerminal() bool {
 // process's stdio (needed for brew's own progress output / any prompts it
 // might show, unlike the CombinedOutput()-based helpers used elsewhere in
 // this package for non-interactive downloads).
-func runCommandInheritStdio(name string, args ...string) error {
-	cmd := exec.CommandContext(context.Background(), name, args...)
+func runCommandInheritStdio(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -339,7 +339,7 @@ func runCommandInheritStdio(name string, args ...string) error {
 // remediateLinuxCrash installs the Vulkan loader via the detected system
 // package manager (under sudo) when the crash log shows the known ld.so
 // "libvulkan.so.1 not found" signature.
-func remediateLinuxCrash(logTail string) bool {
+func remediateLinuxCrash(ctx context.Context, logTail string) bool {
 	if !strings.Contains(logTail, "libvulkan.so.1") {
 		return false
 	}
@@ -348,7 +348,7 @@ func remediateLinuxCrash(logTail string) bool {
 		kdeps_debug.Log("no known Linux package manager found for Vulkan loader install")
 		return false
 	}
-	if err := runSudoInstallFn(manager, pkg); err != nil {
+	if err := runSudoInstallFn(ctx, manager, pkg); err != nil {
 		kdeps_debug.Log(fmt.Sprintf("vulkan loader install failed: %v", err))
 		return false
 	}

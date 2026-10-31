@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -103,7 +102,7 @@ func startInteractiveMode(
 	fmt.Fprintln(os.Stdout, "  ✓ Type /quit or /exit to stop, Ctrl+D for EOF")
 	fmt.Fprintln(os.Stdout, "")
 
-	ctx := context.Background()
+	ctx := processRoot()
 	logger := logging.NewLogger(debugMode)
 	return llminput.Run(ctx, workflow, eng, logger)
 }

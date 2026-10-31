@@ -129,7 +129,7 @@ if output_grep "Context window:" "$OUT" &&
 else
     test_failed "asset profiles - unlisted built-ins" "$OUT"
 fi
-if [ "$(python3 -c "import json,sys;print(','.join(sorted(json.load(open(sys.argv[1])).get('empty') or [])))" "$MN/store/lock.json")" = "actions,events,presets" ]; then
+if [ "$(python3 -c "import json,sys;print(','.join(sorted(json.load(open(sys.argv[1])).get('empty') or [])))" "$MN/store/lock.json")" = "actions,events,policy,presets" ]; then
     test_passed "asset profiles - sets minimum leaves empty are recorded in the lock"
 else
     test_failed "asset profiles - lock empty sets" "$(cat "$MN/store/lock.json" | head -c 400)"
@@ -145,9 +145,11 @@ fi
 # --- the knowledge graph page under minimum: its template comes on first use --
 OUT=$(ap "$MN" "$KDEPS_BIN" knowledge init "$MN/vault")
 OUT="$OUT $(ap "$MN" "$KDEPS_BIN" knowledge build --vault "$MN/vault")"
+EXPLORE=$(printf '%s\n' "$OUT" | sed -n 's/^Explore: //p' | head -1)
 if [ -f "$MN/store/templates/knowledge.yaml" ] && [ "$(set_count "$MN" templates)" = "1" ] &&
-    output_grep "Explore: .*graph.html" "$OUT" && grep -q 'id="legend"' "$MN/vault/graph.html" 2>/dev/null; then
-    test_passed "asset profiles - under minimum, only templates/knowledge is installed and graph.html is written"
+    output_grep "Explore: .*graph.html" "$OUT" && [ -n "$EXPLORE" ] && grep -q 'id="legend"' "$EXPLORE" 2>/dev/null &&
+    [ ! -e "$MN/vault/graph.html" ]; then
+    test_passed "asset profiles - under minimum, only templates/knowledge is installed and graph.html is written beside the graph"
 else
     test_failed "asset profiles - graph page under minimum" "$OUT $(ls "$MN/store/templates" 2>&1)"
 fi

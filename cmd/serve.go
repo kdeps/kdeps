@@ -221,11 +221,20 @@ type agentLoopFlags struct {
 	Index        []string
 }
 
-// processParent returns parent, or a root context when the command has none.
-// context.Background is only created in this file.
+// processRootCtx is the process's one root context; context.Background is
+// only created here. Every command's work derives from it, directly or through
+// the cobra command's context.
+//
+//nolint:gochecknoglobals // the single process root
+var processRootCtx = context.Background()
+
+// processRoot returns the process root context.
+func processRoot() context.Context { return processRootCtx }
+
+// processParent returns parent, or the process root when the command has none.
 func processParent(parent context.Context) context.Context {
 	if parent == nil {
-		return context.Background()
+		return processRoot()
 	}
 	return parent
 }
@@ -238,10 +247,10 @@ func processParent(parent context.Context) context.Context {
 // (default: all enabled). Use /settings inside the REPL to change selections.
 //
 //nolint:funlen,gocognit // sequential startup orchestration; splitting obscures the order
-func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
+func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) error {
 	// Single root context for the entire agent loop session lifetime.
 	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
-	rootCtx, rootCancel := context.WithCancel(context.Background())
+	rootCtx, rootCancel := context.WithCancel(processRoot())
 	defer rootCancel()
 
 	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
@@ -289,7 +298,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// The terminal is the conversation: the engine behind the loop's own calls
 	// and the workflow tools logs warnings and errors only, unless --debug.
 	eng := setupEngineAt(slog.LevelWarn, flags.Debug)
-	llmAdapter := llm.NewAdapter(flags.BaseURL)
+	llmAdapter := llm.NewAdapter(rootCtx, flags.BaseURL)
 
 	// Sessions and memory are stored under ~/.kdeps, partitioned by the
 	// working directory so each folder keeps its own conversations and memory
@@ -334,7 +343,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		SystemPrompt:    flags.SystemPrompt,
 		SkillPaths:      skillPaths,
 		Streamer:        llmAdapter,
-		ModelService:    llm.NewModelService(nil),
+		ModelService:    llm.NewModelService(rootCtx, nil),
 		Store:           store,
 		MemoryStore:     memStore,
 		Identity:        identity,
@@ -351,8 +360,13 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	resumeID := flags.Resume
 	if resumeID == "" && !flags.NewSession {
-		// No explicit --resume / --new: offer this folder's saved sessions.
-		resumeID = agent.PickStartupSession(store)
+		// No explicit --resume / --new: offer this folder's saved sessions. The
+		// full-screen view offers them as an overlay once it is up.
+		if agent.FullScreenEnabled() {
+			cfg.OfferSessionPicker = true
+		} else {
+			resumeID = agent.PickStartupSession(store)
+		}
 	}
 	if resumeID != "" {
 		saved, loadErr := store.Load(resumeID)
@@ -387,7 +401,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// wireREPL below.
 	excludedTools := leanExcludedTools(registry)
 
-	loop := agent.New(eng, hostWorkflow, registry, cfg)
+	loop := agent.New(ctx, eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(rootCtx, loop)
 	repl.RegisterCommandAPI()
 	defer llm.ShutdownLocalServers()
@@ -515,7 +529,7 @@ func resolveStartModelWithAutoPick(
 		if m, b, ok := autoRouterPickFunc(ctx, agent.AppFS); ok {
 			return m, b
 		}
-		return agent.ResolveModelAndBackend("", "")
+		return agent.ResolveModelAndBackend(ctx, "", "")
 	}
 	if model == "auto" {
 		return resolveAutoModel(ctx)
@@ -526,7 +540,7 @@ func resolveStartModelWithAutoPick(
 	if model == "" && backend == "" {
 		// Fill empty model/backend the same way the agent loop does (file
 		// default llama3.2:1b, cloud keys, ollama, cached local models).
-		model, backend = agent.ResolveModelAndBackend(model, backend)
+		model, backend = agent.ResolveModelAndBackend(ctx, model, backend)
 	}
 	return model, backend
 }
@@ -566,7 +580,7 @@ func resolveAutoModel(ctx context.Context) (string, string) {
 	if model, backend := pickInstalledModelByFitFunc(ctx); model != "" || backend != "" {
 		return model, backend
 	}
-	return agent.ResolveModelAndBackend("", "")
+	return agent.ResolveModelAndBackend(ctx, "", "")
 }
 
 // resolveTheme decides which theme the REPL renders with. Precedence: the
@@ -965,7 +979,7 @@ func buildUnifiedEntries() []agent.LocalModelEntry {
 		return statErr == nil
 	}
 	return agent.BuildUnifiedModelEntries(
-		llm.ListLlamafileMappings(), llm.ListGGUFMappings(), llm.ListOllamaModels(),
+		llm.ListLlamafileMappings(), llm.ListGGUFMappings(), llm.ListOllamaModels(processRoot()),
 		llamafileCached, ggufCached, true,
 	)
 }
@@ -1005,6 +1019,16 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Score:     repl.LlamaFitScore(name),
 				FitLevel:  repl.LlamaFitFitLevel(name),
 			})
+		}
+		if agent.FullScreenEnabled() && len(entries) > 0 {
+			if done, ok := agent.RunInScreen(tui.NewModelPickerOverlay(entries, repl.CurrentModel(), filter)); ok {
+				picker, _ := done.(tui.ModelPickerOverlay)
+				name, chosen := picker.Result()
+				if !chosen {
+					return "", nil
+				}
+				return name, nil
+			}
 		}
 		return tui.RunModelPicker(entries, repl.CurrentModel(), filter)
 	}

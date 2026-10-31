@@ -118,6 +118,7 @@ func (e *Executor) prepareRequestBody(
 }
 
 func (e *Executor) createRequest(
+	parent context.Context,
 	config *domain.HTTPClientConfig,
 	method, urlStr string,
 	body io.Reader,
@@ -125,7 +126,7 @@ func (e *Executor) createRequest(
 	proxy string,
 ) (*http.Request, *http.Client, error) {
 	kdeps_debug.Log("enter: createRequest")
-	req, err := http.NewRequestWithContext(context.Background(), method, urlStr, body)
+	req, err := http.NewRequestWithContext(parent, method, urlStr, body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}

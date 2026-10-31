@@ -389,7 +389,7 @@ func TestRegisterEmbeddingTools_VectorizeParams(t *testing.T) {
 
 func TestMakeEmbeddingExecute_SearchOperation(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "search")
+	fn := makeEmbeddingExecute(t.Context(), exec, "search")
 	require.NotNil(t, fn)
 
 	// Execute with empty args; should fail at executor level (no collection/path)
@@ -405,7 +405,7 @@ func TestMakeEmbeddingExecute_SearchOperation(t *testing.T) {
 
 func TestMakeEmbeddingExecute_VectorizeOperation(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "vectorize")
+	fn := makeEmbeddingExecute(t.Context(), exec, "vectorize")
 	require.NotNil(t, fn)
 
 	// Vectorize operation: should fail with model-related error (no API key)
@@ -421,7 +421,7 @@ func TestMakeEmbeddingExecute_VectorizeOperation(t *testing.T) {
 
 func TestMakeEmbeddingExecute_WithQueryAndCollection(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "search")
+	fn := makeEmbeddingExecute(t.Context(), exec, "search")
 	require.NotNil(t, fn)
 
 	// Provide query and collection args; executor should at least not panic
@@ -436,7 +436,7 @@ func TestMakeEmbeddingExecute_WithQueryAndCollection(t *testing.T) {
 
 func TestMakeEmbeddingExecute_WithTextsOnly(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "vectorize")
+	fn := makeEmbeddingExecute(t.Context(), exec, "vectorize")
 	require.NotNil(t, fn)
 
 	// Texts with model and backend
@@ -455,7 +455,7 @@ func TestMakeEmbeddingExecute_WithTextsOnly(t *testing.T) {
 
 func TestMakeEmbeddingExecute_LimitArg(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "search")
+	fn := makeEmbeddingExecute(t.Context(), exec, "search")
 	require.NotNil(t, fn)
 
 	// Limit as float64 (JSON decoding)
@@ -473,7 +473,7 @@ func TestMakeEmbeddingExecute_LimitArg(t *testing.T) {
 
 func TestMakeEmbeddingExecute_AllVectorizeArgs(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "vectorize")
+	fn := makeEmbeddingExecute(t.Context(), exec, "vectorize")
 	require.NotNil(t, fn)
 
 	result, err := fn(map[string]any{
@@ -490,7 +490,7 @@ func TestMakeEmbeddingExecute_AllVectorizeArgs(t *testing.T) {
 
 func TestMakeEmbeddingExecute_AllSearchArgs(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "search")
+	fn := makeEmbeddingExecute(t.Context(), exec, "search")
 	require.NotNil(t, fn)
 
 	result, err := fn(map[string]any{
@@ -507,7 +507,7 @@ func TestMakeEmbeddingExecute_AllSearchArgs(t *testing.T) {
 
 func TestMakeEmbeddingExecute_EmptyTextsForVectorize(t *testing.T) {
 	exec := execEmbedding.NewExecutor()
-	fn := makeEmbeddingExecute(exec, "vectorize")
+	fn := makeEmbeddingExecute(t.Context(), exec, "vectorize")
 	require.NotNil(t, fn)
 
 	result, err := fn(map[string]any{

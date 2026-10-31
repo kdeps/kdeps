@@ -13,7 +13,7 @@ Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Data and SQL
 
-The three SQLite tools are `python:` blocks in their tool assets (Python's built-in `sqlite3`). Each opens the file read-only (`mode=ro`), so a query can never write it, and `db_path` is checked against `KDEPS_WORKSPACE_ROOT` first. `sql_ops` (named connections, any driver) stays in Go.
+The three SQLite tools are `python:` blocks in their tool assets (Python's built-in `sqlite3`). Each opens the file read-only (`mode=ro`), so a query can never write it, and `db_path` is checked against `KDEPS_WORKSPACE_ROOT` first. Paths under `~/.kdeps` and `/tmp` are allowed. `sql_ops` (named connections, any driver) stays in Go.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|

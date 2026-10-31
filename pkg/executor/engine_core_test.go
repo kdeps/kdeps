@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -35,7 +36,7 @@ import (
 
 // TestEngine_Execute_ItemsIteration tests Items iteration feature.
 func TestEngine_Execute_ItemsIteration(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -80,7 +81,7 @@ func TestEngine_Execute_ItemsIteration(t *testing.T) {
 
 // TestEngine_Execute_SkipCondition_FileExists tests skip condition with file checks.
 func TestEngine_Execute_SkipCondition_FileExists(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -125,7 +126,7 @@ func TestEngine_Execute_SkipCondition_FileExists(t *testing.T) {
 
 // TestEngine_Execute_PreflightCheck_WithError tests preflight check with custom error.
 func TestEngine_Execute_PreflightCheck_WithError(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -172,7 +173,7 @@ func TestEngine_Execute_PreflightCheck_WithError(t *testing.T) {
 
 // TestEngine_Execute_ExprBlock tests expression blocks.
 func TestEngine_Execute_ExprBlock(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -215,7 +216,7 @@ func TestEngine_Execute_ExprBlock(t *testing.T) {
 
 // TestEngine_Execute_ComplexSkipCondition tests complex skip conditions.
 func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -284,7 +285,7 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 
 // TestEngine_Execute_MultiplePreflightValidations tests multiple preflight validations.
 func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -348,7 +349,7 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 
 // TestEngine_Execute_ItemsWithDependencies tests Items with resource dependencies.
 func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 	engine.SetRegistry(registry)
 
@@ -404,7 +405,7 @@ func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
 
 // TestEngine_executeLLM_ErrorPaths tests error paths in executeLLM for better coverage.
 func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -415,7 +416,7 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test 1: Nil chat config
@@ -452,7 +453,7 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 func TestEngine_executeResourceWithErrorHandling_RetryLogic(t *testing.T) {
 	// Test retry logic through existing workflow execution test
 	// The retry logic is tested indirectly through the Execute method
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock executor that always fails
@@ -498,7 +499,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryLogic(t *testing.T) {
 
 // TestEngine_executeResourceWithErrorHandling_RetryExhaustion tests retry exhaustion.
 func TestEngine_executeResourceWithErrorHandling_RetryExhaustion(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock executor that always fails
@@ -543,7 +544,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryExhaustion(t *testing.T) {
 
 // TestEngine_executeResourceWithErrorHandling_FailAction tests fail action.
 func TestEngine_executeResourceWithErrorHandling_FailAction(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock executor that always fails
@@ -587,7 +588,7 @@ func TestEngine_executeResourceWithErrorHandling_FailAction(t *testing.T) {
 
 // TestEngine_executeResourceWithErrorHandling_ContinueWithFallback tests continue with fallback.
 func TestEngine_executeResourceWithErrorHandling_ContinueWithFallback(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock executor that fails
@@ -632,7 +633,7 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithFallback(t *testing
 
 // TestEngine_executeResourceWithErrorHandling_ContinueWithoutFallback tests continue without fallback.
 func TestEngine_executeResourceWithErrorHandling_ContinueWithoutFallback(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock executor that fails
@@ -682,7 +683,7 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithoutFallback(t *test
 
 // TestEngine_executeExprBlock_ErrorHandling tests expression execution through ExecuteResource.
 func TestEngine_executeExprBlock_ErrorHandling(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 	// Test resource with invalid expression syntax through ExecuteResource
@@ -703,9 +704,11 @@ func TestEngine_executeExprBlock_ErrorHandling(t *testing.T) {
 
 // TestEngine_executeExprBlock_ParseError tests expression parsing through ExecuteResource.
 func TestEngine_executeExprBlock_ParseError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.
 
-	// Test resource with expression that fails to parse through ExecuteResource
+		// Test resource with expression that fails to parse through ExecuteResource
+		Background(), nil)
+
 	resource := &domain.Resource{
 
 		ActionID: "test-resource",
@@ -723,7 +726,7 @@ func TestEngine_executeExprBlock_ParseError(t *testing.T) {
 
 // TestEngine_Execute_TimeoutDurationParsing tests timeout duration parsing in LLM execution.
 func TestEngine_Execute_TimeoutDurationParsing(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock LLM executor
@@ -740,7 +743,7 @@ func TestEngine_Execute_TimeoutDurationParsing(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test with invalid timeout duration (should use default)
@@ -763,7 +766,7 @@ func TestEngine_Execute_TimeoutDurationParsing(t *testing.T) {
 
 // TestEngine_Execute_ExpressionEvaluationInLLM tests expression evaluation in LLM config.
 func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock LLM executor
@@ -780,7 +783,7 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set up request context for expression evaluation
@@ -814,7 +817,7 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 
 // TestEngine_Execute_ExpressionEvaluationErrorInLLM tests expression evaluation error in LLM config.
 func TestEngine_Execute_ExpressionEvaluationErrorInLLM(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock LLM executor
@@ -831,7 +834,7 @@ func TestEngine_Execute_ExpressionEvaluationErrorInLLM(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Initialize evaluator
@@ -857,7 +860,7 @@ func TestEngine_Execute_ExpressionEvaluationErrorInLLM(t *testing.T) {
 
 // TestEngine_Execute_DebugMode tests debug mode functionality.
 func TestEngine_Execute_DebugMode(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetDebugMode(true) // Enable debug mode
 	registry := executor.NewRegistry()
 
@@ -875,7 +878,7 @@ func TestEngine_Execute_DebugMode(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test LLM resource with debug mode enabled
@@ -900,7 +903,7 @@ func TestEngine_Execute_DebugMode(t *testing.T) {
 
 // TestEngine_Execute_DefaultBackend tests default backend selection in LLM execution.
 func TestEngine_Execute_DefaultBackend(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	// Mock LLM executor
@@ -917,7 +920,7 @@ func TestEngine_Execute_DefaultBackend(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Test LLM resource without specifying backend (should default to "ollama")
@@ -993,7 +996,7 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 
 // TestEngine_ConvertToSlice tests all branches of convertToSlice.
 func TestEngine_ConvertToSlice(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	assert.Nil(t, eng.ConvertToSlice(nil))
 
@@ -1011,7 +1014,7 @@ func TestEngine_ConvertToSlice(t *testing.T) {
 
 // TestEngine_BuildEvaluationEnvironment tests branches of buildEvaluationEnvironment.
 func TestEngine_BuildEvaluationEnvironment(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	env := eng.BuildEvaluationEnvironment(nil)
 	assert.NotNil(t, env)
@@ -1019,7 +1022,7 @@ func TestEngine_BuildEvaluationEnvironment(t *testing.T) {
 	assert.False(t, hasLLM)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	env = eng.BuildEvaluationEnvironment(ctx)
@@ -1063,19 +1066,19 @@ func TestEngine_BuildEvaluationEnvironment(t *testing.T) {
 }
 
 func TestEngine_SetEmitter_Nil(_ *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetEmitter(nil)
 }
 
 func TestEngine_SetEmitter_Valid(_ *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	em := events.NewChanEmitter(4)
 	engine.SetEmitter(em)
 	em.Close()
 }
 
 func TestEngine_SetExecuteFunc(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	called := false
 	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		called = true
@@ -1098,7 +1101,7 @@ func TestEngine_SetExecuteFunc(t *testing.T) {
 }
 
 func TestEngine_executeEmbedding_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -1106,7 +1109,7 @@ func TestEngine_executeEmbedding_NoExecutor(t *testing.T) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -1119,7 +1122,7 @@ func TestEngine_executeEmbedding_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -1127,7 +1130,7 @@ func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -1140,7 +1143,7 @@ func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -1148,7 +1151,7 @@ func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	_, err = engine.ExecuteInlineLLMForTesting(&domain.ChatConfig{Model: "m", Prompt: "p"}, ctx)
@@ -1157,7 +1160,7 @@ func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_executeInlineEmbedding_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -1183,7 +1186,7 @@ func TestEngine_executeInlineEmbedding_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -1209,7 +1212,7 @@ func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	agentPaths := map[string]string{"agent1": "/path/to/agent1"}
 	engine.SetNewExecutionContextForAgency(agentPaths)
 
@@ -1241,7 +1244,7 @@ func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
 }
 
 func TestEngine_Execute_FileInputPropagation(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mockLLM := &mockLLMExecutor{result: "ok"}
 	registry.SetLLMExecutor(mockLLM)
@@ -1282,7 +1285,7 @@ func TestEngine_Execute_FileInputPropagation(t *testing.T) {
 }
 
 func TestEngine_ShouldSkipResource_NilCtxAPI(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	resource := &domain.Resource{
 		ActionID: "r",
@@ -1293,7 +1296,7 @@ func TestEngine_ShouldSkipResource_NilCtxAPI(t *testing.T) {
 
 	// ctx with nil API exercises the nil-API evaluator init
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	skip, err := engine.ShouldSkipResource(resource, ctx)
@@ -1302,7 +1305,7 @@ func TestEngine_ShouldSkipResource_NilCtxAPI(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_NilReqWithRestrictions(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	resource := &domain.Resource{
 		ActionID: "r",
@@ -1316,7 +1319,7 @@ func TestEngine_MatchesRestrictions_NilReqWithRestrictions(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_RouteWildcard(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	resource := &domain.Resource{
 		ActionID: "r",
@@ -1343,7 +1346,7 @@ func TestEngine_MatchesRestrictions_RouteWildcard(t *testing.T) {
 }
 
 func TestEngine_MatchesRestrictions_RouteNoMatchShorterPath(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 
 	resource := &domain.Resource{
 		ActionID: "r",
@@ -1358,7 +1361,7 @@ func TestEngine_MatchesRestrictions_RouteNoMatchShorterPath(t *testing.T) {
 }
 
 func TestEngine_executeResourceWithErrorHandling_DefaultAction(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{err: errors.New("test failure")}
 	registry.SetHTTPExecutor(mockHTTP)
@@ -1389,7 +1392,7 @@ func TestEngine_executeResourceWithErrorHandling_DefaultAction(t *testing.T) {
 }
 
 func TestEngine_executeResourceWithErrorHandling_RetryDelay(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{err: errors.New("always fails")}
 	registry.SetHTTPExecutor(mockHTTP)
@@ -1422,7 +1425,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryDelay(t *testing.T) {
 }
 
 func TestEngine_executeResourceWithErrorHandling_RetryDelayExpression(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{err: errors.New("fail")}
 	registry.SetHTTPExecutor(mockHTTP)
@@ -1454,7 +1457,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryDelayExpression(t *testing
 }
 
 func TestEngine_shouldHandleError_AppErrorWithDetails(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	appErr := domain.NewAppError(domain.ErrCodeValidation, "validation failed").
@@ -1496,7 +1499,7 @@ func TestEngine_shouldHandleError_AppErrorWithDetails(t *testing.T) {
 }
 
 func TestEngine_executeOnErrorExpressions_AppErrorDetails(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 
 	appErr := domain.NewAppError(domain.ErrCodeValidation, "validation").
@@ -1533,7 +1536,7 @@ func TestEngine_executeOnErrorExpressions_AppErrorDetails(t *testing.T) {
 }
 
 func TestEngine_evaluateFallback_Array(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{err: errors.New("fail")}
 	registry.SetHTTPExecutor(mockHTTP)
@@ -1568,7 +1571,7 @@ func TestEngine_evaluateFallback_Array(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_MutualExclusion(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -1592,7 +1595,7 @@ func TestEngine_prepareLoopSchedule_MutualExclusion(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_InvalidEvery(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -1615,8 +1618,10 @@ func TestEngine_prepareLoopSchedule_InvalidEvery(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	// Use now+10s so the at: time is valid RFC3339 and the sleep is bounded (<= 10s).
+	engine := executor.NewEngine(context.
+		// Use now+10s so the at: time is valid RFC3339 and the sleep is bounded (<= 10s).
+		Background(), nil)
+
 	atTime := time.Now().Add(10 * time.Second).UTC().Format(time.RFC3339)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -1643,7 +1648,7 @@ func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_InvalidAtEntry(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -1665,8 +1670,10 @@ func TestEngine_prepareLoopSchedule_InvalidAtEntry(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_AtCapsSmallerThanMaxIter(t *testing.T) {
-	engine := executor.NewEngine(nil)
-	// When at: has fewer entries than maxIter, maxIter is capped to len(at)
+	engine := executor.NewEngine(context.
+		// When at: has fewer entries than maxIter, maxIter is capped to len(at)
+		Background(), nil)
+
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -1697,7 +1704,7 @@ func TestEngine_prepareLoopSchedule_AtCapsSmallerThanMaxIter(t *testing.T) {
 }
 
 func TestEngine_ExecuteWithItems_DebugMode(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetDebugMode(true)
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{result: "http result"}
@@ -1705,7 +1712,7 @@ func TestEngine_ExecuteWithItems_DebugMode(t *testing.T) {
 	engine.SetRegistry(registry)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -1723,7 +1730,7 @@ func TestEngine_ExecuteWithItems_DebugMode(t *testing.T) {
 }
 
 func TestEngine_ExecuteWithItems_LLMResultMerge(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	// LLM returns a map that should be merged with item map fields
 	mockLLM := &mockLLMExecutor{result: map[string]interface{}{
@@ -1733,7 +1740,7 @@ func TestEngine_ExecuteWithItems_LLMResultMerge(t *testing.T) {
 	engine.SetRegistry(registry)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 	ctx.API.Set("items", []interface{}{
@@ -1760,7 +1767,7 @@ func TestEngine_ExecuteWithItems_LLMResultMerge(t *testing.T) {
 }
 
 func TestEngine_ExecuteWithItems_NilResult(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	// LLM returns nil -> item is skipped
 	mockLLM := &mockLLMExecutor{result: nil}
@@ -1768,7 +1775,7 @@ func TestEngine_ExecuteWithItems_NilResult(t *testing.T) {
 	engine.SetRegistry(registry)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -1786,7 +1793,7 @@ func TestEngine_ExecuteWithItems_NilResult(t *testing.T) {
 }
 
 func TestEngine_ExecuteWithItems_ArrayExpansion(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetDebugMode(true) // covers debug logging for array expansion
 	registry := executor.NewRegistry()
 	mockHTTP := &mockHTTPExecutor{result: "ok"}
@@ -1794,7 +1801,7 @@ func TestEngine_ExecuteWithItems_ArrayExpansion(t *testing.T) {
 	engine.SetRegistry(registry)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 	// Set an array value for expansion
@@ -1814,7 +1821,7 @@ func TestEngine_ExecuteWithItems_ArrayExpansion(t *testing.T) {
 }
 
 func TestEngine_executeInlineResources_UnknownType(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
@@ -1841,7 +1848,7 @@ func TestEngine_executeInlineResources_UnknownType(t *testing.T) {
 }
 
 func TestEngine_executeLLM_OfflineMode(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetDebugMode(true) // debug mode skips countdown goroutine
 	registry := executor.NewRegistry()
 	mockLLM := &mockLLMExecutor{result: "offline result"}
@@ -1875,7 +1882,7 @@ func TestEngine_executeLLM_OfflineMode(t *testing.T) {
 }
 
 func TestEngine_executeEmbedding_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetEmbeddingExecutor(&mockGenericExecutor{result: "embedded"})
 	engine.SetRegistry(registry)
@@ -1902,7 +1909,7 @@ func TestEngine_executeEmbedding_Success(t *testing.T) {
 }
 
 func TestEngine_executeSearchLocal_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetSearchLocalExecutor(&mockGenericExecutor{result: "found"})
 	engine.SetRegistry(registry)
@@ -1929,7 +1936,7 @@ func TestEngine_executeSearchLocal_Success(t *testing.T) {
 }
 
 func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetEmbeddingExecutor(&mockGenericExecutor{result: "inline embedded"})
 	engine.SetRegistry(registry)
@@ -1954,7 +1961,7 @@ func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
 }
 
 func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetSearchLocalExecutor(&mockGenericExecutor{result: "inline found"})
 	engine.SetRegistry(registry)
@@ -1979,7 +1986,7 @@ func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
 }
 
 func TestEngine_executeInlineLLM_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: "inline llm"})
 	engine.SetRegistry(registry)
@@ -2004,7 +2011,7 @@ func TestEngine_executeInlineLLM_Success(t *testing.T) {
 }
 
 func TestEngine_executeInlinePython_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetPythonExecutor(&mockPythonExecutor{result: "inline python"})
 	engine.SetRegistry(registry)
@@ -2029,7 +2036,7 @@ func TestEngine_executeInlinePython_Success(t *testing.T) {
 }
 
 func TestEngine_executeInlineExec_Success(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetExecExecutor(&mockExecExecutor{result: "inline exec"})
 	engine.SetRegistry(registry)
@@ -2054,9 +2061,9 @@ func TestEngine_executeInlineExec_Success(t *testing.T) {
 }
 
 func TestEngine_executeAPIResponse_MetaModelBackend(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -2081,9 +2088,9 @@ func TestEngine_executeAPIResponse_MetaModelBackend(t *testing.T) {
 }
 
 func TestEngine_executeAPIResponse_LLMMetadataAutoAdded(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -2113,9 +2120,9 @@ func TestEngine_executeAPIResponse_LLMMetadataAutoAdded(t *testing.T) {
 }
 
 func TestEngine_executeAPIResponse_LLMMetadataAddsToExistingMeta(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -2145,9 +2152,9 @@ func TestEngine_executeAPIResponse_LLMMetadataAddsToExistingMeta(t *testing.T) {
 }
 
 func TestEngine_executeAPIResponse_MapStringStringHeaders(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -2172,9 +2179,9 @@ func TestEngine_executeAPIResponse_MapStringStringHeaders(t *testing.T) {
 }
 
 func TestEngine_evaluateResponseValue_ArrayPath(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -2196,10 +2203,10 @@ func TestEngine_evaluateResponseValue_ArrayPath(t *testing.T) {
 }
 
 func TestEngine_BuildEvaluationEnvironment_RequestClosures(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -2270,10 +2277,10 @@ func TestEngine_BuildEvaluationEnvironment_RequestClosures(t *testing.T) {
 }
 
 func TestEngine_BuildEvaluationEnvironment_RequestClosures_NilBody(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -2294,10 +2301,10 @@ func TestEngine_BuildEvaluationEnvironment_RequestClosures_NilBody(t *testing.T)
 }
 
 func TestEngine_BuildEvaluationEnvironment_ItemMapMerge(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set an item map in context to exercise the merge path
@@ -2314,10 +2321,10 @@ func TestEngine_BuildEvaluationEnvironment_ItemMapMerge(t *testing.T) {
 }
 
 func TestEngine_BuildEvaluationEnvironment_LLMClosures(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	env := eng.BuildEvaluationEnvironment(ctx)
@@ -2337,10 +2344,10 @@ func TestEngine_BuildEvaluationEnvironment_LLMClosures(t *testing.T) {
 }
 
 func TestEngine_BuildEvaluationEnvironment_PythonExecHTTPClosures(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	env := eng.BuildEvaluationEnvironment(ctx)
@@ -2393,7 +2400,7 @@ func TestEngine_BuildEvaluationEnvironment_PythonExecHTTPClosures(t *testing.T) 
 func TestEngine_agentPathKeys_NonEmpty(t *testing.T) {
 	// agentPathKeys is exercised via executeInlineAgent when agent not found.
 	// Test indirectly by calling an agent resource with agentPaths set.
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetNewExecutionContextForAgency(map[string]string{
 		"agent1": "/path/to/agent1",
 		"agent2": "/path/to/agent2",
@@ -2422,7 +2429,7 @@ func TestEngine_agentPathKeys_NonEmpty(t *testing.T) {
 }
 
 func TestEngine_executeComponentCall_EmptyName(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2449,7 +2456,7 @@ func TestEngine_executeComponentCall_EmptyName(t *testing.T) {
 }
 
 func TestEngine_executeComponentCall_ComponentNotFound(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2477,7 +2484,7 @@ func TestEngine_executeComponentCall_ComponentNotFound(t *testing.T) {
 }
 
 func TestEngine_validateComponentInputs_UnknownKey(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2526,7 +2533,7 @@ func TestEngine_validateComponentInputs_UnknownKey(t *testing.T) {
 }
 
 func TestEngine_runComponentResources_NilResult(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	// LLM returns nil
 	registry.SetLLMExecutor(&mockLLMExecutor{result: nil})
@@ -2575,7 +2582,7 @@ func TestEngine_executeInlineAgent_NilCfg(_ *testing.T) {
 }
 
 func TestEngine_executeInlineAgent_NoAgentPaths(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2603,7 +2610,7 @@ func TestEngine_executeInlineAgent_NoAgentPaths(t *testing.T) {
 func TestEngine_Execute_NewExecutionContextNilGuard(t *testing.T) {
 	// If someone zeroes out the newExecutionContext field via reflection... but we can
 	// test the nil guard by checking that Execute still works after SetRegistry (no crash).
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: "ok"})
 	engine.SetRegistry(registry)
@@ -2630,7 +2637,7 @@ func TestEngine_Execute_NewExecutionContextNilGuard(t *testing.T) {
 }
 
 func TestEngine_ExecuteResource_InlineAfterError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: "llm ok"})
 	registry.SetHTTPExecutor(&mockHTTPExecutor{err: errors.New("after fail")})
@@ -2661,7 +2668,7 @@ func TestEngine_ExecuteResource_InlineAfterError(t *testing.T) {
 }
 
 func TestEngine_Execute_NoOutput(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	// LLM returns nil -> target produces no output
 	registry.SetLLMExecutor(&mockLLMExecutor{result: nil})
@@ -2689,7 +2696,7 @@ func TestEngine_Execute_NoOutput(t *testing.T) {
 }
 
 func TestEngine_Execute_SkipConditionError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2717,11 +2724,11 @@ func TestEngine_Execute_SkipConditionError(t *testing.T) {
 }
 
 func TestEngine_ExecuteResource_BeforeError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
 	workflow := &domain.Workflow{}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -2735,7 +2742,7 @@ func TestEngine_ExecuteResource_BeforeError(t *testing.T) {
 }
 
 func TestEngine_executeEmbedding_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "embedded"}
 	registry.SetEmbeddingExecutor(mock)
@@ -2760,7 +2767,7 @@ func TestEngine_executeEmbedding_WithMock(t *testing.T) {
 }
 
 func TestEngine_executeSearchLocal_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: []string{"file.txt"}}
 	registry.SetSearchLocalExecutor(mock)
@@ -2785,7 +2792,7 @@ func TestEngine_executeSearchLocal_WithMock(t *testing.T) {
 }
 
 func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "inline-embedded"}
 	registry.SetEmbeddingExecutor(mock)
@@ -2812,7 +2819,7 @@ func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
 }
 
 func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: []string{"found.go"}}
 	registry.SetSearchLocalExecutor(mock)
@@ -2839,7 +2846,7 @@ func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_Every(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
 	registry.SetExecExecutor(mock)
@@ -2867,7 +2874,7 @@ func TestEngine_prepareLoopSchedule_Every(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_At(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
 	registry.SetExecExecutor(mock)
@@ -2895,7 +2902,7 @@ func TestEngine_prepareLoopSchedule_At(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_MutuallyExclusive(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2920,7 +2927,7 @@ func TestEngine_prepareLoopSchedule_MutuallyExclusive(t *testing.T) {
 }
 
 func TestEngine_prepareLoopSchedule_InvalidAt(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2943,7 +2950,7 @@ func TestEngine_prepareLoopSchedule_InvalidAt(t *testing.T) {
 }
 
 func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	mock := &mockGenericExecutor{result: "ok"}
 	registry.SetExecExecutor(mock)
@@ -2972,7 +2979,7 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 }
 
 func TestEngine_executePython_NoExecutor(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	engine.SetRegistry(executor.NewRegistry())
 
 	workflow := &domain.Workflow{
@@ -2980,7 +2987,7 @@ func TestEngine_executePython_NoExecutor(t *testing.T) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
 	}
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -2993,7 +3000,7 @@ func TestEngine_executePython_NoExecutor(t *testing.T) {
 }
 
 func TestEngine_executePython_WithMock(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetPythonExecutor(&mockPythonExecutor{result: "python output"})
 	engine.SetRegistry(registry)
@@ -3016,25 +3023,25 @@ func TestEngine_executePython_WithMock(t *testing.T) {
 }
 
 func TestEngine_FormatDuration_Hours(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	result := engine.FormatDuration(2*time.Hour + 30*time.Minute + 15*time.Second)
 	assert.Equal(t, "2h 30m 15s", result)
 }
 
 func TestEngine_FormatDuration_Minutes(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	result := engine.FormatDuration(5*time.Minute + 45*time.Second)
 	assert.Equal(t, "5m 45s", result)
 }
 
 func TestEngine_FormatDuration_Seconds(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	result := engine.FormatDuration(30 * time.Second)
 	assert.Equal(t, "30s", result)
 }
 
 func TestEngine_OnError_Continue_WithFallback(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3082,7 +3089,7 @@ func TestEngine_OnError_Continue_WithFallback(t *testing.T) {
 }
 
 func TestEngine_OnError_Continue_WithoutFallback(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3131,7 +3138,7 @@ func TestEngine_OnError_Continue_WithoutFallback(t *testing.T) {
 }
 
 func TestEngine_OnError_Retry_Success(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that fails twice then succeeds
@@ -3183,7 +3190,7 @@ func TestEngine_OnError_Retry_Success(t *testing.T) {
 }
 
 func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3230,7 +3237,7 @@ func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
 }
 
 func TestEngine_OnError_Fail(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3279,7 +3286,7 @@ func TestEngine_OnError_Fail(t *testing.T) {
 }
 
 func TestEngine_OnError_NoConfig(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3320,7 +3327,7 @@ func TestEngine_OnError_NoConfig(t *testing.T) {
 }
 
 func TestEngine_OnError_SuccessNoHandling(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that succeeds
@@ -3366,7 +3373,7 @@ func TestEngine_OnError_SuccessNoHandling(t *testing.T) {
 }
 
 func TestEngine_OnError_WithExpressions(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that always fails
@@ -3423,7 +3430,7 @@ func TestEngine_OnError_WithExpressions(t *testing.T) {
 // TestEngine_InlineResources_Before tests inline resources that run before the main resource.
 func TestEngine_InlineResources_Before(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -3486,7 +3493,7 @@ func TestEngine_InlineResources_Before(t *testing.T) {
 // TestEngine_InlineResources_After tests inline resources that run after the main resource.
 func TestEngine_InlineResources_After(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -3542,7 +3549,7 @@ func TestEngine_InlineResources_After(t *testing.T) {
 // TestEngine_InlineResources_BeforeAndAfter tests inline resources that run both before and after.
 func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -3607,7 +3614,7 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 // TestEngine_InlineResources_OnlyInline tests resource with only inline resources (no main).
 func TestEngine_InlineResources_OnlyInline(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executors
@@ -3667,7 +3674,7 @@ func TestEngine_InlineResources_OnlyInline(t *testing.T) {
 // TestEngine_InlineResources_Error tests error handling in inline resources.
 func TestEngine_InlineResources_Error(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Set up mock executor that returns error
@@ -3713,7 +3720,7 @@ func TestEngine_InlineResources_Error(t *testing.T) {
 // TestEngine_InlineResources_NoExecutor tests error when executor is not registered.
 func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 	registry := executor.NewRegistry()
 
 	// Don't register any executor
@@ -3754,7 +3761,7 @@ func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 
 // interface.output shapes the component's result from its resources' outputs.
 func TestEngine_runComponentResources_InterfaceOutput(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: map[string]interface{}{"body": "<p>hi</p>", "code": 201}})
 	engine.SetRegistry(registry)
@@ -3790,7 +3797,7 @@ func TestEngine_runComponentResources_InterfaceOutput(t *testing.T) {
 }
 
 func TestEngine_runComponentResources_InterfaceOutputError(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: "ok"})
 	engine.SetRegistry(registry)
@@ -3819,7 +3826,7 @@ func TestEngine_runComponentResources_InterfaceOutputError(t *testing.T) {
 
 // A component resource's validations.check fails the call with its error message.
 func TestEngine_runComponentResources_ValidationsCheck(t *testing.T) {
-	engine := executor.NewEngine(nil)
+	engine := executor.NewEngine(context.Background(), nil)
 	registry := executor.NewRegistry()
 	registry.SetLLMExecutor(&mockLLMExecutor{result: "ok"})
 	engine.SetRegistry(registry)

@@ -79,10 +79,10 @@ type ToolTuning struct {
 	// configured.
 	ContextSize int
 	// RefineOff persists the /refine off|on choice; RefineConfigured is its
-	// "was this ever set" sentinel -- without it an old snapshot (RefineOff
-	// unmarshals to false) restores as SetPromptRefine(!false) == on, which
-	// is the default anyway, but the sentinel keeps the pattern uniform and
-	// lets a future default flip.
+	// "was this ever set" sentinel. The REPL default is off. An old snapshot
+	// that never set RefineConfigured leaves PromptRefine alone, so the
+	// default stays off. A snapshot that stored refine-on (RefineConfigured
+	// true, RefineOff false) restores on.
 	RefineOff        bool
 	RefineConfigured bool
 	// HandshakeOn persists the /handshake on|off choice (default: off). No

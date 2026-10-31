@@ -29,7 +29,7 @@ import (
 
 func TestExtractLLMResponseFromMap_ViaGetLLMResponse(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 
 	ctx.SetOutput("llm-msg", map[string]interface{}{

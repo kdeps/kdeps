@@ -56,12 +56,9 @@ func fuzzyMatchEntries(entries []ModelEntry, query string) []ModelEntry {
 		// Include the llmfit fit level so queries like "perfect" or
 		// "too tight" filter by hardware fit; strip ANSI color codes from
 		// the rendered tag so escape sequences don't pollute matching.
-		// Include e.Backend explicitly: tagForEntry only ever renders a
-		// generic "[cloud]"/"[cloud enabled]" tag, never the backend name
-		// itself, so without this a query like "m365" would only match the
-		// one model literally named "m365-copilot" and hide the other 15
-		// m365-backed models (gpt-5.5, claude-sonnet, ...) that don't repeat
-		// the backend name in their own id.
+		// The tag names the backend ([openrouter], [openai enabled]).
+		// Backend is also searched on its own so a query like "m365"
+		// still matches when the tag format changes.
 		searchText := strings.ToLower(e.Name + " " + e.Backend + " " + e.FitLevel + " " + ansi.Strip(tagForEntry(e)))
 		total := 0.0
 		allMatch := true

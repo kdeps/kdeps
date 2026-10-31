@@ -27,12 +27,12 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-func (e *Executor) index(db *sql.DB, collection, text string) (interface{}, error) {
+func (e *Executor) index(ctx context.Context, db *sql.DB, collection, text string) (interface{}, error) {
 	kdeps_debug.Log("enter: index")
 	if text == "" {
 		return nil, errors.New("embedding: text is required for index operation")
 	}
-	if _, execErr := db.ExecContext(context.Background(),
+	if _, execErr := db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO embeddings (collection, text) VALUES (?, ?)`, collection, text); execErr != nil {
 		return nil, fmt.Errorf("embedding: index failed: %w", execErr)
 	}
@@ -44,12 +44,12 @@ func (e *Executor) index(db *sql.DB, collection, text string) (interface{}, erro
 	}), nil
 }
 
-func (e *Executor) upsert(db *sql.DB, collection, text string) (interface{}, error) {
+func (e *Executor) upsert(ctx context.Context, db *sql.DB, collection, text string) (interface{}, error) {
 	kdeps_debug.Log("enter: upsert")
 	if text == "" {
 		return nil, errors.New("embedding: text is required for upsert operation")
 	}
-	if _, execErr := db.ExecContext(context.Background(),
+	if _, execErr := db.ExecContext(ctx,
 		`INSERT OR REPLACE INTO embeddings (collection, text) VALUES (?, ?)`, collection, text); execErr != nil {
 		return nil, fmt.Errorf("embedding: upsert failed: %w", execErr)
 	}
@@ -61,12 +61,12 @@ func (e *Executor) upsert(db *sql.DB, collection, text string) (interface{}, err
 	}), nil
 }
 
-func (e *Executor) search(db *sql.DB, collection, query string, limit int) (interface{}, error) {
+func (e *Executor) search(ctx context.Context, db *sql.DB, collection, query string, limit int) (interface{}, error) {
 	kdeps_debug.Log("enter: search")
 	if query == "" {
 		return nil, errors.New("embedding: text (query) is required for search operation")
 	}
-	rows, queryErr := db.QueryContext(context.Background(),
+	rows, queryErr := db.QueryContext(ctx,
 		`SELECT text FROM embeddings WHERE collection = ? AND LOWER(text) LIKE LOWER(?) LIMIT ?`,
 		collection, "%"+query+"%", limit,
 	)
@@ -99,15 +99,15 @@ func (e *Executor) search(db *sql.DB, collection, query string, limit int) (inte
 	}), nil
 }
 
-func (e *Executor) delete(db *sql.DB, collection, text string) (interface{}, error) {
+func (e *Executor) delete(ctx context.Context, db *sql.DB, collection, text string) (interface{}, error) {
 	kdeps_debug.Log("enter: delete")
 	var res sql.Result
 	var execErr error
 	if text == "" {
-		res, execErr = db.ExecContext(context.Background(),
+		res, execErr = db.ExecContext(ctx,
 			`DELETE FROM embeddings WHERE collection = ?`, collection)
 	} else {
-		res, execErr = db.ExecContext(context.Background(),
+		res, execErr = db.ExecContext(ctx,
 			`DELETE FROM embeddings WHERE collection = ? AND text = ?`, collection, text)
 	}
 	if execErr != nil {

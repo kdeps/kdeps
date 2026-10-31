@@ -29,7 +29,7 @@ import (
 )
 
 func TestExecutionContext_GetLLMResponse(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with string output
@@ -71,7 +71,7 @@ func TestExecutionContext_GetLLMResponse(t *testing.T) {
 }
 
 func TestExecutionContext_GetLLMPrompt(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// GetLLMPrompt is not fully implemented (requires resource config access)

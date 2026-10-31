@@ -37,7 +37,7 @@ func TestRunWithIO_ProcessLineError(t *testing.T) {
 		return false, errors.New("process failed")
 	}
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "chat"}}
 	in := bytes.NewBufferString("hello\n")
 	out := &bytes.Buffer{}
@@ -49,7 +49,7 @@ func TestRunWithIO_ProcessLineError(t *testing.T) {
 
 func TestReadlineStep_Quit(t *testing.T) {
 	rl := newTestReadline(t, "/quit\n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	out := captureStdout(t, func() {
@@ -62,7 +62,7 @@ func TestReadlineStep_Quit(t *testing.T) {
 
 func TestReadlineStep_Exit(t *testing.T) {
 	rl := newTestReadline(t, "/exit\n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	out := captureStdout(t, func() {
@@ -75,7 +75,7 @@ func TestReadlineStep_Exit(t *testing.T) {
 
 func TestReadlineStep_EmptyLine(t *testing.T) {
 	rl := newTestReadline(t, "\n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	done, err := readlineStep(rl, wf, eng, "sess")
@@ -85,7 +85,7 @@ func TestReadlineStep_EmptyLine(t *testing.T) {
 
 func TestReadlineStep_WhitespaceLine(t *testing.T) {
 	rl := newTestReadline(t, "   \n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	done, err := readlineStep(rl, wf, eng, "sess")
@@ -95,7 +95,7 @@ func TestReadlineStep_WhitespaceLine(t *testing.T) {
 
 func TestReadlineStep_NormalMessage(t *testing.T) {
 	var gotMsg string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
 		rc := req.(*executor.RequestContext)
 		gotMsg = rc.Body["message"].(string)
@@ -114,7 +114,7 @@ func TestReadlineStep_NormalMessage(t *testing.T) {
 }
 
 func TestReadlineStep_NilResult(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, nil //nolint:nilnil
 	})
@@ -131,7 +131,7 @@ func TestReadlineStep_NilResult(t *testing.T) {
 }
 
 func TestReadlineStep_NonStringResult(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return 42, nil
 	})
@@ -147,7 +147,7 @@ func TestReadlineStep_NonStringResult(t *testing.T) {
 }
 
 func TestReadlineStep_EngineError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("server error")
 	})
@@ -180,7 +180,7 @@ func TestReadlineStep_EOF(t *testing.T) {
 	}
 	t.Cleanup(func() { rl.Close(); rIn.Close() })
 
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	done, err := readlineStep(rl, wf, eng, "sess")
@@ -192,7 +192,7 @@ func TestReadlineStep_EOF(t *testing.T) {
 // slash command is forwarded to the engine (dispatchCommand returns false).
 func TestReadlineStep_UnknownCommand_Fallthrough(t *testing.T) {
 	var engineCalled bool
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		engineCalled = true
 		return "llm reply", nil
@@ -208,7 +208,7 @@ func TestReadlineStep_UnknownCommand_Fallthrough(t *testing.T) {
 
 func TestReadlineStep_HelpCommand(t *testing.T) {
 	rl := newTestReadline(t, "/help\n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	done, err := readlineStep(rl, wf, eng, "sess")
@@ -218,7 +218,7 @@ func TestReadlineStep_HelpCommand(t *testing.T) {
 
 func TestReadlineStep_ListCommand(t *testing.T) {
 	rl := newTestReadline(t, "/list\n")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	done, err := readlineStep(rl, wf, eng, "sess")
@@ -227,7 +227,7 @@ func TestReadlineStep_ListCommand(t *testing.T) {
 }
 
 func TestReadlineStep_InterruptEmptyLine(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	rl := &mockReadline{err: readline.ErrInterrupt}
@@ -240,7 +240,7 @@ func TestReadlineStep_InterruptEmptyLine(t *testing.T) {
 }
 
 func TestReadlineStep_InterruptWithPartialLine(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	rl := &mockReadline{line: "hello", err: readline.ErrInterrupt}
@@ -250,7 +250,7 @@ func TestReadlineStep_InterruptWithPartialLine(t *testing.T) {
 }
 
 func TestReadlineStep_ReadlineError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := minimalWorkflow()
 
 	rl := &mockReadline{err: io.ErrClosedPipe}

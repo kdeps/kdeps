@@ -24,6 +24,10 @@ const models = [
 assert.strictEqual(c.filterModels(models, "all", "").length, 5);
 assert.deepStrictEqual(c.filterModels(models, "cloud", "").map((m) => m.name), ["gpt-4o", "claude"]);
 assert.deepStrictEqual(c.filterModels(models, "all", "ORG/").map((m) => m.name), ["alpha"]);
+assert.deepStrictEqual(
+  c.filterModels([{ name: "google/gemma-4-31b-it:free", type: "cloud", backend: "openrouter" }], "all", "openrouter").map((m) => m.name),
+  ["google/gemma-4-31b-it:free"],
+);
 assert.deepStrictEqual(c.typeCounts(models), { all: 5, llamafile: 1, gguf: 1, ollama: 1, cloud: 2 });
 
 assert.strictEqual(c.modelAction(models[0]), "use");

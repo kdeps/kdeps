@@ -34,7 +34,7 @@ import (
 )
 
 func TestStartBotRunnersWithEngine_DispatcherError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -57,7 +57,7 @@ func TestStartBotRunnersWithEngine_Signal(t *testing.T) {
 		<-block
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -92,7 +92,7 @@ func TestStartBotRunnersWithEngine_ErrChan(t *testing.T) {
 	botDispatcherRunFunc = func(_ context.Context, _ *bot.Dispatcher) error {
 		return errors.New("bot run")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -117,7 +117,7 @@ func TestStartBotRunnersWithEngine_SignalInjected(t *testing.T) {
 		<-block
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -158,7 +158,7 @@ func TestLoadBotCredentials(t *testing.T) {
 }
 
 func TestStartBotRunnersWithEngine_Stateless(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -180,7 +180,7 @@ func TestStartBotRunnersWithEngine_PollingShutdown(t *testing.T) {
 	botDispatcherRunFunc = func(_ context.Context, _ *bot.Dispatcher) error {
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "poll-bot"},
 		Settings: domain.WorkflowSettings{

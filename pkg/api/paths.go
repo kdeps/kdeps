@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -113,7 +114,7 @@ func validateWorkspace(path string) error {
 	if root == "" {
 		return nil
 	}
-	if PathWithinRoot(path, root) {
+	if PathWithinRoot(path, root) || PathAutoApproved(path) {
 		return nil
 	}
 	return fmt.Errorf(msgWorkspaceEscape, path, root)
@@ -129,6 +130,38 @@ func PathWithinRoot(path, root string) bool {
 	rootCanonical := resolveExistingPrefix(root)
 	return canonical == rootCanonical ||
 		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
+}
+
+// PathAutoApproved reports whether path is inside a directory file tools may
+// use without a workspace prompt: the user's ~/.kdeps directory, and /tmp
+// (the process temp directory on Windows). A directory that only shares the
+// name is not approved. The filesystem root is never approved. Symlinks are
+// resolved, so a link whose target leaves the directory is not approved.
+func PathAutoApproved(path string) bool {
+	for _, root := range autoApprovedRoots() {
+		if PathWithinRoot(path, root) {
+			return true
+		}
+	}
+	return false
+}
+
+func autoApprovedRoots() []string {
+	roots := make([]string, 0)
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		dir := filepath.Join(home, ".kdeps")
+		if !isFilesystemRoot(filepath.Clean(dir)) {
+			roots = append(roots, dir)
+		}
+	}
+	tmp := "/tmp"
+	if runtime.GOOS == "windows" {
+		tmp = os.TempDir()
+	}
+	if tmp != "" && !isFilesystemRoot(filepath.Clean(tmp)) {
+		roots = append(roots, tmp)
+	}
+	return roots
 }
 
 // resolveExistingPrefix canonicalizes path by resolving symlinks on its

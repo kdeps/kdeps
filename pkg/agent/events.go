@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -54,35 +55,41 @@ import (
 // context_detect.go/builtin_resource_tools.go instead of a literal string at
 // every call site.
 const (
-	eventAutoCompact        = "auto-compact"
-	eventFold               = "fold"
-	eventIdenticalCalls     = "identical-tool-calls"
-	eventConvergenceBlock   = "convergence-block"
-	eventHandshakeTimeout   = "handshake-timeout"
-	eventToolResultTruncate = "tool-result-truncate"
-	eventToolErrorTruncate  = "tool-error-truncate"
-	eventForceAnswerDigest  = "force-answer-digest"
-	eventHistoryWindowTrim  = "history-window-trim"
-	eventFileReadLimit      = "file-read-limit"
-	eventWebCallBudget      = "web-call-budget"
-	eventBashCallBudget     = "bash-call-budget"
-	eventFileCallBudget     = "file-call-budget"
-	eventCodeCallBudget     = "code-call-budget"
-	eventJudgeMaxRounds     = "judge-max-rounds"
-	eventJudgeIterations    = "judge-iterations"
-	eventMemoryPromptLimit  = "memory-prompt-limit"
-	eventMemoryKeysLimit    = "memory-keys-limit"
-	eventMemoryFocusMax     = "memory-focus-max"
-	eventMemoryChainMax     = "memory-chain-max"
-	eventRelMemoryLimit     = "rel-memory-limit"
-	eventMemorySearchLimit  = "memory-search-limit"
-	eventMemoryValueLimit   = "memory-value-limit"
-	eventMemoryCaptureLimit = "memory-capture-limit"
-	eventMemoryToolResults  = "memory-tool-results-limit"
-	eventMemoryThinking     = "memory-thinking-limit"
-	eventMemoryLowSignal    = "memory-low-signal-limit"
-	eventMemoryStatus       = "memory-status-limit"
-	eventModelRecordLimit   = "model-record-limit"
+	eventAutoCompact             = "auto-compact"
+	eventFold                    = "fold"
+	eventIdenticalCalls          = "identical-tool-calls"
+	eventConvergenceBlock        = "convergence-block"
+	eventHandshakeTimeout        = "handshake-timeout"
+	eventToolResultTruncate      = "tool-result-truncate"
+	eventToolErrorTruncate       = "tool-error-truncate"
+	eventForceAnswerDigest       = "force-answer-digest"
+	eventHistoryWindowTrim       = "history-window-trim"
+	eventFileReadLimit           = "file-read-limit"
+	eventWebCallBudget           = "web-call-budget"
+	eventBashCallBudget          = "bash-call-budget"
+	eventFileCallBudget          = "file-call-budget"
+	eventCodeCallBudget          = "code-call-budget"
+	eventJudgeMaxRounds          = "judge-max-rounds"
+	eventJudgeIterations         = "judge-iterations"
+	eventMemoryPromptLimit       = "memory-prompt-limit"
+	eventMemoryKeysLimit         = "memory-keys-limit"
+	eventMemoryFocusMax          = "memory-focus-max"
+	eventMemoryChainMax          = "memory-chain-max"
+	eventRelMemoryLimit          = "rel-memory-limit"
+	eventMemorySearchLimit       = "memory-search-limit"
+	eventMemoryValueLimit        = "memory-value-limit"
+	eventMemoryCaptureLimit      = "memory-capture-limit"
+	eventMemoryToolResults       = "memory-tool-results-limit"
+	eventMemoryThinking          = "memory-thinking-limit"
+	eventMemoryLowSignal         = "memory-low-signal-limit"
+	eventMemoryStatus            = "memory-status-limit"
+	eventModelRecordLimit        = "model-record-limit"
+	eventOpenRouterFreePerMinute = "openrouter-free-per-minute"
+	eventOpenRouterRefusal       = "openrouter-refusal"
+	eventOpenRouterRateLimit     = "openrouter-rate-limit"
+	eventOpenRouterProviderLimit = "openrouter-provider-limit"
+	eventOpenRouterNoise         = "openrouter-noise"
+	eventSideCallMaxTokens       = "side-call-max-tokens"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
@@ -94,7 +101,9 @@ type EventTrigger struct {
 	// is unknown); "memory-prompt-limit" caps how many tokens of memory
 	// content are injected into the system preamble (converted to an
 	// approximate byte budget internally, same charsPerToken ratio the
-	// truncation cluster's Bytes fields use directly).
+	// truncation cluster's Bytes fields use directly);
+	// "side-call-max-tokens" caps refine, the judge roster, and a
+	// verdict-only judge.
 	Tokens int `yaml:"tokens,omitempty"`
 	// CtxWindowFraction fires when the session's estimated token count
 	// exceeds this fraction of the model's known context window --
@@ -152,6 +161,10 @@ type Event struct {
 	// "rel-memory-limit"'s base-relation count fed into a query join.
 	// Ignored by events that don't use it.
 	Items int `yaml:"items,omitempty"`
+	// Patterns is a list of regular expressions an error classifier matches
+	// against (case-insensitive, any one matches). Only events that classify
+	// errors set it; see eventPatternMatch.
+	Patterns []string `yaml:"patterns,omitempty"`
 	// Disabled turns the event's trigger off entirely -- false (the zero
 	// value) means enabled, so an override file that omits this field never
 	// accidentally disables anything. Set/unset via "/harness events
@@ -338,7 +351,27 @@ func init() { initEvents() }
 // EventByName returns the effective (built-in + user-merged) event
 // definition, or false if no event of that name is registered.
 //
+// eventPatternMatch reports whether text matches any of the event's patterns.
+// A missing event, no patterns, or a pattern that does not compile matches
+// nothing.
+//
 //kdeps:flow events: the agent loop runs a turn > kdeps measures tokens, rounds and calls > [an event's trigger is met] > its action runs > the turn continues
+func eventPatternMatch(name, text string) bool {
+	ev, ok := EventByName(name)
+	if !ok || len(ev.Patterns) == 0 {
+		return false
+	}
+	parts := make([]string, 0, len(ev.Patterns))
+	for _, p := range ev.Patterns {
+		parts = append(parts, "(?:"+p+")")
+	}
+	re, err := regexp.Compile("(?i)" + strings.Join(parts, "|"))
+	if err != nil {
+		return false
+	}
+	return re.MatchString(text)
+}
+
 func EventByName(name string) (Event, bool) {
 	e, ok := eventRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {
@@ -555,8 +588,23 @@ func memoryPromptLimit() int {
 	return fallback
 }
 
-// tokensField reads the "Tokens" field, kept parameterized now that two
-// events (auto-compact, memory-prompt-limit) both use it.
+// sideCallMaxTokens is the output cap for refine, the judge roster, and a
+// verdict-only judge. The side-call-max-tokens event supplies it. A disabled
+// event or a zero tokens field falls back to the model ceiling. Compaction,
+// the main turn, branch summaries, plan, confirm, and handshake do not use
+// this helper.
+func sideCallMaxTokens(backend, model string) *int {
+	if !EventEnabled(eventSideCallMaxTokens) {
+		return syntheticCallMaxTokens(backend, model)
+	}
+	if n := tokensField(eventSideCallMaxTokens); n > 0 {
+		return &n
+	}
+	return syntheticCallMaxTokens(backend, model)
+}
+
+// tokensField reads the "Tokens" field. auto-compact, memory-prompt-limit,
+// and side-call-max-tokens use it.
 func tokensField(name string) int {
 	e, _ := EventByName(name)
 	return e.On.Tokens

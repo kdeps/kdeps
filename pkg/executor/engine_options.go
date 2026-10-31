@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"encoding/json"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -86,14 +87,10 @@ func (e *Engine) SetDebugMode(enabled bool) {
 // This allows resources using the `agent` type to call sibling agents by name.
 func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
 	kdeps_debug.Log("enter: SetNewExecutionContextForAgency")
-	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-		var ctx *ExecutionContext
-		var err error
-		if sessionID != "" {
-			ctx, err = NewExecutionContext(workflow, sessionID)
-		} else {
-			ctx, err = NewExecutionContext(workflow)
-		}
+	e.newExecutionContext = func(
+		parent context.Context, workflow *domain.Workflow, sessionID string,
+	) (*ExecutionContext, error) {
+		ctx, err := defaultExecutionContext(parent, workflow, sessionID)
 		if err != nil {
 			return nil, err
 		}

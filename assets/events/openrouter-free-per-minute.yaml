@@ -1,0 +1,11 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: openrouter-free-per-minute
+# Free-model calls one account may make in one minute, across every free id.
+# Each call waits so the next one stays under this cap. A provider 429 moves
+# to the next free model. An account 429 waits out the minute and retries
+# the same id.
+items: 20
+run: cap

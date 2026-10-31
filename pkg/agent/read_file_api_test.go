@@ -100,7 +100,7 @@ func TestLoopConfig_ReadFileDoesNotListen(t *testing.T) {
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(t.Context(), reg)
-	if New(nil, nil, reg, Config{}) == nil {
+	if New(t.Context(), nil, nil, reg, Config{}) == nil {
 		t.Fatal("nil loop")
 	}
 

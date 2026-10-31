@@ -32,7 +32,7 @@ import (
 )
 
 func TestStockModelRegistriesValid(t *testing.T) {
-	for _, name := range []string{llamafileRegistryItem, ggufRegistryItem} {
+	for _, name := range []string{llamafileRegistryItem, ggufRegistryItem, openrouterRegistryItem} {
 		data, err := os.ReadFile(filepath.Join(assets.Source(), "models", name+".yaml"))
 		require.NoError(t, err)
 		require.NoError(t, validateModelRegistry(data, name), name)
@@ -98,6 +98,7 @@ func TestModelRegistry_Required(t *testing.T) {
 	root := t.TempDir()
 	require.Error(t, assets.Remove(root, "models/gguf"))
 	require.Error(t, assets.Remove(root, "models/llamafile"))
+	require.Error(t, assets.Remove(root, "models/openrouter"))
 }
 
 func TestModelRegistry_InstallRejectsInvalid(t *testing.T) {
@@ -116,6 +117,8 @@ func TestCloudCatalog_Validate(t *testing.T) {
 	require.ErrorContains(t, validateModelRegistry(
 		[]byte("version: 1.0.0\nmodels:\n  - id: m\n"), cloudRegistryItem), "needs an id and a backend")
 	require.Error(t, validateModelRegistry([]byte("models: [\n"), cloudRegistryItem))
+	require.ErrorContains(t, validateModelRegistry(
+		[]byte("version: 1.0.0\nmodels: []\n"), openrouterRegistryItem), "no entries")
 }
 
 // A newer downloaded catalog (`kdeps update models/cloud`) replaces the
@@ -131,7 +134,17 @@ func TestCloudCatalog_DownloadedVersionWins(t *testing.T) {
 	ReloadCloudModels()
 	assert.Equal(t, 4242, ModelContextWindow("e2e-model"))
 	assert.Equal(t, "openai", BackendForModel("e2e-model"))
-	assert.Len(t, KnownCloudModels, 1)
+	assert.Empty(t, BackendForModel("claude-opus-4-8"), "downloaded cloud catalog replaces the source one")
+	nonOpen, open := 0, 0
+	for _, m := range KnownCloudModels {
+		if m.Backend == "openrouter" {
+			open++
+			continue
+		}
+		nonOpen++
+	}
+	assert.Equal(t, 1, nonOpen, "only the downloaded cloud entry remains")
+	assert.NotZero(t, open, "the openrouter registry still merges")
 }
 
 func TestCloudCatalog_RequiredAndShipped(t *testing.T) {
@@ -139,4 +152,72 @@ func TestCloudCatalog_RequiredAndShipped(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(assets.Source(), "models", cloudRegistryItem+".yaml"))
 	require.NoError(t, err)
 	require.NoError(t, validateModelRegistry(data, cloudRegistryItem))
+}
+
+func TestOpenRouterRegistry_ShippedFreeModels(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(assets.Source(), "models", openrouterRegistryItem+".yaml"))
+	require.NoError(t, err)
+	require.NoError(t, validateModelRegistry(data, openrouterRegistryItem))
+	c, err := parseCloudCatalog(data)
+	require.NoError(t, err)
+	require.NotEmpty(t, c.Models)
+	var prev string
+	for _, m := range c.Models {
+		assert.Equal(t, "openrouter", m.Backend, m.ID)
+		assert.Equal(t, "OPENROUTER_API_KEY", m.EnvVar, m.ID)
+		assert.NotEmpty(t, m.Desc, m.ID)
+		assert.Positive(t, m.ContextWindow, m.ID)
+		assert.Positive(t, m.MaxOutputTokens, m.ID)
+		assert.Greater(t, m.ID, prev, "sorted by id")
+		prev = m.ID
+	}
+}
+
+func TestLoadCloudModels_MissingOpenRouterKeepsCloud(t *testing.T) {
+	orig := modelsFSFunc
+	t.Cleanup(func() { modelsFSFunc = orig; ReloadCloudModels() })
+	modelsFSFunc = func() fs.FS {
+		return fstest.MapFS{
+			"models/cloud.yaml": {Data: []byte("version: 1.0.0\nmodels:\n  - id: only-cloud\n    backend: openai\n")},
+		}
+	}
+	ReloadCloudModels()
+	require.Len(t, KnownCloudModels, 1)
+	assert.Equal(t, "only-cloud", KnownCloudModels[0].ID)
+}
+
+func TestLoadCloudModels_MergesOpenRouter(t *testing.T) {
+	orig := modelsFSFunc
+	t.Cleanup(func() { modelsFSFunc = orig; ReloadCloudModels() })
+	modelsFSFunc = func() fs.FS {
+		return fstest.MapFS{
+			"models/cloud.yaml": {
+				Data: []byte("version: 1.0.0\nmodels:\n  - id: only-cloud\n    backend: openai\n"),
+			},
+			"models/openrouter.yaml": {
+				Data: []byte("version: 1.0.0\nmodels:\n  - id: a/a:free\n    backend: openrouter\n"),
+			},
+		}
+	}
+	ReloadCloudModels()
+	require.Len(t, KnownCloudModels, 2)
+	assert.Equal(t, "only-cloud", KnownCloudModels[0].ID)
+	assert.Equal(t, "a/a:free", KnownCloudModels[1].ID)
+	assert.Equal(t, "openrouter", BackendForModel("a/a:free"))
+}
+
+func TestLoadCloudModels_BadOpenRouterKeepsCloud(t *testing.T) {
+	orig := modelsFSFunc
+	t.Cleanup(func() { modelsFSFunc = orig; ReloadCloudModels() })
+	modelsFSFunc = func() fs.FS {
+		return fstest.MapFS{
+			"models/cloud.yaml": {
+				Data: []byte("version: 1.0.0\nmodels:\n  - id: only-cloud\n    backend: openai\n"),
+			},
+			"models/openrouter.yaml": {Data: []byte("models: [\n")},
+		}
+	}
+	ReloadCloudModels()
+	require.Len(t, KnownCloudModels, 1)
+	assert.Equal(t, "only-cloud", KnownCloudModels[0].ID)
 }

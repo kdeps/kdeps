@@ -40,7 +40,7 @@ func TestModelManager_DownloadModel(t *testing.T) {
 		t.Skip("ollama not installed on PATH")
 	}
 	// Create a real service and manager to test delegation
-	service := llm.NewModelService(nil)
+	service := llm.NewModelService(t.Context(), nil)
 	manager := llm.NewModelManagerFromService(service)
 
 	// Test that DownloadModel method exists and can be called
@@ -56,7 +56,7 @@ func TestModelManager_ServeModel(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	// Create a real service and manager to test delegation
-	service := llm.NewModelService(nil)
+	service := llm.NewModelService(t.Context(), nil)
 	manager := llm.NewModelManagerFromService(service)
 
 	// Test that ServeModel method exists and can be called
@@ -69,14 +69,14 @@ func TestModelManager_ServeModel(t *testing.T) {
 
 // Unit tests that don't require external services.
 func TestNewModelManager(t *testing.T) {
-	manager := llm.NewModelManager(nil)
+	manager := llm.NewModelManager(t.Context(), nil)
 	assert.NotNil(t, manager)
 }
 
 func TestNewModelManagerWithOfflineMode(t *testing.T) {
-	manager := llm.NewModelManagerWithOfflineMode(nil, true)
+	manager := llm.NewModelManagerWithOfflineMode(t.Context(), nil, true)
 	assert.NotNil(t, manager)
 
-	manager2 := llm.NewModelManagerWithOfflineMode(nil, false)
+	manager2 := llm.NewModelManagerWithOfflineMode(t.Context(), nil, false)
 	assert.NotNil(t, manager2)
 }

@@ -50,19 +50,19 @@ type HTTPLLMClient struct {
 // base URL (overridable in tests to avoid downloads and processes).
 //
 //nolint:gochecknoglobals // test-replaceable hook
-var serveLlamafileForChat = func(model string) (string, error) {
+var serveLlamafileForChat = func(ctx context.Context, model string) (string, error) {
 	mgr, err := llm.NewLlamafileManager(nil)
 	if err != nil {
 		return "", err
 	}
-	path, err := mgr.Resolve(context.Background(), model)
+	path, err := mgr.Resolve(ctx, model)
 	if err != nil {
 		return "", err
 	}
 	if execErr := mgr.MakeExecutable(path); execErr != nil {
 		return "", execErr
 	}
-	port, err := mgr.Serve(context.Background(), path, 0)
+	port, err := mgr.Serve(ctx, path, 0)
 	if err != nil {
 		return "", err
 	}
@@ -88,13 +88,13 @@ func NewHTTPLLMClientWithBackend(backend string) *HTTPLLMClient {
 }
 
 // ensureLocalLlamafile lazily serves the model's llamafile, memoizing the URL.
-func (c *HTTPLLMClient) ensureLocalLlamafile(model string) (string, error) {
+func (c *HTTPLLMClient) ensureLocalLlamafile(ctx context.Context, model string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if url, ok := c.servedURLs[model]; ok {
 		return url, nil
 	}
-	url, err := serveLlamafileForChat(model)
+	url, err := serveLlamafileForChat(ctx, model)
 	if err != nil {
 		return "", fmt.Errorf("cannot serve llamafile for %s: %w", model, err)
 	}
@@ -115,7 +115,7 @@ func (c *HTTPLLMClient) Chat(
 		if c.Backend == "ollama" {
 			baseURL = "http://localhost:11434"
 		} else {
-			served, err := c.ensureLocalLlamafile(model)
+			served, err := c.ensureLocalLlamafile(ctx, model)
 			if err != nil {
 				return "", err
 			}

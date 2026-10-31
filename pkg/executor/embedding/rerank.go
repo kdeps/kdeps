@@ -64,7 +64,7 @@ type RerankResult struct {
 
 // cohereRerank calls the Cohere /v1/rerank endpoint and returns a JSON-serialisable
 // map with "model", "results" ([]RerankResult), and "json" convenience key.
-func cohereRerank(cfg *domain.EmbeddingConfig) (map[string]interface{}, error) {
+func cohereRerank(ctx context.Context, cfg *domain.EmbeddingConfig) (map[string]interface{}, error) {
 	if cfg.RerankQuery == "" {
 		return nil, errors.New("embedding rerank: rerankQuery is required")
 	}
@@ -94,7 +94,7 @@ func cohereRerank(cfg *domain.EmbeddingConfig) (map[string]interface{}, error) {
 	}
 
 	req, err := http.NewRequestWithContext(
-		context.Background(), http.MethodPost, cohereRerankEndpointVar, bytes.NewReader(bodyBytes),
+		ctx, http.MethodPost, cohereRerankEndpointVar, bytes.NewReader(bodyBytes),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("embedding rerank: build request: %w", err)

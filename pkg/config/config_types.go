@@ -281,11 +281,12 @@ type KnowledgeConfig struct {
 // about. It runs with a local model: the session's when it is local, else
 // Model (empty: skipped in sessions).
 type KnowledgeExtractConfig struct {
-	Enabled    *bool  `yaml:"enabled,omitempty"` // nil means on
-	Model      string `yaml:"model,omitempty"`
-	Backend    string `yaml:"backend,omitempty"`
-	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
-	PerSession int    `yaml:"per_session,omitempty"` // notes per session end (default 20)
+	Enabled           *bool  `yaml:"enabled,omitempty"` // nil means on
+	Model             string `yaml:"model,omitempty"`
+	Backend           string `yaml:"backend,omitempty"`
+	Workers           int    `yaml:"workers,omitempty"`             // parallel model calls (default 2)
+	PerSession        int    `yaml:"per_session,omitempty"`         // notes per session end (default 20)
+	OnBackgroundBuild *bool  `yaml:"on_background_build,omitempty"` // true: extract pending notes before a background build
 }
 
 // KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.

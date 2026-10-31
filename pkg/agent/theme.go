@@ -294,11 +294,10 @@ func hexToSGRForeground(hex string) string {
 // rebuildTheme reapplies the active palette to every derived style and drops
 // the cached glamour renderers.
 func rebuildTheme() {
-	applyStealthColorProfile() // repl_render.go: force lipgloss TrueColor in stealth
-	applyRenderPalette()       // repl_render.go: color vars + thinking styles
-	applyReplStyles()          // repl.go: styleReplX + styleModelName
-	invalidateRenderers()      // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
-	syncPickerColors()         // pkg/tui: /model, /settings, and the resume picker match this theme too
+	applyRenderPalette()  // repl_render.go: color vars + thinking styles
+	applyReplStyles()     // repl.go: styleReplX + styleModelName
+	invalidateRenderers() // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
+	syncPickerColors()    // pkg/tui: /model, /settings, and the resume picker match this theme too
 }
 
 // syncPickerColors pushes the active theme's chrome colors into pkg/tui so

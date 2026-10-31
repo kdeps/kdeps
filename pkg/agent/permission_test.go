@@ -101,7 +101,7 @@ func TestResolvePermissionMode_Env(t *testing.T) {
 // TestLoop_PermissionModeBlocksToolDispatch verifies the streaming dispatch
 // path denies tools above the configured mode and executes allowed ones.
 func TestLoop_PermissionModeBlocksToolDispatch(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	executed := false
 	reg.Register(&tools.Tool{
@@ -119,7 +119,7 @@ func TestLoop_PermissionModeBlocksToolDispatch(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "contents", nil },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:          "test",
 		Streamer:       &mockStreamer{},
 		PermissionMode: PermissionReadOnly,

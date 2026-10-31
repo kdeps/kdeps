@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestExecute_DBOpenError(t *testing.T) {
@@ -50,7 +51,7 @@ func TestExecute_DBOpenError(t *testing.T) {
 		DBPath:     ":memory:",
 		Collection: "test",
 	}
-	_, err := e.Execute(nil, config)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open database")
 }
@@ -63,7 +64,7 @@ func TestExecute_UnknownOperation(t *testing.T) {
 		DBPath:     ":memory:",
 		Collection: "test",
 	}
-	_, err := e.Execute(nil, config)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown operation")
 }
@@ -78,7 +79,7 @@ func TestSearch_QueryContextError(t *testing.T) {
 	defer db.Close()
 
 	e := &Executor{}
-	_, err = e.search(db, "default", "test", 10)
+	_, err = e.search(t.Context(), db, "default", "test", 10)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "search failed")
 }
@@ -98,7 +99,7 @@ func TestSearch_RowsError(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	err = e.ensureSchema(db)
+	err = e.ensureSchema(t.Context(), db)
 	require.NoError(t, err)
 
 	// Insert several rows so the data pages exist to be truncated.
@@ -115,7 +116,7 @@ func TestSearch_RowsError(t *testing.T) {
 	err = os.Truncate(path, 4096)
 	require.NoError(t, err)
 
-	_, err = e.search(db, "default", "row", 100)
+	_, err = e.search(t.Context(), db, "default", "row", 100)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rows iteration failed")
 }
@@ -134,7 +135,7 @@ func TestSearch_ScanError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{}).AddRow())
 
 	e := &Executor{}
-	_, err = e.search(db, "default", "query", 10)
+	_, err = e.search(t.Context(), db, "default", "query", 10)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scan failed")
 

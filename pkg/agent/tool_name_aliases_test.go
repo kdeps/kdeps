@@ -94,8 +94,8 @@ func TestRunStreaming_AnAliasRunsItsTool(t *testing.T) {
 		},
 		{content: "done"},
 	}}}
-	loop := New(
-		executor.NewEngine(nil),
+	loop := New(t.Context(),
+		executor.NewEngine(context.Background(), nil),
 		newTestWorkflowForSession(),
 		reg,
 		Config{Model: "test", Streamer: ms, MaxToolRounds: 5},

@@ -150,4 +150,36 @@ else
 fi
 rm -f "$CRASH_LOG"
 
+if command -v python3 >/dev/null 2>&1; then
+    MOVED_PORT=$(python3 -c "
+import socket
+s = socket.socket()
+s.bind(('127.0.0.1', 0))
+print(s.getsockname()[1])
+s.close()
+")
+    python3 - <<PY &
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'ok')
+    def log_message(self, *a):
+        pass
+HTTPServer(('127.0.0.1', int('$MOVED_PORT')), H).serve_forever()
+PY
+    MOVED_PID=$!
+    MOVED_LOG=$(mktemp)
+    echo "  Port 1 in use, using port ${MOVED_PORT} instead" > "$MOVED_LOG"
+    if wait_for_kdeps_port 1 5 "" "$MOVED_LOG" && [ "$KDEPS_BOUND_PORT" = "$MOVED_PORT" ]; then
+        test_passed "wait_for_kdeps_port follows a rebound port from the server log"
+    else
+        test_failed "wait_for_kdeps_port follows a rebound port from the server log" "bound=${KDEPS_BOUND_PORT:-} wanted=$MOVED_PORT"
+    fi
+    kill "$MOVED_PID" 2>/dev/null || true
+    wait "$MOVED_PID" 2>/dev/null || true
+    rm -f "$MOVED_LOG"
+fi
+
 echo ""

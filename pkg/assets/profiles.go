@@ -37,7 +37,7 @@ var BaseSets = []string{"schemas", "defaults", "models", "providers"}
 // AgentSets are what the agent loop loads besides BaseSets.
 //
 //nolint:gochecknoglobals // fixed list
-var AgentSets = []string{"harness", "tools", "commands", "themes", "events", "actions", "presets", "memory"}
+var AgentSets = []string{"harness", "tools", "commands", "themes", "events", "actions", "presets", "memory", "policy"}
 
 // Profile is a choice of what to install: whole sets, the items a set's
 // loader requires, and single items.
@@ -79,7 +79,7 @@ var Profiles = []Profile{
 		Name:        "agent",
 		Description: "minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools",
 		Sets: append(slices.Clone(BaseSets),
-			"harness", "commands", "themes", "events", "actions", "presets", "memory"),
+			"harness", "commands", "themes", "events", "actions", "presets", "memory", "policy"),
 		RequiredOf: []string{"tools"},
 		Items:      toolIDs(agentTools),
 	},

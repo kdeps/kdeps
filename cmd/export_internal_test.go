@@ -47,7 +47,7 @@ func TestShowLinuxKitConfig_WithArch(t *testing.T) {
 func TestPerformISOBuild_ISOBuilderError(t *testing.T) {
 	orig := newISOBuilderFunc
 	t.Cleanup(func() { newISOBuilderFunc = orig })
-	newISOBuilderFunc = func() (*iso.Builder, error) {
+	newISOBuilderFunc = func(_ context.Context) (*iso.Builder, error) {
 		return nil, errors.New("no linuxkit")
 	}
 	builder := &docker.Builder{
@@ -56,14 +56,14 @@ func TestPerformISOBuild_ISOBuilderError(t *testing.T) {
 	}
 	pkgDir, wf, restore := writeISOPackageDir(t)
 	defer restore()
-	err := performISOBuild(builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso"})
+	err := performISOBuild(t.Context(), builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso"})
 	require.Error(t, err)
 }
 
 func TestShowLinuxKitConfig_GenerateError(t *testing.T) {
 	orig := newISOBuilderFunc
 	t.Cleanup(func() { newISOBuilderFunc = orig })
-	newISOBuilderFunc = func() (*iso.Builder, error) { return iso.NewBuilderWithRunner(nil), nil }
+	newISOBuilderFunc = func(_ context.Context) (*iso.Builder, error) { return iso.NewBuilderWithRunner(nil), nil }
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "", Version: ""}}
 	err := showLinuxKitConfig(wf, &ExportFlags{})
 	require.NoError(t, err)
@@ -94,11 +94,11 @@ func TestPerformISOBuild_ArchSet(t *testing.T) {
 		newISOBuilderFunc = origISO
 		isoBuilderBuildFunc = origBuilder
 	})
-	performISOBuildDockerFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	performISOBuildDockerFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
 	b := iso.NewBuilderWithRunner(nil)
-	newISOBuilderFunc = func() (*iso.Builder, error) { return b, nil }
+	newISOBuilderFunc = func(_ context.Context) (*iso.Builder, error) { return b, nil }
 	isoBuilderBuildFunc = func(_ *iso.Builder, _ context.Context, _ string, _ *domain.Workflow, _ string, _ bool) error {
 		return nil
 	}
@@ -118,10 +118,10 @@ func TestPerformISOBuild_LinuxKitError(t *testing.T) {
 		newISOBuilderFunc = origISO
 		isoBuilderBuildFunc = origBuild
 	})
-	performISOBuildDockerFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	performISOBuildDockerFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
-	newISOBuilderFunc = func() (*iso.Builder, error) { return iso.NewBuilderWithRunner(nil), nil }
+	newISOBuilderFunc = func(_ context.Context) (*iso.Builder, error) { return iso.NewBuilderWithRunner(nil), nil }
 	isoBuilderBuildFunc = func(_ *iso.Builder, _ context.Context, _ string, _ *domain.Workflow, _ string, _ bool) error {
 		return errors.New("linuxkit")
 	}
@@ -161,7 +161,7 @@ func TestPerformISOBuild_BuildFails(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
 	pkgDir, wf, restore := writeISOPackageDir(t)
 	defer restore()
-	err := performISOBuild(builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso"})
+	err := performISOBuild(t.Context(), builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to build Docker image")
 }
@@ -173,7 +173,7 @@ func TestPerformISOBuild_UnsupportedFormat(t *testing.T) {
 	}
 	pkgDir, wf, restore := writeISOPackageDir(t)
 	defer restore()
-	err := performISOBuild(builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "invalid"})
+	err := performISOBuild(t.Context(), builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "invalid"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported format")
 }
@@ -200,7 +200,7 @@ func TestPerformISOBuild_Success(t *testing.T) {
 	pkgDir, wf, restore := writeISOPackageDir(t)
 	defer restore()
 	outPath := filepath.Join(pkgDir, "out.iso")
-	err := performISOBuild(builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso", Output: outPath})
+	err := performISOBuild(t.Context(), builder, wf, pkgDir, pkgDir, &ExportFlags{Format: "iso", Output: outPath})
 	require.NoError(t, err)
 	assert.FileExists(t, outPath)
 }

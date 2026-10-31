@@ -506,7 +506,7 @@ defaults:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	report := config.RunDoctor(cfg)
+	report := config.RunDoctor(t.Context(), cfg)
 	require.NotNil(t, report)
 	assert.GreaterOrEqual(t, len(report.Checks), 5)
 
@@ -533,7 +533,7 @@ llm:
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
 
-	report := config.RunDoctor(cfg)
+	report := config.RunDoctor(t.Context(), cfg)
 	formatted := report.FormatReport()
 	assert.Contains(t, formatted, "openai_apikey")
 }

@@ -118,7 +118,7 @@ func TestServe_StartErrorBranch(t *testing.T) {
 
 	orig := startLlamafileServerFunc
 	t.Cleanup(func() { startLlamafileServerFunc = orig })
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		return 0, errors.New("spawn failed")
 	}
 
@@ -143,7 +143,7 @@ func TestServe_FixedPortHealthTimeout(t *testing.T) {
 	// away from the developer's real ~/.kdeps/bin.
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) { return 0, nil }
 	llamafileStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
@@ -160,7 +160,7 @@ func TestStartLlamafileServer_SpawnsViaShell(t *testing.T) {
 	// immediately; Start must succeed and detach without inheriting stdio.
 	script := filepath.Join(t.TempDir(), "noop.llamafile")
 	require.NoError(t, os.WriteFile(script, []byte("exit 0\n"), 0o755))
-	_, err := startLlamafileServer(script, 1)
+	_, err := startLlamafileServer(t.Context(), script, 1)
 	require.NoError(t, err)
 }
 
@@ -172,7 +172,7 @@ func TestStartLlamafileServer_MissingShell(t *testing.T) {
 	t.Cleanup(func() { llamafileShell = orig })
 	llamafileShell = "/nonexistent/shell"
 
-	_, err := startLlamafileServer("/nonexistent/model.llamafile", 1)
+	_, err := startLlamafileServer(t.Context(), "/nonexistent/model.llamafile", 1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start llamafile server")
 }
@@ -234,7 +234,7 @@ func TestServeModel_FileBackend(t *testing.T) {
 	script := filepath.Join(modelsDir, "svc.llamafile")
 	require.NoError(t, os.WriteFile(script, []byte("exit 0\n"), 0o755))
 
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	// The script exits immediately so the health wait times out: the file
 	// branch is exercised end to end without a real model.
 	err := svc.ServeModel(context.Background(), BackendFile, "svc.llamafile", "127.0.0.1", 0)
@@ -250,7 +250,7 @@ func TestFirstChoiceMessage_MalformedShapes(t *testing.T) {
 }
 
 func TestServeModel_UnsupportedBackend(t *testing.T) {
-	svc := NewModelService(nil)
+	svc := NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "unsupported-backend", "m", "127.0.0.1", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")

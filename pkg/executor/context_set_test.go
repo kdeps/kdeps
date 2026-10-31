@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"os/exec"
@@ -39,9 +40,11 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Mock workflow with items and memory
+	), logger)
+
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name: "test-evaluation",
@@ -53,7 +56,7 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	require.NoError(t, err)
 
 	// Set some values in context
@@ -156,7 +159,7 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 	e := httpexecutor.NewExecutorWithFactory(factory)
 
 	workflow := &domain.Workflow{}
-	ctx, _ := executor.NewExecutionContext(workflow)
+	ctx, _ := executor.NewExecutionContext(t.Context(), workflow)
 	ctx.API.Set("timeout", "45s")
 	ctx.API.Set("ttl", "1h")
 	ctx.API.Set("cacheKey", "custom-key")
@@ -194,7 +197,7 @@ func TestLLMExecutor_AllFieldsEvaluation(t *testing.T) {
 	e := llmexecutor.NewExecutor("")
 
 	workflow := &domain.Workflow{}
-	ctx, _ := executor.NewExecutionContext(workflow)
+	ctx, _ := executor.NewExecutionContext(t.Context(), workflow)
 	ctx.API.Set("model", "llama3")
 	ctx.API.Set("backend", "ollama")
 	ctx.API.Set("role", "system")
@@ -223,7 +226,7 @@ func TestPythonExecutor_AllFieldsEvaluation(t *testing.T) {
 	e := pythonexecutor.NewExecutor(uvManager)
 
 	workflow := &domain.Workflow{}
-	ctx, _ := executor.NewExecutionContext(workflow)
+	ctx, _ := executor.NewExecutionContext(t.Context(), workflow)
 	ctx.API.Set("scriptFile", "script.py")
 	ctx.API.Set("arg1", "val1")
 	ctx.API.Set("venv", "my-venv")

@@ -45,7 +45,7 @@ func TestAgencyToolDef_WithNameAndDesc(t *testing.T) {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-workflow"},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	tool := agencyToolDef(agency, wf, eng)
 	require.NotNil(t, tool)
 	assert.Equal(t, "test-agency", tool.Name)
@@ -61,7 +61,7 @@ func TestAgencyToolDef_EmptyName(t *testing.T) {
 		},
 	}
 	wf := &domain.Workflow{}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	tool := agencyToolDef(agency, wf, eng)
 	require.NotNil(t, tool)
 	assert.Equal(t, "agency", tool.Name)
@@ -77,7 +77,7 @@ func TestAgencyToolDef_EmptyDesc(t *testing.T) {
 		},
 	}
 	wf := &domain.Workflow{}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	tool := agencyToolDef(agency, wf, eng)
 	require.NotNil(t, tool)
 	assert.Equal(t, "my-agency", tool.Name)
@@ -338,8 +338,9 @@ func TestRegisterComponentTools_WithComponents(t *testing.T) {
 			"comp-b": {Metadata: domain.ComponentMetadata{Name: "comp-b"}},
 		},
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(t.Context(), nil)
 	// Must not panic and should register component tools
+
 	registerComponentTools(registry, wf, eng)
 	// Two components should produce at least one tool definition
 	assert.NotNil(t, registry.Get("comp-a"))
@@ -347,8 +348,8 @@ func TestRegisterComponentTools_WithComponents(t *testing.T) {
 
 // newTestLoop creates a minimal agent.Loop backed by an engine whose Execute
 // method is stubbed via SetExecuteFunc. The stub returns (result, err).
-func newTestLoop(result any, err error) *agent.Loop {
-	eng := executor.NewEngine(nil)
+func newTestLoop(t *testing.T, result any, err error) *agent.Loop {
+	eng := executor.NewEngine(t.Context(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
 		return result, err
 	})
@@ -357,13 +358,13 @@ func newTestLoop(result any, err error) *agent.Loop {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "test-agent", Version: "1.0.0"},
 	}
-	return agent.New(eng, wf, tools.NewRegistry(), agent.Config{})
+	return agent.New(t.Context(), eng, wf, tools.NewRegistry(), agent.Config{Model: "test-model"})
 }
 
 // TestRunREPL_NormalFlow pipes input into stdin and verifies the welcome
 // message, prompt, and the agent loop response appear on stdout.
 func TestRunREPL_NormalFlow(t *testing.T) {
-	loop := newTestLoop("mock response", nil)
+	loop := newTestLoop(t, "mock response", nil)
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -402,7 +403,7 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 // TestRunREPL_EmptyInput verifies that empty input lines are silently
 // skipped and do not trigger a call to loop.Run.
 func TestRunREPL_EmptyInput(t *testing.T) {
-	loop := newTestLoop("should-not-reach", nil)
+	loop := newTestLoop(t, "should-not-reach", nil)
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -440,7 +441,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 // TestRunREPL_ErrorFromRun verifies that when loop.Run returns an error,
 // the REPL prints it to stderr and continues to the next input line.
 func TestRunREPL_ErrorFromRun(t *testing.T) {
-	loop := newTestLoop(nil, errors.New("something went wrong"))
+	loop := newTestLoop(t, nil, errors.New("something went wrong"))
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -638,7 +639,7 @@ func TestPrefetchModel_UncachedLocal_SkipsDownloadAndServe(t *testing.T) {
 	// Uncached file/gguf models must not download at startup (first-use path).
 	svc := &mockCmdSvc{}
 	orig := newModelServiceFunc
-	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
+	newModelServiceFunc = func(_ context.Context) executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
 	prefetchModel(context.Background(), agentBackendGGUF, "uncached-gguf-model-xyz")
@@ -652,7 +653,7 @@ func TestPrefetchModel_LocalBackend_DownloadError_SkipsServe(t *testing.T) {
 	// ollama still goes through DownloadModel; file/gguf uncached exit earlier.
 	svc := &mockCmdSvc{downloadErr: errors.New("download failed")}
 	orig := newModelServiceFunc
-	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
+	newModelServiceFunc = func(_ context.Context) executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
 	prefetchModel(context.Background(), "ollama", "some-model")
@@ -662,7 +663,7 @@ func TestPrefetchModel_LocalBackend_DownloadError_SkipsServe(t *testing.T) {
 // --- TestRunREPL_EOF verifies that Ctrl+D (closing stdin without any input)
 // exits cleanly with a welcome message and no error.
 func TestRunREPL_EOF(t *testing.T) {
-	loop := newTestLoop("unused", nil)
+	loop := newTestLoop(t, "unused", nil)
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -695,7 +696,7 @@ func TestRunREPL_EOF(t *testing.T) {
 // TestRunREPL_StartupNotices verifies optional-tool install suggestions are
 // printed under the banner.
 func TestRunREPL_StartupNotices(t *testing.T) {
-	loop := newTestLoop("unused", nil)
+	loop := newTestLoop(t, "unused", nil)
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -728,7 +729,7 @@ func TestRunREPL_StartupNotices(t *testing.T) {
 // TestRunREPL_StdinClosed verifies that closing stdin causes a clean exit (no error).
 // The readline fallback (runPlain) treats all stdin errors as EOF and returns nil.
 func TestRunREPL_StdinClosed(t *testing.T) {
-	loop := newTestLoop("unused", nil)
+	loop := newTestLoop(t, "unused", nil)
 
 	stdinR, stdinW, err := os.Pipe()
 	require.NoError(t, err)
@@ -949,7 +950,7 @@ func TestBuildTUIRunner_ReturnsClosure(t *testing.T) {
 // --- buildModelPickerFn ---
 
 func TestBuildModelPickerFn_ReturnsClosure(t *testing.T) {
-	loop := newTestLoop("mock", nil)
+	loop := newTestLoop(t, "mock", nil)
 	repl := agent.NewREPL(context.Background(), loop)
 	fn := buildModelPickerFn(repl)
 	require.NotNil(t, fn)
@@ -964,7 +965,7 @@ func TestBuildModelPickerFn_ReturnsClosure(t *testing.T) {
 }
 
 func TestBuildModelPickerFn_WithModelData(t *testing.T) {
-	loop := newTestLoop("mock", nil)
+	loop := newTestLoop(t, "mock", nil)
 	repl := agent.NewREPL(context.Background(), loop)
 	repl.SetModelNames([]string{"gpt-4o", "claude-sonnet-4-6"})
 	repl.SetDownloadedModels(map[string]bool{"gpt-4o": true})
@@ -986,7 +987,7 @@ func TestBuildModelPickerFn_WithModelData(t *testing.T) {
 
 func TestRunAgentLoopCmd_ResumeNotFound(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	err := runAgentLoopCmd("", &agentLoopFlags{Resume: "/nonexistent/session.json"})
+	err := runAgentLoopCmd(t.Context(), "", &agentLoopFlags{Resume: "/nonexistent/session.json"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load session")
 }

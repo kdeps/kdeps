@@ -35,7 +35,7 @@ func TestExecuteLLM_NilChatAndOfflineEnv(t *testing.T) {
 	llm := &covLLMWithOffline{result: "ok"}
 	reg.SetLLMExecutor(llm)
 	e.SetRegistry(reg)
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 
 	_, err = e.executeLLM(&domain.Resource{ActionID: "r"}, ctx)

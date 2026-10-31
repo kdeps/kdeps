@@ -31,14 +31,14 @@ func TestRootCmd_AcceptsOptionalPath(t *testing.T) {
 }
 
 func TestRunAgentLoopCmd_NonExistentPath(t *testing.T) {
-	err := runAgentLoopCmd("/nonexistent/path", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "/nonexistent/path", &agentLoopFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path not found")
 }
 
 func TestRunAgentLoopCmd_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	err := runAgentLoopCmd(tmpDir, &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), tmpDir, &agentLoopFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no workflow or agency files found")
 }
@@ -58,7 +58,7 @@ func TestRunAgentLoopCmd_NoPath(t *testing.T) {
 	w.Close()
 
 	// No path: model-only mode, loop starts and processes one message then exits on EOF.
-	err = runAgentLoopCmd("", &agentLoopFlags{Debug: true})
+	err = runAgentLoopCmd(t.Context(), "", &agentLoopFlags{Debug: true})
 	assert.NoError(t, err)
 }
 
@@ -90,6 +90,6 @@ resources:
 	require.NoError(t, err)
 	w.Close()
 
-	err = runAgentLoopCmd(tmpDir, &agentLoopFlags{Debug: true})
+	err = runAgentLoopCmd(t.Context(), tmpDir, &agentLoopFlags{Debug: true})
 	assert.NoError(t, err)
 }

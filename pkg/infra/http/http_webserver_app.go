@@ -51,10 +51,10 @@ func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd 
 	return cmd
 }
 
-func logAppCommandExit(s *WebServer, command string, err error) {
+func logAppCommandExit(ctx context.Context, s *WebServer, command string, err error) {
 	if err != nil {
-		s.logBackgroundError("app command exited with error", "command", command, "error", err)
+		s.logBackgroundError(ctx, "app command exited with error", "command", command, "error", err)
 		return
 	}
-	s.logBackgroundInfo("app command exited", "command", command)
+	s.logBackgroundInfo(ctx, "app command exited", "command", command)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // --- providerEnvKey ---
@@ -167,7 +168,7 @@ func TestExecute_AddDocuments_WithWeaviate(t *testing.T) {
 		Documents:    []domain.VectorStoreDocument{{Content: "hello world"}},
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 1, m["added"])
@@ -217,7 +218,7 @@ func TestExecute_SimilaritySearch_WithWeaviate(t *testing.T) {
 		TopK:         5,
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 1, m["count"])
@@ -268,7 +269,7 @@ func TestExecute_SimilaritySearch_WithDefaultTopK(t *testing.T) {
 		TopK:         0, // should default to 5
 	}
 	e := NewExecutor()
-	result, err := e.Execute(nil, cfg)
+	result, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, 2, m["count"])
@@ -427,7 +428,7 @@ func TestExecute_BuildStoreError(t *testing.T) {
 		Documents: []domain.VectorStoreDocument{{Content: "test"}},
 		Provider:  "nonexistent",
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	require.Error(t, err)
 }
 
@@ -476,6 +477,18 @@ func TestBuildEmbedder_Cybertron_NoModel(t *testing.T) {
 	if err == nil {
 		t.Log("cybertron with empty model may succeed on some platforms")
 	}
+}
+
+func TestBuildEmbedder_OpenRouterRequiresItsOwnKey(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "sk-openai-must-not-be-used")
+	_, err := buildEmbedder(t.Context(), &domain.VectorStoreConfig{
+		EmbedBackend: "openrouter",
+		EmbedModel:   "text-embedding-3-small",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+	assert.NotContains(t, err.Error(), "OPENAI_API_KEY")
 }
 
 func TestBuildEmbedder_OpenAICompat_UnknownBackend(t *testing.T) {

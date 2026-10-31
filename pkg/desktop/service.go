@@ -183,7 +183,7 @@ func New(ctx context.Context, opts Options) (*Service, error) {
 		if opts.ResolveModel != nil {
 			opts.Model, opts.Backend = opts.ResolveModel(ctx)
 		} else {
-			opts.Model, opts.Backend = agent.ResolveModelAndBackend("", "")
+			opts.Model, opts.Backend = agent.ResolveModelAndBackend(ctx, "", "")
 		}
 	}
 
@@ -216,7 +216,7 @@ func (s *Service) API() *api.Server { return s.apiSrv }
 func (s *Service) openLoop(resume *agent.Session, id string) {
 	streamer := s.opts.Streamer
 	if streamer == nil {
-		streamer = llm.NewAdapter(s.opts.BaseURL)
+		streamer = llm.NewAdapter(s.ctx, s.opts.BaseURL)
 	}
 	cfg := agent.Config{
 		Model:          s.opts.Model,
@@ -224,7 +224,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		BaseURL:        s.opts.BaseURL,
 		AutoJudges:     true,
 		Streamer:       streamer,
-		ModelService:   llm.NewModelService(nil),
+		ModelService:   llm.NewModelService(s.ctx, nil),
 		Store:          s.store,
 		MemoryStore:    s.memStore,
 		PermissionMode: s.opts.Permission,
@@ -242,7 +242,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "agent", Version: "0.0.0"},
 	}
-	loop := agent.New(s.opts.Engine, wf, s.registry, cfg)
+	loop := agent.New(s.ctx, s.opts.Engine, wf, s.registry, cfg)
 	repl := agent.NewREPL(s.ctx, loop)
 	repl.RegisterCommandAPI()
 	repl.SetHeadless()

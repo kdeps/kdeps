@@ -53,6 +53,7 @@ func ReloadAssets() {
 	SetTheme(key) // a removed theme stays on normal
 	initHarness()
 	initEvents()
+	initPermissionPolicy()
 	initMemoryRules()
 	initPresets()
 	initCommands()

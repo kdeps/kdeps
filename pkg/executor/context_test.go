@@ -41,7 +41,7 @@ func TestNewExecutionContext(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestNewExecutionContext(t *testing.T) {
 
 func TestExecutionContext_SetAndGetOutput(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestExecutionContext_SetAndGetOutput(t *testing.T) {
 
 func TestExecutionContext_Get(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestExecutionContext_Get(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestExecutionContext_GetByType(t *testing.T) {
 }
 
 func TestExecutionContext_Set(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -394,7 +394,7 @@ func TestExecutionContext_File(t *testing.T) {
 	tmpDir := t.TempDir()
 	createTestFiles(t, tmpDir)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.FSRoot = tmpDir
 
@@ -597,7 +597,7 @@ func TestExecutionContext_Info(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -720,7 +720,7 @@ func TestExecutionContext_InfoWithoutRequest(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -770,7 +770,7 @@ func TestMemoryStorage(t *testing.T) {
 }
 
 func TestSessionStorage(t *testing.T) {
-	sess, err := storage.NewSessionStorage("", "test-session")
+	sess, err := storage.NewSessionStorage(t.Context(), "", "test-session")
 	if err != nil {
 		t.Fatalf("NewSessionStorage failed: %v", err)
 	}
@@ -803,7 +803,7 @@ func TestExecutionContext_WalkFiles_Basic(t *testing.T) {
 		},
 	}
 
-	ctx, err := executor.NewExecutionContext(workflow)
+	ctx, err := executor.NewExecutionContext(t.Context(), workflow)
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -840,7 +840,7 @@ func TestExecutionContext_WalkFiles_Basic(t *testing.T) {
 }
 
 func TestExecutionContext_GetBody(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with body field
@@ -872,7 +872,7 @@ func TestExecutionContext_GetBody(t *testing.T) {
 }
 
 func TestExecutionContext_GetFileCount(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with files in body
@@ -906,7 +906,7 @@ func TestExecutionContext_GetFileCount(t *testing.T) {
 }
 
 func TestExecutionContext_GetFiles(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	testFiles := []interface{}{
@@ -948,7 +948,7 @@ func TestExecutionContext_GetFiles(t *testing.T) {
 }
 
 func TestExecutionContext_GetBody_WithoutRequest(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -957,7 +957,7 @@ func TestExecutionContext_GetBody_WithoutRequest(t *testing.T) {
 }
 
 func TestExecutionContext_GetMemory(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set value in memory
@@ -976,7 +976,7 @@ func TestExecutionContext_GetMemory(t *testing.T) {
 }
 
 func TestExecutionContext_GetSession(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set value in session
@@ -995,7 +995,7 @@ func TestExecutionContext_GetSession(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllSession_Empty(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// GetAllSession on empty session should return empty map
@@ -1006,7 +1006,7 @@ func TestExecutionContext_GetAllSession_Empty(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllSession_WithData(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set multiple values in session
@@ -1027,7 +1027,7 @@ func TestExecutionContext_GetAllSession_WithData(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllSession_ThroughAPI(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set values in session
@@ -1045,7 +1045,7 @@ func TestExecutionContext_GetAllSession_ThroughAPI(t *testing.T) {
 }
 
 func TestExecutionContext_SessionFunction_WithEvaluator(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Verify Session function is set in API
@@ -1077,7 +1077,7 @@ func TestExecutionContext_SessionFunction_WithEvaluator(t *testing.T) {
 }
 
 func TestExecutionContext_SessionFunction_Interpolated(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set values in session
@@ -1103,7 +1103,7 @@ func TestExecutionContext_SessionFunction_Interpolated(t *testing.T) {
 }
 
 func TestExecutionContext_GetOutput(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set output
@@ -1121,7 +1121,7 @@ func TestExecutionContext_GetOutput(t *testing.T) {
 }
 
 func TestExecutionContext_GetParam(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set request context with query params
@@ -1148,7 +1148,7 @@ func TestExecutionContext_GetParam(t *testing.T) {
 }
 
 func TestExecutionContext_GetHeader(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set request context with headers
@@ -1175,7 +1175,7 @@ func TestExecutionContext_GetHeader(t *testing.T) {
 }
 
 func TestExecutionContext_GetRequestPath(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with request context
@@ -1199,7 +1199,7 @@ func TestExecutionContext_GetRequestPath(t *testing.T) {
 }
 
 func TestExecutionContext_GetItemFromContext(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set item
@@ -1217,7 +1217,7 @@ func TestExecutionContext_GetItemFromContext(t *testing.T) {
 }
 
 func TestExecutionContext_IsFilePattern_Basic(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with file pattern
@@ -1235,6 +1235,7 @@ func TestExecutionContext_IsFilePattern_Basic(t *testing.T) {
 
 func TestExecutionContext_IsMetadataField_Basic(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -1262,7 +1263,7 @@ func TestExecutionContext_IsMetadataField_Basic(t *testing.T) {
 }
 
 func TestExecutionContext_GetItemValues(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set item values for an action
@@ -1282,7 +1283,7 @@ func TestExecutionContext_GetItemValues(t *testing.T) {
 }
 
 func TestExecutionContext_ResourceAccessors(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test LLM response accessor
@@ -1341,7 +1342,7 @@ func TestExecutionContext_ResourceAccessors(t *testing.T) {
 }
 
 func TestExecutionContext_RequestIPAndID(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1366,7 +1367,7 @@ func TestExecutionContext_RequestIPAndID(t *testing.T) {
 }
 
 func TestExecutionContext_GetParam_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -1398,7 +1399,7 @@ func TestExecutionContext_GetParam_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_GetHeader_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -1430,7 +1431,7 @@ func TestExecutionContext_GetHeader_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_GetSessionID_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context - should return empty string with no error
@@ -1486,7 +1487,7 @@ func TestExecutionContext_GetSessionID_EdgeCases(t *testing.T) {
 
 func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context with various data types to improve coverage
@@ -1591,7 +1592,7 @@ func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 }
 
 func TestExecutionContext_Get_WithHeaderFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context with headers
@@ -1617,7 +1618,7 @@ func TestExecutionContext_Get_WithHeaderFiltering(t *testing.T) {
 }
 
 func TestExecutionContext_GetFromUploadedFiles_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with no files
@@ -1647,7 +1648,7 @@ func TestExecutionContext_GetFromUploadedFiles_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_FindHeaderValue_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nil headers
@@ -1683,7 +1684,7 @@ func TestExecutionContext_FindHeaderValue_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_GetParam_WithFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context with query params
@@ -1730,7 +1731,7 @@ func TestExecutionContext_GetParam_WithFiltering(t *testing.T) {
 }
 
 func TestExecutionContext_GetHeader_WithFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context with headers
@@ -1770,7 +1771,7 @@ func TestExecutionContext_GetHeader_WithFiltering(t *testing.T) {
 }
 
 func TestExecutionContext_GetRequestData_WithFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context
@@ -1823,7 +1824,7 @@ func TestExecutionContext_GetRequestData_WithFiltering(t *testing.T) {
 }
 
 func TestExecutionContext_HandleEmptyFilteredResults(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test handleEmptyFilteredResults through MIME type filtering
@@ -1860,7 +1861,7 @@ func TestExecutionContext_HandleEmptyFilteredResults(t *testing.T) {
 }
 
 func TestExecutionContext_FilterByMimeType_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test FilterByMimeType with unknown extensions
@@ -1887,7 +1888,7 @@ func TestExecutionContext_FilterByMimeType_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_GetUploadedFile_ArrayAccess(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1921,7 +1922,7 @@ func TestExecutionContext_GetUploadedFile_ArrayAccess(t *testing.T) {
 }
 
 func TestExecutionContext_GetUploadedFile_SpecialNames(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1947,7 +1948,7 @@ func TestExecutionContext_GetUploadedFile_SpecialNames(t *testing.T) {
 
 // TestExecutionContext_GetRequestIP_EdgeCases tests GetRequestIP with various scenarios to improve coverage.
 func TestExecutionContext_GetRequestIP_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -1985,7 +1986,7 @@ func TestExecutionContext_GetRequestIP_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetRequestID_EdgeCases tests GetRequestID with various scenarios to improve coverage.
 func TestExecutionContext_GetRequestID_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2023,7 +2024,7 @@ func TestExecutionContext_GetRequestID_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetUploadedFile_EdgeCases tests GetUploadedFile with various edge cases to improve coverage.
 func TestExecutionContext_GetUploadedFile_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2057,7 +2058,7 @@ func TestExecutionContext_GetUploadedFile_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetAllFilePaths_EdgeCases tests GetAllFilePaths with edge cases.
 func TestExecutionContext_GetAllFilePaths_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2089,7 +2090,7 @@ func TestExecutionContext_GetAllFilePaths_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetAllFileNames_EdgeCases tests GetAllFileNames with edge cases.
 func TestExecutionContext_GetAllFileNames_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2121,7 +2122,7 @@ func TestExecutionContext_GetAllFileNames_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetAllFileTypes_EdgeCases tests GetAllFileTypes with edge cases.
 func TestExecutionContext_GetAllFileTypes_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2153,7 +2154,7 @@ func TestExecutionContext_GetAllFileTypes_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetFilesByType_EdgeCases tests GetFilesByType with edge cases.
 func TestExecutionContext_GetFilesByType_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2197,7 +2198,7 @@ func TestExecutionContext_GetFilesByType_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetRequestFileContent_EdgeCases tests GetRequestFileContent with edge cases.
 func TestExecutionContext_GetRequestFileContent_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2214,7 +2215,7 @@ func TestExecutionContext_GetRequestFileContent_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetRequestFilePath_EdgeCases tests GetRequestFilePath with edge cases.
 func TestExecutionContext_GetRequestFilePath_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2241,7 +2242,7 @@ func TestExecutionContext_GetRequestFilePath_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetRequestFileType_EdgeCases tests GetRequestFileType with edge cases.
 func TestExecutionContext_GetRequestFileType_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2302,7 +2303,7 @@ func TestExecutionContext_ReadFile_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Input_EdgeCases tests Input function with various scenarios.
 func TestExecutionContext_Input_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without request context
@@ -2366,7 +2367,7 @@ func TestExecutionContext_Input_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Output_EdgeCases tests Output function with edge cases.
 func TestExecutionContext_Output_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without output
@@ -2383,7 +2384,7 @@ func TestExecutionContext_Output_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Item_EdgeCases tests Item function with various scenarios.
 func TestExecutionContext_Item_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without iteration context (should return defaults)
@@ -2465,7 +2466,7 @@ func TestExecutionContext_Item_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetWithAutoDetection_EdgeCases tests auto-detection edge cases.
 func TestExecutionContext_GetWithAutoDetection_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context for testing
@@ -2504,7 +2505,7 @@ func TestExecutionContext_GetWithAutoDetection_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetFilteredStringValue_EdgeCases tests parameter filtering.
 func TestExecutionContext_GetFilteredStringValue_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test without filtering (empty allowedParams)
@@ -2539,7 +2540,7 @@ func TestExecutionContext_GetFilteredStringValue_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetFromHeaders_Filtering tests header filtering logic.
 func TestExecutionContext_GetFromHeaders_Filtering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -2600,7 +2601,7 @@ func TestExecutionContext_GetFromHeaders_Filtering(t *testing.T) {
 
 // TestExecutionContext_GetParam_BodyFallback tests GetParam body fallback.
 func TestExecutionContext_GetParam_BodyFallback(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -2630,7 +2631,7 @@ func TestExecutionContext_GetParam_BodyFallback(t *testing.T) {
 
 // TestExecutionContext_HandleGlobPattern_EmptySelector tests HandleGlobPattern with empty selector.
 func TestExecutionContext_HandleGlobPattern_EmptySelector(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2650,7 +2651,7 @@ func TestExecutionContext_HandleGlobPattern_EmptySelector(t *testing.T) {
 
 // TestExecutionContext_HandleMimeTypeSelector_EmptyResults tests empty filtered results.
 func TestExecutionContext_HandleMimeTypeSelector_EmptyResults(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2667,7 +2668,7 @@ func TestExecutionContext_HandleMimeTypeSelector_EmptyResults(t *testing.T) {
 
 // TestExecutionContext_ApplySelector_DefaultCase tests ApplySelector default case.
 func TestExecutionContext_ApplySelector_DefaultCase(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2690,7 +2691,7 @@ func TestExecutionContext_ReadAllFiles_Error(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2711,7 +2712,7 @@ func TestExecutionContext_ReadAllFiles_Error(t *testing.T) {
 
 // TestExecutionContext_FilterByMimeType_Wildcard tests wildcard MIME type filtering.
 func TestExecutionContext_FilterByMimeType_Wildcard(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -2744,7 +2745,7 @@ func TestExecutionContext_FilterByMimeType_Wildcard(t *testing.T) {
 
 // TestExecutionContext_GetSessionID_Sources tests GetSessionID with different sources.
 func TestExecutionContext_GetSessionID_Sources(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with session ID from headers
@@ -2776,7 +2777,7 @@ func TestExecutionContext_GetSessionID_Sources(t *testing.T) {
 
 // TestExecutionContext_GetLLMResponse_MapHandling tests GetLLMResponse with map responses.
 func TestExecutionContext_GetLLMResponse_MapHandling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with map response containing "response" field
@@ -2812,7 +2813,7 @@ func TestExecutionContext_GetLLMResponse_MapHandling(t *testing.T) {
 
 // TestExecutionContext_GetPythonStdout_StringHandling tests GetPythonStdout with string responses.
 func TestExecutionContext_GetPythonStdout_StringHandling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with string output (direct stdout)
@@ -2825,7 +2826,7 @@ func TestExecutionContext_GetPythonStdout_StringHandling(t *testing.T) {
 
 // TestExecutionContext_GetPythonStderr_MapHandling tests GetPythonStderr with map responses.
 func TestExecutionContext_GetPythonStderr_MapHandling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with map containing stderr
@@ -2842,7 +2843,7 @@ func TestExecutionContext_GetPythonStderr_MapHandling(t *testing.T) {
 
 // TestExecutionContext_GetPythonExitCode_Float64Handling tests GetPythonExitCode with float64.
 func TestExecutionContext_GetPythonExitCode_Float64Handling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with float64 exit code
@@ -2857,7 +2858,7 @@ func TestExecutionContext_GetPythonExitCode_Float64Handling(t *testing.T) {
 
 // TestExecutionContext_GetExecStdout_MapHandling tests GetExecStdout with map responses.
 func TestExecutionContext_GetExecStdout_MapHandling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with map containing stdout
@@ -2874,7 +2875,7 @@ func TestExecutionContext_GetExecStdout_MapHandling(t *testing.T) {
 
 // TestExecutionContext_GetExecStderr_MapHandling tests GetExecStderr with map responses.
 func TestExecutionContext_GetExecStderr_MapHandling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with map containing stderr
@@ -2891,7 +2892,7 @@ func TestExecutionContext_GetExecStderr_MapHandling(t *testing.T) {
 
 // TestExecutionContext_GetExecExitCode_Float64Handling tests GetExecExitCode with float64.
 func TestExecutionContext_GetExecExitCode_Float64Handling(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with float64 exit code
@@ -2906,7 +2907,7 @@ func TestExecutionContext_GetExecExitCode_Float64Handling(t *testing.T) {
 
 // TestExecutionContext_GetHTTPResponseBody_DataField tests GetHTTPResponseBody with data field.
 func TestExecutionContext_GetHTTPResponseBody_DataField(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with data field in response
@@ -2924,7 +2925,7 @@ func TestExecutionContext_GetHTTPResponseBody_DataField(t *testing.T) {
 
 // TestExecutionContext_IsMetadataField_Coverage tests IsMetadataField with various fields.
 func TestExecutionContext_IsMetadataField_Coverage(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test all metadata fields to ensure complete coverage
@@ -2954,7 +2955,7 @@ func TestExecutionContext_IsMetadataField_Coverage(t *testing.T) {
 
 // TestExecutionContext_GetSessionID_CompleteCoverage tests all branches of GetSessionID.
 func TestExecutionContext_GetSessionID_CompleteCoverage(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test 1: No request context - should return empty string with no error
@@ -2985,7 +2986,7 @@ func TestExecutionContext_GetSessionID_CompleteCoverage(t *testing.T) {
 
 	// Test 4: Session storage with auto-generated ID (starts with "session-") - should return empty
 	// First create a session with auto-generated ID
-	ctx2, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx2, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	// The auto-generated session ID starts with "session-", so it should return empty
 	result, err = ctx2.GetSessionID()
@@ -2993,14 +2994,14 @@ func TestExecutionContext_GetSessionID_CompleteCoverage(t *testing.T) {
 	assert.Empty(t, result)
 
 	// Test 5: Session storage with custom ID (doesn't start with "session-") - should return it
-	ctx3, err := executor.NewExecutionContext(&domain.Workflow{}, "custom-session-789")
+	ctx3, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{}, "custom-session-789")
 	require.NoError(t, err)
 	result, err = ctx3.GetSessionID()
 	require.NoError(t, err)
 	assert.Equal(t, "custom-session-789", result)
 
 	// Test 6: Session exists but ID is empty - should return empty
-	ctx4, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx4, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	// Manually set session ID to empty to test this branch
 	ctx4.Session.SessionID = ""
@@ -3020,7 +3021,7 @@ func TestExecutionContext_GetSessionID_CompleteCoverage(t *testing.T) {
 
 // TestExecutionContext_HandleGlobPattern_ErrorCases tests HandleGlobPattern error handling.
 func TestExecutionContext_HandleGlobPattern_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -3040,7 +3041,7 @@ func TestExecutionContext_HandleGlobPattern_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_handleMimeTypeSelector_ErrorCases tests MIME type selector error handling.
 func TestExecutionContext_handleMimeTypeSelector_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -3059,7 +3060,7 @@ func TestExecutionContext_handleMimeTypeSelector_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_ApplySelector_ErrorCases tests ApplySelector error cases.
 func TestExecutionContext_ApplySelector_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -3108,7 +3109,7 @@ func TestExecutionContext_ReadFile_DirectoryError(t *testing.T) {
 
 // TestExecutionContext_WalkFiles_ErrorCases tests WalkFiles error handling.
 func TestExecutionContext_WalkFiles_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent root directory
@@ -3136,7 +3137,7 @@ func TestExecutionContext_WalkFiles_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetLLMResponse_EdgeCases tests GetLLMResponse edge cases.
 func TestExecutionContext_GetLLMResponse_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3164,7 +3165,7 @@ func TestExecutionContext_GetLLMResponse_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_GetLLMPrompt_ErrorCase tests GetLLMPrompt (which always errors).
 func TestExecutionContext_GetLLMPrompt_ErrorCase(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	_, err = ctx.GetLLMPrompt("any_action")
@@ -3174,7 +3175,7 @@ func TestExecutionContext_GetLLMPrompt_ErrorCase(t *testing.T) {
 
 // TestExecutionContext_GetPythonStdout_ErrorCases tests GetPythonStdout error cases.
 func TestExecutionContext_GetPythonStdout_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3193,7 +3194,7 @@ func TestExecutionContext_GetPythonStdout_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetPythonStderr_ErrorCases tests GetPythonStderr error cases.
 func TestExecutionContext_GetPythonStderr_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3212,7 +3213,7 @@ func TestExecutionContext_GetPythonStderr_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetPythonExitCode_ErrorCases tests GetPythonExitCode error cases.
 func TestExecutionContext_GetPythonExitCode_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3231,7 +3232,7 @@ func TestExecutionContext_GetPythonExitCode_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetExecStdout_ErrorCases tests GetExecStdout error cases.
 func TestExecutionContext_GetExecStdout_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3250,7 +3251,7 @@ func TestExecutionContext_GetExecStdout_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetExecStderr_ErrorCases tests GetExecStderr error cases.
 func TestExecutionContext_GetExecStderr_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3269,7 +3270,7 @@ func TestExecutionContext_GetExecStderr_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetExecExitCode_ErrorCases tests GetExecExitCode error cases.
 func TestExecutionContext_GetExecExitCode_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3288,7 +3289,7 @@ func TestExecutionContext_GetExecExitCode_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetHTTPResponseBody_ErrorCases tests GetHTTPResponseBody error cases.
 func TestExecutionContext_GetHTTPResponseBody_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3308,7 +3309,7 @@ func TestExecutionContext_GetHTTPResponseBody_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetHTTPResponseHeader_ErrorCases tests GetHTTPResponseHeader error cases.
 func TestExecutionContext_GetHTTPResponseHeader_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nonexistent action ID
@@ -3353,7 +3354,7 @@ func TestExecutionContext_GetHTTPResponseHeader_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_IsFilePattern_EdgeCases tests IsFilePattern edge cases.
 func TestExecutionContext_IsFilePattern_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test patterns that should be detected as file patterns
@@ -3389,7 +3390,7 @@ func TestExecutionContext_IsFilePattern_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_handleAgentData_ErrorCases tests handleAgentData error cases.
 func TestExecutionContext_handleAgentData_ErrorCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test invalid agent pattern (no slash)
@@ -3405,7 +3406,7 @@ func TestExecutionContext_handleAgentData_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetFilteredValue_ParameterFiltering tests getFilteredValue parameter filtering.
 func TestExecutionContext_GetFilteredValue_ParameterFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up request context with both query and body data
@@ -3464,7 +3465,7 @@ func TestExecutionContext_UnmarshalYAML_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_GetFilteredValue_CompleteCoverage tests all branches of getFilteredValue.
 func TestExecutionContext_GetFilteredValue_CompleteCoverage(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test case 1: source is nil, filtering enabled, parameter not allowed
@@ -3522,7 +3523,7 @@ func TestExecutionContext_GetFilteredValue_CompleteCoverage(t *testing.T) {
 
 // TestExecutionContext_IsParamAllowed_CompleteCoverage tests all branches of IsParamAllowed.
 func TestExecutionContext_IsParamAllowed_CompleteCoverage(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test case 1: no filtering enabled (empty list)
@@ -3547,7 +3548,7 @@ func TestExecutionContext_IsParamAllowed_CompleteCoverage(t *testing.T) {
 
 // TestExecutionContext_IsHeaderAllowed_CompleteCoverage tests all branches of isHeaderAllowed.
 func TestExecutionContext_IsHeaderAllowed_CompleteCoverage(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test case 1: no filtering enabled (empty list)
@@ -3576,7 +3577,7 @@ func TestExecutionContext_IsHeaderAllowed_CompleteCoverage(t *testing.T) {
 
 func TestExecutionContext_Get_InputProcessorResults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -3624,7 +3625,7 @@ func TestExecutionContext_Get_InputProcessorResults(t *testing.T) {
 
 func TestExecutionContext_Input_InputProcessorResults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
 	}
@@ -3667,7 +3668,7 @@ func TestExecutionContext_Input_InputProcessorResults(t *testing.T) {
 	}
 
 	// Error cases: empty fields.
-	ctx2, _ := executor.NewExecutionContext(&domain.Workflow{})
+	ctx2, _ := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	if _, e := ctx2.Input("x", "transcript"); e == nil {
 		t.Error("expected error when transcript is empty")
 	}

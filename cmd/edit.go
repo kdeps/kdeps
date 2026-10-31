@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -83,7 +82,7 @@ var launchEditorFunc = launchEditor
 // launchEditor opens path in the user's preferred editor.
 func launchEditor(path string) error {
 	editor := resolveEditor()
-	cmd := exec.CommandContext(context.Background(), editor, path)
+	cmd := exec.CommandContext(processRoot(), editor, path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

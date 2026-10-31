@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -30,9 +31,9 @@ import (
 // The target's apiResponse envelope is unwrapped to its data, except when the
 // response sets headers: the HTTP layer needs the envelope to apply them.
 func TestFinalizeWorkflowOutput_KeepsEnvelopeWithHeaders(t *testing.T) {
-	e := NewEngine(slog.Default())
+	e := NewEngine(context.Background(), slog.Default())
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 
 	plain := map[string]interface{}{"success": true, "data": "ok", "_meta": map[string]interface{}{"model": "m"}}

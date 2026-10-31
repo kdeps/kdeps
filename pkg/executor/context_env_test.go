@@ -29,7 +29,7 @@ import (
 )
 
 func TestExecutionContext_Env(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 

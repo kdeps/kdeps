@@ -29,7 +29,7 @@ import (
 
 func TestGetSessionID_HeaderBranch(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Headers: map[string]string{"X-Session-ID": "hdr-session"}}
 	got, err := ctx.GetSessionID()
@@ -39,7 +39,7 @@ func TestGetSessionID_HeaderBranch(t *testing.T) {
 
 func TestGetSessionID_QueryBranch(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{Query: map[string]string{"session_id": "query-session"}}
 	got, err := ctx.GetSessionID()

@@ -49,7 +49,7 @@ func TestComponentEnvPrefix(t *testing.T) {
 
 func TestEnv_NoComponent_ReturnsOsEnv(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	t.Setenv("SOME_VAR", "plain_value")
@@ -60,7 +60,7 @@ func TestEnv_NoComponent_ReturnsOsEnv(t *testing.T) {
 
 func TestEnv_WithComponent_PrefersScopedVar(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	t.Setenv("TEST_API_KEY", "global_key")
@@ -74,7 +74,7 @@ func TestEnv_WithComponent_PrefersScopedVar(t *testing.T) {
 
 func TestEnv_WithComponent_FallsBackToPlainVar(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	t.Setenv("TEST_API_KEY", "global_key")
@@ -88,7 +88,7 @@ func TestEnv_WithComponent_FallsBackToPlainVar(t *testing.T) {
 
 func TestEnv_HyphenatedComponent_Scoped(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	t.Setenv("TELEGRAM_TOKEN", "plain_token")
@@ -102,7 +102,7 @@ func TestEnv_HyphenatedComponent_Scoped(t *testing.T) {
 
 func TestEnv_WithComponent_UnsetScopedAndPlain(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Neither set - should return empty string, no error.

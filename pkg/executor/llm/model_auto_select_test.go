@@ -130,7 +130,7 @@ func TestMatchLlamaFitScore(t *testing.T) {
 func TestListInstalledLocalCandidates_NoneCached(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	t.Setenv("PATH", t.TempDir()) // no ollama on PATH either
-	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	got := ListInstalledLocalCandidates(t.Context(), afero.NewMemMapFs())
 	assert.Empty(t, got)
 }
 
@@ -177,7 +177,7 @@ func TestListInstalledLocalCandidates_LlamafileCached(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, path, []byte("fake"), 0o600))
 
-	got := ListInstalledLocalCandidates(fs)
+	got := ListInstalledLocalCandidates(t.Context(), fs)
 	var found bool
 	for _, c := range got {
 		if c.Alias == alias {
@@ -209,7 +209,7 @@ func TestListInstalledLocalCandidates_GGUFCachedAndLoadable(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, path, ggufTestHeader(3), 0o600))
 
-	got := ListInstalledLocalCandidates(fs)
+	got := ListInstalledLocalCandidates(t.Context(), fs)
 	var found bool
 	for _, c := range got {
 		if c.Alias == alias {
@@ -242,7 +242,7 @@ func TestListInstalledLocalCandidates_GGUFCachedButNotLoadable(t *testing.T) {
 	// GGUFv1 header: present but not loadable by current llama-server builds.
 	require.NoError(t, afero.WriteFile(fs, path, ggufTestHeader(1), 0o600))
 
-	got := ListInstalledLocalCandidates(fs)
+	got := ListInstalledLocalCandidates(t.Context(), fs)
 	for _, c := range got {
 		assert.NotEqual(t, alias, c.Alias, "non-loadable GGUFv1 file must not be reported as installed")
 	}
@@ -258,7 +258,7 @@ func TestListInstalledLocalCandidates_OllamaPulled(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", output)
 	}
 
-	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	got := ListInstalledLocalCandidates(t.Context(), afero.NewMemMapFs())
 	var found bool
 	for _, c := range got {
 		if c.Alias == "llama3:latest" {
@@ -275,7 +275,7 @@ func TestListInstalledLocalCandidates_ModelsDirUnresolvable(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "")
 	t.Setenv("HOME", "")
 	t.Setenv("USERPROFILE", "") // Windows home var
-	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	got := ListInstalledLocalCandidates(t.Context(), afero.NewMemMapFs())
 	assert.Nil(t, got)
 }
 

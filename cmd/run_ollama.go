@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -54,7 +53,7 @@ func getOllamaURL() string {
 func IsOllamaRunning(host string, port int) bool {
 	kdeps_debug.Log("enter: IsOllamaRunning")
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	conn, err := isOllamaDialFunc(context.Background(), "tcp", addr)
+	conn, err := isOllamaDialFunc(processRoot(), "tcp", addr)
 	if err != nil {
 		return false
 	}
@@ -75,7 +74,7 @@ func startOllamaServer() error {
 	}
 
 	// Start ollama serve in background
-	cmd := exec.CommandContext(context.Background(), "ollama", "serve")
+	cmd := exec.CommandContext(processRoot(), "ollama", "serve")
 	cmd.Stdout = nil // Discard output
 	cmd.Stderr = nil // Discard errors
 

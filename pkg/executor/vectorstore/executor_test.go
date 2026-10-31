@@ -26,6 +26,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // stubVectorEmbedder is a test double for lcemb.Embedder.
@@ -67,7 +68,7 @@ func TestExecute_UnknownOperation(t *testing.T) {
 		EmbedModel: "text-embedding-ada-002",
 		Operation:  "unknown_op",
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	if err == nil {
 		t.Fatal("expected error for unknown operation")
 	}
@@ -82,7 +83,7 @@ func TestExecute_AddDocuments_NoDocuments(t *testing.T) {
 		Operation:  "add_documents",
 		Documents:  nil,
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	if err == nil {
 		t.Fatal("expected error for missing documents")
 	}
@@ -97,7 +98,7 @@ func TestExecute_SimilaritySearch_NoQuery(t *testing.T) {
 		Operation:  "similarity_search",
 		Query:      "",
 	}
-	_, err := e.Execute(nil, cfg)
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, cfg)
 	if err == nil {
 		t.Fatal("expected error for missing query")
 	}

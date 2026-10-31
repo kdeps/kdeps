@@ -1,0 +1,9 @@
+version: 1.0.0
+# Rate-limit signatures from OpenRouter. A rate limit waits or moves to another
+# free id instead of failing the turn. Narrower than the transient-error match,
+# so a 5xx still retries the same model.
+name: openrouter-rate-limit
+patterns:
+  - 'rate.?limit'
+  - 'too many requests'
+  - '\b429\b'

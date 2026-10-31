@@ -58,7 +58,7 @@ func TestRunAgentLoopCmd_AbsError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
 }
 
@@ -92,7 +92,7 @@ func TestRunAgentLoopCmd_AbsError_Final(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	require.Error(t, runAgentLoopCmd("\x00bad", &agentLoopFlags{}))
+	require.Error(t, runAgentLoopCmd(t.Context(), "\x00bad", &agentLoopFlags{}))
 }
 
 func TestRegisterAgencyTool_TargetParseError(t *testing.T) {
@@ -114,7 +114,7 @@ func TestRunAgentLoopCmd_AbsErrorHook(t *testing.T) {
 	orig := filepathAbsAgentLoopFunc
 	t.Cleanup(func() { filepathAbsAgentLoopFunc = orig })
 	filepathAbsAgentLoopFunc = func(_ string) (string, error) { return "", errors.New("abs") }
-	require.Error(t, runAgentLoopCmd("bad", &agentLoopFlags{}))
+	require.Error(t, runAgentLoopCmd(t.Context(), "bad", &agentLoopFlags{}))
 }
 
 func TestRegisterAgencyTool_TargetError_Complete(t *testing.T) {
@@ -171,7 +171,7 @@ agents:
 }
 
 func TestRunAgentLoopCmd_InvalidPath_Remaining(t *testing.T) {
-	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
 }
 
@@ -209,7 +209,7 @@ func TestFindServeWorkflowFiles_SkipsInvalid(t *testing.T) {
 }
 
 func TestRunAgentLoopCmd_InvalidPath(t *testing.T) {
-	err := runAgentLoopCmd("/nonexistent/serve/path", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "/nonexistent/serve/path", &agentLoopFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -261,9 +261,9 @@ func TestRunAgentLoopCmd_Errors(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
+	err := runAgentLoopCmd(t.Context(), "\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
-	err = runAgentLoopCmd("/nonexistent", &agentLoopFlags{})
+	err = runAgentLoopCmd(t.Context(), "/nonexistent", &agentLoopFlags{})
 	require.Error(t, err)
 }
 

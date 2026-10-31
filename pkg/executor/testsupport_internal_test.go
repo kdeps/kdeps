@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -46,7 +47,7 @@ func (m *covMockExecutor) Execute(_ *ExecutionContext, _ interface{}) (interface
 }
 
 func covTestEngine() *Engine {
-	e := NewEngine(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	e := NewEngine(context.Background(), slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	return e
 }
 

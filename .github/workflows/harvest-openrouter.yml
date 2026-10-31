@@ -1,0 +1,52 @@
+name: Harvest OpenRouter
+
+# Refreshes assets/models/openrouter.yaml from the public models API.
+# A changed catalog carries a version bump (harvest.py), so the push runs
+# Publish Assets and `kdeps update models/openrouter` picks it up.
+# No API key. Stdlib Python only.
+#
+# Checkout uses RELEASE_TOKEN. A GITHUB_TOKEN push does not start other
+# workflows, so Publish Assets would never see the new file.
+
+on:
+  schedule:
+    # After the 02:00 UTC nightly release, so the two pushes do not race.
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: harvest-openrouter
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Test harvester
+        run: python3 tools/openrouter-harvester/harvest_test.py
+
+      - name: Harvest free models
+        run: python3 tools/openrouter-harvester/harvest.py --write
+
+      - name: Commit catalog updates
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/models/openrouter.yaml
+          if git diff --cached --quiet; then
+            echo "OpenRouter catalog unchanged"
+            exit 0
+          fi
+          git commit -m "chore: update OpenRouter free-model registry [daily]"
+          git pull --rebase origin main
+          git push origin main

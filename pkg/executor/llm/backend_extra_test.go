@@ -54,7 +54,7 @@ func TestModelManager_EnsureModel_CloudBackendSkipsDownloadAndServe(t *testing.T
 	mgr := llm.NewModelManagerFromServiceInterface(mockSvc)
 	for _, backend := range []string{"m365", "openai", "anthropic", "cloud"} {
 		downloadCalled, serveCalled = false, false
-		err := mgr.EnsureModel(&domain.ChatConfig{Backend: backend, Model: "anything"})
+		err := mgr.EnsureModel(t.Context(), &domain.ChatConfig{Backend: backend, Model: "anything"})
 		require.NoError(t, err, backend)
 		assert.False(t, downloadCalled, "DownloadModel must not run for %s", backend)
 		assert.False(t, serveCalled, "ServeModel must not run for %s", backend)
@@ -80,7 +80,7 @@ func TestModelManager_EnsureModel_OllamaBackend(t *testing.T) {
 		Model:   "llama2",
 	}
 
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "ollama", calledBackend)
 	assert.Equal(t, "llama2", calledModel)
@@ -101,7 +101,7 @@ func TestModelManager_EnsureModel_OllamaBackend_ServeErrorContinues(t *testing.T
 		Model:   "llama2",
 	}
 
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 }
 
@@ -124,7 +124,7 @@ func TestModelManager_EnsureModel_LlamacppBackendDefaultPort(t *testing.T) {
 		Model:   "test-model",
 	}
 
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, 16395, calledPort)
 }
@@ -152,7 +152,7 @@ func TestModelManager_EnsureModel_OfflineModeSkipsDownload(t *testing.T) {
 		Model:   "llama2",
 	}
 
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.False(t, downloadCalled, "DownloadModel should not be called in offline mode")
 }
@@ -166,13 +166,13 @@ func TestModelManager_EnsureModel_FileBackend_AlreadyRunning(t *testing.T) {
 	bin := filepath.Join(dir, "model.llamafile")
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\nsleep 9999"), 0750))
 
-	mgr := llm.NewModelManagerWithOfflineMode(nil, true)
+	mgr := llm.NewModelManagerWithOfflineMode(t.Context(), nil, true)
 	cfg := &domain.ChatConfig{
 		Backend: "file",
 		Model:   "model.llamafile",
 		BaseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
 	}
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 	// BaseURL should remain unchanged (was set before EnsureModel).
 	assert.Equal(t, fmt.Sprintf("http://127.0.0.1:%d", port), cfg.BaseURL)
@@ -190,13 +190,13 @@ func TestModelManager_EnsureModel_FileBackend_BaseURLAutoAssigned(t *testing.T) 
 	// Manually boot the health server on the free port that EnsureModel will pick.
 	// We'll use the health server's port directly via BaseURL="" so port=0 is chosen and
 	// we cannot predict it. Instead, use the health server's port and set port explicitly.
-	mgr := llm.NewModelManagerWithOfflineMode(nil, true)
+	mgr := llm.NewModelManagerWithOfflineMode(t.Context(), nil, true)
 	cfg := &domain.ChatConfig{
 		Backend: "file",
 		Model:   "model.llamafile",
 		BaseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
 	}
-	require.NoError(t, mgr.EnsureModel(cfg))
+	require.NoError(t, mgr.EnsureModel(t.Context(), cfg))
 	assert.Contains(t, cfg.BaseURL, "127.0.0.1")
 }
 
@@ -205,13 +205,13 @@ func TestModelManager_EnsureModel_FileBackend_ServeError_Continues(t *testing.T)
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 	// No model file in dir — serveFileModel will fail but EnsureModel should not return an error.
 
-	mgr := llm.NewModelManagerWithOfflineMode(nil, true)
+	mgr := llm.NewModelManagerWithOfflineMode(t.Context(), nil, true)
 	cfg := &domain.ChatConfig{
 		Backend: "file",
 		Model:   "missing.llamafile",
 	}
 	// EnsureModel logs the warning and continues — it should not propagate the error.
-	err := mgr.EnsureModel(cfg)
+	err := mgr.EnsureModel(t.Context(), cfg)
 	require.NoError(t, err)
 }
 
@@ -225,13 +225,13 @@ func TestModelManager_EnsureModel_FileBackend_OfflineSkipsDownload(t *testing.T)
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\nsleep 9999"), 0750))
 
 	// OfflineMode=true means DownloadModel is skipped entirely.
-	mgr := llm.NewModelManagerWithOfflineMode(nil, true)
+	mgr := llm.NewModelManagerWithOfflineMode(t.Context(), nil, true)
 	cfg := &domain.ChatConfig{
 		Backend: "file",
 		Model:   "offline.llamafile",
 		BaseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
 	}
-	require.NoError(t, mgr.EnsureModel(cfg))
+	require.NoError(t, mgr.EnsureModel(t.Context(), cfg))
 }
 
 func TestModelManager_EnsureModel_FileBackend_OnlineDownload(t *testing.T) {
@@ -267,13 +267,13 @@ func TestModelManager_EnsureModel_FileBackend_OnlineDownload(t *testing.T) {
 	require.NoError(t, os.WriteFile(bin, []byte("fake"), 0750))
 	healthOK = true
 
-	mgr := llm.NewModelManager(nil)
+	mgr := llm.NewModelManager(t.Context(), nil)
 	cfg := &domain.ChatConfig{
 		Backend: "file",
 		Model:   modelURL,
 		BaseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
 	}
-	require.NoError(t, mgr.EnsureModel(cfg))
+	require.NoError(t, mgr.EnsureModel(t.Context(), cfg))
 	// Model should be in cache.
 	_, err := os.Stat(bin)
 	require.NoError(t, err)
