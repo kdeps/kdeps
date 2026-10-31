@@ -32,6 +32,7 @@ import (
 	lcemb "github.com/tmc/langchaingo/embeddings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // TestCohereRerank_DocumentByIndex covers the branch where r.Document is nil
@@ -61,7 +62,7 @@ func TestCohereRerank_DocumentByIndex(t *testing.T) {
 		RerankQuery:     "test query",
 		RerankDocuments: []string{"first doc", "second doc"},
 	}
-	result, err := cohereRerank(cfg)
+	result, err := cohereRerank(t.Context(), cfg)
 	require.NoError(t, err)
 
 	results := result["results"].([]RerankResult)
@@ -94,7 +95,7 @@ func TestCohereRerank_DocumentIndexOutOfRange(t *testing.T) {
 		RerankQuery:     "query",
 		RerankDocuments: []string{"only one doc"},
 	}
-	result, err := cohereRerank(cfg)
+	result, err := cohereRerank(t.Context(), cfg)
 	require.NoError(t, err)
 
 	results := result["results"].([]RerankResult)
@@ -120,7 +121,7 @@ func TestCohereRerank_ResponseParseError(t *testing.T) {
 		RerankQuery:     "query",
 		RerankDocuments: []string{"doc"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse response")
 }
@@ -154,7 +155,7 @@ func TestCohereRerank_WithTopN(t *testing.T) {
 		RerankTopN:      1,
 		Model:           "rerank-v3.5",
 	}
-	result, err := cohereRerank(cfg)
+	result, err := cohereRerank(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "rerank-v3.5", result["model"])
 }
@@ -172,7 +173,7 @@ func TestExecute_Vectorize_ErrorPath(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	_, err := e.Execute(nil, &domain.EmbeddingConfig{
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "vectorize",
 		Inputs:    []string{"test"},
 		Model:     "test-model",
@@ -192,7 +193,7 @@ func TestExecute_EmbedQuery_ErrorPath(t *testing.T) {
 	t.Cleanup(func() { buildEmbedderFunc = orig })
 
 	e := NewExecutor()
-	_, err := e.Execute(nil, &domain.EmbeddingConfig{
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation: "embed_query",
 		Text:      "test query",
 		Model:     "test-model",
@@ -206,7 +207,7 @@ func TestExecute_EmbedQuery_ErrorPath(t *testing.T) {
 // COHERE_API_KEY so cohereRerank returns an error.
 func TestExecute_Rerank_ErrorPath(t *testing.T) {
 	e := NewExecutor()
-	_, err := e.Execute(nil, &domain.EmbeddingConfig{
+	_, err := e.Execute(&executor.ExecutionContext{Ctx: t.Context()}, &domain.EmbeddingConfig{
 		Operation:       "rerank",
 		RerankQuery:     "test query",
 		RerankDocuments: []string{"doc1"},
@@ -230,7 +231,7 @@ func TestCohereRerank_NewRequestError(t *testing.T) {
 		RerankQuery:     "query",
 		RerankDocuments: []string{"doc1"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "build request")
 }
@@ -248,7 +249,7 @@ func TestCohereRerank_HTTPDoError(t *testing.T) {
 		RerankQuery:     "query",
 		RerankDocuments: []string{"doc1"},
 	}
-	_, err := cohereRerank(cfg)
+	_, err := cohereRerank(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP request")
 }

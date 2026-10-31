@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -97,7 +98,7 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
@@ -172,7 +173,7 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
@@ -231,7 +232,7 @@ func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
@@ -272,7 +273,7 @@ func TestAdvancedFeatures_ItemsIteration(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
@@ -320,9 +321,11 @@ func TestAdvancedFeatures_RestrictToHTTPMethods(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Test with matching method
+	), logger)
+
 	reqCtx := &executor.RequestContext{
 		Method: "GET",
 		Path:   "/api/test",
@@ -375,9 +378,11 @@ func TestAdvancedFeatures_RestrictToRoutes(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(
 
 	// Test with matching route
+	), logger)
+
 	reqCtx := &executor.RequestContext{
 		Method: "GET",
 		Path:   "/api/v1/data",
@@ -435,7 +440,7 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)
@@ -530,7 +535,7 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	engine := executor.NewEngine(logger)
+	engine := executor.NewEngine(context.Background(), logger)
 
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err)

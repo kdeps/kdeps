@@ -51,6 +51,10 @@ func TestAssetRequires_CoverReferences(t *testing.T) {
 	eachAsset(t, "events", func(name string, data []byte, req map[string]string) {
 		ev, err := parseYAMLEvent(data, name)
 		require.NoError(t, err)
+		if ev.Run == "" {
+			// A pattern-only event (an error classifier) runs no action.
+			return
+		}
 		assert.Contains(t, req, "actions/"+ev.Run, "events/%s", name)
 	})
 	eachAsset(t, "presets", func(name string, data []byte, req map[string]string) {

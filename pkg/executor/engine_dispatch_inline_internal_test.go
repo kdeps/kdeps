@@ -47,7 +47,7 @@ func TestInlineResourceDispatch_MatchesDomainRegistry(t *testing.T) {
 
 func TestExecuteSingleInlineResource_APIResponse(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 

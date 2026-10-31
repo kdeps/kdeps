@@ -112,7 +112,7 @@ func newEditLoop(t *testing.T, ms Streamer, changeOnCall int) (*Loop, string) {
 			return "edited", nil
 		},
 	})
-	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), reg, Config{
+	loop := New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 10,
 	})
 	return loop, path

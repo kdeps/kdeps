@@ -59,7 +59,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerResourceTools(ctx, reg)
 	registerMemoryQueryTool(ctx, reg)
 	registerApprovalTokenTools(ctx, reg)
-	registerInstructTool(reg)
+	registerInstructTool(ctx, reg)
 }
 
 // registerStructuredTools registers sql_ops, SQL against a named connection.
@@ -72,13 +72,12 @@ func registerStructuredTools(ctx context.Context, reg *kdepstools.Registry) {
 // registerInstructTool returns one harness section or one /instruct briefing.
 // help is an alias declared on the tool asset; /instruct stays a slash command.
 // The renderer runs in the API backend; the registry supplies the live catalog.
-func registerInstructTool(reg *kdepstools.Registry) {
+func registerInstructTool(ctx context.Context, reg *kdepstools.Registry) {
 	api.SetInstructBackend(instructAPIBackend{catalog: reg.ToolPrompt})
-	var noCtx context.Context
 	reg.Register(defined(&kdepstools.Tool{
 		Name: "instruct",
 		Execute: func(args map[string]any) (string, error) {
-			return api.CallTool(toolCallCtx(noCtx, args), "instruct", jsonArgs(args))
+			return api.CallTool(toolCallCtx(ctx, args), "instruct", jsonArgs(args))
 		},
 	}))
 }
@@ -484,18 +483,15 @@ func jsonArgs(args map[string]any) map[string]any {
 
 // toolCallCtx returns the per-turn context injected by the Loop dispatcher
 // ("_ctx", canceled by Ctrl+C), falling back to the registration context.
-// Every tool that performs I/O should use this so an in-flight call aborts
-// immediately when the user interrupts the turn.
-// context.Background() is used as a last-resort sentinel — it is only
-// reached when both _ctx and fallback are missing (programming error).
+// Missing both contexts is a programming error; callers must propagate one.
 func toolCallCtx(fallback context.Context, args map[string]any) context.Context {
 	if c, ok := args["_ctx"].(context.Context); ok && c != nil {
 		return c
 	}
-	if fallback != nil {
-		return fallback
+	if fallback == nil {
+		panic("tool call context is nil")
 	}
-	return context.Background()
+	return fallback
 }
 
 // registerBashExec registers a bash command execution tool.
@@ -673,17 +669,18 @@ func isBinaryContent(data []byte) bool {
 }
 
 // validateWorkspaceBoundary checks that path stays within KDEPS_WORKSPACE_ROOT when set.
-// Returns nil when no workspace root is configured (opt-in enforcement). This
-// is a hard, non-interactive check used as defense-in-depth wherever a tool's
-// Execute runs without dispatch context (workflow mode, direct calls, tests);
-// see checkPathBoundary (loop.go) for the interactive, cwd-defaulted version
-// used on the real streaming dispatch path.
+// Returns nil when no workspace root is configured (opt-in enforcement), and
+// when the path is inside ~/.kdeps or /tmp (the process temp directory on
+// Windows). This is a hard, non-interactive check used as defense-in-depth
+// wherever a tool's Execute runs without dispatch context (workflow mode,
+// direct calls, tests); see checkPathBoundary for the interactive,
+// cwd-defaulted version used on the real streaming dispatch path.
 func validateWorkspaceBoundary(path string) error {
 	root := os.Getenv("KDEPS_WORKSPACE_ROOT")
 	if root == "" {
 		return nil
 	}
-	if api.PathWithinRoot(path, root) {
+	if api.PathWithinRoot(path, root) || api.PathAutoApproved(path) {
 		return nil
 	}
 	return fmt.Errorf("path %s escapes workspace root %s", path, root)

@@ -56,9 +56,8 @@ func registerMemoryQueryTool(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "memory_query", api.MemoryQuery)
 }
 
-func executeMemoryQuery(args map[string]any) (string, error) {
-	var noCtx context.Context
-	return api.CallTool(toolCallCtx(noCtx, args), "memory_query", jsonArgs(args))
+func executeMemoryQuery(ctx context.Context, args map[string]any) (string, error) {
+	return api.CallTool(toolCallCtx(ctx, args), "memory_query", jsonArgs(args))
 }
 
 func runMemoryQuery(_ context.Context, args map[string]any) (string, error) {

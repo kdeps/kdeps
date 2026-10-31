@@ -89,25 +89,25 @@ func ggufHasDistinctCPUBuild() bool {
 // primary binary is reused either way; startGGUFServer's "--n-gpu-layers"
 // flag (omitted once the fallback marker is set) is what actually disables
 // GPU use there.
-func ggufLlamaServerBinary() string {
+func ggufLlamaServerBinary(ctx context.Context) string {
 	if v := os.Getenv("KDEPS_LLAMA_SERVER_BIN"); v != "" {
 		return v
 	}
 	if ggufCPUFallbackActive() && ggufHasDistinctCPUBuild() {
-		return ensureLlamaServerBinaryCPU()
+		return ensureLlamaServerBinaryCPU(ctx)
 	}
-	return ensureLlamaServerBinary()
+	return ensureLlamaServerBinary(ctx)
 }
 
 // ensureLlamaServerBinary downloads llama-server from GitHub releases and caches
 // it to ~/.kdeps/bin/. Returns the cached path on success, falls back to
 // "llama-server" (PATH lookup) on failure.
-func ensureLlamaServerBinary() string {
+func ensureLlamaServerBinary(ctx context.Context) string {
 	cached := cachedLlamaServerPath()
 	if _, err := os.Stat(cached); err == nil {
 		return cached
 	}
-	if installErr := installLlamaServer(cached); installErr != nil {
+	if installErr := installLlamaServer(ctx, cached); installErr != nil {
 		kdeps_debug.Log(fmt.Sprintf("llama-server install failed: %v", installErr))
 		return "llama-server"
 	}
@@ -116,8 +116,8 @@ func ensureLlamaServerBinary() string {
 
 // EnsureLlamaServerBinary returns the path to a ready llama-server binary,
 // downloading and installing it if not already cached. Returns "" on unsupported platforms.
-func EnsureLlamaServerBinary() string {
-	path := ensureLlamaServerBinary()
+func EnsureLlamaServerBinary(ctx context.Context) string {
+	path := ensureLlamaServerBinary(ctx)
 	if path == "llama-server" {
 		return "" // fallback sentinel means install failed
 	}
@@ -203,7 +203,7 @@ func isRetryableServeErr(err error) bool {
 // there instead of passing a value it can't act on.
 const ggufGPULayers = "999"
 
-func startGGUFServer(path string, port int) (int, error) {
+func startGGUFServer(ctx context.Context, path string, port int) (int, error) {
 	// mmap (the default) lets llama-server page weights in lazily instead of
 	// reading the whole GGUF file into RAM up front, so server start scales
 	// with how much of the model is actually needed rather than its full size.
@@ -217,7 +217,7 @@ func startGGUFServer(path string, port int) (int, error) {
 		args = append(args, "--n-gpu-layers", ggufGPULayers)
 	}
 	//nolint:gosec // path is validated by GGUFCachedPath before reaching here
-	cmd := exec.CommandContext(context.Background(), ggufLlamaServerBinaryFn(), args...)
+	cmd := exec.CommandContext(ctx, ggufLlamaServerBinaryFn(ctx), args...)
 	// Keep the server's output: llama-server reports model load failures
 	// (unsupported GGUF version, corrupt file) on stderr and then exits.
 	// Discarding it leaves only an opaque health-check timeout.
@@ -237,7 +237,7 @@ func startGGUFServer(path string, port int) (int, error) {
 // ResolvedGGUFURL returns the base URL of a running llama-server for the given
 // GGUF model. Checks the in-memory registry, cross-process port file, and default
 // port. Returns "" if no server is found.
-func ResolvedGGUFURL(model string) string {
+func ResolvedGGUFURL(ctx context.Context, model string) string {
 	modelsDir, err := modelsDir()
 	if err != nil {
 		return ""
@@ -248,17 +248,17 @@ func ResolvedGGUFURL(model string) string {
 	}
 	// Check in-memory served map.
 	servedGGUFsMu.Lock()
-	if savedPort, found := servedGGUFs[path]; found && isHealthy(localServerURL(savedPort)) {
+	if savedPort, found := servedGGUFs[path]; found && isHealthy(ctx, localServerURL(savedPort)) {
 		servedGGUFsMu.Unlock()
 		return localServerURL(savedPort)
 	}
 	servedGGUFsMu.Unlock()
 	// Check cross-process port file.
-	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+	if saved := readServerPortFile(path); saved != 0 && isHealthy(ctx, localServerURL(saved)) {
 		return localServerURL(saved)
 	}
 	// Probe default port.
-	if isHealthy(BackendGGUFHostURL) {
+	if isHealthy(ctx, BackendGGUFHostURL) {
 		return BackendGGUFHostURL
 	}
 	return ""
@@ -338,7 +338,7 @@ func cachedLlamaServerCPUPath() string {
 // ensureLlamaServerBinaryCPU downloads and caches this platform's CPU-only
 // llama-server build (separately from the primary Vulkan install), for use
 // once GGUFManager.Serve has detected the Vulkan build can't launch here.
-func ensureLlamaServerBinaryCPU() string {
+func ensureLlamaServerBinaryCPU(ctx context.Context) string {
 	cached := cachedLlamaServerCPUPath()
 	if cached == "" {
 		return "llama-server"
@@ -350,7 +350,7 @@ func ensureLlamaServerBinaryCPU() string {
 	if osArch == "" {
 		return "llama-server"
 	}
-	if installErr := installLlamaServerForArch(cached, osArch); installErr != nil {
+	if installErr := installLlamaServerForArch(ctx, cached, osArch); installErr != nil {
 		kdeps_debug.Log(fmt.Sprintf("llama-server CPU fallback install failed: %v", installErr))
 		return "llama-server"
 	}
@@ -361,20 +361,20 @@ func ensureLlamaServerBinaryCPU() string {
 // write, matching the standard mode for installed executables (e.g. 0755).
 const llamaServerExecutablePerm = 0755
 
-func installLlamaServer(dest string) error {
+func installLlamaServer(ctx context.Context, dest string) error {
 	osArch := detectOSArch()
 	if osArch == "" {
 		return errors.New("unsupported platform")
 	}
-	return installLlamaServerForArch(dest, osArch)
+	return installLlamaServerForArch(ctx, dest, osArch)
 }
 
 // installLlamaServerForArch downloads and extracts the llama-server release
 // asset matching osArch into dest, pulling in every sibling shared library
 // from the same archive (see the comment on the sibling-extraction call below).
-func installLlamaServerForArch(dest, osArch string) error {
+func installLlamaServerForArch(ctx context.Context, dest, osArch string) error {
 	kdeps_debug.Log("enter: installLlamaServerForArch")
-	assetURL, err := resolveLlamaServerAssetFn(osArch)
+	assetURL, err := resolveLlamaServerAssetFn(ctx, osArch)
 	if err != nil {
 		return fmt.Errorf("resolve llama-server release asset: %w", err)
 	}
@@ -388,7 +388,7 @@ func installLlamaServerForArch(dest, osArch string) error {
 	if mkdirErr := os.MkdirAll(filepath.Dir(dest), 0750); mkdirErr != nil {
 		return fmt.Errorf("create llama-server dir: %w", mkdirErr)
 	}
-	if dlErr := downloadFile(archivePath, assetURL); dlErr != nil {
+	if dlErr := downloadFile(ctx, archivePath, assetURL); dlErr != nil {
 		return fmt.Errorf("download llama-server: %w", dlErr)
 	}
 	defer os.Remove(archivePath)
@@ -593,8 +593,8 @@ var resolveLlamaServerAssetFn = resolveLlamaServerAsset
 // llama-server binary in the pinned ggml-org/llama.cpp release (llamaCppPinnedTag).
 // Assets are matched by OS/arch suffix rather than a hardcoded filename, since
 // the archive extension differs by platform (.zip on Windows, .tar.gz elsewhere).
-func resolveLlamaServerAsset(osArch string) (string, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, llamaCppReleaseAPI(), nil)
+func resolveLlamaServerAsset(ctx context.Context, osArch string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, llamaCppReleaseAPI(), nil)
 	if err != nil {
 		return "", fmt.Errorf("build release request: %w", err)
 	}
@@ -712,9 +712,9 @@ func detectOSArchCPU() string {
 	return ""
 }
 
-func downloadFile(dest, url string) error {
+func downloadFile(ctx context.Context, dest, url string) error {
 	kdeps_debug.Log("enter: downloadFile")
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("build download request: %w", err)
 	}

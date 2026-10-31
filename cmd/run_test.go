@@ -22,6 +22,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -169,7 +170,7 @@ func TestSetupEnvironment(t *testing.T) {
 				},
 			}
 
-			err := cmd.SetupEnvironment(workflow)
+			err := cmd.SetupEnvironment(t.Context(), workflow)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -292,7 +293,7 @@ func TestParseOllamaURL(t *testing.T) {
 			// This should not error during URL parsing (the function will try to start Ollama)
 			// We just want to ensure the URL parsing doesn't crash
 			// In a real scenario this would try to connect to Ollama
-			err := cmd.SetupEnvironment(workflow) // This doesn't use Ollama
+			err := cmd.SetupEnvironment(t.Context(), workflow) // This doesn't use Ollama
 			// The error is expected since we're not setting up Python
 			_ = err
 		})
@@ -2664,7 +2665,7 @@ func TestRunFlags_InteractiveFalseByDefault(t *testing.T) {
 // skipLLMRepl=false but the workflow has no LLM source, the function falls
 // through to executeSingleRunWithEngine without panicking.
 func TestDispatchExecutionWithEngine_SkipFalse_NoLLMSource(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "done", nil
 	})

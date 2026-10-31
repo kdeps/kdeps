@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -53,7 +54,7 @@ func TestDispatchExecutionWithEngine_DefaultNil_Complete(t *testing.T) {
 	require.NoError(
 		t,
 		dispatchExecutionWithEngine(
-			executor.NewEngine(nil),
+			executor.NewEngine(context.Background(), nil),
 			&domain.Workflow{},
 			t.TempDir(),
 			false,
@@ -89,7 +90,7 @@ func TestStartInteractiveMode_BackgroundError(t *testing.T) {
 	execHTTPServerWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) error {
 		return errors.New("bg failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "interactive", TargetActionID: "act"},
 		Resources: []*domain.Resource{
@@ -116,7 +117,7 @@ func TestStartHTTPServerWithEngine_StartError(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("start failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -136,7 +137,7 @@ func TestStartBothServersWithEngine_StartError(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("both start failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -160,7 +161,7 @@ func TestStartHTTPServerWithEngine_CreateError(t *testing.T) {
 	createHTTPServerWithEngineFunc = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) (*kdepshttp.Server, error) {
 		return nil, errors.New("create failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -180,7 +181,7 @@ func TestStartBothServersWithEngine_CreateHTTPError(t *testing.T) {
 	createHTTPServerWithEngineFunc = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) (*kdepshttp.Server, error) {
 		return nil, errors.New("create failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			WebServer: &domain.WebServerConfig{},
@@ -202,7 +203,7 @@ func TestLoadBotCredentials_Error(t *testing.T) {
 
 func TestDefaultServerHooks_Direct(t *testing.T) {
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -275,7 +276,7 @@ func TestStartHTTPServerWithEngine_SignalShutdown(t *testing.T) {
 	httpServerShutdownFunc = func(_ *kdepshttp.Server, _ context.Context) error {
 		return errors.New("shutdown failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -301,7 +302,7 @@ func TestStartBothServersWithEngine_SignalShutdown(t *testing.T) {
 		<-block
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -363,7 +364,7 @@ func TestStartBothServersWithEngine_MergedSignalShutdown(t *testing.T) {
 		<-block
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	samePort := mustFreePort(t)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
@@ -390,7 +391,7 @@ func TestStartBothServersWithEngine_MergedStartsClean(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	samePort := mustFreePort(t)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
@@ -409,7 +410,7 @@ func TestStartBothServersWithEngine_MergedStartError(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("merged start failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	samePort := mustFreePort(t)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
@@ -445,7 +446,7 @@ func TestStartBothServersWithEngine_SplitWebStartError(t *testing.T) {
 	webServerShutdownFunc = func(_ *kdepshttp.WebServer, _ context.Context) error {
 		return errors.New("web shutdown failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -475,7 +476,7 @@ func TestStartBothServersWithEngine_SplitAPIStartsClean(t *testing.T) {
 		<-block
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -491,7 +492,7 @@ func TestStartBothServersWithEngine_SplitBindAddressError(t *testing.T) {
 	orig := findAvailablePortFunc
 	t.Cleanup(func() { findAvailablePortFunc = orig })
 	findAvailablePortFunc = func(_ string, _ int) (int, error) { return 0, errors.New("no port") }
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
@@ -522,8 +523,8 @@ func TestStartInteractiveMode_DispatchLogsError(t *testing.T) {
 		return errors.New("bg dispatch fail")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
-	eng := executor.NewEngine(nil)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
@@ -542,7 +543,7 @@ func TestStartBothServersWithEngine_BindAddressError(t *testing.T) {
 	orig := findAvailablePortFunc
 	t.Cleanup(func() { findAvailablePortFunc = orig })
 	findAvailablePortFunc = func(_ string, _ int) (int, error) { return 0, errors.New("no port") }
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
@@ -576,7 +577,7 @@ func TestStartHTTPServerWithEngine_ErrChanNonClosed(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("real start error")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -591,7 +592,7 @@ func TestStartBothServersWithEngine_ErrChanNonClosed(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("both real error")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -613,7 +614,7 @@ func TestEnsureLLMBackendStep_OllamaPath(t *testing.T) {
 }
 
 func TestDefaultBotDispatcherRun_Direct(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{
@@ -649,7 +650,7 @@ func TestStartHTTPServerWithEngine_SignalInjected(t *testing.T) {
 	httpServerShutdownFunc = func(_ *kdepshttp.Server, _ context.Context) error {
 		return errors.New("shutdown err")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -682,7 +683,7 @@ func TestStartBothServersWithEngine_SignalInjected(t *testing.T) {
 	httpServerShutdownFunc = func(_ *kdepshttp.Server, _ context.Context) error {
 		return errors.New("both shutdown err")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -741,7 +742,7 @@ func TestCreateHTTPServerWithEngine_NewServerHookError(t *testing.T) {
 	httpNewServerFunc = func(_ *domain.Workflow, _ kdepshttp.WorkflowExecutor, _ *slog.Logger) (*kdepshttp.Server, error) {
 		return nil, errors.New("new server")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -757,7 +758,7 @@ func TestStartBothServersWithEngine_WebServerHookError(t *testing.T) {
 	httpNewWebServerFunc = func(_ *domain.Workflow, _ *slog.Logger) (*kdepshttp.WebServer, error) {
 		return nil, errors.New("new web server")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -774,7 +775,7 @@ func TestStartHTTPServerWithEngine_BindError(t *testing.T) {
 	orig := findAvailablePortFunc
 	t.Cleanup(func() { findAvailablePortFunc = orig })
 	findAvailablePortFunc = func(_ string, _ int) (int, error) { return 0, errors.New("no port") }
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: 8080}},
 	}
@@ -788,8 +789,8 @@ func TestStartInteractiveMode_DispatchErrorLog(t *testing.T) {
 		return errors.New("dispatch fail")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
-	eng := executor.NewEngine(nil)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
@@ -809,8 +810,8 @@ func TestStartInteractiveMode_DispatchErrLogFinal(t *testing.T) {
 	t.Cleanup(func() { execSingleRunWithEngineFn = orig })
 	execSingleRunWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow) error { return errors.New("bg fail") }
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
-	eng := executor.NewEngine(nil)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
@@ -845,8 +846,8 @@ func TestStartInteractiveMode_DispatchErrLogFinal2(t *testing.T) {
 		return errors.New("dispatch err")
 	}
 	stubDispatchHooks(t)
-	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
-	eng := executor.NewEngine(nil)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeAPIServer }
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
@@ -868,7 +869,7 @@ func TestStartBothServersWithEngine_GracefulShutdown(t *testing.T) {
 		return http.ErrServerClosed
 	}
 	port := mustFreePort(t)
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -959,7 +960,7 @@ func TestStartInteractiveMode_SingleRun(t *testing.T) {
 	execHTTPServerWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) error {
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "bg", nil
 	})
@@ -987,7 +988,7 @@ func TestDispatchExecutionWithEngine_WebServer(t *testing.T) {
 		return http.ErrServerClosed
 	}
 	port := mustFreePort(t)
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			WebServer: &domain.WebServerConfig{
@@ -1005,7 +1006,7 @@ func TestStartHTTPServerWithEngine_StartReturnsError(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("start failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -1043,7 +1044,7 @@ func TestStartBothServersWithEngine_WebServerCreateError(t *testing.T) {
 	httpNewWebServerFunc = func(_ *domain.Workflow, _ *slog.Logger) (*kdepshttp.WebServer, error) {
 		return nil, errors.New("web server create failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
@@ -1064,7 +1065,7 @@ func TestStartBothServersWithEngine_StartReturnsNil(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return nil
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
@@ -1083,7 +1084,7 @@ func TestStartBothServersWithEngine_StartReturnsError(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("start failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
@@ -1104,7 +1105,7 @@ func TestStartBothServersWithEngine_CreateError(t *testing.T) {
 	createHTTPServerWithEngineFunc = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) (*kdepshttp.Server, error) {
 		return nil, errors.New("create failed")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
@@ -1135,7 +1136,7 @@ func TestStartHTTPServerWithEngine_DevModeBranch(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("start")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -1172,7 +1173,7 @@ func TestStartInteractiveMode_BackgroundDispatchError(t *testing.T) {
 		return errors.New("dispatch bg fail")
 	}
 	stubDispatchHooks(t)
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
 		Resources: []*domain.Resource{
@@ -1204,7 +1205,7 @@ func TestStartHTTPServerWithEngine_StartFail(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return errors.New("start fail")
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -1220,7 +1221,7 @@ func TestStartHTTPServerWithEngine_ServerClosed(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
@@ -1235,7 +1236,7 @@ func TestStartBothServersWithEngine_WebCreateErr(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
@@ -1253,7 +1254,7 @@ func TestStartBothServersWithEngine_ServerClosed(t *testing.T) {
 	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
 		return http.ErrServerClosed
 	}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -1285,4 +1286,62 @@ func TestStartWebServer_ShutdownErr(t *testing.T) {
 		},
 	}}
 	require.NoError(t, StartWebServer(wf, t.TempDir(), false))
+}
+
+// settings.llm.executionType: stdin starts the interactive REPL, as
+// --interactive does (it was not dispatched anywhere).
+func TestWantsStdinREPL(t *testing.T) {
+	wf := &domain.Workflow{}
+	if wantsStdinREPL(wf) || wantsStdinREPL(nil) {
+		t.Fatal("no settings.llm: no REPL")
+	}
+	wf.Settings.LLM = &domain.LLMInputConfig{ExecutionType: domain.LLMExecutionTypeStdin}
+	if !wantsStdinREPL(wf) {
+		t.Fatal("executionType stdin starts the REPL")
+	}
+	wf.Settings.LLM.ExecutionType = domain.LLMExecutionTypeAPIServer
+	if wantsStdinREPL(wf) {
+		t.Fatal("apiServer is not the REPL")
+	}
+}
+
+// A single run's structured output prints as JSON, not a Go map dump.
+func TestFormatRunOutput(t *testing.T) {
+	got := formatRunOutput(map[string]interface{}{"message": map[string]interface{}{"content": "hi"}})
+	if got != "{\n  \"message\": {\n    \"content\": \"hi\"\n  }\n}" {
+		t.Fatalf("got %q", got)
+	}
+	if formatRunOutput("text") != "text" {
+		t.Fatal("text passes through")
+	}
+}
+
+// In interactive mode a single-run workflow is not also run in the
+// background: the REPL is its run (a background run executed the target once
+// more with no message).
+func TestStartInteractiveMode_SingleRunIsNotDispatched(t *testing.T) {
+	orig := dispatchExecutionWithEngineInteractiveFunc
+	t.Cleanup(func() { dispatchExecutionWithEngineInteractiveFunc = orig })
+	var dispatched atomic.Bool
+	dispatchExecutionWithEngineInteractiveFunc = func(
+		_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool, _ string, _ bool,
+	) error {
+		dispatched.Store(true)
+		return nil
+	}
+	stubDispatchHooks(t)
+	executionModeForFunc = func(_ *domain.Workflow) executionMode { return execModeSingleRun }
+	wf := &domain.Workflow{
+		Metadata:  domain.WorkflowMetadata{Name: "i", TargetActionID: "act"},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	origStdin := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = origStdin; _ = r.Close() })
+	_ = startInteractiveMode(executor.NewEngine(context.Background(), nil), wf, t.TempDir(), &RunFlags{}, false)
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, dispatched.Load(), "no background run for a single-run workflow")
 }

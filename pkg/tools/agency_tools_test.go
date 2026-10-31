@@ -15,6 +15,7 @@
 package tools_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func testAgentWorkflow(name, desc, version string) *domain.Workflow {
 
 func TestAgentToolDef_Name(t *testing.T) {
 	wf := testAgentWorkflow("myagent", "Does stuff", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return "ok", nil })
 
 	tool := tools.AgentToolDef(wf, eng)
@@ -46,7 +47,7 @@ func TestAgentToolDef_Name(t *testing.T) {
 
 func TestAgentToolDef_DefaultName(t *testing.T) {
 	wf := testAgentWorkflow("", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return "ok", nil })
 
 	tool := tools.AgentToolDef(wf, eng)
@@ -57,7 +58,7 @@ func TestAgentToolDef_DefaultName(t *testing.T) {
 
 func TestAgentToolDef_DescriptionFromMetadata(t *testing.T) {
 	wf := testAgentWorkflow("bot", "I am a bot", "2.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return "ok", nil })
 
 	tool := tools.AgentToolDef(wf, eng)
@@ -68,7 +69,7 @@ func TestAgentToolDef_DescriptionFromMetadata(t *testing.T) {
 
 func TestAgentToolDef_DefaultDescription(t *testing.T) {
 	wf := testAgentWorkflow("myagent", "", "1.2.3")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return "ok", nil })
 
 	tool := tools.AgentToolDef(wf, eng)
@@ -79,7 +80,7 @@ func TestAgentToolDef_DefaultDescription(t *testing.T) {
 
 func TestAgentToolDef_InputParam(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return "ok", nil })
 
 	tool := tools.AgentToolDef(wf, eng)
@@ -94,7 +95,7 @@ func TestAgentToolDef_InputParam(t *testing.T) {
 
 func TestAgentToolDef_Execute_Success(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "agent response", nil
 	})
@@ -111,7 +112,7 @@ func TestAgentToolDef_Execute_Success(t *testing.T) {
 
 func TestAgentToolDef_Execute_Error(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("agent failure")
 	})
@@ -127,7 +128,7 @@ func TestAgentToolDef_Execute_Error(t *testing.T) {
 
 func TestAgentToolDef_Execute_NilResult(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, nil //nolint:nilnil
 	})
@@ -144,7 +145,7 @@ func TestAgentToolDef_Execute_NilResult(t *testing.T) {
 
 func TestAgentToolDef_Execute_StructResult(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return struct{ Key string }{"value"}, nil
 	})
@@ -162,7 +163,7 @@ func TestAgentToolDef_Execute_StructResult(t *testing.T) {
 
 func TestAgentToolDef_Execute_UnmarshalableResult(t *testing.T) {
 	wf := testAgentWorkflow("bot", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return make(chan int), nil
 	})
@@ -181,7 +182,7 @@ func TestAgentToolDef_Execute_UnmarshalableResult(t *testing.T) {
 
 func TestAgentToolDefWithName_CustomNameAndDesc(t *testing.T) {
 	wf := testAgentWorkflow("inner", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "ok", nil
 	})
@@ -197,7 +198,7 @@ func TestAgentToolDefWithName_CustomNameAndDesc(t *testing.T) {
 
 func TestAgentToolDefWithName_InputParam(t *testing.T) {
 	wf := testAgentWorkflow("inner", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "ok", nil
 	})
@@ -214,7 +215,7 @@ func TestAgentToolDefWithName_InputParam(t *testing.T) {
 
 func TestAgentToolDefWithName_Execute_Success(t *testing.T) {
 	wf := testAgentWorkflow("inner", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "agency response", nil
 	})
@@ -231,7 +232,7 @@ func TestAgentToolDefWithName_Execute_Success(t *testing.T) {
 
 func TestAgentToolDefWithName_Execute_Error(t *testing.T) {
 	wf := testAgentWorkflow("inner", "", "1.0.0")
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("agency failure")
 	})
@@ -240,5 +241,36 @@ func TestAgentToolDefWithName_Execute_Error(t *testing.T) {
 	_, err := tool.Execute(map[string]interface{}{"input": "fail"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+// A workflow tool takes the keys its resources read with input(): a model
+// called a greeter that reads input('name') with {"input": "Ada"} because
+// "input" was the only parameter offered, and the workflow got no name.
+func TestAgentToolParameters_FromInputReferences(t *testing.T) {
+	greeter := &domain.Workflow{Resources: []*domain.Resource{{
+		ActionID: "greet",
+		Component: &domain.ComponentCallConfig{Name: "exec", With: map[string]interface{}{
+			"command": `echo "Hello, {{ input('name') }}"`,
+		}},
+	}}}
+	params := tools.AgentToolParameters(greeter)
+	if _, ok := params["name"]; !ok || len(params) != 1 || !params["name"].Required {
+		t.Fatalf("greeter params = %+v", params)
+	}
+
+	two := &domain.Workflow{Resources: []*domain.Resource{{
+		ActionID: "ask",
+		Chat:     &domain.ChatConfig{Prompt: `{{ input("question") }} for {{ input('user') }}`},
+	}}}
+	params = tools.AgentToolParameters(two)
+	if len(params) != 2 || params["question"].Required || params["user"].Required {
+		t.Fatalf("two-key params = %+v", params)
+	}
+
+	for _, wf := range []*domain.Workflow{nil, {}} {
+		if _, ok := tools.AgentToolParameters(wf)["input"]; !ok {
+			t.Fatalf("no input() references: the single input parameter")
+		}
 	}
 }

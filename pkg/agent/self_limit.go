@@ -71,6 +71,10 @@ var selfLimitMarkers = []string{
 	// matched.
 	"not accessible in this", "not available in this", "unavailable in this",
 	"not accessible to the tools", "not available to the tools", "unavailable to the tools",
+	// Instrument session hunt5: "I couldn't complete the fix because calc.py
+	// is not accessible in the available project environment".
+	"i couldn't", "i could not", "is not accessible", "isn't accessible",
+	"not accessible in the", "not available in the", "unavailable in the",
 }
 
 // safetyStopMarkers are a real refusal of a destructive or abusive action.

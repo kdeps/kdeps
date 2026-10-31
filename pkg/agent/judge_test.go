@@ -90,9 +90,9 @@ func (errStreamerJudge) StreamChat(
 }
 
 func newJudgeTestLoop(streamer Streamer) *Loop {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
-	return New(eng, newTestWorkflowForSession(), reg, Config{
+	return New(context.Background(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
 		Streamer: streamer,
 	})
@@ -350,14 +350,69 @@ func TestReportJudgeEvent_PrefersConfigProgressWriter(t *testing.T) {
 	}
 }
 
-func TestScopedRegistry_EmptyNamesCopiesAll(t *testing.T) {
+func TestScopedRegistry_EmptyNamesKeepsNone(t *testing.T) {
 	parent := tools.NewRegistry()
 	parent.Register(&tools.Tool{Name: "a"})
 	parent.Register(&tools.Tool{Name: "b"})
 	scoped := scopedRegistry(parent, nil)
-	if len(scoped.List()) != 2 {
-		t.Fatalf("expected 2 tools copied, got %d", len(scoped.List()))
+	if len(scoped.List()) != 0 {
+		t.Fatalf("expected no copied tools, got %d", len(scoped.List()))
 	}
+}
+
+func TestRunJudge_VerdictOnlyCapsOutput(t *testing.T) {
+	var got *int
+	var names []string
+	l := newJudgeTestLoop(&recordingJudgeStreamer{onCall: func(cfg *domain.ChatConfig) {
+		got = cfg.MaxTokens
+		names = nil
+		for _, tool := range cfg.Tools {
+			names = append(names, tool.Name)
+		}
+	}})
+	l.registry.Register(&tools.Tool{Name: "read_file"})
+
+	v := runJudge(context.Background(), l, JudgeSpec{Name: "correctness", Criteria: "check"}, "q", "a")
+	if !v.Approved {
+		t.Fatalf("expected approval, got %+v", v)
+	}
+	require.NotNil(t, got)
+	assert.Equal(t, 512, *got)
+	assert.NotContains(t, names, "read_file")
+
+	got = nil
+	_ = runJudge(context.Background(), l, JudgeSpec{
+		Name: "correctness", Criteria: "check", Tools: []string{"read_file"},
+	}, "q", "a")
+	assert.Nil(t, got, "a tool-using judge on an unknown model keeps the provider ceiling")
+	assert.Contains(t, names, "read_file")
+}
+
+type recordingJudgeStreamer struct {
+	onCall func(*domain.ChatConfig)
+}
+
+func (s *recordingJudgeStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if s.onCall != nil {
+		s.onCall(cfg)
+	}
+	args, _ := json.Marshal(map[string]any{"approved": true})
+	return "", []domain.StreamedToolCall{{ID: "1", Name: "judge_verdict", Arguments: string(args)}}, nil
+}
+
+func TestJudgeSystemPrompt_ToolsBranch(t *testing.T) {
+	empty := judgeSystemPrompt(JudgeSpec{Name: "correctness", Criteria: "check the answer"})
+	assert.Contains(t, empty, "Do not re-run the task and do not call any tool except judge_verdict.")
+	assert.NotContains(t, empty, "Use the tools you were given")
+	assert.Contains(t, empty, "call judge_verdict exactly once")
+
+	withTools := judgeSystemPrompt(JudgeSpec{
+		Name: "correctness", Criteria: "check the answer", Tools: []string{"read_file"},
+	})
+	assert.Contains(t, withTools, "Use the tools you were given to check claims in the answer before ruling.")
+	assert.NotContains(t, withTools, "Do not re-run the task")
 }
 
 func TestScopedRegistry_FiltersByName(t *testing.T) {
@@ -379,4 +434,22 @@ func TestWithReviewDirective_ReplacesPreviousRevision(t *testing.T) {
 	assert.Len(t, base.Scenario, 1, "the input config is not mutated")
 	assert.Nil(t, withReviewDirective(nil, "x"))
 	assert.Same(t, base, withReviewDirective(base, "   "))
+}
+
+func TestVerdictApproved(t *testing.T) {
+	cases := []struct {
+		v        any
+		feedback string
+		want     bool
+	}{
+		{true, "", true}, {false, "fix it", false},
+		{"true", "", true}, {"false", "", false}, {"yes", "", true}, {"no", "", false},
+		{nil, "", true}, {nil, "missing the sum", false},
+		{3, "", false},
+	}
+	for _, c := range cases {
+		if got := verdictApproved(c.v, c.feedback); got != c.want {
+			t.Errorf("verdictApproved(%v, %q) = %v, want %v", c.v, c.feedback, got, c.want)
+		}
+	}
 }

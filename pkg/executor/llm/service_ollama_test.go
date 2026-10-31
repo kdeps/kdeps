@@ -38,7 +38,7 @@ func TestServeOllamaModel_NonEmptyHost(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "")
 
 	s := &ModelService{logger: slog.Default()}
-	err := s.serveOllamaModel("llama2", "127.0.0.1", 11434)
+	err := s.serveOllamaModel(t.Context(), "llama2", "127.0.0.1", 11434)
 	require.NoError(t, err)
 
 	// The function should have set OLLAMA_HOST when host != "".
@@ -54,7 +54,7 @@ func TestListOllamaModels_Success(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", output)
 	}
 
-	models := ListOllamaModels()
+	models := ListOllamaModels(t.Context())
 	require.Len(t, models, 2)
 	assert.Equal(t, "llama3:latest", models[0].Name)
 	assert.Equal(t, "qwen2:7b", models[1].Name)
@@ -68,7 +68,7 @@ func TestListOllamaModels_OllamaNotRunning(t *testing.T) {
 		return exec.CommandContext(ctx, "false")
 	}
 
-	models := ListOllamaModels()
+	models := ListOllamaModels(t.Context())
 	assert.Nil(t, models)
 }
 
@@ -80,6 +80,6 @@ func TestListOllamaModels_HeaderOnly(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "NAME	ID	SIZE")
 	}
 
-	models := ListOllamaModels()
+	models := ListOllamaModels(t.Context())
 	assert.Empty(t, models)
 }

@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -40,9 +41,27 @@ var modelOps = map[string]func(r *REPL, args map[string]any) (map[string]any, er
 	"model_favorite": (*REPL).modelFavoriteOp,
 	"loop_settings":  infallible((*REPL).loopSettingsOp),
 	"loop_set":       (*REPL).loopSetOp,
-	"servers":        infallible(func(*REPL) map[string]any { return serversOp() }),
+	"servers":        infallible(func(r *REPL) map[string]any { return serversOp(r.ctx) }),
 	"server_kill":    (*REPL).serverKillOp,
 	"hf_download":    (*REPL).hfDownloadOp,
+	"model_record":   infallible((*REPL).modelRecordOp),
+	"model_record_clear": infallible(func(r *REPL) map[string]any {
+		cfg := r.loop.config
+		return map[string]any{
+			"model":   modelRecordKey(cfg.Backend, cfg.Model),
+			"cleared": clearModelRecord(cfg.Backend, cfg.Model),
+		}
+	}),
+}
+
+// modelRecordOp returns the current model's refusal record.
+func (r *REPL) modelRecordOp() map[string]any {
+	cfg := r.loop.config
+	out := map[string]any{"model": modelRecordKey(cfg.Backend, cfg.Model), "count": 0, "refusals": []modelRefusal{}}
+	if rec := modelRecordFor(cfg.Backend, cfg.Model); rec != nil {
+		out["count"], out["refusals"] = rec.Count, rec.Refusals
+	}
+	return out
 }
 
 // infallible adapts a model operation that only reads state.
@@ -282,9 +301,9 @@ func (r *REPL) loopSetOp(args map[string]any) (map[string]any, error) {
 }
 
 // serversOp lists the running local model servers.
-func serversOp() map[string]any {
+func serversOp(ctx context.Context) map[string]any {
 	list := []map[string]any{}
-	for _, e := range listLocalServersFunc() {
+	for _, e := range listLocalServersFunc(ctx) {
 		model := e.Model
 		if model == "" {
 			model = filepath.Base(e.Path)

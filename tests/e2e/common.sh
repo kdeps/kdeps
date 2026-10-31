@@ -375,24 +375,37 @@ wait_for_http() {
     return 1
 }
 
-# wait_for_kdeps_port PORT [timeout_seconds]
+# wait_for_kdeps_port PORT [timeout_seconds] [pid] [log_file]
 # Polls /health then /. lsof/ss are missing on Windows GitHub runners, so HTTP
 # is the only portable readiness check.
+# When log_file is set and the server prints "using port N instead", later
+# polls use N. The port that answered is left in KDEPS_BOUND_PORT.
+# Only the optional 3rd argument carries a pid. Do not read SERVER_PID or
+# KDEPS_PID from the environment: e2e.sh sources every script in one shell,
+# so a dead PID left by the previous test would abort the wait immediately.
 wait_for_kdeps_port() {
     local port="$1"
     local timeout_s="${2:-20}"
-    # Only the optional 3rd argument. Do not read SERVER_PID/KDEPS_PID from
-    # the environment: e2e.sh sources every script in one shell, so a dead
-    # PID left by the previous test would abort the wait immediately.
     local pid="${3:-}"
-    local i code
+    local log="${4:-}"
+    local i code candidate moved
+    KDEPS_BOUND_PORT="$port"
     for i in $(seq 1 "$timeout_s"); do
-        code=$(http_status "http://127.0.0.1:${port}/health")
+        candidate="$port"
+        if [ -n "$log" ] && [ -f "$log" ]; then
+            moved=$(grep -oE 'using port [0-9]+ instead' "$log" 2>/dev/null | tail -1 | grep -oE '[0-9]+' || true)
+            if [ -n "$moved" ]; then
+                candidate="$moved"
+            fi
+        fi
+        code=$(http_status "http://127.0.0.1:${candidate}/health")
         if [ "$code" != "000" ] && [ -n "$code" ]; then
+            KDEPS_BOUND_PORT="$candidate"
             return 0
         fi
-        code=$(http_status "http://127.0.0.1:${port}/")
+        code=$(http_status "http://127.0.0.1:${candidate}/")
         if [ "$code" != "000" ] && [ -n "$code" ]; then
+            KDEPS_BOUND_PORT="$candidate"
             return 0
         fi
         if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then

@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -32,7 +33,7 @@ import (
 )
 
 func TestExecuteSingleRunWithEngine_Error(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("exec failed")
 	})
@@ -42,7 +43,7 @@ func TestExecuteSingleRunWithEngine_Error(t *testing.T) {
 }
 
 func TestCreateHTTPServerWithEngine_DevModeBranch(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
@@ -59,7 +60,7 @@ func TestSetupDevMode(t *testing.T) {
 	tmp := t.TempDir()
 	wfPath := filepath.Join(tmp, "workflow.yaml")
 	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML()), 0644))
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) { return nil, nil })
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
@@ -83,7 +84,7 @@ func TestResolveServerBindAddress_Override(t *testing.T) {
 }
 
 func TestCreateHTTPServerWithEngine_Valid(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{

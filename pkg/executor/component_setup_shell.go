@@ -41,8 +41,14 @@ func setupShell() string {
 }
 
 // runTimedCommand runs a command with a timeout and returns trimmed combined output on error.
-func runTimedCommand(timeout time.Duration, name string, args []string, errPrefix string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func runTimedCommand(
+	parent context.Context,
+	timeout time.Duration,
+	name string,
+	args []string,
+	errPrefix string,
+) error {
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = os.Environ()
@@ -53,11 +59,11 @@ func runTimedCommand(timeout time.Duration, name string, args []string, errPrefi
 }
 
 // runShellCommand runs a shell command string via sh -c with a timeout.
-func runShellCommand(cmdStr string) error {
-	return runTimedCommand(setupCommandTimeout, setupShell(), []string{"-c", cmdStr}, "command failed")
+func runShellCommand(ctx context.Context, cmdStr string) error {
+	return runTimedCommand(ctx, setupCommandTimeout, setupShell(), []string{"-c", cmdStr}, "command failed")
 }
 
 // runCommand runs a command with arguments and a fixed timeout, returning any error.
-func runCommand(name string, args []string) error {
-	return runTimedCommand(osPackageTimeout, name, args, name+" failed")
+func runCommand(ctx context.Context, name string, args []string) error {
+	return runTimedCommand(ctx, osPackageTimeout, name, args, name+" failed")
 }

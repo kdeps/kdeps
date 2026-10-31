@@ -71,13 +71,13 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 	addr := webServerListenAddr(s.Workflow.Settings)
 
-	s.logBackgroundInfo("starting web server", "addr", addr)
+	s.logBackgroundInfo(ctx, "starting web server", "addr", addr)
 
 	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
 	certFile, keyFile := workflowTLSCertificates(s.Workflow)
 	if hasTLSCertificates(certFile, keyFile) {
-		s.logBackgroundInfo("starting web HTTPS server", "addr", addr, "cert", certFile)
+		s.logBackgroundInfo(ctx, "starting web HTTPS server", "addr", addr, "cert", certFile)
 		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	}
 	if le := workflowLetsEncrypt(s.Workflow); le != nil {
@@ -91,7 +91,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 		if len(hosts) > 0 {
 			domain = hosts[0]
 		}
-		s.logBackgroundInfo("starting web HTTPS server", "addr", addr, "cert", "letsencrypt:"+domain)
+		s.logBackgroundInfo(ctx, "starting web HTTPS server", "addr", addr, "cert", "letsencrypt:"+domain)
 		return s.httpServer.ListenAndServeTLS("", "")
 	}
 	return s.httpServer.ListenAndServe()
@@ -124,7 +124,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 
 		registerWebRouteMethods(router, wildcardRoutePath(route.Path), handler)
 
-		s.logWebRouteConfigured(route)
+		s.logWebRouteConfigured(ctx, route)
 	}
 }
 

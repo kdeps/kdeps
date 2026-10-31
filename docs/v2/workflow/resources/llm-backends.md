@@ -124,7 +124,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 ## OpenAI-compatible providers
 
-OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values.
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values. OpenRouter's free text models ship in `models/openrouter` (harvested daily; `kdeps update models/openrouter`). That provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router cloud fallback.
 
 ```text
 providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath

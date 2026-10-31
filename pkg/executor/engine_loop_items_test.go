@@ -32,7 +32,7 @@ import (
 func TestExecuteWithItems_EvalErrors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expressionEvaluator(ctx)
 	_, err = e.ExecuteWithItems(&domain.Resource{Items: []string{"{{"}}, ctx)
@@ -52,7 +52,7 @@ func TestExecuteWithItems_IterationErrorPath(t *testing.T) {
 		Items:    []string{`{"id":1}`},
 		Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 	})
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	_, err = e.ExecuteWithItems(wf.Resources[0], ctx)
@@ -72,7 +72,7 @@ func TestExecuteWithItems_FullPath(t *testing.T) {
 		Items:    []string{"[1, 2]"},
 		Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 	})
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 
@@ -92,7 +92,7 @@ func TestExecuteWithItems_MergeLLMMap(t *testing.T) {
 		Items:    []string{`{"id": 1}`},
 		Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 	})
-	ctx, err := NewExecutionContext(wf)
+	ctx, err := NewExecutionContext(t.Context(), wf)
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	out, err := e.ExecuteWithItems(wf.Resources[0], ctx)

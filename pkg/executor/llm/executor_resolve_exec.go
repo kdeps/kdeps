@@ -140,7 +140,7 @@ func (e *Executor) resolveModelForExecution(
 		}
 	}
 
-	e.ensureModelAvailable(resolvedConfig, modelStr)
+	e.ensureModelAvailable(ctx.Ctx, resolvedConfig, modelStr)
 
 	return modelStr, promptStr, fallbackRoutes, nil
 }

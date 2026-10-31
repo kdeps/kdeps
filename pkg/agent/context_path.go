@@ -21,11 +21,13 @@ package agent
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 
+	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -80,7 +82,7 @@ func resetContextSegments(model, backend string) {
 // the models this project cares most about supporting.
 func contextWindowForBackend(model, backend string) int {
 	switch backend {
-	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
+	case executorLLM.BackendFile, executorLLM.BackendGGUF, modelTypeOllama:
 		if n := executorLLM.LocalContextSize(); n > 0 {
 			return n
 		}
@@ -123,11 +125,21 @@ func recordContextSegmentTokens(label string, tokens int) {
 	contextSegments = append(contextSegments, contextSegment{Label: label, Tokens: tokens})
 }
 
-// contextPathSegmentCap bounds how many groups contextPathStatus shows --
-// past this, older groups collapse into a "+N" marker instead of a line
+// contextPathSegmentCap bounds how many groups contextPathStatus shows.
+// Past this, older groups collapse into a "+N" marker instead of a line
 // long enough to wrap. Identical labels are summed first, so twenty calls
 // to the same tool are one group, not twenty copies of the same node.
 const contextPathSegmentCap = 5
+
+// statusWrapGuard leaves one column unused. A line that fills the width
+// makes the terminal wrap, and the next tick then prints a new copy.
+const statusWrapGuard = 1
+
+const statusEllipsis = "..."
+
+// stderrFD is the process stderr descriptor. term.GetSize takes the number
+// so the status ticker does not call File.Fd, which clears non-blocking mode.
+const stderrFD = 2
 
 // contextPathStatus is the line above the session token counter. It is this
 // turn's prompt, broken into where the tokens sit, plus how full the model's
@@ -237,14 +249,16 @@ func contextSegmentLabel(label string) string {
 // renderFrame builds the escape sequence for a status-frame redraw: move up
 // to the top of whatever the previous frame occupied, erase downward, then
 // write top (the turn breakdown, when non-empty) followed by bottom.
-// prevRows and the returned count are visual rows after wrapping, not "1 or
-// 2". A long line that wrapped used to be remembered as one row, so each
-// tick left the previous copy on screen -- the same line 4 or 20 times.
-func renderFrame(prevRows int, top, bottom string) (string, int) {
-	width := statusTermWidth()
-	rows := visualRows(bottom, width)
+// Each line is cut to one row. A wrapped line used to be remembered as one
+// row, so each tick left the previous copy on screen.
+func renderFrame(prevRows int, top, bottom string, width int) (string, int) {
+	top, bottom = fitStatusPair(top, bottom, width)
+	rows := 0
 	if top != "" {
-		rows += visualRows(top, width)
+		rows++
+	}
+	if bottom != "" {
+		rows++
 	}
 	if rows < 1 {
 		rows = 1
@@ -261,6 +275,91 @@ func renderFrame(prevRows int, top, bottom string) (string, int) {
 	}
 	sb.WriteString(bottom)
 	return sb.String(), rows
+}
+
+// fitStatusPair cuts both status rows to one terminal row.
+func fitStatusPair(top, bottom string, width int) (string, string) {
+	cols := width - statusWrapGuard
+	if cols < 1 {
+		cols = 1
+	}
+	return fitStatusLine(top, cols), fitStatusLine(bottom, cols)
+}
+
+// fitStatusLine cuts s to cols visible columns. ANSI color sequences are
+// not columns. A cut line ends with "..." and a reset.
+func fitStatusLine(s string, cols int) string {
+	if s == "" || cols < 1 {
+		return ""
+	}
+	if statusCols(s) <= cols {
+		return s
+	}
+	budget := cols
+	cut := ""
+	if cols > len(statusEllipsis) {
+		budget = cols - len(statusEllipsis)
+		cut = statusEllipsis
+	}
+	return takeStatusCols(s, budget) + cut + ansiReset
+}
+
+func statusCols(s string) int {
+	n := 0
+	for i := 0; i < len(s); {
+		if next := skipANSI(s, i); next != i {
+			i = next
+			continue
+		}
+		_, size := utf8.DecodeRuneInString(s[i:])
+		n++
+		i += size
+	}
+	return n
+}
+
+func takeStatusCols(s string, cols int) string {
+	if cols <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	n := 0
+	for i := 0; i < len(s) && n < cols; {
+		if next := skipANSI(s, i); next != i {
+			b.WriteString(s[i:next])
+			i = next
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		b.WriteRune(r)
+		n++
+		i += size
+	}
+	return b.String()
+}
+
+// skipANSI returns the index just after a CSI sequence at i, or i when
+// s[i:] is not an escape.
+func skipANSI(s string, i int) int {
+	if !strings.HasPrefix(s[i:], "\033") {
+		return i
+	}
+	j := i + 1
+	if j >= len(s) {
+		return len(s)
+	}
+	if s[j] != '[' {
+		return j + 1
+	}
+	j++
+	for j < len(s) {
+		c := s[j]
+		j++
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			return j
+		}
+	}
+	return j
 }
 
 // statusTermWidth is the real terminal width. terminalWidth() caps at 120
@@ -305,9 +404,10 @@ func visualRows(s string, width int) int {
 //
 //nolint:gochecknoglobals // one status frame for the process
 var liveStatus = struct {
-	mu   sync.Mutex
-	w    io.Writer
-	rows int
+	mu     sync.Mutex
+	w      io.Writer
+	rows   int
+	logged string // last non-terminal frame, so a spinner tick does not append
 }{}
 
 // drawLiveStatus redraws the turn breakdown and the session counter in
@@ -319,14 +419,107 @@ func drawLiveStatus(w io.Writer, trailer string) {
 }
 
 func drawLiveStatusLocked(w io.Writer, trailer string) {
-	bottom := compactTokenStatus()
-	if trailer != "" {
-		bottom += "  " + trailer
+	w = unwrapStatusWriter(w)
+	width := statusWidth(w)
+	glyph := ""
+	if statusIsTTY(w) {
+		glyph = trailer
 	}
-	seq, rows := renderFrame(liveStatus.rows, contextPathStatus(), bottom)
+	top, bottom := fittedStatus(width, glyph)
+	if sendScreenStatus(strings.TrimSpace(top + "  " + bottom)) {
+		// The full-screen status box shows the rows now.
+		return
+	}
+	if setTUIStatus(top, bottom, glyph) {
+		// The status window owns the rows now.
+		return
+	}
+	if !statusIsTTY(w) {
+		writeStatusLog(w, top, bottom)
+		return
+	}
+	seq, rows := renderFrame(liveStatus.rows, top, bottom, width)
 	fmt.Fprint(w, seq)
 	liveStatus.rows = rows
 	liveStatus.w = w
+}
+
+// fittedStatus is the turn row and the session row, each one terminal row.
+// trailer is the spinner or the tool-monitor suffix, terminal only. The
+// trailer is kept: a long session row is cut in front of it, not through it.
+func fittedStatus(width int, trailer string) (string, string) {
+	cols := width - statusWrapGuard
+	if cols < 1 {
+		cols = 1
+	}
+	top := fitStatusLine(contextPathStatus(), cols)
+	bottom := compactTokenStatus()
+	if trailer == "" {
+		return top, fitStatusLine(bottom, cols)
+	}
+	suffix := "  " + trailer
+	room := cols - statusCols(suffix)
+	if room < 1 {
+		return top, fitStatusLine(suffix, cols)
+	}
+	return top, fitStatusLine(bottom, room) + suffix
+}
+
+// writeStatusLog prints the two rows once. A pipe or a log ignores cursor
+// movement, so a later tick with the same numbers writes nothing.
+func writeStatusLog(w io.Writer, top, bottom string) {
+	text := top + "\n" + bottom
+	if text == liveStatus.logged {
+		return
+	}
+	liveStatus.logged = text
+	liveStatus.rows = 0
+	liveStatus.w = w
+	if top != "" {
+		_, _ = lipgloss.Fprintln(w, top)
+	}
+	_, _ = lipgloss.Fprintln(w, bottom)
+}
+
+// unwrapStatusWriter draws on the raw terminal. crlfWriter turns a bare
+// carriage return into a newline, which stacks one copy of the frame per tick.
+func unwrapStatusWriter(w io.Writer) io.Writer {
+	cw, ok := w.(*crlfWriter)
+	if !ok || cw == nil || cw.w == nil {
+		return w
+	}
+	return cw.w
+}
+
+func statusIsTTY(w io.Writer) bool {
+	fd, ok := statusFd(w)
+	if !ok {
+		return true
+	}
+	return term.IsTerminal(fd)
+}
+
+func statusFd(w io.Writer) (int, bool) {
+	switch w {
+	case os.Stdout:
+		return 1, true
+	case os.Stderr:
+		return stderrFD, true
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return 0, false
+	}
+	return int(f.Fd()), true
+}
+
+func statusWidth(w io.Writer) int {
+	if fd, ok := statusFd(w); ok {
+		if width, _, err := term.GetSize(fd); err == nil && width > 1 {
+			return width
+		}
+	}
+	return statusTermWidth()
 }
 
 // eraseLiveStatus clears the status frame, if one is on screen.
@@ -337,34 +530,34 @@ func eraseLiveStatus(w io.Writer) {
 }
 
 func eraseLiveStatusLocked(w io.Writer) {
+	if tuiRunning() {
+		return
+	}
 	if liveStatus.rows == 0 {
 		return
 	}
 	dest := liveStatus.w
 	if dest == nil {
-		dest = w
+		dest = unwrapStatusWriter(w)
 	}
 	fmt.Fprint(dest, eraseFrame(liveStatus.rows))
 	liveStatus.rows = 0
+	liveStatus.logged = ""
 }
 
 // statusTail is the turn breakdown plus the session counter, as trailing
 // rows of a block that is itself redrawn in place (the thinking pane).
 func statusTail() (string, int) {
-	top := contextPathStatus()
-	bottom := compactTokenStatus()
+	top, bottom := fittedStatus(statusTermWidth(), "")
 	var b strings.Builder
 	rows := 0
 	if top != "" {
 		b.WriteString(top)
 		b.WriteString("\r\n")
-		rows += visualRows(top, statusTermWidth())
+		rows++
 	}
 	b.WriteString(bottom)
-	rows += visualRows(bottom, statusTermWidth())
-	if rows < 1 {
-		rows = 1
-	}
+	rows++
 	return b.String(), rows
 }
 

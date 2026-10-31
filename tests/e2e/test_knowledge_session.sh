@@ -2,7 +2,7 @@
 # E2E: the knowledge vault inside real agent sessions and workflow runs,
 # against a mock LLM that records every request it receives.
 #
-#   - a session sets up the vault, builds its graph in <vault>/.index
+#   - a session sets up the vault and builds its graph under ~/.kdeps/knowledge/<vault-id>
 #   - a place no card covers gets projects/<name>/ and its card on the first
 #     turn (named after the git repository root); archiving moves it to
 #     archive/, working there again moves it back
@@ -212,10 +212,11 @@ if output_grep "knowledge vault is on" "$OUT" && output_grep_fixed "vault" "$OUT
 else
     test_failed "knowledge session - /knowledge" "$OUT"
 fi
-if [ -f "$KS_VAULT/.index/graph.json" ]; then
-    test_passed "knowledge session - the session builds the graph in <vault>/.index"
+if find "$KS_HOME/.kdeps/knowledge" -name graph.json -type f 2>/dev/null | grep -q . &&
+    [ ! -e "$KS_VAULT/.index/graph.json" ]; then
+    test_passed "knowledge session - the session builds the graph outside the vault"
 else
-    test_failed "knowledge session - graph not built" "$(ls -la "$KS_VAULT" 2>&1)"
+    test_failed "knowledge session - graph not built" "$(find "$KS_HOME/.kdeps/knowledge" -type f 2>&1 | head)"
 fi
 
 REQ1=$(ks_req "why do we bill monthly")

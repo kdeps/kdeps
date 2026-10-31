@@ -125,7 +125,7 @@ func createRootCommand() *cobra.Command {
 			if len(args) == 1 {
 				path = args[0]
 			}
-			return runAgentLoopCmd(path, flags)
+			return runAgentLoopCmd(processParent(cmd.Context()), path, flags)
 		},
 	}
 
@@ -207,7 +207,7 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify", "instrument",
+	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify", "instrument", "token",
 	"help", "completion", "__complete", "__completeNoDesc",
 }
 
@@ -396,6 +396,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 
 func addPackageCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupPackage, newBundleCmd())
+	addCommandToGroup(rootCmd, groupPackage, newTokenCmd())
 }
 
 func addDistributeCommands(rootCmd *cobra.Command) {

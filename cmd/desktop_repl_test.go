@@ -33,7 +33,7 @@ func TestDesktopWireREPL_PopulatesModelCatalog(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
 
-	loop := agent.New(cmd.NewDesktopEngine(), nil, tools.NewRegistry(), agent.Config{Model: "test"})
+	loop := agent.New(t.Context(), cmd.NewDesktopEngine(), nil, tools.NewRegistry(), agent.Config{Model: "test"})
 	repl := agent.NewREPL(t.Context(), loop)
 	t.Cleanup(repl.Close)
 

@@ -1,7 +1,7 @@
 # shellcheck shell=bash
-# E2E: memory_search's caps are events. A ~/.kdeps/events override of
+# E2E: memory's caps are events. A ~/.kdeps/events override of
 # memory-search-limit and memory-value-limit changes what the model sees,
-# with no Go change.
+# and one of memory-tool-results-limit what is captured, with no Go change.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +33,11 @@ STEPS = [
     ("memory_save", {"key": "e2e-three", "value": "e2eterm third fact with a long tail of words"}),
     ("memory_search", {"query": "e2eterm"}),
 ]
+# In "tools" mode the model runs three commands, then searches memory for
+# their captures.
+if len(sys.argv) > 3 and sys.argv[3] == "tools":
+    STEPS = [("bash_exec", {"command": "echo e2ecap%d" % i}) for i in range(3)]
+    STEPS.append(("memory_search", {"query": "e2ecap"}))
 
 def log(line):
     with open(LOG, "a", encoding="utf-8") as fh:
@@ -133,6 +138,33 @@ if output_grep_fixed "MEMORY_DONE" "$OUT" && output_grep_fixed "Found 3 memory e
     test_passed "memory limits - memory-search-limit and memory-value-limit overrides cap memory_search"
 else
     test_failed "memory limits - event overrides" "out=$(printf '%s' "$OUT" | tail -c 400) log=$LOG"
+fi
+
+# memory-tool-results-limit: one capture per tool is kept.
+kill "$ML_SRV" 2>/dev/null
+: > "$ML_DIR/server.log"
+python3 "$ML_DIR/fake.py" "$ML_PORT" "$ML_DIR/server.log" tools >/dev/null 2>&1 &
+ML_SRV=$!
+for _ in $(seq 1 50); do
+    python3 -c "import socket;socket.create_connection(('127.0.0.1',$ML_PORT),1)" 2>/dev/null && break
+    sleep 0.1
+done
+ML_HOME2="$ML_DIR/home2"
+mkdir -p "$ML_HOME2/.kdeps/events" "$ML_DIR/work2"
+cat > "$ML_HOME2/.kdeps/events/memory-tool-results-limit.yaml" << 'EOF'
+name: memory-tool-results-limit
+items: 1        # keep one capture per tool
+run: cap
+EOF
+OUT=$(cd "$ML_DIR/work2" && printf '/refine off\n/turo off\n/judges auto off\nrun three echo commands, then search memory for e2ecap\n/exit\n' \
+    | HOME="$ML_HOME2" USERPROFILE="$(to_native_path "$ML_HOME2")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+        timeout 180 "$KDEPS_BIN" --new --backend openai \
+        --base-url "http://127.0.0.1:$ML_PORT/v1" --model fake 2>&1 || true)
+LOG=$(cat "$ML_DIR/server.log" 2>/dev/null)
+if output_grep_fixed "MEMORY_DONE" "$OUT" && output_grep_fixed "tool:bash_exec:e2ecap2" "$LOG" && ! output_grep_fixed "tool:bash_exec:e2ecap0" "$LOG"; then
+    test_passed "memory limits - a memory-tool-results-limit override keeps only the newest capture"
+else
+    test_failed "memory limits - tool results limit" "out=$(printf '%s' "$OUT" | tail -c 600) log=$LOG"
 fi
 
 restore_llm_override

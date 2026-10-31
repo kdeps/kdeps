@@ -165,7 +165,7 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 			}
 
 		case backendM365:
-			model, err = buildM365LLM(cfg)
+			model, err = buildM365LLM(ctx, cfg)
 
 		default:
 			model, err = buildOpenAICompatLLM(cfg, backend)
@@ -202,6 +202,11 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		backend == backendOllama || backend == "local" || backend == backendM365) {
 		apiKey = backendOllama
 	}
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(backend); err != nil {
+			return nil, err
+		}
+	}
 
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),
@@ -214,6 +219,12 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	// the field on a message.
 	if backendRequiresReasoningEcho(backend) {
 		opts = append(opts, lcopenai.WithHTTPClient(newReasoningEchoClient(nil)))
+	}
+
+	// OpenRouter free ids share one per-minute cap, so every request to them
+	// waits its turn in the process-wide queue.
+	if isOpenRouterFree(backend, cfg.Model) {
+		opts = append(opts, lcopenai.WithHTTPClient(newFreeQueueClient(nil)))
 	}
 
 	if rf := buildOpenAIResponseFormat(cfg); rf != nil {
@@ -230,9 +241,9 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 // local proxy, not a real OpenAI account, so there is no API key involved
 // -- without this, backend "m365" falls through buildOpenAICompatLLM's
 // default OpenAI base URL and demands OPENAI_API_KEY.
-func buildM365LLM(cfg *domain.ChatConfig) (llms.Model, error) {
+func buildM365LLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
 	if cfg.BaseURL == "" {
-		url, err := sharedM365Server.baseURLOnce()
+		url, err := sharedM365Server.baseURLOnce(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("m365: start local proxy: %w", err)
 		}
@@ -504,6 +515,11 @@ func buildFewShotEmbedder(_ context.Context, model, backend, baseURL string) (lc
 		}
 	}
 	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
+	if apiKey == "" {
+		if err := kdepsconfig.UnsetProviderKeyError(backend); err != nil {
+			return nil, err
+		}
+	}
 	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),
 		lcopenai.WithModel(model),

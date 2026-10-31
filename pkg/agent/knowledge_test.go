@@ -68,6 +68,26 @@ func knowledgeLoop(t *testing.T) (*Loop, string) {
 	return l, vault
 }
 
+func TestRecallChain_RepeatsRecallPath(t *testing.T) {
+	vault := t.TempDir()
+	k := &knowledgeState{vault: knowledge.Vault{Root: vault}}
+	note := "shared/Stripe gotcha.md"
+	k.last = knowledge.Recall{Hits: []knowledge.Hit{{
+		Note: note,
+		Path: []knowledge.PathStep{{
+			From:     "note:projects/app/decisions/Billing decision.md",
+			To:       "note:" + note,
+			Relation: knowledge.RelReferences,
+		}},
+	}}}
+	abs := filepath.Join(vault, filepath.FromSlash(note))
+	assert.Equal(t,
+		"projects/app/decisions/Billing decision.md --references--> shared/Stripe gotcha.md",
+		k.recallChain(abs))
+	assert.Empty(t, k.recallChain(filepath.Join(t.TempDir(), "other.md")))
+	assert.Empty(t, (*knowledgeState)(nil).recallChain(abs))
+}
+
 func TestNewKnowledgeState(t *testing.T) {
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
 	assert.Nil(t, newKnowledgeState(t.Context(), nil), "library and test loops have no vault")
@@ -122,6 +142,19 @@ func TestKnowledgeRecallAndPreamble(t *testing.T) {
 		"# Workspace routing",
 		"the workspace KDEPS.md is loaded",
 	)
+}
+
+func TestKnowledgeRecallRefreshesExternalVaultChanges(t *testing.T) {
+	l, vault := knowledgeLoop(t)
+	note := filepath.Join(vault, "shared", "External edit.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nsummary: Obsidian external edit.\n---\n"), 0o600))
+
+	item := l.knowledgeRecallItem("Obsidian external edit", nil)
+	require.NotNil(t, item)
+	assert.Contains(t, item.Prompt, note)
+
+	require.NoError(t, os.Remove(note))
+	assert.Nil(t, l.knowledgeRecallItem("Obsidian external edit", nil))
 }
 
 func TestKnowledgeTools(t *testing.T) {
@@ -351,7 +384,7 @@ func TestCmdKnowledge(t *testing.T) {
 func stubEngines(reply string, seen *[]string) func() *executor.Engine {
 	var mu sync.Mutex
 	return func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 			c := wf.Resources[0].Chat
 			mu.Lock()
@@ -380,7 +413,7 @@ func TestKnowledgeAsk(t *testing.T) {
 	require.Error(t, err)
 
 	bad := func() *executor.Engine {
-		eng := executor.NewEngine(nil)
+		eng := executor.NewEngine(context.Background(), nil)
 		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) { return nil, errors.New("down") })
 		return eng
 	}

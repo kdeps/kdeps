@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -49,7 +50,7 @@ type JudgeSpec struct {
 	// into its system prompt.
 	Criteria string
 	// Tools lists the registered tool names this judge may call. Empty means
-	// every tool available to the parent loop.
+	// judge_verdict only: the judge reads the candidate text and rules once.
 	Tools []string
 	// MaxRounds caps this judge's tool rounds. 0 uses the "judge-max-rounds"
 	// event's default.
@@ -81,7 +82,11 @@ type JudgeVerdict struct {
 
 // judgeSystemPrompt builds the system prompt for a judge's ephemeral loop.
 func judgeSystemPrompt(spec JudgeSpec) string {
-	return harnessRender("judge-system", struct{ Name, Criteria string }{spec.Name, spec.Criteria})
+	return harnessRender("judge-system", struct {
+		Name     string
+		Criteria string
+		HasTools bool
+	}{spec.Name, spec.Criteria, len(spec.Tools) > 0})
 }
 
 // judgePrompt states the original request and the candidate output verbatim.
@@ -90,18 +95,11 @@ func judgePrompt(input, output string) string {
 }
 
 // scopedRegistry returns a new registry containing only the named tools from
-// parent, or every tool in parent when names is empty. Judges get their own
-// registry (rather than the parent's) so the per-judge judge_verdict tool
-// never leaks into the main loop's tool list.
+// parent. An empty names list copies nothing: the caller registers
+// judge_verdict afterward, and that tool must not leak into the main loop.
 func scopedRegistry(parent *kdepstools.Registry, names []string) *kdepstools.Registry {
 	reg := kdepstools.NewRegistry()
-	if parent == nil {
-		return reg
-	}
-	if len(names) == 0 {
-		for _, t := range parent.List() {
-			reg.Register(t)
-		}
+	if parent == nil || len(names) == 0 {
 		return reg
 	}
 	for _, n := range names {
@@ -142,8 +140,8 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	judgeRegistry.Register(defined(&kdepstools.Tool{
 		Name: "judge_verdict",
 		Execute: func(args map[string]any) (string, error) {
-			approved, _ := args["approved"].(bool)
 			feedback, _ := args["feedback"].(string)
+			approved := verdictApproved(args["approved"], feedback)
 			mu.Lock()
 			verdict = JudgeVerdict{Name: spec.Name, Approved: approved, Feedback: feedback}
 			settled = true
@@ -158,7 +156,7 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		maxRounds = effectiveRounds(eventJudgeMaxRounds)
 	}
 
-	judgeLoop := New(l.engine, l.workflow, judgeRegistry, Config{
+	cfg := Config{
 		Model:         l.config.Model,
 		Backend:       l.config.Backend,
 		BaseURL:       l.config.BaseURL,
@@ -166,7 +164,18 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		Streamer:      l.streamer,
 		SystemPrompt:  judgeSystemPrompt(spec),
 		MaxToolRounds: maxRounds,
-	})
+	}
+	// A tool-using judge keeps the model ceiling so it can emit a real tool
+	// call. A verdict-only judge uses the small side-call cap.
+	if len(spec.Tools) == 0 {
+		if side := sideCallMaxTokens(l.config.Backend, l.config.Model); side != nil {
+			cfg.OutputTokenCap = *side
+		}
+	}
+	judgeLoop := New(ctx, l.engine, l.workflow, judgeRegistry, cfg)
+	// A judge that calls a tool it was not offered is not reviewing; end it
+	// here instead of letting it retry the missing tool until its rounds run out.
+	judgeLoop.onUnofferedTool = cancel
 
 	// The error here is expected on the success path (see cancel() above), so
 	// only the settled flag decides the outcome.
@@ -302,4 +311,24 @@ func withReviewDirective(cfg *domain.ChatConfig, directive string) *domain.ChatC
 	scenario = append(scenario, domain.ScenarioItem{Role: "system", Prompt: directive})
 	out.Scenario = scenario
 	return &out
+}
+
+// verdictApproved reads judge_verdict's approved argument the way models send
+// it: a boolean, or the string "true"/"false". With no approved at all, a
+// verdict with no feedback has nothing to fix and approves. (A model sent
+// {"approved": "true"} and {"feedback": ""}; both read as rejections and
+// re-ran the turn for nothing.)
+func verdictApproved(v any, feedback string) bool {
+	switch a := v.(type) {
+	case bool:
+		return a
+	case string:
+		if b, err := strconv.ParseBool(strings.TrimSpace(a)); err == nil {
+			return b
+		}
+		return strings.EqualFold(strings.TrimSpace(a), "yes")
+	case nil:
+		return strings.TrimSpace(feedback) == ""
+	}
+	return false
 }

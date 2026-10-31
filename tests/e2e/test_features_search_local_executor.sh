@@ -199,7 +199,7 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        if output_grep "count:1" "$result" && output_grep "first:visible.txt" "$result"; then
+        if output_grep '"count": "?1"?' "$result" && output_grep '"first": "visible\.txt"' "$result"; then
             test_passed "search_local component - skips hidden and vendor directories"
         else
             test_failed "search_local component - skips hidden and vendor directories (wrong results)" "$(echo "$result" | tail -15)"

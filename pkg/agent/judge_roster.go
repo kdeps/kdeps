@@ -57,13 +57,32 @@ func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
 		},
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
+	chatCfg.MaxTokens = sideCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {
 		return nil
 	}
-	return parseJudgeRoster(formatLoopResult(result))
+	return parseJudgeRoster(jsonResultText(result))
+}
+
+// jsonResultText is a JSON-mode call's reply as text: the message content,
+// or the object itself when the engine already decoded the JSON reply into a
+// map ({"judges": [...]} has no message field, and reading only that dropped
+// every roster on such backends -- instrument session hunt11).
+func jsonResultText(result any) string {
+	if text := formatLoopResult(result); text != "" {
+		return text
+	}
+	m, ok := asStringMap(result)
+	if !ok || isErrorResultMap(m) {
+		return ""
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // parseJudgeRoster extracts the judge list from a model reply, tolerating a

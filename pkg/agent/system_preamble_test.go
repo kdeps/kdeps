@@ -172,8 +172,8 @@ func TestRunStreaming_ScenarioCarriesWorkingDirectory(t *testing.T) {
 			},
 		},
 	}
-	eng := executor.NewEngine(nil)
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+	eng := executor.NewEngine(context.Background(), nil)
+	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:         "test",
 		Streamer:      ms,
 		MaxToolRounds: 5,
@@ -216,8 +216,8 @@ func TestBuildChatConfig_CacheControlOnlyForAnthropic(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.backend, func(t *testing.T) {
-			eng := executor.NewEngine(nil)
-			l := New(eng, newTestWorkflowForSession(), kdepstools.NewRegistry(), Config{
+			eng := executor.NewEngine(context.Background(), nil)
+			l := New(t.Context(), eng, newTestWorkflowForSession(), kdepstools.NewRegistry(), Config{
 				Model:   "test",
 				Backend: c.backend,
 			})

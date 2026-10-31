@@ -111,7 +111,8 @@ id is left unchanged in the text.
 
 Before each turn, kdeps runs one cheap LLM call that rewrites a terse or
 under-specified prompt into a clearer, self-contained version and runs the turn
-on the rewrite. It is on by default; when the prompt is changed the REPL
+on the rewrite. It is off by default; `/refine on` turns it on and persists.
+A session that already stored refine-on stays on. When the prompt is changed the REPL
 prints `[refine] -> <rewritten prompt>` before any work starts, and the rewrite
 is what gets saved to the session. Toggle with `/refine on|off` (persists to
 `~/.kdeps/agent-loop-settings.yaml`). Full details: [Prompt refinement](/agent/refine).

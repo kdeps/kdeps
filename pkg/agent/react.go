@@ -82,7 +82,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 		}
 	}
 
-	systemPreamble := l.buildReactSystemPreamble()
+	systemPreamble := l.buildReactSystemPreamble(ctx)
 	chatCfg := l.buildReactChatConfig(input, systemPreamble, nil)
 
 	var finalAnswer string
@@ -134,7 +134,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 }
 
 // buildReactSystemPreamble builds the MRKL system prompt with tool descriptions.
-func (l *Loop) buildReactSystemPreamble() string {
+func (l *Loop) buildReactSystemPreamble(ctx context.Context) string {
 	tools := l.registry.List()
 	var descs, names strings.Builder
 	for _, t := range tools {
@@ -145,7 +145,7 @@ func (l *Loop) buildReactSystemPreamble() string {
 		names.WriteString(t.Name)
 	}
 
-	base := turoReduce(context.Background(), fmt.Sprintf(reactSystemTemplate, descs.String(), names.String()))
+	base := turoReduce(ctx, fmt.Sprintf(reactSystemTemplate, descs.String(), names.String()))
 
 	extra := l.buildSystemPreamble()
 	if extra != "" {

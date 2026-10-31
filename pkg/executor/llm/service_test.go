@@ -40,7 +40,7 @@ import (
 
 func TestNewModelService(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 	assert.NotNil(t, service)
 }
 
@@ -49,7 +49,7 @@ func TestModelService_DownloadModel_SupportedBackends(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	tests := []struct {
 		name    string
@@ -80,7 +80,7 @@ func (d *discardWriter) Write(p []byte) (int, error) {
 
 func TestModelService_DownloadModel_UnsupportedBackend_Service(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	err := service.DownloadModel(context.Background(), "unsupported-backend", "some-model")
 	require.Error(t, err)
@@ -92,7 +92,7 @@ func TestModelService_ServeModel_SupportedBackends(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	tests := []struct {
 		name    string
@@ -117,7 +117,7 @@ func TestModelService_ServeModel_SupportedBackends(t *testing.T) {
 
 func TestModelService_ServeModel_UnsupportedBackend_Service(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	err := service.ServeModel(context.Background(), "unsupported-backend", "some-model", "localhost", 16395)
 	require.Error(t, err)
@@ -129,7 +129,7 @@ func TestDownloadOllamaModel_CommandNotFound(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	// Test that the method completes without panic - behavior depends on Ollama availability
 	err := service.DownloadModel(context.Background(), "ollama", "llama2")
@@ -143,7 +143,7 @@ func TestServeOllamaModel_AlreadyRunning(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	// This should not error even if Ollama is not available, as it handles the case gracefully
 	err := service.ServeModel(context.Background(), "ollama", "llama2", "localhost", 11434)
@@ -154,7 +154,7 @@ func TestServeOllamaModel_AlreadyRunning(t *testing.T) {
 // Test that the service methods don't panic with edge cases.
 func TestModelService_EdgeCases(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	t.Run("empty backend name", func(t *testing.T) {
 		err := service.DownloadModel(context.Background(), "", "model")
@@ -189,7 +189,7 @@ func TestModelService_EdgeCases(t *testing.T) {
 
 // Test that service methods work with nil logger (fallback behavior).
 func TestModelService_NilLogger(t *testing.T) {
-	service := llm.NewModelService(nil)
+	service := llm.NewModelService(t.Context(), nil)
 	assert.NotNil(t, service)
 	// Logger should be set to slog.Default() internally when nil is passed
 }
@@ -200,7 +200,7 @@ func TestModelService_ConcurrentAccess(t *testing.T) {
 		t.Skip("skipping test that triggers external service calls in short mode")
 	}
 	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
-	service := llm.NewModelService(logger)
+	service := llm.NewModelService(t.Context(), logger)
 
 	// Test that multiple goroutines can call service methods without issues
 	done := make(chan bool, 2)
@@ -231,7 +231,7 @@ func TestModelService_DownloadModel_File_CachedFile(t *testing.T) {
 	path := filepath.Join(dir, "cached.llamafile")
 	require.NoError(t, os.WriteFile(path, []byte("fake"), 0600))
 
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	err := svc.DownloadModel(context.Background(), "file", "cached.llamafile")
 	require.NoError(t, err)
 
@@ -255,7 +255,7 @@ func TestModelService_DownloadModel_File_RemoteURL(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	url := srv.URL + "/remote.llamafile"
 	err := svc.DownloadModel(context.Background(), "file", url)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestModelService_DownloadModel_File_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	err := svc.DownloadModel(context.Background(), "file", "missing.llamafile")
 	assert.Error(t, err)
 }
@@ -295,7 +295,7 @@ func TestModelService_ServeModel_File_AlreadyRunning(t *testing.T) {
 	bin := filepath.Join(dir, "model.llamafile")
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\nsleep 9999"), 0750))
 
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "file", "model.llamafile", "127.0.0.1", port)
 	require.NoError(t, err)
 }
@@ -304,13 +304,13 @@ func TestModelService_ServeModel_File_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "file", "missing.llamafile", "127.0.0.1", 0)
 	assert.Error(t, err)
 }
 
 func TestServeModel_UnsupportedBackend(t *testing.T) {
-	svc := llm.NewModelService(nil)
+	svc := llm.NewModelService(t.Context(), nil)
 	err := svc.ServeModel(context.Background(), "unknown-backend", "model", "127.0.0.1", 0)
 	if err == nil || !strings.Contains(err.Error(), "unsupported backend") {
 		t.Fatalf("expected unsupported backend error, got: %v", err)

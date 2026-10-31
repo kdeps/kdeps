@@ -18,9 +18,12 @@
 package agent_test
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,7 +37,13 @@ import (
 // /clear and /history are YAML commands whose steps call the session_ops
 // kdeps API tool; the same tool answers a direct call once the REPL is up.
 func TestSessionOps_CommandsAndToolThroughTheAPI(t *testing.T) {
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -59,9 +68,20 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 	dir := t.TempDir()
 	got := filepath.Join(dir, "clip.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "pbcopy"), []byte("#!/bin/sh\ncat > "+got+"\n"), 0o700))
+	// Run the new script once first: the OS's first-run check of a fresh
+	// executable can outlast the tool's 10s per-command timeout under load.
+	warm := exec.CommandContext(t.Context(), filepath.Join(dir, "pbcopy"))
+	warm.Stdin = strings.NewReader("")
+	require.NoError(t, warm.Run())
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -77,7 +97,13 @@ func TestCopyCommand_ChainsTwoToolsThroughTheAPI(t *testing.T) {
 // Settings are session state on the kdeps API: session_ops set stores a value
 // the setting's command asset lists, and get reads it back.
 func TestSessionOps_SettingsThroughTheAPI(t *testing.T) {
-	loop := agent.New(executor.NewEngine(nil), nil, kdepstools.NewRegistry(), agent.Config{Model: "m"})
+	loop := agent.New(
+		t.Context(),
+		executor.NewEngine(context.Background(), nil),
+		nil,
+		kdepstools.NewRegistry(),
+		agent.Config{Model: "m"},
+	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
@@ -106,7 +132,7 @@ func TestSessionOps_ToolOperationRunsASessionTool(t *testing.T) {
 			return "agent:" + args["field"].(string), nil
 		},
 	})
-	agent.New(executor.NewEngine(nil), nil, reg, agent.Config{Model: "m"})
+	agent.New(t.Context(), executor.NewEngine(context.Background(), nil), nil, reg, agent.Config{Model: "m"})
 	t.Cleanup(func() { api.SetSessionToolBackend(nil) })
 
 	out, err := api.CallTool(t.Context(), "session_ops", map[string]any{

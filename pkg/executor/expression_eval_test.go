@@ -62,7 +62,7 @@ func TestEvaluateStringOrLiteral_PathLiteral(t *testing.T) {
 
 func TestBuildSubExecutorEnv_Options(t *testing.T) {
 	t.Parallel()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &executor.RequestContext{
 		Method: "POST",
@@ -80,7 +80,7 @@ func TestBuildSubExecutorEnv_Options(t *testing.T) {
 
 func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
 	t.Parallel()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Request = &executor.RequestContext{
 		Method: "POST",
@@ -103,7 +103,7 @@ func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
 
 func TestEvaluateExpression_Simple(t *testing.T) {
 	t.Parallel()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.API.Set("n", 3)
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -132,7 +132,7 @@ func TestEvaluateStringOrLiteral_TreatAsLiteral(t *testing.T) {
 }
 
 func TestEvaluateStringOrLiteral_EvaluatesExpression(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.API.Set("msg", "hi")
 	evaluator := expression.NewEvaluator(ctx.API)
@@ -149,7 +149,7 @@ func TestEvaluateStringOrLiteral_EvaluatesExpression(t *testing.T) {
 
 func TestBuildLLMSubExecutorEnv(t *testing.T) {
 	t.Parallel()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.InputTranscript = "hello"
 	ctx.InputMediaFile = "/tmp/audio.wav"

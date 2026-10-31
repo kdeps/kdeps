@@ -161,7 +161,7 @@ func TestLlamafileManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
 	llamafileStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
 
 	startCalls := 0
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		if startCalls == 1 {
 			return crashOnStart(startCalls), nil // first attempt crashes instantly
@@ -206,7 +206,7 @@ func TestLlamafileManager_Serve_GPUFailureFallsBackToCPU(t *testing.T) {
 	llamafileStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
 
 	startCalls := 0
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -250,7 +250,7 @@ func TestLlamafileManager_Serve_NoRetryWhenAlreadyOnCPUFallback(t *testing.T) {
 	markLlamafileCPUFallback() // simulate a prior run that already hit the fallback
 
 	startCalls := 0
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -288,7 +288,7 @@ func TestLlamafileManager_Serve_GPUSuccessNeverMarksFallback(t *testing.T) {
 	llamafileStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
 
 	startCalls := 0
-	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+	startLlamafileServerFunc = func(_ context.Context, _ string, _ int) (int, error) {
 		startCalls++
 		return 0, nil
 	}
@@ -381,7 +381,7 @@ func TestModelService_PrepareLlamafile_MakeExecutableError(t *testing.T) {
 	dir := t.TempDir()
 	modelPath := filepath.Join(dir, "model.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("data"), 0644))
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	_, _, err := s.prepareLlamafile(context.Background(), modelPath)
 	require.Error(t, err)
 }

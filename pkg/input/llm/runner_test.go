@@ -37,7 +37,7 @@ import (
 
 // buildEngine returns an *executor.Engine with a stubbed Execute function.
 func buildEngine(result interface{}) *executor.Engine {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return result, nil
 	})
@@ -92,7 +92,7 @@ func workflowWithComponents(resources []*domain.Resource, components map[string]
 func TestRunWithIO_MultiTurn(t *testing.T) {
 	call := 0
 	responses := []string{"turn1", "turn2"}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		r := responses[call]
 		call++
@@ -118,7 +118,7 @@ func TestRunWithIO_MultiTurn(t *testing.T) {
 
 func TestRunWithIO_EmptyLinesSkipped(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		calls++
 		return "ok", nil
@@ -139,7 +139,7 @@ func TestRunWithIO_EmptyLinesSkipped(t *testing.T) {
 
 func TestRunWithIO_QuitCommand(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		calls++
 		return "", nil
@@ -177,7 +177,7 @@ func TestRunWithIO_ExitCommand(t *testing.T) {
 
 func TestRunWithIO_EngineError_ContinuesLoop(t *testing.T) {
 	call := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		call++
 		if call == 1 {
@@ -216,7 +216,7 @@ func TestRunWithIO_EOF_NoError(t *testing.T) {
 
 func TestRunWithIO_DefaultPromptAndSession(t *testing.T) {
 	var gotReq *executor.RequestContext
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
 		if rc, ok := req.(*executor.RequestContext); ok {
 			gotReq = rc
@@ -367,7 +367,7 @@ func TestRunWithIO_RunCommand_UnknownActionID(t *testing.T) {
 
 func TestRunWithIO_RunCommand_KnownActionID_InvokesEngine(t *testing.T) {
 	var gotTargetID string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotTargetID = wf.Metadata.TargetActionID
 		return "calc result", nil
@@ -391,7 +391,7 @@ func TestRunWithIO_RunCommand_KnownActionID_InvokesEngine(t *testing.T) {
 
 func TestRunWithIO_RunCommand_ParamsPassedToEngine(t *testing.T) {
 	var gotBody map[string]interface{}
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
 		if rc, ok := req.(*executor.RequestContext); ok {
 			gotBody = rc.Body
@@ -420,7 +420,7 @@ func TestRunWithIO_RunCommand_ParamsPassedToEngine(t *testing.T) {
 
 func TestRunWithIO_ToolAlias_InvokesEngine(t *testing.T) {
 	var gotTarget string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotTarget = wf.Metadata.TargetActionID
 		return "tool result", nil
@@ -441,7 +441,7 @@ func TestRunWithIO_ToolAlias_InvokesEngine(t *testing.T) {
 
 func TestRunWithIO_ComponentAlias_InvokesEngine(t *testing.T) {
 	var gotTarget string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotTarget = wf.Metadata.TargetActionID
 		return "component result", nil
@@ -476,7 +476,7 @@ func TestRunWithIO_RunNoArgs_ShowsUsage(t *testing.T) {
 
 func TestRunWithIO_UnknownSlashCommand_ForwardsToLLM(t *testing.T) {
 	calls := 0
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		calls++
 		return "llm reply", nil
@@ -496,7 +496,7 @@ func TestRunWithIO_UnknownSlashCommand_ForwardsToLLM(t *testing.T) {
 
 func TestRunWithIO_OriginalWorkflowNotMutated(t *testing.T) {
 	originalTarget := "chat"
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return "ok", nil
 	})
@@ -607,7 +607,7 @@ func TestRunWithIO_PrintResources_ComponentNoDescription(t *testing.T) {
 // TestRunWithIO_RunCommand_EngineError verifies that an engine error from
 // /run <actionId> is printed to the output without crashing.
 func TestRunWithIO_RunCommand_EngineError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 		return nil, errors.New("execution failed")
 	})
@@ -628,7 +628,7 @@ func TestRunWithIO_RunCommand_EngineError(t *testing.T) {
 // TestParseParams_BareFlag verifies that a bare argument (no '=') is treated
 // as key=true.
 func TestParseParams_BareFlag(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	var gotBody map[string]interface{}
 	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
 		if rc, ok := req.(*executor.RequestContext); ok {

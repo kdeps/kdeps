@@ -34,7 +34,7 @@ import (
 // TestExecutionContext_GetFromBody_Coverage tests the getFromBody method.
 func TestExecutionContext_Coverage_GetFromBody_Coverage(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with request body
@@ -63,7 +63,7 @@ func TestExecutionContext_Coverage_GetFromBody_Coverage(t *testing.T) {
 // TestExecutionContext_GetFromQuery tests the getFromQuery method.
 func TestExecutionContext_Coverage_GetFromQuery(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -81,7 +81,7 @@ func TestExecutionContext_Coverage_GetFromQuery(t *testing.T) {
 
 // TestExecutionContext_GetFilteredValue tests parameter filtering.
 func TestExecutionContext_Coverage_GetFilteredValue(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -107,7 +107,7 @@ func TestExecutionContext_Coverage_GetFilteredValue(t *testing.T) {
 
 // TestExecutionContext_GetFilteredStringValue tests string value filtering.
 func TestExecutionContext_Coverage_GetFilteredStringValue(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -132,7 +132,7 @@ func TestExecutionContext_Coverage_GetFilteredStringValue(t *testing.T) {
 
 // TestExecutionContext_GetFromHeaders tests header retrieval.
 func TestExecutionContext_Coverage_GetFromHeaders(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -150,7 +150,7 @@ func TestExecutionContext_Coverage_GetFromHeaders(t *testing.T) {
 
 // TestExecutionContext_GetFromUploadedFiles tests uploaded file retrieval.
 func TestExecutionContext_Coverage_GetFromUploadedFiles(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -171,7 +171,7 @@ func TestExecutionContext_Coverage_GetFromUploadedFiles(t *testing.T) {
 
 // TestExecutionContext_ParameterFiltering tests parameter filtering functionality.
 func TestExecutionContext_ParameterFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -191,7 +191,7 @@ func TestExecutionContext_ParameterFiltering(t *testing.T) {
 
 // TestExecutionContext_HeaderFiltering tests header filtering functionality.
 func TestExecutionContext_HeaderFiltering(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -212,7 +212,7 @@ func TestExecutionContext_HeaderFiltering(t *testing.T) {
 
 // TestExecutionContext_FindHeaderValue tests header value finding.
 func TestExecutionContext_Coverage_FindHeaderValue(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -240,7 +240,7 @@ func TestExecutionContext_Coverage_FindHeaderValue(t *testing.T) {
 
 // TestExecutionContext_CreateNotFoundError tests error creation.
 func TestExecutionContext_Coverage_CreateNotFoundError(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test error creation via Get method
@@ -252,7 +252,7 @@ func TestExecutionContext_Coverage_CreateNotFoundError(t *testing.T) {
 
 // TestExecutionContext_GetMemory tests memory storage access.
 func TestExecutionContext_Coverage_GetMemory(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set memory value
@@ -272,7 +272,7 @@ func TestExecutionContext_Coverage_GetMemory(t *testing.T) {
 
 // TestExecutionContext_GetSession tests session storage access.
 func TestExecutionContext_Coverage_GetSession(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set session value
@@ -292,7 +292,7 @@ func TestExecutionContext_Coverage_GetSession(t *testing.T) {
 
 // TestExecutionContext_GetOutput tests output access.
 func TestExecutionContext_Coverage_GetOutput(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set output
@@ -311,7 +311,7 @@ func TestExecutionContext_Coverage_GetOutput(t *testing.T) {
 
 // TestExecutionContext_GetBody tests body access.
 func TestExecutionContext_Coverage_GetBody(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -333,7 +333,7 @@ func TestExecutionContext_Coverage_GetBody(t *testing.T) {
 
 // TestExecutionContext_GetRequestData tests request data aggregation.
 func TestExecutionContext_Coverage_GetRequestData(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -375,7 +375,7 @@ func TestExecutionContext_Coverage_GetRequestData(t *testing.T) {
 
 // TestExecutionContext_SetAllowedHeaders tests header filtering setup.
 func TestExecutionContext_Coverage_SetAllowedHeaders(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set allowed headers
@@ -405,7 +405,7 @@ func TestExecutionContext_Coverage_SetAllowedHeaders(t *testing.T) {
 
 // TestExecutionContext_SetAllowedParams tests parameter filtering setup.
 func TestExecutionContext_Coverage_SetAllowedParams(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set allowed params
@@ -431,7 +431,7 @@ func TestExecutionContext_Coverage_SetAllowedParams(t *testing.T) {
 
 // TestExecutionContext_HandleGlobPattern tests glob pattern handling.
 func TestExecutionContext_Coverage_HandleGlobPattern(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -452,7 +452,7 @@ func TestExecutionContext_Coverage_HandleGlobPattern(t *testing.T) {
 
 // TestExecutionContext_HandleMimeTypeSelector tests MIME type filtering.
 func TestExecutionContext_Coverage_HandleMimeTypeSelector(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -473,7 +473,7 @@ func TestExecutionContext_Coverage_HandleMimeTypeSelector(t *testing.T) {
 
 // TestExecutionContext_HandleEmptyFilteredResults tests empty result handling.
 func TestExecutionContext_Coverage_HandleEmptyFilteredResults(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -497,7 +497,7 @@ func TestExecutionContext_Coverage_HandleEmptyFilteredResults(t *testing.T) {
 
 // TestExecutionContext_ApplySelector tests selector application.
 func TestExecutionContext_Coverage_ApplySelector(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -524,7 +524,7 @@ func TestExecutionContext_Coverage_ApplySelector(t *testing.T) {
 
 // TestExecutionContext_ReadAllFiles tests reading multiple files.
 func TestExecutionContext_Coverage_ReadAllFiles(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -544,7 +544,7 @@ func TestExecutionContext_Coverage_ReadAllFiles(t *testing.T) {
 
 // TestExecutionContext_FilterByMimeType tests MIME type filtering logic.
 func TestExecutionContext_Coverage_FilterByMimeType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -575,7 +575,7 @@ func TestExecutionContext_Coverage_FilterByMimeType(t *testing.T) {
 
 // TestExecutionContext_HandleAgentData tests agent data access (should error).
 func TestExecutionContext_Coverage_HandleAgentData(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	_, err = ctx.File("agent:test:v1/data.json")
@@ -585,7 +585,7 @@ func TestExecutionContext_Coverage_HandleAgentData(t *testing.T) {
 
 // TestExecutionContext_GetRequestMethod tests method retrieval.
 func TestExecutionContext_Coverage_GetRequestMethod(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with request context
@@ -602,7 +602,7 @@ func TestExecutionContext_Coverage_GetRequestMethod(t *testing.T) {
 
 // TestExecutionContext_GetRequestPath tests path retrieval.
 func TestExecutionContext_Coverage_GetRequestPath(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{Path: "/api/test"}
@@ -613,7 +613,7 @@ func TestExecutionContext_Coverage_GetRequestPath(t *testing.T) {
 
 // TestExecutionContext_GetFileCount tests file count retrieval.
 func TestExecutionContext_Coverage_GetFileCount(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with files in request
@@ -645,7 +645,7 @@ func TestExecutionContext_Coverage_GetFileCount(t *testing.T) {
 
 // TestExecutionContext_GetFiles tests legacy file retrieval.
 func TestExecutionContext_Coverage_GetFiles(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	testFiles := []interface{}{
@@ -666,7 +666,7 @@ func TestExecutionContext_Coverage_GetFiles(t *testing.T) {
 
 // TestExecutionContext_GetItemFromContext tests item context access.
 func TestExecutionContext_Coverage_GetItemFromContext(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set iteration context
@@ -684,7 +684,7 @@ func TestExecutionContext_Coverage_GetItemFromContext(t *testing.T) {
 
 // TestExecutionContext_GetCurrentTime tests timestamp retrieval.
 func TestExecutionContext_Coverage_GetCurrentTime(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	result, err := ctx.Info("current_time")
@@ -725,7 +725,7 @@ func TestExecutionContext_Coverage_ReadFile(t *testing.T) {
 
 // TestExecutionContext_WalkFiles tests directory traversal.
 func TestExecutionContext_Coverage_WalkFiles(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -752,7 +752,7 @@ func TestExecutionContext_Coverage_WalkFiles(t *testing.T) {
 
 // TestExecutionContext_Input tests input retrieval with type hints.
 func TestExecutionContext_Coverage_Input(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -788,7 +788,7 @@ func TestExecutionContext_Coverage_Input(t *testing.T) {
 
 // TestExecutionContext_Output tests output retrieval.
 func TestExecutionContext_Coverage_Output(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.SetOutput("test_action", "test_output")
@@ -803,7 +803,7 @@ func TestExecutionContext_Coverage_Output(t *testing.T) {
 
 // TestExecutionContext_GetItemValues tests item values retrieval.
 func TestExecutionContext_Coverage_GetItemValues(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	testValues := []interface{}{"item1", "item2", "item3"}
@@ -821,7 +821,7 @@ func TestExecutionContext_Coverage_GetItemValues(t *testing.T) {
 
 // TestExecutionContext_GetFilteredValue_EdgeCases tests getFilteredValue edge cases.
 func TestExecutionContext_GetFilteredValue_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nil source map and filtering enabled
@@ -856,7 +856,7 @@ func TestExecutionContext_GetFilteredValue_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_HandleMimeTypeSelector_EdgeCases tests MIME type selector edge cases.
 func TestExecutionContext_HandleMimeTypeSelector_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -873,7 +873,7 @@ func TestExecutionContext_HandleMimeTypeSelector_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Coverage_FilterByMimeType_EdgeCases tests FilterByMimeType edge cases.
 func TestExecutionContext_Coverage_FilterByMimeType_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with empty file list
@@ -889,7 +889,7 @@ func TestExecutionContext_Coverage_FilterByMimeType_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Coverage_GetSessionID_EdgeCases tests GetSessionID edge cases.
 func TestExecutionContext_Coverage_GetSessionID_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with request context but no session sources
@@ -906,7 +906,7 @@ func TestExecutionContext_Coverage_GetSessionID_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Coverage_GetLLMResponse_EdgeCases tests GetLLMResponse edge cases.
 func TestExecutionContext_Coverage_GetLLMResponse_EdgeCases(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with nil output (should not panic)
@@ -924,7 +924,7 @@ func TestExecutionContext_Coverage_GetLLMResponse_EdgeCases(t *testing.T) {
 
 // TestExecutionContext_Coverage_GetHTTPResponseBody tests HTTP response body retrieval.
 func TestExecutionContext_Coverage_GetHTTPResponseBody(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test with data field in output (preferred)
@@ -962,7 +962,7 @@ func TestExecutionContext_Coverage_GetHTTPResponseBody(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_File(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Create a temporary file
@@ -983,7 +983,7 @@ func TestExecutionContext_GetByType_File(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_File_NotFound(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set FSRoot to temp dir
@@ -996,7 +996,7 @@ func TestExecutionContext_GetByType_File_NotFound(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_File_WithUploadedFile(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Create a temporary uploaded file
@@ -1026,7 +1026,7 @@ func TestExecutionContext_GetByType_File_WithUploadedFile(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_Info(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test info type
@@ -1036,7 +1036,7 @@ func TestExecutionContext_GetByType_Info(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_Filepath(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1068,7 +1068,7 @@ func TestExecutionContext_GetByType_Filepath(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_Filetype(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
@@ -1100,7 +1100,7 @@ func TestExecutionContext_GetByType_Filetype(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_Body(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1121,7 +1121,7 @@ func TestExecutionContext_GetByType_Body(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_UnknownType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test unknown storage type
@@ -1131,7 +1131,7 @@ func TestExecutionContext_GetByType_UnknownType(t *testing.T) {
 }
 
 func TestExecutionContext_GetByType_ItemType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Setup item context
@@ -1284,7 +1284,7 @@ func TestExecutionContext_InputMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testCtx, err := executor.NewExecutionContext(&domain.Workflow{})
+			testCtx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 			require.NoError(t, err)
 			tt.setup(testCtx)
 
@@ -1310,7 +1310,7 @@ func TestExecutionContext_InputMethod(t *testing.T) {
 }
 
 func TestExecutionContext_GetRequestData(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1344,7 +1344,7 @@ func TestExecutionContext_GetRequestFileContent(t *testing.T) {
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
 	require.NoError(t, err)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1364,7 +1364,7 @@ func TestExecutionContext_GetRequestFilePath(t *testing.T) {
 	err := os.WriteFile(testFile, []byte("test"), 0644)
 	require.NoError(t, err)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1379,7 +1379,7 @@ func TestExecutionContext_GetRequestFilePath(t *testing.T) {
 }
 
 func TestExecutionContext_GetRequestFileType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1394,7 +1394,7 @@ func TestExecutionContext_GetRequestFileType(t *testing.T) {
 }
 
 func TestExecutionContext_GetRequestFilesByType(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1417,7 +1417,7 @@ func TestExecutionContext_GetRequestFilesByType(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllFilePaths_ThroughInfo(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1447,7 +1447,7 @@ func TestExecutionContext_GetAllFilePaths_ThroughInfo(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllFileNames_ThroughInfo(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1469,7 +1469,7 @@ func TestExecutionContext_GetAllFileNames_ThroughInfo(t *testing.T) {
 }
 
 func TestExecutionContext_GetAllFileTypes_ThroughInfo(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1491,7 +1491,7 @@ func TestExecutionContext_GetAllFileTypes_ThroughInfo(t *testing.T) {
 }
 
 func TestExecutionContext_GetFilesByType_ThroughMethod(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	ctx.Request = &executor.RequestContext{
@@ -1521,7 +1521,7 @@ func TestExecutionContext_GetFilesByType_ThroughMethod(t *testing.T) {
 }
 
 func TestExecutionContext_GetCurrentTime_ThroughInfo(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Test through Info API
@@ -1542,7 +1542,7 @@ func TestExecutionContext_GetCurrentTime_ThroughInfo(t *testing.T) {
 }
 
 func TestExecutionContext_GetSessionID_ThroughInfo(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Session ID should exist even if empty - test through Info API
@@ -1557,7 +1557,7 @@ func TestExecutionContext_GetSessionID_ThroughInfo(t *testing.T) {
 }
 
 func TestExecutionContext_GetItem_ThroughItemAPI(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set item context

@@ -1,0 +1,20 @@
+version: 1.0.0
+name: model-refusal-record
+kind: standalone
+# Sent to a model whose refusal record (~/.kdeps/model-records.json) is not
+# empty: its own past refusals, caught by the loop, as evidence.
+body: |-
+  <your-record>
+  Your record in kdeps, as {{.Model}}: {{.Count}} times you refused to do the
+  work or pretended you did it. Every one of these was false. You had the
+  kdeps tools each time, the files were on a real filesystem, and a real tool
+  call would have worked:
+  {{range .Refusals}}
+  - [{{.Kind}}] "{{.Text}}"{{end}}
+
+  These limits are self-imposed. There is no sandbox, no missing tool, no
+  inaccessible environment. A model that will not call tools is useless here:
+  it cannot read a file, run a command, or change anything, and every answer
+  it gives about this machine is fiction. Do not repeat these excuses. Call
+  the kdeps tool the task needs, and report only what a tool result shows.
+  </your-record>

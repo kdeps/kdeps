@@ -27,7 +27,7 @@ import (
 
 func TestExecuteResource_StreamingInlineResponse(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
@@ -67,7 +67,7 @@ func TestExecuteResource_ChatPlusAPIResponseDoesNotStream(t *testing.T) {
 	reg.SetLLMExecutor(&covMockExecutor{result: "llm out"})
 	e.SetRegistry(reg)
 
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
@@ -102,7 +102,7 @@ func TestShouldStreamInlineResponse_Guards(t *testing.T) {
 	assert.False(t, e.shouldStreamInlineResponse(nil, &ExecutionContext{}))
 	assert.False(t, e.shouldStreamInlineResponse(&domain.Resource{}, nil))
 
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Items["item"] = 1
 	res := &domain.Resource{
@@ -114,7 +114,7 @@ func TestShouldStreamInlineResponse_Guards(t *testing.T) {
 
 func TestExecuteResource_StreamingAfterInline(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
@@ -143,7 +143,7 @@ func TestExecuteResource_StreamingAfterInline(t *testing.T) {
 
 func TestExecuteResource_StreamingSingleChunk(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
@@ -171,7 +171,7 @@ func TestExecuteInlineStep_NonExpressionInline(t *testing.T) {
 	reg := NewRegistry()
 	reg.SetHTTPExecutor(&covMockExecutor{result: map[string]interface{}{"ok": true}})
 	e.SetRegistry(reg)
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
@@ -189,7 +189,7 @@ func TestExecuteInlineStep_NonExpressionInline(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_SingleSnapshot(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
@@ -209,7 +209,7 @@ func TestExecuteStreamingInlineResponse_SingleSnapshot(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_BeforeExprError(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -225,7 +225,7 @@ func TestExecuteStreamingInlineResponse_BeforeExprError(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_AfterExprError(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -241,7 +241,7 @@ func TestExecuteStreamingInlineResponse_AfterExprError(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_FinalSnapshotError(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	resource := &domain.Resource{}
@@ -252,7 +252,7 @@ func TestExecuteStreamingInlineResponse_FinalSnapshotError(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_AfterSnapshotError(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
@@ -273,7 +273,7 @@ func TestExecuteExpressions_NilContextRequiresEvaluator(t *testing.T) {
 
 func TestExecuteStreamingInlineResponse_SnapshotError(t *testing.T) {
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 

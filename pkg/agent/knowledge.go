@@ -49,14 +49,15 @@ var errKnowledgeOff = errors.New("the knowledge vault is off for this session (/
 
 // knowledgeState is the loop's view of the configured knowledge vault.
 type knowledgeState struct {
-	ctx      context.Context // parent of background builds (the session's root)
-	cfg      config.KnowledgeConfig
-	vault    knowledge.Vault
-	dir      string // generated graph files, under ~/.kdeps
-	mu       sync.Mutex
-	last     knowledge.Recall
-	building atomic.Bool
-	builds   sync.WaitGroup // background builds in flight
+	ctx         context.Context // parent of background builds (the session's root)
+	cfg         config.KnowledgeConfig
+	vault       knowledge.Vault
+	dir         string // generated graph files, under ~/.kdeps/knowledge/<vault-id>
+	beforeBuild func() // optional pending extraction, set by the loop
+	mu          sync.Mutex
+	last        knowledge.Recall
+	building    atomic.Bool
+	builds      sync.WaitGroup // background builds in flight
 	// notedTurns is the session turn count the last model-written session
 	// note covered; summary is that note's summary (the live note's base).
 	notedTurns int
@@ -150,7 +151,22 @@ func (k *knowledgeState) build() error {
 		return errors.New("a knowledge build is already running")
 	}
 	defer k.building.Store(false)
+	if k.beforeBuild != nil {
+		k.beforeBuild()
+	}
 	_, _, err := knowledge.Build(k.ctx, k.vault, k.dir, time.Now())
+	return err
+}
+
+// refresh rebuilds the graph only when vault notes changed outside kdeps.
+func (k *knowledgeState) refresh() error {
+	k.waitBuilds()
+	if !k.building.CompareAndSwap(false, true) {
+		k.waitBuilds()
+		return nil
+	}
+	defer k.building.Store(false)
+	_, _, err := knowledge.CheckUpdate(k.ctx, k.vault, k.dir, time.Now())
 	return err
 }
 
@@ -167,6 +183,7 @@ func (k *knowledgeState) idx() *knowledge.Index { return knowledge.SharedIndex(k
 
 // recall finds the notes related to text.
 func (k *knowledgeState) recall(text string) knowledge.Recall {
+	_ = k.refresh()
 	ix := k.idx()
 	if ix == nil {
 		return knowledge.Recall{}
@@ -325,6 +342,9 @@ func (k *knowledgeState) recallFiles(text string) string {
 			if p := strings.Join(strings.Fields(h.Preview), " "); p != "" {
 				fmt.Fprintf(&b, " - %s", liveLine(p))
 			}
+			if chain := k.recallChain(h.Path); chain != "" {
+				fmt.Fprintf(&b, " (%s)", chain)
+			}
 		}
 	}
 	if b.Len() == 0 {
@@ -338,6 +358,27 @@ func (k *knowledgeState) recallFiles(text string) string {
 
 // recallFileLimit is how many files each search index adds to recall.
 const recallFileLimit = 3
+
+// recallChain is the relation path recall already printed for abs, when abs
+// is a vault note in this turn's recall. Search hits and recall then name
+// the same edge.
+func (k *knowledgeState) recallChain(abs string) string {
+	if k == nil {
+		return ""
+	}
+	rel, ok := knowledge.NoteRel(k.vault.Root, abs)
+	if !ok {
+		return ""
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	for _, h := range k.last.Hits {
+		if h.Note == rel {
+			return h.Chain()
+		}
+	}
+	return ""
+}
 
 // prepareProject makes sure the working directory's project exists before
 // the turn, so the turn's status, memory and notes all have a home: it is
@@ -986,6 +1027,36 @@ func (l *Loop) extractModel() (string, string, string) {
 		}
 	}
 	return "", "", ""
+}
+
+// extractBackground runs a bounded pending-only extraction before a graph
+// build when knowledge.extract.on_background_build is set.
+func (l *Loop) extractBackground() {
+	k := l.knowledge
+	if k == nil || k.cfg.Extract.OnBackgroundBuild == nil || !*k.cfg.Extract.OnBackgroundBuild {
+		return
+	}
+	if k.cfg.Extract.Enabled != nil && !*k.cfg.Extract.Enabled {
+		return
+	}
+	if l.config.KnowledgeEngine == nil {
+		return
+	}
+	model, backend, baseURL := l.extractModel()
+	if model == "" {
+		return
+	}
+	limit := k.cfg.Extract.PerSession
+	if limit <= 0 {
+		limit = defaultExtractPerSession
+	}
+	ctx, cancel := context.WithTimeout(k.ctx, knowledgeExtractTimeout)
+	defer cancel()
+	_, _ = knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
+		knowledge.ExtractOptions{
+			Model: model, Workers: k.cfg.Extract.Workers, Limit: limit,
+			System: harnessText("knowledge-extract-system"),
+		})
 }
 
 // ExtractKnowledge runs the model pass over notes that changed since their

@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -91,11 +92,11 @@ func validateWorkflowStep(workflow *domain.Workflow) error {
 }
 
 // setupEnvironmentStep sets up the execution environment and prints step [3/5] progress.
-func setupEnvironmentStep(workflow *domain.Workflow) error {
+func setupEnvironmentStep(ctx context.Context, workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: setupEnvironmentStep")
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
 	printIORequirements(workflow)
-	if setupErr := setupEnvironmentFunc(workflow); setupErr != nil {
+	if setupErr := setupEnvironmentFunc(ctx, workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}
 	if workflow.Settings.AgentSettings.PythonVersion != "" {
@@ -220,7 +221,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	if connErr := ensureWorkflowRuntimeConfig(workflow); connErr != nil {
 		return connErr
 	}
-	if setupErr := setupEnvironmentStep(workflow); setupErr != nil {
+	if setupErr := setupEnvironmentStep(cmd.Context(), workflow); setupErr != nil {
 		return setupErr
 	}
 	if llmErr := ensureLLMBackendStep(workflow); llmErr != nil {
@@ -228,7 +229,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	}
 
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
-	if flags.Interactive {
+	if flags.Interactive || wantsStdinREPL(workflow) {
 		eng := setupEngine(workflow, debugMode)
 		if flags.Memory {
 			eng = setupEngineWithMemory(eng, workflow, debugMode)

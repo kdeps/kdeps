@@ -40,7 +40,7 @@ func TestPythonIntegration_Manager(t *testing.T) {
 	manager := python.NewManager(tmpDir)
 
 	t.Run("Create Virtual Environment", func(t *testing.T) {
-		venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
+		venvPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 		if err != nil {
 			// Some systems might not have uv available
 			t.Skipf("Virtual environment creation not available: %v", err)
@@ -65,7 +65,7 @@ func TestPythonIntegration_Manager(t *testing.T) {
 	t.Run("Install Packages", func(t *testing.T) {
 		// Create venv with packages
 		packages := []string{"requests"}
-		venvPath, err := manager.EnsureVenv("3.12", packages, "", "")
+		venvPath, err := manager.EnsureVenv(t.Context(), "3.12", packages, "", "")
 		if err != nil {
 			t.Skipf("Package installation not available: %v", err)
 		}
@@ -82,7 +82,7 @@ func TestPythonIntegration_Manager(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create venv with requirements file
-		venvPath, err := manager.EnsureVenv("3.12", []string{}, requirementsFile, "")
+		venvPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, requirementsFile, "")
 		if err != nil {
 			t.Skipf("Requirements file processing not available: %v", err)
 		}
@@ -92,7 +92,7 @@ func TestPythonIntegration_Manager(t *testing.T) {
 	})
 
 	t.Run("Get Python Path", func(t *testing.T) {
-		venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "")
+		venvPath, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "", "")
 		if err != nil {
 			t.Skipf("Virtual environment creation not available: %v", err)
 		}
@@ -108,12 +108,12 @@ func TestPythonIntegration_Manager(t *testing.T) {
 
 	t.Run("Multiple Environments Isolation", func(t *testing.T) {
 		// Create multiple environments with different configurations
-		env1, err := manager.EnsureVenv("3.12", []string{"requests"}, "", "")
+		env1, err := manager.EnsureVenv(t.Context(), "3.12", []string{"requests"}, "", "")
 		if err != nil {
 			t.Skipf("Environment creation not available: %v", err)
 		}
 
-		env2, err := manager.EnsureVenv("3.12", []string{"pandas"}, "", "")
+		env2, err := manager.EnsureVenv(t.Context(), "3.12", []string{"pandas"}, "", "")
 		if err != nil {
 			t.Skipf("Environment creation not available: %v", err)
 		}
@@ -130,22 +130,22 @@ func TestPythonIntegration_ErrorHandling(t *testing.T) {
 	tmpDir := t.TempDir()
 	manager := python.NewManager(tmpDir)
 
-	t.Run("Invalid Python Version", func(_ *testing.T) {
-		_, err := manager.EnsureVenv("invalid-version", []string{}, "", "")
+	t.Run("Invalid Python Version", func(t *testing.T) {
+		_, err := manager.EnsureVenv(t.Context(), "invalid-version", []string{}, "", "")
 		// May succeed or fail depending on uv behavior
 		// Just verify it doesn't crash
 		_ = err
 	})
 
-	t.Run("Invalid Package Name", func(_ *testing.T) {
-		_, err := manager.EnsureVenv("3.12", []string{"nonexistent-package-12345"}, "", "")
+	t.Run("Invalid Package Name", func(t *testing.T) {
+		_, err := manager.EnsureVenv(t.Context(), "3.12", []string{"nonexistent-package-12345"}, "", "")
 		// May succeed or fail depending on uv behavior
 		// Just verify it doesn't crash
 		_ = err
 	})
 
-	t.Run("Invalid Requirements File", func(_ *testing.T) {
-		_, err := manager.EnsureVenv("3.12", []string{}, "/nonexistent/requirements.txt", "")
+	t.Run("Invalid Requirements File", func(t *testing.T) {
+		_, err := manager.EnsureVenv(t.Context(), "3.12", []string{}, "/nonexistent/requirements.txt", "")
 		// Should handle gracefully
 		_ = err
 	})

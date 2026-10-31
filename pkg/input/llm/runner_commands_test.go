@@ -16,6 +16,7 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,7 @@ import (
 // This path cannot be reached through RunWithIO (which TrimSpaces first), but
 // the function is defensive against direct callers.
 func TestDispatchCommand_EmptyParts(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	var w bytes.Buffer
 	// Passing an empty string produces no fields → len(parts) == 0 → returns false.
 	handled := dispatchCommand(&w, nil, eng, "session", "")
@@ -38,7 +39,7 @@ func TestDispatchCommand_EmptyParts(t *testing.T) {
 // TestDispatchCommand_WhitespaceOnlyParts verifies that a whitespace-only string
 // (which strings.Fields splits into zero parts) also returns false.
 func TestDispatchCommand_WhitespaceOnlyParts(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	var w bytes.Buffer
 	handled := dispatchCommand(&w, nil, eng, "session", "   ")
 	assert.False(t, handled, "whitespace-only line should not be handled")

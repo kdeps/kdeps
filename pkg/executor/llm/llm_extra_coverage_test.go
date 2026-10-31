@@ -524,7 +524,7 @@ func TestResolvedGGUFURL_DefaultPortUnhealthy(t *testing.T) {
 		return nil, errors.New("connection refused")
 	}
 
-	result := ResolvedGGUFURL(alias)
+	result := ResolvedGGUFURL(t.Context(), alias)
 	assert.Equal(t, "", result)
 }
 
@@ -536,7 +536,7 @@ func TestResolvedLlamafileURL_ModelsDirError(t *testing.T) {
 	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 	t.Setenv("KDEPS_MODELS_DIR", "")
 
-	result := ResolvedLlamafileURL("some-model")
+	result := ResolvedLlamafileURL(t.Context(), "some-model")
 	assert.Equal(t, "", result)
 }
 
@@ -679,7 +679,7 @@ func TestDetectOSArch_DarwinArm64(t *testing.T) {
 // ---- service.go: KillModel with unknown backend returns false ----
 
 func TestKillModel_NonexistentBackend(t *testing.T) {
-	s := NewModelService(slog.Default())
+	s := NewModelService(t.Context(), slog.Default())
 	result := s.KillModel("nonexistent-backend", "some-model")
 	assert.False(t, result)
 }

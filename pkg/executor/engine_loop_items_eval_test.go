@@ -30,7 +30,7 @@ import (
 func TestEvaluateResourceItems_Errors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	ctx, err := NewExecutionContext(t.Context(), &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	e.evaluator = expression.NewEvaluator(ctx.API)
 

@@ -49,7 +49,7 @@ func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 	ctx.Config = &kdepsconfig.Config{
 		HTTPConnections: map[string]kdepsconfig.HTTPConnectionConfig{
@@ -93,7 +93,7 @@ func TestHTTPExecutorIntegration_PostJSONBody(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	exec := httpexecutor.NewExecutor()

@@ -28,14 +28,15 @@ import (
 
 // CloudModel describes a well-known cloud LLM model.
 type CloudModel struct {
-	ID               string `yaml:"id"`                        // API model identifier, e.g. "claude-opus-4-8"
-	Backend          string `yaml:"backend"`                   // kdeps backend name, e.g. backendAnthropic
-	Desc             string `yaml:"desc,omitempty"`            // short human label, e.g. "most capable"
-	EnvVar           string `yaml:"envVar,omitempty"`          // API key env var, e.g. "ANTHROPIC_API_KEY"
-	SupportsThinking bool   `yaml:"thinking,omitempty"`        // supports extended thinking / reasoning
-	SupportsImages   bool   `yaml:"images,omitempty"`          // accepts image inputs
-	ContextWindow    int    `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
-	MaxOutputTokens  int    `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
+	ID               string  `yaml:"id"`                        // API model identifier, e.g. "claude-opus-4-8"
+	Backend          string  `yaml:"backend"`                   // kdeps backend name, e.g. backendAnthropic
+	Desc             string  `yaml:"desc,omitempty"`            // short human label, e.g. "most capable"
+	EnvVar           string  `yaml:"envVar,omitempty"`          // API key env var, e.g. "ANTHROPIC_API_KEY"
+	SupportsThinking bool    `yaml:"thinking,omitempty"`        // supports extended thinking / reasoning
+	SupportsImages   bool    `yaml:"images,omitempty"`          // accepts image inputs
+	ContextWindow    int     `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
+	MaxOutputTokens  int     `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
+	Params           float64 `yaml:"params,omitempty"`          // parameter count in billions, from the id (0 = unknown)
 }
 
 // cloudRegistryItem is the models asset holding the cloud model catalog.
@@ -46,9 +47,9 @@ type cloudCatalog struct {
 	Models []CloudModel `yaml:"models"`
 }
 
-// KnownCloudModels is the cloud model catalog (the models/cloud asset),
-// grouped by provider and ordered newest-first within each provider. Loaded
-// at init and on asset reload (ReloadCloudModels).
+// KnownCloudModels is the cloud model catalog: models/cloud, then the
+// harvested OpenRouter free models (models/openrouter). Loaded at init and
+// on asset reload (ReloadCloudModels). /model list groups this by backend.
 //
 //nolint:gochecknoglobals // parsed from the asset set
 var KnownCloudModels = loadCloudModels()
@@ -56,12 +57,19 @@ var KnownCloudModels = loadCloudModels()
 // ReloadCloudModels re-reads the catalog after kdeps update.
 func ReloadCloudModels() { KnownCloudModels = loadCloudModels() }
 
+// loadCloudModels reads the hand-maintained cloud catalog, then appends the
+// harvested OpenRouter free models. A missing or unreadable openrouter file
+// leaves the cloud list as it is.
 func loadCloudModels() []CloudModel {
-	c, err := parseCloudCatalog(readModelRegistry(cloudRegistryItem))
+	cloud, err := parseCloudCatalog(readModelRegistry(cloudRegistryItem))
 	if err != nil {
 		return nil
 	}
-	return c.Models
+	extra, err := parseCloudCatalog(readModelRegistry(openrouterRegistryItem))
+	if err != nil {
+		return cloud.Models
+	}
+	return append(cloud.Models, extra.Models...)
 }
 
 // parseCloudCatalog decodes a models/cloud file; every model needs an id
@@ -99,6 +107,28 @@ func ModelContextWindow(modelID string) int {
 		}
 	}
 	return 0
+}
+
+// ModelParamsB returns the parameter count in billions for a known cloud
+// model, or 0 if unknown. The catalog holds it; it is never parsed from the id.
+func ModelParamsB(modelID string) float64 {
+	for _, m := range KnownCloudModels {
+		if m.ID == modelID {
+			return m.Params
+		}
+	}
+	return 0
+}
+
+// OpenRouterFreeModelIDs returns the harvested free-model ids in catalog order.
+func OpenRouterFreeModelIDs() []string {
+	ids := make([]string, 0)
+	for _, m := range KnownCloudModels {
+		if m.Backend == openrouterRegistryItem && m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
 }
 
 // BackendForModel returns the backend name for a known cloud model ID, or ""

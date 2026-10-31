@@ -1,0 +1,9 @@
+version: 1.0.0
+# OpenRouter refusals of one free id that another free id may accept. Bug
+# capture moves to another id instead of stopping. A provider refusal is not
+# a kdeps bug, so it files no issue on its own.
+name: openrouter-refusal
+patterns:
+  - 'provider returned error'
+  - 'no endpoints found'
+  - 'only available on agentic'

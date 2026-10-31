@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -107,7 +106,7 @@ func buildRegistrySearchURL(baseURL, query, pkgType string, limit int) (string, 
 func fetchSearchResults(rawURL string) ([]registryPackage, error) {
 	kdeps_debug.Log("enter: fetchSearchResults")
 	client := &stdhttp.Client{Timeout: registrySearchTimeout}
-	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
+	req, err := stdhttp.NewRequestWithContext(processRoot(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

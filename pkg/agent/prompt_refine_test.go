@@ -26,7 +26,7 @@ import (
 
 func refineLoop(t *testing.T, fn func(*domain.Workflow, interface{}) (interface{}, error)) *Loop {
 	t.Helper()
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(fn)
 	return &Loop{
 		engine:   eng,

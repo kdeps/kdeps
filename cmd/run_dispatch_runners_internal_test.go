@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ import (
 )
 
 func TestStartBotRunners_Delegates(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
 		Settings: domain.WorkflowSettings{

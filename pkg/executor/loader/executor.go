@@ -224,19 +224,19 @@ func loadDocuments(ctx context.Context, cfg *domain.LoaderConfig) ([]Document, e
 	case "pdf":
 		return loadPDF(ctx, cfg.Source, cfg.Password)
 	case "html_lynx":
-		return loadHTMLLynx(cfg.Source)
+		return loadHTMLLynx(ctx, cfg.Source)
 	case "pandoc":
-		return loadPandoc(cfg.Source)
+		return loadPandoc(ctx, cfg.Source)
 	case "docx":
-		return loadDOCX(cfg.Source)
+		return loadDOCX(ctx, cfg.Source)
 	case "epub":
-		return loadEPUB(cfg.Source)
+		return loadEPUB(ctx, cfg.Source)
 	case "rtf":
-		return loadRTF(cfg.Source)
+		return loadRTF(ctx, cfg.Source)
 	case "odt":
-		return loadODT(cfg.Source)
+		return loadODT(ctx, cfg.Source)
 	case "textutil":
-		return loadTextutil(cfg.Source)
+		return loadTextutil(ctx, cfg.Source)
 	case "directory":
 		return loadDirectory(cfg.Source)
 	case "notion":
@@ -377,7 +377,7 @@ func loadNotionDirectory(source string) ([]Document, error) {
 
 // runCLIToFile runs a CLI tool that writes output to a file, reads it back.
 // Used by pandoc, rtf, textutil, and similar extractors.
-func runCLIToFile(label, bin string, args []string, source string) ([]Document, error) {
+func runCLIToFile(ctx context.Context, label, bin string, args []string, source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath(bin); lookErr != nil {
 		return nil, fmt.Errorf("loader %s: %s not found in PATH", label, bin)
 	}
@@ -393,7 +393,7 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 	allArgs := make([]string, 0, len(args)+2) //nolint:mnd // capacity for source+tmpFile
 	allArgs = append(allArgs, args...)
 	allArgs = append(allArgs, source, tmpFile)
-	cmd := exec.CommandContext(context.Background(), bin, allArgs...)
+	cmd := exec.CommandContext(ctx, bin, allArgs...)
 	output, cmdErr := cmd.CombinedOutput()
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader %s: %w: %s", label, cmdErr, string(output))
@@ -412,7 +412,7 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 
 // loadPandoc converts any pandoc-supported format to plain text.
 // Supports: docx, epub, rtf, odt, latex, markdown, rst, org, and more.
-func loadPandoc(source string) ([]Document, error) {
+func loadPandoc(ctx context.Context, source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("pandoc"); lookErr != nil {
 		return nil, errors.New("loader pandoc: pandoc not found in PATH (install pandoc)")
 	}
@@ -424,7 +424,7 @@ func loadPandoc(source string) ([]Document, error) {
 	// rejected by pandoc ("Unknown input format auto") -- omitting the flag
 	// entirely is pandoc's actual auto-detection mechanism.
 	cmd := exec.CommandContext(
-		context.Background(),
+		ctx,
 		"pandoc",
 		"--to",
 		"plain",
@@ -441,41 +441,41 @@ func loadPandoc(source string) ([]Document, error) {
 }
 
 // loadDOCX extracts text from a .docx file via pandoc.
-func loadDOCX(source string) ([]Document, error) { return loadPandoc(source) }
+func loadDOCX(ctx context.Context, source string) ([]Document, error) { return loadPandoc(ctx, source) }
 
 // loadEPUB extracts text from an .epub file via pandoc.
-func loadEPUB(source string) ([]Document, error) { return loadPandoc(source) }
+func loadEPUB(ctx context.Context, source string) ([]Document, error) { return loadPandoc(ctx, source) }
 
 // loadRTF extracts text from an .rtf file. Tries pandoc first, then
 // textutil (macOS) as fallback.
-func loadRTF(source string) ([]Document, error) {
+func loadRTF(ctx context.Context, source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("pandoc"); lookErr == nil {
-		return loadPandoc(source)
+		return loadPandoc(ctx, source)
 	}
 	if _, lookErr := exec.LookPath("textutil"); lookErr == nil {
-		return loadTextutil(source)
+		return loadTextutil(ctx, source)
 	}
 	return nil, errors.New("loader rtf: neither pandoc nor textutil found in PATH")
 }
 
 // loadODT extracts text from an .odt file via pandoc.
-func loadODT(source string) ([]Document, error) { return loadPandoc(source) }
+func loadODT(ctx context.Context, source string) ([]Document, error) { return loadPandoc(ctx, source) }
 
 // loadTextutil extracts text using macOS textutil (supports .rtf, .doc, .webarchive).
-func loadTextutil(source string) ([]Document, error) {
-	return runCLIToFile("textutil", "textutil", []string{"-convert", "txt", "-output"}, source)
+func loadTextutil(ctx context.Context, source string) ([]Document, error) {
+	return runCLIToFile(ctx, "textutil", "textutil", []string{"-convert", "txt", "-output"}, source)
 }
 
 // loadHTMLLynx extracts text from HTML using lynx text browser (preserves
 // link references better than goquery).
-func loadHTMLLynx(source string) ([]Document, error) {
+func loadHTMLLynx(ctx context.Context, source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("lynx"); lookErr != nil {
 		return nil, errors.New("loader html_lynx: lynx not found in PATH (install lynx)")
 	}
 	if err := checkFileSizeLimit(source); err != nil {
 		return nil, fmt.Errorf("loader html_lynx: %w", err)
 	}
-	cmd := exec.CommandContext(context.Background(), "lynx", "-dump", "-nonumbers", source)
+	cmd := exec.CommandContext(ctx, "lynx", "-dump", "-nonumbers", source)
 	output, cmdErr := cmd.CombinedOutput()
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader html_lynx: %w: %s", cmdErr, string(output))

@@ -33,6 +33,8 @@ The E2E tests are modularized into separate shell scripts for each test scenario
 - **`test_features_workflow_metadata.sh`** - E2E tests for workflow metadata access via `info()` functions
 - **`test_features_route_methods.sh`** - E2E tests for route method restrictions (GET, POST, PUT, DELETE, PATCH)
 - **`test_features_search_local_graph_boost.sh`** - E2E tests for the search_local component's graphBoost re-ranking (kartographer-backed link/topic graph over the searched folder)
+- **`test_bug_hunt.sh`** - The daily bug-hunt script: one task per session, shuffled free-model fallback, one GitHub issue per hunt, and a pull request with auto-merge before the next hunt
+- **`test_features_search_local_graph_boost.sh`** - E2E tests for the search_local component's graphBoost re-ranking (vault graph when the folder is inside the vault, otherwise the folder's link/topic graph)
 
 ## Usage
 

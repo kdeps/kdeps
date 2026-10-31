@@ -38,9 +38,25 @@ func PickStartupSession(store *SessionStore) string {
 	if store == nil || !tui.IsInteractive() {
 		return ""
 	}
+	items := sessionPickerItems(store)
+	if items == nil {
+		return ""
+	}
+
+	choice, err := tui.RunListPickerDeletable("Resume a session in this folder?", items, sessionPickerOnDelete(store))
+	if err != nil || choice == "" || choice == newSessionSentinel {
+		return ""
+	}
+	return choice
+}
+
+// sessionPickerItems lists the start-fresh row and this folder's saved
+// sessions. It returns nil when there are no saved sessions, so there is
+// nothing to offer.
+func sessionPickerItems(store *SessionStore) []tui.ListItem {
 	metas, err := store.ListMeta()
 	if err != nil || len(metas) == 0 {
-		return ""
+		return nil
 	}
 
 	items := make([]tui.ListItem, 0, len(metas)+1)
@@ -71,11 +87,7 @@ func PickStartupSession(store *SessionStore) string {
 		})
 	}
 
-	choice, err := tui.RunListPickerDeletable("Resume a session in this folder?", items, sessionPickerOnDelete(store))
-	if err != nil || choice == "" || choice == newSessionSentinel {
-		return ""
-	}
-	return choice
+	return items
 }
 
 // sessionPickerOnDelete builds the picker's ctrl+d handler: refuses to

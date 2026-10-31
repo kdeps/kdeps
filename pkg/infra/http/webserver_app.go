@@ -33,6 +33,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 	workDir := appRouteWorkDir(s, route)
 
 	s.logBackgroundInfo(
+		ctx,
 		"starting app command",
 		"command",
 		route.Command,
@@ -46,6 +47,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 
 	if err := cmd.Start(); err != nil {
 		s.logBackgroundError(
+			ctx,
 			"failed to start app command",
 			"command",
 			route.Command,
@@ -56,6 +58,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 	}
 
 	s.logBackgroundInfo(
+		ctx,
 		"app command started",
 		"command",
 		route.Command,
@@ -63,18 +66,18 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		cmd.Process.Pid,
 	)
 
-	logAppCommandExit(s, route.Command, cmd.Wait())
+	logAppCommandExit(ctx, s, route.Command, cmd.Wait())
 }
 
 // Stop stops the web server and cleans up running commands.
-func (s *WebServer) Stop() {
+func (s *WebServer) Stop(ctx context.Context) {
 	debugEnter("Stop")
-	s.logBackgroundInfo("stopping web server and cleaning up commands")
+	s.logBackgroundInfo(ctx, "stopping web server and cleaning up commands")
 	for path, cmd := range s.Commands {
 		if cmd.Process != nil {
-			s.logBackgroundInfo("stopping command", "path", path, "pid", cmd.Process.Pid)
+			s.logBackgroundInfo(ctx, "stopping command", "path", path, "pid", cmd.Process.Pid)
 			if err := killProcessIfRunning(cmd); err != nil {
-				s.logBackgroundError("failed to stop command", "path", path, "error", err)
+				s.logBackgroundError(ctx, "failed to stop command", "path", path, "error", err)
 			}
 		}
 	}

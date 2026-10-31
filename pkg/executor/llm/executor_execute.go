@@ -19,8 +19,9 @@
 package llm
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -61,7 +62,10 @@ func (e *Executor) Execute(
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
 	call := langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout)
+	recordWorkflowRequest(resolvedConfig, backendName, modelStr, messages, allTools)
+	started := time.Now()
 	response := e.callWithFallback(ctx.Ctx, call, fallbackRoutes, resolvedConfig, messages, requestConfig, timeout)
+	recordWorkflowResponse(backendName, modelStr, response, nil, time.Since(started))
 
 	// Run the tool dispatch loop when tools are present AND the executor can handle them.
 	// toolExecutor is needed for resource-based tools (workflow mode); Execute/MCP functions

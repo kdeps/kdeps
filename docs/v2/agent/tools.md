@@ -44,7 +44,7 @@ parameters:
     description: Path to the file to hash (absolute, or relative to the working directory)
     required: true
 python:
-  paths: [file_path]  # checked against KDEPS_WORKSPACE_ROOT and the root-directory guard first
+  paths: [file_path]  # workspace root, plus ~/.kdeps and /tmp; the root directory stays blocked
   script: |
     import hashlib, json, os, sys
     path = os.path.abspath(json.loads(sys.argv[1])["file_path"])
@@ -145,7 +145,7 @@ http:
 | `cache` | Reuse the answer for identical arguments within the run |
 | `timeout` | Per-call limit (Go duration, default `30s`) |
 
-A block can upload files: `files` maps form fields to path templates and `form` holds text fields (empty ones are left out), sent as `multipart/form-data` instead of `body`. `paths` lists the parameters holding file paths, checked against the workspace boundary like `read_file`'s. An `env` entry whose variable list ends with `""` is optional (it may render empty, and the tool registers without it), and a header that renders empty is not sent:
+A block can upload files: `files` maps form fields to path templates and `form` holds text fields (empty ones are left out), sent as `multipart/form-data` instead of `body`. `paths` lists the parameters holding file paths, checked against the workspace boundary like `read_file`'s. `~/.kdeps` and `/tmp` are allowed. An `env` entry whose variable list ends with `""` is optional (it may render empty, and the tool registers without it), and a header that renders empty is not sent:
 
 ```yaml
 # tools/transcribe_audio.yaml (shipped, abridged)
@@ -201,7 +201,7 @@ parameters:
 exec:
   command: tesseract          # looked up on PATH when the tool runs
   install: tesseract-ocr      # the error names it when tesseract is missing
-  paths: [file]               # checked against the workspace boundary before running
+  paths: [file]               # workspace root, plus ~/.kdeps and /tmp
   args:                       # templates over .args; an arg that renders empty is dropped
     - "{{.args.file}}"
     - stdout
@@ -330,9 +330,29 @@ KDEPS_PERMISSION_MODE=danger-full-access ./kdeps # no restrictions (default)
 
 Blocked calls return a `permission denied` tool error to the model, which explains the restriction instead of executing. Tools not in the built-in policy - including workflow, component, and agency tools - require `workspace-write`, so `read-only` blocks anything that could mutate state.
 
+The tool-to-mode mapping is one YAML file, `policy/permission.yaml` in the policy asset set. Each tool names a tier, and each tier names the mode it needs:
+
+```yaml
+default: allow     # an unlisted tool needs workspace-write (the default); deny needs danger-full-access
+tiers:
+  T0: read-only
+  T1: workspace-write
+tools:
+  read_file: T0
+  bash_exec: T1
+```
+
+A tier can also name `ask` (T2 in the built-in file, unused by default): a tool on that tier needs a person to approve each call, in every permission mode. With no terminal and no approver, the call is refused. Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
+
+A tier can also name `token` (T3 in the built-in file, unused by default): a tool or stage on that tier runs only while a valid capability token exists for its scope. An operator issues one with `kdeps token grant <scope> --ttl 1h`, where the scope is a tool name or `stage:<kind>` (for example `stage:exec`). Tokens are YAML files in `~/.kdeps/tokens`. `kdeps token list` shows each token and whether it is valid, and `kdeps token revoke <id>` deletes one. Without a valid token the call is refused and the error names the grant command.
+
+Workflow stages use the same tiers. The file's `resources` table maps each primary resource kind (`exec`, `python`, `httpClient`, `sql`-style kinds, `chat`, `agent`, `component`, ...) to a tier. Every run checks each stage before it executes, including plain `kdeps run`, against `KDEPS_PERMISSION_MODE`: a stage whose tier needs a higher mode than the run's is refused and the workflow stops. A kind on the `ask` tier needs approval, and a workflow run has no one to ask, so it is refused. The default run mode is `danger-full-access`, so nothing changes until an operator sets a stricter mode.
+
+Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
+
 ## Lean mode
 
-The full tool catalog (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is on by default for every session. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool set (~61 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is registered for every session. A cloud backend sends each tool as a native schema. A local backend (file, gguf, ollama, llamafile) also gets a short text list: name, one-line description, and parameter names. Trim the set when you want less prompt weight or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time

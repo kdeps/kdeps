@@ -49,6 +49,16 @@ var goalDirectiveLineRe = regexp.MustCompile(
 // marker line is removed down to a paragraph break.
 var blankRunRe = regexp.MustCompile(`\n{3,}`)
 
+// citationMarkerRe matches a model's private-use citation marker
+// (U+E200 "cite" U+E202 <source ids> U+E201) with the space before it: it
+// points at a source in the model's own environment, not anything kdeps
+// returned, and renders as stray text.
+var citationMarkerRe = regexp.MustCompile(`[ \t]*\x{E200}[^\x{E201}\n]*\x{E201}`)
+
+// fileTagRe matches a <File>name</File> wrapper a model puts around a file
+// name; the name is kept.
+var fileTagRe = regexp.MustCompile(`<File>([^<\n]*)</File>`)
+
 // sanitizeLoopArtifacts strips agent-loop control syntax the model emitted into
 // its reply -- "[MEMORY: ...]" markers and echoed goal-directive lines -- after
 // the loop has already extracted whatever it needed from them. The visible
@@ -64,6 +74,8 @@ func sanitizeLoopArtifacts(text string) string {
 		strings.Contains(out, "Already settled (") {
 		out = goalDirectiveLineRe.ReplaceAllString(out, "")
 	}
+	out = citationMarkerRe.ReplaceAllString(out, "")
+	out = fileTagRe.ReplaceAllString(out, "$1")
 	out = blankRunRe.ReplaceAllString(out, "\n\n")
 	return strings.TrimSpace(out)
 }

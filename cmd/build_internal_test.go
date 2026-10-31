@@ -209,13 +209,13 @@ func (f roundTripFuncMock) RoundTrip(r *http.Request) (*http.Response, error) { 
 func TestPerformDockerBuild_BuildError(t *testing.T) {
 	orig := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = orig })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "", errors.New("build failed: no space left")
 	}
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
-	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{})
+	err := performDockerBuild(t.Context(), builder, wf, "/tmp/pkg", &BuildFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to build image")
 }
@@ -223,7 +223,7 @@ func TestPerformDockerBuild_BuildError(t *testing.T) {
 func TestPerformDockerBuild_BuildSuccess_NoTag(t *testing.T) {
 	orig := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = orig })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "kdeps-test:latest", nil
 	}
 
@@ -234,14 +234,14 @@ func TestPerformDockerBuild_BuildSuccess_NoTag(t *testing.T) {
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
 		},
 	}
-	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{})
+	err := performDockerBuild(t.Context(), builder, wf, "/tmp/pkg", &BuildFlags{})
 	require.NoError(t, err)
 }
 
 func TestPerformDockerBuild_BuildSuccess_WithTag(t *testing.T) {
 	orig := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = orig })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "kdeps-test:latest", nil
 	}
 
@@ -259,14 +259,14 @@ func TestPerformDockerBuild_BuildSuccess_WithTag(t *testing.T) {
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 	}
-	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{Tag: "myrepo/test:v1"})
+	err := performDockerBuild(t.Context(), builder, wf, "/tmp/pkg", &BuildFlags{Tag: "myrepo/test:v1"})
 	require.NoError(t, err)
 }
 
 func TestPerformDockerBuild_BuildSuccess_TagError(t *testing.T) {
 	orig := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = orig })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "kdeps-test:latest", nil
 	}
 
@@ -276,7 +276,7 @@ func TestPerformDockerBuild_BuildSuccess_TagError(t *testing.T) {
 
 	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
-	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{Tag: "bad/tag"})
+	err := performDockerBuild(t.Context(), builder, wf, "/tmp/pkg", &BuildFlags{Tag: "bad/tag"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to tag image")
 }
@@ -438,14 +438,14 @@ func TestGetWorkflowPorts_CustomPortAndOllama(t *testing.T) {
 func TestHandleDockerfileShow_Success(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
-	err := handleDockerfileShow(builder, wf)
+	err := handleDockerfileShow(t.Context(), builder, wf)
 	require.NoError(t, err)
 }
 
 func TestHandleDockerfileShow_Error(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "unsupported-os"}
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
-	err := handleDockerfileShow(builder, wf)
+	err := handleDockerfileShow(t.Context(), builder, wf)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to generate Dockerfile")
 	assert.Contains(t, err.Error(), "invalid base OS")

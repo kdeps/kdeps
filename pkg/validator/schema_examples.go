@@ -70,13 +70,18 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		return example
 	}
 
-	// Check partial matches
-	if field != "" {
-		for key, example := range examples {
-			if strings.Contains(field, key) || strings.Contains(key, field) {
-				return example
-			}
+	// A key and a field that end the same way are the same field at different
+	// depths (chat.model is run.chat.model, targetActionId is
+	// metadata.targetActionId); the longest key wins. A field that is only a
+	// prefix of a key is no match: "settings" is not a route path.
+	best := ""
+	for key := range examples {
+		if field != "" && (dotSuffix(key, field) || dotSuffix(field, key)) && len(key) > len(best) {
+			best = key
 		}
+	}
+	if best != "" {
+		return examples[best]
 	}
 
 	// Type-based defaults
@@ -97,3 +102,8 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 }
 
 // IsEnumField checks if a field has enum constraints in the schema.
+
+// dotSuffix reports whether path ends with the dotted segments of suffix.
+func dotSuffix(path, suffix string) bool {
+	return path == suffix || strings.HasSuffix(path, "."+suffix)
+}

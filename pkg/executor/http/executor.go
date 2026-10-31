@@ -118,7 +118,7 @@ func (e *Executor) Execute(
 	}
 	headers = updatedHeaders
 
-	req, client, err := e.createRequest(resolvedConfig, method, urlStr, body, headers, proxy)
+	req, client, err := e.createRequest(ctx.Ctx, resolvedConfig, method, urlStr, body, headers, proxy)
 	if err != nil {
 		return nil, err
 	}

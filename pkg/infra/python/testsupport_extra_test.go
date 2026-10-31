@@ -38,7 +38,7 @@ func TestManager_InstallPackages_VenvMissing(t *testing.T) {
 	m := python.NewManager(t.TempDir())
 	// Point at a path that exists but has no bin/python inside it.
 	emptyVenv := t.TempDir()
-	err := m.InstallPackages(emptyVenv, []string{"requests"})
+	err := m.InstallPackages(t.Context(), emptyVenv, []string{"requests"})
 	// uv is unlikely to be installed in CI; the error path is what matters.
 	if err != nil {
 		assert.Error(t, err) // confirms we entered and returned from InstallPackages
@@ -50,7 +50,7 @@ func TestManager_InstallPackages_VenvMissing(t *testing.T) {
 func TestManager_InstallRequirements_NonexistentFile(t *testing.T) {
 	m := python.NewManager(t.TempDir())
 	emptyVenv := t.TempDir()
-	err := m.InstallRequirements(emptyVenv, "/nonexistent/requirements.txt")
+	err := m.InstallRequirements(t.Context(), emptyVenv, "/nonexistent/requirements.txt")
 	// We expect an error (uv not found or file not found).
 	if err != nil {
 		assert.Error(t, err)
@@ -66,7 +66,7 @@ func TestManager_InstallTool_BinaryAlreadyOnPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		binary = "cmd"
 	}
-	err := m.InstallTool(binary, "some-pkg")
+	err := m.InstallTool(t.Context(), binary, "some-pkg")
 	require.NoError(t, err, "InstallTool should no-op when binary is already on PATH")
 }
 
@@ -76,7 +76,7 @@ func TestManager_InstallTool_BinaryAlreadyOnPath(t *testing.T) {
 func TestManager_InstallTool_BinaryNotOnPath(t *testing.T) {
 	m := python.NewManager(t.TempDir())
 	// Use a definitely-nonexistent binary name.
-	err := m.InstallTool("__kdeps_no_such_binary_xyz__", "some-pkg")
+	err := m.InstallTool(t.Context(), "__kdeps_no_such_binary_xyz__", "some-pkg")
 	// Either uv succeeds (unlikely) or returns an error — either way code ran.
 	_ = err
 }
@@ -112,7 +112,7 @@ func TestManager_InstallTool_Success(t *testing.T) {
 
 	m := python.NewManager(t.TempDir())
 
-	err := m.InstallTool("pycowsay", "pycowsay")
+	err := m.InstallTool(t.Context(), "pycowsay", "pycowsay")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

@@ -63,17 +63,17 @@ func (s *ModelService) serveGGUFModel(ctx context.Context, model string, port in
 // ggufServerURL returns the base URL of a running llama-server (GGUF) for the
 // given model, or "" if no server is running.
 func (s *ModelService) ggufServerURL(model string) string {
-	_, path, err := s.prepareGGUF(context.Background(), model)
+	_, path, err := s.prepareGGUF(s.ctx, model)
 	if err != nil {
 		return ""
 	}
 	servedGGUFsMu.Lock()
 	port := servedGGUFs[path]
 	servedGGUFsMu.Unlock()
-	if port != 0 && isHealthy(localServerURL(port)) {
+	if port != 0 && isHealthy(s.ctx, localServerURL(port)) {
 		return localServerURL(port) + "/v1"
 	}
-	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+	if saved := readServerPortFile(path); saved != 0 && isHealthy(s.ctx, localServerURL(saved)) {
 		return localServerURL(saved) + "/v1"
 	}
 	return ""

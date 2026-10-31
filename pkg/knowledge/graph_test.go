@@ -156,7 +156,7 @@ func TestRecall(t *testing.T) {
 	assert.True(t, strings.HasPrefix(text, "<knowledge-recall>"))
 	assert.Contains(t, text, filepath.Join(v.Root, "projects", "app", "decisions", "Billing decision.md"))
 	assert.Contains(t, text, "Bill monthly, not per call.")
-	assert.Contains(t, text, "(linked from")
+	assert.Contains(t, text, "--relates_to-->")
 
 	tiny := ix.Recall("billing", 1, 5)
 	assert.LessOrEqual(t, tiny.Tokens, 5)
@@ -168,13 +168,128 @@ func TestRecall(t *testing.T) {
 	assert.NotEmpty(t, ix.Recall("tiers", 1, 100).Hits, "aliases match")
 }
 
+func TestRecall_ClampsHopsToTwo(t *testing.T) {
+	g := &Graph{
+		Nodes: []*Node{
+			{ID: "a", Label: "alpha", Note: "a.md"},
+			{ID: "b", Label: "bravo", Note: "b.md"},
+			{ID: "c", Label: "charlie", Note: "c.md"},
+			{ID: "d", Label: "delta", Note: "d.md"},
+		},
+		Edges: []*Edge{
+			{From: "a", To: "b", Provenance: ProvExtracted, Confidence: 1},
+			{From: "b", To: "c", Provenance: ProvExtracted, Confidence: 1},
+			{From: "c", To: "d", Provenance: ProvExtracted, Confidence: 1},
+		},
+	}
+
+	r := NewIndex(g).Recall("alpha", 3, 1000)
+	var notes []string
+	for _, hit := range r.Hits {
+		notes = append(notes, hit.Note)
+	}
+	assert.Contains(t, notes, "c.md")
+	assert.NotContains(t, notes, "d.md")
+}
+
 func TestRecall_EdgeWeights(t *testing.T) {
 	assert.InDelta(t, 1.0, edgeWeight(&Edge{Provenance: ProvExtracted}), 1e-9)
 	assert.InDelta(t, 0.4, edgeWeight(&Edge{Provenance: ProvInferred, Confidence: 0.4}), 1e-9)
-	assert.InDelta(t, ambiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous}), 1e-9)
+	assert.InDelta(t, ambiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
+	assert.InDelta(t, ambiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
 	assert.InDelta(t, tagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "frontmatter")
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "recall")
+}
+
+func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
+	v, repo := sampleVault(t)
+	legacy := LegacyGraphDir(v.Root)
+	require.NoError(t, os.MkdirAll(legacy, 0o750))
+	_, _, err := Build(t.Context(), v, legacy, buildNow())
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(legacy, "keep.txt"), []byte("keep"), 0o600))
+	require.NoError(t, os.WriteFile(ReportPath(v.Root), []byte("# Knowledge graph report\nold\n"), 0o600))
+
+	dir := GraphDir(v.Root)
+	g, _, err := Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	assert.FileExists(t, GraphPath(dir))
+	assert.NoFileExists(t, filepath.Join(legacy, "graph.json"))
+	assert.FileExists(t, filepath.Join(legacy, "keep.txt"))
+	assert.NoFileExists(t, ReportPath(v.Root))
+	assert.NoFileExists(t, HTMLPath(v.Root))
+
+	var billing *Edge
+	for _, e := range g.Edges {
+		if e.Relation == RelRelatesTo && strings.Contains(e.To, "Stripe gotcha") {
+			billing = e
+		}
+		if e.Relation == RelDependsOn && strings.Contains(e.To, "store") {
+			assert.Contains(t, e.SourceFile, filepath.Join(repo, "main.go"))
+			assert.Equal(t, "L5", e.SourceLocation)
+		}
+		assert.NotEmpty(t, e.SourceFile, e.From+" -> "+e.To)
+	}
+	require.NotNil(t, billing)
+	assert.Equal(t, "projects/app/decisions/Billing decision.md", billing.SourceFile)
+	assert.Equal(t, "L5", billing.SourceLocation)
+
+	text := Explain(g, "Stripe gotcha")
+	assert.Contains(t, text, "Billing decision.md:L5")
+
+	b := &builder{edges: map[string]*Edge{}}
+	b.inferred("a", "b", RelRelatesTo, 0.4, "low.md", "L1")
+	b.inferred("a", "b", RelRelatesTo, 0.8, "high.md", "L9")
+	got := b.edges["a\x00b\x00"+RelRelatesTo]
+	assert.Equal(t, "high.md", got.SourceFile)
+	assert.Equal(t, "L9", got.SourceLocation)
+	b.link("a", "b", RelRelatesTo, "note.md", "L2")
+	got = b.edges["a\x00b\x00"+RelRelatesTo]
+	assert.Equal(t, ProvExtracted, got.Provenance)
+	assert.Equal(t, "note.md", got.SourceFile)
+	b.link("a", "b", RelRelatesTo, "later.md", "L3")
+	assert.Equal(t, "note.md", b.edges["a\x00b\x00"+RelRelatesTo].SourceFile)
+}
+
+func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
+	nodes := []*Node{
+		{ID: "seed", Label: "billing", Note: "seed.md", Summary: "seed"},
+		{ID: "mid", Label: "middle", Note: "mid.md", Summary: "mid"},
+		{ID: "target", Label: "target", Note: "target.md", Summary: "target"},
+		{ID: "weak", Label: "weaknote", Note: "weak.md", Summary: "weak"},
+	}
+	weak := &Edge{From: "seed", To: "target", Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.2,
+		SourceFile: "weak.md", SourceLocation: "L1"}
+	a := &Edge{From: "seed", To: "mid", Relation: RelReferences, Provenance: ProvExtracted, Confidence: 1,
+		SourceFile: "seed.md", SourceLocation: "L2"}
+	b := &Edge{From: "mid", To: "target", Relation: "rationale_for", Provenance: ProvExtracted, Confidence: 1,
+		SourceFile: "mid.md", SourceLocation: "L3"}
+	direct := &Edge{From: "seed", To: "weak", Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.1,
+		SourceFile: "seed.md", SourceLocation: "L9"}
+	r1 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}).Recall("billing", 2, 5000)
+	r2 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}).Recall("billing", 2, 5000)
+	assert.Equal(t, r1.Hits, r2.Hits)
+	var target Hit
+	for _, h := range r1.Hits {
+		if h.Note == "target.md" {
+			target = h
+		}
+	}
+	require.Len(t, target.Path, 2)
+	assert.Equal(t, RelReferences, target.Path[0].Relation)
+	assert.Equal(t, "rationale_for", target.Path[1].Relation)
+	assert.Equal(t, "seed.md", target.Path[0].SourceFile)
+	assert.Equal(t, "L2", target.Path[0].SourceLocation)
+	assert.Contains(t, r1.Format("/v"), "seed --references--> mid --rationale_for--> target")
+	var one Hit
+	for _, h := range r1.Hits {
+		if h.Note == "weak.md" {
+			one = h
+		}
+	}
+	require.Len(t, one.Path, 1)
+	assert.Equal(t, "L9", one.Path[0].SourceLocation)
 }
 
 func TestInit(t *testing.T) {
@@ -554,4 +669,31 @@ func TestTopic(t *testing.T) {
 	assert.False(t, tp.Related("configure kubernetes liveness probes for the api deployment"), "a new topic")
 	assert.True(t, tp.Related("the billing invoices again"), "word forms meet (invoice, invoices)")
 	assert.Equal(t, []string{"kubernete", "liveness", "probe"}, topicWords("make the Kubernetes liveness probes"))
+}
+
+func TestCheckUpdateDetectsExternalVaultChanges(t *testing.T) {
+	v := Vault{Root: t.TempDir()}
+	dir := t.TempDir()
+	note := filepath.Join(v.Root, "one.md")
+	require.NoError(t, os.WriteFile(note, []byte("---\nsummary: one\n---\n"), 0o600))
+
+	changed, stats, err := CheckUpdate(t.Context(), v, dir, time.Now())
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Equal(t, 1, stats.Changed)
+
+	changed, _, err = CheckUpdate(t.Context(), v, dir, time.Now())
+	require.NoError(t, err)
+	assert.False(t, changed)
+
+	require.NoError(t, os.WriteFile(note, []byte("---\nsummary: externally changed\n---\n"), 0o600))
+	changed, stats, err = CheckUpdate(t.Context(), v, dir, time.Now())
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Equal(t, 1, stats.Changed)
+
+	require.NoError(t, os.Remove(note))
+	changed, _, err = CheckUpdate(t.Context(), v, dir, time.Now())
+	require.NoError(t, err)
+	assert.True(t, changed)
 }

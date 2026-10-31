@@ -53,7 +53,7 @@ func TestBuildImageInternal_AbsPathErrors(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
 	cmd := &cobra.Command{}
@@ -75,7 +75,7 @@ func TestBuildImageInternal_TagPath(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "built:1", nil
 	}
 	cmd := &cobra.Command{}
@@ -117,7 +117,7 @@ func TestBuildImageInternal_ShowDockerfile(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:tag", nil
 	}
 	cmd := &cobra.Command{}
@@ -144,7 +144,7 @@ func TestBuildImageInternal_DockerBuild(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:tag", nil
 	}
 	cmd := &cobra.Command{}
@@ -274,7 +274,7 @@ func TestBuildImageInternal_KdepsArchiveCleanup(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
 	cmd := &cobra.Command{}
@@ -293,7 +293,7 @@ func TestBuildImageInternal_TagErr(t *testing.T) {
 	})
 	origBuild := dockerBuildImageFunc
 	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
-	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+	dockerBuildImageFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
 	cmd := &cobra.Command{}

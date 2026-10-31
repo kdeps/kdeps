@@ -47,9 +47,13 @@ func TestHarnessText_KnownAndUnknownNames(t *testing.T) {
 }
 
 func TestHarnessRender_InterpolatesJudgeSystem(t *testing.T) {
-	got := harnessRender("judge-system", struct{ Name, Criteria string }{"correctness", "must be accurate"})
+	got := harnessRender("judge-system", struct {
+		Name, Criteria string
+		HasTools       bool
+	}{"correctness", "must be accurate", false})
 	assert.Contains(t, got, `"correctness"`)
 	assert.Contains(t, got, "must be accurate")
+	assert.Contains(t, got, "judge_verdict")
 	assert.NotContains(t, got, "{{")
 }
 

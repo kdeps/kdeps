@@ -191,16 +191,16 @@ llm:
 
 ## OpenRouter
 
-Access 100+ models from multiple providers through a single API.
+One backend for the models OpenRouter hosts. `/model list` shows the free ones: text models whose prompt and completion prices are both zero. That list is `models/openrouter`, harvested daily from the public models API (`make harvest-openrouter`) and refreshed with `kdeps update models/openrouter`. A model you name yourself still works, including a paid id and `openrouter/free`. OpenRouter has no single default model, so it stays out of auto-router's cloud fallback.
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
   backend: openrouter
-  openrouter_api_key: sk-or-...
+  openrouter_api_key: sk-or-...   # or OPENROUTER_API_KEY
 ```
 
-Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
+Ids use the `provider/model` form, for example `google/gemma-4-31b-it:free`. The live catalog is at [openrouter.ai/models](https://openrouter.ai/models).
 
 ## AWS bedrock
 

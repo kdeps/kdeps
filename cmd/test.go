@@ -118,7 +118,7 @@ func runTestCmd(cmd *cobra.Command, args []string, flags *TestFlags) error {
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
 		return fmt.Errorf("workflow validation failed: %w", validateErr)
 	}
-	if setupErr := setupEnvironmentFunc(workflow); setupErr != nil {
+	if setupErr := setupEnvironmentFunc(cmd.Context(), workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}
 	if llmErr := prepareLLMBackend(workflow); llmErr != nil {

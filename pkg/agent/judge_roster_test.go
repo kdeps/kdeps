@@ -83,7 +83,7 @@ func TestResolveJudgeRoster_NoneConfigured(t *testing.T) {
 }
 
 func TestResolveJudgeRoster_SkipsTrivialPrompt(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	calls := 0
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		calls++
@@ -103,7 +103,7 @@ func TestResolveJudgeRoster_SkipsTrivialPrompt(t *testing.T) {
 
 func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
 	var gotActionID string
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
 		gotActionID = wf.Metadata.TargetActionID
 		return `{"judges":[{"name":"correctness","criteria":"must be accurate"}]}`, nil
@@ -127,7 +127,7 @@ func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
 }
 
 func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return nil, errors.New("boom")
 	})
@@ -142,7 +142,7 @@ func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
 }
 
 func TestGenerateJudgeRoster_FallsBackOnUnparsableReply(t *testing.T) {
-	eng := executor.NewEngine(nil)
+	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 		return "not json at all", nil
 	})
@@ -208,5 +208,21 @@ func TestReportJudgeRoster_PrefersConfigProgressWriter(t *testing.T) {
 func TestLastAutoRoster_NilLoop(t *testing.T) {
 	if got := (*Loop)(nil).LastAutoRoster(); got != nil {
 		t.Fatalf("nil loop LastAutoRoster = %v, want nil", got)
+	}
+}
+
+// A JSON-mode reply the engine already decoded into a map still yields the
+// roster (instrument session hunt11: a valid two-judge reply was reported as
+// "roster generation returned nothing").
+func TestJSONResultText_DecodedObjectStillParses(t *testing.T) {
+	decoded := map[string]any{"judges": []any{
+		map[string]any{"name": "exact-file-content", "criteria": "The reported line matches the file."},
+	}}
+	got := parseJudgeRoster(jsonResultText(decoded))
+	if len(got) != 1 || got[0].Name != "exact-file-content" {
+		t.Fatalf("roster from a decoded object = %+v", got)
+	}
+	if jsonResultText("plain") != "plain" || jsonResultText(nil) != "" {
+		t.Error("text and nil results pass through")
 	}
 }

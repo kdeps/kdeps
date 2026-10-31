@@ -245,7 +245,7 @@ func TestLlamafileManager_MakeExecutable_Missing(t *testing.T) {
 // --- FindFreePort -----------------------------------------------------------
 
 func TestFindFreePort(t *testing.T) {
-	port, err := llm.FindFreePort()
+	port, err := llm.FindFreePort(t.Context())
 	if err != nil {
 		t.Fatalf("FindFreePort: %v", err)
 	}
@@ -255,8 +255,8 @@ func TestFindFreePort(t *testing.T) {
 }
 
 func TestFindFreePort_UniquePerCall(t *testing.T) {
-	p1, err1 := llm.FindFreePort()
-	p2, err2 := llm.FindFreePort()
+	p1, err1 := llm.FindFreePort(t.Context())
+	p2, err2 := llm.FindFreePort(t.Context())
 	if err1 != nil || err2 != nil {
 		t.Fatalf("FindFreePort errors: %v %v", err1, err2)
 	}
@@ -361,7 +361,7 @@ func TestLlamafileManager_Serve_Port0_StartFail(t *testing.T) {
 	if err := os.WriteFile(bin, []byte("not a real binary"), 0750); err != nil {
 		t.Fatal(err)
 	}
-	// port=0 → FindFreePort() is called inside Serve; nothing healthy on that port,
+	// port=0 → FindFreePort(t.Context()) is called inside Serve; nothing healthy on that port,
 	// so it tries to start the binary which immediately fails.
 	_, err := mgr.Serve(context.Background(), bin, 0)
 	if err == nil {

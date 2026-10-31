@@ -266,7 +266,7 @@ The terminal looks as usual (the call-chain trace goes to the file, not the scre
 {"ts":"2026-10-17T12:18:41Z","kind":"workflow","event":"resource.failed","workflowId":"chatbot","actionId":"llm","detail":"connection refused"}
 ```
 
-A `model_request` holds everything the model was sent; the system prompt and tool list are recorded once and then as `{"unchanged_since_request": N}` until they change. A string over 64 KiB is cut, saying how much. A session of the same name is replaced.
+A `model_request` holds everything the model was sent; the system prompt and tool list are recorded once and then as `{"unchanged_since_request": N}` until they change. A workflow `chat` resource's call (and the agent loop's own internal calls, such as prompt refinement) is recorded with `"source": "workflow"`: its messages and tool names, then the reply or error. A string over 64 KiB is cut, saying how much. A session of the same name is replaced.
 
 ```bash
 kdeps instrument list                 # saved sessions, newest first

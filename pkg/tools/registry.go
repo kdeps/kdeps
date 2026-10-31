@@ -93,13 +93,16 @@ func (r *Registry) Unregister(name string) {
 	delete(r.tools, name)
 }
 
-// List returns all registered tools.
+// List returns all registered tools, sorted by name: the tool list is part of
+// every model request, and a stable order keeps the request's cacheable
+// prefix identical from one call to the next.
 func (r *Registry) List() []*Tool {
 	kdeps_debug.Log("enter: List")
 	result := make([]*Tool, 0, len(r.tools))
 	for _, t := range r.tools {
 		result = append(result, t)
 	}
+	slices.SortFunc(result, func(a, b *Tool) int { return strings.Compare(a.Name, b.Name) })
 	return result
 }
 
@@ -171,6 +174,88 @@ func (r *Registry) ToolPrompt() string {
 	}
 	sb.WriteString("</available_tools>")
 	return sb.String()
+}
+
+// ToolPromptCompact is the short catalog for a preamble on a backend with no
+// native tool channel. One line of name and description, then parameter
+// names. The full ToolPrompt catalog stays for instruct and explicit use.
+func (r *Registry) ToolPromptCompact() string {
+	tools := r.List()
+	if len(tools) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("<available_tools>\n")
+	for _, t := range tools {
+		writeCompactToolEntry(&sb, t)
+	}
+	sb.WriteString("</available_tools>")
+	return sb.String()
+}
+
+func writeCompactToolEntry(sb *strings.Builder, t *Tool) {
+	if desc := oneLineDescription(t.Description); desc == "" {
+		fmt.Fprintf(sb, "- %s\n", t.Name)
+	} else {
+		fmt.Fprintf(sb, "- %s: %s\n", t.Name, desc)
+	}
+	if len(t.Parameters) == 0 {
+		return
+	}
+	names := make([]string, 0, len(t.Parameters))
+	for name := range t.Parameters {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	parts := make([]string, len(names))
+	for i, name := range names {
+		parts[i] = name
+		if t.Parameters[name].Required {
+			parts[i] += " (required)"
+		}
+	}
+	fmt.Fprintf(sb, "  params: %s\n", strings.Join(parts, ", "))
+}
+
+const (
+	compactSentenceLimit = 180
+	compactMaxLen        = 160
+	compactWordCutMin    = 80
+)
+
+// oneLineDescription collapses a tool description to a single short line:
+// the first sentence when its terminator is within compactSentenceLimit,
+// then at most compactMaxLen characters, cut on a word boundary when that
+// boundary is past compactWordCutMin.
+func oneLineDescription(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if s == "" {
+		return ""
+	}
+	if end := sentenceEndWithin(s, compactSentenceLimit); end >= 0 {
+		s = s[:end+1]
+	}
+	if len(s) <= compactMaxLen {
+		return s
+	}
+	cut := strings.LastIndex(s[:compactMaxLen], " ")
+	if cut > compactWordCutMin {
+		return strings.TrimRight(s[:cut], " ")
+	}
+	return s[:compactMaxLen]
+}
+
+func sentenceEndWithin(s string, limit int) int {
+	if limit > len(s) {
+		limit = len(s)
+	}
+	for i := range limit {
+		switch s[i] {
+		case '.', '!', '?':
+			return i
+		}
+	}
+	return -1
 }
 
 func writeToolEntry(sb *strings.Builder, t *Tool) {

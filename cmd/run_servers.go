@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -33,7 +34,20 @@ func printSingleRunOutput(output interface{}) {
 	kdeps_debug.Log("enter: printSingleRunOutput")
 	fmt.Fprintln(os.Stdout, "\n✓ Execution complete!")
 	fmt.Fprintln(os.Stdout, "\nOutput:")
-	fmt.Fprintf(os.Stdout, "%v\n", output)
+	fmt.Fprintln(os.Stdout, formatRunOutput(output))
+}
+
+// formatRunOutput is a run's output as the user reads it: text as is, any
+// structured value as indented JSON (not a Go map dump).
+func formatRunOutput(output interface{}) string {
+	if s, ok := output.(string); ok {
+		return s
+	}
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", output)
+	}
+	return string(data)
 }
 
 // resolveServerBindAddress resolves host/port and finds an available listen address.

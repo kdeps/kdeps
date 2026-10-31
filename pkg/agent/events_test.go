@@ -168,6 +168,16 @@ func TestMemoryPromptLimit_ReadsEvent(t *testing.T) {
 	assert.Equal(t, 500, memoryPromptLimit())
 }
 
+func TestLoadBuiltinEvents_HasSideCallMaxTokens(t *testing.T) {
+	built := loadBuiltinEvents()
+	require.Contains(t, built, eventSideCallMaxTokens)
+	assert.Equal(t, 512, built[eventSideCallMaxTokens].On.Tokens)
+	assert.Equal(t, "truncate", built[eventSideCallMaxTokens].Run)
+	got := sideCallMaxTokens("openai", "totally-custom-unlisted-model")
+	require.NotNil(t, got)
+	assert.Equal(t, 512, *got)
+}
+
 func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {
 	assert.Equal(t, 100, memoryKeysLimit())
 }

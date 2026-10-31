@@ -30,7 +30,7 @@ The system prompt lists only each skill's name and description - never the full 
 
 ### Related skills
 
-When skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same graph `search_local` builds over a folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:` / `tags:` in frontmatter:
+When skills are (re)loaded, kdeps records which skills are related. A skill file in the [knowledge vault](/agent/knowledge) takes its related names from that vault's graph, which is brought current first (no model call): a `references` edge in either direction (a markdown or wiki link) or a shared tag. Every other skill uses a reference/topic graph over each skill-library root, the same graph `search_local` builds for a folder outside the vault. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:` / `tags:` in frontmatter:
 
 ```markdown
 ---

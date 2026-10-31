@@ -62,14 +62,26 @@ var stopWords = map[string]bool{
 	"please": true, "tell": true, "show": true, "give": true, "all": true, "any": true, "its": true,
 }
 
+// PathStep is one edge on the path that reached a recalled note.
+type PathStep struct {
+	From           string  `json:"from"`
+	To             string  `json:"to"`
+	Relation       string  `json:"relation"`
+	Provenance     string  `json:"provenance"`
+	Confidence     float64 `json:"confidence"`
+	SourceFile     string  `json:"source_file,omitempty"`
+	SourceLocation string  `json:"source_location,omitempty"`
+}
+
 // Hit is one recalled note.
 type Hit struct {
-	Note    string  `json:"note"` // vault-relative path
-	Title   string  `json:"title"`
-	Summary string  `json:"summary,omitempty"`
-	Score   float64 `json:"score"`
-	Hops    int     `json:"hops"`
-	Via     string  `json:"via,omitempty"` // the seed it was reached from
+	Note    string     `json:"note"` // vault-relative path
+	Title   string     `json:"title"`
+	Summary string     `json:"summary,omitempty"`
+	Score   float64    `json:"score"`
+	Hops    int        `json:"hops"`
+	Via     string     `json:"via,omitempty"` // the seed it was reached from
+	Path    []PathStep `json:"path,omitempty"`
 }
 
 // Recall is the outcome of one recall: the notes worth reading for a
@@ -115,7 +127,63 @@ func NewIndex(g *Graph) *Index {
 		ix.adj[e.From] = append(ix.adj[e.From], e)
 		ix.adj[e.To] = append(ix.adj[e.To], e)
 	}
+	for from, edges := range ix.adj {
+		sortAdj(from, edges)
+	}
 	return ix
+}
+
+// sortAdj orders edges strongest first. Ties break on provenance, relation,
+// the other node, then source file and location, so recall does not depend
+// on the order edges were serialized.
+func sortAdj(from string, edges []*Edge) {
+	sort.SliceStable(edges, func(i, j int) bool {
+		wi, wj := edgeWeight(edges[i]), edgeWeight(edges[j])
+		if wi != wj {
+			return wi > wj
+		}
+		if provOrder(edges[i].Provenance) != provOrder(edges[j].Provenance) {
+			return provOrder(edges[i].Provenance) < provOrder(edges[j].Provenance)
+		}
+		if edges[i].Relation != edges[j].Relation {
+			return edges[i].Relation < edges[j].Relation
+		}
+		oi, oj := otherEnd(edges[i], from), otherEnd(edges[j], from)
+		if oi != oj {
+			return oi < oj
+		}
+		if edges[i].SourceFile != edges[j].SourceFile {
+			return edges[i].SourceFile < edges[j].SourceFile
+		}
+		return edges[i].SourceLocation < edges[j].SourceLocation
+	})
+}
+
+func otherEnd(e *Edge, from string) string {
+	if e.From == from {
+		return e.To
+	}
+	return e.From
+}
+
+const (
+	provRankExtracted = iota
+	provRankInferred
+	provRankAmbiguous
+	provRankOther
+)
+
+func provOrder(p string) int {
+	switch p {
+	case ProvExtracted:
+		return provRankExtracted
+	case ProvInferred:
+		return provRankInferred
+	case ProvAmbiguous:
+		return provRankAmbiguous
+	default:
+		return provRankOther
+	}
 }
 
 func words(s string) []string {
@@ -171,13 +239,16 @@ func set(ws []string) map[string]bool {
 
 // Recall finds the notes related to text: it scores nodes on the request's
 // words, walks up to hops edges from the best ones (extracted edges count
-// fully, guesses by their confidence, each hop halves), and keeps the best
-// notes within budget tokens. No model is involved.
+// fully, inferred edges by their confidence, ambiguous edges by
+// ambiguousWeight times their confidence, each hop halves), strongest edge
+// first, and keeps the best notes within budget tokens. No model is involved.
 //
 // Notes in exclude (vault-relative) are never recalled - the agent's own
 // current session note, which only echoes the conversation.
 func (ix *Index) Recall(text string, hops, budget int, exclude ...string) Recall {
 	if hops <= 0 {
+		hops = DefaultHops
+	} else if hops > DefaultHops {
 		hops = DefaultHops
 	}
 	if budget <= 0 {
@@ -203,7 +274,11 @@ func (ix *Index) Recall(text string, hops, budget int, exclude ...string) Recall
 		if slices.Contains(exclude, h.Note) {
 			continue
 		}
-		cost := (len(h.Note) + len(h.Summary) + len(h.Via) + 16 + bytesPerToken - 1) / bytesPerToken
+		extra := h.Chain()
+		if extra == "" {
+			extra = h.Via
+		}
+		cost := (len(h.Note) + len(h.Summary) + len(extra) + 16 + bytesPerToken - 1) / bytesPerToken
 		if len(r.Hits) >= maxHits || r.Tokens+cost > budget {
 			break
 		}
@@ -274,39 +349,58 @@ func sourceWeight(n *Node) float64 {
 	return 1
 }
 
-// walk spreads score from a seed breadth-first, keeping each note's best.
+// walk spreads score from a seed, strongest edge first. A node is expanded
+// again when a higher score reaches it, so a weak edge listed first cannot
+// hide a stronger path. The hop limit still bounds the walk.
 func (ix *Index) walk(seed string, score float64, hops int, best map[string]Hit) {
 	type item struct {
 		id    string
 		score float64
 		hop   int
+		path  []PathStep
 	}
-	seen := map[string]bool{seed: true}
-	queue := []item{{seed, score, 0}}
-	seedLabel := ix.byID[seed].Label
+	bestAt := map[string]float64{seed: score}
+	queue := []item{{id: seed, score: score}}
+	seedLabel := ""
+	if n := ix.byID[seed]; n != nil {
+		seedLabel = n.Label
+	}
 	for len(queue) > 0 {
-		it := queue[0]
-		queue = queue[1:]
-		ix.keep(it.id, it.score, it.hop, seedLabel, best)
+		bi := 0
+		for i := 1; i < len(queue); i++ {
+			if queue[i].score > queue[bi].score {
+				bi = i
+			}
+		}
+		it := queue[bi]
+		queue = append(queue[:bi], queue[bi+1:]...)
+		if it.score < bestAt[it.id] {
+			continue
+		}
+		ix.keep(it.id, it.score, it.hop, seedLabel, it.path, best)
 		if it.hop >= hops {
 			continue
 		}
 		for _, e := range ix.adj[it.id] {
-			other := e.To
-			if other == it.id {
-				other = e.From
+			other := otherEnd(e, it.id)
+			next := it.score * edgeWeight(e) * hopDecay / math.Log(math.E+float64(len(ix.adj[it.id])))
+			if prev, ok := bestAt[other]; ok && next <= prev {
+				continue
 			}
-			if !seen[other] {
-				seen[other] = true
-				w := edgeWeight(e) * hopDecay / math.Log(math.E+float64(len(ix.adj[it.id])))
-				queue = append(queue, item{other, it.score * w, it.hop + 1})
+			bestAt[other] = next
+			step := PathStep{
+				From: it.id, To: other, Relation: e.Relation, Provenance: e.Provenance,
+				Confidence: e.Confidence, SourceFile: e.SourceFile, SourceLocation: e.SourceLocation,
 			}
+			path := append(append([]PathStep{}, it.path...), step)
+			queue = append(queue, item{other, next, it.hop + 1, path})
 		}
 	}
 }
 
-// keep records a reached note when it beats its earlier score.
-func (ix *Index) keep(id string, score float64, hop int, seedLabel string, best map[string]Hit) {
+// keep records a reached note when it beats its earlier score, with the path
+// that produced that score.
+func (ix *Index) keep(id string, score float64, hop int, seedLabel string, path []PathStep, best map[string]Hit) {
 	n := ix.byID[id]
 	if n == nil || n.Note == "" {
 		return
@@ -318,7 +412,9 @@ func (ix *Index) keep(id string, score float64, hop int, seedLabel string, best 
 	if hop > 0 {
 		via = seedLabel
 	}
-	best[n.Note] = Hit{Note: n.Note, Title: n.Label, Summary: n.Summary, Score: score, Hops: hop, Via: via}
+	best[n.Note] = Hit{
+		Note: n.Note, Title: n.Label, Summary: n.Summary, Score: score, Hops: hop, Via: via, Path: path,
+	}
 }
 
 func edgeWeight(e *Edge) float64 {
@@ -327,12 +423,38 @@ func edgeWeight(e *Edge) float64 {
 	case ProvInferred:
 		w = e.Confidence
 	case ProvAmbiguous:
-		w = ambiguousWeight
+		w = ambiguousWeight * e.Confidence
 	}
 	if e.Relation == RelTagged {
 		w *= tagEdgeWeight
 	}
 	return w
+}
+
+// Chain is the relation path from the seed, for the model and for token accounting.
+func (h Hit) Chain() string {
+	if len(h.Path) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, s := range h.Path {
+		if i == 0 {
+			b.WriteString(shortNode(s.From))
+		}
+		rel := s.Relation
+		if rel == "" {
+			rel = "link"
+		}
+		fmt.Fprintf(&b, " --%s--> %s", rel, shortNode(s.To))
+	}
+	return b.String()
+}
+
+func shortNode(id string) string {
+	for _, prefix := range []string{"note:", "tag:", "code:", "entity:"} {
+		id = strings.TrimPrefix(id, prefix)
+	}
+	return id
 }
 
 // Format renders a recall for the model: absolute paths it can read, each
@@ -353,7 +475,10 @@ func (r Recall) Format(vault string) string {
 		if h.Summary != "" {
 			fmt.Fprintf(&b, " - %s", h.Summary)
 		}
-		if h.Via != "" {
+		switch {
+		case h.Chain() != "":
+			fmt.Fprintf(&b, " (%s)", h.Chain())
+		case h.Via != "":
 			fmt.Fprintf(&b, " (linked from %s)", h.Via)
 		}
 		b.WriteByte('\n')

@@ -19,6 +19,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func newTestApp(t *testing.T, statePath string) *App {
 	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
 
 	app := NewApp(statePath)
-	require.NoError(t, app.init(t.Context(), func(desktop.Event) {}, executor.NewEngine(nil)))
+	require.NoError(t, app.init(t.Context(), func(desktop.Event) {}, executor.NewEngine(context.Background(), nil)))
 	return app
 }
 
@@ -64,7 +65,7 @@ func TestApp_OpenWorkspacePersistsAndRestores(t *testing.T) {
 	assert.Equal(t, []string{dir}, app.Recent())
 
 	again := NewApp(statePath)
-	require.NoError(t, again.init(t.Context(), func(desktop.Event) {}, executor.NewEngine(nil)))
+	require.NoError(t, again.init(t.Context(), func(desktop.Event) {}, executor.NewEngine(context.Background(), nil)))
 	assert.Equal(t, dir, again.Workspace(), "last workspace is restored")
 }
 

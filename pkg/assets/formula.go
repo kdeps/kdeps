@@ -45,6 +45,7 @@ var setTypes = map[string]string{
 	"events":     "event",
 	"actions":    "action",
 	"presets":    "preset",
+	"policy":     "policy",
 	"themes":     "theme",
 	"tools":      "tool",
 	"commands":   "command",
@@ -57,6 +58,7 @@ var setTypes = map[string]string{
 	"defaults":   "defaults",
 	"components": "kdeps-component",
 	"providers":  "provider",
+	"memory":     "memory-rules",
 }
 
 // PackageType is the registry package type of set's items ("" if set is not

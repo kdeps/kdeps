@@ -50,7 +50,7 @@ func effIntegrationLoop(t *testing.T, s agent.Streamer) (*agent.Loop, string) {
 	require.NoError(t, os.WriteFile(path, []byte("hello world\n"), 0o600))
 	reg := tools.NewRegistry()
 	agent.RegisterBuiltinTools(t.Context(), reg)
-	loop := agent.New(executor.NewEngine(nil), &domain.Workflow{
+	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), &domain.Workflow{
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
 	}, reg, agent.Config{Model: "test", Streamer: s, MaxToolRounds: 20})

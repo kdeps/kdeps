@@ -107,10 +107,11 @@ func checkCards(cards []*Card) []Finding {
 }
 
 // checkNotes reports next steps outside cards, duplicate summaries,
-// dangling links and notes without a summary.
+// duplicate canonical ids, dangling links and notes without a summary.
 func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 	var out []Finding
 	summaries := map[string][]string{}
+	canonicals := map[string][]string{}
 	resolve := newResolver(notes)
 	for _, n := range notes {
 		abs := filepath.Join(v.Root, filepath.FromSlash(n.Path))
@@ -119,6 +120,9 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		}
 		if _, ok := n.Meta[CardNext]; ok {
 			out = append(out, Finding{abs, "has a next step; it belongs in the project card (one home per fact)"})
+		}
+		if n.Canonical != "" {
+			canonicals[n.Canonical] = append(canonicals[n.Canonical], abs)
 		}
 		if isMemoryNote(n.Path) {
 			out = append(out, danglingLinks(v.Root, abs, n, resolve)...)
@@ -137,6 +141,14 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 			out = append(out, Finding{files[0], "has the same summary as " + strings.Join(files[1:], ", ") +
 				"; keep the fact in one note and link it"})
 		}
+	}
+	for id, files := range canonicals {
+		if len(files) <= 1 {
+			continue
+		}
+		sort.Strings(files)
+		out = append(out, Finding{files[0], "claims canonical id " + id + ", also claimed by " +
+			strings.Join(files[1:], ", ") + "; one fact has one home"})
 	}
 	return out
 }

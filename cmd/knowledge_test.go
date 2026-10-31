@@ -76,8 +76,19 @@ func TestKnowledgeCmd(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
 		[]byte("---\nsummary: One home per fact.\n---\n"), 0o600))
 
-	_, err = runKnowledge(t, "recall", "graph")
-	require.ErrorContains(t, err, "no graph yet")
+	out, err = runKnowledge(t, "recall", "graph")
+	require.NoError(t, err)
+	assert.Contains(t, out, "shared/Graph recall.md")
+
+	out, err = runKnowledge(t, "check-update")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Graph is current.")
+
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
+		[]byte("---\nsummary: One canonical home per fact.\n---\n"), 0o600))
+	out, err = runKnowledge(t, "check-update")
+	require.NoError(t, err)
+	assert.Regexp(t, `\d+ notes \(1 changed\)`, out)
 
 	out, err = runKnowledge(t, "build")
 	require.NoError(t, err)
@@ -87,6 +98,10 @@ func TestKnowledgeCmd(t *testing.T) {
 	out, err = runKnowledge(t, "recall", "link", "graph")
 	require.NoError(t, err)
 	assert.Contains(t, out, "shared/Graph recall.md")
+
+	out, err = runKnowledge(t, "explain", "One home")
+	require.NoError(t, err)
+	assert.Contains(t, out, "shared/Graph recall.md:L")
 	assert.Contains(t, out, "One home.md")
 	out, err = runKnowledge(t, "recall", "zzz")
 	require.NoError(t, err)
@@ -118,6 +133,7 @@ func TestPrintFindings_OutsideVault(t *testing.T) {
 
 func TestKnowledgeBuild_Extract(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(t.TempDir(), "config.yaml"))
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
 	t.Setenv("OLLAMA_HOST", "http://127.0.0.1:1")
 	vault := t.TempDir()

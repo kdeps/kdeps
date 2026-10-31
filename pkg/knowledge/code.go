@@ -56,7 +56,10 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 		rootID := "code:" + module
 		b.add(&Node{ID: rootID, Label: module, Kind: KindCode})
 		if rel, relErr := filepath.Rel(v.Root, c.File); relErr == nil && !strings.HasPrefix(rel, "..") {
-			b.link(noteID(filepath.ToSlash(rel)), rootID, RelReferences)
+			b.link(
+				noteID(filepath.ToSlash(rel)), rootID, RelReferences,
+				filepath.ToSlash(rel), lineRef(lineInFile(c.File, repo)),
+			)
 		}
 		b.addModule(ctx, root, module)
 	}
@@ -140,37 +143,47 @@ func skipCodeDir(name string) bool {
 func (b *builder) addPackageFile(file, module, pkg string) {
 	id := "code:" + pkg
 	b.add(&Node{ID: id, Label: pkg, Kind: KindCode})
-	for _, imp := range fileImports(file, b.cache, b.next) {
+	imports, lines := fileImports(file, b.cache, b.next)
+	for i, imp := range imports {
 		if imp == module || strings.HasPrefix(imp, module+"/") {
 			b.add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
-			b.link(id, "code:"+imp, RelDependsOn)
+			loc := ""
+			if i < len(lines) {
+				loc = lineRef(lines[i])
+			}
+			b.link(id, "code:"+imp, RelDependsOn, file, loc)
 		}
 	}
 }
 
 // fileImports parses one Go file's imports, from the cache when unchanged.
-func fileImports(file string, cache buildCache, next *buildCache) []string {
+func fileImports(file string, cache buildCache, next *buildCache) ([]string, []int) {
 	data, err := os.ReadFile(file)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	hash := hashBytes(data)
 	key := "code:" + file
 	if e, ok := cache.Files[key]; ok && e.Hash == hash {
 		next.Files[key] = e
-		return e.Imports
+		return e.Imports, e.ImportLine
 	}
-	f, err := parser.ParseFile(token.NewFileSet(), file, data, parser.ImportsOnly)
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, file, data, parser.ImportsOnly)
 	var imports []string
+	var lines []int
 	if err == nil {
 		for _, s := range f.Imports {
-			if p, uErr := strconv.Unquote(s.Path.Value); uErr == nil {
-				imports = append(imports, p)
+			p, uErr := strconv.Unquote(s.Path.Value)
+			if uErr != nil {
+				continue
 			}
+			imports = append(imports, p)
+			lines = append(lines, fset.Position(s.Pos()).Line)
 		}
 	}
-	next.Files[key] = cacheEntry{Hash: hash, Imports: imports}
-	return imports
+	next.Files[key] = cacheEntry{Hash: hash, Imports: imports, ImportLine: lines}
+	return imports, lines
 }
 
 // goModule is the module path in root/go.mod, or "".

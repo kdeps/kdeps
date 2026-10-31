@@ -169,7 +169,7 @@ func TestSaveStatus_CapsKeysAndKeepsSeqUnique(t *testing.T) {
 	l := statusLoop(t)
 	var first string
 	seen := map[string]bool{}
-	for i := range statusMaxKeys + 5 {
+	for i := range memoryStatusLimit() + 5 {
 		id := l.saveStatus("t", "v")
 		require.NotEmpty(t, id)
 		assert.False(t, seen[id], "ids are unique")
@@ -178,7 +178,7 @@ func TestSaveStatus_CapsKeysAndKeepsSeqUnique(t *testing.T) {
 			first = id
 		}
 	}
-	assert.Len(t, l.statusKeys, statusMaxKeys)
+	assert.Len(t, l.statusKeys, memoryStatusLimit())
 	_, ok := l.memoryStore.Get(first)
 	assert.False(t, ok, "oldest status entry is pruned")
 }

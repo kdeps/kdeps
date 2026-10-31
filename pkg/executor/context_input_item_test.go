@@ -30,7 +30,7 @@ import (
 
 // TestExecutionContext_Item_IterationContext tests item iteration context.
 func TestExecutionContext_Coverage_Item_IterationContext(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Set up iteration context

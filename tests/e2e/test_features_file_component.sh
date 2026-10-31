@@ -49,7 +49,8 @@ W_OUT=$(fc_run "    operation: write
     content: \"alpha\\nbeta\\n\"")
 R_OUT=$(fc_run "    operation: read
     path: \"$FC_DATA_NATIVE/notes.txt\"")
-if output_grep "written:true" "$W_OUT" && output_grep "lines:\[alpha beta \]" "$R_OUT"; then
+if output_grep '"written": true' "$W_OUT" && output_grep '"lines": \[' "$R_OUT" \
+    && output_grep '"alpha"' "$R_OUT" && output_grep '"beta"' "$R_OUT"; then
     test_passed "file component - write, then read returns content and lines"
 else
     test_failed "file component - write/read" "$W_OUT $R_OUT"
@@ -58,7 +59,7 @@ fi
 P_OUT=$(fc_run "    operation: patch
     path: \"$FC_DATA_NATIVE/notes.txt\"
     patch: \"@@ -1,2 +1,2 @@\\n alpha\\n-beta\\n+gamma\\n\"")
-if output_grep "patched:true" "$P_OUT" && [ "$(cat "$FC_DATA/notes.txt")" = "$(printf 'alpha\ngamma')" ]; then
+if output_grep '"patched": true' "$P_OUT" && [ "$(cat "$FC_DATA/notes.txt")" = "$(printf 'alpha\ngamma')" ]; then
     test_passed "file component - patch applies a unified diff"
 else
     test_failed "file component - patch" "$P_OUT"
@@ -76,7 +77,7 @@ fi
 L_OUT=$(fc_run "    operation: list
     path: \"$FC_DATA_NATIVE\"
     pattern: \"*.txt\"")
-if output_grep "count:1" "$L_OUT" && output_grep "name:notes.txt" "$L_OUT"; then
+if output_grep '"count": 1' "$L_OUT" && output_grep '"name": "notes\.txt"' "$L_OUT"; then
     test_passed "file component - list filters entries by pattern"
 else
     test_failed "file component - list" "$L_OUT"

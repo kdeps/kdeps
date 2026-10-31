@@ -50,6 +50,10 @@ func init() {
 		_, err := parseYAMLEvent(data, name)
 		return err
 	}})
+	assets.Register("policy", assets.Spec{Validate: func(data []byte, _ string) error {
+		_, err := parsePermissionPolicy(data)
+		return err
+	}})
 	assets.Register("actions", assets.Spec{Validate: func(data []byte, name string) error {
 		_, err := parseYAMLAction(data, name)
 		return err

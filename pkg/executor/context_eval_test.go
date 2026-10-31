@@ -30,7 +30,7 @@ import (
 
 // TestExecutionContext_BuildEvaluatorEnv covers BuildEvaluatorEnv branches.
 func TestExecutionContext_BuildEvaluatorEnv(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
 	require.NoError(t, err)
 
 	// Default env - no item in Items

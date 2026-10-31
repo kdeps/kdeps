@@ -40,7 +40,7 @@ func TestIsHealthy_Success(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	assert.True(t, isHealthy(srv.URL))
+	assert.True(t, isHealthy(t.Context(), srv.URL))
 }
 
 func TestIsHealthy_NotOK(t *testing.T) {
@@ -48,15 +48,15 @@ func TestIsHealthy_NotOK(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
-	assert.False(t, isHealthy(srv.URL))
+	assert.False(t, isHealthy(t.Context(), srv.URL))
 }
 
 func TestIsHealthy_ConnectionRefused(t *testing.T) {
-	assert.False(t, isHealthy("http://127.0.0.1:1"))
+	assert.False(t, isHealthy(t.Context(), "http://127.0.0.1:1"))
 }
 
 func TestIsHealthy_InvalidURL(t *testing.T) {
-	assert.False(t, isHealthy("://invalid"))
+	assert.False(t, isHealthy(t.Context(), "://invalid"))
 }
 
 func TestFindFreePort_ListenError(t *testing.T) {
@@ -66,7 +66,7 @@ func TestFindFreePort_ListenError(t *testing.T) {
 		return nil, errors.New("no ports available")
 	}
 
-	_, err := FindFreePort()
+	_, err := FindFreePort(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot find free port")
 }
@@ -78,7 +78,7 @@ func TestFindFreePort_CloseError(t *testing.T) {
 		return failingListener{}, nil
 	}
 
-	_, err := FindFreePort()
+	_, err := FindFreePort(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot close listener")
 }
@@ -137,7 +137,7 @@ func TestServeLocalProcess_ReusesCrossProcessPort(t *testing.T) {
 		mu:     mu,
 		served: served,
 		pids:   map[string]int{},
-		startServer: func(_ string, _ int) (int, error) {
+		startServer: func(_ context.Context, _ string, _ int) (int, error) {
 			startCalled = true
 			return 0, nil
 		},

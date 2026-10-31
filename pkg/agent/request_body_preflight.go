@@ -28,6 +28,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ProviderMaxRequestBodyBytes defines the maximum request body size per backend.
@@ -96,21 +97,18 @@ func formatBytes(b int64) string {
 	return fmt.Sprintf("%d bytes", b)
 }
 
-// RequestSizePreflightWarnings returns a slice of warning strings to display
-// at startup for backends that have low request size limits. For example,
-// DashScope users should know their context window is limited.
-func RequestSizePreflightWarnings() []string {
-	var warnings []string
-	for backend, limit := range ProviderMaxRequestBodyBytes {
-		if limit > 0 && limit < smallProviderThreshold {
-			warnings = append(warnings, fmt.Sprintf(
-				"Backend %q has a %s request body limit — "+
-					"reduce MaxHistoryTokens if you hit payload errors",
-				backend, formatBytes(limit),
-			))
-		}
+// RequestSizePreflightWarnings returns the startup warning for backend when
+// it has a low request size limit (DashScope users should know their context
+// window is limited), or nothing: a limit of a backend not in use is noise.
+func RequestSizePreflightWarnings(backend string) []string {
+	limit := ProviderMaxRequestBodyBytes[strings.ToLower(strings.TrimSpace(backend))]
+	if limit <= 0 || limit >= smallProviderThreshold {
+		return nil
 	}
-	return warnings
+	return []string{fmt.Sprintf(
+		"Backend %q has a %s request body limit — reduce MaxHistoryTokens if you hit payload errors",
+		backend, formatBytes(limit),
+	)}
 }
 
 // EstimateTokenCountFromStrings approximates total token count from combined

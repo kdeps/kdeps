@@ -192,13 +192,11 @@ func isHeadless() bool {
 func compactTokenStatus() string {
 	in := llm.SessionInputTokens()
 	out := llm.SessionOutputTokens()
-	parts := []string{
-		"session sent " + formatCompactCount(in),
-		"generated " + formatCompactCount(out),
-		"total " + formatCompactCount(in+out),
-	}
+	// Arrows: up is sent (input), down is generated (output). The turn part
+	// shows only once the turn has used tokens.
+	parts := []string{"session ↑" + formatCompactCount(in) + " ↓" + formatCompactCount(out)}
 	if dIn, dOut := turnTokenDelta(); dIn > 0 || dOut > 0 {
-		parts = append(parts, "this turn +"+formatCompactCount(dIn)+" sent +"+formatCompactCount(dOut)+" generated")
+		parts = append(parts, "turn ↑"+formatCompactCount(dIn)+" ↓"+formatCompactCount(dOut))
 	}
 	if calls, limit := WebConvergenceCalls(); limit > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("web %d/%d", calls, limit))
@@ -212,9 +210,7 @@ func compactTokenStatus() string {
 	if calls, limit := CodeConvergenceCalls(); limit > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("src %d/%d", calls, limit))
 	}
-	return styleReplDim.Render("[") +
-		styleReplMeta.Render(strings.Join(parts, " | ")) +
-		styleReplDim.Render("] ")
+	return styleReplMeta.Render(strings.Join(parts, " · ")) + " "
 }
 
 const (

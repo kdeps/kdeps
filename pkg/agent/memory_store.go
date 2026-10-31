@@ -1002,7 +1002,7 @@ func focusScore(e MemoryEntry, toks []string) int {
 			score++
 		}
 	}
-	if score > 0 && e.Type != "" && !memoryLowSignalTypes[e.Type] {
+	if score > 0 && e.Type != "" && !slices.Contains(memoryRules.LowSignal, e.Type) {
 		score += focusStructuralBonus
 	}
 	return score
@@ -1088,27 +1088,15 @@ func significantTokens(s string) []string {
 	return out
 }
 
-// Resume tiebreak ranks (V): higher wins when timestamps are equal. Active work is
-// the most natural place to continue, then current state, then a pending outcome.
-const (
-	resumeRankProgress = 3
-	resumeRankStatus   = 2
-	resumeRankResult   = 1
-	resumeRankNone     = 0
-)
-
-// resumeTypeRank orders resumable types when two candidates share a timestamp (V).
+// resumeTypeRank orders resumable types when two candidates share a timestamp:
+// the earlier a type is in the memory rules' resume list, the higher (V).
 func resumeTypeRank(t string) int {
-	switch t {
-	case memTypeProgress:
-		return resumeRankProgress
-	case memTypeStatus:
-		return resumeRankStatus
-	case memTypeResult:
-		return resumeRankResult
-	default:
-		return resumeRankNone
+	for i, r := range memoryRules.Resume {
+		if r == t {
+			return len(memoryRules.Resume) - i
+		}
 	}
+	return 0
 }
 
 // resumeKeyFrom picks the node a cold model should continue from: the most
@@ -1271,59 +1259,20 @@ func markerHit(value string, tokens map[string]bool, marker string) bool {
 	return prefixInSet(tokens, marker)
 }
 
-// errorIsResolved reports whether an error entry's value reads as already handled,
-// so a fixed failure is not resurfaced as an active hazard. Not-resolved markers
-// win first (W), so "reopened" / "not fixed" are never mistaken for resolution.
-// Matching is word-boundary based (X): "fixed" does not match inside "prefixed".
+// errorIsResolved reports whether an error entry's value reads as already handled
+// (the memory rules' error_resolved markers), so a fixed failure is not
+// resurfaced as an active hazard.
 func errorIsResolved(value string) bool {
-	v := strings.ToLower(value)
-	toks := wordTokens(v)
-	for _, neg := range []string{
-		"reopened", "not fixed", "not resolved", "still failing", "still broken", "regressed",
-	} {
-		if markerHit(v, toks, neg) {
-			return false
-		}
-	}
-	for _, m := range []string{
-		"resolved", "fixed", "closed", "no longer", "not an issue", "works now",
-		"wontfix", "won't fix", "cancelled", "canceled", "abandoned",
-	} {
-		if markerHit(v, toks, m) {
-			return true
-		}
-	}
-	return false
+	return memoryRules.ErrorResolved.hit(value)
 }
-
 func isResumableType(t string) bool {
-	return t == memTypeProgress || t == memTypeResult || t == memTypeStatus
+	return resumeTypeRank(t) > 0
 }
 
-// statusIsDone reports whether a value reads as completed work. Not-done markers
-// win, so "not done" / "incomplete" / "in progress" are never mistaken for
-// completion. Matching is word-boundary based (X): "done" does not match inside
-// "undone"/"condone", nor "blocked" inside "unblocked".
+// statusIsDone reports whether a value reads as completed work (the memory
+// rules' status_done markers).
 func statusIsDone(value string) bool {
-	v := strings.ToLower(value)
-	toks := wordTokens(v)
-	for _, neg := range []string{
-		"not done", "not complete", "not finished", "incomplete", "unfinished",
-		"in progress", "in-progress", "pending", "todo", "to do", "wip", "blocked", "failed",
-	} {
-		if markerHit(v, toks, neg) {
-			return false
-		}
-	}
-	for _, done := range []string{
-		"done", "complete", "finished", "success", "shipped", "merged",
-		"cancelled", "canceled", "abandoned", "wontfix", "won't fix", // concluded, won't continue (W)
-	} {
-		if markerHit(v, toks, done) {
-			return true
-		}
-	}
-	return false
+	return memoryRules.StatusDone.hit(value)
 }
 
 // minDupValueLen is the shortest normalized value worth flagging as a duplicate
@@ -1712,33 +1661,11 @@ func toolResultKey(toolName, result string) string {
 	return "tool:" + toolName + ":" + key
 }
 
-// toolMemoryWorthy returns true for tool types whose results are worth remembering.
-// Read-only lookups and ephemeral commands produce noise, not facts.
-//
-//nolint:gochecknoglobals // lookup table, not mutable state
-var toolMemoryWorthy = map[string]bool{
-	toolNameWriteFile:   true,
-	toolNameEditFile:    true,
-	toolNameBashExec:    true,
-	toolNameReadFile:    true,
-	toolNameSearchLocal: true,
-	"sql_query":         true,
-	"http_request":      true,
-	"web_search":        true,
-	"web_scraper":       true,
-	"wikipedia":         true,
-}
-
-// isToolMemoryWorthy returns true if a tool's results should be auto-captured.
+// isToolMemoryWorthy returns true if a tool's results should be auto-captured
+// (the memory rules' capture_tools).
 func isToolMemoryWorthy(toolName string) bool {
-	return toolMemoryWorthy[toolName]
+	return slices.Contains(memoryRules.CaptureTools, toolName)
 }
-
-// thinkingResultCap bounds how many reasoning/chain-of-thought entries are
-// kept, same as ExtractToolResult's per-tool cap — thinking fires at least
-// once per round, so an unbounded session would otherwise bloat the store
-// fastest of any entry type.
-const thinkingResultCap = 20
 
 // SaveThinking saves the model's reasoning/chain-of-thought text for a round
 // as a memory entry, so a later turn (or a future session) can memory_search
@@ -1770,11 +1697,11 @@ func (m *MemoryStore) SaveThinking(text string) int {
 			thinkingKeys = append(thinkingKeys, k)
 		}
 	}
-	if len(thinkingKeys) >= thinkingResultCap {
+	if thinkingCap := memoryThinkingLimit(); len(thinkingKeys) >= thinkingCap {
 		sort.Slice(thinkingKeys, func(i, j int) bool {
 			return m.entries[thinkingKeys[i]].UpdatedAt < m.entries[thinkingKeys[j]].UpdatedAt
 		})
-		for _, k := range thinkingKeys[:len(thinkingKeys)-thinkingResultCap+1] {
+		for _, k := range thinkingKeys[:len(thinkingKeys)-thinkingCap+1] {
 			delete(m.entries, k)
 		}
 	}
@@ -1836,9 +1763,9 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 		UpdatedAt: now,
 	})
 
-	// Prune old tool-call entries of the same type to cap memory bloat.
-	// Keep the 20 most recent per tool; delete the oldest.
-	const toolResultCap = 20
+	// Prune old tool-call entries of the same type to cap memory bloat: keep
+	// the memory-tool-results-limit most recent per tool.
+	toolResultCap := memoryToolResultsLimit()
 	prefix := "tool:" + toolName + ":"
 	var toolKeys []string
 	for k := range m.entries {
@@ -1846,11 +1773,11 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 			toolKeys = append(toolKeys, k)
 		}
 	}
-	if len(toolKeys) > toolResultCap {
+	if len(toolKeys) >= toolResultCap { // room for the entry being saved
 		sort.Slice(toolKeys, func(i, j int) bool {
 			return m.entries[toolKeys[i]].UpdatedAt < m.entries[toolKeys[j]].UpdatedAt
 		})
-		for _, k := range toolKeys[:len(toolKeys)-toolResultCap] {
+		for _, k := range toolKeys[:len(toolKeys)-toolResultCap+1] {
 			delete(m.entries, k)
 		}
 	}
@@ -1871,31 +1798,11 @@ func (m *MemoryStore) ExtractTurn(userInput, assistantResponse string) int {
 	return m.saveEntries(extractTurnFacts(userInput, assistantResponse))
 }
 
-// parentType maps each entry type to the type it should depend on in the graph.
-// Creates a DAG where tool_results depend on the prompt/progress that spawned them,
-// results depend on tool_results, and status depends on results.
-var parentType = map[string]string{ //nolint:gochecknoglobals // static DAG mapping from entry type to parent type
-	memTypePrompt:     "",              // root — no parent
-	memTypePurpose:    memTypePrompt,   // purpose depends on prompt
-	memTypeProgress:   memTypeResult,   // progress depends on results
-	memTypeToolResult: memTypeProgress, // tool calls depend on progress/prompt
-	memTypeResult:     memTypeToolResult,
-	memTypeAction:     memTypeToolResult,
-	memTypeStatus:     memTypeResult,
-	memTypeFile:       memTypeResult,
-	memTypeDecision:   memTypeResult,
-	memTypeError:      memTypeToolResult,
-	memTypeContext:    memTypePrompt,
-	memTypePreference: memTypePrompt,
-	memTypeFact:       memTypeResult,
-	memTypeNote:       memTypeResult,
-}
-
 // findParentKey returns the key of the most recent entry whose type matches the
 // expected parent type for the given child type. Falls back to the most recent
 // entry of any type if no parent-type match exists.
 func (m *MemoryStore) findParentKey(childType string) string {
-	wantParent := parentType[childType]
+	wantParent := memoryRules.Parents[childType]
 
 	var fallbackKey string
 	var fallbackTime int64
@@ -1939,39 +1846,25 @@ func (m *MemoryStore) resolveLinkTarget(entryType, batchPrevKey, entryKey string
 	return linkTarget
 }
 
-// memoryLowSignalCap bounds how many low-signal (note/fact) auto-extracted entries
-// are retained (K). These accumulate fastest and carry the least structural value,
-// so the oldest beyond the cap are pruned to keep the store and the injected prompt
-// from bloating over long-lived projects. Structural types (prompt/purpose/progress/
-// result/status/decision/context/tool_result/...) are never pruned here.
-const memoryLowSignalCap = 50
-
-// memoryLowSignalTypes are the auto-extracted types eligible for global retention
-// pruning. Deliberately narrow — only the noisiest, least-structural types.
-//
-//nolint:gochecknoglobals // static set
-var memoryLowSignalTypes = map[string]bool{
-	memTypeNote: true,
-	memTypeFact: true,
-}
-
-// pruneLowSignal deletes the oldest low-signal (note/fact) entries beyond
-// memoryLowSignalCap. The caller must hold m.mu. Returns the number pruned.
+// pruneLowSignal deletes the oldest low-signal entries (the memory rules'
+// low_signal types) beyond
+// memory-low-signal-limit. The caller must hold m.mu. Returns the number pruned.
 func (m *MemoryStore) pruneLowSignal() int {
 	var keys []string
 	for k, e := range m.entries {
-		if memoryLowSignalTypes[e.Type] {
+		if slices.Contains(memoryRules.LowSignal, e.Type) {
 			keys = append(keys, k)
 		}
 	}
-	if len(keys) <= memoryLowSignalCap {
+	limit := memoryLowSignalLimit()
+	if len(keys) <= limit {
 		return 0
 	}
 	sort.Slice(keys, func(i, j int) bool {
 		return m.entries[keys[i]].UpdatedAt < m.entries[keys[j]].UpdatedAt
 	})
 	pruned := 0
-	for _, k := range keys[:len(keys)-memoryLowSignalCap] {
+	for _, k := range keys[:len(keys)-limit] {
 		delete(m.entries, k)
 		pruned++
 	}
@@ -2025,30 +1918,6 @@ func (m *MemoryStore) saveEntries(entries []MemoryEntry) int {
 	return captured
 }
 
-// inferType assigns a memory entry type based on its key pattern.
-// typeRule maps a key pattern (prefix or substring) to a memory entry type.
-type typeRule struct {
-	Match func(key string) bool
-	Type  string
-}
-
-var typeRules = []typeRule{ //nolint:gochecknoglobals // static lookup table for inferType
-	{func(k string) bool { return strings.HasPrefix(k, "tool:") }, memTypeToolResult},
-	{func(k string) bool { return strings.HasPrefix(k, "thinking:") }, memTypeThinking},
-	{func(k string) bool { return k == "last_action" }, memTypeAction},
-	{func(k string) bool { return k == "last_files" }, memTypeFile},
-	{func(k string) bool { return containsAny(k, "prompt", "goal", "task") }, memTypePrompt},
-	{func(k string) bool { return containsAny(k, "purpose", "why", "reason") }, memTypePurpose},
-	{func(k string) bool { return containsAny(k, "progress", "wip", "in_progress") }, memTypeProgress},
-	{func(k string) bool { return containsAny(k, "status", "state") }, memTypeStatus},
-	{func(k string) bool { return containsAny(k, "decision", "decided") }, memTypeDecision},
-	{func(k string) bool { return containsAny(k, "preference", "prefer", "like") }, memTypePreference},
-	{func(k string) bool { return containsAny(k, "error", "fail", "bug") }, memTypeError},
-	{func(k string) bool { return containsAny(k, "file", "path", "dir") }, memTypeFile},
-	{func(k string) bool { return containsAny(k, "context", "env", "config") }, memTypeContext},
-	{func(k string) bool { return containsAny(k, "result", "output", "done") }, memTypeResult},
-}
-
 // containsAny reports whether s contains any of the given substrings.
 func containsAny(s string, substrs ...string) bool {
 	for _, sub := range substrs {
@@ -2059,13 +1928,15 @@ func containsAny(s string, substrs ...string) bool {
 	return false
 }
 
+// inferType assigns a memory entry type from its key: the first of the memory
+// rules' types that matches, else default_type.
 func inferType(key string) string {
-	for _, rule := range typeRules {
-		if rule.Match(key) {
+	for _, rule := range memoryRules.Types {
+		if rule.match(key) {
 			return rule.Type
 		}
 	}
-	return memTypeNote
+	return memoryRules.DefaultType
 }
 
 // AutoCapture parses a compaction summary and saves structured sections to the

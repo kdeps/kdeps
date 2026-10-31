@@ -58,6 +58,7 @@ var setShelf = map[string]string{
 	"commands":   ShelfAgent,
 	"themes":     ShelfAgent,
 	"events":     ShelfGuardrails,
+	"policy":     ShelfGuardrails,
 	"actions":    ShelfGuardrails,
 	"schemas":    ShelfWorkflow,
 	"templates":  ShelfWorkflow,
@@ -65,6 +66,7 @@ var setShelf = map[string]string{
 	"defaults":   ShelfWorkflow,
 	"docker":     ShelfDeploy,
 	"k8s":        ShelfDeploy,
+	"memory":     ShelfMemory,
 }
 
 // itemShelf files an item on a shelf other than its set's default, when one
@@ -87,6 +89,7 @@ var itemShelf = map[string]string{
 	"events/force-answer-digest":     ShelfContext,
 	"events/history-window-trim":     ShelfContext,
 	"events/memory-prompt-limit":     ShelfContext,
+	"events/side-call-max-tokens":    ShelfContext,
 	"events/thinking-budget-auto":    ShelfModel,
 	"events/thinking-budget-high":    ShelfModel,
 	"events/thinking-budget-low":     ShelfModel,
@@ -115,6 +118,11 @@ var itemShelf = map[string]string{
 	"events/memory-chain-max":          ShelfMemory,
 	"events/memory-focus-max":          ShelfMemory,
 	"events/memory-keys-limit":         ShelfMemory,
+	"events/memory-tool-results-limit": ShelfMemory,
+	"events/memory-thinking-limit":     ShelfMemory,
+	"events/memory-low-signal-limit":   ShelfMemory,
+	"events/memory-status-limit":       ShelfMemory,
+	"events/model-record-limit":        ShelfGuardrails,
 	"events/memory-search-limit":       ShelfMemory,
 	"events/memory-value-limit":        ShelfMemory,
 	"events/rel-memory-limit":          ShelfMemory,

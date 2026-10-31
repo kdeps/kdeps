@@ -245,9 +245,9 @@ func (r Report) Markdown(vault string) string {
 		b.WriteString("(none)\n")
 	}
 	for _, br := range r.Surprising {
-		fmt.Fprintf(&b, "- %s (community %d, %d nodes) -[%s, %s]-> %s (community %d, %d nodes)\n",
+		fmt.Fprintf(&b, "- %s (community %d, %d nodes) -[%s, %s]-> %s (community %d, %d nodes)%s\n",
 			nodeRef(br.From), br.FromGroup, br.FromSize, br.Edge.Relation, br.Edge.Provenance,
-			nodeRef(br.To), br.ToGroup, br.ToSize)
+			nodeRef(br.To), br.ToGroup, br.ToSize, evidenceSuffix(br.Edge))
 	}
 	b.WriteString(
 		"\n## Edges to review\n\nGuesses a model could not settle (confidence below 0.5): confirm with a [[link]] or ignore.\n\n",
@@ -256,7 +256,7 @@ func (r Report) Markdown(vault string) string {
 		b.WriteString("(none)\n")
 	}
 	for _, e := range r.Review {
-		fmt.Fprintf(&b, "- %s -[%s, %.2f]-> %s\n", e.From, e.Relation, e.Confidence, e.To)
+		fmt.Fprintf(&b, "- %s -[%s, %.2f]-> %s%s\n", e.From, e.Relation, e.Confidence, e.To, evidenceSuffix(e))
 	}
 	b.WriteString("\n## Links to notes that do not exist\n\n")
 	if len(r.Missing) == 0 {
@@ -268,6 +268,65 @@ func (r Report) Markdown(vault string) string {
 	return b.String()
 }
 
+func evidenceSuffix(e *Edge) string {
+	if e == nil || e.SourceFile == "" {
+		return ""
+	}
+	if e.SourceLocation == "" {
+		return " (" + e.SourceFile + ")"
+	}
+	return " (" + e.SourceFile + ":" + e.SourceLocation + ")"
+}
+
+// Explain lists every edge whose nodes or source match query, with the file
+// and line the edge came from.
+func Explain(g *Graph, query string) string {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if g == nil || q == "" {
+		return ""
+	}
+	labels := map[string]string{}
+	for _, n := range g.Nodes {
+		labels[n.ID] = strings.ToLower(n.Label + " " + n.Note + " " + n.ID)
+	}
+	var b strings.Builder
+	for _, e := range g.Edges {
+		blob := strings.ToLower(e.From + " " + e.To + " " + e.SourceFile + " " + labels[e.From] + " " + labels[e.To])
+		if !strings.Contains(blob, q) {
+			continue
+		}
+		fmt.Fprintf(&b, "%s -[%s, %s, %.2f]-> %s%s\n",
+			e.From, e.Relation, e.Provenance, e.Confidence, e.To, evidenceSuffix(e))
+	}
+	return b.String()
+}
+
+// ExportReports copies the report and the explorer page into the vault.
+// A file the user wrote there is left as it is.
+func ExportReports(dir, vault string) error {
+	if err := copyOwned(ReportPath(dir), ReportPath(vault), reportMarker); err != nil {
+		return err
+	}
+	return copyOwned(HTMLPath(dir), HTMLPath(vault), htmlMarker)
+}
+
+func copyOwned(src, dst, marker string) error {
+	if _, err := os.Stat(src); err != nil {
+		return nil //nolint:nilerr // nothing to export
+	}
+	if !ours(dst, marker) {
+		return nil
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if err = os.MkdirAll(filepath.Dir(dst), dirPerm); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, filePerm)
+}
+
 func nodeRef(n *Node) string {
 	if n.Note != "" {
 		return fmt.Sprintf("[[%s]]", strings.TrimSuffix(n.Note, filepath.Ext(n.Note)))
@@ -275,9 +334,9 @@ func nodeRef(n *Node) string {
 	return "`" + n.Label + "`"
 }
 
-// writeReport writes GRAPH_REPORT.md and graph.html into the vault root dir. The page's
-// template is installed the first time it is needed (a small profile leaves
-// the templates set out); offline without it, only the report is written.
+// writeReport writes GRAPH_REPORT.md and graph.html into dir (the graph
+// state directory, outside the vault). The page's template is installed the
+// first time it is needed; offline without it, only the report is written.
 func writeReport(g *Graph, modularity float64, dir string) error {
 	md := NewReport(g, modularity).Markdown(g.Vault)
 	if ours(filepath.Join(dir, reportFile), reportMarker) {

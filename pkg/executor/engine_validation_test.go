@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -31,7 +32,7 @@ import (
 )
 
 func TestEngine_Validation_RequiredFields(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -79,7 +80,7 @@ func TestEngine_Validation_RequiredFields(t *testing.T) {
 }
 
 func TestEngine_Validation_RequiredFields_Success(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -127,7 +128,7 @@ func TestEngine_Validation_RequiredFields_Success(t *testing.T) {
 }
 
 func TestEngine_Validation_TypeValidation(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -184,7 +185,7 @@ func TestEngine_Validation_TypeValidation(t *testing.T) {
 }
 
 func TestEngine_Validation_MinMax(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	minVal := 18.0
 	maxVal := 120.0
@@ -265,7 +266,7 @@ func TestEngine_Validation_MinMax(t *testing.T) {
 }
 
 func TestEngine_Validation_StringLength(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	minLen := 3
 	maxLen := 50
@@ -334,7 +335,7 @@ func TestEngine_Validation_StringLength(t *testing.T) {
 }
 
 func TestEngine_Validation_Pattern(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	pattern := "^[A-Z]{2,3}-[0-9]{4}$"
 
@@ -401,7 +402,7 @@ func TestEngine_Validation_Pattern(t *testing.T) {
 }
 
 func TestEngine_Validation_Enum(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -466,7 +467,7 @@ func TestEngine_Validation_Enum(t *testing.T) {
 }
 
 func TestEngine_Validation_ArrayItems(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	minItems := 1
 	maxItems := 5
@@ -547,7 +548,7 @@ func TestEngine_Validation_ArrayItems(t *testing.T) {
 }
 
 func TestEngine_Validation_NoValidation(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -596,7 +597,7 @@ func TestEngine_Validation_NoValidation(t *testing.T) {
 // A skip expression using get() must see the *current* resource's filter, not
 // the previous resource's stale filter.
 func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -675,7 +676,7 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 // preflight check errors (validations.check) surface before schema validation
 // errors (validations.required/rules), so auth/custom errors take priority.
 func TestEngine_Validation_PreflightErrorBeforeSchemaValidation(t *testing.T) {
-	engine := executor.NewEngine(slog.Default())
+	engine := executor.NewEngine(context.Background(), slog.Default())
 
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",

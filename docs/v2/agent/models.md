@@ -12,7 +12,20 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 /model default                        # show the current default
 ```
 
+The model picker and `/model <tab>` tag each name with its backend: `[llamafile]`, `[gguf]`, `[ollama]`, `[openrouter]`, or `[openai enabled]` when that provider's key is set. The switched name stays the model id.
+
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
+
+## Refusal record
+
+Each model has a record of the refusals the loop caught from it: an invented limit ("I can't access the filesystem"), a sandbox story, or a claimed action with no tool run. kdeps saves the model's own first sentence, keyed by backend and model, in `~/.kdeps/model-records.json`. While the record is not empty, every request to that model carries it in the system prompt as a `<your-record>` block (the `model-refusal-record` harness entry): the excuses word for word, and that every one was false.
+
+```text
+/model record          # openai/fake: 2 caught refusals ... [invented limit] "I can't access the repository."
+/model record clear    # wipe the current model's record
+```
+
+The record keeps the newest 20 distinct refusals (the `model-record-limit` event); repeats only raise the count.
 
 ## Cloud model catalog
 
@@ -33,6 +46,8 @@ models:
 ```
 
 A model missing from the catalog still works by name (`/model my-fine-tune`); kdeps just uses the provider's defaults for it.
+
+OpenRouter is its own backend. `/model list` shows its free text models from `models/openrouter` (prompt and completion price both zero), harvested daily by GitHub Actions (`make harvest-openrouter`) and refreshed with `kdeps update models/openrouter`. Naming a model yourself still works, including a paid id and the `openrouter/free` router. There is no single default model, so OpenRouter stays out of auto-router's cloud fallback. Free ids (ending `:free`) share one account cap per minute (`openrouter-free-per-minute`, 20 by default). Every free-model request in the process, from the REPL, judges, compaction, or a workflow resource, waits in one queue so the cap is not exceeded. A queued request prints `openrouter: queued <wait>` to stderr. The signatures that classify OpenRouter errors are event assets (`openrouter-refusal`, `openrouter-rate-limit`, `openrouter-provider-limit`, each a `patterns:` list). The free-model size ranking reads the `params` field in `models/openrouter`, which the harvester fills from the model id.
 
 ## Same alias, different backends
 

@@ -25,8 +25,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -53,10 +51,8 @@ func TestTheme_FlagAdvertisedInHelp(t *testing.T) {
 // rendered accent a single flat legible gray under the "black" theme, and
 // that switching back to "normal" restores the bright palette.
 func TestTheme_EndToEndPalette(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() {
 		agent.SetTheme("normal")
-		lipgloss.SetColorProfile(termenv.Ascii)
 	})
 
 	bright := []string{"0;229;255", "255;214;10", "0;255;135"} // cyan, yellow, green

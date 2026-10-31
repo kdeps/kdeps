@@ -74,17 +74,20 @@ var osMkdirTempInfoFunc = os.MkdirTemp
 func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
 
+	// A bare name is a local component before an asset set of the same
+	// name ("memory"); a set/name ref is an asset item before a remote repo.
+	bare := !strings.Contains(ref, "/")
+	if bare && tryPrintLocalReadme(cmd, ref) {
+		return nil
+	}
+
 	if text, ok := assetInfo(ref); ok {
 		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(text))
 		return nil
 	}
 
-	if strings.Contains(ref, "/") {
+	if !bare {
 		return printRemoteReadme(cmd, ref)
-	}
-
-	if tryPrintLocalReadme(cmd, ref) {
-		return nil
 	}
 
 	return printRegistryPackageInfo(cmd, ref, baseURL)
@@ -110,7 +113,7 @@ func tryPrintLocalReadme(cmd *cobra.Command, ref string) bool {
 
 func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
 	client := registry.NewClient("", baseURL)
-	ctx, cancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+	ctx, cancel := context.WithTimeout(processRoot(), registryInfoTimeout)
 	defer cancel()
 
 	pkg, err := client.GetPackage(ctx, ref)
@@ -123,7 +126,7 @@ func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
 }
 
 func printRegistryReadmeFallback(cmd *cobra.Command, ref string, client *registry.Client) error {
-	archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+	archCtx, archCancel := context.WithTimeout(processRoot(), registryInfoTimeout)
 	defer archCancel()
 	if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
 		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))

@@ -37,6 +37,7 @@ func TestNewAdapter(t *testing.T) {
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 	adapter := pythonexecutor.NewAdapter()
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
@@ -50,6 +51,7 @@ func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 func TestAdapter_Execute_ValidConfig(t *testing.T) {
 	adapter := pythonexecutor.NewAdapter()
 	ctx, err := executor.NewExecutionContext(
+		t.Context(),
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)

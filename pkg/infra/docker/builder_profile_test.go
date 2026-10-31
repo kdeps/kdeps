@@ -44,7 +44,7 @@ func TestBuilder_GenerateDockerfile_workflowBaseOSOverride(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM ubuntu:latest")
 }
@@ -58,7 +58,7 @@ func TestBuilder_GenerateDockerfile_rejectDebianBaseOS(t *testing.T) {
 		},
 	}
 
-	_, err := builder.GenerateDockerfile(workflow)
+	_, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid baseOS")
 }
@@ -73,7 +73,7 @@ func TestBuilder_GenerateDockerfile_rocmOllamaUbuntu(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:rocm")
 	assert.NotContains(t, dockerfile, "COPY --from=ollama/ollama")
@@ -89,7 +89,7 @@ func TestBuilder_GenerateDockerfile_ollamaSkipsCopy(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile(workflow)
+	dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM alpine/ollama:0.5.0")
 	assert.NotContains(t, dockerfile, "COPY --from=alpine/ollama")

@@ -33,12 +33,14 @@ status: draft          # the note's own state: draft | evergreen | outdated
 tags: [kdeps, graph]
 created: 2026-10-15
 summary: one line saying what this note holds
+canonical: ship-monthly    # optional stable id; fact_id is the same field
 links: ["[[Other note]]"]
 ---
 ```
 
 - One idea per note: `projects/<name>/notes/` for one project, `shared/` for
-  knowledge across projects.
+  knowledge across projects. Two notes with the same `canonical` or `fact_id`
+  are one fact in two homes; `kdeps knowledge check` reports that.
 - `summary` is what the knowledge recall shows before anyone opens the note.
   Write it so the reader can decide whether to open it.
 - Link with `[[Note title]]`, or the full path `[[projects/app/notes/Title]]`.

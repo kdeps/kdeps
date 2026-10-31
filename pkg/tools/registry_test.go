@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -156,6 +157,22 @@ func TestToLLMTools_Mixed(t *testing.T) {
 			if result != "from_exec" {
 				t.Errorf("expected 'from_exec', got %q", result)
 			}
+		}
+	}
+}
+
+func TestRegistry_ListIsSortedByName(t *testing.T) {
+	r := NewRegistry()
+	for _, n := range []string{"zeta", "alpha", "mid", "beta"} {
+		r.Register(&Tool{Name: n})
+	}
+	for range 20 {
+		var names []string
+		for _, tl := range r.List() {
+			names = append(names, tl.Name)
+		}
+		if !slices.Equal(names, []string{"alpha", "beta", "mid", "zeta"}) {
+			t.Fatalf("List order = %v, want sorted by name", names)
 		}
 	}
 }
