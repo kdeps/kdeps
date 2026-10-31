@@ -82,10 +82,19 @@ func (f *Feed) Lines(width int) int {
 	return n
 }
 
+// entryHeader is the "[kind] title" line, cut to width. The kind is bold so
+// the eye finds the kind of each entry first; the title is cut as plain text.
+func entryHeader(e Entry, width int) string {
+	kind := "[" + string(e.Kind) + "]"
+	if lipgloss.Width(kind) >= width {
+		return truncate(kind, width)
+	}
+	return lipgloss.NewStyle().Bold(true).Render(kind) + truncate(" "+e.Title, width-lipgloss.Width(kind))
+}
+
 // entryLines is one entry as a header and its body, each cut to width.
 func entryLines(e Entry, width int) []string {
-	header := "[" + string(e.Kind) + "] " + e.Title
-	out := []string{truncate(header, width)}
+	out := []string{entryHeader(e, width)}
 	if e.Body == "" {
 		return out
 	}
