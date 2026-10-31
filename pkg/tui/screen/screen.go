@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
@@ -88,6 +89,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.wheel(v), nil
 	case tea.KeyPressMsg:
 		return m.key(v)
+	case tea.PasteMsg:
+		// The prompt is one line: a pasted newline must not submit it.
+		return m.insertText(strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(v.Content)), nil
 	}
 	return m, nil
 }
@@ -214,7 +218,7 @@ func (m Model) render() string {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	mainText := window(m.main, frame.Main.H-feedBorder, m.mainOff)
+	mainText := window(wrapRows(m.main, frame.Main.W-feedBorder), frame.Main.H-feedBorder, m.mainOff)
 	if m.overlay != nil {
 		mainText = m.overlay.View().Content
 	}
@@ -223,4 +227,17 @@ func (m Model) render() string {
 		feedText = m.Feed.RenderWindow(frame.Feed.W-feedBorder, frame.Feed.H-feedBorder, m.feedOff)
 	}
 	return layout.Render(frame, mainText, feedText, m.Status, "> "+m.promptText())
+}
+
+// wrapRows splits each line into the rows it takes at width cells, so the
+// scroll offset counts screen rows and a long line scrolls in full.
+func wrapRows(lines []string, width int) []string {
+	if width < 1 {
+		return lines
+	}
+	rows := make([]string, 0, len(lines))
+	for _, line := range lines {
+		rows = append(rows, strings.Split(ansi.Hardwrap(line, width, true), "\n")...)
+	}
+	return rows
 }
