@@ -280,7 +280,10 @@ func (m Model) renderFrame() string {
 	}
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
-		feedText = m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder, m.feedOff)
+		// The side panel has a bold title row, as the reference sidebar does.
+		title := lipgloss.NewStyle().Bold(true).Render("activity")
+		window := m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder-1, m.feedOff)
+		feedText = title + "\n" + window
 	}
 	prompt := "> " + m.promptText()
 	if len(m.input) == 0 {
