@@ -65,9 +65,12 @@ func (r *REPL) runFullScreen() error {
 	}()
 
 	_, runErr := program.Run()
+	// Other goroutines may still hold the write end, so closing ours does not
+	// end the scanner. Restore the streams and close the read end to unblock it.
+	os.Stdout, os.Stderr = origOut, origErr //nolint:reassign // the view has ended
 	_ = pw.Close()
-	<-done
 	_ = pr.Close()
+	<-done
 	if runErr == nil || errors.Is(runErr, io.EOF) {
 		return nil
 	}
