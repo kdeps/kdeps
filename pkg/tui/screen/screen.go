@@ -159,6 +159,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch v.String() {
 	case "ctrl+c":
+		// Ctrl+C clears a typed prompt first, so a half-written line is not
+		// lost to a stray keypress; with an empty prompt it quits.
+		if len(m.input) > 0 {
+			return m.setPrompt(""), nil
+		}
 		return m, tea.Quit
 	case "ctrl+f":
 		m.feedOpen = !m.feedOpen
