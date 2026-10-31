@@ -46,7 +46,7 @@ func TestView_FeedShowsItsEntries(t *testing.T) {
 	var f feed.Feed
 	f.Add(feed.Entry{Kind: feed.KindResource, Title: "fetch.yaml"})
 	m := resized(t, New(&f))
-	assert.Contains(t, m.render(), "fetch.yaml")
+	assert.Contains(t, ansi.Strip(m.render()), "fetch.yaml")
 
 	next, _ := m.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
 	assert.NotContains(t, next.(Model).render(), "fetch.yaml", "a closed feed is not drawn")
@@ -89,8 +89,8 @@ func TestPrompt_EmptyEnterDoesNothing(t *testing.T) {
 func TestOutput_LinesAppearInTheMainPane(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: "first line\nsecond line"})
-	assert.Contains(t, m.render(), "first line")
-	assert.Contains(t, m.render(), "second line")
+	assert.Contains(t, ansi.Strip(m.render()), "first line")
+	assert.Contains(t, ansi.Strip(m.render()), "second line")
 }
 
 func TestCtrlC_Quits(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCtrlC_Quits(t *testing.T) {
 func TestStatusText_ReplacesTheStatusBox(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, StatusTextMsg{Text: "[turn 9k]"})
-	assert.Contains(t, m.render(), "[turn 9k]")
+	assert.Contains(t, ansi.Strip(m.render()), "[turn 9k]")
 }
 
 func manyLines(n int) string {
@@ -117,15 +117,15 @@ func manyLines(n int) string {
 func TestScroll_UpShowsOlderRowsAndEndReturnsToTheNewest(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
-	assert.Contains(t, m.render(), "row 99", "the tail is shown first")
-	assert.NotContains(t, m.render(), "row 50")
+	assert.Contains(t, ansi.Strip(m.render()), "row 99", "the tail is shown first")
+	assert.NotContains(t, ansi.Strip(m.render()), "row 50")
 
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
-	assert.Contains(t, m.render(), "row 75", "a page up scrolls back into history")
-	assert.NotContains(t, m.render(), "row 99")
+	assert.Contains(t, ansi.Strip(m.render()), "row 75", "a page up scrolls back into history")
+	assert.NotContains(t, ansi.Strip(m.render()), "row 99")
 
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd})
-	assert.Contains(t, m.render(), "row 99", "End returns to the newest rows")
+	assert.Contains(t, ansi.Strip(m.render()), "row 99", "End returns to the newest rows")
 }
 
 func TestScroll_ClampsAtTheTop(t *testing.T) {
@@ -134,7 +134,7 @@ func TestScroll_ClampsAtTheTop(t *testing.T) {
 	for range 50 {
 		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyUp})
 	}
-	assert.Contains(t, m.render(), "row 0", "scrolling past the top shows the first rows")
+	assert.Contains(t, ansi.Strip(m.render()), "row 0", "scrolling past the top shows the first rows")
 }
 
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
@@ -145,7 +145,7 @@ func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	m := resized(t, New(&f))
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
-	assert.NotContains(t, m.render(), "step 99", "the feed scrolled, not the main pane")
+	assert.NotContains(t, ansi.Strip(m.render()), "step 99", "the feed scrolled, not the main pane")
 }
 
 func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
@@ -158,8 +158,8 @@ func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
 
 	feedX := m.width - m.width/3 + 2
 	m, _ = typed(t, m, tea.MouseWheelMsg{X: feedX, Y: 3, Button: tea.MouseWheelUp})
-	assert.NotContains(t, m.render(), "step 99", "the wheel over the feed scrolls the feed")
-	assert.Contains(t, m.render(), "row 99", "the main pane did not move")
+	assert.NotContains(t, ansi.Strip(m.render()), "step 99", "the wheel over the feed scrolls the feed")
+	assert.Contains(t, ansi.Strip(m.render()), "row 99", "the main pane did not move")
 }
 
 // TestFrameCache_ChangesWhenTheScreenChanges checks a frame is reused only
@@ -171,13 +171,13 @@ func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {
 	assert.Equal(t, first, m.render(), "an unchanged screen reuses its frame")
 
 	f.Add(feed.Entry{Kind: feed.KindAction, Title: "new step"})
-	assert.Contains(t, m.render(), "new step", "a feed change redraws the frame")
+	assert.Contains(t, ansi.Strip(m.render()), "new step", "a feed change redraws the frame")
 
 	m, _ = typed(t, m, OutputMsg{Text: "fresh output"})
-	assert.Contains(t, m.render(), "fresh output", "new output redraws the frame")
+	assert.Contains(t, ansi.Strip(m.render()), "fresh output", "new output redraws the frame")
 
 	m = typeText(t, m, "x")
-	assert.Contains(t, m.render(), "> x|", "a prompt edit redraws the frame")
+	assert.Contains(t, ansi.Strip(m.render()), "> x|", "a prompt edit redraws the frame")
 }
 
 // TestFrameCache_OverlayIsNeverCached checks an open overlay is drawn fresh
@@ -185,9 +185,9 @@ func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {
 func TestFrameCache_OverlayIsNeverCached(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m = m.WithOverlay(fakeOverlay{text: "ONE"}, nil)
-	assert.Contains(t, m.render(), "ONE")
+	assert.Contains(t, ansi.Strip(m.render()), "ONE")
 	m = m.WithOverlay(fakeOverlay{text: "TWO"}, nil)
-	assert.Contains(t, m.render(), "TWO", "a new overlay is drawn, not the cached frame")
+	assert.Contains(t, ansi.Strip(m.render()), "TWO", "a new overlay is drawn, not the cached frame")
 }
 
 // TestFrame_FillsTheTerminalExactly checks the drawn frame is the terminal's
@@ -252,4 +252,15 @@ func TestPills_ShowConfiguredPillsWithValues(t *testing.T) {
 	assert.Less(t, strings.Index(text, "backend:"), strings.Index(text, "tool:"), "pills follow PillNames order")
 	m, _ = typed(t, m, PillMsg{Name: "tool", Value: ""})
 	assert.NotContains(t, ansi.Strip(m.pillsText()), "tool:", "a cleared value hides the pill")
+}
+
+// TestMessageArea_ShowsTheSubmittedLineBeforeTheReply checks a submitted line
+// is echoed into the main pane, as a line of its own.
+func TestMessageArea_ShowsTheSubmittedLineBeforeTheReply(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m.OnSubmit = func(string) {}
+	m = typeText(t, m, "list files")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	assert.Contains(t, strings.Join(m.main, "\n"), "list files", "the user's line is in the message area")
+	assert.Contains(t, ansi.Strip(m.main[len(m.main)-1]), "› list files")
 }

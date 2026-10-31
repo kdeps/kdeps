@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,8 +40,8 @@ func TestOverlay_TakesTheKeysAndTheMainArea(t *testing.T) {
 	m = m.WithOverlay(fakeOverlay{text: "PICK ONE"}, nil)
 
 	assert.True(t, m.HasOverlay())
-	assert.Contains(t, m.render(), "PICK ONE", "the overlay is drawn in the main area")
-	assert.NotContains(t, m.render(), "main text")
+	assert.Contains(t, ansi.Strip(m.render()), "PICK ONE", "the overlay is drawn in the main area")
+	assert.NotContains(t, ansi.Strip(m.render()), "main text")
 
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'x', Text: "x"})
 	assert.Equal(t, "", m.Prompt(), "keys go to the overlay, not the prompt")
@@ -56,5 +57,5 @@ func TestOverlay_DoneClosesItAndHandsBackTheResult(t *testing.T) {
 	require.NotNil(t, got, "the caller gets the finished overlay")
 	assert.True(t, got.Done())
 	assert.Equal(t, "enter", got.(fakeOverlay).last)
-	assert.True(t, strings.Contains(m.render(), "> "), "the prompt is back")
+	assert.True(t, strings.Contains(ansi.Strip(m.render()), "> "), "the prompt is back")
 }
