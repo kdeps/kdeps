@@ -211,3 +211,12 @@ func TestSidebar_HasAnActivityTitle(t *testing.T) {
 	m := resized(t, New(&f))
 	assert.Contains(t, ansi.Strip(m.render()), "│ activity", "the side panel opens with its title")
 }
+
+// TestHeader_ShowsTheProductAndTheTitle checks the header row names the product
+// and carries the title, with nothing else in it.
+func TestHeader_ShowsTheProductAndTheTitle(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.Title = "myproject"
+	header := ansi.Strip(m.headerText())
+	assert.Equal(t, " kdeps ╱╱╱ myproject", header)
+}
