@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
 )
@@ -199,6 +200,10 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		var line string
 		m, line = m.submitPrompt()
+		if line != "" {
+			// The message area shows what the user asked, before the reply.
+			m = m.appendOutput(userLine(line))
+		}
 		if line != "" && m.OnSubmit != nil {
 			submit := m.OnSubmit
 			return m, func() tea.Msg {
@@ -293,11 +298,12 @@ func (m Model) renderFrame() string {
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
 		// The side panel has a bold title row, as the reference sidebar does.
-		title := lipgloss.NewStyle().Bold(true).Render("activity")
+		title := styled(tui.CurrentPickerColors().Accent).Render("activity")
 		window := m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder-1, m.feedOff)
 		feedText = title + "\n" + window
 	}
-	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), "> "+m.promptText())
+	caret := styled(tui.CurrentPickerColors().Accent).Render(">")
+	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), caret+" "+m.promptText())
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
@@ -326,7 +332,7 @@ func (m Model) statusText() string {
 
 // headerText is the header row: the product name, a dim diagonal rule, and the title.
 func (m Model) headerText() string {
-	name := lipgloss.NewStyle().Bold(true).Render("kdeps")
+	name := styled(tui.CurrentPickerColors().Accent).Render("kdeps")
 	rule := lipgloss.NewStyle().Faint(true).Render(headerRule)
 	title := lipgloss.NewStyle().Faint(true).Render(m.Title)
 	chip := ""
@@ -334,4 +340,15 @@ func (m Model) headerText() string {
 		chip = lipgloss.NewStyle().Reverse(true).Render(" "+m.Model+" ") + " " + rule + " "
 	}
 	return " " + name + " " + rule + " " + chip + title
+}
+
+// styled is a bold text style in a palette colour.
+func styled(hex string) lipgloss.Style {
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(hex))
+}
+
+// userLine is a submitted prompt as the message area shows it: a cyan caret
+// and the text in bold, so it reads apart from the agent's reply below it.
+func userLine(text string) string {
+	return styled(tui.CurrentPickerColors().Accent).Render("› " + text)
 }

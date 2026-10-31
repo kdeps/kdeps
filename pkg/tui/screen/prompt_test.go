@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
@@ -33,7 +34,7 @@ func TestPrompt_InsertsAtTheCursor(t *testing.T) {
 	m, _ = typed(t, m, keyPress(tea.KeyLeft))
 	m = typeText(t, m, "X")
 	assert.Equal(t, "aXbc", m.Prompt())
-	assert.Contains(t, m.render(), "> aX|bc")
+	assert.Contains(t, ansi.Strip(m.render()), "> aX|bc")
 }
 
 func TestPrompt_HomeEndAndDelete(t *testing.T) {
@@ -103,7 +104,7 @@ func TestHelp_QuestionMarkOpensTheKeysAndEscCloses(t *testing.T) {
 	m := newPromptScreen(t)
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
 	assert.True(t, m.HasOverlay(), "? in an empty prompt opens the help")
-	assert.Contains(t, m.render(), "ctrl+f")
+	assert.Contains(t, ansi.Strip(m.render()), "ctrl+f")
 
 	m, _ = typed(t, m, keyPress(tea.KeyEsc))
 	assert.False(t, m.HasOverlay(), "esc closes the help")
@@ -178,22 +179,22 @@ func TestMain_LongLineWrapsAndTheTailShows(t *testing.T) {
 	m := newPromptScreen(t)
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}) // feed closed: the main pane is full width
 	m, _ = typed(t, m, OutputMsg{Text: strings.Repeat("a", 150) + "END"})
-	assert.Contains(t, m.render(), "END", "the wrapped tail of a long line is on screen")
+	assert.Contains(t, ansi.Strip(m.render()), "END", "the wrapped tail of a long line is on screen")
 }
 
 func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
 	m := newPromptScreen(t)
-	assert.Contains(t, m.render(), "? help", "the status row names the key help")
+	assert.Contains(t, ansi.Strip(m.render()), "? help", "the status row names the key help")
 	assert.Equal(t, "", m.Prompt(), "the hint is not part of the text")
 
 	m = typeText(t, m, "h")
-	assert.Contains(t, m.render(), "> h|", "typing puts the text in the prompt")
-	assert.Contains(t, m.render(), "> h|")
+	assert.Contains(t, ansi.Strip(m.render()), "> h|", "typing puts the text in the prompt")
+	assert.Contains(t, ansi.Strip(m.render()), "> h|")
 }
 
 func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model", "/session")
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
-	assert.Contains(t, m.render(), "/model  /session", "the help lists the slash commands")
+	assert.Contains(t, ansi.Strip(m.render()), "/model  /session", "the help lists the slash commands")
 }
