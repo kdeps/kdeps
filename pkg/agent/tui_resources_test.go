@@ -3,6 +3,7 @@ package agent
 import (
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
@@ -19,7 +20,7 @@ func TestResourceFeed_HeldLoadsAppearWhenTheFeedAttaches(t *testing.T) {
 	setTUIFeed(&f)
 	t.Cleanup(func() { setTUIFeed(nil) })
 
-	assert.Contains(t, f.Render(80, 10), "[resource] fetch.yaml")
+	assert.Contains(t, ansi.Strip(f.Render(80, 10)), "[resource] fetch.yaml")
 }
 
 func TestResourceFeed_LoadsWithAFeedAppearAtOnce(t *testing.T) {
@@ -28,5 +29,5 @@ func TestResourceFeed_LoadsWithAFeedAppearAtOnce(t *testing.T) {
 	t.Cleanup(func() { setTUIFeed(nil) })
 
 	feedResourceLoaded("/w/resources/parse.yaml")
-	assert.Contains(t, f.Render(80, 10), "[resource] parse.yaml")
+	assert.Contains(t, ansi.Strip(f.Render(80, 10)), "[resource] parse.yaml")
 }
