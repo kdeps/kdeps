@@ -97,3 +97,13 @@ func TestPrompt_UpAndDownStillScrollTheMain(t *testing.T) {
 	m, _ = typed(t, m, keyPress(tea.KeyUp))
 	assert.Equal(t, 1, m.mainOff, "up scrolls the main pane, not the prompt history")
 }
+
+func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
+	m := newPromptScreen(t)
+	assert.Contains(t, m.render(), "/ for commands", "an empty prompt says what to type")
+	assert.Equal(t, "", m.Prompt(), "the hint is not part of the text")
+
+	m = typeText(t, m, "h")
+	assert.NotContains(t, m.render(), "/ for commands", "typing replaces the hint")
+	assert.Contains(t, m.render(), "> h|")
+}
