@@ -33,6 +33,7 @@ func (r *REPL) runFullScreen() error {
 	defer func() { os.Stdout, os.Stderr = origOut, origErr }() //nolint:reassign // restores the captured streams
 
 	m := screen.New(f)
+	m.Complete = func(string) []string { return commandNames() }
 	var program *tea.Program
 	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
 	defer setScreenStatusSink(nil)

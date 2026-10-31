@@ -34,10 +34,61 @@ func (m Model) editKey(name string) (Model, bool) {
 		m = m.historyBack()
 	case "ctrl+n":
 		m = m.historyForward()
+	case "tab":
+		return m.completeCommand()
 	default:
 		return m, false
 	}
 	return m, true
+}
+
+// completeCommand completes the slash command before the cursor. A prompt
+// that does not start with "/" is not handled, so tab keeps moving focus.
+func (m Model) completeCommand() (Model, bool) {
+	if m.Complete == nil || len(m.input) == 0 || m.input[0] != '/' {
+		return m, false
+	}
+	word := string(m.input[:m.cursor])
+	if strings.ContainsRune(word, ' ') {
+		return m, true
+	}
+	var matches []string
+	for _, c := range m.Complete(word) {
+		if strings.HasPrefix(c, word) {
+			matches = append(matches, c)
+		}
+	}
+	switch {
+	case len(matches) == 0:
+	case len(matches) == 1:
+		m = m.replaceWord(matches[0] + " ")
+	default:
+		if common := longestCommonPrefix(matches); len(common) > len(word) {
+			m = m.replaceWord(common)
+		} else {
+			m = m.appendOutput(strings.Join(matches, "  "))
+		}
+	}
+	return m, true
+}
+
+// replaceWord replaces the text before the cursor with text.
+func (m Model) replaceWord(text string) Model {
+	rest := append([]rune(nil), m.input[m.cursor:]...)
+	m.input = append([]rune(text), rest...)
+	m.cursor = len([]rune(text))
+	return m
+}
+
+// longestCommonPrefix is the longest prefix every string shares.
+func longestCommonPrefix(items []string) string {
+	prefix := items[0]
+	for _, s := range items[1:] {
+		for !strings.HasPrefix(s, prefix) {
+			prefix = prefix[:len(prefix)-1]
+		}
+	}
+	return prefix
 }
 
 // promptText is the prompt with the cursor drawn as a bar at its position.
