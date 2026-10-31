@@ -31,12 +31,14 @@ func TestTeatest_RunsTheScreenAsAProgram(t *testing.T) {
 		return bytes.Contains(b, []byte("hello from the agent"))
 	}, teatest.WithDuration(5*time.Second))
 
+	// The first Ctrl+C clears the typed prompt; the second quits.
+	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(5*time.Second))
 
 	final, ok := tm.FinalModel(t).(Model)
 	require.True(t, ok)
-	assert.Equal(t, "hey", final.Prompt())
+	assert.Equal(t, "", final.Prompt(), "the typed text is cleared by the first Ctrl+C")
 }
 
 // TestTeatest_FeedToggleChangesTheDrawnFrame checks the frame in a running

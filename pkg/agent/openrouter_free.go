@@ -300,6 +300,7 @@ func nextOpenRouterFreeID(current string, skip map[string]struct{}) (string, boo
 func (l *Loop) applyFreeModel(chatCfg *domain.ChatConfig, from, to, why string) {
 	freeModelNoticef("openrouter: %s %s, continuing with %s\n", from, why, to)
 	l.config.Model = to
+	setScreenModel(to)
 	chatCfg.Model = to
 	chatCfg.Backend = openrouterBackend
 	chatCfg.MaxTokens = l.callMaxTokens()

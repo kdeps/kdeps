@@ -2875,6 +2875,7 @@ func (r *REPL) applyModelSwitch(model string) {
 	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = bareModel
+	setScreenModel(bareModel)
 	if isQualified {
 		r.loop.config.Backend = qualBackend
 		r.loop.config.BaseURL = ""
@@ -2906,6 +2907,7 @@ func (r *REPL) applyModelSwitch(model string) {
 	if err := r.startLocalModelServer(bareModel); err != nil {
 		// Canceled: the new model never became usable — restore the old one.
 		r.loop.config.Model = prevModel
+		setScreenModel(prevModel)
 		r.loop.config.Backend = prevBackend
 		r.loop.config.BaseURL = prevBaseURL
 		r.loop.config.CompactTokenBudget = prevBudget

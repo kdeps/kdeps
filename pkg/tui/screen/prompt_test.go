@@ -109,6 +109,16 @@ func TestPrompt_EmptyShowsTheHintAndTypingReplacesIt(t *testing.T) {
 	assert.Contains(t, m.render(), "> h|")
 }
 
+func TestCtrlC_ClearsThePromptBeforeQuitting(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "draft")
+	m, cmd := typed(t, m, ctrl('c'))
+	assert.Equal(t, "", m.Prompt(), "the first Ctrl+C clears the prompt")
+	assert.Nil(t, cmd, "and does not quit")
+
+	_, cmd = typed(t, m, ctrl('c'))
+	assert.NotNil(t, cmd, "Ctrl+C on an empty prompt quits")
+}
+
 func completeFrom(items ...string) func(string) []string {
 	return func(string) []string { return items }
 }

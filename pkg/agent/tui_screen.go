@@ -20,6 +20,7 @@ import (
 // Ctrl+C).
 func (r *REPL) runFullScreen() error {
 	f := &feed.Feed{}
+	setScreenModel(r.loop.config.Model)
 	setTUIFeed(f)
 	defer setTUIFeed(nil)
 
@@ -99,6 +100,29 @@ func setScreenOverlaySink(send func(msg screen.OpenOverlayMsg), closed chan stru
 	defer screenOverlay.Unlock()
 	screenOverlay.send = send
 	screenOverlay.closed = closed
+}
+
+// screenModel is the model name the full-screen status box shows. It is set
+// from the goroutines that change the model, so reads and writes are locked.
+//
+//nolint:gochecknoglobals // one full-screen view per process
+var screenModel struct {
+	sync.Mutex
+	name string
+}
+
+// setScreenModel records the active model for the full-screen status box.
+func setScreenModel(name string) {
+	screenModel.Lock()
+	defer screenModel.Unlock()
+	screenModel.name = name
+}
+
+// screenModelLabel is the active model's name, or "" before one is set.
+func screenModelLabel() string {
+	screenModel.Lock()
+	defer screenModel.Unlock()
+	return screenModel.name
 }
 
 // FullScreenEnabled reports whether the full-screen view is on (KDEPS_TUI=1).
