@@ -139,3 +139,28 @@ func TestComplete_NotASlashPromptKeepsTabForFocus(t *testing.T) {
 	assert.True(t, m.focusFeed, "tab toggles focus when the prompt is not a command")
 	assert.Equal(t, "mo", m.Prompt())
 }
+
+func TestHelp_QuestionMarkOpensTheKeysAndEscCloses(t *testing.T) {
+	m := newPromptScreen(t)
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.True(t, m.HasOverlay(), "? in an empty prompt opens the help")
+	assert.Contains(t, m.render(), "ctrl+f")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.False(t, m.HasOverlay(), "esc closes the help")
+	assert.Equal(t, "", m.Prompt(), "the ? did not reach the prompt")
+}
+
+func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "why")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.False(t, m.HasOverlay())
+	assert.Equal(t, "why?", m.Prompt())
+}
+
+func TestHelp_ListsTheSlashCommands(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/session")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.Contains(t, m.render(), "/model  /session", "the help lists the slash commands")
+}
