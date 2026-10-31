@@ -8,12 +8,13 @@ import (
 
 // Render draws the frame: each box with a rounded border, sized to its rect.
 // main, feed, status and prompt are the box contents; text beyond a box is cut.
-func Render(f Frame, main, feed, status, prompt string) string {
+func Render(f Frame, header, main, feed, status, prompt string) string {
 	top := box(f.Main, main)
 	if f.Feed.W > 0 {
 		top = lipgloss.JoinHorizontal(lipgloss.Top, top, box(f.Feed, feed))
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, top, box(f.Status, status), box(f.Prompt, prompt))
+	head := lipgloss.NewStyle().Width(max(f.Header.W, 0)).MaxHeight(max(f.Header.H, 0)).Render(header)
+	return lipgloss.JoinVertical(lipgloss.Left, head, top, box(f.Status, status), box(f.Prompt, prompt))
 }
 
 // BoxPadX is the number of blank columns between a box border and its text,

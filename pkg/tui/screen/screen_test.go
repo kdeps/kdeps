@@ -212,3 +212,20 @@ func TestStatusRow_CountersThenKeyHelp(t *testing.T) {
 	row := ansi.Strip(m.statusText())
 	assert.True(t, strings.HasPrefix(row, "[turn 5.6k]   ? help"), "counters first: %q", row)
 }
+
+// TestSidebar_HasAnActivityTitle checks the side panel opens with its title.
+func TestSidebar_HasAnActivityTitle(t *testing.T) {
+	var f feed.Feed
+	f.Add(feed.Entry{Kind: feed.KindResource, Title: "fetch.yaml"})
+	m := resized(t, New(&f))
+	assert.Contains(t, ansi.Strip(m.render()), "│ activity", "the side panel opens with its title")
+}
+
+// TestHeader_ShowsTheProductAndTheTitle checks the header row names the product
+// and carries the title, with nothing else in it.
+func TestHeader_ShowsTheProductAndTheTitle(t *testing.T) {
+	m := New(&feed.Feed{})
+	m.Title = "myproject"
+	header := ansi.Strip(m.headerText())
+	assert.Equal(t, " kdeps ╱╱╱ myproject", header)
+}

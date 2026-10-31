@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,6 +35,9 @@ func (r *REPL) runFullScreen() error {
 	defer func() { os.Stdout, os.Stderr = origOut, origErr }() //nolint:reassign // restores the captured streams
 
 	m := screen.New(f)
+	if wd, wdErr := os.Getwd(); wdErr == nil {
+		m.Title = filepath.Base(wd)
+	}
 	m.Complete = func(string) []string { return commandNames() }
 	var program *tea.Program
 	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
