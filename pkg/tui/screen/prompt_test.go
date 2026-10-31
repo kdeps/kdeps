@@ -97,3 +97,21 @@ func TestPrompt_UpAndDownStillScrollTheMain(t *testing.T) {
 	m, _ = typed(t, m, keyPress(tea.KeyUp))
 	assert.Equal(t, 1, m.mainOff, "up scrolls the main pane, not the prompt history")
 }
+
+func TestHelp_QuestionMarkOpensTheKeysAndEscCloses(t *testing.T) {
+	m := newPromptScreen(t)
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.True(t, m.HasOverlay(), "? in an empty prompt opens the help")
+	assert.Contains(t, m.render(), "ctrl+f")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.False(t, m.HasOverlay(), "esc closes the help")
+	assert.Equal(t, "", m.Prompt(), "the ? did not reach the prompt")
+}
+
+func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "why")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.False(t, m.HasOverlay())
+	assert.Equal(t, "why?", m.Prompt())
+}
