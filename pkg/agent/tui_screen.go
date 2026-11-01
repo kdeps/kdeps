@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -123,18 +122,13 @@ var screenModelSend struct {
 	send func(msg screen.ModelMsg)
 }
 
-// screenPillSend delivers pill values to the running full-screen program. Only
-// the pills named in KDEPS_TUI_PILLS are sent.
+// screenPillSend delivers pill values to the running full-screen program.
 //
 //nolint:gochecknoglobals // one full-screen view per process
 var screenPillSend struct {
 	sync.Mutex
-	send    func(msg screen.PillMsg)
-	enabled map[string]bool
+	send func(msg screen.PillMsg)
 }
-
-// screenPillKinds are the pills the full-screen view can show.
-func screenPillKinds() []string { return []string{"backend", "session", "tool"} }
 
 // sessionPillIDLen is how many characters of a session id the session pill shows.
 const sessionPillIDLen = 8
@@ -144,42 +138,19 @@ const sessionPillIDLen = 8
 func newScreenModel(f *feed.Feed) screen.Model {
 	m := screen.New(f)
 	m.Model = screenModelLabel()
-	m.PillNames = screenPillNames()
 	if wd, wdErr := os.Getwd(); wdErr == nil {
 		m.Title = filepath.Base(wd)
 	}
 	return m
 }
 
-// screenPillNames is the pills to show, from KDEPS_TUI_PILLS: a comma-separated
-// list of backend, session and tool, in that order. Unset shows all three; an
-// empty value shows none. Unknown names are ignored.
-func screenPillNames() []string {
-	raw, set := os.LookupEnv("KDEPS_TUI_PILLS")
-	kinds := screenPillKinds()
-	if !set {
-		return kinds
-	}
-	want := map[string]bool{}
-	for _, name := range strings.Split(raw, ",") {
-		want[strings.TrimSpace(name)] = true
-	}
-	var out []string
-	for _, kind := range kinds {
-		if want[kind] {
-			out = append(out, kind)
-		}
-	}
-	return out
-}
-
 // sendScreenPill sets a pill's value in the running view. It does nothing when
-// the view is off or the pill is not enabled.
+// the view is off.
 func sendScreenPill(name, value string) {
 	screenPillSend.Lock()
-	send, on := screenPillSend.send, screenPillSend.enabled[name]
+	send := screenPillSend.send
 	screenPillSend.Unlock()
-	if send != nil && on {
+	if send != nil {
 		send(screen.PillMsg{Name: name, Value: value})
 	}
 }
@@ -302,10 +273,6 @@ func attachScreenModel(program *tea.Program) func() {
 	screenModelSend.Unlock()
 	screenPillSend.Lock()
 	screenPillSend.send = func(msg screen.PillMsg) { program.Send(msg) }
-	screenPillSend.enabled = map[string]bool{}
-	for _, name := range screenPillNames() {
-		screenPillSend.enabled[name] = true
-	}
 	screenPillSend.Unlock()
 	return func() {
 		screenModelSend.Lock()
