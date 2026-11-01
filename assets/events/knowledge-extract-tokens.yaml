@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: knowledge-extract-tokens
+# Knowledge extraction limit read by the knowledge vault. Turning the event off
+# keeps the default.
+items: 1024
+run: cap

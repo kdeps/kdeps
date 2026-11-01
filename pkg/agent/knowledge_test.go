@@ -22,12 +22,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -630,6 +632,22 @@ func TestUpdateSessionNote_NewTopicGetsItsOwnNote(t *testing.T) {
 	l.UpdateSessionNote()
 	assert.Len(t, notes(), 2, "the new thread continues in its note")
 	l.knowledge.waitBuilds()
+}
+
+func TestKnowledgeExtractLimits_FromTheEvents(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeExtractSeconds, Items: 90, Run: actionCap})
+	withEvent(t, Event{Name: eventKnowledgeExtractTokens, Items: 256, Run: actionCap})
+	withEvent(t, Event{Name: eventKnowledgeExtractPerSession, Items: 5, Run: actionCap})
+	assert.Equal(t, 90*time.Second, knowledgeExtractTimeout())
+	assert.Equal(t, "90s", knowledgeExtractCallTimeout())
+	assert.Equal(t, 256, itemsOr(eventKnowledgeExtractTokens, defaultExtractTokens))
+	assert.Equal(t, 5, itemsOr(eventKnowledgeExtractPerSession, defaultExtractPerSession))
+}
+
+func TestKnowledgeExtractLimits_OffKeepsTheDefaults(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeExtractSeconds, Items: 90, Run: actionCap, Disabled: true})
+	assert.Equal(t, time.Duration(defaultExtractSeconds)*time.Second, knowledgeExtractTimeout())
+	assert.Equal(t, fmt.Sprintf("%ds", defaultExtractSeconds), knowledgeExtractCallTimeout())
 }
 
 func TestKnowledgeRecallFiles_FromTheEvent(t *testing.T) {
