@@ -511,3 +511,8 @@ func TestEfficiencyRepeatStop_ConfigCarriesBriefHiddenFromHuman(t *testing.T) {
 	assert.Contains(t, cfg.Prompt, "FAIL")
 	assert.Empty(t, human.String(), "humans see nothing unless verbose is on")
 }
+
+func TestEfficiencyDrops_FromTheEvent(t *testing.T) {
+	withEvent(t, Event{Name: eventEfficiencyDrops, On: EventTrigger{Rounds: 4}, Run: actionBlock})
+	assert.Equal(t, 4, effectiveRounds(eventEfficiencyDrops))
+}
