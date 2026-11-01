@@ -1,0 +1,8 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: failure-error-bytes
+# Limit on the efficiency failure brief. Turning the event off keeps the default.
+items: 1500
+run: truncate
