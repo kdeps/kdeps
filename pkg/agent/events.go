@@ -73,6 +73,7 @@ const (
 	eventJudgeIterations         = "judge-iterations"
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
+	eventBugCaptureMaxErrors     = "bug-capture-max-errors"
 	eventTuiActivityLines        = "tui-activity-lines"
 	eventMemoryFocusMax          = "memory-focus-max"
 	eventMemoryChainMax          = "memory-chain-max"
