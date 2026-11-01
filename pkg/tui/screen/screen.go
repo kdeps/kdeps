@@ -23,6 +23,10 @@ type StatusTextMsg struct{ Text string }
 // ModelMsg sets the model name shown as a chip in the header row.
 type ModelMsg struct{ Name string }
 
+// RedrawMsg asks for a redraw with no other change, for example after the feed
+// changed off the UI loop.
+type RedrawMsg struct{}
+
 // PillMsg sets one pill's value. An empty value hides the pill.
 type PillMsg struct{ Name, Value string }
 
@@ -124,6 +128,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Status = v.Text
 	case ModelMsg:
 		m.Model = v.Name
+	case RedrawMsg:
+		// Nothing to change: the update itself makes the view draw again.
 	case PillMsg:
 		m.pills = withPill(m.pills, v.Name, v.Value)
 	case tea.MouseWheelMsg:
