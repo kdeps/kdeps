@@ -322,7 +322,18 @@ func (l *Loop) performHandshake(ctx context.Context) error {
 // retry answering a model that can see what it just did, not a repeated
 // cold-open), so this keeps a small recent window instead of dropping
 // history entirely.
-const handshakeHistoryMaxPairs = 3
+// defaultHandshakeHistoryPairs is the history cap when the event is off.
+const defaultHandshakeHistoryPairs = 3
+
+// handshakeHistoryPairs is how many exchanges the handshake keeps: the
+// handshake-history event's items, or the default when it is off.
+func handshakeHistoryPairs() int {
+	n := effectiveItems(eventHandshakeHistory, defaultHandshakeHistoryPairs)
+	if n == disabledSentinel || n < 1 {
+		return defaultHandshakeHistoryPairs
+	}
+	return n
+}
 
 // capHandshakeHistory keeps the FIRST pair plus the most recent
 // handshakeHistoryMaxPairs-1 pairs, dropping only the middle, so the
@@ -342,12 +353,12 @@ const handshakeHistoryMaxPairs = 3
 // entry staying stable across calls, so it must never move.
 func capHandshakeHistory(history []map[string]any) []map[string]any {
 	const perPair = 2
-	maxLen := handshakeHistoryMaxPairs * perPair
+	maxLen := handshakeHistoryPairs() * perPair
 	if len(history) <= maxLen {
 		return history
 	}
-	head := history[:perPair]
-	tail := history[len(history)-(maxLen-perPair):]
+	head := history[:min(perPair, len(history))]
+	tail := history[len(history)-min(maxLen-perPair, len(history)):]
 	out := make([]map[string]any, 0, maxLen)
 	out = append(out, head...)
 	out = append(out, tail...)
@@ -427,7 +438,18 @@ func (l *Loop) handshakeWarmup(ctx context.Context) ([]map[string]any, error) {
 // after a couple of nudges, give up quietly and let the actual challenge
 // proceed with its text-only sandbox reinforcement rather than blocking the
 // turn on a step that only exists to help.
-const handshakeEvidenceMaxAttempts = 3
+// defaultHandshakeEvidenceAttempts is the evidence retry cap when the event is off.
+const defaultHandshakeEvidenceAttempts = 3
+
+// handshakeEvidenceAttempts is how many evidence retries the handshake gets: the
+// handshake-evidence-attempts event's rounds, or the default when it is off.
+func handshakeEvidenceAttempts() int {
+	n := effectiveRounds(eventHandshakeEvidence)
+	if n == disabledSentinel || n < 1 {
+		return defaultHandshakeEvidenceAttempts
+	}
+	return n
+}
 
 // handshakeEvidence runs one real, harmless tool call (bash_exec "pwd")
 // before the mandatory challenge, so the model sees genuine live proof that
@@ -456,7 +478,7 @@ func (l *Loop) handshakeEvidence(ctx context.Context, history []map[string]any) 
 	// would only confuse the real challenge that follows.
 	evidenceTools := onlyNamedTools(l.registry.ToLLMTools(), "bash_exec")
 
-	for attempt := 1; attempt <= handshakeEvidenceMaxAttempts; attempt++ {
+	for attempt := 1; attempt <= handshakeEvidenceAttempts(); attempt++ {
 		if ctx.Err() != nil {
 			return history
 		}
