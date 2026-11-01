@@ -41,3 +41,23 @@ func TestRender_TextIsPaddedInsideTheBorder(t *testing.T) {
 	first := strings.Split(out, "\n")[2]
 	assert.True(t, strings.HasPrefix(first, "│ hi"), "text starts one column inside the border: %q", first)
 }
+
+// TestRender_LongTextNeverGrowsABox checks a box stays as tall as its frame
+// rows, even when its text is longer than the box is wide.
+func TestRender_LongTextNeverGrowsABox(t *testing.T) {
+	frame := Compute(60, 12, true)
+	long := strings.Repeat("status words ", 40)
+	out := Render(frame, "", "main", "feed", long, "> ")
+	lines := strings.Split(out, "\n")
+	assert.Equal(t, 12, len(lines), "the frame is exactly the terminal height")
+	for i, line := range lines {
+		assert.Equal(t, 60, lipgloss.Width(line), "row %d is the terminal width", i)
+	}
+}
+
+// TestClampRows_CutsLinesAndRowsToTheFrame checks an overlong line and extra
+// rows are cut, so the frame never exceeds the terminal.
+func TestClampRows_CutsLinesAndRowsToTheFrame(t *testing.T) {
+	out := clampRows("abcdefgh\nxy\nthird\nfourth", 3, 5)
+	assert.Equal(t, "abcde\nxy\nthird", out)
+}

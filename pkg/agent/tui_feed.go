@@ -9,8 +9,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 )
 
-// feedBodyLines is how many lines of a tool result the feed shows per entry.
-const feedBodyLines = 6
+// defaultFeedBodyLines is the activity body length when the event is missing.
+const defaultFeedBodyLines = 6
+
+// feedBodyLines is how many lines of a tool result the activity panel shows per
+// entry: the tui-activity-lines event's items. It returns disabledSentinel when
+// the event is off, and the body is then not cut.
+func feedBodyLines() int {
+	return effectiveItems(eventTuiActivityLines, defaultFeedBodyLines)
+}
 
 // fileEditTools are the tools whose result is a file change, shown as a diff.
 //
@@ -24,6 +31,9 @@ var fileEditTools = map[string]bool{"edit_file": true, "write_file": true}
 var tuiFeedSink struct {
 	sync.Mutex
 	f *feed.Feed
+	// redraw tells the running view that the feed changed; the view draws only
+	// when it receives a message, so an entry added off the UI loop needs one.
+	redraw func()
 }
 
 // setTUIFeed points the tool results at f. A nil feed turns feeding off.
@@ -55,14 +65,19 @@ func feedToolResult(tool, args, result string) {
 		kind = feed.KindDiff
 	}
 	body := strings.TrimRight(result, "\n")
-	if lines := strings.Split(body, "\n"); len(lines) > feedBodyLines {
-		body = strings.Join(lines[:feedBodyLines], "\n")
+	if limit := feedBodyLines(); limit != disabledSentinel {
+		if lines := strings.Split(body, "\n"); len(lines) > max(limit, 1) {
+			body = strings.Join(lines[:max(limit, 1)], "\n")
+		}
 	}
 	title := tool
 	if target := toolTarget(args); target != "" {
 		title = tool + " " + target
 	}
 	tuiFeedSink.f.Add(feed.Entry{Kind: kind, Title: title, Body: body})
+	if tuiFeedSink.redraw != nil {
+		tuiFeedSink.redraw()
+	}
 }
 
 // toolTargetKeys returns the argument names that say what a tool acted on, most

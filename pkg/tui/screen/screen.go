@@ -23,6 +23,10 @@ type StatusTextMsg struct{ Text string }
 // ModelMsg sets the model name shown as a chip in the header row.
 type ModelMsg struct{ Name string }
 
+// RedrawMsg asks for a redraw with no other change, for example after the feed
+// changed off the UI loop.
+type RedrawMsg struct{}
+
 // PillMsg sets one pill's value. An empty value hides the pill.
 type PillMsg struct{ Name, Value string }
 
@@ -72,9 +76,7 @@ type Model struct {
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
 	// Model is the active model name, shown as a chip in the header row.
-	Model string
-	// PillNames are the pills to show, in order; PillMsg sets their values.
-	PillNames []string
+	Model     string
 	pills     map[string]string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
@@ -124,6 +126,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Status = v.Text
 	case ModelMsg:
 		m.Model = v.Name
+	case RedrawMsg:
+		// Nothing to change: the update itself makes the view draw again.
 	case PillMsg:
 		m.pills = withPill(m.pills, v.Name, v.Value)
 	case tea.MouseWheelMsg:
@@ -360,18 +364,19 @@ func withPill(pills map[string]string, name, value string) map[string]string {
 	return out
 }
 
-// pillsText is the pills with a value, in PillNames order, as reversed chips.
+// pillsText is the pills in one chip: the values that are set, in the order
+// backend, session, tool, joined by a dot.
 func (m Model) pillsText() string {
-	var out []string
-	for _, name := range m.PillNames {
+	var parts []string
+	for _, name := range []string{"backend", "session", "tool"} {
 		if v := m.pills[name]; v != "" {
-			out = append(out, lipgloss.NewStyle().Reverse(true).Render(" "+name+": "+v+" "))
+			parts = append(parts, v)
 		}
 	}
-	if len(out) == 0 {
+	if len(parts) == 0 {
 		return ""
 	}
-	return "   " + strings.Join(out, " ")
+	return "   " + lipgloss.NewStyle().Reverse(true).Render(" "+strings.Join(parts, " · ")+" ")
 }
 
 // styled is a bold text style in a palette colour.
