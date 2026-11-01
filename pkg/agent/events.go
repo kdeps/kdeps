@@ -73,6 +73,8 @@ const (
 	eventJudgeIterations         = "judge-iterations"
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
+	eventTrivialPromptMax        = "trivial-prompt-max"
+	eventTrivialPromptShort      = "trivial-prompt-short"
 	eventKnowledgeRecallFiles    = "knowledge-recall-files"
 	eventProviderBodyDashscope   = "provider-body-limit-dashscope"
 	eventProviderBodyXAI         = "provider-body-limit-xai"
